@@ -1,0 +1,22 @@
+#No.	Label Name:		R	G	B	A
+0	Left Cerebral White Matter	47	247	169	255
+1	Left Cerebral Cortex 	102	107	58	255
+2	Left Lateral Ventricle	128	129	134	255
+3	Left Thalamus	108	179	252	255
+4	Left Caudate	190	143	25	255
+5	Left Putamen	188	115	88	255
+6	Left Pallidum	176	212	68	255
+7	Brain-Stem	209	115	97	255
+8	Left Hippocampus	252	9	87	255
+9	Left Amygdala	80	241	253	255
+10	Left Accumbens	6	167	197	255
+11	Right Cerebral White Matter	202	155	112	255
+12	Right Cerebral Cortex 	163	99	103	255
+13	Right Lateral Ventricle	112	180	92	255
+14	Right Thalamus	219	133	70	255
+15	Right Caudate	118	179	254	255
+16	Right Putamen	154	121	7	255
+17	Right Pallidum	34	224	0	255
+18	Right Hippocampus	150	179	233	255
+19	Right Amygdala	70	139	140	255
+20	Right Accumbens	20	253	126	255
