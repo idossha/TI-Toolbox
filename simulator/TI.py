@@ -6,26 +6,24 @@ import numpy as np
 from simnibs import mesh_io, run_simnibs, sim_struct
 from simnibs.utils import TI_utils as TI
 
-# To do:
-#   - Add option to run simulations for multiple current intensities and electrode dimensions
-#   - look into what options we should allow: map_to_mni, map_to_fsavg, map_to_vol
-
-
 ###########################################
 
 # Ido Haber / ihaber@wisc.edu
-# Month, day, year
+# October 14, 2024
+# optimized for TI-CSC analyzer
 
 # This script runs SimNIBS simulations
 
 # Arguments:
-#   1. subject_id           : The ID of the subject.
-#   2. sim_type             : The type of simulation anisotropy ('scalar', 'vn', 'dir', 'mc').
-#   3. subject_dir          : The directory where subject-specific data is stored.
-#   4. simulation_dir       : The directory where simulation results will be saved.
-#   5. montage_names        : A list of montage names to use for the simulation.
-#   6. current intensity    : The current intensity to use for the simulation.
-#   7. electrode dimention  : The electrode dimension to use for the simulation.
+#   1. subject_id        : The ID of the subject.
+#   2. sim_type          : The type of simulation anisotropy ('scalar', 'vn', 'dir', 'mc').
+#   3. subject_dir       : The directory where subject-specific data is stored.
+#   4. simulation_dir    : The directory where simulation results will be saved.
+#   5. intensity         : The stimulation intensity in A.
+#   6. electrode_shape   : The shape of the electrodes ('rect' or 'ellipse').
+#   7. dimensions        : The dimensions of the electrodes (x,y in mm).
+#   8. thickness        : The thickness of the electrodes in mm.
+#   9+ montage_names     : A list of montage names to use for the simulation.
 
 # Functionality:
 #   - Loads the selected montages from a JSON file located in the ../utils directory relative to the subject directory.
@@ -40,7 +38,11 @@ subject_id = sys.argv[1]
 sim_type = sys.argv[2]  # The anisotropy type
 subject_dir = sys.argv[3]
 simulation_dir = sys.argv[4]
-montage_names = sys.argv[5:]  # The list of montages
+intensity = float(sys.argv[5])  # Convert intensity to float
+electrode_shape = sys.argv[6]
+dimensions = [float(x) for x in sys.argv[7].split(',')]  # Convert dimensions to list of floats
+thickness = float(sys.argv[8])
+montage_names = sys.argv[9:]  # The list of montages starts from the 9th argument
 
 # Define the correct path for the JSON file
 utils_dir = os.path.join(subject_dir, '..', 'utils')
@@ -80,15 +82,10 @@ def run_simulation(montage_name, montage):
     S.anisotropy_type = sim_type
     S.pathfem = os.path.join(base_pathfem, f"TI_{montage_name}")
     S.eeg_cap = os.path.join(base_subpath, "eeg_positions", "EGI_template.csv")
-    S.map_to_surf = True    #  Map to subject's middle gray matter surface
-    S.map_to_fsavg = True   #  Map to FreeSurfer's FSAverage group template
-    S.map_to_vol = True     #  Save as nifti volume
-    S.map_to_MNI = True     #  Save in MNI space
-    S.tissues_in_niftis = [1,2,3]  # Results in the niftis will be masked 
-                                   # to only show WM (1), GM (2), CSF(3)
-                                   # (standard: only GM)
-                                   # To get fields everywhere: 
-                                   #    S.tissues_in_niftis = 'all'
+    S.map_to_surf = False
+    S.map_to_fsavg = False
+    S.map_to_vol = True
+    S.map_to_mni = True
     S.open_in_gmsh = False
     S.tissues_in_niftis = "all"
 
@@ -98,25 +95,25 @@ def run_simulation(montage_name, montage):
     # First electrode pair
     tdcs = S.add_tdcslist()
     tdcs.anisotropy_type = sim_type  # Set anisotropy_type to the input sim_type
-    tdcs.currents = [0.005, -0.005]
+    tdcs.currents = [intensity, -intensity]
     
     electrode = tdcs.add_electrode()
     electrode.channelnr = 1
     electrode.centre = montage[0][0]
-    electrode.shape = "ellipse"
-    electrode.dimensions = [8, 8]
-    electrode.thickness = [4, 4]
+    electrode.shape = electrode_shape
+    electrode.dimensions = dimensions
+    electrode.thickness = [thickness]
 
     electrode = tdcs.add_electrode()
     electrode.channelnr = 2
     electrode.centre = montage[0][1]
-    electrode.shape = "ellipse"
-    electrode.dimensions = [8, 8]
-    electrode.thickness = [4, 4]
+    electrode.shape = electrode_shape
+    electrode.dimensions = dimensions
+    electrode.thickness = [thickness]
 
     # Second electrode pair
     tdcs_2 = S.add_tdcslist(deepcopy(tdcs))
-    tdcs_2.currents = [0.005, -0.005]
+    tdcs_2.currents = [intensity, -intensity]
     tdcs_2.electrode[0].centre = montage[1][0]
     tdcs_2.electrode[1].centre = montage[1][1]
 

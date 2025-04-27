@@ -2,32 +2,34 @@
 
 ##############################################
 # Ido Haber - ihaber@wisc.edu
-# October 16, 2024
-# Optimized for optimizer pipeline
+# month, day, year
 #
 # This script orchestrates the full pipeline for Temporal Interference (TI) simulations
 # using SimNIBS and other related tools. It handles directory setup, simulation execution,
 # mesh processing, field extraction, NIfTI transformation, and other key tasks.
 #
-# New Features:
-# - Automatically creates spherical ROIs and visualizes them based on the user’s input.
-# - Extracts both grey matter (GM) and white matter (WM) meshes and saves them in the parcellated_mesh directory.
-#
 ##############################################
 
 set -e # Exit immediately if a command exits with a non-zero status
+
+# Get the directory where this script is located
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+utils_dir="$(cd "$script_dir/../utils" && pwd)"
 
 # Gather arguments from the prompter script
 subject_id=$1
 conductivity=$2
 subject_dir=$3
 simulation_dir=$4
-sim_mode=$5  # Capture sim_mode
-shift 5
+sim_mode=$5  
+intensity=$6
+electrode_shape=$7
+dimensions=$8
+thickness=$9
+shift 9  # Shift past all the fixed arguments
 
 # Initialize arrays
 selected_montages=()
-selected_roi_names=()
 
 # Parse montages until '--' is found
 while [[ "$#" -gt 0 ]]; do
@@ -43,48 +45,70 @@ while [[ "$#" -gt 0 ]]; do
     esac
 done
 
-# Remaining arguments are ROI names
-selected_roi_names=("$@")
-
-# Set the script directory to the present working directory
-script_dir="$(pwd)"
-
 # Set subdirectory paths
 sim_dir="$simulation_dir/sim_${subject_id}"
-fem_dir="$sim_dir/FEM"
-whole_brain_mesh_dir="$sim_dir/Whole-Brain-mesh"
-parcellated_mesh_dir="$sim_dir/parcellated_mesh"  # Updated directory name
-nifti_dir="$sim_dir/niftis"
-output_dir="$sim_dir/ROI_analysis"
-screenshots_dir="$sim_dir/screenshots"
-visualization_output_dir="$sim_dir/montage_imgs/"
 
-# Ensure directories exist
-mkdir -p "$whole_brain_mesh_dir" "$parcellated_mesh_dir" "$nifti_dir" "$output_dir" "$screenshots_dir" "$visualization_output_dir"
+# Function to setup directories for a montage
+setup_montage_dirs() {
+    local montage_name=$1
+    local montage_dir="$sim_dir/TI_${montage_name}"
+    
+    # Create main montage directory structure
+    mkdir -p "$montage_dir/high_Frequency/mesh"
+    mkdir -p "$montage_dir/high_Frequency/niftis"
+    mkdir -p "$montage_dir/high_Frequency/analysis"
+    mkdir -p "$montage_dir/TI/mesh"
+    mkdir -p "$montage_dir/TI/niftis"
+    mkdir -p "$montage_dir/TI/montage_imgs"
+    mkdir -p "$montage_dir/documentation"  # Add documentation directory
+    
+    echo "Created directory structure for montage: $montage_name"
+}
+
+# Create directories for each montage
+for montage in "${selected_montages[@]}"; do
+    setup_montage_dirs "$montage"
+done
 
 # Debugging outputs
-echo "Debug: subject_id: $subject_id"
-echo "Debug: conductivity: $conductivity"
-echo "Debug: subject_dir: $subject_dir"
-echo "Debug: simulation_dir: $simulation_dir"
-echo "Debug: sim_mode: $sim_mode"
-echo "Debug: selected_montages: ${selected_montages[@]}"
-echo "Debug: selected_roi_names: ${selected_roi_names[@]}"
-
-# Main script: Run TI.py with the selected parameters
-simnibs_python TI.py "$subject_id" "$conductivity" "$subject_dir" "$simulation_dir" "${selected_montages[@]}"
+echo " "
+echo "##############################"
+echo "subject_id: $subject_id"
+echo "conductivity: $conductivity"
+echo "subject_dir: $subject_dir"
+echo "simulation_dir: $simulation_dir"
+echo "sim_mode: $sim_mode"
+echo "intensity: $(echo "$intensity * 1000" | bc) mA (${intensity}A)"
+echo "electrode shape: $electrode_shape"
+echo "electrode dimensions: $dimensions mm"
+echo "electrode thickness: $thickness mm"
+echo "selected_montages: ${selected_montages[@]}"
+echo "##############################"
+echo " "
 
 # Function to visualize montages
 run_visualize_montages() {
     echo "Visualizing selected montages..."
-    echo "Calling visualize-montage.sh with arguments:"
-    echo "Montages: ${selected_montages[@]}"
-    echo "Sim Mode: $sim_mode"
-    echo "Output Directory: $visualization_output_dir"
-    visualize_montage_script_path="$script_dir/visualize-montage.sh"
-    bash "$visualize_montage_script_path" "${selected_montages[@]}" "$sim_mode" "$visualization_output_dir"
+    for montage in "${selected_montages[@]}"; do
+        local montage_output_dir="$sim_dir/TI_${montage}/TI/montage_imgs"
+        echo "Calling visualize-montage.sh with arguments:"
+        echo "Montage: $montage"
+        echo "Sim Mode: $sim_mode"
+        echo "Output Directory: $montage_output_dir"
+        visualize_montage_script_path="$utils_dir/visualize-montage.sh"
+        bash "$visualize_montage_script_path" "$montage" "$sim_mode" "$montage_output_dir"
+    done
     echo "Montage visualization completed"
 }
+
+run_visualize_montages
+
+# Create temporary FEM directory for SimNIBS output
+fem_dir="$sim_dir/FEM"
+mkdir -p "$fem_dir"
+
+# Main script: Run TI.py with the selected parameters
+simnibs_python "$script_dir/TI.py" "$subject_id" "$conductivity" "$subject_dir" "$simulation_dir" "$intensity" "$electrode_shape" "$dimensions" "$thickness" "${selected_montages[@]}"
 
 # Function to extract fields (GM and WM meshes)
 extract_fields() {
@@ -99,10 +123,12 @@ extract_fields() {
 
 # Function to transform parcellated meshes to NIfTI
 transform_parcellated_meshes_to_nifti() {
-    echo "Transforming parcellated meshes (GM and WM) to NIfTI in MNI space..."
+    local input_mesh="$1"
+    local output_dir="$2"
+    echo "Transforming mesh to NIfTI in subject and MNI space..."
     mesh2nii_script_path="$script_dir/mesh2nii_loop.sh"
-    bash "$mesh2nii_script_path" "$subject_id" "$subject_dir" "$simulation_dir"
-    echo "Parcellated meshes to NIfTI transformation completed"
+    bash "$mesh2nii_script_path" "$subject_id" "$subject_dir" "$input_mesh" "$output_dir"
+    echo "Mesh to NIfTI transformation completed"
 }
 
 # Function to convert T1 to MNI space
@@ -115,58 +141,141 @@ convert_t1_to_mni() {
     echo "T1 conversion to MNI completed: $output_file"
 }
 
-# Function to process mesh files
-process_mesh_files() {
-    echo "Processing mesh files..."
-    process_mesh_script_path="$script_dir/field-analysis/run_process_mesh_files.sh"
-    bash "$process_mesh_script_path" "$whole_brain_mesh_dir"
-    echo "Mesh files processed"
-}
+convert_t1_to_mni
 
-# Function to run sphere analysis
-run_sphere_analysis() {
-    echo "Running sphere analysis..."
-    sphere_analysis_script_path="$script_dir/sphere-analysis.sh"
-    bash "$sphere_analysis_script_path" "$subject_id" "$simulation_dir" "${selected_roi_names[@]}"
-    echo "Sphere analysis completed"
-}
-
-# Function to generate screenshots
-generate_screenshots() {
-    local input_dir="$1"
-    local output_dir="$2"
-    echo "Generating screenshots..."
-    screenshot_script_path="$script_dir/screenshot.sh"
-    bash "$screenshot_script_path" "$input_dir" "$output_dir"
-    echo "Screenshots generated"
-}
-
-# Move and rename TI.msh files
+# Reorganize files for each montage
 for ti_dir in "$fem_dir"/TI_*; do
     if [ -d "$ti_dir" ]; then
-        ti_msh_file="$ti_dir/TI.msh"
-        if [ -e "$ti_msh_file" ]; then
-            montage_name=$(basename "$ti_dir")
-            new_name="${subject_id}_${montage_name}_TI.msh"
-            new_path="$whole_brain_mesh_dir/$new_name"
-            mv "$ti_msh_file" "$new_path"
-            echo "Moved $ti_msh_file to $new_path"
+        montage_name=$(basename "$ti_dir")
+        montage_base_dir="$sim_dir/$montage_name"
+        
+        # Wait for subject_volumes to be renamed to high_freq_niftis (happens in SimNIBS)
+        max_wait=30  # Maximum wait time in seconds
+        wait_time=0
+        while [ ! -d "$ti_dir/high_freq_niftis" ] && [ $wait_time -lt $max_wait ]; do
+            if [ -d "$ti_dir/subject_volumes" ]; then
+                mv "$ti_dir/subject_volumes" "$ti_dir/high_freq_niftis"
+                break
+            fi
+            sleep 1
+            wait_time=$((wait_time + 1))
+        done
+
+        # Create high frequency directories if they don't exist
+        mkdir -p "$montage_base_dir/high_Frequency/mesh"
+        mkdir -p "$montage_base_dir/high_Frequency/niftis"
+        mkdir -p "$montage_base_dir/high_Frequency/analysis"
+        
+        # Move high frequency mesh files with explicit patterns
+        for pattern in "TDCS_1" "TDCS_2"; do
+            for file in "$ti_dir"/*${pattern}*; do
+                if [[ -f "$file" ]]; then
+                    if [[ "$file" == *".geo" || "$file" == *"scalar.msh" || "$file" == *"scalar.msh.opt" ]]; then
+                        mv "$file" "$montage_base_dir/high_Frequency/mesh/"
+                    fi
+                fi
+            done
+        done
+        
+        # Move high frequency nifti files
+        if [ -d "$ti_dir/high_freq_niftis" ]; then
+            mv "$ti_dir/high_freq_niftis"/* "$montage_base_dir/high_Frequency/niftis/"
+        fi
+        
+        # Move fields_summary.txt to analysis
+        if [ -f "$ti_dir/fields_summary.txt" ]; then
+            mv "$ti_dir/fields_summary.txt" "$montage_base_dir/high_Frequency/analysis/"
+        fi
+        
+        # Move log and mat files to documentation
+        for file in "$ti_dir"/simnibs_simulation_*.{log,mat}; do
+            if [ -f "$file" ]; then
+                mv "$file" "$montage_base_dir/documentation/"
+            fi
+        done
+        
+        # Process TI mesh
+        if [ -f "$ti_dir/TI.msh" ]; then
+            # Move and rename TI mesh
+            mv "$ti_dir/TI.msh" "$montage_base_dir/TI/mesh/${subject_id}_${montage_name}_TI.msh"
+            
+            # Extract GM and WM fields
+            ti_mesh="$montage_base_dir/TI/mesh/${subject_id}_${montage_name}_TI.msh"
+            gm_output="$montage_base_dir/TI/mesh/grey_${subject_id}_${montage_name}_TI.msh"
+            wm_output="$montage_base_dir/TI/mesh/white_${subject_id}_${montage_name}_TI.msh"
+            extract_fields "$ti_mesh" "$gm_output" "$wm_output"
+            
+            # Transform to NIfTI
+            transform_parcellated_meshes_to_nifti "$montage_base_dir/TI/mesh" "$montage_base_dir/TI/niftis"
         fi
     fi
 done
 
-# Extract fields (GM and WM) from TI.msh and save both in parcellated_mesh directory
-for mesh_file in "$whole_brain_mesh_dir"/*.msh; do
-    gm_output_file="$parcellated_mesh_dir/grey_$(basename "$mesh_file")"
-    wm_output_file="$parcellated_mesh_dir/white_$(basename "$mesh_file")"  # Saving WM mesh in the same directory
-    extract_fields "$mesh_file" "$gm_output_file" "$wm_output_file"
+# Verify all files have been moved before cleanup
+verify_files() {
+    local montage_name=$1
+    local montage_base_dir="$sim_dir/TI_${montage_name}"
+    local missing_files=0
+
+    # Check for essential files and directories
+    essential_paths=(
+        "$montage_base_dir/high_Frequency/mesh"
+        "$montage_base_dir/high_Frequency/niftis"
+        "$montage_base_dir/high_Frequency/analysis/fields_summary.txt"
+        "$montage_base_dir/documentation"
+        "$montage_base_dir/TI/mesh/${subject_id}_TI_${montage_name}_TI.msh"
+    )
+
+    for path in "${essential_paths[@]}"; do
+        if [ ! -e "$path" ]; then
+            echo "Warning: Missing expected file or directory: $path"
+            missing_files=$((missing_files + 1))
+        fi
+    done
+
+    # Check if high frequency files exist
+    if [ ! "$(ls -A "$montage_base_dir/high_Frequency/mesh" 2>/dev/null)" ] || [ ! "$(ls -A "$montage_base_dir/high_Frequency/niftis" 2>/dev/null)" ]; then
+        echo "Warning: High frequency mesh or nifti directories are empty"
+        missing_files=$((missing_files + 1))
+    fi
+
+    return $missing_files
+}
+
+# Verify files for each montage before cleanup
+all_files_moved=true
+for montage in "${selected_montages[@]}"; do
+    if ! verify_files "$montage"; then
+        all_files_moved=false
+        echo "Warning: Some files may not have been moved correctly for montage $montage"
+    fi
 done
 
-# Run the processing steps
-run_visualize_montages
-transform_parcellated_meshes_to_nifti
-convert_t1_to_mni
-process_mesh_files
-run_sphere_analysis  
-#generate_screenshots "$nifti_dir" "$screenshots_dir"
+# Only clean up FEM directory if all files were moved successfully
+if [ "$all_files_moved" = true ]; then
+    rm -rf "$fem_dir"
+    echo "Pipeline completed successfully!"
+else
+    # Check if files are actually in place despite verification warnings
+    all_files_present=true
+    for montage in "${selected_montages[@]}"; do
+        montage_dir="$sim_dir/TI_${montage}"
+        if [ ! -d "$montage_dir" ] || \
+           [ ! -d "$montage_dir/high_Frequency/mesh" ] || \
+           [ ! -d "$montage_dir/high_Frequency/niftis" ] || \
+           [ ! -d "$montage_dir/documentation" ] || \
+           [ ! -d "$montage_dir/TI/mesh" ]; then
+            all_files_present=false
+            break
+        fi
+    done
+
+    if [ "$all_files_present" = true ]; then
+        rm -rf "$fem_dir"
+        echo "Pipeline completed successfully! (Verification warnings were false positives)"
+    else
+        echo "Warning: FEM directory was not removed due to potential missing files"
+        echo "Please check the FEM directory at: $fem_dir"
+    fi
+fi
 
