@@ -16,7 +16,8 @@ services:
       - ti_network
 
   simnibs:
-    image: idossha/ti-csc_simnibs:v1.3.1
+    # image: idossha/ti-csc_simnibs:v1.3.1
+    image: idossha/simnibs:4.5.0
     container_name: simnibs_container
     environment:
       - USER=root

@@ -2,7 +2,7 @@
 
 # Set script directory and project root
 SCRIPT_DIR=$(dirname "$(readlink -f "$0")")
-PROJECT_ROOT=$(dirname "$SCRIPT_DIR")  # This gets the parent directory of development/
+PROJECT_ROOT=$(dirname "$(dirname "$SCRIPT_DIR")")  # This gets three levels up from the script location
 cd "$SCRIPT_DIR"
 
 # Function to check allocated Docker resources (CPU, memory)
