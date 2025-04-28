@@ -1,0 +1,30 @@
+{
+    "subjects": {
+        "prompt": "enable",
+        "default": ""
+    },
+    "goal": {
+        "prompt": "enable",
+        "default": "mean"
+    },
+    "postproc": {
+        "prompt": "enable",
+        "default": "max_TI"
+    },
+    "eeg_net": {
+        "prompt": "enable",
+        "default": "EGI_256"
+    },
+    "electrode_radius": {
+        "prompt": "enable",
+        "default": "8"
+    },
+    "electrode_current": {
+        "prompt": "enable",
+        "default": "2"
+    },
+    "roi_method": {
+        "prompt": "enable",
+        "default": "spherical"
+    }
+} 
