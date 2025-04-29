@@ -34,6 +34,7 @@ services:
       - PROJECT_DIR_NAME=${PROJECT_DIR_NAME}
       - DEV_CODEBASE_DIR=${DEV_CODEBASE_DIR}
       - DEV_CODEBASE_NAME=${DEV_CODEBASE_NAME}
+      - KMP_AFFINITY=disabled
     volumes:
       - ti_csc_fsl_data:/usr/local/fsl/
       - ti_csc_freesurfer_data:/usr/local/freesurfer/
