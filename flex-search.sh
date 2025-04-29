@@ -43,6 +43,20 @@ read_config() {
     fi
 }
 
+# Function to read nested configuration
+read_nested_config() {
+    local key=$1
+    local subkey=$2
+    local subsubkey=$3
+    if [ -f "$config_file" ]; then
+        if [ -n "$subsubkey" ]; then
+            jq -r ".$key.$subkey.$subsubkey // empty" "$config_file" 2>/dev/null
+        else
+            jq -r ".$key.$subkey // empty" "$config_file" 2>/dev/null
+        fi
+    fi
+}
+
 # Function to check if prompting is enabled for a given key
 is_prompt_enabled() {
     local key=$1
@@ -311,7 +325,7 @@ list_atlases() {
     return 0
 }
 
-# Choose ROI definition method and parameters
+# Choose ROI definition method
 choose_roi_method() {
     if ! is_prompt_enabled "roi_method"; then
         local default_value=$(get_default_value "roi_method")
@@ -385,6 +399,72 @@ choose_roi_method() {
     done
 }
 
+# Choose ROI parameters based on method
+choose_roi_params() {
+    if [ "$roi_method" = "spherical" ]; then
+        if ! is_prompt_enabled "roi_spherical"; then
+            local default_x=$(read_nested_config "roi_spherical" "default" "x")
+            local default_y=$(read_nested_config "roi_spherical" "default" "y")
+            local default_z=$(read_nested_config "roi_spherical" "default" "z")
+            local default_radius=$(read_nested_config "roi_spherical" "default" "radius")
+            
+            if [ -n "$default_x" ] && [ -n "$default_y" ] && [ -n "$default_z" ] && [ -n "$default_radius" ]; then
+                export ROI_X="$default_x"
+                export ROI_Y="$default_y"
+                export ROI_Z="$default_z"
+                export ROI_RADIUS="$default_radius"
+                echo -e "${CYAN}Using default spherical ROI parameters:${RESET}"
+                echo "X: $default_x, Y: $default_y, Z: $default_z, Radius: $default_radius"
+                return
+            fi
+        fi
+
+        echo -e "${GREEN}Enter spherical ROI parameters:${RESET}"
+        read -p "X coordinate (mm): " roi_x
+        read -p "Y coordinate (mm): " roi_y
+        read -p "Z coordinate (mm): " roi_z
+        read -p "Radius (mm): " roi_radius
+        
+        if [[ "$roi_x" =~ ^-?[0-9]+\.?[0-9]*$ ]] && \
+           [[ "$roi_y" =~ ^-?[0-9]+\.?[0-9]*$ ]] && \
+           [[ "$roi_z" =~ ^-?[0-9]+\.?[0-9]*$ ]] && \
+           [[ "$roi_radius" =~ ^[0-9]+\.?[0-9]*$ ]]; then
+            export ROI_X="$roi_x"
+            export ROI_Y="$roi_y"
+            export ROI_Z="$roi_z"
+            export ROI_RADIUS="$roi_radius"
+        else
+            echo -e "${RED}Invalid input. Please enter valid numbers.${RESET}"
+            exit 1
+        fi
+    else  # cortical
+        if ! is_prompt_enabled "roi_cortical"; then
+            local default_atlas=$(read_nested_config "roi_cortical" "default" "atlas_path")
+            local default_label=$(read_nested_config "roi_cortical" "default" "label_value")
+            
+            if [ -n "$default_atlas" ] && [ -n "$default_label" ]; then
+                export ATLAS_PATH="$default_atlas"
+                export ROI_LABEL="$default_label"
+                echo -e "${CYAN}Using default cortical ROI parameters:${RESET}"
+                echo "Atlas: $default_atlas, Label: $default_label"
+                return
+            fi
+        fi
+
+        echo -e "${GREEN}Enter cortical ROI parameters:${RESET}"
+        read -p "Atlas path: " atlas_path
+        read -p "Label value: " label_value
+        
+        if [ -n "$atlas_path" ] && [ -n "$label_value" ]; then
+            export ATLAS_PATH="$atlas_path"
+            export ROI_LABEL="$label_value"
+        else
+            echo -e "${RED}Invalid input. Please enter valid values.${RESET}"
+            exit 1
+        fi
+    fi
+}
+
 # Main script execution
 echo -e "${BOLD_CYAN}TI-CSC Flex Search Optimization Tool${RESET}"
 echo "----------------------------------------"
@@ -399,6 +479,7 @@ choose_postproc
 choose_eeg_net
 choose_electrode_params
 choose_roi_method
+choose_roi_params
 
 # Loop through selected subjects and run the optimization
 for subject_index in "${selected_subjects[@]}"; do

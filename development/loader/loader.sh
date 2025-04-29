@@ -1,9 +1,41 @@
 #!/bin/bash
 
-# Set script directory and project root
+# Set script directory
 SCRIPT_DIR=$(dirname "$(readlink -f "$0")")
-PROJECT_ROOT=$(dirname "$(dirname "$SCRIPT_DIR")")  # This gets three levels up from the script location
 cd "$SCRIPT_DIR"
+
+# Default paths file
+DEFAULT_PATHS_FILE="$SCRIPT_DIR/.default_paths"
+
+# Function to load default paths
+load_default_paths() {
+  if [[ -f "$DEFAULT_PATHS_FILE" ]]; then
+    source "$DEFAULT_PATHS_FILE"
+  fi
+}
+
+# Function to save default paths
+save_default_paths() {
+  echo "LOCAL_PROJECT_DIR=\"$LOCAL_PROJECT_DIR\"" > "$DEFAULT_PATHS_FILE"
+  echo "DEV_CODEBASE_DIR=\"$DEV_CODEBASE_DIR\"" >> "$DEFAULT_PATHS_FILE"
+}
+
+# Function to initialize required Docker volumes
+initialize_volumes() {
+  echo "Initializing required Docker volumes..."
+  
+  # Check and create FSL volume if it doesn't exist
+  if ! docker volume inspect ti_csc_fsl_data >/dev/null 2>&1; then
+    echo "Creating FSL volume..."
+    docker volume create ti_csc_fsl_data
+  fi
+  
+  # Check and create FreeSurfer volume if it doesn't exist
+  if ! docker volume inspect ti_csc_freesurfer_data >/dev/null 2>&1; then
+    echo "Creating FreeSurfer volume..."
+    docker volume create ti_csc_freesurfer_data
+  fi
+}
 
 # Function to check allocated Docker resources (CPU, memory)
 check_docker_resources() {
@@ -28,11 +60,48 @@ check_docker_resources() {
 # Function to validate and prompt for the project directory
 get_project_directory() {
   while true; do
-    echo "Enter path to your project directory (this will be mounted under /mnt/):"
-    read -r LOCAL_PROJECT_DIR
+    if [[ -n "$LOCAL_PROJECT_DIR" ]]; then
+      echo "Current project directory: $LOCAL_PROJECT_DIR"
+      echo "Press Enter to use this directory or enter a new path:"
+      read -r new_path
+      if [[ -z "$new_path" ]]; then
+        break
+      else
+        LOCAL_PROJECT_DIR="$new_path"
+      fi
+    else
+      echo "Give path to local project dir:"
+      read -r LOCAL_PROJECT_DIR
+    fi
 
     if [[ -d "$LOCAL_PROJECT_DIR" ]]; then
       echo "Project directory found."
+      break
+    else
+      echo "Invalid directory. Please provide a valid path."
+    fi
+  done
+}
+
+# Function to get development codebase directory
+get_dev_codebase_directory() {
+  while true; do
+    if [[ -n "$DEV_CODEBASE_DIR" ]]; then
+      echo "Current development codebase directory: $DEV_CODEBASE_DIR"
+      echo "Press Enter to use this directory or enter a new path:"
+      read -r new_path
+      if [[ -z "$new_path" ]]; then
+        break
+      else
+        DEV_CODEBASE_DIR="$new_path"
+      fi
+    else
+      echo "Enter path to development codebase:"
+      read -r DEV_CODEBASE_DIR
+    fi
+
+    if [[ -d "$DEV_CODEBASE_DIR" ]]; then
+      echo "Development codebase directory found."
       break
     else
       echo "Invalid directory. Please provide a valid path."
@@ -139,15 +208,23 @@ run_docker_compose() {
 
 validate_docker_compose
 display_welcome
+load_default_paths
 get_project_directory
+get_dev_codebase_directory
 PROJECT_DIR_NAME=$(basename "$LOCAL_PROJECT_DIR")
+DEV_CODEBASE_NAME=$(basename "$DEV_CODEBASE_DIR")
 check_docker_resources
+initialize_volumes
 set_display_env
 allow_xhost # Allow X11 connections
 
 # Set up Docker Compose environment variables
 export LOCAL_PROJECT_DIR
 export PROJECT_DIR_NAME
-export PROJECT_ROOT
+export DEV_CODEBASE_DIR
+export DEV_CODEBASE_NAME
+
+# Save the paths for next time
+save_default_paths
 
 run_docker_compose

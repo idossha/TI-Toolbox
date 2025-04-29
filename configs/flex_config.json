@@ -1,30 +1,46 @@
 {
     "subjects": {
         "prompt": "enable",
-        "default": ""
+        "default": null
     },
     "goal": {
-        "prompt": "enable",
+        "prompt": "disable",
         "default": "mean"
     },
     "postproc": {
-        "prompt": "enable",
+        "prompt": "disable",
         "default": "max_TI"
     },
     "eeg_net": {
-        "prompt": "enable",
-        "default": "EGI_256"
+        "prompt": "disable",
+        "default": "EEG10-10_UI_Jurak_2007"
     },
     "electrode_radius": {
-        "prompt": "enable",
+        "prompt": "disable",
         "default": "8"
     },
     "electrode_current": {
-        "prompt": "enable",
-        "default": "2"
+        "prompt": "disable",
+        "default": "5"
     },
     "roi_method": {
-        "prompt": "enable",
+        "prompt": "disable",
         "default": "spherical"
+    },
+      "roi_spherical": {
+        "prompt": "disable",
+        "default": {
+            "x": "-27",
+            "y": "47",
+            "z": "9",
+            "radius": "5"
+        }
+    },
+    "roi_cortical": {
+        "prompt": "enable",
+        "default": {
+            "atlas_path": "lh.aparc.annot",
+            "label_value": "1"
+        }
     }
 } 

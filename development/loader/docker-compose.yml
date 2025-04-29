@@ -3,7 +3,7 @@ services:
     image: idossha/ti-csc_fsl:v1.3.0
     container_name: fsl_container
     volumes:
-      - fsl_volume:/usr/local/fsl/
+      - ti_csc_fsl_data:/usr/local/fsl/
     networks:
       - ti_network
 
@@ -11,12 +11,12 @@ services:
     image: idossha/ti-csc_freesurfer:v1.3.0
     container_name: freesurfer_container
     volumes:
-      - freesurfer_volume:/usr/local/freesurfer/
+      - ti_csc_freesurfer_data:/usr/local/freesurfer/
     networks:
       - ti_network
 
   simnibs:
-    # image: idossha/ti-csc_simnibs:v1.3.1
+    # image: idossha/ti-csc_simnibs:v1.3.3
     image: idossha/simnibs:4.5.0
     container_name: simnibs_container
     environment:
@@ -32,15 +32,14 @@ services:
       - FS_LICENSE=/usr/local/freesurfer/license.txt
       - LOCAL_PROJECT_DIR=${LOCAL_PROJECT_DIR}
       - PROJECT_DIR_NAME=${PROJECT_DIR_NAME}
-      - KMP_AFFINITY=disabled
-      - OMP_NUM_THREADS=1
-
+      - DEV_CODEBASE_DIR=${DEV_CODEBASE_DIR}
+      - DEV_CODEBASE_NAME=${DEV_CODEBASE_NAME}
     volumes:
-      - fsl_volume:/usr/local/fsl/
-      - freesurfer_volume:/usr/local/freesurfer/
+      - ti_csc_fsl_data:/usr/local/fsl/
+      - ti_csc_freesurfer_data:/usr/local/freesurfer/
       - /tmp/.X11-unix:/tmp/.X11-unix
       - ${LOCAL_PROJECT_DIR}:/mnt/${PROJECT_DIR_NAME}
-      - ${PROJECT_ROOT}:/ti-csc-2.0
+      - ${DEV_CODEBASE_DIR}:/testing
     networks:
       - ti_network
     depends_on:
@@ -56,6 +55,7 @@ networks:
     driver: bridge
 
 volumes:
-  fsl_volume:
-  freesurfer_volume:
-
+  ti_csc_fsl_data:
+    external: true
+  ti_csc_freesurfer_data:
+    external: true

@@ -66,9 +66,9 @@ def setup_optimization(args):
     opt.e_postproc = args.postproc
     
     # Setup electrode mapping
-    opt.net_electrode_file = os.path.join(opt.subpath, "eeg_positions", f"{args.eeg_net}.csv")
-    opt.map_to_net_electrodes = True
-    opt.run_mapped_electrodes_simulation = True
+    # opt.net_electrode_file = os.path.join(opt.subpath, "eeg_positions", f"{args.eeg_net}.csv")
+    # opt.map_to_net_electrodes = True
+    # opt.run_mapped_electrodes_simulation = True
     
     # Configure electrode pairs
     # First pair
