@@ -52,18 +52,21 @@ for FN_MESH in "$input_mesh_dir"/*.msh; do
   # Get the base name of the .msh file (without directory and extension)
   BASE_NAME=$(basename "$FN_MESH" .msh)
   
+  # Simplify the base name by removing redundant TI suffix if present
+  SIMPLIFIED_NAME="${BASE_NAME/_TI/}"
+  
   # Define the output file names for both subject space and MNI space
-  FN_OUT="$output_dir/${BASE_NAME}"
+  FN_OUT="$output_dir/${SIMPLIFIED_NAME}"
   
   # Run the subject2mni command for MNI space
-  subject2mni -i "$FN_MESH" -m "$m2m_dir" -o "${FN_OUT}_MNI"
+  subject2mni -i "$FN_MESH" -m "$m2m_dir" -o "${FN_OUT}_MNI_TI_max"
   if [ $? -ne 0 ]; then
     echo "Error: subject2mni command failed for $FN_MESH."
     exit 1
   fi
   
   # Run msh2nii for subject space
-  msh2nii "$FN_MESH" "$m2m_dir" "${FN_OUT}"
+  msh2nii "$FN_MESH" "$m2m_dir" "${FN_OUT}_TI_max"
   if [ $? -ne 0 ]; then
     echo "Error: msh2nii command failed for $FN_MESH."
     exit 1
