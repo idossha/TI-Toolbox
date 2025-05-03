@@ -28,6 +28,236 @@ CYAN='\033[0;36m' #Cyan for actions being performed.
 BOLD_CYAN='\033[1;36m'
 YELLOW='\033[0;33m' #Yellow for warnings or important notices
 
+# Function to handle invalid input and reprompt
+reprompt() {
+    echo -e "${RED}Invalid input. Please try again.${RESET}"
+}
+
+# Function to list available subjects based on the project directory input
+list_subjects() {
+    subjects=()
+    for subject_path in "$project_dir"/*/SimNIBS/m2m_*; do
+        if [ -d "$subject_path" ]; then
+            subject_id=$(basename "$subject_path" | sed 's/m2m_//')
+            subjects+=("$subject_id")
+        fi
+    done
+
+    total_subjects=${#subjects[@]}
+    max_rows=10
+    num_columns=$(( (total_subjects + max_rows - 1) / max_rows ))
+
+    echo -e "${BOLD_CYAN}Available Subjects:${RESET}"
+    echo "-------------------"
+    for (( row=0; row<max_rows; row++ )); do
+        for (( col=0; col<num_columns; col++ )); do
+            index=$(( col * max_rows + row ))
+            if [ $index -lt $total_subjects ]; then
+                printf "%3d. %-25s" $(( index + 1 )) "${subjects[$index]}"
+            fi
+        done
+        echo
+    done
+    echo
+}
+
+# Function to run the actual simulation
+run_simulation() {
+    # Process selected subjects
+    IFS=',' read -r -a selected_subjects <<< "$subject_choices"
+    
+    # Detect if we're in direct execution mode (from GUI)
+    is_direct_mode=false
+    if [[ "$1" == "--run-direct" || "$DIRECT_MODE" == "true" ]]; then
+        is_direct_mode=true
+    fi
+    
+    # Ensure project utils_dir is accessible
+    utils_dir="$project_dir/utils"
+    if [ ! -d "$utils_dir" ]; then
+        mkdir -p "$utils_dir"
+        chmod 777 "$utils_dir"
+        echo -e "${GREEN}Created utils directory at $utils_dir with permissions 777.${RESET}"
+    else
+        chmod 777 "$utils_dir"
+    fi
+    
+    # Ensure montage_list.json exists in project utils dir
+    montage_file="$utils_dir/montage_list.json"
+    if [ ! -f "$montage_file" ]; then
+        cat <<EOL > "$montage_file"
+{
+  "uni_polar_montages": {},
+  "multi_polar_montages": {}
+}
+EOL
+        chmod 777 "$montage_file"
+        echo -e "${GREEN}Created and initialized $montage_file with permissions 777.${RESET}"
+    else
+        chmod 777 "$montage_file"
+    fi
+    
+    for subject_num in "${selected_subjects[@]}"; do
+        # Get the subject ID
+        if [[ "$is_direct_mode" == "true" ]]; then
+            # In direct mode, use subject IDs directly
+            subject_id="$subject_num"
+        elif [[ "$subject_num" =~ ^[0-9]+$ ]]; then
+            # If it's a number and not in direct mode, get the subject from the array
+            if [[ $subject_num -le 0 || $subject_num -gt ${#subjects[@]} ]]; then
+                echo -e "${RED}Invalid subject number: $subject_num${RESET}"
+                continue
+            fi
+            subject_id=${subjects[$((subject_num-1))]}
+        else
+            # If it's not a number, use it directly as subject ID
+            subject_id="$subject_num"
+        fi
+        
+        echo -e "${CYAN}Processing subject: $subject_id${RESET}"
+        
+        # Construct paths
+        subject_dir="$project_dir/$subject_id"
+        simulation_dir="$subject_dir/SimNIBS/Simulations"
+        m2m_dir="$subject_dir/SimNIBS/m2m_$subject_id"
+        
+        echo -e "${CYAN}Subject directory: $subject_dir${RESET}"
+        echo -e "${CYAN}Simulation directory: $simulation_dir${RESET}"
+        echo -e "${CYAN}m2m directory: $m2m_dir${RESET}"
+        
+        # Verify m2m directory exists
+        if [ ! -d "$m2m_dir" ]; then
+            echo -e "${RED}Error: m2m directory doesn't exist: $m2m_dir${RESET}"
+            continue
+        fi
+        
+        # Create simulation directory if it doesn't exist
+        mkdir -p "$simulation_dir"
+        
+        # Create subject's utils directory and link or copy montage_list.json
+        subject_utils_dir="$subject_dir/utils"
+        if [ ! -d "$subject_utils_dir" ]; then
+            mkdir -p "$subject_utils_dir"
+            chmod 777 "$subject_utils_dir"
+            echo -e "${GREEN}Created subject utils directory at $subject_utils_dir${RESET}"
+        fi
+        
+        # Create a symbolic link to the project's montage file
+        if [ -f "$montage_file" ]; then
+            echo -e "${CYAN}Ensuring montage file is accessible at $subject_utils_dir/montage_list.json${RESET}"
+            cp -f "$montage_file" "$subject_utils_dir/montage_list.json"
+            chmod 777 "$subject_utils_dir/montage_list.json"
+        fi
+        
+        # Construct the command for main script
+        simulator_dir="$script_dir/simulator"
+        
+        # Convert current from mA to A
+        current_a=$(echo "scale=6; $current / 1000" | bc)
+        
+        # Export variables for TI.py to find the correct utils directory
+        export UTILS_DIR="$subject_utils_dir"
+        
+        # Build command - use project_dir instead of subject_dir to prevent double subject ID
+        cmd=("$simulator_dir/$main_script" "$subject_id" "$conductivity" "$project_dir" "$simulation_dir" "$sim_mode" "$current_a" "$electrode_shape" "$dimensions" "$thickness")
+        
+        # Add montages - ensure these are actual montage names
+        for montage in "${selected_montages[@]}"; do
+            # Skip if montage name looks like a path or option
+            if [[ $montage == /* || $montage == -* ]]; then
+                echo -e "${YELLOW}Warning: Skipping invalid montage name: $montage${RESET}"
+                continue
+            fi
+            cmd+=("$montage")
+        done
+        
+        # Add end marker
+        cmd+=("--")
+        
+        echo -e "${GREEN}Executing: ${cmd[*]}${RESET}"
+        echo -e "${CYAN}Command breakdown:${RESET}"
+        echo -e "${CYAN}- Script: $simulator_dir/$main_script${RESET}"
+        echo -e "${CYAN}- Subject ID: $subject_id${RESET}"
+        echo -e "${CYAN}- Conductivity: $conductivity${RESET}"
+        echo -e "${CYAN}- Project directory: $project_dir${RESET}"
+        echo -e "${CYAN}- Simulation directory: $simulation_dir${RESET}"
+        echo -e "${CYAN}- Simulation mode: $sim_mode${RESET}"
+        echo -e "${CYAN}- Current (A): $current_a${RESET}"
+        echo -e "${CYAN}- Electrode shape: $electrode_shape${RESET}"
+        echo -e "${CYAN}- Dimensions: $dimensions${RESET}"
+        echo -e "${CYAN}- Thickness: $thickness${RESET}"
+        echo -e "${CYAN}- Montages: ${selected_montages[*]}${RESET}"
+        
+        # Execute simulation
+        "${cmd[@]}"
+        
+        # Check execution status
+        if [ $? -eq 0 ]; then
+            echo -e "${GREEN}Simulation completed successfully for subject: $subject_id${RESET}"
+        else
+            echo -e "${RED}Simulation failed for subject: $subject_id${RESET}"
+        fi
+    done
+}
+
+# Check if direct execution from GUI is requested
+if [[ "$1" == "--run-direct" ]]; then
+    echo "Running in direct execution mode from GUI"
+    
+    # Set direct mode flag
+    export DIRECT_MODE=true
+    
+    # Check for required environment variables
+    if [[ -z "$SUBJECTS" || -z "$CONDUCTIVITY" || -z "$SIM_MODE" || -z "$SELECTED_MONTAGES" ]]; then
+        echo -e "${RED}Error: Missing required environment variables for direct execution.${RESET}"
+        echo "Required: SUBJECTS, CONDUCTIVITY, SIM_MODE, SELECTED_MONTAGES"
+        exit 1
+    fi
+    
+    # Set variables from environment without prompting
+    subject_choices="$SUBJECTS"
+    conductivity="$CONDUCTIVITY"
+    sim_mode="$SIM_MODE"
+    
+    # Set up mode-specific variables
+    if [[ "$sim_mode" == "U" ]]; then
+        montage_type="uni_polar_montages"
+        main_script="main-TI.sh"
+        montage_type_text="Unipolar"
+    elif [[ "$sim_mode" == "M" ]]; then
+        montage_type="multi_polar_montages"
+        main_script="main-mTI.sh"
+        montage_type_text="Multipolar"
+    fi
+    
+    # Parse selected montages
+    selected_montages=($SELECTED_MONTAGES)
+    
+    # Set electrode parameters
+    electrode_shape="${ELECTRODE_SHAPE:-rect}"
+    dimensions="${DIMENSIONS:-50,50}"
+    thickness="${THICKNESS:-5}"
+    current="${CURRENT:-2.0}"
+    
+    # Skip to execution
+    echo "Running simulation with:"
+    echo "  - Subjects: $subject_choices"
+    echo "  - Simulation type: $conductivity"
+    echo "  - Mode: $montage_type_text"
+    echo "  - Montages: ${selected_montages[*]}"
+    echo "  - Electrode shape: $electrode_shape"
+    echo "  - Dimensions: $dimensions mm"
+    echo "  - Thickness: $thickness mm" 
+    echo "  - Current: $current mA"
+    
+    # List available subjects to set the subjects array
+    list_subjects
+    
+    # Jump directly to execution
+    run_simulation "--run-direct"
+    exit 0
+fi
+
 # Function to read configuration
 read_config() {
     local key=$1
@@ -94,39 +324,6 @@ EOL
 else
     chmod 777 "$montage_file"
 fi
-
-# Function to handle invalid input and reprompt
-reprompt() {
-    echo -e "${RED}Invalid input. Please try again.${RESET}"
-}
-
-# Function to list available subjects based on the project directory input
-list_subjects() {
-    subjects=()
-    for subject_path in "$project_dir"/*/SimNIBS/m2m_*; do
-        if [ -d "$subject_path" ]; then
-            subject_id=$(basename "$subject_path" | sed 's/m2m_//')
-            subjects+=("$subject_id")
-        fi
-    done
-
-    total_subjects=${#subjects[@]}
-    max_rows=10
-    num_columns=$(( (total_subjects + max_rows - 1) / max_rows ))
-
-    echo -e "${BOLD_CYAN}Available Subjects:${RESET}"
-    echo "-------------------"
-    for (( row=0; row<max_rows; row++ )); do
-        for (( col=0; col<num_columns; col++ )); do
-            index=$(( col * max_rows + row ))
-            if [ $index -lt $total_subjects ]; then
-                printf "%3d. %-25s" $(( index + 1 )) "${subjects[$index]}"
-            fi
-        done
-        echo
-    done
-    echo
-}
 
 # Choose subjects function with configuration support
 choose_subjects() {
