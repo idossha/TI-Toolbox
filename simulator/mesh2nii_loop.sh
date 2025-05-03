@@ -59,14 +59,14 @@ for FN_MESH in "$input_mesh_dir"/*.msh; do
   FN_OUT="$output_dir/${SIMPLIFIED_NAME}"
   
   # Run the subject2mni command for MNI space
-  subject2mni -i "$FN_MESH" -m "$m2m_dir" -o "${FN_OUT}_MNI_TI_max"
+  subject2mni -i "$FN_MESH" -m "$m2m_dir" -o "$FN_OUT"
   if [ $? -ne 0 ]; then
     echo "Error: subject2mni command failed for $FN_MESH."
     exit 1
   fi
   
   # Run msh2nii for subject space
-  msh2nii "$FN_MESH" "$m2m_dir" "${FN_OUT}_TI_max"
+  msh2nii "$FN_MESH" "$m2m_dir" "$FN_OUT"
   if [ $? -ne 0 ]; then
     echo "Error: msh2nii command failed for $FN_MESH."
     exit 1
