@@ -34,7 +34,15 @@ services:
       - PROJECT_DIR_NAME=${PROJECT_DIR_NAME}
       - DEV_CODEBASE_DIR=${DEV_CODEBASE_DIR}
       - DEV_CODEBASE_NAME=${DEV_CODEBASE_NAME}
-      - KMP_AFFINITY=disabled
+      - KMP_AFFINITY=compact        
+      - KMP_TOPOLOGY_METHOD=flat
+      # Compact places threads close together on adjacent cores — good for cache sharing.
+      # Scatter spreads threads far apart across all cores — good for max CPU utilization.
+      # Use compact for memory/cache-intensive tasks, scatter for compute-heavy parallelism.
+      # Use verbose for debugging.
+      # Use KMP_AFFINITY=disabled to disable affinity support.
+
+
     volumes:
       - ti_csc_fsl_data:/usr/local/fsl/
       - ti_csc_freesurfer_data:/usr/local/freesurfer/
