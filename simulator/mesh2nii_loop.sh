@@ -16,14 +16,15 @@
 # - Provides detailed error handling for common issues like missing files or directories.
 ##############################################
 
-# Get the subject ID, subject directory, input mesh directory, and output directory from the command-line arguments
+# Get the subject ID, project directory, input mesh directory, and output directory from the command-line arguments
 subject_id="$1"
-subject_dir="$2"
+project_dir="$2"
 input_mesh_dir="$3"
 output_dir="$4"
 
-# Define the path to the reference directory
-FN_REFERENCE="$subject_dir/m2m_${subject_id}"
+# Define directory structure
+subject_dir="$project_dir/$subject_id"
+m2m_dir="$subject_dir/SimNIBS/m2m_${subject_id}"
 
 # Check if input_mesh_dir exists and is a directory
 if [ ! -d "$input_mesh_dir" ]; then
@@ -31,9 +32,9 @@ if [ ! -d "$input_mesh_dir" ]; then
   exit 1
 fi
 
-# Check if FN_REFERENCE exists and is a directory
-if [ ! -d "$FN_REFERENCE" ]; then
-  echo "Error: Reference directory $FN_REFERENCE does not exist."
+# Check if m2m_dir exists and is a directory
+if [ ! -d "$m2m_dir" ]; then
+  echo "Error: Reference directory $m2m_dir does not exist."
   exit 1
 fi
 
@@ -55,14 +56,14 @@ for FN_MESH in "$input_mesh_dir"/*.msh; do
   FN_OUT="$output_dir/${BASE_NAME}"
   
   # Run the subject2mni command for MNI space
-  subject2mni -i "$FN_MESH" -m "$FN_REFERENCE" -o "${FN_OUT}_MNI"
+  subject2mni -i "$FN_MESH" -m "$m2m_dir" -o "${FN_OUT}_MNI"
   if [ $? -ne 0 ]; then
     echo "Error: subject2mni command failed for $FN_MESH."
     exit 1
   fi
   
   # Run msh2nii for subject space
-  msh2nii "$FN_MESH" "$FN_REFERENCE" "${FN_OUT}"
+  msh2nii "$FN_MESH" "$m2m_dir" "${FN_OUT}"
   if [ $? -ne 0 ]; then
     echo "Error: msh2nii command failed for $FN_MESH."
     exit 1

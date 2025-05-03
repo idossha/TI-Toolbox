@@ -16,6 +16,10 @@ set -e # Exit immediately if a command exits with a non-zero status
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 utils_dir="$(cd "$script_dir/../utils" && pwd)"
 
+# Debug script location
+echo "DEBUG: Script directory: $script_dir"
+echo "DEBUG: Utils directory: $utils_dir"
+
 # Gather arguments from the prompter script
 subject_id=$1
 conductivity=$2
@@ -27,6 +31,18 @@ electrode_shape=$7
 dimensions=$8
 thickness=$9
 shift 9  # Shift past all the fixed arguments
+
+# Debug input arguments
+echo "DEBUG: Input Arguments:"
+echo "  - subject_id: $subject_id"
+echo "  - conductivity: $conductivity"
+echo "  - subject_dir: $subject_dir"
+echo "  - simulation_dir: $simulation_dir"
+echo "  - sim_mode: $sim_mode"
+echo "  - intensity: $intensity"
+echo "  - electrode_shape: $electrode_shape"
+echo "  - dimensions: $dimensions"
+echo "  - thickness: $thickness"
 
 # Initialize arrays
 selected_montages=()
@@ -45,13 +61,16 @@ while [[ "$#" -gt 0 ]]; do
     esac
 done
 
+echo "DEBUG: Selected montages: ${selected_montages[@]}"
+
 # Set subdirectory paths
-sim_dir="$simulation_dir/sim_${subject_id}"
+sim_dir="$simulation_dir"
+echo "DEBUG: Simulation directory (sim_dir): $sim_dir"
 
 # Function to setup directories for a montage
 setup_montage_dirs() {
     local montage_name=$1
-    local montage_dir="$sim_dir/TI_${montage_name}"
+    local montage_dir="$sim_dir/${montage_name}"
     
     # Create main montage directory structure
     mkdir -p "$montage_dir/high_Frequency/mesh"
@@ -90,7 +109,7 @@ echo " "
 run_visualize_montages() {
     echo "Visualizing selected montages..."
     for montage in "${selected_montages[@]}"; do
-        local montage_output_dir="$sim_dir/TI_${montage}/TI/montage_imgs"
+        local montage_output_dir="$sim_dir/${montage}/TI/montage_imgs"
         echo "Calling visualize-montage.sh with arguments:"
         echo "Montage: $montage"
         echo "Sim Mode: $sim_mode"
@@ -133,12 +152,50 @@ transform_parcellated_meshes_to_nifti() {
 
 # Function to convert T1 to MNI space
 convert_t1_to_mni() {
-    local t1_file="$subject_dir/m2m_${subject_id}/T1.nii.gz"
-    local m2m_dir="$subject_dir/m2m_${subject_id}"
-    local output_file="$subject_dir/m2m_${subject_id}/T1_${subject_id}"
-    echo "Converting T1 to MNI space..."
+    echo "DEBUG: Converting T1 to MNI space..."
+    echo "DEBUG: Current directory: $(pwd)"
+    echo "DEBUG: Variables for T1 conversion:"
+    echo "  - subject_dir: $subject_dir"
+    echo "  - subject_id: $subject_id"
+    
+    local m2m_dir="$subject_dir/${subject_id}/SimNIBS/m2m_${subject_id}"
+    local t1_file="$m2m_dir/T1.nii.gz"
+    local output_file="$m2m_dir/T1_${subject_id}"
+    
+    echo "DEBUG: Constructed paths:"
+    echo "  - m2m_dir: $m2m_dir"
+    echo "  - t1_file: $t1_file"
+    echo "  - output_file: $output_file"
+    
+    # Check if directories and files exist
+    echo "DEBUG: Directory/File checks:"
+    echo "  - subject_dir exists: $([ -d "$subject_dir" ] && echo "YES" || echo "NO")"
+    echo "  - m2m_dir exists: $([ -d "$m2m_dir" ] && echo "YES" || echo "NO")"
+    echo "  - t1_file exists: $([ -f "$t1_file" ] && echo "YES" || echo "NO")"
+    
+    # List contents of relevant directories if they exist
+    if [ -d "$subject_dir" ]; then
+        echo "DEBUG: Contents of subject_dir ($subject_dir):"
+        ls -la "$subject_dir"
+    fi
+    
+    if [ -d "$m2m_dir" ]; then
+        echo "DEBUG: Contents of m2m_dir ($m2m_dir):"
+        ls -la "$m2m_dir"
+    fi
+    
+    echo "DEBUG: About to run subject2mni command with:"
+    echo "  subject2mni -i \"$t1_file\" -m \"$m2m_dir\" -o \"$output_file\""
+    
     subject2mni -i "$t1_file" -m "$m2m_dir" -o "$output_file"
-    echo "T1 conversion to MNI completed: $output_file"
+    local cmd_status=$?
+    echo "DEBUG: subject2mni command exit status: $cmd_status"
+    
+    if [ $cmd_status -eq 0 ]; then
+        echo "T1 conversion to MNI completed: $output_file"
+    else
+        echo "ERROR: T1 conversion failed with status $cmd_status"
+    fi
 }
 
 convert_t1_to_mni
@@ -214,7 +271,7 @@ done
 # Verify all files have been moved before cleanup
 verify_files() {
     local montage_name=$1
-    local montage_base_dir="$sim_dir/TI_${montage_name}"
+    local montage_base_dir="$sim_dir/$montage_name"
     local missing_files=0
 
     # Check for essential files and directories
@@ -223,7 +280,7 @@ verify_files() {
         "$montage_base_dir/high_Frequency/niftis"
         "$montage_base_dir/high_Frequency/analysis/fields_summary.txt"
         "$montage_base_dir/documentation"
-        "$montage_base_dir/TI/mesh/${subject_id}_TI_${montage_name}_TI.msh"
+        "$montage_base_dir/TI/mesh/${subject_id}_${montage_name}_TI.msh"
     )
 
     for path in "${essential_paths[@]}"; do
@@ -259,7 +316,7 @@ else
     # Check if files are actually in place despite verification warnings
     all_files_present=true
     for montage in "${selected_montages[@]}"; do
-        montage_dir="$sim_dir/TI_${montage}"
+        montage_dir="$sim_dir/$montage"
         if [ ! -d "$montage_dir" ] || \
            [ ! -d "$montage_dir/high_Frequency/mesh" ] || \
            [ ! -d "$montage_dir/high_Frequency/niftis" ] || \

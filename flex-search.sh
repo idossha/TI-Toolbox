@@ -15,10 +15,11 @@ umask 0000  # Set umask to 0000 to ensure all created files and directories have
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 flex_search_dir="$script_dir/flex-search"
 project_dir="/mnt/$PROJECT_DIR_NAME"
-subject_dir="$project_dir/Subjects"
-analysis_dir="$project_dir/Analysis"
 utils_dir="$project_dir/utils"
-config_file="$project_dir/flex_config.json"
+config_file="$project_dir/config/flex-search_config/flex_config.json"
+
+# Export project directory for Python script
+export PROJECT_DIR="$project_dir"
 
 # Define color variables
 BOLD='\033[1m'
@@ -76,7 +77,7 @@ get_default_value() {
 # Function to list available subjects
 list_subjects() {
     subjects=()
-    for subject_path in "$subject_dir"/m2m_*; do
+    for subject_path in "$project_dir"/*/SimNIBS/m2m_*; do
         if [ -d "$subject_path" ]; then
             subject_id=$(basename "$subject_path" | sed 's/m2m_//')
             subjects+=("$subject_id")
@@ -188,7 +189,7 @@ choose_postproc() {
 # Function to list available EEG nets for a subject
 list_eeg_nets() {
     local subject_id=$1
-    local eeg_dir="$subject_dir/m2m_$subject_id/eeg_positions"
+    local eeg_dir="$project_dir/$subject_id/SimNIBS/m2m_$subject_id/eeg_positions"
     
     if [ ! -d "$eeg_dir" ]; then
         echo -e "${RED}Error: EEG positions directory not found for subject $subject_id${RESET}"
@@ -292,7 +293,7 @@ choose_electrode_params() {
 # Function to list available atlases for a subject
 list_atlases() {
     local subject_id=$1
-    local label_dir="$subject_dir/m2m_$subject_id/label"
+    local label_dir="$project_dir/$subject_id/SimNIBS/m2m_$subject_id/label"
     
     if [ ! -d "$label_dir" ]; then
         echo -e "${RED}Error: Label directory not found for subject $subject_id${RESET}"
@@ -399,78 +400,12 @@ choose_roi_method() {
     done
 }
 
-# Choose ROI parameters based on method
-choose_roi_params() {
-    if [ "$roi_method" = "spherical" ]; then
-        if ! is_prompt_enabled "roi_spherical"; then
-            local default_x=$(read_nested_config "roi_spherical" "default" "x")
-            local default_y=$(read_nested_config "roi_spherical" "default" "y")
-            local default_z=$(read_nested_config "roi_spherical" "default" "z")
-            local default_radius=$(read_nested_config "roi_spherical" "default" "radius")
-            
-            if [ -n "$default_x" ] && [ -n "$default_y" ] && [ -n "$default_z" ] && [ -n "$default_radius" ]; then
-                export ROI_X="$default_x"
-                export ROI_Y="$default_y"
-                export ROI_Z="$default_z"
-                export ROI_RADIUS="$default_radius"
-                echo -e "${CYAN}Using default spherical ROI parameters:${RESET}"
-                echo "X: $default_x, Y: $default_y, Z: $default_z, Radius: $default_radius"
-                return
-            fi
-        fi
-
-        echo -e "${GREEN}Enter spherical ROI parameters:${RESET}"
-        read -p "X coordinate (mm): " roi_x
-        read -p "Y coordinate (mm): " roi_y
-        read -p "Z coordinate (mm): " roi_z
-        read -p "Radius (mm): " roi_radius
-        
-        if [[ "$roi_x" =~ ^-?[0-9]+\.?[0-9]*$ ]] && \
-           [[ "$roi_y" =~ ^-?[0-9]+\.?[0-9]*$ ]] && \
-           [[ "$roi_z" =~ ^-?[0-9]+\.?[0-9]*$ ]] && \
-           [[ "$roi_radius" =~ ^[0-9]+\.?[0-9]*$ ]]; then
-            export ROI_X="$roi_x"
-            export ROI_Y="$roi_y"
-            export ROI_Z="$roi_z"
-            export ROI_RADIUS="$roi_radius"
-        else
-            echo -e "${RED}Invalid input. Please enter valid numbers.${RESET}"
-            exit 1
-        fi
-    else  # cortical
-        if ! is_prompt_enabled "roi_cortical"; then
-            local default_atlas=$(read_nested_config "roi_cortical" "default" "atlas_path")
-            local default_label=$(read_nested_config "roi_cortical" "default" "label_value")
-            
-            if [ -n "$default_atlas" ] && [ -n "$default_label" ]; then
-                export ATLAS_PATH="$default_atlas"
-                export ROI_LABEL="$default_label"
-                echo -e "${CYAN}Using default cortical ROI parameters:${RESET}"
-                echo "Atlas: $default_atlas, Label: $default_label"
-                return
-            fi
-        fi
-
-        echo -e "${GREEN}Enter cortical ROI parameters:${RESET}"
-        read -p "Atlas path: " atlas_path
-        read -p "Label value: " label_value
-        
-        if [ -n "$atlas_path" ] && [ -n "$label_value" ]; then
-            export ATLAS_PATH="$atlas_path"
-            export ROI_LABEL="$label_value"
-        else
-            echo -e "${RED}Invalid input. Please enter valid values.${RESET}"
-            exit 1
-        fi
-    fi
-}
-
 # Main script execution
 echo -e "${BOLD_CYAN}TI-CSC Flex Search Optimization Tool${RESET}"
 echo "----------------------------------------"
 
 # Create necessary directories
-mkdir -p "$analysis_dir"
+mkdir -p "$project_dir/Analysis"
 
 # Collect all necessary inputs
 choose_subjects
@@ -479,23 +414,17 @@ choose_postproc
 choose_eeg_net
 choose_electrode_params
 choose_roi_method
-choose_roi_params
 
-# Loop through selected subjects and run the optimization
+# Run flex-search for each subject
 for subject_index in "${selected_subjects[@]}"; do
     subject_id="${subjects[$((subject_index-1))]}"
-    output_dir="$analysis_dir/opt_${subject_id}"
-    mkdir -p "$output_dir"
-
-    echo -e "\n${BOLD_CYAN}Processing subject: ${subject_id}${RESET}"
-    echo "Output directory: $output_dir"
-
+    
     # Export necessary environment variables
-    export SUBJECT_ID="$subject_id"
     export PROJECT_DIR="$project_dir"
-    export OUTPUT_DIR="$output_dir"
-
-    # Call the flex-search Python script with all parameters
+    export SUBJECT_ID="$subject_id"
+    
+    # Run flex-search.py with all the collected parameters
+    echo -e "${CYAN}Running flex-search for subject $subject_id...${RESET}"
     simnibs_python "$flex_search_dir/flex-search.py" \
         --subject "$subject_id" \
         --goal "$goal" \
@@ -503,16 +432,9 @@ for subject_index in "${selected_subjects[@]}"; do
         --eeg-net "$eeg_net" \
         --radius "$radius" \
         --current "$current" \
-        --roi-method "$roi_method" \
-        --output-dir "$output_dir"
-
-    # Check if the optimization was successful
-    if [ $? -eq 0 ]; then
-        echo -e "${GREEN}Optimization completed successfully for subject $subject_id.${RESET}"
-    else
-        echo -e "${RED}Optimization failed for subject $subject_id.${RESET}"
-        continue
-    fi
+        --roi-method "$roi_method"
+    
+    echo -e "${GREEN}Flex-search completed for subject $subject_id${RESET}"
 done
 
 echo -e "${GREEN}All optimizations completed.${RESET}" 

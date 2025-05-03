@@ -15,10 +15,8 @@ umask 0000  # Set umask to 0000 to ensure all created files and directories have
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 simulator_dir="$script_dir/simulator"
 project_dir="/mnt/$PROJECT_DIR_NAME"
-subject_dir="$project_dir/Subjects"
-simulation_dir="$project_dir/Simulations"
 utils_dir="$project_dir/utils"
-config_file="$project_dir/sim_config.json"
+config_file="$project_dir/config/sim_config.json"
 
 # Define color variables
 BOLD='\033[1m'
@@ -102,10 +100,10 @@ reprompt() {
     echo -e "${RED}Invalid input. Please try again.${RESET}"
 }
 
-# List available subjects based on the project directory input
+# Function to list available subjects based on the project directory input
 list_subjects() {
     subjects=()
-    for subject_path in "$subject_dir"/m2m_*; do
+    for subject_path in "$project_dir"/*/SimNIBS/m2m_*; do
         if [ -d "$subject_path" ]; then
             subject_id=$(basename "$subject_path" | sed 's/m2m_//')
             subjects+=("$subject_id")
@@ -435,9 +433,14 @@ choose_electrode_geometry
 # Loop through selected subjects and run the pipeline
 for subject_index in "${selected_subjects[@]}"; do
     subject_id="${subjects[$((subject_index-1))]}"
+    subject_dir="$project_dir/$subject_id"
+    simulation_dir="$subject_dir/SimNIBS/Simulations"
+
+    # Create simulation directory if it doesn't exist
+    mkdir -p "$simulation_dir"
 
     # Call the appropriate main pipeline script with the gathered parameters
-    "$simulator_dir/$main_script" "$subject_id" "$conductivity" "$subject_dir" "$simulation_dir" "$sim_mode" "$intensity" "$electrode_shape" "$dimensions" "$thickness" "${selected_montages[@]}" -- "${selected_roi_names[@]}"
+    "$simulator_dir/$main_script" "$subject_id" "$conductivity" "$project_dir" "$simulation_dir" "$sim_mode" "$intensity" "$electrode_shape" "$dimensions" "$thickness" "${selected_montages[@]}" -- "${selected_roi_names[@]}"
 
 done
 

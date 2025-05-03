@@ -11,11 +11,15 @@ from simnibs import mesh_io
 # - Extracts both grey matter (GM) and white matter (WM) meshes and saves them in the same directory.
 ##############################################
 
-def main(input_file, gm_output_file=None, wm_output_file=None):
+def main(input_file, project_dir=None, subject_id=None, gm_output_file=None, wm_output_file=None):
     """
     Load the original mesh
     Crop the mesh to include grey matter (tag #2) and white matter (tag #1)
     Save these meshes to separate files
+    
+    Directory structure:
+    subject_dir = project_dir/subject_id
+    m2m_dir = subject_dir/m2m_subject_id
     """
     # Load the original mesh
     full_mesh = mesh_io.read_msh(input_file)
@@ -27,13 +31,27 @@ def main(input_file, gm_output_file=None, wm_output_file=None):
     wm_mesh = full_mesh.crop_mesh(tags=[1])
     
     # Prepare output file paths
-    input_dir = os.path.dirname(input_file)
-    input_filename = os.path.basename(input_file)
-    
-    if gm_output_file is None:
-        gm_output_file = os.path.join(input_dir, "grey_" + input_filename)
-    if wm_output_file is None:
-        wm_output_file = os.path.join(input_dir, "white_" + input_filename)
+    if project_dir and subject_id:
+        # Use new directory structure
+        subject_dir = os.path.join(project_dir, subject_id)
+        m2m_dir = os.path.join(subject_dir, f"m2m_{subject_id}")
+        output_base = os.path.join(subject_dir, 'SimNIBS', 'Simulations')
+        os.makedirs(output_base, exist_ok=True)
+        input_filename = os.path.basename(input_file)
+        
+        if gm_output_file is None:
+            gm_output_file = os.path.join(output_base, "grey_" + input_filename)
+        if wm_output_file is None:
+            wm_output_file = os.path.join(output_base, "white_" + input_filename)
+    else:
+        # Use original directory structure
+        input_dir = os.path.dirname(input_file)
+        input_filename = os.path.basename(input_file)
+        
+        if gm_output_file is None:
+            gm_output_file = os.path.join(input_dir, "grey_" + input_filename)
+        if wm_output_file is None:
+            wm_output_file = os.path.join(input_dir, "white_" + input_filename)
     
     # Save grey matter mesh
     mesh_io.write_msh(gm_mesh, gm_output_file)
@@ -46,8 +64,10 @@ def main(input_file, gm_output_file=None, wm_output_file=None):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Extract grey and white matter meshes from a full mesh file.')
     parser.add_argument('input_file', type=str, help='Path to the input mesh file')
+    parser.add_argument('--project_dir', type=str, help='Path to the project directory (new structure)', default=None)
+    parser.add_argument('--subject_id', type=str, help='Subject ID (new structure)', default=None)
     parser.add_argument('--gm_output_file', type=str, help='Path to the output grey matter mesh file', default=None)
     parser.add_argument('--wm_output_file', type=str, help='Path to the output white matter mesh file', default=None)
     args = parser.parse_args()
-    main(args.input_file, args.gm_output_file, args.wm_output_file)
+    main(args.input_file, args.project_dir, args.subject_id, args.gm_output_file, args.wm_output_file)
 

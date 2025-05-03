@@ -24,6 +24,14 @@ sim_mode="${@: -2:1}"  # The second-to-last argument is the simulation mode (U o
 output_directory="${@: -1}"  # The last argument is the output directory
 selected_montages=("${@:1:$(($#-2))}")  # All but the last two arguments are the selected montages
 
+# Create output directory if it doesn't exist
+mkdir -p "$output_directory"
+
+# Ensure output directory is absolute path
+if [[ ! "$output_directory" = /* ]]; then
+    output_directory="$project_base/$output_directory"
+fi
+
 # Dynamically determine the montage type based on the sim_mode
 if [[ "$sim_mode" == "U" ]]; then
     montage_type="uni_polar_montages"

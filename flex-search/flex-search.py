@@ -5,6 +5,25 @@ import os
 import argparse
 import sys
 
+def get_roi_dirname(args):
+    """Generate directory name based on ROI type and parameters."""
+    if args.roi_method == 'spherical':
+        try:
+            x = float(os.getenv('ROI_X'))
+            y = float(os.getenv('ROI_Y'))
+            z = float(os.getenv('ROI_Z'))
+            radius = float(os.getenv('ROI_RADIUS'))
+            return f"{x}x{y}y{z}z_{radius}mm"
+        except (TypeError, ValueError) as e:
+            raise ValueError("Missing or invalid ROI coordinates or radius in environment variables") from e
+    else:  # cortical
+        try:
+            atlas_name = os.path.splitext(os.path.basename(os.getenv('ATLAS_PATH')))[0]
+            label_value = int(os.getenv('ROI_LABEL'))
+            return f"{atlas_name}_{label_value}"
+        except (TypeError, ValueError) as e:
+            raise ValueError("Missing or invalid atlas information in environment variables") from e
+
 def parse_arguments():
     parser = argparse.ArgumentParser(description='Flexible electrode position optimization for TI stimulation')
     
@@ -24,8 +43,6 @@ def parse_arguments():
     parser.add_argument('--roi-method', required=True,
                       choices=['spherical', 'cortical'],
                       help='ROI definition method')
-    parser.add_argument('--output-dir', required=True,
-                      help='Output directory for results')
     
     args = parser.parse_args()
     
@@ -34,7 +51,11 @@ def parse_arguments():
     if not project_dir:
         raise ValueError("PROJECT_DIR environment variable not set")
     
-    eeg_net_path = os.path.join(project_dir, 'Subjects', f'm2m_{args.subject}', 
+    # Generate output directory path based on ROI type
+    roi_dirname = get_roi_dirname(args)
+    args.output_dir = os.path.join(project_dir, args.subject, 'SimNIBS', 'flex-search', roi_dirname)
+    
+    eeg_net_path = os.path.join(project_dir, args.subject, 'SimNIBS', f"m2m_{args.subject}", 
                                'eeg_positions', f'{args.eeg_net}.csv')
     if not os.path.exists(eeg_net_path):
         raise ValueError(f"EEG net template file not found: {eeg_net_path}")
@@ -50,8 +71,8 @@ def setup_optimization(args):
     if not project_dir:
         raise ValueError("PROJECT_DIR environment variable not set")
     
-    # Set subject path
-    opt.subpath = os.path.join(project_dir, 'Subjects', f'm2m_{args.subject}')
+    # Set subject path using new directory structure
+    opt.subpath = os.path.join(project_dir, args.subject, 'SimNIBS', f"m2m_{args.subject}")
     if not os.path.exists(opt.subpath):
         raise ValueError(f"Subject directory not found: {opt.subpath}")
     
