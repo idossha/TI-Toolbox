@@ -1,0 +1,75 @@
+look at this project. I want to create another tool that is similar to the simulator and flex-search.
+
+1. the entry point is placed at the base level and is named pre-process.sh
+2. the specific tools are placed one level down under pre-process/
+
+I need the tools to do the following:
+
+
+Prompt the user for what tool they want to use:
+
+1. structural
+2. dwi2dti
+3. net registraiton
+
+Prompt the user to choose subjects to use:
+
+If the user choose 
+
+structural:
+
+run the following command:
+
+dcm2niix <folder path>
+
+if it is compress (i.e. .tgz) uncompress
+
+dcm2nii <dir path> → output is saved within the <dir path>.      (output is .nii + .json
+
+move .nii to the appropriate location and rename file.  Keep .json inside dicom dir.
+
+prompting:
+
+subject
+
+T1 / T1 + T2
+
+
+
+- MyProject
+  - utils
+    - montage_list
+    - roi_list
+  - Simulations
+    - sim_subjectID
+  - Subjects
+    - m2m_subjectID
+    - leadfield_subjectID
+  - flex-search
+    - flex_subjectID
+  - flex-config
+  - sim-config
+
+
+  new version:
+
+- MyProject
+  - subID
+    - anat
+      - raw
+      - niftis
+    - SimNIBS
+      - Simulations
+        - generatedID
+        - generatedID2
+      - flex-search
+        - roiName
+        - roiName2
+    - dwi
+  - SubID2
+  - utils
+    - montage_list
+    - roi_list
+  - config
+    - sim_config
+    - flex-search_config
