@@ -65,13 +65,13 @@ def validate_montage(montage, montage_name):
 # Base paths
 subject_dir = os.path.join(project_dir, subject_id)
 base_subpath = os.path.join(subject_dir, 'SimNIBS', f"m2m_{subject_id}")
-base_pathfem = os.path.join(subject_dir, 'SimNIBS', 'Simulations', "FEM")
 conductivity_path = base_subpath
 tensor_file = os.path.join(conductivity_path, "DTI_coregT1_tensor.nii.gz")
 
-# Ensure the base_pathfem directory exists
-if not os.path.exists(base_pathfem):
-    os.makedirs(base_pathfem)
+# Create temporary directory for SimNIBS output
+temp_dir = os.path.join(simulation_dir, "tmp")
+if not os.path.exists(temp_dir):
+    os.makedirs(temp_dir)
 
 # Function to run simulations
 def run_simulation(montage_name, montage):
@@ -81,7 +81,10 @@ def run_simulation(montage_name, montage):
     S = sim_struct.SESSION()
     S.subpath = base_subpath
     S.anisotropy_type = sim_type
-    S.pathfem = os.path.join(base_pathfem, montage_name)
+    
+    # Use temporary directory for SimNIBS output
+    S.pathfem = os.path.join(temp_dir, montage_name)
+    
     S.eeg_cap = os.path.join(base_subpath, "eeg_positions", "EGI_template.csv")
     S.map_to_surf = False
     S.map_to_fsavg = False
