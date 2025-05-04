@@ -14,6 +14,7 @@ from PyQt5 import QtWidgets, QtCore, QtGui
 # Import tool-specific modules
 from simulator_tab import SimulatorTab
 from flex_search_tab import FlexSearchTab
+from pre_process_tab import PreProcessTab
 
 # Try to import visualization modules
 MESH_VIEWER_AVAILABLE = False
@@ -52,6 +53,10 @@ class MainWindow(QtWidgets.QMainWindow):
         
         # Create the tab widget for different tools
         self.tab_widget = QtWidgets.QTabWidget()
+        
+        # Add pre-process tab
+        self.pre_process_tab = PreProcessTab(self)
+        self.tab_widget.addTab(self.pre_process_tab, "Pre-processing")
         
         # Add simulator tab
         self.simulator_tab = SimulatorTab(self)
