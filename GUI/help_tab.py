@@ -95,15 +95,9 @@ class HelpTab(QtWidgets.QWidget):
                 "content": (
                     "<b>Multiple Subject Selection:</b><br>"
                     "- Select one or more subjects from the list using Ctrl+click or Shift+click<br>"
-                    "- The 'Select All' button selects all available subjects<br>"
-                    "- The 'Clear Selection' button clears all selected subjects<br>"
                     "- The 'Refresh List' button updates the subject list from the project directory<br><br>"
                     
-                    "Each subject must have a directory structure with:<br>"
-                    "- /anat/raw/ - Directory for raw DICOM files<br>"
-                    "- /anat/niftis/ - Directory for converted NIfTI files<br>"
-                    "- /anat/freesurfer/ - Directory for FreeSurfer reconstruction output<br>"
-                    "- /SimNIBS/ - Directory for SimNIBS head models"
+                    "Make sure you follow the required BIDS directory structure<br>"
                 )
             },
             {
@@ -112,7 +106,7 @@ class HelpTab(QtWidgets.QWidget):
                     "<b>Convert DICOM files to NIfTI:</b><br>"
                     "- Converts medical DICOM images into NIfTI format (.nii or .nii.gz)<br>"
                     "- Requires raw DICOM files in the subject's /anat/raw/ directory<br>"
-                    "- Automatically identifies T1 and T2 images based on metadata<br><br>"
+                    "- Automatically identifies T1 and T2 images based on metadata in the .json file<br><br>"
                     
                     "<b>Run FreeSurfer recon-all:</b><br>"
                     "- Performs structural MRI analysis using FreeSurfer's recon-all<br>"
@@ -122,8 +116,8 @@ class HelpTab(QtWidgets.QWidget):
                     "<b>Run FreeSurfer reconstruction in parallel:</b><br>"
                     "- Uses GNU Parallel to accelerate processing when handling multiple subjects<br>"
                     "- Only applies when 'Run FreeSurfer recon-all' is selected<br>"
-                    "- Requires GNU Parallel to be installed on the system<br><br>"
-                    
+                    "- This is still experimental and have not been tested extensively<br><br>"
+
                     "<b>Create SimNIBS m2m folder:</b><br>"
                     "- Runs the SimNIBS charm tool to create subject-specific head models<br>"
                     "- Generates meshes necessary for electromagnetic field simulations<br>"
@@ -131,7 +125,6 @@ class HelpTab(QtWidgets.QWidget):
                     
                     "<b>Run in quiet mode:</b><br>"
                     "- Suppresses detailed output during processing<br>"
-                    "- Useful for batch processing to reduce log size"
                 )
             },
             {
@@ -144,7 +137,7 @@ class HelpTab(QtWidgets.QWidget):
                     "   - T1 and T2 images are detected and properly named<br><br>"
                     
                     "2. <b>FreeSurfer Reconstruction:</b><br>"
-                    "   - T1 images are processed using FreeSurfer's recon-all<br>"
+                    "   - T1 images and optionally T2 images are processed using FreeSurfer's recon-all<br>"
                     "   - Creates cortical surface models and segmentation of brain structures<br><br>"
                     
                     "3. <b>SimNIBS Head Model Creation:</b><br>"
@@ -187,6 +180,7 @@ class HelpTab(QtWidgets.QWidget):
                     "The TI-CSC Simulator performs computational simulations of Temporal Interference (TI) stimulation "
                     "using finite element modeling (FEM). It calculates electric field distributions in subject-specific "
                     "head models for different electrode configurations and stimulation parameters."
+                    "It uses SimNIBS' TI module to simulate the electric field distribution based on Grossmna's equation from the 2017 paper."
                 )
             },
             {
@@ -210,19 +204,19 @@ class HelpTab(QtWidgets.QWidget):
                     "- Use the 'Add Custom Montage' button to create new electrode configurations<br>"
                     "- For Multipolar mode, specify two pairs of electrode positions<br>"
                     "- For Unipolar mode, specify anode and cathode positions<br>"
-                    "- Position names should match the SimNIBS EEG 10-10 or 10-20 system"
+                    "- Position names should match the desired EEG net"
                 )
             },
             {
                 "title": "Simulation Parameters",
                 "content": (
                     "<b>Simulation Type:</b><br>"
-                    "- <b>Standard:</b> Uses default conductivity values for all tissue types<br>"
-                    "- <b>Conductivity 1/Conductivity 2:</b> Alternative tissue conductivity models<br><br>"
+                    "- <b>Standard isotropic:</b> Uses default conductivity values for all tissue types<br>"
+                    "- <b>anisotropic:</b> Takes into account the anisotropy of the tissue based on a DTI scan.<br><br>"
                     
                     "<b>Simulation Mode:</b><br>"
-                    "- <b>Multipolar:</b> Uses two pairs of electrodes for TI stimulation<br>"
-                    "- <b>Unipolar:</b> Uses single pair (anode/cathode) for conventional tDCS<br><br>"
+                    "- <b>Unipolar:</b> Uses two pairs for conventional TI stimulation<br><br>"
+                    "- <b>Multipolar:</b> Uses four pairs of electrodes for mTI stimulation<br>"
                     
                     "<b>Electrode Parameters:</b><br>"
                     "- <b>Shape:</b> Rectangular (pad) or circular electrodes<br>"
@@ -246,7 +240,7 @@ class HelpTab(QtWidgets.QWidget):
                 "title": "Output Files",
                 "content": (
                     "Simulation results are saved in:<br>"
-                    "[PROJECT_DIR]/[SUBJECT_ID]/SimNIBS/[STIMULATION_TYPE]/<br><br>"
+                    "[PROJECT_DIR]/[SUBJECT_ID]/SimNIBS/Simulations/[montage_name]/<br><br>"
                     
                     "Output includes:<br>"
                     "- Electric field distributions (.msh and .nii.gz formats)<br>"
@@ -479,7 +473,7 @@ class HelpTab(QtWidgets.QWidget):
                     
                     "1. <b>Pre-processing</b>: Prepare MRI data and create subject-specific head models<br>"
                     "2. <b>Simulation</b>: Run electromagnetic field simulations with selected electrode montages<br>"
-                    "3. <b>Optimization (optional)</b>: Use Flex Search to find optimal electrode positions<br>"
+                    "3. <b>Optimization </b>: Use Flex Search to find optimal electrode positions<br>"
                     "4. <b>Visualization</b>: View simulation results using the NIfTI Viewer<br><br>"
                     
                     "Each step builds upon the previous one, with output files from earlier stages serving as inputs for later steps."
@@ -490,7 +484,7 @@ class HelpTab(QtWidgets.QWidget):
                 "content": (
                     "- Pre-processing with FreeSurfer can take several hours per subject<br>"
                     "- Simulations typically take 5-20 minutes depending on complexity<br>"
-                    "- Flex Search optimization can take 30 minutes to several hours<br>"
+                    "- Flex Search optimization can take 10 to 30 minutes<br>"
                     "- Using parallel processing can significantly reduce total processing time<br>"
                     "- Consider running long tasks overnight or when the computer is not in use"
                 )
@@ -515,10 +509,10 @@ class HelpTab(QtWidgets.QWidget):
                     "<b>Processing errors:</b><br>"
                     "- Check the console output for specific error messages<br>"
                     "- Verify that required external tools (FreeSurfer, SimNIBS) are properly installed<br>"
+                    "- In the command line: `freeview` or `simnibs` will inform you about installation success or failure<br><br>"
                     "- Ensure input data (DICOM, NIfTI) is valid and not corrupted<br><br>"
                     
                     "<b>Visualization issues:</b><br>"
-                    "- Make sure Freeview is installed and accessible in your system's PATH<br>"
                     "- Check that simulation results were generated successfully<br>"
                     "- Try using different visualization parameters if results are not visible"
                 )
@@ -531,7 +525,6 @@ class HelpTab(QtWidgets.QWidget):
                     "- Check the TI-CSC-2.0 GitHub repository for additional documentation<br>"
                     "- Look for known issues or submit new ones on the project's GitHub Issues page<br>"
                     "- Contact the development team for technical support<br>"
-                    "- For more information about the underlying algorithms, refer to the published papers on TI-CSC"
                 )
             }
         ]
