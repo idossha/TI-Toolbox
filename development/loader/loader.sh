@@ -181,15 +181,15 @@ display_welcome() {
 # Function to run Docker Compose and attach to simnibs container
 run_docker_compose() {
   # Run Docker Compose
-  docker-compose -f "$SCRIPT_DIR/docker-compose.yml" up --build -d
+  docker compose -f "$SCRIPT_DIR/docker-compose.yml" up --build -d
 
   # Wait for containers to initialize
   sleep 3
 
   # Check if simnibs service is up
-  if ! docker-compose ps | grep -q "simnibs"; then
+  if ! docker compose ps | grep -q "simnibs"; then
     echo "Error: simnibs service is not running. Please check your docker-compose.yml and container logs."
-    docker-compose logs
+    docker compose logs
     exit 1
   fi
 
@@ -198,7 +198,7 @@ run_docker_compose() {
   docker exec -ti simnibs_container bash
 
   # Stop and remove all containers when done
-  docker-compose -f "$SCRIPT_DIR/docker-compose.yml" down
+  docker compose -f "$SCRIPT_DIR/docker-compose.yml" down
 
   # Revert X server access permissions
   xhost -local:root

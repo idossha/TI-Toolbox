@@ -6,7 +6,6 @@ services:
       - ti_csc_fsl_data:/usr/local/fsl/
     networks:
       - ti_network
-
   freesurfer:
     image: idossha/ti-csc_freesurfer:v1.3.0
     container_name: freesurfer_container
@@ -14,12 +13,17 @@ services:
       - ti_csc_freesurfer_data:/usr/local/freesurfer/
     networks:
       - ti_network
-
   simnibs:
-    # image: idossha/ti-csc_simnibs:v1.3.3
     image: idossha/simnibs:4.5.0
     container_name: simnibs_container
+    volumes:
+      - ti_csc_fsl_data:/usr/local/fsl/
+      - ti_csc_freesurfer_data:/usr/local/freesurfer/
+      - /tmp/.X11-unix:/tmp/.X11-unix
+      - ${LOCAL_PROJECT_DIR}:/mnt/${PROJECT_DIR_NAME}
+      - ${DEV_CODEBASE_DIR}:/testing
     environment:
+      # Standard environment variables
       - USER=root
       - DISPLAY
       - LIBGL_ALWAYS_SOFTWARE=1
@@ -34,21 +38,7 @@ services:
       - PROJECT_DIR_NAME=${PROJECT_DIR_NAME}
       - DEV_CODEBASE_DIR=${DEV_CODEBASE_DIR}
       - DEV_CODEBASE_NAME=${DEV_CODEBASE_NAME}
-      - KMP_AFFINITY=compact        
-      - KMP_TOPOLOGY_METHOD=flat
-      # Compact places threads close together on adjacent cores — good for cache sharing.
-      # Scatter spreads threads far apart across all cores — good for max CPU utilization.
-      # Use compact for memory/cache-intensive tasks, scatter for compute-heavy parallelism.
-      # Use verbose for debugging.
-      # Use KMP_AFFINITY=disabled to disable affinity support.
-
-
-    volumes:
-      - ti_csc_fsl_data:/usr/local/fsl/
-      - ti_csc_freesurfer_data:/usr/local/freesurfer/
-      - /tmp/.X11-unix:/tmp/.X11-unix
-      - ${LOCAL_PROJECT_DIR}:/mnt/${PROJECT_DIR_NAME}
-      - ${DEV_CODEBASE_DIR}:/testing
+      - KMP_AFFINITY=disabled
     networks:
       - ti_network
     depends_on:
@@ -58,11 +48,9 @@ services:
     stdin_open: true
     working_dir: /ti-csc
     command: ["/bin/bash"]
-
 networks:
   ti_network:
     driver: bridge
-
 volumes:
   ti_csc_fsl_data:
     external: true
