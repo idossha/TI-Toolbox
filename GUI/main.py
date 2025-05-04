@@ -15,6 +15,8 @@ from PyQt5 import QtWidgets, QtCore, QtGui
 from simulator_tab import SimulatorTab
 from flex_search_tab import FlexSearchTab
 from pre_process_tab import PreProcessTab
+from help_tab import HelpTab
+from contact_tab import ContactTab
 
 # Try to import visualization modules
 MESH_VIEWER_AVAILABLE = False
@@ -54,30 +56,46 @@ class MainWindow(QtWidgets.QMainWindow):
         # Create the tab widget for different tools
         self.tab_widget = QtWidgets.QTabWidget()
         
-        # Add pre-process tab
+        # Create all tabs first
         self.pre_process_tab = PreProcessTab(self)
-        self.tab_widget.addTab(self.pre_process_tab, "Pre-processing")
-        
-        # Add simulator tab
         self.simulator_tab = SimulatorTab(self)
-        self.tab_widget.addTab(self.simulator_tab, "Simulator")
-        
-        # Add flex-search tab
         self.flex_search_tab = FlexSearchTab(self)
+        self.help_tab = HelpTab(self)
+        self.contact_tab = ContactTab(self)
+        
+        # For visualization tabs
+        if MESH_VIEWER_AVAILABLE:
+            self.mesh_viewer_tab = MeshViewerTab(self)
+            print("Mesh Viewer tab created")
+            
+        if NIFTI_VIEWER_AVAILABLE:
+            self.nifti_viewer_tab = NiftiViewerTab(self)
+            print("NIfTI Viewer tab created")
+        
+        # Clear the tab widget in case we're reordering tabs
+        self.tab_widget.clear()
+        
+        # Step 1: Add functional tabs on the left side
+        self.tab_widget.addTab(self.pre_process_tab, "Pre-processing")
+        self.tab_widget.addTab(self.simulator_tab, "Simulator")
         self.tab_widget.addTab(self.flex_search_tab, "Flex-Search")
         
         # Add visualization tabs if available
         if MESH_VIEWER_AVAILABLE:
-            # Add mesh viewer tab
-            self.mesh_viewer_tab = MeshViewerTab(self)
             self.tab_widget.addTab(self.mesh_viewer_tab, "Mesh Viewer")
-            print("Mesh Viewer tab added")
-        
+            
         if NIFTI_VIEWER_AVAILABLE:
-            # Add NIfTI viewer tab
-            self.nifti_viewer_tab = NiftiViewerTab(self)
             self.tab_widget.addTab(self.nifti_viewer_tab, "NIfTI Viewer")
-            print("NIfTI Viewer tab added")
+        
+        # Step 2: Count how many tabs we have to calculate positions from the right
+        total_tabs = self.tab_widget.count() + 2  # +2 for Help and Contact
+        
+        # Step 3: Add the utility tabs at the end (right side)
+        self.tab_widget.insertTab(total_tabs - 2, self.help_tab, "Help")
+        self.tab_widget.insertTab(total_tabs - 1, self.contact_tab, "Contact")
+        
+        # Set the tab bar with close buttons only for certain tabs
+        self.tab_widget.setTabsClosable(False)
         
         main_layout.addWidget(self.tab_widget)
         

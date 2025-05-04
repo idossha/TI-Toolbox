@@ -322,17 +322,12 @@ class FlexSearchTab(QtWidgets.QWidget):
         self.stop_btn.setEnabled(False)
         self.stop_btn.setMinimumWidth(80)
         
-        self.help_btn = QtWidgets.QPushButton("Help")
-        self.help_btn.clicked.connect(self.show_help)
-        self.help_btn.setMinimumWidth(80)
-        
         self.clear_btn = QtWidgets.QPushButton("Clear Console")
         self.clear_btn.clicked.connect(self.clear_console)
         self.clear_btn.setMinimumWidth(100)
         
         buttons_layout.addWidget(self.run_btn)
         buttons_layout.addWidget(self.stop_btn)
-        buttons_layout.addWidget(self.help_btn)
         buttons_layout.addWidget(self.clear_btn)
         buttons_layout.addStretch()
         
@@ -653,140 +648,4 @@ class FlexSearchTab(QtWidgets.QWidget):
         """Handle subject selection change."""
         if index >= 0:
             self.find_available_eeg_nets()
-            self.find_available_atlases()
-    
-    def show_help(self):
-        """Show help dialog with detailed information about the Flex Search tool."""
-        help_dialog = QtWidgets.QDialog(self)
-        help_dialog.setWindowTitle("Flex Search Help")
-        help_dialog.setMinimumWidth(600)
-        help_dialog.setMinimumHeight(500)
-        
-        layout = QtWidgets.QVBoxLayout(help_dialog)
-        
-        # Create a scroll area for the help text
-        scroll_area = QtWidgets.QScrollArea()
-        scroll_area.setWidgetResizable(True)
-        
-        # Create a widget to hold the help content
-        help_widget = QtWidgets.QWidget()
-        help_layout = QtWidgets.QVBoxLayout(help_widget)
-        
-        # Help text sections
-        sections = [
-            {
-                "title": "What is Flex Search?",
-                "content": (
-                    "Flex Search is an electrode position optimization tool for temporal interference (TI) "
-                    "stimulation. It finds the optimal positions for two pairs of electrodes to target a "
-                    "specific region of interest (ROI) in the brain."
-                )
-            },
-            {
-                "title": "Optimization Parameters",
-                "content": (
-                    "<b>Subject Selection:</b><br>"
-                    "- Choose a subject ID from the dropdown menu<br><br>"
-                    
-                    "<b>Optimization Goal:</b><br>"
-                    "- <b>Maximize field in target ROI:</b> Finds electrode positions that maximize the TI field strength in the target region<br>"
-                    "- <b>Maximize normal component of field in ROI:</b> Optimizes for field components perpendicular to the cortical surface<br>"
-                    "- <b>Maximize focality:</b> Maximizes field in the target region while minimizing it elsewhere<br><br>"
-                    
-                    "<b>Post-processing Method:</b><br>"
-                    "- <b>Maximum TI field (max_TI):</b> Uses the maximum TI field amplitude<br>"
-                    "- <b>TI field normal to surface (dir_TI_normal):</b> Considers only the component perpendicular to the cortical surface<br>"
-                    "- <b>TI field tangential to surface (dir_TI_tangential):</b> Considers only the component parallel to the cortical surface<br><br>"
-                    
-                    "<b>EEG Net Template:</b><br>"
-                    "- Specifies the EEG electrode positions available for optimization<br>"
-                    "- Standard templates like EGI_256 provide 256 possible electrode positions<br><br>"
-                    
-                    "<b>Electrode Parameters:</b><br>"
-                    "- <b>Radius:</b> The radius of the electrodes in millimeters<br>"
-                    "- <b>Current:</b> The current amplitude in milliamperes (mA)<br>"
-                )
-            },
-            {
-                "title": "ROI Definition Methods",
-                "content": (
-                    "<b>Spherical ROI:</b><br>"
-                    "- Define a target region using X, Y, Z coordinates and a radius<br>"
-                    "- Coordinates are in subject space (millimeters)<br>"
-                    "- Simple way to target a specific location in the brain<br><br>"
-                    
-                    "<b>Cortical ROI:</b><br>"
-                    "- Uses atlas-based parcellation of the cortex<br>"
-                    "- Requires selecting an atlas file (.annot) and a label value<br>"
-                    "- More anatomically precise way to target specific brain regions<br>"
-                    "- Useful when targeting specific functional areas like M1, DLPFC, etc."
-                )
-            },
-            {
-                "title": "Optimization Process",
-                "content": (
-                    "1. The optimization algorithm evaluates many possible electrode positions<br>"
-                    "2. For each configuration, it simulates the TI field distribution<br>"
-                    "3. The algorithm converges on the set of positions that best achieve the selected goal<br>"
-                    "4. Results include optimal electrode positions and simulated field distributions<br><br>"
-                    
-                    "<b>Note:</b> This is a computationally intensive process and may take several minutes to hours, "
-                    "depending on the selected parameters and computational resources."
-                )
-            },
-            {
-                "title": "Output and Results",
-                "content": (
-                    "After optimization completes, results are saved in:<br>"
-                    "[PROJECT_DIR]/[SUBJECT_ID]/SimNIBS/flex-search/[ROI_PARAMETERS]/<br><br>"
-                    
-                    "The results include:<br>"
-                    "- Optimal electrode positions for both TI pairs<br>"
-                    "- Electric field simulations for the optimal configuration<br>"
-                    "- Visualization files compatible with the SimNIBS GUI<br>"
-                    "- Log files with optimization parameters and performance metrics"
-                )
-            },
-            {
-                "title": "Tips for Effective Optimization",
-                "content": (
-                    "- Start with the 'Maximize field in target ROI' goal for initial exploration<br>"
-                    "- Use spherical ROIs for quick tests, cortical ROIs for precise targeting<br>"
-                    "- The 'Maximize focality' goal is useful when targeting areas near sensitive regions<br>"
-                    "- Try different EEG net templates if available, as more electrode positions provide more flexibility<br>"
-                    "- Standard electrode radius (10mm) and current (2mA) work well for most applications<br>"
-                    "- Check the console output for progress and any potential issues"
-                )
-            }
-        ]
-        
-        # Add each section to the help layout
-        for section in sections:
-            # Section title
-            title_label = QtWidgets.QLabel(f"<h2>{section['title']}</h2>")
-            title_label.setTextFormat(QtCore.Qt.RichText)
-            help_layout.addWidget(title_label)
-            
-            # Section content
-            content_label = QtWidgets.QLabel(section['content'])
-            content_label.setTextFormat(QtCore.Qt.RichText)
-            content_label.setWordWrap(True)
-            help_layout.addWidget(content_label)
-            
-            # Add separator
-            separator = QtWidgets.QFrame()
-            separator.setFrameShape(QtWidgets.QFrame.HLine)
-            separator.setFrameShadow(QtWidgets.QFrame.Sunken)
-            help_layout.addWidget(separator)
-        
-        # Set the help widget as the scroll area's widget
-        scroll_area.setWidget(help_widget)
-        layout.addWidget(scroll_area)
-        
-        # Add OK button
-        button_box = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.Ok)
-        button_box.accepted.connect(help_dialog.accept)
-        layout.addWidget(button_box)
-        
-        # Show the dialog
-        help_dialog.exec_() 
+            self.find_available_atlases() 

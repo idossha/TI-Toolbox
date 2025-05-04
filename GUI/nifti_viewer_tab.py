@@ -89,11 +89,6 @@ class NiftiViewerTab(QtWidgets.QWidget):
         self.custom_load_btn.clicked.connect(self.load_custom_nifti)
         toolbar_layout.addWidget(self.custom_load_btn)
         
-        # Remove view options button and add help button
-        self.help_btn = QtWidgets.QPushButton("Help")
-        self.help_btn.clicked.connect(self.show_help)
-        toolbar_layout.addWidget(self.help_btn)
-        
         # Status label
         self.status_label = QtWidgets.QLabel("Ready to load NIfTI files")
         toolbar_layout.addWidget(self.status_label)
@@ -125,11 +120,19 @@ class NiftiViewerTab(QtWidgets.QWidget):
         
         main_layout.addWidget(self.cmd_frame)
         
-        # Add a reload button at the bottom
-        self.reload_btn = QtWidgets.QPushButton("Reload Current View")
-        self.reload_btn.clicked.connect(self.reload_current_view)
-        self.reload_btn.setEnabled(False)
-        main_layout.addWidget(self.reload_btn)
+        # Add help and reload buttons at the bottom
+        bottom_button_layout = QtWidgets.QHBoxLayout()
+        bottom_button_layout.addStretch()
+        
+        reload_btn = QtWidgets.QPushButton("Reload Current View")
+        reload_btn.clicked.connect(self.reload_current_view)
+        bottom_button_layout.addWidget(reload_btn)
+        
+        options_btn = QtWidgets.QPushButton("Visualization Options")
+        options_btn.clicked.connect(self.show_options)
+        bottom_button_layout.addWidget(options_btn)
+        
+        main_layout.addLayout(bottom_button_layout)
         
         # Check if Freeview is available
         self.check_freeview()
@@ -332,7 +335,6 @@ class NiftiViewerTab(QtWidgets.QWidget):
             formatted_cmd = formatted_cmd.rstrip(" \\\n")
             
             self.cmd_label.setText(formatted_cmd)
-            self.reload_btn.setEnabled(True)
             
             # Update info area with file details
             self.info_area.append("\nCurrently viewing:")
@@ -526,144 +528,4 @@ class NiftiViewerTab(QtWidgets.QWidget):
     def closeEvent(self, event):
         """Handle tab close event."""
         self.terminate_freeview()
-        super(NiftiViewerTab, self).closeEvent(event)
-    
-    def show_help(self):
-        """Show help dialog with detailed information about the NIfTI viewer."""
-        help_dialog = QtWidgets.QDialog(self)
-        help_dialog.setWindowTitle("NIfTI Viewer Help")
-        help_dialog.setMinimumWidth(600)
-        help_dialog.setMinimumHeight(500)
-        
-        layout = QtWidgets.QVBoxLayout(help_dialog)
-        
-        # Create a scroll area for the help text
-        scroll_area = QtWidgets.QScrollArea()
-        scroll_area.setWidgetResizable(True)
-        
-        # Create a widget to hold the help content
-        help_widget = QtWidgets.QWidget()
-        help_layout = QtWidgets.QVBoxLayout(help_widget)
-        
-        # Help text sections
-        sections = [
-            {
-                "title": "What are NIfTI Files?",
-                "content": (
-                    "NIfTI (Neuroimaging Informatics Technology Initiative) files are a standard format "
-                    "for storing neuroimaging data. They typically have .nii or .nii.gz extensions and "
-                    "contain 3D or 4D volumetric brain data from MRI, fMRI, or simulation results."
-                )
-            },
-            {
-                "title": "Interface Overview",
-                "content": (
-                    "<b>Subject Selection:</b><br>"
-                    "- Choose a subject ID from the dropdown<br>"
-                    "- Select between Subject space (native) or MNI space (standardized)<br>"
-                    "- Click 'Refresh' to update the subject list<br><br>"
-                    
-                    "<b>Actions:</b><br>"
-                    "- <b>Load Subject Data:</b> Loads the selected subject's anatomical (T1) and simulation results<br>"
-                    "- <b>Load Custom NIfTI:</b> Opens a file dialog to select your own NIfTI files<br>"
-                    "- <b>Reload Current View:</b> Reopens the current files in Freeview<br><br>"
-                    
-                    "<b>Information Area:</b><br>"
-                    "- Displays details about loaded files and settings<br>"
-                    "- Shows file paths, sizes, and visualization parameters<br><br>"
-                    
-                    "<b>Freeview Command:</b><br>"
-                    "- Shows the actual command used to launch Freeview<br>"
-                    "- Displays visualization parameters for each file"
-                )
-            },
-            {
-                "title": "Default Visualization Settings",
-                "content": (
-                    "When loading subject data, the following default settings are applied:<br><br>"
-                    
-                    "<b>T1 Anatomical:</b><br>"
-                    "- Displayed with grayscale colormap<br>"
-                    "- Visible by default<br><br>"
-                    
-                    "<b>Grey Matter Results:</b><br>"
-                    "- 'Heat' colormap showing values between 95-99.9 percentile<br>"
-                    "- 70% opacity<br>"
-                    "- Visible by default<br><br>"
-                    
-                    "<b>Full Results:</b><br>"
-                    "- 'Heat' colormap showing values between 95-99.9 percentile<br>"
-                    "- 70% opacity<br>"
-                    "- Hidden by default (must be enabled in Freeview)<br><br>"
-                    
-                    "<b>Note on Percentile Mode:</b><br>"
-                    "The default threshold (95-99.9%) means only the top 5% of values are displayed, "
-                    "focusing on the most significant results. This helps identify important areas "
-                    "while filtering out noise."
-                )
-            },
-            {
-                "title": "Using Freeview Controls",
-                "content": (
-                    "<b>Basic Navigation:</b><br>"
-                    "- Left-click and drag: Rotate 3D view<br>"
-                    "- Right-click and drag: Pan<br>"
-                    "- Mouse wheel: Zoom in/out<br>"
-                    "- Middle-click and drag: Adjust brightness/contrast<br><br>"
-                    
-                    "<b>Volume Controls:</b><br>"
-                    "- Check/uncheck volumes in the left panel to toggle visibility<br>"
-                    "- Click volume name to make it the active volume<br>"
-                    "- Use sliders to navigate through slices<br>"
-                    "- Use toolbar at top for additional view options<br><br>"
-                    
-                    "<b>Adjusting Display:</b><br>"
-                    "- Click on a volume name to select it<br>"
-                    "- Right-click on a volume name for additional options<br>"
-                    "- Adjust colormap, threshold, and opacity through Freeview's interface<br>"
-                    "- Use the 'Configure' button in Freeview for advanced options"
-                )
-            },
-            {
-                "title": "Tips for Visualizing Simulation Results",
-                "content": (
-                    "- View both grey matter and full results for a complete picture<br>"
-                    "- Toggle between different overlays to compare results<br>"
-                    "- Use the percentile mode for thresholds to focus on significant areas<br>"
-                    "- Try different colormaps (heat, jet) for different visualization effects<br>"
-                    "- Adjust opacity to see underlying anatomy through the results<br>"
-                    "- Save screenshots using Freeview's File > Save Screenshot option"
-                )
-            }
-        ]
-        
-        # Add each section to the help layout
-        for section in sections:
-            # Section title
-            title_label = QtWidgets.QLabel(f"<h2>{section['title']}</h2>")
-            title_label.setTextFormat(QtCore.Qt.RichText)
-            help_layout.addWidget(title_label)
-            
-            # Section content
-            content_label = QtWidgets.QLabel(section['content'])
-            content_label.setTextFormat(QtCore.Qt.RichText)
-            content_label.setWordWrap(True)
-            help_layout.addWidget(content_label)
-            
-            # Add separator
-            separator = QtWidgets.QFrame()
-            separator.setFrameShape(QtWidgets.QFrame.HLine)
-            separator.setFrameShadow(QtWidgets.QFrame.Sunken)
-            help_layout.addWidget(separator)
-        
-        # Set the help widget as the scroll area's widget
-        scroll_area.setWidget(help_widget)
-        layout.addWidget(scroll_area)
-        
-        # Add OK button
-        button_box = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.Ok)
-        button_box.accepted.connect(help_dialog.accept)
-        layout.addWidget(button_box)
-        
-        # Show the dialog
-        help_dialog.exec_() 
+        super(NiftiViewerTab, self).closeEvent(event) 

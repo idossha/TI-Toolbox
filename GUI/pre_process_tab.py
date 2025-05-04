@@ -261,12 +261,6 @@ class PreProcessTab(QtWidgets.QWidget):
         self.clear_btn.clicked.connect(self.clear_console)
         control_buttons_layout.addWidget(self.clear_btn)
         
-        # Help button
-        self.help_btn = QtWidgets.QPushButton("Help")
-        self.help_btn.clicked.connect(self.show_help)
-        control_buttons_layout.addWidget(self.help_btn)
-        
-        control_buttons_layout.addStretch()
         options_buttons_layout.addWidget(control_button_frame)
         
         main_container_layout.addWidget(options_buttons_widget)
@@ -555,7 +549,7 @@ class PreProcessTab(QtWidgets.QWidget):
                 self.console_output.append("Failed to terminate the pre-processing operation.")
     
     def clear_console(self):
-        """Clear the console output."""
+        """Clear the output console."""
         self.console_output.clear()
     
     def update_output(self, text):
@@ -573,140 +567,4 @@ class PreProcessTab(QtWidgets.QWidget):
 
     def clear_subject_selection(self):
         """Clear the selected subjects in the subject list."""
-        self.subject_list.clearSelection()
-
-    def show_help(self):
-        """Show help dialog with detailed information about the Pre-processing tool."""
-        help_dialog = QtWidgets.QDialog(self)
-        help_dialog.setWindowTitle("Pre-processing Help")
-        help_dialog.setMinimumWidth(600)
-        help_dialog.setMinimumHeight(500)
-        
-        layout = QtWidgets.QVBoxLayout(help_dialog)
-        
-        # Create a scroll area for the help text
-        scroll_area = QtWidgets.QScrollArea()
-        scroll_area.setWidgetResizable(True)
-        
-        # Create a widget to hold the help content
-        help_widget = QtWidgets.QWidget()
-        help_layout = QtWidgets.QVBoxLayout(help_widget)
-        
-        # Help text sections
-        sections = [
-            {
-                "title": "What is Pre-processing?",
-                "content": (
-                    "Pre-processing is the first step in preparing neuroimaging data for TI-CSC simulations. "
-                    "It involves converting DICOM images to NIfTI format, creating head models using FreeSurfer "
-                    "and SimNIBS, and preparing the data for subsequent simulation and analysis."
-                )
-            },
-            {
-                "title": "Subject Selection",
-                "content": (
-                    "<b>Multiple Subject Selection:</b><br>"
-                    "- Select one or more subjects from the list using Ctrl+click or Shift+click<br>"
-                    "- The 'Select All' button selects all available subjects<br>"
-                    "- The 'Clear Selection' button clears all selected subjects<br>"
-                    "- The 'Refresh List' button updates the subject list from the project directory<br><br>"
-                    
-                    "Each subject must have a directory structure with:<br>"
-                    "- /anat/raw/ - Directory for raw DICOM files<br>"
-                    "- /anat/niftis/ - Directory for converted NIfTI files<br>"
-                    "- /anat/freesurfer/ - Directory for FreeSurfer reconstruction output<br>"
-                    "- /SimNIBS/ - Directory for SimNIBS head models"
-                )
-            },
-            {
-                "title": "Processing Options",
-                "content": (
-                    "<b>Convert DICOM files to NIfTI:</b><br>"
-                    "- Converts medical DICOM images into NIfTI format (.nii or .nii.gz)<br>"
-                    "- Requires raw DICOM files in the subject's /anat/raw/ directory<br>"
-                    "- Automatically identifies T1 and T2 images based on metadata<br><br>"
-                    
-                    "<b>Run FreeSurfer recon-all:</b><br>"
-                    "- Performs structural MRI analysis using FreeSurfer's recon-all<br>"
-                    "- Creates cortical surface models and anatomical parcellations<br>"
-                    "- This is a computationally intensive step that can take several hours<br><br>"
-                    
-                    "<b>Run FreeSurfer reconstruction in parallel:</b><br>"
-                    "- Uses GNU Parallel to accelerate processing when handling multiple subjects<br>"
-                    "- Only applies when 'Run FreeSurfer recon-all' is selected<br>"
-                    "- Requires GNU Parallel to be installed on the system<br><br>"
-                    
-                    "<b>Create SimNIBS m2m folder:</b><br>"
-                    "- Runs the SimNIBS charm tool to create subject-specific head models<br>"
-                    "- Generates meshes necessary for electromagnetic field simulations<br>"
-                    "- Creates the m2m_[SUBJECT_ID] directory in the SimNIBS folder<br><br>"
-                    
-                    "<b>Run in quiet mode:</b><br>"
-                    "- Suppresses detailed output during processing<br>"
-                    "- Useful for batch processing to reduce log size"
-                )
-            },
-            {
-                "title": "Processing Workflow",
-                "content": (
-                    "The typical pre-processing workflow follows these steps:<br><br>"
-                    
-                    "1. <b>DICOM to NIfTI Conversion:</b><br>"
-                    "   - Raw DICOM files are identified and converted to NIfTI format<br>"
-                    "   - T1 and T2 images are detected and properly named<br><br>"
-                    
-                    "2. <b>FreeSurfer Reconstruction:</b><br>"
-                    "   - T1 images are processed using FreeSurfer's recon-all<br>"
-                    "   - Creates cortical surface models and segmentation of brain structures<br><br>"
-                    
-                    "3. <b>SimNIBS Head Model Creation:</b><br>"
-                    "   - Uses the SimNIBS charm tool to create realistic head models<br>"
-                    "   - Generates mesh files for FEM simulations<br><br>"
-                    
-                    "Once pre-processing is complete, the subject data is ready for TI-CSC simulations."
-                )
-            },
-            {
-                "title": "Tips and Troubleshooting",
-                "content": (
-                    "- Ensure that raw DICOM files are properly organized in the subject's /anat/raw/ directory<br>"
-                    "- T1-weighted MRI scans are required for FreeSurfer reconstruction<br>"
-                    "- T2-weighted MRI scans are optional but improve head model quality<br>"
-                    "- When processing multiple subjects, consider using parallel processing<br>"
-                    "- The Console Output window shows real-time progress and any error messages<br>"
-                    "- If processing fails, check the console output for specific error messages<br>"
-                    "- The Stop button can be used to terminate processing, but may leave files in an inconsistent state"
-                )
-            }
-        ]
-        
-        # Add each section to the help layout
-        for section in sections:
-            # Section title
-            title_label = QtWidgets.QLabel(f"<h2>{section['title']}</h2>")
-            title_label.setTextFormat(QtCore.Qt.RichText)
-            help_layout.addWidget(title_label)
-            
-            # Section content
-            content_label = QtWidgets.QLabel(section['content'])
-            content_label.setTextFormat(QtCore.Qt.RichText)
-            content_label.setWordWrap(True)
-            help_layout.addWidget(content_label)
-            
-            # Add separator
-            separator = QtWidgets.QFrame()
-            separator.setFrameShape(QtWidgets.QFrame.HLine)
-            separator.setFrameShadow(QtWidgets.QFrame.Sunken)
-            help_layout.addWidget(separator)
-        
-        # Set the help widget as the scroll area's widget
-        scroll_area.setWidget(help_widget)
-        layout.addWidget(scroll_area)
-        
-        # Add OK button
-        button_box = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.Ok)
-        button_box.accepted.connect(help_dialog.accept)
-        layout.addWidget(button_box)
-        
-        # Show the dialog
-        help_dialog.exec_() 
+        self.subject_list.clearSelection() 
