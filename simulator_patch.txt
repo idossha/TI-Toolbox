@@ -1,0 +1,51 @@
+# Check if direct execution from GUI is requested
+if [[ "$1" == "--run-direct" ]]; then
+    echo "Running in direct execution mode from GUI"
+    
+    # Check for required environment variables
+    if [[ -z "$SUBJECTS" || -z "$CONDUCTIVITY" || -z "$SIM_MODE" || -z "$SELECTED_MONTAGES" ]]; then
+        echo -e "${RED}Error: Missing required environment variables for direct execution.${RESET}"
+        echo "Required: SUBJECTS, CONDUCTIVITY, SIM_MODE, SELECTED_MONTAGES"
+        exit 1
+    fi
+    
+    # Set variables from environment without prompting
+    subject_choices="$SUBJECTS"
+    conductivity="$CONDUCTIVITY"
+    sim_mode="$SIM_MODE"
+    
+    # Set up mode-specific variables
+    if [[ "$sim_mode" == "U" ]]; then
+        montage_type="uni_polar_montages"
+        main_script="main-TI.sh"
+        montage_type_text="Unipolar"
+    elif [[ "$sim_mode" == "M" ]]; then
+        montage_type="multi_polar_montages"
+        main_script="main-mTI.sh"
+        montage_type_text="Multipolar"
+    fi
+    
+    # Parse selected montages
+    selected_montages=($SELECTED_MONTAGES)
+    
+    # Set electrode parameters
+    electrode_shape="${ELECTRODE_SHAPE:-rect}"
+    dimensions="${DIMENSIONS:-50,50}"
+    thickness="${THICKNESS:-5}"
+    current="${CURRENT:-2.0}"
+    
+    # Skip to execution
+    echo "Running simulation with:"
+    echo "  - Subjects: $subject_choices"
+    echo "  - Simulation type: $conductivity"
+    echo "  - Mode: $montage_type_text"
+    echo "  - Montages: ${selected_montages[*]}"
+    echo "  - Electrode shape: $electrode_shape"
+    echo "  - Dimensions: $dimensions mm"
+    echo "  - Thickness: $thickness mm" 
+    echo "  - Current: $current mA"
+    
+    # Jump directly to execution
+    run_simulation
+    exit 0
+fi 
