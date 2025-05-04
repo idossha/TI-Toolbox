@@ -113,44 +113,53 @@ class PreProcessTab(QtWidgets.QWidget):
         scroll_content = QtWidgets.QWidget()
         scroll_layout = QtWidgets.QVBoxLayout(scroll_content)
         
-        # Form layout for pre-process options
-        form_layout = QtWidgets.QFormLayout()
+        # Main container with consistent width
+        main_container = QtWidgets.QWidget()
+        main_container_layout = QtWidgets.QVBoxLayout(main_container)
+        main_container_layout.setContentsMargins(0, 0, 0, 0)
         
         # Project directory section
+        project_dir_widget = QtWidgets.QWidget()
+        project_dir_layout = QtWidgets.QHBoxLayout(project_dir_widget)
+        project_dir_layout.setContentsMargins(0, 0, 0, 0)
+        
         self.project_dir_label = QtWidgets.QLabel("Project Directory:")
+        project_dir_layout.addWidget(self.project_dir_label)
+        
         self.project_dir_input = QtWidgets.QLineEdit()
         self.project_dir_input.setReadOnly(True)
+        project_dir_layout.addWidget(self.project_dir_input)
+        
         self.browse_project_btn = QtWidgets.QPushButton("Browse")
         self.browse_project_btn.clicked.connect(self.browse_project_dir)
-        project_dir_layout = QtWidgets.QHBoxLayout()
-        project_dir_layout.addWidget(self.project_dir_input)
+        self.browse_project_btn.setFixedWidth(120)
         project_dir_layout.addWidget(self.browse_project_btn)
-        form_layout.addRow(self.project_dir_label, project_dir_layout)
         
-        # Subject selection - using list widget for multiple selection
+        main_container_layout.addWidget(project_dir_widget)
+        
+        # Subject selection section
+        subject_widget = QtWidgets.QWidget()
+        subject_layout = QtWidgets.QHBoxLayout(subject_widget)
+        subject_layout.setContentsMargins(0, 0, 0, 0)
+        
         self.subject_label = QtWidgets.QLabel("Subjects:")
+        subject_layout.addWidget(self.subject_label)
         
-        # Create a horizontal layout for subject selection area
-        subject_selection_layout = QtWidgets.QHBoxLayout()
-        
-        # Create list widget for multiple subject selection with reduced width
+        # Create list widget for multiple subject selection
         self.subject_list = QtWidgets.QListWidget()
         self.subject_list.setSelectionMode(QtWidgets.QAbstractItemView.ExtendedSelection)
-        self.subject_list.setMinimumHeight(150)  # Set a reasonable height
-        subject_selection_layout.addWidget(self.subject_list, 3)  # Give list 3 parts of the space
+        self.subject_list.setMinimumHeight(150)
+        subject_layout.addWidget(self.subject_list)
         
-        # Add a small spacing between list and buttons
-        subject_selection_layout.addSpacing(10)
-        
-        # Subject selection buttons - stacked vertically in a frame with fixed width
+        # Subject selection buttons
         button_frame = QtWidgets.QFrame()
         button_frame.setFrameStyle(QtWidgets.QFrame.NoFrame)
-        button_frame.setFixedWidth(120)  # Set fixed width for button container
+        button_frame.setFixedWidth(120)  # Same width as browse button
         
         selection_buttons_layout = QtWidgets.QVBoxLayout(button_frame)
-        selection_buttons_layout.setContentsMargins(0, 0, 0, 0)  # Remove margins
-        selection_buttons_layout.setSpacing(8)  # Add spacing between buttons
-        selection_buttons_layout.setAlignment(QtCore.Qt.AlignTop)  # Align buttons to top
+        selection_buttons_layout.setContentsMargins(0, 0, 0, 0)
+        selection_buttons_layout.setSpacing(8)
+        selection_buttons_layout.setAlignment(QtCore.Qt.AlignTop)
         
         # Create buttons with consistent styling
         button_style = """
@@ -183,18 +192,17 @@ class PreProcessTab(QtWidgets.QWidget):
         self.refresh_subjects_btn.setStyleSheet(button_style)
         selection_buttons_layout.addWidget(self.refresh_subjects_btn)
         
-        # Add stretcher to push buttons to the top
         selection_buttons_layout.addStretch()
+        subject_layout.addWidget(button_frame)
         
-        # Add the button frame to the right of the list
-        subject_selection_layout.addWidget(button_frame, 1)  # Give buttons 1 part of the space
+        main_container_layout.addWidget(subject_widget)
         
-        form_layout.addRow(self.subject_label, subject_selection_layout)
+        # Options and control buttons section with consistent layout
+        options_buttons_widget = QtWidgets.QWidget()
+        options_buttons_layout = QtWidgets.QHBoxLayout(options_buttons_widget)
+        options_buttons_layout.setContentsMargins(0, 0, 0, 0)
         
-        # Create a horizontal layout for options and control buttons
-        options_buttons_layout = QtWidgets.QHBoxLayout()
-        
-        # Pre-processing options group (left side)
+        # Pre-processing options group
         self.options_group = QtWidgets.QGroupBox("Processing Options")
         options_layout = QtWidgets.QVBoxLayout(self.options_group)
         
@@ -208,9 +216,9 @@ class PreProcessTab(QtWidgets.QWidget):
         self.run_recon_cb.setChecked(True)
         options_layout.addWidget(self.run_recon_cb)
         
-        # Parallel processing (dependent on recon-all)
+        # Parallel processing
         self.parallel_cb = QtWidgets.QCheckBox("Run FreeSurfer reconstruction in parallel (requires GNU Parallel)")
-        self.parallel_cb.setEnabled(True)  # Initially enabled because recon-all is checked by default
+        self.parallel_cb.setEnabled(True)
         options_layout.addWidget(self.parallel_cb)
         self.run_recon_cb.toggled.connect(self.toggle_dependent_options)
         
@@ -223,16 +231,15 @@ class PreProcessTab(QtWidgets.QWidget):
         self.quiet_cb = QtWidgets.QCheckBox("Run in quiet mode (suppress output)")
         options_layout.addWidget(self.quiet_cb)
         
-        # Add options group to the left side of the layout
-        options_buttons_layout.addWidget(self.options_group, 3)  # Options take 3 parts of the width
+        options_buttons_layout.addWidget(self.options_group)
         
-        # Add control buttons on the right side
+        # Control buttons - same width as subject selection buttons
         control_button_frame = QtWidgets.QFrame()
         control_button_frame.setFrameStyle(QtWidgets.QFrame.NoFrame)
-        control_button_frame.setFixedWidth(150)  # Set fixed width for control buttons
+        control_button_frame.setFixedWidth(120)  # Match previous button width
         
         control_buttons_layout = QtWidgets.QVBoxLayout(control_button_frame)
-        control_buttons_layout.setContentsMargins(0, 22, 0, 0)  # Add top margin to align with options box header
+        control_buttons_layout.setContentsMargins(0, 22, 0, 0)  # Top margin to align with options box header
         control_buttons_layout.setSpacing(10)
         control_buttons_layout.setAlignment(QtCore.Qt.AlignTop)
         
@@ -259,15 +266,14 @@ class PreProcessTab(QtWidgets.QWidget):
         self.help_btn.clicked.connect(self.show_help)
         control_buttons_layout.addWidget(self.help_btn)
         
-        # Add stretcher to keep buttons at the top aligned with options
         control_buttons_layout.addStretch()
+        options_buttons_layout.addWidget(control_button_frame)
         
-        # Add control button frame to the right side of the layout
-        options_buttons_layout.addWidget(control_button_frame, 1)  # Buttons take 1 part of the width
+        main_container_layout.addWidget(options_buttons_widget)
         
-        # Add the options and buttons layout to the form
-        scroll_layout.addLayout(form_layout)
-        scroll_layout.addLayout(options_buttons_layout)
+        # Add main container to scroll layout
+        scroll_layout.addWidget(main_container)
+        scroll_layout.addStretch()
         
         # Finish scroll area setup
         scroll_area.setWidget(scroll_content)

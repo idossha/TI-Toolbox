@@ -97,6 +97,10 @@ class SimulatorTab(QtWidgets.QWidget):
         self.simulation_process = None
         self.setup_ui()
         
+        # Initialize with available subjects and montages
+        QtCore.QTimer.singleShot(500, self.list_subjects)
+        QtCore.QTimer.singleShot(700, self.update_montage_list)
+        
     def setup_ui(self):
         """Set up the user interface for the simulator tab."""
         main_layout = QtWidgets.QVBoxLayout(self)
@@ -110,15 +114,63 @@ class SimulatorTab(QtWidgets.QWidget):
         # Form layout for simulator options
         form_layout = QtWidgets.QFormLayout()
         
-        # Subject selection
-        self.subject_label = QtWidgets.QLabel("Subject(s):")
-        self.subject_input = QtWidgets.QLineEdit()
-        self.list_subjects_btn = QtWidgets.QPushButton("List Available Subjects")
+        # Create a horizontal layout for subject and montage selections
+        subjects_montages_layout = QtWidgets.QHBoxLayout()
+        
+        # Left side - Subject selection
+        subject_container = QtWidgets.QGroupBox("Subject(s)")
+        subject_layout = QtWidgets.QVBoxLayout(subject_container)
+        
+        # List widget for subject selection
+        self.subject_list = QtWidgets.QListWidget()
+        self.subject_list.setSelectionMode(QtWidgets.QAbstractItemView.ExtendedSelection)
+        self.subject_list.setMinimumHeight(100)
+        subject_layout.addWidget(self.subject_list)
+        
+        # Subject control buttons
+        subject_button_layout = QtWidgets.QHBoxLayout()
+        self.list_subjects_btn = QtWidgets.QPushButton("Refresh List")
         self.list_subjects_btn.clicked.connect(self.list_subjects)
-        subject_layout = QtWidgets.QHBoxLayout()
-        subject_layout.addWidget(self.subject_input)
-        subject_layout.addWidget(self.list_subjects_btn)
-        form_layout.addRow(self.subject_label, subject_layout)
+        self.select_all_subjects_btn = QtWidgets.QPushButton("Select All")
+        self.select_all_subjects_btn.clicked.connect(self.select_all_subjects)
+        self.clear_subject_selection_btn = QtWidgets.QPushButton("Clear")
+        self.clear_subject_selection_btn.clicked.connect(self.clear_subject_selection)
+        
+        subject_button_layout.addWidget(self.list_subjects_btn)
+        subject_button_layout.addWidget(self.select_all_subjects_btn)
+        subject_button_layout.addWidget(self.clear_subject_selection_btn)
+        subject_layout.addLayout(subject_button_layout)
+        
+        # Right side - Montage selection
+        montage_container = QtWidgets.QGroupBox("Montage(s)")
+        montage_layout = QtWidgets.QVBoxLayout(montage_container)
+        
+        # List widget for montage selection
+        self.montage_list = QtWidgets.QListWidget()
+        self.montage_list.setSelectionMode(QtWidgets.QAbstractItemView.ExtendedSelection)
+        self.montage_list.setMinimumHeight(100)
+        montage_layout.addWidget(self.montage_list)
+        
+        # Montage control buttons
+        montage_button_layout = QtWidgets.QHBoxLayout()
+        self.list_montages_btn = QtWidgets.QPushButton("Refresh List")
+        self.list_montages_btn.clicked.connect(self.update_montage_list)
+        self.select_all_montages_btn = QtWidgets.QPushButton("Select All")
+        self.select_all_montages_btn.clicked.connect(self.select_all_montages)
+        self.clear_montage_selection_btn = QtWidgets.QPushButton("Clear")
+        self.clear_montage_selection_btn.clicked.connect(self.clear_montage_selection)
+        
+        montage_button_layout.addWidget(self.list_montages_btn)
+        montage_button_layout.addWidget(self.select_all_montages_btn)
+        montage_button_layout.addWidget(self.clear_montage_selection_btn)
+        montage_layout.addLayout(montage_button_layout)
+        
+        # Add subject and montage containers to the horizontal layout
+        subjects_montages_layout.addWidget(subject_container)
+        subjects_montages_layout.addWidget(montage_container)
+        
+        # Add the combined layout to the form
+        form_layout.addRow(subjects_montages_layout)
         
         # Simulation type (Isotropic/Anisotropic)
         self.sim_type_label = QtWidgets.QLabel("Simulation Type:")
@@ -137,20 +189,10 @@ class SimulatorTab(QtWidgets.QWidget):
         self.sim_mode_unipolar.setChecked(True)
         self.sim_mode_layout.addWidget(self.sim_mode_unipolar)
         self.sim_mode_layout.addWidget(self.sim_mode_multipolar)
+        # Connect mode radio buttons to update montage list
+        self.sim_mode_unipolar.toggled.connect(self.update_montage_list)
+        self.sim_mode_multipolar.toggled.connect(self.update_montage_list)
         form_layout.addRow(self.sim_mode_label, self.sim_mode_layout)
-        
-        # Montages
-        self.montage_label = QtWidgets.QLabel("Montage:")
-        self.montage_input = QtWidgets.QLineEdit()
-        self.montage_browse_btn = QtWidgets.QPushButton("Browse")
-        self.montage_browse_btn.clicked.connect(self.browse_montage)
-        self.list_montages_btn = QtWidgets.QPushButton("List Available Montages")
-        self.list_montages_btn.clicked.connect(self.list_montages)
-        montage_layout = QtWidgets.QHBoxLayout()
-        montage_layout.addWidget(self.montage_input)
-        montage_layout.addWidget(self.montage_browse_btn)
-        montage_layout.addWidget(self.list_montages_btn)
-        form_layout.addRow(self.montage_label, montage_layout)
         
         # Simulation Parameters group
         self.sim_params_group = QtWidgets.QGroupBox("Simulation Parameters")
@@ -160,8 +202,8 @@ class SimulatorTab(QtWidgets.QWidget):
         current_layout = QtWidgets.QHBoxLayout()
         self.current_label = QtWidgets.QLabel("Current Value (mA):")
         self.current_input = QtWidgets.QLineEdit()
-        self.current_input.setPlaceholderText("2.0")
-        self.current_input.setText("2.0")  # Default value
+        self.current_input.setPlaceholderText("1.0")
+        self.current_input.setText("1.0")  # Set default to 1.0 mA
         current_layout.addWidget(self.current_label)
         current_layout.addWidget(self.current_input)
         sim_params_layout.addLayout(current_layout)
@@ -174,23 +216,22 @@ class SimulatorTab(QtWidgets.QWidget):
         self.electrode_shape_combo = QtWidgets.QComboBox()
         self.electrode_shape_combo.addItem("Rectangle", "rect")
         self.electrode_shape_combo.addItem("Ellipse", "ellipse")
+        self.electrode_shape_combo.setCurrentIndex(1)  # Set default to Ellipse
         electrode_geometry_layout.addRow(self.electrode_shape_label, self.electrode_shape_combo)
         
         # Electrode dimensions
         self.dimensions_label = QtWidgets.QLabel("Dimensions (mm, x,y):")
         self.dimensions_input = QtWidgets.QLineEdit()
-        self.dimensions_input.setPlaceholderText("50,50")
-        self.dimensions_input.setText("50,50")  # Default value
+        self.dimensions_input.setPlaceholderText("8,8")
+        self.dimensions_input.setText("8,8")  # Set default to 8,8
         electrode_geometry_layout.addRow(self.dimensions_label, self.dimensions_input)
         
         # Electrode thickness
         self.thickness_label = QtWidgets.QLabel("Thickness (mm):")
         self.thickness_input = QtWidgets.QLineEdit()
-        self.thickness_input.setPlaceholderText("5")
-        self.thickness_input.setText("5")  # Default value
+        self.thickness_input.setPlaceholderText("8")
+        self.thickness_input.setText("8")  # Set default to 8mm
         electrode_geometry_layout.addRow(self.thickness_label, self.thickness_input)
-        
-
         
         sim_params_layout.addLayout(electrode_geometry_layout)
         form_layout.addRow(self.sim_params_group)
@@ -347,7 +388,7 @@ class SimulatorTab(QtWidgets.QWidget):
                 color: #888888;
             }
         """)
-        self.stop_btn.setVisible(False)
+        self.stop_btn.setEnabled(False)  # Initially disabled instead of hidden
         
         # Button layout
         button_layout = QtWidgets.QHBoxLayout()
@@ -360,7 +401,9 @@ class SimulatorTab(QtWidgets.QWidget):
             self.stop_btn.setIcon(QtGui.QIcon.fromTheme("media-playback-stop"))
             self.list_subjects_btn.setIcon(QtGui.QIcon.fromTheme("view-list"))
             self.list_montages_btn.setIcon(QtGui.QIcon.fromTheme("view-list"))
-            self.montage_browse_btn.setIcon(QtGui.QIcon.fromTheme("document-open"))
+            self.clear_subject_selection_btn.setIcon(QtGui.QIcon.fromTheme("view-list"))
+            self.select_all_subjects_btn.setIcon(QtGui.QIcon.fromTheme("view-list"))
+            self.clear_montage_selection_btn.setIcon(QtGui.QIcon.fromTheme("view-list"))
             self.add_montage_btn.setIcon(QtGui.QIcon.fromTheme("list-add"))
         
         # Add form layout to scroll layout
@@ -410,6 +453,9 @@ class SimulatorTab(QtWidgets.QWidget):
     def list_subjects(self):
         """List available subjects and display them."""
         try:
+            # Clear current list
+            self.subject_list.clear()
+            
             # Get the base directory
             script_dir = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
             
@@ -442,10 +488,10 @@ class SimulatorTab(QtWidgets.QWidget):
                     
                     self.output_console.append('</div></div>')
                     
-                    # Update the subject input field with comma-separated subject list
-                    self.subject_input.setText(",".join(subjects))
+                    # Update the subject list with the available subjects
+                    self.subject_list.addItems(subjects)
                     
-                    self.update_output(f"Found {len(subjects)} subjects. Input field updated.")
+                    self.update_output(f"Found {len(subjects)} subjects. Subject list updated.")
                 else:
                     self.update_output("No subjects found in the project directory.")
             else:
@@ -454,6 +500,79 @@ class SimulatorTab(QtWidgets.QWidget):
         except Exception as e:
             self.update_output(f"Error: {str(e)}")
     
+    def select_all_subjects(self):
+        """Select all subjects in the subject list."""
+        self.subject_list.selectAll()
+    
+    def clear_subject_selection(self):
+        """Clear the selection in the subject list."""
+        self.subject_list.clearSelection()
+    
+    def select_all_montages(self):
+        """Select all montages in the montage list."""
+        self.montage_list.selectAll()
+    
+    def clear_montage_selection(self):
+        """Clear the selection in the montage list."""
+        self.montage_list.clearSelection()
+    
+    def update_montage_list(self, checked=None):
+        """Update the montage list based on the selected simulation mode."""
+        # Clear current list
+        self.montage_list.clear()
+        
+        try:
+            # Use environment variable for project directory like simulator.sh does
+            project_dir_name = os.environ.get('PROJECT_DIR_NAME', 'BIDS_test')
+            project_dir = f"/mnt/{project_dir_name}"
+            utils_dir = os.path.join(project_dir, "utils")
+            montage_file = os.path.join(utils_dir, "montage_list.json")
+            
+            self.update_output(f"Looking for montages in: {montage_file}")
+            
+            if os.path.exists(montage_file):
+                with open(montage_file, 'r') as f:
+                    montage_data = json.load(f)
+                
+                # Create expected structure if needed
+                if not isinstance(montage_data, dict):
+                    self.update_output(f"Warning: Unexpected data type in montage file: {type(montage_data).__name__}. Creating new structure.")
+                    montage_data = {"uni_polar_montages": {}, "multi_polar_montages": {}}
+                
+                # Ensure the required keys exist
+                if "uni_polar_montages" not in montage_data:
+                    montage_data["uni_polar_montages"] = {}
+                if "multi_polar_montages" not in montage_data:
+                    montage_data["multi_polar_montages"] = {}
+                
+                # Get montages for the selected mode
+                is_unipolar = self.sim_mode_unipolar.isChecked()
+                montage_type = "uni_polar_montages" if is_unipolar else "multi_polar_montages"
+                mode_text = "Unipolar" if is_unipolar else "Multipolar"
+                
+                montages = montage_data[montage_type]
+                
+                if isinstance(montages, dict) and montages:
+                    # Add montages to the list widget
+                    for montage_name in montages.keys():
+                        self.montage_list.addItem(montage_name)
+                    
+                    self.update_output(f"Found {len(montages)} {mode_text.lower()} montages.")
+                else:
+                    self.update_output(f"No {mode_text.lower()} montages found.")
+            else:
+                self.update_output(f"Montage file not found: {montage_file}")
+                
+        except Exception as e:
+            self.update_output(f"Error updating montage list: {str(e)}")
+            
+        # Update the electrode inputs view
+        if checked is not None:
+            if checked:  # Unipolar selected
+                self.electrode_stacked_widget.setCurrentIndex(0)
+            else:  # Multipolar selected
+                self.electrode_stacked_widget.setCurrentIndex(1)
+                
     def list_montages(self):
         """List available montages from montage_list.json."""
         try:
@@ -554,7 +673,7 @@ class SimulatorTab(QtWidgets.QWidget):
         )
         
         if file_name:
-            self.montage_input.setText(file_name)
+            self.montage_list.addItem(file_name)
             self.output_console.append(f"Selected montage file: {file_name}")
     
     def add_montage(self):
@@ -684,8 +803,8 @@ class SimulatorTab(QtWidgets.QWidget):
                     getattr(self, f"multi_pair{i}_e1").clear()
                     getattr(self, f"multi_pair{i}_e2").clear()
             
-            # Update the montage field with the newly added montage
-            self.montage_input.setText(montage_name)
+            # Update the montage list with the newly added montage
+            self.montage_list.addItem(montage_name)
             
             # Refresh the list of montages
             self.list_montages()
@@ -707,152 +826,148 @@ class SimulatorTab(QtWidgets.QWidget):
             return False
     
     def run_simulation(self):
-        """Run the simulation with the provided parameters."""
+        """Run the simulation with the selected parameters."""
+        if self.simulation_running:
+            self.output_console.append("A simulation is already running.")
+            return
+        
         try:
-            # Clear console at the start of a new simulation
-            if not self.simulation_running:
-                self.clear_console()
-            
-            # Display header
-            self.output_console.append('<div style="margin: 10px 0;"><span style="color: #55ffff; font-size: 16px; font-weight: bold;">🧠 TI-CSC-2.0 SIMULATION 🧠</span></div>')
-            self.output_console.append('<div style="border-bottom: 1px solid #555; margin-bottom: 10px;"></div>')
-            
-            # Get parameters from UI
-            subjects = self.subject_input.text().strip()
-            conductivity = self.sim_type_combo.currentData()
-            
-            sim_mode = "U" if self.sim_mode_unipolar.isChecked() else "M"
-            montage = self.montage_input.text().strip()
-            
-            # Get parameters from Simulation Parameters section
-            current = self.current_input.text().strip()
-            if not current or not self.validate_current(current):
-                self.update_output("Error: Invalid current value (should be a number)")
+            # Check if subjects and montages are selected
+            selected_subjects = self.subject_list.selectedItems()
+            if not selected_subjects:
+                self.update_output("Error: No subjects selected.")
                 return
-                
-            electrode_shape = self.electrode_shape_combo.currentData()
+            
+            selected_montages = self.montage_list.selectedItems()
+            if not selected_montages:
+                self.update_output("Error: No montages selected.")
+                return
+            
+            # Get simulation parameters from UI
+            conductivity = self.sim_type_combo.currentData()
+            sim_mode = "U" if self.sim_mode_unipolar.isChecked() else "M"
+            
+            # Get electrode parameters
+            current = self.current_input.text().strip()
+            if not self.validate_current(current):
+                self.update_output("Error: Invalid current value. Please enter a valid number.")
+                return
+            
+            shape = self.electrode_shape_combo.currentData()
             dimensions = self.dimensions_input.text().strip()
             thickness = self.thickness_input.text().strip()
             
-            # Validate the dimensions and thickness
-            if not dimensions or not re.match(r'^\d+,\d+$', dimensions):
-                self.update_output("Error: Invalid dimensions format (should be x,y)")
-                return
-                
-            if not thickness or not re.match(r'^\d+(\.\d+)?$', thickness):
-                self.update_output("Error: Invalid thickness value (should be a number)")
-                return
-                
-            # Validate inputs
-            if not subjects:
-                self.update_output("Error: Please select at least one subject")
-                return
-                
-            if not montage:
-                self.update_output("Error: Please select a montage")
+            # Validation for dimensions
+            dimension_match = re.match(r'^\s*(\d+(?:\.\d+)?)\s*,\s*(\d+(?:\.\d+)?)\s*$', dimensions)
+            if not dimension_match:
+                self.update_output("Error: Dimensions must be in format 'x,y' (e.g., '8,8').")
                 return
             
-            # Get path to simulator.sh (the CLI entry point)
-            script_dir = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
-            simulator_script = os.path.join(script_dir, "simulator.sh")
+            # Validation for thickness
+            try:
+                thickness_value = float(thickness)
+                if thickness_value <= 0:
+                    raise ValueError("Thickness must be positive")
+            except ValueError:
+                self.update_output("Error: Thickness must be a positive number.")
+                return
             
-            self.update_output(f"Using simulator script at: {simulator_script}")
+            # Get path to simulator.sh in the root directory
+            script_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            simulator_path = os.path.join(script_dir, "simulator.sh")
             
-            # Get project directory information
-            project_dir_name = os.environ.get('PROJECT_DIR_NAME', 'BIDS_test')
-            project_dir = f"/mnt/{project_dir_name}"
-            self.update_output(f"Project directory: {project_dir}")
+            # Create lists of subjects and montages
+            subjects = [item.text() for item in selected_subjects]
+            montages = [item.text() for item in selected_montages]
             
-            # Debug path information for a selected subject
-            if "," in subjects:
-                subject_list = subjects.split(",")
-                first_subject = subject_list[0].strip()
-            else:
-                first_subject = subjects.strip()
+            # Format for display
+            subjects_str = ", ".join(subjects)
+            montages_str = ", ".join(montages)
+            
+            # Display simulation overview
+            self.update_output("\nSimulation Overview:")
+            self.update_output(f"- Subjects: {subjects_str}")
+            self.update_output(f"- Montages: {montages_str}")
+            self.update_output(f"- Simulation Type: {self.sim_type_combo.currentText()}")
+            self.update_output(f"- Simulation Mode: {'Unipolar' if sim_mode == 'U' else 'Multipolar'}")
+            self.update_output(f"- Current: {current} mA")
+            self.update_output(f"- Electrode Shape: {self.electrode_shape_combo.currentText()}")
+            self.update_output(f"- Dimensions: {dimensions} mm")
+            self.update_output(f"- Thickness: {thickness} mm")
+            
+            # Calculate total number of simulations
+            total_simulations = len(subjects)
+            
+            reply = QtWidgets.QMessageBox.question(
+                self, 
+                "Confirm Simulation",
+                f"Run {total_simulations} simulation(s) with the following settings?\n\n"
+                f"Subjects ({len(subjects)}): {subjects_str}\n"
+                f"Montages ({len(montages)}): {montages_str}\n"
+                f"Simulation Type: {self.sim_type_combo.currentText()}\n"
+                f"Simulation Mode: {'Unipolar' if sim_mode == 'U' else 'Multipolar'}\n"
+                f"Current: {current} mA\n"
+                f"Electrode Shape: {self.electrode_shape_combo.currentText()}\n"
+                f"Dimensions: {dimensions} mm\n"
+                f"Thickness: {thickness} mm\n",
+                QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No,
+                QtWidgets.QMessageBox.No
+            )
+            
+            if reply == QtWidgets.QMessageBox.Yes:
+                # Clear console
+                self.clear_console()
                 
-            subject_dir = f"{project_dir}/{first_subject}"
-            m2m_dir = f"{subject_dir}/SimNIBS/m2m_{first_subject}"
-            self.update_output(f"Example subject directory: {subject_dir}")
-            self.update_output(f"Expected m2m directory: {m2m_dir}")
-            
-            # Display simulation configuration summary
-            self.output_console.append('<div style="background-color: #2a2a2a; border: 1px solid #444; border-radius: 5px; padding: 10px; margin: 10px 0;">')
-            self.output_console.append('<span style="color: #55ffff; font-weight: bold;">📋 Simulation Configuration:</span>')
-            self.output_console.append(f'<div style="margin-left: 20px; color: #dddddd;">')
-            self.output_console.append(f'<p>• <b>Subjects:</b> {subjects}</p>')
-            self.output_console.append(f'<p>• <b>Simulation Type:</b> {self.sim_type_combo.currentText()}</p>')
-            self.output_console.append(f'<p>• <b>Mode:</b> {"Unipolar" if sim_mode == "U" else "Multipolar"}</p>')
-            self.output_console.append(f'<p>• <b>Montage:</b> {montage}</p>')
-            self.output_console.append(f'<p>• <b>Current:</b> {current} mA</p>')
-            self.output_console.append(f'<p>• <b>Electrode Shape:</b> {self.electrode_shape_combo.currentText()}</p>')
-            self.output_console.append(f'<p>• <b>Dimensions:</b> {dimensions} mm</p>')
-            self.output_console.append(f'<p>• <b>Thickness:</b> {thickness} mm</p>')
-            self.output_console.append('</div>')
-            self.output_console.append('</div>')
-            
-            # Prepare environment variables to bypass prompts in simulator.sh
-            env = os.environ.copy()
-            
-            # Set all required environment variables for direct execution
-            env["SUBJECTS"] = subjects
-            env["CONDUCTIVITY"] = conductivity
-            env["SIM_MODE"] = sim_mode
-            env["SELECTED_MONTAGES"] = montage
-            env["CURRENT"] = current
-            env["ELECTRODE_SHAPE"] = electrode_shape
-            env["DIMENSIONS"] = dimensions
-            env["THICKNESS"] = thickness
-            env["NON_INTERACTIVE"] = "true"  # Skip prompts
-            env["DIRECT_MODE"] = "true"  # Indicate direct execution mode
-            
-            # Make sure TI scripts can find their utils directory
-            env["UTILS_DIR"] = f"{subject_dir}/utils"
-            self.update_output(f"Setting UTILS_DIR to: {env['UTILS_DIR']}")
-            
-            # Explicitly set project directory
-            project_dir_name = os.environ.get('PROJECT_DIR_NAME', 'BIDS_test')
-            env["PROJECT_DIR_NAME"] = project_dir_name
-            env["PROJECT_DIR"] = f"/mnt/{project_dir_name}"
-            
-            # Ensure the run-direct flag is recognized
-            cmd = [
-                "bash", 
-                simulator_script,
-                "--run-direct"  # Custom flag to indicate direct execution
-            ]
-            
-            # Display environment variables in output console
-            self.update_output("\nEnvironment variables for simulation:")
-            for key in ["SUBJECTS", "CONDUCTIVITY", "SIM_MODE", "SELECTED_MONTAGES", 
-                       "CURRENT", "ELECTRODE_SHAPE", "DIMENSIONS", "THICKNESS"]:
-                self.update_output(f"  - {key}: {env.get(key, 'Not set')}")
-            
-            # Display command in output console
-            cmd_str = " ".join(cmd)
-            self.update_output("\nRunning simulation with command:")
-            self.update_output(cmd_str)
-            
-            # Execute the command using a separate thread to prevent GUI freezing
-            self.update_output("\nStarting simulation. This may take a while...")
-            
-            # Update UI to show progress
-            self.output_console.append('<div style="margin: 10px 0;"><span style="color: #55ff55;">⏳ Simulation in progress... ⏳</span></div>')
-            
-            # Create and start the worker thread
-            self.simulation_thread = SimulationThread(cmd, env)
-            self.simulation_thread.output_signal.connect(self.update_output)
-            self.simulation_thread.finished.connect(self.simulation_finished)
-            self.simulation_thread.start()
-            
-            # Update UI for running state
-            self.simulation_running = True
-            self.run_btn.setEnabled(False)
-            self.run_btn.setText("Simulation Running...")
-            self.stop_btn.setVisible(True)
+                # Update UI state
+                self.simulation_running = True
+                self.run_btn.setEnabled(False)
+                self.stop_btn.setEnabled(True)
+                
+                # Process each subject separately
+                # Process all subjects as a batch to match simulator.sh behavior
+                selected_subjects_str = ",".join(subjects)
+                
+                # IMPORTANT: For montages, we need to pass them as space-separated values
+                # to ensure simulator.sh treats them as separate montages
+                selected_montages_str = " ".join(montages)
+                
+                # Basic command
+                cmd = ["bash", simulator_path, "--run-direct"]
+                
+                # Set environment variables for simulator.sh in direct mode
+                env = os.environ.copy()
+                env["SUBJECTS"] = selected_subjects_str
+                env["CONDUCTIVITY"] = conductivity
+                env["SIM_MODE"] = sim_mode
+                env["SELECTED_MONTAGES"] = selected_montages_str
+                env["CURRENT"] = current
+                env["ELECTRODE_SHAPE"] = shape
+                env["DIMENSIONS"] = dimensions
+                env["THICKNESS"] = thickness
+                env["DIRECT_MODE"] = "true"
+                env["NON_INTERACTIVE"] = "true"
+                
+                # Add project directory name if available
+                project_dir_name = os.environ.get('PROJECT_DIR_NAME', 'BIDS_test')
+                env["PROJECT_DIR_NAME"] = project_dir_name
+                env["PROJECT_DIR"] = f"/mnt/{project_dir_name}"
+                
+                # Start simulation
+                self.update_output(f"\nStarting simulation batch with {len(subjects)} subject(s) and {len(montages)} montage(s)...")
+                self.update_output(f"Command: {' '.join(cmd)}")
+                
+                # Start simulation thread
+                self.simulation_process = SimulationThread(cmd, env)
+                self.simulation_process.output_signal.connect(self.update_output)
+                self.simulation_process.finished.connect(self.simulation_finished)
+                self.simulation_process.start()
             
         except Exception as e:
-            self.update_output(f"Error: {str(e)}")
-            
+            self.update_output(f"Error starting simulation: {str(e)}")
+            self.simulation_running = False
+            self.run_btn.setEnabled(True)
+            self.stop_btn.setEnabled(False)
+    
     def update_output(self, text):
         """Update the output console with text from the simulation thread."""
         if not text.strip():
@@ -895,7 +1010,7 @@ class SimulatorTab(QtWidgets.QWidget):
         self.simulation_running = False
         self.run_btn.setEnabled(True)
         self.run_btn.setText("Run Simulation")
-        self.stop_btn.setVisible(False)
+        self.stop_btn.setEnabled(False)
     
     def update_electrode_inputs(self, checked):
         """Update the electrode input form based on the selected simulation mode."""
@@ -914,13 +1029,13 @@ class SimulatorTab(QtWidgets.QWidget):
     
     def stop_simulation(self):
         """Stop the running simulation."""
-        if hasattr(self, 'simulation_thread') and self.simulation_thread:
+        if hasattr(self, 'simulation_process') and self.simulation_process:
             # Show stopping message
             self.update_output("Stopping simulation...")
             self.output_console.append('<div style="margin: 10px 0;"><span style="color: #ff5555; font-weight: bold;">⚠️ Simulation terminated by user ⚠️</span></div>')
             
             # Terminate the process
-            if self.simulation_thread.terminate_process():
+            if self.simulation_process.terminate_process():
                 self.update_output("Simulation process terminated successfully.")
             else:
                 self.update_output("Failed to terminate simulation process or process already completed.")
@@ -929,7 +1044,7 @@ class SimulatorTab(QtWidgets.QWidget):
             self.simulation_running = False
             self.run_btn.setEnabled(True)
             self.run_btn.setText("Run Simulation")
-            self.stop_btn.setVisible(False)
+            self.stop_btn.setEnabled(False)
             
     def update_output(self, text):
         """Update the output console with text from the simulation thread."""
