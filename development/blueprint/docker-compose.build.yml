@@ -1,0 +1,68 @@
+# docker-compose -f docker-compose.build.yml build --no-cache
+
+# docker stop $(docker ps -aq)
+# docker rm $(docker ps -aq)
+# docker rmi $(images ps -aq)
+
+
+services:
+  fsl:
+    build:
+      context: .
+      dockerfile: Dockerfile.fsl
+    image: idossha/ti-csc_fsl:v1.3.1  # Move this out of the build section
+    container_name: fsl_container
+    volumes:
+      - fsl_volume:/usr/local/fsl/
+    networks:
+      - ti_network
+
+  freesurfer:
+    build:
+      context: .
+      dockerfile: Dockerfile.freesurfer
+    image: idossha/ti-csc_freesurfer:v1.3.0  # Move this out of the build section
+    container_name: freesurfer_container
+    volumes:
+      - freesurfer_volume:/usr/local/freesurfer/
+    networks:
+      - ti_network
+
+  simnibs:
+    build:
+      context: .
+      dockerfile: Dockerfile.simnibs
+    image: idossha/ti-csc_simnibs:v1.3.4  # Move this out of the build section
+    container_name: simnibs_container
+    environment:
+      - DISPLAY
+      - LIBGL_ALWAYS_SOFTWARE=1
+      - FSLDIR=/usr/local/fsl
+      - FSLOUTPUTTYPE=NIFTI_GZ
+      - FSLMULTIFILEQUIT=TRUE
+      - POSSUMDIR=/usr/local/fsl
+      - FREESURFER_HOME=/usr/local/freesurfer
+      - SUBJECTS_DIR=/usr/local/freesurfer/subjects
+      - FS_LICENSE=/usr/local/freesurfer/license.txt
+    volumes:
+      - fsl_volume:/usr/local/fsl/
+      - freesurfer_volume:/usr/local/freesurfer/
+      - /tmp/.X11-unix:/tmp/.X11-unix
+      - ${LOCAL_PROJECT_DIR}:/mnt/${LOCAL_PROJECT_DIR} # Replace with your actual path
+    networks:
+      - ti_network
+    depends_on:
+      - fsl
+      - freesurfer
+    tty: true
+    stdin_open: true
+    working_dir: /ti-csc
+    command: ["/bin/bash"]
+
+networks:
+  ti_network:
+    driver: bridge
+
+volumes:
+  fsl_volume:
+  freesurfer_volume:
