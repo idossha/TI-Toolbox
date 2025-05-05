@@ -1,0 +1,9 @@
+{
+    "askel": {
+        "subject_id": "askel",
+        "eeg_net": "askel",
+        "radius": 10,
+        "current": 1,
+        "roi_method": "flex-search"
+    }
+}
