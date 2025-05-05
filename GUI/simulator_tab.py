@@ -874,7 +874,7 @@ class SimulatorTab(QtWidgets.QWidget):
             
             # Get path to simulator.sh in the root directory
             script_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-            simulator_path = os.path.join(script_dir, "simulator.sh")
+            simulator_path = os.path.join(script_dir, "CLI", "simulator.sh")
             
             # Create lists of subjects and montages
             subjects = [item.text() for item in selected_subjects]
