@@ -41,6 +41,9 @@ class HelpTab(QtWidgets.QWidget):
         help_widget = QtWidgets.QWidget()
         help_layout = QtWidgets.QVBoxLayout(help_widget)
         
+        # Add directory structure first (most important for new users)
+        self.add_directory_structure(help_layout)
+        
         # Add sections from all tools
         self.add_pre_processing_help(help_layout)
         self.add_simulator_help(help_layout)
@@ -60,6 +63,76 @@ class HelpTab(QtWidgets.QWidget):
         title_label = QtWidgets.QLabel(f"<h2>{title}</h2>")
         title_label.setTextFormat(QtCore.Qt.RichText)
         layout.addWidget(title_label)
+        
+        # Section content
+        content_label = QtWidgets.QLabel(content)
+        content_label.setTextFormat(QtCore.Qt.RichText)
+        content_label.setWordWrap(True)
+        layout.addWidget(content_label)
+        
+        # Add separator
+        separator = QtWidgets.QFrame()
+        separator.setFrameShape(QtWidgets.QFrame.HLine)
+        separator.setFrameShadow(QtWidgets.QFrame.Sunken)
+        layout.addWidget(separator)
+    
+    def add_directory_structure(self, layout):
+        """Add directory structure information."""
+        # Add header
+        header_label = QtWidgets.QLabel("<h1>Required Directory Structure</h1>")
+        header_label.setAlignment(QtCore.Qt.AlignCenter)
+        layout.addWidget(header_label)
+        
+        # Directory structure information
+        content = """
+        <p>TI-CSC-2.0 requires a specific directory structure to function properly. This structure is partially based on BIDS (Brain Imaging Data Structure) conventions but includes additional folders for TI-CSC specific functionality.</p>
+        
+        <p><b>Important:</b> Most folders are automatically created as needed. Users primarily need to ensure that DICOM files are placed in the correct <code>/anat/raw</code> directory.</p>
+        
+        <h3>Directory Structure:</h3>
+        <pre style='background-color: #f5f5f5; padding: 10px; border-radius: 5px; font-family: monospace;'>
+MyProject/
+├── subjectID/
+│   ├── anat/
+│   │   ├── raw/          <i>(Place your DICOM files here)</i>
+│   │   ├── nifti/        <i>(Auto-created during preprocessing)</i>
+│   │   └── freesurfer/   <i>(Auto-created during preprocessing)</i>
+│   ├── SimNIBS/
+│   │   ├── Simulations/  <i>(Auto-created for simulation results)</i>
+│   │   ├── flex-search/  <i>(Auto-created for flex-search results)</i>
+│   │   ├── ex-search/    <i>(Auto-created for ex-search results)</i>
+│   │   └── Analysis/     <i>(Auto-created for analysis results)</i>
+│   ├── dwi/              <i>(Optional: For diffusion data)</i>
+│   ├── eeg/              <i>(Optional: For EEG data)</i>
+│   ├── functional/       <i>(Optional: For functional MRI data)</i>
+│   └── behavioral/       <i>(Optional: For behavioral data)</i>
+├── utils/
+│   ├── roi_list/         <i>(For storing ROI definitions)</i>
+│   └── montage_list/     <i>(For storing electrode montages)</i>
+└── config/
+    ├── flex-search_config/   <i>(Configuration files for flex-search)</i>
+    ├── ex-search_config/     <i>(Configuration files for ex-search)</i>
+    ├── simulator_config/     <i>(Configuration files for simulator)</i>
+    └── entrypoint_config/    <i>(General configuration files)</i>
+</pre>
+
+        <h3>Key Points:</h3>
+        <ul>
+            <li>The <b>subject ID</b> should be a unique identifier for each participant</li>
+            <li>DICOM files must be placed in <code>subjectID/anat/raw/</code> before preprocessing</li>
+            <li>Most subdirectories are automatically created during processing</li>
+            <li>The <code>utils</code> and <code>config</code> folders store shared resources across subjects</li>
+        </ul>
+        
+        <h3>Getting Started:</h3>
+        <ol>
+            <li>Create your project folder (e.g., "MyProject")</li>
+            <li>Create a subject folder with a unique ID (e.g., "sub-01")</li>
+            <li>Create an <code>anat/raw</code> directory inside the subject folder</li>
+            <li>Copy your DICOM files into the <code>anat/raw</code> directory</li>
+            <li>Use the Pre-processing tab to begin processing</li>
+        </ol>
+        """
         
         # Section content
         content_label = QtWidgets.QLabel(content)
@@ -256,96 +329,86 @@ class HelpTab(QtWidgets.QWidget):
             self.add_section(layout, section["title"], section["content"])
     
     def add_flex_search_help(self, layout):
-        """Add Flex Search help content."""
-        # Add header for the Flex Search tool
-        header_label = QtWidgets.QLabel("<h1>Flex Search Tool</h1>")
+        """Add Flex-Search help content."""
+        # Add header for the Flex-Search tool
+        header_label = QtWidgets.QLabel("<h1>Flex-Search Tool</h1>")
         header_label.setAlignment(QtCore.Qt.AlignCenter)
         layout.addWidget(header_label)
         
-        # Flex Search sections
+        # Flex-Search sections
         sections = [
             {
-                "title": "What is Flex Search?",
+                "title": "What is Flex-Search?",
                 "content": (
-                    "Flex Search is an electrode position optimization tool for temporal interference (TI) "
-                    "stimulation. It finds the optimal positions for two pairs of electrodes to target a "
-                    "specific region of interest (ROI) in the brain."
+                    "Flex-Search is an optimization algorithm for finding electrode montages that maximize the electric field strength "
+                    "in a target brain region while minimizing stimulation to non-target regions. It uses a genetic algorithm to "
+                    "explore different electrode configurations and find optimal or near-optimal solutions."
                 )
             },
             {
-                "title": "Optimization Parameters",
+                "title": "Subject Selection",
                 "content": (
-                    "<b>Subject Selection:</b><br>"
-                    "- Choose a subject ID from the dropdown menu<br><br>"
-                    
-                    "<b>Optimization Goal:</b><br>"
-                    "- <b>Maximize field in target ROI:</b> Finds electrode positions that maximize the TI field strength in the target region<br>"
-                    "- <b>Maximize normal component of field in ROI:</b> Optimizes for field components perpendicular to the cortical surface<br>"
-                    "- <b>Maximize focality:</b> Maximizes field in the target region while minimizing it elsewhere<br><br>"
-                    
-                    "<b>Post-processing Method:</b><br>"
-                    "- <b>Maximum TI field (max_TI):</b> Uses the maximum TI field amplitude<br>"
-                    "- <b>TI field normal to surface (dir_TI_normal):</b> Considers only the component perpendicular to the cortical surface<br>"
-                    "- <b>TI field tangential to surface (dir_TI_tangential):</b> Considers only the component parallel to the cortical surface<br><br>"
-                    
-                    "<b>EEG Net Template:</b><br>"
-                    "- Specifies the EEG electrode positions available for optimization<br>"
-                    "- Standard templates like EGI_256 provide 256 possible electrode positions<br><br>"
-                    
-                    "<b>Electrode Parameters:</b><br>"
-                    "- <b>Radius:</b> The radius of the electrodes in millimeters<br>"
-                    "- <b>Current:</b> The current amplitude in milliamperes (mA)<br>"
+                    "- Select a subject from the list who has already been pre-processed<br>"
+                    "- The subject must have a complete SimNIBS head model<br>"
+                    "- Only one subject can be selected for each Flex-Search run"
                 )
             },
             {
-                "title": "ROI Definition Methods",
+                "title": "Target Region Selection",
                 "content": (
-                    "<b>Spherical ROI:</b><br>"
-                    "- Define a target region using X, Y, Z coordinates and a radius<br>"
-                    "- Coordinates are in subject space (millimeters)<br>"
-                    "- Simple way to target a specific location in the brain<br><br>"
+                    "<b>Region of Interest (ROI):</b><br>"
+                    "- Select a target brain region from the predefined list<br>"
+                    "- The ROI list is populated based on available parcellations<br>"
+                    "- ROIs are defined according to various atlases (Desikan-Killiany, Destrieux, etc.)<br><br>"
                     
-                    "<b>Cortical ROI:</b><br>"
-                    "- Uses atlas-based parcellation of the cortex<br>"
-                    "- Requires selecting an atlas file (.annot) and a label value<br>"
-                    "- More anatomically precise way to target specific brain regions<br>"
-                    "- Useful when targeting specific functional areas like M1, DLPFC, etc."
+                    "<b>Custom ROI:</b><br>"
+                    "- Create a custom ROI by specifying MNI coordinates or by selecting a FreeSurfer label<br>"
+                    "- Custom ROIs can be saved for future use<br>"
+                    "- Multiple ROIs can be combined to create a composite target region"
                 )
             },
             {
-                "title": "Optimization Process",
+                "title": "Search Parameters",
                 "content": (
-                    "1. The optimization algorithm evaluates many possible electrode positions<br>"
-                    "2. For each configuration, it simulates the TI field distribution<br>"
-                    "3. The algorithm converges on the set of positions that best achieve the selected goal<br>"
-                    "4. Results include optimal electrode positions and simulated field distributions<br><br>"
+                    "<b>Electrode Configuration:</b><br>"
+                    "- <b>Electrode Type:</b> Select 10-10, 10-20, or custom electrode system<br>"
+                    "- <b>Number of Electrodes:</b> Specify how many electrodes to use (2-8)<br>"
+                    "- <b>Electrode Shape:</b> Circular or rectangular<br>"
+                    "- <b>Electrode Dimensions:</b> Size in mm<br><br>"
                     
-                    "<b>Note:</b> This is a computationally intensive process and may take several minutes to hours, "
-                    "depending on the selected parameters and computational resources."
+                    "<b>Algorithm Parameters:</b><br>"
+                    "- <b>Population Size:</b> Number of solutions in each generation<br>"
+                    "- <b>Generations:</b> Maximum number of iterations<br>"
+                    "- <b>Mutation Rate:</b> Probability of random changes in each generation<br>"
+                    "- <b>Crossover Rate:</b> Probability of combining solutions<br><br>"
+                    
+                    "<b>Optimization Criteria:</b><br>"
+                    "- <b>Target Weight:</b> Importance of maximizing field in target region<br>"
+                    "- <b>Avoid ROIs:</b> Optional regions to avoid stimulating<br>"
+                    "- <b>Avoidance Weight:</b> Importance of minimizing field in non-target regions"
                 )
             },
             {
-                "title": "Output and Results",
+                "title": "Search Process",
                 "content": (
-                    "After optimization completes, results are saved in:<br>"
-                    "[PROJECT_DIR]/[SUBJECT_ID]/SimNIBS/flex-search/[ROI_PARAMETERS]/<br><br>"
+                    "1. Flex-Search creates an initial population of random electrode configurations<br>"
+                    "2. It evaluates each solution by running a simplified simulation<br>"
+                    "3. The best solutions are selected for the next generation<br>"
+                    "4. New solutions are created through crossover and mutation<br>"
+                    "5. The process repeats until convergence or the maximum number of generations<br>"
+                    "6. The best solutions are presented in ranked order<br><br>"
                     
-                    "The results include:<br>"
-                    "- Optimal electrode positions for both TI pairs<br>"
-                    "- Electric field simulations for the optimal configuration<br>"
-                    "- Visualization files compatible with the SimNIBS GUI<br>"
-                    "- Log files with optimization parameters and performance metrics"
+                    "The search progress and status are displayed in the console window."
                 )
             },
             {
-                "title": "Tips for Effective Optimization",
+                "title": "Results and Visualization",
                 "content": (
-                    "- Start with the 'Maximize field in target ROI' goal for initial exploration<br>"
-                    "- Use spherical ROIs for quick tests, cortical ROIs for precise targeting<br>"
-                    "- The 'Maximize focality' goal is useful when targeting areas near sensitive regions<br>"
-                    "- Try different EEG net templates if available, as more electrode positions provide more flexibility<br>"
-                    "- Standard electrode radius (10mm) and current (2mA) work well for most applications<br>"
-                    "- Check the console output for progress and any potential issues"
+                    "- The top solutions are displayed in a ranked list<br>"
+                    "- Each solution shows electrode positions and fitness scores<br>"
+                    "- Solutions can be exported for use in the Simulator<br>"
+                    "- Results can be visualized using the NIfTI Viewer<br>"
+                    "- Detailed results are saved in the subject's flex-search directory"
                 )
             }
         ]
@@ -364,91 +427,85 @@ class HelpTab(QtWidgets.QWidget):
         # NIfTI Viewer sections
         sections = [
             {
-                "title": "What are NIfTI Files?",
+                "title": "What is the NIfTI Viewer?",
                 "content": (
-                    "NIfTI (Neuroimaging Informatics Technology Initiative) files are a standard format "
-                    "for storing neuroimaging data. They typically have .nii or .nii.gz extensions and "
-                    "contain 3D or 4D volumetric brain data from MRI, fMRI, or simulation results."
+                    "The NIfTI Viewer is a built-in visualization tool for exploring 3D neuroimaging data in NIfTI format. "
+                    "It allows you to view anatomical images, simulation results, and overlays to assess the spatial "
+                    "distribution of electric fields and stimulation effects."
                 )
             },
             {
-                "title": "Interface Overview",
+                "title": "Loading Data",
                 "content": (
-                    "<b>Subject Selection:</b><br>"
-                    "- Choose a subject ID from the dropdown<br>"
-                    "- Select between Subject space (native) or MNI space (standardized)<br>"
-                    "- Click 'Refresh' to update the subject list<br><br>"
+                    "<b>Automatic Loading:</b><br>"
+                    "- When you select a subject and simulation, results are automatically loaded<br>"
+                    "- The viewer shows anatomical images with electric field overlays<br><br>"
                     
-                    "<b>Actions:</b><br>"
-                    "- <b>Load Subject Data:</b> Loads the selected subject's anatomical (T1) and simulation results<br>"
-                    "- <b>Load Custom NIfTI:</b> Opens a file dialog to select your own NIfTI files<br>"
-                    "- <b>Reload Current View:</b> Reopens the current files in Freeview<br><br>"
-                    
-                    "<b>Information Area:</b><br>"
-                    "- Displays details about loaded files and settings<br>"
-                    "- Shows file paths, sizes, and visualization parameters<br><br>"
-                    
-                    "<b>Freeview Command:</b><br>"
-                    "- Shows the actual command used to launch Freeview<br>"
-                    "- Displays visualization parameters for each file"
+                    "<b>Manual Loading:</b><br>"
+                    "- Use the 'Load NIfTI' button to open any NIfTI (.nii or .nii.gz) file<br>"
+                    "- Multiple files can be loaded and overlaid<br>"
+                    "- The file browser starts in the subject's directory for easy navigation"
                 )
             },
             {
-                "title": "Default Visualization Settings",
+                "title": "Viewer Controls",
                 "content": (
-                    "When loading subject data, the following default settings are applied:<br><br>"
+                    "<b>Slice Navigation:</b><br>"
+                    "- Use the slider bars to navigate through axial, sagittal, and coronal slices<br>"
+                    "- Click on an image to center the view at that location<br>"
+                    "- The mouse wheel can also be used to scroll through slices<br><br>"
                     
-                    "<b>T1 Anatomical:</b><br>"
-                    "- Displayed with grayscale colormap<br>"
-                    "- Visible by default<br><br>"
+                    "<b>Display Options:</b><br>"
+                    "- <b>Brightness/Contrast:</b> Adjust using sliders or right-click and drag<br>"
+                    "- <b>Colormap:</b> Select different color schemes for overlays<br>"
+                    "- <b>Transparency:</b> Adjust overlay transparency<br>"
+                    "- <b>Thresholds:</b> Set minimum and maximum values for display<br><br>"
                     
-                    "<b>Grey Matter Results:</b><br>"
-                    "- 'Heat' colormap showing values between 95-99.9 percentile<br>"
-                    "- 70% opacity<br>"
-                    "- Visible by default<br><br>"
-                    
-                    "<b>Full Results:</b><br>"
-                    "- 'Heat' colormap showing values between 95-99.9 percentile<br>"
-                    "- 70% opacity<br>"
-                    "- Hidden by default (must be enabled in Freeview)<br><br>"
-                    
-                    "<b>Note on Percentile Mode:</b><br>"
-                    "The default threshold (95-99.9%) means only the top 5% of values are displayed, "
-                    "focusing on the most significant results. This helps identify important areas "
-                    "while filtering out noise."
+                    "<b>Viewing Modes:</b><br>"
+                    "- <b>Single View:</b> Shows one slice orientation (axial, sagittal, or coronal)<br>"
+                    "- <b>Three-panel View:</b> Shows all three orientations simultaneously<br>"
+                    "- <b>3D View:</b> Shows a 3D rendering of the data (if supported)"
                 )
             },
             {
-                "title": "Using Freeview Controls",
+                "title": "Measurements and Analysis",
                 "content": (
-                    "<b>Basic Navigation:</b><br>"
-                    "- Left-click and drag: Rotate 3D view<br>"
-                    "- Right-click and drag: Pan<br>"
-                    "- Mouse wheel: Zoom in/out<br>"
-                    "- Middle-click and drag: Adjust brightness/contrast<br><br>"
+                    "<b>ROI Selection:</b><br>"
+                    "- Draw regions of interest using the ROI tools<br>"
+                    "- Extract statistics from within the selected region<br>"
+                    "- Save ROIs for future use<br><br>"
                     
-                    "<b>Volume Controls:</b><br>"
-                    "- Check/uncheck volumes in the left panel to toggle visibility<br>"
-                    "- Click volume name to make it the active volume<br>"
-                    "- Use sliders to navigate through slices<br>"
-                    "- Use toolbar at top for additional view options<br><br>"
+                    "<b>Data Probing:</b><br>"
+                    "- Hover over a point to see intensity values<br>"
+                    "- Use the probe tool to get detailed information at specific locations<br>"
+                    "- Compare values across multiple loaded datasets<br><br>"
                     
-                    "<b>Adjusting Display:</b><br>"
-                    "- Click on a volume name to select it<br>"
-                    "- Right-click on a volume name for additional options<br>"
-                    "- Adjust colormap, threshold, and opacity through Freeview's interface<br>"
-                    "- Use the 'Configure' button in Freeview for advanced options"
+                    "<b>Profiles and Histograms:</b><br>"
+                    "- Create intensity profiles along a line<br>"
+                    "- Generate histograms of values within an ROI<br>"
+                    "- Export measurements as CSV files"
                 )
             },
             {
-                "title": "Tips for Visualizing Simulation Results",
+                "title": "Saving and Exporting",
                 "content": (
-                    "- View both grey matter and full results for a complete picture<br>"
-                    "- Toggle between different overlays to compare results<br>"
-                    "- Use the percentile mode for thresholds to focus on significant areas<br>"
-                    "- Try different colormaps (heat, jet) for different visualization effects<br>"
-                    "- Adjust opacity to see underlying anatomy through the results<br>"
-                    "- Save screenshots using Freeview's File > Save Screenshot option"
+                    "- <b>Save View:</b> Capture the current view as a PNG image<br>"
+                    "- <b>Export Data:</b> Save modified or derived data as new NIfTI files<br>"
+                    "- <b>Copy to Clipboard:</b> Copy images for pasting into documents<br>"
+                    "- <b>Batch Export:</b> Save a series of slices or a complete set of views"
+                )
+            },
+            {
+                "title": "Tips and Shortcuts",
+                "content": (
+                    "- <b>Mouse Wheel:</b> Scroll through slices<br>"
+                    "- <b>Right-Click + Drag:</b> Adjust brightness/contrast<br>"
+                    "- <b>Middle-Click + Drag:</b> Pan the view<br>"
+                    "- <b>Ctrl + Wheel:</b> Zoom in/out<br>"
+                    "- <b>Spacebar:</b> Reset view to default<br>"
+                    "- <b>L:</b> Toggle crosshair visibility<br>"
+                    "- <b>S:</b> Synchronize views when multiple datasets are loaded<br>"
+                    "- <b>1-9:</b> Quick navigation to percentile positions"
                 )
             }
         ]
@@ -459,72 +516,61 @@ class HelpTab(QtWidgets.QWidget):
     
     def add_general_usage_tips(self, layout):
         """Add general usage tips."""
-        # Add header for general usage tips
+        # Add header for general tips
         header_label = QtWidgets.QLabel("<h1>General Usage Tips</h1>")
         header_label.setAlignment(QtCore.Qt.AlignCenter)
         layout.addWidget(header_label)
         
-        # General usage tips section
+        # General tips sections
         sections = [
             {
-                "title": "Typical Workflow",
+                "title": "Getting Started",
                 "content": (
-                    "A typical workflow in TI-CSC-2.0 consists of these steps:<br><br>"
+                    "1. Begin with the Pre-processing tab to prepare your data<br>"
+                    "2. Use the Simulator tab to run stimulation simulations<br>"
+                    "3. Explore optimization with the Flex-Search tab<br>"
+                    "4. Visualize results with the NIfTI Viewer tab<br><br>"
                     
-                    "1. <b>Pre-processing</b>: Prepare MRI data and create subject-specific head models<br>"
-                    "2. <b>Simulation</b>: Run electromagnetic field simulations with selected electrode montages<br>"
-                    "3. <b>Optimization </b>: Use Flex Search to find optimal electrode positions<br>"
-                    "4. <b>Visualization</b>: View simulation results using the NIfTI Viewer<br><br>"
-                    
-                    "Each step builds upon the previous one, with output files from earlier stages serving as inputs for later steps."
+                    "The workflow is designed to be sequential, but you can jump to any step if your data is already prepared."
                 )
             },
             {
-                "title": "Performance Considerations",
+                "title": "Performance Tips",
                 "content": (
-                    "- Pre-processing with FreeSurfer can take several hours per subject<br>"
-                    "- Simulations typically take 5-20 minutes depending on complexity<br>"
-                    "- Flex Search optimization can take 10 to 30 minutes<br>"
-                    "- Using parallel processing can significantly reduce total processing time<br>"
-                    "- Consider running long tasks overnight or when the computer is not in use"
+                    "- Pre-processing is computationally intensive, especially FreeSurfer reconstruction<br>"
+                    "- Consider using parallel processing for multiple subjects<br>"
+                    "- Simulations with fine mesh resolution may take longer to compute<br>"
+                    "- Close unused applications to free up memory<br>"
+                    "- For large datasets, consider processing overnight or on a computing cluster"
                 )
             },
             {
-                "title": "File Management",
+                "title": "Common Issues",
                 "content": (
-                    "- All data is organized in a subject-centric directory structure<br>"
-                    "- Each subject has dedicated directories for raw data, processed files, and results<br>"
-                    "- The application automatically creates necessary directories during processing<br>"
-                    "- Results are saved in specific subfolders based on the tool and parameters used<br>"
-                    "- Avoid manual modification of generated files unless you're sure of what you're doing"
-                )
-            },
-            {
-                "title": "Troubleshooting Common Issues",
-                "content": (
-                    "<b>Missing files or directories:</b><br>"
-                    "- Ensure that each subject has the required directory structure<br>"
-                    "- Make sure pre-processing steps completed successfully before simulation<br><br>"
+                    "<b>File Not Found Errors:</b><br>"
+                    "- Ensure your data follows the required directory structure<br>"
+                    "- Check file permissions and ownership<br>"
+                    "- Verify that all prerequisite steps have been completed<br><br>"
                     
-                    "<b>Processing errors:</b><br>"
+                    "<b>Processing Failures:</b><br>"
                     "- Check the console output for specific error messages<br>"
-                    "- Verify that required external tools (FreeSurfer, SimNIBS) are properly installed<br>"
-                    "- In the command line: `freeview` or `simnibs` will inform you about installation success or failure<br><br>"
-                    "- Ensure input data (DICOM, NIfTI) is valid and not corrupted<br><br>"
+                    "- Ensure all required software (SimNIBS, FreeSurfer) is properly installed<br>"
+                    "- Verify that input data (e.g., DICOM files) is valid and complete<br><br>"
                     
-                    "<b>Visualization issues:</b><br>"
-                    "- Check that simulation results were generated successfully<br>"
-                    "- Try using different visualization parameters if results are not visible"
+                    "<b>Visualization Issues:</b><br>"
+                    "- Update your graphics drivers if 3D rendering is problematic<br>"
+                    "- Try simplifying the view by reducing the number of overlays<br>"
+                    "- Use lower resolution displays for performance improvements"
                 )
             },
             {
-                "title": "Getting Additional Help",
+                "title": "Data Management",
                 "content": (
-                    "If you encounter issues not addressed in this help documentation:<br><br>"
-                    
-                    "- Check the TI-CSC-2.0 GitHub repository for additional documentation<br>"
-                    "- Look for known issues or submit new ones on the project's GitHub Issues page<br>"
-                    "- Contact the development team for technical support<br>"
+                    "- Regularly back up your project directory<br>"
+                    "- Simulation results can take up significant disk space<br>"
+                    "- Consider archiving older projects or moving them to external storage<br>"
+                    "- Use meaningful subject IDs and montage names for easy identification<br>"
+                    "- Keep notes about processing parameters and decisions"
                 )
             }
         ]
