@@ -17,6 +17,7 @@ from flex_search_tab import FlexSearchTab
 from pre_process_tab import PreProcessTab
 from help_tab import HelpTab
 from contact_tab import ContactTab
+from acknowledgments_tab import AcknowledgmentsTab
 
 # Try to import visualization modules
 MESH_VIEWER_AVAILABLE = False
@@ -62,6 +63,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.flex_search_tab = FlexSearchTab(self)
         self.help_tab = HelpTab(self)
         self.contact_tab = ContactTab(self)
+        self.acknowledgments_tab = AcknowledgmentsTab(self)
         
         # For visualization tabs
         if MESH_VIEWER_AVAILABLE:
@@ -88,11 +90,12 @@ class MainWindow(QtWidgets.QMainWindow):
             self.tab_widget.addTab(self.nifti_viewer_tab, "NIfTI Viewer")
         
         # Step 2: Count how many tabs we have to calculate positions from the right
-        total_tabs = self.tab_widget.count() + 2  # +2 for Help and Contact
+        total_tabs = self.tab_widget.count() + 3  # +3 for Help, Contact, and Acknowledgments
         
         # Step 3: Add the utility tabs at the end (right side)
-        self.tab_widget.insertTab(total_tabs - 2, self.help_tab, "Help")
-        self.tab_widget.insertTab(total_tabs - 1, self.contact_tab, "Contact")
+        self.tab_widget.insertTab(total_tabs - 3, self.help_tab, "Help")
+        self.tab_widget.insertTab(total_tabs - 2, self.contact_tab, "Contact")
+        self.tab_widget.insertTab(total_tabs - 1, self.acknowledgments_tab, "Acknowledgments")
         
         # Set the tab bar with close buttons only for certain tabs
         self.tab_widget.setTabsClosable(False)
