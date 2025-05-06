@@ -15,7 +15,7 @@ umask 0000  # Set umask to 0000 to ensure all created files and directories have
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 flex_search_dir="$script_dir/../flex-search"
 project_dir="/mnt/$PROJECT_DIR_NAME"
-utils_dir="$project_dir/utils"
+utils_dir="$script_dir/../utils"
 config_file="$project_dir/config/flex-search_config/flex_config.json"
 
 # Export project directory for Python script
@@ -30,6 +30,13 @@ GREEN='\033[0;32m'
 CYAN='\033[0;36m'
 BOLD_CYAN='\033[1;36m'
 YELLOW='\033[0;33m'
+BOLD_RED='\033[1;31m'
+BOLD_GREEN='\033[1;32m'
+BOLD_YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+MAGENTA='\033[0;35m'
+BOLD_BLUE='\033[1;34m'
+BG_BLUE='\033[44m'
 
 # Function to read configuration
 read_config() {
@@ -118,14 +125,17 @@ choose_subjects() {
     while true; do
         read -p "Enter the numbers of the subjects to analyze: " subject_choices
         if [[ "$subject_choices" =~ ^[0-9,]+$ ]]; then
-            IFS=',' read -r -a selected_subjects <<< "$subject_choices"
+            IFS=',' read -r -a selected_indices <<< "$subject_choices"
             valid_input=true
-            for num in "${selected_subjects[@]}"; do
+            selected_subjects=()  # Array to store actual subject IDs
+            for num in "${selected_indices[@]}"; do
                 if [[ $num -le 0 || $num -gt ${#subjects[@]} ]]; then
                     echo -e "${RED}Invalid subject number: $num. Please try again.${RESET}"
                     valid_input=false
                     break
                 fi
+                # Store the actual subject ID
+                selected_subjects+=("${subjects[$((num-1))]}")
             done
             if $valid_input; then
                 break
@@ -133,6 +143,47 @@ choose_subjects() {
         else
             echo -e "${RED}Invalid input. Please enter numbers separated by commas.${RESET}"
         fi
+    done
+}
+
+# Function to get threshold values for focality optimization
+get_thresholds() {
+    if ! is_prompt_enabled "thresholds"; then
+        local default_value=$(get_default_value "thresholds")
+        if [ -n "$default_value" ]; then
+            THRESHOLD_VALUES="$default_value"
+            echo -e "${CYAN}Using default threshold values: $THRESHOLD_VALUES${RESET}"
+            return
+        fi
+    fi
+
+    echo -e "${GREEN}Enter threshold value(s) for the electric field (V/m):${RESET}"
+    echo "You can enter:"
+    echo "1. A single value: E-field should be lower than this in non-ROI and higher in ROI"
+    echo "2. Two values (comma-separated): First for non-ROI max, second for ROI min"
+    echo "Example: 0.2 or 0.2,0.5"
+    
+    while true; do
+        read -p "Enter threshold value(s): " threshold_input
+        
+        # Check if input contains a comma (two thresholds)
+        if [[ $threshold_input == *","* ]]; then
+            IFS=',' read -r non_roi_threshold roi_threshold <<< "$threshold_input"
+            # Validate both numbers
+            if [[ "$non_roi_threshold" =~ ^[0-9]+\.?[0-9]*$ ]] && [[ "$roi_threshold" =~ ^[0-9]+\.?[0-9]*$ ]]; then
+                export THRESHOLD_VALUES="$non_roi_threshold,$roi_threshold"
+                echo -e "${GREEN}Set thresholds: non-ROI max = ${non_roi_threshold}V/m, ROI min = ${roi_threshold}V/m${RESET}"
+                break
+            fi
+        else
+            # Single threshold value
+            if [[ "$threshold_input" =~ ^[0-9]+\.?[0-9]*$ ]]; then
+                export THRESHOLD_VALUES="$threshold_input"
+                echo -e "${GREEN}Set threshold: ${threshold_input}V/m for both ROI and non-ROI${RESET}"
+                break
+            fi
+        fi
+        echo -e "${RED}Invalid input. Please enter numeric values only (e.g., 0.2 or 0.2,0.5).${RESET}"
     done
 }
 
@@ -154,7 +205,11 @@ choose_goal() {
         read -p "Enter your choice (1 or 2): " goal_choice
         case "$goal_choice" in
             1) goal="mean"; break ;;
-            2) goal="focality"; break ;;
+            2) 
+                goal="focality"
+                get_thresholds  # Get threshold values for focality optimization
+                break 
+                ;;
             *) echo -e "${RED}Invalid choice. Please enter 1 or 2.${RESET}" ;;
         esac
     done
@@ -234,7 +289,7 @@ choose_eeg_net() {
     fi
 
     # Get the first subject to list available EEG nets
-    first_subject="${subjects[$((${selected_subjects[0]}-1))]}"
+    first_subject="${selected_subjects[0]}"
     
     if ! list_eeg_nets "$first_subject"; then
         echo -e "${RED}Failed to list EEG nets. Using default EGI_256.${RESET}"
@@ -290,151 +345,616 @@ choose_electrode_params() {
     done
 }
 
-# Function to list available atlases for a subject
-list_atlases() {
-    local subject_id=$1
-    local label_dir="$project_dir/$subject_id/SimNIBS/m2m_$subject_id/label"
-    
-    if [ ! -d "$label_dir" ]; then
-        echo -e "${RED}Error: Label directory not found for subject $subject_id${RESET}"
-        return 1
-    fi
-
-    echo -e "${BOLD_CYAN}Available atlases:${RESET}"
-    echo "-------------------"
-    
-    # Initialize array for atlases
-    atlases=()
-    index=1
-    
-    # List all .annot files and extract base names
-    for atlas_file in "$label_dir"/*.annot; do
-        if [ -f "$atlas_file" ]; then
-            atlas_name=$(basename "$atlas_file")
-            atlases+=("$atlas_name")
-            printf "%3d. %s\n" "$index" "$atlas_name"
-            ((index++))
-        fi
-    done
-    
-    if [ ${#atlases[@]} -eq 0 ]; then
-        echo -e "${YELLOW}No atlas files found in $label_dir${RESET}"
-        return 1
-    fi
-    
-    echo
-    return 0
-}
-
-# Choose ROI definition method
+# Function to choose ROI method
 choose_roi_method() {
-    if ! is_prompt_enabled "roi_method"; then
-        local default_value=$(get_default_value "roi_method")
-        if [ -n "$default_value" ]; then
-            roi_method="$default_value"
-            echo -e "${CYAN}Using default ROI method: $roi_method${RESET}"
-            return
-        fi
-    fi
-
-    echo -e "${GREEN}Choose ROI definition method:${RESET}"
-    echo "1. Spherical (define by coordinates and radius)"
-    echo "2. Cortical (use atlas-based parcellation)"
+    echo "Choose ROI definition method:"
+    echo "1. spherical (define ROI as a sphere)"
+    echo "2. atlas (use atlas-based ROI)"
     while true; do
         read -p "Enter your choice (1 or 2): " roi_choice
         case "$roi_choice" in
             1) 
-                roi_method="spherical"
-                echo -e "${GREEN}Enter spherical ROI parameters in subject space:${RESET}"
-                while true; do
-                    read -p "X coordinate (mm): " roi_x
-                    read -p "Y coordinate (mm): " roi_y
-                    read -p "Z coordinate (mm): " roi_z
-                    read -p "Radius (mm): " roi_radius
-                    if [[ "$roi_x" =~ ^-?[0-9]+\.?[0-9]*$ ]] && \
-                       [[ "$roi_y" =~ ^-?[0-9]+\.?[0-9]*$ ]] && \
-                       [[ "$roi_z" =~ ^-?[0-9]+\.?[0-9]*$ ]] && \
-                       [[ "$roi_radius" =~ ^[0-9]+\.?[0-9]*$ ]]; then
-                        export ROI_X="$roi_x"
-                        export ROI_Y="$roi_y"
-                        export ROI_Z="$roi_z"
-                        export ROI_RADIUS="$roi_radius"
-                        break
-                    else
-                        echo -e "${RED}Invalid input. Please enter valid numbers.${RESET}"
-                    fi
-                done
+                export ROI_METHOD="spherical"
+                setup_spherical_roi
                 break 
                 ;;
-            2)  
-                roi_method="cortical"
-                # Get the first subject to list available atlases
-                first_subject="${subjects[$((${selected_subjects[0]}-1))]}"
-                
-                if ! list_atlases "$first_subject"; then
-                    echo -e "${RED}Failed to list atlases. Please check the subject directory.${RESET}"
-                    return 1
-                fi
-
-                while true; do
-                    read -p "Enter the number of the atlas to use: " atlas_choice
-                    if [[ "$atlas_choice" =~ ^[0-9]+$ ]] && [ "$atlas_choice" -ge 1 ] && [ "$atlas_choice" -le "${#atlases[@]}" ]; then
-                        selected_atlas="${atlases[$((atlas_choice-1))]}"
-                        echo -e "${GREEN}Enter the label value for your target region:${RESET}"
-                        read -p "Label value: " label_value
-                        if [[ "$label_value" =~ ^[0-9]+$ ]]; then
-                            export ROI_LABEL="$label_value"
-                            export ATLAS_PATH="$selected_atlas"
-                            break
-                        else
-                            echo -e "${RED}Invalid label value. Please enter a positive integer.${RESET}"
-                        fi
-                    else
-                        echo -e "${RED}Invalid choice. Please enter a number between 1 and ${#atlases[@]}.${RESET}"
-                    fi
-                done
+            2) 
+                export ROI_METHOD="atlas"
+                setup_atlas_roi "$1"
                 break 
                 ;;
-            *) echo -e "${RED}Invalid choice. Please enter 1 or 2.${RESET}" ;;
+            *) 
+                echo "Invalid choice. Please enter 1 or 2."
+                ;;
         esac
     done
 }
 
-# Main script execution
-echo -e "${BOLD_CYAN}TI-CSC Flex Search Optimization Tool${RESET}"
-echo "----------------------------------------"
+# Add this helper function for numeric validation
+validate_numeric_input() {
+    local value="$1"
+    local name="$2"
+    local allow_negative="$3"
+
+    if [ "$allow_negative" = "true" ]; then
+        if ! [[ "$value" =~ ^-?[0-9]+\.?[0-9]*$ ]]; then
+            print_error "$name must be a number"
+            return 1
+        fi
+    else
+        if ! [[ "$value" =~ ^[0-9]+\.?[0-9]*$ ]]; then
+            print_error "$name must be a positive number"
+            return 1
+        fi
+    fi
+    return 0
+}
+
+# Function to get validated numeric input
+get_numeric_input() {
+    local prompt="$1"
+    local var_name="$2"
+    local allow_negative="$3"
+    local value=""
+
+    while true; do
+        echo -e "${CYAN}$prompt${RESET}"
+        read -p "> " value
+        
+        if validate_numeric_input "$value" "$var_name" "$allow_negative"; then
+            echo "$value"
+            return 0
+        fi
+    done
+}
+
+# Add this helper function for coordinate validation
+validate_coordinates() {
+    local coords="$1"
+    local name="$2"
+    
+    # Check if input matches the pattern "x,y,z" where x,y,z are numbers (can be negative)
+    if ! [[ "$coords" =~ ^-?[0-9]+\.?[0-9]*,-?[0-9]+\.?[0-9]*,-?[0-9]+\.?[0-9]*$ ]]; then
+        print_error "$name must be three comma-separated numbers (x,y,z)"
+        return 1
+    fi
+    return 0
+}
+
+# Function to get validated coordinate input
+get_coordinate_input() {
+    local prompt="$1"
+    local var_name="$2"
+    local coords=""
+
+    while true; do
+        echo -e "${CYAN}$prompt (format: x,y,z)${RESET}"
+        read -p "> " coords
+        
+        if validate_coordinates "$coords" "$var_name"; then
+            echo "$coords"
+            return 0
+        fi
+    done
+}
+
+# Add this helper function for coordinate and radius validation
+validate_coordinates_and_radius() {
+    local input="$1"
+    local name="$2"
+    
+    # Check if input matches the pattern "x,y,z,r" where x,y,z can be negative, r must be positive
+    if ! [[ "$input" =~ ^-?[0-9]+\.?[0-9]*,-?[0-9]+\.?[0-9]*,-?[0-9]*\.?[0-9]*,[0-9]+\.?[0-9]*$ ]]; then
+        print_error "$name must be four comma-separated numbers (x,y,z,radius) where radius is positive"
+        return 1
+    fi
+    return 0
+}
+
+# Function to get validated coordinate and radius input
+get_coordinate_and_radius_input() {
+    local prompt="$1"
+    local var_name="$2"
+    while true; do
+        echo -e "\n${BOLD_BLUE}───────────────────────────────────────────────${RESET}"
+        echo -e "${BOLD}$prompt${RESET}"
+        echo -e "${CYAN}Please enter the center coordinates and radius for the sphere.${RESET}"
+        echo -e "${YELLOW}Format:${RESET}   ${BOLD}x,y,z,radius${RESET}"
+        echo -e "${YELLOW}Example:${RESET}  ${BOLD}10,-5,20,5${RESET}  (center at 10,-5,20 mm, radius 5 mm)"
+        echo -e "${BOLD_BLUE}───────────────────────────────────────────────${RESET}"
+        read -p "> " COORD_RADIUS_INPUT
+        if validate_coordinates_and_radius "$COORD_RADIUS_INPUT" "$var_name"; then
+            return 0
+        fi
+    done
+}
+
+# Modify the setup_spherical_roi function
+setup_spherical_roi() {
+    print_section_header "Spherical ROI Configuration"
+    echo
+    get_coordinate_and_radius_input "Define ROI sphere location and size (in mm):" "Input"
+    IFS=',' read -r ROI_X ROI_Y ROI_Z ROI_RADIUS <<< "$COORD_RADIUS_INPUT"
+    echo -e "${BOLD_GREEN}\n✓ Spherical ROI set: center (${ROI_X}, ${ROI_Y}, ${ROI_Z}) mm, radius ${ROI_RADIUS} mm${RESET}\n"
+    export ROI_X ROI_Y ROI_Z ROI_RADIUS
+}
+
+# Function to list available atlases
+list_atlases() {
+    local subject_id=$1
+    local atlas_dir="$project_dir/$subject_id/SimNIBS/m2m_${subject_id}/segmentation"
+    
+    if [ ! -d "$atlas_dir" ]; then
+        echo "Error: Atlas directory not found: $atlas_dir"
+        return 1
+    fi
+
+    echo "Available Atlases:"
+    echo "-------------------"
+    
+    # Reset global variables
+    ATLAS_LIST=()
+    ATLAS_LIST_LENGTH=0
+    ATLAS_DIR="$atlas_dir"
+    
+    # Find all unique atlas types by looking at .annot files
+    local i=1
+    for annot_file in "$atlas_dir"/*.annot; do
+        if [ -f "$annot_file" ]; then
+            # Extract the atlas name from the filename
+            local base_name=$(basename "$annot_file")
+            local atlas_name=${base_name#*.}  # Remove hemisphere prefix
+            local atlas_name=${atlas_name%.annot}   # Remove .annot suffix
+            
+            # Skip if we've already processed this atlas type
+            if [[ " ${ATLAS_LIST[*]} " =~ " ${atlas_name} " ]]; then
+                continue
+            fi
+            
+            # Check if both hemispheres exist
+            if [ -f "$atlas_dir/lh.${atlas_name}.annot" ] && [ -f "$atlas_dir/rh.${atlas_name}.annot" ]; then
+                printf "%d. %s\n" $i "$atlas_name"
+                ATLAS_LIST[$i]="$atlas_name"
+                ((i++))
+            fi
+        fi
+    done
+    
+    if [ $i -eq 1 ]; then
+        echo "No annotation files found in $atlas_dir"
+        return 1
+    fi
+    
+    ATLAS_LIST_LENGTH=$((i-1))
+    echo
+    return 0
+}
+
+# Function to show atlas regions using read_annot.py
+show_atlas_regions() {
+    local subject_id=$1
+    local annot_file=$2
+    
+    echo "Loading atlas regions..."
+    simnibs_python "$script_dir/../utils/read_annot.py" "$ATLAS_DIR/$annot_file"
+    
+    if [ $? -ne 0 ]; then
+        echo "Error reading annotation file"
+        return 1
+    fi
+}
+
+# Function to setup atlas ROI with region listing
+setup_atlas_roi() {
+    local subject_id=$1
+    local selected_atlas=""
+    local selected_hemi=""
+    
+    # Initialize global arrays
+    ATLAS_LIST=()
+    
+    while true; do
+        # List available atlases
+        list_atlases "$subject_id"
+        
+        if [ $? -ne 0 ]; then
+            echo "Failed to find any atlases. Please check the SimNIBS segmentation directory."
+            exit 1
+        fi
+        
+        # Add option to list regions
+        echo "$((ATLAS_LIST_LENGTH + 1)). List Regions (view regions in a specific atlas)"
+        echo
+        
+        # Choose atlas
+        read -p "Enter your choice (1-$((ATLAS_LIST_LENGTH + 1))): " atlas_choice
+        
+        if [ "$atlas_choice" = "$((ATLAS_LIST_LENGTH + 1))" ]; then
+            # Show atlas selection for region listing
+            echo "Choose which atlas to list regions from:"
+            list_atlases "$subject_id"
+            read -p "Enter atlas number: " list_choice
+            
+            if [[ "$list_choice" =~ ^[0-9]+$ ]] && [ "$list_choice" -ge 1 ] && [ "$list_choice" -le "$ATLAS_LIST_LENGTH" ]; then
+                selected_list_atlas="${ATLAS_LIST[$list_choice]}"
+                
+                # Choose hemisphere
+                echo "Choose hemisphere:"
+                echo "1. Left (lh)"
+                echo "2. Right (rh)"
+                read -p "Enter choice (1 or 2): " hemi_choice
+                
+                case "$hemi_choice" in
+                    1) selected_hemi="lh";;
+                    2) selected_hemi="rh";;
+                    *) echo "Invalid choice. Please enter 1 or 2."; continue;;
+                esac
+                
+                echo "Regions in selected atlas (${selected_hemi}):"
+                show_atlas_regions "$subject_id" "${selected_hemi}.${selected_list_atlas}.annot"
+            else
+                echo "Invalid choice. Please enter a number between 1 and $ATLAS_LIST_LENGTH."
+            fi
+            echo
+            continue
+        fi
+        
+        if [[ "$atlas_choice" =~ ^[0-9]+$ ]] && [ "$atlas_choice" -ge 1 ] && [ "$atlas_choice" -le "$ATLAS_LIST_LENGTH" ]; then
+            selected_atlas="${ATLAS_LIST[$atlas_choice]}"
+            
+            # Choose hemisphere
+            echo "Choose hemisphere:"
+            echo "1. Left (lh)"
+            echo "2. Right (rh)"
+            read -p "Enter choice (1 or 2): " hemi_choice
+            
+            case "$hemi_choice" in
+                1) selected_hemi="lh";;
+                2) selected_hemi="rh";;
+                *) echo "Invalid choice. Please enter 1 or 2."; continue;;
+            esac
+            
+            # Get ROI label
+            while true; do
+                echo "Enter the ROI label number from the selected atlas:"
+                read -p "Label number (or 'l' to list regions again): " roi_label
+                
+                if [ "$roi_label" = "l" ] || [ "$roi_label" = "L" ]; then
+                    show_atlas_regions "$subject_id" "${selected_hemi}.${selected_atlas}.annot"
+                    continue
+                fi
+                
+                if [[ "$roi_label" =~ ^[0-9]+$ ]]; then
+                    # Verify the label exists in the atlas by checking read_annot.py output
+                    if show_atlas_regions "$subject_id" "${selected_hemi}.${selected_atlas}.annot" | grep -q "^[[:space:]]*$roi_label:"; then
+                        break
+                    else
+                        echo "Invalid label. This ID does not exist in the selected atlas."
+                    fi
+                else
+                    echo "Invalid label. Please enter a number or 'l' to list regions."
+                fi
+            done
+
+            # Set the full path to the atlas and export hemisphere
+            export ATLAS_PATH="$ATLAS_DIR/${selected_hemi}.${selected_atlas}.annot"
+            export SELECTED_HEMISPHERE="$selected_hemi"
+            export ROI_LABEL="$roi_label"
+            export ROI_METHOD="atlas"
+            break
+        else
+            echo "Invalid choice. Please enter a number between 1 and $((ATLAS_LIST_LENGTH + 1))."
+        fi
+    done
+    
+    # Debug output to verify environment variables
+    echo "Selected atlas configuration:"
+    echo "ATLAS_PATH: $ATLAS_PATH"
+    echo "SELECTED_HEMISPHERE: $SELECTED_HEMISPHERE"
+    echo "ROI_LABEL: $ROI_LABEL"
+    echo "ROI_METHOD: $ROI_METHOD"
+}
+
+# Function to setup non-ROI for focality with region listing
+setup_non_roi() {
+    if [ "$goal" != "focality" ]; then
+        return
+    fi
+
+    echo -e "${GREEN}Choose non-ROI definition method:${RESET}"
+    echo "1. everything_else (use everything outside the ROI)"
+    echo "2. specific (define a specific non-ROI region)"
+    while true; do
+        read -p "Enter your choice (1 or 2): " non_roi_choice
+        case "$non_roi_choice" in
+            1) 
+                non_roi_method="everything_else"
+                break 
+                ;;
+            2) 
+                non_roi_method="specific"
+                if [ "$ROI_METHOD" = "spherical" ]; then
+                    print_section_header "Spherical Non-ROI Configuration"
+                    echo
+                    get_coordinate_and_radius_input "Define non-ROI sphere location and size (in mm):" "Input"
+                    IFS=',' read -r NON_ROI_X NON_ROI_Y NON_ROI_Z NON_ROI_RADIUS <<< "$COORD_RADIUS_INPUT"
+                    echo -e "${BOLD_GREEN}\n✓ Spherical Non-ROI set: center (${NON_ROI_X}, ${NON_ROI_Y}, ${NON_ROI_Z}) mm, radius ${NON_ROI_RADIUS} mm${RESET}\n"
+                    export NON_ROI_X NON_ROI_Y NON_ROI_Z NON_ROI_RADIUS
+                else  # atlas-based ROI
+                    # List available atlases
+                    list_atlases "$first_subject"
+                    
+                    if [ $? -ne 0 ]; then
+                        echo -e "${RED}Failed to find any atlases. Please check the SimNIBS segmentation directory.${RESET}"
+                        echo -e "${YELLOW}Defaulting to 'everything_else' method.${RESET}"
+                        non_roi_method="everything_else"
+                        break
+                    fi
+                    
+                    # Add option to list regions
+                    echo "$((ATLAS_LIST_LENGTH + 1)). List Regions (view regions in a specific atlas)"
+                    echo
+                    
+                    # Choose atlas
+                    read -p "Enter your choice (1-$((ATLAS_LIST_LENGTH + 1))): " atlas_choice
+                    
+                    if [ "$atlas_choice" = "$((ATLAS_LIST_LENGTH + 1))" ]; then
+                        # Show atlas selection for region listing
+                        echo "Choose which atlas to list regions from:"
+                        list_atlases "$first_subject"
+                        read -p "Enter atlas number: " list_choice
+                        
+                        if [[ "$list_choice" =~ ^[0-9]+$ ]] && [ "$list_choice" -ge 1 ] && [ "$list_choice" -le "$ATLAS_LIST_LENGTH" ]; then
+                            selected_non_roi_atlas="${ATLAS_LIST[$list_choice]}"
+                            
+                            # Choose hemisphere
+                            echo "Choose hemisphere:"
+                            echo "1. Left (lh)"
+                            echo "2. Right (rh)"
+                            read -p "Enter choice (1 or 2): " hemi_choice
+                            
+                            case "$hemi_choice" in
+                                1) selected_non_roi_hemi="lh";;
+                                2) selected_non_roi_hemi="rh";;
+                                *) echo "Invalid choice. Please enter 1 or 2."; continue;;
+                            esac
+                            
+                            echo "Regions in selected atlas (${selected_non_roi_hemi}):"
+                            show_atlas_regions "$first_subject" "${selected_non_roi_hemi}.${selected_non_roi_atlas}.annot"
+                        else
+                            echo -e "${RED}Invalid choice. Please enter a number between 1 and $ATLAS_LIST_LENGTH.${RESET}"
+                        fi
+                        echo
+                        continue
+                    fi
+                    
+                    if [[ "$atlas_choice" =~ ^[0-9]+$ ]] && [ "$atlas_choice" -ge 1 ] && [ "$atlas_choice" -le "$ATLAS_LIST_LENGTH" ]; then
+                        selected_non_roi_atlas="${ATLAS_LIST[$atlas_choice]}"
+                        
+                        # Choose hemisphere
+                        echo "Choose hemisphere:"
+                        echo "1. Left (lh)"
+                        echo "2. Right (rh)"
+                        read -p "Enter choice (1 or 2): " hemi_choice
+                        
+                        case "$hemi_choice" in
+                            1) selected_non_roi_hemi="lh";;
+                            2) selected_non_roi_hemi="rh";;
+                            *) echo "Invalid choice. Please enter 1 or 2."; continue;;
+                        esac
+                        
+                        # Show regions for selected atlas and hemisphere
+                        echo "Regions in selected atlas (${selected_non_roi_hemi}):"
+                        show_atlas_regions "$first_subject" "${selected_non_roi_hemi}.${selected_non_roi_atlas}.annot"
+                        
+                        # Get ROI label
+                        while true; do
+                            echo "Enter the non-ROI label number from the selected atlas:"
+                            read -p "Label number (or 'l' to list regions again): " non_roi_label
+                            
+                            if [ "$non_roi_label" = "l" ] || [ "$non_roi_label" = "L" ]; then
+                                show_atlas_regions "$first_subject" "${selected_non_roi_hemi}.${selected_non_roi_atlas}.annot"
+                                continue
+                            fi
+                            
+                            if [[ "$non_roi_label" =~ ^[0-9]+$ ]]; then
+                                # Verify the label exists in the atlas
+                                if show_atlas_regions "$first_subject" "${selected_non_roi_hemi}.${selected_non_roi_atlas}.annot" | grep -q "^[[:space:]]*$non_roi_label:"; then
+                                    break
+                                else
+                                    echo -e "${RED}Invalid label. This ID does not exist in the selected atlas.${RESET}"
+                                fi
+                            else
+                                echo -e "${RED}Invalid label. Please enter a number or 'l' to list regions.${RESET}"
+                            fi
+                        done
+
+                        # Set the non-ROI atlas information
+                        export NON_ROI_ATLAS_PATH="$ATLAS_DIR/${selected_non_roi_hemi}.${selected_non_roi_atlas}.annot"
+                        export NON_ROI_HEMISPHERE="$selected_non_roi_hemi"
+                        export NON_ROI_LABEL="$non_roi_label"
+
+                        echo -e "\n${GREEN}Selected non-ROI configuration:${RESET}"
+                        echo "NON_ROI_ATLAS_PATH: $NON_ROI_ATLAS_PATH"
+                        echo "NON_ROI_HEMISPHERE: $NON_ROI_HEMISPHERE"
+                        echo "NON_ROI_LABEL: $NON_ROI_LABEL"
+                    else
+                        echo -e "${RED}Invalid choice. Please enter a number between 1 and $ATLAS_LIST_LENGTH.${RESET}"
+                        continue
+                    fi
+                fi
+                break 
+                ;;
+            *) 
+                echo -e "${RED}Invalid choice. Please enter 1 or 2.${RESET}" 
+                ;;
+        esac
+    done
+}
+
+# Add this function near the other utility functions
+print_section_header() {
+    local title="$1"
+    echo -e "\n${BG_BLUE}${BOLD}=== $title ===${RESET}"
+}
+
+print_error() {
+    echo -e "${BOLD_RED}ERROR: $1${RESET}"
+}
+
+print_warning() {
+    echo -e "${BOLD_YELLOW}WARNING: $1${RESET}"
+}
+
+print_success() {
+    echo -e "${BOLD_GREEN}✓ $1${RESET}"
+}
+
+print_parameter() {
+    local param_name="$1"
+    local param_value="$2"
+    echo -e "${BLUE}$param_name:${RESET} $param_value"
+}
+
+# Add this helper function to get the label name from number
+get_label_name() {
+    local atlas_file="$1"
+    local label_number="$2"
+    # Use read_annot.py to get the label name
+    local label_name=$(simnibs_python "$script_dir/../utils/read_annot.py" "$atlas_file" | grep "^[[:space:]]*$label_number:" | cut -d':' -f2 | cut -d'|' -f1 | xargs)
+    echo "$label_name"
+}
+
+# Modify the print_final_summary function
+print_final_summary() {
+    print_section_header "Configuration Summary"
+    echo -e "${BOLD}Selected Parameters:${RESET}"
+    
+    # Subject Information - Show actual subject IDs
+    echo -e "\n${BOLD_CYAN}Subject Information:${RESET}"
+    local subject_list=""
+    for num in ${subject_choices//,/ }; do
+        if [ -n "$subject_list" ]; then
+            subject_list+=", "
+        fi
+        subject_list+="${subjects[$((num-1))]}"
+    done
+    print_parameter "Subjects" "$subject_list"
+    
+    # Optimization Parameters
+    echo -e "\n${BOLD_CYAN}Optimization Parameters:${RESET}"
+    print_parameter "Goal" "$goal"
+    print_parameter "Post-processing Method" "$postproc"
+    
+    # Electrode Configuration
+    echo -e "\n${BOLD_CYAN}Electrode Configuration:${RESET}"
+    print_parameter "EEG Net" "$eeg_net"
+    print_parameter "Electrode Radius" "${radius}mm"
+    print_parameter "Electrode Current" "${current}mA"
+    
+    # ROI Configuration
+    echo -e "\n${BOLD_CYAN}ROI Configuration:${RESET}"
+    print_parameter "ROI Method" "$ROI_METHOD"
+    if [ "$ROI_METHOD" = "atlas" ]; then
+        print_parameter "Atlas" "$(basename "$ATLAS_PATH")"
+        print_parameter "Hemisphere" "$SELECTED_HEMISPHERE"
+        local roi_label_name=$(get_label_name "$ATLAS_PATH" "$ROI_LABEL")
+        print_parameter "ROI Label" "$ROI_LABEL - $roi_label_name"
+    else
+        print_parameter "ROI Coordinates" "(${ROI_X}, ${ROI_Y}, ${ROI_Z})"
+        print_parameter "ROI Radius" "${ROI_RADIUS}mm"
+    fi
+    
+    # Focality Settings (if applicable)
+    if [ "$goal" = "focality" ]; then
+        echo -e "\n${BOLD_CYAN}Focality Settings:${RESET}"
+        print_parameter "Non-ROI Method" "$non_roi_method"
+        print_parameter "Threshold Values" "$THRESHOLD_VALUES"
+        if [ "$non_roi_method" = "specific" ]; then
+            if [ "$ROI_METHOD" = "atlas" ]; then
+                print_parameter "Non-ROI Atlas" "$(basename "$NON_ROI_ATLAS_PATH")"
+                print_parameter "Non-ROI Hemisphere" "$NON_ROI_HEMISPHERE"
+                local non_roi_label_name=$(get_label_name "$NON_ROI_ATLAS_PATH" "$NON_ROI_LABEL")
+                print_parameter "Non-ROI Label" "$NON_ROI_LABEL - $non_roi_label_name"
+            else
+                print_parameter "Non-ROI Coordinates" "(${NON_ROI_X}, ${NON_ROI_Y}, ${NON_ROI_Z})"
+                print_parameter "Non-ROI Radius" "${NON_ROI_RADIUS}mm"
+            fi
+        fi
+    fi
+    
+    echo -e "\n${BOLD_YELLOW}Please review the configuration above.${RESET}"
+    read -p "Press Enter to continue or Ctrl+C to abort..."
+}
+
+# Modify the main script execution section
+# Replace the existing main execution section with:
+clear  # Clear the screen before starting
+echo -e "${BOLD_CYAN}╔════════════════════════════════════════╗${RESET}"
+echo -e "${BOLD_CYAN}║     TI-CSC Flex Search Optimizer       ║${RESET}"
+echo -e "${BOLD_CYAN}╚════════════════════════════════════════╝${RESET}"
+echo -e "${CYAN}Version 2.0 - $(date +%Y)${RESET}\n"
 
 # Create necessary directories
 mkdir -p "$project_dir/Analysis"
 
-# Collect all necessary inputs
+# Collect all necessary inputs with section headers
+print_section_header "Subject Selection"
 choose_subjects
+
+# Get the first selected subject for initial setup
+first_subject="${selected_subjects[0]}"
+
+print_section_header "Optimization Parameters"
 choose_goal
 choose_postproc
+
+print_section_header "Electrode Configuration"
 choose_eeg_net
 choose_electrode_params
-choose_roi_method
 
-# Run flex-search for each subject
-for subject_index in "${selected_subjects[@]}"; do
-    subject_id="${subjects[$((subject_index-1))]}"
+print_section_header "ROI Configuration"
+choose_roi_method "$first_subject"
+
+# Setup non-ROI if goal is focality
+if [ "$goal" = "focality" ]; then
+    print_section_header "Non-ROI Configuration"
+    setup_non_roi
+fi
+
+# Print final summary and ask for confirmation
+print_final_summary
+
+# Process each subject
+for subject_id in "${selected_subjects[@]}"; do
+    print_section_header "Processing Subject: $subject_id"
     
-    # Export necessary environment variables
-    export PROJECT_DIR="$project_dir"
-    export SUBJECT_ID="$subject_id"
+    # Build the command with all required arguments
+    cmd="simnibs_python \"$flex_search_dir/flex-search.py\""
+    cmd+=" --subject \"$subject_id\""
+    cmd+=" --goal \"$goal\""
+    cmd+=" --postproc \"$postproc\""
+    cmd+=" --eeg-net \"$eeg_net\""
+    cmd+=" --radius \"$radius\""
+    cmd+=" --current \"$current\""
+    cmd+=" --roi-method \"$ROI_METHOD\""
     
-    # Run flex-search.py with all the collected parameters
-    echo -e "${CYAN}Running flex-search for subject $subject_id...${RESET}"
-    simnibs_python "$flex_search_dir/flex-search.py" \
-        --subject "$subject_id" \
-        --goal "$goal" \
-        --postproc "$postproc" \
-        --eeg-net "$eeg_net" \
-        --radius "$radius" \
-        --current "$current" \
-        --roi-method "$roi_method"
+    # Add non-ROI arguments if goal is focality
+    if [ "$goal" = "focality" ] && [ -n "$non_roi_method" ]; then
+        cmd+=" --non-roi-method \"$non_roi_method\""
+        if [ -n "$THRESHOLD_VALUES" ]; then
+            cmd+=" --thresholds \"$THRESHOLD_VALUES\""
+        fi
+    fi
     
-    echo -e "${GREEN}Flex-search completed for subject $subject_id${RESET}"
+    # Execute the command
+    echo -e "\n${CYAN}Executing optimization...${RESET}"
+    if eval "$cmd"; then
+        print_success "Successfully completed flex-search for subject $subject_id"
+    else
+        print_error "Failed to complete flex-search for subject $subject_id"
+        echo -e "${YELLOW}Check the logs above for more details${RESET}"
+    fi
 done
 
-echo -e "${GREEN}All optimizations completed.${RESET}" 
+print_success "All optimizations completed!" 
