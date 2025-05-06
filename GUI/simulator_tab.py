@@ -748,6 +748,8 @@ class SimulatorTab(QtWidgets.QWidget):
     
     def run_simulation(self):
         """Run the simulation with the selected parameters."""
+        if hasattr(self, 'parent') and self.parent:
+            self.parent.set_tab_busy(self, True, stop_btn=self.stop_btn)
         if self.simulation_running:
             self.output_console.append("A simulation is already running.")
             return
@@ -927,9 +929,10 @@ class SimulatorTab(QtWidgets.QWidget):
         
     def simulation_finished(self):
         """Handle simulation completion."""
+        if hasattr(self, 'parent') and self.parent:
+            self.parent.set_tab_busy(self, False, stop_btn=self.stop_btn)
         self.output_console.append('<div style="margin: 10px 0;"><span style="color: #55ff55; font-size: 16px; font-weight: bold;">✅ Simulation process completed ✅</span></div>')
         self.output_console.append('<div style="border-bottom: 1px solid #555; margin-bottom: 10px;"></div>')
-        
         self.simulation_running = False
         self.run_btn.setEnabled(True)
         self.run_btn.setText("Run Simulation")
@@ -953,6 +956,8 @@ class SimulatorTab(QtWidgets.QWidget):
     
     def stop_simulation(self):
         """Stop the running simulation."""
+        if hasattr(self, 'parent') and self.parent:
+            self.parent.set_tab_busy(self, False, stop_btn=self.stop_btn)
         if hasattr(self, 'simulation_process') and self.simulation_process:
             # Show stopping message
             self.output_console.append("Stopping simulation...")

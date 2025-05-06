@@ -552,6 +552,8 @@ class FlexSearchTab(QtWidgets.QWidget):
     
     def run_optimization(self):
         """Prepare and run the flex-search optimization."""
+        if hasattr(self, 'parent') and self.parent:
+            self.parent.set_tab_busy(self, True, stop_btn=self.stop_btn)
         if self.optimization_running:
             self.output_text.append("Optimization already running. Please wait or stop the current run.")
             return
@@ -730,6 +732,8 @@ class FlexSearchTab(QtWidgets.QWidget):
     
     def optimization_finished(self):
         """Handle the completion of the optimization process."""
+        if hasattr(self, 'parent') and self.parent:
+            self.parent.set_tab_busy(self, False, stop_btn=self.stop_btn)
         self.optimization_running = False
         self.run_btn.setEnabled(True)
         self.stop_btn.setEnabled(False)
@@ -742,6 +746,8 @@ class FlexSearchTab(QtWidgets.QWidget):
     
     def stop_optimization(self):
         """Stop the running optimization process."""
+        if hasattr(self, 'parent') and self.parent:
+            self.parent.set_tab_busy(self, False, stop_btn=self.stop_btn)
         if not self.optimization_running:
             return
         

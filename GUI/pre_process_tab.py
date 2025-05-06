@@ -376,6 +376,8 @@ class PreProcessTab(QtWidgets.QWidget):
     
     def run_preprocessing(self):
         """Start the pre-processing operation with the selected options."""
+        if hasattr(self, 'parent') and self.parent:
+            self.parent.set_tab_busy(self, True, stop_btn=self.stop_btn)
         if self.processing_running:
             QtWidgets.QMessageBox.warning(
                 self, "Process Running",
@@ -519,6 +521,8 @@ class PreProcessTab(QtWidgets.QWidget):
     
     def preprocessing_finished(self):
         """Handle completion of all pre-processing operations."""
+        if hasattr(self, 'parent') and self.parent:
+            self.parent.set_tab_busy(self, False, stop_btn=self.stop_btn)
         self.console_output.append("Pre-processing operations completed for all subjects.")
         
         # Re-enable UI elements
@@ -561,6 +565,8 @@ class PreProcessTab(QtWidgets.QWidget):
     
     def stop_preprocessing(self):
         """Stop the running pre-processing operation."""
+        if hasattr(self, 'parent') and self.parent:
+            self.parent.set_tab_busy(self, False, stop_btn=self.stop_btn)
         if not self.processing_running or not self.processing_thread:
             return
         

@@ -128,6 +128,42 @@ class MainWindow(QtWidgets.QMainWindow):
         else:
             event.ignore()
 
+    def set_tab_busy(self, tab_widget, busy=True, message="A process is running. Only the Stop button is available.", stop_btn=None):
+        """Disable all interactive widgets in the given tab except the provided stop button, and show a message at the top of the tab."""
+        interactive_types = (
+            QtWidgets.QPushButton, QtWidgets.QLineEdit, QtWidgets.QComboBox, QtWidgets.QCheckBox,
+            QtWidgets.QListWidget, QtWidgets.QRadioButton, QtWidgets.QSpinBox, QtWidgets.QDoubleSpinBox,
+            QtWidgets.QTextEdit
+        )
+        for widget in tab_widget.findChildren(QtWidgets.QWidget):
+            if stop_btn is not None and widget is stop_btn:
+                continue
+            if isinstance(widget, interactive_types):
+                widget.setEnabled(not busy)
+        if stop_btn is not None:
+            stop_btn.setEnabled(busy)
+        # Show/hide message at the top
+        if not hasattr(tab_widget, '_busy_message_label'):
+            msg_label = QtWidgets.QLabel(tab_widget)
+            msg_label.setStyleSheet("color: #d9534f; font-size: 14px; font-weight: bold; padding: 4px 0 4px 0;")
+            msg_label.setAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
+            msg_label.hide()
+            tab_widget._busy_message_label = msg_label
+            # Insert at the top of the main layout if possible
+            layout = tab_widget.layout()
+            if layout is not None:
+                layout.insertWidget(0, msg_label)
+        msg_label = tab_widget._busy_message_label
+        msg_label.setText(message if busy else "")
+        msg_label.setVisible(busy)
+
+    def resizeEvent(self, event):
+        # Ensure overlays resize with the window
+        for tab in [self.pre_process_tab, self.simulator_tab, self.flex_search_tab]:
+            if hasattr(tab, '_busy_overlay'):
+                tab._busy_overlay.setGeometry(tab.rect())
+        super().resizeEvent(event)
+
 def main():
     """Main entry point for the application."""
     app = QtWidgets.QApplication(sys.argv)
