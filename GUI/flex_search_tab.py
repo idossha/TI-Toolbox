@@ -388,78 +388,132 @@ class FlexSearchTab(QtWidgets.QWidget):
         
         # Action buttons
         buttons_layout = QtWidgets.QHBoxLayout()
-        
+
+        # Standardized button styles
+        run_btn_style = """
+            QPushButton {
+                background-color: #4CAF50;
+                color: white;
+                font-weight: bold;
+                font-size: 14px;
+                border-radius: 6px;
+                padding: 10px;
+            }
+            QPushButton:hover {
+                background-color: #45a049;
+            }
+            QPushButton:pressed {
+                background-color: #3d8b40;
+            }
+            QPushButton:disabled {
+                background-color: #cccccc;
+                color: #888888;
+            }
+        """
+        stop_btn_style = """
+            QPushButton {
+                background-color: #f44336;
+                color: white;
+                font-weight: bold;
+                font-size: 14px;
+                border-radius: 6px;
+                padding: 10px;
+            }
+            QPushButton:hover {
+                background-color: #d32f2f;
+            }
+            QPushButton:pressed {
+                background-color: #b71c1c;
+            }
+            QPushButton:disabled {
+                background-color: #cccccc;
+                color: #888888;
+            }
+        """
+        clear_btn_style = """
+            QPushButton {
+                background-color: #e0e0e0;
+                color: #333;
+                font-weight: bold;
+                font-size: 14px;
+                border-radius: 6px;
+                padding: 10px;
+            }
+            QPushButton:hover {
+                background-color: #cccccc;
+            }
+            QPushButton:pressed {
+                background-color: #bbbbbb;
+            }
+        """
+
         self.run_btn = QtWidgets.QPushButton("Run Optimization")
         self.run_btn.clicked.connect(self.run_optimization)
         self.run_btn.setMinimumWidth(150)
-        
+        self.run_btn.setMinimumHeight(50)
+        self.run_btn.setStyleSheet(run_btn_style)
+
         self.stop_btn = QtWidgets.QPushButton("Stop")
         self.stop_btn.clicked.connect(self.stop_optimization)
         self.stop_btn.setEnabled(False)
-        self.stop_btn.setMinimumWidth(80)
-        
+        self.stop_btn.setMinimumWidth(100)
+        self.stop_btn.setMinimumHeight(50)
+        self.stop_btn.setStyleSheet(stop_btn_style)
+
         self.clear_btn = QtWidgets.QPushButton("Clear Console")
         self.clear_btn.clicked.connect(self.clear_console)
-        self.clear_btn.setMinimumWidth(100)
-        
+        self.clear_btn.setMinimumWidth(120)
+        self.clear_btn.setMinimumHeight(50)
+        self.clear_btn.setStyleSheet(clear_btn_style)
+
         buttons_layout.addWidget(self.run_btn)
         buttons_layout.addWidget(self.stop_btn)
         buttons_layout.addWidget(self.clear_btn)
         buttons_layout.addStretch()
-        
+
         scroll_layout.addLayout(buttons_layout)
         
         # Add scroll content to scroll area
         scroll_area.setWidget(scroll_content)
         main_layout.addWidget(scroll_area)
         
-        # Output console
-        self.output_group = QtWidgets.QGroupBox("Output")
-        output_layout = QtWidgets.QVBoxLayout(self.output_group)
-        
+        # Console output (match other tabs)
+        output_label = QtWidgets.QLabel("Console Output")
+        output_label.setStyleSheet("font-weight: bold; font-size: 14px; margin-top: 10px;")
+        main_layout.addWidget(output_label)
         self.output_text = QtWidgets.QTextEdit()
         self.output_text.setReadOnly(True)
         self.output_text.setMinimumHeight(200)
-        self.output_text.setStyleSheet("font-family: monospace;")
-        
-        output_layout.addWidget(self.output_text)
-        
-        main_layout.addWidget(self.output_group)
+        self.output_text.setStyleSheet("font-family: 'Consolas', 'Courier New', monospace; background-color: #1e1e1e; color: #f0f0f0; font-size: 13px; border: 1px solid #3c3c3c; border-radius: 5px; padding: 8px;")
+        main_layout.addWidget(self.output_text)
         
         # Initialize ROI method display
         self.update_roi_method(True)
     
     def find_available_subjects(self):
-        """Scan directories to find available subjects."""
         self.subjects = []
         self.subject_combo.clear()
-        
+        self.output_text.clear()
         # Base directory where subjects are located
         project_dir = os.environ.get('PROJECT_DIR', '/mnt/BIDS_test')
-        
-        # Search for subject directories that have SimNIBS folders
-        self.output_text.append("Scanning for subjects...")
-        
-        try:
-            for subject_dir in glob.glob(os.path.join(project_dir, '*')):
-                if os.path.isdir(subject_dir):
-                    subject_id = os.path.basename(subject_dir)
-                    m2m_dir = os.path.join(subject_dir, 'SimNIBS', f'm2m_{subject_id}')
-                    
-                    if os.path.isdir(m2m_dir):
-                        self.subjects.append(subject_id)
-                        self.subject_combo.addItem(subject_id)
-            
-            if self.subjects:
-                self.output_text.append(f"Found {len(self.subjects)} subjects.")
-                # Trigger EEG net refresh for the first subject
-                self.find_available_eeg_nets()
-                self.find_available_atlases()
-            else:
-                self.output_text.append("No subjects found with SimNIBS data.")
-        
-        except Exception as e:
-            self.output_text.append(f"Error scanning for subjects: {str(e)}")
+        subjects = []
+        for subject_dir in glob.glob(os.path.join(project_dir, '*')):
+            if os.path.isdir(subject_dir):
+                subject_id = os.path.basename(subject_dir)
+                self.subjects.append(subject_id)
+                self.subject_combo.addItem(subject_id)
+                subjects.append(subject_id)
+        # Console output: subjects found
+        self.output_text.append("=== Subjects Found ===")
+        if not subjects:
+            self.output_text.append("No subjects found.")
+        for subject_id in subjects:
+            self.output_text.append(f"{subject_id}")
+        self.output_text.append("")
+        # Trigger EEG net refresh for the first subject
+        if self.subjects:
+            self.find_available_eeg_nets()
+            self.find_available_atlases()
     
     def find_available_eeg_nets(self):
         """Find available EEG net templates for the selected subject."""

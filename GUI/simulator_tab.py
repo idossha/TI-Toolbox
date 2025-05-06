@@ -10,6 +10,7 @@ import os
 import json
 import re
 import subprocess
+import glob
 from PyQt5 import QtWidgets, QtCore, QtGui
 
 class SimulationThread(QtCore.QThread):
@@ -415,7 +416,7 @@ class SimulatorTab(QtWidgets.QWidget):
         main_layout.addWidget(scroll_area)
         
         # Output console
-        output_label = QtWidgets.QLabel("Output:")
+        output_label = QtWidgets.QLabel("Console Output")
         output_label.setStyleSheet("font-weight: bold; font-size: 14px; margin-top: 10px;")
         
         self.output_console = QtWidgets.QTextEdit()
@@ -452,53 +453,26 @@ class SimulatorTab(QtWidgets.QWidget):
         
     def list_subjects(self):
         """List available subjects and display them."""
-        try:
-            # Clear current list
-            self.subject_list.clear()
-            
-            # Get the base directory
-            script_dir = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
-            
-            # Use environment variable for project directory like simulator.sh does
-            project_dir_name = os.environ.get('PROJECT_DIR_NAME', '')
-            project_dir = f"/mnt/{project_dir_name}" if project_dir_name else "/mnt"
-            
-            self.update_output("Listing available subjects...")
-            self.update_output(f"Looking in project directory: {project_dir}")
-            
-            # Execute the find command to list only main subject directories
-            cmd = f'find "{project_dir}" -maxdepth 3 -type d -path "*/SimNIBS/m2m_*" | sed "s/.*m2m_//" | cut -d"/" -f1 | sort -u'
-            self.update_output(f"Command: {cmd}")
-            
-            process = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            out, err = process.communicate()
-            
-            if process.returncode == 0:
-                subjects = out.decode().strip().split('\n')
-                # Filter out empty entries
-                subjects = [s for s in subjects if s]
-                
-                if subjects:
-                    self.output_console.append('<div style="background-color: #2a2a2a; border: 1px solid #444; border-radius: 5px; padding: 10px; margin: 10px 0;">')
-                    self.output_console.append('<span style="color: #55ffff; font-weight: bold;">📋 Available Subjects:</span>')
-                    self.output_console.append('<div style="display: grid; grid-template-columns: repeat(3, 1fr); grid-gap: 5px; margin-top: 5px;">')
-                    
-                    for i, subject in enumerate(subjects, 1):
-                        self.output_console.append(f'<div style="color: #ffffff; padding: 3px 8px; background-color: #333; border-radius: 3px;">{i}. {subject}</div>')
-                    
-                    self.output_console.append('</div></div>')
-                    
-                    # Update the subject list with the available subjects
-                    self.subject_list.addItems(subjects)
-                    
-                    self.update_output(f"Found {len(subjects)} subjects. Subject list updated.")
-                else:
-                    self.update_output("No subjects found in the project directory.")
-            else:
-                self.update_output("Error finding subjects: " + err.decode())
-            
-        except Exception as e:
-            self.update_output(f"Error: {str(e)}")
+        self.subject_list.clear()
+        # ... existing code to find subjects ...
+        self.output_console.clear()
+        subjects = []
+        project_dir = os.environ.get('PROJECT_DIR', '/mnt/BIDS_test')
+        for subject_dir in glob.glob(os.path.join(project_dir, '*')):
+            if os.path.isdir(subject_dir):
+                subject_id = os.path.basename(subject_dir)
+                subjects.append(subject_id)
+                self.subject_list.addItem(subject_id)
+        # Console output: subjects found
+        self.output_console.append("=== Subjects Found ===")
+        if not subjects:
+            self.output_console.append("No subjects found.")
+        for subject_id in subjects:
+            m2m_dir = os.path.join(project_dir, subject_id, 'SimNIBS', f'm2m_{subject_id}')
+            headmodel_found = os.path.isdir(m2m_dir)
+            status = '[✓] Headmodel found' if headmodel_found else '[✗] No headmodel'
+            self.output_console.append(f"{subject_id}: {status}")
+        self.output_console.append("")
     
     def select_all_subjects(self):
         """Select all subjects in the subject list."""
@@ -528,7 +502,7 @@ class SimulatorTab(QtWidgets.QWidget):
             utils_dir = os.path.join(project_dir, "utils")
             montage_file = os.path.join(utils_dir, "montage_list.json")
             
-            self.update_output(f"Looking for montages in: {montage_file}")
+            self.output_console.append(f"Looking for montages in: {montage_file}")
             
             if os.path.exists(montage_file):
                 with open(montage_file, 'r') as f:
@@ -536,7 +510,7 @@ class SimulatorTab(QtWidgets.QWidget):
                 
                 # Create expected structure if needed
                 if not isinstance(montage_data, dict):
-                    self.update_output(f"Warning: Unexpected data type in montage file: {type(montage_data).__name__}. Creating new structure.")
+                    self.output_console.append(f"Warning: Unexpected data type in montage file: {type(montage_data).__name__}. Creating new structure.")
                     montage_data = {"uni_polar_montages": {}, "multi_polar_montages": {}}
                 
                 # Ensure the required keys exist
@@ -557,14 +531,14 @@ class SimulatorTab(QtWidgets.QWidget):
                     for montage_name in montages.keys():
                         self.montage_list.addItem(montage_name)
                     
-                    self.update_output(f"Found {len(montages)} {mode_text.lower()} montages.")
+                    self.output_console.append(f"Found {len(montages)} {mode_text.lower()} montages.")
                 else:
-                    self.update_output(f"No {mode_text.lower()} montages found.")
+                    self.output_console.append(f"No {mode_text.lower()} montages found.")
             else:
-                self.update_output(f"Montage file not found: {montage_file}")
+                self.output_console.append(f"Montage file not found: {montage_file}")
                 
         except Exception as e:
-            self.update_output(f"Error updating montage list: {str(e)}")
+            self.output_console.append(f"Error updating montage list: {str(e)}")
             
         # Update the electrode inputs view
         if checked is not None:
@@ -582,7 +556,7 @@ class SimulatorTab(QtWidgets.QWidget):
             utils_dir = os.path.join(project_dir, "utils")
             montage_file = os.path.join(utils_dir, "montage_list.json")
             
-            self.update_output(f"Looking for montages in: {montage_file}")
+            self.output_console.append(f"Looking for montages in: {montage_file}")
             
             if os.path.exists(montage_file):
                 with open(montage_file, 'r') as f:
@@ -590,7 +564,7 @@ class SimulatorTab(QtWidgets.QWidget):
                 
                 # Create expected structure if needed
                 if not isinstance(montage_data, dict):
-                    self.update_output(f"Warning: Unexpected data type in montage file: {type(montage_data).__name__}. Creating new structure.")
+                    self.output_console.append(f"Warning: Unexpected data type in montage file: {type(montage_data).__name__}. Creating new structure.")
                     montage_data = {"uni_polar_montages": {}, "multi_polar_montages": {}}
                 
                 # Ensure the required keys exist
@@ -648,10 +622,10 @@ class SimulatorTab(QtWidgets.QWidget):
                 
                 self.output_console.append('</div>')
             else:
-                self.update_output(f"Montage file not found at {montage_file}")
-                self.update_output("Create a new montage using the form below.")
+                self.output_console.append(f"Montage file not found at {montage_file}")
+                self.output_console.append("Create a new montage using the form below.")
         except Exception as e:
-            self.update_output(f"Error listing montages: {str(e)}")
+            self.output_console.append(f"Error listing montages: {str(e)}")
     
     def _format_electrode_pairs(self, pairs):
         """Format electrode pairs for display in a clean way."""
@@ -835,12 +809,12 @@ class SimulatorTab(QtWidgets.QWidget):
             # Check if subjects and montages are selected
             selected_subjects = self.subject_list.selectedItems()
             if not selected_subjects:
-                self.update_output("Error: No subjects selected.")
+                self.output_console.append("Error: No subjects selected.")
                 return
             
             selected_montages = self.montage_list.selectedItems()
             if not selected_montages:
-                self.update_output("Error: No montages selected.")
+                self.output_console.append("Error: No montages selected.")
                 return
             
             # Get simulation parameters from UI
@@ -850,7 +824,7 @@ class SimulatorTab(QtWidgets.QWidget):
             # Get electrode parameters
             current = self.current_input.text().strip()
             if not self.validate_current(current):
-                self.update_output("Error: Invalid current value. Please enter a valid number.")
+                self.output_console.append("Error: Invalid current value. Please enter a valid number.")
                 return
             
             shape = self.electrode_shape_combo.currentData()
@@ -860,7 +834,7 @@ class SimulatorTab(QtWidgets.QWidget):
             # Validation for dimensions
             dimension_match = re.match(r'^\s*(\d+(?:\.\d+)?)\s*,\s*(\d+(?:\.\d+)?)\s*$', dimensions)
             if not dimension_match:
-                self.update_output("Error: Dimensions must be in format 'x,y' (e.g., '8,8').")
+                self.output_console.append("Error: Dimensions must be in format 'x,y' (e.g., '8,8').")
                 return
             
             # Validation for thickness
@@ -869,7 +843,7 @@ class SimulatorTab(QtWidgets.QWidget):
                 if thickness_value <= 0:
                     raise ValueError("Thickness must be positive")
             except ValueError:
-                self.update_output("Error: Thickness must be a positive number.")
+                self.output_console.append("Error: Thickness must be a positive number.")
                 return
             
             # Get path to simulator.sh in the root directory
@@ -885,15 +859,15 @@ class SimulatorTab(QtWidgets.QWidget):
             montages_str = ", ".join(montages)
             
             # Display simulation overview
-            self.update_output("\nSimulation Overview:")
-            self.update_output(f"- Subjects: {subjects_str}")
-            self.update_output(f"- Montages: {montages_str}")
-            self.update_output(f"- Simulation Type: {self.sim_type_combo.currentText()}")
-            self.update_output(f"- Simulation Mode: {'Unipolar' if sim_mode == 'U' else 'Multipolar'}")
-            self.update_output(f"- Current: {current} mA")
-            self.update_output(f"- Electrode Shape: {self.electrode_shape_combo.currentText()}")
-            self.update_output(f"- Dimensions: {dimensions} mm")
-            self.update_output(f"- Thickness: {thickness} mm")
+            self.output_console.append("\nSimulation Overview:")
+            self.output_console.append(f"- Subjects: {subjects_str}")
+            self.output_console.append(f"- Montages: {montages_str}")
+            self.output_console.append(f"- Simulation Type: {self.sim_type_combo.currentText()}")
+            self.output_console.append(f"- Simulation Mode: {'Unipolar' if sim_mode == 'U' else 'Multipolar'}")
+            self.output_console.append(f"- Current: {current} mA")
+            self.output_console.append(f"- Electrode Shape: {self.electrode_shape_combo.currentText()}")
+            self.output_console.append(f"- Dimensions: {dimensions} mm")
+            self.output_console.append(f"- Thickness: {thickness} mm")
             
             # Calculate total number of simulations
             total_simulations = len(subjects)
@@ -953,8 +927,8 @@ class SimulatorTab(QtWidgets.QWidget):
                 env["PROJECT_DIR"] = f"/mnt/{project_dir_name}"
                 
                 # Start simulation
-                self.update_output(f"\nStarting simulation batch with {len(subjects)} subject(s) and {len(montages)} montage(s)...")
-                self.update_output(f"Command: {' '.join(cmd)}")
+                self.output_console.append(f"\nStarting simulation batch with {len(subjects)} subject(s) and {len(montages)} montage(s)...")
+                self.output_console.append(f"Command: {' '.join(cmd)}")
                 
                 # Start simulation thread
                 self.simulation_process = SimulationThread(cmd, env)
@@ -963,7 +937,7 @@ class SimulatorTab(QtWidgets.QWidget):
                 self.simulation_process.start()
             
         except Exception as e:
-            self.update_output(f"Error starting simulation: {str(e)}")
+            self.output_console.append(f"Error starting simulation: {str(e)}")
             self.simulation_running = False
             self.run_btn.setEnabled(True)
             self.stop_btn.setEnabled(False)
@@ -1031,14 +1005,14 @@ class SimulatorTab(QtWidgets.QWidget):
         """Stop the running simulation."""
         if hasattr(self, 'simulation_process') and self.simulation_process:
             # Show stopping message
-            self.update_output("Stopping simulation...")
+            self.output_console.append("Stopping simulation...")
             self.output_console.append('<div style="margin: 10px 0;"><span style="color: #ff5555; font-weight: bold;">⚠️ Simulation terminated by user ⚠️</span></div>')
             
             # Terminate the process
             if self.simulation_process.terminate_process():
-                self.update_output("Simulation process terminated successfully.")
+                self.output_console.append("Simulation process terminated successfully.")
             else:
-                self.update_output("Failed to terminate simulation process or process already completed.")
+                self.output_console.append("Failed to terminate simulation process or process already completed.")
             
             # Reset UI state
             self.simulation_running = False

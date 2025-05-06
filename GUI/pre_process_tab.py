@@ -11,6 +11,7 @@ import sys
 import json
 import re
 import subprocess
+import glob
 from PyQt5 import QtWidgets, QtCore, QtGui
 
 class PreProcessThread(QtCore.QThread):
@@ -274,11 +275,13 @@ class PreProcessTab(QtWidgets.QWidget):
         main_layout.addWidget(scroll_area)
         
         # Console output
-        main_layout.addWidget(QtWidgets.QLabel("Console Output:"))
+        output_label = QtWidgets.QLabel("Console Output")
+        output_label.setStyleSheet("font-weight: bold; font-size: 14px; margin-top: 10px;")
+        main_layout.addWidget(output_label)
         self.console_output = QtWidgets.QTextEdit()
         self.console_output.setReadOnly(True)
         self.console_output.setLineWrapMode(QtWidgets.QTextEdit.WidgetWidth)
-        self.console_output.setStyleSheet("font-family: monospace; background-color: #F0F0F0;")
+        self.console_output.setStyleSheet("font-family: 'Consolas', 'Courier New', monospace; background-color: #1e1e1e; color: #f0f0f0; font-size: 13px; border: 1px solid #3c3c3c; border-radius: 5px; padding: 8px;")
         main_layout.addWidget(self.console_output)
         
         # Connect signals for dependent options
@@ -348,23 +351,31 @@ class PreProcessTab(QtWidgets.QWidget):
         
         self.project_dir_input.setText(self.project_dir)
         self.subject_list.clear()
+        self.console_output.clear()
         
-        # Find all subject directories (excluding 'config' and 'utils')
-        try:
-            subject_count = 0
-            for item in os.listdir(self.project_dir):
-                item_path = os.path.join(self.project_dir, item)
-                if os.path.isdir(item_path) and item not in ['config', 'utils']:
-                    self.subject_list.addItem(item)
-                    subject_count += 1
-            
-            if subject_count == 0:
-                self.console_output.append("No subjects found in the project directory.")
-            else:
-                self.console_output.append(f"Found {subject_count} subjects in the project directory.")
+        subjects = []
+        project_dir = self.project_dir or os.environ.get('PROJECT_DIR', '/mnt/BIDS_test')
+        for subject_dir in glob.glob(os.path.join(project_dir, '*')):
+            if os.path.isdir(subject_dir):
+                subject_id = os.path.basename(subject_dir)
+                subjects.append(subject_id)
+                self.subject_list.addItem(subject_id)
         
-        except Exception as e:
-            self.console_output.append(f"Error listing subjects: {str(e)}")
+        # Console output: subjects found
+        self.console_output.append("=== Subjects Found ===")
+        if not subjects:
+            self.console_output.append("No subjects found.")
+        for subject_id in subjects:
+            dicom_dir = os.path.join(project_dir, subject_id, 'DICOM')
+            dicom_found = False
+            if os.path.isdir(dicom_dir):
+                for root, dirs, files in os.walk(dicom_dir):
+                    if any(f.lower().endswith('.dcm') for f in files):
+                        dicom_found = True
+                        break
+            status = '[✓] DICOMs found' if dicom_found else '[✗] No DICOMs'
+            self.console_output.append(f"{subject_id}: {status}")
+        self.console_output.append("")
     
     def run_preprocessing(self):
         """Start the pre-processing operation with the selected options."""
