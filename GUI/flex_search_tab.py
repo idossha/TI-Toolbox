@@ -832,15 +832,29 @@ class FlexSearchTab(QtWidgets.QWidget):
         except Exception as e:
             QtWidgets.QMessageBox.warning(self, "Error Listing Regions", str(e))
             return
-        # Show output in a dialog
+        # Show output in a dialog with search
         dlg = QtWidgets.QDialog(self)
         dlg.setWindowTitle(f"Regions in {hemi}.{atlas_display}")
         dlg.setMinimumWidth(600)
         layout = QtWidgets.QVBoxLayout(dlg)
+        # Search box
+        search_box = QtWidgets.QLineEdit()
+        search_box.setPlaceholderText("Search regions...")
+        layout.addWidget(search_box)
+        # Text area
         text = QtWidgets.QTextEdit()
         text.setReadOnly(True)
         text.setText(output)
         layout.addWidget(text)
+        # Filter function
+        def filter_regions():
+            query = search_box.text().strip().lower()
+            if not query:
+                text.setText(output)
+                return
+            filtered = '\n'.join([line for line in output.splitlines() if query in line.lower()])
+            text.setText(filtered)
+        search_box.textChanged.connect(filter_regions)
         btn = QtWidgets.QPushButton("Close")
         btn.clicked.connect(dlg.accept)
         layout.addWidget(btn)
