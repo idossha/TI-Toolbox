@@ -148,18 +148,17 @@ class FlexSearchTab(QtWidgets.QWidget):
         # Optimization Goal
         self.goal_label = QtWidgets.QLabel("Optimization Goal:")
         self.goal_combo = QtWidgets.QComboBox()
-        self.goal_combo.addItem("Maximize field in target ROI", "mean")
-        self.goal_combo.addItem("Maximize normal component of field in ROI", "normal")
-        self.goal_combo.addItem("Maximize focality", "focality")
+        self.goal_combo.addItem("mean (maximize field in target ROI)", "mean")
+        self.goal_combo.addItem("focality (maximize field in target ROI while minimizing field elsewhere)", "focality")
         self.goal_combo.setMaximumWidth(350)
         form_layout.addRow(self.goal_label, self.goal_combo)
         
         # Post-processing Method
         self.postproc_label = QtWidgets.QLabel("Post-processing Method:")
         self.postproc_combo = QtWidgets.QComboBox()
-        self.postproc_combo.addItem("Maximum TI field (max_TI)", "max_TI")
-        self.postproc_combo.addItem("TI field normal to surface (dir_TI_normal)", "dir_TI_normal")
-        self.postproc_combo.addItem("TI field tangential to surface (dir_TI_tangential)", "dir_TI_tangential")
+        self.postproc_combo.addItem("max_TI (maximum TI field)", "max_TI")
+        self.postproc_combo.addItem("dir_TI_normal (TI field normal to surface)", "dir_TI_normal")
+        self.postproc_combo.addItem("dir_TI_tangential (TI field tangential to surface)", "dir_TI_tangential")
         self.postproc_combo.setMaximumWidth(350)
         form_layout.addRow(self.postproc_label, self.postproc_combo)
         
@@ -274,15 +273,21 @@ class FlexSearchTab(QtWidgets.QWidget):
         # Atlas selection
         self.atlas_label = QtWidgets.QLabel("Atlas:")
         self.atlas_combo = QtWidgets.QComboBox()
+        self.roi_hemi_label = QtWidgets.QLabel("Hemisphere:")
+        self.roi_hemi_combo = QtWidgets.QComboBox(); self.roi_hemi_combo.addItems(["Left (lh)", "Right (rh)"])
         self.refresh_atlases_btn = QtWidgets.QPushButton("Refresh")
         self.refresh_atlases_btn.setMaximumWidth(100)
         self.refresh_atlases_btn.clicked.connect(self.find_available_atlases)
-        
+        self.list_roi_regions_btn = QtWidgets.QPushButton("List Regions")
+        self.list_roi_regions_btn.setMaximumWidth(120)
+        self.list_roi_regions_btn.clicked.connect(self._list_roi_regions)
         atlas_layout = QtWidgets.QHBoxLayout()
         atlas_layout.addWidget(self.atlas_combo)
+        atlas_layout.addWidget(self.roi_hemi_label)
+        atlas_layout.addWidget(self.roi_hemi_combo)
         atlas_layout.addWidget(self.refresh_atlases_btn)
+        atlas_layout.addWidget(self.list_roi_regions_btn)
         atlas_layout.addStretch()
-        
         cortical_roi_layout.addRow(self.atlas_label, atlas_layout)
         
         # Region label value
@@ -303,6 +308,77 @@ class FlexSearchTab(QtWidgets.QWidget):
         roi_method_layout.addWidget(self.roi_stacked_widget)
         
         form_layout.addRow(self.roi_method_group)
+        
+        # --- Focality Options (hidden unless goal is focality) ---
+        self.focality_group = QtWidgets.QGroupBox("Focality Options")
+        self.focality_group.setVisible(False)
+        focality_layout = QtWidgets.QFormLayout(self.focality_group)
+
+        # Threshold input
+        self.threshold_label = QtWidgets.QLabel("Threshold(s) for E-field (V/m):")
+        self.threshold_input = QtWidgets.QLineEdit()
+        self.threshold_input.setPlaceholderText("e.g. 0.2 or 0.2,0.5")
+        self.threshold_help = QtWidgets.QLabel("Single value: E-field < value in non-ROI, > value in ROI. Two values: non-ROI max, ROI min.")
+        self.threshold_help.setStyleSheet("font-size: 10px; color: gray;")
+        focality_layout.addRow(self.threshold_label, self.threshold_input)
+        focality_layout.addRow(self.threshold_help)
+
+        # Non-ROI method
+        self.nonroi_method_label = QtWidgets.QLabel("Non-ROI Definition Method:")
+        self.nonroi_method_combo = QtWidgets.QComboBox()
+        self.nonroi_method_combo.addItem("Everything Else (default)", "everything_else")
+        self.nonroi_method_combo.addItem("Specific Region", "specific")
+        focality_layout.addRow(self.nonroi_method_label, self.nonroi_method_combo)
+
+        # Non-ROI stacked widget (spherical or atlas)
+        self.nonroi_stacked = QtWidgets.QStackedWidget()
+        # Spherical non-ROI
+        self.nonroi_sph_widget = QtWidgets.QWidget()
+        nonroi_sph_layout = QtWidgets.QFormLayout(self.nonroi_sph_widget)
+        self.nonroi_coords_label = QtWidgets.QLabel("Non-ROI Center (x,y,z,mm):")
+        self.nonroi_x_input = QtWidgets.QDoubleSpinBox(); self.nonroi_x_input.setRange(-150,150); self.nonroi_x_input.setDecimals(1)
+        self.nonroi_y_input = QtWidgets.QDoubleSpinBox(); self.nonroi_y_input.setRange(-150,150); self.nonroi_y_input.setDecimals(1)
+        self.nonroi_z_input = QtWidgets.QDoubleSpinBox(); self.nonroi_z_input.setRange(-150,150); self.nonroi_z_input.setDecimals(1)
+        self.nonroi_radius_label = QtWidgets.QLabel("Non-ROI Radius (mm):")
+        self.nonroi_radius_input = QtWidgets.QDoubleSpinBox(); self.nonroi_radius_input.setRange(1,50); self.nonroi_radius_input.setDecimals(1)
+        nonroi_coords_layout = QtWidgets.QHBoxLayout()
+        nonroi_coords_layout.addWidget(QtWidgets.QLabel("X:")); nonroi_coords_layout.addWidget(self.nonroi_x_input)
+        nonroi_coords_layout.addWidget(QtWidgets.QLabel("Y:")); nonroi_coords_layout.addWidget(self.nonroi_y_input)
+        nonroi_coords_layout.addWidget(QtWidgets.QLabel("Z:")); nonroi_coords_layout.addWidget(self.nonroi_z_input)
+        nonroi_sph_layout.addRow(self.nonroi_coords_label, nonroi_coords_layout)
+        nonroi_sph_layout.addRow(self.nonroi_radius_label, self.nonroi_radius_input)
+        self.nonroi_stacked.addWidget(self.nonroi_sph_widget)
+        # Atlas non-ROI
+        self.nonroi_atlas_widget = QtWidgets.QWidget()
+        nonroi_atlas_layout = QtWidgets.QFormLayout(self.nonroi_atlas_widget)
+        self.nonroi_atlas_label = QtWidgets.QLabel("Non-ROI Atlas:")
+        self.nonroi_atlas_combo = QtWidgets.QComboBox()
+        self.nonroi_hemi_label = QtWidgets.QLabel("Hemisphere:")
+        self.nonroi_hemi_combo = QtWidgets.QComboBox(); self.nonroi_hemi_combo.addItems(["Left (lh)", "Right (rh)"])
+        self.list_nonroi_regions_btn = QtWidgets.QPushButton("List Regions")
+        self.list_nonroi_regions_btn.setMaximumWidth(120)
+        self.list_nonroi_regions_btn.clicked.connect(self._list_nonroi_regions)
+        nonroi_atlas_layout_row = QtWidgets.QHBoxLayout()
+        nonroi_atlas_layout_row.addWidget(self.nonroi_atlas_combo)
+        nonroi_atlas_layout_row.addWidget(self.nonroi_hemi_label)
+        nonroi_atlas_layout_row.addWidget(self.nonroi_hemi_combo)
+        nonroi_atlas_layout_row.addWidget(self.list_nonroi_regions_btn)
+        nonroi_atlas_layout_row.addStretch()
+        nonroi_atlas_layout.addRow(self.nonroi_atlas_label, nonroi_atlas_layout_row)
+        self.nonroi_label_label = QtWidgets.QLabel("Non-ROI Label Value:")
+        self.nonroi_label_input = QtWidgets.QSpinBox(); self.nonroi_label_input.setRange(1,10000)
+        nonroi_atlas_layout.addRow(self.nonroi_label_label, self.nonroi_label_input)
+        self.nonroi_stacked.addWidget(self.nonroi_atlas_widget)
+        # Add to group
+        focality_layout.addRow(QtWidgets.QLabel("Non-ROI Region (if 'Specific'):"), self.nonroi_stacked)
+        # Add group to form
+        form_layout.addRow(self.focality_group)
+
+        # --- Connect logic for focality options ---
+        self.goal_combo.currentIndexChanged.connect(self._update_focality_visibility)
+        self.nonroi_method_combo.currentIndexChanged.connect(self._update_nonroi_stacked)
+        self.roi_method_spherical.toggled.connect(self._update_nonroi_stacked)
+        self.subject_combo.currentIndexChanged.connect(self._update_nonroi_atlas_combo)
         
         # Connect subject change to update EEG nets and atlases
         self.subject_combo.currentIndexChanged.connect(self.on_subject_changed)
@@ -429,39 +505,45 @@ class FlexSearchTab(QtWidgets.QWidget):
         """Find available atlas files for the selected subject."""
         if not self.subjects:
             return
-        
         self.atlases = {}
         self.atlas_combo.clear()
-        
         # Get the selected subject
         subject_id = self.subject_combo.currentText()
         if not subject_id:
             return
-        
         # Base directory where subjects are located
         project_dir = os.environ.get('PROJECT_DIR', '/mnt/BIDS_test')
-        
-        # Label directory containing atlas files
-        label_dir = os.path.join(project_dir, subject_id, 'SimNIBS', f'm2m_{subject_id}', 'label')
-        
+        # Use segmentation directory for atlas files
+        seg_dir = os.path.join(project_dir, subject_id, 'SimNIBS', f'm2m_{subject_id}', 'segmentation')
+        unique_atlases = set()
+        self.atlas_display_map = {}  # Map display name to (subjectID, atlas_name)
         try:
-            if os.path.isdir(label_dir):
+            if os.path.isdir(seg_dir):
                 # Find all .annot files in the directory
-                for atlas_file in glob.glob(os.path.join(label_dir, '*.annot')):
-                    atlas_name = os.path.basename(atlas_file)
-                    self.atlases[atlas_name] = atlas_file
-                    self.atlas_combo.addItem(atlas_name)
-                
-                if self.atlases:
-                    self.output_text.append(f"Found {len(self.atlases)} atlas files for subject {subject_id}.")
+                for atlas_file in glob.glob(os.path.join(seg_dir, '*.annot')):
+                    fname = os.path.basename(atlas_file)
+                    # Expect format: lh.101_DK40.annot or rh.101_DK40.annot
+                    parts = fname.split('.')
+                    if len(parts) == 3 and parts[2] == 'annot':
+                        atlas_full = parts[1]  # e.g., 101_DK40
+                        # Remove subjectID prefix for display
+                        atlas_display = atlas_full.split('_', 1)[-1] if '_' in atlas_full else atlas_full
+                        unique_atlases.add(atlas_display)
+                        self.atlas_display_map[atlas_display] = atlas_full
+                        self.atlases[(parts[0], atlas_full)] = atlas_file
+                for atlas_display in sorted(unique_atlases):
+                    self.atlas_combo.addItem(atlas_display)
+                if unique_atlases:
+                    self.output_text.append(f"Found {len(unique_atlases)} unique atlases for subject {subject_id}.")
                 else:
                     self.output_text.append(f"No atlas files found for subject {subject_id}.")
             else:
-                self.output_text.append(f"Label directory not found for subject {subject_id}.")
-        
+                self.output_text.append(f"Segmentation directory not found for subject {subject_id}.")
         except Exception as e:
             self.output_text.append(f"Error scanning for atlas files: {str(e)}")
-    
+        # Also update non-ROI atlas combo
+        self._update_nonroi_atlas_combo()
+
     def update_roi_method(self, checked):
         """Update the ROI method inputs based on selection."""
         if self.roi_method_spherical.isChecked():
@@ -496,8 +578,10 @@ class FlexSearchTab(QtWidgets.QWidget):
             roi_z = self.roi_z_input.value()
             roi_radius = self.roi_radius_input.value()
         else:
-            roi_method = "cortical"
-            atlas_name = self.atlas_combo.currentText()
+            roi_method = "atlas"
+            atlas_display = self.atlas_combo.currentText()
+            atlas_name = self.atlas_display_map.get(atlas_display, atlas_display)
+            hemi = "lh" if self.roi_hemi_combo.currentIndex() == 0 else "rh"
             label_value = self.label_value_input.value()
         
         # Prepare environment variables
@@ -533,7 +617,10 @@ class FlexSearchTab(QtWidgets.QWidget):
             env['ROI_Z'] = str(roi_z)
             env['ROI_RADIUS'] = str(roi_radius)
         else:
-            env['ATLAS_PATH'] = atlas_name
+            seg_dir = os.path.join(project_dir, subject_id, 'SimNIBS', f'm2m_{subject_id}', 'segmentation')
+            atlas_path = os.path.join(seg_dir, f'{hemi}.{atlas_name}.annot')
+            env['ATLAS_PATH'] = atlas_path
+            env['SELECTED_HEMISPHERE'] = hemi
             env['ROI_LABEL'] = str(label_value)
         
         # Build the command using the python script directly
@@ -574,6 +661,30 @@ class FlexSearchTab(QtWidgets.QWidget):
             "--current", str(current),
             "--roi-method", roi_method
         ]
+        
+        # Focality options
+        if goal == "focality":
+            thresholds = self.threshold_input.text().strip()
+            nonroi_method = self.nonroi_method_combo.currentData()
+            if not thresholds:
+                self.output_text.append("Error: Please enter threshold(s) for focality.")
+                return
+            cmd += ["--non-roi-method", nonroi_method]
+            cmd += ["--thresholds", thresholds]
+            if nonroi_method == "specific":
+                if self.roi_method_spherical.isChecked():
+                    cmd += ["--non-roi-x", str(self.nonroi_x_input.value()),
+                            "--non-roi-y", str(self.nonroi_y_input.value()),
+                            "--non-roi-z", str(self.nonroi_z_input.value()),
+                            "--non-roi-radius", str(self.nonroi_radius_input.value())]
+                else:
+                    nonroi_atlas_display = self.nonroi_atlas_combo.currentText()
+                    nonroi_atlas = self.atlas_display_map.get(nonroi_atlas_display, nonroi_atlas_display)
+                    nonroi_hemi = "lh" if self.nonroi_hemi_combo.currentIndex() == 0 else "rh"
+                    nonroi_label = self.nonroi_label_input.value()
+                    cmd += ["--non-roi-atlas", os.path.join('SimNIBS', f'm2m_{subject_id}', 'segmentation', f'{nonroi_hemi}.{nonroi_atlas}.annot'),
+                            "--non-roi-hemisphere", nonroi_hemi,
+                            "--non-roi-label", str(nonroi_label)]
         
         # Start optimization in a separate thread
         self.output_text.append("\n" + "="*50)
@@ -648,4 +759,81 @@ class FlexSearchTab(QtWidgets.QWidget):
         """Handle subject selection change."""
         if index >= 0:
             self.find_available_eeg_nets()
-            self.find_available_atlases() 
+            self.find_available_atlases()
+    
+    def _update_focality_visibility(self):
+        is_focality = self.goal_combo.currentData() == "focality"
+        self.focality_group.setVisible(is_focality)
+        # Default to 'everything_else' and collapse non-ROI region
+        if is_focality:
+            self.nonroi_method_combo.setCurrentIndex(0)
+            self.nonroi_stacked.setVisible(False)
+
+    def _update_nonroi_stacked(self):
+        if self.nonroi_method_combo.currentData() == "everything_else":
+            self.nonroi_stacked.setVisible(False)
+        else:
+            self.nonroi_stacked.setVisible(True)
+            if self.roi_method_spherical.isChecked():
+                self.nonroi_stacked.setCurrentIndex(0)
+            else:
+                self.nonroi_stacked.setCurrentIndex(1)
+
+    def _update_nonroi_atlas_combo(self):
+        self.nonroi_atlas_combo.clear()
+        for i in range(self.atlas_combo.count()):
+            self.nonroi_atlas_combo.addItem(self.atlas_combo.itemText(i))
+
+    def _list_roi_regions(self):
+        atlas = self.atlas_combo.currentText()
+        hemi = "lh" if self.roi_hemi_combo.currentIndex() == 0 else "rh"
+        self._show_atlas_regions_dialog(atlas, hemi)
+
+    def _list_nonroi_regions(self):
+        atlas = self.nonroi_atlas_combo.currentText()
+        hemi = "lh" if self.nonroi_hemi_combo.currentIndex() == 0 else "rh"
+        self._show_atlas_regions_dialog(atlas, hemi)
+
+    def _show_atlas_regions_dialog(self, atlas_display, hemi):
+        # Find the atlas file path
+        subject_id = self.subject_combo.currentText()
+        project_dir = os.environ.get('PROJECT_DIR', '/mnt/BIDS_test')
+        seg_dir = os.path.join(project_dir, subject_id, 'SimNIBS', f'm2m_{subject_id}', 'segmentation')
+        if not atlas_display:
+            QtWidgets.QMessageBox.warning(self, "No Atlas Selected", "Please select an atlas.")
+            return
+        # Map display name back to full atlas name
+        atlas_full = self.atlas_display_map.get(atlas_display, atlas_display)
+        annot_file = os.path.join(seg_dir, f"{hemi}.{atlas_full}.annot")
+        if not os.path.isfile(annot_file):
+            QtWidgets.QMessageBox.warning(self, "Atlas File Not Found", f"Could not find atlas file: {annot_file}")
+            return
+        # Run read_annot.py and show output
+        script_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        utils_dir = os.path.join(script_dir, "utils")
+        read_annot_py = os.path.join(utils_dir, "read_annot.py")
+        if not os.path.isfile(read_annot_py):
+            QtWidgets.QMessageBox.warning(self, "read_annot.py Not Found", f"Could not find read_annot.py at {read_annot_py}")
+            return
+        try:
+            result = subprocess.run(["simnibs_python", read_annot_py, annot_file], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=10)
+            if result.returncode != 0:
+                QtWidgets.QMessageBox.warning(self, "Error Listing Regions", result.stderr)
+                return
+            output = result.stdout
+        except Exception as e:
+            QtWidgets.QMessageBox.warning(self, "Error Listing Regions", str(e))
+            return
+        # Show output in a dialog
+        dlg = QtWidgets.QDialog(self)
+        dlg.setWindowTitle(f"Regions in {hemi}.{atlas_display}")
+        dlg.setMinimumWidth(600)
+        layout = QtWidgets.QVBoxLayout(dlg)
+        text = QtWidgets.QTextEdit()
+        text.setReadOnly(True)
+        text.setText(output)
+        layout.addWidget(text)
+        btn = QtWidgets.QPushButton("Close")
+        btn.clicked.connect(dlg.accept)
+        layout.addWidget(btn)
+        dlg.exec_() 

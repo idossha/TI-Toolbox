@@ -456,12 +456,9 @@ get_coordinate_and_radius_input() {
     local prompt="$1"
     local var_name="$2"
     while true; do
-        echo -e "\n${BOLD_BLUE}───────────────────────────────────────────────${RESET}"
         echo -e "${BOLD}$prompt${RESET}"
-        echo -e "${CYAN}Please enter the center coordinates and radius for the sphere.${RESET}"
-        echo -e "${YELLOW}Format:${RESET}   ${BOLD}x,y,z,radius${RESET}"
-        echo -e "${YELLOW}Example:${RESET}  ${BOLD}10,-5,20,5${RESET}  (center at 10,-5,20 mm, radius 5 mm)"
-        echo -e "${BOLD_BLUE}───────────────────────────────────────────────${RESET}"
+        echo -e "${CYAN}Enter as comma-separated values: x,y,z,radius${RESET}"
+        echo -e "${CYAN}Example: 10,-5,20,5 for coordinates (10,-5,20) with 5mm radius${RESET}"
         read -p "> " COORD_RADIUS_INPUT
         if validate_coordinates_and_radius "$COORD_RADIUS_INPUT" "$var_name"; then
             return 0
@@ -475,7 +472,7 @@ setup_spherical_roi() {
     echo
     get_coordinate_and_radius_input "Define ROI sphere location and size (in mm):" "Input"
     IFS=',' read -r ROI_X ROI_Y ROI_Z ROI_RADIUS <<< "$COORD_RADIUS_INPUT"
-    echo -e "${BOLD_GREEN}\n✓ Spherical ROI set: center (${ROI_X}, ${ROI_Y}, ${ROI_Z}) mm, radius ${ROI_RADIUS} mm${RESET}\n"
+    print_success "Sphere defined at (${ROI_X}, ${ROI_Y}, ${ROI_Z})mm with radius ${ROI_RADIUS}mm"
     export ROI_X ROI_Y ROI_Z ROI_RADIUS
 }
 
@@ -678,7 +675,7 @@ setup_non_roi() {
                     echo
                     get_coordinate_and_radius_input "Define non-ROI sphere location and size (in mm):" "Input"
                     IFS=',' read -r NON_ROI_X NON_ROI_Y NON_ROI_Z NON_ROI_RADIUS <<< "$COORD_RADIUS_INPUT"
-                    echo -e "${BOLD_GREEN}\n✓ Spherical Non-ROI set: center (${NON_ROI_X}, ${NON_ROI_Y}, ${NON_ROI_Z}) mm, radius ${NON_ROI_RADIUS} mm${RESET}\n"
+                    print_success "Sphere defined at (${NON_ROI_X}, ${NON_ROI_Y}, ${NON_ROI_Z})mm with radius ${NON_ROI_RADIUS}mm"
                     export NON_ROI_X NON_ROI_Y NON_ROI_Z NON_ROI_RADIUS
                 else  # atlas-based ROI
                     # List available atlases
