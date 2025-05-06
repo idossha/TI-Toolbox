@@ -102,6 +102,8 @@ class PreProcessTab(QtWidgets.QWidget):
         # Initialize project directory
         self.project_dir = self.detect_project_dir()
         if self.project_dir:
+            self.console_output.append(f"Project directory: {self.project_dir}")
+            self.console_output.append("")
             self.update_available_subjects()
         
     def setup_ui(self):
@@ -119,49 +121,36 @@ class PreProcessTab(QtWidgets.QWidget):
         main_container_layout = QtWidgets.QVBoxLayout(main_container)
         main_container_layout.setContentsMargins(0, 0, 0, 0)
         
-        # Project directory section
-        project_dir_widget = QtWidgets.QWidget()
-        project_dir_layout = QtWidgets.QHBoxLayout(project_dir_widget)
-        project_dir_layout.setContentsMargins(0, 0, 0, 0)
-        
-        self.project_dir_label = QtWidgets.QLabel("Project Directory:")
-        project_dir_layout.addWidget(self.project_dir_label)
-        
-        self.project_dir_input = QtWidgets.QLineEdit()
-        self.project_dir_input.setReadOnly(True)
-        project_dir_layout.addWidget(self.project_dir_input)
-        
-        self.browse_project_btn = QtWidgets.QPushButton("Browse")
-        self.browse_project_btn.clicked.connect(self.browse_project_dir)
-        self.browse_project_btn.setFixedWidth(120)
-        project_dir_layout.addWidget(self.browse_project_btn)
-        
-        main_container_layout.addWidget(project_dir_widget)
-        
         # Subject selection section
         subject_widget = QtWidgets.QWidget()
-        subject_layout = QtWidgets.QHBoxLayout(subject_widget)
-        subject_layout.setContentsMargins(0, 0, 0, 0)
-        
+        subject_main_layout = QtWidgets.QHBoxLayout(subject_widget)
+        subject_main_layout.setContentsMargins(0, 0, 0, 0)
+
+        # Left: label above list
+        subject_left_widget = QtWidgets.QWidget()
+        subject_left_layout = QtWidgets.QVBoxLayout(subject_left_widget)
+        subject_left_layout.setContentsMargins(0, 0, 0, 0)
         self.subject_label = QtWidgets.QLabel("Subjects:")
-        subject_layout.addWidget(self.subject_label)
-        
-        # Create list widget for multiple subject selection
+        self.subject_label.setStyleSheet("font-weight: bold; font-size: 14px; margin-bottom: 4px;")
+        subject_left_layout.addWidget(self.subject_label)
         self.subject_list = QtWidgets.QListWidget()
         self.subject_list.setSelectionMode(QtWidgets.QAbstractItemView.ExtendedSelection)
         self.subject_list.setMinimumHeight(150)
-        subject_layout.addWidget(self.subject_list)
-        
-        # Subject selection buttons
+        subject_left_layout.addWidget(self.subject_list)
+        subject_main_layout.addWidget(subject_left_widget)
+
+        # Right: buttons
         button_frame = QtWidgets.QFrame()
         button_frame.setFrameStyle(QtWidgets.QFrame.NoFrame)
-        button_frame.setFixedWidth(120)  # Same width as browse button
-        
+        button_frame.setFixedWidth(160)
         selection_buttons_layout = QtWidgets.QVBoxLayout(button_frame)
         selection_buttons_layout.setContentsMargins(0, 0, 0, 0)
         selection_buttons_layout.setSpacing(8)
         selection_buttons_layout.setAlignment(QtCore.Qt.AlignTop)
-        
+        button_frame.setSizePolicy(QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed)
+        subject_main_layout.setAlignment(button_frame, QtCore.Qt.AlignTop | QtCore.Qt.AlignLeft)
+        subject_left_widget.setContentsMargins(0, 0, 0, 0)
+
         # Create buttons with consistent styling
         button_style = """
             QPushButton {
@@ -177,25 +166,21 @@ class PreProcessTab(QtWidgets.QWidget):
                 background-color: #d0d0d0;
             }
         """
-        
         self.select_all_btn = QtWidgets.QPushButton("Select All")
         self.select_all_btn.clicked.connect(self.select_all_subjects)
         self.select_all_btn.setStyleSheet(button_style)
         selection_buttons_layout.addWidget(self.select_all_btn)
-        
         self.clear_selection_btn = QtWidgets.QPushButton("Clear Selection")
         self.clear_selection_btn.clicked.connect(self.clear_subject_selection)
         self.clear_selection_btn.setStyleSheet(button_style)
         selection_buttons_layout.addWidget(self.clear_selection_btn)
-        
         self.refresh_subjects_btn = QtWidgets.QPushButton("Refresh List")
         self.refresh_subjects_btn.clicked.connect(self.update_available_subjects)
         self.refresh_subjects_btn.setStyleSheet(button_style)
         selection_buttons_layout.addWidget(self.refresh_subjects_btn)
-        
         selection_buttons_layout.addStretch()
-        subject_layout.addWidget(button_frame)
-        
+        subject_main_layout.addWidget(button_frame)
+
         main_container_layout.addWidget(subject_widget)
         
         # Options and control buttons section with consistent layout
@@ -363,11 +348,7 @@ class PreProcessTab(QtWidgets.QWidget):
         if not self.project_dir or not os.path.isdir(self.project_dir):
             self.console_output.append("Error: Project directory not found.")
             return
-        
-        self.project_dir_input.setText(self.project_dir)
         self.subject_list.clear()
-        self.console_output.clear()
-        
         subjects = []
         project_dir = self.project_dir or os.environ.get('PROJECT_DIR', '/mnt/BIDS_test')
         for subject_dir in glob.glob(os.path.join(project_dir, '*')):
