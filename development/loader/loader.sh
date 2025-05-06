@@ -204,6 +204,40 @@ run_docker_compose() {
   xhost -local:root
 }
 
+# Function to write system info to a hidden folder in the user's project directory
+write_system_info() {
+  INFO_DIR="$LOCAL_PROJECT_DIR/.ti-csc-info"
+  INFO_FILE="$INFO_DIR/system_info.txt"
+  mkdir -p "$INFO_DIR"
+
+  echo "# TI-CSC System Info" > "$INFO_FILE"
+  echo "Date: $(date)" >> "$INFO_FILE"
+  echo "User: $(whoami)" >> "$INFO_FILE"
+  echo "Host: $(hostname)" >> "$INFO_FILE"
+  echo "OS: $(uname -a)" >> "$INFO_FILE"
+  echo "" >> "$INFO_FILE"
+  echo "## Disk Space (project dir)" >> "$INFO_FILE"
+  df -h "$LOCAL_PROJECT_DIR" >> "$INFO_FILE"
+  echo "" >> "$INFO_FILE"
+  echo "## Docker Version" >> "$INFO_FILE"
+  if command -v docker &>/dev/null; then
+    docker --version >> "$INFO_FILE"
+    echo "" >> "$INFO_FILE"
+    echo "## Docker Resource Allocation" >> "$INFO_FILE"
+    docker info --format 'CPUs: {{.NCPU}}\nMemory: {{.MemTotal}} bytes' >> "$INFO_FILE"
+  else
+    echo "Docker not found" >> "$INFO_FILE"
+  fi
+  echo "" >> "$INFO_FILE"
+  echo "## DISPLAY" >> "$INFO_FILE"
+  echo "$DISPLAY" >> "$INFO_FILE"
+  echo "" >> "$INFO_FILE"
+  echo "## Environment Variables (TI-CSC relevant)" >> "$INFO_FILE"
+  env | grep -Ei '^(FSL|FREESURFER|SIMNIBS|PROJECT_DIR|DEV_CODEBASE|SUBJECTS_DIR|FS_LICENSE|FSFAST|MNI|POSSUM|DISPLAY|USER|PATH)=' >> "$INFO_FILE"
+  echo "" >> "$INFO_FILE"
+  echo "System info written to $INFO_FILE"
+}
+
 # Main Script Execution
 
 validate_docker_compose
@@ -226,5 +260,10 @@ export DEV_CODEBASE_NAME
 
 # Save the paths for next time
 save_default_paths
+
+# Write system info to hidden folder in project dir
+write_system_info
+
+echo "System info written to $LOCAL_PROJECT_DIR/.ti-csc-info/system_info.txt"
 
 run_docker_compose
