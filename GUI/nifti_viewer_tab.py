@@ -53,26 +53,32 @@ class NiftiViewerTab(QtWidgets.QWidget):
         
         # Create subject selection area
         subject_group = QtWidgets.QGroupBox("Subject Selection")
-        subject_layout = QtWidgets.QHBoxLayout(subject_group)
-        
-        # Subject dropdown
-        subject_layout.addWidget(QtWidgets.QLabel("Subject:"))
+        subject_vlayout = QtWidgets.QVBoxLayout(subject_group)
+        # Top row: subject and space
+        subject_top_layout = QtWidgets.QHBoxLayout()
+        subject_top_layout.addWidget(QtWidgets.QLabel("Subject:"))
         self.subject_combo = QtWidgets.QComboBox()
         self.subject_combo.setMinimumWidth(120)
-        subject_layout.addWidget(self.subject_combo)
-        
-        # Space selection (Subject or MNI)
-        subject_layout.addWidget(QtWidgets.QLabel("Space:"))
+        subject_top_layout.addWidget(self.subject_combo)
+        subject_top_layout.addWidget(QtWidgets.QLabel("Space:"))
         self.space_combo = QtWidgets.QComboBox()
         self.space_combo.addItems(["Subject", "MNI"])
-        subject_layout.addWidget(self.space_combo)
-        
-        # Refresh button for subject list
+        subject_top_layout.addWidget(self.space_combo)
+        subject_top_layout.addStretch(1)
+        subject_vlayout.addLayout(subject_top_layout)
+        # Bottom row: simulations and refresh
+        subject_bottom_layout = QtWidgets.QHBoxLayout()
+        subject_bottom_layout.addWidget(QtWidgets.QLabel("Simulation(s):"))
+        self.sim_list = QtWidgets.QListWidget()
+        self.sim_list.setSelectionMode(QtWidgets.QAbstractItemView.ExtendedSelection)
+        self.sim_list.setMaximumHeight(60)
+        self.sim_list.setMinimumWidth(120)
+        subject_bottom_layout.addWidget(self.sim_list)
         self.refresh_btn = QtWidgets.QPushButton("Refresh")
         self.refresh_btn.clicked.connect(self.refresh_subjects)
-        subject_layout.addWidget(self.refresh_btn)
-        
-        subject_layout.addStretch(1)
+        subject_bottom_layout.addWidget(self.refresh_btn)
+        subject_bottom_layout.addStretch(1)
+        subject_vlayout.addLayout(subject_bottom_layout)
         main_layout.addWidget(subject_group)
         
         # Create toolbar for actions
@@ -103,8 +109,9 @@ class NiftiViewerTab(QtWidgets.QWidget):
             "NIfTI Viewer using Freeview\n\n"
             "1. Select a subject from the dropdown\n"
             "2. Choose between Subject space or MNI space\n"
-            "3. Click 'Load Subject Data' to view subject's data\n"
-            "4. Freeview will launch to display the files\n\n"
+            "3. Select one or more simulations from the list\n"
+            "4. Click 'Load Subject Data' to view subject's data\n"
+            "5. Freeview will launch to display the files\n\n"
             "Note: Freeview must be installed on your system."
         )
         main_layout.addWidget(self.info_area)
@@ -132,52 +139,16 @@ class NiftiViewerTab(QtWidgets.QWidget):
         options_btn.clicked.connect(self.show_options)
         bottom_button_layout.addWidget(options_btn)
         
-        main_layout.addLayout(bottom_button_layout)
+        clear_console_btn = QtWidgets.QPushButton("Clear Console")
+        clear_console_btn.clicked.connect(self.clear_console)
+        bottom_button_layout.addWidget(clear_console_btn)
         
-        # Check if Freeview is available
-        self.check_freeview()
+        main_layout.addLayout(bottom_button_layout)
         
         # Populate the subject list
         self.refresh_subjects()
-    
-    def check_freeview(self):
-        """Check if Freeview is available on the system."""
-        try:
-            # Try to run freeview with --version flag
-            result = subprocess.run(['freeview', '--version'], 
-                                  stdout=subprocess.PIPE, 
-                                  stderr=subprocess.PIPE,
-                                  timeout=2)
-            
-            if result.returncode == 0:
-                self.status_label.setText("Ready - Freeview detected")
-                version_info = result.stdout.decode('utf-8').strip()
-                self.info_area.append(f"\nFreeview detected: {version_info}")
-                return True
-            else:
-                self.status_label.setText("Error - Freeview not working properly")
-                self.show_freeview_error()
-                return False
-        except (subprocess.SubprocessError, FileNotFoundError):
-            self.status_label.setText("Error - Freeview not found")
-            self.show_freeview_error()
-            return False
-    
-    def show_freeview_error(self):
-        """Show error message about Freeview not being available."""
-        self.info_area.clear()
-        self.info_area.setStyleSheet("color: red;")
-        self.info_area.setText(
-            "ERROR: Freeview not found or not working properly\n\n"
-            "Freeview is required for this NIfTI viewer. Please ensure that:\n"
-            "1. FreeSurfer is installed on your system\n"
-            "2. The FreeSurfer environment is properly set up\n"
-            "3. The 'freeview' command is available in your PATH\n\n"
-            "Installation instructions:\n"
-            "- Visit https://surfer.nmr.mgh.harvard.edu/fswiki/DownloadAndInstall\n"
-            "- Follow the installation instructions for your platform\n"
-            "- Set up the environment variables as described in the documentation"
-        )
+        self.subject_combo.currentIndexChanged.connect(self.refresh_simulations)
+        self.refresh_simulations()
     
     def refresh_subjects(self):
         """Scan for available subjects and update the dropdown."""
@@ -201,6 +172,21 @@ class NiftiViewerTab(QtWidgets.QWidget):
         except Exception as e:
             self.status_label.setText(f"Error scanning for subjects: {str(e)}")
             self.info_area.append(f"\nError scanning for subjects: {str(e)}")
+    
+    def refresh_simulations(self):
+        """Populate the simulation list for the selected subject."""
+        self.sim_list.clear()
+        if self.subject_combo.count() == 0:
+            return
+        subject_id = self.subject_combo.currentText()
+        sim_base = os.path.join(self.base_dir, subject_id, "SimNIBS", "Simulations")
+        if not os.path.isdir(sim_base):
+            return
+        # List all subdirectories (simulations)
+        for sim_name in sorted(os.listdir(sim_base)):
+            sim_path = os.path.join(sim_base, sim_name)
+            if os.path.isdir(sim_path):
+                self.sim_list.addItem(sim_name)
     
     def load_subject_data(self):
         """Load the selected subject's data in Freeview."""
@@ -227,49 +213,48 @@ class NiftiViewerTab(QtWidgets.QWidget):
         else:
             t1_path = os.path.join(m2m_dir, "T1.nii.gz")
         
-        # Simulation results paths
-        sim_prefix = "" if space == "Subject" else "MNI_"
-        sim_dir = os.path.join(subject_dir, "SimNIBS", "Simulations", "L_Insula", "TI", "niftis")
+        # Simulation results paths (updated for multiple simulations)
+        selected_sims = [item.text() for item in self.sim_list.selectedItems()]
+        if not selected_sims:
+            QtWidgets.QMessageBox.warning(self, "Warning", "No simulations selected")
+            return
         
-        grey_path = os.path.join(sim_dir, f"grey_{subject_id}_L_Insula_{sim_prefix}TI_max.nii.gz")
-        result_path = os.path.join(sim_dir, f"{subject_id}_L_Insula_{sim_prefix}TI_max.nii.gz")
-        
-        # Check if files exist
         files_to_load = []
-        file_paths = []  # To store the actual file paths without options
+        file_paths = []
         missing_files = []
+        sim_prefix = "" if space == "Subject" else "MNI_"
+        for sim_name in selected_sims:
+            sim_dir = os.path.join(subject_dir, "SimNIBS", "Simulations", sim_name, "TI", "niftis")
+            grey_path = os.path.join(sim_dir, f"grey_{subject_id}_{sim_name}_{sim_prefix}TI_max.nii.gz")
+            result_path = os.path.join(sim_dir, f"{subject_id}_{sim_name}_{sim_prefix}TI_max.nii.gz")
+            if os.path.exists(grey_path):
+                files_to_load.append(f"{grey_path}:colormap=heat:heatscale=95,99.9:percentile=1:opacity=0.7:visible=1")
+                file_paths.append(grey_path)
+                self.info_area.append(f"Found grey matter file: {os.path.basename(grey_path)}")
+            else:
+                missing_files.append(f"Grey matter file not found: {grey_path}")
+                self.info_area.append(f"❌ Grey matter file not found: {grey_path}")
+            if os.path.exists(result_path):
+                files_to_load.append(f"{result_path}:colormap=heat:heatscale=95,99.9:percentile=1:opacity=0.7:visible=0")
+                file_paths.append(result_path)
+                self.info_area.append(f"Found result file: {os.path.basename(result_path)}")
+            else:
+                missing_files.append(f"Result file not found: {result_path}")
+                self.info_area.append(f"❌ Result file not found: {result_path}")
         
+        # Always add T1 file if it exists
         if os.path.exists(t1_path):
-            # Add T1 file with visible=1
-            files_to_load.append(f"{t1_path}:visible=1")
-            file_paths.append(t1_path)
+            files_to_load.insert(0, f"{t1_path}:visible=1")
+            file_paths.insert(0, t1_path)
             self.info_area.append(f"Found T1 file: {os.path.basename(t1_path)}")
         else:
             missing_files.append(f"T1 file not found: {t1_path}")
             self.info_area.append(f"❌ T1 file not found: {t1_path}")
         
-        if os.path.exists(grey_path):
-            # Add grey matter with heat colormap, 95-99.9% percentile threshold, visible=1
-            files_to_load.append(f"{grey_path}:colormap=heat:heatscale=95,99.9:percentile=1:opacity=0.7:visible=1")
-            file_paths.append(grey_path)
-            self.info_area.append(f"Found grey matter file: {os.path.basename(grey_path)}")
-        else:
-            missing_files.append(f"Grey matter file not found: {grey_path}")
-            self.info_area.append(f"❌ Grey matter file not found: {grey_path}")
-        
-        if os.path.exists(result_path):
-            # Add result with heat colormap, 95-99.9% percentile threshold, visible=0 (unchecked)
-            files_to_load.append(f"{result_path}:colormap=heat:heatscale=95,99.9:percentile=1:opacity=0.7:visible=0")
-            file_paths.append(result_path)
-            self.info_area.append(f"Found result file: {os.path.basename(result_path)}")
-        else:
-            missing_files.append(f"Result file not found: {result_path}")
-            self.info_area.append(f"❌ Result file not found: {result_path}")
-        
         if not files_to_load:
             QtWidgets.QMessageBox.critical(
                 self, "Error", 
-                "No files found for the selected subject and space.\n\n"
+                "No files found for the selected subject, space, and simulation(s).\n\n"
                 f"Missing files:\n- " + "\n- ".join(missing_files)
             )
             return
@@ -528,4 +513,8 @@ class NiftiViewerTab(QtWidgets.QWidget):
     def closeEvent(self, event):
         """Handle tab close event."""
         self.terminate_freeview()
-        super(NiftiViewerTab, self).closeEvent(event) 
+        super(NiftiViewerTab, self).closeEvent(event)
+    
+    def clear_console(self):
+        """Clear the info_area console output."""
+        self.info_area.clear() 
