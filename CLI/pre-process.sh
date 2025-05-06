@@ -272,6 +272,26 @@ for SUBJECT_ID in "${selected_subjects[@]}"; do
   # Execute the command
   print_message "$GREEN" "Running command: $CMD"
   eval "$CMD"
+
+  # If m2m was created, run all three atlases automatically
+  if $CREATE_M2M; then
+    m2m_folder="$SUBJECT_DIR/SimNIBS/m2m_$SUBJECTID"
+    if [ -d "$m2m_folder" ]; then
+      for atlas in a2009s DK40 HCP_MMP1; do
+        output_dir="$m2m_folder/segmentation"
+        mkdir -p "$output_dir"
+        print_message "$YELLOW" "[Atlas] $SUBJECT_ID: Running subject_atlas -m $m2m_folder -a $atlas -o $output_dir"
+        subject_atlas -m "$m2m_folder" -a "$atlas" -o "$output_dir"
+        if [ $? -eq 0 ]; then
+          print_message "$GREEN" "[Atlas] $SUBJECT_ID: Atlas $atlas segmentation complete."
+        else
+          print_message "$RED" "[Atlas] $SUBJECT_ID: Atlas $atlas segmentation failed."
+        fi
+      done
+    else
+      print_message "$RED" "[Atlas] $SUBJECT_ID: m2m folder not found, skipping atlas segmentation."
+    fi
+  fi
   
   print_message "$GREEN" "Completed processing for subject $SUBJECT_ID"
 done

@@ -228,6 +228,13 @@ class PreProcessTab(QtWidgets.QWidget):
         self.create_m2m_cb.setChecked(True)
         options_layout.addWidget(self.create_m2m_cb)
         
+        # Small Atlas Segmentation Button inside options group
+        self.atlas_btn = QtWidgets.QPushButton("Run Atlas Segmentation (selected)")
+        self.atlas_btn.setFixedWidth(200)
+        self.atlas_btn.setStyleSheet("font-size: 10px; padding: 2px 6px;")
+        self.atlas_btn.clicked.connect(self.run_atlas_segmentation)
+        options_layout.addWidget(self.atlas_btn)
+        
         # Quiet mode
         self.quiet_cb = QtWidgets.QCheckBox("Run in quiet mode (suppress output)")
         options_layout.addWidget(self.quiet_cb)
@@ -237,7 +244,7 @@ class PreProcessTab(QtWidgets.QWidget):
         # Control buttons - same width as subject selection buttons
         control_button_frame = QtWidgets.QFrame()
         control_button_frame.setFrameStyle(QtWidgets.QFrame.NoFrame)
-        control_button_frame.setFixedWidth(120)  # Match previous button width
+        control_button_frame.setFixedWidth(160)  # Match previous button width
         
         control_buttons_layout = QtWidgets.QVBoxLayout(control_button_frame)
         control_buttons_layout.setContentsMargins(0, 22, 0, 0)  # Top margin to align with options box header
@@ -245,16 +252,18 @@ class PreProcessTab(QtWidgets.QWidget):
         control_buttons_layout.setAlignment(QtCore.Qt.AlignTop)
         
         # Run button
-        self.run_btn = QtWidgets.QPushButton("Run Pre-processing")
+        self.run_btn = QtWidgets.QPushButton("Run Pre-process")
         self.run_btn.clicked.connect(self.run_preprocessing)
-        self.run_btn.setStyleSheet("background-color: #4CAF50; color: white; font-weight: bold; padding: 8px;")
+        self.run_btn.setMinimumWidth(160)
+        self.run_btn.setMinimumHeight(40)
+        self.run_btn.setStyleSheet("background-color: #4CAF50; color: white; font-weight: bold; font-size: 14px; padding: 8px;")
         control_buttons_layout.addWidget(self.run_btn)
         
         # Stop button
         self.stop_btn = QtWidgets.QPushButton("Stop")
         self.stop_btn.clicked.connect(self.stop_preprocessing)
         self.stop_btn.setEnabled(False)
-        self.stop_btn.setStyleSheet("background-color: #f44336; color: white; font-weight: bold; padding: 8px;")
+        self.stop_btn.setStyleSheet("background-color: #cccccc; color: #888888; font-weight: bold; padding: 8px;")
         control_buttons_layout.addWidget(self.stop_btn)
         
         # Clear button
@@ -286,6 +295,11 @@ class PreProcessTab(QtWidgets.QWidget):
         
         # Connect signals for dependent options
         self.run_recon_cb.toggled.connect(self.toggle_dependent_options)
+
+        # Connect subject selection change to atlas button enable logic
+        self.subject_list.itemSelectionChanged.connect(self.update_atlas_btn_state)
+        # Also call after project dir/subject list update
+        self.update_atlas_btn_state()
     
     def toggle_recon_only(self, checked):
         """Enable/disable recon-only checkbox based on run_recon state."""
@@ -342,6 +356,7 @@ class PreProcessTab(QtWidgets.QWidget):
             self.project_dir = dir_path
             self.project_dir_input.setText(dir_path)
             self.update_available_subjects()
+            self.update_atlas_btn_state()
     
     def update_available_subjects(self):
         """Update the list of available subjects in the project directory."""
@@ -376,6 +391,7 @@ class PreProcessTab(QtWidgets.QWidget):
             status = '[✓] DICOMs found' if dicom_found else '[✗] No DICOMs'
             self.console_output.append(f"{subject_id}: {status}")
         self.console_output.append("")
+        self.update_atlas_btn_state()
     
     def run_preprocessing(self):
         """Start the pre-processing operation with the selected options."""
@@ -439,6 +455,7 @@ class PreProcessTab(QtWidgets.QWidget):
         self.processing_running = True
         self.run_btn.setEnabled(False)
         self.stop_btn.setEnabled(True)
+        self.stop_btn.setStyleSheet("background-color: #f44336; color: white; font-weight: bold; padding: 8px;")
         self.subject_list.setEnabled(False)
         self.select_all_btn.setEnabled(False)
         self.clear_selection_btn.setEnabled(False)
@@ -527,6 +544,7 @@ class PreProcessTab(QtWidgets.QWidget):
         self.processing_running = False
         self.run_btn.setEnabled(True)
         self.stop_btn.setEnabled(False)
+        self.stop_btn.setStyleSheet("background-color: #cccccc; color: #888888; font-weight: bold; padding: 8px;")
         self.subject_list.setEnabled(True)
         self.select_all_btn.setEnabled(True)
         self.clear_selection_btn.setEnabled(True)
@@ -537,6 +555,28 @@ class PreProcessTab(QtWidgets.QWidget):
         self.toggle_dependent_options()  # This will set the parallel checkbox correctly
         self.create_m2m_cb.setEnabled(True)
         self.quiet_cb.setEnabled(True)
+
+        # --- Atlas Segmentation: Automatically run after m2m creation ---
+        if self.create_m2m_cb.isChecked():
+            selected_subjects = [item.text() for item in self.subject_list.selectedItems()]
+            for subject_id in selected_subjects:
+                m2m_folder = os.path.join(self.project_dir, subject_id, 'SimNIBS', f'm2m_{subject_id}')
+                if not os.path.isdir(m2m_folder):
+                    self.console_output.append(f"[Atlas] {subject_id}: m2m folder not found, skipping atlas segmentation.")
+                    continue
+                output_dir = os.path.join(m2m_folder, 'segmentation')
+                os.makedirs(output_dir, exist_ok=True)
+                for atlas in ["a2009s", "DK40", "HCP_MMP1"]:
+                    cmd = ["subject_atlas", "-m", m2m_folder, "-a", atlas, "-o", output_dir]
+                    self.console_output.append(f"[Atlas] {subject_id}: Running {' '.join(cmd)}")
+                    try:
+                        proc = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+                        if proc.returncode == 0:
+                            self.console_output.append(f"[Atlas] {subject_id}: Atlas {atlas} segmentation complete.")
+                        else:
+                            self.console_output.append(f"[Atlas] {subject_id}: Atlas {atlas} segmentation failed.\n{proc.stderr}")
+                    except Exception as e:
+                        self.console_output.append(f"[Atlas] {subject_id}: Error running subject_atlas: {e}")
     
     def stop_preprocessing(self):
         """Stop the running pre-processing operation."""
@@ -556,6 +596,7 @@ class PreProcessTab(QtWidgets.QWidget):
                 self.console_output.append("Pre-processing operation terminated.")
                 # Force clean up of UI
                 self.preprocessing_finished()
+                self.stop_btn.setStyleSheet("background-color: #cccccc; color: #888888; font-weight: bold; padding: 8px;")
             else:
                 self.console_output.append("Failed to terminate the pre-processing operation.")
     
@@ -578,4 +619,47 @@ class PreProcessTab(QtWidgets.QWidget):
 
     def clear_subject_selection(self):
         """Clear the selected subjects in the subject list."""
-        self.subject_list.clearSelection() 
+        self.subject_list.clearSelection()
+
+    def run_atlas_segmentation(self):
+        selected_subjects = [item.text() for item in self.subject_list.selectedItems()]
+        if not selected_subjects:
+            QtWidgets.QMessageBox.warning(self, "Error", "Please select at least one subject.")
+            return
+        self.console_output.append("\n=== Starting atlas segmentation. This may take a few moments... ===")
+        QtWidgets.QApplication.processEvents()
+        self.console_output.append("Running atlas segmentation for all selected subjects and all atlases...")
+        QtWidgets.QApplication.processEvents()
+        for subject_id in selected_subjects:
+            m2m_folder = os.path.join(self.project_dir, subject_id, 'SimNIBS', f'm2m_{subject_id}')
+            if not os.path.isdir(m2m_folder):
+                self.console_output.append(f"[Atlas] {subject_id}: m2m folder not found, skipping.")
+                QtWidgets.QApplication.processEvents()
+                continue
+            output_dir = os.path.join(m2m_folder, 'segmentation')
+            os.makedirs(output_dir, exist_ok=True)
+            for atlas in ["a2009s", "DK40", "HCP_MMP1"]:
+                cmd = ["subject_atlas", "-m", m2m_folder, "-a", atlas, "-o", output_dir]
+                self.console_output.append(f"[Atlas] {subject_id}: Running {' '.join(cmd)}")
+                QtWidgets.QApplication.processEvents()
+                try:
+                    proc = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+                    if proc.returncode == 0:
+                        self.console_output.append(f"[Atlas] {subject_id}: Atlas {atlas} segmentation complete.")
+                    else:
+                        self.console_output.append(f"[Atlas] {subject_id}: Atlas {atlas} segmentation failed.\n{proc.stderr}")
+                except Exception as e:
+                    self.console_output.append(f"[Atlas] {subject_id}: Error running subject_atlas: {e}")
+                QtWidgets.QApplication.processEvents()
+
+    def update_atlas_btn_state(self):
+        selected_subjects = [item.text() for item in self.subject_list.selectedItems()]
+        if not selected_subjects or not self.project_dir:
+            self.atlas_btn.setEnabled(False)
+            return
+        for subject_id in selected_subjects:
+            m2m_folder = os.path.join(self.project_dir, subject_id, 'SimNIBS', f'm2m_{subject_id}')
+            if not os.path.isdir(m2m_folder):
+                self.atlas_btn.setEnabled(False)
+                return
+        self.atlas_btn.setEnabled(True) 

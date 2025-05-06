@@ -343,69 +343,31 @@ class SimulatorTab(QtWidgets.QWidget):
         # Run button
         self.run_btn = QtWidgets.QPushButton("Run Simulation")
         self.run_btn.clicked.connect(self.run_simulation)
-        self.run_btn.setMinimumHeight(50)
-        self.run_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #4CAF50;
-                color: white;
-                font-weight: bold;
-                font-size: 14px;
-                border-radius: 6px;
-                padding: 10px;
-            }
-            QPushButton:hover {
-                background-color: #45a049;
-            }
-            QPushButton:pressed {
-                background-color: #3d8b40;
-            }
-            QPushButton:disabled {
-                background-color: #cccccc;
-                color: #888888;
-            }
-        """)
+        self.run_btn.setMinimumWidth(160)
+        self.run_btn.setMinimumHeight(40)
+        self.run_btn.setStyleSheet("background-color: #4CAF50; color: white; font-weight: bold; font-size: 14px; padding: 8px;")
         
-        # Stop button (initially hidden)
-        self.stop_btn = QtWidgets.QPushButton("Stop Simulation")
+        # Stop button
+        self.stop_btn = QtWidgets.QPushButton("Stop")
         self.stop_btn.clicked.connect(self.stop_simulation)
-        self.stop_btn.setMinimumHeight(50)
-        self.stop_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #f44336;
-                color: white;
-                font-weight: bold;
-                font-size: 14px;
-                border-radius: 6px;
-                padding: 10px;
-            }
-            QPushButton:hover {
-                background-color: #d32f2f;
-            }
-            QPushButton:pressed {
-                background-color: #b71c1c;
-            }
-            QPushButton:disabled {
-                background-color: #cccccc;
-                color: #888888;
-            }
-        """)
-        self.stop_btn.setEnabled(False)  # Initially disabled instead of hidden
+        self.stop_btn.setEnabled(False)
+        self.stop_btn.setMinimumWidth(100)
+        self.stop_btn.setMinimumHeight(40)
+        self.stop_btn.setStyleSheet("background-color: #cccccc; color: #888888; font-weight: bold; font-size: 14px; padding: 8px;")
+        
+        # Clear button
+        self.clear_btn = QtWidgets.QPushButton("Clear Console")
+        self.clear_btn.clicked.connect(self.clear_console)
+        self.clear_btn.setMinimumWidth(120)
+        self.clear_btn.setMinimumHeight(40)
+        self.clear_btn.setStyleSheet("background-color: #e0e0e0; color: #333; font-weight: bold; font-size: 14px; padding: 8px;")
         
         # Button layout
         button_layout = QtWidgets.QHBoxLayout()
         button_layout.addWidget(self.run_btn)
         button_layout.addWidget(self.stop_btn)
-        
-        # Add icons to buttons for better visual appearance
-        if QtGui.QIcon.hasThemeIcon("document-save"):
-            self.run_btn.setIcon(QtGui.QIcon.fromTheme("media-playback-start"))
-            self.stop_btn.setIcon(QtGui.QIcon.fromTheme("media-playback-stop"))
-            self.list_subjects_btn.setIcon(QtGui.QIcon.fromTheme("view-list"))
-            self.list_montages_btn.setIcon(QtGui.QIcon.fromTheme("view-list"))
-            self.clear_subject_selection_btn.setIcon(QtGui.QIcon.fromTheme("view-list"))
-            self.select_all_subjects_btn.setIcon(QtGui.QIcon.fromTheme("view-list"))
-            self.clear_montage_selection_btn.setIcon(QtGui.QIcon.fromTheme("view-list"))
-            self.add_montage_btn.setIcon(QtGui.QIcon.fromTheme("list-add"))
+        button_layout.addWidget(self.clear_btn)
+        button_layout.addStretch()
         
         # Add form layout to scroll layout
         scroll_layout.addLayout(form_layout)
@@ -418,7 +380,7 @@ class SimulatorTab(QtWidgets.QWidget):
         # Output console
         output_label = QtWidgets.QLabel("Console Output")
         output_label.setStyleSheet("font-weight: bold; font-size: 14px; margin-top: 10px;")
-        
+        main_layout.addWidget(output_label)
         self.output_console = QtWidgets.QTextEdit()
         self.output_console.setReadOnly(True)
         self.output_console.setMinimumHeight(200)
@@ -434,22 +396,7 @@ class SimulatorTab(QtWidgets.QWidget):
             }
         """)
         self.output_console.setAcceptRichText(True)
-        
-        # Clear console button
-        clear_btn = QtWidgets.QPushButton("Clear Console")
-        clear_btn.clicked.connect(self.clear_console)
-        clear_btn.setStyleSheet("background-color: #555; color: white;")
-        
-        # Console layout
-        console_layout = QtWidgets.QVBoxLayout()
-        header_layout = QtWidgets.QHBoxLayout()
-        header_layout.addWidget(output_label)
-        header_layout.addStretch()
-        header_layout.addWidget(clear_btn)
-        console_layout.addLayout(header_layout)
-        console_layout.addWidget(self.output_console)
-        
-        main_layout.addLayout(console_layout)
+        main_layout.addWidget(self.output_console)
         
     def list_subjects(self):
         """List available subjects and display them."""
@@ -896,6 +843,7 @@ class SimulatorTab(QtWidgets.QWidget):
                 self.simulation_running = True
                 self.run_btn.setEnabled(False)
                 self.stop_btn.setEnabled(True)
+                self.stop_btn.setStyleSheet("background-color: #f44336; color: white; font-weight: bold; font-size: 14px; padding: 8px;")
                 
                 # Process each subject separately
                 # Process all subjects as a batch to match simulator.sh behavior
@@ -941,6 +889,7 @@ class SimulatorTab(QtWidgets.QWidget):
             self.simulation_running = False
             self.run_btn.setEnabled(True)
             self.stop_btn.setEnabled(False)
+            self.stop_btn.setStyleSheet("background-color: #cccccc; color: #888888; font-weight: bold; font-size: 14px; padding: 8px;")
     
     def update_output(self, text):
         """Update the output console with text from the simulation thread."""
@@ -985,6 +934,7 @@ class SimulatorTab(QtWidgets.QWidget):
         self.run_btn.setEnabled(True)
         self.run_btn.setText("Run Simulation")
         self.stop_btn.setEnabled(False)
+        self.stop_btn.setStyleSheet("background-color: #cccccc; color: #888888; font-weight: bold; font-size: 14px; padding: 8px;")
     
     def update_electrode_inputs(self, checked):
         """Update the electrode input form based on the selected simulation mode."""
@@ -1019,6 +969,7 @@ class SimulatorTab(QtWidgets.QWidget):
             self.run_btn.setEnabled(True)
             self.run_btn.setText("Run Simulation")
             self.stop_btn.setEnabled(False)
+            self.stop_btn.setStyleSheet("background-color: #cccccc; color: #888888; font-weight: bold; font-size: 14px; padding: 8px;")
             
     def update_output(self, text):
         """Update the output console with text from the simulation thread."""
