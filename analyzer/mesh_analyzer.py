@@ -22,6 +22,79 @@ class MeshAnalyzer:
         self.subject_dir = subject_dir
         self.output_dir = output_dir
 
+    def analyze_whole_head(self):
+        """
+        Analyze the entire head region from mesh data.
+        
+        Returns:
+            dict: Analysis results for the whole head
+        """
+        print("Analyzing the entire head region from mesh data.")
+        pass
+
+    def analyze_sphere(self, center_coordinates, radius):
+        """
+        Analyze a spherical region of interest from mesh data.
+        
+        Args:
+            center_coordinates (list or tuple): [x, y, z] coordinates of sphere center in mm
+            radius (float): Radius of the sphere in mm
+            
+        Returns:
+            dict: Analysis results for the spherical region including:
+                - mean_value: Mean field value in the ROI
+                - max_value: Maximum field value in the ROI
+                - min_value: Minimum field value in the ROI
+                - roi_mask: Boolean mask of elements in the ROI
+        """
+        print(f"Analyzing a spherical ROI (radius={radius}mm) at coordinates {center_coordinates}")
+        
+        # Load the mesh
+        mesh = simnibs.read_msh(self.mesh_path)
+        
+        # Get element centers
+        elm_centers = mesh.elements_baricenters()[:]
+        
+        # Create ROI mask for elements within the sphere
+        roi_mask = np.linalg.norm(elm_centers - center_coordinates, axis=1) < radius
+        
+        # Check if we have any elements in the ROI
+        roi_elements_count = np.sum(roi_mask)
+        if roi_elements_count == 0:
+            print("Warning: No elements found in the specified ROI!")
+            return {
+                'mean_value': None,
+                'max_value': None, 
+                'min_value': None,
+                'roi_mask': roi_mask
+            }
+        
+        # Get element volumes for proper weighted averaging
+        elm_vols = mesh.elements_volumes_and_areas()[:]
+        
+        # Get the field values for the specified field
+        field_values = mesh.field[self.field_name][:]
+        
+        # Calculate statistics
+        min_value = np.min(field_values[roi_mask])
+        max_value = np.max(field_values[roi_mask])
+        mean_value = np.average(field_values[roi_mask], weights=elm_vols[roi_mask])
+        
+        print(f"ROI Analysis Results:")
+        print(f"  Number of elements in ROI: {roi_elements_count}")
+        print(f"  Mean {self.field_name}: {mean_value:.6f}")
+        print(f"  Min {self.field_name}: {min_value:.6f}")
+        print(f"  Max {self.field_name}: {max_value:.6f}")
+        
+        # Return analysis results
+        return {
+            'mean_value': mean_value,
+            'max_value': max_value,
+            'min_value': min_value,
+            'roi_mask': roi_mask,
+            'elements_in_roi': roi_elements_count
+        }
+
     def analyze_cortex(self, atlas_type, target_region):
         """
         Analyze a specific cortical region from mesh data using an atlas.
