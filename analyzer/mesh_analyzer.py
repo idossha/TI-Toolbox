@@ -13,21 +13,34 @@ class MeshAnalyzer:
 
         Args:
             mesh_path (str): Path to the field mesh file 
-            subject_dir (str): Directory containing subject data
             field_name (str): Name of the field to analyze
+            subject_dir (str): Directory containing subject data
             output_dir (str): Directory where analysis results will be saved
         """
         self.mesh_path = mesh_path
         self.field_name = field_name
         self.subject_dir = subject_dir
         self.output_dir = output_dir
+        
+        # Create output directory if it doesn't exist
+        if not os.path.exists(output_dir):
+            os.makedirs(output_dir)
+        
+        # Validate that mesh_path exists
+        if not os.path.exists(mesh_path):
+            raise FileNotFoundError(f"Mesh file not found: {mesh_path}")
 
     def analyze_whole_head(self):
         """
         Analyze the entire head region from mesh data.
         
         Returns:
-            dict: Analysis results for the whole head
+            dict: Analysis results for the whole head including:
+                - mean_value: Mean field value in the ROI
+                - max_value: Maximum field value in the ROI
+                - min_value: Minimum field value in the ROI
+                - roi_mask: Boolean mask of elements in the ROI
+                - elements_in_roi: Number of elements in the ROI
         """
         print("Analyzing the entire head region from mesh data.")
         pass
@@ -46,6 +59,7 @@ class MeshAnalyzer:
                 - max_value: Maximum field value in the ROI
                 - min_value: Minimum field value in the ROI
                 - roi_mask: Boolean mask of elements in the ROI
+                - elements_in_roi: Number of elements in the ROI
         """
         print(f"Analyzing a spherical ROI (radius={radius}mm) at coordinates {center_coordinates}")
         
@@ -66,7 +80,8 @@ class MeshAnalyzer:
                 'mean_value': None,
                 'max_value': None, 
                 'min_value': None,
-                'roi_mask': roi_mask
+                'roi_mask': roi_mask,
+                'elements_in_roi': 0
             }
         
         # Get element volumes for proper weighted averaging
@@ -108,6 +123,7 @@ class MeshAnalyzer:
                 - mean_value: Mean field value in the ROI
                 - max_value: Maximum field value in the ROI
                 - min_value: Minimum field value in the ROI
+                - roi_mask: Boolean mask of nodes in the ROI
                 - nodes_in_roi: Number of nodes in the ROI
         """
         print(f"Analyzing the cortical region '{target_region}' using {atlas_type} atlas.")
@@ -115,7 +131,7 @@ class MeshAnalyzer:
         # 1. Load the original mesh
         gm_surf = simnibs.read_msh(self.mesh_path)
         
-        # 2. Load the atlas
+        # 2. Load the atlas and map it to the mesh
         atlas = simnibs.subject_atlas(atlas_type, self.subject_dir)
         
         # 3. Select the target region
@@ -123,10 +139,8 @@ class MeshAnalyzer:
             raise ValueError(f"Region '{target_region}' not found in atlas {atlas_type}. "
                             f"Available regions: {list(atlas.keys())}")
         
+        # Get the ROI mask for the target region
         roi_mask = atlas[target_region]
-        
-        # 4. Calculate the min and max values in the specific cortex region
-        field_values_in_roi = gm_surf.field[self.field_name].value[roi_mask]
         
         # Check if we have any nodes in the ROI
         roi_nodes_count = np.sum(roi_mask)
@@ -136,9 +150,14 @@ class MeshAnalyzer:
                 'mean_value': None,
                 'max_value': None, 
                 'min_value': None,
+                'roi_mask': roi_mask,
                 'nodes_in_roi': 0
             }
         
+        # Get the field values within the ROI
+        field_values_in_roi = gm_surf.field[self.field_name].value[roi_mask]
+        
+        # Calculate statistics
         min_value = np.min(field_values_in_roi)
         max_value = np.max(field_values_in_roi)
         
@@ -146,12 +165,12 @@ class MeshAnalyzer:
         node_areas = gm_surf.nodes_areas()
         mean_value = np.average(gm_surf.field[self.field_name].value[roi_mask], weights=node_areas[roi_mask])
         
-        print(f"Cortical ROI Analysis Results:")
-        print(f"  Region: {target_region} (Atlas: {atlas_type})")
-        print(f"  Number of nodes in ROI: {roi_nodes_count}")
-        print(f"  Mean {self.field_name}: {mean_value:.6f}")
-        print(f"  Min {self.field_name}: {min_value:.6f}")
-        print(f"  Max {self.field_name}: {max_value:.6f}")
+        # Print summary of results
+        print(f"Analysis Results for {target_region} (Atlas: {atlas_type}):")
+        print(f"  Total nodes in region: {roi_nodes_count}")
+        print(f"  Mean field value: {mean_value:.6f}")
+        print(f"  Max field value: {max_value:.6f}")
+        print(f"  Min field value: {min_value:.6f}")
         
         # Return analysis results
         return {
