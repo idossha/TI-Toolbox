@@ -107,7 +107,7 @@ class ContactTab(QtWidgets.QWidget):
         
         # Description
         description = QtWidgets.QLabel(
-            "<p>GitHub is our preferred platform for bug reports, feature requests, and contributions. "
+            "<p>GitHub is our preferred platform for bug reports, feature requests, and community discussions. "
             "Choose from the options below depending on your needs:</p>"
         )
         description.setWordWrap(True)
@@ -119,10 +119,23 @@ class ContactTab(QtWidgets.QWidget):
         content_grid.setVerticalSpacing(15)
         content_grid.setHorizontalSpacing(10)
         
+        # Join Discussions
+        discuss_icon = QtWidgets.QLabel()
+        discuss_icon.setPixmap(QtGui.QIcon.fromTheme("forum").pixmap(32, 32))
+        content_grid.addWidget(discuss_icon, 0, 0)
+        
+        discuss_info = QtWidgets.QVBoxLayout()
+        discuss_title = QtWidgets.QLabel("<b>Join the Discussion & Share Ideas</b>")
+        discuss_description = QtWidgets.QLabel("Have questions, ideas for improvements, or want to connect with other users? Visit our GitHub Discussions page to share your thoughts and join the community conversation. This is the best place to propose and discuss new features!")
+        discuss_description.setWordWrap(True)
+        discuss_info.addWidget(discuss_title)
+        discuss_info.addWidget(discuss_description)
+        content_grid.addLayout(discuss_info, 0, 1)
+        
         # Report a Bug
         bug_icon = QtWidgets.QLabel()
         bug_icon.setPixmap(QtGui.QIcon.fromTheme("dialog-error").pixmap(32, 32))
-        content_grid.addWidget(bug_icon, 0, 0)
+        content_grid.addWidget(bug_icon, 1, 0)
         
         bug_info = QtWidgets.QVBoxLayout()
         bug_title = QtWidgets.QLabel("<b>Report a Bug</b>")
@@ -130,20 +143,7 @@ class ContactTab(QtWidgets.QWidget):
         bug_description.setWordWrap(True)
         bug_info.addWidget(bug_title)
         bug_info.addWidget(bug_description)
-        content_grid.addLayout(bug_info, 0, 1)
-        
-        # Request a Feature
-        feature_icon = QtWidgets.QLabel()
-        feature_icon.setPixmap(QtGui.QIcon.fromTheme("dialog-information").pixmap(32, 32))
-        content_grid.addWidget(feature_icon, 1, 0)
-        
-        feature_info = QtWidgets.QVBoxLayout()
-        feature_title = QtWidgets.QLabel("<b>Request a Feature</b>")
-        feature_description = QtWidgets.QLabel("Have an idea to improve TI-CSC-2.0? Share it with us by creating a feature request on GitHub.")
-        feature_description.setWordWrap(True)
-        feature_info.addWidget(feature_title)
-        feature_info.addWidget(feature_description)
-        content_grid.addLayout(feature_info, 1, 1)
+        content_grid.addLayout(bug_info, 1, 1)
         
         # Pull Requests
         pr_icon = QtWidgets.QLabel()
