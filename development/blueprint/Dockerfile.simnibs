@@ -1,3 +1,9 @@
+# switch to nvim v0.11.0
+# install basic config file for nvim thorugh the toolbox
+# make sure you resolve path conflicts for config files
+# minimal config for tmux 
+# do we need matlab runtime?
+
 # Dockerfile.simnibs
 FROM ubuntu:20.04
 
@@ -66,21 +72,22 @@ RUN apt-get update && apt-get install -y \
     execstack \
     imagemagick \
     parallel \
+    dcm2niix \
     && apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 # Set up Python environment and install required Python packages
-RUN pip3 install dcm2niix numpy scipy pandas meshio nibabel
+RUN pip3 install numpy scipy pandas meshio nibabel nilearn
 
 # Install SimNIBS
 RUN mkdir -p /simnibs && chmod -R 755 /simnibs
 
-RUN wget https://github.com/simnibs/simnibs/releases/download/v4.1.0/simnibs_installer_linux.tar.gz -P /simnibs \
+RUN wget https://github.com/simnibs/simnibs/releases/download/v4.5.0/simnibs_installer_linux.tar.gz -P /simnibs \
     && tar -xzf /simnibs/simnibs_installer_linux.tar.gz -C /simnibs \
     && /simnibs/simnibs_installer/install -s
 
 # Set environment variables for SimNIBS
-ENV PATH="/root/SimNIBS-4.5.0/bin:$PATH"
-ENV SIMNIBSDIR="/root/SimNIBS-4.5.0"
+ENV PATH="/root/SimNIBS-4.5/bin:$PATH"
+ENV SIMNIBSDIR="/root/SimNIBS-4.5"
 
 # Set MATLAB Runtime version and installation directory
 ENV MATLAB_RUNTIME_INSTALL_DIR=/usr/local/MATLAB/MATLAB_Runtime

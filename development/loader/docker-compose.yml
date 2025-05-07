@@ -14,7 +14,7 @@ services:
     networks:
       - ti_network
   simnibs:
-    image: idossha/simnibs:4.5.0
+    image: idossha/simnibs:4.5
     container_name: simnibs_container
     volumes:
       - ti_csc_fsl_data:/usr/local/fsl/
