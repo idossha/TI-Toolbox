@@ -27,6 +27,7 @@ GREEN='\033[0;32m' #Green for successful completions.
 CYAN='\033[0;36m' #Cyan for actions being performed.
 BOLD_CYAN='\033[1;36m'
 YELLOW='\033[0;33m' #Yellow for warnings or important notices
+BOLD_YELLOW='\033[1;33m'
 
 # Function to handle invalid input and reprompt
 reprompt() {
@@ -619,13 +620,69 @@ prompt_electrode_thickness() {
     done
 }
 
+# Function to show welcome message
+show_welcome_message() {
+    clear  # Clear the screen before starting
+    echo -e "${BOLD_CYAN}╔════════════════════════════════════════╗${RESET}"
+    echo -e "${BOLD_CYAN}║        TI-CSC Simulator Tool          ║${RESET}"
+    echo -e "${BOLD_CYAN}╚════════════════════════════════════════╝${RESET}"
+    echo -e "${CYAN}Version 2.0 - $(date +%Y)${RESET}"
+    echo -e "${CYAN}Run simulations with customizable electrode configurations${RESET}\n"
+}
+
+# Function to show confirmation dialog
+show_confirmation_dialog() {
+    echo -e "\n${BOLD_CYAN}Configuration Summary${RESET}"
+    echo -e "----------------------------------------"
+    echo -e "${BOLD}Selected Parameters:${RESET}"
+    
+    # Subject Information
+    echo -e "\n${BOLD_CYAN}Subject Information:${RESET}"
+    local subject_list=""
+    for num in ${subject_choices//,/ }; do
+        if [ -n "$subject_list" ]; then
+            subject_list+=", "
+        fi
+        subject_list+="${subjects[$((num-1))]}"
+    done
+    echo -e "Subjects: ${CYAN}$subject_list${RESET}"
+    
+    # Simulation Parameters
+    echo -e "\n${BOLD_CYAN}Simulation Parameters:${RESET}"
+    echo -e "Simulation Type: ${CYAN}${sim_type_text}${RESET}"
+    echo -e "Mode: ${CYAN}${montage_type_text}${RESET}"
+    echo -e "Selected Montages: ${CYAN}${selected_montages[*]}${RESET}"
+    
+    # Electrode Configuration
+    echo -e "\n${BOLD_CYAN}Electrode Configuration:${RESET}"
+    echo -e "Shape: ${CYAN}${electrode_shape}${RESET}"
+    echo -e "Dimensions: ${CYAN}${dimensions} mm${RESET}"
+    echo -e "Thickness: ${CYAN}${thickness} mm${RESET}"
+    echo -e "Current: ${CYAN}${intensity_ma} mA${RESET}"
+    
+    echo -e "\n${BOLD_YELLOW}Please review the configuration above.${RESET}"
+    echo -e "${YELLOW}Do you want to proceed with the simulation? (y/n)${RESET}"
+    read -p " " confirm
+    
+    if [[ "$confirm" != "y" && "$confirm" != "Y" ]]; then
+        echo -e "${RED}Simulation cancelled by user.${RESET}"
+        exit 0
+    fi
+}
+
 # Main script execution
+show_welcome_message
+
+# Collect all necessary inputs
 choose_subjects
 choose_simulation_type
 choose_simulation_mode
 prompt_montages
 choose_intensity
 choose_electrode_geometry
+
+# Show confirmation dialog before proceeding
+show_confirmation_dialog
 
 # Loop through selected subjects and run the pipeline
 for subject_index in "${selected_subjects[@]}"; do

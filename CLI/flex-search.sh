@@ -822,12 +822,23 @@ get_label_name() {
     echo "$label_name"
 }
 
-# Modify the print_final_summary function
-print_final_summary() {
-    print_section_header "Configuration Summary"
+# Function to show welcome message
+show_welcome_message() {
+    clear  # Clear the screen before starting
+    echo -e "${BOLD_CYAN}╔════════════════════════════════════════╗${RESET}"
+    echo -e "${BOLD_CYAN}║     TI-CSC Flex Search Optimizer      ║${RESET}"
+    echo -e "${BOLD_CYAN}╚════════════════════════════════════════╝${RESET}"
+    echo -e "${CYAN}Version 2.0 - $(date +%Y)${RESET}"
+    echo -e "${CYAN}Optimize electrode positions for targeted stimulation${RESET}\n"
+}
+
+# Function to show confirmation dialog
+show_confirmation_dialog() {
+    echo -e "\n${BOLD_CYAN}Configuration Summary${RESET}"
+    echo -e "----------------------------------------"
     echo -e "${BOLD}Selected Parameters:${RESET}"
     
-    # Subject Information - Show actual subject IDs
+    # Subject Information
     echo -e "\n${BOLD_CYAN}Subject Information:${RESET}"
     local subject_list=""
     for num in ${subject_choices//,/ }; do
@@ -836,61 +847,62 @@ print_final_summary() {
         fi
         subject_list+="${subjects[$((num-1))]}"
     done
-    print_parameter "Subjects" "$subject_list"
+    echo -e "Subjects: ${CYAN}$subject_list${RESET}"
     
     # Optimization Parameters
     echo -e "\n${BOLD_CYAN}Optimization Parameters:${RESET}"
-    print_parameter "Goal" "$goal"
-    print_parameter "Post-processing Method" "$postproc"
+    echo -e "Goal: ${CYAN}$goal${RESET}"
+    echo -e "Post-processing Method: ${CYAN}$postproc${RESET}"
     
     # Electrode Configuration
     echo -e "\n${BOLD_CYAN}Electrode Configuration:${RESET}"
-    print_parameter "EEG Net" "$eeg_net"
-    print_parameter "Electrode Radius" "${radius}mm"
-    print_parameter "Electrode Current" "${current}mA"
+    echo -e "EEG Net: ${CYAN}$eeg_net${RESET}"
+    echo -e "Electrode Radius: ${CYAN}${radius}mm${RESET}"
+    echo -e "Electrode Current: ${CYAN}${current}mA${RESET}"
     
     # ROI Configuration
     echo -e "\n${BOLD_CYAN}ROI Configuration:${RESET}"
-    print_parameter "ROI Method" "$ROI_METHOD"
+    echo -e "ROI Method: ${CYAN}$ROI_METHOD${RESET}"
     if [ "$ROI_METHOD" = "atlas" ]; then
-        print_parameter "Atlas" "$(basename "$ATLAS_PATH")"
-        print_parameter "Hemisphere" "$SELECTED_HEMISPHERE"
+        echo -e "Atlas: ${CYAN}$(basename "$ATLAS_PATH")${RESET}"
+        echo -e "Hemisphere: ${CYAN}$SELECTED_HEMISPHERE${RESET}"
         local roi_label_name=$(get_label_name "$ATLAS_PATH" "$ROI_LABEL")
-        print_parameter "ROI Label" "$ROI_LABEL - $roi_label_name"
+        echo -e "ROI Label: ${CYAN}$ROI_LABEL - $roi_label_name${RESET}"
     else
-        print_parameter "ROI Coordinates" "(${ROI_X}, ${ROI_Y}, ${ROI_Z})"
-        print_parameter "ROI Radius" "${ROI_RADIUS}mm"
+        echo -e "ROI Coordinates: ${CYAN}(${ROI_X}, ${ROI_Y}, ${ROI_Z})${RESET}"
+        echo -e "ROI Radius: ${CYAN}${ROI_RADIUS}mm${RESET}"
     fi
     
     # Focality Settings (if applicable)
     if [ "$goal" = "focality" ]; then
         echo -e "\n${BOLD_CYAN}Focality Settings:${RESET}"
-        print_parameter "Non-ROI Method" "$non_roi_method"
-        print_parameter "Threshold Values" "$THRESHOLD_VALUES"
+        echo -e "Non-ROI Method: ${CYAN}$non_roi_method${RESET}"
+        echo -e "Threshold Values: ${CYAN}$THRESHOLD_VALUES${RESET}"
         if [ "$non_roi_method" = "specific" ]; then
             if [ "$ROI_METHOD" = "atlas" ]; then
-                print_parameter "Non-ROI Atlas" "$(basename "$NON_ROI_ATLAS_PATH")"
-                print_parameter "Non-ROI Hemisphere" "$NON_ROI_HEMISPHERE"
+                echo -e "Non-ROI Atlas: ${CYAN}$(basename "$NON_ROI_ATLAS_PATH")${RESET}"
+                echo -e "Non-ROI Hemisphere: ${CYAN}$NON_ROI_HEMISPHERE${RESET}"
                 local non_roi_label_name=$(get_label_name "$NON_ROI_ATLAS_PATH" "$NON_ROI_LABEL")
-                print_parameter "Non-ROI Label" "$NON_ROI_LABEL - $non_roi_label_name"
+                echo -e "Non-ROI Label: ${CYAN}$NON_ROI_LABEL - $non_roi_label_name${RESET}"
             else
-                print_parameter "Non-ROI Coordinates" "(${NON_ROI_X}, ${NON_ROI_Y}, ${NON_ROI_Z})"
-                print_parameter "Non-ROI Radius" "${NON_ROI_RADIUS}mm"
+                echo -e "Non-ROI Coordinates: ${CYAN}(${NON_ROI_X}, ${NON_ROI_Y}, ${NON_ROI_Z})${RESET}"
+                echo -e "Non-ROI Radius: ${CYAN}${NON_ROI_RADIUS}mm${RESET}"
             fi
         fi
     fi
     
     echo -e "\n${BOLD_YELLOW}Please review the configuration above.${RESET}"
-    read -p "Press Enter to continue or Ctrl+C to abort..."
+    echo -e "${YELLOW}Do you want to proceed with the optimization? (y/n)${RESET}"
+    read -p " " confirm
+    
+    if [[ "$confirm" != "y" && "$confirm" != "Y" ]]; then
+        echo -e "${RED}Optimization cancelled by user.${RESET}"
+        exit 0
+    fi
 }
 
-# Modify the main script execution section
-# Replace the existing main execution section with:
-clear  # Clear the screen before starting
-echo -e "${BOLD_CYAN}╔════════════════════════════════════════╗${RESET}"
-echo -e "${BOLD_CYAN}║     TI-CSC Flex Search Optimizer       ║${RESET}"
-echo -e "${BOLD_CYAN}╚════════════════════════════════════════╝${RESET}"
-echo -e "${CYAN}Version 2.0 - $(date +%Y)${RESET}\n"
+# Main script execution
+show_welcome_message
 
 # Create necessary directories
 mkdir -p "$project_dir/Analysis"
@@ -919,8 +931,8 @@ if [ "$goal" = "focality" ]; then
     setup_non_roi
 fi
 
-# Print final summary and ask for confirmation
-print_final_summary
+# Show confirmation dialog before proceeding
+show_confirmation_dialog
 
 # Process each subject
 for subject_id in "${selected_subjects[@]}"; do

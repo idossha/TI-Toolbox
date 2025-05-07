@@ -748,8 +748,6 @@ class SimulatorTab(QtWidgets.QWidget):
     
     def run_simulation(self):
         """Run the simulation with the selected parameters."""
-        if hasattr(self, 'parent') and self.parent:
-            self.parent.set_tab_busy(self, True, stop_btn=self.stop_btn)
         if self.simulation_running:
             self.output_console.append("A simulation is already running.")
             return
@@ -838,6 +836,10 @@ class SimulatorTab(QtWidgets.QWidget):
             )
             
             if reply == QtWidgets.QMessageBox.Yes:
+                # Set tab as busy only after confirmation
+                if hasattr(self, 'parent') and self.parent:
+                    self.parent.set_tab_busy(self, True, stop_btn=self.stop_btn)
+                
                 # Clear console
                 self.clear_console()
                 

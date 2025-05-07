@@ -376,8 +376,6 @@ class PreProcessTab(QtWidgets.QWidget):
     
     def run_preprocessing(self):
         """Start the pre-processing operation with the selected options."""
-        if hasattr(self, 'parent') and self.parent:
-            self.parent.set_tab_busy(self, True, stop_btn=self.stop_btn)
         if self.processing_running:
             QtWidgets.QMessageBox.warning(
                 self, "Process Running",
@@ -433,6 +431,10 @@ class PreProcessTab(QtWidgets.QWidget):
         if reply != QtWidgets.QMessageBox.Yes:
             return
         
+        # Set tab as busy only after confirmation
+        if hasattr(self, 'parent') and self.parent:
+            self.parent.set_tab_busy(self, True, stop_btn=self.stop_btn)
+        
         # Update UI state before processing
         self.console_output.clear()
         self.processing_running = True
@@ -443,7 +445,6 @@ class PreProcessTab(QtWidgets.QWidget):
         self.select_all_btn.setEnabled(False)
         self.clear_selection_btn.setEnabled(False)
         self.refresh_subjects_btn.setEnabled(False)
-        self.browse_project_btn.setEnabled(False)
         self.convert_dicom_cb.setEnabled(False)
         self.run_recon_cb.setEnabled(False)
         self.parallel_cb.setEnabled(False)
@@ -534,7 +535,6 @@ class PreProcessTab(QtWidgets.QWidget):
         self.select_all_btn.setEnabled(True)
         self.clear_selection_btn.setEnabled(True)
         self.refresh_subjects_btn.setEnabled(True)
-        self.browse_project_btn.setEnabled(True)
         self.convert_dicom_cb.setEnabled(True)
         self.run_recon_cb.setEnabled(True)
         self.toggle_dependent_options()  # This will set the parallel checkbox correctly

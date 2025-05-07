@@ -12,7 +12,9 @@ RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[0;33m'
 BLUE='\033[0;34m'
+CYAN='\033[0;36m'
 BOLD_CYAN='\033[1;36m'
+RESET='\033[0m' # No Color
 NC='\033[0m' # No Color
 
 # Function to print colored messages
@@ -64,10 +66,46 @@ validate_dir() {
   return 0
 }
 
-# Print welcome message
-clear
-print_header "TI-CSC Preprocessing Tool"
-print_message "$GREEN" "This tool will guide you through the structural preprocessing pipeline."
+# Function to show welcome message
+show_welcome_message() {
+    clear  # Clear the screen before starting
+    echo -e "${BOLD_CYAN}╔═══════════════════════════════════════════╗${RESET}"
+    echo -e "${BOLD_CYAN}║         TI-CSC Pre-process Tool          ║${RESET}"
+    echo -e "${BOLD_CYAN}╚═══════════════════════════════════════════╝${RESET}"
+    echo -e "${CYAN}Version 2.0 - $(date +%Y)${RESET}"
+    echo -e "${CYAN}Prepare subject data for TI-CSC analysis${RESET}\n"
+}
+
+# Function to show confirmation dialog
+show_confirmation_dialog() {
+    echo -e "\n${BOLD_CYAN}Configuration Summary${RESET}"
+    echo -e "----------------------------------------"
+    echo -e "${BOLD}Selected Parameters:${RESET}"
+    
+    # Subject Information
+    echo -e "\n${BOLD_CYAN}Subject Information:${RESET}"
+    echo -e "Selected Subjects (${#selected_subjects[@]}): ${CYAN}${selected_subjects[*]}${RESET}"
+    
+    # Processing Options
+    echo -e "\n${BOLD_CYAN}Processing Options:${RESET}"
+    echo -e "Convert DICOM files to NIfTI:     ${CYAN}$(if $CONVERT_DICOM; then echo "Yes"; else echo "No"; fi)${RESET}"
+    echo -e "Run FreeSurfer recon-all:         ${CYAN}$(if $RUN_RECON; then echo "Yes"; else echo "No"; fi)${RESET}"
+    echo -e "Run in parallel mode:             ${CYAN}$(if $PARALLEL_RECON; then echo "Yes"; else echo "No"; fi)${RESET}"
+    echo -e "Create SimNIBS m2m folder:        ${CYAN}$(if $CREATE_M2M; then echo "Yes"; else echo "No"; fi)${RESET}"
+    echo -e "Run in quiet mode:                ${CYAN}$(if $QUIET; then echo "Yes"; else echo "No"; fi)${RESET}"
+    
+    echo -e "\n${BOLD_YELLOW}Please review the configuration above.${RESET}"
+    echo -e "${YELLOW}Do you want to proceed with these settings? (y/n)${RESET}"
+    read -p " " confirm
+    
+    if [[ "$confirm" != "y" && "$confirm" != "Y" ]]; then
+        print_message "$YELLOW" "Pre-processing cancelled by user."
+        exit 0
+    fi
+}
+
+# Main script execution starts here
+show_welcome_message
 
 # Automatically detect project directory
 print_header "Project Configuration"
@@ -140,35 +178,35 @@ read -p "Enter subject number(s) or ID(s) to process: " subject_choice
 selected_subjects=()
 
 if [[ "${subject_choice,,}" == "all" ]]; then
-  # Select all available subjects
-  selected_subjects=("${available_subjects[@]}")
-  print_message "$GREEN" "Selected all ${#selected_subjects[@]} subjects."
+    # Select all available subjects
+    selected_subjects=("${available_subjects[@]}")
+    print_message "$GREEN" "Selected all ${#selected_subjects[@]} subjects."
 else
-  # Split the comma-separated input
-  IFS=',' read -ra selections <<< "$subject_choice"
-  
-  for selection in "${selections[@]}"; do
-    # Trim whitespace
-    selection=$(echo "$selection" | xargs)
+    # Split the comma-separated input
+    IFS=',' read -ra selections <<< "$subject_choice"
     
-    if [[ $selection =~ ^[0-9]+$ ]] && [ "$selection" -le "${#available_subjects[@]}" ] && [ "$selection" -gt 0 ]; then
-      # Selection is a number, convert to ID
-      selected_subjects+=("${available_subjects[$((selection-1))]}")
-    else
-      # Selection is assumed to be a subject ID, check if valid
-      if [ -d "$PROJECT_DIR/$selection" ]; then
-        selected_subjects+=("$selection")
-      else
-        print_message "$RED" "Warning: Subject '$selection' not found, skipping."
-      fi
-    fi
-  done
+    for selection in "${selections[@]}"; do
+        # Trim whitespace
+        selection=$(echo "$selection" | xargs)
+        
+        if [[ $selection =~ ^[0-9]+$ ]] && [ "$selection" -le "${#available_subjects[@]}" ] && [ "$selection" -gt 0 ]; then
+            # Selection is a number, convert to ID
+            selected_subjects+=("${available_subjects[$((selection-1))]}")
+        else
+            # Selection is assumed to be a subject ID, check if valid
+            if [ -d "$PROJECT_DIR/$selection" ]; then
+                selected_subjects+=("$selection")
+            else
+                print_message "$RED" "Warning: Subject '$selection' not found, skipping."
+            fi
+        fi
+    done
 fi
 
 # Validate that we have at least one subject
 if [ ${#selected_subjects[@]} -eq 0 ]; then
-  print_message "$RED" "Error: No valid subjects selected. Exiting."
-  exit 1
+    print_message "$RED" "Error: No valid subjects selected. Exiting."
+    exit 1
 fi
 
 print_message "$GREEN" "Selected subjects: ${selected_subjects[*]}"
@@ -183,47 +221,34 @@ QUIET=false
 # Ask for DICOM conversion
 print_header "DICOM Conversion"
 if get_yes_no "Do you want to convert DICOM files to NIfTI?" "y"; then
-  CONVERT_DICOM=true
+    CONVERT_DICOM=true
 fi
 
 # Ask for recon-all
 print_header "FreeSurfer Reconstruction"
 if get_yes_no "Do you want to run FreeSurfer recon-all?" "y"; then
-  RUN_RECON=true
-  
-  # Ask for parallel processing
-  if get_yes_no "Run FreeSurfer reconstruction in parallel (requires GNU Parallel)?" "n"; then
-    PARALLEL_RECON=true
-  fi
+    RUN_RECON=true
+    
+    # Ask for parallel processing
+    if get_yes_no "Run FreeSurfer reconstruction in parallel (requires GNU Parallel)?" "n"; then
+        PARALLEL_RECON=true
+    fi
 fi
 
 # Ask for SimNIBS m2m folder creation
-print_header "SimNIBS Head Model Creation"
-if get_yes_no "Create SimNIBS m2m folder (using charm)?" "y"; then
-  CREATE_M2M=true
-  print_message "$YELLOW" "Note: charm is automatically parallelized."
+print_header "SimNIBS Head Model"
+if get_yes_no "Create SimNIBS m2m folder?" "y"; then
+    CREATE_M2M=true
 fi
 
 # Ask for quiet mode
-print_header "Output Settings"
+print_header "Output Mode"
 if get_yes_no "Run in quiet mode (suppress output)?" "n"; then
-  QUIET=true
+    QUIET=true
 fi
 
-# Confirm settings
-print_header "Confirmation"
-echo "Project Directory: $PROJECT_DIR"
-echo "Selected Subjects: ${selected_subjects[*]}"
-echo "Convert DICOM: $([ "$CONVERT_DICOM" = true ] && echo "Yes" || echo "No")"
-echo "Run recon-all: $([ "$RUN_RECON" = true ] && echo "Yes" || echo "No")"
-echo "Parallel recon: $([ "$PARALLEL_RECON" = true ] && echo "Yes" || echo "No")"
-echo "Create SimNIBS m2m folder: $([ "$CREATE_M2M" = true ] && echo "Yes" || echo "No")"
-echo "Quiet mode: $([ "$QUIET" = true ] && echo "Yes" || echo "No")"
-
-if ! get_yes_no "Are these settings correct?" "y"; then
-  print_message "$RED" "Operation cancelled by user."
-  exit 0
-fi
+# Show confirmation dialog before proceeding
+show_confirmation_dialog
 
 # Process each selected subject
 for SUBJECT_ID in "${selected_subjects[@]}"; do

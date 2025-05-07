@@ -552,8 +552,6 @@ class FlexSearchTab(QtWidgets.QWidget):
     
     def run_optimization(self):
         """Prepare and run the flex-search optimization."""
-        if hasattr(self, 'parent') and self.parent:
-            self.parent.set_tab_busy(self, True, stop_btn=self.stop_btn)
         if self.optimization_running:
             self.output_text.append("Optimization already running. Please wait or stop the current run.")
             return
@@ -689,7 +687,7 @@ class FlexSearchTab(QtWidgets.QWidget):
         
         # Start optimization in a separate thread
         self.output_text.append("\n" + "="*50)
-        self.output_text.append("Starting flex-search optimization with parameters:")
+        self.output_text.append("Optimization Overview:")
         self.output_text.append(f"Subject: {subject_id}")
         self.output_text.append(f"Goal: {goal}")
         self.output_text.append(f"Post-processing: {postproc}")
@@ -705,8 +703,49 @@ class FlexSearchTab(QtWidgets.QWidget):
             self.output_text.append(f"Atlas: {atlas_name}")
             self.output_text.append(f"Label value: {label_value}")
         
-        self.output_text.append("="*50)
-        self.output_text.append(f"Using project directory: {project_dir}")
+        # Build confirmation message
+        msg = "The following flex-search optimization will be executed:\n\n"
+        msg += f"Subject: {subject_id}\n"
+        msg += f"Goal: {goal}\n"
+        msg += f"Post-processing: {postproc}\n"
+        msg += f"EEG Net: {eeg_net}\n"
+        msg += f"Electrode radius: {radius} mm\n"
+        msg += f"Electrode current: {current} mA\n"
+        msg += f"ROI method: {roi_method}\n"
+        if roi_method == "spherical":
+            msg += f"ROI center: [{roi_x}, {roi_y}, {roi_z}] mm\n"
+            msg += f"ROI radius: {roi_radius} mm\n"
+        else:
+            msg += f"Atlas: {atlas_name}\n"
+            msg += f"Label value: {label_value}\n"
+        if goal == "focality":
+            msg += f"Non-ROI method: {nonroi_method}\n"
+            msg += f"Thresholds: {thresholds}\n"
+            if nonroi_method == "specific":
+                if self.roi_method_spherical.isChecked():
+                    msg += f"Non-ROI center: [{self.nonroi_x_input.value()}, {self.nonroi_y_input.value()}, {self.nonroi_z_input.value()}] mm\n"
+                    msg += f"Non-ROI radius: {self.nonroi_radius_input.value()} mm\n"
+                else:
+                    msg += f"Non-ROI Atlas: {nonroi_atlas}\n"
+                    msg += f"Non-ROI Label: {nonroi_label}\n"
+        msg += "\nDo you want to proceed?"
+        
+        reply = QtWidgets.QMessageBox.question(
+            self, "Confirm Flex-Search Optimization",
+            msg,
+            QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No,
+            QtWidgets.QMessageBox.No
+        )
+        
+        if reply != QtWidgets.QMessageBox.Yes:
+            return
+        
+        # Set tab as busy only after confirmation
+        if hasattr(self, 'parent') and self.parent:
+            self.parent.set_tab_busy(self, True, stop_btn=self.stop_btn)
+        
+        # Clear console and start optimization
+        self.clear_console()
         self.output_text.append("Running optimization (this may take a while)...")
         self.output_text.append("Command: " + " ".join(cmd))
         
