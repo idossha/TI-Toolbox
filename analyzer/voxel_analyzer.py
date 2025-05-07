@@ -458,6 +458,15 @@ class VoxelAnalyzer:
                 min_value,
                 data_type='voxel'
             )
+
+            # Create visualization NIfTI file
+            self.visualizer.create_cortex_nifti(
+                atlas_img=atlas_img,
+                atlas_arr=atlas_arr,
+                field_arr=field_arr,
+                region_id=region_id,
+                region_name=region_name
+            )
         
         # Return analysis results
         return {

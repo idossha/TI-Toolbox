@@ -334,8 +334,70 @@ class VoxelVisualizer(Visualizer):
             output_dir (str): Directory where visualization files will be saved
         """
         super().__init__(output_dir)
-        self.voxel_vis_dir = os.path.join(output_dir, 'voxel_visuals')
+        self.voxel_vis_dir = os.path.join(output_dir, 'cortex_visuals')
         os.makedirs(self.voxel_vis_dir, exist_ok=True)
 
-    # Add voxel-specific visualization methods here
-    # For example, methods for 3D volume rendering, slice views, etc. 
+    def create_cortex_nifti(self, atlas_img, atlas_arr, field_arr, region_id, region_name):
+        """
+        Create a NIfTI file visualization for a specific cortical region.
+        
+        Args:
+            atlas_img (nibabel.Nifti1Image): Atlas image object
+            atlas_arr (numpy.ndarray): Atlas data array
+            field_arr (numpy.ndarray): Field data array
+            region_id (int): ID of the target region
+            region_name (str): Name of the target region
+            
+        Returns:
+            str: Path to the created visualization file
+        """
+        # Create mask for this region
+        region_mask = (atlas_arr == region_id)
+        
+        # Create visualization array (zeros everywhere except the region)
+        vis_arr = np.zeros_like(atlas_arr)
+        vis_arr[region_mask] = field_arr[region_mask]
+        
+        # Create output filename
+        output_filename = os.path.join(self.voxel_vis_dir, f"brain_with_{region_name}_ROI.nii.gz")
+        
+        # Save as NIfTI
+        import nibabel as nib
+        vis_img = nib.Nifti1Image(vis_arr, atlas_img.affine)
+        nib.save(vis_img, output_filename)
+        
+        print(f"Created visualization: {output_filename}")
+        return output_filename
+
+    def find_region(self, target_region, region_info):
+        """Find region ID and name based on input.
+        
+        Args:
+            target_region (str or int): Target region name or ID
+            region_info (dict): Dictionary with region information
+            
+        Returns:
+            tuple: (region_id, region_name)
+        """
+        # Check if target_region is an ID (int) or can be converted to one
+        try:
+            region_id = int(target_region)
+            # If it's an ID, get the name from region_info if available
+            if region_info and region_id in region_info:
+                region_name = region_info[region_id]['name']
+            else:
+                region_name = f"Region {region_id}"
+            return region_id, region_name
+        except ValueError:
+            # target_region is a string name, need to find the corresponding ID
+            if not region_info:
+                raise ValueError("Region labels are required to look up regions by name")
+            
+            # Search for the region name (case-insensitive)
+            target_lower = target_region.lower()
+            for region_id, info in region_info.items():
+                if target_lower in info['name'].lower():
+                    return region_id, info['name']
+            
+            # If we get here, region name was not found
+            raise ValueError(f"Region name '{target_region}' not found in region labels")
