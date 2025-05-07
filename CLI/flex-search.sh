@@ -201,8 +201,9 @@ choose_goal() {
     echo -e "${GREEN}Choose optimization goal:${RESET}"
     echo "1. mean (maximize field in target ROI)"
     echo "2. focality (maximize field in target ROI while minimizing field elsewhere)"
+    echo "3. max (maximize peak field in target ROI)"
     while true; do
-        read -p "Enter your choice (1 or 2): " goal_choice
+        read -p "Enter your choice (1, 2, or 3): " goal_choice
         case "$goal_choice" in
             1) goal="mean"; break ;;
             2) 
@@ -210,7 +211,8 @@ choose_goal() {
                 get_thresholds  # Get threshold values for focality optimization
                 break 
                 ;;
-            *) echo -e "${RED}Invalid choice. Please enter 1 or 2.${RESET}" ;;
+            3) goal="max"; break ;;
+            *) echo -e "${RED}Invalid choice. Please enter 1, 2, or 3.${RESET}" ;;
         esac
     done
 }

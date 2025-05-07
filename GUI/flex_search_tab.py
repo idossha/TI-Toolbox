@@ -149,6 +149,7 @@ class FlexSearchTab(QtWidgets.QWidget):
         self.goal_label = QtWidgets.QLabel("Optimization Goal:")
         self.goal_combo = QtWidgets.QComboBox()
         self.goal_combo.addItem("mean (maximize field in target ROI)", "mean")
+        self.goal_combo.addItem("max (maximize peak field in target ROI)", "max")
         self.goal_combo.addItem("focality (maximize field in target ROI while minimizing field elsewhere)", "focality")
         self.goal_combo.setMaximumWidth(350)
         form_layout.addRow(self.goal_label, self.goal_combo)
