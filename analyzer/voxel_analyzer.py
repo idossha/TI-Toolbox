@@ -5,6 +5,7 @@ import subprocess
 import tempfile
 from pathlib import Path
 import time
+from visualizer import VoxelVisualizer
 
 
 class VoxelAnalyzer:
@@ -26,6 +27,7 @@ class VoxelAnalyzer:
         self.field_name = field_name
         self.subject_dir = subject_dir
         self.output_dir = output_dir
+        self.visualizer = VoxelVisualizer(output_dir)
         
         # Create output directory if it doesn't exist
         if not os.path.exists(output_dir):
@@ -35,22 +37,45 @@ class VoxelAnalyzer:
         if not os.path.exists(field_nifti):
             raise FileNotFoundError(f"Field file not found: {field_nifti}")
 
-    def analyze_whole_head(self, atlas_file):
+    def _extract_atlas_type(self, atlas_file):
+        """
+        Extract atlas type from filename by looking for common atlas names.
+        
+        Args:
+            atlas_file (str): Path to the atlas file
+            
+        Returns:
+            str: Atlas type if found, otherwise 'custom'
+        """
+        atlas_file = os.path.basename(atlas_file).lower()
+        
+        # Check for common atlas types in filename
+        if 'dk40' in atlas_file:
+            return 'DK40'
+        elif 'hcp_mmp1' in atlas_file:
+            return 'HCP_MMP1'
+        elif 'a2009s' in atlas_file:
+            return 'a2009s'
+        else:
+            return 'custom'
+
+    def analyze_whole_head(self, atlas_file, visualize=False):
         """
         Analyze all regions in the specified atlas.
         
         Args:
             atlas_file (str): Path to the atlas file in NIfTI or MGZ format
+            visualize (bool): Whether to generate visualizations
             
         Returns:
-            dict: Dictionary mapping region names to their analysis results, where each result includes:
-                - mean_value: Mean field value in the ROI
-                - max_value: Maximum field value in the ROI
-                - min_value: Minimum field value in the ROI
-                - voxels_in_roi: Number of voxels in the ROI
+            dict: Dictionary mapping region names to their analysis results
         """
         start_time = time.time()
         print(f"Starting whole head analysis of atlas: {atlas_file}")
+        
+        # Extract atlas type from filename
+        atlas_type = self._extract_atlas_type(atlas_file)
+        print(f"Detected atlas type: {atlas_type}")
         
         try:
             # Load region information once
@@ -85,7 +110,6 @@ class VoxelAnalyzer:
             # Analyze each region in the atlas
             for region_id, info in region_info.items():
                 region_name = info['name']
-                #print(f"\nAnalyzing region: {region_name} (ID: {region_id})")
                 try:
                     # Pass the pre-computed region_info and loaded data to avoid repeated loading
                     region_results = self.analyze_cortex(
@@ -93,7 +117,8 @@ class VoxelAnalyzer:
                         region_id, 
                         region_info=region_info,
                         atlas_data=atlas_tuple,
-                        field_data=field_tuple
+                        field_data=field_tuple,
+                        visualize=visualize  # Pass the visualize parameter
                     )
                     
                     # Only store the essential results, not the masks
@@ -128,6 +153,10 @@ class VoxelAnalyzer:
                 min_region = min(valid_results.items(), key=lambda x: x[1]['mean_value'])
                 print(f"Region with highest mean value: {max_region[0]} ({max_region[1]['mean_value']:.6f})")
                 print(f"Region with lowest mean value: {min_region[0]} ({min_region[1]['mean_value']:.6f})")
+            
+            # Generate scatter plot if visualization is requested
+            if visualize:
+                self.visualizer.generate_cortex_scatter_plot(results, atlas_type, data_type='voxel')
             
             # Calculate and print timing information
             end_time = time.time()
@@ -300,7 +329,7 @@ class VoxelAnalyzer:
                 except:
                     pass
 
-    def analyze_cortex(self, atlas_file, target_region, region_info=None, atlas_data=None, field_data=None):
+    def analyze_cortex(self, atlas_file, target_region, region_info=None, atlas_data=None, field_data=None, visualize=False):
         """
         Analyze a field scan within a specific cortical region defined in an atlas.
         Only includes voxels with positive field values.
@@ -317,20 +346,20 @@ class VoxelAnalyzer:
             Pre-loaded atlas data (atlas_img, atlas_data) to avoid repeated loading
         field_data : tuple, optional
             Pre-loaded field data (field_img, field_data) to avoid repeated loading
+        visualize : bool, optional
+            Whether to generate visualization files
             
         Returns
         -------
         dict
-            Dictionary with region statistics including:
-                - mean_value: Mean field value in the ROI
-                - max_value: Maximum field value in the ROI
-                - min_value: Minimum field value in the ROI
-                - roi_mask: Boolean mask of voxels in the ROI
-                - voxels_in_roi: Number of voxels in the ROI
+            Dictionary with region statistics
         """
+        # Extract atlas type from filename
+        atlas_type = self._extract_atlas_type(atlas_file)
+        
         # Load the atlas and field data if not provided
         if atlas_data is None:
-            # print(f"Loading atlas from {atlas_file}...")
+            print(f"Loading atlas from {atlas_file}...")
             atlas_tuple = self.load_brain_image(atlas_file)
             atlas_img, atlas_arr = atlas_tuple
         else:
@@ -347,9 +376,9 @@ class VoxelAnalyzer:
         
         # Check file dimensions match
         if atlas_arr.shape != field_arr.shape:
-            # print("Warning: Atlas and field dimensions don't match, attempting to resample...")
-            # print(f"Atlas shape: {atlas_arr.shape}")
-            # print(f"Field shape: {field_arr.shape}")
+            print("Warning: Atlas and field dimensions don't match, attempting to resample...")
+            print(f"Atlas shape: {atlas_arr.shape}")
+            print(f"Field shape: {field_arr.shape}")
         
             # Resample the atlas to match the field data
             atlas_img, atlas_arr = self.resample_to_match(
@@ -367,9 +396,9 @@ class VoxelAnalyzer:
             region_info = self.get_atlas_regions(atlas_file)
         
         # Determine region ID based on target_region
-        # print(f"Finding region information for {target_region}...")
+        print(f"Finding region information for {target_region}...")
         region_id, region_name = self.find_region(target_region, region_info)
-        # print(f"Analyzing region: {region_name} (ID: {region_id})")
+        print(f"Analyzing region: {region_name} (ID: {region_id})")
         
         # Create mask for this region
         region_mask = (atlas_arr == region_id)  # Use the unpacked data array
@@ -396,7 +425,7 @@ class VoxelAnalyzer:
         # Check if any voxels remain after filtering
         filtered_count = len(field_values)
         if filtered_count == 0:
-            # print(f"Warning: Region {region_name} (ID: {region_id}) has no voxels with positive values")
+            print(f"Warning: Region {region_name} (ID: {region_id}) has no voxels with positive values")
             return {
                 'mean_value': None,
                 'max_value': None,
@@ -411,12 +440,24 @@ class VoxelAnalyzer:
         min_value = np.min(field_values)
         
         # Print summary of results
-        # print(f"Analysis Results for {region_name} (ID: {region_id}):")
-        # print(f"  Total voxels in region: {mask_count}")
-        # print(f"  Voxels with positive values: {filtered_count} ({filtered_count/mask_count*100:.2f}%)")
-        # print(f"  Mean field value: {mean_value:.6f}")
-        # print(f"  Max field value: {max_value:.6f}")
-        # print(f"  Min field value: {min_value:.6f}")
+        print(f"Analysis Results for {region_name} (ID: {region_id}):")
+        print(f"  Total voxels in region: {mask_count}")
+        print(f"  Voxels with positive values: {filtered_count} ({filtered_count/mask_count*100:.2f}%)")
+        print(f"  Mean field value: {mean_value:.6f}")
+        print(f"  Max field value: {max_value:.6f}")
+        print(f"  Min field value: {min_value:.6f}")
+        
+        # Generate visualization if requested
+        if visualize:
+            self.visualizer.generate_value_distribution_plot(
+                field_values,
+                region_name,
+                atlas_type,
+                mean_value,
+                max_value,
+                min_value,
+                data_type='voxel'
+            )
         
         # Return analysis results
         return {
