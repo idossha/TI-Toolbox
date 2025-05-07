@@ -4,6 +4,7 @@ import nibabel as nib
 import subprocess
 import tempfile
 from pathlib import Path
+import time
 
 
 class VoxelAnalyzer:
@@ -34,15 +35,121 @@ class VoxelAnalyzer:
         if not os.path.exists(field_nifti):
             raise FileNotFoundError(f"Field file not found: {field_nifti}")
 
-    def analyze_whole_head(self):
+    def analyze_whole_head(self, atlas_file):
         """
-        Analyze the entire head region from voxel data.
+        Analyze all regions in the specified atlas.
         
+        Args:
+            atlas_file (str): Path to the atlas file in NIfTI or MGZ format
+            
         Returns:
-            dict: Analysis results for the whole head
+            dict: Dictionary mapping region names to their analysis results, where each result includes:
+                - mean_value: Mean field value in the ROI
+                - max_value: Maximum field value in the ROI
+                - min_value: Minimum field value in the ROI
+                - voxels_in_roi: Number of voxels in the ROI
         """
-        print("Analyzing the entire head region from voxel data.")
-        pass
+        start_time = time.time()
+        print(f"Starting whole head analysis of atlas: {atlas_file}")
+        
+        try:
+            # Load region information once
+            region_info = self.get_atlas_regions(atlas_file)
+            
+            # Load atlas and field data once
+            print(f"Loading atlas from {atlas_file}...")
+            atlas_tuple = self.load_brain_image(atlas_file)
+            atlas_img, atlas_arr = atlas_tuple
+            
+            print(f"Loading field from {self.field_nifti}...")
+            field_tuple = self.load_brain_image(self.field_nifti)
+            field_img, field_arr = field_tuple
+            
+            # Check if resampling is needed and do it once if necessary
+            if atlas_arr.shape != field_arr.shape:
+                print("Resampling atlas to match field dimensions...")
+                atlas_img, atlas_arr = self.resample_to_match(
+                    atlas_img,  
+                    field_arr.shape,
+                    field_img.affine
+                )
+                atlas_tuple = (atlas_img, atlas_arr)
+            else:
+                atlas_tuple = (atlas_img, atlas_arr)
+            
+            field_tuple = (field_img, field_arr)
+            
+            # Dictionary to store results for each region
+            results = {}
+            
+            # Analyze each region in the atlas
+            for region_id, info in region_info.items():
+                region_name = info['name']
+                #print(f"\nAnalyzing region: {region_name} (ID: {region_id})")
+                try:
+                    # Pass the pre-computed region_info and loaded data to avoid repeated loading
+                    region_results = self.analyze_cortex(
+                        atlas_file, 
+                        region_id, 
+                        region_info=region_info,
+                        atlas_data=atlas_tuple,
+                        field_data=field_tuple
+                    )
+                    
+                    # Only store the essential results, not the masks
+                    results[region_name] = {
+                        'mean_value': region_results['mean_value'],
+                        'max_value': region_results['max_value'],
+                        'min_value': region_results['min_value'],
+                        'voxels_in_roi': region_results['voxels_in_roi']
+                    }
+                    
+                except Exception as e:
+                    print(f"Warning: Failed to analyze region {region_name}: {str(e)}")
+                    results[region_name] = {
+                        'mean_value': None,
+                        'max_value': None,
+                        'min_value': None,
+                        'voxels_in_roi': 0
+                    }
+            
+            # Print summary of results
+            print("\nSummary of whole head analysis:")
+            print(f"Total regions analyzed: {len(results)}")
+            
+            # Count regions with valid results
+            valid_regions = sum(1 for r in results.values() if r['mean_value'] is not None)
+            print(f"Regions with valid results: {valid_regions}")
+            
+            # Find regions with highest and lowest mean values
+            valid_results = {name: res for name, res in results.items() if res['mean_value'] is not None}
+            if valid_results:
+                max_region = max(valid_results.items(), key=lambda x: x[1]['mean_value'])
+                min_region = min(valid_results.items(), key=lambda x: x[1]['mean_value'])
+                print(f"Region with highest mean value: {max_region[0]} ({max_region[1]['mean_value']:.6f})")
+                print(f"Region with lowest mean value: {min_region[0]} ({min_region[1]['mean_value']:.6f})")
+            
+            # Calculate and print timing information
+            end_time = time.time()
+            total_time = end_time - start_time
+            print(f"\nTiming Information:")
+            print(f"Total analysis time: {total_time:.2f} seconds")
+            print(f"Average time per region: {total_time/len(results):.2f} seconds")
+            
+            return results
+            
+        finally:
+            # Clean up all temporary data
+            try:
+                del atlas_arr
+                del field_arr
+                del region_info
+                if 'atlas_tuple' in locals():
+                    del atlas_tuple
+                if 'field_tuple' in locals():
+                    del field_tuple
+            except:
+                pass
 
     def analyze_sphere(self, center_coordinates, radius):
         """
@@ -193,7 +300,7 @@ class VoxelAnalyzer:
                 except:
                     pass
 
-    def analyze_cortex(self, atlas_file, target_region):
+    def analyze_cortex(self, atlas_file, target_region, region_info=None, atlas_data=None, field_data=None):
         """
         Analyze a field scan within a specific cortical region defined in an atlas.
         Only includes voxels with positive field values.
@@ -204,6 +311,12 @@ class VoxelAnalyzer:
             Path to the atlas file in NIfTI or MGZ format
         target_region : str or int
             Name or ID of the target region to analyze
+        region_info : dict, optional
+            Pre-computed region information to avoid repeated mri_segstats calls
+        atlas_data : tuple, optional
+            Pre-loaded atlas data (atlas_img, atlas_data) to avoid repeated loading
+        field_data : tuple, optional
+            Pre-loaded field data (field_img, field_data) to avoid repeated loading
             
         Returns
         -------
@@ -215,40 +328,51 @@ class VoxelAnalyzer:
                 - roi_mask: Boolean mask of voxels in the ROI
                 - voxels_in_roi: Number of voxels in the ROI
         """
-        # Load the atlas and field data
-        print(f"Loading atlas from {atlas_file}...")
-        atlas_img, atlas_data = self.load_brain_image(atlas_file)
-        
-        print(f"Loading field from {self.field_nifti}...")
-        field_img, field_data = self.load_brain_image(self.field_nifti)
+        # Load the atlas and field data if not provided
+        if atlas_data is None:
+            # print(f"Loading atlas from {atlas_file}...")
+            atlas_tuple = self.load_brain_image(atlas_file)
+            atlas_img, atlas_arr = atlas_tuple
+        else:
+            # Unpack the tuple
+            atlas_img, atlas_arr = atlas_data
+            
+        if field_data is None:
+            print(f"Loading field from {self.field_nifti}...")
+            field_tuple = self.load_brain_image(self.field_nifti)
+            field_img, field_arr = field_tuple
+        else:
+            # Unpack the tuple
+            field_img, field_arr = field_data
         
         # Check file dimensions match
-        if atlas_data.shape != field_data.shape:
-            print("Warning: Atlas and field dimensions don't match, attempting to resample...")
-            print(f"Atlas shape: {atlas_data.shape}")
-            print(f"Field shape: {field_data.shape}")
-            
+        if atlas_arr.shape != field_arr.shape:
+            # print("Warning: Atlas and field dimensions don't match, attempting to resample...")
+            # print(f"Atlas shape: {atlas_arr.shape}")
+            # print(f"Field shape: {field_arr.shape}")
+        
             # Resample the atlas to match the field data
-            atlas_img, atlas_data = self.resample_to_match(
+            atlas_img, atlas_arr = self.resample_to_match(
                 atlas_img,
-                field_data.shape,
+                field_arr.shape,
                 field_img.affine
             )
             
             # Verify the resampling worked
-            if atlas_data.shape != field_data.shape:
-                raise ValueError(f"Failed to resample atlas to match field dimensions: {atlas_data.shape} vs {field_data.shape}")
+            if atlas_arr.shape != field_arr.shape:
+                raise ValueError(f"Failed to resample atlas to match field dimensions: {atlas_arr.shape} vs {field_arr.shape}")
         
-        # Load region information
-        region_info = self.get_atlas_regions(atlas_file)
-            
+        # Load region information if not provided
+        if region_info is None:
+            region_info = self.get_atlas_regions(atlas_file)
+        
         # Determine region ID based on target_region
-        print(f"Finding region information for {target_region}...")
+        # print(f"Finding region information for {target_region}...")
         region_id, region_name = self.find_region(target_region, region_info)
-        print(f"Analyzing region: {region_name} (ID: {region_id})")
+        # print(f"Analyzing region: {region_name} (ID: {region_id})")
         
         # Create mask for this region
-        region_mask = (atlas_data == region_id)
+        region_mask = (atlas_arr == region_id)  # Use the unpacked data array
         
         # Check if the mask contains any voxels
         mask_count = np.sum(region_mask)
@@ -263,16 +387,16 @@ class VoxelAnalyzer:
             }
         
         # Filter for voxels with positive values
-        value_mask = (field_data > 0)
+        value_mask = (field_arr > 0)  # Use the unpacked data array
         combined_mask = region_mask & value_mask
         
         # Extract field values after filtering
-        field_values = field_data[combined_mask]
+        field_values = field_arr[combined_mask]  # Use the unpacked data array
         
         # Check if any voxels remain after filtering
         filtered_count = len(field_values)
         if filtered_count == 0:
-            print(f"Warning: Region {region_name} (ID: {region_id}) has no voxels with positive values")
+            # print(f"Warning: Region {region_name} (ID: {region_id}) has no voxels with positive values")
             return {
                 'mean_value': None,
                 'max_value': None,
@@ -287,12 +411,12 @@ class VoxelAnalyzer:
         min_value = np.min(field_values)
         
         # Print summary of results
-        print(f"Analysis Results for {region_name} (ID: {region_id}):")
-        print(f"  Total voxels in region: {mask_count}")
-        print(f"  Voxels with positive values: {filtered_count} ({filtered_count/mask_count*100:.2f}%)")
-        print(f"  Mean field value: {mean_value:.6f}")
-        print(f"  Max field value: {max_value:.6f}")
-        print(f"  Min field value: {min_value:.6f}")
+        # print(f"Analysis Results for {region_name} (ID: {region_id}):")
+        # print(f"  Total voxels in region: {mask_count}")
+        # print(f"  Voxels with positive values: {filtered_count} ({filtered_count/mask_count*100:.2f}%)")
+        # print(f"  Mean field value: {mean_value:.6f}")
+        # print(f"  Max field value: {max_value:.6f}")
+        # print(f"  Min field value: {min_value:.6f}")
         
         # Return analysis results
         return {

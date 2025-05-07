@@ -1,6 +1,7 @@
 import simnibs
 import numpy as np
 import os
+import time
 
 class MeshAnalyzer:
     """
@@ -30,20 +31,77 @@ class MeshAnalyzer:
         if not os.path.exists(mesh_path):
             raise FileNotFoundError(f"Mesh file not found: {mesh_path}")
 
-    def analyze_whole_head(self):
+    def analyze_whole_head(self, atlas_type='HCP_MMP1'):
         """
-        Analyze the entire head region from mesh data.
+        Analyze all regions in the specified atlas.
         
+        Args:
+            atlas_type (str): Type of atlas to use (e.g., 'HCP_MMP1', 'DK40', 'a2009s')
+            
         Returns:
-            dict: Analysis results for the whole head including:
+            dict: Dictionary mapping region names to their analysis results, where each result includes:
                 - mean_value: Mean field value in the ROI
                 - max_value: Maximum field value in the ROI
                 - min_value: Minimum field value in the ROI
-                - roi_mask: Boolean mask of elements in the ROI
-                - elements_in_roi: Number of elements in the ROI
+                - roi_mask: Boolean mask of nodes in the ROI
+                - nodes_in_roi: Number of nodes in the ROI
         """
-        print("Analyzing the entire head region from mesh data.")
-        pass
+        start_time = time.time()
+        print(f"Starting whole head analysis of {atlas_type} atlas.")
+        
+        # Load the original mesh
+        gm_surf = simnibs.read_msh(self.mesh_path)
+        
+        # Load the atlas
+        atlas = simnibs.subject_atlas(atlas_type, self.subject_dir)
+        
+        # Dictionary to store results for each region
+        results = {}
+        
+        # Analyze each region in the atlas
+        for region_name in atlas.keys():
+            print(f"\nAnalyzing region: {region_name}")
+            try:
+                region_results = self.analyze_cortex(atlas_type, region_name)
+                results[region_name] = region_results
+            except Exception as e:
+                print(f"Warning: Failed to analyze region {region_name}: {str(e)}")
+                results[region_name] = {
+                    'mean_value': None,
+                    'max_value': None,
+                    'min_value': None,
+                    'roi_mask': None,
+                    'nodes_in_roi': 0
+                }
+        
+        # Print summary of results
+        print("\nSummary of whole head analysis:")
+        print(f"Total regions analyzed: {len(results)}")
+        
+        # Count regions with valid results
+        valid_regions = sum(1 for r in results.values() if r['mean_value'] is not None)
+        print(f"Regions with valid results: {valid_regions}")
+        
+        # Find regions with highest and lowest mean values
+        valid_results = {name: res for name, res in results.items() if res['mean_value'] is not None}
+        if valid_results:
+            max_region = max(valid_results.items(), key=lambda x: x[1]['mean_value'])
+            min_region = min(valid_results.items(), key=lambda x: x[1]['mean_value'])
+            print(f"Region with highest mean value: {max_region[0]} ({max_region[1]['mean_value']:.6f})")
+            print(f"Region with lowest mean value: {min_region[0]} ({min_region[1]['mean_value']:.6f})")
+        
+        # Calculate and print timing information
+        end_time = time.time()
+        total_time = end_time - start_time
+        print(f"\nTiming Information:")
+        print(f"Total analysis time: {total_time:.2f} seconds")
+        print(f"Average time per region: {total_time/len(results):.2f} seconds")
+        
+        # Clear any temporary data
+        del gm_surf
+        del atlas
+        
+        return results
 
     def analyze_sphere(self, center_coordinates, radius):
         """
