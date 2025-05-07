@@ -106,14 +106,14 @@ def run_simulation(montage_name, montage):
     electrode.centre = montage[0][0]
     electrode.shape = electrode_shape
     electrode.dimensions = dimensions
-    electrode.thickness = [thickness]
+    electrode.thickness = [thickness, 2]
 
     electrode = tdcs.add_electrode()
     electrode.channelnr = 2
     electrode.centre = montage[0][1]
     electrode.shape = electrode_shape
     electrode.dimensions = dimensions
-    electrode.thickness = [thickness]
+    electrode.thickness = [thickness, 2]
 
     # Second electrode pair
     tdcs_2 = S.add_tdcslist(deepcopy(tdcs))
