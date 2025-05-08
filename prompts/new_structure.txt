@@ -1,0 +1,143 @@
+
+Here is currently how the project needs to be structured:
+
+MyProject/
+├── subjectID/
+│   ├── anat/
+│   │   ├── raw/          <i>(Place your DICOM files here)</i>
+│   │   ├── nifti/        <i>(Auto-created during preprocessing)</i>
+│   │   └── freesurfer/   <i>(Auto-created during preprocessing)</i>
+│   ├── SimNIBS/
+│   │   ├── Simulations/  <i>(Auto-created for simulation results)</i>
+│   │   ├── flex-search/  <i>(Auto-created for flex-search results)</i>
+│   │   ├── ex-search/    <i>(Auto-created for ex-search results)</i>
+│   │   └── Analysis/     <i>(Auto-created for analysis results)</i>
+│   ├── dwi/              <i>(Optional: For diffusion data)</i>
+│   ├── eeg/              <i>(Optional: For EEG data)</i>
+│   ├── functional/       <i>(Optional: For functional MRI data)</i>
+│   └── behavioral/       <i>(Optional: For behavioral data)</i>
+├── utils/
+│   ├── roi_list/         <i>(For storing ROI definitions)</i>
+│   └── montage_list/     <i>(For storing electrode montages)</i>
+└── config/
+    ├── flex-search_config/   <i>(Configuration files for flex-search)</i>
+    ├── ex-search_config/     <i>(Configuration files for ex-search)</i>
+    ├── simulator_config/     <i>(Configuration files for simulator)</i>
+    └── entrypoint_config/    <i>(General configuration files)</i>
+
+
+But i want to change the structure to this:
+
+
+MyProject/
+├── sub-subjectID/
+│   ├── anat/
+│   │   ├──sub-01_space-MNI305_T1w.nii.gz    <i>(Auto-created during preprocessing)</i>
+│   │   ├──sub-01_space-MNI305_T1w.json      <i>(Auto-created during preprocessing)</i>
+│   │   ├──sub-01_space-MNI305_T2w.nii.gz    <i>(Auto-created during preprocessing)</i>
+│   │   └──sub-01_space-MNI305_T2w.json      <i>(Auto-created during preprocessing)</i>
+│   ├── dwi/                                 <i>(Optional: For diffusion data)</i>
+│   ├── eeg/                                 <i>(Optional: For EEG data)</i>
+│   ├── func/                                <i>(Optional: For functional MRI data)</i>
+│   └── beh/                                 <i>(Optional: For behavioral data)</i>
+├── sourcedata/
+│    └──sub-subjectID/                       <i>(required to be set up by the user)</i>
+│       ├── localizer/                       <i>(optional for documentation purposes )</i>
+│       ├── T1w/                             <i>(required to be set up by the user)</i>
+│       │   └── dicom/                       <i>(required to be set up by the user)</i>
+│       ├── T2w/                             <i>(optional to be set up by the user)</i>
+│       │    └── dicom/                      <i>(optional to be set up by the user)</i>
+│       └── additional_files/
+├── derivatives/
+│    ├──freesurfer/               <i>(Auto-created during preprocessing if recon-all selected)</i>
+│    │  └──sub-subjectID/         <i>(Auto-created during preprocessing if recon-all selected)</i>
+│    │     ├── mri/               <i>(Auto-created during preprocessing if recon-all selected)</i>
+│    │     └── label/             <i>(Auto-created during preprocessing if recon-all selected)</i>
+│    └──SimNIBS                   <i>(Auto-created during preprocessing)</i>
+│       └──sub-subjectID/         <i>(Auto-created during preprocessing)</i>
+│          ├── m2m_subjectID/     <i>(Auto-created during preprocessing)</i>
+│          ├── Simulations/       <i>(Auto-created during simulations)</i>
+│          ├── flex-search/       <i>(Auto-created during flex-searc)</i>
+│          ├── ex-search/         <i>(Auto-created during ex-search)</i>
+│          └── analysis/          <i>(Auto-created during analysis)</i>
+└── ti-csc/                       <i>(Auto-created at the first launch of the toolbox)</i>
+    └── config/                   <i>(Auto-created at the first launch of the toolbox)</i>
+        ├── montage_list.json     <i>(Auto-created with first simulation run)</i>
+        ├── flex-search_config    <i>(Configuration files for flex-search)</i>
+        ├── ex-search_config      <i>(Configuration files for ex-search)</i>
+        ├── simulator_config      <i>(Configuration files for simulator)</i>
+        └── entrypoint_config     <i>(General configuration files)</i>
+
+
+Example:
+
+Given:
+project_dir = BIDS_test
+subjectID = 101,102
+
+
+
+BIDS_test/
+├── sub-101/
+│   ├── anat/
+│   │   ├──sub-101_space-MNI305_T1w.nii.gz    <i>(Auto-created during preprocessing)</i>
+│   │   ├──sub-101_space-MNI305_T1w.json      <i>(Auto-created during preprocessing)</i>
+│   │   ├──sub-101_space-MNI305_T2w.nii.gz    <i>(Auto-created during preprocessing)</i>
+│   │   └──sub-101_space-MNI305_T2w.json      <i>(Auto-created during preprocessing)</i>
+│   ├── dwi/                                  <i>(Optional: For diffusion data)</i>
+│   ├── eeg/                                  <i>(Optional: For EEG data)</i>
+│   ├── func/                                 <i>(Optional: For functional MRI data)</i>
+│   └── beh/                                  <i>(Optional: For behavioral data)</i>
+├── sub-102/                                  <i>(Auto-created during preprocessing)</i>
+│   ├── anat/                                 <i>(Auto-created during preprocessing)</i>
+│   │   ├──sub-102_space-MNI305_T1w.nii.gz    <i>(Auto-created during preprocessing)</i>
+│   │   ├──sub-102_space-MNI305_T1w.json      <i>(Auto-created during preprocessing)</i>
+│   │   ├──sub-102_space-MNI305_T2w.nii.gz    <i>(Auto-created during preprocessing)</i>
+│   │   └──sub-102_space-MNI305_T2w.json      <i>(Auto-created during preprocessing)</i>
+│   ├── dwi/                                  <i>(Optional: For diffusion data)</i>
+│   ├── eeg/                                  <i>(Optional: For EEG data)</i>
+│   ├── func/                                 <i>(Optional: For functional MRI data)</i>
+│   └── beh/                                  <i>(Optional: For behavioral data)</i>
+├── sourcedata/                               <i>(required to be set up by the user)</i>
+│    ├──sub-101/                              <i>(required to be set up by the user)</i>
+│    │   ├── localizer/                       <i>(optional for documentation purposes )</i>
+│    │   ├── T1w/                             <i>(required to be set up by the user)</i>
+│    │   │   └── dicom/                       <i>(required to be set up by the user)</i>
+│    │   ├── T2w/                             <i>(optional to be set up by the user)</i>
+│    │   │    └── dicom/                      <i>(optional to be set up by the user)</i>
+│    │   └── additional_files/                <i>(optional for documentation purposes )</i>
+│    └──sub-102/                              <i>(required to be set up by the user)</i>
+│       ├── localizer/                        <i>(optional for documentation purposes )</i>
+│       ├── T1w/                              <i>(required to be set up by the user)</i>
+│       │   └── dicom/                        <i>(required to be set up by the user)</i>
+│       ├── T2w/                              <i>(optional to be set up by the user)</i>
+│       │    └── dicom/                       <i>(optional to be set up by the user)</i>
+│       └── additional_files/                 <i>(optional for documentation purposes )</i>
+├── derivatives/                              <i>(Auto-created during first launch of toolbox)</i>
+│    ├──freesurfer/                           <i>(Auto-created during preprocessing if recon-all selected)</i>
+│    │  ├──sub-101/                           <i>(Auto-created during preprocessing if recon-all selected)</i>
+│    │  │  ├── mri/                           <i>(Auto-created during preprocessing if recon-all selected)</i>
+│    │  │  └── label/                         <i>(Auto-created during preprocessing if recon-all selected)</i>
+│    │  └──sub-102/                           <i>(Auto-created during preprocessing if recon-all selected)</i>
+│    │     ├── mri/                           <i>(Auto-created during preprocessing if recon-all selected)</i>
+│    │     └── label/                         <i>(Auto-created during preprocessing if recon-all selected)</i>
+│    └──SimNIBS                               <i>(Auto-created during preprocessing)</i>
+│       ├──sub-101/                           <i>(Auto-created during preprocessing)</i>
+│       │   ├── m2m_101/                      <i>(Auto-created during preprocessing)</i>
+│       │   ├── Simulations/                  <i>(Auto-created during simulations)</i>
+│       │   ├── flex-search/                  <i>(Auto-created during flex-searc)</i>
+│       │   ├── ex-search/                    <i>(Auto-created during ex-search)</i>
+│       │   └── analysis/                     <i>(Auto-created during analysis)</i>
+│       └──sub-121/                           <i>(Auto-created during preprocessing)</i>
+│          ├── m2m_102/                       <i>(Auto-created during preprocessing)</i>
+│          ├── Simulations/                   <i>(Auto-created during simulations)</i>
+│          ├── flex-search/                   <i>(Auto-created during flex-searc)</i>
+│          ├── ex-search/                     <i>(Auto-created during ex-search)</i>
+│          └── analysis/                      <i>(Auto-created during analysis)</i>
+└── ti-csc/                                   <i>(Auto-created at the first launch of the toolbox)</i>
+    └── config/                               <i>(Auto-created at the first launch of the toolbox)</i>
+        ├── montage_list.json                 <i>(Auto-created with first simulation run)</i>
+        ├── flex-search_config                <i>(Configuration files for flex-search)</i>
+        ├── ex-search_config                  <i>(Configuration files for ex-search)</i>
+        ├── simulator_config                  <i>(Configuration files for simulator)</i>
+        └── entrypoint_config                 <i>(General configuration files)</i>

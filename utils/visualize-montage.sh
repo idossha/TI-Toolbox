@@ -19,10 +19,11 @@ if [[ ! -f "$montage_file" ]]; then
     exit 1
 fi
 
-# Parse the last two arguments
-sim_mode="${@: -2:1}"  # The second-to-last argument is the simulation mode (U or M)
+# Parse arguments
+sim_mode="${@: -3:1}"  # Third-to-last argument is the simulation mode (U or M)
+eeg_net="${@: -2:1}"   # Second-to-last argument is the EEG net name
 output_directory="${@: -1}"  # The last argument is the output directory
-selected_montages=("${@:1:$(($#-2))}")  # All but the last two arguments are the selected montages
+selected_montages=("${@:1:$(($#-3))}")  # All but the last three arguments are the selected montages
 
 # Create output directory if it doesn't exist
 mkdir -p "$output_directory"
@@ -44,6 +45,7 @@ fi
 
 # Debugging: Output the simulation mode and montage type
 echo "Simulation Mode (sim_mode): $sim_mode"
+echo "EEG Net: $eeg_net"
 echo "Montage Type: $montage_type"
 echo "Selected Montages: ${selected_montages[@]}"
 echo "Output Directory: $output_directory"
@@ -95,9 +97,9 @@ global_pair_index=0
 
 # Loop through the selected montages and process each
 for montage in "${selected_montages[@]}"; do
-    # Extract pairs from the JSON file based on the selected montage type
-    echo "Retrieving pairs for montage '$montage' of type '$montage_type' from '$montage_file'"
-    pairs=$(jq -r ".${montage_type}[\"$montage\"][] | @csv" "$montage_file" 2>/dev/null)
+    # Extract pairs from the JSON file based on the selected montage type and net
+    echo "Retrieving pairs for montage '$montage' of type '$montage_type' from net '$eeg_net' in '$montage_file'"
+    pairs=$(jq -r --arg net "$eeg_net" --arg type "$montage_type" --arg montage "$montage" '.nets[$net][$type][$montage][] | @csv' "$montage_file" 2>/dev/null)
     if [ $? -ne 0 ]; then
         echo "Error: Failed to parse JSON for montage '$montage'. Please check the format."
         continue

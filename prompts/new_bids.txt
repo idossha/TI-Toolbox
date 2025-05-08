@@ -1,0 +1,77 @@
+this is a project I am working on. It is deployed in a docker container where the user mounts local data from their machine such that there is clear input/output channel. Please see development/loader/ to see how the project is launched.
+
+Most of the tools assume the user has a certain project directory structure. If the user does not have it, it will break some of the pipelines.
+
+Here is currently how the project needs to be structured:
+
+MyProject/
+├── subjectID/
+│   ├── anat/
+│   │   ├── raw/          <i>(Place your DICOM files here)</i>
+│   │   ├── nifti/        <i>(Auto-created during preprocessing)</i>
+│   │   └── freesurfer/   <i>(Auto-created during preprocessing)</i>
+│   ├── SimNIBS/
+│   │   ├── Simulations/  <i>(Auto-created for simulation results)</i>
+│   │   ├── flex-search/  <i>(Auto-created for flex-search results)</i>
+│   │   ├── ex-search/    <i>(Auto-created for ex-search results)</i>
+│   │   └── Analysis/     <i>(Auto-created for analysis results)</i>
+│   ├── dwi/              <i>(Optional: For diffusion data)</i>
+│   ├── eeg/              <i>(Optional: For EEG data)</i>
+│   ├── functional/       <i>(Optional: For functional MRI data)</i>
+│   └── behavioral/       <i>(Optional: For behavioral data)</i>
+├── utils/
+│   ├── roi_list/         <i>(For storing ROI definitions)</i>
+│   └── montage_list/     <i>(For storing electrode montages)</i>
+└── config/
+    ├── flex-search_config/   <i>(Configuration files for flex-search)</i>
+    ├── ex-search_config/     <i>(Configuration files for ex-search)</i>
+    ├── simulator_config/     <i>(Configuration files for simulator)</i>
+    └── entrypoint_config/    <i>(General configuration files)</i>
+
+
+But i want to change the structure to this:
+
+
+MyProject/
+├── sub-subjectID/
+│   ├── anat/
+│   │   ├──sub-01_space-MNI305_T1w.nii.gz    <i>(Auto-created during preprocessing)</i>
+│   │   ├──sub-01_space-MNI305_T1w.json      <i>(Auto-created during preprocessing)</i>
+│   │   ├──sub-01_space-MNI305_T2w.nii.gz    <i>(Auto-created during preprocessing)</i>
+│   │   └──sub-01_space-MNI305_T2w.json      <i>(Auto-created during preprocessing)</i>
+│   ├── dwi/                                 <i>(Optional: For diffusion data)</i>
+│   ├── eeg/                                 <i>(Optional: For EEG data)</i>
+│   ├── func/                                <i>(Optional: For functional MRI data)</i>
+│   └── beh/                                 <i>(Optional: For behavioral data)</i>
+├── sourcedata/
+│    └──sub-subjectID/                       <i>(required to be set up by the user)</i>
+│       ├── localizer/                       <i>(optional for documentation purposes )</i>
+│       ├── T1w/                             <i>(required to be set up by the user)</i>
+│       │   └── dicom/                       <i>(required to be set up by the user)</i>
+│       ├── T2w/                             <i>(optional to be set up by the user)</i>
+│       │    └── dicom/                      <i>(optional to be set up by the user)</i>
+│       └── additional_files/
+├── derivatives/
+│    ├──freesurfer/               <i>(Auto-created during preprocessing if recon-all selected)</i>
+│    │  └──sub-subjectID/         <i>(Auto-created during preprocessing if recon-all selected)</i>
+│    │     ├── mri/               <i>(Auto-created during preprocessing if recon-all selected)</i>
+│    │     └── label/             <i>(Auto-created during preprocessing if recon-all selected)</i>
+│    └──SimNIBS                   <i>(Auto-created during preprocessing)</i>
+│       └──sub-subjectID/         <i>(Auto-created during preprocessing)</i>
+│          ├── m2m_subjectID/     <i>(Auto-created during preprocessing)</i>
+│          ├── Simulations/       <i>(Auto-created during simulations)</i>
+│          ├── flex-search/       <i>(Auto-created during flex-searc)</i>
+│          ├── ex-search/         <i>(Auto-created during ex-search)</i>
+│          └── analysis/          <i>(Auto-created during analysis)</i>
+└── ti-csc/                       <i>(Auto-created at the first launch of the toolbox)</i>
+    └── config/                   <i>(Auto-created at the first launch of the toolbox)</i>
+        ├── montage_list.json     <i>(Auto-created with first simulation run)</i>
+        ├── flex-search_config    <i>(Configuration files for flex-search)</i>
+        ├── ex-search_config      <i>(Configuration files for ex-search)</i>
+        ├── simulator_config      <i>(Configuration files for simulator)</i>
+        └── entrypoint_config     <i>(General configuration files)</i>
+
+
+
+and modify all the necessary scripts one by one to be able to find the data in the new location, and write data into the new desired paths as well.
+
