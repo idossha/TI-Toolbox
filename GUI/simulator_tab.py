@@ -194,7 +194,18 @@ class SimulatorTab(QtWidgets.QWidget):
         sim_type_layout.addWidget(self.sim_type_label)
         sim_type_layout.addWidget(self.sim_type_combo)
         sim_params_layout.addLayout(sim_type_layout)
-        
+
+        # EEG Net selection
+        eeg_net_layout = QtWidgets.QHBoxLayout()
+        self.eeg_net_label = QtWidgets.QLabel("EEG Net:")
+        self.eeg_net_combo = QtWidgets.QComboBox()
+        eeg_net_layout.addWidget(self.eeg_net_label)
+        eeg_net_layout.addWidget(self.eeg_net_combo)
+        sim_params_layout.addLayout(eeg_net_layout)
+
+        # Connect EEG net selection change to montage list update
+        self.eeg_net_combo.currentTextChanged.connect(self.update_montage_list)
+
         # Simulation mode (Unipolar/Multipolar)
         sim_mode_layout = QtWidgets.QHBoxLayout()
         self.sim_mode_label = QtWidgets.QLabel("Simulation Mode:")
@@ -448,54 +459,42 @@ class SimulatorTab(QtWidgets.QWidget):
         self.electrode_stacked_widget.addWidget(self.multi_electrode_widget)
     
     def list_subjects(self):
-        """List available subjects and display them."""
+        """List available subjects in the project directory."""
         try:
-            # Clear current list
+            project_dir = os.environ.get('PROJECT_DIR_NAME', '')
+            if not project_dir:
+                QtWidgets.QMessageBox.warning(self, "Error", "PROJECT_DIR_NAME environment variable not set.")
+                return
+
+            base_path = f"/mnt/{project_dir}"
             self.subject_list.clear()
+
+            # List all directories that contain m2m_ directories
+            for item in os.listdir(base_path):
+                subject_path = os.path.join(base_path, item)
+                if os.path.isdir(subject_path):
+                    m2m_path = os.path.join(subject_path, "SimNIBS", f"m2m_{item}")
+                    if os.path.isdir(m2m_path):
+                        # Check for EEG nets in eeg_positions directory
+                        eeg_dir = os.path.join(m2m_path, "eeg_positions")
+                        if os.path.isdir(eeg_dir):
+                            for net_file in os.listdir(eeg_dir):
+                                if net_file.endswith('.csv'):
+                                    if net_file not in [self.eeg_net_combo.itemText(i) for i in range(self.eeg_net_combo.count())]:
+                                        self.eeg_net_combo.addItem(net_file)
+                        
+                        # Add subject to list
+                        self.subject_list.addItem(item)
+
+            # Sort items alphabetically
+            self.subject_list.sortItems()
             
-            # Get the base directory
-            script_dir = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
-            
-            # Use environment variable for project directory like simulator.sh does
-            project_dir_name = os.environ.get('PROJECT_DIR_NAME', '')
-            project_dir = f"/mnt/{project_dir_name}" if project_dir_name else "/mnt"
-            
-            self.update_output("Listing available subjects...")
-            self.update_output(f"Looking in project directory: {project_dir}")
-            
-            # Execute the find command to list only main subject directories
-            cmd = f'find "{project_dir}" -maxdepth 3 -type d -path "*/SimNIBS/m2m_*" | sed "s/.*m2m_//" | cut -d"/" -f1 | sort -u'
-            self.update_output(f"Command: {cmd}")
-            
-            process = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            out, err = process.communicate()
-            
-            if process.returncode == 0:
-                subjects = out.decode().strip().split('\n')
-                # Filter out empty entries
-                subjects = [s for s in subjects if s]
-                
-                if subjects:
-                    self.output_console.append('<div style="background-color: #2a2a2a; border: 1px solid #444; border-radius: 5px; padding: 10px; margin: 10px 0;">')
-                    self.output_console.append('<span style="color: #55ffff; font-weight: bold;">📋 Available Subjects:</span>')
-                    self.output_console.append('<div style="display: grid; grid-template-columns: repeat(3, 1fr); grid-gap: 5px; margin-top: 5px;">')
-                    
-                    for i, subject in enumerate(subjects, 1):
-                        self.output_console.append(f'<div style="color: #ffffff; padding: 3px 8px; background-color: #333; border-radius: 3px;">{i}. {subject}</div>')
-                    
-                    self.output_console.append('</div></div>')
-                    
-                    # Update the subject list with the available subjects
-                    self.subject_list.addItems(subjects)
-                    
-                    self.update_output(f"Found {len(subjects)} subjects. Subject list updated.")
-                else:
-                    self.update_output("No subjects found in the project directory.")
-            else:
-                self.update_output("Error finding subjects: " + err.decode())
-            
+            # If no nets found, add default
+            if self.eeg_net_combo.count() == 0:
+                self.eeg_net_combo.addItem("EGI_template.csv")
+
         except Exception as e:
-            self.update_output(f"Error: {str(e)}")
+            QtWidgets.QMessageBox.warning(self, "Error", f"Error listing subjects: {str(e)}")
     
     def select_all_subjects(self):
         """Select all subjects in the subject list."""
@@ -514,54 +513,47 @@ class SimulatorTab(QtWidgets.QWidget):
         self.montage_list.clearSelection()
     
     def update_montage_list(self, checked=None):
-        """Update the montage list based on the selected simulation mode."""
-        # Clear current list
-        self.montage_list.clear()
-        
+        """Update the list of available montages based on selected mode and net."""
         try:
-            # Use environment variable for project directory like simulator.sh does
-            project_dir_name = os.environ.get('PROJECT_DIR_NAME', 'BIDS_test')
-            project_dir = f"/mnt/{project_dir_name}"
-            utils_dir = os.path.join(project_dir, "utils")
-            montage_file = os.path.join(utils_dir, "montage_list.json")
+            self.montage_list.clear()
             
-            self.update_output(f"Looking for montages in: {montage_file}")
+            # Get current simulation mode and EEG net
+            mode_type = "uni_polar_montages" if self.sim_mode_unipolar.isChecked() else "multi_polar_montages"
+            current_net = self.eeg_net_combo.currentText()
             
-            if os.path.exists(montage_file):
-                with open(montage_file, 'r') as f:
-                    montage_data = json.load(f)
+            # Load montages from JSON file
+            project_dir = os.environ.get('PROJECT_DIR_NAME', '')
+            if not project_dir:
+                return
+            
+            montage_file = f"/mnt/{project_dir}/utils/montage_list.json"
+            if not os.path.exists(montage_file):
+                return
+            
+            with open(montage_file, 'r') as f:
+                montages = json.load(f)
+            
+            # Get montages for current net and mode
+            net_montages = montages.get('nets', {}).get(current_net, {}).get(mode_type, {})
+            
+            # Add montages to list with their electrode pairs
+            for montage_name, pairs in net_montages.items():
+                # Format pairs in a clean way without HTML
+                pairs_text = []
+                for pair in pairs:
+                    if isinstance(pair, list) and len(pair) >= 2:
+                        pairs_text.append(f"{pair[0]}↔{pair[1]}")
                 
-                # Create expected structure if needed
-                if not isinstance(montage_data, dict):
-                    self.update_output(f"Warning: Unexpected data type in montage file: {type(montage_data).__name__}. Creating new structure.")
-                    montage_data = {"uni_polar_montages": {}, "multi_polar_montages": {}}
-                
-                # Ensure the required keys exist
-                if "uni_polar_montages" not in montage_data:
-                    montage_data["uni_polar_montages"] = {}
-                if "multi_polar_montages" not in montage_data:
-                    montage_data["multi_polar_montages"] = {}
-                
-                # Get montages for the selected mode
-                is_unipolar = self.sim_mode_unipolar.isChecked()
-                montage_type = "uni_polar_montages" if is_unipolar else "multi_polar_montages"
-                mode_text = "Unipolar" if is_unipolar else "Multipolar"
-                
-                montages = montage_data[montage_type]
-                
-                if isinstance(montages, dict) and montages:
-                    # Add montages to the list widget
-                    for montage_name in montages.keys():
-                        self.montage_list.addItem(montage_name)
-                    
-                    self.update_output(f"Found {len(montages)} {mode_text.lower()} montages.")
-                else:
-                    self.update_output(f"No {mode_text.lower()} montages found.")
-            else:
-                self.update_output(f"Montage file not found: {montage_file}")
-                
+                # Create display text with montage name and pairs
+                display_text = f"{montage_name} ({', '.join(pairs_text)})"
+                item = QtWidgets.QListWidgetItem(display_text)
+                item.setData(QtCore.Qt.UserRole, montage_name)  # Store actual montage name
+                self.montage_list.addItem(item)
+            
+            self.montage_list.sortItems()
+            
         except Exception as e:
-            self.update_output(f"Error updating montage list: {str(e)}")
+            QtWidgets.QMessageBox.warning(self, "Error", f"Error updating montage list: {str(e)}")
             
         # Update the electrode inputs view
         if checked is not None:
@@ -674,148 +666,94 @@ class SimulatorTab(QtWidgets.QWidget):
             self.output_console.append(f"Selected montage file: {file_name}")
     
     def run_simulation(self):
-        """Run the simulation with the selected parameters."""
-        if self.simulation_running:
-            self.output_console.append("A simulation is already running.")
-            return
-        
+        """Run the simulation with selected parameters."""
         try:
-            # Check if subjects and montages are selected
-            selected_subjects = self.subject_list.selectedItems()
+            # Get selected subjects
+            selected_subjects = [item.text() for item in self.subject_list.selectedItems()]
             if not selected_subjects:
-                self.update_output("Error: No subjects selected.")
+                QtWidgets.QMessageBox.warning(self, "Error", "Please select at least one subject.")
                 return
-            
-            selected_montages = self.montage_list.selectedItems()
+
+            # Get selected montages
+            selected_montages = [self.montage_list.item(i).data(QtCore.Qt.UserRole) 
+                               for i in range(self.montage_list.count()) 
+                               if self.montage_list.item(i).isSelected()]
             if not selected_montages:
-                self.update_output("Error: No montages selected.")
+                QtWidgets.QMessageBox.warning(self, "Error", "Please select at least one montage.")
                 return
-            
-            # Get simulation parameters from UI
-            conductivity = self.sim_type_combo.currentData()
+
+            # Get other parameters
+            sim_type = self.sim_type_combo.currentData()
             sim_mode = "U" if self.sim_mode_unipolar.isChecked() else "M"
+            eeg_net = self.eeg_net_combo.currentText()
+            electrode_shape = "rect" if self.electrode_shape_rect.isChecked() else "ellipse"
             
-            # Get electrode parameters
-            current = self.current_input.text().strip()
-            if not self.validate_current(current):
-                self.update_output("Error: Invalid current value. Please enter a valid number.")
-                return
-            
-            # Get shape value from radio buttons
-            shape_value = "rect" if self.electrode_shape_rect.isChecked() else "ellipse"
-            dimensions = self.dimensions_input.text().strip()
-            thickness = self.thickness_input.text().strip()
-            
-            # Validation for dimensions
-            dimension_match = re.match(r'^\s*(\d+(?:\.\d+)?)\s*,\s*(\d+(?:\.\d+)?)\s*$', dimensions)
-            if not dimension_match:
-                self.update_output("Error: Dimensions must be in format 'x,y' (e.g., '8,8').")
-                return
-            
-            # Validation for thickness
+            # Validate dimensions
             try:
-                thickness_value = float(thickness)
-                if thickness_value <= 0:
-                    raise ValueError("Thickness must be positive")
+                x_dim = float(self.dimensions_input.text().split(',')[0])
+                y_dim = float(self.dimensions_input.text().split(',')[1])
+                dimensions = f"{x_dim},{y_dim}"
             except ValueError:
-                self.update_output("Error: Thickness must be a positive number.")
+                QtWidgets.QMessageBox.warning(self, "Error", "Invalid electrode dimensions.")
                 return
-            
-            # Get path to simulator.sh in the root directory
-            script_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-            simulator_path = os.path.join(script_dir, "CLI", "simulator.sh")
-            
-            # Create lists of subjects and montages
-            subjects = [item.text() for item in selected_subjects]
-            montages = [item.text() for item in selected_montages]
-            
-            # Format for display
-            subjects_str = ", ".join(subjects)
-            montages_str = ", ".join(montages)
-            
-            # Display simulation overview
-            self.update_output("\nSimulation Overview:")
-            self.update_output(f"- Subjects: {subjects_str}")
-            self.update_output(f"- Montages: {montages_str}")
-            self.update_output(f"- Simulation Type: {self.sim_type_combo.currentText()}")
-            self.update_output(f"- Simulation Mode: {'Unipolar' if sim_mode == 'U' else 'Multipolar'}")
-            self.update_output(f"- Current: {current} mA")
-            self.update_output(f"- Electrode Shape: {self.electrode_shape_rect.text() if self.electrode_shape_rect.isChecked() else self.electrode_shape_ellipse.text()}")
-            self.update_output(f"- Dimensions: {dimensions} mm")
-            self.update_output(f"- Thickness: {thickness} mm")
-            
-            # Calculate total number of simulations
-            total_simulations = len(subjects)
-            
-            reply = QtWidgets.QMessageBox.question(
-                self, 
-                "Confirm Simulation",
-                f"Run {total_simulations} simulation(s) with the following settings?\n\n"
-                f"Subjects ({len(subjects)}): {subjects_str}\n"
-                f"Montages ({len(montages)}): {montages_str}\n"
-                f"Simulation Type: {self.sim_type_combo.currentText()}\n"
-                f"Simulation Mode: {'Unipolar' if sim_mode == 'U' else 'Multipolar'}\n"
-                f"Current: {current} mA\n"
-                f"Electrode Shape: {self.electrode_shape_rect.text() if self.electrode_shape_rect.isChecked() else self.electrode_shape_ellipse.text()}\n"
-                f"Dimensions: {dimensions} mm\n"
-                f"Thickness: {thickness} mm\n",
-                QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No,
-                QtWidgets.QMessageBox.No
-            )
-            
-            if reply == QtWidgets.QMessageBox.Yes:
-                # Clear console
-                self.clear_console()
-                
-                # Update UI state
-                self.simulation_running = True
-                self.run_btn.setEnabled(False)
-                self.stop_btn.setEnabled(True)
-                
-                # Process each subject separately
-                # Process all subjects as a batch to match simulator.sh behavior
-                selected_subjects_str = ",".join(subjects)
-                
-                # IMPORTANT: For montages, we need to pass them as space-separated values
-                # to ensure simulator.sh treats them as separate montages
-                selected_montages_str = " ".join(montages)
-                
-                # Basic command
-                cmd = ["bash", simulator_path, "--run-direct"]
-                
-                # Set environment variables for simulator.sh in direct mode
-                env = os.environ.copy()
-                env["SUBJECTS"] = selected_subjects_str
-                env["CONDUCTIVITY"] = conductivity
-                env["SIM_MODE"] = sim_mode
-                env["SELECTED_MONTAGES"] = selected_montages_str
-                env["CURRENT"] = current
-                env["ELECTRODE_SHAPE"] = shape_value
-                env["DIMENSIONS"] = dimensions
-                env["THICKNESS"] = thickness
-                env["DIRECT_MODE"] = "true"
-                env["NON_INTERACTIVE"] = "true"
-                
-                # Add project directory name if available
-                project_dir_name = os.environ.get('PROJECT_DIR_NAME', 'BIDS_test')
-                env["PROJECT_DIR_NAME"] = project_dir_name
-                env["PROJECT_DIR"] = f"/mnt/{project_dir_name}"
-                
-                # Start simulation
-                self.update_output(f"\nStarting simulation batch with {len(subjects)} subject(s) and {len(montages)} montage(s)...")
-                self.update_output(f"Command: {' '.join(cmd)}")
-                
-                # Start simulation thread
-                self.simulation_process = SimulationThread(cmd, env)
-                self.simulation_process.output_signal.connect(self.update_output)
-                self.simulation_process.finished.connect(self.simulation_finished)
-                self.simulation_process.start()
-            
+
+            # Validate thickness
+            try:
+                thickness = float(self.thickness_input.text())
+            except ValueError:
+                QtWidgets.QMessageBox.warning(self, "Error", "Invalid electrode thickness.")
+                return
+
+            # Validate current
+            try:
+                current = float(self.current_input.text())
+            except ValueError:
+                QtWidgets.QMessageBox.warning(self, "Error", "Invalid current value.")
+                return
+
+            # Set environment variables
+            env = os.environ.copy()
+            env['DIRECT_MODE'] = 'true'
+            env['SUBJECTS'] = ','.join(selected_subjects)
+            env['CONDUCTIVITY'] = sim_type
+            env['SIM_MODE'] = sim_mode
+            env['SELECTED_MONTAGES'] = ' '.join(selected_montages)
+            env['ELECTRODE_SHAPE'] = electrode_shape
+            env['DIMENSIONS'] = dimensions
+            env['THICKNESS'] = str(thickness)
+            env['CURRENT'] = str(current)
+            env['EEG_NET'] = eeg_net
+
+            # Build command
+            cmd = ['bash', '/testing/CLI/simulator.sh', '--run-direct']
+
+            # Clear console and show command
+            self.output_console.clear()
+            self.output_console.append("Running simulation with parameters:")
+            self.output_console.append(f"Subjects: {', '.join(selected_subjects)}")
+            self.output_console.append(f"Simulation type: {sim_type}")
+            self.output_console.append(f"Mode: {sim_mode}")
+            self.output_console.append(f"EEG Net: {eeg_net}")
+            self.output_console.append(f"Montages: {', '.join(selected_montages)}")
+            self.output_console.append(f"Electrode shape: {electrode_shape}")
+            self.output_console.append(f"Dimensions: {dimensions} mm")
+            self.output_console.append(f"Thickness: {thickness} mm")
+            self.output_console.append(f"Current: {current} mA")
+            self.output_console.append("\nStarting simulation...\n")
+
+            # Start simulation in a separate thread
+            self.simulation_running = True
+            self.simulation_process = SimulationThread(cmd, env)
+            self.simulation_process.output_signal.connect(self.update_output)
+            self.simulation_process.finished.connect(self.simulation_finished)
+            self.simulation_process.start()
+
+            # Update UI state
+            self.run_btn.setEnabled(False)
+            self.stop_btn.setEnabled(True)
+
         except Exception as e:
-            self.update_output(f"Error starting simulation: {str(e)}")
-            self.simulation_running = False
-            self.run_btn.setEnabled(True)
-            self.stop_btn.setEnabled(False)
+            QtWidgets.QMessageBox.critical(self, "Error", f"Error starting simulation: {str(e)}")
     
     def simulation_finished(self):
         """Handle simulation completion."""
@@ -856,9 +794,8 @@ class SimulatorTab(QtWidgets.QWidget):
             self.stop_btn.setEnabled(False)
             
     def validate_electrode(self, electrode):
-        """Validate single electrode format (e.g., E10)."""
-        import re
-        return bool(re.match(r'^E[0-9]+$', electrode))
+        """Validate electrode name is not empty."""
+        return bool(electrode and electrode.strip())
     
     def validate_current(self, current):
         """Validate current value is a number."""
@@ -937,44 +874,45 @@ class SimulatorTab(QtWidgets.QWidget):
                 self.output_console.append(f"Created utils directory at {utils_dir}")
             
             # Load existing montage data or create new if file doesn't exist
-            montage_data_file = {"uni_polar_montages": {}, "multi_polar_montages": {}}
+            montage_data_file = {"nets": {}}
             if os.path.exists(montage_file):
                 with open(montage_file, 'r') as f:
                     try:
                         loaded_data = json.load(f)
-                        
-                        # Handle different data structures - make sure we have a dictionary
                         if isinstance(loaded_data, dict):
                             montage_data_file = loaded_data
-                            # Ensure the required keys exist
-                            if "uni_polar_montages" not in montage_data_file:
-                                montage_data_file["uni_polar_montages"] = {}
-                            if "multi_polar_montages" not in montage_data_file:
-                                montage_data_file["multi_polar_montages"] = {}
+                            # Ensure the nets structure exists
+                            if "nets" not in montage_data_file:
+                                montage_data_file["nets"] = {}
                     except json.JSONDecodeError:
                         self.output_console.append(f"Warning: Couldn't parse {montage_file}. Creating new file.")
+            
+            # Ensure the target net exists in the structure
+            target_net = montage_data["target_net"]
+            if target_net not in montage_data_file["nets"]:
+                montage_data_file["nets"][target_net] = {
+                    "uni_polar_montages": {},
+                    "multi_polar_montages": {}
+                }
             
             # Add the new montage to the appropriate section
             montage_type = "uni_polar_montages" if montage_data["is_unipolar"] else "multi_polar_montages"
             
-            # Store the montage
-            montage_data_file[montage_type][montage_data["name"]] = montage_data["electrode_pairs"]
+            # Store the montage under the correct net and type
+            montage_data_file["nets"][target_net][montage_type][montage_data["name"]] = montage_data["electrode_pairs"]
             
             # Save the updated montage data
             with open(montage_file, 'w') as f:
                 json.dump(montage_data_file, f, indent=2)
             
             # Format pairs for display
-            pairs_text = ", ".join([f"{pair[0]}→{pair[1]}" for pair in montage_data["electrode_pairs"]])
+            pairs_text = ", ".join([f"{pair[0]}↔{pair[1]}" for pair in montage_data["electrode_pairs"]])
             
-            self.update_output(f"Added {montage_type.split('_')[0]} montage '{montage_data['name']}' with pairs: {pairs_text}")
+            self.update_output(f"Added {montage_type.split('_')[0]} montage '{montage_data['name']}' for net {target_net} with pairs: {pairs_text}")
             self.update_output(f"Montage saved to: {montage_file}")
             
             # Set file permissions to match simulator.sh behavior
             os.chmod(montage_file, 0o777)
-            
-            # Update the montage list with the newly added montage
-            self.montage_list.addItem(montage_data["name"])
             
             # Refresh the list of montages
             self.update_montage_list()
@@ -994,28 +932,54 @@ class AddMontageDialog(QtWidgets.QDialog):
         """Set up the dialog UI."""
         self.setWindowTitle("Add New Montage")
         self.setModal(True)
-        self.resize(500, 400)
+        self.resize(800, 500)  # Made wider to accommodate the side panel
         
-        layout = QtWidgets.QVBoxLayout(self)
+        # Create main horizontal layout
+        main_layout = QtWidgets.QHBoxLayout(self)
+        
+        # Left side (original form)
+        left_widget = QtWidgets.QWidget()
+        layout = QtWidgets.QVBoxLayout(left_widget)
+        
+        # Create form layout for better organization
+        form_layout = QtWidgets.QFormLayout()
         
         # Montage name
-        name_layout = QtWidgets.QHBoxLayout()
-        self.name_label = QtWidgets.QLabel("Montage Name:")
         self.name_input = QtWidgets.QLineEdit()
-        name_layout.addWidget(self.name_label)
-        name_layout.addWidget(self.name_input)
-        layout.addLayout(name_layout)
+        form_layout.addRow("Montage Name:", self.name_input)
+        
+        # Target EEG Net selection with Show Electrodes button
+        net_layout = QtWidgets.QHBoxLayout()
+        self.net_combo = QtWidgets.QComboBox()
+        # Copy items from parent's EEG net combo
+        if self.parent and hasattr(self.parent, 'eeg_net_combo'):
+            for i in range(self.parent.eeg_net_combo.count()):
+                self.net_combo.addItem(self.parent.eeg_net_combo.itemText(i))
+        # Set current net to match parent's selection
+        if self.parent and hasattr(self.parent, 'eeg_net_combo'):
+            current_net = self.parent.eeg_net_combo.currentText()
+            index = self.net_combo.findText(current_net)
+            if index >= 0:
+                self.net_combo.setCurrentIndex(index)
+        
+        self.show_electrodes_btn = QtWidgets.QPushButton("Show Electrodes")
+        self.show_electrodes_btn.clicked.connect(self.toggle_electrode_list)
+        net_layout.addWidget(self.net_combo)
+        net_layout.addWidget(self.show_electrodes_btn)
+        form_layout.addRow("Target EEG Net:", net_layout)
+        
+        # Add form layout to main layout
+        layout.addLayout(form_layout)
         
         # Simulation mode (Unipolar/Multipolar)
-        mode_layout = QtWidgets.QHBoxLayout()
-        self.mode_label = QtWidgets.QLabel("Montage Type:")
+        mode_group = QtWidgets.QGroupBox("Montage Type")
+        mode_layout = QtWidgets.QHBoxLayout(mode_group)
         self.mode_unipolar = QtWidgets.QRadioButton("Unipolar")
         self.mode_multipolar = QtWidgets.QRadioButton("Multipolar")
         self.mode_unipolar.setChecked(True)  # Default to unipolar
-        mode_layout.addWidget(self.mode_label)
         mode_layout.addWidget(self.mode_unipolar)
         mode_layout.addWidget(self.mode_multipolar)
-        layout.addLayout(mode_layout)
+        layout.addWidget(mode_group)
         
         # Create a stacked widget for electrode inputs
         self.electrode_stack = QtWidgets.QStackedWidget()
@@ -1023,6 +987,11 @@ class AddMontageDialog(QtWidgets.QDialog):
         # Unipolar electrode pairs (two pairs)
         uni_widget = QtWidgets.QWidget()
         uni_layout = QtWidgets.QVBoxLayout(uni_widget)
+        
+        # Add a label for the unipolar electrode section
+        uni_label = QtWidgets.QLabel("Unipolar Electrode Pairs:")
+        uni_label.setStyleSheet("font-weight: bold;")
+        uni_layout.addWidget(uni_label)
         
         # Pair 1
         uni_pair1_layout = QtWidgets.QHBoxLayout()
@@ -1033,7 +1002,7 @@ class AddMontageDialog(QtWidgets.QDialog):
         self.uni_pair1_e2.setPlaceholderText("E11")
         uni_pair1_layout.addWidget(self.uni_pair1_label)
         uni_pair1_layout.addWidget(self.uni_pair1_e1)
-        uni_pair1_layout.addWidget(QtWidgets.QLabel("→"))
+        uni_pair1_layout.addWidget(QtWidgets.QLabel("↔"))
         uni_pair1_layout.addWidget(self.uni_pair1_e2)
         uni_layout.addLayout(uni_pair1_layout)
         
@@ -1046,13 +1015,18 @@ class AddMontageDialog(QtWidgets.QDialog):
         self.uni_pair2_e2.setPlaceholderText("E13")
         uni_pair2_layout.addWidget(self.uni_pair2_label)
         uni_pair2_layout.addWidget(self.uni_pair2_e1)
-        uni_pair2_layout.addWidget(QtWidgets.QLabel("→"))
+        uni_pair2_layout.addWidget(QtWidgets.QLabel("↔"))
         uni_pair2_layout.addWidget(self.uni_pair2_e2)
         uni_layout.addLayout(uni_pair2_layout)
         
         # Multipolar electrode pairs (four pairs)
         multi_widget = QtWidgets.QWidget()
         multi_layout = QtWidgets.QVBoxLayout(multi_widget)
+        
+        # Add a label for the multipolar electrode section
+        multi_label = QtWidgets.QLabel("Multipolar Electrode Pairs:")
+        multi_label.setStyleSheet("font-weight: bold;")
+        multi_layout.addWidget(multi_label)
         
         # Create pairs for multipolar mode
         self.multi_pairs = []
@@ -1066,7 +1040,7 @@ class AddMontageDialog(QtWidgets.QDialog):
             
             pair_layout.addWidget(pair_label)
             pair_layout.addWidget(e1)
-            pair_layout.addWidget(QtWidgets.QLabel("→"))
+            pair_layout.addWidget(QtWidgets.QLabel("↔"))
             pair_layout.addWidget(e2)
             multi_layout.addLayout(pair_layout)
             
@@ -1078,23 +1052,129 @@ class AddMontageDialog(QtWidgets.QDialog):
         self.electrode_stack.addWidget(multi_widget)
         layout.addWidget(self.electrode_stack)
         
+        # Add some spacing
+        layout.addSpacing(10)
+        
         # Buttons
         button_box = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.Ok | QtWidgets.QDialogButtonBox.Cancel)
         button_box.accepted.connect(self.accept)
         button_box.rejected.connect(self.reject)
         layout.addWidget(button_box)
+        
+        # Add left widget to main layout
+        main_layout.addWidget(left_widget)
+        
+        # Right side (electrode list panel)
+        self.right_widget = QtWidgets.QWidget()
+        self.right_widget.setVisible(False)  # Initially hidden
+        right_layout = QtWidgets.QVBoxLayout(self.right_widget)
+        
+        # Add title for electrode list
+        electrode_title = QtWidgets.QLabel("Available Electrodes")
+        electrode_title.setStyleSheet("font-weight: bold; font-size: 14px;")
+        right_layout.addWidget(electrode_title)
+        
+        # Add search box
+        self.search_box = QtWidgets.QLineEdit()
+        self.search_box.setPlaceholderText("Search electrodes...")
+        self.search_box.textChanged.connect(self.filter_electrodes)
+        right_layout.addWidget(self.search_box)
+        
+        # Add electrode list widget
+        self.electrode_list = QtWidgets.QListWidget()
+        self.electrode_list.setSelectionMode(QtWidgets.QAbstractItemView.NoSelection)
+        self.electrode_list.setStyleSheet("""
+            QListWidget {
+                background-color: #f5f5f5;
+                border: 1px solid #ddd;
+                border-radius: 4px;
+                padding: 5px;
+            }
+            QListWidget::item {
+                padding: 5px;
+                border-bottom: 1px solid #eee;
+            }
+        """)
+        right_layout.addWidget(self.electrode_list)
+        
+        # Add right widget to main layout
+        main_layout.addWidget(self.right_widget)
+        
+        # Connect net selection change to update electrode list
+        self.net_combo.currentTextChanged.connect(self.update_electrode_list)
     
-    def update_electrode_inputs(self, checked):
-        """Update the electrode input view based on the selected mode."""
-        if checked:  # Unipolar selected
-            self.electrode_stack.setCurrentIndex(0)
-        else:  # Multipolar selected
-            self.electrode_stack.setCurrentIndex(1)
+    def toggle_electrode_list(self):
+        """Toggle the visibility of the electrode list panel."""
+        if self.right_widget.isVisible():
+            self.right_widget.setVisible(False)
+            self.show_electrodes_btn.setText("Show Electrodes")
+            self.resize(500, self.height())  # Return to original width
+        else:
+            self.right_widget.setVisible(True)
+            self.show_electrodes_btn.setText("Hide Electrodes")
+            self.resize(800, self.height())  # Expand width
+            self.update_electrode_list()
+    
+    def update_electrode_list(self):
+        """Update the list of available electrodes based on the selected net."""
+        try:
+            self.electrode_list.clear()
+            net_file = self.net_combo.currentText()
+            
+            # Get the subject directory from environment variable
+            project_dir = os.environ.get('PROJECT_DIR_NAME', '')
+            if not project_dir:
+                return
+            
+            # Get the first available subject to find the EEG positions directory
+            base_path = f"/mnt/{project_dir}"
+            subject_found = False
+            
+            for item in os.listdir(base_path):
+                subject_path = os.path.join(base_path, item)
+                if os.path.isdir(subject_path):
+                    m2m_path = os.path.join(subject_path, "SimNIBS", f"m2m_{item}")
+                    if os.path.isdir(m2m_path):
+                        eeg_file = os.path.join(m2m_path, "eeg_positions", net_file)
+                        if os.path.exists(eeg_file):
+                            subject_found = True
+                            # Read the CSV file
+                            with open(eeg_file, 'r') as f:
+                                lines = f.readlines()
+                                electrodes = []
+                                for line in lines:
+                                    parts = line.strip().split(',')
+                                    if len(parts) >= 5:  # Ensure we have enough columns
+                                        electrode_type = parts[0]
+                                        electrode_name = parts[4]
+                                        if electrode_type in ["Electrode", "ReferenceElectrode"]:
+                                            electrodes.append(electrode_name)
+                            
+                            # Sort electrodes alphabetically
+                            electrodes.sort()
+                            
+                            # Add to list widget
+                            for electrode in electrodes:
+                                self.electrode_list.addItem(electrode)
+                            break
+            
+            if not subject_found:
+                self.electrode_list.addItem("No electrode positions found")
+        
+        except Exception as e:
+            self.electrode_list.addItem(f"Error loading electrodes: {str(e)}")
+    
+    def filter_electrodes(self, text):
+        """Filter the electrode list based on search text."""
+        for i in range(self.electrode_list.count()):
+            item = self.electrode_list.item(i)
+            item.setHidden(text.lower() not in item.text().lower())
     
     def get_montage_data(self):
         """Get montage data entered in the dialog."""
         name = self.name_input.text().strip()
         is_unipolar = self.mode_unipolar.isChecked()
+        target_net = self.net_combo.currentText()
         
         electrode_pairs = []
         
@@ -1120,5 +1200,13 @@ class AddMontageDialog(QtWidgets.QDialog):
         return {
             "name": name,
             "is_unipolar": is_unipolar,
+            "target_net": target_net,
             "electrode_pairs": electrode_pairs
-        } 
+        }
+
+    def update_electrode_inputs(self, checked):
+        """Update the electrode input view based on the selected mode."""
+        if checked:  # Unipolar selected
+            self.electrode_stack.setCurrentIndex(0)
+        else:  # Multipolar selected
+            self.electrode_stack.setCurrentIndex(1) 

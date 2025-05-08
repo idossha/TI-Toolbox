@@ -70,6 +70,8 @@ electrode_shape=$7
 dimensions=$8
 thickness=$9
 shift 9  # Shift past all the fixed arguments
+eeg_net=$1  # Get the EEG net parameter
+shift 1  # Shift past the EEG net parameter
 
 # Debug input arguments
 echo "DEBUG: Input Arguments:"
@@ -82,6 +84,7 @@ echo "  - intensity: $intensity"
 echo "  - electrode shape: $electrode_shape"
 echo "  - dimensions: $dimensions"
 echo "  - thickness: $thickness"
+echo "  - eeg_net: $eeg_net"
 
 # Initialize arrays
 selected_montages=()
@@ -152,7 +155,7 @@ run_visualize_montages() {
         
         log "INFO" "Visualizing montage: $montage" "$montage_dir"
         visualize_montage_script_path="$utils_dir/visualize-montage.sh"
-        if ! bash "$visualize_montage_script_path" "$montage" "$sim_mode" "$montage_output_dir"; then
+        if ! bash "$visualize_montage_script_path" "$montage" "$sim_mode" "$eeg_net" "$montage_output_dir"; then
             log "ERROR" "Failed to visualize montage: $montage" "$montage_dir"
             exit 1
         fi
@@ -173,7 +176,7 @@ for montage in "${selected_montages[@]}"; do
     log "INFO" "Running SimNIBS simulation for montage: $montage" "$montage_dir"
 done
 
-simnibs_python "$script_dir/TI.py" "$subject_id" "$conductivity" "$subject_dir" "$simulation_dir" "$intensity" "$electrode_shape" "$dimensions" "$thickness" "${selected_montages[@]}"
+simnibs_python "$script_dir/TI.py" "$subject_id" "$conductivity" "$subject_dir" "$simulation_dir" "$intensity" "$electrode_shape" "$dimensions" "$thickness" "$eeg_net" "${selected_montages[@]}"
 
 # Function to extract fields (GM and WM meshes)
 extract_fields() {

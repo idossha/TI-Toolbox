@@ -23,7 +23,8 @@ from simnibs.utils import TI_utils as TI
 #   6. electrode_shape   : The shape of the electrodes ('rect' or 'ellipse').
 #   7. dimensions        : The dimensions of the electrodes (x,y in mm).
 #   8. thickness        : The thickness of the electrodes in mm.
-#   9+ montage_names     : A list of montage names to use for the simulation.
+#   9. eeg_net           : The filename of the selected EEG net.
+#   10+ montage_names     : A list of montage names to use for the simulation.
 
 # Functionality:
 #   - Loads the selected montages from a JSON file located in the ../utils directory relative to the subject directory.
@@ -42,7 +43,8 @@ intensity = float(sys.argv[5])  # Convert intensity to float
 electrode_shape = sys.argv[6]
 dimensions = [float(x) for x in sys.argv[7].split(',')]  # Convert dimensions to list of floats
 thickness = float(sys.argv[8])
-montage_names = sys.argv[9:]  # The list of montages starts from the 9th argument
+eeg_net = sys.argv[9]  # Get the EEG net filename
+montage_names = sys.argv[10:]  # The list of montages starts from the 10th argument
 
 # Define the correct path for the JSON file
 utils_dir = os.path.join(project_dir, 'utils')
@@ -52,8 +54,17 @@ montage_file = os.path.join(utils_dir, 'montage_list.json')
 with open(montage_file) as f:
     all_montages = json.load(f)
 
-# Check and process montages for unipolar montages
-montages = {name: all_montages['uni_polar_montages'].get(name) for name in montage_names}
+# Check if the net exists in the JSON
+if eeg_net not in all_montages.get('nets', {}):
+    print(f"Error: EEG net '{eeg_net}' not found in montage list.")
+    sys.exit(1)
+
+# Get the montages for this net
+net_montages = all_montages['nets'][eeg_net]
+
+# Check and process montages based on simulation mode
+montage_type = 'uni_polar_montages' if len(sys.argv[10:]) > 0 and sys.argv[10] in net_montages.get('uni_polar_montages', {}) else 'multi_polar_montages'
+montages = {name: net_montages[montage_type].get(name) for name in montage_names}
 
 # Validate montage structure
 def validate_montage(montage, montage_name):
@@ -85,7 +96,8 @@ def run_simulation(montage_name, montage):
     # Use temporary directory for SimNIBS output
     S.pathfem = os.path.join(temp_dir, montage_name)
     
-    S.eeg_cap = os.path.join(base_subpath, "eeg_positions", "EGI_template.csv")
+    # Use the selected EEG net
+    S.eeg_cap = os.path.join(base_subpath, "eeg_positions", eeg_net)
     S.map_to_surf = False
     S.map_to_fsavg = False
     S.map_to_vol = True

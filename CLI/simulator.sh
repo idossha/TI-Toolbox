@@ -160,7 +160,7 @@ EOL
         export UTILS_DIR="$subject_utils_dir"
         
         # Build command - use project_dir instead of subject_dir to prevent double subject ID
-        cmd=("$simulator_dir/$main_script" "$subject_id" "$conductivity" "$project_dir" "$simulation_dir" "$sim_mode" "$current_a" "$electrode_shape" "$dimensions" "$thickness")
+        cmd=("$simulator_dir/$main_script" "$subject_id" "$conductivity" "$project_dir" "$simulation_dir" "$sim_mode" "$current_a" "$electrode_shape" "$dimensions" "$thickness" "$eeg_net")
         
         # Add montages - ensure these are actual montage names
         for montage in "${selected_montages[@]}"; do
@@ -209,9 +209,9 @@ if [[ "$1" == "--run-direct" ]]; then
     export DIRECT_MODE=true
     
     # Check for required environment variables
-    if [[ -z "$SUBJECTS" || -z "$CONDUCTIVITY" || -z "$SIM_MODE" || -z "$SELECTED_MONTAGES" ]]; then
+    if [[ -z "$SUBJECTS" || -z "$CONDUCTIVITY" || -z "$SIM_MODE" || -z "$SELECTED_MONTAGES" || -z "$EEG_NET" ]]; then
         echo -e "${RED}Error: Missing required environment variables for direct execution.${RESET}"
-        echo "Required: SUBJECTS, CONDUCTIVITY, SIM_MODE, SELECTED_MONTAGES"
+        echo "Required: SUBJECTS, CONDUCTIVITY, SIM_MODE, SELECTED_MONTAGES, EEG_NET"
         exit 1
     fi
     
@@ -219,6 +219,7 @@ if [[ "$1" == "--run-direct" ]]; then
     subject_choices="$SUBJECTS"
     conductivity="$CONDUCTIVITY"
     sim_mode="$SIM_MODE"
+    eeg_net="$EEG_NET"
     
     # Set up mode-specific variables
     if [[ "$sim_mode" == "U" ]]; then
@@ -245,6 +246,7 @@ if [[ "$1" == "--run-direct" ]]; then
     echo "  - Subjects: $subject_choices"
     echo "  - Simulation type: $conductivity"
     echo "  - Mode: $montage_type_text"
+    echo "  - EEG Net: $eeg_net"
     echo "  - Montages: ${selected_montages[*]}"
     echo "  - Electrode shape: $electrode_shape"
     echo "  - Dimensions: $dimensions mm"
@@ -300,11 +302,13 @@ else
     chmod 777 "$utils_dir"
 fi
 
-# Function to validate electrode pair input (format: E1,E2)
+# Function to validate electrode pair input
 validate_pair() {
     local pair=$1
-    if [[ ! $pair =~ ^E[0-9]+,E[0-9]+$ ]]; then
-        echo -e "${RED}Invalid format. Please enter in the format E1,E2 (e.g., E10,E11).${RESET}"
+    # Split the input by comma and count parts
+    IFS=',' read -ra parts <<< "$pair"
+    if [ ${#parts[@]} -ne 2 ] || [ -z "${parts[0]}" ] || [ -z "${parts[1]}" ]; then
+        echo -e "${RED}Invalid format. Please enter two inputs separated by a comma (e.g., x,y or Fp1,Fp2 or E010,E020).${RESET}"
         return 1
     fi
     return 0
@@ -456,11 +460,30 @@ prompt_montages() {
     fi
 
     while true; do
-        montage_data=$(jq -r ".${montage_type}" "$montage_file")
+        # Get the montages for the selected net and mode
+        if [[ "$sim_mode" == "U" ]]; then
+            montage_type="uni_polar_montages"
+            montage_type_text="Unipolar"
+        else
+            montage_type="multi_polar_montages"
+            montage_type_text="Multipolar"
+        fi
+
+        # Get montages for the current subject's net
+        montage_data=$(jq -r --arg net "$selected_eeg_net" --arg type "$montage_type" '.nets[$net][$type] // empty' "$montage_file")
+        
+        if [ -z "$montage_data" ] || [ "$montage_data" == "null" ]; then
+            echo -e "${YELLOW}No montages found for net $selected_eeg_net. Creating new entry.${RESET}"
+            # Initialize empty montage list for this net and type if it doesn't exist
+            jq --arg net "$selected_eeg_net" --arg type "$montage_type" \
+               'if .nets[$net] then . else .nets[$net] = {($type): {}} end' "$montage_file" > temp.json && mv temp.json "$montage_file"
+            montage_data="{}"
+        fi
+
         montage_names=($(echo "$montage_data" | jq -r 'keys[]'))
         total_montages=${#montage_names[@]}
 
-        echo -e "${BOLD_CYAN}Available Montages (${montage_type_text}):${RESET}"
+        echo -e "${BOLD_CYAN}Available Montages for $selected_eeg_net (${montage_type_text}):${RESET}"
         echo "-----------------------------------------"
 
         for (( index=0; index<total_montages; index++ )); do
@@ -496,10 +519,13 @@ prompt_montages() {
                     read -p "Enter Pair 2 (format: E1,E2): " pair2
                     validate_pair "$pair2" && valid=true
                 done
+
+                # Add new montage to the correct net and type
                 new_montage=$(jq -n --arg name "$new_montage_name" --argjson pairs "[[\"${pair1//,/\",\"}\"], [\"${pair2//,/\",\"}\"]]" '{($name): $pairs}')
-                jq ".${montage_type} += $new_montage" "$montage_file" > temp.json && mv temp.json "$montage_file"
+                jq --arg net "$selected_eeg_net" --arg type "$montage_type" --argjson montage "$new_montage" \
+                   '.nets[$net][$type] += $montage' "$montage_file" > temp.json && mv temp.json "$montage_file"
                 chmod 777 "$montage_file"
-                echo -e "${GREEN}New montage '$new_montage_name' added successfully.${RESET}"
+                echo -e "${GREEN}New montage '$new_montage_name' added successfully for net $selected_eeg_net.${RESET}"
                 new_montage_added=true
                 break
             else
@@ -541,50 +567,17 @@ choose_intensity() {
     intensity=$(echo "$intensity_ma * 0.001" | bc -l)
 }
 
-# Choose electrode geometry with configuration support
-choose_electrode_geometry() {
-    # Handle electrode shape
+# Choose electrode shape
+choose_electrode_shape() {
     if ! is_prompt_enabled "electrode_shape"; then
         local default_shape=$(get_default_value "electrode_shape")
         if [ -n "$default_shape" ]; then
             electrode_shape="$default_shape"
             echo -e "${CYAN}Using default electrode shape: $electrode_shape${RESET}"
-        else
-            prompt_electrode_shape
+            return
         fi
-    else
-        prompt_electrode_shape
     fi
 
-    # Handle electrode dimensions
-    if ! is_prompt_enabled "electrode_dimensions"; then
-        local default_dims=$(get_default_value "electrode_dimensions")
-        if [ -n "$default_dims" ]; then
-            dimensions="$default_dims"
-            echo -e "${CYAN}Using default electrode dimensions: $dimensions mm${RESET}"
-        else
-            prompt_electrode_dimensions
-        fi
-    else
-        prompt_electrode_dimensions
-    fi
-
-    # Handle electrode thickness
-    if ! is_prompt_enabled "electrode_thickness"; then
-        local default_thick=$(get_default_value "electrode_thickness")
-        if [ -n "$default_thick" ]; then
-            thickness="$default_thick"
-            echo -e "${CYAN}Using default electrode thickness: $thickness mm${RESET}"
-        else
-            prompt_electrode_thickness
-        fi
-    else
-        prompt_electrode_thickness
-    fi
-}
-
-# Helper functions for electrode geometry prompts
-prompt_electrode_shape() {
     while true; do
         echo -e "${GREEN}Choose electrode shape (rect/ellipse):${RESET}"
         read -p " " electrode_shape
@@ -596,7 +589,17 @@ prompt_electrode_shape() {
     done
 }
 
-prompt_electrode_dimensions() {
+# Choose electrode dimensions
+choose_electrode_dimensions() {
+    if ! is_prompt_enabled "electrode_dimensions"; then
+        local default_dims=$(get_default_value "electrode_dimensions")
+        if [ -n "$default_dims" ]; then
+            dimensions="$default_dims"
+            echo -e "${CYAN}Using default electrode dimensions: $dimensions mm${RESET}"
+            return
+        fi
+    fi
+
     while true; do
         echo -e "${GREEN}Enter electrode dimensions (x,y in mm, comma-separated):${RESET}"
         read -p " " dimensions
@@ -608,7 +611,17 @@ prompt_electrode_dimensions() {
     done
 }
 
-prompt_electrode_thickness() {
+# Choose electrode thickness
+choose_electrode_thickness() {
+    if ! is_prompt_enabled "electrode_thickness"; then
+        local default_thick=$(get_default_value "electrode_thickness")
+        if [ -n "$default_thick" ]; then
+            thickness="$default_thick"
+            echo -e "${CYAN}Using default electrode thickness: $thickness mm${RESET}"
+            return
+        fi
+    fi
+
     while true; do
         echo -e "${GREEN}Enter electrode thickness (in mm):${RESET}"
         read -p " " thickness
@@ -643,7 +656,8 @@ show_confirmation_dialog() {
         if [ -n "$subject_list" ]; then
             subject_list+=", "
         fi
-        subject_list+="${subjects[$((num-1))]}"
+        local current_subject="${subjects[$((num-1))]}"
+        subject_list+="${current_subject} (EEG Net: ${subject_eeg_nets[$current_subject]:-EGI_template.csv})"
     done
     echo -e "Subjects: ${CYAN}$subject_list${RESET}"
     
@@ -670,32 +684,94 @@ show_confirmation_dialog() {
     fi
 }
 
+# Function to list and select EEG nets for a subject
+choose_eeg_net() {
+    local subject_id=$1
+    local subject_dir="$project_dir/$subject_id"
+    local eeg_dir="$subject_dir/SimNIBS/m2m_${subject_id}/eeg_positions"
+    
+    # Check if eeg_positions directory exists
+    if [ ! -d "$eeg_dir" ]; then
+        echo -e "${RED}Error: EEG positions directory not found at $eeg_dir${RESET}"
+        echo -e "${YELLOW}Using default EGI_template.csv${RESET}"
+        selected_eeg_net="EGI_template.csv"
+        return
+    fi
+    
+    # Find all CSV files in the directory
+    local csv_files=()
+    while IFS= read -r -d '' file; do
+        csv_files+=("$(basename "$file")")
+    done < <(find "$eeg_dir" -name "*.csv" -print0)
+    
+    # Check if any CSV files were found
+    if [ ${#csv_files[@]} -eq 0 ]; then
+        echo -e "${YELLOW}No EEG net files found in $eeg_dir. Using default EGI_template.csv${RESET}"
+        selected_eeg_net="EGI_template.csv"
+        return
+    fi
+    
+    # Display available EEG nets
+    echo -e "${BOLD_CYAN}Available EEG nets:${RESET}"
+    echo "-------------------"
+    for i in "${!csv_files[@]}"; do
+        printf "%3d. %s\n" $((i+1)) "${csv_files[i]}"
+    done
+    echo
+    
+    # Prompt user to select an EEG net
+    local valid_selection=false
+    until $valid_selection; do
+        read -p "Select an EEG net (1-${#csv_files[@]}): " selection
+        if [[ "$selection" =~ ^[0-9]+$ ]] && [ "$selection" -ge 1 ] && [ "$selection" -le "${#csv_files[@]}" ]; then
+            selected_eeg_net="${csv_files[$((selection-1))]}"
+            valid_selection=true
+        else
+            echo -e "${RED}Invalid selection. Please try again.${RESET}"
+        fi
+    done
+    
+    echo -e "${GREEN}Selected EEG net: $selected_eeg_net${RESET}"
+}
+
 # Main script execution
 show_welcome_message
 
-# Collect all necessary inputs
+# Collect all necessary inputs in the specified order
 choose_subjects
 choose_simulation_type
 choose_simulation_mode
+
+# For each selected subject, choose an EEG net
+declare -A subject_eeg_nets
+for subject_num in "${selected_subjects[@]}"; do
+    subject_id="${subjects[$((subject_num-1))]}"
+    echo -e "\n${BOLD_CYAN}Selecting EEG net for subject: $subject_id${RESET}"
+    choose_eeg_net "$subject_id"
+    subject_eeg_nets["$subject_id"]="$selected_eeg_net"
+done
+
 prompt_montages
+choose_electrode_shape
+choose_electrode_dimensions
+choose_electrode_thickness
 choose_intensity
-choose_electrode_geometry
 
 # Show confirmation dialog before proceeding
 show_confirmation_dialog
 
 # Loop through selected subjects and run the pipeline
-for subject_index in "${selected_subjects[@]}"; do
-    subject_id="${subjects[$((subject_index-1))]}"
+for subject_num in "${selected_subjects[@]}"; do
+    subject_id="${subjects[$((subject_num-1))]}"
     subject_dir="$project_dir/$subject_id"
     simulation_dir="$subject_dir/SimNIBS/Simulations"
+    eeg_net="${subject_eeg_nets[$subject_id]:-EGI_template.csv}"  # Use default if not set
 
     # Create simulation directory if it doesn't exist
     mkdir -p "$simulation_dir"
 
     # Call the appropriate main pipeline script with the gathered parameters
-    "$simulator_dir/$main_script" "$subject_id" "$conductivity" "$project_dir" "$simulation_dir" "$sim_mode" "$intensity" "$electrode_shape" "$dimensions" "$thickness" "${selected_montages[@]}" -- "${selected_roi_names[@]}"
-
+    "$simulator_dir/$main_script" "$subject_id" "$conductivity" "$project_dir" "$simulation_dir" "$sim_mode" "$intensity" "$electrode_shape" "$dimensions" "$thickness" "$eeg_net" "${selected_montages[@]}" -- "${selected_roi_names[@]}"
 done
 
 # Output success message if new montages or ROIs were added
