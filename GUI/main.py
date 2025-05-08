@@ -18,24 +18,7 @@ from pre_process_tab import PreProcessTab
 from help_tab import HelpTab
 from contact_tab import ContactTab
 from acknowledgments_tab import AcknowledgmentsTab
-
-# Try to import visualization modules
-MESH_VIEWER_AVAILABLE = False
-NIFTI_VIEWER_AVAILABLE = False
-
-try:
-    from mesh_viewer_tab import MeshViewerTab, OPENGL_AVAILABLE
-    MESH_VIEWER_AVAILABLE = True
-except ImportError as e:
-    print(f"Warning: Mesh viewer not available: {str(e)}")
-    MESH_VIEWER_AVAILABLE = False
-
-try:
-    from nifti_viewer_tab import NiftiViewerTab, NIBABEL_AVAILABLE
-    NIFTI_VIEWER_AVAILABLE = True
-except ImportError as e:
-    print(f"Warning: NIfTI viewer not available: {str(e)}")
-    NIFTI_VIEWER_AVAILABLE = False
+from nifti_viewer_tab import NiftiViewerTab
 
 class MainWindow(QtWidgets.QMainWindow):
     """Main window for the TI-CSC-2.0 GUI."""
@@ -44,6 +27,21 @@ class MainWindow(QtWidgets.QMainWindow):
         super(MainWindow, self).__init__()
         
         self.setWindowTitle("TI-CSC-2.0 Toolbox")
+        # Set window flags to ensure proper window behavior
+        self.setWindowFlags(
+            QtCore.Qt.Window |
+            QtCore.Qt.WindowMinimizeButtonHint |
+            QtCore.Qt.WindowMaximizeButtonHint |
+            QtCore.Qt.WindowCloseButtonHint
+        )
+        # Allow all window states
+        self.setWindowState(QtCore.Qt.WindowNoState)
+        # Enable resizing
+        self.setSizePolicy(
+            QtWidgets.QSizePolicy.Expanding,
+            QtWidgets.QSizePolicy.Expanding
+        )
+        
         self.setup_ui()
         
     def setup_ui(self):
@@ -64,15 +62,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.help_tab = HelpTab(self)
         self.contact_tab = ContactTab(self)
         self.acknowledgments_tab = AcknowledgmentsTab(self)
-        
-        # For visualization tabs
-        if MESH_VIEWER_AVAILABLE:
-            self.mesh_viewer_tab = MeshViewerTab(self)
-            print("Mesh Viewer tab created")
-            
-        if NIFTI_VIEWER_AVAILABLE:
-            self.nifti_viewer_tab = NiftiViewerTab(self)
-            print("NIfTI Viewer tab created")
+        self.nifti_viewer_tab = NiftiViewerTab(self)
         
         # Clear the tab widget in case we're reordering tabs
         self.tab_widget.clear()
@@ -81,13 +71,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.tab_widget.addTab(self.pre_process_tab, "Pre-processing")
         self.tab_widget.addTab(self.simulator_tab, "Simulator")
         self.tab_widget.addTab(self.flex_search_tab, "Flex-Search")
-        
-        # Add visualization tabs if available
-        if MESH_VIEWER_AVAILABLE:
-            self.tab_widget.addTab(self.mesh_viewer_tab, "Mesh Viewer")
-            
-        if NIFTI_VIEWER_AVAILABLE:
-            self.tab_widget.addTab(self.nifti_viewer_tab, "NIfTI Viewer")
+        self.tab_widget.addTab(self.nifti_viewer_tab, "NIfTI Viewer")
         
         # Step 2: Count how many tabs we have to calculate positions from the right
         total_tabs = self.tab_widget.count() + 3  # +3 for Help, Contact, and Acknowledgments
@@ -102,18 +86,22 @@ class MainWindow(QtWidgets.QMainWindow):
         
         main_layout.addWidget(self.tab_widget)
         
-        # If visualization modules are not available, add a help text
-        if not (MESH_VIEWER_AVAILABLE or NIFTI_VIEWER_AVAILABLE):
-            help_text = QtWidgets.QLabel(
-                "Visualization tabs are not available. Install PyOpenGL and nibabel packages to enable them."
-            )
-            help_text.setStyleSheet("color: orange; padding: 5px;")
-            help_text.setAlignment(QtCore.Qt.AlignCenter)
-            main_layout.addWidget(help_text)
-        
-        # Set window properties
+        # Set window properties and center on screen
         self.resize(1000, 800)
+        self.center_on_screen()
         
+    def center_on_screen(self):
+        """Center the window on the screen."""
+        # Get the screen geometry
+        screen = QtWidgets.QApplication.desktop().screenGeometry()
+        # Get the window geometry
+        window = self.geometry()
+        # Calculate the center point
+        x = (screen.width() - window.width()) // 2
+        y = (screen.height() - window.height()) // 2
+        # Move the window
+        self.move(x, y)
+
     def closeEvent(self, event):
         """Handle window close event."""
         reply = QtWidgets.QMessageBox.question(
