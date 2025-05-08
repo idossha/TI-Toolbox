@@ -155,9 +155,11 @@ available_subjects=()
 print_message "$BOLD_CYAN" "Available Subjects:"
 echo "-------------------"
 count=0
-for subj_dir in "$PROJECT_DIR"/*; do
-  if [ -d "$subj_dir" ] && [ "$(basename "$subj_dir")" != "config" ] && [ "$(basename "$subj_dir")" != "utils" ]; then
-    subject_id=$(basename "$subj_dir")
+
+# First check sourcedata directory for new subjects
+for subj_dir in "$PROJECT_DIR/sourcedata/sub-"*; do
+  if [ -d "$subj_dir" ] && [ -d "$subj_dir/T1w/dicom" ]; then
+    subject_id=$(basename "$subj_dir" | sed 's/^sub-//')
     count=$((count+1))
     printf "%3d. %-15s " "$count" "$subject_id"
     available_subjects+=("$subject_id")
@@ -167,7 +169,31 @@ for subj_dir in "$PROJECT_DIR"/*; do
     fi
   fi
 done
+
+# If no subjects found in sourcedata, check root directory for legacy structure
+if [ ${#available_subjects[@]} -eq 0 ]; then
+  for subj_dir in "$PROJECT_DIR/sub-"*; do
+    if [ -d "$subj_dir" ]; then
+      subject_id=$(basename "$subj_dir" | sed 's/^sub-//')
+      count=$((count+1))
+      printf "%3d. %-15s " "$count" "$subject_id"
+      available_subjects+=("$subject_id")
+      # Print a new line every 3 subjects
+      if [ $((count % 3)) -eq 0 ]; then
+        echo ""
+      fi
+    fi
+  done
+fi
+
 echo ""
+
+if [ ${#available_subjects[@]} -eq 0 ]; then
+  print_message "$RED" "No subjects found in $PROJECT_DIR/sourcedata/ or $PROJECT_DIR/"
+  print_message "$YELLOW" "Please ensure your subjects follow the BIDS structure:"
+  print_message "$YELLOW" "  $PROJECT_DIR/sourcedata/sub-{subjectID}/T1w/dicom/"
+  exit 1
+fi
 
 # Get subject ID(s) from user
 print_message "$YELLOW" "You can select multiple subjects by entering comma-separated numbers or IDs."
@@ -194,7 +220,7 @@ else
             selected_subjects+=("${available_subjects[$((selection-1))]}")
         else
             # Selection is assumed to be a subject ID, check if valid
-            if [ -d "$PROJECT_DIR/$selection" ]; then
+            if [ -d "$PROJECT_DIR/sub-$selection" ]; then
                 selected_subjects+=("$selection")
             else
                 print_message "$RED" "Warning: Subject '$selection' not found, skipping."
@@ -222,6 +248,18 @@ QUIET=false
 print_header "DICOM Conversion"
 if get_yes_no "Do you want to convert DICOM files to NIfTI?" "y"; then
     CONVERT_DICOM=true
+    
+    # Ask for T1w/T2w selection
+    echo -e "\n${BOLD_CYAN}Select DICOM data type:${RESET}"
+    echo "1. T1w only"
+    echo "2. T1w + T2w"
+    while true; do
+        read -p "Enter your choice (1 or 2): " dicom_choice
+        case "$dicom_choice" in
+            1|2) break ;;
+            *) echo "Invalid choice. Please enter 1 or 2." ;;
+        esac
+    done
 fi
 
 # Ask for recon-all
@@ -252,73 +290,77 @@ show_confirmation_dialog
 
 # Process each selected subject
 for SUBJECT_ID in "${selected_subjects[@]}"; do
-  SUBJECT_DIR="$PROJECT_DIR/$SUBJECT_ID"
-  
-  print_header "Processing Subject: $SUBJECT_ID"
-  
-  # Ensure required directories exist
-  mkdir -p "$SUBJECT_DIR/anat/niftis"
-  mkdir -p "$SUBJECT_DIR/anat/freesurfer"
-  
-  # Check for raw DICOM directory if converting
-  if $CONVERT_DICOM; then
-    RAW_DIR="$SUBJECT_DIR/anat/raw"
-    if [ ! -d "$RAW_DIR" ]; then
-      print_message "$YELLOW" "Warning: Raw DICOM directory not found at $RAW_DIR"
-      print_message "$YELLOW" "Creating directory now."
-      mkdir -p "$RAW_DIR"
+    BIDS_SUBJECT_ID="sub-${SUBJECT_ID}"
+    SUBJECT_DIR="$PROJECT_DIR/$BIDS_SUBJECT_ID"
+    
+    print_header "Processing Subject: $SUBJECT_ID"
+    
+    # Create required directories
+    mkdir -p "$PROJECT_DIR/sourcedata/$BIDS_SUBJECT_ID/T1w/dicom"
+    if [ "$dicom_choice" = "2" ]; then
+        mkdir -p "$PROJECT_DIR/sourcedata/$BIDS_SUBJECT_ID/T2w/dicom"
     fi
-  fi
-  
-  # Build the command for structural.sh - use correct path to script in pre-process folder
-  CMD="$script_dir/../pre-process/structural.sh $SUBJECT_DIR"
-
-  # Add DICOM conversion flag
-  if $CONVERT_DICOM; then
-    CMD="$CMD --convert-dicom"
-  fi
-
-  if $RUN_RECON; then
-    CMD="$CMD recon-all"
-  fi
-
-  if $PARALLEL_RECON; then
-    CMD="$CMD --parallel"
-  fi
-
-  if $CREATE_M2M; then
-    CMD="$CMD --create-m2m"
-  fi
-
-  if $QUIET; then
-    CMD="$CMD --quiet"
-  fi
-
-  # Execute the command
-  print_message "$GREEN" "Running command: $CMD"
-  eval "$CMD"
-
-  # If m2m was created, run all three atlases automatically
-  if $CREATE_M2M; then
-    m2m_folder="$SUBJECT_DIR/SimNIBS/m2m_$SUBJECTID"
-    if [ -d "$m2m_folder" ]; then
-      for atlas in a2009s DK40 HCP_MMP1; do
-        output_dir="$m2m_folder/segmentation"
-        mkdir -p "$output_dir"
-        print_message "$YELLOW" "[Atlas] $SUBJECT_ID: Running subject_atlas -m $m2m_folder -a $atlas -o $output_dir"
-        subject_atlas -m "$m2m_folder" -a "$atlas" -o "$output_dir"
-        if [ $? -eq 0 ]; then
-          print_message "$GREEN" "[Atlas] $SUBJECT_ID: Atlas $atlas segmentation complete."
-        else
-          print_message "$RED" "[Atlas] $SUBJECT_ID: Atlas $atlas segmentation failed."
+    mkdir -p "$PROJECT_DIR/$BIDS_SUBJECT_ID/anat"
+    mkdir -p "$PROJECT_DIR/derivatives/freesurfer/$BIDS_SUBJECT_ID"
+    mkdir -p "$PROJECT_DIR/derivatives/SimNIBS/$BIDS_SUBJECT_ID"
+    
+    if $CONVERT_DICOM; then
+        print_message "$YELLOW" "Please place T1w DICOM files in: $PROJECT_DIR/sourcedata/$BIDS_SUBJECT_ID/T1w/dicom"
+        if [ "$dicom_choice" = "2" ]; then
+            print_message "$YELLOW" "Please place T2w DICOM files in: $PROJECT_DIR/sourcedata/$BIDS_SUBJECT_ID/T2w/dicom"
         fi
-      done
-    else
-      print_message "$RED" "[Atlas] $SUBJECT_ID: m2m folder not found, skipping atlas segmentation."
+        read -p "Press Enter when files are ready..."
     fi
-  fi
-  
-  print_message "$GREEN" "Completed processing for subject $SUBJECT_ID"
+    
+    # Build the command for structural.sh
+    CMD="$script_dir/../pre-process/structural.sh $SUBJECT_DIR"
+    
+    # Add DICOM conversion flag
+    if $CONVERT_DICOM; then
+        CMD="$CMD --convert-dicom"
+    fi
+    
+    if $RUN_RECON; then
+        CMD="$CMD recon-all"
+    fi
+    
+    if $PARALLEL_RECON; then
+        CMD="$CMD --parallel"
+    fi
+    
+    if $CREATE_M2M; then
+        CMD="$CMD --create-m2m"
+    fi
+    
+    if $QUIET; then
+        CMD="$CMD --quiet"
+    fi
+    
+    # Execute the command
+    print_message "$GREEN" "Running command: $CMD"
+    eval "$CMD"
+    
+    # If m2m was created, run all three atlases automatically
+    if $CREATE_M2M; then
+        m2m_folder="$PROJECT_DIR/derivatives/SimNIBS/$BIDS_SUBJECT_ID/m2m_$SUBJECT_ID"
+        if [ -d "$m2m_folder" ]; then
+            for atlas in a2009s DK40 HCP_MMP1; do
+                output_dir="$m2m_folder/segmentation"
+                mkdir -p "$output_dir"
+                print_message "$YELLOW" "[Atlas] $SUBJECT_ID: Running subject_atlas -m $m2m_folder -a $atlas -o $output_dir"
+                subject_atlas -m "$m2m_folder" -a "$atlas" -o "$output_dir"
+                if [ $? -eq 0 ]; then
+                    print_message "$GREEN" "[Atlas] $SUBJECT_ID: Atlas $atlas segmentation complete."
+                else
+                    print_message "$RED" "[Atlas] $SUBJECT_ID: Atlas $atlas segmentation failed."
+                fi
+            done
+        else
+            print_message "$RED" "[Atlas] $SUBJECT_ID: m2m folder not found, skipping atlas segmentation."
+        fi
+    fi
+    
+    print_message "$GREEN" "Completed processing for subject $SUBJECT_ID"
 done
 
 # Final message

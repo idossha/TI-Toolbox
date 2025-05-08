@@ -189,19 +189,23 @@ fi
 ###############################################################################
 
 # Adjust directories for BIDS-like structure
-DICOM_DIR="${SUBJECT_DIR}/anat/raw"
-NIFTI_DIR="${SUBJECT_DIR}/anat/niftis"
-HEAD_MODEL_DIR="${SUBJECT_DIR}/SimNIBS/m2m_${SUBJECT_ID}"
-FS_RECON_DIR="${SUBJECT_DIR}/anat/freesurfer"
+SUBJECT_ID=$(basename "$SUBJECT_DIR" | sed 's/^sub-//')  # Remove sub- prefix if it exists
+BIDS_SUBJECT_ID="sub-${SUBJECT_ID}"
 
-# Create output directories if they don't exist
-mkdir -p "$NIFTI_DIR" "$FS_RECON_DIR"
+# Define BIDS directory structure
+PROJECT_DIR=$(dirname "$SUBJECT_DIR")  # Get project directory from subject directory
+SOURCEDATA_DIR="${PROJECT_DIR}/sourcedata/${BIDS_SUBJECT_ID}"
+DERIVATIVES_DIR="${PROJECT_DIR}/derivatives"
+BIDS_ANAT_DIR="${PROJECT_DIR}/${BIDS_SUBJECT_ID}/anat"
+FREESURFER_DIR="${DERIVATIVES_DIR}/freesurfer/${BIDS_SUBJECT_ID}"
+SIMNIBS_DIR="${DERIVATIVES_DIR}/SimNIBS/${BIDS_SUBJECT_ID}"
 
-# Create SimNIBS directory if needed
-if $CREATE_M2M; then
-  # Create parent directory for SimNIBS, but let charm create the actual m2m directory
-  mkdir -p "$(dirname "$HEAD_MODEL_DIR")"
-fi
+# Create required directories
+mkdir -p "${SOURCEDATA_DIR}/T1w/dicom"
+mkdir -p "${SOURCEDATA_DIR}/T2w/dicom"
+mkdir -p "$BIDS_ANAT_DIR"
+mkdir -p "$FREESURFER_DIR"
+mkdir -p "$SIMNIBS_DIR"
 
 ###############################################################################
 #                         PROCESS SUBJECT
@@ -209,296 +213,127 @@ fi
 
 echo "Processing subject: $SUBJECT_ID"
 
-# Function to determine scan type from JSON metadata
-determine_scan_type_from_json() {
-  local json_file="$1"
-  local scan_type=""
-  
-  if [ ! -f "$json_file" ]; then
-    return
-  fi
-  
-  # Check for SeriesDescription field in JSON
-  if command -v jq &>/dev/null; then
-    # If jq is available, use it to parse JSON
-    local series_desc=$(jq -r '.SeriesDescription // empty' "$json_file" 2>/dev/null)
-    local protocol_name=$(jq -r '.ProtocolName // empty' "$json_file" 2>/dev/null)
-    
-    if [[ -n "$series_desc" ]]; then
-      if echo "$series_desc" | grep -qi "T1\|MPRAGE\|SPGR\|MP-RAGE"; then
-        echo "T1"
-        return
-      elif echo "$series_desc" | grep -qi "T2\|FLAIR"; then
-        echo "T2"
-        return
-      fi
-    fi
-    
-    if [[ -n "$protocol_name" ]]; then
-      if echo "$protocol_name" | grep -qi "T1\|MPRAGE\|SPGR\|MP-RAGE"; then
-        echo "T1"
-        return
-      elif echo "$protocol_name" | grep -qi "T2\|FLAIR"; then
-        echo "T2"
-        return
-      fi
-    fi
-  else
-    # Fall back to grep for basic parsing
-    if grep -q '"SeriesDescription"\s*:\s*".*MPRAGE' "$json_file" || 
-       grep -q '"SeriesDescription"\s*:\s*".*T1' "$json_file" ||
-       grep -q '"PulseSequenceName"\s*:\s*"MP-RAGE' "$json_file"; then
-      echo "T1"
-      return
-    elif grep -q '"SeriesDescription"\s*:\s*".*T2' "$json_file" ||
-         grep -q '"SeriesDescription"\s*:\s*".*FLAIR' "$json_file"; then
-      echo "T2"
-      return
-    fi
-  fi
-  
-  # Default to T1
-  echo "T1"
-}
-
-# Function to determine scan type from file paths and names
-determine_scan_type() {
-  local dir_name="$1"
-  local nii_file="$2"
-  
-  # Check for JSON file with same name
-  local json_file="${nii_file%.nii}.json"
-  if [[ "$nii_file" == *.nii.gz ]]; then
-    json_file="${nii_file%.nii.gz}.json"
-  fi
-  
-  if [ -f "$json_file" ]; then
-    local json_type=$(determine_scan_type_from_json "$json_file")
-    if [ -n "$json_type" ]; then
-      echo "$json_type"
-      return
-    fi
-  fi
-  
-  # Try to determine from directory name
-  if echo "$dir_name" | grep -qi "T1\|MPRAGE\|SPGR"; then
-    echo "T1"
-    return
-  elif echo "$dir_name" | grep -qi "T2\|FLAIR"; then
-    echo "T2"
-    return
-  fi
-  
-  # Try to determine from NIfTI filename
-  if echo "$nii_file" | grep -qi "T1\|MPRAGE\|SPGR"; then
-    echo "T1"
-    return
-  elif echo "$nii_file" | grep -qi "T2\|FLAIR"; then
-    echo "T2"
-    return
-  fi
-  
-  # If the directory contains a T1 in the path, use that as fallback
-  if [ -d "$NIFTI_DIR" ]; then
-    t1_count=$(find "$NIFTI_DIR" -name "T1.nii*" | wc -l)
-    if [ "$t1_count" -eq 0 ]; then
-      echo "T1"  # No T1 file yet, assume this is T1
-      return
-    fi
-  fi
-  
-  # Default to T1 as it's more commonly needed
-  echo "T1"
-}
-
-# Function to handle NIfTI files and their associated JSONs
-process_nifti_file() {
-  local nii_file="$1"
-  local source_dir="$2"
-  
-  # Skip if file doesn't exist
-  if [ ! -f "$nii_file" ]; then
-    return
-  fi
-  
-  local filename=$(basename "$nii_file")
-  
-  # Determine scan type
-  local filetype=$(determine_scan_type "$source_dir" "$filename")
-  
-  # Set target extension
-  local target_ext=".nii"
-  if [[ "$nii_file" == *.nii.gz ]]; then
-    target_ext=".nii.gz"
-  fi
-  
-  # Set target file path
-  local target_file="$NIFTI_DIR/${filetype}${target_ext}"
-  
-  # Check if we already have this type, if so skip (don't create duplicates)
-  if [ -f "$target_file" ]; then
-    echo "A $filetype scan already exists at $target_file, skipping."
-    return
-  fi
-  
-  echo "Identified as $filetype, copying to $target_file"
-  cp "$nii_file" "$target_file"
-  
-  # Also check for accompanying JSON file
-  local json_base="${nii_file%.*}"
-  if [[ "$json_base" == *.nii ]]; then
-    json_base="${json_base%.nii}"
-  fi
-  
-  local json_file="${json_base}.json"
-  if [ -f "$json_file" ]; then
-    cp "$json_file" "${target_file%.*}.json"
-    echo "Copied associated JSON metadata file."
-  fi
-}
-
 ###############################################################################
 #              DICOM TO NIFTI CONVERSION (IF REQUESTED)
 ###############################################################################
 
 if $CONVERT_DICOM; then
-  # Check if DICOM directory exists
-  if [ ! -d "$DICOM_DIR" ]; then
-    echo "Warning: DICOM directory '$DICOM_DIR' does not exist. Skipping DICOM conversion."
-  else
-    echo "Converting DICOM files to NIfTI..."
+    # Check if source DICOM directories exist
+    T1_DICOM_DIR="${SOURCEDATA_DIR}/T1w/dicom"
+    T2_DICOM_DIR="${SOURCEDATA_DIR}/T2w/dicom"
     
-    # Process each subdirectory in the raw DICOM folder
-    for series_path in "$DICOM_DIR"/*; do
-      if [ -d "$series_path" ]; then
-        series_name=$(basename "$series_path")
-        echo "Processing series: $series_name"
+    if [ ! -d "$T1_DICOM_DIR" ] && [ ! -d "$T2_DICOM_DIR" ]; then
+        echo "Warning: Neither T1w nor T2w DICOM directories exist. Skipping DICOM conversion."
+    else
+        echo "Converting DICOM files to NIfTI..."
         
-        # Create a dedicated output directory for dcm2niix
-        output_dir=$(mktemp -d)
-        
-        # Check if series contains DICOM files
-        if ls "$series_path"/*.dcm &>/dev/null; then
-          echo "Found DICOM files, converting with dcm2niix..."
-          
-          # Run dcm2niix with output to the temp directory
-          dcm2niix -z n -o "$output_dir" "$series_path"
-          
-          # Find all .nii files created
-          for nii_file in "$output_dir"/*.nii; do
-            process_nifti_file "$nii_file" "$series_path"
-          done
+        # Process T1w directory
+        if [ -d "$T1_DICOM_DIR" ] && [ "$(ls -A "$T1_DICOM_DIR")" ]; then
+            echo "Processing T1w DICOM files..."
+            # First convert in place
+            dcm2niix -z y -o "$T1_DICOM_DIR" "$T1_DICOM_DIR"
+            
+            # Move all .nii.gz and .json files to the anat directory
+            for file in "$T1_DICOM_DIR"/*.nii.gz "$T1_DICOM_DIR"/*.json; do
+                if [ -f "$file" ]; then
+                    # Get the base filename
+                    filename=$(basename "$file")
+                    # Rename to BIDS format if not already in it
+                    if [[ ! "$filename" =~ ^sub-* ]]; then
+                        new_filename="${BIDS_SUBJECT_ID}_T1w${filename#*_}"
+                    else
+                        new_filename="$filename"
+                    fi
+                    # Move and rename the file
+                    mv "$file" "${BIDS_ANAT_DIR}/${new_filename}"
+                fi
+            done
         fi
         
-        # Handle .tgz files
-        for tgz_file in "$series_path"/*.tgz; do
-          if [ -e "$tgz_file" ]; then
-            echo "Unzipping archive: $(basename "$tgz_file")"
-            # Create a temporary directory for extraction
-            extract_dir=$(mktemp -d)
+        # Process T2w directory
+        if [ -d "$T2_DICOM_DIR" ] && [ "$(ls -A "$T2_DICOM_DIR")" ]; then
+            echo "Processing T2w DICOM files..."
+            # First convert in place
+            dcm2niix -z y -o "$T2_DICOM_DIR" "$T2_DICOM_DIR"
             
-            # Extract the archive
-            tar -xzf "$tgz_file" -C "$extract_dir"
-            
-            # Run dcm2niix on the extracted files
-            echo "Converting DICOM to NIfTI with dcm2niix..."
-            dcm2niix -z n -o "$output_dir" "$extract_dir"
-            
-            # Process each NIfTI file
-            for nii_file in "$output_dir"/*.nii; do
-              process_nifti_file "$nii_file" "$series_path"
+            # Move all .nii.gz and .json files to the anat directory
+            for file in "$T2_DICOM_DIR"/*.nii.gz "$T2_DICOM_DIR"/*.json; do
+                if [ -f "$file" ]; then
+                    # Get the base filename
+                    filename=$(basename "$file")
+                    # Rename to BIDS format if not already in it
+                    if [[ ! "$filename" =~ ^sub-* ]]; then
+                        new_filename="${BIDS_SUBJECT_ID}_T2w${filename#*_}"
+                    else
+                        new_filename="$filename"
+                    fi
+                    # Move and rename the file
+                    mv "$file" "${BIDS_ANAT_DIR}/${new_filename}"
+                fi
             done
-            
-            # Clean up extraction directory
-            rm -rf "$extract_dir"
-          fi
-        done
-        
-        # Also check for NIfTI files directly in series directory (might have been pre-converted)
-        for nii_file in "$series_path"/*.nii "$series_path"/*.nii.gz; do
-          process_nifti_file "$nii_file" "$series_path"
-        done
-        
-        # Clean up output directory
-        rm -rf "$output_dir"
-      fi
-    done
-  fi
-else
-  echo "Skipping DICOM conversion (not requested)."
-  
-  # Check if there are already NIfTI files in the raw directory that need to be used
-  if [ -d "$DICOM_DIR" ]; then
-    nifti_count=$(find "$DICOM_DIR" -name "*.nii" -o -name "*.nii.gz" 2>/dev/null | wc -l)
-    if [ "$nifti_count" -gt 0 ]; then
-      echo "Found existing NIfTI files in raw directory, checking if they need to be moved..."
-      for direct_nii in "$DICOM_DIR"/*/*.nii "$DICOM_DIR"/*/*.nii.gz; do
-        process_nifti_file "$direct_nii" "$(dirname "$direct_nii")"
-      done
+        fi
     fi
-  fi
+fi
+
+# Verify that NIfTI files were created and moved successfully
+if [ ! -d "$BIDS_ANAT_DIR" ] || [ -z "$(ls -A "$BIDS_ANAT_DIR")" ]; then
+    echo "Error: No NIfTI files found in $BIDS_ANAT_DIR"
+    echo "Please ensure anatomical MRI data is available."
+    exit 1
 fi
 
 ###############################################################################
 #                         PREPARE FOR HEAD MODEL
 ###############################################################################
 
-# Verify we have the necessary files for head model creation
-echo "Checking for T1 and T2 images in $NIFTI_DIR"
-# Find T1 image (try variations including suffixed versions)
+# Find T1 and T2 images - look for any .nii or .nii.gz files
 T1_file=""
-for t1_candidate in "$NIFTI_DIR"/T1.nii "$NIFTI_DIR"/T1.nii.gz "$NIFTI_DIR"/T1_*.nii "$NIFTI_DIR"/T1_*.nii.gz; do
-  if [ -f "$t1_candidate" ]; then
-    T1_file="$t1_candidate"
-    echo "Found T1 image: $T1_file"
-    break
-  fi
-done
-
-# Find T2 image (try variations including suffixed versions)
 T2_file=""
-for t2_candidate in "$NIFTI_DIR"/T2.nii "$NIFTI_DIR"/T2.nii.gz "$NIFTI_DIR"/T2_*.nii "$NIFTI_DIR"/T2_*.nii.gz; do
-  if [ -f "$t2_candidate" ]; then
-    T2_file="$t2_candidate"
-    echo "Found T2 image: $T2_file"
-    break
-  fi
+
+# First try to find files with T1/T1w in the name
+for t1_candidate in "$BIDS_ANAT_DIR"/*T1*.nii* "$BIDS_ANAT_DIR"/*t1*.nii*; do
+    if [ -f "$t1_candidate" ]; then
+        T1_file="$t1_candidate"
+        echo "Found T1 image: $T1_file"
+        break
+    fi
 done
 
-# If T1 not found, look for any structural image that might be usable
-if [ ! -f "$T1_file" ]; then
-  echo "No file named T1.nii or T1.nii.gz found. Looking for any structural image..."
-  for potential_t1 in "$NIFTI_DIR"/*.nii "$NIFTI_DIR"/*.nii.gz; do
-    if [ -f "$potential_t1" ]; then
-      echo "Using $potential_t1 as T1 image"
-      # Create a symbolic link or copy to T1.nii
-      if [[ "$potential_t1" == *.nii.gz ]]; then
-        cp "$potential_t1" "$NIFTI_DIR/T1.nii.gz"
-        T1_file="$NIFTI_DIR/T1.nii.gz"
-      else
-        cp "$potential_t1" "$NIFTI_DIR/T1.nii"
-        T1_file="$NIFTI_DIR/T1.nii"
-      fi
-      break
-    fi
-  done
+# If no T1 found, take the first NIfTI file as T1
+if [ -z "$T1_file" ]; then
+    for nii_file in "$BIDS_ANAT_DIR"/*.nii*; do
+        if [ -f "$nii_file" ]; then
+            T1_file="$nii_file"
+            echo "Using $T1_file as T1 image"
+            break
+        fi
+    done
 fi
+
+# Look for T2 images
+for t2_candidate in "$BIDS_ANAT_DIR"/*T2*.nii* "$BIDS_ANAT_DIR"/*t2*.nii*; do
+    if [ -f "$t2_candidate" ]; then
+        T2_file="$t2_candidate"
+        echo "Found T2 image: $T2_file"
+        break
+    fi
+done
 
 # Convert to absolute paths if files were found
 if [ -f "$T1_file" ]; then
-  T1_file=$(realpath "$T1_file")
+    T1_file=$(realpath "$T1_file")
 else
-  echo "Error: T1 image not found in $NIFTI_DIR"
-  echo "Please ensure a T1-weighted MRI is available and named appropriately."
-  exit 1
+    echo "Error: No NIfTI files found in $BIDS_ANAT_DIR"
+    echo "Please ensure anatomical MRI data is available."
+    exit 1
 fi
 
 if [ -f "$T2_file" ]; then
-  T2_file=$(realpath "$T2_file")
-  echo "T2 image found: $T2_file"
+    T2_file=$(realpath "$T2_file")
+    echo "T2 image found: $T2_file"
 else
-  echo "No T2 image found. Proceeding with T1 only."
-  T2_file=""
+    echo "No T2 image found. Proceeding with T1 only."
+    T2_file=""
 fi
 
 ###############################################################################
@@ -506,34 +341,35 @@ fi
 ###############################################################################
 
 if $CREATE_M2M; then
-  # --- Run the charm function to create head model ---
-  echo "Creating head model with SimNIBS charm..."
-
-  # Check if m2m directory already exists
-  forcerun=""
-  if [ -d "$HEAD_MODEL_DIR" ] && [ "$(ls -A "$HEAD_MODEL_DIR" 2>/dev/null)" ]; then
-    echo "Head model directory already contains files. Using --forcerun option."
-    forcerun="--forcerun"
-  fi
-
-  # Run charm 
-  if [ -n "$T2_file" ]; then
-    echo "Running charm with T1 and T2 images..."
-    ( cd "$(dirname "$HEAD_MODEL_DIR")" || exit 1 
-      charm $forcerun "$SUBJECT_ID" "$T1_file" "$T2_file" )
-  else
-    echo "Running charm with T1 image only..."
-    ( cd "$(dirname "$HEAD_MODEL_DIR")" || exit 1
-      charm $forcerun "$SUBJECT_ID" "$T1_file" )
-  fi
+    # --- Run the charm function to create head model ---
+    echo "Creating head model with SimNIBS charm..."
+    
+    # Check if m2m directory already exists
+    m2m_dir="$SIMNIBS_DIR/m2m_${SUBJECT_ID}"
+    forcerun=""
+    if [ -d "$m2m_dir" ] && [ "$(ls -A "$m2m_dir" 2>/dev/null)" ]; then
+        echo "Head model directory already contains files. Using --forcerun option."
+        forcerun="--forcerun"
+    fi
+    
+    # Run charm
+    if [ -n "$T2_file" ]; then
+        echo "Running charm with T1 and T2 images..."
+        ( cd "$SIMNIBS_DIR" || exit 1
+          charm $forcerun "$SUBJECT_ID" "$T1_file" "$T2_file" )
+    else
+        echo "Running charm with T1 image only..."
+        ( cd "$SIMNIBS_DIR" || exit 1
+          charm $forcerun "$SUBJECT_ID" "$T1_file" )
+    fi
 else
-  echo "Skipping head model creation (not requested)."
+    echo "Skipping head model creation (not requested)."
 fi
 
 # --- Optionally run FreeSurfer recon-all ---
 if $RUN_RECON; then
-  echo "Running FreeSurfer recon-all..."
-  recon-all -subject "$SUBJECT_ID" -i "$T1_file" -all -sd "$FS_RECON_DIR"
+    echo "Running FreeSurfer recon-all..."
+    recon-all -subject "$SUBJECT_ID" -i "$T1_file" -all -sd "$FREESURFER_DIR"
 fi
 
 echo "Finished processing subject: $SUBJECT_ID" 
