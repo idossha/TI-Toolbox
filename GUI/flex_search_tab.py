@@ -225,7 +225,7 @@ class FlexSearchTab(QtWidgets.QWidget):
         spherical_roi_layout = QtWidgets.QFormLayout(self.spherical_roi_widget)
         
         # ROI coordinates
-        self.roi_coords_label = QtWidgets.QLabel("ROI Center Coordinates (mm):")
+        self.roi_coords_label = QtWidgets.QLabel("ROI Center RAS Coordinates (mm):")
         
         coords_layout = QtWidgets.QHBoxLayout()
         self.roi_x_label = QtWidgets.QLabel("X:")
