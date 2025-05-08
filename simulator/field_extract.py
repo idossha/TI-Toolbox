@@ -17,9 +17,14 @@ def main(input_file, project_dir=None, subject_id=None, gm_output_file=None, wm_
     Crop the mesh to include grey matter (tag #2) and white matter (tag #1)
     Save these meshes to separate files
     
-    Directory structure:
-    subject_dir = project_dir/subject_id
-    m2m_dir = subject_dir/m2m_subject_id
+    Directory structure (BIDS-compliant):
+    project_dir/
+    ├── sub-{subject_id}/
+    └── derivatives/
+        └── SimNIBS/
+            └── sub-{subject_id}/
+                ├── m2m_{subject_id}/
+                └── Simulations/
     """
     # Load the original mesh
     full_mesh = mesh_io.read_msh(input_file)
@@ -32,17 +37,17 @@ def main(input_file, project_dir=None, subject_id=None, gm_output_file=None, wm_
     
     # Prepare output file paths
     if project_dir and subject_id:
-        # Use new directory structure
-        subject_dir = os.path.join(project_dir, subject_id)
-        m2m_dir = os.path.join(subject_dir, f"m2m_{subject_id}")
-        output_base = os.path.join(subject_dir, 'SimNIBS', 'Simulations')
+        # Use BIDS directory structure
+        derivatives_dir = os.path.join(project_dir, 'derivatives')
+        simnibs_dir = os.path.join(derivatives_dir, 'SimNIBS', f'sub-{subject_id}')
+        output_base = os.path.join(simnibs_dir, 'Simulations')
         os.makedirs(output_base, exist_ok=True)
         input_filename = os.path.basename(input_file)
         
         if gm_output_file is None:
-            gm_output_file = os.path.join(output_base, "grey_" + input_filename)
+            gm_output_file = os.path.join(output_base, f"sub-{subject_id}_space-MNI305_desc-grey_{input_filename}")
         if wm_output_file is None:
-            wm_output_file = os.path.join(output_base, "white_" + input_filename)
+            wm_output_file = os.path.join(output_base, f"sub-{subject_id}_space-MNI305_desc-white_{input_filename}")
     else:
         # Use original directory structure
         input_dir = os.path.dirname(input_file)
@@ -64,8 +69,8 @@ def main(input_file, project_dir=None, subject_id=None, gm_output_file=None, wm_
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Extract grey and white matter meshes from a full mesh file.')
     parser.add_argument('input_file', type=str, help='Path to the input mesh file')
-    parser.add_argument('--project_dir', type=str, help='Path to the project directory (new structure)', default=None)
-    parser.add_argument('--subject_id', type=str, help='Subject ID (new structure)', default=None)
+    parser.add_argument('--project_dir', type=str, help='Path to the project directory (BIDS structure)', default=None)
+    parser.add_argument('--subject_id', type=str, help='Subject ID (without "sub-" prefix)', default=None)
     parser.add_argument('--gm_output_file', type=str, help='Path to the output grey matter mesh file', default=None)
     parser.add_argument('--wm_output_file', type=str, help='Path to the output white matter mesh file', default=None)
     args = parser.parse_args()

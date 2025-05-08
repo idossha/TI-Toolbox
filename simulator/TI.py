@@ -47,8 +47,28 @@ eeg_net = sys.argv[9]  # Get the EEG net filename
 montage_names = sys.argv[10:]  # The list of montages starts from the 10th argument
 
 # Define the correct path for the JSON file
-utils_dir = os.path.join(project_dir, 'utils')
-montage_file = os.path.join(utils_dir, 'montage_list.json')
+ti_csc_dir = os.path.join(project_dir, 'ti-csc')
+config_dir = os.path.join(ti_csc_dir, 'config')
+montage_file = os.path.join(config_dir, 'montage_list.json')
+
+# Create directories if they don't exist
+os.makedirs(config_dir, exist_ok=True)
+os.chmod(ti_csc_dir, 0o777)
+os.chmod(config_dir, 0o777)
+
+# Create montage file if it doesn't exist
+if not os.path.exists(montage_file):
+    initial_content = {
+        "nets": {
+            "EGI_template.csv": {
+                "uni_polar_montages": {},
+                "multi_polar_montages": {}
+            }
+        }
+    }
+    with open(montage_file, 'w') as f:
+        json.dump(initial_content, f, indent=4)
+    os.chmod(montage_file, 0o777)
 
 # Load montages from JSON file
 with open(montage_file) as f:
@@ -74,8 +94,9 @@ def validate_montage(montage, montage_name):
     return True
 
 # Base paths
-subject_dir = os.path.join(project_dir, subject_id)
-base_subpath = os.path.join(subject_dir, 'SimNIBS', f"m2m_{subject_id}")
+derivatives_dir = os.path.join(project_dir, 'derivatives')
+simnibs_dir = os.path.join(derivatives_dir, 'SimNIBS', f'sub-{subject_id}')
+base_subpath = os.path.join(simnibs_dir, f'm2m_{subject_id}')
 conductivity_path = base_subpath
 tensor_file = os.path.join(conductivity_path, "DTI_coregT1_tensor.nii.gz")
 

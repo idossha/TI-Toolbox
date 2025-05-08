@@ -16,15 +16,11 @@
 # - Provides detailed error handling for common issues like missing files or directories.
 ##############################################
 
-# Get the subject ID, project directory, input mesh directory, and output directory from the command-line arguments
+# Get the subject ID, m2m directory, input mesh directory, and output directory from the command-line arguments
 subject_id="$1"
-project_dir="$2"
+m2m_dir="$2"  # This is now the full path to the m2m directory
 input_mesh_dir="$3"
 output_dir="$4"
-
-# Define directory structure
-subject_dir="$project_dir/$subject_id"
-m2m_dir="$subject_dir/SimNIBS/m2m_${subject_id}"
 
 # Check if input_mesh_dir exists and is a directory
 if [ ! -d "$input_mesh_dir" ]; then
@@ -52,11 +48,8 @@ for FN_MESH in "$input_mesh_dir"/*.msh; do
   # Get the base name of the .msh file (without directory and extension)
   BASE_NAME=$(basename "$FN_MESH" .msh)
   
-  # Simplify the base name by removing redundant TI suffix if present
-  SIMPLIFIED_NAME="${BASE_NAME/_TI/}"
-  
-  # Define the output file names for both subject space and MNI space
-  FN_OUT="$output_dir/${SIMPLIFIED_NAME}"
+  # Define the output file names with the desired naming convention
+  FN_OUT="$output_dir/${BASE_NAME}"
   
   # Run the subject2mni command for MNI space
   subject2mni -i "$FN_MESH" -m "$m2m_dir" -o "$FN_OUT"
