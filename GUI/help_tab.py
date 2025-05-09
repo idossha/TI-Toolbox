@@ -79,59 +79,82 @@ class HelpTab(QtWidgets.QWidget):
     def add_directory_structure(self, layout):
         """Add directory structure information."""
         # Add header
-        header_label = QtWidgets.QLabel("<h1>Required Directory Structure</h1>")
+        header_label = QtWidgets.QLabel("<h1>Required Directory Structure (BIDS-compliant)</h1>")
         header_label.setAlignment(QtCore.Qt.AlignCenter)
         layout.addWidget(header_label)
         
         # Directory structure information
         content = """
-        <p>TI-CSC-2.0 requires a specific directory structure to function properly. This structure is partially based on BIDS (Brain Imaging Data Structure) conventions but includes additional folders for TI-CSC specific functionality.</p>
+        <p>TI-CSC-2.0 follows the BIDS (Brain Imaging Data Structure) conventions for organizing neuroimaging data. This standardized structure ensures compatibility with other neuroimaging tools and facilitates data sharing.</p>
         
-        <p><b>Important:</b> Most folders are automatically created as needed. Users primarily need to ensure that DICOM files are placed in the correct <code>/anat/raw</code> directory.</p>
+        <p><b>Important:</b> Users need to set up the sourcedata directory with their DICOM files. Most other directories are automatically created during processing.</p>
         
         <h3>Directory Structure:</h3>
         <pre style='background-color: #f5f5f5; padding: 10px; border-radius: 5px; font-family: monospace;'>
-MyProject/
-├── subjectID/
+Project Directory/
+├── sub-{subject}/                           <i>(Auto-created during preprocessing)</i>
 │   ├── anat/
-│   │   ├── raw/          <i>(Place your DICOM files here)</i>
-│   │   ├── nifti/        <i>(Auto-created during preprocessing)</i>
-│   │   └── freesurfer/   <i>(Auto-created during preprocessing)</i>
-│   ├── SimNIBS/
-│   │   ├── Simulations/  <i>(Auto-created for simulation results)</i>
-│   │   ├── flex-search/  <i>(Auto-created for flex-search results)</i>
-│   │   ├── ex-search/    <i>(Auto-created for ex-search results)</i>
-│   │   └── Analysis/     <i>(Auto-created for analysis results)</i>
-│   ├── dwi/              <i>(Optional: For diffusion data)</i>
-│   ├── eeg/              <i>(Optional: For EEG data)</i>
-│   ├── functional/       <i>(Optional: For functional MRI data)</i>
-│   └── behavioral/       <i>(Optional: For behavioral data)</i>
-├── utils/
-│   ├── roi_list/         <i>(For storing ROI definitions)</i>
-│   └── montage_list/     <i>(For storing electrode montages)</i>
-└── config/
-    ├── flex-search_config/   <i>(Configuration files for flex-search)</i>
-    ├── ex-search_config/     <i>(Configuration files for ex-search)</i>
-    ├── simulator_config/     <i>(Configuration files for simulator)</i>
-    └── entrypoint_config/    <i>(General configuration files)</i>
+│   │   ├── sub-{subject}_space-MNI305_T1w.nii.gz
+│   │   ├── sub-{subject}_space-MNI305_T1w.json
+│   │   ├── sub-{subject}_space-MNI305_T2w.nii.gz
+│   │   └── sub-{subject}_space-MNI305_T2w.json
+│   ├── dwi/                                <i>(Optional: For diffusion data)</i>
+│   ├── eeg/                                <i>(Optional: For EEG data)</i>
+│   ├── func/                               <i>(Optional: For functional MRI data)</i>
+│   └── beh/                                <i>(Optional: For behavioral data)</i>
+├── sourcedata/                             <i>(Required: Set up by user)</i>
+│   └── sub-{subject}/
+│       ├── T1w/
+│       │   └── dicom/                      <i>(Place T1w DICOM files here)</i>
+│       ├── T2w/                            <i>(Optional)</i>
+│       │   └── dicom/                      <i>(Place T2w DICOM files here)</i>
+│       └── additional_files/               <i>(Optional documentation)</i>
+├── derivatives/                            <i>(Auto-created during processing)</i>
+│   ├── freesurfer/
+│   │   └── sub-{subject}/
+│   │       ├── mri/
+│   │       └── label/
+│   └── SimNIBS/
+│       └── sub-{subject}/
+│           ├── m2m_{subject}/
+│           ├── Simulations/
+│           ├── flex-search/
+│           ├── ex-search/
+│           └── analysis/
+└── ti-csc/                                 <i>(Auto-created at first launch)</i>
+    └── config/
+        ├── montage_list.json
+        ├── flex-search_config/
+        ├── ex-search_config/
+        ├── simulator_config/
+        └── entrypoint_config/
 </pre>
 
         <h3>Key Points:</h3>
         <ul>
-            <li>The <b>subject ID</b> should be a unique identifier for each participant</li>
-            <li>DICOM files must be placed in <code>subjectID/anat/raw/</code> before preprocessing</li>
-            <li>Most subdirectories are automatically created during processing</li>
-            <li>The <code>utils</code> and <code>config</code> folders store shared resources across subjects</li>
+            <li>The <b>sourcedata</b> directory must be set up by the user before preprocessing</li>
+            <li>DICOM files must be placed in <code>sourcedata/sub-{subject}/T1w/dicom/</code></li>
+            <li>T2w images are optional but can improve head model quality</li>
+            <li>All other directories are automatically created during processing</li>
+            <li>The <code>ti-csc</code> directory contains shared configuration files</li>
         </ul>
         
         <h3>Getting Started:</h3>
         <ol>
-            <li>Create your project folder (e.g., "MyProject")</li>
-            <li>Create a subject folder with a unique ID (e.g., "sub-01")</li>
-            <li>Create an <code>anat/raw</code> directory inside the subject folder</li>
-            <li>Copy your DICOM files into the <code>anat/raw</code> directory</li>
+            <li>Create your project directory (e.g., "BIDS_test")</li>
+            <li>Create the sourcedata directory structure</li>
+            <li>Create a subject folder in sourcedata (e.g., "sub-101")</li>
+            <li>Place T1w DICOM files in <code>sourcedata/sub-101/T1w/dicom/</code></li>
+            <li>Optionally add T2w DICOM files in <code>sourcedata/sub-101/T2w/dicom/</code></li>
             <li>Use the Pre-processing tab to begin processing</li>
         </ol>
+
+        <h3>Example Subject IDs:</h3>
+        <p>Subject IDs should follow the BIDS naming convention:</p>
+        <ul>
+            <li>Single subject: sub-101</li>
+            <li>Multiple subjects: sub-101, sub-102, etc.</li>
+        </ul>
         """
         
         # Section content
