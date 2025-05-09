@@ -39,7 +39,7 @@ def parse_arguments():
     
     parser.add_argument('--subject', required=True,
                       help='Subject ID')
-    parser.add_argument('--goal', required=True, choices=['mean', 'focality'],
+    parser.add_argument('--goal', required=True, choices=['mean', 'focality', 'max'],
                       help='Optimization goal: mean or focality')
     parser.add_argument('--postproc', required=True, 
                       choices=['max_TI', 'dir_TI_normal', 'dir_TI_tangential'],
@@ -82,10 +82,10 @@ def parse_arguments():
     
     # Generate output directory path based on ROI type
     roi_dirname = get_roi_dirname(args)
-    args.output_dir = os.path.join(project_dir, args.subject, 'SimNIBS', 'flex-search', roi_dirname)
+    args.output_dir = os.path.join(project_dir, 'derivatives', 'SimNIBS', f'sub-{args.subject}', 'flex-search', roi_dirname)
     
-    eeg_net_path = os.path.join(project_dir, args.subject, 'SimNIBS', f"m2m_{args.subject}", 
-                               'eeg_positions', f'{args.eeg_net}.csv')
+    eeg_net_path = os.path.join(project_dir, 'derivatives', 'SimNIBS', f'sub-{args.subject}', 
+                               f"m2m_{args.subject}", 'eeg_positions', f'{args.eeg_net}.csv')
     if not os.path.exists(eeg_net_path):
         raise ValueError(f"EEG net template file not found: {eeg_net_path}")
     
@@ -108,7 +108,7 @@ def setup_optimization(args):
         raise ValueError("PROJECT_DIR environment variable not set")
     
     # Set subject path using new directory structure
-    opt.subpath = os.path.join(project_dir, args.subject, 'SimNIBS', f"m2m_{args.subject}")
+    opt.subpath = os.path.join(project_dir, 'derivatives', 'SimNIBS', f'sub-{args.subject}', f"m2m_{args.subject}")
     if not os.path.exists(opt.subpath):
         raise ValueError(f"Subject directory not found: {opt.subpath}")
     

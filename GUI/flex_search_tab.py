@@ -443,12 +443,15 @@ class FlexSearchTab(QtWidgets.QWidget):
         # Base directory where subjects are located
         project_dir = os.environ.get('PROJECT_DIR', '/mnt/BIDS_test')
         subjects = []
-        for subject_dir in glob.glob(os.path.join(project_dir, '*')):
-            if os.path.isdir(subject_dir):
-                subject_id = os.path.basename(subject_dir)
-                self.subjects.append(subject_id)
-                self.subject_combo.addItem(subject_id)
-                subjects.append(subject_id)
+        # Look in derivatives/SimNIBS directory for subjects
+        simnibs_dir = os.path.join(project_dir, 'derivatives', 'SimNIBS')
+        if os.path.isdir(simnibs_dir):
+            for subject_dir in glob.glob(os.path.join(simnibs_dir, 'sub-*')):
+                if os.path.isdir(subject_dir):
+                    subject_id = os.path.basename(subject_dir).replace('sub-', '')
+                    self.subjects.append(subject_id)
+                    self.subject_combo.addItem(subject_id)
+                    subjects.append(subject_id)
         # Console output: subjects found
         self.output_text.append("=== Subjects Found ===")
         if not subjects:
@@ -477,8 +480,9 @@ class FlexSearchTab(QtWidgets.QWidget):
         # Base directory where subjects are located
         project_dir = os.environ.get('PROJECT_DIR', '/mnt/BIDS_test')
         
-        # EEG positions directory
-        eeg_dir = os.path.join(project_dir, subject_id, 'SimNIBS', f'm2m_{subject_id}', 'eeg_positions')
+        # EEG positions directory in new BIDS structure
+        eeg_dir = os.path.join(project_dir, 'derivatives', 'SimNIBS', f'sub-{subject_id}', 
+                              f'm2m_{subject_id}', 'eeg_positions')
         
         try:
             if os.path.isdir(eeg_dir):
@@ -513,8 +517,9 @@ class FlexSearchTab(QtWidgets.QWidget):
             return
         # Base directory where subjects are located
         project_dir = os.environ.get('PROJECT_DIR', '/mnt/BIDS_test')
-        # Use segmentation directory for atlas files
-        seg_dir = os.path.join(project_dir, subject_id, 'SimNIBS', f'm2m_{subject_id}', 'segmentation')
+        # Use segmentation directory for atlas files in new BIDS structure
+        seg_dir = os.path.join(project_dir, 'derivatives', 'SimNIBS', f'sub-{subject_id}', 
+                              f'm2m_{subject_id}', 'segmentation')
         unique_atlases = set()
         self.atlas_display_map = {}  # Map display name to (subjectID, atlas_name)
         try:
@@ -602,7 +607,7 @@ class FlexSearchTab(QtWidgets.QWidget):
             ]
             
             for potential_dir in potential_dirs:
-                if os.path.isdir(potential_dir) and os.path.isdir(os.path.join(potential_dir, subject_id)):
+                if os.path.isdir(potential_dir) and os.path.isdir(os.path.join(potential_dir, 'derivatives', 'SimNIBS', f'sub-{subject_id}')):
                     project_dir = potential_dir
                     self.output_text.append(f"Setting PROJECT_DIR to: {project_dir}")
                     break
@@ -617,7 +622,8 @@ class FlexSearchTab(QtWidgets.QWidget):
             env['ROI_Z'] = str(roi_z)
             env['ROI_RADIUS'] = str(roi_radius)
         else:
-            seg_dir = os.path.join(project_dir, subject_id, 'SimNIBS', f'm2m_{subject_id}', 'segmentation')
+            seg_dir = os.path.join(project_dir, 'derivatives', 'SimNIBS', f'sub-{subject_id}', 
+                                 f'm2m_{subject_id}', 'segmentation')
             atlas_path = os.path.join(seg_dir, f'{hemi}.{atlas_name}.annot')
             env['ATLAS_PATH'] = atlas_path
             env['SELECTED_HEMISPHERE'] = hemi
@@ -846,7 +852,7 @@ class FlexSearchTab(QtWidgets.QWidget):
         # Find the atlas file path
         subject_id = self.subject_combo.currentText()
         project_dir = os.environ.get('PROJECT_DIR', '/mnt/BIDS_test')
-        seg_dir = os.path.join(project_dir, subject_id, 'SimNIBS', f'm2m_{subject_id}', 'segmentation')
+        seg_dir = os.path.join(project_dir, 'derivatives', 'SimNIBS', f'sub-{subject_id}', 'segmentation')
         if not atlas_display:
             QtWidgets.QMessageBox.warning(self, "No Atlas Selected", "Please select an atlas.")
             return
