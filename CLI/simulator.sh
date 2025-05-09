@@ -15,8 +15,9 @@ umask 0000  # Set umask to 0000 to ensure all created files and directories have
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 simulator_dir="$script_dir/../simulator"
 project_dir="/mnt/$PROJECT_DIR_NAME"
-utils_dir="$project_dir/utils"
-config_file="$project_dir/config/sim_config.json"
+ti_csc_dir="$project_dir/ti-csc"
+config_dir="$ti_csc_dir/config"
+montage_file="$config_dir/montage_list.json"
 
 # Define color variables
 BOLD='\033[1m'
@@ -37,9 +38,9 @@ reprompt() {
 # Function to list available subjects based on the project directory input
 list_subjects() {
     subjects=()
-    for subject_path in "$project_dir"/*/SimNIBS/m2m_*; do
+    for subject_path in "$project_dir"/derivatives/SimNIBS/sub-*/m2m_*; do
         if [ -d "$subject_path" ]; then
-            subject_id=$(basename "$subject_path" | sed 's/m2m_//')
+            subject_id=$(basename "$(dirname "$subject_path")" | sed 's/sub-//')
             subjects+=("$subject_id")
         fi
     done
@@ -71,30 +72,40 @@ run_simulation() {
     is_direct_mode=false
     if [[ "$1" == "--run-direct" || "$DIRECT_MODE" == "true" ]]; then
         is_direct_mode=true
+        # Ensure current is set when in direct mode
+        if [[ -z "$CURRENT" ]]; then
+            echo -e "${RED}Error: Current value not set in direct mode${RESET}"
+            exit 1
+        fi
+        # Set current_a from CURRENT environment variable
+        current_a="$CURRENT"
     fi
     
-    # Ensure project utils_dir is accessible
-    utils_dir="$project_dir/utils"
-    if [ ! -d "$utils_dir" ]; then
-        mkdir -p "$utils_dir"
-        chmod 777 "$utils_dir"
-        echo -e "${GREEN}Created utils directory at $utils_dir with permissions 777.${RESET}"
+    # Ensure ti-csc directory exists
+    if [ ! -d "$ti_csc_dir" ]; then
+        mkdir -p "$ti_csc_dir"
+        chmod 777 "$ti_csc_dir"
+        echo -e "${GREEN}Created ti-csc directory at $ti_csc_dir with permissions 777.${RESET}"
     else
-        chmod 777 "$utils_dir"
+        chmod 777 "$ti_csc_dir"
     fi
     
-    # Ensure montage_list.json exists in project utils dir
-    montage_file="$utils_dir/montage_list.json"
+    # Ensure montage_list.json exists in ti-csc config dir
     if [ ! -f "$montage_file" ]; then
-        cat <<EOL > "$montage_file"
+        echo -e "${GREEN}Creating montage file at $montage_file${RESET}"
+        cat > "$montage_file" << EOL
 {
-  "uni_polar_montages": {},
-  "multi_polar_montages": {}
+    "nets": {
+        "EGI_template.csv": {
+            "uni_polar_montages": {},
+            "multi_polar_montages": {}
+        }
+    }
 }
 EOL
         chmod 777 "$montage_file"
-        echo -e "${GREEN}Created and initialized $montage_file with permissions 777.${RESET}"
     else
+        # Ensure the file has the correct permissions
         chmod 777 "$montage_file"
     fi
     
@@ -117,10 +128,12 @@ EOL
         
         echo -e "${CYAN}Processing subject: $subject_id${RESET}"
         
-        # Construct paths
-        subject_dir="$project_dir/$subject_id"
-        simulation_dir="$subject_dir/SimNIBS/Simulations"
-        m2m_dir="$subject_dir/SimNIBS/m2m_$subject_id"
+        # Construct paths for BIDS structure
+        subject_dir="$project_dir/sub-$subject_id"
+        derivatives_dir="$project_dir/derivatives"
+        simnibs_dir="$derivatives_dir/SimNIBS/sub-$subject_id"
+        simulation_dir="$simnibs_dir/Simulations"
+        m2m_dir="$simnibs_dir/m2m_$subject_id"
         
         echo -e "${CYAN}Subject directory: $subject_dir${RESET}"
         echo -e "${CYAN}Simulation directory: $simulation_dir${RESET}"
@@ -134,30 +147,10 @@ EOL
         
         # Create simulation directory if it doesn't exist
         mkdir -p "$simulation_dir"
+        chmod 777 "$simulation_dir"
         
-        # Create subject's utils directory and link or copy montage_list.json
-        subject_utils_dir="$subject_dir/utils"
-        if [ ! -d "$subject_utils_dir" ]; then
-            mkdir -p "$subject_utils_dir"
-            chmod 777 "$subject_utils_dir"
-            echo -e "${GREEN}Created subject utils directory at $subject_utils_dir${RESET}"
-        fi
-        
-        # Create a symbolic link to the project's montage file
-        if [ -f "$montage_file" ]; then
-            echo -e "${CYAN}Ensuring montage file is accessible at $subject_utils_dir/montage_list.json${RESET}"
-            cp -f "$montage_file" "$subject_utils_dir/montage_list.json"
-            chmod 777 "$subject_utils_dir/montage_list.json"
-        fi
-        
-        # Construct the command for main script
-        simulator_dir="$script_dir/../simulator"
-        
-        # Convert current from mA to A
-        current_a=$(echo "scale=6; $current / 1000" | bc)
-        
-        # Export variables for TI.py to find the correct utils directory
-        export UTILS_DIR="$subject_utils_dir"
+        # Export variables for TI.py to find the correct config directory
+        export CONFIG_DIR="$ti_csc_dir/config"
         
         # Build command - use project_dir instead of subject_dir to prevent double subject ID
         cmd=("$simulator_dir/$main_script" "$subject_id" "$conductivity" "$project_dir" "$simulation_dir" "$sim_mode" "$current_a" "$electrode_shape" "$dimensions" "$thickness" "$eeg_net")
@@ -251,7 +244,7 @@ if [[ "$1" == "--run-direct" ]]; then
     echo "  - Electrode shape: $electrode_shape"
     echo "  - Dimensions: $dimensions mm"
     echo "  - Thickness: $thickness mm" 
-    echo "  - Current: $current mA"
+    echo "  - Current: $current A"
     
     # List available subjects to set the subjects array
     list_subjects
@@ -293,13 +286,13 @@ get_default_value() {
 # Ensure that necessary scripts have execution permissions
 find "$simulator_dir" -type f -name "*.sh" -exec chmod +x {} \;
 
-# Ensure utils_dir exists and set permissions
-if [ ! -d "$utils_dir" ]; then
-    mkdir -p "$utils_dir"
-    chmod 777 "$utils_dir"
-    echo -e "${GREEN}Created utils directory at $utils_dir with permissions 777.${RESET}"
+# Ensure ti-csc directory exists and set permissions
+if [ ! -d "$ti_csc_dir" ]; then
+    mkdir -p "$ti_csc_dir"
+    chmod 777 "$ti_csc_dir"
+    echo -e "${GREEN}Created ti-csc directory at $ti_csc_dir with permissions 777.${RESET}"
 else
-    chmod 777 "$utils_dir"
+    chmod 777 "$ti_csc_dir"
 fi
 
 # Function to validate electrode pair input
@@ -313,22 +306,6 @@ validate_pair() {
     fi
     return 0
 }
-
-# Ensure montage_list.json exists and set permissions
-montage_file="$utils_dir/montage_list.json"
-if [ ! -f "$montage_file" ]; then
-    cat <<EOL > "$montage_file"
-{
-  "uni_polar_montages": {},
-  "multi_polar_montages": {}
-}
-EOL
-    chmod 777 "$montage_file"
-    echo -e "${GREEN}Created and initialized $montage_file with permissions 777.${RESET}"
-    new_montage_added=true
-else
-    chmod 777 "$montage_file"
-fi
 
 # Choose subjects function with configuration support
 choose_subjects() {
@@ -684,11 +661,13 @@ show_confirmation_dialog() {
     fi
 }
 
-# Function to list and select EEG nets for a subject
+# Choose EEG net for a subject
 choose_eeg_net() {
     local subject_id=$1
-    local subject_dir="$project_dir/$subject_id"
-    local eeg_dir="$subject_dir/SimNIBS/m2m_${subject_id}/eeg_positions"
+    local derivatives_dir="$project_dir/derivatives"
+    local simnibs_dir="$derivatives_dir/SimNIBS/sub-$subject_id"
+    local m2m_dir="$simnibs_dir/m2m_${subject_id}"
+    local eeg_dir="$m2m_dir/eeg_positions"
     
     # Check if eeg_positions directory exists
     if [ ! -d "$eeg_dir" ]; then
@@ -763,7 +742,7 @@ show_confirmation_dialog
 # Loop through selected subjects and run the pipeline
 for subject_num in "${selected_subjects[@]}"; do
     subject_id="${subjects[$((subject_num-1))]}"
-    subject_dir="$project_dir/$subject_id"
+    subject_dir="$project_dir/sub-$subject_id"
     simulation_dir="$subject_dir/SimNIBS/Simulations"
     eeg_net="${subject_eeg_nets[$subject_id]:-EGI_template.csv}"  # Use default if not set
 

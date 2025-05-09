@@ -10,8 +10,9 @@
 
 # Define paths
 project_base="/mnt/$PROJECT_DIR_NAME"
-utils_dir="$project_base/utils"
-montage_file="$utils_dir/montage_list.json"
+ti_csc_dir="$project_base/ti-csc"
+config_dir="$ti_csc_dir/config"
+montage_file="$config_dir/montage_list.json"
 
 # Check if the montage file exists
 if [[ ! -f "$montage_file" ]]; then

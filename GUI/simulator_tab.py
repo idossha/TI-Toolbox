@@ -461,40 +461,50 @@ class SimulatorTab(QtWidgets.QWidget):
     def list_subjects(self):
         """List available subjects in the project directory."""
         try:
-            project_dir = os.environ.get('PROJECT_DIR_NAME', '')
+            # Get project directory from environment variable
+            project_dir = f"/mnt/{os.environ.get('PROJECT_DIR_NAME', 'BIDS_new')}"
             if not project_dir:
-                QtWidgets.QMessageBox.warning(self, "Error", "PROJECT_DIR_NAME environment variable not set.")
                 return
-
-            base_path = f"/mnt/{project_dir}"
+            
+            # Clear existing items
             self.subject_list.clear()
-
-            # List all directories that contain m2m_ directories
-            for item in os.listdir(base_path):
-                subject_path = os.path.join(base_path, item)
-                if os.path.isdir(subject_path):
-                    m2m_path = os.path.join(subject_path, "SimNIBS", f"m2m_{item}")
-                    if os.path.isdir(m2m_path):
+            self.eeg_net_combo.clear()  # Clear existing EEG nets
+            
+            # Look for subjects in the derivatives/SimNIBS directory
+            simnibs_dir = os.path.join(project_dir, 'derivatives', 'SimNIBS')
+            if not os.path.exists(simnibs_dir):
+                return
+            
+            # Find all subject directories that have m2m_ directories
+            subjects = []
+            for subject_dir in os.listdir(simnibs_dir):
+                if subject_dir.startswith('sub-'):
+                    subject_id = subject_dir[4:]  # Remove 'sub-' prefix
+                    m2m_dir = os.path.join(simnibs_dir, subject_dir, f'm2m_{subject_id}')
+                    if os.path.isdir(m2m_dir):
+                        subjects.append(subject_id)
+                        
                         # Check for EEG nets in eeg_positions directory
-                        eeg_dir = os.path.join(m2m_path, "eeg_positions")
+                        eeg_dir = os.path.join(m2m_dir, 'eeg_positions')
                         if os.path.isdir(eeg_dir):
                             for net_file in os.listdir(eeg_dir):
                                 if net_file.endswith('.csv'):
                                     if net_file not in [self.eeg_net_combo.itemText(i) for i in range(self.eeg_net_combo.count())]:
                                         self.eeg_net_combo.addItem(net_file)
-                        
-                        # Add subject to list
-                        self.subject_list.addItem(item)
-
-            # Sort items alphabetically
-            self.subject_list.sortItems()
+            
+            # Sort subjects numerically if possible
+            subjects.sort(key=lambda x: int(x) if x.isdigit() else x)
+            
+            # Add subjects to list widget
+            for subject in subjects:
+                self.subject_list.addItem(subject)
             
             # If no nets found, add default
             if self.eeg_net_combo.count() == 0:
                 self.eeg_net_combo.addItem("EGI_template.csv")
-
+            
         except Exception as e:
-            QtWidgets.QMessageBox.warning(self, "Error", f"Error listing subjects: {str(e)}")
+            print(f"Error listing subjects: {str(e)}")
     
     def select_all_subjects(self):
         """Select all subjects in the subject list."""
@@ -512,56 +522,84 @@ class SimulatorTab(QtWidgets.QWidget):
         """Clear the selection in the montage list."""
         self.montage_list.clearSelection()
     
+
+    def ensure_montage_file_exists(self, project_dir):
+        """Ensure the montage file exists with proper structure."""
+        ti_csc_dir = os.path.join(project_dir, 'ti-csc')
+        config_dir = os.path.join(ti_csc_dir, 'config')
+        montage_file = os.path.join(config_dir, 'montage_list.json')
+        
+        # Create directories if they don't exist
+        os.makedirs(config_dir, exist_ok=True)
+        
+        # Set directory permissions
+        os.chmod(ti_csc_dir, 0o777)
+        os.chmod(config_dir, 0o777)
+        
+        # Create montage file if it doesn't exist
+        if not os.path.exists(montage_file):
+            initial_content = {
+                "nets": {
+                    "EGI_template.csv": {
+                        "uni_polar_montages": {},
+                        "multi_polar_montages": {}
+                    }
+                }
+            }
+            with open(montage_file, 'w') as f:
+                json.dump(initial_content, f, indent=4)
+            os.chmod(montage_file, 0o777)
+        else:
+            # Ensure correct permissions
+            os.chmod(montage_file, 0o777)
+        
+        return montage_file
+
     def update_montage_list(self, checked=None):
-        """Update the list of available montages based on selected mode and net."""
+        """Update the list of available montages."""
         try:
-            self.montage_list.clear()
-            
-            # Get current simulation mode and EEG net
-            mode_type = "uni_polar_montages" if self.sim_mode_unipolar.isChecked() else "multi_polar_montages"
-            current_net = self.eeg_net_combo.currentText()
-            
-            # Load montages from JSON file
-            project_dir = os.environ.get('PROJECT_DIR_NAME', '')
+            # Get project directory from environment variable
+            project_dir = f"/mnt/{os.environ.get('PROJECT_DIR_NAME', 'BIDS_new')}"
             if not project_dir:
                 return
             
-            montage_file = f"/mnt/{project_dir}/utils/montage_list.json"
-            if not os.path.exists(montage_file):
-                return
+            # Clear existing items
+            self.montage_list.clear()
             
+            # Ensure montage file exists and get its path
+            montage_file = self.ensure_montage_file_exists(project_dir)
+            
+            # Load montages from montage_list.json
             with open(montage_file, 'r') as f:
-                montages = json.load(f)
+                montage_data = json.load(f)
             
-            # Get montages for current net and mode
-            net_montages = montages.get('nets', {}).get(current_net, {}).get(mode_type, {})
+            # Get the current EEG net
+            current_net = self.eeg_net_combo.currentText() or "EGI_template.csv"
             
-            # Add montages to list with their electrode pairs
-            for montage_name, pairs in net_montages.items():
-                # Format pairs in a clean way without HTML
-                pairs_text = []
-                for pair in pairs:
-                    if isinstance(pair, list) and len(pair) >= 2:
-                        pairs_text.append(f"{pair[0]}↔{pair[1]}")
+            # Get montages for the current net
+            if "nets" in montage_data and current_net in montage_data["nets"]:
+                net_montages = montage_data["nets"][current_net]
                 
-                # Create display text with montage name and pairs
-                display_text = f"{montage_name} ({', '.join(pairs_text)})"
-                item = QtWidgets.QListWidgetItem(display_text)
-                item.setData(QtCore.Qt.UserRole, montage_name)  # Store actual montage name
-                self.montage_list.addItem(item)
-            
-            self.montage_list.sortItems()
+                # Add unipolar montages if in unipolar mode
+                if self.sim_mode_unipolar.isChecked() and "uni_polar_montages" in net_montages:
+                    for montage_name in net_montages["uni_polar_montages"]:
+                        self.montage_list.addItem(montage_name)
+                
+                # Add multipolar montages if in multipolar mode
+                if self.sim_mode_multipolar.isChecked() and "multi_polar_montages" in net_montages:
+                    for montage_name in net_montages["multi_polar_montages"]:
+                        self.montage_list.addItem(montage_name)
             
         except Exception as e:
-            QtWidgets.QMessageBox.warning(self, "Error", f"Error updating montage list: {str(e)}")
-            
+            print(f"Error updating montage list: {str(e)}")
+        
         # Update the electrode inputs view
         if checked is not None:
             if checked:  # Unipolar selected
                 self.electrode_stacked_widget.setCurrentIndex(0)
             else:  # Multipolar selected
                 self.electrode_stacked_widget.setCurrentIndex(1)
-                
+    
     def list_montages(self):
         """List available montages from montage_list.json."""
         try:
@@ -671,89 +709,102 @@ class SimulatorTab(QtWidgets.QWidget):
             # Get selected subjects
             selected_subjects = [item.text() for item in self.subject_list.selectedItems()]
             if not selected_subjects:
-                QtWidgets.QMessageBox.warning(self, "Error", "Please select at least one subject.")
+                QtWidgets.QMessageBox.warning(self, "Warning", "Please select at least one subject.")
                 return
-
+            
             # Get selected montages
-            selected_montages = [self.montage_list.item(i).data(QtCore.Qt.UserRole) 
-                               for i in range(self.montage_list.count()) 
-                               if self.montage_list.item(i).isSelected()]
+            selected_montages = [item.text() for item in self.montage_list.selectedItems()]
             if not selected_montages:
-                QtWidgets.QMessageBox.warning(self, "Error", "Please select at least one montage.")
+                QtWidgets.QMessageBox.warning(self, "Warning", "Please select at least one montage.")
                 return
-
-            # Get other parameters
-            sim_type = self.sim_type_combo.currentData()
+            
+            # Get simulation parameters
+            conductivity = self.sim_type_combo.currentData()  # Get conductivity from combo box
             sim_mode = "U" if self.sim_mode_unipolar.isChecked() else "M"
             eeg_net = self.eeg_net_combo.currentText()
-            electrode_shape = "rect" if self.electrode_shape_rect.isChecked() else "ellipse"
             
-            # Validate dimensions
+            # Get current value and convert to Amperes (from mA)
             try:
-                x_dim = float(self.dimensions_input.text().split(',')[0])
-                y_dim = float(self.dimensions_input.text().split(',')[1])
-                dimensions = f"{x_dim},{y_dim}"
+                current_ma = float(self.current_input.text() or "1.0")  # Default to 1.0 if empty
+                current = str(current_ma / 1000.0)  # Convert mA to A and back to string
+                if not current or float(current) <= 0:
+                    QtWidgets.QMessageBox.warning(self, "Warning", "Current value must be greater than 0 mA.")
+                    return
             except ValueError:
-                QtWidgets.QMessageBox.warning(self, "Error", "Invalid electrode dimensions.")
+                QtWidgets.QMessageBox.warning(self, "Warning", "Please enter a valid current value in mA.")
                 return
-
-            # Validate thickness
+            
+            electrode_shape = "rect" if self.electrode_shape_rect.isChecked() else "ellipse"
+            dimensions = self.dimensions_input.text() or "8,8"  # Default to 8,8 if empty
+            thickness = self.thickness_input.text() or "8"  # Default to 8 if empty
+            
+            # Validate parameters
+            if not all([conductivity, sim_mode, eeg_net]):
+                QtWidgets.QMessageBox.warning(self, "Warning", "Please fill in all required simulation parameters.")
+                return
+            
+            # Validate numeric inputs
             try:
-                thickness = float(self.thickness_input.text())
+                dim_parts = dimensions.split(',')
+                if len(dim_parts) != 2 or not all(dim_parts):
+                    raise ValueError("Invalid dimensions format")
+                float(dim_parts[0])
+                float(dim_parts[1])
+                float(thickness)
             except ValueError:
-                QtWidgets.QMessageBox.warning(self, "Error", "Invalid electrode thickness.")
+                QtWidgets.QMessageBox.warning(self, "Warning", "Please enter valid numeric values for dimensions and thickness.")
                 return
-
-            # Validate current
-            try:
-                current = float(self.current_input.text())
-            except ValueError:
-                QtWidgets.QMessageBox.warning(self, "Error", "Invalid current value.")
-                return
-
-            # Set environment variables
+            
+            # Prepare environment variables
             env = os.environ.copy()
             env['DIRECT_MODE'] = 'true'
+            env['PROJECT_DIR_NAME'] = os.environ.get('PROJECT_DIR_NAME', 'BIDS_new')
+            
+            # Build command
+            cmd = [
+                'bash',
+                os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'CLI', 'simulator.sh'),
+                '--run-direct'
+            ]
+            
+            # Set environment variables for simulator.sh
             env['SUBJECTS'] = ','.join(selected_subjects)
-            env['CONDUCTIVITY'] = sim_type
+            env['CONDUCTIVITY'] = conductivity
             env['SIM_MODE'] = sim_mode
             env['SELECTED_MONTAGES'] = ' '.join(selected_montages)
+            env['EEG_NET'] = eeg_net
+            env['CURRENT'] = current  # Now in Amperes
             env['ELECTRODE_SHAPE'] = electrode_shape
             env['DIMENSIONS'] = dimensions
-            env['THICKNESS'] = str(thickness)
-            env['CURRENT'] = str(current)
-            env['EEG_NET'] = eeg_net
-
-            # Build command
-            cmd = ['bash', '/testing/CLI/simulator.sh', '--run-direct']
-
-            # Clear console and show command
-            self.output_console.clear()
-            self.output_console.append("Running simulation with parameters:")
-            self.output_console.append(f"Subjects: {', '.join(selected_subjects)}")
-            self.output_console.append(f"Simulation type: {sim_type}")
-            self.output_console.append(f"Mode: {sim_mode}")
-            self.output_console.append(f"EEG Net: {eeg_net}")
-            self.output_console.append(f"Montages: {', '.join(selected_montages)}")
-            self.output_console.append(f"Electrode shape: {electrode_shape}")
-            self.output_console.append(f"Dimensions: {dimensions} mm")
-            self.output_console.append(f"Thickness: {thickness} mm")
-            self.output_console.append(f"Current: {current} mA")
-            self.output_console.append("\nStarting simulation...\n")
-
+            env['THICKNESS'] = thickness
+            
+            # Debug output
+            self.update_output(f"Running in direct execution mode from GUI")
+            self.update_output(f"Running simulation with:")
+            self.update_output(f"- Subjects: {env['SUBJECTS']}")
+            self.update_output(f"- Simulation type: {env['CONDUCTIVITY']}")
+            self.update_output(f"- Mode: {'Unipolar' if sim_mode == 'U' else 'Multipolar'}")
+            self.update_output(f"- EEG Net: {env['EEG_NET']}")
+            self.update_output(f"- Montages: {env['SELECTED_MONTAGES']}")
+            self.update_output(f"- Electrode shape: {env['ELECTRODE_SHAPE']}")
+            self.update_output(f"- Dimensions: {env['DIMENSIONS']} mm")
+            self.update_output(f"- Thickness: {env['THICKNESS']} mm")
+            self.update_output(f"- Current: {current} A")  # Debug current value
+            
             # Start simulation in a separate thread
-            self.simulation_running = True
             self.simulation_process = SimulationThread(cmd, env)
             self.simulation_process.output_signal.connect(self.update_output)
             self.simulation_process.finished.connect(self.simulation_finished)
             self.simulation_process.start()
-
+            
             # Update UI state
+            self.simulation_running = True
             self.run_btn.setEnabled(False)
             self.stop_btn.setEnabled(True)
-
+            
         except Exception as e:
             QtWidgets.QMessageBox.critical(self, "Error", f"Error starting simulation: {str(e)}")
+            print(f"Detailed error: {str(e)}")  # For debugging
     
     def simulation_finished(self):
         """Handle simulation completion."""
@@ -862,33 +913,20 @@ class SimulatorTab(QtWidgets.QWidget):
                     self.update_output("Error: Invalid electrode format (should be E1, E2)")
                     return
             
-            # Use environment variable for project directory like simulator.sh does
-            project_dir_name = os.environ.get('PROJECT_DIR_NAME', 'BIDS_test')
-            project_dir = f"/mnt/{project_dir_name}"
-            utils_dir = os.path.join(project_dir, "utils")
-            montage_file = os.path.join(utils_dir, "montage_list.json")
+            # Get project directory
+            project_dir = f"/mnt/{os.environ.get('PROJECT_DIR_NAME', 'BIDS_new')}"
             
-            # Create utils directory if it doesn't exist
-            if not os.path.exists(utils_dir):
-                os.makedirs(utils_dir)
-                self.output_console.append(f"Created utils directory at {utils_dir}")
+            # Ensure montage file exists and get its path
+            montage_file = self.ensure_montage_file_exists(project_dir)
             
-            # Load existing montage data or create new if file doesn't exist
-            montage_data_file = {"nets": {}}
-            if os.path.exists(montage_file):
-                with open(montage_file, 'r') as f:
-                    try:
-                        loaded_data = json.load(f)
-                        if isinstance(loaded_data, dict):
-                            montage_data_file = loaded_data
-                            # Ensure the nets structure exists
-                            if "nets" not in montage_data_file:
-                                montage_data_file["nets"] = {}
-                    except json.JSONDecodeError:
-                        self.output_console.append(f"Warning: Couldn't parse {montage_file}. Creating new file.")
+            # Load existing montage data
+            with open(montage_file, 'r') as f:
+                montage_data_file = json.load(f)
             
             # Ensure the target net exists in the structure
             target_net = montage_data["target_net"]
+            if "nets" not in montage_data_file:
+                montage_data_file["nets"] = {}
             if target_net not in montage_data_file["nets"]:
                 montage_data_file["nets"][target_net] = {
                     "uni_polar_montages": {},
@@ -903,16 +941,13 @@ class SimulatorTab(QtWidgets.QWidget):
             
             # Save the updated montage data
             with open(montage_file, 'w') as f:
-                json.dump(montage_data_file, f, indent=2)
+                json.dump(montage_data_file, f, indent=4)
             
             # Format pairs for display
             pairs_text = ", ".join([f"{pair[0]}↔{pair[1]}" for pair in montage_data["electrode_pairs"]])
             
             self.update_output(f"Added {montage_type.split('_')[0]} montage '{montage_data['name']}' for net {target_net} with pairs: {pairs_text}")
             self.update_output(f"Montage saved to: {montage_file}")
-            
-            # Set file permissions to match simulator.sh behavior
-            os.chmod(montage_file, 0o777)
             
             # Refresh the list of montages
             self.update_montage_list()
@@ -1121,21 +1156,22 @@ class AddMontageDialog(QtWidgets.QDialog):
             self.electrode_list.clear()
             net_file = self.net_combo.currentText()
             
-            # Get the subject directory from environment variable
-            project_dir = os.environ.get('PROJECT_DIR_NAME', '')
+            # Get project directory from environment variable
+            project_dir = f"/mnt/{os.environ.get('PROJECT_DIR_NAME', 'BIDS_new')}"
             if not project_dir:
                 return
             
-            # Get the first available subject to find the EEG positions directory
-            base_path = f"/mnt/{project_dir}"
+            # Look in derivatives/SimNIBS for subjects
+            simnibs_dir = os.path.join(project_dir, 'derivatives', 'SimNIBS')
             subject_found = False
             
-            for item in os.listdir(base_path):
-                subject_path = os.path.join(base_path, item)
-                if os.path.isdir(subject_path):
-                    m2m_path = os.path.join(subject_path, "SimNIBS", f"m2m_{item}")
-                    if os.path.isdir(m2m_path):
-                        eeg_file = os.path.join(m2m_path, "eeg_positions", net_file)
+            # Look through all subject directories
+            for subject_dir in os.listdir(simnibs_dir):
+                if subject_dir.startswith('sub-'):
+                    subject_id = subject_dir[4:]  # Remove 'sub-' prefix
+                    m2m_dir = os.path.join(simnibs_dir, subject_dir, f'm2m_{subject_id}')
+                    if os.path.isdir(m2m_dir):
+                        eeg_file = os.path.join(m2m_dir, 'eeg_positions', net_file)
                         if os.path.exists(eeg_file):
                             subject_found = True
                             # Read the CSV file

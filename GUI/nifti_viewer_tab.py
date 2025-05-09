@@ -29,15 +29,19 @@ class NiftiViewerTab(QtWidgets.QWidget):
         
     def find_base_dir(self):
         """Find the base directory for data (look for BIDS-format data)."""
-        # Start by looking in current directory
-        current_dir = os.getcwd()
+        # Get project directory from environment variable
+        project_dir_name = os.environ.get('PROJECT_DIR_NAME', 'BIDS_new')
+        base_dir = f"/mnt/{project_dir_name}"
         
-        # Try to find BIDS directory
+        # Check if the directory exists
+        if os.path.isdir(base_dir):
+            return base_dir
+                
+        # If not found, try some fallback directories
         potential_dirs = [
-            "/mnt/BIDS_test",  # As seen in the user's example
-            os.path.join(current_dir, "BIDS"),
-            os.path.join(current_dir, "data"),
-            os.path.dirname(current_dir)  # One level up
+            "/mnt/BIDS_test",
+            "/mnt/BIDS",
+            os.getcwd(),  # Current directory as last resort
         ]
         
         for dir_path in potential_dirs:
@@ -45,7 +49,7 @@ class NiftiViewerTab(QtWidgets.QWidget):
                 return dir_path
                 
         # If no special directory found, just use current dir
-        return current_dir
+        return os.getcwd()
         
     def setup_ui(self):
         """Set up the user interface for the NIfTI viewer tab."""
@@ -154,21 +158,28 @@ class NiftiViewerTab(QtWidgets.QWidget):
         """Scan for available subjects and update the dropdown."""
         self.subject_combo.clear()
         
-        # Look for subject directories in the base directory
+        # Look for subject directories in the derivatives/SimNIBS directory
         try:
-            # Try directories with SimNIBS folders
-            subject_dirs = [d for d in os.listdir(self.base_dir) 
-                          if os.path.isdir(os.path.join(self.base_dir, d, "SimNIBS"))]
+            derivatives_dir = os.path.join(self.base_dir, "derivatives", "SimNIBS")
+            if not os.path.isdir(derivatives_dir):
+                self.status_label.setText("No derivatives/SimNIBS directory found")
+                self.info_area.append(f"\nNo derivatives/SimNIBS directory found in {self.base_dir}")
+                return
+            
+            # Look for sub-* directories
+            subject_dirs = [d for d in os.listdir(derivatives_dir) 
+                          if os.path.isdir(os.path.join(derivatives_dir, d)) and d.startswith('sub-')]
             
             if subject_dirs:
-                self.subject_combo.addItems(sorted(subject_dirs))
+                # Remove 'sub-' prefix for display
+                subject_ids = [d[4:] for d in subject_dirs]  # Remove 'sub-' prefix
+                self.subject_combo.addItems(sorted(subject_ids))
                 self.status_label.setText(f"Found {len(subject_dirs)} subjects")
-                self.info_area.append(f"\nFound {len(subject_dirs)} subjects in {self.base_dir}")
+                self.info_area.append(f"\nFound {len(subject_dirs)} subjects in {derivatives_dir}")
             else:
                 self.status_label.setText("No subjects found")
-                # Add a message to the info area
-                self.info_area.append("\nNo subjects found in " + self.base_dir)
-                self.info_area.append("To set a custom data directory, modify the paths in the code.")
+                self.info_area.append(f"\nNo subjects found in {derivatives_dir}")
+                self.info_area.append("Make sure subjects are in BIDS format (sub-XXX)")
         except Exception as e:
             self.status_label.setText(f"Error scanning for subjects: {str(e)}")
             self.info_area.append(f"\nError scanning for subjects: {str(e)}")
@@ -178,10 +189,14 @@ class NiftiViewerTab(QtWidgets.QWidget):
         self.sim_list.clear()
         if self.subject_combo.count() == 0:
             return
+            
         subject_id = self.subject_combo.currentText()
-        sim_base = os.path.join(self.base_dir, subject_id, "SimNIBS", "Simulations")
+        sim_base = os.path.join(self.base_dir, "derivatives", "SimNIBS", f"sub-{subject_id}", "Simulations")
+        
         if not os.path.isdir(sim_base):
+            self.info_area.append(f"\nNo Simulations directory found at {sim_base}")
             return
+            
         # List all subdirectories (simulations)
         for sim_name in sorted(os.listdir(sim_base)):
             sim_path = os.path.join(sim_base, sim_name)
@@ -195,81 +210,91 @@ class NiftiViewerTab(QtWidgets.QWidget):
             return
         
         subject_id = self.subject_combo.currentText()
-        space = "MNI" if self.space_combo.currentText() == "MNI" else "Subject"
-        
-        # Construct paths for the T1 and simulation results
-        subject_dir = os.path.join(self.base_dir, subject_id)
-        
-        # Clear the info area and set color to black
-        self.info_area.clear()
-        self.info_area.setStyleSheet("color: black;")
-        self.info_area.append(f"Loading data for subject {subject_id} in {space} space...\n")
-        
-        # T1 path - use the correct directory structure with m2m_{subjectID}
-        m2m_dir = os.path.join(subject_dir, "SimNIBS", f"m2m_{subject_id}")
-        
-        if space == "MNI":
-            t1_path = os.path.join(m2m_dir, f"T1_{subject_id}_MNI.nii.gz")
-        else:
-            t1_path = os.path.join(m2m_dir, "T1.nii.gz")
-        
-        # Simulation results paths (updated for multiple simulations)
+        is_mni_space = self.space_combo.currentText() == "MNI"
         selected_sims = [item.text() for item in self.sim_list.selectedItems()]
+        
         if not selected_sims:
-            QtWidgets.QMessageBox.warning(self, "Warning", "No simulations selected")
+            QtWidgets.QMessageBox.warning(self, "Warning", "Please select at least one simulation")
             return
         
-        files_to_load = []
-        file_paths = []
-        missing_files = []
-        sim_prefix = "" if space == "Subject" else "MNI_"
-        for sim_name in selected_sims:
-            sim_dir = os.path.join(subject_dir, "SimNIBS", "Simulations", sim_name, "TI", "niftis")
-            grey_path = os.path.join(sim_dir, f"grey_{subject_id}_{sim_name}_{sim_prefix}TI_max.nii.gz")
-            result_path = os.path.join(sim_dir, f"{subject_id}_{sim_name}_{sim_prefix}TI_max.nii.gz")
-            if os.path.exists(grey_path):
-                files_to_load.append(f"{grey_path}:colormap=heat:heatscale=95,99.9:percentile=1:opacity=0.7:visible=1")
-                file_paths.append(grey_path)
-                self.info_area.append(f"Found grey matter file: {os.path.basename(grey_path)}")
-            else:
-                missing_files.append(f"Grey matter file not found: {grey_path}")
-                self.info_area.append(f"❌ Grey matter file not found: {grey_path}")
-            if os.path.exists(result_path):
-                files_to_load.append(f"{result_path}:colormap=heat:heatscale=95,99.9:percentile=1:opacity=0.7:visible=0")
-                file_paths.append(result_path)
-                self.info_area.append(f"Found result file: {os.path.basename(result_path)}")
-            else:
-                missing_files.append(f"Result file not found: {result_path}")
-                self.info_area.append(f"❌ Result file not found: {result_path}")
+        # Construct paths using BIDS structure
+        derivatives_dir = os.path.join(self.base_dir, "derivatives", "SimNIBS")
+        subject_dir = os.path.join(derivatives_dir, f"sub-{subject_id}")
+        m2m_dir = os.path.join(subject_dir, f"m2m_{subject_id}")
+        simulations_dir = os.path.join(subject_dir, "Simulations")
         
-        # Always add T1 file if it exists
-        if os.path.exists(t1_path):
-            files_to_load.insert(0, f"{t1_path}:visible=1")
-            file_paths.insert(0, t1_path)
-            self.info_area.append(f"Found T1 file: {os.path.basename(t1_path)}")
+        # Initialize file specifications for Freeview
+        file_specs = []
+        
+        # Add T1 image based on selected space - always visible with grayscale colormap
+        if is_mni_space:
+            t1_file = os.path.join(m2m_dir, f"T1_{subject_id}_MNI.nii.gz")
         else:
-            missing_files.append(f"T1 file not found: {t1_path}")
-            self.info_area.append(f"❌ T1 file not found: {t1_path}")
+            t1_file = os.path.join(m2m_dir, "T1.nii.gz")
         
-        if not files_to_load:
-            QtWidgets.QMessageBox.critical(
-                self, "Error", 
-                "No files found for the selected subject, space, and simulation(s).\n\n"
-                f"Missing files:\n- " + "\n- ".join(missing_files)
-            )
+        if os.path.exists(t1_file):
+            file_specs.append({
+                "path": t1_file,
+                "type": "volume",
+                "visible": 1,  # T1 is always visible
+                "colormap": "grayscale"  # T1 uses grayscale colormap
+            })
+        else:
+            self.info_area.append(f"\nWarning: T1 file not found at {t1_file}")
+        
+        # Add simulation results
+        for sim_name in selected_sims:
+            sim_dir = os.path.join(simulations_dir, sim_name)
+            
+            # Look for NIfTI files in the TI/niftis directory
+            nifti_dir = os.path.join(sim_dir, "TI", "niftis")
+            if os.path.exists(nifti_dir):
+                for nifti_file in glob.glob(os.path.join(nifti_dir, "*.nii*")):
+                    # Filter files based on space and type
+                    basename = os.path.basename(nifti_file)
+                    
+                    # Only include TI_max files and exclude TDCS files
+                    if "TI_max" not in basename or "TDCS" in basename:
+                        continue
+                        
+                    # Determine if this file should be visible by default
+                    # Only grey matter is visible by default
+                    is_visible = "grey_" in basename
+                    
+                    if is_mni_space:
+                        # Include only files with "_MNI" in their name
+                        if "_MNI" in basename:
+                            file_specs.append({
+                                "path": nifti_file,
+                                "type": "volume",
+                                "colormap": "heat",
+                                "opacity": 0.6,
+                                "visible": 1 if is_visible else 0,
+                                "percentile": 1,  # Use percentile mode for threshold
+                                "threshold_min": 95.0,  # 95th percentile
+                                "threshold_max": 99.9   # 99.9th percentile
+                            })
+                    else:
+                        # Include only files without "_MNI" in their name
+                        if "_MNI" not in basename:
+                            file_specs.append({
+                                "path": nifti_file,
+                                "type": "volume",
+                                "colormap": "heat",
+                                "opacity": 0.6,
+                                "visible": 1 if is_visible else 0,
+                                "percentile": 1,  # Use percentile mode for threshold
+                                "threshold_min": 95.0,  # 95th percentile
+                                "threshold_max": 99.9   # 99.9th percentile
+                            })
+        
+        if not any(spec for spec in file_specs if spec["path"].endswith((".nii", ".nii.gz"))):
+            QtWidgets.QMessageBox.warning(self, "Warning", 
+                f"No NIfTI files found for the selected simulation(s) in {'MNI' if is_mni_space else 'Subject'} space")
             return
         
-        # Add information about default visualization settings
-        self.info_area.append("\n📊 Visualization Settings:")
-        self.info_area.append("- T1: Displayed as grayscale, visible by default")
-        self.info_area.append("- Grey matter: 'Heat' colormap showing 95-99.9 percentile, visible by default")
-        self.info_area.append("- Result: 'Heat' colormap showing 95-99.9 percentile, initially hidden")
-        self.info_area.append("  (Click the checkbox next to the result to display)")
-        self.info_area.append("- Use the 'View Options' button to adjust display settings")
-        
-        # Launch Freeview with the selected files
-        self.info_area.append("\nLaunching Freeview with the found files...")
-        self.launch_freeview_with_files(files_to_load, file_paths)
+        # Launch Freeview with the files
+        self.launch_freeview_with_files(file_specs)
     
     def load_custom_nifti(self):
         """Open a file dialog to select a custom NIfTI file."""
@@ -298,10 +323,36 @@ class NiftiViewerTab(QtWidgets.QWidget):
             
             # Store the current files for potential reload
             self.current_files = file_specs
-            self.current_paths = file_paths if file_paths else file_specs
+            self.current_paths = file_paths if file_paths else [spec["path"] for spec in file_specs if isinstance(spec, dict)]
+            
+            # Construct the command arguments
+            freeview_args = []
+            for spec in file_specs:
+                if isinstance(spec, dict):
+                    # Convert dictionary spec to Freeview argument string
+                    arg = spec["path"]
+                    
+                    # Add basic display options
+                    if "colormap" in spec:
+                        arg += f":colormap={spec['colormap']}"
+                    if "opacity" in spec:
+                        arg += f":opacity={spec['opacity']}"
+                    if "visible" in spec:
+                        arg += f":visible={spec['visible']}"
+                        
+                    # Add threshold options if present
+                    if "percentile" in spec and spec["percentile"]:
+                        arg += ":percentile=1"  # Enable percentile mode
+                        if "threshold_min" in spec and "threshold_max" in spec:
+                            arg += f":heatscale={spec['threshold_min']},{spec['threshold_max']}"
+                    
+                    freeview_args.append(arg)
+                else:
+                    # If it's already a string, use it as is
+                    freeview_args.append(spec)
             
             # Construct the command
-            base_command = ['freeview'] + file_specs
+            base_command = ['freeview'] + freeview_args
             
             # Launch Freeview
             self.freeview_process = subprocess.Popen(
@@ -311,12 +362,12 @@ class NiftiViewerTab(QtWidgets.QWidget):
             )
             
             # Update UI
-            self.status_label.setText(f"Viewing {len(file_specs)} files")
+            self.status_label.setText(f"Viewing {len(freeview_args)} files")
             
             # Format the command for better display by breaking it into lines
             formatted_cmd = "freeview \\\n"
-            for spec in file_specs:
-                formatted_cmd += f"  {spec} \\\n"
+            for arg in freeview_args:
+                formatted_cmd += f"  {arg} \\\n"
             formatted_cmd = formatted_cmd.rstrip(" \\\n")
             
             self.cmd_label.setText(formatted_cmd)
@@ -324,10 +375,8 @@ class NiftiViewerTab(QtWidgets.QWidget):
             # Update info area with file details
             self.info_area.append("\nCurrently viewing:")
             
-            # Use original paths for display if provided
-            display_paths = file_paths if file_paths else file_specs
-            
-            for i, file_path in enumerate(display_paths):
+            # Use original paths for display
+            for i, file_path in enumerate(self.current_paths):
                 try:
                     file_size = os.path.getsize(file_path) / (1024 * 1024)  # Size in MB
                     basename = os.path.basename(file_path)

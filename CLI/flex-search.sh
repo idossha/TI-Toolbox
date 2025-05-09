@@ -16,7 +16,7 @@ script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 flex_search_dir="$script_dir/../flex-search"
 project_dir="/mnt/$PROJECT_DIR_NAME"
 utils_dir="$script_dir/../utils"
-config_file="$project_dir/config/flex-search_config/flex_config.json"
+config_file="$project_dir/ti-csc/config/flex-search_config/flex_config.json"
 
 # Export project directory for Python script
 export PROJECT_DIR="$project_dir"
@@ -84,7 +84,7 @@ get_default_value() {
 # Function to list available subjects
 list_subjects() {
     subjects=()
-    for subject_path in "$project_dir"/*/SimNIBS/m2m_*; do
+    for subject_path in "$project_dir"/derivatives/SimNIBS/sub-*/m2m_*; do
         if [ -d "$subject_path" ]; then
             subject_id=$(basename "$subject_path" | sed 's/m2m_//')
             subjects+=("$subject_id")
@@ -246,7 +246,7 @@ choose_postproc() {
 # Function to list available EEG nets for a subject
 list_eeg_nets() {
     local subject_id=$1
-    local eeg_dir="$project_dir/$subject_id/SimNIBS/m2m_$subject_id/eeg_positions"
+    local eeg_dir="$project_dir/derivatives/SimNIBS/sub-$subject_id/m2m_$subject_id/eeg_positions"
     
     if [ ! -d "$eeg_dir" ]; then
         echo -e "${RED}Error: EEG positions directory not found for subject $subject_id${RESET}"
@@ -481,7 +481,7 @@ setup_spherical_roi() {
 # Function to list available atlases
 list_atlases() {
     local subject_id=$1
-    local atlas_dir="$project_dir/$subject_id/SimNIBS/m2m_${subject_id}/segmentation"
+    local atlas_dir="$project_dir/derivatives/SimNIBS/sub-$subject_id/m2m_$subject_id/segmentation"
     
     if [ ! -d "$atlas_dir" ]; then
         echo "Error: Atlas directory not found: $atlas_dir"

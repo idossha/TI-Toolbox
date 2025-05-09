@@ -62,7 +62,7 @@ echo "DEBUG: Utils directory: $utils_dir"
 # Gather arguments from the prompter script
 subject_id=$1
 conductivity=$2
-subject_dir=$3
+project_dir=$3
 simulation_dir=$4
 sim_mode=$5  
 intensity=$6
@@ -73,11 +73,21 @@ shift 9  # Shift past all the fixed arguments
 eeg_net=$1  # Get the EEG net parameter
 shift 1  # Shift past the EEG net parameter
 
+# Construct BIDS paths
+derivatives_dir="$project_dir/derivatives"
+simnibs_dir="$derivatives_dir/SimNIBS/sub-$subject_id"
+m2m_dir="$simnibs_dir/m2m_$subject_id"
+
+# Update simulation directory to be under the BIDS derivatives structure
+simulation_dir="$simnibs_dir/Simulations"
+
 # Debug input arguments
 echo "DEBUG: Input Arguments:"
 echo "  - subject_id: $subject_id"
 echo "  - conductivity: $conductivity"
-echo "  - subject_dir: $subject_dir"
+echo "  - project_dir: $project_dir"
+echo "  - simnibs_dir: $simnibs_dir"
+echo "  - m2m_dir: $m2m_dir"
 echo "  - simulation_dir: $simulation_dir"
 echo "  - sim_mode: $sim_mode"
 echo "  - intensity: $intensity"
@@ -141,7 +151,7 @@ for montage in "${selected_montages[@]}"; do
     log "DEBUG" "- Subject ID: $subject_id" "$montage_dir"
     log "DEBUG" "- Conductivity: $conductivity" "$montage_dir"
     log "DEBUG" "- Simulation Mode: $sim_mode" "$montage_dir"
-    log "DEBUG" "- Intensity: $(echo "$intensity * 1000" | bc) mA" "$montage_dir"
+    log "DEBUG" "- Intensity: $intensity A" "$montage_dir"
     log "DEBUG" "- Electrode Shape: $electrode_shape" "$montage_dir"
     log "DEBUG" "- Electrode Dimensions: $dimensions mm" "$montage_dir"
     log "DEBUG" "- Electrode Thickness: $thickness mm" "$montage_dir"
@@ -176,7 +186,8 @@ for montage in "${selected_montages[@]}"; do
     log "INFO" "Running SimNIBS simulation for montage: $montage" "$montage_dir"
 done
 
-simnibs_python "$script_dir/TI.py" "$subject_id" "$conductivity" "$subject_dir" "$simulation_dir" "$intensity" "$electrode_shape" "$dimensions" "$thickness" "$eeg_net" "${selected_montages[@]}"
+# Pass the current value as intensity to TI.py
+simnibs_python "$script_dir/TI.py" "$subject_id" "$conductivity" "$project_dir" "$simulation_dir" "$intensity" "$electrode_shape" "$dimensions" "$thickness" "$eeg_net" "${selected_montages[@]}"
 
 # Function to extract fields (GM and WM meshes)
 extract_fields() {
@@ -202,7 +213,7 @@ transform_parcellated_meshes_to_nifti() {
     
     log "INFO" "Converting meshes to NIfTI format" "$montage_dir"
     mesh2nii_script_path="$script_dir/mesh2nii_loop.sh"
-    if ! bash "$mesh2nii_script_path" "$subject_id" "$subject_dir" "$input_mesh" "$output_dir"; then
+    if ! bash "$mesh2nii_script_path" "$subject_id" "$m2m_dir" "$input_mesh" "$output_dir"; then
         log "ERROR" "Mesh to NIfTI conversion failed" "$montage_dir"
         return 1
     fi
@@ -212,7 +223,6 @@ transform_parcellated_meshes_to_nifti() {
 # Convert T1 to MNI space
 convert_t1_to_mni() {
     local montage_dir="$1"
-    local m2m_dir="$subject_dir/${subject_id}/SimNIBS/m2m_${subject_id}"
     local t1_file="$m2m_dir/T1.nii.gz"
     local output_file="$m2m_dir/T1_${subject_id}"
     
