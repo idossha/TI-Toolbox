@@ -1,0 +1,10 @@
+hey there. i need your help. this is the content of a software I am working on. 
+The software is deployed in a docker container on the user's host machine. 
+The codebase in this directory is part of the docker's image and the user is mount a local directory 
+into ./mnt/projectID to establish an I/O communication channel for data exchange. 
+To see exactly how the docker container lauching is done please check out ./development/loder/*
+To see the image blueprints visit ./development/blueprint/*
+
+Now the task I need your help with:
+
+
