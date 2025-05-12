@@ -8,6 +8,7 @@ import numpy as np
 from itertools import product
 from simnibs import mesh_io
 from simnibs.utils import TI_utils as TI
+import csv
 
 '''
 Ido Haber - ihaber@wisc.edu
@@ -35,6 +36,17 @@ RED = '\033[0;31m'     # Red for errors
 GREEN = '\033[0;32m'   # Green for success messages and prompts
 CYAN = '\033[0;36m'    # Cyan for actions being performed
 BOLD_CYAN = '\033[1;36m'
+
+def get_roi_coordinates(roi_file):
+    """Read coordinates from a ROI CSV file."""
+    try:
+        with open(roi_file, 'r') as f:
+            reader = csv.reader(f)
+            coords = next(reader)
+            return [float(coord.strip()) for coord in coords]
+    except Exception as e:
+        print(f"{RED}Error reading coordinates from {roi_file}: {e}{RESET}")
+        return None
 
 # Function to generate all combinations
 def generate_combinations(E1_plus, E1_minus, E2_plus, E2_minus):
@@ -75,12 +87,38 @@ def get_intensity(prompt):
 def process_leadfield(leadfield_type, E1_plus, E1_minus, E2_plus, E2_minus, intensity, project_dir, subject_name):
     print(f"{CYAN}Starting processing for {leadfield_type} leadfield...{RESET}")
     
-    # Construct leadfield directory and HDF5 file path
-    leadfield_dir = os.path.join(project_dir, f"Subjects/leadfield_{leadfield_type}_{subject_name}")
+    # Construct paths according to BIDS structure
+    simnibs_dir = os.path.join(project_dir, "derivatives", "SimNIBS")
+    subject_dir = os.path.join(simnibs_dir, f"sub-{subject_name}")
+    m2m_dir = os.path.join(subject_dir, f"m2m_{subject_name}")
+    roi_dir = os.path.join(m2m_dir, "ROIs")
+    leadfield_dir = os.path.join(subject_dir, f"leadfield_{leadfield_type}_{subject_name}")  # Directly under subject directory
     leadfield_hdf = os.path.join(leadfield_dir, f"{subject_name}_leadfield_{os.getenv('EEG_CAP', 'EGI_template')}.hdf5")
     
     print(f"{CYAN}Leadfield Directory: {leadfield_dir}{RESET}")
     print(f"{CYAN}Leadfield HDF5 Path: {leadfield_hdf}{RESET}")
+    
+    # Get ROI coordinates from the first ROI file
+    roi_list_path = os.path.join(roi_dir, 'roi_list.txt')
+    try:
+        with open(roi_list_path, 'r') as file:
+            first_roi_name = file.readline().strip()
+            # Extract just the filename without path
+            first_roi_name = os.path.basename(first_roi_name)
+            first_roi = os.path.join(roi_dir, first_roi_name)
+    except FileNotFoundError:
+        print(f"{RED}Error: ROI list file not found at {roi_list_path}{RESET}")
+        sys.exit(1)
+    
+    coords = get_roi_coordinates(first_roi)
+    if not coords:
+        print(f"{RED}Error: Could not read coordinates from ROI file{RESET}")
+        sys.exit(1)
+    
+    # Create directory name from coordinates
+    coord_dir = f"xyz_{int(coords[0])}_{int(coords[1])}_{int(coords[2])}"
+    output_dir = os.path.join(subject_dir, "ex-search", coord_dir)
+    print(f"{CYAN}Output Directory: {output_dir}{RESET}")
     
     # Attempt to load leadfield
     try:
@@ -90,10 +128,6 @@ def process_leadfield(leadfield_type, E1_plus, E1_minus, E2_plus, E2_minus, inte
     except Exception as e:
         print(f"{RED}Error loading leadfield: {e}{RESET}")
         return
-    
-    # Set the output directory based on the project directory and subject name
-    output_dir = os.path.join(project_dir, f"Simulations/opt_{subject_name}")
-    print(f"{CYAN}Output Directory: {output_dir}{RESET}")
     
     # Create output directory if it doesn't exist
     if not os.path.exists(output_dir):
@@ -107,6 +141,11 @@ def process_leadfield(leadfield_type, E1_plus, E1_minus, E2_plus, E2_minus, inte
     all_combinations = generate_combinations(E1_plus, E1_minus, E2_plus, E2_minus)
     total_combinations = len(all_combinations)  # Calculate total configurations
     print(f"{CYAN}Starting TI simulation for {total_combinations} electrode combinations...{RESET}")
+    
+    # Create results directory
+    results_dir = os.path.join(output_dir, "results")
+    if not os.path.exists(results_dir):
+        os.makedirs(results_dir)
     
     # Iterate through all combinations of electrode pairs
     for i, ((e1p, e1m), (e2p, e2m)) in enumerate(all_combinations):
@@ -173,11 +212,14 @@ def process_leadfield(leadfield_type, E1_plus, E1_minus, E2_plus, E2_minus, inte
 
 if __name__ == "__main__":
     # Check for required environment variables
-    project_dir = os.getenv('PROJECT_DIR')
+    project_dir = os.getenv('PROJECT_DIR_NAME')  # Changed from PROJECT_DIR to PROJECT_DIR_NAME
     subject_name = os.getenv('SUBJECT_NAME')
     if not project_dir or not subject_name:
-        print(f"{RED}Error: PROJECT_DIR and SUBJECT_NAME environment variables must be set.{RESET}")
+        print(f"{RED}Error: PROJECT_DIR_NAME and SUBJECT_NAME environment variables must be set.{RESET}")
         sys.exit(1)
+    
+    # Construct the full project path
+    project_dir = f"/mnt/{project_dir}"  # Add /mnt/ prefix here
     
     print(f"{BOLD_CYAN}Starting TI Simulation for Subject: {subject_name}{RESET}")
     print(f"{BOLD_CYAN}Project Directory: {project_dir}{RESET}\n")

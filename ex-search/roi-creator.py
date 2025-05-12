@@ -64,17 +64,23 @@ def read_roi_coordinates(roi_name, directory):
     return []
 
 def call_view_nifti(roi_directory):
-    # Extract project directory and subject name
+    # Extract subject name from m2m directory path
     subject_name = os.path.basename(os.path.dirname(roi_directory)).replace('m2m_', '')
-    project_dir = os.path.dirname(os.path.dirname(roi_directory))
     
-    # Construct the path to the T1-weighted MRI
-    t1_mri_path = os.path.join(project_dir, f'm2m_{subject_name}', 'T1.nii.gz')
+    # Get paths according to BIDS structure
+    m2m_dir = os.path.dirname(roi_directory)
+    subject_dir = os.path.dirname(m2m_dir)
+    
+    # Construct the path to the T1-weighted MRI in BIDS format
+    t1_mri_path = os.path.join(subject_dir, 'anat', f'sub-{subject_name}_space-MNI305_T1w.nii.gz')
     
     # Check if the MRI file exists
     if not os.path.exists(t1_mri_path):
-        print(f"{RED}Error: MRI file not found at {t1_mri_path}{RESET}")
-        sys.exit(1)
+        # Fallback to m2m directory if BIDS T1 not found
+        t1_mri_path = os.path.join(m2m_dir, 'T1.nii.gz')
+        if not os.path.exists(t1_mri_path):
+            print(f"{RED}Error: MRI file not found at {t1_mri_path}{RESET}")
+            sys.exit(1)
     
     # Command to open Freeview
     freeview_command = ['freeview', t1_mri_path]
@@ -86,6 +92,23 @@ def call_view_nifti(roi_directory):
             subprocess.call(freeview_command, stdout=FNULL, stderr=FNULL)
     except FileNotFoundError:
         print(f"{RED}Error: Freeview not found. Please ensure Freeview is installed and in your PATH.{RESET}")
+        sys.exit(1)
+
+def ensure_roi_list(directory, roi_filename):
+    """Ensure the roi_list.txt file exists and contains the specified ROI."""
+    roi_list_path = os.path.join(directory, 'roi_list.txt')
+    try:
+        # Create directory if it doesn't exist
+        if not os.path.exists(directory):
+            os.makedirs(directory)
+        
+        # If file doesn't exist or we're updating it
+        with open(roi_list_path, 'w') as file:
+            file.write(f"{roi_filename}\n")
+        
+        print(f"{CYAN}Updated ROI list file at {roi_list_path}{RESET}")
+    except Exception as e:
+        print(f"{RED}Error updating roi_list.txt: {e}{RESET}")
         sys.exit(1)
 
 def main():
@@ -159,24 +182,17 @@ def main():
 
         # Save the ROI to a CSV file
         roi_file = save_roi_to_csv(roi_name, coordinates, roi_directory)
-
-        # Append the new ROI file to roi_list.txt
-        roi_list_path = os.path.join(roi_directory, 'roi_list.txt')
-        try:
-            with open(roi_list_path, 'a') as file:
-                file.write(f"{roi_file}\n")
-        except Exception as e:
-            print(f"{RED}Error updating roi_list.txt: {e}{RESET}")
-            sys.exit(1)
-
-        print(f"{GREEN}ROI '{roi_name}' has been saved in the '{roi_directory}' directory.{RESET}")
+        roi_filename = os.path.basename(roi_file)
 
     else:
         # User selects an existing ROI
         selected_roi = existing_rois[choice - 1]
         coordinates = read_roi_coordinates(selected_roi, roi_directory)
         print(f"{GREEN}You have selected ROI '{selected_roi}' with coordinates {coordinates}.{RESET}")
-        # Proceed with the selected ROI as needed
+        roi_filename = f"{selected_roi}.csv"
+
+    # Always ensure the roi_list.txt is updated with the selected/created ROI
+    ensure_roi_list(roi_directory, roi_filename)
 
 if __name__ == "__main__":
     main()
