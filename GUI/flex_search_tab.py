@@ -952,7 +952,7 @@ class FlexSearchTab(QtWidgets.QWidget):
         # Find the atlas file path
         subject_id = self.subject_combo.currentText()
         project_dir = os.environ.get('PROJECT_DIR', '/mnt/BIDS_test')
-        seg_dir = os.path.join(project_dir, 'derivatives', 'SimNIBS', f'sub-{subject_id}', 'segmentation')
+        seg_dir = os.path.join(project_dir, 'derivatives', 'SimNIBS', f'sub-{subject_id}', f'm2m_{subject_id}', 'segmentation')
         if not atlas_display:
             QtWidgets.QMessageBox.warning(self, "No Atlas Selected", "Please select an atlas.")
             return
