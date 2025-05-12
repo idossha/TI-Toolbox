@@ -8,9 +8,10 @@ This module provides a GUI interface for the TI-CSC-2.0 toolbox.
 
 import sys
 import os
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import subprocess
+import requests
 from PyQt5 import QtWidgets, QtCore, QtGui
+from version import __version__
 
 # Import tool-specific modules
 from simulator_tab import SimulatorTab
@@ -45,6 +46,8 @@ class MainWindow(QtWidgets.QMainWindow):
         )
         
         self.setup_ui()
+        # Always center on screen after setup
+        self.center_on_screen()
         
     def setup_ui(self):
         """Set up the user interface."""
@@ -95,16 +98,25 @@ class MainWindow(QtWidgets.QMainWindow):
         self.center_on_screen()
         
     def center_on_screen(self):
-        """Center the window on the screen."""
-        # Get the screen geometry
-        screen = QtWidgets.QApplication.desktop().screenGeometry()
-        # Get the window geometry
-        window = self.geometry()
-        # Calculate the center point
-        x = (screen.width() - window.width()) // 2
-        y = (screen.height() - window.height()) // 2
-        # Move the window
-        self.move(x, y)
+        """Center the window on the screen where the window is (multi-monitor aware, modern approach)."""
+        app = QtWidgets.QApplication.instance()
+        # Use QGuiApplication for modern screen handling
+        from PyQt5.QtGui import QGuiApplication
+        window_rect = self.frameGeometry()
+        center_point = window_rect.center()
+        screen = None
+        if hasattr(QGuiApplication, 'screenAt'):
+            screen = QGuiApplication.screenAt(center_point)
+        if screen is None:
+            # Fallback: use primary screen
+            screen = QGuiApplication.primaryScreen()
+        if screen:
+            screen_geometry = screen.availableGeometry()
+        else:
+            screen_geometry = app.desktop().screenGeometry()
+        qr = self.frameGeometry()
+        qr.moveCenter(screen_geometry.center())
+        self.move(qr.topLeft())
 
     def closeEvent(self, event):
         """Handle window close event."""
@@ -149,12 +161,71 @@ class MainWindow(QtWidgets.QMainWindow):
         msg_label.setText(message if busy else "")
         msg_label.setVisible(busy)
 
+    def showEvent(self, event):
+        super().showEvent(event)
+        self.center_on_screen()
+
     def resizeEvent(self, event):
         # Ensure overlays resize with the window
         for tab in [self.pre_process_tab, self.simulator_tab, self.flex_search_tab]:
             if hasattr(tab, '_busy_overlay'):
                 tab._busy_overlay.setGeometry(tab.rect())
         super().resizeEvent(event)
+        # Optionally, keep window centered after resize (uncomment if desired):
+        # self.center_on_screen()
+
+def parse_version(version_str):
+    """Parse a version string into a tuple of integers for comparison. Non-integer parts are ignored."""
+    parts = version_str.strip().split('.')
+    version_tuple = []
+    for part in parts:
+        try:
+            version_tuple.append(int(part))
+        except ValueError:
+            # Ignore non-integer parts (e.g., 'rc', 'beta')
+            break
+    return tuple(version_tuple)
+
+def check_for_update(current_version, parent_window=None):
+    """Check for updates and show a notification dialog if a newer version is available.
+    
+    Args:
+        current_version (str): The current version of the application
+        parent_window (QWidget, optional): The parent window to center the dialog on
+    """
+    try:
+        url = "https://raw.githubusercontent.com/idossha/TI-CSC-2.0/main/docs/latest_version.txt"
+        response = requests.get(url, timeout=2)
+        if response.status_code == 200:
+            latest_version = response.text.strip()
+            if latest_version:
+                # Only prompt if remote version is strictly newer
+                if parse_version(latest_version) > parse_version(current_version):
+                    msg_box = QtWidgets.QMessageBox(parent_window)
+                    msg_box.setIcon(QtWidgets.QMessageBox.Information)
+                    msg_box.setWindowTitle("Update Available")
+                    msg_box.setText(f"A new version of TI-CSC-2.0 is available!")
+                    msg_box.setInformativeText(
+                        f"Current version: {current_version}\n"
+                        f"Latest version: {latest_version}\n\n"
+                        f"Visit:\nhttps://github.com/idossha/TI-CSC-2.0/releases"
+                    )
+                    msg_box.setWindowModality(QtCore.Qt.ApplicationModal)
+                    # Center the dialog relative to the main window
+                    if parent_window:
+                        # Get the main window's geometry
+                        main_rect = parent_window.geometry()
+                        # Get the dialog's size
+                        dialog_size = msg_box.sizeHint()
+                        # Calculate the center position
+                        x = main_rect.x() + (main_rect.width() - dialog_size.width()) // 2
+                        y = main_rect.y() + (main_rect.height() - dialog_size.height()) // 2
+                        # Move the dialog to the center
+                        msg_box.move(x, y)
+                    msg_box.exec_()
+    except Exception as e:
+        print(f"Error checking for updates: {e}")  # Print to console for debugging
+        pass  # Continue execution
 
 def main():
     """Main entry point for the application."""
@@ -166,6 +237,9 @@ def main():
     # Set up the main window
     window = MainWindow()
     window.show()
+    
+    # Check for updates after a short delay to ensure window is fully shown
+    QtCore.QTimer.singleShot(1000, lambda: check_for_update(__version__, window))
     
     sys.exit(app.exec_())
 
