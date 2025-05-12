@@ -13,6 +13,7 @@ import re
 import subprocess
 import glob
 from PyQt5 import QtWidgets, QtCore, QtGui
+from confirmation_dialog import ConfirmationDialog
 
 class PreProcessThread(QtCore.QThread):
     """Thread to run pre-processing in background to prevent GUI freezing."""
@@ -649,6 +650,23 @@ class PreProcessTab(QtWidgets.QWidget):
                 self, "Invalid Options",
                 "Parallel mode requires recon-all to be enabled."
             )
+            return
+
+        # Show confirmation dialog
+        details = (f"This will process {len(selected_subjects)} subject(s) with the following options:\n\n" +
+                  f"• Convert DICOM: {'Yes' if self.convert_dicom_cb.isChecked() else 'No'}\n" +
+                  f"• DICOM Type: {'T1w + T2w' if self.t1_t2_rb.isChecked() else 'T1w only'}\n" +
+                  f"• Run recon-all: {'Yes' if self.run_recon_cb.isChecked() else 'No'}\n" +
+                  f"• Parallel processing: {'Yes' if self.parallel_cb.isChecked() else 'No'}\n" +
+                  f"• Create m2m folder: {'Yes' if self.create_m2m_cb.isChecked() else 'No'}\n" +
+                  f"• Quiet mode: {'Yes' if self.quiet_cb.isChecked() else 'No'}")
+        
+        if not ConfirmationDialog.confirm(
+            self,
+            title="Confirm Pre-processing",
+            message="Are you sure you want to start pre-processing?",
+            details=details
+        ):
             return
         
         # Set processing state

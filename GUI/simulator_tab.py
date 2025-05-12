@@ -11,6 +11,7 @@ import json
 import re
 import subprocess
 from PyQt5 import QtWidgets, QtCore, QtGui
+from confirmation_dialog import ConfirmationDialog
 
 class SimulationThread(QtCore.QThread):
     """Thread to run simulation in background to prevent GUI freezing."""
@@ -749,7 +750,42 @@ class SimulatorTab(QtWidgets.QWidget):
             self.output_console.append(f"Selected montage file: {file_name}")
     
     def run_simulation(self):
-        """Run the simulation with selected parameters."""
+        """Run the simulation with the selected parameters."""
+        if self.simulation_running:
+            self.update_output("Simulation already running. Please wait or stop the current run.")
+            return
+            
+        # Validate inputs
+        if not self.validate_inputs():
+            return
+            
+        # Show confirmation dialog
+        details = (f"This will run a simulation with the following parameters:\n\n" +
+                  f"• Subjects: {', '.join(item.text() for item in self.subject_list.selectedItems())}\n" +
+                  f"• EEG Net: {self.eeg_net_combo.currentText()}\n" +
+                  f"• Current: {self.current_input.text()} mA\n" +
+                  f"• Electrode Shape: {'Rectangle' if self.electrode_shape_rect.isChecked() else 'Ellipse'}\n" +
+                  f"• Electrode Dimensions: {self.dimensions_input.text()}\n" +
+                  f"• Electrode Thickness: {self.thickness_input.text()} mm\n" +
+                  f"• Simulation Mode: {'Unipolar' if self.sim_mode_unipolar.isChecked() else 'Multipolar'}\n" +
+                  f"• Montages: {', '.join(item.text() for item in self.montage_list.selectedItems())}")
+        
+        if not ConfirmationDialog.confirm(
+            self,
+            title="Confirm Simulation",
+            message="Are you sure you want to start the simulation?",
+            details=details
+        ):
+            return
+            
+        # Set processing state
+        self.simulation_running = True
+        self.run_btn.setEnabled(False)
+        self.stop_btn.setEnabled(True)
+        
+        # Disable all other controls
+        self.disable_controls()
+        
         try:
             # Get selected subjects
             selected_subjects = [item.text() for item in self.subject_list.selectedItems()]
@@ -841,14 +877,6 @@ class SimulatorTab(QtWidgets.QWidget):
             self.simulation_process.output_signal.connect(self.update_output)
             self.simulation_process.finished.connect(self.simulation_finished)
             self.simulation_process.start()
-            
-            # Update UI state
-            self.simulation_running = True
-            self.run_btn.setEnabled(False)
-            self.stop_btn.setEnabled(True)
-            
-            # Disable all other controls
-            self.disable_controls()
             
         except Exception as e:
             QtWidgets.QMessageBox.critical(self, "Error", f"Error starting simulation: {str(e)}")
@@ -1202,6 +1230,57 @@ class SimulatorTab(QtWidgets.QWidget):
         msg.adjustSize()
         
         msg.exec_()
+
+    def validate_inputs(self):
+        """Validate all input parameters before running the simulation."""
+        # Check if any subjects are selected
+        if not self.subject_list.selectedItems():
+            QtWidgets.QMessageBox.warning(self, "Warning", "Please select at least one subject.")
+            return False
+            
+        # Check if any montages are selected
+        if not self.montage_list.selectedItems():
+            QtWidgets.QMessageBox.warning(self, "Warning", "Please select at least one montage.")
+            return False
+            
+        # Validate current value
+        try:
+            current = float(self.current_input.text() or "1.0")
+            if current <= 0:
+                QtWidgets.QMessageBox.warning(self, "Warning", "Current value must be greater than 0 mA.")
+                return False
+        except ValueError:
+            QtWidgets.QMessageBox.warning(self, "Warning", "Please enter a valid current value in mA.")
+            return False
+            
+        # Validate dimensions
+        try:
+            dimensions = self.dimensions_input.text() or "8,8"
+            dim_parts = dimensions.split(',')
+            if len(dim_parts) != 2:
+                raise ValueError("Invalid dimensions format")
+            float(dim_parts[0])
+            float(dim_parts[1])
+        except ValueError:
+            QtWidgets.QMessageBox.warning(self, "Warning", "Please enter valid dimensions in format 'x,y' (e.g., '8,8').")
+            return False
+            
+        # Validate thickness
+        try:
+            thickness = float(self.thickness_input.text() or "8")
+            if thickness <= 0:
+                QtWidgets.QMessageBox.warning(self, "Warning", "Thickness must be greater than 0 mm.")
+                return False
+        except ValueError:
+            QtWidgets.QMessageBox.warning(self, "Warning", "Please enter a valid thickness value in mm.")
+            return False
+            
+        # Validate EEG net selection
+        if not self.eeg_net_combo.currentText():
+            QtWidgets.QMessageBox.warning(self, "Warning", "Please select an EEG net.")
+            return False
+            
+        return True
 
 class AddMontageDialog(QtWidgets.QDialog):
     """Dialog for adding new montages."""
