@@ -1,3 +1,53 @@
+"""
+VoxelAnalyzer: A tool for analyzing voxel-based neuroimaging data
+
+This module provides functionality for analyzing voxel-based data from medical imaging,
+particularly focusing on field analysis in specific regions of interest (ROIs).
+
+Inputs:
+    - NIfTI files containing field data
+    - Atlas files (NIfTI/MGZ) for cortical parcellation
+    - ROI specifications (coordinates, regions)
+
+Outputs:
+    - Statistical measures (mean, min, max)
+    - ROI masks
+    - Visualization files (optional)
+
+Example Usage:
+    ```python
+    # Initialize analyzer
+    analyzer = VoxelAnalyzer(
+        field_nifti="/path/to/field.nii.gz",
+        subject_dir="/path/to/subject",
+        output_dir="/path/to/output"
+    )
+
+    # Analyze a spherical ROI
+    sphere_results = analyzer.analyze_sphere(
+        center_coordinates=[0, 0, 0],
+        radius=10
+    )
+
+    # Analyze a cortical region
+    cortex_results = analyzer.analyze_cortex(
+        atlas_file="/path/to/atlas.mgz",
+        target_region="Left-Hippocampus"
+    )
+
+    # Analyze whole head
+    whole_head_results = analyzer.analyze_whole_head(
+        atlas_file="/path/to/atlas.mgz",
+        visualize=True
+    )
+    ```
+
+Dependencies:
+    - numpy
+    - nibabel
+    - subprocess (for FreeSurfer operations)
+"""
+
 import os
 import numpy as np
 import nibabel as nib
@@ -11,20 +61,30 @@ from visualizer import VoxelVisualizer
 class VoxelAnalyzer:
     """
     A class for analyzing voxel-based data from medical imaging.
+    
+    This class provides methods for analyzing field data in specific regions of interest,
+    including spherical ROIs and cortical regions defined by an atlas.
+    
+    Attributes:
+        field_nifti (str): Path to the NIfTI file containing field data
+        subject_dir (str): Directory containing subject data
+        output_dir (str): Directory where analysis results will be saved
+        visualizer (VoxelVisualizer): Instance of visualizer for generating plots
     """
     
-    def __init__(self, field_nifti: str, field_name: str, subject_dir: str, output_dir: str):
+    def __init__(self, field_nifti: str, subject_dir: str, output_dir: str):
         """
-        Initialize the VoxelAnalyzer class.
+        Initialize the VoxelAnalyzer with paths to required data.
         
         Args:
             field_nifti (str): Path to the NIfTI file containing field data
-            field_name (str): Name of the field to analyze
             subject_dir (str): Directory containing subject data
             output_dir (str): Directory where analysis results will be saved
+            
+        Raises:
+            FileNotFoundError: If field_nifti file does not exist
         """
         self.field_nifti = field_nifti
-        self.field_name = field_name
         self.subject_dir = subject_dir
         self.output_dir = output_dir
         self.visualizer = VoxelVisualizer(output_dir)
@@ -46,6 +106,10 @@ class VoxelAnalyzer:
             
         Returns:
             str: Atlas type if found, otherwise 'custom'
+            
+        Example:
+            >>> analyzer._extract_atlas_type("/path/to/subject_dk40.mgz")
+            'DK40'
         """
         atlas_file = os.path.basename(atlas_file).lower()
         
@@ -183,6 +247,7 @@ class VoxelAnalyzer:
     def analyze_sphere(self, center_coordinates, radius):
         """
         Analyze a spherical region of interest from voxel data.
+        Only includes voxels with non-zero field values.
         
         Args:
             center_coordinates (list or tuple): [x, y, z] coordinates of sphere center in mm
@@ -194,6 +259,7 @@ class VoxelAnalyzer:
                 - max_value: Maximum field value in the ROI
                 - min_value: Minimum field value in the ROI
                 - roi_mask: Boolean mask of voxels in the ROI
+                - voxels_in_roi: Number of voxels in the ROI (excluding zero values)
         """
         print(f"Analyzing a spherical ROI (radius={radius}mm) at coordinates {center_coordinates}")
         
@@ -208,12 +274,8 @@ class VoxelAnalyzer:
         affine = img.affine
         
         # Convert world coordinates to voxel coordinates if needed
-        # This assumes center_coordinates are in world space
-        # inv_affine = np.linalg.inv(affine)
-        # voxel_coords = np.dot(inv_affine, np.append(center_coordinates, 1))[:3]
-        
-        # For simplicity, assume coordinates are already in voxel space
-        voxel_coords = np.array(center_coordinates)
+        inv_affine = np.linalg.inv(affine)
+        voxel_coords = np.dot(inv_affine, np.append(center_coordinates, 1))[:3]
         
         # Create coordinate grids for the entire volume
         x_size, y_size, z_size = field_data.shape
@@ -229,21 +291,30 @@ class VoxelAnalyzer:
         # Create the spherical mask
         roi_mask = dist_from_center <= radius
         
+        # Create mask for non-zero values
+        nonzero_mask = field_data > 0
+        
+        # Combine masks to get only non-zero values within ROI
+        combined_mask = roi_mask & nonzero_mask
+        
         # Count voxels in ROI
-        roi_voxels_count = np.sum(roi_mask)
+        roi_voxels_count = np.sum(combined_mask)
+        total_voxels_in_roi = np.sum(roi_mask)
+        zero_voxels_in_roi = total_voxels_in_roi - roi_voxels_count
         
         # Check if we have any voxels in the ROI
         if roi_voxels_count == 0:
-            print("Warning: No voxels found in the specified ROI!")
+            print("Warning: No voxels with non-zero values found in the specified ROI!")
             return {
                 'mean_value': None,
                 'max_value': None,
                 'min_value': None,
-                'roi_mask': roi_mask
+                'roi_mask': combined_mask,
+                'voxels_in_roi': 0
             }
         
         # Get the field values within the ROI
-        roi_values = field_data[roi_mask]
+        roi_values = field_data[combined_mask]
         
         # Calculate statistics
         min_value = np.min(roi_values)
@@ -251,17 +322,19 @@ class VoxelAnalyzer:
         mean_value = np.mean(roi_values)
         
         print(f"ROI Analysis Results:")
-        print(f" Number of voxels in ROI: {roi_voxels_count}")
-        print(f" Mean {self.field_name}: {mean_value:.6f}")
-        print(f" Min {self.field_name}: {min_value:.6f}")
-        print(f" Max {self.field_name}: {max_value:.6f}")
+        print(f" Total voxels in ROI: {total_voxels_in_roi}")
+        print(f" Voxels with non-zero values: {roi_voxels_count}")
+        print(f" Voxels with zero values (excluded): {zero_voxels_in_roi}")
+        print(f" Mean: {mean_value:.6f}")
+        print(f" Min: {min_value:.6f}")
+        print(f" Max: {max_value:.6f}")
         
         # Return analysis results
         return {
             'mean_value': mean_value,
             'max_value': max_value,
             'min_value': min_value,
-            'roi_mask': roi_mask,
+            'roi_mask': combined_mask,
             'voxels_in_roi': roi_voxels_count
         }
 

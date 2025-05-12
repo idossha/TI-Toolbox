@@ -1,11 +1,95 @@
+"""
+Visualizer: A tool for generating visualizations of neuroimaging analysis results
+
+This module provides visualization capabilities for both voxel-based and mesh-based
+neuroimaging data analysis results. It can generate various types of plots and
+visualizations to help interpret analysis results.
+
+Inputs:
+    - Analysis results (statistical measures, ROI masks)
+    - Field data (voxel or mesh based)
+    - Atlas information
+    - Region specifications
+
+Outputs:
+    - Distribution plots
+    - Scatter plots
+    - ROI visualizations
+    - Surface overlays
+    - Statistical summaries
+
+Example Usage:
+    ```python
+    # Initialize visualizer
+    visualizer = VoxelVisualizer(output_dir="/path/to/output")
+    
+    # Generate distribution plot
+    visualizer.generate_value_distribution_plot(
+        values=field_values,
+        region_name="Left-Hippocampus",
+        atlas_type="DK40",
+        mean_value=0.5,
+        max_value=1.0,
+        min_value=0.1,
+        data_type='voxel'
+    )
+    
+    # Generate scatter plot
+    visualizer.generate_cortex_scatter_plot(
+        results=analysis_results,
+        atlas_type="DK40",
+        data_type='voxel'
+    )
+    ```
+
+Dependencies:
+    - numpy
+    - matplotlib
+    - nibabel (for VoxelVisualizer)
+    - simnibs (for MeshVisualizer)
+"""
+
 import os
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import cm
 from matplotlib.colors import Normalize
 import simnibs
+from pathlib import Path
 
-class Visualizer:
+
+class BaseVisualizer:
+    """
+    Base class for visualization functionality.
+    
+    This class provides common visualization methods that can be used
+    by both voxel-based and mesh-based visualizers.
+    
+    Attributes:
+        output_dir (str): Directory where visualization files will be saved
+    """
+    
+    def __init__(self, output_dir: str):
+        """
+        Initialize the BaseVisualizer.
+        
+        Args:
+            output_dir (str): Directory where visualization files will be saved
+        """
+        self.output_dir = output_dir
+        
+        # Create output directory if it doesn't exist
+        if not os.path.exists(output_dir):
+            os.makedirs(output_dir)
+            
+        # Create subdirectories for different types of visualizations
+        self.plot_dir = os.path.join(output_dir, 'plots')
+        self.roi_dir = os.path.join(output_dir, 'roi_visualizations')
+        os.makedirs(self.plot_dir, exist_ok=True)
+        os.makedirs(self.roi_dir, exist_ok=True)
+
+
+class Visualizer(BaseVisualizer):
     """
     Base class for generating visualizations of analysis results.
     Contains common visualization methods used by both mesh and voxel analysis.
@@ -18,7 +102,7 @@ class Visualizer:
         Args:
             output_dir (str): Directory where visualization files will be saved
         """
-        self.output_dir = output_dir
+        super().__init__(output_dir)
         
         # Create output directories if they don't exist
         self.cortex_plot_dir = os.path.join(output_dir, 'cortex_plots')
