@@ -5,7 +5,7 @@ SCRIPT_DIR=$(dirname "$(readlink -f "$0")")
 cd "$SCRIPT_DIR"
 
 # Default paths file
-DEFAULT_PATHS_FILE="$SCRIPT_DIR/.default_paths"
+DEFAULT_PATHS_FILE="$SCRIPT_DIR/.default_paths.user"
 
 # Function to load default paths
 load_default_paths() {
@@ -90,15 +90,52 @@ allow_network_clients() {
     fi
 }
 
+# Function to get the IP address of the host machine
+get_host_ip() {
+  case "$(uname -s)" in
+  Darwin)
+    # Get the local IP address on macOS
+    HOST_IP=$(ifconfig en0 | grep inet | awk '$1=="inet" {print $2}')
+    ;;
+  Linux)
+    # On Linux, we don't need to calculate HOST_IP for DISPLAY
+    HOST_IP=""
+    ;;
+  *)
+    echo "Unsupported OS. Please use macOS or Linux."
+    exit 1
+    ;;
+  esac
+  echo "Host IP: $HOST_IP"
+}
+
 # Function to set DISPLAY environment variable based on OS and processor type
 set_display_env() {
-    if [[ "$(uname -s)" == "Linux" ]]; then
-        export DISPLAY=$DISPLAY
-    else
-        export DISPLAY=:0
-        xhost +localhost >/dev/null 2>&1
-        xhost +$(hostname) >/dev/null 2>&1
-    fi
+  echo "Setting DISPLAY environment variable..."
+
+  if [[ "$(uname -s)" == "Linux" ]]; then
+    # If Linux, use the existing DISPLAY
+    export DISPLAY=$DISPLAY
+    echo "Using system's DISPLAY: $DISPLAY"
+  else
+    # For macOS, dynamically obtain the host IP and set DISPLAY
+    get_host_ip # Get the IP address dynamically
+    export DISPLAY="$HOST_IP:0"
+    echo "DISPLAY set to $DISPLAY"
+  fi
+}
+
+# Function to allow connections from XQuartz or X11
+allow_xhost() {
+  echo "Allowing connections from XQuartz or X11..."
+
+  if [[ "$(uname -s)" == "Linux" ]]; then
+    # Allow connections for Linux
+    xhost +local:root
+  else
+    # Use the dynamically obtained IP for macOS xhost
+    xhost + "$HOST_IP"
+  fi
 }
 
 # Function to validate docker-compose.yml existence
@@ -170,5 +207,6 @@ export PROJECT_DIR_NAME
 save_default_paths
 
 set_display_env
+allow_xhost # Allow X11 connections
 
 run_docker_compose 

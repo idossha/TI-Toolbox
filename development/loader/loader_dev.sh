@@ -5,7 +5,7 @@ SCRIPT_DIR=$(dirname "$(readlink -f "$0")")
 cd "$SCRIPT_DIR"
 
 # Default paths file
-DEFAULT_PATHS_FILE="$SCRIPT_DIR/.default_paths"
+DEFAULT_PATHS_FILE="$SCRIPT_DIR/.default_paths.dev"
 
 # Function to load default paths
 load_default_paths() {
@@ -74,22 +74,11 @@ get_project_directory() {
       read -r LOCAL_PROJECT_DIR
     fi
 
-    # Check if directory exists
     if [[ -d "$LOCAL_PROJECT_DIR" ]]; then
-      # Check if we have write permissions
-      if [[ ! -w "$LOCAL_PROJECT_DIR" ]]; then
-        echo "Warning: No write permissions in directory $LOCAL_PROJECT_DIR"
-        echo "The container may not function properly without write access."
-        echo "Do you want to continue anyway? (y/n)"
-        read -r response
-        if [[ "$response" != "y" ]]; then
-          continue
-        fi
-      fi
+      echo "Project directory found."
       break
     else
-      echo "Directory does not exist: $LOCAL_PROJECT_DIR"
-      echo "Please provide an existing directory path."
+      echo "Invalid directory. Please provide a valid path."
     fi
   done
 }
@@ -139,81 +128,33 @@ get_host_ip() {
   echo "Host IP: $HOST_IP"
 }
 
-# Function to check for macOS
-check_macos() {
-    if [[ "$(uname)" != "Darwin" ]]; then
-        echo "This script only runs on macOS. Aborting."
-        exit 1
-    else
-        echo "macOS detected. Proceeding..."
-    fi
-}
-
-# Function to check XQuartz version
-check_xquartz_version() {
-    XQUARTZ_APP="/Applications/Utilities/XQuartz.app"
-    if [ ! -d "$XQUARTZ_APP" ]; then
-        echo "XQuartz is not installed. Please install XQuartz 2.7.7."
-        exit 1
-    else
-        xquartz_version=$(mdls -name kMDItemVersion "$XQUARTZ_APP" | awk -F'"' '{print $2}')
-        echo "XQuartz version detected: $xquartz_version"
-        if [[ "$xquartz_version" > "2.8.0" ]]; then
-            echo "Warning: XQuartz version is above 2.8.0. Please downgrade to version 2.7.7 for compatibility."
-            exit 1
-        else
-            echo "XQuartz version is compatible."
-        fi
-    fi
-}
-
-# Function to allow connections from network clients
-allow_network_clients() {
-    echo "Enabling connections from network clients in XQuartz..."
-    defaults write org.macosforge.xquartz.X11 nolisten_tcp -bool false
-    
-    # Check if XQuartz is already running
-    if ! pgrep -x "Xquartz" > /dev/null; then
-        echo "Starting XQuartz..."
-        open -a XQuartz
-        sleep 2
-    else
-        echo "XQuartz is already running."
-    fi
-}
-
 # Function to set DISPLAY environment variable based on OS and processor type
 set_display_env() {
-    echo "Setting DISPLAY environment variable..."
+  echo "Setting DISPLAY environment variable..."
 
-    if [[ "$(uname -s)" == "Linux" ]]; then
-        # If Linux, use the existing DISPLAY
-        export DISPLAY=$DISPLAY
-        echo "Using system's DISPLAY: $DISPLAY"
-    else
-        # For macOS, use the new configuration
-        echo "Setting DISPLAY to :0"
-        export DISPLAY=:0
-
-        echo "Allowing X11 connections from localhost..."
-        xhost +localhost
-
-        echo "Allowing X11 connections from the hostname..."
-        xhost +$(hostname)
-    fi
+  if [[ "$(uname -s)" == "Linux" ]]; then
+    # If Linux, use the existing DISPLAY
+    export DISPLAY=$DISPLAY
+    echo "Using system's DISPLAY: $DISPLAY"
+  else
+    # For macOS, dynamically obtain the host IP and set DISPLAY
+    get_host_ip # Get the IP address dynamically
+    export DISPLAY="$HOST_IP:0"
+    echo "DISPLAY set to $DISPLAY"
+  fi
 }
 
 # Function to allow connections from XQuartz or X11
 allow_xhost() {
-    echo "Allowing connections from XQuartz or X11..."
+  echo "Allowing connections from XQuartz or X11..."
 
-    if [[ "$(uname -s)" == "Linux" ]]; then
-        # Allow connections for Linux
-        xhost +local:root
-    else
-        # For macOS, we've already set up the connections in set_display_env
-        return 0
-    fi
+  if [[ "$(uname -s)" == "Linux" ]]; then
+    # Allow connections for Linux
+    xhost +local:root
+  else
+    # Use the dynamically obtained IP for macOS xhost
+    xhost + "$HOST_IP"
+  fi
 }
 
 # Function to validate docker-compose.yml existence
@@ -267,54 +208,40 @@ run_docker_compose() {
 write_system_info() {
   INFO_DIR="$LOCAL_PROJECT_DIR/.ti-csc-info"
   INFO_FILE="$INFO_DIR/system_info.txt"
-  
-  # Check if we have write permissions before attempting to create directory
-  if [[ ! -w "$LOCAL_PROJECT_DIR" ]]; then
-    return 0  # Silently exit if no write permissions
-  fi
-  
-  mkdir -p "$INFO_DIR" 2>/dev/null || return 0  # Silently exit if mkdir fails
+  mkdir -p "$INFO_DIR"
 
-  {
-    echo "# TI-CSC System Info"
-    echo "Date: $(date)"
-    echo "User: $(whoami)"
-    echo "Host: $(hostname)"
-    echo "OS: $(uname -a)"
-    echo ""
-    echo "## Disk Space (project dir)"
-    df -h "$LOCAL_PROJECT_DIR" 2>/dev/null || echo "Unable to get disk space information"
-    echo ""
-    echo "## Docker Version"
-    if command -v docker &>/dev/null; then
-      docker --version
-      echo ""
-      echo "## Docker Resource Allocation"
-      docker info --format 'CPUs: {{.NCPU}}\nMemory: {{.MemTotal}} bytes' 2>/dev/null || echo "Unable to get Docker resource information"
-    else
-      echo "Docker not found"
-    fi
-    echo ""
-    echo "## DISPLAY"
-    echo "$DISPLAY"
-    echo ""
-    echo "## Environment Variables (TI-CSC relevant)"
-    env | grep -Ei '^(FSL|FREESURFER|SIMNIBS|PROJECT_DIR|DEV_CODEBASE|SUBJECTS_DIR|FS_LICENSE|FSFAST|MNI|POSSUM|DISPLAY|USER|PATH)=' 2>/dev/null || echo "Unable to get environment variables"
-  } > "$INFO_FILE" 2>/dev/null || true  # Silently continue if write fails
+  echo "# TI-CSC System Info" > "$INFO_FILE"
+  echo "Date: $(date)" >> "$INFO_FILE"
+  echo "User: $(whoami)" >> "$INFO_FILE"
+  echo "Host: $(hostname)" >> "$INFO_FILE"
+  echo "OS: $(uname -a)" >> "$INFO_FILE"
+  echo "" >> "$INFO_FILE"
+  echo "## Disk Space (project dir)" >> "$INFO_FILE"
+  df -h "$LOCAL_PROJECT_DIR" >> "$INFO_FILE"
+  echo "" >> "$INFO_FILE"
+  echo "## Docker Version" >> "$INFO_FILE"
+  if command -v docker &>/dev/null; then
+    docker --version >> "$INFO_FILE"
+    echo "" >> "$INFO_FILE"
+    echo "## Docker Resource Allocation" >> "$INFO_FILE"
+    docker info --format 'CPUs: {{.NCPU}}\nMemory: {{.MemTotal}} bytes' >> "$INFO_FILE"
+  else
+    echo "Docker not found" >> "$INFO_FILE"
+  fi
+  echo "" >> "$INFO_FILE"
+  echo "## DISPLAY" >> "$INFO_FILE"
+  echo "$DISPLAY" >> "$INFO_FILE"
+  echo "" >> "$INFO_FILE"
+  echo "## Environment Variables (TI-CSC relevant)" >> "$INFO_FILE"
+  env | grep -Ei '^(FSL|FREESURFER|SIMNIBS|PROJECT_DIR|DEV_CODEBASE|SUBJECTS_DIR|FS_LICENSE|FSFAST|MNI|POSSUM|DISPLAY|USER|PATH)=' >> "$INFO_FILE"
+  echo "" >> "$INFO_FILE"
+  echo "System info written to $INFO_FILE"
 }
 
 # Main Script Execution
 
 validate_docker_compose
 display_welcome
-
-# Check macOS and XQuartz if on macOS
-if [[ "$(uname -s)" == "Darwin" ]]; then
-    check_macos
-    check_xquartz_version
-    allow_network_clients
-fi
-
 load_default_paths
 get_project_directory
 get_dev_codebase_directory
@@ -336,5 +263,7 @@ save_default_paths
 
 # Write system info to hidden folder in project dir
 write_system_info
+
+echo "System info written to $LOCAL_PROJECT_DIR/.ti-csc-info/system_info.txt"
 
 run_docker_compose
