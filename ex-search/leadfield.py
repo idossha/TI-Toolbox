@@ -1,4 +1,3 @@
-
 import os
 from simnibs import run_simnibs, sim_struct
 import sys
@@ -37,15 +36,17 @@ def create_leadfield(subject_ID, eeg_cap, interpolation=None, tissues=None, suff
     # Extract the subject number or ID from the provided path
     subject_number = os.path.basename(subject_ID).replace('m2m_', '')
 
-    # File handling
-    output_dir = os.path.join(os.path.dirname(subject_ID), f"leadfield_{suffix}_{subject_number}")
+    # File handling - use BIDS structure
+    # Get the SimNIBS derivatives directory (parent of subject directory)
+    subject_bids_dir = os.path.dirname(subject_ID)  # This is the subject directory (e.g., sub-101)
+    output_dir = os.path.join(subject_bids_dir, f"leadfield_{suffix}_{subject_number}")  # Directly under subject directory
     
     # Ensure the output directory exists
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
     
-    tdcs_lf.subpath = subject_ID  # subject directory
-    tdcs_lf.pathfem = output_dir  # output directory next to m2m_subjectID
+    tdcs_lf.subpath = subject_ID  # subject directory (m2m_subjectID)
+    tdcs_lf.pathfem = output_dir  # output directory in subject's directory
     tdcs_lf.eeg_cap = eeg_cap  # specific file in eeg-cap directory.
 
     # Electrode configuration

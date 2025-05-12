@@ -11,6 +11,7 @@ import json
 import re
 import subprocess
 from PyQt5 import QtWidgets, QtCore, QtGui
+from confirmation_dialog import ConfirmationDialog
 
 class SimulationThread(QtCore.QThread):
     """Thread to run simulation in background to prevent GUI freezing."""
@@ -105,6 +106,24 @@ class SimulatorTab(QtWidgets.QWidget):
         """Set up the user interface for the simulator tab."""
         main_layout = QtWidgets.QVBoxLayout(self)
         
+        # Add status label at the top
+        self.status_label = QtWidgets.QLabel()
+        self.status_label.setStyleSheet("""
+            QLabel {
+                background-color: white;
+                color: #f44336;
+                padding: 5px 10px;
+                border-radius: 3px;
+                font-weight: bold;
+                font-size: 13px;
+                min-height: 30px;
+                max-height: 30px;
+            }
+        """)
+        self.status_label.setAlignment(QtCore.Qt.AlignVCenter)
+        self.status_label.hide()  # Initially hidden
+        main_layout.addWidget(self.status_label)
+        
         # Create a scroll area for the form
         scroll_area = QtWidgets.QScrollArea()
         scroll_area.setWidgetResizable(True)
@@ -159,6 +178,9 @@ class SimulatorTab(QtWidgets.QWidget):
         # Add New Montage button
         self.add_new_montage_btn = QtWidgets.QPushButton("Add New Montage")
         self.add_new_montage_btn.clicked.connect(self.show_add_montage_dialog)
+        # Remove Montage button
+        self.remove_montage_btn = QtWidgets.QPushButton("Remove Montage")
+        self.remove_montage_btn.clicked.connect(self.remove_selected_montage)
         # Other montage buttons
         self.list_montages_btn = QtWidgets.QPushButton("Refresh List")
         self.list_montages_btn.clicked.connect(self.update_montage_list)
@@ -168,6 +190,7 @@ class SimulatorTab(QtWidgets.QWidget):
         self.clear_montage_selection_btn.clicked.connect(self.clear_montage_selection)
         
         montage_button_layout.addWidget(self.add_new_montage_btn)
+        montage_button_layout.addWidget(self.remove_montage_btn)
         montage_button_layout.addWidget(self.list_montages_btn)
         montage_button_layout.addWidget(self.select_all_montages_btn)
         montage_button_layout.addWidget(self.clear_montage_selection_btn)
@@ -191,8 +214,27 @@ class SimulatorTab(QtWidgets.QWidget):
         self.sim_type_combo.addItem("Anisotropic (vn)", "vn")
         self.sim_type_combo.addItem("Anisotropic (dir)", "dir")
         self.sim_type_combo.addItem("Anisotropic (mc)", "mc")
+        
+        # Add help button
+        self.sim_type_help_btn = QtWidgets.QPushButton("?")
+        self.sim_type_help_btn.setFixedWidth(20)
+        self.sim_type_help_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #4a4a4a;
+                color: white;
+                border: none;
+                border-radius: 10px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #5a5a5a;
+            }
+        """)
+        self.sim_type_help_btn.clicked.connect(self.show_sim_type_help)
+        
         sim_type_layout.addWidget(self.sim_type_label)
         sim_type_layout.addWidget(self.sim_type_combo)
+        sim_type_layout.addWidget(self.sim_type_help_btn)
         sim_params_layout.addLayout(sim_type_layout)
 
         # EEG Net selection
@@ -280,76 +322,6 @@ class SimulatorTab(QtWidgets.QWidget):
         # Add main horizontal layout to scroll layout
         scroll_layout.addLayout(main_horizontal_layout)
         
-        # Run button
-        self.run_btn = QtWidgets.QPushButton("Run Simulation")
-        self.run_btn.clicked.connect(self.run_simulation)
-        self.run_btn.setMinimumHeight(50)
-        self.run_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #4CAF50;
-                color: white;
-                font-weight: bold;
-                font-size: 14px;
-                border-radius: 6px;
-                padding: 10px;
-            }
-            QPushButton:hover {
-                background-color: #45a049;
-            }
-            QPushButton:pressed {
-                background-color: #3d8b40;
-            }
-            QPushButton:disabled {
-                background-color: #cccccc;
-                color: #888888;
-            }
-        """)
-        
-        # Stop button (initially disabled)
-        self.stop_btn = QtWidgets.QPushButton("Stop Simulation")
-        self.stop_btn.clicked.connect(self.stop_simulation)
-        self.stop_btn.setMinimumHeight(50)
-        self.stop_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #f44336;
-                color: white;
-                font-weight: bold;
-                font-size: 14px;
-                border-radius: 6px;
-                padding: 10px;
-            }
-            QPushButton:hover {
-                background-color: #d32f2f;
-            }
-            QPushButton:pressed {
-                background-color: #b71c1c;
-            }
-            QPushButton:disabled {
-                background-color: #cccccc;
-                color: #888888;
-            }
-        """)
-        self.stop_btn.setEnabled(False)  # Initially disabled
-        
-        # Button layout
-        button_layout = QtWidgets.QHBoxLayout()
-        button_layout.addWidget(self.run_btn)
-        button_layout.addWidget(self.stop_btn)
-        
-        # Add icons to buttons for better visual appearance
-        if QtGui.QIcon.hasThemeIcon("document-save"):
-            self.run_btn.setIcon(QtGui.QIcon.fromTheme("media-playback-start"))
-            self.stop_btn.setIcon(QtGui.QIcon.fromTheme("media-playback-stop"))
-            self.list_subjects_btn.setIcon(QtGui.QIcon.fromTheme("view-list"))
-            self.list_montages_btn.setIcon(QtGui.QIcon.fromTheme("view-list"))
-            self.clear_subject_selection_btn.setIcon(QtGui.QIcon.fromTheme("view-list"))
-            self.select_all_subjects_btn.setIcon(QtGui.QIcon.fromTheme("view-list"))
-            self.clear_montage_selection_btn.setIcon(QtGui.QIcon.fromTheme("view-list"))
-            self.add_new_montage_btn.setIcon(QtGui.QIcon.fromTheme("list-add"))
-        
-        # Add the button layout to scroll layout
-        scroll_layout.addLayout(button_layout)
-        
         # Set scroll content and add to main layout
         scroll_area.setWidget(scroll_content)
         main_layout.addWidget(scroll_area)
@@ -374,17 +346,86 @@ class SimulatorTab(QtWidgets.QWidget):
         """)
         self.output_console.setAcceptRichText(True)
         
-        # Clear console button
-        clear_btn = QtWidgets.QPushButton("Clear Console")
-        clear_btn.clicked.connect(self.clear_console)
-        clear_btn.setStyleSheet("background-color: #555; color: white;")
-        
         # Console layout
         console_layout = QtWidgets.QVBoxLayout()
         header_layout = QtWidgets.QHBoxLayout()
         header_layout.addWidget(output_label)
         header_layout.addStretch()
-        header_layout.addWidget(clear_btn)
+        
+        # Create button layout for console controls
+        console_buttons_layout = QtWidgets.QHBoxLayout()
+        
+        # Run button
+        self.run_btn = QtWidgets.QPushButton("Run Simulation")
+        self.run_btn.clicked.connect(self.run_simulation)
+        self.run_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #4CAF50;
+                color: white;
+                padding: 5px 10px;
+                border: none;
+                border-radius: 3px;
+            }
+            QPushButton:hover {
+                background-color: #45a049;
+            }
+            QPushButton:pressed {
+                background-color: #3d8b40;
+            }
+            QPushButton:disabled {
+                background-color: #cccccc;
+                color: #888888;
+            }
+        """)
+        
+        # Stop button (initially disabled)
+        self.stop_btn = QtWidgets.QPushButton("Stop Simulation")
+        self.stop_btn.clicked.connect(self.stop_simulation)
+        self.stop_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #f44336;
+                color: white;
+                padding: 5px 10px;
+                border: none;
+                border-radius: 3px;
+            }
+            QPushButton:hover {
+                background-color: #d32f2f;
+            }
+            QPushButton:pressed {
+                background-color: #b71c1c;
+            }
+            QPushButton:disabled {
+                background-color: #cccccc;
+                color: #888888;
+            }
+        """)
+        self.stop_btn.setEnabled(False)  # Initially disabled
+        
+        # Clear console button
+        clear_btn = QtWidgets.QPushButton("Clear Console")
+        clear_btn.clicked.connect(self.clear_console)
+        clear_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #555;
+                color: white;
+                padding: 5px 10px;
+                border: none;
+                border-radius: 3px;
+            }
+            QPushButton:hover {
+                background-color: #666;
+            }
+        """)
+        
+        # Add buttons to console buttons layout in the desired order
+        console_buttons_layout.addWidget(self.run_btn)
+        console_buttons_layout.addWidget(self.stop_btn)
+        console_buttons_layout.addWidget(clear_btn)
+        
+        # Add console buttons layout to header layout
+        header_layout.addLayout(console_buttons_layout)
+        
         console_layout.addLayout(header_layout)
         console_layout.addWidget(self.output_console)
         
@@ -492,8 +533,13 @@ class SimulatorTab(QtWidgets.QWidget):
                                     if net_file not in [self.eeg_net_combo.itemText(i) for i in range(self.eeg_net_combo.count())]:
                                         self.eeg_net_combo.addItem(net_file)
             
-            # Sort subjects numerically if possible
-            subjects.sort(key=lambda x: int(x) if x.isdigit() else x)
+            # Sort subjects using natural sorting
+            def natural_sort_key(s):
+                # Split the string into parts: numbers and non-numbers
+                import re
+                return [int(c) if c.isdigit() else c.lower() for c in re.split('([0-9]+)', s)]
+            
+            subjects.sort(key=natural_sort_key)
             
             # Add subjects to list widget
             for subject in subjects:
@@ -704,7 +750,42 @@ class SimulatorTab(QtWidgets.QWidget):
             self.output_console.append(f"Selected montage file: {file_name}")
     
     def run_simulation(self):
-        """Run the simulation with selected parameters."""
+        """Run the simulation with the selected parameters."""
+        if self.simulation_running:
+            self.update_output("Simulation already running. Please wait or stop the current run.")
+            return
+            
+        # Validate inputs
+        if not self.validate_inputs():
+            return
+            
+        # Show confirmation dialog
+        details = (f"This will run a simulation with the following parameters:\n\n" +
+                  f"• Subjects: {', '.join(item.text() for item in self.subject_list.selectedItems())}\n" +
+                  f"• EEG Net: {self.eeg_net_combo.currentText()}\n" +
+                  f"• Current: {self.current_input.text()} mA\n" +
+                  f"• Electrode Shape: {'Rectangle' if self.electrode_shape_rect.isChecked() else 'Ellipse'}\n" +
+                  f"• Electrode Dimensions: {self.dimensions_input.text()}\n" +
+                  f"• Electrode Thickness: {self.thickness_input.text()} mm\n" +
+                  f"• Simulation Mode: {'Unipolar' if self.sim_mode_unipolar.isChecked() else 'Multipolar'}\n" +
+                  f"• Montages: {', '.join(item.text() for item in self.montage_list.selectedItems())}")
+        
+        if not ConfirmationDialog.confirm(
+            self,
+            title="Confirm Simulation",
+            message="Are you sure you want to start the simulation?",
+            details=details
+        ):
+            return
+            
+        # Set processing state
+        self.simulation_running = True
+        self.run_btn.setEnabled(False)
+        self.stop_btn.setEnabled(True)
+        
+        # Disable all other controls
+        self.disable_controls()
+        
         try:
             # Get selected subjects
             selected_subjects = [item.text() for item in self.subject_list.selectedItems()]
@@ -797,11 +878,6 @@ class SimulatorTab(QtWidgets.QWidget):
             self.simulation_process.finished.connect(self.simulation_finished)
             self.simulation_process.start()
             
-            # Update UI state
-            self.simulation_running = True
-            self.run_btn.setEnabled(False)
-            self.stop_btn.setEnabled(True)
-            
         except Exception as e:
             QtWidgets.QMessageBox.critical(self, "Error", f"Error starting simulation: {str(e)}")
             print(f"Detailed error: {str(e)}")  # For debugging
@@ -815,6 +891,83 @@ class SimulatorTab(QtWidgets.QWidget):
         self.run_btn.setEnabled(True)
         self.run_btn.setText("Run Simulation")
         self.stop_btn.setEnabled(False)
+        
+        # Re-enable all controls
+        self.enable_controls()
+    
+    def disable_controls(self):
+        """Disable all controls except the stop button."""
+        # Disable all buttons
+        self.list_subjects_btn.setEnabled(False)
+        self.select_all_subjects_btn.setEnabled(False)
+        self.clear_subject_selection_btn.setEnabled(False)
+        self.list_montages_btn.setEnabled(False)
+        self.select_all_montages_btn.setEnabled(False)
+        self.clear_montage_selection_btn.setEnabled(False)
+        self.add_new_montage_btn.setEnabled(False)
+        self.remove_montage_btn.setEnabled(False)
+        
+        # Disable all inputs
+        self.sim_type_combo.setEnabled(False)
+        self.eeg_net_combo.setEnabled(False)
+        self.sim_mode_unipolar.setEnabled(False)
+        self.sim_mode_multipolar.setEnabled(False)
+        self.current_input.setEnabled(False)
+        self.electrode_shape_rect.setEnabled(False)
+        self.electrode_shape_ellipse.setEnabled(False)
+        self.dimensions_input.setEnabled(False)
+        self.thickness_input.setEnabled(False)
+        
+        # Disable list widgets
+        self.subject_list.setEnabled(False)
+        self.montage_list.setEnabled(False)
+        
+        # Show processing message in status label
+        self.status_label.setText("Processing... Only the Stop button is available")
+        self.status_label.setStyleSheet("""
+            QLabel {
+                background-color: white;
+                color: #f44336;
+                padding: 5px 10px;
+                border-radius: 3px;
+                font-weight: bold;
+                font-size: 13px;
+                min-height: 15px;
+                max-height: 15px;
+            }
+        """)
+        self.status_label.setAlignment(QtCore.Qt.AlignVCenter)
+        self.status_label.show()
+    
+    def enable_controls(self):
+        """Re-enable all controls."""
+        # Enable all buttons
+        self.list_subjects_btn.setEnabled(True)
+        self.select_all_subjects_btn.setEnabled(True)
+        self.clear_subject_selection_btn.setEnabled(True)
+        self.list_montages_btn.setEnabled(True)
+        self.select_all_montages_btn.setEnabled(True)
+        self.clear_montage_selection_btn.setEnabled(True)
+        self.add_new_montage_btn.setEnabled(True)
+        self.remove_montage_btn.setEnabled(True)
+        
+        # Enable all inputs
+        self.sim_type_combo.setEnabled(True)
+        self.eeg_net_combo.setEnabled(True)
+        self.sim_mode_unipolar.setEnabled(True)
+        self.sim_mode_multipolar.setEnabled(True)
+        self.current_input.setEnabled(True)
+        self.electrode_shape_rect.setEnabled(True)
+        self.electrode_shape_ellipse.setEnabled(True)
+        self.dimensions_input.setEnabled(True)
+        self.thickness_input.setEnabled(True)
+        
+        # Enable list widgets
+        self.subject_list.setEnabled(True)
+        self.montage_list.setEnabled(True)
+        
+        # Hide processing message
+        self.status_label.hide()
     
     def update_electrode_inputs(self, checked):
         """Update the electrode input form based on the selected simulation mode.
@@ -844,6 +997,9 @@ class SimulatorTab(QtWidgets.QWidget):
             self.run_btn.setText("Run Simulation")
             self.stop_btn.setEnabled(False)
             
+            # Re-enable all controls
+            self.enable_controls()
+            
     def validate_electrode(self, electrode):
         """Validate electrode name is not empty."""
         return bool(electrode and electrode.strip())
@@ -862,7 +1018,9 @@ class SimulatorTab(QtWidgets.QWidget):
             return
             
         # Format the output based on content type
-        if "Error:" in text or "CRITICAL:" in text or "Failed" in text:
+        if "Processing... Only the Stop button is available" in text:
+            formatted_text = f'<div style="background-color: #2a2a2a; padding: 10px; margin: 10px 0; border-radius: 5px;"><span style="color: #ffff55; font-weight: bold;">⚡ {text}</span></div>'
+        elif "Error:" in text or "CRITICAL:" in text or "Failed" in text:
             formatted_text = f'<span style="color: #ff5555;"><b>❌ {text}</b></span>'
         elif "Warning:" in text or "YELLOW" in text:
             formatted_text = f'<span style="color: #ffff55;">⚠️ {text}</span>'
@@ -951,6 +1109,178 @@ class SimulatorTab(QtWidgets.QWidget):
             
             # Refresh the list of montages
             self.update_montage_list()
+
+    def remove_selected_montage(self):
+        """Remove the selected montage from the montage list file."""
+        try:
+            # Get selected montage
+            selected_items = self.montage_list.selectedItems()
+            if not selected_items:
+                QtWidgets.QMessageBox.warning(self, "Warning", "Please select a montage to remove.")
+                return
+            
+            # Get the montage name
+            montage_name = selected_items[0].text()
+            
+            # Confirm deletion
+            reply = QtWidgets.QMessageBox.question(
+                self, 
+                "Confirm Deletion",
+                f"Are you sure you want to delete the montage '{montage_name}'?",
+                QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No,
+                QtWidgets.QMessageBox.No
+            )
+            
+            if reply == QtWidgets.QMessageBox.Yes:
+                # Get project directory
+                project_dir = f"/mnt/{os.environ.get('PROJECT_DIR_NAME', 'BIDS_new')}"
+                
+                # Ensure montage file exists and get its path
+                montage_file = self.ensure_montage_file_exists(project_dir)
+                
+                # Load existing montage data
+                with open(montage_file, 'r') as f:
+                    montage_data = json.load(f)
+                
+                # Get current net and mode
+                current_net = self.eeg_net_combo.currentText()
+                montage_type = "uni_polar_montages" if self.sim_mode_unipolar.isChecked() else "multi_polar_montages"
+                
+                # Remove the montage if it exists
+                if (current_net in montage_data["nets"] and 
+                    montage_type in montage_data["nets"][current_net] and 
+                    montage_name in montage_data["nets"][current_net][montage_type]):
+                    
+                    del montage_data["nets"][current_net][montage_type][montage_name]
+                    
+                    # Save the updated montage data
+                    with open(montage_file, 'w') as f:
+                        json.dump(montage_data, f, indent=4)
+                    
+                    self.update_output(f"Removed montage '{montage_name}' from {montage_type}")
+                    self.update_montage_list()
+                else:
+                    QtWidgets.QMessageBox.warning(self, "Warning", f"Montage '{montage_name}' not found.")
+        
+        except Exception as e:
+            QtWidgets.QMessageBox.critical(self, "Error", f"Error removing montage: {str(e)}")
+            print(f"Detailed error: {str(e)}")  # For debugging
+
+    def show_sim_type_help(self):
+        """Show help information about simulation types."""
+        help_text = """
+        <h3>Simulation Types (Anisotropy Types)</h3>
+        
+        <b>Isotropic (scalar):</b><br>
+        - Uses uniform conductivity values for all tissue types<br>
+        - Faster computation but less accurate for anisotropic tissues<br>
+        - Recommended for initial testing and quick results<br>
+        - Default option for basic simulations<br><br>
+        
+        <b>Anisotropic (vn):</b><br>
+        - Uses volume-normalized anisotropic conductivities<br>
+        - Tensors are normalized to have the same trace and re-scaled according to their respective tissue conductivity<br>
+        - Recommended for simulations with anisotropic conductivities<br>
+        - Based on Opitz et al., 2011<br><br>
+        
+        <b>Anisotropic (dir):</b><br>
+        - Uses direct anisotropic conductivity<br>
+        - Does not normalize individual tensors<br>
+        - Re-scales tensors according to the mean gray and white matter conductivities<br>
+        - Based on Opitz et al., 2011<br><br>
+        
+        <b>Anisotropic (mc):</b><br>
+        - Uses isotropic, varying conductivities<br>
+        - Assigns to each voxel a conductivity value related to the volume of the tensors<br>
+        - Obtained from the direct approach<br>
+        - Based on Opitz et al., 2011<br><br>
+        
+        <i>Note: All options other than 'scalar' require conductivity tensors acquired from diffusion weighted images and processed with dwi2cond.</i><br><br>
+        
+        For full documentation, see the SimNIBS website.
+        """
+        
+        msg = QtWidgets.QMessageBox(self)
+        msg.setWindowTitle("Simulation Type Help")
+        msg.setTextFormat(QtCore.Qt.RichText)
+        msg.setText(help_text)
+        msg.setStyleSheet("""
+            QMessageBox {
+                background-color: #2a2a2a;
+                color: white;
+            }
+            QLabel {
+                min-width: 600px;
+                max-width: 800px;
+                color: white;
+            }
+        """)
+        
+        # Set the message box to be resizable
+        msg.setWindowFlags(msg.windowFlags() | QtCore.Qt.WindowMaximizeButtonHint)
+        
+        # Set a larger default size
+        msg.setMinimumSize(700, 600)
+        
+        # Enable text wrapping for the label
+        for child in msg.findChildren(QtWidgets.QLabel):
+            child.setWordWrap(True)
+        
+        # Adjust the size to fit content
+        msg.adjustSize()
+        
+        msg.exec_()
+
+    def validate_inputs(self):
+        """Validate all input parameters before running the simulation."""
+        # Check if any subjects are selected
+        if not self.subject_list.selectedItems():
+            QtWidgets.QMessageBox.warning(self, "Warning", "Please select at least one subject.")
+            return False
+            
+        # Check if any montages are selected
+        if not self.montage_list.selectedItems():
+            QtWidgets.QMessageBox.warning(self, "Warning", "Please select at least one montage.")
+            return False
+            
+        # Validate current value
+        try:
+            current = float(self.current_input.text() or "1.0")
+            if current <= 0:
+                QtWidgets.QMessageBox.warning(self, "Warning", "Current value must be greater than 0 mA.")
+                return False
+        except ValueError:
+            QtWidgets.QMessageBox.warning(self, "Warning", "Please enter a valid current value in mA.")
+            return False
+            
+        # Validate dimensions
+        try:
+            dimensions = self.dimensions_input.text() or "8,8"
+            dim_parts = dimensions.split(',')
+            if len(dim_parts) != 2:
+                raise ValueError("Invalid dimensions format")
+            float(dim_parts[0])
+            float(dim_parts[1])
+        except ValueError:
+            QtWidgets.QMessageBox.warning(self, "Warning", "Please enter valid dimensions in format 'x,y' (e.g., '8,8').")
+            return False
+            
+        # Validate thickness
+        try:
+            thickness = float(self.thickness_input.text() or "8")
+            if thickness <= 0:
+                QtWidgets.QMessageBox.warning(self, "Warning", "Thickness must be greater than 0 mm.")
+                return False
+        except ValueError:
+            QtWidgets.QMessageBox.warning(self, "Warning", "Please enter a valid thickness value in mm.")
+            return False
+            
+        # Validate EEG net selection
+        if not self.eeg_net_combo.currentText():
+            QtWidgets.QMessageBox.warning(self, "Warning", "Please select an EEG net.")
+            return False
+            
+        return True
 
 class AddMontageDialog(QtWidgets.QDialog):
     """Dialog for adding new montages."""

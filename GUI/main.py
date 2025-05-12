@@ -15,6 +15,7 @@ from PyQt5 import QtWidgets, QtCore, QtGui
 # Import tool-specific modules
 from simulator_tab import SimulatorTab
 from flex_search_tab import FlexSearchTab
+from ex_search_tab import ExSearchTab
 from pre_process_tab import PreProcessTab
 from help_tab import HelpTab
 from contact_tab import ContactTab
@@ -60,6 +61,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.pre_process_tab = PreProcessTab(self)
         self.simulator_tab = SimulatorTab(self)
         self.flex_search_tab = FlexSearchTab(self)
+        self.ex_search_tab = ExSearchTab(self)
         self.help_tab = HelpTab(self)
         self.contact_tab = ContactTab(self)
         self.acknowledgments_tab = AcknowledgmentsTab(self)
@@ -72,6 +74,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.tab_widget.addTab(self.pre_process_tab, "Pre-processing")
         self.tab_widget.addTab(self.simulator_tab, "Simulator")
         self.tab_widget.addTab(self.flex_search_tab, "Flex-Search")
+        self.tab_widget.addTab(self.ex_search_tab, "Ex-Search")
         self.tab_widget.addTab(self.nifti_viewer_tab, "NIfTI Viewer")
         
         # Step 2: Count how many tabs we have to calculate positions from the right

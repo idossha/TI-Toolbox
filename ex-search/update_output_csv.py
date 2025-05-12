@@ -1,6 +1,8 @@
 import pandas as pd
 import sys
 import re
+import os
+import csv
 
 '''
 Ido Haber - ihaber@wisc.edu
@@ -17,14 +19,51 @@ Key Features:
 - Merges the data based on mesh names and updates the output CSV file.
 '''
 
+def get_roi_coordinates(roi_file):
+    """Read coordinates from a ROI CSV file."""
+    try:
+        with open(roi_file, 'r') as f:
+            reader = csv.reader(f)
+            coords = next(reader)
+            return [float(coord.strip()) for coord in coords]
+    except Exception as e:
+        print(f"Error reading coordinates from {roi_file}: {e}")
+        return None
 
 def map_mesh_names(mesh_name):
     # Convert output.csv mesh name to summary.csv mesh name format
     return "TI_field_" + mesh_name.replace(" <> ", "_and_") + ".msh"
 
 def update_output_csv(project_dir, subject_name):
-    summary_csv_path = f"{project_dir}/Simulations/opt_{subject_name}/results/summary.csv"
-    output_csv_path = f"{project_dir}/Simulations/opt_{subject_name}/output.csv"
+    # Define paths according to BIDS structure
+    simnibs_dir = os.path.join(project_dir, "derivatives", "SimNIBS")
+    subject_dir = os.path.join(simnibs_dir, f"sub-{subject_name}")
+    ex_search_dir = os.path.join(subject_dir, "ex-search")
+    roi_dir = os.path.join(subject_dir, f"m2m_{subject_name}", "ROIs")
+    
+    # Get ROI coordinates from the first ROI file
+    roi_list_path = os.path.join(roi_dir, 'roi_list.txt')
+    try:
+        with open(roi_list_path, 'r') as file:
+            first_roi_name = file.readline().strip()
+            # Extract just the filename without path
+            first_roi_name = os.path.basename(first_roi_name)
+            first_roi = os.path.join(roi_dir, first_roi_name)
+    except FileNotFoundError:
+        print(f"Error: ROI list file not found at {roi_list_path}")
+        sys.exit(1)
+    
+    coords = get_roi_coordinates(first_roi)
+    if not coords:
+        print("Error: Could not read coordinates from ROI file")
+        sys.exit(1)
+    
+    # Create directory name from coordinates
+    coord_dir = f"xyz_{int(coords[0])}_{int(coords[1])}_{int(coords[2])}"
+    opt_directory = os.path.join(ex_search_dir, coord_dir)
+    
+    summary_csv_path = os.path.join(opt_directory, "results", "summary.csv")
+    output_csv_path = os.path.join(opt_directory, "output.csv")
     
     # Load the summary CSV
     summary_df = pd.read_csv(summary_csv_path)

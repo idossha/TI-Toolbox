@@ -13,7 +13,6 @@
 set -e  # Exit immediately if a command exits with a non-zero status
 
 # Define color variables
-# Define color variables
 BOLD='\033[1m'
 UNDERLINE='\033[4m'
 RESET='\033[0m'
@@ -23,15 +22,25 @@ CYAN='\033[0;36m' #Cyan for actions being performed.
 BOLD_CYAN='\033[1;36m'
 YELLOW='\033[0;33m' #Yellow for warnings or important notices
 
+# Check if PROJECT_DIR_NAME is set
+if [ -z "$PROJECT_DIR_NAME" ]; then
+    echo -e "${RED}Error: PROJECT_DIR_NAME environment variable is not set${RESET}"
+    exit 1
+fi
+
+# Define the new BIDS-compliant directory structure
 project_dir="/mnt/$PROJECT_DIR_NAME"
-subject_dir="$project_dir/Subjects"
+derivatives_dir="$project_dir/derivatives"
+simnibs_dir="$derivatives_dir/SimNIBS"
 
 # Function to list available subjects
 list_subjects() {
     subjects=()
     i=1
-    for subject_path in "$subject_dir"/m2m_*; do
+    # Look for subjects in the new BIDS structure
+    for subject_path in "$simnibs_dir"/sub-*/m2m_*; do
         if [ -d "$subject_path" ]; then
+            # Extract subject ID from the path (e.g., sub-101 -> 101)
             subject_id=$(basename "$subject_path" | sed 's/m2m_//')
             subjects+=("$subject_id")
             printf "%3d. %s\n" "$i" "$subject_id"
@@ -65,19 +74,26 @@ while true; do
     fi
 done
 
-# Get the current script directory
+# Get the current script directory and set paths
 script_dir=$(pwd)
+ex_search_dir="$script_dir/../ex-search"
 
 # Loop through selected subjects and run the pipeline
 for subject_index in "${selected_subjects[@]}"; do
     subject_name="${subjects[$((subject_index-1))]}"
-    roi_dir="$subject_dir/m2m_$subject_name/ROIs"
+    subject_bids_dir="$simnibs_dir/sub-$subject_name"
+    m2m_dir="$subject_bids_dir/m2m_$subject_name"
+    roi_dir="$m2m_dir/ROIs"
+    ex_search_output_dir="$subject_bids_dir/ex-search"
+
+    # Create ex-search output directory if it doesn't exist
+    mkdir -p "$ex_search_output_dir"
 
     echo -e "\n${BOLD_CYAN}Processing subject: ${subject_name}${RESET}"
 
     # Call the ROI creator script to handle ROI creation or selection
     echo -e "${CYAN}Running roi-creator.py for subject $subject_name...${RESET}"
-    python3 roi-creator.py "$roi_dir"
+    python3 "$ex_search_dir/roi-creator.py" "$roi_dir"
 
     # Check if the ROI creation was successful
     if [ $? -eq 0 ]; then
@@ -88,9 +104,9 @@ for subject_index in "${selected_subjects[@]}"; do
     fi
 
     # Define leadfield directories
-    leadfield_vol_dir="$subject_dir/leadfield_vol_$subject_name"
+    leadfield_vol_dir="$subject_bids_dir/leadfield_vol_$subject_name"
 
-    # Check if both leadfield directories exist
+    # Check if leadfield directory exists
     if [ ! -d "$leadfield_vol_dir" ] ; then
         echo -e "${YELLOW}Missing Leadfield matrices for subject $subject_name.${RESET}"
         while true; do
@@ -98,7 +114,7 @@ for subject_index in "${selected_subjects[@]}"; do
             read -r create_leadfield
             if [[ "$create_leadfield" =~ ^[Yy]$ ]]; then
                 echo -e "${CYAN}Running leadfield.py for subject $subject_name...${RESET}"
-                simnibs_python leadfield.py "$subject_dir/m2m_$subject_name" "EGI_template.csv"
+                simnibs_python "$ex_search_dir/leadfield.py" "$m2m_dir" "EGI_template.csv"
                 break
             elif [[ "$create_leadfield" =~ ^[Nn]$ ]]; then
                 echo -e "${RED}Skipping leadfield creation. Exiting.${RESET}"
@@ -112,14 +128,14 @@ for subject_index in "${selected_subjects[@]}"; do
     fi
 
     # Set the leadfield_hdf path
-    leadfield_hdf="$project_dir/Subjects/leadfield_$subject_name/${subject_name}_leadfield_EGI_template.hdf5"
+    leadfield_hdf="$subject_bids_dir/leadfield_$subject_name/${subject_name}_leadfield_EGI_template.hdf5"
     export LEADFIELD_HDF=$leadfield_hdf
     export PROJECT_DIR=$project_dir
     export SUBJECT_NAME=$subject_name
 
     # Call the TI optimizer script
     echo -e "${CYAN}Running TImax_optimizer.py for subject $subject_name...${RESET}"
-    simnibs_python ti_sim.py
+    #simnibs_python "$ex_search_dir/ti_sim.py"
 
     # Check if the TI optimization was successful
     if [ $? -eq 0 ]; then
@@ -131,7 +147,7 @@ for subject_index in "${selected_subjects[@]}"; do
 
     # Call the ROI analyzer script
     echo -e "${CYAN}Running roi-analyzer.py for subject $subject_name...${RESET}"
-    python3 roi-analyzer.py "$roi_dir"
+    #python3 "$ex_search_dir/roi-analyzer.py" "$roi_dir"
 
     # Check if the ROI analysis was successful
     if [ $? -eq 0 ]; then
@@ -141,12 +157,62 @@ for subject_index in "${selected_subjects[@]}"; do
         exit 1
     fi
 
-    # Define the mesh directory
-    mesh_dir="$project_dir/Simulations/opt_$subject_name"
+    # Define and check roi_list_file
+    roi_list_file="$roi_dir/roi_list.txt"
+    if [ ! -f "$roi_list_file" ]; then
+        echo -e "${RED}Error: roi_list.txt not found in $roi_dir${RESET}"
+        exit 1
+    fi
+
+    # Get ROI coordinates from the first ROI file
+    first_roi=$(head -n1 "$roi_list_file" || echo "")
+    if [ -z "$first_roi" ]; then
+        echo -e "${RED}Error: roi_list.txt is empty${RESET}"
+        exit 1
+    fi
+    
+    # Construct full path to ROI file
+    roi_file="$roi_dir/$first_roi"
+    if [ ! -f "$roi_file" ]; then
+        echo -e "${RED}Error: ROI file not found: $roi_file${RESET}"
+        exit 1
+    fi
+
+    # Read coordinates from the ROI file and handle Windows line endings
+    coordinates=$(head -n1 "$roi_file" | tr -d '\r')
+    IFS=',' read -r x y z <<< "$coordinates"
+    
+    # Remove any whitespace and validate coordinates
+    x=$(echo "$x" | tr -d ' ')
+    y=$(echo "$y" | tr -d ' ')
+    z=$(echo "$z" | tr -d ' ')
+    
+    # Print coordinates for debugging
+    echo -e "${CYAN}Processing coordinates from $roi_file: $x, $y, $z${RESET}"
+    
+    # Round coordinates to integers using awk for better decimal and negative number handling
+    x_int=$(echo "$x" | awk '{printf "%.0f", $1}')
+    y_int=$(echo "$y" | awk '{printf "%.0f", $1}')
+    z_int=$(echo "$z" | awk '{printf "%.0f", $1}')
+    
+    # Validate that we got all coordinates
+    if [ -z "$x_int" ] || [ -z "$y_int" ] || [ -z "$z_int" ]; then
+        echo -e "${RED}Error: Failed to parse coordinates from $roi_file${RESET}"
+        echo -e "${RED}Raw coordinates: $coordinates${RESET}"
+        exit 1
+    fi
+    
+    # Create directory name from coordinates
+    coord_dir="xyz_${x_int}_${y_int}_${z_int}"
+    echo -e "${CYAN}Creating directory: $coord_dir${RESET}"
+    mesh_dir="$ex_search_output_dir/$coord_dir"
+
+    # Create output directory if it doesn't exist
+    mkdir -p "$mesh_dir"
 
     # Run the process_mesh_files_new.sh script
     echo -e "${CYAN}Running process_mesh_files_new.sh for subject $subject_name...${RESET}"
-    ./field-analysis/run_process_mesh_files.sh "$mesh_dir"
+    "$ex_search_dir/field-analysis/run_process_mesh_files.sh" "$mesh_dir"
 
     # Check if the mesh processing was successful
     if [ $? -eq 0 ]; then
@@ -158,7 +224,7 @@ for subject_index in "${selected_subjects[@]}"; do
 
     # Run the Python script to update the output.csv file
     echo -e "${CYAN}Running update_output_csv.py for subject $subject_name...${RESET}"
-    python3 update_output_csv.py "$project_dir" "$subject_name"
+    python3 "$ex_search_dir/update_output_csv.py" "$project_dir" "$subject_name"
 
     # Check if the Python script was successful
     if [ $? -eq 0 ]; then
@@ -170,9 +236,8 @@ for subject_index in "${selected_subjects[@]}"; do
 
     # Run the mesh selector script
     echo -e "${CYAN}Running mesh-selector.sh for subject $subject_name...${RESET}"
-    #bash mesh-selector.sh
+    #bash "$ex_search_dir/mesh-selector.sh"
 
 done
 
-echo -e "\n${BOLD_CYAN}All tasks completed successfully for all selected subjects.${RESET}\n"
-
+echo -e "\n${BOLD_CYAN}All tasks completed successfully for all selected subjects.${RESET}\n" 

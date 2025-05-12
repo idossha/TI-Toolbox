@@ -1,7 +1,6 @@
 services:
   fsl:
     image: idossha/ti-csc_fsl:v1.3.0
-    platform: linux/amd64
     container_name: fsl_container
     volumes:
       - ti_csc_fsl_data:/usr/local/fsl/
@@ -9,7 +8,6 @@ services:
       - ti_network
   freesurfer:
     image: idossha/ti-csc_freesurfer:v1.3.0
-    platform: linux/amd64
     container_name: freesurfer_container
     volumes:
       - ti_csc_freesurfer_data:/usr/local/freesurfer/
@@ -17,27 +15,30 @@ services:
       - ti_network
   simnibs:
     image: idossha/simnibs:4.5.0
-    platform: linux/amd64
     container_name: simnibs_container
     volumes:
       - ti_csc_fsl_data:/usr/local/fsl/
       - ti_csc_freesurfer_data:/usr/local/freesurfer/
       - /tmp/.X11-unix:/tmp/.X11-unix
       - ${LOCAL_PROJECT_DIR}:/mnt/${PROJECT_DIR_NAME}
+      - ${DEV_CODEBASE_DIR}:/development
     environment:
-      USER: root
-      DISPLAY: ${DISPLAY}
-      LIBGL_ALWAYS_SOFTWARE: 1
-      FSLDIR: /usr/local/fsl
-      FSLOUTPUTTYPE: NIFTI_GZ
-      FSLMULTIFILEQUIT: "TRUE"
-      POSSUMDIR: /usr/local/fsl
-      FREESURFER_HOME: /usr/local/freesurfer
-      SUBJECTS_DIR: /usr/local/freesurfer/subjects
-      FS_LICENSE: /usr/local/freesurfer/license.txt
-      LOCAL_PROJECT_DIR: ${LOCAL_PROJECT_DIR}
-      PROJECT_DIR_NAME: ${PROJECT_DIR_NAME}
-      KMP_AFFINITY: disabled
+      # Standard environment variables
+      - USER=root
+      - DISPLAY
+      - LIBGL_ALWAYS_SOFTWARE=1
+      - FSLDIR=/usr/local/fsl
+      - FSLOUTPUTTYPE=NIFTI_GZ
+      - FSLMULTIFILEQUIT=TRUE
+      - POSSUMDIR=/usr/local/fsl
+      - FREESURFER_HOME=/usr/local/freesurfer
+      - SUBJECTS_DIR=/usr/local/freesurfer/subjects
+      - FS_LICENSE=/usr/local/freesurfer/license.txt
+      - LOCAL_PROJECT_DIR=${LOCAL_PROJECT_DIR}
+      - PROJECT_DIR_NAME=${PROJECT_DIR_NAME}
+      - DEV_CODEBASE_DIR=${DEV_CODEBASE_DIR}
+      - DEV_CODEBASE_NAME=${DEV_CODEBASE_NAME}
+      - KMP_AFFINITY=disabled
     networks:
       - ti_network
     depends_on:

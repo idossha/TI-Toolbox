@@ -13,69 +13,67 @@
 # and optionally deletes the remaining .msh files and all .opt files.
 ##############################################
 
+# Check if required environment variables are set
+if [ -z "$PROJECT_DIR" ] || [ -z "$SUBJECT_NAME" ]; then
+    echo "Error: PROJECT_DIR and SUBJECT_NAME environment variables must be set"
+    exit 1
+fi
 
-project_dir=$PROJECT_DIR
-subject_name=$SUBJECT_NAME
+# Get the first ROI file from roi_list.txt
+roi_list_file="$PROJECT_DIR/derivatives/SimNIBS/sub-$SUBJECT_NAME/m2m_${SUBJECT_NAME}/ROIs/roi_list.txt"
+first_roi=$(head -n1 "$roi_list_file")
+if [ ! -f "$first_roi" ]; then
+    echo "Error: ROI file not found: $first_roi"
+    exit 1
+fi
 
-# Define the opt directory
-opt_directory="$project_dir/Simulations/opt_$subject_name"
+# Read coordinates from the ROI file
+IFS=',' read -r x y z <<< $(head -n1 "$first_roi")
+# Round coordinates to integers
+x_int=$(printf "%.0f" "$x")
+y_int=$(printf "%.0f" "$y")
+z_int=$(printf "%.0f" "$z")
 
-# List all .msh files with numbers next to them
-echo "Here are the .msh files in the opt directory:"
+# Create directory name from coordinates
+coord_dir="xyz_${x_int}_${y_int}_${z_int}"
+opt_directory="$PROJECT_DIR/derivatives/SimNIBS/sub-$SUBJECT_NAME/ex-search/$coord_dir"
+
+# Get list of mesh files
 msh_files=($(ls "$opt_directory"/*.msh))
+
+# Check if any mesh files were found
+if [ ${#msh_files[@]} -eq 0 ]; then
+    echo "No mesh files found in $opt_directory"
+    exit 1
+fi
+
+# Print the list of mesh files with indices
+echo "Available mesh files:"
 for i in "${!msh_files[@]}"; do
-    echo "$i: ${msh_files[$i]}"
+    echo "$((i+1)). $(basename "${msh_files[$i]}")"
 done
 
-# Prompt the user to select .msh files to simulate
-read -p "Enter the numbers of the .msh files you want to simulate (separated by spaces): " -a selected_files
+# Get user selection
+echo -n "Select a mesh file (1-${#msh_files[@]}): "
+read selection
 
-# Validate the selection
-for num in "${selected_files[@]}"; do
-    if ! [[ $num =~ ^[0-9]+$ ]] || [[ $num -lt 0 ]] || [[ $num -ge ${#msh_files[@]} ]]; then
-        echo "Invalid selection: $num. Exiting."
-        exit 1
-    fi
-done
+# Validate selection
+if ! [[ "$selection" =~ ^[0-9]+$ ]] || [ "$selection" -lt 1 ] || [ "$selection" -gt "${#msh_files[@]}" ]; then
+    echo "Invalid selection"
+    exit 1
+fi
 
-# Display selected files
-echo "You have selected the following files:"
-for num in "${selected_files[@]}"; do
-    echo "${msh_files[$num]}"
-done
+# Get the selected mesh file
+selected_mesh="${msh_files[$((selection-1))]}"
 
-# Prompt the user if they want to delete the remaining .msh files and all .opt files
-read -p "Do you want to delete the rest of the .msh files and all the .opt files? (y/n) " delete_choice
-case "$delete_choice" in 
-  y|Y ) 
-    read -p "Are you sure you want to delete the remaining .msh files and all the .opt files? This action cannot be undone. (y/n) " confirm_delete
-    case "$confirm_delete" in
-      y|Y ) 
-        # Delete remaining .msh files
-        for i in "${!msh_files[@]}"; do
-            if [[ ! " ${selected_files[@]} " =~ " $i " ]]; then
-                rm -f "${msh_files[$i]}"
-            fi
-        done
-        # Delete all .opt files
-        rm -f "$opt_directory"/*.opt
-        echo "Remaining .msh files and all .opt files deleted."
-        ;;
-      n|N ) 
-        echo "Files not deleted."
-        ;;
-      * ) 
-        echo "Invalid choice. Files not deleted."
-        ;;
-    esac
-    ;;
-  n|N ) 
-    echo "Files not deleted."
-    ;;
-  * ) 
-    echo "Invalid choice. Files not deleted."
-    ;;
-esac
+# Remove any existing .opt files
+rm -f "$opt_directory"/*.opt
+
+# Create a new .opt file with the same name as the selected mesh
+opt_file="${selected_mesh%.msh}.opt"
+touch "$opt_file"
+
+echo "Created optimization file: $opt_file"
 
 echo "All tasks completed successfully."
 

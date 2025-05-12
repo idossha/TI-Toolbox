@@ -1,4 +1,3 @@
-
 #!/usr/bin/env python3
 
 import os
@@ -7,6 +6,7 @@ import pandas as pd
 import subprocess
 import json
 import csv
+import sys
 
 
 '''
@@ -24,18 +24,64 @@ Key Features:
 - Performs cleanup by removing intermediate CSV files after processing.
 '''
 
+def get_roi_coordinates(roi_file):
+    """Read coordinates from a ROI CSV file."""
+    try:
+        with open(roi_file, 'r') as f:
+            reader = csv.reader(f)
+            coords = next(reader)
+            return [float(coord.strip()) for coord in coords]
+    except Exception as e:
+        print(f"Error reading coordinates from {roi_file}: {e}")
+        return None
+
 # Get the project directory and subject name from environment variables
 project_dir = os.getenv('PROJECT_DIR')
 subject_name = os.getenv('SUBJECT_NAME')
 
-# Set the directories based on project directory and subject name
-opt_directory = os.path.join(project_dir, f'Simulations/opt_{subject_name}')
-roi_directory = os.path.join(project_dir, f'Subjects/m2m_{subject_name}/ROIs')
+if not project_dir or not subject_name:
+    print("Error: PROJECT_DIR and SUBJECT_NAME environment variables must be set")
+    sys.exit(1)
 
-# Read the list of ROI files from the correct ROI directory
+# Set the directories based on BIDS structure
+simnibs_dir = os.path.join(project_dir, "derivatives", "SimNIBS")
+subject_dir = os.path.join(simnibs_dir, f"sub-{subject_name}")
+m2m_dir = os.path.join(subject_dir, f"m2m_{subject_name}")
+ex_search_dir = os.path.join(subject_dir, "ex-search")
+roi_directory = os.path.join(m2m_dir, 'ROIs')
+
+# Read the list of ROI files from the ROI directory
 roi_list_path = os.path.join(roi_directory, 'roi_list.txt')
-with open(roi_list_path, 'r') as file:
-    position_files = [line.strip() for line in file]
+try:
+    with open(roi_list_path, 'r') as file:
+        position_files = [os.path.join(roi_directory, line.strip()) for line in file]
+except FileNotFoundError:
+    print(f"Error: ROI list file not found at {roi_list_path}")
+    sys.exit(1)
+
+# Verify that all ROI files exist
+missing_files = [f for f in position_files if not os.path.exists(f)]
+if missing_files:
+    print("Error: The following ROI files are missing:")
+    for f in missing_files:
+        print(f"  - {f}")
+    sys.exit(1)
+
+# Get coordinates from the first ROI file to create the directory name
+first_roi_file = position_files[0]
+coords = get_roi_coordinates(first_roi_file)
+if not coords:
+    print("Error: Could not read coordinates from ROI file")
+    sys.exit(1)
+
+# Create directory name from coordinates
+coord_dir = f"xyz_{int(coords[0])}_{int(coords[1])}_{int(coords[2])}"
+opt_directory = os.path.join(ex_search_dir, coord_dir)
+
+# Create results directory if it doesn't exist
+results_dir = os.path.join(opt_directory, "results")
+if not os.path.exists(results_dir):
+    os.makedirs(results_dir)
 
 # Create a dictionary to hold the data
 mesh_data = {}
@@ -63,13 +109,14 @@ for i, msh_file in enumerate(msh_files):
 
         # Run the command to generate CSV files in the ROI directory
         try:
-            print(f"Running command: get_fields_at_coordinates -s {pos_file} -m {msh_file_path} --method linear")
-            subprocess.run(["get_fields_at_coordinates", "-s", pos_file, "-m", msh_file_path, "--method", "linear"], check=True)
+            cmd = ["get_fields_at_coordinates", "-s", pos_file, "-m", msh_file_path, "--method", "linear"]
+            print(f"Running command: {' '.join(cmd)}")
+            subprocess.run(cmd, check=True)
         except subprocess.CalledProcessError as e:
             print(f"Error running get_fields_at_coordinates: {e}")
             continue
         
-        # The generated CSV files will be in the ROI directory with names based on the position file and field names
+        # The generated CSV files will be in the current directory with names based on the position file and field names
         ti_max_csv = os.path.join(roi_directory, f"{pos_base}_TImax.csv")
         from_volume_csv = os.path.join(roi_directory, f"{pos_base}_from_volume.csv")
         
@@ -93,13 +140,14 @@ for i, msh_file in enumerate(msh_files):
             except Exception as e:
                 print(f"Error processing TImax file {ti_max_csv}: {e}")
             finally:
-                os.remove(ti_max_csv)
+                if os.path.exists(ti_max_csv):
+                    os.remove(ti_max_csv)
         else:
             print(f"    TImax CSV file {ti_max_csv} not found. Skipping this file.")
 
 
 # Save the dictionary to a file for later use
-json_output_path = os.path.join(opt_directory, 'mesh_data.json')
+json_output_path = os.path.join(results_dir, 'mesh_data.json')
 with open(json_output_path, 'w') as json_file:
     json.dump(mesh_data, json_file, indent=4)
 
@@ -123,7 +171,7 @@ for mesh_name, data in mesh_data.items():
     csv_data.append(row)
 
 # Write to CSV file
-csv_output_path = os.path.join(opt_directory, 'output.csv')
+csv_output_path = os.path.join(results_dir, 'output.csv')
 with open(csv_output_path, 'w', newline='') as file:
     writer = csv.writer(file)
     writer.writerows(csv_data)

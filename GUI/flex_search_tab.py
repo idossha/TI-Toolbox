@@ -11,6 +11,7 @@ import json
 import glob
 import subprocess
 from PyQt5 import QtWidgets, QtCore, QtGui
+from confirmation_dialog import ConfirmationDialog
 
 class FlexSearchThread(QtCore.QThread):
     """Thread to run flex-search in background to prevent GUI freezing."""
@@ -387,51 +388,114 @@ class FlexSearchTab(QtWidgets.QWidget):
         # Add form to scroll layout
         scroll_layout.addWidget(form_widget)
         
-        # Action buttons
-        buttons_layout = QtWidgets.QHBoxLayout()
-
-        # Run button
-        self.run_btn = QtWidgets.QPushButton("Run Optimization")
-        self.run_btn.clicked.connect(self.run_optimization)
-        self.run_btn.setMinimumWidth(160)
-        self.run_btn.setMinimumHeight(40)
-        self.run_btn.setStyleSheet("background-color: #4CAF50; color: white; font-weight: bold; font-size: 14px; padding: 8px;")
-        buttons_layout.addWidget(self.run_btn)
-        
-        # Stop button
-        self.stop_btn = QtWidgets.QPushButton("Stop")
-        self.stop_btn.clicked.connect(self.stop_optimization)
-        self.stop_btn.setEnabled(False)
-        self.stop_btn.setMinimumWidth(100)
-        self.stop_btn.setMinimumHeight(40)
-        self.stop_btn.setStyleSheet("background-color: #cccccc; color: #888888; font-weight: bold; font-size: 14px; padding: 8px;")
-        buttons_layout.addWidget(self.stop_btn)
-        
-        # Clear button
-        self.clear_btn = QtWidgets.QPushButton("Clear Console")
-        self.clear_btn.clicked.connect(self.clear_console)
-        self.clear_btn.setMinimumWidth(120)
-        self.clear_btn.setMinimumHeight(40)
-        self.clear_btn.setStyleSheet("background-color: #e0e0e0; color: #333; font-weight: bold; font-size: 14px; padding: 8px;")
-        buttons_layout.addWidget(self.clear_btn)
-
-        buttons_layout.addStretch()
-
-        scroll_layout.addLayout(buttons_layout)
-        
         # Add scroll content to scroll area
         scroll_area.setWidget(scroll_content)
         main_layout.addWidget(scroll_area)
         
-        # Console output (match other tabs)
-        output_label = QtWidgets.QLabel("Console Output")
+        # Console output
+        output_label = QtWidgets.QLabel("Output:")
         output_label.setStyleSheet("font-weight: bold; font-size: 14px; margin-top: 10px;")
-        main_layout.addWidget(output_label)
+        
         self.output_text = QtWidgets.QTextEdit()
         self.output_text.setReadOnly(True)
         self.output_text.setMinimumHeight(200)
-        self.output_text.setStyleSheet("font-family: 'Consolas', 'Courier New', monospace; background-color: #1e1e1e; color: #f0f0f0; font-size: 13px; border: 1px solid #3c3c3c; border-radius: 5px; padding: 8px;")
-        main_layout.addWidget(self.output_text)
+        self.output_text.setStyleSheet("""
+            QTextEdit {
+                background-color: #1e1e1e;
+                color: #f0f0f0;
+                font-family: 'Consolas', 'Courier New', monospace;
+                font-size: 13px;
+                border: 1px solid #3c3c3c;
+                border-radius: 5px;
+                padding: 8px;
+            }
+        """)
+        self.output_text.setAcceptRichText(True)
+        
+        # Console layout
+        console_layout = QtWidgets.QVBoxLayout()
+        header_layout = QtWidgets.QHBoxLayout()
+        header_layout.addWidget(output_label)
+        header_layout.addStretch()
+        
+        # Create button layout for console controls
+        console_buttons_layout = QtWidgets.QHBoxLayout()
+        
+        # Run button
+        self.run_btn = QtWidgets.QPushButton("Run Optimization")
+        self.run_btn.clicked.connect(self.run_optimization)
+        self.run_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #4CAF50;
+                color: white;
+                padding: 5px 10px;
+                border: none;
+                border-radius: 3px;
+            }
+            QPushButton:hover {
+                background-color: #45a049;
+            }
+            QPushButton:pressed {
+                background-color: #3d8b40;
+            }
+            QPushButton:disabled {
+                background-color: #cccccc;
+                color: #888888;
+            }
+        """)
+        
+        # Stop button (initially disabled)
+        self.stop_btn = QtWidgets.QPushButton("Stop Optimization")
+        self.stop_btn.clicked.connect(self.stop_optimization)
+        self.stop_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #f44336;
+                color: white;
+                padding: 5px 10px;
+                border: none;
+                border-radius: 3px;
+            }
+            QPushButton:hover {
+                background-color: #d32f2f;
+            }
+            QPushButton:pressed {
+                background-color: #b71c1c;
+            }
+            QPushButton:disabled {
+                background-color: #cccccc;
+                color: #888888;
+            }
+        """)
+        self.stop_btn.setEnabled(False)  # Initially disabled
+        
+        # Clear console button
+        clear_btn = QtWidgets.QPushButton("Clear Console")
+        clear_btn.clicked.connect(self.clear_console)
+        clear_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #555;
+                color: white;
+                padding: 5px 10px;
+                border: none;
+                border-radius: 3px;
+            }
+            QPushButton:hover {
+                background-color: #666;
+            }
+        """)
+        
+        # Add buttons to console buttons layout in the desired order
+        console_buttons_layout.addWidget(self.run_btn)
+        console_buttons_layout.addWidget(self.stop_btn)
+        console_buttons_layout.addWidget(clear_btn)
+        
+        # Add console buttons layout to header layout
+        header_layout.addLayout(console_buttons_layout)
+        
+        console_layout.addLayout(header_layout)
+        console_layout.addWidget(self.output_text)
+        
+        main_layout.addLayout(console_layout)
         
         # Initialize ROI method display
         self.update_roi_method(True)
@@ -557,10 +621,85 @@ class FlexSearchTab(QtWidgets.QWidget):
             self.roi_stacked_widget.setCurrentIndex(1)
     
     def run_optimization(self):
-        """Prepare and run the flex-search optimization."""
+        """Run the flex-search optimization."""
         if self.optimization_running:
-            self.output_text.append("Optimization already running. Please wait or stop the current run.")
+            self.update_output("Optimization already running. Please wait or stop the current run.")
             return
+            
+        # Validate inputs
+        if not self.subject_combo.currentText():
+            QtWidgets.QMessageBox.warning(self, "Warning", "Please select a subject.")
+            return
+            
+        if not self.eeg_net_combo.currentText():
+            QtWidgets.QMessageBox.warning(self, "Warning", "Please select an EEG net.")
+            return
+            
+        # Get ROI parameters based on selected method
+        if self.roi_method_spherical.isChecked():
+            roi_params = {
+                'method': 'spherical',
+                'center': [
+                    self.roi_x_input.value(),
+                    self.roi_y_input.value(),
+                    self.roi_z_input.value()
+                ],
+                'radius': self.roi_radius_input.value()
+            }
+        else:  # cortical ROI
+            if not self.atlas_combo.currentText():
+                QtWidgets.QMessageBox.warning(self, "Warning", "Please select an atlas for ROI.")
+                return
+            if not self.label_value_input.value():
+                QtWidgets.QMessageBox.warning(self, "Warning", "Please select a region for ROI.")
+                return
+                
+            roi_params = {
+                'method': 'cortical',
+                'atlas': self.atlas_combo.currentText(),
+                'region': str(self.label_value_input.value())
+            }
+            
+        # Get optimization parameters
+        optimization_params = {
+            'goal': self.goal_combo.currentData(),
+            'postproc': self.postproc_combo.currentData(),
+            'electrode_radius': self.radius_input.value(),
+            'electrode_current': self.current_input.value()
+        }
+        
+        # Show confirmation dialog
+        details = (f"This will run flex-search optimization with the following parameters:\n\n" +
+                  f"• Subject: {self.subject_combo.currentText()}\n" +
+                  f"• EEG Net: {self.eeg_net_combo.currentText()}\n" +
+                  f"• Optimization Goal: {self.goal_combo.currentText()}\n" +
+                  f"• Post-processing: {self.postproc_combo.currentText()}\n" +
+                  f"• Electrode Radius: {self.radius_input.value()} mm\n" +
+                  f"• Electrode Current: {self.current_input.value()} mA\n" +
+                  f"• ROI Method: {'Spherical' if self.roi_method_spherical.isChecked() else 'Cortical'}\n")
+        
+        if self.roi_method_spherical.isChecked():
+            details += (f"• ROI Center: ({self.roi_x_input.value()}, {self.roi_y_input.value()}, {self.roi_z_input.value()}) mm\n" +
+                       f"• ROI Radius: {self.roi_radius_input.value()} mm")
+        else:
+            details += (f"• ROI Atlas: {self.atlas_combo.currentText()}\n" +
+                       f"• ROI Region: {self.label_value_input.value()}")
+        
+        if not ConfirmationDialog.confirm(
+            self,
+            title="Confirm Optimization",
+            message="Are you sure you want to start the optimization?",
+            details=details
+        ):
+            return
+            
+        # Set processing state
+        self.optimization_running = True
+        self.run_btn.setEnabled(False)
+        self.stop_btn.setEnabled(True)
+        
+        # Disable all other controls
+        self.disable_controls()
         
         # Get the selected subject
         subject_id = self.subject_combo.currentText()
@@ -710,43 +849,6 @@ class FlexSearchTab(QtWidgets.QWidget):
             self.output_text.append(f"Atlas: {atlas_name}")
             self.output_text.append(f"Label value: {label_value}")
         
-        # Build confirmation message
-        msg = "The following flex-search optimization will be executed:\n\n"
-        msg += f"Subject: {subject_id}\n"
-        msg += f"Goal: {goal}\n"
-        msg += f"Post-processing: {postproc}\n"
-        msg += f"EEG Net: {eeg_net}\n"
-        msg += f"Electrode radius: {radius} mm\n"
-        msg += f"Electrode current: {current} mA\n"
-        msg += f"ROI method: {roi_method}\n"
-        if roi_method == "spherical":
-            msg += f"ROI center: [{roi_x}, {roi_y}, {roi_z}] mm\n"
-            msg += f"ROI radius: {roi_radius} mm\n"
-        else:
-            msg += f"Atlas: {atlas_name}\n"
-            msg += f"Label value: {label_value}\n"
-        if goal == "focality":
-            msg += f"Non-ROI method: {nonroi_method}\n"
-            msg += f"Thresholds: {thresholds}\n"
-            if nonroi_method == "specific":
-                if self.roi_method_spherical.isChecked():
-                    msg += f"Non-ROI center: [{self.nonroi_x_input.value()}, {self.nonroi_y_input.value()}, {self.nonroi_z_input.value()}] mm\n"
-                    msg += f"Non-ROI radius: {self.nonroi_radius_input.value()} mm\n"
-                else:
-                    msg += f"Non-ROI Atlas: {nonroi_atlas}\n"
-                    msg += f"Non-ROI Label: {nonroi_label}\n"
-        msg += "\nDo you want to proceed?"
-        
-        reply = QtWidgets.QMessageBox.question(
-            self, "Confirm Flex-Search Optimization",
-            msg,
-            QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No,
-            QtWidgets.QMessageBox.No
-        )
-        
-        if reply != QtWidgets.QMessageBox.Yes:
-            return
-        
         # Set tab as busy only after confirmation
         if hasattr(self, 'parent') and self.parent:
             self.parent.set_tab_busy(self, True, stop_btn=self.stop_btn)
@@ -759,7 +861,6 @@ class FlexSearchTab(QtWidgets.QWidget):
         # Disable UI controls during optimization
         self.run_btn.setEnabled(False)
         self.stop_btn.setEnabled(True)
-        self.stop_btn.setStyleSheet("background-color: #f44336; color: white; font-weight: bold; font-size: 14px; padding: 8px;")
         self.optimization_running = True
         
         # Create and start the thread
@@ -783,7 +884,7 @@ class FlexSearchTab(QtWidgets.QWidget):
         self.optimization_running = False
         self.run_btn.setEnabled(True)
         self.stop_btn.setEnabled(False)
-        self.stop_btn.setStyleSheet("background-color: #cccccc; color: #888888; font-weight: bold; font-size: 14px; padding: 8px;")
+        self.enable_controls()  # Re-enable all controls
         self.output_text.append("\nOptimization process completed.")
     
     def clear_console(self):
@@ -807,7 +908,6 @@ class FlexSearchTab(QtWidgets.QWidget):
         self.optimization_running = False
         self.run_btn.setEnabled(True)
         self.stop_btn.setEnabled(False)
-        self.stop_btn.setStyleSheet("background-color: #cccccc; color: #888888; font-weight: bold; font-size: 14px; padding: 8px;")
     
     def on_subject_changed(self, index):
         """Handle subject selection change."""
@@ -852,7 +952,7 @@ class FlexSearchTab(QtWidgets.QWidget):
         # Find the atlas file path
         subject_id = self.subject_combo.currentText()
         project_dir = os.environ.get('PROJECT_DIR', '/mnt/BIDS_test')
-        seg_dir = os.path.join(project_dir, 'derivatives', 'SimNIBS', f'sub-{subject_id}', 'segmentation')
+        seg_dir = os.path.join(project_dir, 'derivatives', 'SimNIBS', f'sub-{subject_id}', f'm2m_{subject_id}', 'segmentation')
         if not atlas_display:
             QtWidgets.QMessageBox.warning(self, "No Atlas Selected", "Please select an atlas.")
             return
@@ -904,4 +1004,102 @@ class FlexSearchTab(QtWidgets.QWidget):
         btn = QtWidgets.QPushButton("Close")
         btn.clicked.connect(dlg.accept)
         layout.addWidget(btn)
-        dlg.exec_() 
+        dlg.exec_()
+
+    def disable_controls(self):
+        """Disable all input controls during optimization."""
+        # Disable subject selection
+        self.subject_combo.setEnabled(False)
+        self.refresh_subjects_btn.setEnabled(False)
+        
+        # Disable optimization parameters
+        self.goal_combo.setEnabled(False)
+        self.postproc_combo.setEnabled(False)
+        self.eeg_net_combo.setEnabled(False)
+        self.refresh_eeg_nets_btn.setEnabled(False)
+        
+        # Disable electrode parameters
+        self.radius_input.setEnabled(False)
+        self.current_input.setEnabled(False)
+        
+        # Disable ROI method selection
+        self.roi_method_spherical.setEnabled(False)
+        self.roi_method_cortical.setEnabled(False)
+        
+        # Disable ROI inputs based on method
+        if self.roi_method_spherical.isChecked():
+            self.roi_x_input.setEnabled(False)
+            self.roi_y_input.setEnabled(False)
+            self.roi_z_input.setEnabled(False)
+            self.roi_radius_input.setEnabled(False)
+        else:
+            self.atlas_combo.setEnabled(False)
+            self.roi_hemi_combo.setEnabled(False)
+            self.refresh_atlases_btn.setEnabled(False)
+            self.list_roi_regions_btn.setEnabled(False)
+            self.label_value_input.setEnabled(False)
+        
+        # Disable focality options if visible
+        if self.focality_group.isVisible():
+            self.threshold_input.setEnabled(False)
+            self.nonroi_method_combo.setEnabled(False)
+            if self.nonroi_method_combo.currentData() == "specific":
+                if self.roi_method_spherical.isChecked():
+                    self.nonroi_x_input.setEnabled(False)
+                    self.nonroi_y_input.setEnabled(False)
+                    self.nonroi_z_input.setEnabled(False)
+                    self.nonroi_radius_input.setEnabled(False)
+                else:
+                    self.nonroi_atlas_combo.setEnabled(False)
+                    self.nonroi_hemi_combo.setEnabled(False)
+                    self.list_nonroi_regions_btn.setEnabled(False)
+                    self.nonroi_label_input.setEnabled(False)
+
+    def enable_controls(self):
+        """Enable all input controls after optimization."""
+        # Enable subject selection
+        self.subject_combo.setEnabled(True)
+        self.refresh_subjects_btn.setEnabled(True)
+        
+        # Enable optimization parameters
+        self.goal_combo.setEnabled(True)
+        self.postproc_combo.setEnabled(True)
+        self.eeg_net_combo.setEnabled(True)
+        self.refresh_eeg_nets_btn.setEnabled(True)
+        
+        # Enable electrode parameters
+        self.radius_input.setEnabled(True)
+        self.current_input.setEnabled(True)
+        
+        # Enable ROI method selection
+        self.roi_method_spherical.setEnabled(True)
+        self.roi_method_cortical.setEnabled(True)
+        
+        # Enable ROI inputs based on method
+        if self.roi_method_spherical.isChecked():
+            self.roi_x_input.setEnabled(True)
+            self.roi_y_input.setEnabled(True)
+            self.roi_z_input.setEnabled(True)
+            self.roi_radius_input.setEnabled(True)
+        else:
+            self.atlas_combo.setEnabled(True)
+            self.roi_hemi_combo.setEnabled(True)
+            self.refresh_atlases_btn.setEnabled(True)
+            self.list_roi_regions_btn.setEnabled(True)
+            self.label_value_input.setEnabled(True)
+        
+        # Enable focality options if visible
+        if self.focality_group.isVisible():
+            self.threshold_input.setEnabled(True)
+            self.nonroi_method_combo.setEnabled(True)
+            if self.nonroi_method_combo.currentData() == "specific":
+                if self.roi_method_spherical.isChecked():
+                    self.nonroi_x_input.setEnabled(True)
+                    self.nonroi_y_input.setEnabled(True)
+                    self.nonroi_z_input.setEnabled(True)
+                    self.nonroi_radius_input.setEnabled(True)
+                else:
+                    self.nonroi_atlas_combo.setEnabled(True)
+                    self.nonroi_hemi_combo.setEnabled(True)
+                    self.list_nonroi_regions_btn.setEnabled(True)
+                    self.nonroi_label_input.setEnabled(True)
