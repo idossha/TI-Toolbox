@@ -82,6 +82,53 @@ class NiftiViewerTab(QtWidgets.QWidget):
         subject_layout.addStretch(1)
         main_layout.addWidget(subject_group)
         
+        # Visualization options panel
+        vis_group = QtWidgets.QGroupBox("Visualization Options")
+        vis_layout = QtWidgets.QHBoxLayout(vis_group)
+        vis_layout.setSpacing(12)
+        vis_layout.setContentsMargins(10, 5, 10, 5)
+        # Colormap
+        vis_layout.addWidget(QtWidgets.QLabel("Colormap:"))
+        self.colormap_combo = QtWidgets.QComboBox()
+        self.colormap_combo.addItems(["grayscale", "heat", "jet", "gecolor", "nih", "surface"])
+        self.colormap_combo.setCurrentText("heat")
+        vis_layout.addWidget(self.colormap_combo)
+        # Opacity
+        vis_layout.addWidget(QtWidgets.QLabel("Opacity:"))
+        self.opacity_slider = QtWidgets.QSlider(QtCore.Qt.Horizontal)
+        self.opacity_slider.setRange(0, 100)
+        self.opacity_slider.setValue(70)
+        self.opacity_slider.setFixedWidth(80)
+        vis_layout.addWidget(self.opacity_slider)
+        self.opacity_label = QtWidgets.QLabel("0.70")
+        vis_layout.addWidget(self.opacity_label)
+        self.opacity_slider.valueChanged.connect(lambda v: self.opacity_label.setText(f"{v/100:.2f}"))
+        # Percentile mode
+        self.percentile_chk = QtWidgets.QCheckBox("Percentile Mode")
+        self.percentile_chk.setChecked(True)
+        vis_layout.addWidget(self.percentile_chk)
+        # Thresholds
+        vis_layout.addWidget(QtWidgets.QLabel("Threshold (%):"))
+        self.min_threshold = QtWidgets.QDoubleSpinBox()
+        self.min_threshold.setRange(0, 100)
+        self.min_threshold.setValue(95)
+        self.min_threshold.setDecimals(1)
+        self.min_threshold.setFixedWidth(60)
+        vis_layout.addWidget(self.min_threshold)
+        vis_layout.addWidget(QtWidgets.QLabel("to"))
+        self.max_threshold = QtWidgets.QDoubleSpinBox()
+        self.max_threshold.setRange(0, 100)
+        self.max_threshold.setValue(99.9)
+        self.max_threshold.setDecimals(1)
+        self.max_threshold.setFixedWidth(60)
+        vis_layout.addWidget(self.max_threshold)
+        # Visibility
+        self.visibility_chk = QtWidgets.QCheckBox("Visible")
+        self.visibility_chk.setChecked(True)
+        vis_layout.addWidget(self.visibility_chk)
+        vis_layout.addStretch(1)
+        main_layout.addWidget(vis_group)
+        
         # Create toolbar for actions
         toolbar_group = QtWidgets.QGroupBox("Actions")
         toolbar_layout = QtWidgets.QHBoxLayout(toolbar_group)
@@ -98,7 +145,7 @@ class NiftiViewerTab(QtWidgets.QWidget):
         toolbar_layout.addWidget(self.status_label)
         main_layout.addWidget(toolbar_group)
         
-        # Info area (console) - make it taller
+        # Info area (console)
         self.info_area = QtWidgets.QTextEdit()
         self.info_area.setReadOnly(True)
         self.info_area.setMinimumHeight(300)
@@ -107,8 +154,9 @@ class NiftiViewerTab(QtWidgets.QWidget):
             "1. Select a subject from the dropdown\n"
             "2. Choose between Subject space or MNI space\n"
             "3. Select one or more simulations from the list\n"
-            "4. Click 'Load Subject Data' to view subject's data\n"
-            "5. Freeview will launch to display the files\n\n"
+            "4. Set visualization options\n"
+            "5. Click 'Load Subject Data' to view subject's data\n"
+            "6. Freeview will launch to display the files\n\n"
             "Note: Freeview must be installed on your system."
         )
         main_layout.addWidget(self.info_area)
@@ -127,9 +175,6 @@ class NiftiViewerTab(QtWidgets.QWidget):
         reload_btn = QtWidgets.QPushButton("Reload Current View")
         reload_btn.clicked.connect(self.reload_current_view)
         bottom_button_layout.addWidget(reload_btn)
-        options_btn = QtWidgets.QPushButton("Visualization Options")
-        options_btn.clicked.connect(self.show_options)
-        bottom_button_layout.addWidget(options_btn)
         clear_console_btn = QtWidgets.QPushButton("Clear Console")
         clear_console_btn.clicked.connect(self.clear_console)
         bottom_button_layout.addWidget(clear_console_btn)
@@ -210,6 +255,14 @@ class NiftiViewerTab(QtWidgets.QWidget):
         m2m_dir = os.path.join(subject_dir, f"m2m_{subject_id}")
         simulations_dir = os.path.join(subject_dir, "Simulations")
         
+        # Get visualization options
+        colormap = self.colormap_combo.currentText()
+        opacity = self.opacity_slider.value() / 100.0
+        percentile = self.percentile_chk.isChecked()
+        threshold_min = self.min_threshold.value()
+        threshold_max = self.max_threshold.value()
+        visible = 1 if self.visibility_chk.isChecked() else 0
+        
         # Initialize file specifications for Freeview
         file_specs = []
         
@@ -254,12 +307,12 @@ class NiftiViewerTab(QtWidgets.QWidget):
                             file_specs.append({
                                 "path": nifti_file,
                                 "type": "volume",
-                                "colormap": "heat",
-                                "opacity": 0.6,
-                                "visible": 1 if is_visible else 0,
-                                "percentile": 1,  # Use percentile mode for threshold
-                                "threshold_min": 95.0,  # 95th percentile
-                                "threshold_max": 99.9   # 99.9th percentile
+                                "colormap": colormap,
+                                "opacity": opacity,
+                                "visible": visible if is_visible else 0,
+                                "percentile": 1 if percentile else 0,
+                                "threshold_min": threshold_min,
+                                "threshold_max": threshold_max
                             })
                     else:
                         # Include only files without "_MNI" in their name
@@ -267,12 +320,12 @@ class NiftiViewerTab(QtWidgets.QWidget):
                             file_specs.append({
                                 "path": nifti_file,
                                 "type": "volume",
-                                "colormap": "heat",
-                                "opacity": 0.6,
-                                "visible": 1 if is_visible else 0,
-                                "percentile": 1,  # Use percentile mode for threshold
-                                "threshold_min": 95.0,  # 95th percentile
-                                "threshold_max": 99.9   # 99.9th percentile
+                                "colormap": colormap,
+                                "opacity": opacity,
+                                "visible": visible if is_visible else 0,
+                                "percentile": 1 if percentile else 0,
+                                "threshold_min": threshold_min,
+                                "threshold_max": threshold_max
                             })
         
         if not any(spec for spec in file_specs if spec["path"].endswith((".nii", ".nii.gz"))):
@@ -290,8 +343,26 @@ class NiftiViewerTab(QtWidgets.QWidget):
         )
         
         if filenames:
-            # For custom files, we pass the same files for display and file paths
-            self.launch_freeview_with_files(filenames, filenames)
+            # Use visualization options for all custom files
+            colormap = self.colormap_combo.currentText()
+            opacity = self.opacity_slider.value() / 100.0
+            percentile = self.percentile_chk.isChecked()
+            threshold_min = self.min_threshold.value()
+            threshold_max = self.max_threshold.value()
+            visible = 1 if self.visibility_chk.isChecked() else 0
+            file_specs = []
+            for fname in filenames:
+                file_specs.append({
+                    "path": fname,
+                    "type": "volume",
+                    "colormap": colormap,
+                    "opacity": opacity,
+                    "visible": visible,
+                    "percentile": 1 if percentile else 0,
+                    "threshold_min": threshold_min,
+                    "threshold_max": threshold_max
+                })
+            self.launch_freeview_with_files(file_specs, filenames)
     
     def launch_freeview_with_files(self, file_specs, file_paths=[]):
         """Launch Freeview with multiple files.
@@ -385,155 +456,6 @@ class NiftiViewerTab(QtWidgets.QWidget):
             self.launch_freeview_with_files(self.current_files, file_paths)
         else:
             QtWidgets.QMessageBox.warning(self, "Warning", "No files currently loaded")
-    
-    def show_options(self):
-        """Show a dialog with additional Freeview options."""
-        if not hasattr(self, 'current_files') or not self.current_files:
-            return
-            
-        dialog = QtWidgets.QDialog(self)
-        dialog.setWindowTitle("Freeview Options")
-        dialog.setMinimumWidth(400)
-        
-        layout = QtWidgets.QVBoxLayout(dialog)
-        
-        # File selection for options
-        layout.addWidget(QtWidgets.QLabel("Select file to modify:"))
-        file_combo = QtWidgets.QComboBox()
-        
-        # Use current_paths for display if available
-        display_paths = self.current_paths if hasattr(self, 'current_paths') else self.current_files
-        
-        for i, file_path in enumerate(display_paths):
-            # Get just the filename for display
-            filename = os.path.basename(file_path.split(':')[0] if ':' in file_path else file_path)
-            file_combo.addItem(filename, userData=i)  # Store index as user data
-        
-        layout.addWidget(file_combo)
-        
-        # Add visibility toggle
-        visibility_chk = QtWidgets.QCheckBox("Visible")
-        visibility_chk.setChecked(True)
-        layout.addWidget(visibility_chk)
-        
-        # Add colormap options
-        layout.addWidget(QtWidgets.QLabel("Colormap:"))
-        colormap_combo = QtWidgets.QComboBox()
-        colormap_combo.addItems(["grayscale", "heat", "jet", "gecolor", "nih", "surface"])
-        colormap_combo.setCurrentText("heat")  # Default to heat
-        layout.addWidget(colormap_combo)
-        
-        # Add opacity slider
-        layout.addWidget(QtWidgets.QLabel("Opacity:"))
-        opacity_slider = QtWidgets.QSlider(QtCore.Qt.Horizontal)
-        opacity_slider.setRange(0, 100)
-        opacity_slider.setValue(70)  # Default to 0.7
-        opacity_slider.setTickPosition(QtWidgets.QSlider.TicksBelow)
-        opacity_slider.setTickInterval(10)
-        layout.addWidget(opacity_slider)
-        
-        # Add percentile mode checkbox
-        percentile_chk = QtWidgets.QCheckBox("Use Percentile Mode for Thresholds")
-        percentile_chk.setChecked(True)  # Default to percentile mode
-        layout.addWidget(percentile_chk)
-        
-        # Add threshold options
-        layout.addWidget(QtWidgets.QLabel("Threshold (%):"))
-        threshold_layout = QtWidgets.QHBoxLayout()
-        min_threshold = QtWidgets.QDoubleSpinBox()
-        min_threshold.setRange(0, 100)
-        min_threshold.setValue(95)  # Default to 95%
-        min_threshold.setDecimals(1)  # Allow decimal values
-        
-        max_threshold = QtWidgets.QDoubleSpinBox()
-        max_threshold.setRange(0, 100)
-        max_threshold.setValue(99.9)  # Default to 99.9%
-        max_threshold.setDecimals(1)  # Allow decimal values
-        
-        threshold_layout.addWidget(min_threshold)
-        threshold_layout.addWidget(QtWidgets.QLabel("to"))
-        threshold_layout.addWidget(max_threshold)
-        layout.addLayout(threshold_layout)
-        
-        # Help text
-        help_text = QtWidgets.QLabel(
-            "Percentile mode shows thresholds based on data distribution.\n"
-            "Example: 95-99.9% shows only the top 5% of values."
-        )
-        help_text.setStyleSheet("font-size: 10px; color: gray; font-style: italic;")
-        layout.addWidget(help_text)
-        
-        # Add buttons
-        button_box = QtWidgets.QDialogButtonBox(
-            QtWidgets.QDialogButtonBox.Ok | QtWidgets.QDialogButtonBox.Cancel
-        )
-        button_box.accepted.connect(dialog.accept)
-        button_box.rejected.connect(dialog.reject)
-        layout.addWidget(button_box)
-        
-        # Execute dialog
-        if dialog.exec_() == QtWidgets.QDialog.Accepted:
-            # Get the selected options
-            file_index = file_combo.currentData()
-            visible = 1 if visibility_chk.isChecked() else 0
-            colormap = colormap_combo.currentText()
-            opacity = opacity_slider.value() / 100.0
-            min_val = min_threshold.value()
-            max_val = max_threshold.value()
-            use_percentile = percentile_chk.isChecked()
-            
-            # Update the file options
-            file_path = self.current_files[file_index].split(':')[0]  # Get just the file path
-            
-            # Build the updated specification with or without percentile mode
-            if use_percentile:
-                updated_spec = f"{file_path}:colormap={colormap}:heatscale={min_val},{max_val}:percentile=1:opacity={opacity}:visible={visible}"
-            else:
-                updated_spec = f"{file_path}:colormap={colormap}:heatscale={min_val},{max_val}:opacity={opacity}:visible={visible}"
-            
-            # Create a new list with the updated specification
-            updated_files = list(self.current_files)
-            updated_files[file_index] = updated_spec
-            
-            # Relaunch Freeview with the updated options
-            self.launch_freeview_with_options(updated_files)
-    
-    def launch_freeview_with_options(self, file_specs):
-        """Launch Freeview with specified file options."""
-        if not file_specs:
-            return
-        
-        try:
-            # Close any existing Freeview process
-            if self.freeview_process is not None:
-                self.terminate_freeview()
-            
-            # Update the current files with the new options
-            self.current_files = file_specs
-            
-            # Construct the command
-            base_command = ['freeview'] + file_specs
-            
-            # Launch Freeview
-            self.freeview_process = subprocess.Popen(
-                base_command,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE
-            )
-            
-            # Update UI with formatted command for better readability
-            formatted_cmd = "freeview \\\n"
-            for spec in file_specs:
-                formatted_cmd += f"  {spec} \\\n"
-            formatted_cmd = formatted_cmd.rstrip(" \\\n")
-            
-            self.cmd_label.setText(formatted_cmd)
-            
-        except Exception as e:
-            QtWidgets.QMessageBox.critical(
-                self, "Error", 
-                f"Failed to launch Freeview with options: {str(e)}"
-            )
     
     def terminate_freeview(self):
         """Terminate the Freeview process."""
