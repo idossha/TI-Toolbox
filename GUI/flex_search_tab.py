@@ -387,51 +387,114 @@ class FlexSearchTab(QtWidgets.QWidget):
         # Add form to scroll layout
         scroll_layout.addWidget(form_widget)
         
-        # Action buttons
-        buttons_layout = QtWidgets.QHBoxLayout()
-
-        # Run button
-        self.run_btn = QtWidgets.QPushButton("Run Optimization")
-        self.run_btn.clicked.connect(self.run_optimization)
-        self.run_btn.setMinimumWidth(160)
-        self.run_btn.setMinimumHeight(40)
-        self.run_btn.setStyleSheet("background-color: #4CAF50; color: white; font-weight: bold; font-size: 14px; padding: 8px;")
-        buttons_layout.addWidget(self.run_btn)
-        
-        # Stop button
-        self.stop_btn = QtWidgets.QPushButton("Stop")
-        self.stop_btn.clicked.connect(self.stop_optimization)
-        self.stop_btn.setEnabled(False)
-        self.stop_btn.setMinimumWidth(100)
-        self.stop_btn.setMinimumHeight(40)
-        self.stop_btn.setStyleSheet("background-color: #cccccc; color: #888888; font-weight: bold; font-size: 14px; padding: 8px;")
-        buttons_layout.addWidget(self.stop_btn)
-        
-        # Clear button
-        self.clear_btn = QtWidgets.QPushButton("Clear Console")
-        self.clear_btn.clicked.connect(self.clear_console)
-        self.clear_btn.setMinimumWidth(120)
-        self.clear_btn.setMinimumHeight(40)
-        self.clear_btn.setStyleSheet("background-color: #e0e0e0; color: #333; font-weight: bold; font-size: 14px; padding: 8px;")
-        buttons_layout.addWidget(self.clear_btn)
-
-        buttons_layout.addStretch()
-
-        scroll_layout.addLayout(buttons_layout)
-        
         # Add scroll content to scroll area
         scroll_area.setWidget(scroll_content)
         main_layout.addWidget(scroll_area)
         
-        # Console output (match other tabs)
-        output_label = QtWidgets.QLabel("Console Output")
+        # Console output
+        output_label = QtWidgets.QLabel("Output:")
         output_label.setStyleSheet("font-weight: bold; font-size: 14px; margin-top: 10px;")
-        main_layout.addWidget(output_label)
+        
         self.output_text = QtWidgets.QTextEdit()
         self.output_text.setReadOnly(True)
         self.output_text.setMinimumHeight(200)
-        self.output_text.setStyleSheet("font-family: 'Consolas', 'Courier New', monospace; background-color: #1e1e1e; color: #f0f0f0; font-size: 13px; border: 1px solid #3c3c3c; border-radius: 5px; padding: 8px;")
-        main_layout.addWidget(self.output_text)
+        self.output_text.setStyleSheet("""
+            QTextEdit {
+                background-color: #1e1e1e;
+                color: #f0f0f0;
+                font-family: 'Consolas', 'Courier New', monospace;
+                font-size: 13px;
+                border: 1px solid #3c3c3c;
+                border-radius: 5px;
+                padding: 8px;
+            }
+        """)
+        self.output_text.setAcceptRichText(True)
+        
+        # Console layout
+        console_layout = QtWidgets.QVBoxLayout()
+        header_layout = QtWidgets.QHBoxLayout()
+        header_layout.addWidget(output_label)
+        header_layout.addStretch()
+        
+        # Create button layout for console controls
+        console_buttons_layout = QtWidgets.QHBoxLayout()
+        
+        # Run button
+        self.run_btn = QtWidgets.QPushButton("Run Optimization")
+        self.run_btn.clicked.connect(self.run_optimization)
+        self.run_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #4CAF50;
+                color: white;
+                padding: 5px 10px;
+                border: none;
+                border-radius: 3px;
+            }
+            QPushButton:hover {
+                background-color: #45a049;
+            }
+            QPushButton:pressed {
+                background-color: #3d8b40;
+            }
+            QPushButton:disabled {
+                background-color: #cccccc;
+                color: #888888;
+            }
+        """)
+        
+        # Stop button (initially disabled)
+        self.stop_btn = QtWidgets.QPushButton("Stop Optimization")
+        self.stop_btn.clicked.connect(self.stop_optimization)
+        self.stop_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #f44336;
+                color: white;
+                padding: 5px 10px;
+                border: none;
+                border-radius: 3px;
+            }
+            QPushButton:hover {
+                background-color: #d32f2f;
+            }
+            QPushButton:pressed {
+                background-color: #b71c1c;
+            }
+            QPushButton:disabled {
+                background-color: #cccccc;
+                color: #888888;
+            }
+        """)
+        self.stop_btn.setEnabled(False)  # Initially disabled
+        
+        # Clear console button
+        clear_btn = QtWidgets.QPushButton("Clear Console")
+        clear_btn.clicked.connect(self.clear_console)
+        clear_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #555;
+                color: white;
+                padding: 5px 10px;
+                border: none;
+                border-radius: 3px;
+            }
+            QPushButton:hover {
+                background-color: #666;
+            }
+        """)
+        
+        # Add buttons to console buttons layout in the desired order
+        console_buttons_layout.addWidget(self.run_btn)
+        console_buttons_layout.addWidget(self.stop_btn)
+        console_buttons_layout.addWidget(clear_btn)
+        
+        # Add console buttons layout to header layout
+        header_layout.addLayout(console_buttons_layout)
+        
+        console_layout.addLayout(header_layout)
+        console_layout.addWidget(self.output_text)
+        
+        main_layout.addLayout(console_layout)
         
         # Initialize ROI method display
         self.update_roi_method(True)
@@ -759,7 +822,6 @@ class FlexSearchTab(QtWidgets.QWidget):
         # Disable UI controls during optimization
         self.run_btn.setEnabled(False)
         self.stop_btn.setEnabled(True)
-        self.stop_btn.setStyleSheet("background-color: #f44336; color: white; font-weight: bold; font-size: 14px; padding: 8px;")
         self.optimization_running = True
         
         # Create and start the thread
@@ -783,7 +845,6 @@ class FlexSearchTab(QtWidgets.QWidget):
         self.optimization_running = False
         self.run_btn.setEnabled(True)
         self.stop_btn.setEnabled(False)
-        self.stop_btn.setStyleSheet("background-color: #cccccc; color: #888888; font-weight: bold; font-size: 14px; padding: 8px;")
         self.output_text.append("\nOptimization process completed.")
     
     def clear_console(self):
@@ -807,7 +868,6 @@ class FlexSearchTab(QtWidgets.QWidget):
         self.optimization_running = False
         self.run_btn.setEnabled(True)
         self.stop_btn.setEnabled(False)
-        self.stop_btn.setStyleSheet("background-color: #cccccc; color: #888888; font-weight: bold; font-size: 14px; padding: 8px;")
     
     def on_subject_changed(self, index):
         """Handle subject selection change."""

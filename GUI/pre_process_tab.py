@@ -106,19 +106,65 @@ class PreProcessTab(QtWidgets.QWidget):
         
     def setup_ui(self):
         """Set up the user interface for the pre-process tab."""
-        main_container_layout = QtWidgets.QVBoxLayout(self)
+        main_layout = QtWidgets.QVBoxLayout(self)
+        
+        # Create a scroll area for the form
+        scroll_area = QtWidgets.QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_content = QtWidgets.QWidget()
+        scroll_layout = QtWidgets.QVBoxLayout(scroll_content)
+        
+        # Title and description
+        title_label = QtWidgets.QLabel("Pre-processing Pipeline")
+        title_label.setStyleSheet("font-size: 16px; font-weight: bold;")
+        
+        description_label = QtWidgets.QLabel(
+            "Convert DICOM files to NIfTI format, run FreeSurfer reconstruction, "
+            "and create SimNIBS m2m folders for selected subjects."
+        )
+        description_label.setWordWrap(True)
+        
+        scroll_layout.addWidget(title_label)
+        scroll_layout.addWidget(description_label)
+        scroll_layout.addSpacing(10)  # Reduced spacing after description
+        
+        # Add status label at the top
+        self.status_label = QtWidgets.QLabel()
+        self.status_label.setText("Processing... Only the Stop button is available")
+        self.status_label.setStyleSheet("""
+            QLabel {
+                background-color: white;
+                color: #f44336;
+                padding: 5px 10px;
+                border-radius: 3px;
+                font-weight: bold;
+                font-size: 13px;
+                min-height: 15px;
+                max-height: 15px;
+            }
+        """)
+        self.status_label.setAlignment(QtCore.Qt.AlignCenter)
+        self.status_label.hide()  # Initially hidden
+        scroll_layout.addWidget(self.status_label)
+        
+        # Create a horizontal layout for subject selection and options
+        content_layout = QtWidgets.QHBoxLayout()
+        content_layout.setSpacing(20)  # Set consistent spacing
+        content_layout.setContentsMargins(20, 0, 20, 20)  # Removed top margin
         
         # Subject selection section
         subject_widget = QtWidgets.QWidget()
         subject_main_layout = QtWidgets.QVBoxLayout(subject_widget)
-        subject_main_layout.setContentsMargins(0, 0, 0, 0)
+        subject_main_layout.setContentsMargins(10, 0, 10, 10)  # Removed top margin
         
         subject_label = QtWidgets.QLabel("Available Subjects:")
+        subject_label.setStyleSheet("font-weight: bold;")
         subject_main_layout.addWidget(subject_label)
         
         # Subject list with selection
         self.subject_list = QtWidgets.QListWidget()
         self.subject_list.setSelectionMode(QtWidgets.QListWidget.ExtendedSelection)
+        self.subject_list.setFixedHeight(235)  # Fixed height for the list
         subject_main_layout.addWidget(self.subject_list)
         
         # Selection buttons frame
@@ -140,161 +186,108 @@ class PreProcessTab(QtWidgets.QWidget):
         selection_buttons_layout.addStretch()
         subject_main_layout.addWidget(button_frame)
         
-        main_container_layout.addWidget(subject_widget)
+        # Add subject widget to content layout with stretch
+        content_layout.addWidget(subject_widget, 1)  # Add stretch factor to fill space
         
-        # Options and control buttons section with consistent layout
-        options_buttons_widget = QtWidgets.QWidget()
-        options_buttons_layout = QtWidgets.QHBoxLayout(options_buttons_widget)
-        options_buttons_layout.setContentsMargins(0, 0, 0, 0)
+        # Options section
+        options_widget = QtWidgets.QWidget()
+        options_widget.setFixedWidth(350)  # Fixed width for options
+        options_layout = QtWidgets.QVBoxLayout(options_widget)
+        options_layout.setContentsMargins(10, 10, 10, 10)  # Add some padding
+        
+        # Add some top margin to move options up
+        options_layout.setContentsMargins(10, 0, 10, 10)  # Remove top margin
         
         # Pre-processing options group
         self.options_group = QtWidgets.QGroupBox("Processing Options")
-        options_layout = QtWidgets.QHBoxLayout(self.options_group)  # Changed to QHBoxLayout for side-by-side layout
+        self.options_group.setStyleSheet("""
+            QGroupBox {
+                font-weight: bold;
+                border: 1px solid #cccccc;
+                border-radius: 5px;
+                margin-top: 10px;
+                padding-top: 10px;
+            }
+            QGroupBox::title {
+                subcontrol-origin: margin;
+                left: 10px;
+                padding: 0 5px;
+            }
+        """)
+        options_group_layout = QtWidgets.QVBoxLayout(self.options_group)
+        options_group_layout.setSpacing(10)  # Consistent spacing between options
         
-        # Left column - DICOM conversion options
-        left_column = QtWidgets.QVBoxLayout()
-        
-        # DICOM to NIfTI conversion
+        # DICOM conversion options
         self.convert_dicom_cb = QtWidgets.QCheckBox("Convert DICOM files to NIfTI")
         self.convert_dicom_cb.setChecked(True)
-        left_column.addWidget(self.convert_dicom_cb)
+        options_group_layout.addWidget(self.convert_dicom_cb)
         
         # T1w/T2w selection
         self.dicom_type_group = QtWidgets.QGroupBox("DICOM Data Type")
-        dicom_type_layout = QtWidgets.QVBoxLayout(self.dicom_type_group)
+        self.dicom_type_group.setStyleSheet("""
+            QGroupBox {
+                font-weight: normal;
+                border: 1px solid #cccccc;
+                border-radius: 5px;
+                margin-top: 10px;
+                padding-top: 10px;
+            }
+            QGroupBox::title {
+                subcontrol-origin: margin;
+                left: 10px;
+                padding: 0 5px;
+            }
+        """)
+        dicom_type_layout = QtWidgets.QHBoxLayout(self.dicom_type_group)
         self.t1_only_rb = QtWidgets.QRadioButton("T1w only")
         self.t1_t2_rb = QtWidgets.QRadioButton("T1w + T2w")
         self.t1_only_rb.setChecked(True)
         dicom_type_layout.addWidget(self.t1_only_rb)
         dicom_type_layout.addWidget(self.t1_t2_rb)
-        left_column.addWidget(self.dicom_type_group)
+        dicom_type_layout.addStretch()
+        options_group_layout.addWidget(self.dicom_type_group)
         
-        left_column.addStretch()  # Add stretch to align with right column
-        options_layout.addLayout(left_column)
-        
-        # Add some spacing between columns
-        options_layout.addSpacing(20)
-        
-        # Right column - Other options
-        right_column = QtWidgets.QVBoxLayout()
-        
-        # FreeSurfer recon-all
+        # FreeSurfer options
         self.run_recon_cb = QtWidgets.QCheckBox("Run FreeSurfer recon-all")
         self.run_recon_cb.setChecked(True)
-        right_column.addWidget(self.run_recon_cb)
+        options_group_layout.addWidget(self.run_recon_cb)
         
-        # Parallel processing
         self.parallel_cb = QtWidgets.QCheckBox("Run FreeSurfer reconstruction in parallel")
         self.parallel_cb.setEnabled(True)
-        right_column.addWidget(self.parallel_cb)
+        options_group_layout.addWidget(self.parallel_cb)
         
-        # Create m2m folder
+        # SimNIBS options
         self.create_m2m_cb = QtWidgets.QCheckBox("Create SimNIBS m2m folder")
         self.create_m2m_cb.setChecked(True)
-        right_column.addWidget(self.create_m2m_cb)
+        options_group_layout.addWidget(self.create_m2m_cb)
         
-        # Quiet mode
+        # Other options
         self.quiet_cb = QtWidgets.QCheckBox("Run in quiet mode")
         self.quiet_cb.setChecked(False)
-        right_column.addWidget(self.quiet_cb)
+        options_group_layout.addWidget(self.quiet_cb)
         
-        right_column.addStretch()  # Add stretch to align with left column
-        options_layout.addLayout(right_column)
+        # Add options group to options layout
+        options_layout.addWidget(self.options_group)
+        options_layout.addStretch()
         
-        options_buttons_layout.addWidget(self.options_group)
-        main_container_layout.addWidget(options_buttons_widget)
-
-        # Status label (hidden by default)
-        self.status_label = QtWidgets.QLabel()
-        self.status_label.setStyleSheet("""
-            QLabel {
-                color: #d9534f;
-                font-size: 14px;
-                font-weight: bold;
-                padding: 4px 0;
-                margin-bottom: 8px;
-            }
-        """)
-        self.status_label.hide()
-        main_container_layout.addWidget(self.status_label)
-
-        # Control buttons - Moved above console
-        control_widget = QtWidgets.QWidget()
-        control_layout = QtWidgets.QHBoxLayout(control_widget)
-        control_layout.setContentsMargins(0, 0, 0, 0)
+        # Add options widget to content layout
+        content_layout.addWidget(options_widget)
         
-        # Start/Stop buttons
-        self.start_btn = QtWidgets.QPushButton("Start Pre-processing")
-        self.start_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #4CAF50;
-                color: white;
-                font-weight: bold;
-                padding: 8px;
-                border: none;
-                border-radius: 4px;
-            }
-            QPushButton:hover {
-                background-color: #45a049;
-            }
-            QPushButton:disabled {
-                background-color: #cccccc;
-                color: #666666;
-            }
-        """)
+        # Add content layout to scroll layout
+        scroll_layout.addLayout(content_layout)
         
-        self.stop_btn = QtWidgets.QPushButton("Stop")
-        self.stop_btn.setEnabled(False)
-        self.stop_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #cccccc;
-                color: #888888;
-                font-weight: bold;
-                padding: 8px;
-                border: none;
-                border-radius: 4px;
-            }
-            QPushButton:enabled {
-                background-color: #f44336;
-                color: white;
-            }
-            QPushButton:enabled:hover {
-                background-color: #da190b;
-            }
-        """)
+        # Add scroll content to scroll area
+        scroll_area.setWidget(scroll_content)
+        main_layout.addWidget(scroll_area)
         
-        self.start_btn.clicked.connect(self.run_preprocessing)
-        self.stop_btn.clicked.connect(self.stop_preprocessing)
-        
-        control_layout.addStretch()
-        control_layout.addWidget(self.start_btn)
-        control_layout.addWidget(self.stop_btn)
-        control_layout.addStretch()
-        
-        main_container_layout.addWidget(control_widget)
-        
-        # Restore original console and button layout
-        # Output label
+        # Console output
         output_label = QtWidgets.QLabel("Output:")
         output_label.setStyleSheet("font-weight: bold; font-size: 14px; margin-top: 10px;")
-        main_container_layout.addWidget(output_label)
-
-        # Console layout with buttons
-        console_layout = QtWidgets.QVBoxLayout()
-        header_layout = QtWidgets.QHBoxLayout()
-        header_layout.addWidget(output_label)
-        header_layout.addStretch()
-        self.clear_console_btn = QtWidgets.QPushButton("Clear Console")
-        self.clear_console_btn.setStyleSheet("background-color: #6c757d; color: white; font-weight: bold; padding: 8px; border: none; border-radius: 4px;")
-        self.clear_console_btn.clicked.connect(self.clear_console)
-        header_layout.addWidget(self.clear_console_btn)
-        console_layout.addLayout(header_layout)
-
-        # Console output
-        self.console_output = QtWidgets.QTextEdit()
-        self.console_output.setReadOnly(True)
-        self.console_output.setMinimumHeight(200)
-        self.console_output.setStyleSheet("""
+        
+        self.output_text = QtWidgets.QTextEdit()
+        self.output_text.setReadOnly(True)
+        self.output_text.setMinimumHeight(200)
+        self.output_text.setStyleSheet("""
             QTextEdit {
                 background-color: #1e1e1e;
                 color: #f0f0f0;
@@ -305,10 +298,93 @@ class PreProcessTab(QtWidgets.QWidget):
                 padding: 8px;
             }
         """)
-        self.console_output.setAcceptRichText(True)
-        console_layout.addWidget(self.console_output)
-        main_container_layout.addLayout(console_layout)
-
+        self.output_text.setAcceptRichText(True)
+        
+        # Console layout
+        console_layout = QtWidgets.QVBoxLayout()
+        header_layout = QtWidgets.QHBoxLayout()
+        header_layout.addWidget(output_label)
+        header_layout.addStretch()
+        
+        # Create button layout for console controls
+        console_buttons_layout = QtWidgets.QHBoxLayout()
+        
+        # Run button
+        self.run_btn = QtWidgets.QPushButton("Run Pre-processing")
+        self.run_btn.clicked.connect(self.run_preprocessing)
+        self.run_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #4CAF50;
+                color: white;
+                padding: 5px 10px;
+                border: none;
+                border-radius: 3px;
+            }
+            QPushButton:hover {
+                background-color: #45a049;
+            }
+            QPushButton:pressed {
+                background-color: #3d8b40;
+            }
+            QPushButton:disabled {
+                background-color: #cccccc;
+                color: #888888;
+            }
+        """)
+        
+        # Stop button (initially disabled)
+        self.stop_btn = QtWidgets.QPushButton("Stop Pre-processing")
+        self.stop_btn.clicked.connect(self.stop_preprocessing)
+        self.stop_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #f44336;
+                color: white;
+                padding: 5px 10px;
+                border: none;
+                border-radius: 3px;
+            }
+            QPushButton:hover {
+                background-color: #d32f2f;
+            }
+            QPushButton:pressed {
+                background-color: #b71c1c;
+            }
+            QPushButton:disabled {
+                background-color: #cccccc;
+                color: #888888;
+            }
+        """)
+        self.stop_btn.setEnabled(False)  # Initially disabled
+        
+        # Clear console button
+        clear_btn = QtWidgets.QPushButton("Clear Console")
+        clear_btn.clicked.connect(self.clear_console)
+        clear_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #555;
+                color: white;
+                padding: 5px 10px;
+                border: none;
+                border-radius: 3px;
+            }
+            QPushButton:hover {
+                background-color: #666;
+            }
+        """)
+        
+        # Add buttons to console buttons layout in the desired order
+        console_buttons_layout.addWidget(self.run_btn)
+        console_buttons_layout.addWidget(self.stop_btn)
+        console_buttons_layout.addWidget(clear_btn)
+        
+        # Add console buttons layout to header layout
+        header_layout.addLayout(console_buttons_layout)
+        
+        console_layout.addLayout(header_layout)
+        console_layout.addWidget(self.output_text)
+        
+        main_layout.addLayout(console_layout)
+        
         # Enable/disable DICOM type selection based on DICOM conversion checkbox
         self.convert_dicom_cb.toggled.connect(self.dicom_type_group.setEnabled)
         self.dicom_type_group.setEnabled(self.convert_dicom_cb.isChecked())
@@ -522,13 +598,14 @@ class PreProcessTab(QtWidgets.QWidget):
     def set_processing_state(self, is_processing):
         """Update UI state based on processing state."""
         self.processing_running = is_processing
-        self.start_btn.setEnabled(not is_processing)
+        self.run_btn.setEnabled(not is_processing)
         self.stop_btn.setEnabled(is_processing)
         self.subject_list.setEnabled(not is_processing)
         self.select_all_btn.setEnabled(not is_processing)
         self.select_none_btn.setEnabled(not is_processing)
         self.refresh_subjects_btn.setEnabled(not is_processing)
         self.convert_dicom_cb.setEnabled(not is_processing)
+        self.dicom_type_group.setEnabled(not is_processing and self.convert_dicom_cb.isChecked())
         self.run_recon_cb.setEnabled(not is_processing)
         self.parallel_cb.setEnabled(not is_processing and self.run_recon_cb.isChecked())
         self.create_m2m_cb.setEnabled(not is_processing)
@@ -536,41 +613,15 @@ class PreProcessTab(QtWidgets.QWidget):
         
         # Update status label
         if is_processing:
-            self.status_label.setText("⚡ Processing... Only the Stop button is available")
+            self.status_label.setText("Processing... Only the Stop button is available")
             self.status_label.show()
-            self.stop_btn.setStyleSheet("""
-                QPushButton {
-                    background-color: #f44336;
-                    color: white;
-                    font-weight: bold;
-                    padding: 8px;
-                    border: none;
-                    border-radius: 4px;
-                }
-                QPushButton:hover {
-                    background-color: #da190b;
-                }
-            """)
         else:
             self.status_label.hide()
-            self.stop_btn.setStyleSheet("""
-                QPushButton {
-                    background-color: #cccccc;
-                    color: #888888;
-                    font-weight: bold;
-                    padding: 8px;
-                    border: none;
-                    border-radius: 4px;
-                }
-            """)
 
     def run_preprocessing(self):
-        """Start the pre-processing operation with the selected options."""
+        """Run the preprocessing pipeline."""
         if self.processing_running:
-            QtWidgets.QMessageBox.warning(
-                self, "Process Running",
-                "A pre-processing operation is already running."
-            )
+            self.update_output("Preprocessing already running. Please wait or stop the current run.")
             return
         
         if not self.project_dir:
@@ -600,46 +651,53 @@ class PreProcessTab(QtWidgets.QWidget):
             )
             return
         
-        # Confirmation dialog
-        msg = "The following pre-processing operation will be executed:\n\n"
-        msg += f"Selected Subjects ({len(selected_subjects)}):\n"
-        msg += ", ".join(selected_subjects) + "\n\n"
-        msg += f"Convert DICOM: {'Yes' if self.convert_dicom_cb.isChecked() else 'No'}\n"
-        msg += f"Run recon-all: {'Yes' if self.run_recon_cb.isChecked() else 'No'}\n"
-        msg += f"Parallel mode: {'Yes' if self.parallel_cb.isChecked() else 'No'}\n"
-        msg += f"Create SimNIBS m2m folder: {'Yes' if self.create_m2m_cb.isChecked() else 'No'}\n"
-        msg += f"Quiet mode: {'Yes' if self.quiet_cb.isChecked() else 'No'}\n\n"
-        msg += "Do you want to proceed?"
-        
-        reply = QtWidgets.QMessageBox.question(
-            self, "Confirm Pre-processing",
-            msg,
-            QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No,
-            QtWidgets.QMessageBox.No
-        )
-        
-        if reply != QtWidgets.QMessageBox.Yes:
-            return
-        
         # Set processing state
         self.set_processing_state(True)
         
-        # Process subjects sequentially
-        self.update_output(f"Starting pre-processing for {len(selected_subjects)} subjects...", 'info')
-        
-        # Process each subject sequentially
-        self.process_next_subject(selected_subjects, 0)
-    
-    def preprocessing_finished(self):
-        """Handle completion of all pre-processing operations."""
-        try:
-            if hasattr(self, 'parent') and isinstance(self.parent, QtWidgets.QWidget) and hasattr(self.parent, 'set_tab_busy'):
-                self.parent.set_tab_busy(self, False, stop_btn=self.stop_btn)
-        except Exception as e:
-            self.update_output(f"Warning: Could not reset tab busy state: {str(e)}", 'warning')
+        # Process each subject
+        for subject_id in selected_subjects:
+            # Build the command for each subject
+            cmd = [os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "pre-process", "structural.sh")]
             
+            # Add subject directory as first argument
+            subject_dir = os.path.join(self.project_dir, f"sub-{subject_id}")
+            cmd.append(subject_dir)
+            
+            # Add optional flags
+            if self.run_recon_cb.isChecked():
+                cmd.append("recon-all")
+            
+            if self.parallel_cb.isChecked():
+                cmd.append("--parallel")
+            
+            if self.quiet_cb.isChecked():
+                cmd.append("--quiet")
+            
+            if self.convert_dicom_cb.isChecked():
+                cmd.append("--convert-dicom")
+                
+            if self.create_m2m_cb.isChecked():
+                cmd.append("--create-m2m")
+            
+            # Set up environment
+            env = os.environ.copy()
+            env['PROJECT_DIR'] = self.project_dir
+            
+            # Create and start the thread
+            self.processing_thread = PreProcessThread(cmd, env)
+            self.processing_thread.output_signal.connect(self.update_output)
+            self.processing_thread.finished.connect(self.preprocessing_finished)
+            self.processing_thread.start()
+            
+            # Wait for the current subject to finish before processing the next one
+            while self.processing_running and self.processing_thread.isRunning():
+                QtWidgets.QApplication.processEvents()
+                QtCore.QThread.msleep(100)  # Small delay to prevent UI freezing
+
+    def preprocessing_finished(self):
+        """Handle the completion of the preprocessing process."""
         self.set_processing_state(False)
-        self.update_output("\nPre-processing operations completed for all subjects.", 'success')
+        self.update_output("\nPreprocessing completed.")
 
         # --- Atlas Segmentation: Automatically run after m2m creation ---
         if self.create_m2m_cb.isChecked():
@@ -663,44 +721,29 @@ class PreProcessTab(QtWidgets.QWidget):
                             self.update_output(f"[Atlas] {subject_id}: Atlas {atlas} segmentation failed.\n{proc.stderr}", 'error')
                     except Exception as e:
                         self.update_output(f"[Atlas] {subject_id}: Error running subject_atlas: {e}", 'error')
-    
+
     def stop_preprocessing(self):
-        """Stop the running pre-processing operation."""
+        """Stop the running preprocessing process."""
         if not self.processing_running:
             return
-            
-        reply = QtWidgets.QMessageBox.question(
-            self, "Confirm Termination",
-            "Are you sure you want to stop the running pre-processing operation?\n\nThis might leave files in an inconsistent state.",
-            QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No,
-            QtWidgets.QMessageBox.No
-        )
         
-        if reply == QtWidgets.QMessageBox.Yes:
-            self.update_output("Terminating pre-processing operation...", 'warning')
-            
-            # Kill all running processes
-            try:
-                # Get the process group ID
-                if hasattr(self, 'current_process') and self.current_process:
-                    import signal
-                    os.killpg(os.getpgid(self.current_process.pid), signal.SIGTERM)
-                    self.current_process = None
-            except Exception as e:
-                self.update_output(f"Error terminating process: {str(e)}", 'error')
-            
-            # Reset UI state
-            self.set_processing_state(False)
-            self.update_output("Pre-processing operation terminated.", 'warning')
-    
+        self.update_output("Stopping preprocessing...")
+        if self.processing_thread:
+            if self.processing_thread.terminate_process():
+                self.update_output("Preprocessing stopped.")
+            else:
+                self.update_output("Failed to stop preprocessing.")
+        
+        self.set_processing_state(False)
+
     def clear_console(self):
         """Clear the output console."""
-        self.console_output.clear()
+        self.output_text.clear()
     
     def update_output(self, text, message_type='default'):
         """Update the console output with colored text."""
-        self.console_output.append(text)
-        self.console_output.ensureCursorVisible()
+        self.output_text.append(text)
+        self.output_text.ensureCursorVisible()
         QtWidgets.QApplication.processEvents()
 
     def select_all_subjects(self):
@@ -716,30 +759,30 @@ class PreProcessTab(QtWidgets.QWidget):
         if not selected_subjects:
             QtWidgets.QMessageBox.warning(self, "Error", "Please select at least one subject.")
             return
-        self.console_output.append("\n=== Starting atlas segmentation. This may take a few moments... ===")
+        self.output_text.append("\n=== Starting atlas segmentation. This may take a few moments... ===")
         QtWidgets.QApplication.processEvents()
-        self.console_output.append("Running atlas segmentation for all selected subjects and all atlases...")
+        self.output_text.append("Running atlas segmentation for all selected subjects and all atlases...")
         QtWidgets.QApplication.processEvents()
         for subject_id in selected_subjects:
             m2m_folder = os.path.join(self.project_dir, subject_id, 'SimNIBS', f'm2m_{subject_id}')
             if not os.path.isdir(m2m_folder):
-                self.console_output.append(f"[Atlas] {subject_id}: m2m folder not found, skipping.")
+                self.output_text.append(f"[Atlas] {subject_id}: m2m folder not found, skipping.")
                 QtWidgets.QApplication.processEvents()
                 continue
             output_dir = os.path.join(m2m_folder, 'segmentation')
             os.makedirs(output_dir, exist_ok=True)
             for atlas in ["a2009s", "DK40", "HCP_MMP1"]:
                 cmd = ["subject_atlas", "-m", m2m_folder, "-a", atlas, "-o", output_dir]
-                self.console_output.append(f"[Atlas] {subject_id}: Running {' '.join(cmd)}")
+                self.output_text.append(f"[Atlas] {subject_id}: Running {' '.join(cmd)}")
                 QtWidgets.QApplication.processEvents()
                 try:
                     proc = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
                     if proc.returncode == 0:
-                        self.console_output.append(f"[Atlas] {subject_id}: Atlas {atlas} segmentation complete.")
+                        self.output_text.append(f"[Atlas] {subject_id}: Atlas {atlas} segmentation complete.")
                     else:
-                        self.console_output.append(f"[Atlas] {subject_id}: Atlas {atlas} segmentation failed.\n{proc.stderr}")
+                        self.output_text.append(f"[Atlas] {subject_id}: Atlas {atlas} segmentation failed.\n{proc.stderr}")
                 except Exception as e:
-                    self.console_output.append(f"[Atlas] {subject_id}: Error running subject_atlas: {e}")
+                    self.output_text.append(f"[Atlas] {subject_id}: Error running subject_atlas: {e}")
                 QtWidgets.QApplication.processEvents()
 
     def update_atlas_btn_state(self):
