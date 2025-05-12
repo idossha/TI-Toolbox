@@ -119,7 +119,7 @@ def run_simulation(montage_name, montage):
     
     # Use the selected EEG net
     S.eeg_cap = os.path.join(base_subpath, "eeg_positions", eeg_net)
-    S.map_to_surf = False
+    S.map_to_surf = True
     S.map_to_fsavg = False
     S.map_to_vol = True
     S.map_to_mni = True
