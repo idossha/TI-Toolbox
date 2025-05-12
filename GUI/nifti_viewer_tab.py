@@ -57,58 +57,51 @@ class NiftiViewerTab(QtWidgets.QWidget):
         
         # Create subject selection area
         subject_group = QtWidgets.QGroupBox("Subject Selection")
-        subject_vlayout = QtWidgets.QVBoxLayout(subject_group)
-        # Top row: subject and space
-        subject_top_layout = QtWidgets.QHBoxLayout()
-        subject_top_layout.addWidget(QtWidgets.QLabel("Subject:"))
+        subject_layout = QtWidgets.QHBoxLayout(subject_group)
+        # Subject
+        subject_layout.addWidget(QtWidgets.QLabel("Subject:"))
         self.subject_combo = QtWidgets.QComboBox()
         self.subject_combo.setMinimumWidth(120)
-        subject_top_layout.addWidget(self.subject_combo)
-        subject_top_layout.addWidget(QtWidgets.QLabel("Space:"))
+        subject_layout.addWidget(self.subject_combo)
+        # Space
+        subject_layout.addWidget(QtWidgets.QLabel("Space:"))
         self.space_combo = QtWidgets.QComboBox()
         self.space_combo.addItems(["Subject", "MNI"])
-        subject_top_layout.addWidget(self.space_combo)
-        subject_top_layout.addStretch(1)
-        subject_vlayout.addLayout(subject_top_layout)
-        # Bottom row: simulations and refresh
-        subject_bottom_layout = QtWidgets.QHBoxLayout()
-        subject_bottom_layout.addWidget(QtWidgets.QLabel("Simulation(s):"))
+        subject_layout.addWidget(self.space_combo)
+        # Simulation(s)
+        subject_layout.addWidget(QtWidgets.QLabel("Simulation(s):"))
         self.sim_list = QtWidgets.QListWidget()
         self.sim_list.setSelectionMode(QtWidgets.QAbstractItemView.ExtendedSelection)
-        self.sim_list.setMaximumHeight(60)
+        self.sim_list.setMaximumHeight(200)
         self.sim_list.setMinimumWidth(120)
-        subject_bottom_layout.addWidget(self.sim_list)
+        subject_layout.addWidget(self.sim_list)
+        # Refresh
         self.refresh_btn = QtWidgets.QPushButton("Refresh")
         self.refresh_btn.clicked.connect(self.refresh_subjects)
-        subject_bottom_layout.addWidget(self.refresh_btn)
-        subject_bottom_layout.addStretch(1)
-        subject_vlayout.addLayout(subject_bottom_layout)
+        subject_layout.addWidget(self.refresh_btn)
+        subject_layout.addStretch(1)
         main_layout.addWidget(subject_group)
         
         # Create toolbar for actions
         toolbar_group = QtWidgets.QGroupBox("Actions")
         toolbar_layout = QtWidgets.QHBoxLayout(toolbar_group)
-        
         # Load button
         self.load_btn = QtWidgets.QPushButton("Load Subject Data")
         self.load_btn.clicked.connect(self.load_subject_data)
         toolbar_layout.addWidget(self.load_btn)
-        
         # Custom load button
         self.custom_load_btn = QtWidgets.QPushButton("Load Custom NIfTI")
         self.custom_load_btn.clicked.connect(self.load_custom_nifti)
         toolbar_layout.addWidget(self.custom_load_btn)
-        
         # Status label
         self.status_label = QtWidgets.QLabel("Ready to load NIfTI files")
         toolbar_layout.addWidget(self.status_label)
-        
         main_layout.addWidget(toolbar_group)
         
-        # Create a central widget to display information
+        # Info area (console) - make it taller
         self.info_area = QtWidgets.QTextEdit()
         self.info_area.setReadOnly(True)
-        self.info_area.setMinimumHeight(150)
+        self.info_area.setMinimumHeight(300)
         self.info_area.setText(
             "NIfTI Viewer using Freeview\n\n"
             "1. Select a subject from the dropdown\n"
@@ -123,30 +116,23 @@ class NiftiViewerTab(QtWidgets.QWidget):
         # Create a frame to hold the freeview command info
         self.cmd_frame = QtWidgets.QGroupBox("Freeview Command")
         cmd_layout = QtWidgets.QVBoxLayout(self.cmd_frame)
-        
         self.cmd_label = QtWidgets.QLabel("No command executed yet")
-        # Enable word wrap for the command label
         self.cmd_label.setWordWrap(True)
         cmd_layout.addWidget(self.cmd_label)
-        
         main_layout.addWidget(self.cmd_frame)
         
         # Add help and reload buttons at the bottom
         bottom_button_layout = QtWidgets.QHBoxLayout()
         bottom_button_layout.addStretch()
-        
         reload_btn = QtWidgets.QPushButton("Reload Current View")
         reload_btn.clicked.connect(self.reload_current_view)
         bottom_button_layout.addWidget(reload_btn)
-        
         options_btn = QtWidgets.QPushButton("Visualization Options")
         options_btn.clicked.connect(self.show_options)
         bottom_button_layout.addWidget(options_btn)
-        
         clear_console_btn = QtWidgets.QPushButton("Clear Console")
         clear_console_btn.clicked.connect(self.clear_console)
         bottom_button_layout.addWidget(clear_console_btn)
-        
         main_layout.addLayout(bottom_button_layout)
         
         # Populate the subject list
@@ -205,6 +191,7 @@ class NiftiViewerTab(QtWidgets.QWidget):
     
     def load_subject_data(self):
         """Load the selected subject's data in Freeview."""
+        self.info_area.clear()  # Clear console before printing output
         if self.subject_combo.count() == 0:
             QtWidgets.QMessageBox.warning(self, "Warning", "No subjects available")
             return
@@ -365,7 +352,7 @@ class NiftiViewerTab(QtWidgets.QWidget):
             self.status_label.setText(f"Viewing {len(freeview_args)} files")
             
             # Format the command for better display by breaking it into lines
-            formatted_cmd = "freeview \\\n"
+            formatted_cmd = "freeview \\n"
             for arg in freeview_args:
                 formatted_cmd += f"  {arg} \\\n"
             formatted_cmd = formatted_cmd.rstrip(" \\\n")
@@ -387,7 +374,6 @@ class NiftiViewerTab(QtWidgets.QWidget):
                     self.info_area.append(f"{i+1}. {basename}")
             
             self.info_area.append("\nFreeview is now running. Use its interface to navigate the volumes.")
-            self.info_area.append("💡 Tip: Click and drag to rotate. Mouse wheel to zoom.")
             
         except Exception as e:
             QtWidgets.QMessageBox.critical(self, "Error", f"Failed to launch Freeview: {str(e)}")
