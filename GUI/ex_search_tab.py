@@ -27,6 +27,11 @@ class ExSearchThread(QtCore.QThread):
         self.env = env or os.environ.copy()
         self.process = None
         self.terminated = False
+        self.input_data = None
+        
+    def set_input_data(self, input_data):
+        """Set input data to be passed to the process."""
+        self.input_data = input_data
         
     def run(self):
         """Run the ex-search command in a separate thread."""
@@ -35,10 +40,20 @@ class ExSearchThread(QtCore.QThread):
                 self.cmd, 
                 stdout=subprocess.PIPE, 
                 stderr=subprocess.PIPE,
+                stdin=subprocess.PIPE if self.input_data else None,
                 universal_newlines=True,
                 bufsize=1,
                 env=self.env
             )
+            
+            # If input data is provided, send it to the process
+            if self.input_data:
+                for line in self.input_data:
+                    if self.terminated:
+                        break
+                    self.process.stdin.write(line + '\n')
+                    self.process.stdin.flush()
+                self.process.stdin.close()
             
             # Real-time output display
             for line in iter(self.process.stdout.readline, ''):
@@ -248,6 +263,7 @@ class ExSearchTab(QtWidgets.QWidget):
         self.create_leadfield_btn = QtWidgets.QPushButton("Create Leadfield")
         self.create_leadfield_btn.setFixedHeight(25)  # Fixed height
         leadfield_layout.addWidget(self.create_leadfield_btn)
+        self.create_leadfield_btn.clicked.connect(self.create_leadfield)
         
         # Add leadfield container to right layout
         right_layout.addWidget(leadfield_container)
@@ -675,7 +691,8 @@ class ExSearchTab(QtWidgets.QWidget):
             
             # Set up environment variables
             env = os.environ.copy()
-            project_dir = os.path.join("/mnt", env.get("PROJECT_DIR_NAME", ""))
+            project_dir_name = env.get("PROJECT_DIR_NAME", "")
+            project_dir = os.path.join("/mnt", project_dir_name)
             env["PROJECT_DIR"] = project_dir
             env["SUBJECT_NAME"] = subject_id
             
@@ -689,20 +706,140 @@ class ExSearchTab(QtWidgets.QWidget):
             leadfield_hdf = os.path.join(self.current_leadfield_dir, f"{subject_id}_leadfield_EGI_template.hdf5")
             env["LEADFIELD_HDF"] = leadfield_hdf
             
-            # Prepare command
-            cmd = ["./CLI/ex-search.sh"]
+            # Get selected ROIs
+            selected_rois = [item.text().split(':')[0].strip() for item in self.roi_list.selectedItems()]
+            if not selected_rois:
+                self.update_status("No ROIs selected", error=True)
+                return
             
-            # Create and start thread
-            self.optimization_process = ExSearchThread(cmd, env)
-            self.optimization_process.output_signal.connect(self.update_output)
-            self.optimization_process.start()
+            # Prepare base script directory
+            script_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            ex_search_dir = os.path.join(script_dir, "ex-search")
             
             # Update UI
             self.disable_controls()
             self.update_status("Running ex-search optimization...")
             
+            # Create a sequential execution manager
+            self.run_pipeline(subject_id, project_dir, ex_search_dir, e1_plus, e1_minus, e2_plus, e2_minus, env)
+            
         except Exception as e:
             self.update_status(f"Error running optimization: {str(e)}", error=True)
+            self.enable_controls()
+    
+    def run_pipeline(self, subject_id, project_dir, ex_search_dir, e1_plus, e1_minus, e2_plus, e2_minus, env):
+        """Run the ex-search pipeline steps sequentially."""
+        # Step 1: Run the TI simulation
+        self.update_output("Step 1: Running TI simulation...")
+        ti_sim_script = os.path.join(ex_search_dir, "ti_sim.py")
+        
+        # Prepare input data for the script
+        input_data = [
+            " ".join(e1_plus),
+            " ".join(e1_minus),
+            " ".join(e2_plus),
+            " ".join(e2_minus),
+            "1000"  # Default intensity in mV (1V)
+        ]
+        
+        # Command to run ti_sim.py
+        cmd = ["simnibs_python", ti_sim_script]
+        
+        # Create and start thread for step 1
+        self.optimization_process = ExSearchThread(cmd, env)
+        self.optimization_process.set_input_data(input_data)
+        self.optimization_process.output_signal.connect(self.update_output)
+        
+        # Connect the finished signal to the next step
+        self.optimization_process.finished.connect(
+            lambda: self.run_roi_analyzer(subject_id, project_dir, ex_search_dir, env)
+        )
+        
+        self.optimization_process.start()
+    
+    def run_roi_analyzer(self, subject_id, project_dir, ex_search_dir, env):
+        """Run the ROI analyzer step."""
+        # Step 2: Run ROI analyzer
+        self.update_output("\nStep 2: Running ROI analysis...")
+        roi_dir = os.path.join(project_dir, "derivatives", "SimNIBS", f"sub-{subject_id}", 
+                              f"m2m_{subject_id}", "ROIs")
+        roi_analyzer_script = os.path.join(ex_search_dir, "roi-analyzer.py")
+        cmd = ["python3", roi_analyzer_script, roi_dir]
+        
+        self.optimization_process = ExSearchThread(cmd, env)
+        self.optimization_process.output_signal.connect(self.update_output)
+        
+        # Connect the finished signal to the next step
+        self.optimization_process.finished.connect(
+            lambda: self.run_mesh_processing(subject_id, project_dir, ex_search_dir, roi_dir, env)
+        )
+        
+        self.optimization_process.start()
+    
+    def run_mesh_processing(self, subject_id, project_dir, ex_search_dir, roi_dir, env):
+        """Run the mesh processing step."""
+        # Step 3: Run mesh processing
+        self.update_output("\nStep 3: Running mesh processing...")
+        
+        try:
+            # Get ROI coordinates from the first ROI file
+            roi_list_file = os.path.join(roi_dir, "roi_list.txt")
+            with open(roi_list_file, 'r') as f:
+                first_roi = f.readline().strip()
+            roi_file = os.path.join(roi_dir, first_roi)
+            with open(roi_file, 'r') as f:
+                coordinates = f.readline().strip()
+            
+            # Parse coordinates
+            x, y, z = [float(coord.strip()) for coord in coordinates.split(',')]
+            x_int, y_int, z_int = int(x), int(y), int(z)
+            
+            # Create directory name from coordinates
+            coord_dir = f"xyz_{x_int}_{y_int}_{z_int}"
+            mesh_dir = os.path.join(project_dir, "derivatives", "SimNIBS", f"sub-{subject_id}", 
+                                   "ex-search", coord_dir)
+            
+            # Create output directory if it doesn't exist
+            os.makedirs(mesh_dir, exist_ok=True)
+            
+            # Run mesh processing
+            mesh_processing_script = os.path.join(ex_search_dir, "field-analysis", "run_process_mesh_files.sh")
+            cmd = ["bash", mesh_processing_script, mesh_dir]
+            
+            self.optimization_process = ExSearchThread(cmd, env)
+            self.optimization_process.output_signal.connect(self.update_output)
+            
+            # Connect the finished signal to the next step
+            self.optimization_process.finished.connect(
+                lambda: self.run_update_csv(subject_id, project_dir, ex_search_dir, env)
+            )
+            
+            self.optimization_process.start()
+        except Exception as e:
+            self.update_output(f"Error in mesh processing: {str(e)}")
+            self.enable_controls()
+    
+    def run_update_csv(self, subject_id, project_dir, ex_search_dir, env):
+        """Run the update CSV step."""
+        # Step 4: Update output CSV
+        self.update_output("\nStep 4: Updating output CSV...")
+        update_csv_script = os.path.join(ex_search_dir, "update_output_csv.py")
+        cmd = ["python3", update_csv_script, project_dir, subject_id]
+        
+        self.optimization_process = ExSearchThread(cmd, env)
+        self.optimization_process.output_signal.connect(self.update_output)
+        
+        # Connect the finished signal to the completion handler
+        self.optimization_process.finished.connect(self.pipeline_completed)
+        
+        self.optimization_process.start()
+    
+    def pipeline_completed(self):
+        """Handle the completion of the pipeline."""
+        # Final message
+        self.update_output("\nOptimization process completed!")
+        self.enable_controls()
+        self.update_status("Ex-search optimization completed successfully")
     
     def stop_optimization(self):
         """Stop the running optimization process."""
@@ -790,17 +927,19 @@ class ExSearchTab(QtWidgets.QWidget):
             return
         
         subject_id = selected_items[0].text()
-        project_dir = os.path.join("/mnt", os.environ.get("PROJECT_DIR_NAME", ""))
+        
+        # Set up environment variables
+        env = os.environ.copy()
+        project_dir_name = env.get("PROJECT_DIR_NAME", "")
+        project_dir = os.path.join("/mnt", project_dir_name)
         m2m_dir = os.path.join(project_dir, "derivatives", "SimNIBS", f"sub-{subject_id}",
                               f"m2m_{subject_id}")
         
         try:
-            # Set up environment variables
-            env = os.environ.copy()
-            env["PROJECT_DIR_NAME"] = os.path.basename(project_dir)
-            
             # Prepare command
-            cmd = ["simnibs_python", "./ex-search/leadfield.py", m2m_dir, "EGI_template.csv"]
+            leadfield_script = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 
+                                          "ex-search", "leadfield.py")
+            cmd = ["simnibs_python", leadfield_script, m2m_dir, "EGI_template.csv"]
             
             # Create and start thread
             self.optimization_process = ExSearchThread(cmd, env)

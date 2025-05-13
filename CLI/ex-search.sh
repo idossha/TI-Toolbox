@@ -135,7 +135,7 @@ for subject_index in "${selected_subjects[@]}"; do
 
     # Call the TI optimizer script
     echo -e "${CYAN}Running TImax_optimizer.py for subject $subject_name...${RESET}"
-    #simnibs_python "$ex_search_dir/ti_sim.py"
+    simnibs_python "$ex_search_dir/ti_sim.py"
 
     # Check if the TI optimization was successful
     if [ $? -eq 0 ]; then
@@ -147,7 +147,7 @@ for subject_index in "${selected_subjects[@]}"; do
 
     # Call the ROI analyzer script
     echo -e "${CYAN}Running roi-analyzer.py for subject $subject_name...${RESET}"
-    #python3 "$ex_search_dir/roi-analyzer.py" "$roi_dir"
+    python3 "$ex_search_dir/roi-analyzer.py" "$roi_dir"
 
     # Check if the ROI analysis was successful
     if [ $? -eq 0 ]; then
