@@ -136,6 +136,18 @@ def run_simulation(montage_name, montage, output_dir):
     # First electrode pair
     tdcs = S.add_tdcslist()
     tdcs.anisotropy_type = sim_type  # Set anisotropy_type to the input sim_type
+    
+    # Set custom conductivities if provided in environment variables
+    for i in range(len(tdcs.cond)):
+        tissue_num = i + 1  # SimNIBS uses 0-based index, but our tissue numbers are 1-based
+        env_var = f"TISSUE_COND_{tissue_num}"
+        if env_var in os.environ:
+            try:
+                tdcs.cond[i].value = float(os.environ[env_var])
+                print(f"Setting conductivity for tissue {tissue_num} to {tdcs.cond[i].value} S/m")
+            except ValueError:
+                print(f"Warning: Invalid conductivity value for tissue {tissue_num}")
+
     tdcs.currents = [intensity, -intensity]
     
     electrode = tdcs.add_electrode()

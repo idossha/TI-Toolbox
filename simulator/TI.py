@@ -5,6 +5,7 @@ from copy import deepcopy
 import numpy as np
 from simnibs import mesh_io, run_simnibs, sim_struct
 from simnibs.utils import TI_utils as TI
+from datetime import datetime
 
 ###########################################
 
@@ -119,7 +120,7 @@ def run_simulation(montage_name, montage):
     
     # Use the selected EEG net
     S.eeg_cap = os.path.join(base_subpath, "eeg_positions", eeg_net)
-    S.map_to_surf = True
+    S.map_to_surf = False
     S.map_to_fsavg = False
     S.map_to_vol = True
     S.map_to_mni = True
@@ -132,6 +133,18 @@ def run_simulation(montage_name, montage):
     # First electrode pair
     tdcs = S.add_tdcslist()
     tdcs.anisotropy_type = sim_type  # Set anisotropy_type to the input sim_type
+    
+    # Set custom conductivities if provided in environment variables
+    for i in range(len(tdcs.cond)):
+        tissue_num = i + 1  # SimNIBS uses 0-based index, but our tissue numbers are 1-based
+        env_var = f"TISSUE_COND_{tissue_num}"
+        if env_var in os.environ:
+            try:
+                tdcs.cond[i].value = float(os.environ[env_var])
+                print(f"Setting conductivity for tissue {tissue_num} to {tdcs.cond[i].value} S/m")
+            except ValueError:
+                print(f"Warning: Invalid conductivity value for tissue {tissue_num}")
+
     tdcs.currents = [intensity, -intensity]
     
     electrode = tdcs.add_electrode()

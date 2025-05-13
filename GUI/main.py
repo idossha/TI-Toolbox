@@ -11,6 +11,8 @@ import os
 import subprocess
 import requests
 from PyQt5 import QtWidgets, QtCore, QtGui
+
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from version import __version__
 
 # Import tool-specific modules

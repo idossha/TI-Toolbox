@@ -713,6 +713,91 @@ choose_eeg_net() {
     echo -e "${GREEN}Selected EEG net: $selected_eeg_net${RESET}"
 }
 
+# Function to choose tissue conductivities
+choose_tissue_conductivities() {
+    # Define tissue conductivity defaults
+    declare -A tissue_defaults=(
+        ["White Matter"]=0.126
+        ["Gray Matter"]=0.275
+        ["CSF"]=1.654
+        ["Bone"]=0.01
+        ["Scalp"]=0.465
+        ["Eye balls"]=0.5
+        ["Compact Bone"]=0.008
+        ["Spongy Bone"]=0.025
+        ["Blood"]=0.6
+        ["Muscle"]=0.16
+        ["Silicone Rubber"]=29.4
+        ["Saline"]=1.0
+    )
+
+    declare -A tissue_numbers=(
+        ["White Matter"]=1
+        ["Gray Matter"]=2
+        ["CSF"]=3
+        ["Bone"]=4
+        ["Scalp"]=5
+        ["Eye balls"]=6
+        ["Compact Bone"]=7
+        ["Spongy Bone"]=8
+        ["Blood"]=9
+        ["Muscle"]=10
+        ["Silicone Rubber"]=100
+        ["Saline"]=500
+    )
+
+    # Initialize empty array for custom conductivities
+    declare -A custom_conductivities
+
+    while true; do
+        echo -e "\n${BOLD_CYAN}Tissue Conductivity Settings${RESET}"
+        echo -e "----------------------------------------"
+        echo -e "${BOLD}Available Tissues:${RESET}\n"
+        
+        # Display all tissues with their current values
+        local i=1
+        for tissue in "${!tissue_defaults[@]}"; do
+            local current_value=${custom_conductivities[$tissue]:-${tissue_defaults[$tissue]}}
+            local tissue_num=${tissue_numbers[$tissue]}
+            printf "%2d. %-20s [%3d] Current: %7.3f S/m\n" $i "$tissue" "$tissue_num" "$current_value"
+            ((i++))
+        done
+
+        echo -e "\n${GREEN}Enter tissue number to modify (or 0 to continue):${RESET}"
+        read -p " " selection
+
+        if [[ "$selection" == "0" ]]; then
+            break
+        fi
+
+        if [[ "$selection" =~ ^[0-9]+$ ]] && [ "$selection" -ge 1 ] && [ "$selection" -le "${#tissue_defaults[@]}" ]; then
+            local tissue_name=$(echo "${!tissue_defaults[@]}" | tr ' ' '\n' | sed -n "${selection}p")
+            local current_value=${tissue_defaults[$tissue_name]}
+            
+            echo -e "\n${CYAN}Current conductivity for $tissue_name: $current_value S/m${RESET}"
+            echo -e "${GREEN}Enter new conductivity value (S/m) or press enter to keep current:${RESET}"
+            read -p " " new_value
+
+            if [[ "$new_value" =~ ^[0-9]*\.?[0-9]+$ ]]; then
+                custom_conductivities[$tissue_name]=$new_value
+                echo -e "${GREEN}Updated conductivity for $tissue_name to $new_value S/m${RESET}"
+            elif [ -z "$new_value" ]; then
+                echo -e "${YELLOW}Keeping current value${RESET}"
+            else
+                echo -e "${RED}Invalid input. Please enter a valid number.${RESET}"
+            fi
+        else
+            echo -e "${RED}Invalid selection. Please try again.${RESET}"
+        fi
+    done
+
+    # Export the custom conductivities as environment variables for the Python scripts
+    for tissue in "${!custom_conductivities[@]}"; do
+        local tissue_num=${tissue_numbers[$tissue]}
+        export "TISSUE_COND_${tissue_num}=${custom_conductivities[$tissue]}"
+    done
+}
+
 # Main script execution
 show_welcome_message
 
@@ -720,6 +805,7 @@ show_welcome_message
 choose_subjects
 choose_simulation_type
 choose_simulation_mode
+choose_tissue_conductivities
 
 # For each selected subject, choose an EEG net
 declare -A subject_eeg_nets
