@@ -10,6 +10,7 @@ import os
 import json
 import re
 import subprocess
+import csv
 from PyQt5 import QtWidgets, QtCore, QtGui
 from confirmation_dialog import ConfirmationDialog
 
@@ -506,15 +507,41 @@ class ExSearchTab(QtWidgets.QWidget):
                 if os.path.exists(roi_list_file):
                     with open(roi_list_file, 'r') as f:
                         rois = [line.strip() for line in f.readlines() if line.strip()]
-                        self.roi_list.addItems(rois)
+                    # For each ROI, read coordinates and display as 'name: x, y, z'
+                    for roi_name in rois:
+                        roi_path = os.path.join(roi_dir, roi_name)
+                        coords = None
+                        if os.path.exists(roi_path):
+                            with open(roi_path, 'r') as rf:
+                                line = rf.readline().strip()
+                                # Expect format: x, y, z
+                                parts = [p.strip() for p in line.split(',')]
+                                if len(parts) == 3:
+                                    coords = ', '.join(parts)
+                        display_name = roi_name.replace('.csv', '')
+                        if coords:
+                            self.roi_list.addItem(f"{display_name}: {coords}")
+                        else:
+                            self.roi_list.addItem(display_name)
                 else:
                     # If roi_list.txt doesn't exist, look for all files in the ROIs directory
-                    # that don't start with . and aren't roi_list.txt
                     rois = [f for f in os.listdir(roi_dir) 
                            if not f.startswith('.') and f != 'roi_list.txt' 
                            and os.path.isfile(os.path.join(roi_dir, f))]
-                    self.roi_list.addItems(sorted(rois))
-            
+                    for roi_name in sorted(rois):
+                        roi_path = os.path.join(roi_dir, roi_name)
+                        coords = None
+                        if os.path.exists(roi_path):
+                            with open(roi_path, 'r') as rf:
+                                line = rf.readline().strip()
+                                parts = [p.strip() for p in line.split(',')]
+                                if len(parts) == 3:
+                                    coords = ', '.join(parts)
+                        display_name = roi_name.replace('.csv', '')
+                        if coords:
+                            self.roi_list.addItem(f"{display_name}: {coords}")
+                        else:
+                            self.roi_list.addItem(display_name)
         except Exception as e:
             self.update_status(f"Error updating ROI list: {str(e)}", error=True)
     
@@ -544,31 +571,31 @@ class ExSearchTab(QtWidgets.QWidget):
                 project_dir = os.path.join("/mnt", os.environ.get("PROJECT_DIR_NAME", ""))
                 roi_dir = os.path.join(project_dir, "derivatives", "SimNIBS", f"sub-{selected_subject}",
                                      f"m2m_{selected_subject}", "ROIs")
-                
                 roi_list_file = os.path.join(roi_dir, "roi_list.txt")
-                
                 # Read existing ROIs
-                with open(roi_list_file, 'r') as f:
-                    rois = [line.strip() for line in f.readlines()]
-                
+                if os.path.exists(roi_list_file):
+                    with open(roi_list_file, 'r') as f:
+                        rois = [line.strip() for line in f.readlines()]
+                else:
+                    rois = []
                 # Remove selected ROIs
                 for item in selected_items:
-                    roi_name = item.text()
+                    # Handle display format 'name: x, y, z' or just 'name'
+                    roi_display = item.text()
+                    roi_name = roi_display.split(':')[0].strip() + '.csv'
+                    # Remove from roi_list.txt if present
                     if roi_name in rois:
                         rois.remove(roi_name)
-                        # Remove the ROI file
-                        roi_file = os.path.join(roi_dir, roi_name)
-                        if os.path.exists(roi_file):
-                            os.remove(roi_file)
-                
+                    # Remove the ROI file
+                    roi_file = os.path.join(roi_dir, roi_name)
+                    if os.path.exists(roi_file):
+                        os.remove(roi_file)
                 # Update roi_list.txt
                 with open(roi_list_file, 'w') as f:
                     for roi in rois:
                         f.write(f"{roi}\n")
-                
                 self.update_roi_list()
                 self.update_status("ROI(s) removed successfully")
-                
             except Exception as e:
                 self.update_status(f"Error removing ROI: {str(e)}", error=True)
     
@@ -807,7 +834,7 @@ class AddROIDialog(QtWidgets.QDialog):
         layout = QtWidgets.QVBoxLayout(self)
         
         # ROI coordinates
-        coord_group = QtWidgets.QGroupBox("ROI Coordinates")
+        coord_group = QtWidgets.QGroupBox("ROI Coordinates (subject space, RAS)")
         coord_layout = QtWidgets.QFormLayout()
         
         self.x_coord = QtWidgets.QDoubleSpinBox()
@@ -890,10 +917,11 @@ class AddROIDialog(QtWidgets.QDialog):
             
             os.makedirs(roi_dir, exist_ok=True)
             
-            # Write coordinates to ROI file in pipe-separated format
+            # Write coordinates to ROI file as three comma-separated columns
             roi_file = os.path.join(roi_dir, roi_name)
-            with open(roi_file, 'w') as f:
-                f.write(f"{self.x_coord.value()} | {self.y_coord.value()} | {self.z_coord.value()}\n")
+            with open(roi_file, 'w', newline='') as f:
+                writer = csv.writer(f)
+                writer.writerow([self.x_coord.value(), self.y_coord.value(), self.z_coord.value()])
             
             # Update roi_list.txt
             roi_list_file = os.path.join(roi_dir, "roi_list.txt")
