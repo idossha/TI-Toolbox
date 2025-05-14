@@ -56,6 +56,13 @@ import tempfile
 from pathlib import Path
 import time
 from visualizer import VoxelVisualizer
+import csv
+from datetime import datetime
+
+# Configure matplotlib for non-interactive backend before importing
+import matplotlib
+matplotlib.use('Agg')  # Use non-interactive backend
+import matplotlib.pyplot as plt
 
 
 class VoxelAnalyzer:
@@ -126,13 +133,6 @@ class VoxelAnalyzer:
     def analyze_whole_head(self, atlas_file, visualize=False):
         """
         Analyze all regions in the specified atlas.
-        
-        Args:
-            atlas_file (str): Path to the atlas file in NIfTI or MGZ format
-            visualize (bool): Whether to generate visualizations
-            
-        Returns:
-            dict: Dictionary mapping region names to their analysis results
         """
         start_time = time.time()
         print(f"Starting whole head analysis of atlas: {atlas_file}")
@@ -154,12 +154,26 @@ class VoxelAnalyzer:
             field_tuple = self.load_brain_image(self.field_nifti)
             field_img, field_arr = field_tuple
             
+            # Handle 4D field data (extract first volume if multiple volumes)
+            if len(field_arr.shape) == 4:
+                print(f"Detected 4D field data with shape {field_arr.shape}")
+                field_shape_3d = field_arr.shape[:3]
+                # If time dimension is 1, we can simply reshape to 3D
+                if field_arr.shape[3] == 1:
+                    print("Reshaping 4D field data to 3D")
+                    field_arr = field_arr[:,:,:,0]
+                else:
+                    print(f"Warning: 4D field has {field_arr.shape[3]} volumes. Using only the first volume.")
+                    field_arr = field_arr[:,:,:,0]
+            else:
+                field_shape_3d = field_arr.shape
+            
             # Check if resampling is needed and do it once if necessary
-            if atlas_arr.shape != field_arr.shape:
+            if atlas_arr.shape != field_shape_3d:
                 print("Resampling atlas to match field dimensions...")
                 atlas_img, atlas_arr = self.resample_to_match(
                     atlas_img,  
-                    field_arr.shape,
+                    field_shape_3d,
                     field_img.affine
                 )
                 atlas_tuple = (atlas_img, atlas_arr)
@@ -175,23 +189,79 @@ class VoxelAnalyzer:
             for region_id, info in region_info.items():
                 region_name = info['name']
                 try:
-                    # Pass the pre-computed region_info and loaded data to avoid repeated loading
-                    region_results = self.analyze_cortex(
-                        atlas_file, 
-                        region_id, 
-                        region_info=region_info,
-                        atlas_data=atlas_tuple,
-                        field_data=field_tuple,
-                        visualize=visualize  # Pass the visualize parameter
-                    )
+                    print(f"Processing region: {region_name}")
                     
-                    # Only store the essential results, not the masks
-                    results[region_name] = {
-                        'mean_value': region_results['mean_value'],
-                        'max_value': region_results['max_value'],
-                        'min_value': region_results['min_value'],
-                        'voxels_in_roi': region_results['voxels_in_roi']
+                    # Create a directory for this region in the main output directory
+                    region_dir = os.path.join(self.output_dir, region_name)
+                    os.makedirs(region_dir, exist_ok=True)
+                    
+                    # Create mask for this region
+                    region_mask = (atlas_arr == region_id)
+                    
+                    # Check if the mask contains any voxels
+                    mask_count = np.sum(region_mask)
+                    if mask_count == 0:
+                        print(f"Warning: Region {region_name} (ID: {region_id}) contains 0 voxels in the atlas")
+                        region_results = {
+                            'mean_value': None,
+                            'max_value': None,
+                            'min_value': None,
+                            'voxels_in_roi': 0
+                        }
+                        
+                        # Store in the overall results
+                        results[region_name] = region_results
+                        continue
+                    
+                    # Filter for voxels with positive values
+                    value_mask = (field_arr > 0)
+                    combined_mask = region_mask & value_mask
+                    
+                    # Extract field values after filtering
+                    field_values = field_arr[combined_mask]
+                    
+                    # Check if any voxels remain after filtering
+                    filtered_count = len(field_values)
+                    if filtered_count == 0:
+                        print(f"Warning: Region {region_name} (ID: {region_id}) has no voxels with positive values")
+                        region_results = {
+                            'mean_value': None,
+                            'max_value': None,
+                            'min_value': None,
+                            'voxels_in_roi': 0
+                        }
+                        
+                        # Store in the overall results
+                        results[region_name] = region_results
+                        continue
+                    
+                    # Calculate statistics
+                    mean_value = np.mean(field_values)
+                    max_value = np.max(field_values)
+                    min_value = np.min(field_values)
+                    
+                    # Create result dictionary for this region
+                    region_results = {
+                        'mean_value': mean_value,
+                        'max_value': max_value,
+                        'min_value': min_value,
+                        'voxels_in_roi': filtered_count  # Store the number of voxels
                     }
+                    
+                    # Store in the overall results
+                    results[region_name] = region_results
+                    
+                    # Generate visualizations if requested
+                    if visualize:
+                        # Create visualization NIfTI file directly in the region directory
+                        viz_file = self._generate_region_visualization(
+                            atlas_img=atlas_img,
+                            atlas_arr=atlas_arr,
+                            field_arr=field_arr,
+                            region_id=region_id,
+                            region_name=region_name,
+                            output_dir=region_dir
+                        )
                     
                 except Exception as e:
                     print(f"Warning: Failed to analyze region {region_name}: {str(e)}")
@@ -202,32 +272,14 @@ class VoxelAnalyzer:
                         'voxels_in_roi': 0
                     }
             
-            # Print summary of results
-            print("\nSummary of whole head analysis:")
-            print(f"Total regions analyzed: {len(results)}")
-            
-            # Count regions with valid results
-            valid_regions = sum(1 for r in results.values() if r['mean_value'] is not None)
-            print(f"Regions with valid results: {valid_regions}")
-            
-            # Find regions with highest and lowest mean values
-            valid_results = {name: res for name, res in results.items() if res['mean_value'] is not None}
-            if valid_results:
-                max_region = max(valid_results.items(), key=lambda x: x[1]['mean_value'])
-                min_region = min(valid_results.items(), key=lambda x: x[1]['mean_value'])
-                print(f"Region with highest mean value: {max_region[0]} ({max_region[1]['mean_value']:.6f})")
-                print(f"Region with lowest mean value: {min_region[0]} ({min_region[1]['mean_value']:.6f})")
-            
-            # Generate scatter plot if visualization is requested
-            if visualize:
-                self.visualizer.generate_cortex_scatter_plot(results, atlas_type, data_type='voxel')
-            
-            # Calculate and print timing information
-            end_time = time.time()
-            total_time = end_time - start_time
-            print(f"\nTiming Information:")
-            print(f"Total analysis time: {total_time:.2f} seconds")
-            print(f"Average time per region: {total_time/len(results):.2f} seconds")
+            # Generate global scatter plot and save whole-head results to CSV directly in the main output directory
+            if visualize and results:
+                print("Generating global visualization plots...")
+                # Generate scatter plots in the main output directory
+                self._generate_whole_head_plots(results, atlas_type, 'voxel')
+                
+                # Generate and save summary CSV
+                self._save_whole_head_summary_csv(results, atlas_type, 'voxel')
             
             return results
             
@@ -243,29 +295,227 @@ class VoxelAnalyzer:
                     del field_tuple
             except:
                 pass
+    
+    def _generate_region_visualization(self, atlas_img, atlas_arr, field_arr, region_id, region_name, output_dir):
+        """Generate a NIfTI file visualization for a specific cortical region and save it directly to the specified directory."""
+        # Create mask for this region
+        region_mask = (atlas_arr == region_id)
+        
+        # Ensure field_arr is 3D for visualization
+        if len(field_arr.shape) == 4:
+            viz_field_arr = field_arr[:,:,:,0]  # Use the first volume
+        else:
+            viz_field_arr = field_arr
+        
+        # Create visualization array (zeros everywhere except the region)
+        vis_arr = np.zeros_like(atlas_arr)
+        vis_arr[region_mask] = viz_field_arr[region_mask]
+        
+        # Create output filename directly in the region directory
+        output_filename = os.path.join(output_dir, f"brain_with_{region_name}_ROI.nii.gz")
+        
+        # Save as NIfTI
+        import nibabel as nib
+        vis_img = nib.Nifti1Image(vis_arr, atlas_img.affine)
+        nib.save(vis_img, output_filename)
+        
+        print(f"Created visualization: {output_filename}")
+        return output_filename
+                
+    def _generate_whole_head_plots(self, results, atlas_type, data_type='voxel'):
+        """Generate scatter plots for whole head analysis directly in the main output directory."""
+        # Filter out regions with None values
+        valid_results = {name: res for name, res in results.items() if res['mean_value'] is not None}
+        
+        if not valid_results:
+            print("Warning: No valid results to plot")
+            return
+        
+        try:
+            # Prepare data for plotting
+            regions = list(valid_results.keys())
+            mean_values = [res['mean_value'] for res in valid_results.values()]
+            
+            # Check if voxel count data is available, and use it if possible
+            try:
+                # Attempt to get voxel counts if they're in the data
+                counts = [res.get(f'{data_type}s_in_roi', 1) for res in valid_results.values()]
+                use_counts_for_color = True
+            except (KeyError, AttributeError):
+                # If not available, use a default color
+                print(f"Note: '{data_type}s_in_roi' not found in results, using default coloring")
+                counts = [1 for _ in valid_results.values()]
+                use_counts_for_color = False
+            
+            # Create output directory if it doesn't exist
+            os.makedirs(self.output_dir, exist_ok=True)
+            
+            # Create figure with larger size for all regions
+            plt.figure(figsize=(15, 10))
+            fig, ax = plt.subplots(figsize=(15, 10))
+            
+            # Create scatter plot with enhanced styling
+            if use_counts_for_color:
+                scatter = ax.scatter(regions, mean_values, 
+                                c=counts,
+                                cmap='viridis',
+                                s=100,
+                                alpha=0.6,
+                                edgecolors='black',
+                                linewidths=1)
+                
+                # Add colorbar with enhanced styling
+                cbar = plt.colorbar(scatter, ax=ax)
+                cbar.set_label(f'Number of {data_type.capitalize()}s', fontsize=12, fontweight='bold')
+            else:
+                # Use a single color if we don't have count data
+                scatter = ax.scatter(regions, mean_values, 
+                                c='royalblue',
+                                s=100,
+                                alpha=0.6,
+                                edgecolors='black',
+                                linewidths=1)
+            
+            # Customize plot
+            ax.set_title(f'Cortical Region Analysis - {atlas_type}', 
+                    pad=20, 
+                    fontsize=14, 
+                    fontweight='bold')
+            ax.set_xlabel('Region Name', fontsize=12, fontweight='bold')
+            ax.set_ylabel('Mean Field Value', fontsize=12, fontweight='bold')
+            
+            # Rotate x-axis labels for better readability
+            plt.xticks(rotation=45, ha='right', fontsize=10)
+            plt.yticks(fontsize=10)
+            
+            # Add grid
+            ax.grid(True, linestyle='--', alpha=0.3)
+            
+            # Adjust layout to prevent label cutoff
+            plt.tight_layout()
+            
+            # Save plot directly in the main output directory
+            output_file = os.path.join(self.output_dir, f'cortex_analysis_{atlas_type}.png')
+            plt.savefig(output_file, dpi=300, bbox_inches='tight')
+            plt.close()
+            
+            print(f"Generated scatter plot: {output_file}")
+            
+            # Generate additional plot with sorted values
+            plt.figure(figsize=(15, 10))  # Create a new figure
+            fig, ax = plt.subplots(figsize=(15, 10))
+            
+            # Sort regions by mean value
+            sorted_indices = np.argsort(mean_values)
+            sorted_regions = [regions[i] for i in sorted_indices]
+            sorted_values = [mean_values[i] for i in sorted_indices]
+            
+            # Use the same coloring approach as the first plot
+            if use_counts_for_color:
+                sorted_counts = [counts[i] for i in sorted_indices]
+                scatter = ax.scatter(range(len(sorted_regions)), sorted_values,
+                                c=sorted_counts,
+                                cmap='viridis',
+                                s=100,
+                                alpha=0.6,
+                                edgecolors='black',
+                                linewidths=1)
+                
+                # Add colorbar with enhanced styling
+                cbar = plt.colorbar(scatter, ax=ax)
+                cbar.set_label(f'Number of {data_type.capitalize()}s', fontsize=12, fontweight='bold')
+            else:
+                scatter = ax.scatter(range(len(sorted_regions)), sorted_values,
+                                c='royalblue',
+                                s=100,
+                                alpha=0.6,
+                                edgecolors='black',
+                                linewidths=1)
+            
+            # Customize plot
+            ax.set_title(f'Sorted Cortical Region Analysis - {atlas_type}', 
+                    pad=20, 
+                    fontsize=14, 
+                    fontweight='bold')
+            ax.set_xlabel('Region Index (sorted by mean value)', 
+                        fontsize=12, 
+                        fontweight='bold')
+            ax.set_ylabel('Mean Field Value', 
+                        fontsize=12, 
+                        fontweight='bold')
+            
+            # Add grid
+            ax.grid(True, linestyle='--', alpha=0.3)
+            
+            # Set x-ticks to show region names at the bottom
+            ax.set_xticks(range(len(sorted_regions)))
+            ax.set_xticklabels(sorted_regions, rotation=45, ha='right', fontsize=8)
+            
+            # Adjust layout to prevent label cutoff
+            plt.tight_layout()
+            
+            # Save sorted plot directly in the main output directory
+            sorted_output_file = os.path.join(self.output_dir, f'cortex_analysis_sorted_{atlas_type}.png')
+            plt.savefig(sorted_output_file, dpi=300, bbox_inches='tight')
+            plt.close()
+            
+            print(f"Generated sorted scatter plot: {sorted_output_file}")
+        except Exception as e:
+            # If there's any error during plotting, log it but don't stop the overall analysis
+            import traceback
+            print(f"Warning: Failed to generate plots: {str(e)}")
+            print(f"Error details: {traceback.format_exc()}")
+            print("Continuing with analysis without visualizations.")
+
+    def _save_whole_head_summary_csv(self, results, atlas_type, data_type='voxel'):
+        """Save a summary CSV of whole-head analysis results directly in the output directory."""
+        # Create the CSV
+        filename = f"whole_head_{atlas_type}_summary.csv"
+        output_path = os.path.join(self.output_dir, filename)
+        
+        # Write results to CSV
+        with open(output_path, 'w', newline='') as csvfile:
+            writer = csv.writer(csvfile)
+            
+            # Write header row
+            header = ['Region', 'Mean Value', 'Max Value', 'Min Value', f'{data_type.capitalize()}s in ROI']
+            writer.writerow(header)
+            
+            # Write data for each region
+            for region_name, region_data in results.items():
+                row = [
+                    region_name,
+                    region_data.get('mean_value', 'N/A'),
+                    region_data.get('max_value', 'N/A'),
+                    region_data.get('min_value', 'N/A'),
+                    region_data.get(f'{data_type}s_in_roi', 0)
+                ]
+                writer.writerow(row)
+        
+        print(f"Saved whole-head analysis summary to: {output_path}")
+        return output_path
 
     def analyze_sphere(self, center_coordinates, radius):
         """
         Analyze a spherical region of interest from voxel data.
-        Only includes voxels with non-zero field values.
-        
-        Args:
-            center_coordinates (list or tuple): [x, y, z] coordinates of sphere center in mm
-            radius (float): Radius of the sphere in mm
-            
-        Returns:
-            dict: Analysis results for the spherical region including:
-                - mean_value: Mean field value in the ROI
-                - max_value: Maximum field value in the ROI
-                - min_value: Minimum field value in the ROI
-                - roi_mask: Boolean mask of voxels in the ROI
-                - voxels_in_roi: Number of voxels in the ROI (excluding zero values)
         """
-        print(f"Analyzing a spherical ROI (radius={radius}mm) at coordinates {center_coordinates}")
+        print(f"Starting spherical ROI analysis (radius={radius}mm) at coordinates {center_coordinates}")
         
         # Load the NIfTI data
+        print("Loading field data...")
         img = nib.load(self.field_nifti)
         field_data = img.get_fdata()
+        
+        # Handle 4D field data (extract first volume if multiple volumes)
+        if len(field_data.shape) == 4:
+            print(f"Detected 4D field data with shape {field_data.shape}")
+            # If time dimension is 1, we can simply reshape to 3D
+            if field_data.shape[3] == 1:
+                print("Reshaping 4D field data to 3D")
+                field_data = field_data[:,:,:,0]
+            else:
+                print(f"Warning: 4D field has {field_data.shape[3]} volumes. Using only the first volume.")
+                field_data = field_data[:,:,:,0]
         
         # Get voxel dimensions (for proper distance calculation)
         voxel_size = np.array(img.header.get_zooms()[:3])
@@ -274,6 +524,7 @@ class VoxelAnalyzer:
         affine = img.affine
         
         # Convert world coordinates to voxel coordinates if needed
+        print("Converting coordinates and creating ROI mask...")
         inv_affine = np.linalg.inv(affine)
         voxel_coords = np.dot(inv_affine, np.append(center_coordinates, 1))[:3]
         
@@ -299,20 +550,23 @@ class VoxelAnalyzer:
         
         # Count voxels in ROI
         roi_voxels_count = np.sum(combined_mask)
-        total_voxels_in_roi = np.sum(roi_mask)
-        zero_voxels_in_roi = total_voxels_in_roi - roi_voxels_count
         
         # Check if we have any voxels in the ROI
         if roi_voxels_count == 0:
-            print("Warning: No voxels with non-zero values found in the specified ROI!")
-            return {
+            print("Warning: No voxels with non-zero values found in the specified ROI")
+            results = {
                 'mean_value': None,
                 'max_value': None,
-                'min_value': None,
-                'roi_mask': combined_mask,
-                'voxels_in_roi': 0
+                'min_value': None
             }
+            
+            # Save results to CSV even if empty
+            region_name = f"sphere_x{center_coordinates[0]}_y{center_coordinates[1]}_z{center_coordinates[2]}_r{radius}"
+            self.visualizer.save_results_to_csv(results, 'spherical', region_name, 'voxel')
+            
+            return results
         
+        print("Calculating statistics...")
         # Get the field values within the ROI
         roi_values = field_data[combined_mask]
         
@@ -321,22 +575,18 @@ class VoxelAnalyzer:
         max_value = np.max(roi_values)
         mean_value = np.mean(roi_values)
         
-        print(f"ROI Analysis Results:")
-        print(f" Total voxels in ROI: {total_voxels_in_roi}")
-        print(f" Voxels with non-zero values: {roi_voxels_count}")
-        print(f" Voxels with zero values (excluded): {zero_voxels_in_roi}")
-        print(f" Mean: {mean_value:.6f}")
-        print(f" Min: {min_value:.6f}")
-        print(f" Max: {max_value:.6f}")
-        
-        # Return analysis results
-        return {
+        # Create results dictionary
+        results = {
             'mean_value': mean_value,
             'max_value': max_value,
-            'min_value': min_value,
-            'roi_mask': combined_mask,
-            'voxels_in_roi': roi_voxels_count
+            'min_value': min_value
         }
+        
+        # Save results to CSV
+        region_name = f"sphere_x{center_coordinates[0]}_y{center_coordinates[1]}_z{center_coordinates[2]}_r{radius}"
+        self.visualizer.save_results_to_csv(results, 'spherical', region_name, 'voxel')
+        
+        return results
 
     def resample_to_match(self, source_img, target_shape, target_affine):
         """Resample source image to match target dimensions and affine using FreeSurfer's mri_convert.
@@ -346,7 +596,7 @@ class VoxelAnalyzer:
         source_img : nibabel.Nifti1Image
             Source image to resample
         target_shape : tuple
-            Target shape (x, y, z)
+            Target shape (x, y, z) or (x, y, z, t)
         target_affine : numpy.ndarray
             Target affine transformation matrix
             
@@ -357,6 +607,10 @@ class VoxelAnalyzer:
         """
         print(f"Resampling image from shape {source_img.shape} to {target_shape}")
         print("This may take a few moments...")
+        
+        # If target shape is 4D but source is 3D, we need to handle this specially
+        is_target_4d = len(target_shape) == 4
+        spatial_shape = target_shape[:3]  # Extract just the spatial dimensions
         
         # Create a temporary file for the target template
         with tempfile.NamedTemporaryFile(suffix='.nii.gz', delete=False) as temp_template:
@@ -372,8 +626,8 @@ class VoxelAnalyzer:
                 source_path = temp_source.name
                 nib.save(source_img, source_path)
             
-            # Create a template image with target dimensions
-            template_img = nib.Nifti1Image(np.zeros(target_shape), target_affine)
+            # Create a template image with target dimensions (3D only)
+            template_img = nib.Nifti1Image(np.zeros(spatial_shape), target_affine)
             nib.save(template_img, template_path)
             
             # Run mri_convert to resample the image
@@ -385,11 +639,22 @@ class VoxelAnalyzer:
             ]
             
             print(f"Running: {' '.join(cmd)}")
-            subprocess.run(cmd, check=True, capture_output=True)
+            result = subprocess.run(cmd, check=True, capture_output=True)
             
             # Load the resampled image
             resampled_img = nib.load(output_path)
             resampled_data = resampled_img.get_fdata()
+            
+            # If target is 4D but resampled is 3D, reshape it to match
+            if is_target_4d and len(resampled_data.shape) == 3:
+                print(f"Reshaping 3D data {resampled_data.shape} to match 4D target {target_shape}")
+                # Add a dimension to match the 4D target shape
+                resampled_data = np.expand_dims(resampled_data, axis=3)
+                
+                # Create a new 4D NIfTI image
+                new_header = resampled_img.header.copy()
+                new_header.set_data_shape(resampled_data.shape)
+                resampled_img = nib.Nifti1Image(resampled_data, resampled_img.affine, header=new_header)
             
             print("Resampling complete")
             return resampled_img, resampled_data
@@ -405,27 +670,6 @@ class VoxelAnalyzer:
     def analyze_cortex(self, atlas_file, target_region, region_info=None, atlas_data=None, field_data=None, visualize=False):
         """
         Analyze a field scan within a specific cortical region defined in an atlas.
-        Only includes voxels with positive field values.
-        
-        Parameters
-        ----------
-        atlas_file : str
-            Path to the atlas file in NIfTI or MGZ format
-        target_region : str or int
-            Name or ID of the target region to analyze
-        region_info : dict, optional
-            Pre-computed region information to avoid repeated mri_segstats calls
-        atlas_data : tuple, optional
-            Pre-loaded atlas data (atlas_img, atlas_data) to avoid repeated loading
-        field_data : tuple, optional
-            Pre-loaded field data (field_img, field_data) to avoid repeated loading
-        visualize : bool, optional
-            Whether to generate visualization files
-            
-        Returns
-        -------
-        dict
-            Dictionary with region statistics
         """
         # Extract atlas type from filename
         atlas_type = self._extract_atlas_type(atlas_file)
@@ -447,22 +691,36 @@ class VoxelAnalyzer:
             # Unpack the tuple
             field_img, field_arr = field_data
         
-        # Check file dimensions match
-        if atlas_arr.shape != field_arr.shape:
-            print("Warning: Atlas and field dimensions don't match, attempting to resample...")
+        # Handle 4D field data (extract first volume if multiple volumes)
+        if len(field_arr.shape) == 4:
+            print(f"Detected 4D field data with shape {field_arr.shape}")
+            field_shape_3d = field_arr.shape[:3]
+            # If time dimension is 1, we can simply reshape to 3D
+            if field_arr.shape[3] == 1:
+                print("Reshaping 4D field data to 3D")
+                field_arr = field_arr[:,:,:,0]
+            else:
+                print(f"Warning: 4D field has {field_arr.shape[3]} volumes. Using only the first volume.")
+                field_arr = field_arr[:,:,:,0]
+        else:
+            field_shape_3d = field_arr.shape
+                
+        # Compare spatial dimensions for atlas and field
+        if atlas_arr.shape != field_shape_3d:
+            print("Atlas and field dimensions don't match, attempting to resample...")
             print(f"Atlas shape: {atlas_arr.shape}")
             print(f"Field shape: {field_arr.shape}")
         
             # Resample the atlas to match the field data
             atlas_img, atlas_arr = self.resample_to_match(
                 atlas_img,
-                field_arr.shape,
+                field_shape_3d,  # Use only the spatial dimensions
                 field_img.affine
             )
             
             # Verify the resampling worked
-            if atlas_arr.shape != field_arr.shape:
-                raise ValueError(f"Failed to resample atlas to match field dimensions: {atlas_arr.shape} vs {field_arr.shape}")
+            if atlas_arr.shape != field_shape_3d:
+                raise ValueError(f"Failed to resample atlas to match field dimensions: {atlas_arr.shape} vs {field_shape_3d}")
         
         # Load region information if not provided
         if region_info is None:
@@ -471,57 +729,64 @@ class VoxelAnalyzer:
         # Determine region ID based on target_region
         print(f"Finding region information for {target_region}...")
         region_id, region_name = self.find_region(target_region, region_info)
-        print(f"Analyzing region: {region_name} (ID: {region_id})")
+        print(f"Processing region: {region_name} (ID: {region_id})")
         
         # Create mask for this region
-        region_mask = (atlas_arr == region_id)  # Use the unpacked data array
+        region_mask = (atlas_arr == region_id)
         
         # Check if the mask contains any voxels
         mask_count = np.sum(region_mask)
         if mask_count == 0:
             print(f"Warning: Region {region_name} (ID: {region_id}) contains 0 voxels in the atlas")
-            return {
+            results = {
                 'mean_value': None,
                 'max_value': None,
-                'min_value': None,
-                'roi_mask': region_mask,
-                'voxels_in_roi': 0
+                'min_value': None
             }
+            
+            # Save results to CSV even if empty
+            self.visualizer.save_results_to_csv(results, 'cortical', region_name, 'voxel')
+            
+            return results
         
         # Filter for voxels with positive values
-        value_mask = (field_arr > 0)  # Use the unpacked data array
+        value_mask = (field_arr > 0)
         combined_mask = region_mask & value_mask
         
         # Extract field values after filtering
-        field_values = field_arr[combined_mask]  # Use the unpacked data array
+        field_values = field_arr[combined_mask]
         
         # Check if any voxels remain after filtering
         filtered_count = len(field_values)
         if filtered_count == 0:
             print(f"Warning: Region {region_name} (ID: {region_id}) has no voxels with positive values")
-            return {
+            results = {
                 'mean_value': None,
                 'max_value': None,
-                'min_value': None,
-                'roi_mask': combined_mask,
-                'voxels_in_roi': 0
+                'min_value': None
             }
+            
+            # Save results to CSV even if empty
+            self.visualizer.save_results_to_csv(results, 'cortical', region_name, 'voxel')
+            
+            return results
         
+        print("Calculating statistics...")
         # Calculate statistics
         mean_value = np.mean(field_values)
         max_value = np.max(field_values)
         min_value = np.min(field_values)
         
-        # Print summary of results
-        print(f"Analysis Results for {region_name} (ID: {region_id}):")
-        print(f"  Total voxels in region: {mask_count}")
-        print(f"  Voxels with positive values: {filtered_count} ({filtered_count/mask_count*100:.2f}%)")
-        print(f"  Mean field value: {mean_value:.6f}")
-        print(f"  Max field value: {max_value:.6f}")
-        print(f"  Min field value: {min_value:.6f}")
+        # Prepare results dictionary
+        results = {
+            'mean_value': mean_value,
+            'max_value': max_value,
+            'min_value': min_value
+        }
         
         # Generate visualization if requested
         if visualize:
+            print("Generating visualizations...")
             self.visualizer.generate_value_distribution_plot(
                 field_values,
                 region_name,
@@ -533,22 +798,19 @@ class VoxelAnalyzer:
             )
 
             # Create visualization NIfTI file
-            self.visualizer.create_cortex_nifti(
+            viz_file = self.visualizer.create_cortex_nifti(
                 atlas_img=atlas_img,
                 atlas_arr=atlas_arr,
                 field_arr=field_arr,
                 region_id=region_id,
                 region_name=region_name
             )
+            
+        # Save results to CSV
+        self.visualizer.save_results_to_csv(results, 'cortical', region_name, 'voxel')
         
         # Return analysis results
-        return {
-            'mean_value': mean_value,
-            'max_value': max_value,
-            'min_value': min_value,
-            'roi_mask': combined_mask,
-            'voxels_in_roi': filtered_count
-        }
+        return results
 
     def get_atlas_regions(self, atlas_file):
         """Extract region information from atlas file using FreeSurfer's mri_segstats.
