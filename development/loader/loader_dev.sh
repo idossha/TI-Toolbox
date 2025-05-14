@@ -204,6 +204,73 @@ run_docker_compose() {
   xhost -local:root
 }
 
+# Function to check if project is new and initialize config files
+initialize_project_configs() {
+  local project_ti_csc_dir="$LOCAL_PROJECT_DIR/ti-csc"
+  local project_config_dir="$project_ti_csc_dir/config"
+  local new_project_configs_dir="$SCRIPT_DIR/../../new_project/configs"
+  local is_new_project=false
+
+  # Check if ti-csc directory exists
+  if [ ! -d "$project_ti_csc_dir" ]; then
+    echo "Creating new project structure..."
+    mkdir -p "$project_config_dir"
+    is_new_project=true
+  elif [ ! -d "$project_config_dir" ]; then
+    echo "Creating config directory..."
+    mkdir -p "$project_config_dir"
+    is_new_project=true
+  fi
+
+  # If it's a new project, copy config files
+  if [ "$is_new_project" = true ]; then
+    echo "Initializing new project with default configs..."
+    # Ensure source directory exists
+    if [ ! -d "$new_project_configs_dir" ]; then
+      echo "Error: Default configs directory not found at $new_project_configs_dir"
+      return 1
+    fi
+    
+    # Copy each config file individually and verify
+    for config_file in "$new_project_configs_dir"/*.json; do
+      if [ -f "$config_file" ]; then
+        filename=$(basename "$config_file")
+        cp "$config_file" "$project_config_dir/$filename"
+        if [ $? -eq 0 ]; then
+          echo "Copied $filename to $project_config_dir"
+        else
+          echo "Error: Failed to copy $filename"
+          return 1
+        fi
+      fi
+    done
+    
+    # Set proper permissions
+    chmod -R 755 "$project_config_dir"
+    echo "Default config files copied to $project_config_dir"
+  fi
+
+  # Return the new project status
+  echo "$is_new_project"
+}
+
+# Function to write project status
+write_project_status() {
+  INFO_DIR="$LOCAL_PROJECT_DIR/.ti-csc-info"
+  STATUS_FILE="$INFO_DIR/project_status.json"
+  mkdir -p "$INFO_DIR"
+
+  # Check if project is new and initialize configs
+  IS_NEW_PROJECT=$(initialize_project_configs)
+
+  # Create JSON structure with both flags
+  echo "{
+    \"config_created\": $IS_NEW_PROJECT,
+    \"gui_explain\": true,
+    \"last_updated\": \"$(date)\"
+  }" > "$STATUS_FILE"
+}
+
 # Function to write system info to a hidden folder in the user's project directory
 write_system_info() {
   INFO_DIR="$LOCAL_PROJECT_DIR/.ti-csc-info"
@@ -246,7 +313,7 @@ load_default_paths
 get_project_directory
 get_dev_codebase_directory
 PROJECT_DIR_NAME=$(basename "$LOCAL_PROJECT_DIR")
-DEV_CODEBASE_NAME=$(basename "$DEV_CODEBASE_DIR")
+DEV_CODEBASE_DIR_NAME=$(basename "$DEV_CODEBASE_DIR")
 check_docker_resources
 initialize_volumes
 set_display_env
@@ -256,14 +323,16 @@ allow_xhost # Allow X11 connections
 export LOCAL_PROJECT_DIR
 export PROJECT_DIR_NAME
 export DEV_CODEBASE_DIR
-export DEV_CODEBASE_NAME
+export DEV_CODEBASE_DIR_NAME
 
 # Save the paths for next time
 save_default_paths
 
-# Write system info to hidden folder in project dir
+# Write system info and project status to hidden folder in project dir
 write_system_info
+write_project_status
 
 echo "System info written to $LOCAL_PROJECT_DIR/.ti-csc-info/system_info.txt"
+echo "Project status written to $LOCAL_PROJECT_DIR/.ti-csc-info/project_status.json"
 
 run_docker_compose

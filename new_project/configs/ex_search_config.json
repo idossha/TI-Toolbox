@@ -1,0 +1,33 @@
+{
+    "subjects": {
+        "prompt": "enable",
+        "default": null
+    },
+    "create_leadfield": {
+        "prompt": "enable",
+        "default": true
+    },
+    "eeg_net": {
+        "prompt": "disable",
+        "default": "EGI_template.csv"
+    },
+    "roi_method": {
+        "prompt": "enable",
+        "default": "manual"
+    },
+    "roi_manual": {
+        "prompt": "enable",
+        "default": {
+            "x": null,
+            "y": null,
+            "z": null
+        }
+    },
+    "roi_atlas": {
+        "prompt": "enable",
+        "default": {
+            "atlas_path": null,
+            "label_value": null
+        }
+    }
+} 

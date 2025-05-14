@@ -240,6 +240,10 @@ def main():
     window = MainWindow()
     window.show()
     
+    # Check if this is a first-time user after a short delay
+    from new_project.first_time_user import assess_user_status
+    QtCore.QTimer.singleShot(500, lambda: assess_user_status(window))
+    
     # Check for updates after a short delay to ensure window is fully shown
     QtCore.QTimer.singleShot(1000, lambda: check_for_update(__version__, window))
     

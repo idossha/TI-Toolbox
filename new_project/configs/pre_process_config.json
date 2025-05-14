@@ -1,0 +1,26 @@
+{
+    "subjects": {
+        "prompt": "enable",
+        "default": null
+    },
+    "convert_dicom": {
+        "prompt": "enable",
+        "default": true
+    },
+    "run_recon": {
+        "prompt": "enable",
+        "default": true
+    },
+    "parallel_recon": {
+        "prompt": "enable",
+        "default": false
+    },
+    "create_m2m": {
+        "prompt": "enable",
+        "default": true
+    },
+    "quiet": {
+        "prompt": "enable",
+        "default": false
+    }
+} 

@@ -1,0 +1,44 @@
+{
+  "subjects": {
+    "prompt": "enable",
+    "default": null
+  },
+  "conductivity": {
+    "prompt": "enable",
+    "default": "scalar",
+    "options": ["scalar", "tensor"]
+  },
+  "sim_mode": {
+    "prompt": "enable",
+    "default": "U",
+    "options": ["U", "M"]
+  },
+  "montages": {
+    "prompt": "enable",
+    "default": ["AAA001", "L_Insula"]
+  },
+  "intensity": {
+    "prompt": "enable",
+    "default": 5
+  },
+  "electrode_shape": {
+    "prompt": "enable",
+    "default": "ellipse",
+    "options": ["ellipse", "rect"]
+  },
+  "electrode_dimensions": {
+    "prompt": "enable",
+    "default": {
+      "width": 8,
+      "height": 8
+    }
+  },
+  "electrode_thickness": {
+    "prompt": "enable",
+    "default": 4
+  },
+  "eeg_net": {
+    "prompt": "enable",
+    "default": "EGI_template.csv"
+  }
+}
