@@ -118,63 +118,81 @@ class MeshAnalyzer:
         Returns:
             str: Path to the generated surface mesh file
         """
-        # If we already have a valid surface mesh, return it
-        if self._surface_mesh_path is not None and os.path.exists(self._surface_mesh_path):
-            return self._surface_mesh_path
-            
-        # Create a new temporary directory if needed
-        if self._temp_dir is None:
-            import tempfile
-            self._temp_dir = tempfile.TemporaryDirectory()
-            
-        # Generate output directory name based on the input mesh
+        # Get the base name of the input mesh
         input_name = os.path.basename(self.field_mesh_path)
-        output_dir = os.path.join(self._temp_dir.name, f"cortex_{input_name}")
+        base_name = os.path.splitext(input_name)[0]
         
-        print(f"Generating surface mesh using msh2cortex...")
-        print(f"This may take a few moments...")
-        
+        # Get the simulation name and subject ID from the field mesh path
+        # Field path structure: .../sub-<name>/Simulations/simulation_name/TI/mesh/field.msh
+        field_path_parts = self.field_mesh_path.split(os.sep)
         try:
-            # Run msh2cortex command
-            cmd = [
-                'msh2cortex',
-                '-i', self.field_mesh_path,
-                '-m', self.subject_dir,
-                '-o', output_dir
-            ]
+            sim_idx = field_path_parts.index('Simulations')
+            simulation_name = field_path_parts[sim_idx + 1]
             
-            print(f"Running: {' '.join(cmd)}")
-            subprocess.run(cmd, check=True, capture_output=True)
+            # Get the subject ID from the m2m directory path
+            # m2m path structure: .../sub-<name>/m2m_<name>
+            m2m_name = os.path.basename(self.subject_dir)  # e.g., 'm2m_ido'
+            subject_id = m2m_name.split('_')[1]  # e.g., 'ido'
             
-            # The actual mesh file will be named *_central.msh inside the output directory
-            base_name = os.path.splitext(input_name)[0]
-            central_mesh = os.path.join(output_dir, f"{base_name}_central.msh")
+            # Get the SimNIBS directory (parent of sub-*)
+            simnibs_dir = os.path.dirname(os.path.dirname(self.subject_dir))
             
-            if not os.path.exists(central_mesh):
-                raise FileNotFoundError(f"Expected surface mesh file not found at: {central_mesh}")
+            # Construct the path where the surface mesh should be stored
+            surface_mesh_dir = os.path.join(simnibs_dir, f'sub-{subject_id}', 'Simulations', simulation_name, 'TI', 'mesh')
+            os.makedirs(surface_mesh_dir, exist_ok=True)
             
-            # Store the path
-            self._surface_mesh_path = central_mesh
-            print(f"Surface mesh generated successfully at: {central_mesh}")
+            # The surface mesh file path
+            surface_mesh_path = os.path.join(surface_mesh_dir, f"{base_name}_central.msh")
             
-            return central_mesh
+            # If we already have a valid surface mesh, return it
+            if os.path.exists(surface_mesh_path):
+                print(f"Using existing surface mesh at: {surface_mesh_path}")
+                self._surface_mesh_path = surface_mesh_path
+                return surface_mesh_path
+                
+            print(f"Generating surface mesh using msh2cortex...")
+            print(f"This may take a few moments...")
             
-        except subprocess.CalledProcessError as e:
-            print(f"Error running msh2cortex: {str(e)}")
-            print(f"Command output: {e.stdout.decode() if e.stdout else ''}")
-            print(f"Command error: {e.stderr.decode() if e.stderr else ''}")
-            raise RuntimeError("Failed to generate surface mesh using msh2cortex")
-        except FileNotFoundError as e:
-            print(f"Error: {str(e)}")
-            print("msh2cortex completed but did not generate the expected file.")
-            print(f"Contents of output directory {output_dir}:")
             try:
-                files = os.listdir(output_dir)
-                for f in files:
-                    print(f"  {f}")
-            except:
-                print("  Could not list directory contents")
-            raise
+                # Run msh2cortex command
+                cmd = [
+                    'msh2cortex',
+                    '-i', self.field_mesh_path,
+                    '-m', self.subject_dir,
+                    '-o', surface_mesh_dir
+                ]
+                
+                print(f"Running: {' '.join(cmd)}")
+                subprocess.run(cmd, check=True, capture_output=True)
+                
+                if not os.path.exists(surface_mesh_path):
+                    raise FileNotFoundError(f"Expected surface mesh file not found at: {surface_mesh_path}")
+                
+                # Store the path
+                self._surface_mesh_path = surface_mesh_path
+                print(f"Surface mesh generated successfully at: {surface_mesh_path}")
+                
+                return surface_mesh_path
+                
+            except subprocess.CalledProcessError as e:
+                print(f"Error running msh2cortex: {str(e)}")
+                print(f"Command output: {e.stdout.decode() if e.stdout else ''}")
+                print(f"Command error: {e.stderr.decode() if e.stderr else ''}")
+                raise RuntimeError("Failed to generate surface mesh using msh2cortex")
+            except FileNotFoundError as e:
+                print(f"Error: {str(e)}")
+                print("msh2cortex completed but did not generate the expected file.")
+                print(f"Contents of output directory {surface_mesh_dir}:")
+                try:
+                    files = os.listdir(surface_mesh_dir)
+                    for f in files:
+                        print(f"  {f}")
+                except:
+                    print("  Could not list directory contents")
+                raise
+                
+        except (ValueError, IndexError) as e:
+            raise ValueError("Could not determine simulation name from field mesh path. Expected path structure: .../sub-<name>/Simulations/simulation_name/TI/mesh/field.msh")
 
     def __del__(self):
         """Cleanup temporary directory when the analyzer is destroyed."""
@@ -232,15 +250,6 @@ class MeshAnalyzer:
                         # Store in the overall results
                         results[region_name] = region_results
                         
-                        # Save individual region results to CSV within the region directory
-                        if visualize:
-                            self.visualizer.save_results_to_csv(
-                                region_results, 
-                                'cortical', 
-                                region_name, 
-                                'node'
-                            )
-                        
                         continue
                     
                     # Get the field values within the ROI
@@ -275,14 +284,6 @@ class MeshAnalyzer:
                             field_values=field_values,
                             max_value=max_value,
                             output_dir=region_dir
-                        )
-                        
-                        # Save individual region results to CSV within the region directory
-                        self.visualizer.save_results_to_csv(
-                            region_results, 
-                            'cortical', 
-                            region_name, 
-                            'node'
                         )
                         
                         # Generate region-specific value distribution plot
@@ -337,8 +338,11 @@ class MeshAnalyzer:
         # Add this as a new field to the original mesh
         gm_surf.add_node_field(masked_field, 'ROI_field')
         
-        # Create the output filename in the region directory (not in a subdirectory)
-        output_filename = os.path.join(output_dir, f"brain_with_{target_region}_ROI.msh")
+        # Create timestamp for unique filename
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        
+        # Create the output filename in the region directory
+        output_filename = os.path.join(output_dir, f"region_overlay_{target_region}_{timestamp}.msh")
         
         # Save the modified original mesh
         gm_surf.write(output_filename)
@@ -462,7 +466,7 @@ class MeshAnalyzer:
         """Save a summary CSV of whole-head analysis results directly in the output directory."""
         # Create the CSV
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = f"whole_head_{atlas_type}_summary.csv"
+        filename = f"whole_head_{atlas_type}_summary_{timestamp}.csv"
         output_path = os.path.join(self.output_dir, filename)
         
         # Write results to CSV
@@ -495,7 +499,7 @@ class MeshAnalyzer:
             radius: Radius of the sphere in mm
             
         Returns:
-            Dictionary containing analysis results
+            Dictionary containing analysis results or None if no nodes found
         """
         print(f"Starting spherical ROI analysis (radius={radius}mm) at coordinates {center_coordinates}")
         
@@ -510,8 +514,6 @@ class MeshAnalyzer:
         
         # Get field directly from the mesh
         field_data = mesh.field[self.field_name]
-        print(f"Field data type: {type(field_data)}")
-        print(f"Field data shape: {field_data.value.shape}")
         
         # Get field values
         field_values = field_data.value
@@ -519,7 +521,6 @@ class MeshAnalyzer:
         # Create spherical ROI manually
         print(f"Creating spherical ROI at {center_coordinates} with radius {radius}mm...")
         node_coords = mesh.nodes.node_coord
-        print(f"Node coordinates shape: {node_coords.shape}")
         
         # Calculate distance from each node to the center
         distances = np.sqrt(
@@ -530,57 +531,42 @@ class MeshAnalyzer:
         
         # Create mask for nodes within radius
         roi_mask = distances <= radius
-        print(f"ROI mask shape: {roi_mask.shape}")
         
         # Check if field_values and roi_mask have compatible shapes
         if len(field_values.shape) > 1 and field_values.shape[0] != len(roi_mask):
-            print(f"WARNING: Shape mismatch! Field values shape: {field_values.shape}, ROI mask length: {len(roi_mask)}")
-            
-            # If field_values is a 2D array with first dimension matching roi_mask, extract first column
             if len(field_values.shape) == 2 and field_values.shape[0] == len(roi_mask):
-                print("Using first column of 2D field values")
                 field_values = field_values[:, 0]
-            # If transposing would help, try that
             elif len(field_values.shape) == 2 and field_values.shape[1] == len(roi_mask):
-                print("Transposing field values to match ROI mask")
                 field_values = field_values.T
             else:
-                print("Unable to reconcile shape differences, using simple reshape")
-                # Try to reshape or flatten the array if needed
                 field_values = field_values.flatten()
                 if len(field_values) > len(roi_mask):
                     field_values = field_values[:len(roi_mask)]
                 elif len(field_values) < len(roi_mask):
-                    # Extend the mask instead
                     temp_mask = np.zeros(len(field_values), dtype=bool)
                     temp_mask[:len(roi_mask)] = roi_mask[:len(field_values)]
                     roi_mask = temp_mask
         elif len(field_values) != len(roi_mask):
-            print(f"WARNING: Length mismatch! Field values length: {len(field_values)}, ROI mask length: {len(roi_mask)}")
-            
-            # Create a new mask or truncate field values for compatibility
             if len(field_values) > len(roi_mask):
-                print("Field values are longer than mask. Truncating field values.")
                 field_values = field_values[:len(roi_mask)]
             else:
-                print("Mask is longer than field values. Truncating mask.")
                 roi_mask = roi_mask[:len(field_values)]
         
         # Check if we have any nodes in the ROI
         roi_nodes_count = np.sum(roi_mask)
         if roi_nodes_count == 0:
-            print(f"Warning: No nodes found in the specified spherical ROI")
-            results = {
-                'mean_value': None,
-                'max_value': None,
-                'min_value': None
-            }
+            # Determine the tissue type from the field mesh name
+            field_mesh_name = os.path.basename(self.field_mesh_path).lower()
+            tissue_type = "grey matter" if "grey" in field_mesh_name else "white matter" if "white" in field_mesh_name else "brain tissue"
             
-            # Save results to CSV even if empty
-            region_name = f"sphere_x{center_coordinates[0]}_y{center_coordinates[1]}_z{center_coordinates[2]}_r{radius}"
-            self.visualizer.save_results_to_csv(results, 'spherical', region_name, 'node')
+            warning_msg = f"""
+\033[93m⚠️  WARNING: Analysis Failed ⚠️
+• No nodes found in ROI at [{center_coordinates[0]}, {center_coordinates[1]}, {center_coordinates[2]}], r={radius}mm
+• ROI is not capturing any {tissue_type}
+• Adjust coordinates/radius or verify using freeview\033[0m"""
+            print(warning_msg)
             
-            return results
+            return None
         
         print(f"Found {roi_nodes_count} nodes in the ROI")
         print("Calculating statistics...")

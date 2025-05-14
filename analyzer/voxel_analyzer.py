@@ -212,15 +212,6 @@ class VoxelAnalyzer:
                         # Store in the overall results
                         results[region_name] = region_results
                         
-                        # Save individual region results to CSV within the region directory
-                        if visualize:
-                            self.visualizer.save_results_to_csv(
-                                region_results, 
-                                'cortical', 
-                                region_name, 
-                                'voxel'
-                            )
-                        
                         continue
                     
                     # Filter for voxels with positive values
@@ -243,15 +234,6 @@ class VoxelAnalyzer:
                         
                         # Store in the overall results
                         results[region_name] = region_results
-                        
-                        # Save individual region results to CSV within the region directory
-                        if visualize:
-                            self.visualizer.save_results_to_csv(
-                                region_results, 
-                                'cortical', 
-                                region_name, 
-                                'voxel'
-                            )
                         
                         continue
                     
@@ -281,14 +263,6 @@ class VoxelAnalyzer:
                             region_id=region_id,
                             region_name=region_name,
                             output_dir=region_dir
-                        )
-                        
-                        # Save individual region results to CSV within the region directory
-                        self.visualizer.save_results_to_csv(
-                            region_results, 
-                            'cortical', 
-                            region_name, 
-                            'voxel'
                         )
                         
                         # Generate region-specific value distribution plot
@@ -355,8 +329,11 @@ class VoxelAnalyzer:
         vis_arr = np.zeros_like(atlas_arr)
         vis_arr[region_mask] = viz_field_arr[region_mask]
         
+        # Create timestamp for unique filename
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        
         # Create output filename directly in the region directory
-        output_filename = os.path.join(output_dir, f"brain_with_{region_name}_ROI.nii.gz")
+        output_filename = os.path.join(output_dir, f"region_overlay_{region_name}_{timestamp}.nii.gz")
         
         # Save as NIfTI
         import nibabel as nib
@@ -513,8 +490,9 @@ class VoxelAnalyzer:
 
     def _save_whole_head_summary_csv(self, results, atlas_type, data_type='voxel'):
         """Save a summary CSV of whole-head analysis results directly in the output directory."""
-        # Create the CSV
-        filename = f"whole_head_{atlas_type}_summary.csv"
+        # Create the CSV with timestamp
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"whole_head_{atlas_type}_summary_{timestamp}.csv"
         output_path = os.path.join(self.output_dir, filename)
         
         # Write results to CSV
@@ -542,6 +520,9 @@ class VoxelAnalyzer:
     def analyze_sphere(self, center_coordinates, radius, visualize=False):
         """
         Analyze a spherical region of interest from voxel data.
+        
+        Returns:
+            Dictionary containing analysis results or None if no valid voxels found
         """
         print(f"Starting spherical ROI analysis (radius={radius}mm) at coordinates {center_coordinates}")
         
@@ -552,13 +533,9 @@ class VoxelAnalyzer:
         
         # Handle 4D field data (extract first volume if multiple volumes)
         if len(field_data.shape) == 4:
-            print(f"Detected 4D field data with shape {field_data.shape}")
-            # If time dimension is 1, we can simply reshape to 3D
             if field_data.shape[3] == 1:
-                print("Reshaping 4D field data to 3D")
                 field_data = field_data[:,:,:,0]
             else:
-                print(f"Warning: 4D field has {field_data.shape[3]} volumes. Using only the first volume.")
                 field_data = field_data[:,:,:,0]
         
         # Get voxel dimensions (for proper distance calculation)
@@ -594,22 +571,22 @@ class VoxelAnalyzer:
         
         # Count voxels in ROI
         roi_voxels_count = np.sum(combined_mask)
+        total_roi_voxels = np.sum(roi_mask)
         
         # Check if we have any voxels in the ROI
         if roi_voxels_count == 0:
-            print("Warning: No voxels with non-zero values found in the specified ROI")
-            results = {
-                'mean_value': None,
-                'max_value': None,
-                'min_value': None,
-                'voxels_in_roi': 0
-            }
+            # Determine the tissue type from the field NIfTI name
+            field_name = os.path.basename(self.field_nifti).lower()
+            tissue_type = "grey matter" if "grey" in field_name else "white matter" if "white" in field_name else "brain tissue"
             
-            # Save results to CSV even if empty
-            region_name = f"sphere_x{center_coordinates[0]}_y{center_coordinates[1]}_z{center_coordinates[2]}_r{radius}"
-            self.visualizer.save_results_to_csv(results, 'spherical', region_name, 'voxel')
+            warning_msg = f"""
+\033[93m⚠️  WARNING: Analysis Failed ⚠️
+• No valid voxels found in ROI at [{center_coordinates[0]}, {center_coordinates[1]}, {center_coordinates[2]}], r={radius}mm
+• {"ROI not intersecting " + tissue_type if total_roi_voxels == 0 else "ROI contains only zero/invalid values"}
+• {"Adjust coordinates/radius" if total_roi_voxels == 0 else "Check field data"} or verify using freeview\033[0m"""
+            print(warning_msg)
             
-            return results
+            return None
         
         print("Calculating statistics...")
         # Get the field values within the ROI
@@ -632,17 +609,16 @@ class VoxelAnalyzer:
         if visualize:
             region_name = f"sphere_x{center_coordinates[0]}_y{center_coordinates[1]}_z{center_coordinates[2]}_r{radius}"
             
-            # Create visualization directory
-            vis_dir = os.path.join(self.output_dir, 'sphere_visuals')
-            os.makedirs(vis_dir, exist_ok=True)
-            
             # Create visualization overlay (showing field values only within the sphere)
             vis_arr = np.zeros_like(field_data)
             vis_arr[combined_mask] = field_data[combined_mask]
             
-            # Save as NIfTI
+            # Create timestamp for unique filename
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            
+            # Save as NIfTI directly to the output directory
             vis_img = nib.Nifti1Image(vis_arr, affine)
-            output_filename = os.path.join(vis_dir, f"sphere_overlay_{region_name}.nii.gz")
+            output_filename = os.path.join(self.output_dir, f"sphere_overlay_{region_name}_{timestamp}.nii.gz")
             nib.save(vis_img, output_filename)
             print(f"Created visualization overlay: {output_filename}")
             
@@ -902,10 +878,23 @@ class VoxelAnalyzer:
         """
         region_info = {}
         
-        # Create temporary directory for output
-        with tempfile.TemporaryDirectory() as temp_dir:
-            output_file = os.path.join(temp_dir, "segstats.txt")
+        # Get the atlas name from the file path
+        atlas_name = os.path.basename(atlas_file)
+        atlas_name = os.path.splitext(atlas_name)[0]  # Remove extension
+        if atlas_name.endswith('.nii'):  # Handle .nii.gz case
+            atlas_name = os.path.splitext(atlas_name)[0]
             
+        # Get the m2m directory (parent of segmentation directory)
+        segmentation_dir = os.path.dirname(atlas_file)
+        m2m_dir = os.path.dirname(segmentation_dir)
+        
+        # Define the output file path in the m2m directory
+        output_file = os.path.join(m2m_dir, 'segmentation', f"{atlas_name}_labels.txt")
+        
+        # Check if we already have the labels file
+        if os.path.exists(output_file):
+            print(f"Using existing labels file: {output_file}")
+        else:
             # Run mri_segstats to get information about all segments in the atlas
             cmd = [
                 'mri_segstats',
@@ -918,55 +907,59 @@ class VoxelAnalyzer:
             try:
                 print(f"Running: {' '.join(cmd)}")
                 subprocess.run(cmd, check=True, capture_output=True)
-                
-                # Parse the output file
-                with open(output_file, 'r') as f:
-                    # Skip header lines (all lines starting with #)
-                    in_header = True
-                    for line in f:
-                        # Check if we've reached the end of the header
-                        if in_header and not line.startswith('#'):
-                            in_header = False
-                            
-                        # Process data lines (non-header)
-                        if not in_header and line.strip():
-                            parts = line.strip().split()
-                            
-                            # The format is:
-                            # Index SegId NVoxels Volume_mm3 StructName
-                            # We need at least 5 columns
-                            if len(parts) >= 5:
-                                try:
-                                    region_id = int(parts[1])  # SegId is the second column
-                                    n_voxels = int(parts[2])   # NVoxels is the third column
-                                    
-                                    # Structure name can contain spaces, so join the remaining parts
-                                    region_name = ' '.join(parts[4:])
-                                    
-                                    # Generate a random color based on region_id for visualization
-                                    # This creates a consistent color for each region
-                                    import random
-                                    random.seed(region_id)
-                                    r = random.uniform(0.2, 0.8)
-                                    g = random.uniform(0.2, 0.8)
-                                    b = random.uniform(0.2, 0.8)
-                                    
-                                    region_info[region_id] = {
-                                        'name': region_name,
-                                        'voxel_count': n_voxels,
-                                        'color': (r, g, b)
-                                    }
-                                except (ValueError, IndexError) as e:
-                                    print(f"Warning: Could not parse line: {line.strip()}")
-                                    print(f"Error: {str(e)}")
-                    
-                print(f"Found {len(region_info)} regions in atlas file")
-                
             except subprocess.CalledProcessError as e:
                 print(f"Warning: Could not extract region information using mri_segstats: {str(e)}")
                 print(f"Command output: {e.stdout.decode() if e.stdout else ''}")
                 print(f"Command error: {e.stderr.decode() if e.stderr else ''}")
+                return region_info
+        
+        # Parse the output file
+        try:
+            with open(output_file, 'r') as f:
+                # Skip header lines (all lines starting with #)
+                in_header = True
+                for line in f:
+                    # Check if we've reached the end of the header
+                    if in_header and not line.startswith('#'):
+                        in_header = False
+                        
+                    # Process data lines (non-header)
+                    if not in_header and line.strip():
+                        parts = line.strip().split()
+                        
+                        # The format is:
+                        # Index SegId NVoxels Volume_mm3 StructName
+                        # We need at least 5 columns
+                        if len(parts) >= 5:
+                            try:
+                                region_id = int(parts[1])  # SegId is the second column
+                                n_voxels = int(parts[2])   # NVoxels is the third column
+                                
+                                # Structure name can contain spaces, so join the remaining parts
+                                region_name = ' '.join(parts[4:])
+                                
+                                # Generate a random color based on region_id for visualization
+                                # This creates a consistent color for each region
+                                import random
+                                random.seed(region_id)
+                                r = random.uniform(0.2, 0.8)
+                                g = random.uniform(0.2, 0.8)
+                                b = random.uniform(0.2, 0.8)
+                                
+                                region_info[region_id] = {
+                                    'name': region_name,
+                                    'voxel_count': n_voxels,
+                                    'color': (r, g, b)
+                                }
+                            except (ValueError, IndexError) as e:
+                                print(f"Warning: Could not parse line: {line.strip()}")
+                                print(f"Error: {str(e)}")
                 
+            print(f"Found {len(region_info)} regions in atlas file")
+            
+        except Exception as e:
+            print(f"Error reading labels file: {str(e)}")
+            
         return region_info
 
     def load_brain_image(self, file_path):

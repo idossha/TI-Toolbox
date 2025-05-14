@@ -252,7 +252,7 @@ class AnalyzerTab(QtWidgets.QWidget):
         
         # Coordinates input
         coordinates_layout = QtWidgets.QHBoxLayout()
-        self.coordinates_label = QtWidgets.QLabel("Coordinates (x,y,z):")
+        self.coordinates_label = QtWidgets.QLabel("RAS Coordinates (x,y,z):")
         self.coord_x = QtWidgets.QLineEdit()
         self.coord_y = QtWidgets.QLineEdit()
         self.coord_z = QtWidgets.QLineEdit()
@@ -263,6 +263,13 @@ class AnalyzerTab(QtWidgets.QWidget):
         coordinates_layout.addWidget(self.coord_x)
         coordinates_layout.addWidget(self.coord_y)
         coordinates_layout.addWidget(self.coord_z)
+
+        # Add View in Freeview button
+        self.view_in_freeview_btn = QtWidgets.QPushButton("View in Freeview")
+        self.view_in_freeview_btn.setToolTip("View T1 in Freeview to help find coordinates")
+        self.view_in_freeview_btn.clicked.connect(self.load_t1_in_freeview)
+        coordinates_layout.addWidget(self.view_in_freeview_btn)
+
         spherical_layout.addLayout(coordinates_layout)
         
         # Radius input
@@ -760,7 +767,30 @@ class AnalyzerTab(QtWidgets.QWidget):
             analysis_type_dir = os.path.join(analyses_dir, simulation_name, 'Mesh' if self.space_mesh.isChecked() else 'Voxel')
             output_dir = os.path.join(analysis_type_dir, f"{target_info}_{field_name}")
             
-            # Create output directory
+            # Create output directory (check if it exists first)
+            if os.path.exists(output_dir):
+                # Directory already exists, show warning dialog
+                msg_box = QtWidgets.QMessageBox()
+                msg_box.setIcon(QtWidgets.QMessageBox.Warning)
+                msg_box.setText("Output directory already exists")
+                msg_box.setInformativeText(f"The directory\n{output_dir}\nalready exists. Do you want to override it?")
+                msg_box.setWindowTitle("Directory Exists")
+                msg_box.setStandardButtons(QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No)
+                msg_box.setDefaultButton(QtWidgets.QMessageBox.No)
+                
+                # Add icon
+                icon = self.style().standardIcon(QtWidgets.QStyle.SP_MessageBoxWarning)
+                msg_box.setWindowIcon(icon)
+                
+                # Show dialog and get user response
+                result = msg_box.exec_()
+                
+                if result == QtWidgets.QMessageBox.No:
+                    self.update_output("Analysis canceled: Output directory already exists.")
+                    self.analysis_finished()
+                    return
+            
+            # Create output directory (this will do nothing if it already exists)
             os.makedirs(output_dir, exist_ok=True)
             
             # Build command
@@ -851,6 +881,17 @@ class AnalyzerTab(QtWidgets.QWidget):
     
     def analysis_finished(self):
         """Handle analysis completion."""
+        # Don't show completion message if the last line indicates analysis failed
+        last_line = self.output_console.toPlainText().strip().split('\n')[-1]
+        if "WARNING: Analysis Failed" in last_line:
+            # Just reset the UI state without showing completion message
+            self.analysis_running = False
+            self.run_btn.setEnabled(True)
+            self.run_btn.setText("Run Analysis")
+            self.stop_btn.setEnabled(False)
+            self.enable_controls()
+            return
+
         self.output_console.append('<div style="margin: 10px 0;"><span style="color: #55ff55; font-size: 16px; font-weight: bold;">✅ Analysis process completed ✅</span></div>')
         self.output_console.append('<div style="border-bottom: 1px solid #555; margin-bottom: 10px;"></div>')
         
@@ -1180,59 +1221,65 @@ class AnalyzerTab(QtWidgets.QWidget):
                 progress_dialog.setValue(30)
                 QtWidgets.QApplication.processEvents()
                 
+                # Get the m2m directory (parent of segmentation directory)
+                segmentation_dir = os.path.dirname(atlas_file)
+                m2m_dir = os.path.dirname(segmentation_dir)
+                
+                # Define the output file path in the segmentation directory
+                atlas_name = os.path.splitext(os.path.basename(atlas_file))[0]
+                if atlas_name.endswith('.nii'):  # Handle .nii.gz case
+                    atlas_name = os.path.splitext(atlas_name)[0]
+                output_file = os.path.join(segmentation_dir, f"{atlas_name}_labels.txt")
+                
                 # Extract region information using FreeSurfer's tools
                 try:
-                    # Create temporary file for output
-                    import tempfile
-                    with tempfile.NamedTemporaryFile(suffix='.txt', delete=False) as temp:
-                        temp_path = temp.name
-                    
-                    progress_dialog.setValue(40)
-                    QtWidgets.QApplication.processEvents()
-                    
-                    # Use mri_segstats to get atlas information
-                    import subprocess
-                    cmd = [
-                        'mri_segstats',
-                        '--seg', atlas_file,
-                        '--excludeid', '0',  # Exclude background
-                        '--ctab-default',    # Use default color table
-                        '--sum', temp_path
-                    ]
-                    
-                    self.update_output(f"Running: {' '.join(cmd)}")
-                    progress_dialog.setValue(50)
-                    
-                    # We'll use QProcess to run the command asynchronously
-                    process = QtCore.QProcess()
-                    process.start(cmd[0], cmd[1:])
-                    
-                    # Wait for the process to finish with updates to the progress dialog
-                    while process.state() != QtCore.QProcess.NotRunning:
-                        QtWidgets.QApplication.processEvents()
-                        if progress_dialog.wasCanceled():
-                            process.kill()
-                            os.unlink(temp_path)
-                            return
+                    # Check if we already have the labels file
+                    if os.path.exists(output_file):
+                        self.update_output(f"Using existing labels file: {output_file}")
+                        progress_dialog.setValue(70)
+                    else:
+                        self.update_output(f"Generating labels file: {output_file}")
+                        # Use mri_segstats to get atlas information
+                        cmd = [
+                            'mri_segstats',
+                            '--seg', atlas_file,
+                            '--excludeid', '0',  # Exclude background
+                            '--ctab-default',    # Use default color table
+                            '--sum', output_file
+                        ]
                         
-                        # Increment progress slowly
-                        current_progress = progress_dialog.value()
-                        if current_progress < 70:
-                            progress_dialog.setValue(current_progress + 1)
-                        QtWidgets.QApplication.processEvents()
-                        QtCore.QThread.msleep(100)  # Sleep to avoid high CPU usage
-                    
-                    # Check if process finished successfully
-                    if process.exitCode() != 0:
-                        error = process.readAllStandardError().data().decode()
-                        raise Exception(f"Error running mri_segstats: {error}")
+                        self.update_output(f"Running: {' '.join(cmd)}")
+                        progress_dialog.setValue(50)
+                        
+                        # We'll use QProcess to run the command asynchronously
+                        process = QtCore.QProcess()
+                        process.start(cmd[0], cmd[1:])
+                        
+                        # Wait for the process to finish with updates to the progress dialog
+                        while process.state() != QtCore.QProcess.NotRunning:
+                            QtWidgets.QApplication.processEvents()
+                            if progress_dialog.wasCanceled():
+                                process.kill()
+                                return
+                            
+                            # Increment progress slowly
+                            current_progress = progress_dialog.value()
+                            if current_progress < 70:
+                                progress_dialog.setValue(current_progress + 1)
+                            QtWidgets.QApplication.processEvents()
+                            QtCore.QThread.msleep(100)  # Sleep to avoid high CPU usage
+                        
+                        # Check if process finished successfully
+                        if process.exitCode() != 0:
+                            error = process.readAllStandardError().data().decode()
+                            raise Exception(f"Error running mri_segstats: {error}")
                     
                     progress_dialog.setValue(75)
                     QtWidgets.QApplication.processEvents()
                     
                     # Parse the output file to extract region information
                     regions = []
-                    with open(temp_path, 'r') as f:
+                    with open(output_file, 'r') as f:
                         in_header = True
                         for line in f:
                             # Skip header lines
@@ -1247,9 +1294,6 @@ class AnalyzerTab(QtWidgets.QWidget):
                                     region_name = ' '.join(parts[4:])
                                     region_id = parts[1]  # SegId is the second column
                                     regions.append(f"{region_name} (ID: {region_id})")
-                    
-                    # Clean up temp file
-                    os.unlink(temp_path)
                     
                     # Sort regions
                     regions = sorted(regions)
@@ -1335,3 +1379,28 @@ class AnalyzerTab(QtWidgets.QWidget):
             QtWidgets.QMessageBox.critical(self, "Error", f"Failed to get regions: {str(e)}")
             import traceback
             self.update_output(f"Error details: {traceback.format_exc()}")
+
+    def load_t1_in_freeview(self):
+        """Load the subject's T1 NIfTI file in Freeview."""
+        try:
+            # Check if a subject is selected
+            if not self.subject_list.selectedItems():
+                QtWidgets.QMessageBox.warning(self, "Warning", "Please select a subject first")
+                return
+            
+            subject_id = self.subject_list.selectedItems()[0].text()
+            project_dir = os.path.join("/mnt", os.environ.get("PROJECT_DIR_NAME", ""))
+            t1_path = os.path.join(project_dir, "derivatives", "SimNIBS", f"sub-{subject_id}", 
+                                  f"m2m_{subject_id}", "T1.nii.gz")
+            
+            if not os.path.exists(t1_path):
+                QtWidgets.QMessageBox.warning(self, "Error", f"T1 NIfTI file not found: {t1_path}")
+                return
+            
+            # Launch Freeview with the T1 image
+            subprocess.Popen(["freeview", t1_path])
+            self.update_output(f"Launched Freeview with T1 image: {t1_path}")
+            
+        except Exception as e:
+            QtWidgets.QMessageBox.critical(self, "Error", f"Failed to launch Freeview: {str(e)}")
+            self.update_output(f"Error launching Freeview: {str(e)}")

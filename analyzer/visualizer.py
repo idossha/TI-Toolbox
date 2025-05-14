@@ -97,10 +97,6 @@ class BaseVisualizer:
         Returns:
             str: Path to the created CSV file
         """
-        # Create CSV directory if it doesn't exist
-        csv_dir = os.path.join(self.output_dir, 'csv_results')
-        os.makedirs(csv_dir, exist_ok=True)
-        
         # Generate timestamp for unique filename
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         
@@ -110,7 +106,8 @@ class BaseVisualizer:
         else:
             filename = f"{analysis_type}_analysis_{timestamp}.csv"
         
-        output_path = os.path.join(csv_dir, filename)
+        # Save directly to the output directory
+        output_path = os.path.join(self.output_dir, filename)
         
         # Write results to CSV
         with open(output_path, 'w', newline='') as csvfile:
@@ -324,10 +321,6 @@ class Visualizer(BaseVisualizer):
 
     def generate_value_distribution_plot(self, field_values, region_name, atlas_type, mean_value, max_value, min_value, data_type='voxel'):
         """Generate a raincloud plot showing the distribution of individual values within a region."""
-        # Create node_plots directory only when needed for individual region analysis
-        plots_dir = os.path.join(self.output_dir, f'{data_type}_plots')
-        os.makedirs(plots_dir, exist_ok=True)
-        
         # Create figure with subplots
         fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 10), 
                                       gridspec_kw={'height_ratios': [3, 1]})
@@ -406,12 +399,151 @@ class Visualizer(BaseVisualizer):
         # Adjust layout
         plt.tight_layout()
         
-        # Save plot
-        output_file = os.path.join(plots_dir, f'{data_type}_values_{region_name}_{atlas_type}.png')
+        # Create timestamp for unique filename
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        
+        # Save plot directly to the output directory
+        output_file = os.path.join(self.output_dir, f'{data_type}_distribution_{region_name}_{timestamp}.png')
         plt.savefig(output_file, dpi=300, bbox_inches='tight')
         plt.close()
         
         print(f"Generated {data_type} value distribution plot: {output_file}")
+        
+        return output_file
+
+    def _generate_whole_head_plots(self, results, atlas_type, data_type='voxel'):
+        """Generate scatter plots for whole head analysis directly in the main output directory."""
+        # Filter out regions with None values
+        valid_results = {name: res for name, res in results.items() if res['mean_value'] is not None}
+        
+        if not valid_results:
+            print("Warning: No valid results to plot")
+            return
+        
+        try:
+            # Prepare data for plotting
+            regions = list(valid_results.keys())
+            mean_values = [res['mean_value'] for res in valid_results.values()]
+            
+            # Check if voxel count data is available, and use it if possible
+            try:
+                # Attempt to get voxel counts if they're in the data
+                counts = [res.get(f'{data_type}s_in_roi', 1) for res in valid_results.values()]
+                use_counts_for_color = True
+            except (KeyError, AttributeError):
+                # If not available, use a default color
+                print(f"Note: '{data_type}s_in_roi' not found in results, using default coloring")
+                counts = [1 for _ in valid_results.values()]
+                use_counts_for_color = False
+            
+            # Create timestamp for unique filename
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            
+            # Dynamically calculate figure width based on number of regions
+            num_regions = len(regions)
+            
+            # Base width for a plot with 30 regions
+            base_width = 15
+            
+            # Calculate width scaling factor (more regions = wider plot)
+            # This adds extra width as the number of regions increases
+            width_scaling = max(1.0, num_regions / 30)
+            
+            # Calculate height scaling factor (taller for many regions to maintain proportion)
+            height_scaling = min(1.2, max(1.0, num_regions / 60))
+            
+            # Calculate final dimensions with minimum width
+            fig_width = max(base_width, base_width * width_scaling)
+            fig_height = 10 * height_scaling
+            
+            # Adjust font size for region labels based on number of regions
+            if num_regions <= 30:
+                label_fontsize = 8
+            elif num_regions <= 50:
+                label_fontsize = 7
+            elif num_regions <= 100:
+                label_fontsize = 6
+            else:
+                label_fontsize = 5
+            
+            # Create figure for the sorted plot with dynamic size
+            plt.figure(figsize=(fig_width, fig_height))
+            fig, ax = plt.subplots(figsize=(fig_width, fig_height))
+            
+            # Sort regions by mean value
+            sorted_indices = np.argsort(mean_values)
+            sorted_regions = [regions[i] for i in sorted_indices]
+            sorted_values = [mean_values[i] for i in sorted_indices]
+            
+            # Use the coloring approach based on availability of count data
+            if use_counts_for_color:
+                sorted_counts = [counts[i] for i in sorted_indices]
+                scatter = ax.scatter(range(len(sorted_regions)), sorted_values,
+                                c=sorted_counts,
+                                cmap='viridis',
+                                s=100,
+                                alpha=0.6,
+                                edgecolors='black',
+                                linewidths=1)
+                
+                # Add colorbar with enhanced styling
+                cbar = plt.colorbar(scatter, ax=ax)
+                cbar.set_label(f'Number of {data_type.capitalize()}s', fontsize=12, fontweight='bold')
+            else:
+                scatter = ax.scatter(range(len(sorted_regions)), sorted_values,
+                                c='royalblue',
+                                s=100,
+                                alpha=0.6,
+                                edgecolors='black',
+                                linewidths=1)
+            
+            # Customize plot
+            ax.set_title(f'Cortical Region Analysis - {atlas_type}', 
+                    pad=20, 
+                    fontsize=14, 
+                    fontweight='bold')
+            ax.set_xlabel('Region Index', 
+                        fontsize=12, 
+                        fontweight='bold')
+            ax.set_ylabel('Mean Field Value', 
+                        fontsize=12, 
+                        fontweight='bold')
+            
+            # Add grid
+            ax.grid(True, linestyle='--', alpha=0.3)
+            
+            # If there are too many regions, we need to limit the displayed labels
+            if num_regions > 200:
+                # For very large region counts, only show every Nth label
+                step = max(1, num_regions // 100)  # Show approximately 100 labels max
+                xticks_pos = range(0, len(sorted_regions), step)
+                xticks_labels = [sorted_regions[i] for i in xticks_pos]
+                ax.set_xticks(xticks_pos)
+                ax.set_xticklabels(xticks_labels, rotation=45, ha='right', fontsize=label_fontsize)
+            else:
+                # Otherwise show all labels
+                ax.set_xticks(range(len(sorted_regions)))
+                ax.set_xticklabels(sorted_regions, rotation=45, ha='right', fontsize=label_fontsize)
+            
+            # Adjust layout to prevent label cutoff
+            plt.tight_layout()
+            
+            # Save plot directly in the main output directory (without "sorted" in the name)
+            output_file = os.path.join(self.output_dir, f'cortex_analysis_{atlas_type}_{timestamp}.png')
+            plt.savefig(output_file, dpi=300, bbox_inches='tight')
+            plt.close()
+            
+            print(f"Generated cortical region plot: {output_file}")
+            
+            return output_file
+            
+        except Exception as e:
+            # If there's any error during plotting, log it but don't stop the overall analysis
+            import traceback
+            print(f"Warning: Failed to generate plot: {str(e)}")
+            print(f"Error details: {traceback.format_exc()}")
+            print("Continuing with analysis without visualizations.")
+            return None
 
 
 class MeshVisualizer(Visualizer):
