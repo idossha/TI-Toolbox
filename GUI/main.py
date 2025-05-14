@@ -22,6 +22,7 @@ from help_tab import HelpTab
 from contact_tab import ContactTab
 from acknowledgments_tab import AcknowledgmentsTab
 from nifti_viewer_tab import NiftiViewerTab
+from analyzer_tab import AnalyzerTab
 
 class MainWindow(QtWidgets.QMainWindow):
     """Main window for the TI-CSC-2.0 GUI."""
@@ -69,6 +70,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.contact_tab = ContactTab(self)
         self.acknowledgments_tab = AcknowledgmentsTab(self)
         self.nifti_viewer_tab = NiftiViewerTab(self)
+        self.analyzer_tab = AnalyzerTab(self)
         
         # Clear the tab widget in case we're reordering tabs
         self.tab_widget.clear()
@@ -79,6 +81,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.tab_widget.addTab(self.flex_search_tab, "Flex-Search")
         self.tab_widget.addTab(self.ex_search_tab, "Ex-Search")
         self.tab_widget.addTab(self.nifti_viewer_tab, "NIfTI Viewer")
+        self.tab_widget.addTab(self.analyzer_tab, "Analyzer")
         
         # Step 2: Count how many tabs we have to calculate positions from the right
         total_tabs = self.tab_widget.count() + 3  # +3 for Help, Contact, and Acknowledgments
