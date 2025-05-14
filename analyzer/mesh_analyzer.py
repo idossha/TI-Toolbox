@@ -225,12 +225,22 @@ class MeshAnalyzer:
                         print(f"Warning: No nodes found in the specified region '{region_name}'")
                         region_results = {
                             'mean_value': None,
-                            'max_value': None, 
+                            'max_value': None,
                             'min_value': None
                         }
                         
                         # Store in the overall results
                         results[region_name] = region_results
+                        
+                        # Save individual region results to CSV within the region directory
+                        if visualize:
+                            self.visualizer.save_results_to_csv(
+                                region_results, 
+                                'cortical', 
+                                region_name, 
+                                'node'
+                            )
+                        
                         continue
                     
                     # Get the field values within the ROI
@@ -266,6 +276,30 @@ class MeshAnalyzer:
                             max_value=max_value,
                             output_dir=region_dir
                         )
+                        
+                        # Save individual region results to CSV within the region directory
+                        self.visualizer.save_results_to_csv(
+                            region_results, 
+                            'cortical', 
+                            region_name, 
+                            'node'
+                        )
+                        
+                        # Generate region-specific value distribution plot
+                        if len(field_values_in_roi) > 0:
+                            # Create a custom visualizer just for this region with the region directory as output
+                            region_visualizer = MeshVisualizer(region_dir)
+                            
+                            # Generate value distribution plot for this region
+                            region_visualizer.generate_value_distribution_plot(
+                                field_values_in_roi,
+                                region_name,
+                                atlas_type,
+                                mean_value,
+                                max_value,
+                                min_value,
+                                data_type='node'
+                            )
                     
                 except Exception as e:
                     print(f"Warning: Failed to analyze region {region_name}: {str(e)}")
@@ -563,12 +597,23 @@ class MeshAnalyzer:
         try:
             # Try to get node areas for weighted average
             node_areas = mesh.nodes_areas()
-            # Check if node_areas has the right shape
-            if len(node_areas) == len(roi_mask):
+            
+            # Check if we have node areas data for the ROI mask nodes
+            # NodeData objects don't support len(), so we need to check if the values
+            # attribute exists and has the right shape
+            if hasattr(node_areas, 'value') and node_areas.value.shape[0] >= len(roi_mask):
+                # Get the actual values from the NodeData object
+                node_area_values = node_areas.value
+                
+                # Make sure we're only using values up to the length of roi_mask
+                if node_area_values.shape[0] > len(roi_mask):
+                    node_area_values = node_area_values[:len(roi_mask)]
+                
                 print("Calculating weighted average using node areas")
-                mean_value = np.average(field_values_in_roi, weights=node_areas[roi_mask])
+                # Use the actual values for weighting
+                mean_value = np.average(field_values_in_roi, weights=node_area_values[roi_mask])
             else:
-                print(f"Node areas shape mismatch - using simple average instead")
+                print("Node areas shape incompatible - using simple average instead")
         except Exception as e:
             print(f"Could not calculate weighted average: {str(e)}")
         

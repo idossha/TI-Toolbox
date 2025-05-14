@@ -217,10 +217,19 @@ def main():
         
         # Perform analysis based on type
         if args.analysis_type == 'spherical':
-            results = analyzer.analyze_sphere(
-                center_coordinates=args.coordinates,
-                radius=args.radius
-            )
+            if args.space == 'mesh':
+                # Mesh analyzer doesn't have visualization for sphere analysis
+                results = analyzer.analyze_sphere(
+                    center_coordinates=args.coordinates,
+                    radius=args.radius
+                )
+            else:  # voxel
+                # Voxel analyzer supports visualization for sphere analysis
+                results = analyzer.analyze_sphere(
+                    center_coordinates=args.coordinates,
+                    radius=args.radius,
+                    visualize=args.visualize
+                )
         else:  # cortical
             if args.whole_head:
                 if args.space == 'mesh':

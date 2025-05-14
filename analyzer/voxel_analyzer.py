@@ -211,6 +211,16 @@ class VoxelAnalyzer:
                         
                         # Store in the overall results
                         results[region_name] = region_results
+                        
+                        # Save individual region results to CSV within the region directory
+                        if visualize:
+                            self.visualizer.save_results_to_csv(
+                                region_results, 
+                                'cortical', 
+                                region_name, 
+                                'voxel'
+                            )
+                        
                         continue
                     
                     # Filter for voxels with positive values
@@ -233,6 +243,16 @@ class VoxelAnalyzer:
                         
                         # Store in the overall results
                         results[region_name] = region_results
+                        
+                        # Save individual region results to CSV within the region directory
+                        if visualize:
+                            self.visualizer.save_results_to_csv(
+                                region_results, 
+                                'cortical', 
+                                region_name, 
+                                'voxel'
+                            )
+                        
                         continue
                     
                     # Calculate statistics
@@ -262,6 +282,30 @@ class VoxelAnalyzer:
                             region_name=region_name,
                             output_dir=region_dir
                         )
+                        
+                        # Save individual region results to CSV within the region directory
+                        self.visualizer.save_results_to_csv(
+                            region_results, 
+                            'cortical', 
+                            region_name, 
+                            'voxel'
+                        )
+                        
+                        # Generate region-specific value distribution plot
+                        if len(field_values) > 0:
+                            # Create a custom visualizer just for this region with the region directory as output
+                            region_visualizer = VoxelVisualizer(region_dir)
+                            
+                            # Generate value distribution plot for this region
+                            region_visualizer.generate_value_distribution_plot(
+                                field_values,
+                                region_name,
+                                atlas_type,
+                                mean_value,
+                                max_value,
+                                min_value,
+                                data_type='voxel'
+                            )
                     
                 except Exception as e:
                     print(f"Warning: Failed to analyze region {region_name}: {str(e)}")
@@ -495,7 +539,7 @@ class VoxelAnalyzer:
         print(f"Saved whole-head analysis summary to: {output_path}")
         return output_path
 
-    def analyze_sphere(self, center_coordinates, radius):
+    def analyze_sphere(self, center_coordinates, radius, visualize=False):
         """
         Analyze a spherical region of interest from voxel data.
         """
@@ -557,7 +601,8 @@ class VoxelAnalyzer:
             results = {
                 'mean_value': None,
                 'max_value': None,
-                'min_value': None
+                'min_value': None,
+                'voxels_in_roi': 0
             }
             
             # Save results to CSV even if empty
@@ -579,8 +624,38 @@ class VoxelAnalyzer:
         results = {
             'mean_value': mean_value,
             'max_value': max_value,
-            'min_value': min_value
+            'min_value': min_value,
+            'voxels_in_roi': roi_voxels_count
         }
+        
+        # Generate visualization if requested
+        if visualize:
+            region_name = f"sphere_x{center_coordinates[0]}_y{center_coordinates[1]}_z{center_coordinates[2]}_r{radius}"
+            
+            # Create visualization directory
+            vis_dir = os.path.join(self.output_dir, 'sphere_visuals')
+            os.makedirs(vis_dir, exist_ok=True)
+            
+            # Create visualization overlay (showing field values only within the sphere)
+            vis_arr = np.zeros_like(field_data)
+            vis_arr[combined_mask] = field_data[combined_mask]
+            
+            # Save as NIfTI
+            vis_img = nib.Nifti1Image(vis_arr, affine)
+            output_filename = os.path.join(vis_dir, f"sphere_overlay_{region_name}.nii.gz")
+            nib.save(vis_img, output_filename)
+            print(f"Created visualization overlay: {output_filename}")
+            
+            # Generate value distribution plot
+            self.visualizer.generate_value_distribution_plot(
+                roi_values,
+                region_name,
+                "Spherical ROI",
+                mean_value,
+                max_value,
+                min_value,
+                data_type='voxel'
+            )
         
         # Save results to CSV
         region_name = f"sphere_x{center_coordinates[0]}_y{center_coordinates[1]}_z{center_coordinates[2]}_r{radius}"

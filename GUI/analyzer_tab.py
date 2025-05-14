@@ -754,11 +754,11 @@ class AnalyzerTab(QtWidgets.QWidget):
             # Create organized output directory structure
             subject_dir = os.path.join(project_dir, 'derivatives', 'SimNIBS', f'sub-{subject_id}')
             analyses_dir = os.path.join(subject_dir, 'Analyses')
-            output_dir = os.path.join(
-                analyses_dir,
-                simulation_name,
-                f"{target_info}_{field_name}"
-            )
+            
+            # Directory structure: Analyses > Simulation > (Mesh or Voxel) > analysis_output
+            # Include field name in the target_info but not as a separate directory
+            analysis_type_dir = os.path.join(analyses_dir, simulation_name, 'Mesh' if self.space_mesh.isChecked() else 'Voxel')
+            output_dir = os.path.join(analysis_type_dir, f"{target_info}_{field_name}")
             
             # Create output directory
             os.makedirs(output_dir, exist_ok=True)
