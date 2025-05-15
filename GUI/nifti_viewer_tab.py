@@ -67,6 +67,7 @@ class NiftiViewerTab(QtWidgets.QWidget):
         subject_layout.addWidget(QtWidgets.QLabel("Space:"))
         self.space_combo = QtWidgets.QComboBox()
         self.space_combo.addItems(["Subject", "MNI"])
+        self.space_combo.setEnabled(False)  # Initially disabled until we check for MNI files
         subject_layout.addWidget(self.space_combo)
         # Simulation(s)
         subject_layout.addWidget(QtWidgets.QLabel("Simulation(s):"))
@@ -233,6 +234,24 @@ class NiftiViewerTab(QtWidgets.QWidget):
             sim_path = os.path.join(sim_base, sim_name)
             if os.path.isdir(sim_path):
                 self.sim_list.addItem(sim_name)
+        
+        # Check if MNI space files exist for this subject
+        has_mni_files = False
+        for sim_name in os.listdir(sim_base):
+            sim_path = os.path.join(sim_base, sim_name, "TI", "niftis")
+            if os.path.exists(sim_path):
+                for nifti_file in glob.glob(os.path.join(sim_path, "*.nii*")):
+                    if "_MNI" in os.path.basename(nifti_file):
+                        has_mni_files = True
+                        break
+            if has_mni_files:
+                break
+        
+        # Enable/disable MNI space option based on file availability
+        self.space_combo.setEnabled(has_mni_files)
+        if not has_mni_files:
+            self.space_combo.setCurrentText("Subject")
+            self.info_area.append("\nNote: No MNI space files found. Only subject space is available.")
     
     def load_subject_data(self):
         """Load the selected subject's data in Freeview."""
@@ -254,6 +273,7 @@ class NiftiViewerTab(QtWidgets.QWidget):
         subject_dir = os.path.join(derivatives_dir, f"sub-{subject_id}")
         m2m_dir = os.path.join(subject_dir, f"m2m_{subject_id}")
         simulations_dir = os.path.join(subject_dir, "Simulations")
+        analyses_dir = os.path.join(subject_dir, "Analyses")
         
         # Get visualization options
         colormap = self.colormap_combo.currentText()
@@ -282,51 +302,72 @@ class NiftiViewerTab(QtWidgets.QWidget):
         else:
             self.info_area.append(f"\nWarning: T1 file not found at {t1_file}")
         
-        # Add simulation results
+        # Add simulation results and related analysis files
         for sim_name in selected_sims:
             sim_dir = os.path.join(simulations_dir, sim_name)
             
             # Look for NIfTI files in the TI/niftis directory
             nifti_dir = os.path.join(sim_dir, "TI", "niftis")
             if os.path.exists(nifti_dir):
+                # First, add the TI_max files
                 for nifti_file in glob.glob(os.path.join(nifti_dir, "*.nii*")):
-                    # Filter files based on space and type
                     basename = os.path.basename(nifti_file)
                     
                     # Only include TI_max files and exclude TDCS files
                     if "TI_max" not in basename or "TDCS" in basename:
                         continue
-                        
+                    
                     # Determine if this file should be visible by default
                     # Only grey matter is visible by default
                     is_visible = "grey_" in basename
                     
+                    # Check if file matches the selected space
                     if is_mni_space:
-                        # Include only files with "_MNI" in their name
-                        if "_MNI" in basename:
-                            file_specs.append({
-                                "path": nifti_file,
-                                "type": "volume",
-                                "colormap": colormap,
-                                "opacity": opacity,
-                                "visible": visible if is_visible else 0,
-                                "percentile": 1 if percentile else 0,
-                                "threshold_min": threshold_min,
-                                "threshold_max": threshold_max
-                            })
-                    else:
-                        # Include only files without "_MNI" in their name
                         if "_MNI" not in basename:
-                            file_specs.append({
-                                "path": nifti_file,
-                                "type": "volume",
-                                "colormap": colormap,
-                                "opacity": opacity,
-                                "visible": visible if is_visible else 0,
-                                "percentile": 1 if percentile else 0,
-                                "threshold_min": threshold_min,
-                                "threshold_max": threshold_max
-                            })
+                            continue
+                    else:
+                        if "_MNI" in basename:
+                            continue
+                    
+                    # Add the file with appropriate settings
+                    file_specs.append({
+                        "path": nifti_file,
+                        "type": "volume",
+                        "colormap": colormap,
+                        "opacity": opacity,
+                        "visible": visible if is_visible else 0,
+                        "percentile": 1 if percentile else 0,
+                        "threshold_min": threshold_min,
+                        "threshold_max": threshold_max
+                    })
+                
+                # Then, add related analysis files from the Analyses directory
+                if not is_mni_space:  # Only load analysis files in subject space
+                    # Look for matching analysis directory
+                    analysis_sim_dir = os.path.join(analyses_dir, sim_name)
+                    if os.path.exists(analysis_sim_dir):
+                        # Look for Voxel analysis files
+                        voxel_dir = os.path.join(analysis_sim_dir, "Voxel")
+                        if os.path.exists(voxel_dir):
+                            # Look for region directories
+                            for region_dir in os.listdir(voxel_dir):
+                                region_path = os.path.join(voxel_dir, region_dir)
+                                if os.path.isdir(region_path):
+                                    # Look for cortex_visuals directory
+                                    cortex_vis_dir = os.path.join(region_path, "cortex_visuals")
+                                    if os.path.exists(cortex_vis_dir):
+                                        # Add any NIfTI files found
+                                        for nifti_file in glob.glob(os.path.join(cortex_vis_dir, "*.nii*")):
+                                            file_specs.append({
+                                                "path": nifti_file,
+                                                "type": "volume",
+                                                "colormap": "jet",  # Use different colormap for analysis files
+                                                "opacity": opacity * 0.7,  # Slightly lower opacity
+                                                "visible": 0,  # Not visible by default
+                                                "percentile": 1 if percentile else 0,
+                                                "threshold_min": threshold_min,
+                                                "threshold_max": threshold_max
+                                            })
         
         if not any(spec for spec in file_specs if spec["path"].endswith((".nii", ".nii.gz"))):
             QtWidgets.QMessageBox.warning(self, "Warning", 
