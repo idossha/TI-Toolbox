@@ -27,12 +27,12 @@ from nifti_viewer_tab import NiftiViewerTab
 from analyzer_tab import AnalyzerTab
 
 class MainWindow(QtWidgets.QMainWindow):
-    """Main window for the TI-CSC-2.0 GUI."""
+    """Main window for the TI-CSC GUI."""
     
     def __init__(self):
         super(MainWindow, self).__init__()
         
-        self.setWindowTitle("TI-CSC-2.0 Toolbox")
+        self.setWindowTitle("TI-CSC Toolbox")
         # Set window flags to ensure proper window behavior
         self.setWindowFlags(
             QtCore.Qt.Window |
@@ -65,26 +65,26 @@ class MainWindow(QtWidgets.QMainWindow):
         
         # Create all tabs first
         self.pre_process_tab = PreProcessTab(self)
-        self.simulator_tab = SimulatorTab(self)
         self.flex_search_tab = FlexSearchTab(self)
         self.ex_search_tab = ExSearchTab(self)
+        self.simulator_tab = SimulatorTab(self)
+        self.analyzer_tab = AnalyzerTab(self)
+        self.nifti_viewer_tab = NiftiViewerTab(self)
         self.help_tab = HelpTab(self)
         self.contact_tab = ContactTab(self)
         self.acknowledgments_tab = AcknowledgmentsTab(self)
-        self.nifti_viewer_tab = NiftiViewerTab(self)
-        self.analyzer_tab = AnalyzerTab(self)
-        
+
         # Clear the tab widget in case we're reordering tabs
         self.tab_widget.clear()
         
         # Step 1: Add functional tabs on the left side
         self.tab_widget.addTab(self.pre_process_tab, "Pre-processing")
-        self.tab_widget.addTab(self.simulator_tab, "Simulator")
         self.tab_widget.addTab(self.flex_search_tab, "Flex-Search")
         self.tab_widget.addTab(self.ex_search_tab, "Ex-Search")
-        self.tab_widget.addTab(self.nifti_viewer_tab, "NIfTI Viewer")
+        self.tab_widget.addTab(self.simulator_tab, "Simulator")
         self.tab_widget.addTab(self.analyzer_tab, "Analyzer")
-        
+        self.tab_widget.addTab(self.nifti_viewer_tab, "NIfTI Viewer")
+
         # Step 2: Count how many tabs we have to calculate positions from the right
         total_tabs = self.tab_widget.count() + 3  # +3 for Help, Contact, and Acknowledgments
         

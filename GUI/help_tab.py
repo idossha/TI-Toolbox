@@ -2,14 +2,14 @@
 # -*- coding: utf-8 -*-
 
 """
-Help Tab for TI-CSC-2.0 GUI
-This module provides a unified help tab for all TI-CSC-2.0 tools.
+Help Tab for TI-CSC GUI
+This module provides a unified help tab for all TI-CSC tools.
 """
 
 from PyQt5 import QtWidgets, QtCore, QtGui
 
 class HelpTab(QtWidgets.QWidget):
-    """Unified help tab for TI-CSC-2.0 GUI."""
+    """Unified help tab for TI-CSC  GUI."""
     
     def __init__(self, parent=None):
         super(HelpTab, self).__init__(parent)
@@ -21,12 +21,12 @@ class HelpTab(QtWidgets.QWidget):
         main_layout = QtWidgets.QVBoxLayout(self)
         
         # Introduction text
-        intro_label = QtWidgets.QLabel("<h1>TI-CSC-2.0 Help Center</h1>")
+        intro_label = QtWidgets.QLabel("<h1>TI-CSC Help Center</h1>")
         intro_label.setAlignment(QtCore.Qt.AlignCenter)
         main_layout.addWidget(intro_label)
         
         description_label = QtWidgets.QLabel(
-            "<p>Welcome to the TI-CSC-2.0 Toolbox help center. "
+            "<p>Welcome to the TI-CSC help center. "
             "This tab provides comprehensive information about all the tools available in this application.</p>"
         )
         description_label.setWordWrap(True)
@@ -48,6 +48,8 @@ class HelpTab(QtWidgets.QWidget):
         self.add_pre_processing_help(help_layout)
         self.add_simulator_help(help_layout)
         self.add_flex_search_help(help_layout)
+        self.add_ex_search_help(help_layout)
+        self.add_analyzer_help(help_layout)
         self.add_nifti_viewer_help(help_layout)
         
         # Add general usage tips
@@ -85,7 +87,7 @@ class HelpTab(QtWidgets.QWidget):
         
         # Directory structure information
         content = """
-        <p>TI-CSC-2.0 follows the BIDS (Brain Imaging Data Structure) conventions for organizing neuroimaging data. This standardized structure ensures compatibility with other neuroimaging tools and facilitates data sharing.</p>
+        <p>TI-CSC follows the BIDS (Brain Imaging Data Structure) conventions for organizing neuroimaging data. This standardized structure ensures compatibility with other neuroimaging tools and facilitates data sharing.</p>
         
         <p><b>Important:</b> Users need to set up the sourcedata directory with their DICOM files. Most other directories are automatically created during processing.</p>
         
@@ -94,10 +96,10 @@ class HelpTab(QtWidgets.QWidget):
 Project Directory/
 ├── sub-{subject}/                           <i>(Auto-created during preprocessing)</i>
 │   ├── anat/
-│   │   ├── sub-{subject}_space-MNI305_T1w.nii.gz
-│   │   ├── sub-{subject}_space-MNI305_T1w.json
-│   │   ├── sub-{subject}_space-MNI305_T2w.nii.gz
-│   │   └── sub-{subject}_space-MNI305_T2w.json
+│   │   ├── sub-{subject}_space-XXX_T1w.nii.gz
+│   │   ├── sub-{subject}_space-XXX_T1w.json
+│   │   ├── sub-{subject}_space-XXX_T2w.nii.gz
+│   │   └── sub-{subject}_space-XXX_T2w.json
 │   ├── dwi/                                <i>(Optional: For diffusion data)</i>
 │   ├── eeg/                                <i>(Optional: For EEG data)</i>
 │   ├── func/                               <i>(Optional: For functional MRI data)</i>
@@ -109,8 +111,8 @@ Project Directory/
 │       ├── T2w/                            <i>(Optional)</i>
 │       │   └── dicom/                      <i>(Place T2w DICOM files here)</i>
 │       └── additional_files/               <i>(Optional documentation)</i>
-├── derivatives/                            <i>(Auto-created during processing)</i>
-│   ├── freesurfer/
+├── derivatives/                            <i>(Auto-created during pre-processing)</i>
+│   ├── freesurfer/                         
 │   │   └── sub-{subject}/
 │   │       ├── mri/
 │   │       └── label/
@@ -141,7 +143,7 @@ Project Directory/
         
         <h3>Getting Started:</h3>
         <ol>
-            <li>Create your project directory (e.g., "BIDS_test")</li>
+            <li>Create your project directory (e.g., "my_project")</li>
             <li>Create the sourcedata directory structure</li>
             <li>Create a subject folder in sourcedata (e.g., "sub-101")</li>
             <li>Place T1w DICOM files in <code>sourcedata/sub-101/T1w/dicom/</code></li>
@@ -191,7 +193,8 @@ Project Directory/
                 "content": (
                     "<b>Multiple Subject Selection:</b><br>"
                     "- Select one or more subjects from the list using Ctrl+click or Shift+click<br>"
-                    "- The 'Refresh List' button updates the subject list from the project directory<br><br>"
+                    "- The 'Refresh List' button updates the subject list from the project directory<br>"
+                    "- Use 'Select All' and 'Select None' buttons for quick selection management<br><br>"
                     
                     "Make sure you follow the required BIDS directory structure<br>"
                 )
@@ -234,7 +237,8 @@ Project Directory/
                     
                     "2. <b>FreeSurfer Reconstruction:</b><br>"
                     "   - T1 images and optionally T2 images are processed using FreeSurfer's recon-all<br>"
-                    "   - Creates cortical surface models and segmentation of brain structures<br><br>"
+                    "   - Creates cortical surface models and segmentation of brain structures<br>"
+                    "   - Can be run in parallel for multiple subjects<br><br>"
                     
                     "3. <b>SimNIBS Head Model Creation:</b><br>"
                     "   - Uses the SimNIBS charm tool to create realistic head models<br>"
@@ -247,12 +251,13 @@ Project Directory/
                 "title": "Tips and Troubleshooting",
                 "content": (
                     "- Ensure that raw DICOM files are properly organized in the subject's /anat/raw/ directory<br>"
-                    "- T1-weighted MRI scans are required for FreeSurfer reconstruction<br>"
+                    "- T1-weighted MRI scans are required for SimNIBS & FreeSurfer reconstruction<br>"
                     "- T2-weighted MRI scans are optional but improve head model quality<br>"
                     "- When processing multiple subjects, consider using parallel processing<br>"
                     "- The Console Output window shows real-time progress and any error messages<br>"
                     "- If processing fails, check the console output for specific error messages<br>"
-                    "- The Stop button can be used to terminate processing, but may leave files in an inconsistent state"
+                    "- The Stop button can be used to terminate processing, but may leave files in an inconsistent state<br>"
+                    "- Use the status label at the top to monitor the current processing state"
                 )
             }
         ]
@@ -276,7 +281,7 @@ Project Directory/
                     "The TI-CSC Simulator performs computational simulations of Temporal Interference (TI) stimulation "
                     "using finite element modeling (FEM). It calculates electric field distributions in subject-specific "
                     "head models for different electrode configurations and stimulation parameters."
-                    "It uses SimNIBS' TI module to simulate the electric field distribution based on Grossmna's equation from the 2017 paper."
+                    "It uses SimNIBS' TI module to simulate the electric field distribution based on Grossman's equation from the 2017 paper."
                 )
             },
             {
@@ -293,13 +298,13 @@ Project Directory/
                 "content": (
                     "<b>Predefined Montages:</b><br>"
                     "- Choose from a list of predefined electrode configurations<br>"
-                    "- The montage list is populated based on the selected simulation mode<br>"
+                    "- The montage list is populated based on the selected simulation mode and EEG net<br>"
                     "- Multiple montages can be selected for batch processing<br><br>"
                     
                     "<b>Custom Montage:</b><br>"
                     "- Use the 'Add Custom Montage' button to create new electrode configurations<br>"
-                    "- For Multipolar mode, specify two pairs of electrode positions<br>"
-                    "- For Unipolar mode, specify anode and cathode positions<br>"
+                    "- For Multipolar mode, specify four pairs of electrode positions<br>"
+                    "- For Unipolar mode, specify two pairs of electrode positions<br>"
                     "- Position names should match the desired EEG net"
                 )
             },
@@ -308,11 +313,11 @@ Project Directory/
                 "content": (
                     "<b>Simulation Type:</b><br>"
                     "- <b>Standard isotropic:</b> Uses default conductivity values for all tissue types<br>"
-                    "- <b>anisotropic:</b> Takes into account the anisotropy of the tissue based on a DTI scan.<br><br>"
+                    "- <b>Anisotropic:</b> Takes into account the anisotropy of the tissue based on a DTI scan<br><br>"
                     
                     "<b>Simulation Mode:</b><br>"
-                    "- <b>Unipolar:</b> Uses two pairs for conventional TI stimulation<br><br>"
-                    "- <b>Multipolar:</b> Uses four pairs of electrodes for mTI stimulation<br>"
+                    "- <b>Unipolar:</b> Uses two pairs for conventional TI stimulation<br>"
+                    "- <b>Multipolar:</b> Uses four pairs of electrodes for mTI stimulation<br><br>"
                     
                     "<b>Electrode Parameters:</b><br>"
                     "- <b>Shape:</b> Rectangular (pad) or circular electrodes<br>"
@@ -373,7 +378,29 @@ Project Directory/
                 "content": (
                     "- Select a subject from the list who has already been pre-processed<br>"
                     "- The subject must have a complete SimNIBS head model<br>"
-                    "- Only one subject can be selected for each Flex-Search run"
+                    "- Only one subject can be selected for each Flex-Search run<br>"
+                    "- Use the 'Refresh' button to update the subject list"
+                )
+            },
+            {
+                "title": "Optimization Parameters",
+                "content": (
+                    "<b>Optimization Goal:</b><br>"
+                    "- <b>mean:</b> Maximize mean field in target ROI<br>"
+                    "- <b>max:</b> Maximize peak field in target ROI<br>"
+                    "- <b>focality:</b> Maximize field in target ROI while minimizing field elsewhere<br><br>"
+                    
+                    "<b>Post-processing Method:</b><br>"
+                    "- <b>max_TI:</b> Maximum TI field<br>"
+                    "- <b>dir_TI_normal:</b> TI field normal to surface<br>"
+                    "- <b>dir_TI_tangential:</b> TI field tangential to surface<br><br>"
+                    
+                    "<b>Electrode Parameters:</b><br>"
+                    "- <b>Radius:</b> Electrode size in millimeters (1-30mm)<br>"
+                    "- <b>Current:</b> Stimulation intensity in milliamperes (0.1-5mA)<br><br>"
+                    
+                    "<b>EEG Net Template:</b><br>"
+                    "- Select the EEG net to map nearest electrodes<br>"
                 )
             },
             {
@@ -384,31 +411,14 @@ Project Directory/
                     "- The ROI list is populated based on available parcellations<br>"
                     "- ROIs are defined according to various atlases (Desikan-Killiany, Destrieux, etc.)<br><br>"
                     
-                    "<b>Custom ROI:</b><br>"
-                    "- Create a custom ROI by specifying MNI coordinates or by selecting a FreeSurfer label<br>"
-                    "- Custom ROIs can be saved for future use<br>"
-                    "- Multiple ROIs can be combined to create a composite target region"
-                )
-            },
-            {
-                "title": "Search Parameters",
-                "content": (
-                    "<b>Electrode Configuration:</b><br>"
-                    "- <b>Electrode Type:</b> Select 10-10, 10-20, or custom electrode system<br>"
-                    "- <b>Number of Electrodes:</b> Specify how many electrodes to use (2-8)<br>"
-                    "- <b>Electrode Shape:</b> Circular or rectangular<br>"
-                    "- <b>Electrode Dimensions:</b> Size in mm<br><br>"
+                    "- Create a custom ROI by specifying a spherical target in RAS coordinates in subject space<br>"
+                    "- The sphere is defined by a center point (x,y,z) and radius in millimeters<br>"
+                    "- Coordinates must be in the subject's native space (not MNI space)<br><br>"
                     
-                    "<b>Algorithm Parameters:</b><br>"
-                    "- <b>Population Size:</b> Number of solutions in each generation<br>"
-                    "- <b>Generations:</b> Maximum number of iterations<br>"
-                    "- <b>Mutation Rate:</b> Probability of random changes in each generation<br>"
-                    "- <b>Crossover Rate:</b> Probability of combining solutions<br><br>"
-                    
-                    "<b>Optimization Criteria:</b><br>"
-                    "- <b>Target Weight:</b> Importance of maximizing field in target region<br>"
-                    "- <b>Avoid ROIs:</b> Optional regions to avoid stimulating<br>"
-                    "- <b>Avoidance Weight:</b> Importance of minimizing field in non-target regions"
+                    "<b>Non-ROI Regions (for focality optimization):</b><br>"
+                    "- Specify regions to avoid stimulating<br>"
+                    "- Can be selected from the same atlas as the target ROI<br>"
+                    "- Helps in achieving more focal stimulation"
                 )
             },
             {
@@ -432,6 +442,190 @@ Project Directory/
                     "- Solutions can be exported for use in the Simulator<br>"
                     "- Results can be visualized using the NIfTI Viewer<br>"
                     "- Detailed results are saved in the subject's flex-search directory"
+                )
+            }
+        ]
+        
+        # Add each section to the help layout
+        for section in sections:
+            self.add_section(layout, section["title"], section["content"])
+    
+    def add_ex_search_help(self, layout):
+        """Add Ex-Search help content."""
+        # Add header for the Ex-Search tool
+        header_label = QtWidgets.QLabel("<h1>Ex-Search Tool</h1>")
+        header_label.setAlignment(QtCore.Qt.AlignCenter)
+        layout.addWidget(header_label)
+        
+        # Ex-Search sections
+        sections = [
+            {
+                "title": "What is Ex-Search?",
+                "content": (
+                    "Ex-Search is an exhaustive search tool for finding optimal electrode configurations for temporal interference "
+                    "stimulation. It systematically evaluates electrode combinations within a specified EEG net to find "
+                    "the best montages for targeting specific brain regions. The search process is optimized to efficiently "
+                    "explore the solution space while maintaining accuracy."
+                )
+            },
+            {
+                "title": "Subject Selection",
+                "content": (
+                    "- Select a single subject from the list<br>"
+                    "- The subject must have completed pre-processing and have leadfield files<br>"
+                    "- Only one subject can be processed at a time<br>"
+                    "- The 'Refresh List' button updates the subject list"
+                )
+            },
+            {
+                "title": "Leadfield Generation",
+                "content": (
+                    "<b>Leadfield Files:</b><br>"
+                    "- Required for Ex-Search optimization<br>"
+                    "- Generated using SimNIBS for each subject and EEG net combination<br>"
+                    "- Must be created before running the search<br><br>"
+                    
+                    "<b>Important Considerations:</b><br>"
+                    "- Leadfields are specific to both subject and EEG net<br>"
+                    "- Higher electrode density in the net results in larger leadfield files<br>"
+                    "- Generation time increases with electrode density<br>"
+                    "- Process may take several minutes to hours depending on the net size<br><br>"
+                    
+                    "<b>Creating Leadfields:</b><br>"
+                    "- Click 'Create Leadfield' to generate leadfield files<br>"
+                    "- Progress is shown in the console window<br>"
+                    "- Ensure sufficient disk space for leadfield storage"
+                )
+            },
+            {
+                "title": "ROI Selection",
+                "content": (
+                    "<b>Adding ROIs:</b><br>"
+                    "- Click 'Add ROI' to create a new target region<br>"
+                    "- ROIs can be defined using atlas regions or spherical targets<br>"
+                    "- Multiple ROIs can be added for batch processing<br><br>"
+                    
+                    "<b>Managing ROIs:</b><br>"
+                    "- Select ROIs from the list to remove them<br>"
+                    "- ROIs can be edited by removing and re-adding them<br>"
+                    "- Each ROI will be processed for the selected subject"
+                )
+            },
+            {
+                "title": "Search Process",
+                "content": (
+                    "1. Ex-Search uses a systematic approach to generate electrode combinations:<br>"
+                    "   - For each pair of electrodes (E1+, E1- and E2+, E2-), all possible combinations are generated<br>"
+                    "   - The process uses the Cartesian product of the electrode lists<br>"
+                    "   - This ensures comprehensive coverage of possible montages while minimizing comupte time.<br><br>"
+                    
+                    "2. The search process follows these steps:<br>"
+                    "   - First, all valid combinations of E1+ and E1- electrodes are generated<br>"
+                    "   - Then, all valid combinations of E2+ and E2- electrodes are generated<br>"
+                    "   - Finally, these pairs are combined to create complete montages<br><br>"
+                    
+                    "3. For each combination:<br>"
+                    "   - The electric field distribution is calculated<br>"
+                    "   - The field is evaluated in the target ROI(s)<br>"          
+                    
+                    "The search progress and status are displayed in the console window."
+                )
+            },
+            {
+                "title": "Results and Analysis",
+                "content": (
+                    "- Results are saved in the subject's ex-search directory<br>"
+                    "- Each ROI gets its own results folder<br>"
+                    "- Results include CSV files with electrode configurations and scores<br>"
+                )
+            }
+        ]
+        
+        # Add each section to the help layout
+        for section in sections:
+            self.add_section(layout, section["title"], section["content"])
+    
+    def add_analyzer_help(self, layout):
+        """Add Analyzer help content."""
+        # Add header for the Analyzer tool
+        header_label = QtWidgets.QLabel("<h1>Analyzer Tool</h1>")
+        header_label.setAlignment(QtCore.Qt.AlignCenter)
+        layout.addWidget(header_label)
+        
+        # Analyzer sections
+        sections = [
+            {
+                "title": "What is the Analyzer?",
+                "content": (
+                    "The Analyzer tool provides comprehensive analysis and visualization capabilities for TI-CSC simulation results. "
+                    "It allows you to compare different electrode configurations, analyze electric field distributions, "
+                    "and generate reports for your stimulation studies."
+                )
+            },
+            {
+                "title": "Data Selection",
+                "content": (
+                    "<b>Subject Selection:</b><br>"
+                    "- Select one or more subjects from the list<br>"
+                    "- Subjects must have completed simulations<br>"
+                    "- Use 'Select All' and 'Clear' buttons for quick selection<br><br>"
+                    
+                    "<b>Simulation Selection:</b><br>"
+                    "- Choose from available simulations for each subject<br>"
+                    "- Multiple simulations can be selected for comparison<br>"
+                    "- Results from Flex-Search and Ex-Search can also be analyzed"
+                )
+            },
+            {
+                "title": "Analysis Options",
+                "content": (
+                    "<b>Field Analysis:</b><br>"
+                    "- Calculate mean, maximum, and minimum field strengths<br>"
+                    "- Analyze field focality and penetration depth<br>"
+                    "- Compare field distributions across different montages<br><br>"
+                    
+                    "<b>ROI Analysis:</b><br>"
+                    "- Evaluate field strength in specific brain regions<br>"
+                    "- Compare stimulation effects across ROIs<br>"
+                    "- Generate ROI-specific statistics<br><br>"
+                    
+                    "<b>Comparative Analysis:</b><br>"
+                    "- Compare results across different subjects<br>"
+                    "- Analyze effects of different electrode configurations<br>"
+                    "- Generate comparative reports and visualizations"
+                )
+            },
+            {
+                "title": "Visualization Tools",
+                "content": (
+                    "<b>Field Maps:</b><br>"
+                    "- View electric field distributions in 3D<br>"
+                    "- Overlay fields on anatomical images<br>"
+                    "- Adjust visualization parameters in real-time<br><br>"
+                    
+                    "<b>Statistical Plots:</b><br>"
+                    "- Generate histograms of field distributions<br>"
+                    "- Create box plots for comparing montages<br>"
+                    "- Plot field strength vs. depth profiles<br><br>"
+                    
+                    "<b>Export Options:</b><br>"
+                    "- Save visualizations as high-resolution images<br>"
+                    "- Export data for further analysis<br>"
+                    "- Generate comprehensive PDF reports"
+                )
+            },
+            {
+                "title": "Results Management",
+                "content": (
+                    "<b>Data Organization:</b><br>"
+                    "- Results are organized by subject and simulation<br>"
+                    "- Analysis results are saved in the subject's analysis directory<br>"
+                    "- Previous analyses can be loaded and modified<br><br>"
+                    
+                    "<b>Report Generation:</b><br>"
+                    "- Create detailed reports of analysis results<br>"
+                    "- Include visualizations and statistics<br>"
+                    "- Export reports in various formats (PDF, HTML, etc.)"
                 )
             }
         ]
@@ -471,54 +665,6 @@ Project Directory/
                 )
             },
             {
-                "title": "Viewer Controls",
-                "content": (
-                    "<b>Slice Navigation:</b><br>"
-                    "- Use the slider bars to navigate through axial, sagittal, and coronal slices<br>"
-                    "- Click on an image to center the view at that location<br>"
-                    "- The mouse wheel can also be used to scroll through slices<br><br>"
-                    
-                    "<b>Display Options:</b><br>"
-                    "- <b>Brightness/Contrast:</b> Adjust using sliders or right-click and drag<br>"
-                    "- <b>Colormap:</b> Select different color schemes for overlays<br>"
-                    "- <b>Transparency:</b> Adjust overlay transparency<br>"
-                    "- <b>Thresholds:</b> Set minimum and maximum values for display<br><br>"
-                    
-                    "<b>Viewing Modes:</b><br>"
-                    "- <b>Single View:</b> Shows one slice orientation (axial, sagittal, or coronal)<br>"
-                    "- <b>Three-panel View:</b> Shows all three orientations simultaneously<br>"
-                    "- <b>3D View:</b> Shows a 3D rendering of the data (if supported)"
-                )
-            },
-            {
-                "title": "Measurements and Analysis",
-                "content": (
-                    "<b>ROI Selection:</b><br>"
-                    "- Draw regions of interest using the ROI tools<br>"
-                    "- Extract statistics from within the selected region<br>"
-                    "- Save ROIs for future use<br><br>"
-                    
-                    "<b>Data Probing:</b><br>"
-                    "- Hover over a point to see intensity values<br>"
-                    "- Use the probe tool to get detailed information at specific locations<br>"
-                    "- Compare values across multiple loaded datasets<br><br>"
-                    
-                    "<b>Profiles and Histograms:</b><br>"
-                    "- Create intensity profiles along a line<br>"
-                    "- Generate histograms of values within an ROI<br>"
-                    "- Export measurements as CSV files"
-                )
-            },
-            {
-                "title": "Saving and Exporting",
-                "content": (
-                    "- <b>Save View:</b> Capture the current view as a PNG image<br>"
-                    "- <b>Export Data:</b> Save modified or derived data as new NIfTI files<br>"
-                    "- <b>Copy to Clipboard:</b> Copy images for pasting into documents<br>"
-                    "- <b>Batch Export:</b> Save a series of slices or a complete set of views"
-                )
-            },
-            {
                 "title": "Tips and Shortcuts",
                 "content": (
                     "- <b>Mouse Wheel:</b> Scroll through slices<br>"
@@ -550,10 +696,11 @@ Project Directory/
                 "title": "Getting Started",
                 "content": (
                     "1. Begin with the Pre-processing tab to prepare your data<br>"
-                    "2. Use the Simulator tab to run stimulation simulations<br>"
-                    "3. Explore optimization with the Flex-Search tab<br>"
-                    "4. Visualize results with the NIfTI Viewer tab<br><br>"
-                    
+                    "2. Explore optimization with the Flex-Search or Ex-Search tab<br>"
+                    "3. Use the Simulator tab when you want maximum control over the stimulation parameters<br>"
+                    "4. Use the Analyzer tab to explore the results of the simulations<br>"
+                    "5. Visualize results with the NIfTI Viewer tab<br><br>"
+                
                     "The workflow is designed to be sequential, but you can jump to any step if your data is already prepared."
                 )
             },
@@ -562,9 +709,8 @@ Project Directory/
                 "content": (
                     "- Pre-processing is computationally intensive, especially FreeSurfer reconstruction<br>"
                     "- Consider using parallel processing for multiple subjects<br>"
-                    "- Simulations with fine mesh resolution may take longer to compute<br>"
                     "- Close unused applications to free up memory<br>"
-                    "- For large datasets, consider processing overnight or on a computing cluster"
+                    "- For large datasets, consider processing overnight or on a strong compute server"
                 )
             },
             {
@@ -577,13 +723,10 @@ Project Directory/
                     
                     "<b>Processing Failures:</b><br>"
                     "- Check the console output for specific error messages<br>"
-                    "- Ensure all required software (SimNIBS, FreeSurfer) is properly installed<br>"
                     "- Verify that input data (e.g., DICOM files) is valid and complete<br><br>"
                     
                     "<b>Visualization Issues:</b><br>"
-                    "- Update your graphics drivers if 3D rendering is problematic<br>"
-                    "- Try simplifying the view by reducing the number of overlays<br>"
-                    "- Use lower resolution displays for performance improvements"
+                    "- Ensure X11 / XQuartz is installed and configuredon your system<br>"
                 )
             },
             {
@@ -591,7 +734,7 @@ Project Directory/
                 "content": (
                     "- Regularly back up your project directory<br>"
                     "- Simulation results can take up significant disk space<br>"
-                    "- Consider archiving older projects or moving them to external storage<br>"
+                    "- Ex-search results take up significatn disk space and should be cleaned regularly<br>"
                     "- Use meaningful subject IDs and montage names for easy identification<br>"
                     "- Keep notes about processing parameters and decisions"
                 )
