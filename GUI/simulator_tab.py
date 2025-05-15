@@ -1019,40 +1019,35 @@ class SimulatorTab(QtWidgets.QWidget):
             return False
 
     def update_output(self, text):
-        """Update the output console with text from the simulation thread."""
+        """Update the console output with colored text."""
         if not text.strip():
             return
             
         # Format the output based on content type
         if "Processing... Only the Stop button is available" in text:
-            formatted_text = f'<div style="background-color: #2a2a2a; padding: 10px; margin: 10px 0; border-radius: 5px;"><span style="color: #ffff55; font-weight: bold;">⚡ {text}</span></div>'
+            formatted_text = f'<div style="background-color: #2a2a2a; padding: 10px; margin: 10px 0; border-radius: 5px;"><span style="color: #ffff55; font-weight: bold;">{text}</span></div>'
         elif "Error:" in text or "CRITICAL:" in text or "Failed" in text:
-            formatted_text = f'<span style="color: #ff5555;"><b>❌ {text}</b></span>'
+            formatted_text = f'<span style="color: #ff5555;"><b>{text}</b></span>'
         elif "Warning:" in text or "YELLOW" in text:
-            formatted_text = f'<span style="color: #ffff55;">⚠️ {text}</span>'
+            formatted_text = f'<span style="color: #ffff55;">{text}</span>'
         elif "DEBUG:" in text:
-            formatted_text = f'<span style="color: #7f7f7f;">🔍 {text}</span>'
+            formatted_text = f'<span style="color: #7f7f7f;">{text}</span>'
         elif "Executing:" in text or "Running" in text or "Command" in text:
-            formatted_text = f'<span style="color: #55aaff;">📋 {text}</span>'
+            formatted_text = f'<span style="color: #55aaff;">{text}</span>'
         elif "completed successfully" in text or "completed." in text or "Successfully" in text or "completed:" in text:
-            formatted_text = f'<span style="color: #55ff55;"><b>✅ {text}</b></span>'
+            formatted_text = f'<span style="color: #55ff55;"><b>{text}</b></span>'
         elif "Processing" in text or "Starting" in text:
-            formatted_text = f'<span style="color: #55ffff;">🔄 {text}</span>'
+            formatted_text = f'<span style="color: #55ffff;">{text}</span>'
         elif text.strip().startswith("-"):
             # Indented list items
             formatted_text = f'<span style="color: #aaaaaa; margin-left: 20px;">  {text}</span>'
         else:
             formatted_text = f'<span style="color: #ffffff;">{text}</span>'
         
-        # Add a timestamp
-        timestamp = QtCore.QTime.currentTime().toString("hh:mm:ss")
-        log_entry = f'<span style="color: #888888;">[{timestamp}]</span> {formatted_text}'
-        
         # Append to the console with HTML formatting
-        self.output_console.append(log_entry)
-        
-        # Ensure the latest output is visible
+        self.output_console.append(formatted_text)
         self.output_console.ensureCursorVisible()
+        QtWidgets.QApplication.processEvents()
 
     def show_add_montage_dialog(self):
         """Show the dialog for adding a new montage."""

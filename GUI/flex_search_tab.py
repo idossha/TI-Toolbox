@@ -870,12 +870,35 @@ class FlexSearchTab(QtWidgets.QWidget):
         self.optimization_process.start()
     
     def update_output(self, text):
-        """Update the output console with text from the optimization process."""
-        self.output_text.append(text)
-        # Scroll to bottom
-        cursor = self.output_text.textCursor()
-        cursor.movePosition(QtGui.QTextCursor.End)
-        self.output_text.setTextCursor(cursor)
+        """Update the console output with colored text."""
+        if not text.strip():
+            return
+            
+        # Format the output based on content type
+        if "Processing... Only the Stop button is available" in text:
+            formatted_text = f'<div style="background-color: #2a2a2a; padding: 10px; margin: 10px 0; border-radius: 5px;"><span style="color: #ffff55; font-weight: bold;">{text}</span></div>'
+        elif "Error:" in text or "CRITICAL:" in text or "Failed" in text:
+            formatted_text = f'<span style="color: #ff5555;"><b>{text}</b></span>'
+        elif "Warning:" in text or "YELLOW" in text:
+            formatted_text = f'<span style="color: #ffff55;">{text}</span>'
+        elif "DEBUG:" in text:
+            formatted_text = f'<span style="color: #7f7f7f;">{text}</span>'
+        elif "Executing:" in text or "Running" in text or "Command" in text:
+            formatted_text = f'<span style="color: #55aaff;">{text}</span>'
+        elif "completed successfully" in text or "completed." in text or "Successfully" in text or "completed:" in text:
+            formatted_text = f'<span style="color: #55ff55;"><b>{text}</b></span>'
+        elif "Processing" in text or "Starting" in text:
+            formatted_text = f'<span style="color: #55ffff;">{text}</span>'
+        elif text.strip().startswith("-"):
+            # Indented list items
+            formatted_text = f'<span style="color: #aaaaaa; margin-left: 20px;">  {text}</span>'
+        else:
+            formatted_text = f'<span style="color: #ffffff;">{text}</span>'
+        
+        # Append to the console with HTML formatting
+        self.output_text.append(formatted_text)
+        self.output_text.ensureCursorVisible()
+        QtWidgets.QApplication.processEvents()
     
     def optimization_finished(self):
         """Handle the completion of the optimization process."""
