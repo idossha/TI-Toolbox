@@ -17,6 +17,82 @@ BOLD_CYAN='\033[1;36m'
 RESET='\033[0m' # No Color
 NC='\033[0m' # No Color
 
+# Check if running in direct mode from GUI
+if [[ "$1" == "--run-direct" ]]; then
+    echo "Running in direct execution mode from GUI"
+    
+    # Check for required environment variables
+    if [[ -z "$SUBJECTS" || -z "$PROJECT_DIR" ]]; then
+        echo -e "${RED}Error: Missing required environment variables for direct execution.${RESET}"
+        echo "Required: SUBJECTS, PROJECT_DIR"
+        exit 1
+    fi
+    
+    # Convert comma-separated subjects to array
+    IFS=',' read -r -a selected_subjects <<< "$SUBJECTS"
+    
+    # Set variables from environment
+    CONVERT_DICOM=${CONVERT_DICOM:-false}
+    DICOM_TYPE=${DICOM_TYPE:-T1w_only}
+    RUN_RECON=${RUN_RECON:-false}
+    PARALLEL_RECON=${PARALLEL_RECON:-false}
+    CREATE_M2M=${CREATE_M2M:-false}
+    QUIET=${QUIET:-false}
+    
+    # Process each subject
+    for subject_id in "${selected_subjects[@]}"; do
+        echo -e "${CYAN}Processing subject: $subject_id${RESET}"
+        
+        # Build the command for structural.sh using absolute Docker path
+        cmd=("/development/pre-process/structural.sh")
+        
+        # Add subject directory as first argument - use the main project directory path
+        subject_dir="$PROJECT_DIR/sub-$subject_id"
+        cmd+=("$subject_dir")
+        
+        # Create required directories
+        mkdir -p "$PROJECT_DIR/sourcedata/sub-$subject_id/T1w/dicom"
+        if [[ "$DICOM_TYPE" == "T1w_T2w" ]]; then
+            mkdir -p "$PROJECT_DIR/sourcedata/sub-$subject_id/T2w/dicom"
+        fi
+        mkdir -p "$subject_dir/anat"
+        mkdir -p "$PROJECT_DIR/derivatives/freesurfer/sub-$subject_id"
+        mkdir -p "$PROJECT_DIR/derivatives/SimNIBS/sub-$subject_id"
+        
+        # Add optional flags based on environment variables
+        if [[ "$RUN_RECON" == "true" ]]; then
+            cmd+=("recon-all")
+        fi
+        
+        if [[ "$PARALLEL_RECON" == "true" ]]; then
+            cmd+=("--parallel")
+        fi
+        
+        if [[ "$QUIET" == "true" ]]; then
+            cmd+=("--quiet")
+        fi
+        
+        if [[ "$CONVERT_DICOM" == "true" ]]; then
+            cmd+=("--convert-dicom")
+        fi
+        
+        if [[ "$CREATE_M2M" == "true" ]]; then
+            cmd+=("--create-m2m")
+        fi
+        
+        echo -e "${GREEN}Executing: ${cmd[*]}${RESET}"
+        "${cmd[@]}"
+        
+        if [ $? -eq 0 ]; then
+            echo -e "${GREEN}Successfully processed subject: $subject_id${RESET}"
+        else
+            echo -e "${RED}Error processing subject: $subject_id${RESET}"
+        fi
+    done
+    
+    exit 0
+fi
+
 # Function to print colored messages
 print_message() {
   local color=$1
@@ -158,14 +234,17 @@ count=0
 
 # First check sourcedata directory for new subjects
 for subj_dir in "$PROJECT_DIR/sourcedata/sub-"*; do
-  if [ -d "$subj_dir" ] && [ -d "$subj_dir/T1w/dicom" ]; then
-    subject_id=$(basename "$subj_dir" | sed 's/^sub-//')
-    count=$((count+1))
-    printf "%3d. %-15s " "$count" "$subject_id"
-    available_subjects+=("$subject_id")
-    # Print a new line every 3 subjects
-    if [ $((count % 3)) -eq 0 ]; then
-      echo ""
+  if [ -d "$subj_dir" ]; then
+    # Check for both BIDS structure and compressed format
+    if [ -d "$subj_dir/T1w" ] || [ -f "$subj_dir"/*.tgz ]; then
+      subject_id=$(basename "$subj_dir" | sed 's/^sub-//')
+      count=$((count+1))
+      printf "%3d. %-15s " "$count" "$subject_id"
+      available_subjects+=("$subject_id")
+      # Print a new line every 3 subjects
+      if [ $((count % 3)) -eq 0 ]; then
+        echo ""
+      fi
     fi
   fi
 done
@@ -190,8 +269,9 @@ echo ""
 
 if [ ${#available_subjects[@]} -eq 0 ]; then
   print_message "$RED" "No subjects found in $PROJECT_DIR/sourcedata/ or $PROJECT_DIR/"
-  print_message "$YELLOW" "Please ensure your subjects follow the BIDS structure:"
-  print_message "$YELLOW" "  $PROJECT_DIR/sourcedata/sub-{subjectID}/T1w/dicom/"
+  print_message "$YELLOW" "Please ensure your subjects follow one of these structures:"
+  print_message "$YELLOW" "  BIDS: $PROJECT_DIR/sourcedata/sub-{subjectID}/T1w/{any_subdirectory}"
+  print_message "$YELLOW" "  Compressed: $PROJECT_DIR/sourcedata/sub-{subjectID}/*.tgz"
   exit 1
 fi
 
@@ -309,7 +389,6 @@ for SUBJECT_ID in "${selected_subjects[@]}"; do
         if [ "$dicom_choice" = "2" ]; then
             print_message "$YELLOW" "Please place T2w DICOM files in: $PROJECT_DIR/sourcedata/$BIDS_SUBJECT_ID/T2w/dicom"
         fi
-        read -p "Press Enter when files are ready..."
     fi
     
     # Build the command for structural.sh

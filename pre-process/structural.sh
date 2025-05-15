@@ -201,8 +201,8 @@ FREESURFER_DIR="${DERIVATIVES_DIR}/freesurfer/${BIDS_SUBJECT_ID}"
 SIMNIBS_DIR="${DERIVATIVES_DIR}/SimNIBS/${BIDS_SUBJECT_ID}"
 
 # Create required directories
-mkdir -p "${SOURCEDATA_DIR}/T1w/dicom"
-mkdir -p "${SOURCEDATA_DIR}/T2w/dicom"
+mkdir -p "${SOURCEDATA_DIR}/T1w"
+mkdir -p "${SOURCEDATA_DIR}/T2w"
 mkdir -p "$BIDS_ANAT_DIR"
 mkdir -p "$FREESURFER_DIR"
 mkdir -p "$SIMNIBS_DIR"
@@ -218,59 +218,112 @@ echo "Processing subject: $SUBJECT_ID"
 ###############################################################################
 
 if $CONVERT_DICOM; then
-    # Check if source DICOM directories exist
+    # Function to handle compressed DICOM files
+    handle_compressed_dicom() {
+        local source_dir="$1"
+        local target_dir="$2"
+        local scan_type="$3"
+        
+        # Look for .tgz files in the source directory
+        for tgz_file in "$source_dir"/*.tgz; do
+            if [ -f "$tgz_file" ]; then
+                echo "Found compressed DICOM file: $tgz_file"
+                
+                # Create a temporary directory for extraction
+                local temp_dir=$(mktemp -d)
+                
+                # Extract the .tgz file
+                echo "Extracting $tgz_file to temporary directory..."
+                tar -xzf "$tgz_file" -C "$temp_dir"
+                
+                # Find all DICOM files in the extracted directory
+                local dicom_files=$(find "$temp_dir" -type f -name "*.dcm" -o -name "*.IMA" -o -name "*.dicom")
+                
+                if [ -n "$dicom_files" ]; then
+                    echo "Found DICOM files in extracted archive"
+                    
+                    # Create scan type directory if it doesn't exist
+                    mkdir -p "$target_dir"
+                    
+                    # Move DICOM files to the target directory
+                    echo "Moving DICOM files to $target_dir"
+                    find "$temp_dir" -type f \( -name "*.dcm" -o -name "*.IMA" -o -name "*.dicom" \) -exec mv {} "$target_dir" \;
+                    
+                    # Clean up temporary directory
+                    rm -rf "$temp_dir"
+                else
+                    echo "Warning: Could not find DICOM files in extracted archive"
+                    rm -rf "$temp_dir"
+                fi
+            fi
+        done
+    }
+    
+    # Function to find and process DICOM files in a directory
+    process_dicom_directory() {
+        local source_dir="$1"
+        local target_dir="$2"
+        
+        if [ -d "$source_dir" ] && [ "$(ls -A "$source_dir")" ]; then
+            echo "Processing DICOM files in $source_dir..."
+            # First convert in place
+            dcm2niix -z y -o "$target_dir" "$source_dir"
+            
+            # Process each pair of files
+            for json_file in "$target_dir"/*.json; do
+                if [ -f "$json_file" ]; then
+                    # Get the corresponding nii.gz file
+                    nii_file="${json_file%.json}.nii.gz"
+                    if [ -f "$nii_file" ]; then
+                        # Extract SeriesDescription from JSON
+                        series_desc=$(grep -o '"SeriesDescription": *"[^"]*"' "$json_file" | cut -d'"' -f4)
+                        if [ -n "$series_desc" ]; then
+                            # Create new filenames based on SeriesDescription
+                            new_json="${BIDS_ANAT_DIR}/${series_desc}.json"
+                            new_nii="${BIDS_ANAT_DIR}/${series_desc}.nii.gz"
+                            # Move and rename the files
+                            mv "$json_file" "$new_json"
+                            mv "$nii_file" "$new_nii"
+                            echo "Renamed files to: $series_desc"
+                        else
+                            # If no SeriesDescription found, move with original names
+                            mv "$json_file" "${BIDS_ANAT_DIR}/"
+                            mv "$nii_file" "${BIDS_ANAT_DIR}/"
+                        fi
+                    fi
+                fi
+            done
+        fi
+    }
+    
+    # Create required directories
+    mkdir -p "${SOURCEDATA_DIR}/T1w/dicom"
+    mkdir -p "${SOURCEDATA_DIR}/T2w/dicom"
+    mkdir -p "$BIDS_ANAT_DIR"
+    mkdir -p "$FREESURFER_DIR"
+    mkdir -p "$SIMNIBS_DIR"
+    
+    # Handle compressed DICOM files if they exist
+    handle_compressed_dicom "${SOURCEDATA_DIR}/T1w" "${SOURCEDATA_DIR}/T1w/dicom" "T1w"
+    handle_compressed_dicom "${SOURCEDATA_DIR}/T2w" "${SOURCEDATA_DIR}/T2w/dicom" "T2w"
+    
+    # Process T1w directory
     T1_DICOM_DIR="${SOURCEDATA_DIR}/T1w/dicom"
     T2_DICOM_DIR="${SOURCEDATA_DIR}/T2w/dicom"
     
     if [ ! -d "$T1_DICOM_DIR" ] && [ ! -d "$T2_DICOM_DIR" ]; then
-        echo "Warning: Neither T1w nor T2w DICOM directories exist. Skipping DICOM conversion."
+        echo "Warning: No DICOM directories found in T1w or T2w. Skipping DICOM conversion."
     else
         echo "Converting DICOM files to NIfTI..."
         
-        # Process T1w directory
+        # Process T1w directory if it exists and has files
         if [ -d "$T1_DICOM_DIR" ] && [ "$(ls -A "$T1_DICOM_DIR")" ]; then
-            echo "Processing T1w DICOM files..."
-            # First convert in place
-            dcm2niix -z y -o "$T1_DICOM_DIR" "$T1_DICOM_DIR"
-            
-            # Move all .nii.gz and .json files to the anat directory
-            for file in "$T1_DICOM_DIR"/*.nii.gz "$T1_DICOM_DIR"/*.json; do
-                if [ -f "$file" ]; then
-                    # Get the base filename
-                    filename=$(basename "$file")
-                    # Rename to BIDS format if not already in it
-                    if [[ ! "$filename" =~ ^sub-* ]]; then
-                        new_filename="${BIDS_SUBJECT_ID}_T1w${filename#*_}"
-                    else
-                        new_filename="$filename"
-                    fi
-                    # Move and rename the file
-                    mv "$file" "${BIDS_ANAT_DIR}/${new_filename}"
-                fi
-            done
+            process_dicom_directory "$T1_DICOM_DIR" "$T1_DICOM_DIR"
         fi
         
-        # Process T2w directory
+        # Process T2w directory if it exists and has files
         if [ -d "$T2_DICOM_DIR" ] && [ "$(ls -A "$T2_DICOM_DIR")" ]; then
-            echo "Processing T2w DICOM files..."
-            # First convert in place
-            dcm2niix -z y -o "$T2_DICOM_DIR" "$T2_DICOM_DIR"
-            
-            # Move all .nii.gz and .json files to the anat directory
-            for file in "$T2_DICOM_DIR"/*.nii.gz "$T2_DICOM_DIR"/*.json; do
-                if [ -f "$file" ]; then
-                    # Get the base filename
-                    filename=$(basename "$file")
-                    # Rename to BIDS format if not already in it
-                    if [[ ! "$filename" =~ ^sub-* ]]; then
-                        new_filename="${BIDS_SUBJECT_ID}_T2w${filename#*_}"
-                    else
-                        new_filename="$filename"
-                    fi
-                    # Move and rename the file
-                    mv "$file" "${BIDS_ANAT_DIR}/${new_filename}"
-                fi
-            done
+            process_dicom_directory "$T2_DICOM_DIR" "$T2_DICOM_DIR"
         fi
     fi
 fi

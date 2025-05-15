@@ -429,71 +429,73 @@ class PreProcessTab(QtWidgets.QWidget):
 
     def update_available_subjects(self):
         """Update the list of available subjects."""
-        if not self.project_dir or not os.path.isdir(self.project_dir):
-            self.update_output("Project directory not found or not accessible.", 'error')
-            return
-            
         self.subject_list.clear()
         
         # First check sourcedata directory for new subjects
         sourcedata_dir = os.path.join(self.project_dir, "sourcedata")
-        if os.path.isdir(sourcedata_dir):
-            for item in os.listdir(sourcedata_dir):
-                if (os.path.isdir(os.path.join(sourcedata_dir, item)) and 
-                    item.startswith('sub-') and 
-                    os.path.isdir(os.path.join(sourcedata_dir, item, "T1w", "dicom"))):
-                    # Extract subject ID without 'sub-' prefix
-                    subject_id = item[4:]
-                    self.subject_list.addItem(subject_id)
+        if os.path.exists(sourcedata_dir):
+            for subj_dir in glob.glob(os.path.join(sourcedata_dir, "sub-*")):
+                if os.path.isdir(subj_dir):
+                    # Check for both BIDS structure and compressed format
+                    t1w_dir = os.path.join(subj_dir, "T1w")
+                    t2w_dir = os.path.join(subj_dir, "T2w")
+                    
+                    # Check if T1w or T2w directories exist and have any files or subdirectories
+                    has_valid_structure = (
+                        (os.path.exists(t1w_dir) and (
+                            any(os.path.isdir(os.path.join(t1w_dir, d)) for d in os.listdir(t1w_dir)) or
+                            any(f.endswith(('.tgz', '.json', '.nii', '.nii.gz')) for f in os.listdir(t1w_dir))
+                        )) or
+                        (os.path.exists(t2w_dir) and (
+                            any(os.path.isdir(os.path.join(t2w_dir, d)) for d in os.listdir(t2w_dir)) or
+                            any(f.endswith(('.tgz', '.json', '.nii', '.nii.gz')) for f in os.listdir(t2w_dir))
+                        )) or
+                        any(f.endswith('.tgz') for f in os.listdir(subj_dir))
+                    )
+                    
+                    if has_valid_structure:
+                        subject_id = os.path.basename(subj_dir).replace("sub-", "")
+                        self.subject_list.addItem(subject_id)
         
         # If no subjects found in sourcedata, check root directory for legacy structure
         if self.subject_list.count() == 0:
-            for item in os.listdir(self.project_dir):
-                if os.path.isdir(os.path.join(self.project_dir, item)) and item.startswith('sub-'):
-                    # Extract subject ID without 'sub-' prefix
-                    subject_id = item[4:]
+            for subj_dir in glob.glob(os.path.join(self.project_dir, "sub-*")):
+                if os.path.isdir(subj_dir):
+                    subject_id = os.path.basename(subj_dir).replace("sub-", "")
                     self.subject_list.addItem(subject_id)
-                    
-        # Update the environment variable for other tools
-        os.environ['PROJECT_DIR'] = self.project_dir
         
-        # Show status message
         if self.subject_list.count() == 0:
-            self.update_output("No subjects found. Please ensure your data follows the BIDS structure:", 'warning')
-            self.update_output(f"  {self.project_dir}/sourcedata/sub-{{subjectID}}/T1w/dicom/", 'info')
-        else:
-            self.update_output(f"Found {self.subject_list.count()} subject(s) in {self.project_dir}", 'success')
+            QtWidgets.QMessageBox.warning(
+                self,
+                "No Subjects Found",
+                "No subjects found in the project directory.\n\n"
+                "Please ensure your subjects follow one of these structures:\n"
+                f"  BIDS: {os.path.join(self.project_dir, 'sourcedata', 'sub-{subjectID}', 'T1w', '{any_subdirectory_or_files}')}\n"
+                f"  Compressed: {os.path.join(self.project_dir, 'sourcedata', 'sub-{subjectID}', '*.tgz')}"
+            )
 
-    def process_next_subject(self, subjects, index):
+    def process_next_subject(self):
         """Process the next subject in the queue."""
-        if index >= len(subjects):
-            # All subjects have been processed
-            self.preprocessing_finished()
-            self.update_output("All subjects have been processed.", 'success')
+        if not self.subject_queue:
+            self.set_processing_state(False)
             return
-            
-        subject_id = subjects[index]
+        
+        subject_id = self.subject_queue.pop(0)
         bids_subject_id = f"sub-{subject_id}"
+        
+        # Create necessary directories
         subject_dir = os.path.join(self.project_dir, bids_subject_id)
+        t1w_dir = os.path.join(subject_dir, "T1w")
+        t2w_dir = os.path.join(subject_dir, "T2w")
+        anat_dir = os.path.join(subject_dir, "anat")
         
-        # Display status
-        self.update_output(f"\n{'='*50}", 'info')
-        self.update_output(f"Processing subject {index+1}/{len(subjects)}: {subject_id}", 'info')
-        self.update_output(f"{'='*50}\n", 'info')
-        
-        # Create required directories
-        os.makedirs(os.path.join(self.project_dir, "sourcedata", bids_subject_id, "T1w", "dicom"), exist_ok=True)
-        if self.t1_t2_rb.isChecked():
-            os.makedirs(os.path.join(self.project_dir, "sourcedata", bids_subject_id, "T2w", "dicom"), exist_ok=True)
-        os.makedirs(os.path.join(self.project_dir, bids_subject_id, "anat"), exist_ok=True)
-        os.makedirs(os.path.join(self.project_dir, "derivatives", "freesurfer", bids_subject_id), exist_ok=True)
-        os.makedirs(os.path.join(self.project_dir, "derivatives", "SimNIBS", bids_subject_id), exist_ok=True)
+        # Create directories if they don't exist
+        for directory in [t1w_dir, t2w_dir, anat_dir]:
+            os.makedirs(directory, exist_ok=True)
         
         # Build the command
-        cmd = [os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "pre-process", "structural.sh")]
-        
-        # Add required arguments
-        cmd.append(subject_dir)
+        script_path = "/development/pre-process/structural.sh"  # Use absolute path in Docker
+        cmd = [script_path, subject_dir]  # Pass subject directory as first argument
         
         # Add optional flags
         if self.run_recon_cb.isChecked():
@@ -511,58 +513,15 @@ class PreProcessTab(QtWidgets.QWidget):
         if self.create_m2m_cb.isChecked():
             cmd.append("--create-m2m")
         
-        # Run the command
-        self.update_output(f"Running command: {' '.join(cmd)}", 'info')
-        try:
-            self.current_process = subprocess.Popen(
-                cmd,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                text=True,
-                bufsize=1,
-                universal_newlines=True,
-                preexec_fn=os.setsid  # Create new process group
-            )
-            
-            # Read output in real-time
-            while True:
-                if not self.processing_running:
-                    break
-                    
-                line = self.current_process.stdout.readline()
-                if not line and self.current_process.poll() is not None:
-                    break
-                    
-                if line:
-                    # Determine message type based on content
-                    msg_type = 'default'
-                    line = line.strip()
-                    if any(error_text in line.lower() for error_text in ['error', 'failed', 'not found']):
-                        msg_type = 'error'
-                    elif any(warning_text in line.lower() for warning_text in ['warning', 'skip']):
-                        msg_type = 'warning'
-                    elif any(success_text in line.lower() for success_text in ['complete', 'success', 'finished']):
-                        msg_type = 'success'
-                    elif any(info_text in line.lower() for info_text in ['running', 'processing', 'creating']):
-                        msg_type = 'info'
-                    
-                    self.update_output(line, msg_type)
-                    QtWidgets.QApplication.processEvents()
-            
-            if self.processing_running:  # Only proceed if we weren't stopped
-                if self.current_process.returncode == 0:
-                    self.update_output(f"Successfully processed subject: {subject_id}", 'success')
-                    # Process next subject
-                    self.process_next_subject(subjects, index + 1)
-                else:
-                    self.update_output(f"Error processing subject: {subject_id}", 'error')
-                    self.set_processing_state(False)
-                    
-        except Exception as e:
-            self.update_output(f"Error running command: {str(e)}", 'error')
-            self.set_processing_state(False)
-        finally:
-            self.current_process = None
+        # Set up environment
+        env = os.environ.copy()
+        env['PROJECT_DIR'] = self.project_dir
+        
+        # Create and start the thread
+        self.processing_thread = PreProcessThread(cmd, env)
+        self.processing_thread.output_signal.connect(self.update_output)
+        self.processing_thread.finished.connect(self.preprocessing_finished)
+        self.processing_thread.start()
 
     def toggle_recon_only(self, checked):
         """Enable/disable recon-only checkbox based on run_recon state."""
@@ -672,45 +631,41 @@ class PreProcessTab(QtWidgets.QWidget):
         # Set processing state
         self.set_processing_state(True)
         
-        # Process each subject
-        for subject_id in selected_subjects:
-            # Build the command for each subject
-            cmd = [os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "pre-process", "structural.sh")]
-            
-            # Add subject directory as first argument
-            subject_dir = os.path.join(self.project_dir, f"sub-{subject_id}")
-            cmd.append(subject_dir)
-            
-            # Add optional flags
-            if self.run_recon_cb.isChecked():
-                cmd.append("recon-all")
-            
-            if self.parallel_cb.isChecked():
-                cmd.append("--parallel")
-            
-            if self.quiet_cb.isChecked():
-                cmd.append("--quiet")
-            
-            if self.convert_dicom_cb.isChecked():
-                cmd.append("--convert-dicom")
-                
-            if self.create_m2m_cb.isChecked():
-                cmd.append("--create-m2m")
-            
-            # Set up environment
-            env = os.environ.copy()
-            env['PROJECT_DIR'] = self.project_dir
-            
-            # Create and start the thread
-            self.processing_thread = PreProcessThread(cmd, env)
-            self.processing_thread.output_signal.connect(self.update_output)
-            self.processing_thread.finished.connect(self.preprocessing_finished)
-            self.processing_thread.start()
-            
-            # Wait for the current subject to finish before processing the next one
-            while self.processing_running and self.processing_thread.isRunning():
-                QtWidgets.QApplication.processEvents()
-                QtCore.QThread.msleep(100)  # Small delay to prevent UI freezing
+        # Prepare environment variables
+        env = os.environ.copy()
+        env['DIRECT_MODE'] = 'true'
+        env['PROJECT_DIR'] = self.project_dir
+        env['SUBJECTS'] = ','.join(selected_subjects)
+        env['CONVERT_DICOM'] = str(self.convert_dicom_cb.isChecked()).lower()
+        env['DICOM_TYPE'] = 'T1w_T2w' if self.t1_t2_rb.isChecked() else 'T1w_only'
+        env['RUN_RECON'] = str(self.run_recon_cb.isChecked()).lower()
+        env['PARALLEL_RECON'] = str(self.parallel_cb.isChecked()).lower()
+        env['CREATE_M2M'] = str(self.create_m2m_cb.isChecked()).lower()
+        env['QUIET'] = str(self.quiet_cb.isChecked()).lower()
+        
+        # Build command using absolute Docker paths
+        cmd = [
+            'bash',
+            '/development/CLI/pre-process.sh',
+            '--run-direct'
+        ]
+        
+        # Debug output
+        self.update_output(f"Running in direct execution mode from GUI")
+        self.update_output(f"Running pre-processing with:")
+        self.update_output(f"- Subjects: {env['SUBJECTS']}")
+        self.update_output(f"- Convert DICOM: {env['CONVERT_DICOM']}")
+        self.update_output(f"- DICOM Type: {env['DICOM_TYPE']}")
+        self.update_output(f"- Run recon-all: {env['RUN_RECON']}")
+        self.update_output(f"- Parallel processing: {env['PARALLEL_RECON']}")
+        self.update_output(f"- Create m2m folder: {env['CREATE_M2M']}")
+        self.update_output(f"- Quiet mode: {env['QUIET']}")
+        
+        # Create and start the thread
+        self.processing_thread = PreProcessThread(cmd, env)
+        self.processing_thread.output_signal.connect(self.update_output)
+        self.processing_thread.finished.connect(self.preprocessing_finished)
+        self.processing_thread.start()
 
     def preprocessing_finished(self):
         """Handle the completion of the preprocessing process."""
