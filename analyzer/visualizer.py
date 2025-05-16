@@ -58,6 +58,7 @@ import simnibs
 from pathlib import Path
 import csv
 from datetime import datetime
+from utils.logging_utils import get_logger
 
 
 class BaseVisualizer:
@@ -80,9 +81,17 @@ class BaseVisualizer:
         """
         self.output_dir = output_dir
         
+        # Get logger instance
+        self.logger = get_logger("analyzer")
+        if not self.logger:
+            raise RuntimeError("Logger not initialized. Please call setup_logging before creating Visualizer.")
+        
         # Create output directory if it doesn't exist
         if not os.path.exists(output_dir):
             os.makedirs(output_dir)
+            self.logger.debug(f"Created output directory: {output_dir}")
+        
+        self.logger.debug(f"Initialized visualizer with output directory: {output_dir}")
 
     def save_results_to_csv(self, results, analysis_type, region_name=None, data_type='node'):
         """
@@ -97,6 +106,8 @@ class BaseVisualizer:
         Returns:
             str: Path to the created CSV file
         """
+        self.logger.info(f"Saving {analysis_type} analysis results to CSV")
+        
         # Generate timestamp for unique filename
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         
@@ -108,44 +119,52 @@ class BaseVisualizer:
         
         # Save directly to the output directory
         output_path = os.path.join(self.output_dir, filename)
+        self.logger.debug(f"CSV output path: {output_path}")
         
-        # Write results to CSV
-        with open(output_path, 'w', newline='') as csvfile:
-            writer = csv.writer(csvfile)
-            
-            # Write header and data based on analysis type
-            if analysis_type == 'spherical':
-                writer.writerow(['Metric', 'Value'])
-                for key, value in results.items():
-                    if key not in ['roi_mask', 'elements_in_roi', 'voxels_in_roi', 'nodes_in_roi']:
-                        writer.writerow([key, value])
+        try:
+            # Write results to CSV
+            with open(output_path, 'w', newline='') as csvfile:
+                writer = csv.writer(csvfile)
                 
-                # Write count information
-                if 'elements_in_roi' in results:
-                    writer.writerow(['elements_in_roi', results['elements_in_roi']])
-                if 'voxels_in_roi' in results:
-                    writer.writerow(['voxels_in_roi', results['voxels_in_roi']])
-                if 'nodes_in_roi' in results:
-                    writer.writerow(['nodes_in_roi', results['nodes_in_roi']])
-            
-            elif analysis_type == 'cortical':
-                writer.writerow(['Metric', 'Value'])
-                for key, value in results.items():
-                    if key not in ['roi_mask', 'elements_in_roi', 'voxels_in_roi', 'nodes_in_roi', 'visualization_file']:
-                        writer.writerow([key, value])
+                # Write header and data based on analysis type
+                if analysis_type == 'spherical':
+                    self.logger.debug("Writing spherical analysis results")
+                    writer.writerow(['Metric', 'Value'])
+                    for key, value in results.items():
+                        if key not in ['roi_mask', 'elements_in_roi', 'voxels_in_roi', 'nodes_in_roi']:
+                            writer.writerow([key, value])
+                    
+                    # Write count information
+                    if 'elements_in_roi' in results:
+                        writer.writerow(['elements_in_roi', results['elements_in_roi']])
+                    if 'voxels_in_roi' in results:
+                        writer.writerow(['voxels_in_roi', results['voxels_in_roi']])
+                    if 'nodes_in_roi' in results:
+                        writer.writerow(['nodes_in_roi', results['nodes_in_roi']])
                 
-                # Write count information
-                if 'nodes_in_roi' in results:
-                    writer.writerow(['nodes_in_roi', results['nodes_in_roi']])
-                if 'voxels_in_roi' in results:
-                    writer.writerow(['voxels_in_roi', results['voxels_in_roi']])
-                
-                # Write visualization file path if available
-                if 'visualization_file' in results and results['visualization_file']:
-                    writer.writerow(['visualization_file', results['visualization_file']])
+                elif analysis_type == 'cortical':
+                    self.logger.debug("Writing cortical analysis results")
+                    writer.writerow(['Metric', 'Value'])
+                    for key, value in results.items():
+                        if key not in ['roi_mask', 'elements_in_roi', 'voxels_in_roi', 'nodes_in_roi', 'visualization_file']:
+                            writer.writerow([key, value])
+                    
+                    # Write count information
+                    if 'nodes_in_roi' in results:
+                        writer.writerow(['nodes_in_roi', results['nodes_in_roi']])
+                    if 'voxels_in_roi' in results:
+                        writer.writerow(['voxels_in_roi', results['voxels_in_roi']])
+                    
+                    # Write visualization file path if available
+                    if 'visualization_file' in results and results['visualization_file']:
+                        writer.writerow(['visualization_file', results['visualization_file']])
             
-        print(f"Saved analysis results to: {output_path}")
-        return output_path
+            self.logger.info(f"Successfully saved analysis results to: {output_path}")
+            return output_path
+            
+        except Exception as e:
+            self.logger.error(f"Failed to save results to CSV: {str(e)}")
+            raise
 
     def save_whole_head_results_to_csv(self, results, atlas_type, data_type='node'):
         """
@@ -159,36 +178,45 @@ class BaseVisualizer:
         Returns:
             str: Path to the created CSV file
         """
+        self.logger.info(f"Saving whole-head analysis results for {atlas_type} atlas")
+        
         # Create CSV directory if it doesn't exist
         csv_dir = os.path.join(self.output_dir, 'csv_results')
         os.makedirs(csv_dir, exist_ok=True)
+        self.logger.debug(f"Created CSV directory: {csv_dir}")
         
         # Generate timestamp for unique filename
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         filename = f"whole_head_{atlas_type}_{timestamp}.csv"
         output_path = os.path.join(csv_dir, filename)
         
-        # Write results to CSV
-        with open(output_path, 'w', newline='') as csvfile:
-            writer = csv.writer(csvfile)
+        try:
+            # Write results to CSV
+            with open(output_path, 'w', newline='') as csvfile:
+                writer = csv.writer(csvfile)
+                
+                # Write header row
+                header = ['Region', 'Mean Value', 'Max Value', 'Min Value', f'{data_type.capitalize()}s in ROI']
+                writer.writerow(header)
+                
+                # Write data for each region
+                for region_name, region_data in results.items():
+                    row = [
+                        region_name,
+                        region_data.get('mean_value', 'N/A'),
+                        region_data.get('max_value', 'N/A'),
+                        region_data.get('min_value', 'N/A'),
+                        region_data.get(f'{data_type}s_in_roi', 0)
+                    ]
+                    writer.writerow(row)
+                    self.logger.debug(f"Wrote results for region: {region_name}")
             
-            # Write header row
-            header = ['Region', 'Mean Value', 'Max Value', 'Min Value', f'{data_type.capitalize()}s in ROI']
-            writer.writerow(header)
+            self.logger.info(f"Successfully saved whole-head analysis results to: {output_path}")
+            return output_path
             
-            # Write data for each region
-            for region_name, region_data in results.items():
-                row = [
-                    region_name,
-                    region_data.get('mean_value', 'N/A'),
-                    region_data.get('max_value', 'N/A'),
-                    region_data.get('min_value', 'N/A'),
-                    region_data.get(f'{data_type}s_in_roi', 0)
-                ]
-                writer.writerow(row)
-        
-        print(f"Saved whole-head analysis results to: {output_path}")
-        return output_path
+        except Exception as e:
+            self.logger.error(f"Failed to save whole-head results to CSV: {str(e)}")
+            raise
 
 
 class Visualizer(BaseVisualizer):

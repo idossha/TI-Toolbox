@@ -70,8 +70,15 @@ import os
 import sys
 import argparse
 from pathlib import Path
+
+# Add parent directory to Python path to allow importing from utils
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+PARENT_DIR = os.path.dirname(SCRIPT_DIR)
+sys.path.append(PARENT_DIR)
+
 from mesh_analyzer import MeshAnalyzer
 from voxel_analyzer import VoxelAnalyzer
+from utils.logging_utils import setup_logging, log_analysis_params, log_results
 
 def validate_file_extension(file_path, valid_extensions):
     """Validate file extension against a list of valid extensions."""
@@ -86,23 +93,17 @@ def validate_file_extension(file_path, valid_extensions):
         raise ValueError(f"Invalid file extension {ext}. Must be one of: {', '.join(valid_extensions)}")
 
 def validate_coordinates(coords):
-    """Validate that coordinates are three numeric values."""
-    if len(coords) != 3:
-        raise ValueError("Coordinates must be exactly three values (x, y, z)")
+    """Validate and convert coordinates to float."""
     try:
-        return [float(c) for c in coords]
+        return [float(x) for x in coords]
     except ValueError:
         raise ValueError("Coordinates must be numeric values")
 
 def validate_radius(radius):
-    """Validate that radius is a positive number."""
-    try:
-        radius_float = float(radius)
-        if radius_float <= 0:
-            raise ValueError
-        return radius_float
-    except ValueError:
-        raise ValueError("Radius must be a positive number")
+    """Validate radius value."""
+    if radius <= 0:
+        raise ValueError("Radius must be greater than 0")
+    return radius
 
 def setup_parser():
     """Set up command line argument parser."""
@@ -139,6 +140,8 @@ def setup_parser():
                       help="Directory for output files (default: analysis_output)")
     parser.add_argument("--visualize", action="store_true",
                       help="Generate visualization outputs")
+    parser.add_argument("--debug", action="store_true",
+                      help="Enable debug logging")
     
     return parser
 
@@ -194,99 +197,99 @@ def main():
     args = parser.parse_args()
     
     try:
-        # Validate arguments
-        validate_args(args)
-        
         # Create output directory
         os.makedirs(args.output_dir, exist_ok=True)
         
-        # Initialize appropriate analyzer
-        if args.space == 'mesh':
-            analyzer = MeshAnalyzer(
-                field_mesh_path=args.field_path,
-                field_name=args.field_name,
-                subject_dir=args.m2m_subject_path,
-                output_dir=args.output_dir
-            )
-        else:  # voxel
-            analyzer = VoxelAnalyzer(
-                field_nifti=args.field_path,
-                subject_dir=args.m2m_subject_path,
-                output_dir=args.output_dir
-            )
+        # Set up logging
+        logger = setup_logging(
+            output_dir=args.output_dir,
+            tool_name="analyzer",
+            debug=args.debug
+        )
         
-        # Perform analysis based on type
-        if args.analysis_type == 'spherical':
+        # Log start of analysis and parameters
+        logger.info("Starting analysis pipeline")
+        log_analysis_params(logger, args)
+        
+        try:
+            # Validate arguments
+            validate_args(args)
+            
+            # Initialize appropriate analyzer
             if args.space == 'mesh':
-                # Mesh analyzer doesn't have visualization for sphere analysis
-                results = analyzer.analyze_sphere(
-                    center_coordinates=args.coordinates,
-                    radius=args.radius
+                logger.info("Initializing mesh analyzer")
+                analyzer = MeshAnalyzer(
+                    field_mesh_path=args.field_path,
+                    field_name=args.field_name,
+                    subject_dir=args.m2m_subject_path,
+                    output_dir=args.output_dir
                 )
             else:  # voxel
-                # Voxel analyzer supports visualization for sphere analysis
-                results = analyzer.analyze_sphere(
-                    center_coordinates=args.coordinates,
-                    radius=args.radius,
-                    visualize=args.visualize
+                logger.info("Initializing voxel analyzer")
+                analyzer = VoxelAnalyzer(
+                    field_nifti=args.field_path,
+                    subject_dir=args.m2m_subject_path,
+                    output_dir=args.output_dir
                 )
-        else:  # cortical
-            if args.whole_head:
+            
+            # Perform analysis based on type
+            if args.analysis_type == 'spherical':
+                logger.info(f"Starting spherical analysis at coordinates {args.coordinates} with radius {args.radius}mm")
                 if args.space == 'mesh':
-                    results = analyzer.analyze_whole_head(
-                        atlas_type=args.atlas_name,
-                        visualize=args.visualize
+                    # Mesh analyzer doesn't have visualization for sphere analysis
+                    results = analyzer.analyze_sphere(
+                        center_coordinates=args.coordinates,
+                        radius=args.radius
                     )
                 else:  # voxel
-                    results = analyzer.analyze_whole_head(
-                        atlas_file=args.atlas_path,
+                    # Voxel analyzer supports visualization for sphere analysis
+                    results = analyzer.analyze_sphere(
+                        center_coordinates=args.coordinates,
+                        radius=args.radius,
                         visualize=args.visualize
                     )
-            else:  # specific region
-                if args.space == 'mesh':
-                    results = analyzer.analyze_cortex(
-                        atlas_type=args.atlas_name,
-                        target_region=args.region,
-                        visualize=args.visualize
-                    )
-                else:  # voxel
-                    results = analyzer.analyze_cortex(
-                        atlas_file=args.atlas_path,
-                        target_region=args.region,
-                        visualize=args.visualize
-                    )
-        
-        # Print results summary - standardized to only show mean, max, min values
-        print("\nAnalysis Results Summary:")
-        print("-" * 50)
-        
-        # Handle both single region results and whole-head multi-region results
-        if isinstance(results, dict) and any(k in results for k in ['mean_value', 'max_value', 'min_value']):
-            # Single region results
-            print_stat_if_exists(results, 'mean_value', 'Mean Value')
-            print_stat_if_exists(results, 'max_value', 'Max Value')
-            print_stat_if_exists(results, 'min_value', 'Min Value')
-        elif isinstance(results, dict):
-            # Whole head results with multiple regions
-            print("Multiple region analysis results:")
-            for region_name, region_data in results.items():
-                if isinstance(region_data, dict) and region_data.get('mean_value') is not None:
-                    print(f"\n{region_name}:")
-                    print_stat_if_exists(region_data, 'mean_value', 'Mean Value')
-                    print_stat_if_exists(region_data, 'max_value', 'Max Value')
-                    print_stat_if_exists(region_data, 'min_value', 'Min Value')
-    
+            else:  # cortical
+                if args.whole_head:
+                    logger.info(f"Starting whole head analysis using {args.atlas_name if args.space == 'mesh' else args.atlas_path}")
+                    if args.space == 'mesh':
+                        results = analyzer.analyze_whole_head(
+                            atlas_type=args.atlas_name,
+                            visualize=args.visualize
+                        )
+                    else:  # voxel
+                        results = analyzer.analyze_whole_head(
+                            atlas_file=args.atlas_path,
+                            visualize=args.visualize
+                        )
+                else:  # specific region
+                    logger.info(f"Starting cortical analysis for region '{args.region}'")
+                    if args.space == 'mesh':
+                        results = analyzer.analyze_cortex(
+                            atlas_type=args.atlas_name,
+                            target_region=args.region,
+                            visualize=args.visualize
+                        )
+                    else:  # voxel
+                        results = analyzer.analyze_cortex(
+                            atlas_file=args.atlas_path,
+                            target_region=args.region,
+                            visualize=args.visualize
+                        )
+            
+            # Log results
+            if results:
+                log_results(logger, results, "analyzer")
+                logger.info("Analysis completed successfully")
+            else:
+                logger.warning("Analysis completed but no results were generated")
+            
+        except Exception as e:
+            logger.error(f"Analysis failed: {str(e)}")
+            raise
+            
     except Exception as e:
         print(f"Error: {str(e)}", file=sys.stderr)
         sys.exit(1)
-
-def print_stat_if_exists(results_dict, key, label):
-    """Helper function to print a statistic if it exists in the results."""
-    if key in results_dict and results_dict[key] is not None:
-        if isinstance(results_dict[key], (int, float)):
-            print(f"{label}: {results_dict[key]:.6f}")
-        else:
-            print(f"{label}: {results_dict[key]}")
 
 if __name__ == "__main__":
     main() 
