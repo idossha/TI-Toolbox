@@ -243,16 +243,23 @@ initialize_project_configs() {
       return 1
     fi
     
-    # Copy each config file individually and verify
+    # Copy each config file individually and verify, but only if it doesn't exist
     for config_file in "$new_project_configs_dir"/*.json; do
       if [ -f "$config_file" ]; then
         filename=$(basename "$config_file")
-        cp "$config_file" "$project_config_dir/$filename"
-        if [ $? -eq 0 ]; then
-          echo "Copied $filename to $project_config_dir"
+        target_file="$project_config_dir/$filename"
+        
+        # Only copy if the file doesn't exist
+        if [ ! -f "$target_file" ]; then
+          cp "$config_file" "$target_file"
+          if [ $? -eq 0 ]; then
+            echo "Copied $filename to $project_config_dir"
+          else
+            echo "Error: Failed to copy $filename"
+            return 1
+          fi
         else
-          echo "Error: Failed to copy $filename"
-          return 1
+          echo "Config file $filename already exists, skipping..."
         fi
       fi
     done
