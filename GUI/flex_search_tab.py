@@ -504,25 +504,45 @@ class FlexSearchTab(QtWidgets.QWidget):
         self.subjects = []
         self.subject_combo.clear()
         self.output_text.clear()
-        # Base directory where subjects are located
-        project_dir = os.environ.get('PROJECT_DIR', '/mnt/BIDS_test')
-        subjects = []
+        
+        # Get project directory name from environment variable
+        project_dir_name = os.environ.get('PROJECT_DIR_NAME')
+        if not project_dir_name:
+            self.output_text.append("Error: PROJECT_DIR_NAME environment variable is not set")
+            self.output_text.append("Please set PROJECT_DIR_NAME to your project directory name")
+            return
+            
+        # Construct project directory path
+        project_dir = f"/mnt/{project_dir_name}"
+        
+        # Set PROJECT_DIR for other components that might need it
+        os.environ['PROJECT_DIR'] = project_dir
+        
+        self.output_text.append(f"Looking for subjects in: {project_dir}")
+        
         # Look in derivatives/SimNIBS directory for subjects
         simnibs_dir = os.path.join(project_dir, 'derivatives', 'SimNIBS')
-        if os.path.isdir(simnibs_dir):
-            for subject_dir in glob.glob(os.path.join(simnibs_dir, 'sub-*')):
-                if os.path.isdir(subject_dir):
-                    subject_id = os.path.basename(subject_dir).replace('sub-', '')
-                    self.subjects.append(subject_id)
-                    self.subject_combo.addItem(subject_id)
-                    subjects.append(subject_id)
+        if not os.path.isdir(simnibs_dir):
+            self.output_text.append(f"Error: SimNIBS directory not found at: {simnibs_dir}")
+            return
+            
+        # Look for subject directories with m2m_ prefix (matching shell script behavior)
+        for subject_path in glob.glob(os.path.join(simnibs_dir, 'sub-*', 'm2m_*')):
+            if os.path.isdir(subject_path):
+                subject_id = os.path.basename(subject_path).replace('m2m_', '')
+                self.subjects.append(subject_id)
+                self.subject_combo.addItem(subject_id)
+                
         # Console output: subjects found
-        self.output_text.append("=== Subjects Found ===")
-        if not subjects:
+        self.output_text.append("\n=== Subjects Found ===")
+        if not self.subjects:
             self.output_text.append("No subjects found.")
-        for subject_id in subjects:
-            self.output_text.append(f"{subject_id}")
+        else:
+            for subject_id in self.subjects:
+                self.output_text.append(f"- {subject_id}")
+            
         self.output_text.append("")
+        
         # Trigger EEG net refresh for the first subject
         if self.subjects:
             self.find_available_eeg_nets()
