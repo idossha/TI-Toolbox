@@ -204,6 +204,18 @@ run_docker_compose() {
   xhost -local:root
 }
 
+# Function to get version from version.py
+get_version() {
+    local version_file="$SCRIPT_DIR/../../version.py"
+    if [ -f "$version_file" ]; then
+        # Extract version using grep and sed
+        grep "__version__" "$version_file" | sed 's/.*"\(.*\)".*/\1/'
+    else
+        echo "Error: version.py not found at $version_file"
+        exit 1
+    fi
+}
+
 # Function to check if project is new and initialize config files
 initialize_project_configs() {
   local project_ti_csc_dir="$LOCAL_PROJECT_DIR/ti-csc"
@@ -248,6 +260,31 @@ initialize_project_configs() {
     # Set proper permissions
     chmod -R 755 "$project_config_dir"
     echo "Default config files copied to $project_config_dir"
+
+    # Create .ti-csc-info directory and initialize project status
+    local info_dir="$LOCAL_PROJECT_DIR/.ti-csc-info"
+    mkdir -p "$info_dir"
+    
+    # Create initial project status file with empty structure
+    cat > "$info_dir/project_status.json" << EOF
+{
+  "project_created": "",
+  "last_updated": "",
+  "config_created": false,
+  "user_preferences": {
+    "show_welcome": true
+  },
+  "project_metadata": {
+    "name": "",
+    "path": "",
+    "version": ""
+  }
+}
+EOF
+
+    # Set proper permissions for the info directory
+    chmod -R 755 "$info_dir"
+    echo "Project status initialized in $info_dir"
   fi
 
   # Return the new project status
@@ -263,12 +300,14 @@ write_project_status() {
   # Check if project is new and initialize configs
   IS_NEW_PROJECT=$(initialize_project_configs)
 
-  # Create JSON structure with both flags
-  echo "{
-    \"config_created\": $IS_NEW_PROJECT,
-    \"gui_explain\": true,
-    \"last_updated\": \"$(date)\"
-  }" > "$STATUS_FILE"
+  # If it's not a new project, just update the last_updated timestamp
+  if [ "$IS_NEW_PROJECT" = false ]; then
+    if [ -f "$STATUS_FILE" ]; then
+      # Update last_updated timestamp
+      sed -i.tmp "s/\"last_updated\": \".*\"/\"last_updated\": \"$(date -u +"%Y-%m-%dT%H:%M:%S.%6N")\"/" "$STATUS_FILE"
+      rm -f "${STATUS_FILE}.tmp"
+    fi
+  fi
 }
 
 # Function to write system info to a hidden folder in the user's project directory
