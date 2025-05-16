@@ -16,7 +16,6 @@ services:
   simnibs:
     platform: linux/amd64
     image: idossha/simnibs:4.5.0
-    # image: idossha/ti-csc_simnibs:v1.3.3
     container_name: simnibs_container
     volumes:
       - ti_csc_fsl_data:/usr/local/fsl/
@@ -25,7 +24,6 @@ services:
       - ${LOCAL_PROJECT_DIR}:/mnt/${PROJECT_DIR_NAME}
       - ${DEV_CODEBASE_DIR}:/development
     environment:
-      # Standard environment variables
       - USER=root
       - DISPLAY
       - LIBGL_ALWAYS_SOFTWARE=1
@@ -40,7 +38,7 @@ services:
       - PROJECT_DIR_NAME=${PROJECT_DIR_NAME}
       - DEV_CODEBASE_DIR=${DEV_CODEBASE_DIR}
       - DEV_CODEBASE_NAME=${DEV_CODEBASE_NAME}
-      # - KMP_AFFINITY=disabled
+      - KMP_AFFINITY=disabled
     networks:
       - ti_network
     depends_on:

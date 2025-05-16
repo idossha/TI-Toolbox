@@ -73,6 +73,8 @@ RUN apt-get update && apt-get install -y \
     imagemagick \
     parallel \
     dcm2niix \
+    gcc-10 \ 
+    g++-10 \ 
     && apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 # Set up Python environment and install required Python packages
@@ -98,10 +100,10 @@ RUN wget https://ssd.mathworks.com/supportfiles/downloads/R2024a/Release/1/deplo
     && /tmp/matlab_runtime_installer/install -destinationFolder ${MATLAB_RUNTIME_INSTALL_DIR} -agreeToLicense yes -mode silent \
     && rm -rf /tmp/MATLAB_Runtime_R2024a_Update_1_glnxa64.zip /tmp/matlab_runtime_installer
 
-# Install Neovim v0.9.4 from source
+# Install Neovim v0.11.0 from source
 RUN git clone https://github.com/neovim/neovim.git /tmp/neovim \
     && cd /tmp/neovim \
-    && git checkout v0.9.4 \
+    && git checkout v0.11.0 \
     && make CMAKE_BUILD_TYPE=Release \
     && make install \
     && rm -rf /tmp/neovim
