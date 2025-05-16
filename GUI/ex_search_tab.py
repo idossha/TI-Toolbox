@@ -13,6 +13,7 @@ import subprocess
 import csv
 from PyQt5 import QtWidgets, QtCore, QtGui
 from confirmation_dialog import ConfirmationDialog
+from utils import confirm_overwrite
 
 class ExSearchThread(QtCore.QThread):
     """Thread to run ex-search optimization in background to prevent GUI freezing."""
@@ -1080,8 +1081,12 @@ class AddROIDialog(QtWidgets.QDialog):
             
             os.makedirs(roi_dir, exist_ok=True)
             
-            # Write coordinates to ROI file as three comma-separated columns
+            # Check if ROI file exists and confirm overwrite
             roi_file = os.path.join(roi_dir, roi_name)
+            if not confirm_overwrite(self, roi_file, "ROI file"):
+                return
+            
+            # Write coordinates to ROI file as three comma-separated columns
             with open(roi_file, 'w', newline='') as f:
                 writer = csv.writer(f)
                 writer.writerow([self.x_coord.value(), self.y_coord.value(), self.z_coord.value()])

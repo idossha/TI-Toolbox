@@ -14,6 +14,7 @@ import subprocess
 import glob
 from PyQt5 import QtWidgets, QtCore, QtGui
 from confirmation_dialog import ConfirmationDialog
+from utils import confirm_overwrite
 
 class PreProcessThread(QtCore.QThread):
     """Thread to run pre-processing in background to prevent GUI freezing."""
@@ -611,6 +612,31 @@ class PreProcessTab(QtWidgets.QWidget):
             )
             return
 
+        # Check for existing output directories and confirm overwrite
+        for subject_id in selected_subjects:
+            bids_subject_id = f"sub-{subject_id}"
+            
+            # Check NIfTI output directory if DICOM conversion is enabled
+            if self.convert_dicom_cb.isChecked():
+                nifti_dir = os.path.join(self.project_dir, bids_subject_id, "anat")
+                if os.path.exists(nifti_dir):
+                    if not confirm_overwrite(self, nifti_dir, "NIfTI output directory"):
+                        return
+            
+            # Check FreeSurfer output directory if recon-all is enabled
+            if self.run_recon_cb.isChecked():
+                freesurfer_dir = os.path.join(self.project_dir, "derivatives", "freesurfer", bids_subject_id)
+                if os.path.exists(freesurfer_dir):
+                    if not confirm_overwrite(self, freesurfer_dir, "FreeSurfer output directory"):
+                        return
+            
+            # Check m2m output directory if m2m creation is enabled
+            if self.create_m2m_cb.isChecked():
+                m2m_dir = os.path.join(self.project_dir, "derivatives", "SimNIBS", bids_subject_id, f"m2m_{subject_id}")
+                if os.path.exists(m2m_dir):
+                    if not confirm_overwrite(self, m2m_dir, "m2m output directory"):
+                        return
+
         # Show confirmation dialog
         details = (f"This will process {len(selected_subjects)} subject(s) with the following options:\n\n" +
                   f"• Convert DICOM: {'Yes' if self.convert_dicom_cb.isChecked() else 'No'}\n" +
@@ -675,14 +701,30 @@ class PreProcessTab(QtWidgets.QWidget):
         # --- Atlas Segmentation: Automatically run after m2m creation ---
         if self.create_m2m_cb.isChecked():
             selected_subjects = [item.text() for item in self.subject_list.selectedItems()]
+            
+            # Check for existing segmentation directories and confirm overwrite
+            for subject_id in selected_subjects:
+                bids_subject_id = f"sub-{subject_id}"
+                m2m_folder = os.path.join(self.project_dir, "derivatives", "SimNIBS", bids_subject_id, f"m2m_{subject_id}")
+                if not os.path.isdir(m2m_folder):
+                    continue
+                
+                output_dir = os.path.join(m2m_folder, 'segmentation')
+                if os.path.exists(output_dir):
+                    if not confirm_overwrite(self, output_dir, "segmentation output directory"):
+                        return
+            
+            # Run atlas segmentation for each subject
             for subject_id in selected_subjects:
                 bids_subject_id = f"sub-{subject_id}"
                 m2m_folder = os.path.join(self.project_dir, "derivatives", "SimNIBS", bids_subject_id, f"m2m_{subject_id}")
                 if not os.path.isdir(m2m_folder):
                     self.update_output(f"[Atlas] {subject_id}: m2m folder not found, skipping atlas segmentation.", 'warning')
                     continue
+                
                 output_dir = os.path.join(m2m_folder, 'segmentation')
                 os.makedirs(output_dir, exist_ok=True)
+                
                 for atlas in ["a2009s", "DK40", "HCP_MMP1"]:
                     cmd = ["subject_atlas", "-m", m2m_folder, "-a", atlas, "-o", output_dir]
                     self.update_output(f"[Atlas] {subject_id}: Running {' '.join(cmd)}", 'info')
@@ -757,18 +799,35 @@ class PreProcessTab(QtWidgets.QWidget):
         if not selected_subjects:
             QtWidgets.QMessageBox.warning(self, "Error", "Please select at least one subject.")
             return
+        
+        # Check for existing segmentation directories and confirm overwrite
+        for subject_id in selected_subjects:
+            bids_subject_id = f"sub-{subject_id}"
+            m2m_folder = os.path.join(self.project_dir, "derivatives", "SimNIBS", bids_subject_id, f"m2m_{subject_id}")
+            if not os.path.isdir(m2m_folder):
+                continue
+            
+            output_dir = os.path.join(m2m_folder, 'segmentation')
+            if os.path.exists(output_dir):
+                if not confirm_overwrite(self, output_dir, "segmentation output directory"):
+                    return
+        
         self.output_text.append("\n=== Starting atlas segmentation. This may take a few moments... ===")
         QtWidgets.QApplication.processEvents()
         self.output_text.append("Running atlas segmentation for all selected subjects and all atlases...")
         QtWidgets.QApplication.processEvents()
+        
         for subject_id in selected_subjects:
-            m2m_folder = os.path.join(self.project_dir, subject_id, 'SimNIBS', f'm2m_{subject_id}')
+            bids_subject_id = f"sub-{subject_id}"
+            m2m_folder = os.path.join(self.project_dir, "derivatives", "SimNIBS", bids_subject_id, f"m2m_{subject_id}")
             if not os.path.isdir(m2m_folder):
                 self.output_text.append(f"[Atlas] {subject_id}: m2m folder not found, skipping.")
                 QtWidgets.QApplication.processEvents()
                 continue
+            
             output_dir = os.path.join(m2m_folder, 'segmentation')
             os.makedirs(output_dir, exist_ok=True)
+            
             for atlas in ["a2009s", "DK40", "HCP_MMP1"]:
                 cmd = ["subject_atlas", "-m", m2m_folder, "-a", atlas, "-o", output_dir]
                 self.output_text.append(f"[Atlas] {subject_id}: Running {' '.join(cmd)}")

@@ -12,6 +12,7 @@ import re
 import subprocess
 from PyQt5 import QtWidgets, QtCore, QtGui
 from confirmation_dialog import ConfirmationDialog
+from utils import confirm_overwrite
 
 class SimulationThread(QtCore.QThread):
     """Thread to run simulation in background to prevent GUI freezing."""
@@ -757,40 +758,6 @@ class SimulatorTab(QtWidgets.QWidget):
     
     def run_simulation(self):
         """Run the simulation with the selected parameters."""
-        if self.simulation_running:
-            self.update_output("Simulation already running. Please wait or stop the current run.")
-            return
-            
-        # Validate inputs
-        if not self.validate_inputs():
-            return
-            
-        # Show confirmation dialog
-        details = (f"This will run a simulation with the following parameters:\n\n" +
-                  f"• Subjects: {', '.join(item.text() for item in self.subject_list.selectedItems())}\n" +
-                  f"• EEG Net: {self.eeg_net_combo.currentText()}\n" +
-                  f"• Current: {self.current_input.text()} mA\n" +
-                  f"• Electrode Shape: {'Rectangle' if self.electrode_shape_rect.isChecked() else 'Ellipse'}\n" +
-                  f"• Electrode Dimensions: {self.dimensions_input.text()}\n" +
-                  f"• Electrode Thickness: {self.thickness_input.text()} mm\n" +
-                  f"• Simulation Mode: {'Unipolar' if self.sim_mode_unipolar.isChecked() else 'Multipolar'}\n" +
-                  f"• Montages: {', '.join(item.text() for item in self.montage_list.selectedItems())}")
-        
-        if not ConfirmationDialog.confirm(
-            self,
-            title="Confirm Simulation",
-            message="Are you sure you want to start the simulation?",
-            details=details
-        ):
-            return
-            
-        # Set processing state
-        self.simulation_running = True
-        self.run_btn.setEnabled(False)
-        self.stop_btn.setEnabled(True)
-        
-        # Disable all other controls
-        self.disable_controls()
         
         try:
             # Get selected subjects
@@ -804,6 +771,20 @@ class SimulatorTab(QtWidgets.QWidget):
             if not selected_montages:
                 QtWidgets.QMessageBox.warning(self, "Warning", "Please select at least one montage.")
                 return
+            
+            # Check if simulation directories already exist
+            project_dir = f"/mnt/{os.environ.get('PROJECT_DIR_NAME', 'BIDS_new')}"
+            for subject_id in selected_subjects:
+                bids_subject_id = f"sub-{subject_id}"
+                for montage_name in selected_montages:
+                    # Get montage name without path if it's a file path
+                    montage_base = os.path.splitext(os.path.basename(montage_name))[0]
+                    sim_dir = os.path.join(project_dir, 'derivatives', 'SimNIBS', 
+                                         bids_subject_id, 'Simulations', montage_base)
+                    if os.path.exists(sim_dir):
+                        if not confirm_overwrite(self, sim_dir, "simulation output directory"):
+                            self.update_output("Simulation cancelled: Output directory already exists.")
+                            return
             
             # Get simulation parameters
             conductivity = self.sim_type_combo.currentData()  # Get conductivity from combo box
@@ -842,6 +823,27 @@ class SimulatorTab(QtWidgets.QWidget):
                 QtWidgets.QMessageBox.warning(self, "Warning", "Please enter valid numeric values for dimensions and thickness.")
                 return
             
+            # Show confirmation dialog with details
+            details = (f"This will run simulations for:\n\n"
+                      f"• {len(selected_subjects)} subject(s)\n"
+                      f"• {len(selected_montages)} montage(s)\n\n"
+                      f"Parameters:\n"
+                      f"• Simulation type: {conductivity}\n"
+                      f"• Mode: {'Unipolar' if sim_mode == 'U' else 'Multipolar'}\n"
+                      f"• EEG Net: {eeg_net}\n"
+                      f"• Current: {current_ma} mA\n"
+                      f"• Electrode shape: {electrode_shape}\n"
+                      f"• Dimensions: {dimensions} mm\n"
+                      f"• Thickness: {thickness} mm")
+            
+            if not ConfirmationDialog.confirm(
+                self,
+                title="Confirm Simulation",
+                message="Are you sure you want to start the simulation?",
+                details=details
+            ):
+                return
+            
             # Prepare environment variables
             env = os.environ.copy()
             env['DIRECT_MODE'] = 'true'
@@ -872,21 +874,30 @@ class SimulatorTab(QtWidgets.QWidget):
             self.update_output(f"- Simulation type: {env['CONDUCTIVITY']}")
             self.update_output(f"- Mode: {'Unipolar' if sim_mode == 'U' else 'Multipolar'}")
             self.update_output(f"- EEG Net: {env['EEG_NET']}")
-            self.update_output(f"- Montages: {env['SELECTED_MONTAGES']}")
-            self.update_output(f"- Electrode shape: {env['ELECTRODE_SHAPE']}")
-            self.update_output(f"- Dimensions: {env['DIMENSIONS']} mm")
-            self.update_output(f"- Thickness: {env['THICKNESS']} mm")
-            self.update_output(f"- Current: {current} A")  # Debug current value
+            self.update_output(f"- Current: {current_ma} mA")
+            self.update_output(f"- Electrode shape: {electrode_shape}")
+            self.update_output(f"- Dimensions: {dimensions} mm")
+            self.update_output(f"- Thickness: {thickness} mm")
             
-            # Start simulation in a separate thread
+            # Set tab as busy
+            if hasattr(self, 'parent') and self.parent:
+                self.parent.set_tab_busy(self, True, stop_btn=self.stop_btn)
+            
+            # Disable UI controls during simulation
+            self.disable_controls()
+            self.run_btn.setEnabled(False)
+            self.stop_btn.setEnabled(True)
+            self.simulation_running = True
+            
+            # Create and start the thread
             self.simulation_process = SimulationThread(cmd, env)
             self.simulation_process.output_signal.connect(self.update_output)
             self.simulation_process.finished.connect(self.simulation_finished)
             self.simulation_process.start()
             
         except Exception as e:
-            QtWidgets.QMessageBox.critical(self, "Error", f"Error starting simulation: {str(e)}")
-            print(f"Detailed error: {str(e)}")  # For debugging
+            self.update_output(f"Error starting simulation: {str(e)}")
+            self.simulation_finished()
     
     def simulation_finished(self):
         """Handle simulation completion."""

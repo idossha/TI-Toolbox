@@ -12,6 +12,7 @@ import glob
 import subprocess
 from PyQt5 import QtWidgets, QtCore, QtGui
 from confirmation_dialog import ConfirmationDialog
+from utils import confirm_overwrite
 
 class FlexSearchThread(QtCore.QThread):
     """Thread to run flex-search in background to prevent GUI freezing."""
@@ -688,6 +689,31 @@ class FlexSearchTab(QtWidgets.QWidget):
             'electrode_current': self.current_input.value()
         }
         
+        # Get the selected subject
+        subject_id = self.subject_combo.currentText()
+        
+        # Check if optimization directory already exists
+        project_dir = f"/mnt/{os.environ.get('PROJECT_DIR_NAME', 'BIDS_new')}"
+        bids_subject_id = f"sub-{subject_id}"
+        
+        # Construct optimization output directory path
+        if self.roi_method_spherical.isChecked():
+            # For spherical ROI, use coordinates in the directory name
+            roi_coords = f"{roi_params['center'][0]:.1f}x{roi_params['center'][1]:.1f}y{roi_params['center'][2]:.1f}z_{roi_params['radius']:.1f}mm_{optimization_params['goal']}"
+            opt_dir = os.path.join(project_dir, 'derivatives', 'SimNIBS', bids_subject_id, 
+                                 'flex-search', roi_coords)
+        else:
+            # For cortical ROI, use atlas and region in the directory name
+            atlas_name = roi_params['atlas']
+            region_id = roi_params['region']
+            opt_dir = os.path.join(project_dir, 'derivatives', 'SimNIBS', bids_subject_id, 
+                                 'flex-search', f'cortical_{atlas_name}_{region_id}_{optimization_params["goal"]}')
+        
+        # Check if directory exists and confirm overwrite
+        if os.path.exists(opt_dir):
+            if not confirm_overwrite(self, opt_dir, "optimization output directory"):
+                return
+        
         # Show confirmation dialog
         details = (f"This will run flex-search optimization with the following parameters:\n\n" +
                   f"• Subject: {self.subject_combo.currentText()}\n" +
@@ -720,12 +746,6 @@ class FlexSearchTab(QtWidgets.QWidget):
         
         # Disable all other controls
         self.disable_controls()
-        
-        # Get the selected subject
-        subject_id = self.subject_combo.currentText()
-        if not subject_id:
-            self.output_text.append("Error: No subject selected.")
-            return
         
         # Get optimization parameters
         goal = self.goal_combo.currentData()
