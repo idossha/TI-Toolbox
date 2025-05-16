@@ -114,6 +114,8 @@ def setup_optimization(args):
     
     # Set output directory
     opt.output_folder = args.output_dir
+    
+    # Create output directory (overwrite handled by GUI)
     os.makedirs(opt.output_folder, exist_ok=True)
     
     # Set optimization goal
