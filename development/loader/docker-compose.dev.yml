@@ -44,6 +44,8 @@ services:
     depends_on:
       - fsl
       - freesurfer
+    ports:
+      - "5900:5900"
     tty: true
     stdin_open: true
     working_dir: /ti-csc

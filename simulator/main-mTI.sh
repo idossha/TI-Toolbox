@@ -52,13 +52,16 @@ log() {
     esac
 }
 
-# Get the directory where this script is located
-script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-utils_dir="$(cd "$script_dir/../utils" && pwd)"
+# Get the directory where this script is located and utils directory
+script_dir="/development/simulator"
+utils_dir="/development/utils"
 
-# Debug script location
-echo "DEBUG: Script directory: $script_dir"
-echo "DEBUG: Utils directory: $utils_dir"
+# Source the logging utilities
+source "$utils_dir/logging_utils.sh"
+
+# Log script location for debugging
+log_debug "Script directory: $script_dir"
+log_debug "Utils directory: $utils_dir"
 
 # Gather arguments from the prompter script
 subject_id=$1
@@ -73,6 +76,26 @@ thickness=$9
 shift 9
 eeg_net=$1
 shift 1
+
+# Convert sim_mode to uppercase and validate
+sim_mode=$(echo "$sim_mode" | tr '[:lower:]' '[:upper:]')
+if [[ "$sim_mode" != "U" && "$sim_mode" != "M" ]]; then
+    log "ERROR" "Invalid sim_mode: $sim_mode. Must be 'U' for Unipolar or 'M' for Multipolar." "$montage_dir"
+    exit 1
+fi
+
+# Log all arguments for debugging
+log "DEBUG" "Arguments received:" "$montage_dir"
+log "DEBUG" "  subject_id: $subject_id" "$montage_dir"
+log "DEBUG" "  conductivity: $conductivity" "$montage_dir"
+log "DEBUG" "  project_dir: $project_dir" "$montage_dir"
+log "DEBUG" "  simulation_dir: $simulation_dir" "$montage_dir"
+log "DEBUG" "  sim_mode: $sim_mode (converted to uppercase)" "$montage_dir"
+log "DEBUG" "  intensity: $intensity A" "$montage_dir"
+log "DEBUG" "  electrode_shape: $electrode_shape" "$montage_dir"
+log "DEBUG" "  dimensions: $dimensions mm" "$montage_dir"
+log "DEBUG" "  thickness: $thickness mm" "$montage_dir"
+log "DEBUG" "  eeg_net: $eeg_net" "$montage_dir"
 
 # Construct BIDS paths
 derivatives_dir="$project_dir/derivatives"
@@ -165,8 +188,10 @@ run_visualize_montages() {
         local montage_output_dir="$montage_dir/mTI/montage_imgs"
         
         log "INFO" "Visualizing montage: $montage" "$montage_dir"
-        visualize_montage_script_path="$utils_dir/visualize-montage.sh"
-        if ! bash "$visualize_montage_script_path" "$montage" "$sim_mode" "$eeg_net" "$montage_output_dir"; then
+        # Use absolute path for visualize-montage.sh
+        visualize_montage_script="$utils_dir/visualize-montage.sh"
+        # Pass arguments without extra quotes
+        if ! bash $visualize_montage_script "$montage" $sim_mode "$eeg_net" "$montage_output_dir"; then
             log "ERROR" "Failed to visualize montage: $montage" "$montage_dir"
             exit 1
         fi
@@ -188,7 +213,12 @@ for montage in "${selected_montages[@]}"; do
 done
 
 # Pass all parameters to mTI.py
-simnibs_python "$script_dir/mTI.py" "$subject_id" "$conductivity" "$project_dir" "$simulation_dir" "$intensity" "$electrode_shape" "$dimensions" "$thickness" "$eeg_net" "${selected_montages[@]}"
+# Execute command without extra quotes
+mti_script=$script_dir/mTI.py
+if ! simnibs_python $mti_script "$subject_id" "$conductivity" "$project_dir" "$simulation_dir" "$intensity" "$electrode_shape" "$dimensions" "$thickness" "$eeg_net" "${selected_montages[@]}"; then
+    log "ERROR" "Failed to run mTI.py simulation" "$montage_dir"
+    exit 1
+fi
 
 # Function to extract fields (GM and WM meshes)
 extract_fields() {
