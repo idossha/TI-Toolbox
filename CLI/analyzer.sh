@@ -1192,6 +1192,11 @@ run_analysis() {
     export PROJECT_DIR="$project_dir"
     export SUBJECT_ID="$subject_id"
     
+    # Print the command being executed
+    echo -e "${CYAN}Executing command:${RESET}"
+    echo -e "${BOLD_CYAN}${cmd[*]}${RESET}"
+    echo
+    
     # Run the analysis
     echo -e "${CYAN}Running analysis...${RESET}"
     if "${cmd[@]}"; then
