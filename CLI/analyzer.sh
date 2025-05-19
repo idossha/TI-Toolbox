@@ -1078,11 +1078,59 @@ except Exception as e:
                     fi
                 else
                     # For voxel analysis, use the labels file to validate
-                    result=$(validate_region "$labels_file" "$region_input")
-                    if [ $? -eq 0 ]; then
-                        region_name="$result"
+                    local m2m_dir="$project_dir/derivatives/SimNIBS/sub-$subject_id/m2m_$subject_id/segmentation"
+                    local atlas_basename=$(basename "$atlas_path")
+                    local atlas_name="${atlas_basename%.*}"
+                    if [[ "$atlas_name" == *.nii ]]; then  # Handle .nii.gz case
+                        atlas_name="${atlas_name%.*}"
+                    fi
+                    local labels_file="$m2m_dir/${atlas_name}_labels.txt"
+                    
+                    # First ensure we have the labels file
+                    if ! get_region_info "$atlas_path" "$subject_id" "$space_type" "$atlas_name" false; then
+                        echo -e "${RED}Error: Could not get region information${RESET}"
+                        continue
+                    fi
+                    
+                    # Now validate the region
+                    if awk -v input="$region_input" '
+                        !/^#/ && NF >= 5 {
+                            id = $2
+                            name = $5
+                            for(i=6; i<=NF; i++) name = name " " $i
+                            gsub(/^[ \t]+|[ \t]+$/, "", name)
+                            if (length(name) > 0) {
+                                if (input ~ /^[0-9]+$/ && id == input) {
+                                    print name
+                                    exit 0
+                                } else if (tolower(name) ~ tolower(input)) {
+                                    print name
+                                    exit 0
+                                }
+                            }
+                        }
+                    ' "$labels_file"; then
+                        region_name="$(awk -v input="$region_input" '
+                            !/^#/ && NF >= 5 {
+                                id = $2
+                                name = $5
+                                for(i=6; i<=NF; i++) name = name " " $i
+                                gsub(/^[ \t]+|[ \t]+$/, "", name)
+                                if (length(name) > 0) {
+                                    if (input ~ /^[0-9]+$/ && id == input) {
+                                        print name
+                                        exit 0
+                                    } else if (tolower(name) ~ tolower(input)) {
+                                        print name
+                                        exit 0
+                                    }
+                                }
+                            }
+                        ' "$labels_file")"
                         echo -e "${CYAN}Selected region: $region_name${RESET}"
                         return 0
+                    else
+                        echo -e "${RED}Error: Invalid region identifier '$region_input'${RESET}"
                     fi
                 fi
                 ;;
