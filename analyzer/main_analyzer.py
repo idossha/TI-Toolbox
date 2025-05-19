@@ -276,9 +276,8 @@ def main():
                             visualize=args.visualize
                         )
             
-            # Log results
+            # Log completion
             if results:
-                log_results(logger, results, "analyzer")
                 logger.info("Analysis completed successfully")
             else:
                 logger.warning("Analysis completed but no results were generated")

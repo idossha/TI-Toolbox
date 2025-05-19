@@ -536,7 +536,7 @@ class MeshAnalyzer:
             radius: Radius of the sphere in mm
             
         Returns:
-            Dictionary containing analysis results or None if no nodes found
+            Dictionary containing analysis results or None if no elements found
         """
         self.logger.info(f"Starting spherical ROI analysis at coordinates {center_coordinates} with radius {radius}mm")
         
@@ -544,120 +544,109 @@ class MeshAnalyzer:
         self.logger.info("Loading mesh data...")
         mesh = simnibs.read_msh(self.field_mesh_path)
         
-        # Check if field exists before any cropping
+        # Check if field exists before any processing
         if self.field_name not in mesh.field:
             available_fields = list(mesh.field.keys())
             self.logger.error(f"Field '{self.field_name}' not found in mesh")
             self.logger.error(f"Available fields: {available_fields}")
             raise ValueError(f"Field '{self.field_name}' not found in mesh. Available fields: {available_fields}")
         
-        # Get field directly from the mesh
+        # Get the field data
         field_data = mesh.field[self.field_name]
         self.logger.debug(f"Field data type: {type(field_data)}")
         
-        # Get field values
-        field_values = field_data.value
-        self.logger.debug(f"Field values shape: {field_values.shape}")
+        # Get the centers of all elements (tetrahedra)
+        self.logger.info("Getting element centers...")
+        element_centers = mesh.elements_baricenters().value  # Use .value to get the ndarray
+        self.logger.debug(f"Element centers shape: {element_centers.shape}")
         
-        # Create spherical ROI manually
+        # Calculate distance from each element center to the sphere center
         self.logger.info(f"Creating spherical ROI mask...")
-        node_coords = mesh.nodes.node_coord
-        self.logger.debug(f"Number of nodes in mesh: {len(node_coords)}")
-        
-        # Calculate distance from each node to the center
         distances = np.sqrt(
-            (node_coords[:, 0] - center_coordinates[0])**2 +
-            (node_coords[:, 1] - center_coordinates[1])**2 + 
-            (node_coords[:, 2] - center_coordinates[2])**2
+            (element_centers[:, 0] - center_coordinates[0])**2 +
+            (element_centers[:, 1] - center_coordinates[1])**2 + 
+            (element_centers[:, 2] - center_coordinates[2])**2
         )
         
-        # Create mask for nodes within radius
+        # Create mask for elements within radius
         roi_mask = distances <= radius
         
-        # Check if field_values and roi_mask have compatible shapes
-        if len(field_values.shape) > 1 and field_values.shape[0] != len(roi_mask):
-            self.logger.warning(f"Field values shape ({field_values.shape}) doesn't match ROI mask shape ({roi_mask.shape})")
-            self.logger.info("Attempting to reshape field values...")
-            if len(field_values.shape) == 2 and field_values.shape[0] == len(roi_mask):
-                field_values = field_values[:, 0]
-            elif len(field_values.shape) == 2 and field_values.shape[1] == len(roi_mask):
-                field_values = field_values.T
-            else:
-                field_values = field_values.flatten()
-                if len(field_values) > len(roi_mask):
-                    field_values = field_values[:len(roi_mask)]
-                elif len(field_values) < len(roi_mask):
-                    temp_mask = np.zeros(len(field_values), dtype=bool)
-                    temp_mask[:len(roi_mask)] = roi_mask[:len(field_values)]
-                    roi_mask = temp_mask
-            self.logger.debug(f"Reshaped field values to shape: {field_values.shape}")
+        # Check if we have any elements in the ROI
+        roi_elements_count = np.sum(roi_mask)
+        self.logger.info(f"Found {roi_elements_count} elements in the ROI")
         
-        # Check if we have any nodes in the ROI
-        roi_nodes_count = np.sum(roi_mask)
-        self.logger.info(f"Found {roi_nodes_count} nodes in the ROI")
-        
-        if roi_nodes_count == 0:
+        if roi_elements_count == 0:
             # Determine the tissue type from the field mesh name
             field_mesh_name = os.path.basename(self.field_mesh_path).lower()
             tissue_type = "grey matter" if "grey" in field_mesh_name else "white matter" if "white" in field_mesh_name else "brain tissue"
             
-            self.logger.warning(f"No nodes found in ROI at {center_coordinates}, r={radius}mm")
+            self.logger.warning(f"No elements found in ROI at {center_coordinates}, r={radius}mm")
             self.logger.warning(f"ROI is not capturing any {tissue_type}")
             self.logger.warning("Adjust coordinates/radius or verify using freeview")
             
             return None
         
-        self.logger.info("Calculating statistics...")
+        # Get the field values
+        self.logger.info("Extracting field values...")
+        field_values = field_data.value  # Use .value to get the ndarray
+        self.logger.debug(f"Field values shape: {field_values.shape}")
+        self.logger.debug(f"ROI mask shape: {roi_mask.shape}")
+        self.logger.debug(f"Field dimensions per point: {field_data.nr_comp}")
+        
+        # Get element volumes for proper weighted averaging
+        self.logger.info("Calculating element volumes for weighted averaging...")
+        element_vols = mesh.elements_volumes_and_areas().value  # Use .value to get the ndarray
+        
+        # Check for shape compatibility
+        if len(field_values.shape) > 1 and field_values.shape[0] != roi_mask.shape[0]:
+            self.logger.warning(f"Field values shape ({field_values.shape}) doesn't match ROI mask shape ({roi_mask.shape})")
+            
+            # If dimensions don't match, check if it's a vector field (3 components per element)
+            if field_data.nr_comp == 3 and field_values.shape[1] == 3:
+                self.logger.info("Detected vector field, calculating magnitude...")
+                # Calculate magnitude for vector fields
+                field_magnitudes = np.sqrt(np.sum(field_values**2, axis=1))
+                field_values = field_magnitudes
+                self.logger.debug(f"Calculated field magnitude, new shape: {field_values.shape}")
         
         # Get the field values within the ROI
-        field_values_in_roi = field_values[roi_mask]
-        
-        # Calculate statistics
-        min_value = np.min(field_values_in_roi)
-        max_value = np.max(field_values_in_roi)
-        mean_value = np.mean(field_values_in_roi)
-        
-        # Try to calculate weighted mean if possible
+        self.logger.info("Calculating statistics...")
         try:
-            # Try to get node areas for weighted average
-            node_areas = mesh.nodes_areas()
+            field_values_in_roi = field_values[roi_mask]
+            element_vols_in_roi = element_vols[roi_mask]
             
-            # Check if we have node areas data for the ROI mask nodes
-            if hasattr(node_areas, 'value') and node_areas.value.shape[0] >= len(roi_mask):
-                # Get the actual values from the NodeData object
-                node_area_values = node_areas.value
-                
-                # Make sure we're only using values up to the length of roi_mask
-                if node_area_values.shape[0] > len(roi_mask):
-                    node_area_values = node_area_values[:len(roi_mask)]
-                
-                self.logger.info("Calculating weighted average using node areas")
-                # Use the actual values for weighting
-                mean_value = np.average(field_values_in_roi, weights=node_area_values[roi_mask])
-            else:
-                self.logger.warning("Node areas shape incompatible - using simple average instead")
+            # Calculate statistics
+            min_value = np.min(field_values_in_roi)
+            max_value = np.max(field_values_in_roi)
+            
+            # Calculate volume-weighted mean
+            self.logger.info("Calculating volume-weighted mean...")
+            mean_value = np.average(field_values_in_roi, weights=element_vols_in_roi)
+            
+            # Create results dictionary
+            results = {
+                'mean_value': mean_value,
+                'max_value': max_value,
+                'min_value': min_value,
+                'elements_in_roi': roi_elements_count
+            }
+            
+            self.logger.info("Analysis Results:")
+            self.logger.info(f"- Mean Value: {mean_value:.6f}")
+            self.logger.info(f"- Max Value: {max_value:.6f}")
+            self.logger.info(f"- Min Value: {min_value:.6f}")
+            self.logger.info(f"- Elements in ROI: {roi_elements_count}")
+            
+            # Save results to CSV
+            region_name = f"sphere_x{center_coordinates[0]}_y{center_coordinates[1]}_z{center_coordinates[2]}_r{radius}"
+            self.visualizer.save_results_to_csv(results, 'spherical', region_name, 'element')
+            
+            return results
+            
         except Exception as e:
-            self.logger.warning(f"Could not calculate weighted average: {str(e)}")
-        
-        # Create results dictionary
-        results = {
-            'mean_value': mean_value,
-            'max_value': max_value,
-            'min_value': min_value,
-            'nodes_in_roi': roi_nodes_count
-        }
-        
-        self.logger.info("Analysis Results:")
-        self.logger.info(f"- Mean Value: {mean_value:.6f}")
-        self.logger.info(f"- Max Value: {max_value:.6f}")
-        self.logger.info(f"- Min Value: {min_value:.6f}")
-        self.logger.info(f"- Nodes in ROI: {roi_nodes_count}")
-        
-        # Save results to CSV
-        region_name = f"sphere_x{center_coordinates[0]}_y{center_coordinates[1]}_z{center_coordinates[2]}_r{radius}"
-        self.visualizer.save_results_to_csv(results, 'spherical', region_name, 'node')
-        
-        return results
+            self.logger.error(f"Failed to calculate statistics: {str(e)}")
+            self.logger.error(f"Field values shape: {field_values.shape}, ROI mask shape: {roi_mask.shape}")
+            raise
 
     def analyze_cortex(self, atlas_type, target_region, visualize=False):
         """
