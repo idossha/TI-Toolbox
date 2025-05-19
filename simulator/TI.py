@@ -7,17 +7,6 @@ from simnibs import mesh_io, run_simnibs, sim_struct
 from simnibs.utils import TI_utils as TI
 from datetime import datetime
 
-# Add parent directory to Python path to allow importing from utils
-SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-PARENT_DIR = os.path.dirname(SCRIPT_DIR)
-sys.path.append(PARENT_DIR)
-
-# Import logging utilities
-from utils.logging_utils import get_logger
-
-# Get logger for simulator
-logger = get_logger("simulator")
-
 ###########################################
 
 # Ido Haber / ihaber@wisc.edu
@@ -58,18 +47,6 @@ thickness = float(sys.argv[8])
 eeg_net = sys.argv[9]  # Get the EEG net filename
 montage_names = sys.argv[10:]  # The list of montages starts from the 10th argument
 
-# Log simulation parameters
-logger.info("Simulation Parameters:")
-logger.info(f"- Subject ID: {subject_id}")
-logger.info(f"- Conductivity: {sim_type}")
-logger.info(f"- Simulation Mode: {sim_type}")
-logger.info(f"- Intensity: {intensity}")
-logger.info(f"- Electrode Shape: {electrode_shape}")
-logger.info(f"- Electrode Dimensions: {dimensions}")
-logger.info(f"- Electrode Thickness: {thickness}")
-logger.info(f"- Montages: {montage_names}")
-logger.info("----------------------------------------")
-
 # Define the correct path for the JSON file
 ti_csc_dir = os.path.join(project_dir, 'ti-csc')
 config_dir = os.path.join(ti_csc_dir, 'config')
@@ -93,20 +70,14 @@ if not os.path.exists(montage_file):
     with open(montage_file, 'w') as f:
         json.dump(initial_content, f, indent=4)
     os.chmod(montage_file, 0o777)
-    logger.info(f"Created new montage file at {montage_file}")
 
 # Load montages from JSON file
-try:
-    with open(montage_file) as f:
-        all_montages = json.load(f)
-    logger.info("Successfully loaded montage file")
-except Exception as e:
-    logger.error(f"Failed to load montage file: {e}")
-    sys.exit(1)
+with open(montage_file) as f:
+    all_montages = json.load(f)
 
 # Check if the net exists in the JSON
 if eeg_net not in all_montages.get('nets', {}):
-    logger.error(f"EEG net '{eeg_net}' not found in montage list.")
+    print(f"Error: EEG net '{eeg_net}' not found in montage list.")
     sys.exit(1)
 
 # Get the montages for this net
@@ -115,13 +86,11 @@ net_montages = all_montages['nets'][eeg_net]
 # Check and process montages based on simulation mode
 montage_type = 'uni_polar_montages' if len(sys.argv[10:]) > 0 and sys.argv[10] in net_montages.get('uni_polar_montages', {}) else 'multi_polar_montages'
 montages = {name: net_montages[montage_type].get(name) for name in montage_names}
-logger.info(f"Using montage type: {montage_type}")
 
 # Validate montage structure
 def validate_montage(montage, montage_name):
-    """Validate montage structure."""
     if not montage or len(montage) < 2 or len(montage[0]) < 2:
-        logger.error(f"Invalid montage structure for {montage_name}. Skipping.")
+        print(f"Invalid montage structure for {montage_name}. Skipping.")
         return False
     return True
 
@@ -136,15 +105,11 @@ tensor_file = os.path.join(conductivity_path, "DTI_coregT1_tensor.nii.gz")
 temp_dir = os.path.join(simulation_dir, "tmp")
 if not os.path.exists(temp_dir):
     os.makedirs(temp_dir)
-    logger.info(f"Created temporary directory at {temp_dir}")
 
 # Function to run simulations
 def run_simulation(montage_name, montage):
-    """Run simulation for a given montage."""
     if not validate_montage(montage, montage_name):
         return
-
-    logger.info(f"Starting simulation for montage: {montage_name}")
 
     S = sim_struct.SESSION()
     S.subpath = base_subpath
@@ -164,7 +129,6 @@ def run_simulation(montage_name, montage):
 
     # Load the conductivity tensors
     S.dti_nii = tensor_file
-    logger.info("SimNIBS session configured")
 
     # First electrode pair
     tdcs = S.add_tdcslist()
@@ -177,9 +141,9 @@ def run_simulation(montage_name, montage):
         if env_var in os.environ:
             try:
                 tdcs.cond[i].value = float(os.environ[env_var])
-                logger.info(f"Setting conductivity for tissue {tissue_num} to {tdcs.cond[i].value} S/m")
+                print(f"Setting conductivity for tissue {tissue_num} to {tdcs.cond[i].value} S/m")
             except ValueError:
-                logger.warning(f"Invalid conductivity value for tissue {tissue_num}")
+                print(f"Warning: Invalid conductivity value for tissue {tissue_num}")
 
     tdcs.currents = [intensity, -intensity]
     
@@ -203,9 +167,7 @@ def run_simulation(montage_name, montage):
     tdcs_2.electrode[0].centre = montage[1][0]
     tdcs_2.electrode[1].centre = montage[1][1]
 
-    logger.info("Running SimNIBS simulation...")
     run_simnibs(S)
-    logger.info("SimNIBS simulation completed successfully")
 
     subject_identifier = base_subpath.split('_')[-1]
     anisotropy_type = S.anisotropy_type
@@ -213,43 +175,28 @@ def run_simulation(montage_name, montage):
     m1_file = os.path.join(S.pathfem, f"{subject_identifier}_TDCS_1_{anisotropy_type}.msh")
     m2_file = os.path.join(S.pathfem, f"{subject_identifier}_TDCS_2_{anisotropy_type}.msh")
 
-    try:
-        logger.info("Loading mesh files...")
-        m1 = mesh_io.read_msh(m1_file)
-        m2 = mesh_io.read_msh(m2_file)
-        logger.info("Mesh files loaded successfully")
+    m1 = mesh_io.read_msh(m1_file)
+    m2 = mesh_io.read_msh(m2_file)
 
-        tags_keep = np.hstack((np.arange(1, 100), np.arange(1001, 1100)))
-        m1 = m1.crop_mesh(tags=tags_keep)
-        m2 = m2.crop_mesh(tags=tags_keep)
+    tags_keep = np.hstack((np.arange(1, 100), np.arange(1001, 1100)))
+    m1 = m1.crop_mesh(tags=tags_keep)
+    m2 = m2.crop_mesh(tags=tags_keep)
 
-        ef1 = m1.field["E"]
-        ef2 = m2.field["E"]
-        logger.info("Calculating TI maximum...")
-        TImax = TI.get_maxTI(ef1.value, ef2.value)
-        logger.info("TI maximum calculated successfully")
+    ef1 = m1.field["E"]
+    ef2 = m2.field["E"]
+    TImax = TI.get_maxTI(ef1.value, ef2.value)
 
-        mout = deepcopy(m1)
-        mout.elmdata = []
-        mout.add_element_field(TImax, "TI_max")
-        
-        # Create output filename with subject ID and montage name
-        output_mesh = os.path.join(S.pathfem, f"{subject_identifier}_{montage_name}_TI.msh")
-        logger.info(f"Writing output mesh to {output_mesh}")
-        mesh_io.write_msh(mout, output_mesh)
+    mout = deepcopy(m1)
+    mout.elmdata = []
+    mout.add_element_field(TImax, "TI_max")
+    mesh_io.write_msh(mout, os.path.join(S.pathfem, "TI.msh"))
 
-        v = mout.view(visible_tags=[1002, 1006], visible_fields="TI_max")
-        v.write_opt(output_mesh)
-        logger.info(f"Simulation results saved to {output_mesh}")
-
-    except Exception as e:
-        logger.error(f"Error processing simulation results: {e}")
-        raise  # Re-raise the exception to maintain original error handling behavior
+    v = mout.view(visible_tags=[1002, 1006], visible_fields="TI_max")
+    v.write_opt(os.path.join(S.pathfem, "TI.msh"))
 
 # Run the simulations for each selected montage
 for name in montage_names:
     if name in montages and montages[name]:
         run_simulation(name, montages[name])
     else:
-        logger.error(f"Montage {name} not found or invalid. Skipping.")
-
+        print(f"Montage {name} not found or invalid. Skipping.")
