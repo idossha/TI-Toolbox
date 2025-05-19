@@ -947,16 +947,23 @@ class VoxelAnalyzer:
         if atlas_name.endswith('.nii'):  # Handle .nii.gz case
             atlas_name = os.path.splitext(atlas_name)[0]
             
-        # Get the m2m directory (parent of segmentation directory)
+        # Get the m2m and FreeSurfer directories
         segmentation_dir = os.path.dirname(atlas_file)
         m2m_dir = os.path.dirname(segmentation_dir)
+        freesurfer_dir = os.path.join(m2m_dir, '..', 'freesurfer', 'mri')
         
-        # Define the output file path in the m2m directory
-        output_file = os.path.join(m2m_dir, 'segmentation', f"{atlas_name}_labels.txt")
+        # Define the output file paths
+        m2m_labels_file = os.path.join(m2m_dir, f"{atlas_name}_labels.txt")
+        freesurfer_labels_file = os.path.join(freesurfer_dir, f"{atlas_name}_labels.txt")
         
-        # Check if we already have the labels file
-        if os.path.exists(output_file):
-            print(f"Using existing labels file: {output_file}")
+        # Check if we already have the labels file in either location
+        output_file = None
+        if os.path.exists(m2m_labels_file):
+            print(f"Using existing labels file: {m2m_labels_file}")
+            output_file = m2m_labels_file
+        elif os.path.exists(freesurfer_labels_file):
+            print(f"Using existing labels file: {freesurfer_labels_file}")
+            output_file = freesurfer_labels_file
         else:
             # Run mri_segstats to get information about all segments in the atlas
             cmd = [
@@ -964,12 +971,13 @@ class VoxelAnalyzer:
                 '--seg', atlas_file,
                 '--excludeid', '0',  # Exclude background
                 '--ctab-default',    # Use default color table
-                '--sum', output_file
+                '--sum', m2m_labels_file  # Save to m2m directory
             ]
             
             try:
                 print(f"Running: {' '.join(cmd)}")
                 subprocess.run(cmd, check=True, capture_output=True)
+                output_file = m2m_labels_file
             except subprocess.CalledProcessError as e:
                 print(f"Warning: Could not extract region information using mri_segstats: {str(e)}")
                 print(f"Command output: {e.stdout.decode() if e.stdout else ''}")

@@ -52,7 +52,6 @@ Dependencies:
 import os
 import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib import cm
 from matplotlib.colors import Normalize
 import simnibs
 from pathlib import Path
@@ -590,24 +589,7 @@ class MeshVisualizer(Visualizer):
         # Add this as a new field to the original mesh
         gm_surf.add_node_field(masked_field, 'ROI_field')
         
-        # Create the output directory if it doesn't exist
-        if output_dir:
-            # Use the specified output directory
-            os.makedirs(output_dir, exist_ok=True)
-            
-            # For individual region analysis, create the cortex_visuals directory
-            if not os.path.basename(output_dir).startswith('whole_head'):
-                vis_dir = os.path.join(output_dir, 'cortex_visuals')
-                os.makedirs(vis_dir, exist_ok=True)
-                output_filename = os.path.join(vis_dir, f"brain_with_{target_region}_ROI.msh")
-            else:
-                # For whole-head analysis, save directly in the region directory
-                output_filename = os.path.join(output_dir, f"brain_with_{target_region}_ROI.msh")
-        else:
-            # Use the class's output directory and create the cortex_visuals directory
-            vis_dir = os.path.join(self.output_dir, 'cortex_visuals')
-            os.makedirs(vis_dir, exist_ok=True)
-            output_filename = os.path.join(vis_dir, f"brain_with_{target_region}_ROI.msh")
+        output_filename = os.path.join(self.output_dir, f"brain_with_{target_region}_ROI.msh")
         
         # Save the modified original mesh
         gm_surf.write(output_filename)
@@ -669,15 +651,7 @@ class VoxelVisualizer(Visualizer):
         vis_arr = np.zeros_like(atlas_arr)
         vis_arr[region_mask] = field_arr[region_mask]
         
-        # Create cortex_visuals directory for individual region analysis
-        # If the output directory contains 'whole_head', assume it's a whole-head analysis
-        if 'whole_head' not in self.output_dir:
-            vis_dir = os.path.join(self.output_dir, 'cortex_visuals')
-            os.makedirs(vis_dir, exist_ok=True)
-            output_filename = os.path.join(vis_dir, f"brain_with_{region_name}_ROI.nii.gz")
-        else:
-            # For whole-head analysis, save directly in the output directory
-            output_filename = os.path.join(self.output_dir, f"brain_with_{region_name}_ROI.nii.gz")
+        output_filename = os.path.join(self.output_dir, f"brain_with_{region_name}_ROI.nii.gz")
         
         # Save as NIfTI
         import nibabel as nib

@@ -12,7 +12,6 @@ import subprocess
 from PyQt5 import QtWidgets, QtCore, QtGui
 from confirmation_dialog import ConfirmationDialog
 from utils import confirm_overwrite
-from utils import confirm_overwrite
 
 class AnalysisThread(QtCore.QThread):
     """Thread to run analysis in background to prevent GUI freezing."""
@@ -28,9 +27,18 @@ class AnalysisThread(QtCore.QThread):
         self.process = None
         self.terminated = False
         
+    def _strip_ansi_codes(self, text):
+        """Remove ANSI color codes from text."""
+        import re
+        ansi_escape = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
+        return ansi_escape.sub('', text)
+        
     def run(self):
         """Run the analysis command in a separate thread."""
         try:
+            # Set up Python unbuffered output
+            self.env['PYTHONUNBUFFERED'] = '1'
+            
             self.process = subprocess.Popen(
                 self.cmd, 
                 stdout=subprocess.PIPE, 
@@ -40,21 +48,36 @@ class AnalysisThread(QtCore.QThread):
                 env=self.env
             )
             
-            # Real-time output display
-            for line in iter(self.process.stdout.readline, ''):
+            # Real-time output display for both stdout and stderr
+            while True:
+                # Read stdout
+                stdout_line = self.process.stdout.readline()
+                if stdout_line:
+                    self.output_signal.emit(self._strip_ansi_codes(stdout_line.strip()))
+                
+                # Read stderr
+                stderr_line = self.process.stderr.readline()
+                if stderr_line:
+                    line = self._strip_ansi_codes(stderr_line.strip())
+                    # Only prefix with Error: if it's actually an error message
+                    if "ERROR:" in line or "CRITICAL:" in line:
+                        self.output_signal.emit(f"Error: {line}")
+                    else:
+                        self.output_signal.emit(line)
+                
+                # Check if process has finished
                 if self.terminated:
                     break
-                if line:
-                    self.output_signal.emit(line.strip())
+                    
+                # Check if both stdout and stderr are empty and process has finished
+                if not stdout_line and not stderr_line and self.process.poll() is not None:
+                    break
             
             # Check for errors
             if not self.terminated:
                 returncode = self.process.wait()
                 if returncode != 0:
-                    error = self.process.stderr.read()
                     self.output_signal.emit("Error: Process returned non-zero exit code")
-                    if error:
-                        self.output_signal.emit(error)
                     
         except Exception as e:
             self.output_signal.emit(f"Error running analysis: {str(e)}")
@@ -294,10 +317,8 @@ class AnalyzerTab(QtWidgets.QWidget):
         self.atlas_name_combo = QtWidgets.QComboBox()
         self.atlas_name_combo.addItems(["DK40", "HCP_MMP1", "a2009s"])  # Add more as needed
         self.atlas_name_combo.setCurrentText("DK40")  # Set default selection
-        self.atlas_name_combo.setCurrentText("DK40")  # Set default selection
         mesh_atlas_layout.addWidget(self.mesh_atlas_label)
         mesh_atlas_layout.addWidget(self.atlas_name_combo)
-        mesh_atlas_layout.addStretch(1)  # Add stretch to push elements to the left
         mesh_atlas_layout.addStretch(1)  # Add stretch to push elements to the left
         
         # Voxel atlas layout - create a container widget for voxel atlas options
@@ -766,7 +787,6 @@ class AnalyzerTab(QtWidgets.QWidget):
                 QtWidgets.QMessageBox.warning(self, "Warning", "Please enter a valid positive radius.")
                 return False
         else:  # cortical
-        else:  # cortical
             if self.space_mesh.isChecked():
                 if not self.atlas_name_combo.currentText():
                     QtWidgets.QMessageBox.warning(self, "Warning", "Please select an atlas.")
@@ -826,15 +846,16 @@ class AnalyzerTab(QtWidgets.QWidget):
             if self.type_spherical.isChecked():
                 target_info = f"sphere_x{self.coord_x.text() or '0'}_y{self.coord_y.text() or '0'}_z{self.coord_z.text() or '0'}_r{self.radius_input.text() or '5'}"
             else:  # cortical
-
-
                 if self.whole_head_check.isChecked():
                     # For whole head analysis, include the atlas type in the directory name
                     if self.space_mesh.isChecked():
                         atlas_info = self.atlas_name_combo.currentText()
                         target_info = f"whole_head_{atlas_info}"
                     else:
-                        atlas_path = self.atlas_combo.currentText()
+                        # Get the full atlas path from the combo box's data
+                        atlas_path = self.atlas_combo.currentData()
+                        if not atlas_path:
+                            raise ValueError("No valid atlas path found")
                         atlas_name = os.path.basename(atlas_path).split('.')[0]
                         target_info = f"whole_head_{atlas_name}"
                 else:
@@ -858,16 +879,12 @@ class AnalyzerTab(QtWidgets.QWidget):
             output_dir = os.path.join(analysis_type_dir, target_info)
             
             # Check if output directory exists and confirm overwrite
-            # Check if output directory exists and confirm overwrite
             if os.path.exists(output_dir):
-                if not confirm_overwrite(self, output_dir, "analysis directory"):
-                    self.update_output("Analysis cancelled: Output directory already exists.")
                 if not confirm_overwrite(self, output_dir, "analysis directory"):
                     self.update_output("Analysis cancelled: Output directory already exists.")
                     self.analysis_finished()
                     return
             
-            # Create output directory
             # Create output directory
             os.makedirs(output_dir, exist_ok=True)
             
@@ -882,41 +899,27 @@ class AnalyzerTab(QtWidgets.QWidget):
             ]
             
             # Add command line arguments based on analysis type
-                os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'analyzer', 'main_analyzer.py'),
-                '--m2m_subject_path', os.path.join(project_dir, 'derivatives', 'SimNIBS', f'sub-{subject_id}', f'm2m_{subject_id}'),
-                '--field_path', field_path,
-                '--space', 'mesh' if self.space_mesh.isChecked() else 'voxel',
-                '--analysis_type', 'spherical' if self.type_spherical.isChecked() else 'cortical'
-            ]
-            
-            # Add command line arguments based on analysis type
             if self.type_spherical.isChecked():
-                cmd.extend([
-                    '--coordinates', self.coord_x.text() or '0', self.coord_y.text() or '0', self.coord_z.text() or '0',
-                    '--radius', self.radius_input.text() or '5'
-                ])
                 cmd.extend([
                     '--coordinates', self.coord_x.text() or '0', self.coord_y.text() or '0', self.coord_z.text() or '0',
                     '--radius', self.radius_input.text() or '5'
                 ])
             else:  # cortical
                 # For mesh-based cortical analysis, always include atlas_name first
-                # For mesh-based cortical analysis, always include atlas_name first
                 if self.space_mesh.isChecked():
                     cmd.extend(['--atlas_name', self.atlas_name_combo.currentText()])
-                elif not self.whole_head_check.isChecked():
-                    cmd.extend(['--atlas_path', self.atlas_combo.currentText()])
+                else:
+                    # Get the full atlas path from the combo box's data
+                    atlas_path = self.atlas_combo.currentData()
+                    if not atlas_path:
+                        raise ValueError("No valid atlas path found")
+                    cmd.extend(['--atlas_path', atlas_path])
                 
-                # Then add region or whole_head flag
                 # Then add region or whole_head flag
                 if self.whole_head_check.isChecked():
                     cmd.append('--whole_head')
                 else:
                     cmd.extend(['--region', self.region_input.text()])
-            
-            # Add field name for mesh analysis
-            if self.space_mesh.isChecked():
-                cmd.extend(['--field_name', field_name])
             
             # Add field name for mesh analysis
             if self.space_mesh.isChecked():
@@ -939,26 +942,15 @@ class AnalyzerTab(QtWidgets.QWidget):
             self.update_output("Running analysis...")
             self.update_output(f"Analysis Type: {'Spherical' if self.type_spherical.isChecked() else 'Cortical'}")
             self.update_output(f"Space Type: {'Mesh' if self.space_mesh.isChecked() else 'Voxel'}")
-            self.update_output(f"Atlas Name: {self.atlas_name_combo.currentText() if self.space_mesh.isChecked() else 'N/A'}")
-            self.update_output(f"Command: {' '.join(cmd)}")
-            # Set environment variables
-            env = os.environ.copy()
-            env['PROJECT_DIR'] = project_dir
-            env['SUBJECT_ID'] = subject_id
-            
-            # Update UI
-            self.disable_controls()
-            self.update_output("Running analysis...")
-            self.update_output(f"Analysis Type: {'Spherical' if self.type_spherical.isChecked() else 'Cortical'}")
-            self.update_output(f"Space Type: {'Mesh' if self.space_mesh.isChecked() else 'Voxel'}")
-            self.update_output(f"Atlas Name: {self.atlas_name_combo.currentText() if self.space_mesh.isChecked() else 'N/A'}")
+            if self.type_cortical.isChecked():
+                if self.space_mesh.isChecked():
+                    self.update_output(f"Atlas Name: {self.atlas_name_combo.currentText()}")
+                else:
+                    atlas_path = self.atlas_combo.currentData()
+                    if atlas_path:
+                        self.update_output(f"Atlas Name: {os.path.basename(atlas_path)}")
             self.update_output(f"Command: {' '.join(cmd)}")
             
-            # Create and start thread
-            self.optimization_process = AnalysisThread(cmd, env)
-            self.optimization_process.output_signal.connect(self.update_output)
-            self.optimization_process.finished.connect(self.analysis_finished)
-            self.optimization_process.start()
             # Create and start thread
             self.optimization_process = AnalysisThread(cmd, env)
             self.optimization_process.output_signal.connect(self.update_output)
@@ -966,7 +958,6 @@ class AnalyzerTab(QtWidgets.QWidget):
             self.optimization_process.start()
             
         except Exception as e:
-            self.update_output(f"Error running analysis: {str(e)}")
             self.update_output(f"Error running analysis: {str(e)}")
             self.analysis_finished()
     
@@ -1083,16 +1074,6 @@ class AnalyzerTab(QtWidgets.QWidget):
                 formatted_text = f'<div style="margin: 5px 20px;"><span style="color: #aaaaaa;">{value_type}:</span> <span style="color: #55ffff; font-weight: bold;">{value}</span></div>'
             else:
                 formatted_text = f'<span style="color: #ffffff;">{text}</span>'
-        elif "Analysis Results Summary:" in text:
-            formatted_text = f'<div style="background-color: #2a2a2a; padding: 10px; margin: 10px 0; border-radius: 5px;"><span style="color: #55ff55; font-weight: bold; font-size: 14px;">{text}</span></div>'
-        elif any(value_type in text for value_type in ["Mean Value:", "Max Value:", "Min Value:"]):
-            # Extract the value type and the numeric value
-            parts = text.split(":")
-            if len(parts) == 2:
-                value_type, value = parts
-                formatted_text = f'<div style="margin: 5px 20px;"><span style="color: #aaaaaa;">{value_type}:</span> <span style="color: #55ffff; font-weight: bold;">{value}</span></div>'
-            else:
-                formatted_text = f'<span style="color: #ffffff;">{text}</span>'
         elif text.strip().startswith("-"):
             # Indented list items
             formatted_text = f'<span style="color: #aaaaaa; margin-left: 20px;">  {text}</span>'
@@ -1110,7 +1091,6 @@ class AnalyzerTab(QtWidgets.QWidget):
         self.list_subjects_btn.setEnabled(False)
         self.clear_subject_selection_btn.setEnabled(False)
         self.browse_field_btn.setEnabled(False)
-        self.browse_atlas_btn.setEnabled(False)
         self.show_regions_btn.setEnabled(False)
         
         # Disable all inputs
@@ -1155,7 +1135,6 @@ class AnalyzerTab(QtWidgets.QWidget):
         self.list_subjects_btn.setEnabled(True)
         self.clear_subject_selection_btn.setEnabled(True)
         self.browse_field_btn.setEnabled(True)
-        self.browse_atlas_btn.setEnabled(True)
         self.show_regions_btn.setEnabled(True)
         
         # Enable all inputs
