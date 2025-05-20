@@ -25,6 +25,8 @@ RUN apt-get update && apt-get install -y \
     bzip2 \
     gcc \
     g++ \
+    gcc-10 \
+    g++-10 \
     cmake \
     libtool \
     libtool-bin \
@@ -73,6 +75,7 @@ RUN apt-get update && apt-get install -y \
     imagemagick \
     parallel \
     dcm2niix \
+    dos2unix \
     && apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 # Set up Python environment and install required Python packages
@@ -92,11 +95,18 @@ ENV SIMNIBSDIR="/root/SimNIBS-4.5"
 # Clone TI-CSC repository
 RUN git clone https://github.com/idossha/TI-CSC-2.0.git /ti-csc
 
+# Convert all shell scripts to Unix line endings
+RUN find /ti-csc -name "*.sh" -exec dos2unix {} \;
+
 # Create the target directory
 RUN mkdir -p $SIMNIBSDIR/resources/ElectrodeCaps_MNI/
 
 # Copy the ElectrodeCaps_MNI files
 RUN cp /ti-csc/assets/ElectrodeCaps_MNI/* $SIMNIBSDIR/resources/ElectrodeCaps_MNI/
+
+# Copy and overwrite the tes_flex_optimization.py file
+RUN rm -f $SIMNIBSDIR/optimization/tes_flex_optimization/tes_flex_optimization.py && \
+    cp /ti-csc/assets/map-electrodes/tes_flex_optimization.py $SIMNIBSDIR/optimization/tes_flex_optimization/tes_flex_optimization.py
 
 # Entry point script to ensure XDG_RUNTIME_DIR exists
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh

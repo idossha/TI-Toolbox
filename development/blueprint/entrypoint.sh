@@ -14,6 +14,10 @@ fi
 echo "source \$FSLDIR/etc/fslconf/fsl.sh" >>~/.bashrc
 echo "source \$FREESURFER_HOME/SetUpFreeSurfer.sh" >>~/.bashrc
 
+# Set LD_PRELOAD for libstdc++
+export LD_PRELOAD=/usr/local/fsl/lib/libstdc++.so.6
+echo 'export LD_PRELOAD=/usr/local/fsl/lib/libstdc++.so.6' >>~/.bashrc
+
 # Make CLI scripts executable and add to PATH
 if [ -d /ti-csc/CLI ]; then
   chmod +x /ti-csc/CLI/*.sh
