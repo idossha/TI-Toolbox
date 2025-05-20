@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-Acknowledgments Tab for TI-CSC-2.0 GUI
+Acknowledgments Tab for TI-CSC GUI
 This module provides an acknowledgments tab to properly cite all tools and resources used.
 """
 
@@ -10,7 +10,7 @@ from PyQt5 import QtWidgets, QtCore, QtGui
 from PyQt5.QtCore import Qt
 
 class AcknowledgmentsTab(QtWidgets.QWidget):
-    """Acknowledgments tab for TI-CSC-2.0 GUI."""
+    """Acknowledgments tab for TI-CSC GUI."""
     
     def __init__(self, parent=None):
         super(AcknowledgmentsTab, self).__init__(parent)
@@ -28,7 +28,7 @@ class AcknowledgmentsTab(QtWidgets.QWidget):
         
         # Description
         description = QtWidgets.QLabel(
-            "<p>TI-CSC-2.0 relies on several open-source tools and frameworks. "
+            "<p>TI-CSC relies on several open-source tools and frameworks. "
             "We are grateful to the developers of these resources and acknowledge their contributions below.</p>"
         )
         description.setWordWrap(True)
@@ -45,25 +45,16 @@ class AcknowledgmentsTab(QtWidgets.QWidget):
         self.add_acknowledgment_section(
             scroll_layout, 
             "SimNIBS",
-            "SimNIBS (Simulation of Non-invasive Brain Stimulation) is a software package for realistic modeling and simulation of non-invasive brain stimulation techniques."
+            "SimNIBS (Simulation of Non-invasive Brain Stimulation) is a software package for realistic modeling and simulation of non-invasive brain stimulation techniques.<br><br>"
+            "<br>"
+            "<b>CHARM Segmentation Pipeline:</b> Puonti O, Van Leemput K, Saturnino GB, Siebner HR, Madsen KH, Thielscher A. (2020). Accurate and robust whole-head segmentation from magnetic resonance images for individualized head modeling. Neuroimage, 219:117044.<br><br>"
+            "<b>Flex-Search: Leadfield-free TES Optimization:</b> Weise K, Madsen KH, Worbs T, Knösche TR, Korshøj A, Thielscher A, A Leadfield-Free Optimization Framework for Transcranially Applied Electric Currents, bioRxiv 10.1101/2024.12.18.629095"
         )
         
         self.add_acknowledgment_section(
             scroll_layout, 
             "Noninvasive Deep Brain Stimulation via Temporally Interfering Electric Fields",
             "Grossman N, Bono D, Dedic N, Kodandaramaiah SB, Rudenko A, Suk HJ, Cassara AM, Neufeld E, Kuster N, Tsai LH, Pascual-Leone A, Boyden ES. Noninvasive Deep Brain Stimulation via Temporally Interfering Electric Fields. Cell. 2017 Jun 1;169(6):1029-1041.e16. doi: 10.1016/j.cell.2017.05.024. PMID: 28575667; PMCID: PMC5520675."
-        )
-        
-        self.add_acknowledgment_section(
-            scroll_layout, 
-            "Flex-Search: Leadfield-free TES Optimization",
-            "Weise K, Madsen KH, Worbs T, Knösche TR, Korshøj A, Thielscher A, A Leadfield-Free Optimization Framework for Transcranially Applied Electric Currents, bioRxiv 10.1101/2024.12.18.629095"
-        )
-        
-        self.add_acknowledgment_section(
-            scroll_layout, 
-            "CHARM Segmentation Pipeline",
-            "Puonti O, Van Leemput K, Saturnino GB, Siebner HR, Madsen KH, Thielscher A. (2020). Accurate and robust whole-head segmentation from magnetic resonance images for individualized head modeling. Neuroimage, 219:117044."
         )
         
         self.add_acknowledgment_section(
@@ -100,7 +91,7 @@ class AcknowledgmentsTab(QtWidgets.QWidget):
         
         # Add a note at the bottom about missing acknowledgments
         note_label = QtWidgets.QLabel(
-            "<p><i>If you're using TI-CSC-2.0 in academic work, please cite the appropriate references above.</i></p>"
+            "<p><i>If you're using TI-CSC in academic work, please cite the appropriate references above.</i></p>"
         )
         note_label.setWordWrap(True)
         note_label.setAlignment(QtCore.Qt.AlignCenter)
