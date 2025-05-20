@@ -156,27 +156,23 @@ class ExSearchTab(QtWidgets.QWidget):
         left_layout = QtWidgets.QVBoxLayout()
         
         # Subject selection
-        subject_container = QtWidgets.QGroupBox("Subject(s)")
+        subject_container = QtWidgets.QGroupBox("Subject")
         subject_layout = QtWidgets.QVBoxLayout(subject_container)
         
-        # List widget for subject selection
-        self.subject_list = QtWidgets.QListWidget()
-        self.subject_list.setSelectionMode(QtWidgets.QAbstractItemView.ExtendedSelection)
-        self.subject_list.setMinimumHeight(80)  # Reduced from 100
-        self.subject_list.setMaximumHeight(80)  # Added maximum height
-        subject_layout.addWidget(self.subject_list)
+        # Combo box for subject selection
+        self.subject_combo = QtWidgets.QComboBox()
+        self.subject_combo.setMinimumHeight(25)
+        self.subject_combo.setMaximumHeight(25)
+        subject_layout.addWidget(self.subject_combo)
         
         # Subject control buttons
         subject_button_layout = QtWidgets.QHBoxLayout()
         self.list_subjects_btn = QtWidgets.QPushButton("Refresh List")
         self.list_subjects_btn.clicked.connect(self.list_subjects)
-        self.select_all_subjects_btn = QtWidgets.QPushButton("Select All")
-        self.select_all_subjects_btn.clicked.connect(self.select_all_subjects)
         self.clear_subject_selection_btn = QtWidgets.QPushButton("Clear")
         self.clear_subject_selection_btn.clicked.connect(self.clear_subject_selection)
         
         subject_button_layout.addWidget(self.list_subjects_btn)
-        subject_button_layout.addWidget(self.select_all_subjects_btn)
         subject_button_layout.addWidget(self.clear_subject_selection_btn)
         subject_layout.addLayout(subject_button_layout)
         
@@ -386,8 +382,8 @@ class ExSearchTab(QtWidgets.QWidget):
         # Add console layout to main layout
         main_layout.addLayout(console_layout)
         
-        # After self.subject_list is created and added:
-        self.subject_list.itemSelectionChanged.connect(self.on_subject_selection_changed)
+        # After self.subject_combo is created and added:
+        self.subject_combo.currentTextChanged.connect(self.on_subject_selection_changed)
         
     def initial_setup(self):
         """Initial setup when the tab is first loaded."""
@@ -435,12 +431,11 @@ class ExSearchTab(QtWidgets.QWidget):
     
     def check_leadfield_status(self):
         """Check if selected subject has leadfield and update UI accordingly."""
-        selected_items = self.subject_list.selectedItems()
-        if not selected_items:
+        subject_id = self.subject_combo.currentText()
+        if not subject_id:
             self.create_leadfield_btn.setEnabled(False)
             return
         
-        subject_id = selected_items[0].text()
         project_dir = os.path.join("/mnt", os.environ.get("PROJECT_DIR_NAME", ""))
         
         # Check both possible leadfield directory patterns
@@ -465,53 +460,47 @@ class ExSearchTab(QtWidgets.QWidget):
             self.leadfield_status.setStyleSheet("color: #f44336;")  # Red color
     
     def list_subjects(self):
-        """List available subjects from m2m_subjectID folders."""
-        try:
-            project_dir = os.path.join("/mnt", os.environ.get("PROJECT_DIR_NAME", ""))
-            simnibs_dir = os.path.join(project_dir, "derivatives", "SimNIBS")
+        """List available subjects in the combo box."""
+        self.subject_combo.clear()
+        project_dir = os.path.join("/mnt", os.environ.get("PROJECT_DIR_NAME", ""))
+        if not project_dir or not os.path.exists(project_dir):
+            self.update_status("No project directory selected", error=True)
+            return
             
-            self.subject_list.clear()
+        subjects_dir = os.path.join(project_dir, "derivatives", "SimNIBS")
+        if not os.path.exists(subjects_dir):
+            self.update_status("No subjects directory found", error=True)
+            return
             
-            # Find all m2m_* directories
-            for item in os.listdir(simnibs_dir):
-                if item.startswith("sub-"):
-                    subject_path = os.path.join(simnibs_dir, item)
-                    for m2m_dir in os.listdir(subject_path):
-                        if m2m_dir.startswith("m2m_"):
-                            subject_id = m2m_dir.replace("m2m_", "")
-                            self.subject_list.addItem(subject_id)
+        # Find all m2m_* directories
+        subjects = []
+        for item in os.listdir(subjects_dir):
+            if item.startswith("sub-"):
+                subject_path = os.path.join(subjects_dir, item)
+                for m2m_dir in os.listdir(subject_path):
+                    if m2m_dir.startswith("m2m_"):
+                        subject_id = m2m_dir.replace("m2m_", "")
+                        subjects.append(subject_id)
+        
+        if not subjects:
+            self.update_status("No subjects found", error=True)
+            return
             
-            # Sort subjects naturally
-            items = []
-            for i in range(self.subject_list.count()):
-                items.append(self.subject_list.item(i).text())
-            
-            items.sort(key=lambda x: [int(c) if c.isdigit() else c.lower() for c in re.split('([0-9]+)', x)])
-            
-            self.subject_list.clear()
-            self.subject_list.addItems(items)
-            
-        except Exception as e:
-            self.update_status(f"Error listing subjects: {str(e)}", error=True)
-    
-    def select_all_subjects(self):
-        """Select all subjects in the list."""
-        for i in range(self.subject_list.count()):
-            self.subject_list.item(i).setSelected(True)
+        # Sort subjects naturally
+        subjects.sort(key=lambda x: [int(c) if c.isdigit() else c.lower() for c in re.split('([0-9]+)', x)])
+        self.subject_combo.addItems(subjects)
     
     def clear_subject_selection(self):
-        """Clear subject selection."""
-        self.subject_list.clearSelection()
+        """Clear the subject selection."""
+        self.subject_combo.setCurrentIndex(-1)
     
     def update_roi_list(self):
         """Update the list of available ROIs for the selected subject."""
         try:
-            selected_items = self.subject_list.selectedItems()
-            if not selected_items:
+            subject_id = self.subject_combo.currentText()
+            if not subject_id:
                 return
             
-            # Use the first selected subject to list ROIs
-            subject_id = selected_items[0].text()
             project_dir = os.path.join("/mnt", os.environ.get("PROJECT_DIR_NAME", ""))
             roi_dir = os.path.join(project_dir, "derivatives", "SimNIBS", f"sub-{subject_id}",
                                  f"m2m_{subject_id}", "ROIs")
@@ -584,7 +573,7 @@ class ExSearchTab(QtWidgets.QWidget):
         
         if msg.exec_() == QtWidgets.QMessageBox.Yes:
             try:
-                selected_subject = self.subject_list.selectedItems()[0].text()
+                selected_subject = self.subject_combo.currentText()
                 project_dir = os.path.join("/mnt", os.environ.get("PROJECT_DIR_NAME", ""))
                 roi_dir = os.path.join(project_dir, "derivatives", "SimNIBS", f"sub-{selected_subject}",
                                      f"m2m_{selected_subject}", "ROIs")
@@ -627,106 +616,61 @@ class ExSearchTab(QtWidgets.QWidget):
         return electrodes
     
     def validate_inputs(self):
-        """Validate all inputs before running optimization."""
-        # Check subject selection
-        if not self.subject_list.selectedItems():
+        """Validate all input fields before running optimization."""
+        # Check if a subject is selected
+        if self.subject_combo.currentText() == "":
             self.update_status("Please select a subject", error=True)
             return False
-        
-        # Check ROI selection
-        if not self.roi_list.selectedItems():
-            self.update_status("Please select at least one ROI", error=True)
+            
+        # Check if ROIs are selected
+        if self.roi_list.count() == 0:
+            self.update_status("Please add at least one ROI", error=True)
             return False
-        
-        # Parse and validate electrode inputs
+            
+        # Validate electrode inputs
         e1_plus = self.parse_electrode_input(self.e1_plus_input.text())
         e1_minus = self.parse_electrode_input(self.e1_minus_input.text())
         e2_plus = self.parse_electrode_input(self.e2_plus_input.text())
         e2_minus = self.parse_electrode_input(self.e2_minus_input.text())
         
-        # Check if any input is invalid
-        if None in [e1_plus, e1_minus, e2_plus, e2_minus]:
-            self.update_status("Invalid electrode format. Use format 'E1, E2, ...'", error=True)
-            return False
-        
-        # Check if any category is empty
         if not all([e1_plus, e1_minus, e2_plus, e2_minus]):
-            self.update_status("Please enter electrodes for all categories", error=True)
+            self.update_status("Please enter valid electrode names for all categories", error=True)
             return False
-        
-        # Check if all categories have the same number of electrodes
-        electrode_counts = [len(x) for x in [e1_plus, e1_minus, e2_plus, e2_minus]]
-        if len(set(electrode_counts)) != 1:
+            
+        if not (len(e1_plus) == len(e1_minus) == len(e2_plus) == len(e2_minus)):
             self.update_status("All electrode categories must have the same number of electrodes", error=True)
             return False
-        
-        # Check leadfield existence
-        subject_id = self.subject_list.selectedItems()[0].text()
-        project_dir = os.path.join("/mnt", os.environ.get("PROJECT_DIR_NAME", ""))
-        leadfield_dir = os.path.join(project_dir, "derivatives", "SimNIBS", f"sub-{subject_id}",
-                                   f"leadfield_{subject_id}")
-        leadfield_vol_dir = os.path.join(project_dir, "derivatives", "SimNIBS", f"sub-{subject_id}",
-                                   f"leadfield_vol_{subject_id}")
-        
-        if not (os.path.exists(leadfield_dir) or os.path.exists(leadfield_vol_dir)):
-            self.update_status("Leadfield matrices not found. Please create them first.", error=True)
-            return False
-        
+            
         return True
     
     def run_optimization(self):
-        """Run the ex-search optimization."""
-        try:
-            # Validate inputs
-            if not self.validate_inputs():
-                return
+        """Run the ex-search optimization for selected subjects."""
+        if not self.validate_inputs():
+            return
             
-            # Get selected subject
-            subject_id = self.subject_list.selectedItems()[0].text()
-            
-            # Get electrodes
-            e1_plus = self.parse_electrode_input(self.e1_plus_input.text())
-            e1_minus = self.parse_electrode_input(self.e1_minus_input.text())
-            e2_plus = self.parse_electrode_input(self.e2_plus_input.text())
-            e2_minus = self.parse_electrode_input(self.e2_minus_input.text())
-            
-            # Set up environment variables
-            env = os.environ.copy()
-            project_dir_name = env.get("PROJECT_DIR_NAME", "")
-            project_dir = os.path.join("/mnt", project_dir_name)
-            env["PROJECT_DIR"] = project_dir
-            env["SUBJECT_NAME"] = subject_id
-            
-            # Add electrode selections to environment
-            env["E1_PLUS"] = ",".join(e1_plus)
-            env["E1_MINUS"] = ",".join(e1_minus)
-            env["E2_PLUS"] = ",".join(e2_plus)
-            env["E2_MINUS"] = ",".join(e2_minus)
-            
-            # Set up leadfield path using the stored correct path
-            leadfield_hdf = os.path.join(self.current_leadfield_dir, f"{subject_id}_leadfield_EGI_template.hdf5")
-            env["LEADFIELD_HDF"] = leadfield_hdf
-            
-            # Get selected ROIs
-            selected_rois = [item.text().split(':')[0].strip() for item in self.roi_list.selectedItems()]
-            if not selected_rois:
-                self.update_status("No ROIs selected", error=True)
-                return
-            
-            # Prepare base script directory
-            script_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-            ex_search_dir = os.path.join(script_dir, "ex-search")
-            
-            # Update UI
-            self.disable_controls()
-            self.update_status("Running ex-search optimization...")
-            
-            # Create a sequential execution manager
-            self.run_pipeline(subject_id, project_dir, ex_search_dir, e1_plus, e1_minus, e2_plus, e2_minus, env)
-            
-        except Exception as e:
-            self.update_status(f"Error running optimization: {str(e)}", error=True)
-            self.enable_controls()
+        subject_id = self.subject_combo.currentText()
+        project_dir = os.path.join("/mnt", os.environ.get("PROJECT_DIR_NAME", ""))
+        ex_search_dir = os.path.join(project_dir, "derivatives", "SimNIBS", f"sub-{subject_id}", "ex-search")
+        
+        # Create ex_search directory if it doesn't exist
+        os.makedirs(ex_search_dir, exist_ok=True)
+        
+        # Get electrode configurations
+        e1_plus = self.parse_electrode_input(self.e1_plus_input.text())
+        e1_minus = self.parse_electrode_input(self.e1_minus_input.text())
+        e2_plus = self.parse_electrode_input(self.e2_plus_input.text())
+        e2_minus = self.parse_electrode_input(self.e2_minus_input.text())
+        
+        # Set up environment variables
+        env = os.environ.copy()
+        env["SUBJECTS_DIR"] = project_dir
+        
+        # Disable controls and show status
+        self.disable_controls()
+        self.update_status(f"Running optimization for subject {subject_id}...")
+        
+        # Run the pipeline
+        self.run_pipeline(subject_id, project_dir, ex_search_dir, e1_plus, e1_minus, e2_plus, e2_minus, env)
     
     def run_pipeline(self, subject_id, project_dir, ex_search_dir, e1_plus, e1_minus, e2_plus, e2_minus, env):
         """Run the ex-search pipeline steps sequentially."""
@@ -910,7 +854,7 @@ class ExSearchTab(QtWidgets.QWidget):
     
     def disable_controls(self):
         """Disable controls during optimization."""
-        self.subject_list.setEnabled(False)
+        self.subject_combo.setEnabled(False)
         self.roi_list.setEnabled(False)
         self.e1_plus_input.setEnabled(False)
         self.e1_minus_input.setEnabled(False)
@@ -919,7 +863,6 @@ class ExSearchTab(QtWidgets.QWidget):
         self.run_btn.setEnabled(False)
         self.stop_btn.setEnabled(True)
         self.list_subjects_btn.setEnabled(False)
-        self.select_all_subjects_btn.setEnabled(False)
         self.clear_subject_selection_btn.setEnabled(False)
         self.add_roi_btn.setEnabled(False)
         self.remove_roi_btn.setEnabled(False)
@@ -928,7 +871,7 @@ class ExSearchTab(QtWidgets.QWidget):
     
     def enable_controls(self):
         """Enable controls after optimization."""
-        self.subject_list.setEnabled(True)
+        self.subject_combo.setEnabled(True)
         self.roi_list.setEnabled(True)
         self.e1_plus_input.setEnabled(True)
         self.e1_minus_input.setEnabled(True)
@@ -937,7 +880,6 @@ class ExSearchTab(QtWidgets.QWidget):
         self.run_btn.setEnabled(True)
         self.stop_btn.setEnabled(False)
         self.list_subjects_btn.setEnabled(True)
-        self.select_all_subjects_btn.setEnabled(True)
         self.clear_subject_selection_btn.setEnabled(True)
         self.add_roi_btn.setEnabled(True)
         self.remove_roi_btn.setEnabled(True)
@@ -946,17 +888,14 @@ class ExSearchTab(QtWidgets.QWidget):
     
     def create_leadfield(self):
         """Create leadfield matrices for the selected subject."""
-        selected_items = self.subject_list.selectedItems()
-        if not selected_items:
+        subject_id = self.subject_combo.currentText()
+        if not subject_id:
             self.update_status("Please select a subject first", error=True)
             return
         
-        subject_id = selected_items[0].text()
-        
         # Set up environment variables
         env = os.environ.copy()
-        project_dir_name = env.get("PROJECT_DIR_NAME", "")
-        project_dir = os.path.join("/mnt", project_dir_name)
+        project_dir = os.path.join("/mnt", os.environ.get("PROJECT_DIR_NAME", ""))
         m2m_dir = os.path.join(project_dir, "derivatives", "SimNIBS", f"sub-{subject_id}",
                               f"m2m_{subject_id}")
         
@@ -1038,11 +977,10 @@ class AddROIDialog(QtWidgets.QDialog):
     def load_t1_in_freeview(self):
         """Load the subject's T1 NIfTI file in Freeview."""
         try:
-            selected_items = self.parent.subject_list.selectedItems()
-            if not selected_items:
+            subject_id = self.parent.subject_combo.currentText()
+            if not subject_id:
                 QtWidgets.QMessageBox.warning(self, "Error", "Please select a subject first")
                 return
-            subject_id = selected_items[0].text()
             project_dir = os.path.join("/mnt", os.environ.get("PROJECT_DIR_NAME", ""))
             t1_path = os.path.join(project_dir, "derivatives", "SimNIBS", f"sub-{subject_id}", f"m2m_{subject_id}", "T1.nii.gz")
             if not os.path.exists(t1_path):
@@ -1057,12 +995,10 @@ class AddROIDialog(QtWidgets.QDialog):
         """Handle dialog acceptance."""
         try:
             # Get selected subject
-            selected_items = self.parent.subject_list.selectedItems()
-            if not selected_items:
+            subject_id = self.parent.subject_combo.currentText()
+            if not subject_id:
                 QtWidgets.QMessageBox.warning(self, "Error", "Please select a subject first")
                 return
-            
-            subject_id = selected_items[0].text()
             
             # Validate ROI name
             roi_name = self.roi_name.text().strip()
