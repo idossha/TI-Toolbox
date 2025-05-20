@@ -672,7 +672,7 @@ class PreProcessTab(QtWidgets.QWidget):
         # Build command using absolute Docker paths
         cmd = [
             'bash',
-            '/development/CLI/pre-process.sh',
+            '/ti-csc/CLI/pre-process.sh',
             '--run-direct'
         ]
         
