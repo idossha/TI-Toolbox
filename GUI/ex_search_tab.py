@@ -674,9 +674,19 @@ class ExSearchTab(QtWidgets.QWidget):
     
     def run_pipeline(self, subject_id, project_dir, ex_search_dir, e1_plus, e1_minus, e2_plus, e2_minus, env):
         """Run the ex-search pipeline steps sequentially."""
+        # Get the script directory
+        script_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        ex_search_scripts_dir = os.path.join(script_dir, "ex-search")
+        
+        # Set up base environment variables
+        env = os.environ.copy()
+        env["PROJECT_DIR_NAME"] = os.path.basename(project_dir)
+        env["SUBJECT_NAME"] = subject_id
+        env["SUBJECTS_DIR"] = project_dir
+        
         # Step 1: Run the TI simulation
         self.update_output("Step 1: Running TI simulation...")
-        ti_sim_script = os.path.join(ex_search_dir, "ti_sim.py")
+        ti_sim_script = os.path.join(ex_search_scripts_dir, "ti_sim.py")
         
         # Prepare input data for the script
         input_data = [
@@ -708,7 +718,14 @@ class ExSearchTab(QtWidgets.QWidget):
         self.update_output("\nStep 2: Running ROI analysis...")
         roi_dir = os.path.join(project_dir, "derivatives", "SimNIBS", f"sub-{subject_id}", 
                               f"m2m_{subject_id}", "ROIs")
-        roi_analyzer_script = os.path.join(ex_search_dir, "roi-analyzer.py")
+        script_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        ex_search_scripts_dir = os.path.join(script_dir, "ex-search")
+        roi_analyzer_script = os.path.join(ex_search_scripts_dir, "roi-analyzer.py")
+        
+        # Update environment variables for ROI analyzer
+        env["PROJECT_DIR"] = project_dir
+        env["SUBJECT_NAME"] = subject_id
+        
         cmd = ["python3", roi_analyzer_script, roi_dir]
         
         self.optimization_process = ExSearchThread(cmd, env)
@@ -748,7 +765,15 @@ class ExSearchTab(QtWidgets.QWidget):
             os.makedirs(mesh_dir, exist_ok=True)
             
             # Run mesh processing
-            mesh_processing_script = os.path.join(ex_search_dir, "field-analysis", "run_process_mesh_files.sh")
+            script_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            ex_search_scripts_dir = os.path.join(script_dir, "ex-search")
+            mesh_processing_script = os.path.join(ex_search_scripts_dir, "field-analysis", "run_process_mesh_files.sh")
+            
+            # Update environment variables for mesh processing
+            env["PROJECT_DIR"] = project_dir
+            env["SUBJECT_NAME"] = subject_id
+            env["MESH_DIR"] = mesh_dir
+            
             cmd = ["bash", mesh_processing_script, mesh_dir]
             
             self.optimization_process = ExSearchThread(cmd, env)
@@ -768,7 +793,14 @@ class ExSearchTab(QtWidgets.QWidget):
         """Run the update CSV step."""
         # Step 4: Update output CSV
         self.update_output("\nStep 4: Updating output CSV...")
-        update_csv_script = os.path.join(ex_search_dir, "update_output_csv.py")
+        script_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        ex_search_scripts_dir = os.path.join(script_dir, "ex-search")
+        update_csv_script = os.path.join(ex_search_scripts_dir, "update_output_csv.py")
+        
+        # Update environment variables for CSV update
+        env["PROJECT_DIR"] = project_dir
+        env["SUBJECT_NAME"] = subject_id
+        
         cmd = ["python3", update_csv_script, project_dir, subject_id]
         
         self.optimization_process = ExSearchThread(cmd, env)
