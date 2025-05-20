@@ -1081,12 +1081,8 @@ class AddROIDialog(QtWidgets.QDialog):
             
             os.makedirs(roi_dir, exist_ok=True)
             
-            # Check if ROI file exists and confirm overwrite
-            roi_file = os.path.join(roi_dir, roi_name)
-            if not confirm_overwrite(self, roi_file, "ROI file"):
-                return
-            
             # Write coordinates to ROI file as three comma-separated columns
+            roi_file = os.path.join(roi_dir, roi_name)
             with open(roi_file, 'w', newline='') as f:
                 writer = csv.writer(f)
                 writer.writerow([self.x_coord.value(), self.y_coord.value(), self.z_coord.value()])
