@@ -29,6 +29,8 @@ if [ -d /ti-csc/CLI ]; then
   echo 'alias simulator="/ti-csc/CLI/simulator.sh"' >>~/.bashrc
   echo 'alias pre-process="/ti-csc/CLI/pre-process.sh"' >>~/.bashrc
   echo 'alias flex-search="/ti-csc/CLI/flex-search.sh"' >>~/.bashrc
+  echo 'alias ex-search="/ti-csc/CLI/ex-search.sh"' >>~/.bashrc
+  echo 'alias simulator="/ti-csc/CLI/simulator.sh"' >>~/.bashrc
   
   echo "CLI tools added to PATH and aliases created in .bashrc"
 fi

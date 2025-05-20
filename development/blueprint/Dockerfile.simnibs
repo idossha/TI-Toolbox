@@ -73,8 +73,6 @@ RUN apt-get update && apt-get install -y \
     imagemagick \
     parallel \
     dcm2niix \
-    gcc-10 \ 
-    g++-10 \ 
     && apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 # Set up Python environment and install required Python packages
@@ -91,50 +89,14 @@ RUN wget https://github.com/simnibs/simnibs/releases/download/v4.5.0/simnibs_ins
 ENV PATH="/root/SimNIBS-4.5/bin:$PATH"
 ENV SIMNIBSDIR="/root/SimNIBS-4.5"
 
-# Set MATLAB Runtime version and installation directory
-ENV MATLAB_RUNTIME_INSTALL_DIR=/usr/local/MATLAB/MATLAB_Runtime
-
-# Download and install MATLAB Runtime R2024a
-RUN wget https://ssd.mathworks.com/supportfiles/downloads/R2024a/Release/1/deployment_files/installer/complete/glnxa64/MATLAB_Runtime_R2024a_Update_1_glnxa64.zip -P /tmp \
-    && unzip -q /tmp/MATLAB_Runtime_R2024a_Update_1_glnxa64.zip -d /tmp/matlab_runtime_installer \
-    && /tmp/matlab_runtime_installer/install -destinationFolder ${MATLAB_RUNTIME_INSTALL_DIR} -agreeToLicense yes -mode silent \
-    && rm -rf /tmp/MATLAB_Runtime_R2024a_Update_1_glnxa64.zip /tmp/matlab_runtime_installer
-
-# Install Neovim v0.11.0 from source
-RUN git clone https://github.com/neovim/neovim.git /tmp/neovim \
-    && cd /tmp/neovim \
-    && git checkout v0.11.0 \
-    && make CMAKE_BUILD_TYPE=Release \
-    && make install \
-    && rm -rf /tmp/neovim
-
-# Clone the Neovim configuration files repository
-RUN git clone https://github.com/idossha/docker-config-files.git /root/.config
-
-# Install plugins using lazy.nvim
-RUN nvim --headless "+Lazy! sync" +qa
-
-# Ensure correct permissions
-RUN chown -R root:root /root/.config/nvim
-
-# Move the .tmux.conf to the correct location
-RUN mv /root/.config/.tmux.conf /root/.tmux.conf
-
-# (Optional) Remove sourcing tmux config during build
-# RUN tmux source-file /root/.tmux.conf || true
-
 # Clone TI-CSC repository
-RUN git clone https://github.com/idossha/TI-CSC.git /ti-csc
+RUN git clone https://github.com/idossha/TI-CSC-2.0.git /ti-csc
 
 # Create the target directory
 RUN mkdir -p $SIMNIBSDIR/resources/ElectrodeCaps_MNI/
 
 # Copy the ElectrodeCaps_MNI files
 RUN cp /ti-csc/assets/ElectrodeCaps_MNI/* $SIMNIBSDIR/resources/ElectrodeCaps_MNI/
-
-# Additional steps to run execstack on process_mesh_files in specific field-analysis directories
-RUN execstack -s /ti-csc/analyzer/field-analysis/process_mesh_files \
-    && execstack -s /ti-csc/optimizer/field-analysis/process_mesh_files
 
 # Entry point script to ensure XDG_RUNTIME_DIR exists
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
