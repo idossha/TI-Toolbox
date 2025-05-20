@@ -906,9 +906,6 @@ show_confirmation_dialog() {
 # Main script execution
 show_welcome_message
 
-# Create necessary directories
-mkdir -p "$project_dir/Analysis"
-
 # Collect all necessary inputs with section headers
 print_section_header "Subject Selection"
 choose_subjects

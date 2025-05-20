@@ -50,6 +50,12 @@ class AcknowledgmentsTab(QtWidgets.QWidget):
         
         self.add_acknowledgment_section(
             scroll_layout, 
+            "Noninvasive Deep Brain Stimulation via Temporally Interfering Electric Fields",
+            "Grossman N, Bono D, Dedic N, Kodandaramaiah SB, Rudenko A, Suk HJ, Cassara AM, Neufeld E, Kuster N, Tsai LH, Pascual-Leone A, Boyden ES. Noninvasive Deep Brain Stimulation via Temporally Interfering Electric Fields. Cell. 2017 Jun 1;169(6):1029-1041.e16. doi: 10.1016/j.cell.2017.05.024. PMID: 28575667; PMCID: PMC5520675."
+        )
+        
+        self.add_acknowledgment_section(
+            scroll_layout, 
             "Flex-Search: Leadfield-free TES Optimization",
             "Weise K, Madsen KH, Worbs T, Knösche TR, Korshøj A, Thielscher A, A Leadfield-Free Optimization Framework for Transcranially Applied Electric Currents, bioRxiv 10.1101/2024.12.18.629095"
         )
