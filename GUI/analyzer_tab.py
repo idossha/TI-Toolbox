@@ -631,16 +631,20 @@ class AnalyzerTab(QtWidgets.QWidget):
             
             # Check FreeSurfer mri directory
             project_dir = os.path.join("/mnt", os.environ.get("PROJECT_DIR_NAME", "BIDS_new"))
-            freesurfer_dir = os.path.join(project_dir, "derivatives", "freesurfer", f"sub-{subject_id}", "mri")
+            freesurfer_dir = os.path.join(project_dir, "derivatives", "freesurfer", f"sub-{subject_id}", f"{subject_id}", "mri")
             
-            dkt_atlas = 'aparc.DKTatlas+aseg.mgz'
+            # Define available atlases
+            atlases = ['aparc.DKTatlas+aseg.mgz', 'aparc.a2009s+aseg.mgz']
             
-            # Check both directories for the atlas
-            if os.path.exists(segmentation_dir) and os.path.exists(os.path.join(segmentation_dir, dkt_atlas)):
-                atlas_files.append((dkt_atlas, os.path.join(segmentation_dir, dkt_atlas)))
-            elif os.path.exists(freesurfer_dir) and os.path.exists(os.path.join(freesurfer_dir, dkt_atlas)):
-                atlas_files.append((dkt_atlas, os.path.join(freesurfer_dir, dkt_atlas)))
-            else:
+            # Check both directories for each atlas
+            for atlas in atlases:
+                if os.path.exists(segmentation_dir) and os.path.exists(os.path.join(segmentation_dir, atlas)):
+                    atlas_files.append((atlas, os.path.join(segmentation_dir, atlas)))
+                elif os.path.exists(freesurfer_dir) and os.path.exists(os.path.join(freesurfer_dir, atlas)):
+                    atlas_files.append((atlas, os.path.join(freesurfer_dir, atlas)))
+            
+            # If no atlases found, add warning message
+            if not atlas_files:
                 atlas_files.append("⚠️ FreeSurfer recon-all preprocessing required for atlas generation")
         return atlas_files
 
