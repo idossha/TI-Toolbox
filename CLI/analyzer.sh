@@ -773,7 +773,7 @@ list_atlas_files() {
     fi
     
     # Check FreeSurfer mri directory
-    freesurfer_dir="$project_dir/derivatives/freesurfer/sub-$subject_id/mri"
+    freesurfer_dir="$project_dir/derivatives/freesurfer/sub-$subject_id/$subject_id/mri"
     echo -e "${BOLD_CYAN}FreeSurfer Directory: $freesurfer_dir${RESET}"
     if [ -d "$freesurfer_dir" ]; then
         while IFS= read -r -d '' file; do
@@ -855,7 +855,7 @@ except Exception as e:
     else
         # For voxel analysis, use FreeSurfer's mri_segstats
         local m2m_dir="$project_dir/derivatives/SimNIBS/sub-$subject_id/m2m_$subject_id/segmentation"
-        local freesurfer_dir="$project_dir/derivatives/freesurfer/sub-$subject_id/mri"
+        local freesurfer_dir="$project_dir/derivatives/freesurfer/sub-$subject_id/$subject_id/mri"
         local atlas_basename=$(basename "$atlas_path")
         local atlas_name="${atlas_basename%.*}"
         if [[ "$atlas_name" == *.nii ]]; then  # Handle .nii.gz case
