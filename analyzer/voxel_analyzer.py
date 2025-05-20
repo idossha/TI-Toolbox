@@ -884,18 +884,18 @@ class VoxelAnalyzer:
         if atlas_name.endswith('.nii'):  # Handle .nii.gz case
             atlas_name = os.path.splitext(atlas_name)[0]
             
-        # Get the m2m directory (parent of segmentation directory)
-        segmentation_dir = os.path.dirname(atlas_file)
-        m2m_dir = os.path.dirname(segmentation_dir)
+        # Get the FreeSurfer subject directory (parent of mri directory)
+        mri_dir = os.path.dirname(atlas_file)
+        freesurfer_dir = os.path.dirname(mri_dir)
         
-        # Define the output file path in the m2m directory
-        output_file = os.path.join(m2m_dir, 'segmentation', f"{atlas_name}_labels.txt")
+        # Define the output file path in the mri directory
+        output_file = os.path.join(mri_dir, f"{atlas_name}_labels.txt")
         
-        # Check if we already have the labels file
-        if os.path.exists(output_file):
-            print(f"Using existing labels file: {output_file}")
-        else:
-            # Run mri_segstats to get information about all segments in the atlas
+        # Create mri directory if it doesn't exist
+        os.makedirs(mri_dir, exist_ok=True)
+        
+        # Function to generate the labels file
+        def generate_labels_file():
             cmd = [
                 'mri_segstats',
                 '--seg', atlas_file,
@@ -907,59 +907,77 @@ class VoxelAnalyzer:
             try:
                 print(f"Running: {' '.join(cmd)}")
                 subprocess.run(cmd, check=True, capture_output=True)
+                return True
             except subprocess.CalledProcessError as e:
                 print(f"Warning: Could not extract region information using mri_segstats: {str(e)}")
                 print(f"Command output: {e.stdout.decode() if e.stdout else ''}")
                 print(f"Command error: {e.stderr.decode() if e.stderr else ''}")
+                return False
+        
+        # Function to parse the labels file
+        def parse_labels_file():
+            try:
+                with open(output_file, 'r') as f:
+                    # Skip header lines (all lines starting with #)
+                    in_header = True
+                    for line in f:
+                        # Check if we've reached the end of the header
+                        if in_header and not line.startswith('#'):
+                            in_header = False
+                            
+                        # Process data lines (non-header)
+                        if not in_header and line.strip():
+                            parts = line.strip().split()
+                            
+                            # The format is:
+                            # Index SegId NVoxels Volume_mm3 StructName
+                            # We need at least 5 columns
+                            if len(parts) >= 5:
+                                try:
+                                    region_id = int(parts[1])  # SegId is the second column
+                                    n_voxels = int(parts[2])   # NVoxels is the third column
+                                    
+                                    # Structure name can contain spaces, so join the remaining parts
+                                    region_name = ' '.join(parts[4:])
+                                    
+                                    # Generate a random color based on region_id for visualization
+                                    # This creates a consistent color for each region
+                                    import random
+                                    random.seed(region_id)
+                                    r = random.uniform(0.2, 0.8)
+                                    g = random.uniform(0.2, 0.8)
+                                    b = random.uniform(0.2, 0.8)
+                                    
+                                    region_info[region_id] = {
+                                        'name': region_name,
+                                        'voxel_count': n_voxels,
+                                        'color': (r, g, b)
+                                    }
+                                except (ValueError, IndexError) as e:
+                                    print(f"Warning: Could not parse line: {line.strip()}")
+                                    print(f"Error: {str(e)}")
+                
+                return len(region_info) > 0
+            except Exception as e:
+                print(f"Error reading labels file: {str(e)}")
+                return False
+        
+        # Try to use existing file first
+        if os.path.exists(output_file):
+            print(f"Found existing labels file: {output_file}")
+            if parse_labels_file():
+                print(f"Successfully parsed {len(region_info)} regions from existing file")
+                return region_info
+            else:
+                print("Existing file is invalid or empty, regenerating...")
+        
+        # Generate new file if needed
+        if generate_labels_file():
+            if parse_labels_file():
+                print(f"Successfully generated and parsed {len(region_info)} regions")
                 return region_info
         
-        # Parse the output file
-        try:
-            with open(output_file, 'r') as f:
-                # Skip header lines (all lines starting with #)
-                in_header = True
-                for line in f:
-                    # Check if we've reached the end of the header
-                    if in_header and not line.startswith('#'):
-                        in_header = False
-                        
-                    # Process data lines (non-header)
-                    if not in_header and line.strip():
-                        parts = line.strip().split()
-                        
-                        # The format is:
-                        # Index SegId NVoxels Volume_mm3 StructName
-                        # We need at least 5 columns
-                        if len(parts) >= 5:
-                            try:
-                                region_id = int(parts[1])  # SegId is the second column
-                                n_voxels = int(parts[2])   # NVoxels is the third column
-                                
-                                # Structure name can contain spaces, so join the remaining parts
-                                region_name = ' '.join(parts[4:])
-                                
-                                # Generate a random color based on region_id for visualization
-                                # This creates a consistent color for each region
-                                import random
-                                random.seed(region_id)
-                                r = random.uniform(0.2, 0.8)
-                                g = random.uniform(0.2, 0.8)
-                                b = random.uniform(0.2, 0.8)
-                                
-                                region_info[region_id] = {
-                                    'name': region_name,
-                                    'voxel_count': n_voxels,
-                                    'color': (r, g, b)
-                                }
-                            except (ValueError, IndexError) as e:
-                                print(f"Warning: Could not parse line: {line.strip()}")
-                                print(f"Error: {str(e)}")
-                
-            print(f"Found {len(region_info)} regions in atlas file")
-            
-        except Exception as e:
-            print(f"Error reading labels file: {str(e)}")
-            
+        print("Warning: Could not get region information from atlas file")
         return region_info
 
     def load_brain_image(self, file_path):

@@ -27,9 +27,18 @@ class AnalysisThread(QtCore.QThread):
         self.process = None
         self.terminated = False
         
+    def _strip_ansi_codes(self, text):
+        """Remove ANSI color codes from text."""
+        import re
+        ansi_escape = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
+        return ansi_escape.sub('', text)
+        
     def run(self):
         """Run the analysis command in a separate thread."""
         try:
+            # Set up Python unbuffered output
+            self.env['PYTHONUNBUFFERED'] = '1'
+            
             self.process = subprocess.Popen(
                 self.cmd, 
                 stdout=subprocess.PIPE, 
@@ -39,21 +48,36 @@ class AnalysisThread(QtCore.QThread):
                 env=self.env
             )
             
-            # Real-time output display
-            for line in iter(self.process.stdout.readline, ''):
+            # Real-time output display for both stdout and stderr
+            while True:
+                # Read stdout
+                stdout_line = self.process.stdout.readline()
+                if stdout_line:
+                    self.output_signal.emit(self._strip_ansi_codes(stdout_line.strip()))
+                
+                # Read stderr
+                stderr_line = self.process.stderr.readline()
+                if stderr_line:
+                    line = self._strip_ansi_codes(stderr_line.strip())
+                    # Only prefix with Error: if it's actually an error message
+                    if "ERROR:" in line or "CRITICAL:" in line:
+                        self.output_signal.emit(f"Error: {line}")
+                    else:
+                        self.output_signal.emit(line)
+                
+                # Check if process has finished
                 if self.terminated:
                     break
-                if line:
-                    self.output_signal.emit(line.strip())
+                    
+                # Check if both stdout and stderr are empty and process has finished
+                if not stdout_line and not stderr_line and self.process.poll() is not None:
+                    break
             
             # Check for errors
             if not self.terminated:
                 returncode = self.process.wait()
                 if returncode != 0:
-                    error = self.process.stderr.read()
                     self.output_signal.emit("Error: Process returned non-zero exit code")
-                    if error:
-                        self.output_signal.emit(error)
                     
         except Exception as e:
             self.output_signal.emit(f"Error running analysis: {str(e)}")
@@ -301,13 +325,15 @@ class AnalyzerTab(QtWidgets.QWidget):
         self.voxel_atlas_widget = QtWidgets.QWidget()
         voxel_atlas_layout = QtWidgets.QHBoxLayout(self.voxel_atlas_widget)
         self.voxel_atlas_label = QtWidgets.QLabel("Atlas File:")
-        self.atlas_path_input = QtWidgets.QLineEdit()
-        self.atlas_path_input.setPlaceholderText("Select atlas file...")
-        self.browse_atlas_btn = QtWidgets.QPushButton("Browse")
-        self.browse_atlas_btn.clicked.connect(self.browse_atlas)
+        
+        # Create a combo box for atlas selection (non-editable)
+        self.atlas_combo = QtWidgets.QComboBox()
+        self.atlas_combo.setEditable(False)
+        self.atlas_combo.setMinimumWidth(300)  # Make the combo box wider
+        
         voxel_atlas_layout.addWidget(self.voxel_atlas_label)
-        voxel_atlas_layout.addWidget(self.atlas_path_input)
-        voxel_atlas_layout.addWidget(self.browse_atlas_btn)
+        voxel_atlas_layout.addWidget(self.atlas_combo)
+        voxel_atlas_layout.addStretch(1)  # Add stretch to push elements to the left
         
         # Add both atlas widgets to cortical layout
         cortical_layout.addWidget(self.mesh_atlas_widget)
@@ -318,11 +344,17 @@ class AnalyzerTab(QtWidgets.QWidget):
         self.region_label = QtWidgets.QLabel("Region:")
         self.region_input = QtWidgets.QLineEdit()
         self.region_input.setPlaceholderText("e.g., superiorfrontal")
-        self.show_regions_btn = QtWidgets.QPushButton()
-        self.show_regions_btn.setIcon(self.style().standardIcon(QtWidgets.QStyle.SP_MessageBoxInformation))
-        self.show_regions_btn.setToolTip("Show available regions")
+        
+        # Change the region info button to a regular button with text
+        self.show_regions_btn = QtWidgets.QPushButton("List Regions")
+        self.show_regions_btn.setToolTip("Show available regions in the selected atlas")
         self.show_regions_btn.clicked.connect(self.show_available_regions)
-        self.show_regions_btn.setMaximumWidth(30)
+        self.show_regions_btn.setEnabled(False)  # Initially disabled
+        
+        # Make the region input wider relative to the button
+        self.region_input.setMinimumWidth(200)
+        self.show_regions_btn.setMaximumWidth(100)
+        
         region_layout.addWidget(self.region_label)
         region_layout.addWidget(self.region_input)
         region_layout.addWidget(self.show_regions_btn)
@@ -487,6 +519,9 @@ class AnalyzerTab(QtWidgets.QWidget):
         self.simulation_combo.currentTextChanged.connect(self.update_field_files)
         self.space_mesh.toggled.connect(self.update_field_files)
         self.space_voxel.toggled.connect(self.update_field_files)
+        
+        # Connect subject list selection change signal
+        self.subject_list.itemSelectionChanged.connect(self.subject_list_selection_changed)
     
     def list_subjects(self):
         """List available subjects in the project directory."""
@@ -586,6 +621,78 @@ class AnalyzerTab(QtWidgets.QWidget):
             self.field_name_input.setEnabled(is_mesh)
             self.field_name_label.setEnabled(is_mesh)
 
+    def get_available_atlas_files(self, subject_id):
+        """Get available atlas files from the subject's segmentation directory."""
+        atlas_files = []
+        if subject_id:
+            # Check SimNIBS segmentation directory
+            m2m_dir = self.get_m2m_dir_for_subject(subject_id)
+            segmentation_dir = os.path.join(m2m_dir, 'segmentation')
+            
+            # Check FreeSurfer mri directory
+            project_dir = os.path.join("/mnt", os.environ.get("PROJECT_DIR_NAME", "BIDS_new"))
+            freesurfer_dir = os.path.join(project_dir, "derivatives", "freesurfer", f"sub-{subject_id}", f"{subject_id}", "mri")
+            
+            # Define available atlases
+            atlases = ['aparc.DKTatlas+aseg.mgz', 'aparc.a2009s+aseg.mgz']
+            
+            # Check both directories for each atlas
+            for atlas in atlases:
+                if os.path.exists(segmentation_dir) and os.path.exists(os.path.join(segmentation_dir, atlas)):
+                    atlas_files.append((atlas, os.path.join(segmentation_dir, atlas)))
+                elif os.path.exists(freesurfer_dir) and os.path.exists(os.path.join(freesurfer_dir, atlas)):
+                    atlas_files.append((atlas, os.path.join(freesurfer_dir, atlas)))
+            
+            # If no atlases found, add warning message
+            if not atlas_files:
+                atlas_files.append("⚠️ FreeSurfer recon-all preprocessing required for atlas generation")
+        return atlas_files
+
+    def update_atlas_combo(self):
+        """Update the atlas combo box with available files."""
+        self.atlas_combo.clear()
+        
+        # Get selected subject
+        selected_items = self.subject_list.selectedItems()
+        if selected_items:
+            subject_id = selected_items[0].text()
+            
+            # Get available atlas files
+            atlas_files = self.get_available_atlas_files(subject_id)
+            
+            # Only show warnings if we're in voxel and cortical mode
+            should_show_warnings = not self.space_mesh.isChecked() and self.type_cortical.isChecked()
+            
+            if not atlas_files:
+                if should_show_warnings:
+                    self.update_output("⚠️ Warning: No atlas files found in any directory.")
+            elif isinstance(atlas_files[0], str) and atlas_files[0].startswith('⚠️'):
+                if should_show_warnings:
+                    self.update_output("⚠️ Warning: " + atlas_files[0].replace('⚠️ ', ''))
+            
+            for file in atlas_files:
+                if isinstance(file, str) and file.startswith('⚠️'):
+                    # Add the warning message as a non-selectable item
+                    self.atlas_combo.addItem(file)
+                    self.atlas_combo.model().item(self.atlas_combo.count() - 1).setEnabled(False)
+                    self.show_regions_btn.setEnabled(False)
+                else:
+                    # Add the atlas file with its display name and full path
+                    display_name, full_path = file
+                    self.atlas_combo.addItem(display_name, full_path)
+                    # Enable the List Regions button if we have a valid atlas
+                    self.show_regions_btn.setEnabled(True)
+            
+            # If no valid atlas found, disable the combo box
+            has_valid_atlas = len(atlas_files) > 0 and not (isinstance(atlas_files[0], str) and atlas_files[0].startswith('⚠️'))
+            self.atlas_combo.setEnabled(has_valid_atlas)
+            self.show_regions_btn.setEnabled(has_valid_atlas and not self.whole_head_check.isChecked())
+        else:
+            # If no subject selected, add placeholder and disable
+            self.atlas_combo.addItem("Select a subject first")
+            self.atlas_combo.setEnabled(False)
+            self.show_regions_btn.setEnabled(False)
+
     def browse_atlas(self):
         """Open file browser to select an atlas file for voxel analysis."""
         # Try to get the m2m directory for the selected subject as initial dir
@@ -594,7 +701,7 @@ class AnalyzerTab(QtWidgets.QWidget):
             subject_id = self.subject_list.selectedItems()[0].text()
             m2m_dir = self.get_m2m_dir_for_subject(subject_id)
             if os.path.exists(m2m_dir):
-                initial_dir = m2m_dir
+                initial_dir = os.path.join(m2m_dir, 'segmentation')
         
         file_name, _ = QtWidgets.QFileDialog.getOpenFileName(
             self,
@@ -604,8 +711,8 @@ class AnalyzerTab(QtWidgets.QWidget):
         )
         
         if file_name:
-            self.atlas_path_input.setText(file_name)
-    
+            self.atlas_combo.setEditText(file_name)
+
     def update_atlas_visibility(self):
         """Update visibility of atlas selection based on space type and analysis type."""
         is_mesh = self.space_mesh.isChecked()
@@ -639,6 +746,8 @@ class AnalyzerTab(QtWidgets.QWidget):
         """Enable/disable region input based on whole head checkbox."""
         self.region_input.setEnabled(not state)
         self.region_label.setEnabled(not state)
+        # Also disable the List Regions button if whole head is checked
+        self.show_regions_btn.setEnabled(not state and self.atlas_combo.isEnabled())
     
     def validate_inputs(self):
         """Validate all input parameters before running the analysis."""
@@ -687,7 +796,7 @@ class AnalyzerTab(QtWidgets.QWidget):
                     QtWidgets.QMessageBox.warning(self, "Warning", "Please select an atlas.")
                     return False
             else:
-                if not self.atlas_path_input.text():
+                if not self.atlas_combo.currentText() or self.atlas_combo.currentText() == "Select atlas file...":
                     QtWidgets.QMessageBox.warning(self, "Warning", "Please select an atlas file.")
                     return False
             
@@ -741,14 +850,16 @@ class AnalyzerTab(QtWidgets.QWidget):
             if self.type_spherical.isChecked():
                 target_info = f"sphere_x{self.coord_x.text() or '0'}_y{self.coord_y.text() or '0'}_z{self.coord_z.text() or '0'}_r{self.radius_input.text() or '5'}"
             else:  # cortical
-
                 if self.whole_head_check.isChecked():
                     # For whole head analysis, include the atlas type in the directory name
                     if self.space_mesh.isChecked():
                         atlas_info = self.atlas_name_combo.currentText()
                         target_info = f"whole_head_{atlas_info}"
                     else:
-                        atlas_path = self.atlas_path_input.text()
+                        # Get the full atlas path from the combo box's data
+                        atlas_path = self.atlas_combo.currentData()
+                        if not atlas_path:
+                            raise ValueError("No valid atlas path found")
                         atlas_name = os.path.basename(atlas_path).split('.')[0]
                         target_info = f"whole_head_{atlas_name}"
                 else:
@@ -801,8 +912,12 @@ class AnalyzerTab(QtWidgets.QWidget):
                 # For mesh-based cortical analysis, always include atlas_name first
                 if self.space_mesh.isChecked():
                     cmd.extend(['--atlas_name', self.atlas_name_combo.currentText()])
-                elif not self.whole_head_check.isChecked():
-                    cmd.extend(['--atlas_path', self.atlas_path_input.text()])
+                else:
+                    # Get the full atlas path from the combo box's data
+                    atlas_path = self.atlas_combo.currentData()
+                    if not atlas_path:
+                        raise ValueError("No valid atlas path found")
+                    cmd.extend(['--atlas_path', atlas_path])
                 
                 # Then add region or whole_head flag
                 if self.whole_head_check.isChecked():
@@ -831,7 +946,13 @@ class AnalyzerTab(QtWidgets.QWidget):
             self.update_output("Running analysis...")
             self.update_output(f"Analysis Type: {'Spherical' if self.type_spherical.isChecked() else 'Cortical'}")
             self.update_output(f"Space Type: {'Mesh' if self.space_mesh.isChecked() else 'Voxel'}")
-            self.update_output(f"Atlas Name: {self.atlas_name_combo.currentText() if self.space_mesh.isChecked() else 'N/A'}")
+            if self.type_cortical.isChecked():
+                if self.space_mesh.isChecked():
+                    self.update_output(f"Atlas Name: {self.atlas_name_combo.currentText()}")
+                else:
+                    atlas_path = self.atlas_combo.currentData()
+                    if atlas_path:
+                        self.update_output(f"Atlas Name: {os.path.basename(atlas_path)}")
             self.update_output(f"Command: {' '.join(cmd)}")
             
             # Create and start thread
@@ -866,7 +987,7 @@ class AnalyzerTab(QtWidgets.QWidget):
             if self.space_mesh.isChecked():
                 details += f"• Atlas: {self.atlas_name_combo.currentText()}\n"
             else:
-                details += f"• Atlas File: {self.atlas_path_input.text()}\n"
+                details += f"• Atlas File: {self.atlas_combo.currentText()}\n"
             
             if self.whole_head_check.isChecked():
                 details += "• Analysis: Whole Head\n"
@@ -974,7 +1095,6 @@ class AnalyzerTab(QtWidgets.QWidget):
         self.list_subjects_btn.setEnabled(False)
         self.clear_subject_selection_btn.setEnabled(False)
         self.browse_field_btn.setEnabled(False)
-        self.browse_atlas_btn.setEnabled(False)
         self.show_regions_btn.setEnabled(False)
         
         # Disable all inputs
@@ -991,7 +1111,7 @@ class AnalyzerTab(QtWidgets.QWidget):
         self.coord_z.setEnabled(False)
         self.radius_input.setEnabled(False)
         self.atlas_name_combo.setEnabled(False)
-        self.atlas_path_input.setEnabled(False)
+        self.atlas_combo.setEnabled(False)
         self.region_input.setEnabled(False)
         self.whole_head_check.setEnabled(False)
         self.visualize_check.setEnabled(False)
@@ -1019,7 +1139,6 @@ class AnalyzerTab(QtWidgets.QWidget):
         self.list_subjects_btn.setEnabled(True)
         self.clear_subject_selection_btn.setEnabled(True)
         self.browse_field_btn.setEnabled(True)
-        self.browse_atlas_btn.setEnabled(True)
         self.show_regions_btn.setEnabled(True)
         
         # Enable all inputs
@@ -1036,7 +1155,7 @@ class AnalyzerTab(QtWidgets.QWidget):
         self.coord_z.setEnabled(True)
         self.radius_input.setEnabled(True)
         self.atlas_name_combo.setEnabled(True)
-        self.atlas_path_input.setEnabled(True)
+        self.atlas_combo.setEnabled(True)
         self.region_input.setEnabled(True)
         self.whole_head_check.setEnabled(True)
         self.visualize_check.setEnabled(True)
@@ -1202,11 +1321,15 @@ class AnalyzerTab(QtWidgets.QWidget):
                     return
             else:
                 # For voxel analysis with MGZ/NIfTI atlas
-                if not self.atlas_path_input.text():
+                if not self.atlas_combo.currentText() or self.atlas_combo.currentText().startswith('⚠️'):
                     QtWidgets.QMessageBox.warning(self, "Warning", "Please select an atlas file first.")
                     return
                 
-                atlas_file = self.atlas_path_input.text()
+                # Get the full path from the combo box's data
+                atlas_file = self.atlas_combo.currentData()  # Use currentData() instead of currentText()
+                if not atlas_file:
+                    QtWidgets.QMessageBox.warning(self, "Warning", "No valid atlas file path found.")
+                    return
                 
                 # Get atlas type from filename
                 atlas_basename = os.path.basename(atlas_file).lower()
@@ -1224,9 +1347,8 @@ class AnalyzerTab(QtWidgets.QWidget):
                 progress_dialog.setValue(30)
                 QtWidgets.QApplication.processEvents()
                 
-                # Get the m2m directory (parent of segmentation directory)
+                # Get the segmentation directory (parent directory of the atlas file)
                 segmentation_dir = os.path.dirname(atlas_file)
-                m2m_dir = os.path.dirname(segmentation_dir)
                 
                 # Define the output file path in the segmentation directory
                 atlas_name = os.path.splitext(os.path.basename(atlas_file))[0]
@@ -1407,3 +1529,8 @@ class AnalyzerTab(QtWidgets.QWidget):
         except Exception as e:
             QtWidgets.QMessageBox.critical(self, "Error", f"Failed to launch Freeview: {str(e)}")
             self.update_output(f"Error launching Freeview: {str(e)}")
+
+    def subject_list_selection_changed(self):
+        """Handle subject selection changes."""
+        self.update_simulations()
+        self.update_atlas_combo()
