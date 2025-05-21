@@ -1,12 +1,25 @@
+
+version: "3.8"
+
 services:
+  matlab:
+    image: idossha/matlab:20th
+    platform: linux/amd64
+    container_name: matlab_container
+    volumes:
+      - matlab_runtime:/usr/local/MATLAB/MATLAB_Runtime
+    networks:
+      - ti_network
+
   fsl:
-    image: idossha/ti-csc_fsl:v1.3.0
+    image: idossha/ti-csc_fsl:v1.3.1
     platform: linux/amd64
     container_name: fsl_container
     volumes:
       - ti_csc_fsl_data:/usr/local/fsl/
     networks:
       - ti_network
+
   freesurfer:
     image: idossha/ti-csc_freesurfer:v1.3.0
     platform: linux/amd64
@@ -15,19 +28,21 @@ services:
       - ti_csc_freesurfer_data:/usr/local/freesurfer/
     networks:
       - ti_network
+
   simnibs:
-    image: idossha/simnibs:4.5.0
+    image: idossha/simnibs:20th
     platform: linux/amd64
     container_name: simnibs_container
     volumes:
       - ti_csc_fsl_data:/usr/local/fsl/
       - ti_csc_freesurfer_data:/usr/local/freesurfer/
+      - matlab_runtime:/usr/local/MATLAB/MATLAB_Runtime
       - /tmp/.X11-unix:/tmp/.X11-unix
       - ${LOCAL_PROJECT_DIR}:/mnt/${PROJECT_DIR_NAME}
     environment:
       USER: root
       DISPLAY: ${DISPLAY}
-      LIBGL_ALWAYS_SOFTWARE: 1
+      LIBGL_ALWAYS_SOFTWARE: "1"
       FSLDIR: /usr/local/fsl
       FSLOUTPUTTYPE: NIFTI_GZ
       FSLMULTIFILEQUIT: "TRUE"
@@ -37,21 +52,26 @@ services:
       FS_LICENSE: /usr/local/freesurfer/license.txt
       LOCAL_PROJECT_DIR: ${LOCAL_PROJECT_DIR}
       PROJECT_DIR_NAME: ${PROJECT_DIR_NAME}
-      # KMP_AFFINITY: disabled
     networks:
       - ti_network
     depends_on:
       - fsl
       - freesurfer
+      - matlab
     tty: true
     stdin_open: true
     working_dir: /ti-csc
     command: ["/bin/bash"]
+
 networks:
   ti_network:
     driver: bridge
+
 volumes:
   ti_csc_fsl_data:
     external: true
   ti_csc_freesurfer_data:
     external: true
+  matlab_runtime:
+    external: true
+
