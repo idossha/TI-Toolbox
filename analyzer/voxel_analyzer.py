@@ -174,7 +174,8 @@ class VoxelAnalyzer:
                 atlas_img, atlas_arr = self.resample_to_match(
                     atlas_img,  
                     field_shape_3d,
-                    field_img.affine
+                    field_img.affine,
+                    source_path=atlas_file  # Pass the atlas file path
                 )
                 atlas_tuple = (atlas_img, atlas_arr)
             else:
@@ -638,9 +639,40 @@ class VoxelAnalyzer:
         self.visualizer.save_results_to_csv(results, 'spherical', region_name, 'voxel')
         
         return results
+    
+    def _get_resampled_atlas_filename(self, atlas_file, target_shape):
+        """Generate a filename for the resampled atlas.
+        
+        Args:
+            atlas_file (str): Path to the original atlas file
+            target_shape (tuple): Target shape for resampling
+            
+        Returns:
+            str: Path to the resampled atlas file
+        """
+        # Extract base filename and extension
+        atlas_dir = os.path.dirname(atlas_file)
+        atlas_basename = os.path.basename(atlas_file)
+        atlas_name, ext = os.path.splitext(atlas_basename)
+        
+        # Handle double extensions like .nii.gz
+        if ext == '.gz' and atlas_name.endswith('.nii'):
+            atlas_name = os.path.splitext(atlas_name)[0]
+            ext = '.nii.gz'
+        
+        # Generate a shape string (e.g., "256x256x256")
+        shape_str = 'x'.join(map(str, target_shape[:3]))  # Only use spatial dimensions
+        
+        # Create new filename
+        resampled_filename = f"{atlas_name}_resampled_{shape_str}{ext}"
+        resampled_path = os.path.join(atlas_dir, resampled_filename)
+        
+        return resampled_path
 
-    def resample_to_match(self, source_img, target_shape, target_affine):
+    def resample_to_match(self, source_img, target_shape, target_affine, source_path=None):
         """Resample source image to match target dimensions and affine using FreeSurfer's mri_convert.
+        
+        If a resampled version already exists, it will be loaded instead of generating a new one.
         
         Parameters
         ----------
@@ -650,6 +682,8 @@ class VoxelAnalyzer:
             Target shape (x, y, z) or (x, y, z, t)
         target_affine : numpy.ndarray
             Target affine transformation matrix
+        source_path : str, optional
+            Path to the source file. If provided, will be used to generate a resampled file name.
             
         Returns
         -------
@@ -657,7 +691,40 @@ class VoxelAnalyzer:
             (resampled nibabel image, resampled data array)
         """
         print(f"Resampling image from shape {source_img.shape} to {target_shape}")
-        print("This may take a few moments...")
+        
+        # If source_path is provided, try to find an existing resampled file
+        if source_path:
+            resampled_path = self._get_resampled_atlas_filename(source_path, target_shape)
+            if os.path.exists(resampled_path):
+                print(f"Found existing resampled atlas: {resampled_path}")
+                try:
+                    resampled_img = nib.load(resampled_path)
+                    resampled_data = resampled_img.get_fdata()
+                    
+                    # Check if the resampled image has the correct shape
+                    if resampled_data.shape[:3] == target_shape[:3]:
+                        print("Loaded previously resampled atlas")
+                        
+                        # If target is 4D but resampled is 3D, reshape it to match
+                        is_target_4d = len(target_shape) == 4
+                        if is_target_4d and len(resampled_data.shape) == 3:
+                            print(f"Reshaping 3D data {resampled_data.shape} to match 4D target {target_shape}")
+                            # Add a dimension to match the 4D target shape
+                            resampled_data = np.expand_dims(resampled_data, axis=3)
+                            
+                            # Create a new 4D NIfTI image
+                            new_header = resampled_img.header.copy()
+                            new_header.set_data_shape(resampled_data.shape)
+                            resampled_img = nib.Nifti1Image(resampled_data, resampled_img.affine, header=new_header)
+                        
+                        return resampled_img, resampled_data
+                    else:
+                        print(f"Existing resampled atlas has wrong shape: {resampled_data.shape[:3]} vs expected {target_shape[:3]}")
+                except Exception as e:
+                    print(f"Error loading existing resampled atlas: {str(e)}")
+                    print("Will generate a new one")
+        
+        print("Generating new resampled atlas...")
         
         # If target shape is 4D but source is 3D, we need to handle this specially
         is_target_4d = len(target_shape) == 4
@@ -672,10 +739,16 @@ class VoxelAnalyzer:
             output_path = temp_output.name
             
         try:
-            # Save the source image to a temporary file
-            with tempfile.NamedTemporaryFile(suffix='.nii.gz', delete=False) as temp_source:
-                source_path = temp_source.name
-                nib.save(source_img, source_path)
+            # Save the source image to a temporary file if not provided
+            if source_path and os.path.exists(source_path):
+                # Use the provided source path
+                temp_source_created = False
+            else:
+                # Save the source image to a temporary file
+                with tempfile.NamedTemporaryFile(suffix='.nii.gz', delete=False) as temp_source:
+                    source_path = temp_source.name
+                    nib.save(source_img, source_path)
+                    temp_source_created = True
             
             # Create a template image with target dimensions (3D only)
             template_img = nib.Nifti1Image(np.zeros(spatial_shape), target_affine)
@@ -707,14 +780,27 @@ class VoxelAnalyzer:
                 new_header.set_data_shape(resampled_data.shape)
                 resampled_img = nib.Nifti1Image(resampled_data, resampled_img.affine, header=new_header)
             
+            # Save the resampled atlas for future use if source_path was provided and not temporary
+            if source_path and not temp_source_created:
+                resampled_save_path = self._get_resampled_atlas_filename(source_path, target_shape)
+                print(f"Saving resampled atlas for future use: {resampled_save_path}")
+                nib.save(resampled_img, resampled_save_path)
+            
             print("Resampling complete")
             return resampled_img, resampled_data
             
         finally:
             # Clean up temporary files
-            for temp_file in [source_path, template_path, output_path]:
+            for temp_file in [template_path, output_path]:
                 try:
                     os.unlink(temp_file)
+                except:
+                    pass
+            
+            # Also remove temporary source file if we created it
+            if 'temp_source_created' in locals() and temp_source_created and 'source_path' in locals():
+                try:
+                    os.unlink(source_path)
                 except:
                     pass
 
@@ -761,12 +847,13 @@ class VoxelAnalyzer:
             print("Atlas and field dimensions don't match, attempting to resample...")
             print(f"Atlas shape: {atlas_arr.shape}")
             print(f"Field shape: {field_arr.shape}")
-        
-            # Resample the atlas to match the field data
+
+            # Resample the atlas to match the field data, passing atlas_file
             atlas_img, atlas_arr = self.resample_to_match(
                 atlas_img,
                 field_shape_3d,  # Use only the spatial dimensions
-                field_img.affine
+                field_img.affine,
+                source_path=atlas_file  # Pass the atlas file path
             )
             
             # Verify the resampling worked
@@ -884,18 +971,18 @@ class VoxelAnalyzer:
         if atlas_name.endswith('.nii'):  # Handle .nii.gz case
             atlas_name = os.path.splitext(atlas_name)[0]
             
-        # Get the m2m directory (parent of segmentation directory)
-        segmentation_dir = os.path.dirname(atlas_file)
-        m2m_dir = os.path.dirname(segmentation_dir)
+        # Get the FreeSurfer subject directory (parent of mri directory)
+        mri_dir = os.path.dirname(atlas_file)
+        freesurfer_dir = os.path.dirname(mri_dir)
         
-        # Define the output file path in the m2m directory
-        output_file = os.path.join(m2m_dir, 'segmentation', f"{atlas_name}_labels.txt")
+        # Define the output file path in the mri directory
+        output_file = os.path.join(mri_dir, f"{atlas_name}_labels.txt")
         
-        # Check if we already have the labels file
-        if os.path.exists(output_file):
-            print(f"Using existing labels file: {output_file}")
-        else:
-            # Run mri_segstats to get information about all segments in the atlas
+        # Create mri directory if it doesn't exist
+        os.makedirs(mri_dir, exist_ok=True)
+        
+        # Function to generate the labels file
+        def generate_labels_file():
             cmd = [
                 'mri_segstats',
                 '--seg', atlas_file,
@@ -907,59 +994,77 @@ class VoxelAnalyzer:
             try:
                 print(f"Running: {' '.join(cmd)}")
                 subprocess.run(cmd, check=True, capture_output=True)
+                return True
             except subprocess.CalledProcessError as e:
                 print(f"Warning: Could not extract region information using mri_segstats: {str(e)}")
                 print(f"Command output: {e.stdout.decode() if e.stdout else ''}")
                 print(f"Command error: {e.stderr.decode() if e.stderr else ''}")
+                return False
+        
+        # Function to parse the labels file
+        def parse_labels_file():
+            try:
+                with open(output_file, 'r') as f:
+                    # Skip header lines (all lines starting with #)
+                    in_header = True
+                    for line in f:
+                        # Check if we've reached the end of the header
+                        if in_header and not line.startswith('#'):
+                            in_header = False
+                            
+                        # Process data lines (non-header)
+                        if not in_header and line.strip():
+                            parts = line.strip().split()
+                            
+                            # The format is:
+                            # Index SegId NVoxels Volume_mm3 StructName
+                            # We need at least 5 columns
+                            if len(parts) >= 5:
+                                try:
+                                    region_id = int(parts[1])  # SegId is the second column
+                                    n_voxels = int(parts[2])   # NVoxels is the third column
+                                    
+                                    # Structure name can contain spaces, so join the remaining parts
+                                    region_name = ' '.join(parts[4:])
+                                    
+                                    # Generate a random color based on region_id for visualization
+                                    # This creates a consistent color for each region
+                                    import random
+                                    random.seed(region_id)
+                                    r = random.uniform(0.2, 0.8)
+                                    g = random.uniform(0.2, 0.8)
+                                    b = random.uniform(0.2, 0.8)
+                                    
+                                    region_info[region_id] = {
+                                        'name': region_name,
+                                        'voxel_count': n_voxels,
+                                        'color': (r, g, b)
+                                    }
+                                except (ValueError, IndexError) as e:
+                                    print(f"Warning: Could not parse line: {line.strip()}")
+                                    print(f"Error: {str(e)}")
+                
+                return len(region_info) > 0
+            except Exception as e:
+                print(f"Error reading labels file: {str(e)}")
+                return False
+        
+        # Try to use existing file first
+        if os.path.exists(output_file):
+            print(f"Found existing labels file: {output_file}")
+            if parse_labels_file():
+                print(f"Successfully parsed {len(region_info)} regions from existing file")
+                return region_info
+            else:
+                print("Existing file is invalid or empty, regenerating...")
+        
+        # Generate new file if needed
+        if generate_labels_file():
+            if parse_labels_file():
+                print(f"Successfully generated and parsed {len(region_info)} regions")
                 return region_info
         
-        # Parse the output file
-        try:
-            with open(output_file, 'r') as f:
-                # Skip header lines (all lines starting with #)
-                in_header = True
-                for line in f:
-                    # Check if we've reached the end of the header
-                    if in_header and not line.startswith('#'):
-                        in_header = False
-                        
-                    # Process data lines (non-header)
-                    if not in_header and line.strip():
-                        parts = line.strip().split()
-                        
-                        # The format is:
-                        # Index SegId NVoxels Volume_mm3 StructName
-                        # We need at least 5 columns
-                        if len(parts) >= 5:
-                            try:
-                                region_id = int(parts[1])  # SegId is the second column
-                                n_voxels = int(parts[2])   # NVoxels is the third column
-                                
-                                # Structure name can contain spaces, so join the remaining parts
-                                region_name = ' '.join(parts[4:])
-                                
-                                # Generate a random color based on region_id for visualization
-                                # This creates a consistent color for each region
-                                import random
-                                random.seed(region_id)
-                                r = random.uniform(0.2, 0.8)
-                                g = random.uniform(0.2, 0.8)
-                                b = random.uniform(0.2, 0.8)
-                                
-                                region_info[region_id] = {
-                                    'name': region_name,
-                                    'voxel_count': n_voxels,
-                                    'color': (r, g, b)
-                                }
-                            except (ValueError, IndexError) as e:
-                                print(f"Warning: Could not parse line: {line.strip()}")
-                                print(f"Error: {str(e)}")
-                
-            print(f"Found {len(region_info)} regions in atlas file")
-            
-        except Exception as e:
-            print(f"Error reading labels file: {str(e)}")
-            
+        print("Warning: Could not get region information from atlas file")
         return region_info
 
     def load_brain_image(self, file_path):
