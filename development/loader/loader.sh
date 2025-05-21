@@ -184,12 +184,34 @@ display_welcome() {
   echo " "
 }
 
+# Function to ensure required Docker volumes exist
+ensure_docker_volumes() {
+  echo "Ensuring required Docker volumes exist..."
+  local volumes=("ti_csc_fsl_data" "ti_csc_freesurfer_data" "matlab_runtime")
+  
+  for volume in "${volumes[@]}"; do
+    if ! docker volume inspect "$volume" >/dev/null 2>&1; then
+      echo "Creating Docker volume: $volume"
+      docker volume create "$volume"
+    fi
+  done
+}
+
 # Function to run Docker Compose and attach to simnibs container
 run_docker_compose() {
-  # Run Docker Compose silently
-  docker compose -f "$SCRIPT_DIR/docker-compose.yml" up --build -d >/dev/null 2>&1
+  # Ensure volumes exist
+  ensure_docker_volumes
+
+  # Pull images if they don't exist
+  echo "Pulling required Docker images..."
+  docker compose -f "$SCRIPT_DIR/docker-compose.yml" pull
+
+  # Run Docker Compose
+  echo "Starting services..."
+  docker compose -f "$SCRIPT_DIR/docker-compose.yml" up --build -d
 
   # Wait for containers to initialize
+  echo "Waiting for services to initialize..."
   sleep 3
 
   # Check if simnibs service is up

@@ -1,16 +1,11 @@
-# switch to nvim v0.11.0
-# install basic config file for nvim thorugh the toolbox
-# make sure you resolve path conflicts for config files
-# minimal config for tmux 
-# do we need matlab runtime?
-
 # Dockerfile.simnibs
 FROM ubuntu:20.04
 
 # Set noninteractive mode for apt-get
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Install necessary packages
+# General Packages and pip
+##########################################################
 RUN apt-get update && apt-get install -y \
     wget \
     git \
@@ -78,53 +73,55 @@ RUN apt-get update && apt-get install -y \
     dos2unix \
     && apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
-# Install Neovim 0.11.0
-RUN wget https://github.com/neovim/neovim/releases/download/v0.11.0/nvim-linux64.tar.gz -P /tmp \
-    && tar xzf /tmp/nvim-linux64.tar.gz -C /usr/local --strip-components=1 \
-    && rm /tmp/nvim-linux64.tar.gz
-
-# Set up tmux configuration
-COPY config/.tmux.conf /root/.tmux.conf
-
-# Set up Neovim configuration
-RUN mkdir -p /root/.config/nvim
-COPY config/nvim/ /root/.config/nvim/
-
-# Set up Python environment and install required Python packages
 RUN pip3 install numpy scipy pandas meshio nibabel nilearn
 
-# Create MATLAB Runtime directory
-RUN mkdir -p /usr/local/MATLAB/MATLAB_Runtime
-
-# Additional steps to run execstack on process_mesh_files in specific field-analysis directories
-RUN execstack -s /ti-csc/ex-search/field-analysis/process_mesh_files 
-
-# Install SimNIBS
+######## Install SimNIBS ################
 RUN mkdir -p /simnibs && chmod -R 755 /simnibs
 
 RUN wget https://github.com/simnibs/simnibs/releases/download/v4.5.0/simnibs_installer_linux.tar.gz -P /simnibs \
     && tar -xzf /simnibs/simnibs_installer_linux.tar.gz -C /simnibs \
     && /simnibs/simnibs_installer/install -s
 
-# Set environment variables for SimNIBS
 ENV PATH="/root/SimNIBS-4.5/bin:$PATH"
 ENV SIMNIBSDIR="/root/SimNIBS-4.5"
 
-# Clone TI-CSC repository
+########### TI-CSC ########################
 RUN git clone https://github.com/idossha/TI-CSC-2.0.git /ti-csc
 
 # Convert all shell scripts to Unix line endings
 RUN find /ti-csc -name "*.sh" -exec dos2unix {} \;
 
-# Create the target directory
+# EEG caps for CSC 
 RUN mkdir -p $SIMNIBSDIR/resources/ElectrodeCaps_MNI/
-
-# Copy the ElectrodeCaps_MNI files
 RUN cp /ti-csc/assets/ElectrodeCaps_MNI/* $SIMNIBSDIR/resources/ElectrodeCaps_MNI/
 
-# Copy and overwrite the tes_flex_optimization.py file
-RUN rm -f $SIMNIBSDIR/optimization/tes_flex_optimization/tes_flex_optimization.py && \
-    cp /ti-csc/assets/map-electrodes/tes_flex_optimization.py $SIMNIBSDIR/optimization/tes_flex_optimization/tes_flex_optimization.py
+# Flex extention by Ido Haber 
+RUN rm -f $SIMNIBSDIR/simnibs/optimization/tes_flex_optimization/tes_flex_optimization.py && \
+    cp /ti-csc/assets/map-electrodes/tes_flex_optimization.py $SIMNIBSDIR/simnibs/optimization/tes_flex_optimization/tes_flex_optimization.py
+
+############ CLI tools ###############
+
+# Install Neovim v.0.11.0 from source 
+RUN git clone https://github.com/neovim/neovim.git /tmp/neovim \
+    && cd /tmp/neovim \
+    && git checkout v0.11.0 \
+    && make CMAKE_BUILD_TYPE=Release \ 
+    && make install \
+    && rm -rf /tmp/neovim
+
+# Create config directories
+RUN mkdir -p /root/.config/nvim
+
+# Create symlinks for config files
+RUN ln -sf /ti-csc/config/.tmux.conf /root/.tmux.conf && \
+    ln -sf /ti-csc/config/nvim /root/.config/
+
+############ MATLAB prep ###############
+
+# Create MATLAB Runtime directory
+RUN mkdir -p /usr/local/MATLAB/MATLAB_Runtime
+# Additional steps to run execstack on process_mesh_files in specific field-analysis directories
+RUN execstack -s /ti-csc/ex-search/field-analysis/process_mesh_files 
 
 # Entry point script to ensure XDG_RUNTIME_DIR exists
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
