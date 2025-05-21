@@ -1,0 +1,78 @@
+version: '3.8'
+
+services:
+  fsl:
+    build:
+      context: .
+      dockerfile: Dockerfile.fsl
+    image: idossha/ti-csc_fsl:v1.3.1
+    container_name: fsl_container
+    volumes:
+      - fsl_volume:/usr/local/fsl/
+    networks:
+      - ti_network
+
+  freesurfer:
+    build:
+      context: .
+      dockerfile: Dockerfile.freesurfer
+    image: idossha/ti-csc_freesurfer:v1.3.0
+    container_name: freesurfer_container
+    volumes:
+      - freesurfer_volume:/usr/local/freesurfer/
+    networks:
+      - ti_network
+
+  matlab:
+    build:
+      context: .
+      dockerfile: Dockerfile.matlab
+    container_name: matlab_container
+    volumes:
+      - matlab_runtime:/usr/local/MATLAB/MATLAB_Runtime
+    networks:
+      - ti_network
+
+  simnibs:
+    build:
+      context: .
+      dockerfile: Dockerfile.simnibs
+    image: idossha/ti-csc_simnibs:v1.3.4
+    container_name: simnibs_container
+    environment:
+      - DISPLAY
+      - LIBGL_ALWAYS_SOFTWARE=1
+      - FSLDIR=/usr/local/fsl
+      - FSLOUTPUTTYPE=NIFTI_GZ
+      - FSLMULTIFILEQUIT=TRUE
+      - POSSUMDIR=/usr/local/fsl
+      - FREESURFER_HOME=/usr/local/freesurfer
+      - SUBJECTS_DIR=/usr/local/freesurfer/subjects
+      - FS_LICENSE=/usr/local/freesurfer/license.txt
+      - LD_LIBRARY_PATH=/usr/local/MATLAB/MATLAB_Runtime/v124/runtime/glnxa64:/usr/local/MATLAB/MATLAB_Runtime/v124/bin/glnxa64:/usr/local/MATLAB/MATLAB_Runtime/v124/sys/os/glnxa64:${LD_LIBRARY_PATH}
+      - XAPPLRESDIR=/usr/local/MATLAB/MATLAB_Runtime/v124/X11/app-defaults
+    volumes:
+      - fsl_volume:/usr/local/fsl/
+      - freesurfer_volume:/usr/local/freesurfer/
+      - matlab_runtime:/usr/local/MATLAB/MATLAB_Runtime
+      - /tmp/.X11-unix:/tmp/.X11-unix
+      - ${LOCAL_PROJECT_DIR}:/mnt/${LOCAL_PROJECT_DIR}
+    networks:
+      - ti_network
+    depends_on:
+      - fsl
+      - freesurfer
+      - matlab
+    tty: true
+    stdin_open: true
+    working_dir: /ti-csc
+    command: ["/bin/bash"]
+
+networks:
+  ti_network:
+    driver: bridge
+
+volumes:
+  fsl_volume:
+  freesurfer_volume:
+  matlab_runtime: 

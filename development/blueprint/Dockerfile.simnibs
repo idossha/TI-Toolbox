@@ -78,8 +78,26 @@ RUN apt-get update && apt-get install -y \
     dos2unix \
     && apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
+# Install Neovim 0.11.0
+RUN wget https://github.com/neovim/neovim/releases/download/v0.11.0/nvim-linux64.tar.gz -P /tmp \
+    && tar xzf /tmp/nvim-linux64.tar.gz -C /usr/local --strip-components=1 \
+    && rm /tmp/nvim-linux64.tar.gz
+
+# Set up tmux configuration
+COPY config/.tmux.conf /root/.tmux.conf
+
+# Set up Neovim configuration
+RUN mkdir -p /root/.config/nvim
+COPY config/nvim/ /root/.config/nvim/
+
 # Set up Python environment and install required Python packages
 RUN pip3 install numpy scipy pandas meshio nibabel nilearn
+
+# Create MATLAB Runtime directory
+RUN mkdir -p /usr/local/MATLAB/MATLAB_Runtime
+
+# Additional steps to run execstack on process_mesh_files in specific field-analysis directories
+RUN execstack -s /ti-csc/ex-search/field-analysis/process_mesh_files 
 
 # Install SimNIBS
 RUN mkdir -p /simnibs && chmod -R 755 /simnibs

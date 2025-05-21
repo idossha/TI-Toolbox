@@ -7,6 +7,31 @@ cd "$SCRIPT_DIR"
 # Default paths file
 DEFAULT_PATHS_FILE="$SCRIPT_DIR/.default_paths.user"
 
+# Function to create hidden files cross-platform
+create_hidden_file() {
+    local file_path="$1"
+    local content="$2"
+    
+    # Create the file with content
+    if [ -n "$content" ]; then
+        echo "$content" > "$file_path"
+    else
+        touch "$file_path"
+    fi
+    
+    # Make it hidden based on OS
+    case "$(uname -s)" in
+        MINGW*|MSYS*|CYGWIN*)
+            # Windows
+            attrib +h "$file_path" >/dev/null 2>&1
+            ;;
+        *)
+            # Unix-like (macOS/Linux)
+            # Files are already hidden if they start with a dot
+            ;;
+    esac
+}
+
 # Function to load default paths
 load_default_paths() {
   if [[ -f "$DEFAULT_PATHS_FILE" ]]; then
@@ -16,7 +41,7 @@ load_default_paths() {
 
 # Function to save default paths
 save_default_paths() {
-  echo "LOCAL_PROJECT_DIR=\"$LOCAL_PROJECT_DIR\"" > "$DEFAULT_PATHS_FILE"
+    create_hidden_file "$DEFAULT_PATHS_FILE" "LOCAL_PROJECT_DIR=\"$LOCAL_PROJECT_DIR\""
 }
 
 # Function to validate and prompt for the project directory
@@ -184,6 +209,159 @@ run_docker_compose() {
   xhost -local:root >/dev/null 2>&1
 }
 
+# Function to get version from version.py
+get_version() {
+    local version_file="$SCRIPT_DIR/../../version.py"
+    if [ -f "$version_file" ]; then
+        # Extract version using grep and sed
+        grep "__version__" "$version_file" | sed 's/.*"\(.*\)".*/\1/'
+    else
+        echo "Error: version.py not found at $version_file"
+        exit 1
+    fi
+}
+
+# Function to check if project is new and initialize config files
+initialize_project_configs() {
+    local project_ti_csc_dir="$LOCAL_PROJECT_DIR/ti-csc"
+    local project_config_dir="$project_ti_csc_dir/config"
+    local new_project_configs_dir="$SCRIPT_DIR/../../new_project/configs"
+    local is_new_project=false
+
+    # Check if ti-csc directory exists
+    if [ ! -d "$project_ti_csc_dir" ]; then
+        echo "Creating new project structure..."
+        mkdir -p "$project_config_dir"
+        is_new_project=true
+    elif [ ! -d "$project_config_dir" ]; then
+        echo "Creating config directory..."
+        mkdir -p "$project_config_dir"
+        is_new_project=true
+    fi
+
+    # If it's a new project, copy config files
+    if [ "$is_new_project" = true ]; then
+        echo "Initializing new project with default configs..."
+        # Ensure source directory exists
+        if [ ! -d "$new_project_configs_dir" ]; then
+            echo "Error: Default configs directory not found at $new_project_configs_dir"
+            return 1
+        fi
+        
+        # Copy each config file individually and verify, but only if it doesn't exist
+        for config_file in "$new_project_configs_dir"/*.json; do
+            if [ -f "$config_file" ]; then
+                filename=$(basename "$config_file")
+                target_file="$project_config_dir/$filename"
+                
+                # Only copy if the file doesn't exist
+                if [ ! -f "$target_file" ]; then
+                    cp "$config_file" "$target_file"
+                    if [ $? -eq 0 ]; then
+                        echo "Copied $filename to $project_config_dir"
+                        # Make the file hidden
+                        create_hidden_file "$target_file"
+                    else
+                        echo "Error: Failed to copy $filename"
+                        return 1
+                    fi
+                else
+                    echo "Config file $filename already exists, skipping..."
+                fi
+            fi
+        done
+        
+        # Set proper permissions
+        chmod -R 755 "$project_config_dir"
+        echo "Default config files copied to $project_config_dir"
+
+        # Create .ti-csc-info directory and initialize project status
+        local info_dir="$LOCAL_PROJECT_DIR/.ti-csc-info"
+        mkdir -p "$info_dir"
+        
+        # Create initial project status file with empty structure
+        local status_content='{
+  "project_created": "",
+  "last_updated": "",
+  "config_created": false,
+  "user_preferences": {
+    "show_welcome": true
+  },
+  "project_metadata": {
+    "name": "",
+    "path": "",
+    "version": ""
+  }
+}'
+        create_hidden_file "$info_dir/project_status.json" "$status_content"
+
+        # Set proper permissions for the info directory
+        chmod -R 755 "$info_dir"
+        echo "Project status initialized in $info_dir"
+    fi
+
+    # Return the new project status
+    echo "$is_new_project"
+}
+
+# Function to write project status
+write_project_status() {
+    INFO_DIR="$LOCAL_PROJECT_DIR/.ti-csc-info"
+    STATUS_FILE="$INFO_DIR/project_status.json"
+    mkdir -p "$INFO_DIR"
+
+    # Check if project is new and initialize configs
+    IS_NEW_PROJECT=$(initialize_project_configs)
+
+    # If it's not a new project, just update the last_updated timestamp
+    if [ "$IS_NEW_PROJECT" = false ]; then
+        if [ -f "$STATUS_FILE" ]; then
+            # Update last_updated timestamp
+            sed -i.tmp "s/\"last_updated\": \".*\"/\"last_updated\": \"$(date -u +"%Y-%m-%dT%H:%M:%S.%6N")\"/" "$STATUS_FILE"
+            rm -f "${STATUS_FILE}.tmp"
+        fi
+    fi
+}
+
+# Function to write system info to a hidden folder in the user's project directory
+write_system_info() {
+    INFO_DIR="$LOCAL_PROJECT_DIR/.ti-csc-info"
+    INFO_FILE="$INFO_DIR/system_info.txt"
+    mkdir -p "$INFO_DIR"
+
+    # Create the system info file with initial content
+    {
+        echo "# TI-CSC System Info"
+        echo "Date: $(date)"
+        echo "User: $(whoami)"
+        echo "Host: $(hostname)"
+        echo "OS: $(uname -a)"
+        echo ""
+        echo "## Disk Space (project dir)"
+        df -h "$LOCAL_PROJECT_DIR"
+        echo ""
+        echo "## Docker Version"
+        if command -v docker &>/dev/null; then
+            docker --version
+            echo ""
+            echo "## Docker Resource Allocation"
+            docker info --format 'CPUs: {{.NCPU}}\nMemory: {{.MemTotal}} bytes'
+        else
+            echo "Docker not found"
+        fi
+        echo ""
+        echo "## DISPLAY"
+        echo "$DISPLAY"
+        echo ""
+        echo "## Environment Variables (TI-CSC relevant)"
+        env | grep -Ei '^(FSL|FREESURFER|SIMNIBS|PROJECT_DIR|DEV_CODEBASE|SUBJECTS_DIR|FS_LICENSE|FSFAST|MNI|POSSUM|DISPLAY|USER|PATH)='
+        echo ""
+    } > "$INFO_FILE"
+
+    # Make the file hidden
+    create_hidden_file "$INFO_FILE"
+}
+
 # Main Script Execution
 validate_docker_compose
 display_welcome
@@ -205,6 +383,13 @@ export PROJECT_DIR_NAME
 
 # Save the paths for next time
 save_default_paths
+
+# Write system info and project status to hidden folder in project dir
+write_system_info
+write_project_status
+
+echo "System info written to $LOCAL_PROJECT_DIR/.ti-csc-info/system_info.txt"
+echo "Project status written to $LOCAL_PROJECT_DIR/.ti-csc-info/project_status.json"
 
 set_display_env
 allow_xhost # Allow X11 connections
