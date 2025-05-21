@@ -54,7 +54,6 @@ end, { desc = "Toggle Conform auto-formatting" })
 --    - Works in Visual mode (format selection)
 keymap.set({ "n", "v" }, "<leader>Fp", function()
   require("conform").format({
-    lsp_fallback = true,
     async = false,
     timeout_ms = 3000,
   })

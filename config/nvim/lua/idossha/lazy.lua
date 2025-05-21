@@ -18,7 +18,7 @@ vim.opt.rtp:prepend(lazypath)
 --
 --
 
-require("lazy").setup({ { import = "idossha.plugins" }, { import = "idossha.plugins.lsp" } }, {
+require("lazy").setup({ { import = "idossha.plugins" } }, {
   install = {
     colorscheme = { "gruvbox" },
   },
