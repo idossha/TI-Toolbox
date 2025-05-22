@@ -109,9 +109,6 @@ RUN git clone https://github.com/neovim/neovim.git /tmp/neovim \
     && make install \
     && rm -rf /tmp/neovim
 
-# Create config directories
-RUN mkdir -p /root/.config/nvim
-
 # Create symlinks for config files
 RUN ln -sf /ti-csc/config/.tmux.conf /root/.tmux.conf && \
     ln -sf /ti-csc/config/nvim /root/.config/

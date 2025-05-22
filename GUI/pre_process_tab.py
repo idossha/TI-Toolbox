@@ -511,7 +511,7 @@ class PreProcessTab(QtWidgets.QWidget):
             os.makedirs(directory, exist_ok=True)
         
         # Build the command
-        script_path = "/development/pre-process/structural.sh"  # Use absolute path in Docker
+        script_path = "/ti-csc/pre-process/structural.sh"  # Use absolute path in Docker
         cmd = [script_path, subject_dir]  # Pass subject directory as first argument
         
         # Add optional flags
@@ -687,7 +687,7 @@ class PreProcessTab(QtWidgets.QWidget):
         
         # Build command using absolute Docker paths
         cmd = [
-            '/development/pre-process/structural.sh',
+            '/ti-csc/pre-process/structural.sh',
             f"{self.project_dir}/sub-{selected_subjects[0]}"  # Pass subject directory as first argument
         ]
         
