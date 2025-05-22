@@ -35,6 +35,12 @@ initialize_volumes() {
     echo "Creating FreeSurfer volume..."
     docker volume create ti_csc_freesurfer_data
   fi
+
+  # Check and create MATLAB Runtime volume if it doesn't exist
+  if ! docker volume inspect matlab_runtime >/dev/null 2>&1; then
+    echo "Creating MATLAB Runtime volume..."
+    docker volume create matlab_runtime
+  fi
 }
 
 # Function to check allocated Docker resources (CPU, memory)
@@ -180,10 +186,15 @@ display_welcome() {
 
 # Function to run Docker Compose and attach to simnibs container
 run_docker_compose() {
+  # Pull images if they don't exist
+  echo "Pulling required Docker images..."
+  docker compose -f "$SCRIPT_DIR/docker-compose.dev.yml" pull
+
   # Run Docker Compose
   docker compose -f "$SCRIPT_DIR/docker-compose.dev.yml" up --build -d
 
   # Wait for containers to initialize
+  echo "Waiting for services to initialize..."
   sleep 3
 
   # Check if simnibs service is up
@@ -216,86 +227,54 @@ get_version() {
     fi
 }
 
-# Function to check if project is new and initialize config files
-initialize_project_configs() {
-  local project_ti_csc_dir="$LOCAL_PROJECT_DIR/ti-csc"
-  local project_config_dir="$project_ti_csc_dir/config"
-  local new_project_configs_dir="$SCRIPT_DIR/../../new_project/configs"
-  local is_new_project=false
-
-  # Check if ti-csc directory exists
-  if [ ! -d "$project_ti_csc_dir" ]; then
-    echo "Creating new project structure..."
-    mkdir -p "$project_config_dir"
-    is_new_project=true
-  elif [ ! -d "$project_config_dir" ]; then
-    echo "Creating config directory..."
-    mkdir -p "$project_config_dir"
-    is_new_project=true
+# Function to write system info to a hidden folder in the user's project directory
+write_system_info() {
+  INFO_DIR="$LOCAL_PROJECT_DIR/.ti-csc-info"
+  INFO_FILE="$INFO_DIR/system_info.txt"
+  
+  # Create directory with error checking
+  if ! mkdir -p "$INFO_DIR" 2>/dev/null; then
+    echo "Error: Could not create directory $INFO_DIR"
+    return 1
   fi
 
-  # If it's a new project, copy config files
-  if [ "$is_new_project" = true ]; then
-    echo "Initializing new project with default configs..."
-    # Ensure source directory exists
-    if [ ! -d "$new_project_configs_dir" ]; then
-      echo "Error: Default configs directory not found at $new_project_configs_dir"
-      return 1
+  # Create and write to file with error checking
+  if ! {
+    echo "# TI-CSC System Info"
+    echo "Date: $(date)"
+    echo "User: $(whoami)"
+    echo "Host: $(hostname)"
+    echo "OS: $(uname -a)"
+    echo ""
+    echo "## Disk Space (project dir)"
+    df -h "$LOCAL_PROJECT_DIR"
+    echo ""
+    echo "## Docker Version"
+    if command -v docker &>/dev/null; then
+      docker --version
+      echo ""
+      echo "## Docker Resource Allocation"
+      docker info --format 'CPUs: {{.NCPU}}\nMemory: {{.MemTotal}} bytes'
+      echo ""
+      echo "## Docker Volumes"
+      docker volume ls --format '{{.Name}}'
+    else
+      echo "Docker not found"
     fi
-    
-    # Copy each config file individually and verify, but only if it doesn't exist
-    for config_file in "$new_project_configs_dir"/*.json; do
-      if [ -f "$config_file" ]; then
-        filename=$(basename "$config_file")
-        target_file="$project_config_dir/$filename"
-        
-        # Only copy if the file doesn't exist
-        if [ ! -f "$target_file" ]; then
-          cp "$config_file" "$target_file"
-          if [ $? -eq 0 ]; then
-            echo "Copied $filename to $project_config_dir"
-          else
-            echo "Error: Failed to copy $filename"
-            return 1
-          fi
-        else
-          echo "Config file $filename already exists, skipping..."
-        fi
-      fi
-    done
-    
-    # Set proper permissions
-    chmod -R 755 "$project_config_dir"
-    echo "Default config files copied to $project_config_dir"
-
-    # Create .ti-csc-info directory and initialize project status
-    local info_dir="$LOCAL_PROJECT_DIR/.ti-csc-info"
-    mkdir -p "$info_dir"
-    
-    # Create initial project status file with empty structure
-    cat > "$info_dir/project_status.json" << EOF
-{
-  "project_created": "",
-  "last_updated": "",
-  "config_created": false,
-  "user_preferences": {
-    "show_welcome": true
-  },
-  "project_metadata": {
-    "name": "",
-    "path": "",
-    "version": ""
-  }
-}
-EOF
-
-    # Set proper permissions for the info directory
-    chmod -R 755 "$info_dir"
-    echo "Project status initialized in $info_dir"
+    echo ""
+    echo "## DISPLAY"
+    echo "$DISPLAY"
+    echo ""
+    echo "## Environment Variables (TI-CSC relevant)"
+    env | grep -Ei '^(FSL|FREESURFER|SIMNIBS|PROJECT_DIR|DEV_CODEBASE|SUBJECTS_DIR|FS_LICENSE|FSFAST|MNI|POSSUM|DISPLAY|USER|PATH|LD_LIBRARY_PATH|XAPPLRESDIR)='
+    echo ""
+  } > "$INFO_FILE" 2>/dev/null; then
+    echo "Error: Could not write to $INFO_FILE"
+    return 1
   fi
 
-  # Return the new project status
-  echo "$is_new_project"
+  echo "System info written to $INFO_FILE"
+  return 0
 }
 
 # Function to write project status
@@ -317,38 +296,75 @@ write_project_status() {
   fi
 }
 
-# Function to write system info to a hidden folder in the user's project directory
-write_system_info() {
-  INFO_DIR="$LOCAL_PROJECT_DIR/.ti-csc-info"
-  INFO_FILE="$INFO_DIR/system_info.txt"
-  mkdir -p "$INFO_DIR"
+# Function to initialize project configs with error handling
+initialize_project_configs() {
+  local project_ti_csc_dir="$LOCAL_PROJECT_DIR/ti-csc"
+  local project_config_dir="$project_ti_csc_dir/config"
+  local new_project_configs_dir="$SCRIPT_DIR/../../new_project/configs"
+  local is_new_project=false
 
-  echo "# TI-CSC System Info" > "$INFO_FILE"
-  echo "Date: $(date)" >> "$INFO_FILE"
-  echo "User: $(whoami)" >> "$INFO_FILE"
-  echo "Host: $(hostname)" >> "$INFO_FILE"
-  echo "OS: $(uname -a)" >> "$INFO_FILE"
-  echo "" >> "$INFO_FILE"
-  echo "## Disk Space (project dir)" >> "$INFO_FILE"
-  df -h "$LOCAL_PROJECT_DIR" >> "$INFO_FILE"
-  echo "" >> "$INFO_FILE"
-  echo "## Docker Version" >> "$INFO_FILE"
-  if command -v docker &>/dev/null; then
-    docker --version >> "$INFO_FILE"
-    echo "" >> "$INFO_FILE"
-    echo "## Docker Resource Allocation" >> "$INFO_FILE"
-    docker info --format 'CPUs: {{.NCPU}}\nMemory: {{.MemTotal}} bytes' >> "$INFO_FILE"
-  else
-    echo "Docker not found" >> "$INFO_FILE"
+  # Create directories with error checking
+  if [ ! -d "$project_ti_csc_dir" ]; then
+    echo "Creating new project structure..."
+    if ! mkdir -p "$project_config_dir" 2>/dev/null; then
+      echo "Error: Could not create directory $project_config_dir"
+      return 1
+    fi
+    is_new_project=true
+  elif [ ! -d "$project_config_dir" ]; then
+    echo "Creating config directory..."
+    if ! mkdir -p "$project_config_dir" 2>/dev/null; then
+      echo "Error: Could not create directory $project_config_dir"
+      return 1
+    fi
+    is_new_project=true
   fi
-  echo "" >> "$INFO_FILE"
-  echo "## DISPLAY" >> "$INFO_FILE"
-  echo "$DISPLAY" >> "$INFO_FILE"
-  echo "" >> "$INFO_FILE"
-  echo "## Environment Variables (TI-CSC relevant)" >> "$INFO_FILE"
-  env | grep -Ei '^(FSL|FREESURFER|SIMNIBS|PROJECT_DIR|DEV_CODEBASE|SUBJECTS_DIR|FS_LICENSE|FSFAST|MNI|POSSUM|DISPLAY|USER|PATH)=' >> "$INFO_FILE"
-  echo "" >> "$INFO_FILE"
-  echo "System info written to $INFO_FILE"
+
+  # If it's a new project, copy config files
+  if [ "$is_new_project" = true ]; then
+    echo "Initializing new project with default configs..."
+    # Ensure source directory exists
+    if [ ! -d "$new_project_configs_dir" ]; then
+      echo "Error: Default configs directory not found at $new_project_configs_dir"
+      return 1
+    fi
+    
+    # Create .ti-csc-info directory with error checking
+    local info_dir="$LOCAL_PROJECT_DIR/.ti-csc-info"
+    if ! mkdir -p "$info_dir" 2>/dev/null; then
+      echo "Error: Could not create directory $info_dir"
+      return 1
+    fi
+    
+    # Create initial project status file
+    local status_file="$info_dir/project_status.json"
+    if ! cat > "$status_file" << EOF 2>/dev/null; then
+{
+  "project_created": "$(date -u +"%Y-%m-%dT%H:%M:%S.%6N")",
+  "last_updated": "$(date -u +"%Y-%m-%dT%H:%M:%S.%6N")",
+  "config_created": true,
+  "user_preferences": {
+    "show_welcome": true
+  },
+  "project_metadata": {
+    "name": "$(basename "$LOCAL_PROJECT_DIR")",
+    "path": "$LOCAL_PROJECT_DIR",
+    "version": "$(get_version)"
+  }
+}
+EOF
+      echo "Error: Could not create $status_file"
+      return 1
+    fi
+
+    # Set proper permissions with error checking
+    if ! chmod -R 755 "$info_dir" 2>/dev/null; then
+      echo "Warning: Could not set permissions for $info_dir"
+    fi
+  fi
+
+  echo "$is_new_project"
+  return 0
 }
 
 # Main Script Execution
@@ -370,15 +386,18 @@ export LOCAL_PROJECT_DIR
 export PROJECT_DIR_NAME
 export DEV_CODEBASE_DIR
 export DEV_CODEBASE_DIR_NAME
+export DEV_CODEBASE_NAME="$DEV_CODEBASE_DIR_NAME"  # Add this line to fix the warning
 
 # Save the paths for next time
 save_default_paths
 
-# Write system info and project status to hidden folder in project dir
-write_system_info
-write_project_status
+# Write system info and project status with error handling
+if ! write_system_info; then
+  echo "Warning: Failed to write system info"
+fi
 
-echo "System info written to $LOCAL_PROJECT_DIR/.ti-csc-info/system_info.txt"
-echo "Project status written to $LOCAL_PROJECT_DIR/.ti-csc-info/project_status.json"
+if ! write_project_status; then
+  echo "Warning: Failed to write project status"
+fi
 
 run_docker_compose
