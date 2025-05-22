@@ -33,31 +33,47 @@ class PreProcessThread(QtCore.QThread):
     def run(self):
         """Run the pre-processing command in a separate thread."""
         try:
-            self.process = subprocess.Popen(
-                self.cmd, 
-                stdout=subprocess.PIPE, 
-                stderr=subprocess.PIPE,
-                universal_newlines=True,
-                bufsize=1,
-                env=self.env
-            )
+            # Get list of subjects from environment
+            subjects = self.env['SUBJECTS'].split(',')
             
-            # Real-time output display
-            for line in iter(self.process.stdout.readline, ''):
+            for subject_id in subjects:
                 if self.terminated:
                     break
-                if line:
-                    self.output_signal.emit(line.strip())
-            
-            # Check for errors
-            if not self.terminated:
-                returncode = self.process.wait()
-                if returncode != 0:
-                    error = self.process.stderr.read()
-                    self.output_signal.emit("Error: Process returned non-zero exit code")
-                    if error:
-                        self.output_signal.emit(error)
-                    
+                
+                # Update command for current subject
+                current_cmd = list(self.cmd)  # Make a copy of the base command
+                current_cmd[1] = f"{self.env['PROJECT_DIR']}/sub-{subject_id}"  # Update subject directory
+                
+                self.output_signal.emit(f"\nProcessing subject: {subject_id}")
+                self.output_signal.emit(f"Command: {' '.join(current_cmd)}")
+                
+                self.process = subprocess.Popen(
+                    current_cmd, 
+                    stdout=subprocess.PIPE, 
+                    stderr=subprocess.PIPE,
+                    universal_newlines=True,
+                    bufsize=1,
+                    env=self.env
+                )
+                
+                # Real-time output display
+                for line in iter(self.process.stdout.readline, ''):
+                    if self.terminated:
+                        break
+                    if line:
+                        self.output_signal.emit(line.strip())
+                
+                # Check for errors
+                if not self.terminated:
+                    returncode = self.process.wait()
+                    if returncode != 0:
+                        error = self.process.stderr.read()
+                        self.output_signal.emit(f"Error processing subject {subject_id}: Process returned non-zero exit code")
+                        if error:
+                            self.output_signal.emit(error)
+                    else:
+                        self.output_signal.emit(f"Successfully processed subject: {subject_id}")
+                
         except Exception as e:
             self.output_signal.emit(f"Error running pre-processing: {str(e)}")
     
@@ -671,10 +687,25 @@ class PreProcessTab(QtWidgets.QWidget):
         
         # Build command using absolute Docker paths
         cmd = [
-            'bash',
-            '/ti-csc/CLI/pre-process.sh',
-            '--run-direct'
+            '/development/pre-process/structural.sh',
+            f"{self.project_dir}/sub-{selected_subjects[0]}"  # Pass subject directory as first argument
         ]
+        
+        # Add optional flags based on environment variables
+        if self.run_recon_cb.isChecked():
+            cmd.append("recon-all")
+
+        if self.parallel_cb.isChecked():
+            cmd.append("--parallel")
+
+        if self.quiet_cb.isChecked():
+            cmd.append("--quiet")
+
+        if self.convert_dicom_cb.isChecked():
+            cmd.append("--convert-dicom")
+
+        if self.create_m2m_cb.isChecked():
+            cmd.append("--create-m2m")
         
         # Debug output
         self.update_output(f"Running in direct execution mode from GUI")
