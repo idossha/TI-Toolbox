@@ -108,24 +108,6 @@ class SimulatorTab(QtWidgets.QWidget):
         """Set up the user interface for the simulator tab."""
         main_layout = QtWidgets.QVBoxLayout(self)
         
-        # Add status label at the top
-        self.status_label = QtWidgets.QLabel()
-        self.status_label.setStyleSheet("""
-            QLabel {
-                background-color: white;
-                color: #f44336;
-                padding: 5px 10px;
-                border-radius: 3px;
-                font-weight: bold;
-                font-size: 13px;
-                min-height: 30px;
-                max-height: 30px;
-            }
-        """)
-        self.status_label.setAlignment(QtCore.Qt.AlignVCenter)
-        self.status_label.hide()  # Initially hidden
-        main_layout.addWidget(self.status_label)
-        
         # Create a scroll area for the form
         scroll_area = QtWidgets.QScrollArea()
         scroll_area.setWidgetResizable(True)
@@ -901,6 +883,10 @@ class SimulatorTab(QtWidgets.QWidget):
     
     def simulation_finished(self):
         """Handle simulation completion."""
+        # Clear parent tab's busy state
+        if hasattr(self, 'parent') and self.parent:
+            self.parent.set_tab_busy(self, False)
+        
         self.output_console.append('<div style="margin: 10px 0;"><span style="color: #55ff55; font-size: 16px; font-weight: bold;">✅ Simulation process completed ✅</span></div>')
         self.output_console.append('<div style="border-bottom: 1px solid #555; margin-bottom: 10px;"></div>')
         
@@ -938,23 +924,6 @@ class SimulatorTab(QtWidgets.QWidget):
         # Disable list widgets
         self.subject_list.setEnabled(False)
         self.montage_list.setEnabled(False)
-        
-        # Show processing message in status label
-        self.status_label.setText("Processing... Only the Stop button is available")
-        self.status_label.setStyleSheet("""
-            QLabel {
-                background-color: white;
-                color: #f44336;
-                padding: 5px 10px;
-                border-radius: 3px;
-                font-weight: bold;
-                font-size: 13px;
-                min-height: 15px;
-                max-height: 15px;
-            }
-        """)
-        self.status_label.setAlignment(QtCore.Qt.AlignVCenter)
-        self.status_label.show()
     
     def enable_controls(self):
         """Re-enable all controls."""
@@ -982,9 +951,6 @@ class SimulatorTab(QtWidgets.QWidget):
         # Enable list widgets
         self.subject_list.setEnabled(True)
         self.montage_list.setEnabled(True)
-        
-        # Hide processing message
-        self.status_label.hide()
     
     def update_electrode_inputs(self, checked):
         """Update the electrode input form based on the selected simulation mode.
@@ -1014,9 +980,13 @@ class SimulatorTab(QtWidgets.QWidget):
             self.run_btn.setText("Run Simulation")
             self.stop_btn.setEnabled(False)
             
+            # Clear parent tab's busy state
+            if hasattr(self, 'parent') and self.parent:
+                self.parent.set_tab_busy(self, False)
+            
             # Re-enable all controls
             self.enable_controls()
-            
+    
     def validate_electrode(self, electrode):
         """Validate electrode name is not empty."""
         return bool(electrode and electrode.strip())
