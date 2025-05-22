@@ -130,6 +130,5 @@ RUN chmod +x /usr/local/bin/entrypoint.sh
 # Set working directory to TI-CSC
 WORKDIR /ti-csc
 
-# Set the entrypoint and default command
+# Set the entrypoint
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
-CMD ["/bin/bash"]

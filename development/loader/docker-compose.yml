@@ -7,6 +7,7 @@ services:
       - matlab_runtime:/usr/local/MATLAB/MATLAB_Runtime
     networks:
       - ti_network
+    restart: unless-stopped
   
   fsl:
     image: idossha/ti-csc_fsl:v1.3.0
@@ -16,6 +17,7 @@ services:
       - ti_csc_fsl_data:/usr/local/fsl/
     networks:
       - ti_network
+    restart: unless-stopped
  
   freesurfer:
     image: idossha/ti-csc_freesurfer:v1.3.0
@@ -25,9 +27,10 @@ services:
       - ti_csc_freesurfer_data:/usr/local/freesurfer/
     networks:
       - ti_network
+    restart: unless-stopped
 
   simnibs:
-    image: idossha/simnibs:20th
+    image: idossha/simnibs:21st
     platform: linux/amd64
     container_name: simnibs_container
     volumes:
@@ -59,6 +62,7 @@ services:
     stdin_open: true
     working_dir: /ti-csc
     command: ["/bin/bash"]
+    restart: unless-stopped
 
 networks:
   ti_network:
@@ -67,8 +71,11 @@ networks:
 volumes:
   ti_csc_fsl_data:
     external: true
+    name: ti_csc_fsl_data
   ti_csc_freesurfer_data:
     external: true
+    name: ti_csc_freesurfer_data
   matlab_runtime:
     external: true
+    name: matlab_runtime
 

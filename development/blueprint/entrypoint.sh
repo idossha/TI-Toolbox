@@ -1,38 +1,41 @@
 #!/bin/bash
 
-# Only source FreeSurfer if it exists
-if [ -f "$FREESURFER_HOME/SetUpFreeSurfer.sh" ]; then
-  echo "Sourcing FreeSurfer setup..."
-  source "$FREESURFER_HOME/SetUpFreeSurfer.sh"
-fi
+# Initialize .bashrc if it doesn't exist
+touch ~/.bashrc
 
-# Only source FSL if it exists
-if [ -f "$FSLDIR/etc/fslconf/fsl.sh" ]; then
-  echo "Sourcing FSL setup..."
-  source "$FSLDIR/etc/fslconf/fsl.sh"
-fi
+# Source environment setup scripts
+[ -f "$FREESURFER_HOME/SetUpFreeSurfer.sh" ] && source "$FREESURFER_HOME/SetUpFreeSurfer.sh"
+[ -f "$FSLDIR/etc/fslconf/fsl.sh" ] && source "$FSLDIR/etc/fslconf/fsl.sh"
 
-# Avoid exporting a non-existent preload
-if [ -f "/usr/local/fsl/lib/libstdc++.so.6" ]; then
-  export LD_PRELOAD=/usr/local/fsl/lib/libstdc++.so.6
-  echo 'export LD_PRELOAD=/usr/local/fsl/lib/libstdc++.so.6' >> ~/.bashrc
-fi
+# Add environment setup to .bashrc
+{
+    echo "source \$FSLDIR/etc/fslconf/fsl.sh"
+    echo "source \$FREESURFER_HOME/SetUpFreeSurfer.sh"
+    [ -f "/usr/local/fsl/lib/libstdc++.so.6" ] && echo 'export LD_PRELOAD=/usr/local/fsl/lib/libstdc++.so.6'
+} >> ~/.bashrc
 
-# Add CLI tools if present
+# Setup CLI tools if present
 if [ -d /ti-csc/CLI ]; then
-  chmod +x /ti-csc/CLI/*.sh
-  export PATH="$PATH:/ti-csc/CLI"
-  echo 'export PATH="$PATH:/ti-csc/CLI"' >> ~/.bashrc
-  echo 'alias GUI="/ti-csc/CLI/GUI.sh"' >> ~/.bashrc
-  echo 'alias simulator="/ti-csc/CLI/simulator.sh"' >> ~/.bashrc
-  echo 'alias pre-process="/ti-csc/CLI/pre-process.sh"' >> ~/.bashrc
-  echo 'alias flex-search="/ti-csc/CLI/flex-search.sh"' >> ~/.bashrc
-  echo 'alias ex-search="/ti-csc/CLI/ex-search.sh"' >> ~/.bashrc
+    chmod +x /ti-csc/CLI/*.sh
+    export PATH="$PATH:/ti-csc/CLI"
+    {
+        echo 'export PATH="$PATH:/ti-csc/CLI"'
+        echo 'alias GUI="/ti-csc/CLI/GUI.sh"'
+        echo 'alias simulator="/ti-csc/CLI/simulator.sh"'
+        echo 'alias pre-process="/ti-csc/CLI/pre-process.sh"'
+        echo 'alias flex-search="/ti-csc/CLI/flex-search.sh"'
+        echo 'alias ex-search="/ti-csc/CLI/ex-search.sh"'
+    } >> ~/.bashrc
 fi
 
-# Runtime directory for GUI
+# Setup XDG runtime directory
 export XDG_RUNTIME_DIR=/tmp/runtime-root
 mkdir -p $XDG_RUNTIME_DIR
 chmod 700 $XDG_RUNTIME_DIR
 
-exec "$@"
+# Start interactive shell if no command provided
+if [ $# -eq 0 ]; then
+    exec /bin/bash
+else
+    exec "$@"
+fi
