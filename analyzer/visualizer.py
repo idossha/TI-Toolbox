@@ -57,7 +57,6 @@ from matplotlib.colors import Normalize
 import simnibs
 from pathlib import Path
 import csv
-from datetime import datetime
 
 
 class BaseVisualizer:
@@ -97,14 +96,12 @@ class BaseVisualizer:
         Returns:
             str: Path to the created CSV file
         """
-        # Generate timestamp for unique filename
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         
         # Create appropriate filename
         if region_name:
-            filename = f"{analysis_type}_{region_name}_{timestamp}.csv"
+            filename = f"{analysis_type}_{region_name}.csv"
         else:
-            filename = f"{analysis_type}_analysis_{timestamp}.csv"
+            filename = f"{analysis_type}_analysis.csv"
         
         # Save directly to the output directory
         output_path = os.path.join(self.output_dir, filename)
@@ -163,9 +160,8 @@ class BaseVisualizer:
         csv_dir = os.path.join(self.output_dir, 'csv_results')
         os.makedirs(csv_dir, exist_ok=True)
         
-        # Generate timestamp for unique filename
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = f"whole_head_{atlas_type}_{timestamp}.csv"
+        # Generate filename
+        filename = f"whole_head_{atlas_type}.csv"
         output_path = os.path.join(csv_dir, filename)
         
         # Write results to CSV
@@ -399,11 +395,8 @@ class Visualizer(BaseVisualizer):
         # Adjust layout
         plt.tight_layout()
         
-        # Create timestamp for unique filename
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        
         # Save plot directly to the output directory
-        output_file = os.path.join(self.output_dir, f'{data_type}_distribution_{region_name}_{timestamp}.png')
+        output_file = os.path.join(self.output_dir, f'{data_type}_distribution_{region_name}.png')
         plt.savefig(output_file, dpi=300, bbox_inches='tight')
         plt.close()
         
@@ -435,9 +428,6 @@ class Visualizer(BaseVisualizer):
                 print(f"Note: '{data_type}s_in_roi' not found in results, using default coloring")
                 counts = [1 for _ in valid_results.values()]
                 use_counts_for_color = False
-            
-            # Create timestamp for unique filename
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             
             # Dynamically calculate figure width based on number of regions
             num_regions = len(regions)
@@ -529,7 +519,7 @@ class Visualizer(BaseVisualizer):
             plt.tight_layout()
             
             # Save plot directly in the main output directory (without "sorted" in the name)
-            output_file = os.path.join(self.output_dir, f'cortex_analysis_{atlas_type}_{timestamp}.png')
+            output_file = os.path.join(self.output_dir, f'cortex_analysis_{atlas_type}.png')
             plt.savefig(output_file, dpi=300, bbox_inches='tight')
             plt.close()
             
@@ -564,22 +554,7 @@ class MeshVisualizer(Visualizer):
         
         # Create the output directory if it doesn't exist
         if output_dir:
-            # Use the specified output directory
-            os.makedirs(output_dir, exist_ok=True)
-            
-            # For individual region analysis, create the cortex_visuals directory
-            if not os.path.basename(output_dir).startswith('whole_head'):
-                vis_dir = os.path.join(output_dir, 'cortex_visuals')
-                os.makedirs(vis_dir, exist_ok=True)
-                output_filename = os.path.join(vis_dir, f"brain_with_{target_region}_ROI.msh")
-            else:
-                # For whole-head analysis, save directly in the region directory
-                output_filename = os.path.join(output_dir, f"brain_with_{target_region}_ROI.msh")
-        else:
-            # Use the class's output directory and create the cortex_visuals directory
-            vis_dir = os.path.join(self.output_dir, 'cortex_visuals')
-            os.makedirs(vis_dir, exist_ok=True)
-            output_filename = os.path.join(vis_dir, f"brain_with_{target_region}_ROI.msh")
+            output_filename = os.path.join(output_dir, f"brain_with_{target_region}_ROI.msh")
         
         # Save the modified original mesh
         gm_surf.write(output_filename)
@@ -605,6 +580,66 @@ class MeshVisualizer(Visualizer):
         
         return output_filename
 
+    def visualize_spherical_roi(self, gm_surf, roi_mask, center_coords, radius, field_values, max_value, output_dir=None):
+        """Create visualization files for a spherical ROI in mesh data.
+        
+        Args:
+            gm_surf: Gray matter surface mesh
+            roi_mask: Boolean mask indicating which nodes are in the spherical ROI
+            center_coords: Coordinates of the sphere center (x, y, z)
+            radius: Radius of the sphere
+            field_values: Field values for all nodes
+            max_value: Maximum value for color scale
+            output_dir: Optional output directory (if None, uses self.output_dir)
+            
+        Returns:
+            str: Path to the created visualization file
+        """
+        # Create a new field with field values only in ROI (zeros elsewhere)
+        masked_field = np.zeros(gm_surf.nodes.nr)
+        masked_field[roi_mask] = field_values[roi_mask]
+        
+        # Add this as a new field to the original mesh
+        gm_surf.add_node_field(masked_field, 'Spherical_ROI_field')
+        
+        # Use provided output_dir or default to self.output_dir
+        if output_dir is None:
+            output_dir = self.output_dir
+            
+        # Create sphere identifier for filename
+        sphere_id = f"sphere_x{center_coords[0]:.1f}_y{center_coords[1]:.1f}_z{center_coords[2]:.1f}_r{radius:.1f}"
+        output_filename = os.path.join(output_dir, f"brain_with_{sphere_id}.msh")
+        
+        # Save the modified mesh
+        gm_surf.write(output_filename)
+        
+        # Create the .msh.opt file with custom color map and alpha settings
+        # Use different colormap from cortical (colormap #2) to distinguish spherical ROIs
+        with open(f"{output_filename}.opt", 'w') as f:
+            f.write(f"""
+    // Make View[1] (Spherical_ROI_field) visible with custom colormap
+    View[1].Visible = 1;
+    View[1].ColormapNumber = 2;  // Use the second predefined colormap (different from cortical)
+    View[1].RangeType = 2;       // Custom range
+    View[1].CustomMin = 0;       // Specific minimum value
+    View[1].CustomMax = {max_value};  // Specific maximum value for this sphere
+    View[1].ShowScale = 1;       // Show the color scale
+
+    // Add alpha/transparency based on value (slightly different for spherical ROIs)
+    View[1].ColormapAlpha = 1;
+    View[1].ColormapAlphaPower = 0.1;
+    
+    // Sphere information as comments
+    // Sphere center: ({center_coords[0]:.2f}, {center_coords[1]:.2f}, {center_coords[2]:.2f})
+    // Sphere radius: {radius:.2f} mm
+    """)
+        
+        print(f"Created spherical ROI visualization: {output_filename}")
+        print(f"Sphere center: ({center_coords[0]:.2f}, {center_coords[1]:.2f}, {center_coords[2]:.2f})")
+        print(f"Sphere radius: {radius:.2f} mm")
+        print(f"Visualization settings saved to: {output_filename}.opt")
+        
+        return output_filename
 
 class VoxelVisualizer(Visualizer):
     """

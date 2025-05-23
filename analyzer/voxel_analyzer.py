@@ -26,7 +26,8 @@ Example Usage:
     # Analyze a spherical ROI
     sphere_results = analyzer.analyze_sphere(
         center_coordinates=[0, 0, 0],
-        radius=10
+        radius=10,
+        visualize=True
     )
 
     # Analyze a cortical region
@@ -330,11 +331,8 @@ class VoxelAnalyzer:
         vis_arr = np.zeros_like(atlas_arr)
         vis_arr[region_mask] = viz_field_arr[region_mask]
         
-        # Create timestamp for unique filename
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        
         # Create output filename directly in the region directory
-        output_filename = os.path.join(output_dir, f"region_overlay_{region_name}_{timestamp}.nii.gz")
+        output_filename = os.path.join(output_dir, f"region_overlay_{region_name}.nii.gz")
         
         # Save as NIfTI
         import nibabel as nib
@@ -491,9 +489,8 @@ class VoxelAnalyzer:
 
     def _save_whole_head_summary_csv(self, results, atlas_type, data_type='voxel'):
         """Save a summary CSV of whole-head analysis results directly in the output directory."""
-        # Create the CSV with timestamp
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = f"whole_head_{atlas_type}_summary_{timestamp}.csv"
+        # Create the CSV
+        filename = f"whole_head_{atlas_type}_summary.csv"
         output_path = os.path.join(self.output_dir, filename)
         
         # Write results to CSV
@@ -614,12 +611,9 @@ class VoxelAnalyzer:
             vis_arr = np.zeros_like(field_data)
             vis_arr[combined_mask] = field_data[combined_mask]
             
-            # Create timestamp for unique filename
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            
             # Save as NIfTI directly to the output directory
             vis_img = nib.Nifti1Image(vis_arr, affine)
-            output_filename = os.path.join(self.output_dir, f"sphere_overlay_{region_name}_{timestamp}.nii.gz")
+            output_filename = os.path.join(self.output_dir, f"sphere_overlay_{region_name}.nii.gz")
             nib.save(vis_img, output_filename)
             print(f"Created visualization overlay: {output_filename}")
             
