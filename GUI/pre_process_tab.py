@@ -40,12 +40,23 @@ class PreProcessThread(QtCore.QThread):
                 if self.terminated:
                     break
                 
-                # Update command for current subject
-                current_cmd = list(self.cmd)  # Make a copy of the base command
-                current_cmd[1] = f"{self.env['PROJECT_DIR']}/sub-{subject_id}"  # Update subject directory
-                
                 self.output_signal.emit(f"\nProcessing subject: {subject_id}")
+                
+                # Build the command for the current subject
+                current_cmd = [self.cmd[0]]  # Start with the script path
+                
+                # Add the subject directory for the current subject
+                subject_dir = f"{self.env['PROJECT_DIR']}/sub-{subject_id}"
+                current_cmd.append(subject_dir)
+                
+                # Add all the other flags from the original command
+                if len(self.cmd) > 1:  # If there are flags beyond script
+                    current_cmd.extend(self.cmd[1:])
+                
                 self.output_signal.emit(f"Command: {' '.join(current_cmd)}")
+                
+                # Set the DICOM_TYPE environment variable for the current process
+                current_env = self.env.copy()
                 
                 self.process = subprocess.Popen(
                     current_cmd, 
@@ -53,7 +64,7 @@ class PreProcessThread(QtCore.QThread):
                     stderr=subprocess.PIPE,
                     universal_newlines=True,
                     bufsize=1,
-                    env=self.env
+                    env=current_env
                 )
                 
                 # Real-time output display
@@ -686,12 +697,9 @@ class PreProcessTab(QtWidgets.QWidget):
         env['QUIET'] = str(self.quiet_cb.isChecked()).lower()
         
         # Build command using absolute Docker paths
-        cmd = [
-            '/ti-csc/pre-process/structural.sh',
-            f"{self.project_dir}/sub-{selected_subjects[0]}"  # Pass subject directory as first argument
-        ]
+        cmd = ['/ti-csc/pre-process/structural.sh']
         
-        # Add optional flags based on environment variables
+        # Add optional flags based on checkbox states
         if self.run_recon_cb.isChecked():
             cmd.append("recon-all")
 

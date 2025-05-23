@@ -81,6 +81,10 @@ if [[ "$1" == "--run-direct" ]]; then
         fi
         
         echo -e "${GREEN}Executing: ${cmd[*]}${RESET}"
+        
+        # Export environment variables for structural.sh
+        export DICOM_TYPE
+        
         "${cmd[@]}"
         
         if [ $? -eq 0 ]; then
