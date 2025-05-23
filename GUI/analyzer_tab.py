@@ -395,6 +395,47 @@ class AnalyzerTab(QtWidgets.QWidget):
         self.visualize_check.setChecked(True)  # Default to checked
         visualization_layout.addWidget(self.visualize_check)
         
+        # Mesh Visualization with Gmsh
+        mesh_viz_layout = QtWidgets.QVBoxLayout()
+        mesh_viz_label = QtWidgets.QLabel("View Mesh in Gmsh:")
+        mesh_viz_label.setStyleSheet("font-weight: bold; margin-top: 10px;")
+        mesh_viz_layout.addWidget(mesh_viz_label)
+        
+        # Mesh file dropdown and launch button
+        mesh_controls_layout = QtWidgets.QHBoxLayout()
+        self.mesh_combo = QtWidgets.QComboBox()
+        self.mesh_combo.setMinimumWidth(200)
+        self.mesh_combo.addItem("Select mesh file...")
+        
+        self.launch_gmsh_btn = QtWidgets.QPushButton("Launch Gmsh")
+        self.launch_gmsh_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #2196F3;
+                color: white;
+                padding: 5px 10px;
+                border: none;
+                border-radius: 3px;
+            }
+            QPushButton:hover {
+                background-color: #1976D2;
+            }
+            QPushButton:pressed {
+                background-color: #0D47A1;
+            }
+            QPushButton:disabled {
+                background-color: #cccccc;
+                color: #888888;
+            }
+        """)
+        self.launch_gmsh_btn.clicked.connect(self.launch_gmsh)
+        self.launch_gmsh_btn.setEnabled(False)  # Initially disabled
+        
+        mesh_controls_layout.addWidget(self.mesh_combo)
+        mesh_controls_layout.addWidget(self.launch_gmsh_btn)
+        mesh_viz_layout.addLayout(mesh_controls_layout)
+        
+        visualization_layout.addLayout(mesh_viz_layout)
+        
         # Add visualization container to right layout
         right_layout.addWidget(visualization_container)
         
@@ -522,6 +563,11 @@ class AnalyzerTab(QtWidgets.QWidget):
         
         # Connect subject list selection change signal
         self.subject_list.itemSelectionChanged.connect(self.subject_list_selection_changed)
+        
+        # Connect mesh visualization signals
+        self.subject_list.itemSelectionChanged.connect(self.update_mesh_files)
+        self.simulation_combo.currentTextChanged.connect(self.update_mesh_files)
+        self.mesh_combo.currentTextChanged.connect(self.update_gmsh_button_state)
     
     def list_subjects(self):
         """List available subjects in the project directory."""
@@ -1534,3 +1580,120 @@ class AnalyzerTab(QtWidgets.QWidget):
         """Handle subject selection changes."""
         self.update_simulations()
         self.update_atlas_combo()
+
+    def update_mesh_files(self):
+        """Update the mesh files dropdown based on selected subject and simulation."""
+        try:
+            # Clear existing items
+            self.mesh_combo.clear()
+            self.mesh_combo.addItem("Select mesh file...")
+            
+            # Check if subject and simulation are selected
+            if not self.subject_list.selectedItems():
+                return
+                
+            subject_id = self.subject_list.selectedItems()[0].text()
+            simulation = self.simulation_combo.currentText()
+            
+            if not simulation or simulation == "Select simulation...":
+                return
+            
+            # Build the path to the mesh directory
+            project_dir = f"/mnt/{os.environ.get('PROJECT_DIR_NAME', 'BIDS_new')}"
+            mesh_dir = os.path.join(project_dir, "derivatives", "SimNIBS", f"sub-{subject_id}", 
+                                   "Analyses", simulation, "Mesh")
+            
+            if not os.path.exists(mesh_dir):
+                self.update_output(f"Mesh directory not found: {mesh_dir}")
+                return
+            
+            # Find all .msh files recursively
+            mesh_files = []
+            for root, dirs, files in os.walk(mesh_dir):
+                for file in files:
+                    if file.endswith('.msh'):
+                        full_path = os.path.join(root, file)
+                        # Store relative path from mesh_dir for cleaner display
+                        rel_path = os.path.relpath(full_path, mesh_dir)
+                        mesh_files.append((rel_path, full_path))
+            
+            # Sort mesh files by name
+            mesh_files.sort(key=lambda x: x[0])
+            
+            # Add mesh files to combo box
+            for rel_path, full_path in mesh_files:
+                self.mesh_combo.addItem(rel_path, full_path)
+            
+            if mesh_files:
+                self.update_output(f"Found {len(mesh_files)} mesh file(s) for {subject_id}/{simulation}")
+            else:
+                self.update_output(f"No mesh files found for {subject_id}/{simulation}")
+                
+        except Exception as e:
+            self.update_output(f"Error updating mesh files: {str(e)}")
+
+    def launch_gmsh(self):
+        """Launch Gmsh with the selected mesh file."""
+        try:
+            if self.mesh_combo.currentText() == "Select mesh file...":
+                QtWidgets.QMessageBox.warning(self, "Warning", "Please select a mesh file first")
+                return
+            
+            # Get the full path to the selected mesh file
+            mesh_file_path = self.mesh_combo.currentData()
+            
+            if not mesh_file_path or not os.path.exists(mesh_file_path):
+                QtWidgets.QMessageBox.warning(self, "Error", "Selected mesh file not found")
+                return
+            
+            # Create a temporary Gmsh script to set display options
+            import tempfile
+            with tempfile.NamedTemporaryFile(mode='w', suffix='.geo', delete=False) as script_file:
+                script_content = f'''// Gmsh script to load mesh with all mesh elements hidden
+// Hide all mesh elements for clean visualization
+Mesh.SurfaceFaces = 0;  // Hide 2D surface faces
+Mesh.VolumeFaces = 0;   // Hide 3D volume faces  
+Mesh.SurfaceEdges = 0;  // Hide 2D element edges
+Mesh.VolumeEdges = 0;   // Hide 3D element edges
+Mesh.Points = 0;        // Hide mesh points
+Mesh.Lines = 0;         // Hide 1D elements/lines
+
+// Open the mesh file
+Merge "{mesh_file_path.replace(chr(92), '/')}";
+
+// Set some additional display options for better visualization
+General.Trackball = 1;
+General.RotationX = 0;
+General.RotationY = 0;
+General.RotationZ = 0;
+'''
+                script_file.write(script_content)
+                script_file_path = script_file.name
+            
+            # Launch Gmsh with the script
+            subprocess.Popen(["gmsh", script_file_path])
+            self.update_output(f"Launched Gmsh with mesh file: {mesh_file_path}")
+            self.update_output("Gmsh display: 2D faces hidden, wireframe edges visible")
+            
+            # Clean up the temporary script file after a delay
+            import threading
+            def cleanup_script():
+                import time
+                time.sleep(5)  # Wait 5 seconds for Gmsh to load
+                try:
+                    os.unlink(script_file_path)
+                except:
+                    pass  # Ignore cleanup errors
+            
+            threading.Thread(target=cleanup_script, daemon=True).start()
+            
+        except FileNotFoundError:
+            QtWidgets.QMessageBox.critical(self, "Error", 
+                "Gmsh not found. Please ensure Gmsh is installed and available in PATH.")
+        except Exception as e:
+            QtWidgets.QMessageBox.critical(self, "Error", f"Failed to launch Gmsh: {str(e)}")
+            self.update_output(f"Error launching Gmsh: {str(e)}")
+
+    def update_gmsh_button_state(self):
+        """Enable/disable the Launch Gmsh button based on selected mesh file."""
+        self.launch_gmsh_btn.setEnabled(bool(self.mesh_combo.currentText()) and self.mesh_combo.currentText() != "Select mesh file...")
