@@ -183,17 +183,17 @@ class AnalyzerTab(QtWidgets.QWidget):
         # Add subject container to left layout
         left_layout.addWidget(subject_container)
         
-        # Simulation selection
-        simulation_container = QtWidgets.QGroupBox("Simulation")
+        # Montage selection
+        simulation_container = QtWidgets.QGroupBox("Montage")
         simulation_layout = QtWidgets.QVBoxLayout(simulation_container)
         
-        # Simulation combobox
+        # Montage combobox
         self.simulation_combo = QtWidgets.QComboBox()
-        self.simulation_combo.addItem("Select simulation...")
+        self.simulation_combo.addItem("Select montage...")
         self.simulation_combo.setCurrentIndex(0)
         simulation_layout.addWidget(self.simulation_combo)
         
-        # Add simulation container to left layout
+        # Add montage container to left layout
         left_layout.addWidget(simulation_container)
         
         # Field selection
@@ -802,9 +802,9 @@ class AnalyzerTab(QtWidgets.QWidget):
             QtWidgets.QMessageBox.warning(self, "Warning", "Please select one subject.")
             return False
         
-        # Check if a simulation is selected
+        # Check if a montage is selected
         if self.simulation_combo.currentIndex() == 0:  # If placeholder is selected
-            QtWidgets.QMessageBox.warning(self, "Warning", "Please select a simulation.")
+            QtWidgets.QMessageBox.warning(self, "Warning", "Please select a montage.")
             return False
         
         # Check if a field file is selected
@@ -1018,6 +1018,7 @@ class AnalyzerTab(QtWidgets.QWidget):
             f"• Subject: {self.subject_list.selectedItems()[0].text()}\n"
             f"• Space: {'Mesh' if self.space_mesh.isChecked() else 'Voxel'}\n"
             f"• Analysis Type: {'Spherical' if self.type_spherical.isChecked() else 'Cortical'}\n"
+            f"• Montage: {self.simulation_combo.currentText()}\n"
             f"• Field File: {self.field_combo.currentText()}\n"
         )
         
@@ -1210,12 +1211,12 @@ class AnalyzerTab(QtWidgets.QWidget):
         self.status_label.hide()
 
     def update_simulations(self):
-        """Update the simulation list based on selected subject."""
+        """Update the montage list based on selected subject."""
         self.simulation_combo.clear()
         self.field_combo.clear()
         
         # Add placeholder items
-        self.simulation_combo.addItem("Select simulation...")
+        self.simulation_combo.addItem("Select montage...")
         self.field_combo.addItem("Select field file...")
         
         selected_items = self.subject_list.selectedItems()
@@ -1229,15 +1230,15 @@ class AnalyzerTab(QtWidgets.QWidget):
         if not os.path.exists(simulations_dir):
             return
             
-        # List all simulation directories
+        # List all montage directories
         simulations = [d for d in os.listdir(simulations_dir) 
                       if os.path.isdir(os.path.join(simulations_dir, d))]
         
-        # Add simulations to combo box
+        # Add montages to combo box
         self.simulation_combo.addItems(sorted(simulations))
 
     def update_field_files(self):
-        """Update the field files list based on selected simulation and analysis type."""
+        """Update the field files list based on selected montage and analysis type."""
         current_text = self.field_combo.currentText()
         self.field_combo.clear()
         
@@ -1253,7 +1254,7 @@ class AnalyzerTab(QtWidgets.QWidget):
                 self.field_combo.addItem("Select field file...")
                 self.field_combo.setCurrentIndex(0)
         
-        # If no simulation is selected, just show the placeholder
+        # If no montage is selected, just show the placeholder
         if not selected_items or self.simulation_combo.currentIndex() == 0:
             add_placeholder()
             return
@@ -1582,23 +1583,22 @@ class AnalyzerTab(QtWidgets.QWidget):
         self.update_atlas_combo()
 
     def update_mesh_files(self):
-        """Update the mesh files dropdown based on selected subject and simulation."""
+        """Update the mesh files dropdown based on selected subject and montage."""
         try:
             # Clear existing items
             self.mesh_combo.clear()
             self.mesh_combo.addItem("Select mesh file...")
             
-            # Check if subject and simulation are selected
+            # Check if subject and montage are selected
             if not self.subject_list.selectedItems():
                 return
                 
             subject_id = self.subject_list.selectedItems()[0].text()
             simulation = self.simulation_combo.currentText()
             
-            if not simulation or simulation == "Select simulation...":
+            if not simulation or simulation == "Select montage...":
                 return
             
-            # Build the path to the mesh directory
             project_dir = f"/mnt/{os.environ.get('PROJECT_DIR_NAME', 'BIDS_new')}"
             mesh_dir = os.path.join(project_dir, "derivatives", "SimNIBS", f"sub-{subject_id}", 
                                    "Analyses", simulation, "Mesh")
