@@ -17,8 +17,9 @@ from utils import confirm_overwrite
 class SimulationThread(QtCore.QThread):
     """Thread to run simulation in background to prevent GUI freezing."""
     
-    # Signal to emit output text
-    output_signal = QtCore.pyqtSignal(str)
+    # Signal to emit output text with message type
+    output_signal = QtCore.pyqtSignal(str, str)
+    error_signal = QtCore.pyqtSignal(str)
     
     def __init__(self, cmd, env=None):
         """Initialize the thread with the command to run and environment variables."""
@@ -34,30 +35,44 @@ class SimulationThread(QtCore.QThread):
             self.process = subprocess.Popen(
                 self.cmd, 
                 stdout=subprocess.PIPE, 
-                stderr=subprocess.PIPE,
+                stderr=subprocess.STDOUT,  # Combine stderr with stdout to prevent blocking
                 universal_newlines=True,
                 bufsize=1,
                 env=self.env
             )
             
-            # Real-time output display
+            # Real-time output display with message type detection
             for line in iter(self.process.stdout.readline, ''):
                 if self.terminated:
                     break
                 if line:
-                    self.output_signal.emit(line.strip())
+                    # Detect message type based on content
+                    line_stripped = line.strip()
+                    if any(keyword in line_stripped.lower() for keyword in ['error:', 'critical:', 'failed', 'exception']):
+                        message_type = 'error'
+                    elif any(keyword in line_stripped.lower() for keyword in ['warning:', 'warn']):
+                        message_type = 'warning'
+                    elif any(keyword in line_stripped.lower() for keyword in ['debug:']):
+                        message_type = 'debug'
+                    elif any(keyword in line_stripped.lower() for keyword in ['executing:', 'running', 'command']):
+                        message_type = 'command'
+                    elif any(keyword in line_stripped.lower() for keyword in ['completed successfully', 'completed.', 'successfully', 'completed:']):
+                        message_type = 'success'
+                    elif any(keyword in line_stripped.lower() for keyword in ['processing', 'starting']):
+                        message_type = 'info'
+                    else:
+                        message_type = 'default'
+                    
+                    self.output_signal.emit(line_stripped, message_type)
             
-            # Check for errors
+            # Check process completion
             if not self.terminated:
                 returncode = self.process.wait()
                 if returncode != 0:
-                    error = self.process.stderr.read()
-                    self.output_signal.emit("Error: Process returned non-zero exit code")
-                    if error:
-                        self.output_signal.emit(error)
+                    self.error_signal.emit("Process returned non-zero exit code")
                     
         except Exception as e:
-            self.output_signal.emit(f"Error running simulation: {str(e)}")
+            self.error_signal.emit(f"Error running simulation: {str(e)}")
     
     def terminate_process(self):
         """Terminate the running process."""
@@ -874,6 +889,7 @@ class SimulatorTab(QtWidgets.QWidget):
             # Create and start the thread
             self.simulation_process = SimulationThread(cmd, env)
             self.simulation_process.output_signal.connect(self.update_output)
+            self.simulation_process.error_signal.connect(lambda msg: self.update_output(msg, 'error'))
             self.simulation_process.finished.connect(self.simulation_finished)
             self.simulation_process.start()
             
@@ -999,31 +1015,33 @@ class SimulatorTab(QtWidgets.QWidget):
         except ValueError:
             return False
 
-    def update_output(self, text):
+    def update_output(self, text, message_type='default'):
         """Update the console output with colored text."""
         if not text.strip():
             return
             
-        # Format the output based on content type
-        if "Processing... Only the Stop button is available" in text:
-            formatted_text = f'<div style="background-color: #2a2a2a; padding: 10px; margin: 10px 0; border-radius: 5px;"><span style="color: #ffff55; font-weight: bold;">{text}</span></div>'
-        elif "Error:" in text or "CRITICAL:" in text or "Failed" in text:
+        # Format the output based on message type from thread
+        if message_type == 'error':
             formatted_text = f'<span style="color: #ff5555;"><b>{text}</b></span>'
-        elif "Warning:" in text or "YELLOW" in text:
+        elif message_type == 'warning':
             formatted_text = f'<span style="color: #ffff55;">{text}</span>'
-        elif "DEBUG:" in text:
+        elif message_type == 'debug':
             formatted_text = f'<span style="color: #7f7f7f;">{text}</span>'
-        elif "Executing:" in text or "Running" in text or "Command" in text:
+        elif message_type == 'command':
             formatted_text = f'<span style="color: #55aaff;">{text}</span>'
-        elif "completed successfully" in text or "completed." in text or "Successfully" in text or "completed:" in text:
+        elif message_type == 'success':
             formatted_text = f'<span style="color: #55ff55;"><b>{text}</b></span>'
-        elif "Processing" in text or "Starting" in text:
+        elif message_type == 'info':
             formatted_text = f'<span style="color: #55ffff;">{text}</span>'
-        elif text.strip().startswith("-"):
-            # Indented list items
-            formatted_text = f'<span style="color: #aaaaaa; margin-left: 20px;">  {text}</span>'
         else:
-            formatted_text = f'<span style="color: #ffffff;">{text}</span>'
+            # Fallback to content-based formatting for backward compatibility
+            if "Processing... Only the Stop button is available" in text:
+                formatted_text = f'<div style="background-color: #2a2a2a; padding: 10px; margin: 10px 0; border-radius: 5px;"><span style="color: #ffff55; font-weight: bold;">{text}</span></div>'
+            elif text.strip().startswith("-"):
+                # Indented list items
+                formatted_text = f'<span style="color: #aaaaaa; margin-left: 20px;">  {text}</span>'
+            else:
+                formatted_text = f'<span style="color: #ffffff;">{text}</span>'
         
         # Append to the console with HTML formatting
         self.output_console.append(formatted_text)
