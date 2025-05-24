@@ -152,8 +152,14 @@ EOL
         # Export variables for TI.py to find the correct config directory
         export CONFIG_DIR="$ti_csc_dir/config"
         
+        # Set electrode parameters
+        electrode_shape="${ELECTRODE_SHAPE:-rect}"
+        dimensions="${DIMENSIONS:-50,50}"
+        thickness="${THICKNESS:-5}"
+        current="${CURRENT:-2.0,2.0}"
+        
         # Build command - use project_dir instead of subject_dir to prevent double subject ID
-        cmd=("$simulator_dir/$main_script" "$subject_id" "$conductivity" "$project_dir" "$simulation_dir" "$sim_mode" "$current_a" "$electrode_shape" "$dimensions" "$thickness" "$eeg_net")
+        cmd=("$simulator_dir/$main_script" "$subject_id" "$conductivity" "$project_dir" "$simulation_dir" "$sim_mode" "$current" "$electrode_shape" "$dimensions" "$thickness" "$eeg_net")
         
         # Add montages - ensure these are actual montage names
         for montage in "${selected_montages[@]}"; do
@@ -176,10 +182,10 @@ EOL
         echo -e "${CYAN}- Project directory: $project_dir${RESET}"
         echo -e "${CYAN}- Simulation directory: $simulation_dir${RESET}"
         echo -e "${CYAN}- Simulation mode: $sim_mode${RESET}"
-        echo -e "${CYAN}- Current (A): $current_a${RESET}"
+        echo -e "${CYAN}- Current (channels): $current${RESET}"
         echo -e "${CYAN}- Electrode shape: $electrode_shape${RESET}"
-        echo -e "${CYAN}- Dimensions: $dimensions${RESET}"
-        echo -e "${CYAN}- Thickness: $thickness${RESET}"
+        echo -e "${CYAN}- Dimensions: $dimensions mm${RESET}"
+        echo -e "${CYAN}- Thickness: $thickness mm${RESET}"
         echo -e "${CYAN}- Montages: ${selected_montages[*]}${RESET}"
         
         # Execute simulation
@@ -232,7 +238,7 @@ if [[ "$1" == "--run-direct" ]]; then
     electrode_shape="${ELECTRODE_SHAPE:-rect}"
     dimensions="${DIMENSIONS:-50,50}"
     thickness="${THICKNESS:-5}"
-    current="${CURRENT:-2.0}"
+    current="${CURRENT:-2.0,2.0}"
     
     # Skip to execution
     echo "Running simulation with:"
@@ -244,7 +250,7 @@ if [[ "$1" == "--run-direct" ]]; then
     echo "  - Electrode shape: $electrode_shape"
     echo "  - Dimensions: $dimensions mm"
     echo "  - Thickness: $thickness mm" 
-    echo "  - Current: $current A"
+    echo "  - Current (channels): $current A"
     
     # List available subjects to set the subjects array
     list_subjects
@@ -649,7 +655,7 @@ show_confirmation_dialog() {
     echo -e "Shape: ${CYAN}${electrode_shape}${RESET}"
     echo -e "Dimensions: ${CYAN}${dimensions} mm${RESET}"
     echo -e "Thickness: ${CYAN}${thickness} mm${RESET}"
-    echo -e "Current: ${CYAN}${intensity_ma} mA${RESET}"
+    echo -e "Current (channels): ${CYAN}${current}${RESET}"
     
     echo -e "\n${BOLD_YELLOW}Please review the configuration above.${RESET}"
     echo -e "${YELLOW}Do you want to proceed with the simulation? (y/n)${RESET}"
@@ -836,7 +842,7 @@ for subject_num in "${selected_subjects[@]}"; do
     mkdir -p "$simulation_dir"
 
     # Call the appropriate main pipeline script with the gathered parameters
-    "$simulator_dir/$main_script" "$subject_id" "$conductivity" "$project_dir" "$simulation_dir" "$sim_mode" "$intensity" "$electrode_shape" "$dimensions" "$thickness" "$eeg_net" "${selected_montages[@]}" -- "${selected_roi_names[@]}"
+    "$simulator_dir/$main_script" "$subject_id" "$conductivity" "$project_dir" "$simulation_dir" "$sim_mode" "$current" "$electrode_shape" "$dimensions" "$thickness" "$eeg_net" "${selected_montages[@]}" -- "${selected_roi_names[@]}"
 done
 
 # Output success message if new montages or ROIs were added

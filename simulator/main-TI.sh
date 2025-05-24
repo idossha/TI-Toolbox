@@ -64,7 +64,7 @@ subject_id=$1
 conductivity=$2
 project_dir=$3
 simulation_dir=$4
-sim_mode=$5  
+sim_mode=$5
 intensity=$6
 electrode_shape=$7
 dimensions=$8
@@ -187,7 +187,7 @@ for montage in "${selected_montages[@]}"; do
 done
 
 # Pass the current value as intensity to TI.py
-simnibs_python "$script_dir/TI.py" "$subject_id" "$conductivity" "$project_dir" "$simulation_dir" "$intensity" "$electrode_shape" "$dimensions" "$thickness" "$eeg_net" "${selected_montages[@]}"
+simnibs_python "$script_dir/TI.py" "$subject_id" "$conductivity" "$project_dir" "$simulation_dir" "$sim_mode" "$intensity" "$electrode_shape" "$dimensions" "$thickness" "$eeg_net" "${selected_montages[@]}"
 
 # Function to extract fields (GM and WM meshes)
 extract_fields() {

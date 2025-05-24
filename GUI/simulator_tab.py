@@ -270,14 +270,21 @@ class SimulatorTab(QtWidgets.QWidget):
         self.electrode_params_group = QtWidgets.QGroupBox("Electrode Parameters")
         electrode_params_layout = QtWidgets.QVBoxLayout(self.electrode_params_group)
         
-        # Current value
+        # Current value (now two fields)
         current_layout = QtWidgets.QHBoxLayout()
-        self.current_label = QtWidgets.QLabel("Current Value (mA):")
-        self.current_input = QtWidgets.QLineEdit()
-        self.current_input.setPlaceholderText("1.0")
-        self.current_input.setText("1.0")  # Set default to 1.0 mA
-        current_layout.addWidget(self.current_label)
-        current_layout.addWidget(self.current_input)
+        self.current_label_1 = QtWidgets.QLabel("Current Ch1 (mA):")
+        self.current_input_1 = QtWidgets.QLineEdit()
+        self.current_input_1.setPlaceholderText("1.0")
+        self.current_input_1.setText("1.0")  # Default to 1.0 mA
+        self.current_label_2 = QtWidgets.QLabel("Current Ch2 (mA):")
+        self.current_input_2 = QtWidgets.QLineEdit()
+        self.current_input_2.setPlaceholderText("1.0")
+        self.current_input_2.setText("1.0")  # Default to 1.0 mA
+        current_layout.addWidget(self.current_label_1)
+        current_layout.addWidget(self.current_input_1)
+        current_layout.addSpacing(10)
+        current_layout.addWidget(self.current_label_2)
+        current_layout.addWidget(self.current_input_2)
         electrode_params_layout.addLayout(current_layout)
         
         # Electrode shape
@@ -612,43 +619,66 @@ class SimulatorTab(QtWidgets.QWidget):
             project_dir = f"/mnt/{os.environ.get('PROJECT_DIR_NAME', 'BIDS_new')}"
             if not project_dir:
                 return
-            
             # Clear existing items
             self.montage_list.clear()
-            
             # Ensure montage file exists and get its path
             montage_file = self.ensure_montage_file_exists(project_dir)
-            
             # Load montages from montage_list.json
             with open(montage_file, 'r') as f:
                 montage_data = json.load(f)
-            
             # Get the current EEG net
             current_net = self.eeg_net_combo.currentText() or "EGI_template.csv"
-            
             # Get montages for the current net
             if "nets" in montage_data and current_net in montage_data["nets"]:
                 net_montages = montage_data["nets"][current_net]
-                
                 # Add unipolar montages if in unipolar mode
                 if self.sim_mode_unipolar.isChecked() and "uni_polar_montages" in net_montages:
-                    for montage_name in net_montages["uni_polar_montages"]:
-                        self.montage_list.addItem(montage_name)
-                
+                    for montage_name, pairs in net_montages["uni_polar_montages"].items():
+                        label_html = self._format_montage_label_html(montage_name, pairs, is_unipolar=True)
+                        item = QtWidgets.QListWidgetItem()
+                        item.setData(QtCore.Qt.UserRole, montage_name)  # Store the real name for selection logic
+                        self.montage_list.addItem(item)
+                        label_widget = QtWidgets.QLabel()
+                        label_widget.setTextFormat(QtCore.Qt.RichText)
+                        label_widget.setText(label_html)
+                        label_widget.setStyleSheet("QLabel { padding: 2px 4px; font-size: 13px; }")
+                        self.montage_list.setItemWidget(item, label_widget)
+                        item.setSizeHint(label_widget.sizeHint())
                 # Add multipolar montages if in multipolar mode
                 if self.sim_mode_multipolar.isChecked() and "multi_polar_montages" in net_montages:
-                    for montage_name in net_montages["multi_polar_montages"]:
-                        self.montage_list.addItem(montage_name)
-            
+                    for montage_name, pairs in net_montages["multi_polar_montages"].items():
+                        label_html = self._format_montage_label_html(montage_name, pairs, is_unipolar=False)
+                        item = QtWidgets.QListWidgetItem()
+                        item.setData(QtCore.Qt.UserRole, montage_name)
+                        self.montage_list.addItem(item)
+                        label_widget = QtWidgets.QLabel()
+                        label_widget.setTextFormat(QtCore.Qt.RichText)
+                        label_widget.setText(label_html)
+                        label_widget.setStyleSheet("QLabel { padding: 2px 4px; font-size: 13px; }")
+                        self.montage_list.setItemWidget(item, label_widget)
+                        item.setSizeHint(label_widget.sizeHint())
         except Exception as e:
             print(f"Error updating montage list: {str(e)}")
-        
         # Update the electrode inputs view
         if checked is not None:
             if checked:  # Unipolar selected
                 self.electrode_stacked_widget.setCurrentIndex(0)
             else:  # Multipolar selected
                 self.electrode_stacked_widget.setCurrentIndex(1)
+    
+    def _format_montage_label_html(self, montage_name, pairs, is_unipolar=True):
+        """Format montage label for the list widget using HTML for a professional look."""
+        if not pairs or not isinstance(pairs, list):
+            return f"<b>{montage_name}</b>"
+        channel_labels = []
+        for idx, pair in enumerate(pairs):
+            if isinstance(pair, list) and len(pair) == 2:
+                ch_num = f"ch{idx+1}:"
+                e1 = f"<span style='color:#55aaff;'>{pair[0]}</span>"
+                e2 = f"<span style='color:#ff5555;'>{pair[1]}</span>"
+                channel = f"{ch_num} {e1} <b>↔</b> {e2}"
+                channel_labels.append(channel)
+        return f"<b>{montage_name}</b>  |  " + "   +   ".join(channel_labels)
     
     def list_montages(self):
         """List available montages from montage_list.json."""
@@ -764,7 +794,7 @@ class SimulatorTab(QtWidgets.QWidget):
                 return
             
             # Get selected montages
-            selected_montages = [item.text() for item in self.montage_list.selectedItems()]
+            selected_montages = [item.data(QtCore.Qt.UserRole) for item in self.montage_list.selectedItems()]
             if not selected_montages:
                 QtWidgets.QMessageBox.warning(self, "Warning", "Please select at least one montage.")
                 return
@@ -788,15 +818,16 @@ class SimulatorTab(QtWidgets.QWidget):
             sim_mode = "U" if self.sim_mode_unipolar.isChecked() else "M"
             eeg_net = self.eeg_net_combo.currentText()
             
-            # Get current value and convert to Amperes (from mA)
+            # Get current values and convert to Amperes (from mA)
             try:
-                current_ma = float(self.current_input.text() or "1.0")  # Default to 1.0 if empty
-                current = str(current_ma / 1000.0)  # Convert mA to A and back to string
-                if not current or float(current) <= 0:
-                    QtWidgets.QMessageBox.warning(self, "Warning", "Current value must be greater than 0 mA.")
+                current_ma_1 = float(self.current_input_1.text() or "1.0")
+                current_ma_2 = float(self.current_input_2.text() or "1.0")
+                if current_ma_1 <= 0 or current_ma_2 <= 0:
+                    QtWidgets.QMessageBox.warning(self, "Warning", "Current values must be greater than 0 mA.")
                     return
+                current = f"{current_ma_1/1000.0},{current_ma_2/1000.0}"
             except ValueError:
-                QtWidgets.QMessageBox.warning(self, "Warning", "Please enter a valid current value in mA.")
+                QtWidgets.QMessageBox.warning(self, "Warning", "Please enter valid current values in mA for both channels.")
                 return
             
             electrode_shape = "rect" if self.electrode_shape_rect.isChecked() else "ellipse"
@@ -828,7 +859,8 @@ class SimulatorTab(QtWidgets.QWidget):
                       f"• Simulation type: {conductivity}\n"
                       f"• Mode: {'Unipolar' if sim_mode == 'U' else 'Multipolar'}\n"
                       f"• EEG Net: {eeg_net}\n"
-                      f"• Current: {current_ma} mA\n"
+                      f"• Current Channel 1: {current_ma_1} mA\n"
+                      f"• Current Channel 2: {current_ma_2} mA\n"
                       f"• Electrode shape: {electrode_shape}\n"
                       f"• Dimensions: {dimensions} mm\n"
                       f"• Thickness: {thickness} mm")
@@ -857,9 +889,9 @@ class SimulatorTab(QtWidgets.QWidget):
             env['SUBJECTS'] = ','.join(selected_subjects)
             env['CONDUCTIVITY'] = conductivity
             env['SIM_MODE'] = sim_mode
-            env['SELECTED_MONTAGES'] = ' '.join(selected_montages)
+            env['SELECTED_MONTAGES'] = ' '.join(selected_montages)  # Join with spaces since these are command line args
             env['EEG_NET'] = eeg_net
-            env['CURRENT'] = current  # Now in Amperes
+            env['CURRENT'] = current  # Now in Amperes, comma-separated for two channels
             env['ELECTRODE_SHAPE'] = electrode_shape
             env['DIMENSIONS'] = dimensions
             env['THICKNESS'] = thickness
@@ -871,10 +903,12 @@ class SimulatorTab(QtWidgets.QWidget):
             self.update_output(f"- Simulation type: {env['CONDUCTIVITY']}")
             self.update_output(f"- Mode: {'Unipolar' if sim_mode == 'U' else 'Multipolar'}")
             self.update_output(f"- EEG Net: {env['EEG_NET']}")
-            self.update_output(f"- Current: {current_ma} mA")
+            self.update_output(f"- Current Channel 1: {current_ma_1} mA")
+            self.update_output(f"- Current Channel 2: {current_ma_2} mA")
             self.update_output(f"- Electrode shape: {electrode_shape}")
             self.update_output(f"- Dimensions: {dimensions} mm")
             self.update_output(f"- Thickness: {thickness} mm")
+            self.update_output(f"- Montages: {', '.join(selected_montages)}")
             
             # Set tab as busy
             if hasattr(self, 'parent') and self.parent:
@@ -931,7 +965,8 @@ class SimulatorTab(QtWidgets.QWidget):
         self.eeg_net_combo.setEnabled(False)
         self.sim_mode_unipolar.setEnabled(False)
         self.sim_mode_multipolar.setEnabled(False)
-        self.current_input.setEnabled(False)
+        self.current_input_1.setEnabled(False)
+        self.current_input_2.setEnabled(False)
         self.electrode_shape_rect.setEnabled(False)
         self.electrode_shape_ellipse.setEnabled(False)
         self.dimensions_input.setEnabled(False)
@@ -958,7 +993,8 @@ class SimulatorTab(QtWidgets.QWidget):
         self.eeg_net_combo.setEnabled(True)
         self.sim_mode_unipolar.setEnabled(True)
         self.sim_mode_multipolar.setEnabled(True)
-        self.current_input.setEnabled(True)
+        self.current_input_1.setEnabled(True)
+        self.current_input_2.setEnabled(True)
         self.electrode_shape_rect.setEnabled(True)
         self.electrode_shape_ellipse.setEnabled(True)
         self.dimensions_input.setEnabled(True)
@@ -1243,14 +1279,15 @@ class SimulatorTab(QtWidgets.QWidget):
             QtWidgets.QMessageBox.warning(self, "Warning", "Please select at least one montage.")
             return False
             
-        # Validate current value
+        # Validate current values
         try:
-            current = float(self.current_input.text() or "1.0")
-            if current <= 0:
-                QtWidgets.QMessageBox.warning(self, "Warning", "Current value must be greater than 0 mA.")
+            current_1 = float(self.current_input_1.text() or "1.0")
+            current_2 = float(self.current_input_2.text() or "1.0")
+            if current_1 <= 0 or current_2 <= 0:
+                QtWidgets.QMessageBox.warning(self, "Warning", "Current values must be greater than 0 mA.")
                 return False
         except ValueError:
-            QtWidgets.QMessageBox.warning(self, "Warning", "Please enter a valid current value in mA.")
+            QtWidgets.QMessageBox.warning(self, "Warning", "Please enter valid current values in mA for both channels.")
             return False
             
         # Validate dimensions
@@ -1287,6 +1324,17 @@ class SimulatorTab(QtWidgets.QWidget):
         dialog = ConductivityEditorDialog(self, self.custom_conductivities)
         if dialog.exec_() == QtWidgets.QDialog.Accepted:
             self.custom_conductivities = dialog.get_conductivities()
+
+    def _format_montage_label(self, montage_name, pairs, is_unipolar=True):
+        """Format montage label for the list widget: montage_name: ch1:X<->Y + ch2:A<->B (+ ch3/ch4...)"""
+        if not pairs or not isinstance(pairs, list):
+            return montage_name
+        channel_labels = []
+        for idx, pair in enumerate(pairs):
+            if isinstance(pair, list) and len(pair) == 2:
+                channel = f"ch{idx+1}:{pair[0]}<-> {pair[1]}"
+                channel_labels.append(channel)
+        return f"{montage_name}: " + " + ".join(channel_labels)
 
 class AddMontageDialog(QtWidgets.QDialog):
     """Dialog for adding new montages."""

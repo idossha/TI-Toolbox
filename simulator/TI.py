@@ -20,12 +20,13 @@ from datetime import datetime
 #   2. sim_type          : The type of simulation anisotropy ('scalar', 'vn', 'dir', 'mc').
 #   3. project_dir       : The directory where subject-specific data is stored.
 #   4. simulation_dir    : The directory where simulation results will be saved.
-#   5. intensity         : The stimulation intensity in A.
-#   6. electrode_shape   : The shape of the electrodes ('rect' or 'ellipse').
-#   7. dimensions        : The dimensions of the electrodes (x,y in mm).
-#   8. thickness        : The thickness of the electrodes in mm.
-#   9. eeg_net           : The filename of the selected EEG net.
-#   10+ montage_names     : A list of montage names to use for the simulation.
+#   5. sim_mode          : The mode of simulation ('scalar', 'vn', 'dir', 'mc').
+#   6. intensity         : The stimulation intensity in A.
+#   7. electrode_shape   : The shape of the electrodes ('rect' or 'ellipse').
+#   8. dimensions        : The dimensions of the electrodes (x,y in mm).
+#   9. thickness        : The thickness of the electrodes in mm.
+#   10. eeg_net           : The filename of the selected EEG net.
+#   11+ montage_names     : A list of montage names to use for the simulation.
 
 # Functionality:
 #   - Loads the selected montages from a JSON file located in the ../utils directory relative to the subject directory.
@@ -40,12 +41,22 @@ subject_id = sys.argv[1]
 sim_type = sys.argv[2]  # The anisotropy type
 project_dir = sys.argv[3]  # Changed from subject_dir to project_dir
 simulation_dir = sys.argv[4]
-intensity = float(sys.argv[5])  # Convert intensity to float
-electrode_shape = sys.argv[6]
-dimensions = [float(x) for x in sys.argv[7].split(',')]  # Convert dimensions to list of floats
-thickness = float(sys.argv[8])
-eeg_net = sys.argv[9]  # Get the EEG net filename
-montage_names = sys.argv[10:]  # The list of montages starts from the 10th argument
+sim_mode = sys.argv[5]  # Now explicitly parsed
+
+# Parse intensity - now supports either single value or comma-separated pair
+intensity_str = sys.argv[6]
+if ',' in intensity_str:
+    # If comma-separated, parse as two different intensities
+    intensity1, intensity2 = map(float, intensity_str.split(','))
+else:
+    # If single value, use same intensity for both channels
+    intensity1 = intensity2 = float(intensity_str)
+
+electrode_shape = sys.argv[7]
+dimensions = [float(x) for x in sys.argv[8].split(',')]  # Convert dimensions to list of floats
+thickness = float(sys.argv[9])
+eeg_net = sys.argv[10]  # Get the EEG net filename
+montage_names = sys.argv[11:]  # The list of montages starts from the 12th argument
 
 # Define the correct path for the JSON file
 ti_csc_dir = os.path.join(project_dir, 'ti-csc')
@@ -84,7 +95,7 @@ if eeg_net not in all_montages.get('nets', {}):
 net_montages = all_montages['nets'][eeg_net]
 
 # Check and process montages based on simulation mode
-montage_type = 'uni_polar_montages' if len(sys.argv[10:]) > 0 and sys.argv[10] in net_montages.get('uni_polar_montages', {}) else 'multi_polar_montages'
+montage_type = 'uni_polar_montages' if len(sys.argv[11:]) > 0 and sys.argv[11] in net_montages.get('uni_polar_montages', {}) else 'multi_polar_montages'
 montages = {name: net_montages[montage_type].get(name) for name in montage_names}
 
 # Validate montage structure
@@ -145,7 +156,8 @@ def run_simulation(montage_name, montage):
             except ValueError:
                 print(f"Warning: Invalid conductivity value for tissue {tissue_num}")
 
-    tdcs.currents = [intensity, -intensity]
+    # Set currents for first pair using intensity1
+    tdcs.currents = [intensity1, -intensity1]
     
     electrode = tdcs.add_electrode()
     electrode.channelnr = 1
@@ -163,7 +175,8 @@ def run_simulation(montage_name, montage):
 
     # Second electrode pair
     tdcs_2 = S.add_tdcslist(deepcopy(tdcs))
-    tdcs_2.currents = [intensity, -intensity]
+    # Set currents for second pair using intensity2
+    tdcs_2.currents = [intensity2, -intensity2]
     tdcs_2.electrode[0].centre = montage[1][0]
     tdcs_2.electrode[1].centre = montage[1][1]
 
