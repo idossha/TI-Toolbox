@@ -4,6 +4,7 @@
 """
 TI-CSC-2.0 Pre-Process Tab
 This module provides a GUI interface for the pre-processing functionality.
+Thread-safe version with deadlock prevention.
 """
 
 import os
@@ -12,6 +13,8 @@ import json
 import re
 import subprocess
 import glob
+import threading
+import time
 from PyQt5 import QtWidgets, QtCore, QtGui
 from confirmation_dialog import ConfirmationDialog
 from utils import confirm_overwrite
@@ -19,8 +22,9 @@ from utils import confirm_overwrite
 class PreProcessThread(QtCore.QThread):
     """Thread to run pre-processing in background to prevent GUI freezing."""
     
-    # Signal to emit output text
-    output_signal = QtCore.pyqtSignal(str)
+    # Signals for thread-safe communication
+    output_signal = QtCore.pyqtSignal(str, str)  # text, message_type
+    error_signal = QtCore.pyqtSignal(str)        # error message
     
     def __init__(self, cmd, env=None):
         """Initialize the thread with the command to run and environment variables."""
@@ -34,13 +38,13 @@ class PreProcessThread(QtCore.QThread):
         """Run the pre-processing command in a separate thread."""
         try:
             # Get list of subjects from environment
-            subjects = self.env['SUBJECTS'].split(',')
+            subjects = self.env.get('SUBJECTS', '').split(',')
             
             for subject_id in subjects:
                 if self.terminated:
                     break
                 
-                self.output_signal.emit(f"\nProcessing subject: {subject_id}")
+                self.output_signal.emit(f"\nProcessing subject: {subject_id}", 'info')
                 
                 # Build the command for the current subject
                 current_cmd = [self.cmd[0]]  # Start with the script path
@@ -53,7 +57,7 @@ class PreProcessThread(QtCore.QThread):
                 if len(self.cmd) > 1:  # If there are flags beyond script
                     current_cmd.extend(self.cmd[1:])
                 
-                self.output_signal.emit(f"Command: {' '.join(current_cmd)}")
+                self.output_signal.emit(f"Command: {' '.join(current_cmd)}", 'info')
                 
                 # Set the DICOM_TYPE environment variable for the current process
                 current_env = self.env.copy()
@@ -61,7 +65,7 @@ class PreProcessThread(QtCore.QThread):
                 self.process = subprocess.Popen(
                     current_cmd, 
                     stdout=subprocess.PIPE, 
-                    stderr=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,  # Combine stderr with stdout
                     universal_newlines=True,
                     bufsize=1,
                     env=current_env
@@ -72,21 +76,33 @@ class PreProcessThread(QtCore.QThread):
                     if self.terminated:
                         break
                     if line:
-                        self.output_signal.emit(line.strip())
+                        # Determine message type based on content
+                        line_stripped = line.strip()
+                        if any(keyword in line_stripped.lower() for keyword in ['error', 'failed', 'critical']):
+                            message_type = 'error'
+                        elif any(keyword in line_stripped.lower() for keyword in ['warning', 'warn']):
+                            message_type = 'warning'
+                        elif any(keyword in line_stripped.lower() for keyword in ['success', 'completed', 'finished']):
+                            message_type = 'success'
+                        elif any(keyword in line_stripped.lower() for keyword in ['debug']):
+                            message_type = 'debug'
+                        elif any(keyword in line_stripped.lower() for keyword in ['running', 'executing', 'processing']):
+                            message_type = 'info'
+                        else:
+                            message_type = 'default'
+                            
+                        self.output_signal.emit(line_stripped, message_type)
                 
                 # Check for errors
                 if not self.terminated:
                     returncode = self.process.wait()
                     if returncode != 0:
-                        error = self.process.stderr.read()
-                        self.output_signal.emit(f"Error processing subject {subject_id}: Process returned non-zero exit code")
-                        if error:
-                            self.output_signal.emit(error)
+                        self.error_signal.emit(f"Error processing subject {subject_id}: Process returned non-zero exit code: {returncode}")
                     else:
-                        self.output_signal.emit(f"Successfully processed subject: {subject_id}")
+                        self.output_signal.emit(f"Successfully processed subject: {subject_id}", 'success')
                 
         except Exception as e:
-            self.output_signal.emit(f"Error running pre-processing: {str(e)}")
+            self.error_signal.emit(f"Error running pre-processing: {str(e)}")
     
     def terminate_process(self):
         """Terminate the running process."""
@@ -502,87 +518,6 @@ class PreProcessTab(QtWidgets.QWidget):
                 f"  Compressed: {os.path.join(self.project_dir, 'sourcedata', 'sub-{subjectID}', '*.tgz')}"
             )
 
-    def process_next_subject(self):
-        """Process the next subject in the queue."""
-        if not self.subject_queue:
-            self.set_processing_state(False)
-            return
-        
-        subject_id = self.subject_queue.pop(0)
-        bids_subject_id = f"sub-{subject_id}"
-        
-        # Create necessary directories
-        subject_dir = os.path.join(self.project_dir, bids_subject_id)
-        t1w_dir = os.path.join(subject_dir, "T1w")
-        t2w_dir = os.path.join(subject_dir, "T2w")
-        anat_dir = os.path.join(subject_dir, "anat")
-        
-        # Create directories if they don't exist
-        for directory in [t1w_dir, t2w_dir, anat_dir]:
-            os.makedirs(directory, exist_ok=True)
-        
-        # Build the command
-        script_path = "/ti-csc/pre-process/structural.sh"  # Use absolute path in Docker
-        cmd = [script_path, subject_dir]  # Pass subject directory as first argument
-        
-        # Add optional flags
-        if self.run_recon_cb.isChecked():
-            cmd.append("recon-all")
-        
-        if self.parallel_cb.isChecked():
-            cmd.append("--parallel")
-        
-        if self.quiet_cb.isChecked():
-            cmd.append("--quiet")
-        
-        if self.convert_dicom_cb.isChecked():
-            cmd.append("--convert-dicom")
-            
-        if self.create_m2m_cb.isChecked():
-            cmd.append("--create-m2m")
-        
-        # Set up environment
-        env = os.environ.copy()
-        env['PROJECT_DIR'] = self.project_dir
-        
-        # Create and start the thread
-        self.processing_thread = PreProcessThread(cmd, env)
-        self.processing_thread.output_signal.connect(self.update_output)
-        self.processing_thread.finished.connect(self.preprocessing_finished)
-        self.processing_thread.start()
-
-    def toggle_recon_only(self, checked):
-        """Enable/disable recon-only checkbox based on run_recon state."""
-        self.recon_only_cb.setEnabled(checked)
-        if not checked:
-            self.recon_only_cb.setChecked(False)
-    
-    def toggle_parallel(self, checked):
-        """Enable/disable parallel checkbox based on run_recon state."""
-        self.parallel_cb.setEnabled(checked)
-        if not checked:
-            self.parallel_cb.setChecked(False)
-    
-    def toggle_dependent_options(self):
-        """Handle interdependent options."""
-        # When recon-all is not checked, disable parallel processing
-        if not self.run_recon_cb.isChecked():
-            self.parallel_cb.setEnabled(False)
-            self.parallel_cb.setChecked(False)
-        else:
-            self.parallel_cb.setEnabled(True)
-    
-    def browse_project_dir(self):
-        """Open file dialog to browse for project directory."""
-        dir_path = QtWidgets.QFileDialog.getExistingDirectory(
-            self, "Select Project Directory", 
-            self.project_dir or os.path.expanduser("~")
-        )
-        
-        if dir_path:
-            self.project_dir = dir_path
-            self.update_available_subjects()
-    
     def set_processing_state(self, is_processing):
         """Update UI state based on processing state."""
         self.processing_running = is_processing
@@ -609,7 +544,7 @@ class PreProcessTab(QtWidgets.QWidget):
     def run_preprocessing(self):
         """Run the preprocessing pipeline."""
         if self.processing_running:
-            self.update_output("Preprocessing already running. Please wait or stop the current run.")
+            self.update_output("Preprocessing already running. Please wait or stop the current run.", 'warning')
             return
         
         if not self.project_dir:
@@ -716,26 +651,27 @@ class PreProcessTab(QtWidgets.QWidget):
             cmd.append("--create-m2m")
         
         # Debug output
-        self.update_output(f"Running in direct execution mode from GUI")
-        self.update_output(f"Running pre-processing with:")
-        self.update_output(f"- Subjects: {env['SUBJECTS']}")
-        self.update_output(f"- Convert DICOM: {env['CONVERT_DICOM']}")
-        self.update_output(f"- DICOM Type: {env['DICOM_TYPE']}")
-        self.update_output(f"- Run recon-all: {env['RUN_RECON']}")
-        self.update_output(f"- Parallel processing: {env['PARALLEL_RECON']}")
-        self.update_output(f"- Create m2m folder: {env['CREATE_M2M']}")
-        self.update_output(f"- Quiet mode: {env['QUIET']}")
+        self.update_output(f"Running in direct execution mode from GUI", 'info')
+        self.update_output(f"Running pre-processing with:", 'info')
+        self.update_output(f"- Subjects: {env['SUBJECTS']}", 'info')
+        self.update_output(f"- Convert DICOM: {env['CONVERT_DICOM']}", 'info')
+        self.update_output(f"- DICOM Type: {env['DICOM_TYPE']}", 'info')
+        self.update_output(f"- Run recon-all: {env['RUN_RECON']}", 'info')
+        self.update_output(f"- Parallel processing: {env['PARALLEL_RECON']}", 'info')
+        self.update_output(f"- Create m2m folder: {env['CREATE_M2M']}", 'info')
+        self.update_output(f"- Quiet mode: {env['QUIET']}", 'info')
         
         # Create and start the thread
         self.processing_thread = PreProcessThread(cmd, env)
         self.processing_thread.output_signal.connect(self.update_output)
+        self.processing_thread.error_signal.connect(lambda msg: self.update_output(msg, 'error'))
         self.processing_thread.finished.connect(self.preprocessing_finished)
         self.processing_thread.start()
 
     def preprocessing_finished(self):
         """Handle the completion of the preprocessing process."""
         self.set_processing_state(False)
-        self.update_output("\nPreprocessing completed.")
+        self.update_output("\nPreprocessing completed.", 'success')
 
         # --- Atlas Segmentation: Automatically run after m2m creation ---
         if self.create_m2m_cb.isChecked():
@@ -752,6 +688,9 @@ class PreProcessTab(QtWidgets.QWidget):
                 if os.path.exists(output_dir):
                     if not confirm_overwrite(self, output_dir, "segmentation output directory"):
                         return
+            
+            self.update_output("\n=== Starting atlas segmentation ===", 'info')
+            self.update_output("Running atlas segmentation for all selected subjects and all atlases...", 'info')
             
             # Run atlas segmentation for each subject
             for subject_id in selected_subjects:
@@ -781,12 +720,12 @@ class PreProcessTab(QtWidgets.QWidget):
         if not self.processing_running:
             return
         
-        self.update_output("Stopping preprocessing...")
+        self.update_output("Stopping preprocessing...", 'warning')
         if self.processing_thread:
             if self.processing_thread.terminate_process():
-                self.update_output("Preprocessing stopped.")
+                self.update_output("Preprocessing stopped.", 'info')
             else:
-                self.update_output("Failed to stop preprocessing.")
+                self.update_output("Failed to stop preprocessing.", 'error')
         
         self.set_processing_state(False)
 
@@ -802,16 +741,16 @@ class PreProcessTab(QtWidgets.QWidget):
         # Format the output based on content type
         if "Processing... Only the Stop button is available" in text:
             formatted_text = f'<div style="background-color: #2a2a2a; padding: 10px; margin: 10px 0; border-radius: 5px;"><span style="color: #ffff55; font-weight: bold;">{text}</span></div>'
-        elif "Error:" in text or "CRITICAL:" in text or "Failed" in text:
+        elif message_type == 'error' or "Error:" in text or "CRITICAL:" in text or "Failed" in text:
             formatted_text = f'<span style="color: #ff5555;"><b>{text}</b></span>'
-        elif "Warning:" in text or "YELLOW" in text:
+        elif message_type == 'warning' or "Warning:" in text or "YELLOW" in text:
             formatted_text = f'<span style="color: #ffff55;">{text}</span>'
-        elif "DEBUG:" in text:
-            formatted_text = f'<span style="color: #7f7f7f;">{text}</span>'
-        elif "Executing:" in text or "Running" in text or "Command" in text:
-            formatted_text = f'<span style="color: #55aaff;">{text}</span>'
-        elif "completed successfully" in text or "completed." in text or "Successfully" in text or "completed:" in text:
+        elif message_type == 'success' or "completed successfully" in text or "Successfully" in text or "completed." in text or "completed:" in text:
             formatted_text = f'<span style="color: #55ff55;"><b>{text}</b></span>'
+        elif message_type == 'debug' or "DEBUG:" in text:
+            formatted_text = f'<span style="color: #7f7f7f;">{text}</span>'
+        elif message_type == 'info' or "Executing:" in text or "Running" in text or "Command" in text:
+            formatted_text = f'<span style="color: #55aaff;">{text}</span>'
         elif "Processing" in text or "Starting" in text:
             formatted_text = f'<span style="color: #55ffff;">{text}</span>'
         elif text.strip().startswith("-"):
@@ -832,63 +771,3 @@ class PreProcessTab(QtWidgets.QWidget):
     def select_no_subjects(self):
         """Select no subjects in the subject list."""
         self.subject_list.clearSelection()
-
-    def run_atlas_segmentation(self):
-        selected_subjects = [item.text() for item in self.subject_list.selectedItems()]
-        if not selected_subjects:
-            QtWidgets.QMessageBox.warning(self, "Error", "Please select at least one subject.")
-            return
-        
-        # Check for existing segmentation directories and confirm overwrite
-        for subject_id in selected_subjects:
-            bids_subject_id = f"sub-{subject_id}"
-            m2m_folder = os.path.join(self.project_dir, "derivatives", "SimNIBS", bids_subject_id, f"m2m_{subject_id}")
-            if not os.path.isdir(m2m_folder):
-                continue
-            
-            output_dir = os.path.join(m2m_folder, 'segmentation')
-            if os.path.exists(output_dir):
-                if not confirm_overwrite(self, output_dir, "segmentation output directory"):
-                    return
-        
-        self.output_text.append("\n=== Starting atlas segmentation. This may take a few moments... ===")
-        QtWidgets.QApplication.processEvents()
-        self.output_text.append("Running atlas segmentation for all selected subjects and all atlases...")
-        QtWidgets.QApplication.processEvents()
-        
-        for subject_id in selected_subjects:
-            bids_subject_id = f"sub-{subject_id}"
-            m2m_folder = os.path.join(self.project_dir, "derivatives", "SimNIBS", bids_subject_id, f"m2m_{subject_id}")
-            if not os.path.isdir(m2m_folder):
-                self.output_text.append(f"[Atlas] {subject_id}: m2m folder not found, skipping.")
-                QtWidgets.QApplication.processEvents()
-                continue
-            
-            output_dir = os.path.join(m2m_folder, 'segmentation')
-            os.makedirs(output_dir, exist_ok=True)
-            
-            for atlas in ["a2009s", "DK40", "HCP_MMP1"]:
-                cmd = ["subject_atlas", "-m", m2m_folder, "-a", atlas, "-o", output_dir]
-                self.output_text.append(f"[Atlas] {subject_id}: Running {' '.join(cmd)}")
-                QtWidgets.QApplication.processEvents()
-                try:
-                    proc = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-                    if proc.returncode == 0:
-                        self.output_text.append(f"[Atlas] {subject_id}: Atlas {atlas} segmentation complete.")
-                    else:
-                        self.output_text.append(f"[Atlas] {subject_id}: Atlas {atlas} segmentation failed.\n{proc.stderr}")
-                except Exception as e:
-                    self.output_text.append(f"[Atlas] {subject_id}: Error running subject_atlas: {e}")
-                QtWidgets.QApplication.processEvents()
-
-    def update_atlas_btn_state(self):
-        selected_subjects = [item.text() for item in self.subject_list.selectedItems()]
-        if not selected_subjects or not self.project_dir:
-            self.atlas_btn.setEnabled(False)
-            return
-        for subject_id in selected_subjects:
-            m2m_folder = os.path.join(self.project_dir, subject_id, 'SimNIBS', f'm2m_{subject_id}')
-            if not os.path.isdir(m2m_folder):
-                self.atlas_btn.setEnabled(False)
-                return
-        self.atlas_btn.setEnabled(True) 
