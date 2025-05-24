@@ -338,11 +338,8 @@ class MeshAnalyzer:
         # Add this as a new field to the original mesh
         gm_surf.add_node_field(masked_field, 'ROI_field')
         
-        # Create timestamp for unique filename
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        
         # Create the output filename in the region directory
-        output_filename = os.path.join(output_dir, f"region_overlay_{target_region}_{timestamp}.msh")
+        output_filename = os.path.join(output_dir, f"region_overlay_{target_region}.msh")
         
         # Save the modified original mesh
         gm_surf.write(output_filename)
@@ -465,8 +462,7 @@ class MeshAnalyzer:
     def _save_whole_head_summary_csv(self, results, atlas_type, data_type='node'):
         """Save a summary CSV of whole-head analysis results directly in the output directory."""
         # Create the CSV
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = f"whole_head_{atlas_type}_summary_{timestamp}.csv"
+        filename = f"whole_head_{atlas_type}_summary.csv"
         output_path = os.path.join(self.output_dir, filename)
         
         # Write results to CSV
@@ -490,13 +486,14 @@ class MeshAnalyzer:
         print(f"Saved whole-head analysis summary to: {output_path}")
         return output_path
 
-    def analyze_sphere(self, center_coordinates, radius):
+    def analyze_sphere(self, center_coordinates, radius, visualize=False):
         """
         Analyze a spherical region of interest from a mesh.
         
         Args:
             center_coordinates: List of [x, y, z] coordinates for the center of the sphere
             radius: Radius of the sphere in mm
+            visualize: Whether to generate visualization files
             
         Returns:
             Dictionary containing analysis results or None if no nodes found
@@ -607,8 +604,80 @@ class MeshAnalyzer:
         results = {
             'mean_value': mean_value,
             'max_value': max_value,
-            'min_value': min_value
+            'min_value': min_value,
+            'nodes_in_roi': roi_nodes_count
         }
+        
+        # Generate visualizations if requested
+        if visualize:
+            print("Generating visualizations...")
+            
+            # Generate distribution plot
+            self.visualizer.generate_value_distribution_plot(
+                field_values_in_roi,
+                f"sphere_x{center_coordinates[0]}_y{center_coordinates[1]}_z{center_coordinates[2]}_r{radius}",
+                "Spherical",
+                mean_value,
+                max_value,
+                min_value,
+                data_type='node'
+            )
+            
+            # For 3D mesh visualization, we need to generate a surface mesh
+            try:
+                print("Generating surface mesh for visualization...")
+                surface_mesh_path = self._generate_surface_mesh()
+                
+                # Load the surface mesh
+                gm_surf = simnibs.read_msh(surface_mesh_path)
+                
+                # We need to create the spherical ROI on the surface mesh
+                # since the surface mesh may have different node coordinates/indices
+                print("Creating spherical ROI on surface mesh...")
+                surface_node_coords = gm_surf.nodes.node_coord
+                
+                # Calculate distances on the surface mesh
+                surface_distances = np.sqrt(
+                    (surface_node_coords[:, 0] - center_coordinates[0])**2 +
+                    (surface_node_coords[:, 1] - center_coordinates[1])**2 + 
+                    (surface_node_coords[:, 2] - center_coordinates[2])**2
+                )
+                
+                # Create ROI mask for surface mesh
+                surface_roi_mask = surface_distances <= radius
+                
+                # Get field values from surface mesh
+                surface_field_values = gm_surf.field[self.field_name].value
+                
+                # Check surface ROI has nodes
+                surface_roi_count = np.sum(surface_roi_mask)
+                if surface_roi_count > 0:
+                    print(f"Found {surface_roi_count} surface nodes in the ROI")
+                    
+                    # Get max value from surface field for proper color scaling
+                    surface_field_values_in_roi = surface_field_values[surface_roi_mask]
+                    surface_max_value = np.max(surface_field_values_in_roi)
+                    
+                    # Create spherical ROI overlay visualization
+                    print("Creating spherical ROI overlay visualization...")
+                    viz_file = self.visualizer.visualize_spherical_roi(
+                        gm_surf=gm_surf,
+                        roi_mask=surface_roi_mask,
+                        center_coords=center_coordinates,
+                        radius=radius,
+                        field_values=surface_field_values,
+                        max_value=surface_max_value,
+                        output_dir=self.output_dir
+                    )
+                    results['visualization_file'] = viz_file
+                else:
+                    print("Warning: No surface nodes found in spherical ROI")
+                    print("This may happen if the sphere is in deep brain regions not represented on the cortical surface")
+                    
+            except Exception as viz_error:
+                print(f"Warning: Could not generate 3D visualization: {str(viz_error)}")
+                print("This may happen if surface mesh generation fails or sphere is outside cortical surface")
+                # Continue without 3D visualization but still save other results
         
         # Save results to CSV
         region_name = f"sphere_x{center_coordinates[0]}_y{center_coordinates[1]}_z{center_coordinates[2]}_r{radius}"

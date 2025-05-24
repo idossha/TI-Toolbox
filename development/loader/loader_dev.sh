@@ -63,13 +63,21 @@ check_docker_resources() {
   fi
 }
 
+# Function to enable directory path autocompletion
+setup_path_completion() {
+  bind "set completion-ignore-case on"
+  bind "TAB:menu-complete"
+  bind "set show-all-if-ambiguous on"
+  bind "set menu-complete-display-prefix on"
+}
+
 # Function to validate and prompt for the project directory
 get_project_directory() {
   while true; do
     if [[ -n "$LOCAL_PROJECT_DIR" ]]; then
       echo "Current project directory: $LOCAL_PROJECT_DIR"
       echo "Press Enter to use this directory or enter a new path:"
-      read -r new_path
+      read -e -r new_path
       if [[ -z "$new_path" ]]; then
         break
       else
@@ -77,7 +85,7 @@ get_project_directory() {
       fi
     else
       echo "Give path to local project dir:"
-      read -r LOCAL_PROJECT_DIR
+      read -e -r LOCAL_PROJECT_DIR
     fi
 
     if [[ -d "$LOCAL_PROJECT_DIR" ]]; then
@@ -95,7 +103,7 @@ get_dev_codebase_directory() {
     if [[ -n "$DEV_CODEBASE_DIR" ]]; then
       echo "Current development codebase directory: $DEV_CODEBASE_DIR"
       echo "Press Enter to use this directory or enter a new path:"
-      read -r new_path
+      read -e -r new_path
       if [[ -z "$new_path" ]]; then
         break
       else
@@ -103,7 +111,7 @@ get_dev_codebase_directory() {
       fi
     else
       echo "Enter path to development codebase:"
-      read -r DEV_CODEBASE_DIR
+      read -e -r DEV_CODEBASE_DIR
     fi
 
     if [[ -d "$DEV_CODEBASE_DIR" ]]; then

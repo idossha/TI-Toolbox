@@ -101,12 +101,9 @@ class NiftiViewerTab(QtWidgets.QWidget):
                 for region_dir in os.listdir(voxel_dir):
                     region_path = os.path.join(voxel_dir, region_dir)
                     if os.path.isdir(region_path):
-                        # Look for cortex_visuals directory
-                        cortex_vis_dir = os.path.join(region_path, "cortex_visuals")
-                        if os.path.isdir(cortex_vis_dir):
-                            # Check if any NIfTI files exist
-                            if glob.glob(os.path.join(cortex_vis_dir, "*.nii*")):
-                                regions.append(region_dir)
+                        # Look for NIfTI files directly in the region directory
+                        if glob.glob(os.path.join(region_path, "*.nii*")):
+                            regions.append(region_dir)
         
         return sorted(regions)
         
@@ -528,7 +525,7 @@ class NiftiViewerTab(QtWidgets.QWidget):
             # Look for the ROI file
             analysis_dir = os.path.join(self.base_dir, "derivatives", "SimNIBS",
                                     f"sub-{subject_id}", "Analyses", simulation_name,
-                                    "Voxel", region_name, "cortex_visuals")
+                                    "Voxel", region_name)
             
             if os.path.exists(analysis_dir):
                 # First try to find the specific ROI file
@@ -608,21 +605,18 @@ class NiftiViewerTab(QtWidgets.QWidget):
                         for region_dir in os.listdir(voxel_dir):
                             region_path = os.path.join(voxel_dir, region_dir)
                             if os.path.isdir(region_path):
-                                # Look for cortex_visuals directory
-                                cortex_vis_dir = os.path.join(region_path, "cortex_visuals")
-                                if os.path.exists(cortex_vis_dir):
-                                    # Add any NIfTI files found
-                                    for nifti_file in glob.glob(os.path.join(cortex_vis_dir, "*.nii*")):
-                                        file_specs.append({
-                                            "path": nifti_file,
-                                            "type": "volume",
-                                            "colormap": "jet",  # Use different colormap for analysis files
-                                            "opacity": opacity * 0.7,  # Slightly lower opacity
-                                            "visible": 0,  # Not visible by default
-                                            "percentile": 1 if percentile else 0,
-                                            "threshold_min": threshold_min,
-                                            "threshold_max": threshold_max
-                                        })
+                                # Look for NIfTI files directly in the region directory
+                                for nifti_file in glob.glob(os.path.join(region_path, "*.nii*")):
+                                    file_specs.append({
+                                        "path": nifti_file,
+                                        "type": "volume",
+                                        "colormap": "jet",  # Use different colormap for analysis files
+                                        "opacity": opacity * 0.7,  # Slightly lower opacity
+                                        "visible": 0,  # Not visible by default
+                                        "percentile": 1 if percentile else 0,
+                                        "threshold_min": threshold_min,
+                                        "threshold_max": threshold_max
+                                    })
         
         if not any(spec for spec in file_specs if spec["path"].endswith((".nii", ".nii.gz"))):
             QtWidgets.QMessageBox.warning(self, "Warning", 
