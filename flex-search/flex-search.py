@@ -1,272 +1,241 @@
 #!/usr/bin/env python3
+from __future__ import annotations
 
-from simnibs import opt_struct
-import os
 import argparse
+import os
 import sys
 
-def get_roi_dirname(args):
-    """Generate directory name based on ROI type and parameters."""
-    base_name = ""
-    if args.roi_method == 'spherical':
-        try:
-            x = float(os.getenv('ROI_X'))
-            y = float(os.getenv('ROI_Y'))
-            z = float(os.getenv('ROI_Z'))
-            radius = float(os.getenv('ROI_RADIUS'))
-            base_name = f"{x}x{y}y{z}z_{radius}mm"
-        except (TypeError, ValueError) as e:
-            raise ValueError("Missing or invalid ROI coordinates or radius in environment variables") from e
-    else:  # atlas
-        try:
-            atlas_name = os.path.splitext(os.path.basename(os.getenv('ATLAS_PATH')))[0]
-            label_value = int(os.getenv('ROI_LABEL'))
-            base_name = f"{atlas_name}_{label_value}"
-        except (TypeError, ValueError) as e:
-            raise ValueError("Missing or invalid atlas information in environment variables") from e
-    
-    # Add goal to directory name
-    dirname = f"{base_name}_{args.goal}"
-    
-    # Add non-ROI method for focality
-    if args.goal == 'focality' and args.non_roi_method == 'specific':
-        dirname += "_specific"
-    
-    return dirname
+from simnibs import opt_struct
 
-def parse_arguments():
-    parser = argparse.ArgumentParser(description='Flexible electrode position optimization for TI stimulation')
-    
-    parser.add_argument('--subject', required=True,
-                      help='Subject ID')
-    parser.add_argument('--goal', required=True, choices=['mean', 'focality', 'max'],
-                      help='Optimization goal: mean or focality')
-    parser.add_argument('--postproc', required=True, 
-                      choices=['max_TI', 'dir_TI_normal', 'dir_TI_tangential'],
-                      help='Post-processing method')
-    parser.add_argument('--eeg-net', required=True,
-                      help='EEG net template name (must match a .csv file in the subject\'s eeg_positions directory)')
-    parser.add_argument('--radius', required=True, type=float,
-                      help='Electrode radius in mm')
-    parser.add_argument('--current', required=True, type=float,
-                      help='Electrode current in mA')
-    parser.add_argument('--roi-method', required=True,
-                      choices=['spherical', 'atlas'],
-                      help='ROI definition method')
-    parser.add_argument('--non-roi-method', choices=['everything_else', 'specific'],
-                      help='Method for defining non-ROI when goal is focality')
-    parser.add_argument('--thresholds',
-                      help='Threshold values for focality optimization. Either a single value or two comma-separated values.')
-    
-    args = parser.parse_args()
-    
-    # Validate thresholds for focality optimization
-    if args.goal == 'focality':
-        if not args.thresholds:
-            raise ValueError("--thresholds is required when goal is focality")
-        
-        # Parse threshold values
-        threshold_values = args.thresholds.split(',')
-        if len(threshold_values) not in [1, 2]:
-            raise ValueError("--thresholds must be either a single value or two comma-separated values")
-        
-        try:
-            args.threshold_values = [float(v) for v in threshold_values]
-        except ValueError:
-            raise ValueError("Invalid threshold values. Must be numeric.")
-    
-    # Validate that the EEG net template exists
-    project_dir = os.getenv('PROJECT_DIR')
-    if not project_dir:
-        raise ValueError("PROJECT_DIR environment variable not set")
-    
-    # Generate output directory path based on ROI type
-    roi_dirname = get_roi_dirname(args)
-    args.output_dir = os.path.join(project_dir, 'derivatives', 'SimNIBS', f'sub-{args.subject}', 'flex-search', roi_dirname)
-    
-    eeg_net_path = os.path.join(project_dir, 'derivatives', 'SimNIBS', f'sub-{args.subject}', 
-                               f"m2m_{args.subject}", 'eeg_positions', f'{args.eeg_net}.csv')
-    if not os.path.exists(eeg_net_path):
-        raise ValueError(f"EEG net template file not found: {eeg_net_path}")
-    
-    # Validate non-ROI method if goal is focality
-    if args.goal == 'focality':
-        if not args.non_roi_method:
-            raise ValueError("--non-roi-method is required when goal is focality")
-        if args.non_roi_method not in ['everything_else', 'specific']:
-            raise ValueError("Invalid non-ROI method. Must be 'everything_else' or 'specific'")
-    
-    return args
+from env_utils import apply_common_env_fixes
 
-def setup_optimization(args):
-    # Initialize optimization structure
+# -----------------------------------------------------------------------------
+# Argument parsing (mapping is OFF by default)
+# -----------------------------------------------------------------------------
+
+def parse_arguments() -> argparse.Namespace:
+    p = argparse.ArgumentParser(
+        prog="flex-search",
+        description="Optimise TI stimulation and (optionally) map final "
+                    "electrodes to the nearest EEG-net nodes.",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
+
+    # core parameters
+    p.add_argument("--subject", required=True)
+    p.add_argument("--goal", choices=["mean", "max", "focality"], required=True)
+    p.add_argument("--postproc", choices=["max_TI", "dir_TI_normal", "dir_TI_tangential"], required=True)
+    p.add_argument("--eeg-net", required=True, help="CSV filename in eeg_positions (without .csv)")
+    p.add_argument("--radius", type=float, required=True)
+    p.add_argument("--current", type=float, required=True)
+    p.add_argument("--roi-method", choices=["spherical", "atlas"], required=True)
+
+    # focality-specific arguments
+    p.add_argument("--thresholds", help="single value or two comma-separated values")
+    p.add_argument("--non-roi-method", choices=["everything_else", "specific"], help="When goal=focality")
+
+    # mapping (disabled by default)
+    p.add_argument("--enable-mapping", action="store_true", help="Map to nearest EEG-net nodes")
+    p.add_argument("--disable-mapping-simulation", action="store_true", help="Skip extra simulation with mapped electrodes")
+    p.add_argument("--run-optimized-simulation", action="store_true", help="Run simulation with optimized electrodes before mapping")
+
+    # output control
+    p.add_argument("--quiet", action="store_true", help="Suppress optimization step output")
+
+    # Stability and Performance arguments
+    p.add_argument("--max-iterations", type=int, help="Maximum optimization iterations for differential_evolution.")
+    p.add_argument("--population-size", type=int, help="Population size for differential_evolution.")
+    p.add_argument("--cpus", type=int, help="Number of CPU cores to utilize.")
+
+    return p.parse_args()
+
+# -----------------------------------------------------------------------------
+# Helper: simple ROI directory name
+# -----------------------------------------------------------------------------
+
+def roi_dirname(args: argparse.Namespace) -> str:
+    if args.roi_method == "spherical":
+        base = f"{os.getenv('ROI_X')}x{os.getenv('ROI_Y')}y{os.getenv('ROI_Z')}z_{os.getenv('ROI_RADIUS')}mm"
+    else:
+        atlas = os.path.splitext(os.path.basename(os.path.basename(os.getenv("ATLAS_PATH", "atlas"))))[0]
+        base = f"{atlas}_{os.getenv('ROI_LABEL', '0')}"
+    return f"{base}_{args.goal}"
+
+# -----------------------------------------------------------------------------
+# Set-up optimisation object
+# -----------------------------------------------------------------------------
+
+def build_optimisation(args: argparse.Namespace) -> opt_struct.TesFlexOptimization:
     opt = opt_struct.TesFlexOptimization()
-    
-    # Set paths
-    project_dir = os.getenv('PROJECT_DIR')
-    if not project_dir:
-        raise ValueError("PROJECT_DIR environment variable not set")
-    
-    # Set subject path using new directory structure
-    opt.subpath = os.path.join(project_dir, 'derivatives', 'SimNIBS', f'sub-{args.subject}', f"m2m_{args.subject}")
-    if not os.path.exists(opt.subpath):
-        raise ValueError(f"Subject directory not found: {opt.subpath}")
-    
-    # Set output directory
-    opt.output_folder = args.output_dir
-    
-    # Create output directory (overwrite handled by GUI)
+
+    proj_dir = os.getenv("PROJECT_DIR")
+    if not proj_dir:
+        raise SystemExit("[flex-search] PROJECT_DIR env-var is missing")
+
+    opt.subpath = os.path.join(proj_dir, "derivatives", "SimNIBS", f"sub-{args.subject}", f"m2m_{args.subject}")
+    opt.output_folder = os.path.join(proj_dir, "derivatives", "SimNIBS", f"sub-{args.subject}", "flex-search", roi_dirname(args))
     os.makedirs(opt.output_folder, exist_ok=True)
-    
-    # Set optimization goal
+
+    # goals / thresholds -------------------------------------------------------
     opt.goal = args.goal
-    
-    # Set thresholds for focality optimization
-    if args.goal == 'focality':
-        if len(args.threshold_values) == 1:
-            opt.threshold = args.threshold_values[0]  # Same threshold for both ROI and non-ROI
-        else:
-            opt.threshold = args.threshold_values  # Different thresholds for ROI and non-ROI
-    
-    # Set post-processing method
+    if args.goal == "focality":
+        if not args.thresholds:
+            raise SystemExit("--thresholds required for focality goal")
+        vals = [float(v) for v in args.thresholds.split(",")]
+        opt.threshold = vals if len(vals) > 1 else vals[0]
+        if not args.non_roi_method:
+            raise SystemExit("--non-roi-method required for focality goal")
+
     opt.e_postproc = args.postproc
-    
-    # Configure electrode pairs
-    # First pair
-    electrode_layout = opt.add_electrode_layout("ElectrodeArrayPair")
-    electrode_layout.radius = [args.radius]
-    electrode_layout.current = [args.current/1000.0, -args.current/1000.0]  # Convert mA to A
-    
-    # Second pair
-    electrode_layout = opt.add_electrode_layout("ElectrodeArrayPair")
-    electrode_layout.radius = [args.radius]
-    electrode_layout.current = [args.current/1000.0, -args.current/1000.0]  # Convert mA to A
-    
-    # Setup ROI based on method
-    if args.roi_method == 'spherical':
-        setup_spherical_roi(opt, args)
-    else:  # atlas
-        setup_atlas_roi(opt, args)
-    
+    opt.open_in_gmsh = False  # never auto-launch GUI
+
+    # mapping --------------------------------------------------------------
+    if args.enable_mapping:
+        opt.map_to_net_electrodes = True
+        opt.net_electrode_file = os.path.join(opt.subpath, "eeg_positions", f"{args.eeg_net}.csv")
+        if not os.path.isfile(opt.net_electrode_file):
+            raise SystemExit(f"EEG net file not found: {opt.net_electrode_file}")
+        if hasattr(opt, "run_mapped_electrodes_simulation") and not args.disable_mapping_simulation:
+            opt.run_mapped_electrodes_simulation = True
+    # else: leave mapping attributes untouched
+
+    # simulation options ---------------------------------------------------
+    if args.run_optimized_simulation:
+        opt.run_optimized_simulation = True
+
+    # electrodes -----------------------------------------------------------
+    r_m = args.radius
+    c_A = args.current / 1000.0  # mA → A
+    for _ in range(2):  # two pairs for TI
+        el = opt.add_electrode_layout("ElectrodeArrayPair")
+        el.radius = [r_m]
+        el.current = [c_A, -c_A]
+
+    # ROI ------------------------------------------------------------------
+    if args.roi_method == "spherical":
+        _roi_spherical(opt, args)
+    else:
+        _roi_atlas(opt, args)
+
     return opt
 
-def setup_spherical_roi(opt, args):
-    # Define target ROI
-    roi = opt.add_roi()
-    roi.method = "surface"
-    roi.surface_type = "central"                            # define ROI on central GM surfaces
-    roi.roi_sphere_center_space = "subject"
-    
-    # Get ROI coordinates from environment variables
-    try:
-        x = float(os.getenv('ROI_X'))
-        y = float(os.getenv('ROI_Y'))
-        z = float(os.getenv('ROI_Z'))
-        radius = float(os.getenv('ROI_RADIUS'))
-    except (TypeError, ValueError) as e:
-        raise ValueError("Missing or invalid ROI coordinates or radius in environment variables") from e
-    
-    roi.roi_sphere_center = [x, y, z]
-    roi.roi_sphere_radius = radius
-    
-    # If goal is focality, add non-ROI based on method
-    if args.goal == 'focality':
-        non_roi = opt.add_roi()
-        non_roi.method = "surface"
-        non_roi.surface_type = "central"
-        
-        if args.non_roi_method == 'everything_else':
-            # Use the same center but with a slightly larger radius to cover surrounding area
-            non_roi.roi_sphere_center_space = "subject"
-            non_roi.roi_sphere_center = [x, y, z]
-            non_roi.roi_sphere_radius = radius + 5  # Make the non-ROI sphere 5mm larger than the target ROI
-            non_roi.roi_sphere_operator = ["difference"]  # Must be a list with "difference" as element
-        else:  # specific non-ROI
-            # Get non-ROI coordinates from environment variables
-            try:
-                nx = float(os.getenv('NON_ROI_X'))
-                ny = float(os.getenv('NON_ROI_Y'))
-                nz = float(os.getenv('NON_ROI_Z'))
-                nradius = float(os.getenv('NON_ROI_RADIUS'))
-            except (TypeError, ValueError) as e:
-                raise ValueError("Missing or invalid non-ROI coordinates or radius in environment variables") from e
-            
-            non_roi.roi_sphere_center_space = "subject"
-            non_roi.roi_sphere_center = [nx, ny, nz]
-            non_roi.roi_sphere_radius = nradius
+# -----------------------------------------------------------------------------
+# ROI helpers
+# -----------------------------------------------------------------------------
 
-def setup_atlas_roi(opt, args):
-    # Define target ROI
+def _roi_spherical(opt: opt_struct.TesFlexOptimization, args: argparse.Namespace) -> None:
     roi = opt.add_roi()
     roi.method = "surface"
     roi.surface_type = "central"
-    
-    # Get atlas information from environment variables
-    try:
-        label_value = int(os.getenv('ROI_LABEL'))
-        atlas_path = os.getenv('ATLAS_PATH')
-        hemisphere = os.getenv('SELECTED_HEMISPHERE')
-        
-        if not atlas_path:
-            raise ValueError("ATLAS_PATH environment variable not set")
-        if not os.path.exists(atlas_path):
-            raise ValueError(f"Atlas file not found: {atlas_path}")
-        if hemisphere not in ['lh', 'rh']:
-            raise ValueError(f"Invalid hemisphere: {hemisphere}. Must be 'lh' or 'rh'")
-            
-    except (TypeError, ValueError) as e:
-        raise ValueError("Missing or invalid ROI label or atlas path in environment variables") from e
-    
-    # Set the mask space based on the hemisphere
-    roi.mask_space = f"subject_{hemisphere}"
-    roi.mask_path = atlas_path
-    roi.mask_value = label_value
-    
-    # If goal is focality, add non-ROI based on method
-    if args.goal == 'focality':
+    roi.roi_sphere_center_space = "subject"
+    roi.roi_sphere_center = [float(os.getenv(k)) for k in ("ROI_X", "ROI_Y", "ROI_Z")]
+    radius = float(os.getenv("ROI_RADIUS"))
+    roi.roi_sphere_radius = radius
+
+    # Add non-ROI if focality optimisation is requested
+    if args.goal == "focality":
         non_roi = opt.add_roi()
         non_roi.method = "surface"
         non_roi.surface_type = "central"
-        
-        if args.non_roi_method == 'everything_else':
-            # Use the same atlas but invert the selection
+
+        if args.non_roi_method == "everything_else":
+            non_roi.roi_sphere_center_space = "subject"
+            non_roi.roi_sphere_center = roi.roi_sphere_center
+            non_roi.roi_sphere_radius = radius
+            non_roi.roi_sphere_operator = ["difference"]
+            non_roi.weight = -1
+        else:  # specific non-ROI defined via env vars
+            nx = float(os.getenv("NON_ROI_X"))
+            ny = float(os.getenv("NON_ROI_Y"))
+            nz = float(os.getenv("NON_ROI_Z"))
+            nr = float(os.getenv("NON_ROI_RADIUS"))
+            non_roi.roi_sphere_center_space = "subject"
+            non_roi.roi_sphere_center = [nx, ny, nz]
+            non_roi.roi_sphere_radius = nr
+            non_roi.weight = -1
+
+def _roi_atlas(opt: opt_struct.TesFlexOptimization, args: argparse.Namespace) -> None:
+    roi = opt.add_roi()
+    roi.method = "surface"
+    roi.surface_type = "central"
+    hemi = os.getenv("SELECTED_HEMISPHERE")
+    roi.mask_space = [f"subject_{hemi}"]
+    roi.mask_path = [os.getenv("ATLAS_PATH")]
+    label_val = int(os.getenv("ROI_LABEL"))
+    roi.mask_value = [label_val]
+
+    if args.goal == "focality":
+        non_roi = opt.add_roi()
+        non_roi.method = "surface"
+        non_roi.surface_type = "central"
+
+        if args.non_roi_method == "everything_else":
             non_roi.mask_space = roi.mask_space
             non_roi.mask_path = roi.mask_path
             non_roi.mask_value = roi.mask_value
-            non_roi.mask_operator = ["difference"]  # Exclude the target ROI
-        else:  # specific non-ROI
-            try:
-                non_roi_label = int(os.getenv('NON_ROI_LABEL'))
-                non_roi_atlas_path = os.getenv('NON_ROI_ATLAS_PATH')
-                if not non_roi_atlas_path:
-                    raise ValueError("NON_ROI_ATLAS_PATH environment variable not set")
-                if not os.path.exists(non_roi_atlas_path):
-                    raise ValueError(f"Non-ROI atlas file not found: {non_roi_atlas_path}")
-            except (TypeError, ValueError) as e:
-                raise ValueError("Missing or invalid non-ROI label or atlas path in environment variables") from e
-            
+            non_roi.mask_operator = ["difference"]
+            non_roi.weight = -1
+        else:
+            non_roi_label = int(os.getenv("NON_ROI_LABEL"))
+            non_roi_atlas_path = os.getenv("NON_ROI_ATLAS_PATH")
             non_roi.mask_space = roi.mask_space
-            non_roi.mask_path = non_roi_atlas_path
-            non_roi.mask_value = non_roi_label
+            non_roi.mask_path = [non_roi_atlas_path]
+            non_roi.mask_value = [non_roi_label]
+            non_roi.weight = -1
 
-def main():
+# -----------------------------------------------------------------------------
+# Main
+# -----------------------------------------------------------------------------
+
+def main() -> int:
+    apply_common_env_fixes()
+    args = parse_arguments()
+
+    print(f"[flex-search] subject={args.subject} goal={args.goal} mapping={args.enable_mapping}")
+    if args.max_iterations is not None:
+        print(f"[flex-search] max_iterations={args.max_iterations}")
+    if args.population_size is not None:
+        print(f"[flex-search] population_size={args.population_size}")
+    if args.cpus is not None:
+        print(f"[flex-search] cpus={args.cpus}")
+
     try:
-        # Parse command-line arguments
-        args = parse_arguments()
+        opt = build_optimisation(args)
         
-        # Setup optimization
-        opt = setup_optimization(args)
+        # Set optimizer display option based on quiet mode
+        if args.quiet:
+            if hasattr(opt, '_optimizer_options_std') and isinstance(opt._optimizer_options_std, dict):
+                opt._optimizer_options_std["disp"] = False
+            else:
+                print("[flex-search] WARNING: opt._optimizer_options_std not found or not a dict, cannot set disp for quiet mode.", file=sys.stderr)
+
+        # Apply max_iterations and population_size if provided
+        if args.max_iterations is not None:
+            if hasattr(opt, '_optimizer_options_std') and isinstance(opt._optimizer_options_std, dict):
+                opt._optimizer_options_std["maxiter"] = args.max_iterations
+            else:
+                print("[flex-search] WARNING: opt._optimizer_options_std not found or not a dict, cannot set maxiter.", file=sys.stderr)
         
-        # Run optimization
-        print("Starting optimization...")
-        opt.run()
-        
-        print("Optimization completed successfully.")
-        return 0
-        
-    except Exception as e:
-        print(f"Error: {str(e)}", file=sys.stderr)
+        if args.population_size is not None:
+            if hasattr(opt, '_optimizer_options_std') and isinstance(opt._optimizer_options_std, dict):
+                opt._optimizer_options_std["popsize"] = args.population_size
+            else:
+                print("[flex-search] WARNING: opt._optimizer_options_std not found or not a dict, cannot set popsize.", file=sys.stderr)
+            
+    except Exception as exc:  # noqa: BLE001
+        print(f"[flex-search] ERROR during setup: {exc}", file=sys.stderr)
         return 1
+
+    try:
+        # Pass cpus argument to run method
+        cpus_to_pass = args.cpus if args.cpus is not None else None 
+        opt.run(cpus=cpus_to_pass)
+    except Exception as exc:  # noqa: BLE001
+        print(f"[flex-search] ERROR: {exc}", file=sys.stderr)
+        return 1
+
+    return 0
+
 
 if __name__ == "__main__":
     sys.exit(main())

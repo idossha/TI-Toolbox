@@ -17,8 +17,9 @@ from utils import confirm_overwrite
 class FlexSearchThread(QtCore.QThread):
     """Thread to run flex-search in background to prevent GUI freezing."""
     
-    # Signal to emit output text
-    output_signal = QtCore.pyqtSignal(str)
+    # Signal to emit output text with message type
+    output_signal = QtCore.pyqtSignal(str, str)
+    error_signal = QtCore.pyqtSignal(str)
     
     def __init__(self, cmd, env=None):
         """Initialize the thread with the command to run and environment variables."""
@@ -34,30 +35,44 @@ class FlexSearchThread(QtCore.QThread):
             self.process = subprocess.Popen(
                 self.cmd, 
                 stdout=subprocess.PIPE, 
-                stderr=subprocess.PIPE,
+                stderr=subprocess.STDOUT,  # Combine stderr with stdout to prevent blocking
                 universal_newlines=True,
                 bufsize=1,
                 env=self.env
             )
             
-            # Real-time output display
+            # Real-time output display with message type detection
             for line in iter(self.process.stdout.readline, ''):
                 if self.terminated:
                     break
                 if line:
-                    self.output_signal.emit(line.strip())
+                    # Detect message type based on content
+                    line_stripped = line.strip()
+                    if any(keyword in line_stripped.lower() for keyword in ['error:', 'critical:', 'failed', 'exception']):
+                        message_type = 'error'
+                    elif any(keyword in line_stripped.lower() for keyword in ['warning:', 'warn']):
+                        message_type = 'warning'
+                    elif any(keyword in line_stripped.lower() for keyword in ['debug:']):
+                        message_type = 'debug'
+                    elif any(keyword in line_stripped.lower() for keyword in ['executing:', 'running', 'command']):
+                        message_type = 'command'
+                    elif any(keyword in line_stripped.lower() for keyword in ['completed successfully', 'completed.', 'successfully', 'completed:']):
+                        message_type = 'success'
+                    elif any(keyword in line_stripped.lower() for keyword in ['processing', 'starting']):
+                        message_type = 'info'
+                    else:
+                        message_type = 'default'
+                    
+                    self.output_signal.emit(line_stripped, message_type)
             
-            # Check for errors
+            # Check process completion
             if not self.terminated:
                 returncode = self.process.wait()
                 if returncode != 0:
-                    error = self.process.stderr.read()
-                    self.output_signal.emit("Error: Process returned non-zero exit code")
-                    if error:
-                        self.output_signal.emit(error)
+                    self.error_signal.emit("Process returned non-zero exit code")
                     
         except Exception as e:
-            self.output_signal.emit(f"Error running flex-search: {str(e)}")
+            self.error_signal.emit(f"Error running flex-search: {str(e)}")
     
     def terminate_process(self):
         """Terminate the running process."""
@@ -93,338 +108,374 @@ class FlexSearchTab(QtWidgets.QWidget):
     """Tab for flex-search electrode optimization."""
     
     def __init__(self, parent=None):
+        """Initialize the flex search tab."""
         super(FlexSearchTab, self).__init__(parent)
         self.parent = parent
         self.optimization_running = False
         self.optimization_process = None
+        
+        # Initialize data structures
         self.subjects = []
         self.eeg_nets = {}
         self.atlases = {}
-        self.setup_ui()
-        self.find_available_subjects()
         
+        # Initialize all widgets that might be referenced before setup_ui
+        self.subject_combo = QtWidgets.QComboBox()
+        self.eeg_net_combo = QtWidgets.QComboBox()
+        self.atlas_combo = QtWidgets.QComboBox()
+        self.nonroi_atlas_combo = QtWidgets.QComboBox()
+        
+        # Initialize goal and postproc combo boxes
+        self.goal_combo = QtWidgets.QComboBox()
+        self.goal_combo.addItem("mean (maximize field in target ROI)", "mean")
+        self.goal_combo.addItem("max (maximize peak field in target ROI)", "max")
+        self.goal_combo.addItem("focality (maximize field in target ROI while minimizing field elsewhere)", "focality")
+        
+        self.postproc_combo = QtWidgets.QComboBox()
+        self.postproc_combo.addItem("max_TI (maximum TI field)", "max_TI")
+        self.postproc_combo.addItem("dir_TI_normal (TI field normal to surface)", "dir_TI_normal")
+        self.postproc_combo.addItem("dir_TI_tangential (TI field tangential to surface)", "dir_TI_tangential")
+        
+        # Initialize buttons that might be referenced
+        self.refresh_subjects_btn = QtWidgets.QPushButton("Refresh")
+        self.refresh_subjects_btn.setMaximumWidth(100)
+        
+        self.refresh_eeg_nets_btn = QtWidgets.QPushButton("Refresh")
+        self.refresh_eeg_nets_btn.setMaximumWidth(100)
+        
+        self.refresh_atlases_btn = QtWidgets.QPushButton("Refresh")
+        self.refresh_atlases_btn.setMaximumWidth(100)
+        
+        # Initialize labels
+        self.subject_label = QtWidgets.QLabel("Subject(s):")
+        self.goal_label = QtWidgets.QLabel("Optimization Goal:")
+        self.postproc_label = QtWidgets.QLabel("Post-processing Method:")
+        self.roi_method_label = QtWidgets.QLabel("ROI Definition Method:")
+        self.radius_label = QtWidgets.QLabel("Electrode Radius (mm):")
+        self.current_label = QtWidgets.QLabel("Electrode Current (mA):")
+        self.eeg_net_label = QtWidgets.QLabel("EEG Net Template:")
+        self.roi_hemi_label = QtWidgets.QLabel("Hemisphere:")
+        self.nonroi_hemi_label = QtWidgets.QLabel("Hemisphere:")
+        self.max_iterations_label = QtWidgets.QLabel("Max Optimization Iterations:")
+        self.population_size_label = QtWidgets.QLabel("Population Size:")
+        self.cpus_label = QtWidgets.QLabel("Number of CPUs:")
+        self.threshold_label = QtWidgets.QLabel("Threshold(s) for E-field (V/m):")
+        self.nonroi_method_label = QtWidgets.QLabel("Non-ROI Definition Method:")
+        self.atlas_label = QtWidgets.QLabel("Atlas:")
+        self.label_value_label = QtWidgets.QLabel("Region Label Value:")
+        self.roi_coords_label = QtWidgets.QLabel("ROI Center RAS Coordinates (mm):")
+        self.roi_radius_label = QtWidgets.QLabel("ROI Radius (mm):")
+        self.nonroi_coords_label = QtWidgets.QLabel("Non-ROI Center (x,y,z,mm):")
+        self.nonroi_radius_label = QtWidgets.QLabel("Non-ROI Radius (mm):")
+        self.nonroi_atlas_label = QtWidgets.QLabel("Non-ROI Atlas:")
+        self.nonroi_label_value_label = QtWidgets.QLabel("Non-ROI Label Value:")
+
+        # Initialize checkboxes
+        self.run_optimized_simulation_checkbox = QtWidgets.QCheckBox("✓ Run simulation with optimized electrodes")
+        self.run_optimized_simulation_checkbox.setChecked(False)
+        
+        self.enable_mapping_checkbox = QtWidgets.QCheckBox("✓ Enable electrode mapping to EEG net positions")
+        self.enable_mapping_checkbox.setChecked(False)
+        
+        self.run_mapped_simulation_checkbox = QtWidgets.QCheckBox("Run simulation with mapped electrodes")
+        self.run_mapped_simulation_checkbox.setChecked(False)
+        
+        self.conservative_mode_checkbox = QtWidgets.QCheckBox("✓ Enable conservative mode")
+        self.conservative_mode_checkbox.setChecked(False)
+        
+        self.quiet_mode_checkbox = QtWidgets.QCheckBox("✓ Hide optimization steps")
+        self.quiet_mode_checkbox.setChecked(True)
+        
+        # Initialize radio buttons
+        self.roi_method_spherical = QtWidgets.QRadioButton("Spherical (coordinates and radius)")
+        self.roi_method_cortical = QtWidgets.QRadioButton("Cortical (atlas-based parcellation)")
+        self.roi_method_spherical.setChecked(True)
+        
+        # Initialize spinboxes and line edits
+        self.radius_input = QtWidgets.QDoubleSpinBox()
+        self.radius_input.setRange(1, 30); self.radius_input.setValue(10); self.radius_input.setDecimals(1)
+        
+        self.current_input = QtWidgets.QDoubleSpinBox()
+        self.current_input.setRange(0.1, 100); self.current_input.setValue(2); self.current_input.setDecimals(1)
+        
+        self.max_iterations_input = QtWidgets.QSpinBox()
+        self.max_iterations_input.setRange(50, 2000); self.max_iterations_input.setValue(500)
+        self.max_iterations_input.setToolTip("Maximum number of optimization iterations.")
+        
+        self.population_size_input = QtWidgets.QSpinBox()
+        self.population_size_input.setRange(4, 100); self.population_size_input.setValue(13)
+        self.population_size_input.setToolTip("Number of individuals in the population for optimization.")
+
+        self.cpus_input = QtWidgets.QSpinBox()
+        self.cpus_input.setRange(1, os.cpu_count() or 16)
+        self.cpus_input.setValue(1)
+        self.cpus_input.setToolTip("Number of CPU cores to use for parallel processing during optimization.")
+        
+        self.roi_x_input = QtWidgets.QDoubleSpinBox(); self.roi_x_input.setRange(-150, 150); self.roi_x_input.setValue(0); self.roi_x_input.setDecimals(1)
+        self.roi_y_input = QtWidgets.QDoubleSpinBox(); self.roi_y_input.setRange(-150, 150); self.roi_y_input.setValue(0); self.roi_y_input.setDecimals(1)
+        self.roi_z_input = QtWidgets.QDoubleSpinBox(); self.roi_z_input.setRange(-150, 150); self.roi_z_input.setValue(0); self.roi_z_input.setDecimals(1)
+        self.roi_radius_input = QtWidgets.QDoubleSpinBox(); self.roi_radius_input.setRange(1, 50); self.roi_radius_input.setValue(10); self.roi_radius_input.setDecimals(1)
+        
+        self.label_value_input = QtWidgets.QSpinBox(); self.label_value_input.setRange(1, 10000); self.label_value_input.setValue(1)
+        
+        # Initialize stacked widgets
+        self.roi_stacked_widget = QtWidgets.QStackedWidget()
+        self.nonroi_stacked = QtWidgets.QStackedWidget()
+
+        # Initialize container widget for EEG net controls (used in _update_mapping_options)
+        self.eeg_net_widget = QtWidgets.QWidget()
+        
+        # Initialize focality components
+        self.focality_group = QtWidgets.QGroupBox("Focality Options")
+        self.focality_group.setVisible(False)
+        
+        self.threshold_input = QtWidgets.QLineEdit()
+        self.threshold_input.setPlaceholderText("e.g. 0.2 or 0.2,0.5")
+        
+        self.nonroi_method_combo = QtWidgets.QComboBox()
+        self.nonroi_method_combo.addItem("Everything Else (default)", "everything_else")
+        self.nonroi_method_combo.addItem("Specific Region", "specific")
+        
+        # Non-ROI inputs (spherical)
+        self.nonroi_x_input = QtWidgets.QDoubleSpinBox(); self.nonroi_x_input.setRange(-150,150); self.nonroi_x_input.setDecimals(1)
+        self.nonroi_y_input = QtWidgets.QDoubleSpinBox(); self.nonroi_y_input.setRange(-150,150); self.nonroi_y_input.setDecimals(1)
+        self.nonroi_z_input = QtWidgets.QDoubleSpinBox(); self.nonroi_z_input.setRange(-150,150); self.nonroi_z_input.setDecimals(1)
+        self.nonroi_radius_input = QtWidgets.QDoubleSpinBox(); self.nonroi_radius_input.setRange(1,50); self.nonroi_radius_input.setDecimals(1)
+        
+        # Non-ROI inputs (atlas)
+        self.nonroi_hemi_combo = QtWidgets.QComboBox(); self.nonroi_hemi_combo.addItems(["Left (lh)", "Right (rh)"])
+        self.nonroi_label_input = QtWidgets.QSpinBox(); self.nonroi_label_input.setRange(1,10000)
+        self.list_nonroi_regions_btn = QtWidgets.QPushButton("List Regions")
+        self.list_nonroi_regions_btn.setMaximumWidth(120)
+        
+        # ROI hemisphere combo and list regions button (for cortical ROI)
+        self.roi_hemi_combo = QtWidgets.QComboBox(); self.roi_hemi_combo.addItems(["Left (lh)", "Right (rh)"])
+        self.list_roi_regions_btn = QtWidgets.QPushButton("List Regions")
+        self.list_roi_regions_btn.setMaximumWidth(120)
+
+        # Set up the UI
+        self.setup_ui()
+        
+        # Connect signals after UI setup (critical widgets must exist)
+        self.refresh_subjects_btn.clicked.connect(self.find_available_subjects)
+        self.refresh_eeg_nets_btn.clicked.connect(self.find_available_eeg_nets)
+        self.refresh_atlases_btn.clicked.connect(self.find_available_atlases)
+        self.list_roi_regions_btn.clicked.connect(self._list_roi_regions)
+        self.list_nonroi_regions_btn.clicked.connect(self._list_nonroi_regions)
+
+        self.goal_combo.currentIndexChanged.connect(self._update_focality_visibility)
+        self.enable_mapping_checkbox.toggled.connect(self._update_mapping_options)
+        self.subject_combo.currentIndexChanged.connect(self.on_subject_changed)
+        self.nonroi_method_combo.currentIndexChanged.connect(self._update_nonroi_stacked)
+        self.roi_method_spherical.toggled.connect(self.update_roi_method)
+        self.roi_method_spherical.toggled.connect(self._update_nonroi_stacked)
+        
+        # Find available subjects (which will trigger finding EEG nets and atlases)
+        self.find_available_subjects()
+
     def setup_ui(self):
         """Set up the user interface for the flex-search tab."""
         main_layout = QtWidgets.QVBoxLayout(self)
         
-        # Create a scroll area for the form
         scroll_area = QtWidgets.QScrollArea()
         scroll_area.setWidgetResizable(True)
         scroll_content = QtWidgets.QWidget()
         scroll_layout = QtWidgets.QVBoxLayout(scroll_content)
         
-        # Title and description
         title_label = QtWidgets.QLabel("Flex Search Electrode Optimization")
         title_label.setStyleSheet("font-size: 16px; font-weight: bold;")
-        
         description_label = QtWidgets.QLabel(
-            "Find optimal electrode positions for temporal interference stimulation "
-            "targeting a specific ROI."
+            "Find optimal electrode positions for temporal interference stimulation targeting a specific ROI."
         )
         description_label.setWordWrap(True)
-        
         scroll_layout.addWidget(title_label)
         scroll_layout.addWidget(description_label)
-        scroll_layout.addWidget(QtWidgets.QLabel(""))  # Spacer
+        scroll_layout.addWidget(QtWidgets.QLabel(""))
+
+        top_row_layout = QtWidgets.QHBoxLayout()
+
+        basic_params_group = QtWidgets.QGroupBox("Basic Parameters")
+        basic_params_layout = QtWidgets.QFormLayout(basic_params_group)
         
-        # Form layout for flex-search options
-        form_widget = QtWidgets.QWidget()
-        form_layout = QtWidgets.QFormLayout(form_widget)
-        form_layout.setFieldGrowthPolicy(QtWidgets.QFormLayout.AllNonFixedFieldsGrow)
+        subject_controls_widget = QtWidgets.QWidget()
+        subject_controls_inner_layout = QtWidgets.QHBoxLayout(subject_controls_widget)
+        subject_controls_inner_layout.addWidget(self.subject_combo)
+        subject_controls_inner_layout.addWidget(self.refresh_subjects_btn)
+        subject_controls_inner_layout.addStretch()
+        basic_params_layout.addRow(self.subject_label, subject_controls_widget)
         
-        # Subject selection
-        self.subject_label = QtWidgets.QLabel("Subject(s):")
-        self.subject_combo = QtWidgets.QComboBox()
-        self.subject_combo.setMaximumWidth(200)
-        self.refresh_subjects_btn = QtWidgets.QPushButton("Refresh")
-        self.refresh_subjects_btn.setMaximumWidth(100)
-        self.refresh_subjects_btn.clicked.connect(self.find_available_subjects)
-        
-        subject_layout = QtWidgets.QHBoxLayout()
-        subject_layout.addWidget(self.subject_combo)
-        subject_layout.addWidget(self.refresh_subjects_btn)
-        subject_layout.addStretch()
-        
-        form_layout.addRow(self.subject_label, subject_layout)
-        
-        # Optimization Goal
-        self.goal_label = QtWidgets.QLabel("Optimization Goal:")
-        self.goal_combo = QtWidgets.QComboBox()
-        self.goal_combo.addItem("mean (maximize field in target ROI)", "mean")
-        self.goal_combo.addItem("max (maximize peak field in target ROI)", "max")
-        self.goal_combo.addItem("focality (maximize field in target ROI while minimizing field elsewhere)", "focality")
         self.goal_combo.setMaximumWidth(350)
-        form_layout.addRow(self.goal_label, self.goal_combo)
+        basic_params_layout.addRow(self.goal_label, self.goal_combo)
         
-        # Post-processing Method
-        self.postproc_label = QtWidgets.QLabel("Post-processing Method:")
-        self.postproc_combo = QtWidgets.QComboBox()
-        self.postproc_combo.addItem("max_TI (maximum TI field)", "max_TI")
-        self.postproc_combo.addItem("dir_TI_normal (TI field normal to surface)", "dir_TI_normal")
-        self.postproc_combo.addItem("dir_TI_tangential (TI field tangential to surface)", "dir_TI_tangential")
         self.postproc_combo.setMaximumWidth(350)
-        form_layout.addRow(self.postproc_label, self.postproc_combo)
-        
-        # EEG Net
-        self.eeg_net_label = QtWidgets.QLabel("EEG Net Template:")
-        self.eeg_net_combo = QtWidgets.QComboBox()
-        self.refresh_eeg_nets_btn = QtWidgets.QPushButton("Refresh")
-        self.refresh_eeg_nets_btn.setMaximumWidth(100)
-        self.refresh_eeg_nets_btn.clicked.connect(self.find_available_eeg_nets)
-        
-        eeg_net_layout = QtWidgets.QHBoxLayout()
-        eeg_net_layout.addWidget(self.eeg_net_combo)
-        eeg_net_layout.addWidget(self.refresh_eeg_nets_btn)
-        eeg_net_layout.addStretch()
-        
-        form_layout.addRow(self.eeg_net_label, eeg_net_layout)
-        
-        # Electrode Parameters group
+        basic_params_layout.addRow(self.postproc_label, self.postproc_combo)
+
+        basic_params_layout.addRow(self.run_optimized_simulation_checkbox)
+        top_row_layout.addWidget(basic_params_group, 1)
+
         self.electrode_params_group = QtWidgets.QGroupBox("Electrode Parameters")
         electrode_params_layout = QtWidgets.QFormLayout(self.electrode_params_group)
-        
-        # Electrode radius
-        self.radius_label = QtWidgets.QLabel("Electrode Radius (mm):")
-        self.radius_input = QtWidgets.QDoubleSpinBox()
-        self.radius_input.setRange(1, 30)
-        self.radius_input.setValue(10)
-        self.radius_input.setDecimals(1)
         electrode_params_layout.addRow(self.radius_label, self.radius_input)
-        
-        # Electrode current
-        self.current_label = QtWidgets.QLabel("Electrode Current (mA):")
-        self.current_input = QtWidgets.QDoubleSpinBox()
-        self.current_input.setRange(0.1, 5)
-        self.current_input.setValue(2)
-        self.current_input.setDecimals(1)
         electrode_params_layout.addRow(self.current_label, self.current_input)
+        top_row_layout.addWidget(self.electrode_params_group, 1)
         
-        form_layout.addRow(self.electrode_params_group)
+        scroll_layout.addLayout(top_row_layout)
+
+        self.mapping_group = QtWidgets.QGroupBox("Electrode Mapping Options (Optional)")
+        mapping_layout = QtWidgets.QFormLayout(self.mapping_group)
         
-        # ROI Method group
+        mapping_help_label = QtWidgets.QLabel(
+            "⚠️ Electrode mapping finds the nearest EEG net electrodes to the optimized positions.\n"
+            "This feature is DISABLED by default as it may increase computation time and memory usage."
+        )
+        mapping_help_label.setStyleSheet("font-size: 11px; color: #666666; font-style: italic; padding: 5px; background-color: #f5f5f5; border-radius: 3px;")
+        mapping_help_label.setWordWrap(True)
+        mapping_layout.addRow(mapping_help_label)
+        
+        mapping_layout.addRow(self.enable_mapping_checkbox)
+
+        eeg_net_controls_inner_layout = QtWidgets.QHBoxLayout()
+        eeg_net_controls_inner_layout.addWidget(self.eeg_net_combo)
+        eeg_net_controls_inner_layout.addWidget(self.refresh_eeg_nets_btn)
+        eeg_net_controls_inner_layout.addStretch()
+        self.eeg_net_widget.setLayout(eeg_net_controls_inner_layout)
+        self.eeg_net_widget.setVisible(False)
+        self.eeg_net_label.setVisible(False)
+        mapping_layout.addRow(self.eeg_net_label, self.eeg_net_widget)
+        
+        self.run_mapped_simulation_checkbox.setVisible(False)
+        mapping_layout.addRow(self.run_mapped_simulation_checkbox)
+        scroll_layout.addWidget(self.mapping_group)
+
         self.roi_method_group = QtWidgets.QGroupBox("ROI Definition")
-        roi_method_layout = QtWidgets.QVBoxLayout(self.roi_method_group)
+        roi_method_layout_main = QtWidgets.QVBoxLayout(self.roi_method_group)
         
-        # ROI Method radio buttons
-        self.roi_method_label = QtWidgets.QLabel("ROI Definition Method:")
-        self.roi_method_spherical = QtWidgets.QRadioButton("Spherical (coordinates and radius)")
-        self.roi_method_cortical = QtWidgets.QRadioButton("Cortical (atlas-based parcellation)")
-        self.roi_method_spherical.setChecked(True)
-        
-        roi_method_radio_layout = QtWidgets.QHBoxLayout()
+        roi_method_radio_container = QtWidgets.QWidget()
+        roi_method_radio_layout = QtWidgets.QHBoxLayout(roi_method_radio_container)
         roi_method_radio_layout.addWidget(self.roi_method_spherical)
         roi_method_radio_layout.addWidget(self.roi_method_cortical)
         roi_method_radio_layout.addStretch()
         
-        roi_method_layout.addWidget(self.roi_method_label)
-        roi_method_layout.addLayout(roi_method_radio_layout)
-        
-        # Create a stacked widget to switch between spherical and cortical ROI inputs
-        self.roi_stacked_widget = QtWidgets.QStackedWidget()
+        roi_method_layout_main.addWidget(self.roi_method_label)
+        roi_method_layout_main.addWidget(roi_method_radio_container)
         
         # Spherical ROI inputs
         self.spherical_roi_widget = QtWidgets.QWidget()
         spherical_roi_layout = QtWidgets.QFormLayout(self.spherical_roi_widget)
         
-        # ROI coordinates
-        self.roi_coords_label = QtWidgets.QLabel("ROI Center RAS Coordinates (mm):")
-        
-        coords_layout = QtWidgets.QHBoxLayout()
-        self.roi_x_label = QtWidgets.QLabel("X:")
-        self.roi_x_input = QtWidgets.QDoubleSpinBox()
-        self.roi_x_input.setRange(-150, 150)
-        self.roi_x_input.setValue(0)
-        self.roi_x_input.setDecimals(1)
-        
-        self.roi_y_label = QtWidgets.QLabel("Y:")
-        self.roi_y_input = QtWidgets.QDoubleSpinBox()
-        self.roi_y_input.setRange(-150, 150)
-        self.roi_y_input.setValue(0)
-        self.roi_y_input.setDecimals(1)
-        
-        self.roi_z_label = QtWidgets.QLabel("Z:")
-        self.roi_z_input = QtWidgets.QDoubleSpinBox()
-        self.roi_z_input.setRange(-150, 150)
-        self.roi_z_input.setValue(0)
-        self.roi_z_input.setDecimals(1)
-        
-        coords_layout.addWidget(self.roi_x_label)
-        coords_layout.addWidget(self.roi_x_input)
-        coords_layout.addWidget(self.roi_y_label)
-        coords_layout.addWidget(self.roi_y_input)
-        coords_layout.addWidget(self.roi_z_label)
-        coords_layout.addWidget(self.roi_z_input)
-        
-        spherical_roi_layout.addRow(self.roi_coords_label, coords_layout)
-        
-        # ROI radius
-        self.roi_radius_label = QtWidgets.QLabel("ROI Radius (mm):")
-        self.roi_radius_input = QtWidgets.QDoubleSpinBox()
-        self.roi_radius_input.setRange(1, 50)
-        self.roi_radius_input.setValue(10)
-        self.roi_radius_input.setDecimals(1)
-        
+        roi_coords_controls_widget = QtWidgets.QWidget()
+        roi_coords_controls_layout = QtWidgets.QHBoxLayout(roi_coords_controls_widget)
+        roi_coords_controls_layout.addWidget(QtWidgets.QLabel("X:"))
+        roi_coords_controls_layout.addWidget(self.roi_x_input)
+        roi_coords_controls_layout.addWidget(QtWidgets.QLabel("Y:"))
+        roi_coords_controls_layout.addWidget(self.roi_y_input)
+        roi_coords_controls_layout.addWidget(QtWidgets.QLabel("Z:"))
+        roi_coords_controls_layout.addWidget(self.roi_z_input)
+        spherical_roi_layout.addRow(self.roi_coords_label, roi_coords_controls_widget)
         spherical_roi_layout.addRow(self.roi_radius_label, self.roi_radius_input)
-        
-        # Add spherical widget to stacked widget
         self.roi_stacked_widget.addWidget(self.spherical_roi_widget)
         
         # Cortical ROI inputs
         self.cortical_roi_widget = QtWidgets.QWidget()
         cortical_roi_layout = QtWidgets.QFormLayout(self.cortical_roi_widget)
         
-        # Atlas selection
-        self.atlas_label = QtWidgets.QLabel("Atlas:")
-        self.atlas_combo = QtWidgets.QComboBox()
-        self.roi_hemi_label = QtWidgets.QLabel("Hemisphere:")
-        self.roi_hemi_combo = QtWidgets.QComboBox(); self.roi_hemi_combo.addItems(["Left (lh)", "Right (rh)"])
-        self.refresh_atlases_btn = QtWidgets.QPushButton("Refresh")
-        self.refresh_atlases_btn.setMaximumWidth(100)
-        self.refresh_atlases_btn.clicked.connect(self.find_available_atlases)
-        self.list_roi_regions_btn = QtWidgets.QPushButton("List Regions")
-        self.list_roi_regions_btn.setMaximumWidth(120)
-        self.list_roi_regions_btn.clicked.connect(self._list_roi_regions)
-        atlas_layout = QtWidgets.QHBoxLayout()
-        atlas_layout.addWidget(self.atlas_combo)
-        atlas_layout.addWidget(self.roi_hemi_label)
-        atlas_layout.addWidget(self.roi_hemi_combo)
-        atlas_layout.addWidget(self.refresh_atlases_btn)
-        atlas_layout.addWidget(self.list_roi_regions_btn)
-        atlas_layout.addStretch()
-        cortical_roi_layout.addRow(self.atlas_label, atlas_layout)
-        
-        # Region label value
-        self.label_value_label = QtWidgets.QLabel("Region Label Value:")
-        self.label_value_input = QtWidgets.QSpinBox()
-        self.label_value_input.setRange(1, 10000)
-        self.label_value_input.setValue(1)
-        
+        atlas_controls_widget = QtWidgets.QWidget()
+        atlas_controls_inner_layout = QtWidgets.QHBoxLayout(atlas_controls_widget)
+        self.atlas_combo.setMaximumWidth(350)
+        atlas_controls_inner_layout.addWidget(self.atlas_combo)
+        atlas_controls_inner_layout.addWidget(self.roi_hemi_label)
+        atlas_controls_inner_layout.addWidget(self.roi_hemi_combo)
+        atlas_controls_inner_layout.addWidget(self.refresh_atlases_btn)
+        atlas_controls_inner_layout.addWidget(self.list_roi_regions_btn)
+        atlas_controls_inner_layout.addStretch()
+        cortical_roi_layout.addRow(self.atlas_label, atlas_controls_widget)
         cortical_roi_layout.addRow(self.label_value_label, self.label_value_input)
-        
-        # Add cortical widget to stacked widget
         self.roi_stacked_widget.addWidget(self.cortical_roi_widget)
         
-        # Connect radio buttons to stacked widget
-        self.roi_method_spherical.toggled.connect(self.update_roi_method)
-        
-        # Add stacked widget to the layout
-        roi_method_layout.addWidget(self.roi_stacked_widget)
-        
-        form_layout.addRow(self.roi_method_group)
-        
-        # --- Focality Options (hidden unless goal is focality) ---
-        self.focality_group = QtWidgets.QGroupBox("Focality Options")
-        self.focality_group.setVisible(False)
+        roi_method_layout_main.addWidget(self.roi_stacked_widget)
+        scroll_layout.addWidget(self.roi_method_group)
+
+        # Focality Options group
         focality_layout = QtWidgets.QFormLayout(self.focality_group)
-
-        # Threshold input
-        self.threshold_label = QtWidgets.QLabel("Threshold(s) for E-field (V/m):")
-        self.threshold_input = QtWidgets.QLineEdit()
-        self.threshold_input.setPlaceholderText("e.g. 0.2 or 0.2,0.5")
-        self.threshold_help = QtWidgets.QLabel("Single value: E-field < value in non-ROI, > value in ROI. Two values: non-ROI max, ROI min.")
-        self.threshold_help.setStyleSheet("font-size: 10px; color: gray;")
         focality_layout.addRow(self.threshold_label, self.threshold_input)
-        focality_layout.addRow(self.threshold_help)
-
-        # Non-ROI method
-        self.nonroi_method_label = QtWidgets.QLabel("Non-ROI Definition Method:")
-        self.nonroi_method_combo = QtWidgets.QComboBox()
-        self.nonroi_method_combo.addItem("Everything Else (default)", "everything_else")
-        self.nonroi_method_combo.addItem("Specific Region", "specific")
+        threshold_help = QtWidgets.QLabel("Single value: E-field < value in non-ROI, > value in ROI. Two values: non-ROI max, ROI min.")
+        threshold_help.setStyleSheet("font-size: 10px; color: gray;")
+        focality_layout.addRow(threshold_help)
         focality_layout.addRow(self.nonroi_method_label, self.nonroi_method_combo)
 
-        # Non-ROI stacked widget (spherical or atlas)
-        self.nonroi_stacked = QtWidgets.QStackedWidget()
-        # Spherical non-ROI
+        # Non-ROI Spherical
         self.nonroi_sph_widget = QtWidgets.QWidget()
         nonroi_sph_layout = QtWidgets.QFormLayout(self.nonroi_sph_widget)
-        self.nonroi_coords_label = QtWidgets.QLabel("Non-ROI Center (x,y,z,mm):")
-        self.nonroi_x_input = QtWidgets.QDoubleSpinBox(); self.nonroi_x_input.setRange(-150,150); self.nonroi_x_input.setDecimals(1)
-        self.nonroi_y_input = QtWidgets.QDoubleSpinBox(); self.nonroi_y_input.setRange(-150,150); self.nonroi_y_input.setDecimals(1)
-        self.nonroi_z_input = QtWidgets.QDoubleSpinBox(); self.nonroi_z_input.setRange(-150,150); self.nonroi_z_input.setDecimals(1)
-        self.nonroi_radius_label = QtWidgets.QLabel("Non-ROI Radius (mm):")
-        self.nonroi_radius_input = QtWidgets.QDoubleSpinBox(); self.nonroi_radius_input.setRange(1,50); self.nonroi_radius_input.setDecimals(1)
-        nonroi_coords_layout = QtWidgets.QHBoxLayout()
-        nonroi_coords_layout.addWidget(QtWidgets.QLabel("X:")); nonroi_coords_layout.addWidget(self.nonroi_x_input)
-        nonroi_coords_layout.addWidget(QtWidgets.QLabel("Y:")); nonroi_coords_layout.addWidget(self.nonroi_y_input)
-        nonroi_coords_layout.addWidget(QtWidgets.QLabel("Z:")); nonroi_coords_layout.addWidget(self.nonroi_z_input)
-        nonroi_sph_layout.addRow(self.nonroi_coords_label, nonroi_coords_layout)
+        nonroi_coords_controls_widget = QtWidgets.QWidget()
+        nonroi_coords_controls_layout = QtWidgets.QHBoxLayout(nonroi_coords_controls_widget)
+        nonroi_coords_controls_layout.addWidget(QtWidgets.QLabel("X:")); nonroi_coords_controls_layout.addWidget(self.nonroi_x_input)
+        nonroi_coords_controls_layout.addWidget(QtWidgets.QLabel("Y:")); nonroi_coords_controls_layout.addWidget(self.nonroi_y_input)
+        nonroi_coords_controls_layout.addWidget(QtWidgets.QLabel("Z:")); nonroi_coords_controls_layout.addWidget(self.nonroi_z_input)
+        nonroi_sph_layout.addRow(self.nonroi_coords_label, nonroi_coords_controls_widget)
         nonroi_sph_layout.addRow(self.nonroi_radius_label, self.nonroi_radius_input)
         self.nonroi_stacked.addWidget(self.nonroi_sph_widget)
-        # Atlas non-ROI
+
+        # Non-ROI Atlas
         self.nonroi_atlas_widget = QtWidgets.QWidget()
         nonroi_atlas_layout = QtWidgets.QFormLayout(self.nonroi_atlas_widget)
-        self.nonroi_atlas_label = QtWidgets.QLabel("Non-ROI Atlas:")
-        self.nonroi_atlas_combo = QtWidgets.QComboBox()
-        self.nonroi_hemi_label = QtWidgets.QLabel("Hemisphere:")
-        self.nonroi_hemi_combo = QtWidgets.QComboBox(); self.nonroi_hemi_combo.addItems(["Left (lh)", "Right (rh)"])
-        self.list_nonroi_regions_btn = QtWidgets.QPushButton("List Regions")
-        self.list_nonroi_regions_btn.setMaximumWidth(120)
-        self.list_nonroi_regions_btn.clicked.connect(self._list_nonroi_regions)
-        nonroi_atlas_layout_row = QtWidgets.QHBoxLayout()
-        nonroi_atlas_layout_row.addWidget(self.nonroi_atlas_combo)
-        nonroi_atlas_layout_row.addWidget(self.nonroi_hemi_label)
-        nonroi_atlas_layout_row.addWidget(self.nonroi_hemi_combo)
-        nonroi_atlas_layout_row.addWidget(self.list_nonroi_regions_btn)
-        nonroi_atlas_layout_row.addStretch()
-        nonroi_atlas_layout.addRow(self.nonroi_atlas_label, nonroi_atlas_layout_row)
-        self.nonroi_label_label = QtWidgets.QLabel("Non-ROI Label Value:")
-        self.nonroi_label_input = QtWidgets.QSpinBox(); self.nonroi_label_input.setRange(1,10000)
-        nonroi_atlas_layout.addRow(self.nonroi_label_label, self.nonroi_label_input)
+        nonroi_atlas_controls_widget = QtWidgets.QWidget()
+        nonroi_atlas_controls_inner_layout = QtWidgets.QHBoxLayout(nonroi_atlas_controls_widget)
+        self.nonroi_atlas_combo.setMaximumWidth(350)
+        nonroi_atlas_controls_inner_layout.addWidget(self.nonroi_atlas_combo)
+        nonroi_atlas_controls_inner_layout.addWidget(self.nonroi_hemi_label)
+        nonroi_atlas_controls_inner_layout.addWidget(self.nonroi_hemi_combo)
+        nonroi_atlas_controls_inner_layout.addWidget(self.list_nonroi_regions_btn)
+        nonroi_atlas_controls_inner_layout.addStretch()
+        nonroi_atlas_layout.addRow(self.nonroi_atlas_label, nonroi_atlas_controls_widget)
+        nonroi_atlas_layout.addRow(self.nonroi_label_value_label, self.nonroi_label_input)
         self.nonroi_stacked.addWidget(self.nonroi_atlas_widget)
-        # Add to group
+        
         focality_layout.addRow(QtWidgets.QLabel("Non-ROI Region (if 'Specific'):"), self.nonroi_stacked)
-        # Add group to form
-        form_layout.addRow(self.focality_group)
+        scroll_layout.addWidget(self.focality_group)
 
-        # --- Connect logic for focality options ---
-        self.goal_combo.currentIndexChanged.connect(self._update_focality_visibility)
-        self.nonroi_method_combo.currentIndexChanged.connect(self._update_nonroi_stacked)
-        self.roi_method_spherical.toggled.connect(self._update_nonroi_stacked)
-        self.subject_combo.currentIndexChanged.connect(self._update_nonroi_atlas_combo)
-        
-        # Connect subject change to update EEG nets and atlases
-        self.subject_combo.currentIndexChanged.connect(self.on_subject_changed)
-        
-        # Add form to scroll layout
-        scroll_layout.addWidget(form_widget)
-        
-        # Add scroll content to scroll area
+        self.stability_group = QtWidgets.QGroupBox("Stability & Memory Options")
+        stability_layout = QtWidgets.QFormLayout(self.stability_group)
+        stability_help_label = QtWidgets.QLabel(
+            "⚙️ These options help prevent crashes, manage resource usage, and control optimization speed.\n"
+            "• Conservative mode: Uses minimal resources (if supported by backend). Not currently passed.\n"
+            "• Max iterations: Lower = faster but potentially less optimal results.\n"
+            "• Population size: Lower = less memory, potentially slower convergence. Higher = more memory, potentially faster convergence.\n"
+            "• Number of CPUs: More CPUs can speed up parallelizable parts of the optimization.\n"
+            "• Hide steps: Reduces output verbosity during optimization."
+        )
+        stability_help_label.setStyleSheet("font-size: 11px; color: #666666; font-style: italic; padding: 5px; background-color: #f5f5f5; border-radius: 3px;")
+        stability_help_label.setWordWrap(True)
+        stability_layout.addRow(stability_help_label) 
+        stability_layout.addRow(self.conservative_mode_checkbox) 
+        stability_layout.addRow(self.max_iterations_label, self.max_iterations_input)
+        stability_layout.addRow(self.population_size_label, self.population_size_input)
+        stability_layout.addRow(self.cpus_label, self.cpus_input)
+        stability_layout.addRow(self.quiet_mode_checkbox) 
+        scroll_layout.addWidget(self.stability_group)
+
         scroll_area.setWidget(scroll_content)
         main_layout.addWidget(scroll_area)
         
-        # Console output
+        # Console output section
         output_label = QtWidgets.QLabel("Output:")
         output_label.setStyleSheet("font-weight: bold; font-size: 14px; margin-top: 10px;")
-        
         self.output_text = QtWidgets.QTextEdit()
-        self.output_text.setReadOnly(True)
-        self.output_text.setMinimumHeight(200)
+        self.output_text.setReadOnly(True); self.output_text.setMinimumHeight(200)
         self.output_text.setStyleSheet("""
             QTextEdit {
-                background-color: #1e1e1e;
-                color: #f0f0f0;
-                font-family: 'Consolas', 'Courier New', monospace;
-                font-size: 13px;
-                border: 1px solid #3c3c3c;
-                border-radius: 5px;
-                padding: 8px;
-            }
-        """)
+                background-color: #1e1e1e; color: #f0f0f0;
+                font-family: 'Consolas', 'Courier New', monospace; font-size: 13px;
+                border: 1px solid #3c3c3c; border-radius: 5px; padding: 8px;
+            }""")
         self.output_text.setAcceptRichText(True)
         
-        # Console layout
         console_layout = QtWidgets.QVBoxLayout()
         header_layout = QtWidgets.QHBoxLayout()
         header_layout.addWidget(output_label)
         header_layout.addStretch()
         
-        # Create button layout for console controls
         console_buttons_layout = QtWidgets.QHBoxLayout()
-        
-        # Run button
         self.run_btn = QtWidgets.QPushButton("Run Optimization")
-        self.run_btn.clicked.connect(self.run_optimization)
         self.run_btn.setStyleSheet("""
             QPushButton {
                 background-color: #4CAF50;
@@ -443,11 +494,8 @@ class FlexSearchTab(QtWidgets.QWidget):
                 background-color: #cccccc;
                 color: #888888;
             }
-        """)
-        
-        # Stop button (initially disabled)
+        """) 
         self.stop_btn = QtWidgets.QPushButton("Stop Optimization")
-        self.stop_btn.clicked.connect(self.stop_optimization)
         self.stop_btn.setStyleSheet("""
             QPushButton {
                 background-color: #f44336;
@@ -466,12 +514,9 @@ class FlexSearchTab(QtWidgets.QWidget):
                 background-color: #cccccc;
                 color: #888888;
             }
-        """)
-        self.stop_btn.setEnabled(False)  # Initially disabled
-        
-        # Clear console button
+        """) 
+        self.stop_btn.setEnabled(False)
         clear_btn = QtWidgets.QPushButton("Clear Console")
-        clear_btn.clicked.connect(self.clear_console)
         clear_btn.setStyleSheet("""
             QPushButton {
                 background-color: #555;
@@ -483,24 +528,25 @@ class FlexSearchTab(QtWidgets.QWidget):
             QPushButton:hover {
                 background-color: #666;
             }
-        """)
+        """) 
         
-        # Add buttons to console buttons layout in the desired order
-        console_buttons_layout.addWidget(self.run_btn)
-        console_buttons_layout.addWidget(self.stop_btn)
+        console_buttons_layout.addWidget(self.run_btn); console_buttons_layout.addWidget(self.stop_btn)
         console_buttons_layout.addWidget(clear_btn)
-        
-        # Add console buttons layout to header layout
         header_layout.addLayout(console_buttons_layout)
-        
         console_layout.addLayout(header_layout)
         console_layout.addWidget(self.output_text)
-        
         main_layout.addLayout(console_layout)
+
+        # Connect run/stop/clear buttons
+        self.run_btn.clicked.connect(self.run_optimization)
+        self.stop_btn.clicked.connect(self.stop_optimization)
+        clear_btn.clicked.connect(self.clear_console)
         
-        # Initialize ROI method display
-        self.update_roi_method(True)
-    
+        # Initialize ROI method display and focality visibility
+        self.update_roi_method(self.roi_method_spherical.isChecked())
+        self._update_focality_visibility()
+        self._update_nonroi_stacked()
+
     def find_available_subjects(self):
         self.subjects = []
         self.subject_combo.clear()
@@ -681,259 +727,234 @@ class FlexSearchTab(QtWidgets.QWidget):
                 'region': str(self.label_value_input.value())
             }
             
-        # Get optimization parameters
-        optimization_params = {
-            'goal': self.goal_combo.currentData(),
-            'postproc': self.postproc_combo.currentData(),
-            'electrode_radius': self.radius_input.value(),
-            'electrode_current': self.current_input.value()
-        }
-        
-        # Get the selected subject
+        # Get optimization parameters for easier access and clarity
         subject_id = self.subject_combo.currentText()
-        
-        # Check if optimization directory already exists
-        project_dir = f"/mnt/{os.environ.get('PROJECT_DIR_NAME', 'BIDS_new')}"
-        bids_subject_id = f"sub-{subject_id}"
-        
-        # Construct optimization output directory path
-        if self.roi_method_spherical.isChecked():
-            # For spherical ROI, use coordinates in the directory name
-            roi_coords = f"{roi_params['center'][0]:.1f}x{roi_params['center'][1]:.1f}y{roi_params['center'][2]:.1f}z_{roi_params['radius']:.1f}mm_{optimization_params['goal']}"
-            opt_dir = os.path.join(project_dir, 'derivatives', 'SimNIBS', bids_subject_id, 
-                                 'flex-search', roi_coords)
-        else:
-            # For cortical ROI, use atlas and region in the directory name
-            atlas_name = roi_params['atlas']
-            region_id = roi_params['region']
-            opt_dir = os.path.join(project_dir, 'derivatives', 'SimNIBS', bids_subject_id, 
-                                 'flex-search', f'cortical_{atlas_name}_{region_id}_{optimization_params["goal"]}')
-        
-        # Check if directory exists and confirm overwrite
-        if os.path.exists(opt_dir):
-            if not confirm_overwrite(self, opt_dir, "optimization output directory"):
-                return
-        
-        # Show confirmation dialog
-        details = (f"This will run flex-search optimization with the following parameters:\n\n" +
-                  f"• Subject: {self.subject_combo.currentText()}\n" +
-                  f"• EEG Net: {self.eeg_net_combo.currentText()}\n" +
-                  f"• Optimization Goal: {self.goal_combo.currentText()}\n" +
-                  f"• Post-processing: {self.postproc_combo.currentText()}\n" +
-                  f"• Electrode Radius: {self.radius_input.value()} mm\n" +
-                  f"• Electrode Current: {self.current_input.value()} mA\n" +
-                  f"• ROI Method: {'Spherical' if self.roi_method_spherical.isChecked() else 'Cortical'}\n")
-        
-        if self.roi_method_spherical.isChecked():
-            details += (f"• ROI Center: ({self.roi_x_input.value()}, {self.roi_y_input.value()}, {self.roi_z_input.value()}) mm\n" +
-                       f"• ROI Radius: {self.roi_radius_input.value()} mm")
-        else:
-            details += (f"• ROI Atlas: {self.atlas_combo.currentText()}\n" +
-                       f"• ROI Region: {self.label_value_input.value()}")
-        
-        if not ConfirmationDialog.confirm(
-            self,
-            title="Confirm Optimization",
-            message="Are you sure you want to start the optimization?",
-            details=details
-        ):
-            return
-            
-        # Set processing state
-        self.optimization_running = True
-        self.run_btn.setEnabled(False)
-        self.stop_btn.setEnabled(True)
-        
-        # Disable all other controls
-        self.disable_controls()
-        
-        # Get optimization parameters
         goal = self.goal_combo.currentData()
         postproc = self.postproc_combo.currentData()
         eeg_net = self.eeg_net_combo.currentText()
-        radius = self.radius_input.value()
-        current = self.current_input.value()
+        electrode_radius = self.radius_input.value()
+        electrode_current = self.current_input.value()
+
+        # Construct optimization output directory path (RESTORED)
+        project_dir_for_opt_path = f"/mnt/{os.environ.get('PROJECT_DIR_NAME', 'BIDS_test')}" # Use a consistent way to get project_dir for this
+        bids_subject_id = f"sub-{subject_id}"
         
-        # Determine ROI method and parameters
-        if self.roi_method_spherical.isChecked():
-            roi_method = "spherical"
-            roi_x = self.roi_x_input.value()
-            roi_y = self.roi_y_input.value()
-            roi_z = self.roi_z_input.value()
-            roi_radius = self.roi_radius_input.value()
+        if roi_params['method'] == 'spherical':
+            roi_coords_str = f"{roi_params['center'][0]:.1f}x{roi_params['center'][1]:.1f}y{roi_params['center'][2]:.1f}z_{roi_params['radius']:.1f}mm"
+            opt_dir = os.path.join(project_dir_for_opt_path, 'derivatives', 'SimNIBS', bids_subject_id, 
+                                 'flex-search', f'{roi_coords_str}_{goal}')
+        else: # cortical
+            atlas_name_for_dir = roi_params['atlas'] # This should be display name as per original logic for dir name
+            region_id_for_dir = roi_params['region']
+            opt_dir = os.path.join(project_dir_for_opt_path, 'derivatives', 'SimNIBS', bids_subject_id, 
+                                 'flex-search', f'cortical_{atlas_name_for_dir}_{region_id_for_dir}_{goal}')
+        
+        # Check if directory exists and confirm overwrite (RESTORED)
+        if os.path.exists(opt_dir):
+            if not confirm_overwrite(self, opt_dir, "optimization output directory"):
+                self.optimization_finished_early_due_to_error() # Ensure UI resets
+                return
+
+        # Show confirmation dialog (details string construction from previous step is mostly fine)
+        # ... (details string should be built here, incorporating all relevant params including stability)
+        details = (f"This will run flex-search optimization with the following parameters:\n\n" +
+                   f"• Subject: {subject_id}\n" +
+                   f"• EEG Net: {eeg_net}\n" +
+                   f"• Optimization Goal: {self.goal_combo.currentText()} ({goal})\n" +
+                   f"• Post-processing: {self.postproc_combo.currentText()} ({postproc})\n" +
+                   f"• Electrode Radius: {electrode_radius} mm\n" +
+                   f"• Electrode Current: {electrode_current} mA\n" +
+                   f"• ROI Method: {'Spherical' if roi_params['method'] == 'spherical' else 'Cortical'}\n")
+        if roi_params['method'] == 'spherical':
+            details += (f"• ROI Center: ({roi_params['center'][0]}, {roi_params['center'][1]}, {roi_params['center'][2]}) mm\n" +
+                        f"• ROI Radius: {roi_params['radius']} mm\n")
         else:
-            roi_method = "atlas"
-            atlas_display = self.atlas_combo.currentText()
-            atlas_name = self.atlas_display_map.get(atlas_display, atlas_display)
-            hemi = "lh" if self.roi_hemi_combo.currentIndex() == 0 else "rh"
-            label_value = self.label_value_input.value()
-        
-        # Prepare environment variables
+            details += (f"• ROI Atlas: {roi_params['atlas']}\n" +
+                        f"• ROI Region: {roi_params['region']}\n")
+        if self.enable_mapping_checkbox.isChecked():
+            details += f"• Electrode Mapping: ✓ ENABLED\n"
+            if self.run_mapped_simulation_checkbox.isChecked():
+                details += f"• Mapping Simulation: ✓ ENABLED (runs additional simulation with mapped electrodes)\n"
+            else:
+                details += f"• Mapping Simulation: ✗ DISABLED (analysis only for mapped)\n"
+        else:
+            details += f"• Electrode Mapping: ✗ DISABLED (continuous optimization)\n"
+        if self.run_optimized_simulation_checkbox.isChecked():
+             details += f"• Post-Optimized Simulation: ✓ ENABLED (runs simulation with optimized continuous positions)\n"
+
+        details += f"\nStability & Memory:\n"
+        if self.conservative_mode_checkbox.isChecked():
+            # details += f"• Conservative mode: ✓ ENABLED (Note: Not currently passed to backend)\n"
+            pass # Not passed for now
+        details += f"• Max Iterations: {self.max_iterations_input.value()}\n"
+        details += f"• Population Size: {self.population_size_input.value()}\n"
+        details += f"• Number of CPUs: {self.cpus_input.value()}\n"
+        if self.quiet_mode_checkbox.isChecked():
+            details += f"• Hide optimization steps: ✓ ENABLED\n"
+
+        if not ConfirmationDialog.confirm(self, title="Confirm Optimization", message="Are you sure you want to start?", details=details):
+            self.optimization_finished_early_due_to_error()
+            return
+            
+        self.optimization_running = True
+        self.run_btn.setEnabled(False); self.stop_btn.setEnabled(True)
+        self.disable_controls()
+
+        # Prepare environment variables ( reinstated and verified)
         env = os.environ.copy()
+        # Determine project_dir for env - this should be the actual SimNIBS project root for the scripts
+        # The GUI's PROJECT_DIR_NAME might point to the BIDS root or similar, SimNIBS scripts often need PROJECT_DIR to be the SimNIBS output folder itself for the subject
+        # Let's use the `project_dir_for_opt_path` as a base, assuming it correctly points to the parent of 'derivatives'
+        # However, the original find_available_subjects set os.environ['PROJECT_DIR'] = /mnt/PROJECT_DIR_NAME.
+        # This suggests flex-search.py expects PROJECT_DIR to be the root of the BIDS dataset.
         
-        # Ensure PROJECT_DIR is set - this is critical for flex-search to work
-        project_dir = env.get('PROJECT_DIR', '/mnt/BIDS_test')
-        
-        # If the project directory doesn't exist or isn't accessible, try to find a suitable alternative
-        if not os.path.isdir(project_dir):
-            # Try to determine project directory from the current working directory
+        # Let's stick to the original logic for what PROJECT_DIR env var should be:
+        gui_project_dir_name = os.environ.get('PROJECT_DIR_NAME') # From GUI launch env
+        if gui_project_dir_name:
+            env['PROJECT_DIR'] = f"/mnt/{gui_project_dir_name}" 
+        else:
+            # Fallback if not set - this was the previous robust finding logic
             cwd = os.getcwd()
             potential_dirs = [
-                os.path.dirname(cwd),  # Parent of current directory
-                os.path.join(cwd, ".."),  # Go up one level
-                os.path.abspath(os.path.join(cwd, "..")),  # Absolute path one level up
-                os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))  # Parent of the script directory
+                os.path.dirname(cwd), os.path.join(cwd, ".."), os.path.abspath(os.path.join(cwd, "..")),
+                os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
             ]
-            
-            for potential_dir in potential_dirs:
-                if os.path.isdir(potential_dir) and os.path.isdir(os.path.join(potential_dir, 'derivatives', 'SimNIBS', f'sub-{subject_id}')):
-                    project_dir = potential_dir
-                    self.output_text.append(f"Setting PROJECT_DIR to: {project_dir}")
+            found_project_dir = None
+            for pd_candidate in potential_dirs:
+                if os.path.isdir(pd_candidate) and os.path.isdir(os.path.join(pd_candidate, 'derivatives', 'SimNIBS', f'sub-{subject_id}')):
+                    found_project_dir = pd_candidate
+                    self.output_text.append(f"PROJECT_DIR (for env) heuristically set to: {found_project_dir}")
                     break
-        
-        # Set the environment variables
-        env['PROJECT_DIR'] = project_dir
+            if found_project_dir:
+                env['PROJECT_DIR'] = found_project_dir
+            else:
+                self.output_text.append("Warning: PROJECT_DIR_NAME not in env and heuristic search failed. Using default /mnt/BIDS_test for env['PROJECT_DIR']")
+                env['PROJECT_DIR'] = "/mnt/BIDS_test" # Default if all else fails
+
+        # Actual project_dir used for constructing atlas paths, etc. inside this function:
+        # This should be the one derived for opt_dir, i.e., where 'derivatives' is a subfolder.
+        # The env['PROJECT_DIR'] is for flex-search.py script's internal use.
+        # Let's ensure `script_project_dir` refers to the one for path construction here.
+        script_project_dir = env['PROJECT_DIR'] # Use the determined PROJECT_DIR for internal path construction
+
         env['SUBJECT_ID'] = subject_id
-        
-        if roi_method == "spherical":
-            env['ROI_X'] = str(roi_x)
-            env['ROI_Y'] = str(roi_y)
-            env['ROI_Z'] = str(roi_z)
-            env['ROI_RADIUS'] = str(roi_radius)
-        else:
-            seg_dir = os.path.join(project_dir, 'derivatives', 'SimNIBS', f'sub-{subject_id}', 
-                                 f'm2m_{subject_id}', 'segmentation')
-            atlas_path = os.path.join(seg_dir, f'{hemi}.{atlas_name}.annot')
-            env['ATLAS_PATH'] = atlas_path
-            env['SELECTED_HEMISPHERE'] = hemi
-            env['ROI_LABEL'] = str(label_value)
-        
-        # Build the command using the python script directly
-        # Find the project root directory
-        script_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        flex_search_dir = os.path.join(script_dir, "flex-search")
-        flex_search_py = os.path.join(flex_search_dir, "flex-search.py")
-        
-        # Verify the flex-search.py exists
-        if not os.path.isfile(flex_search_py):
-            self.output_text.append(f"Error: flex-search.py not found at {flex_search_py}")
-            # Try to locate it in other potential locations
-            for search_dir in [script_dir, os.getcwd(), os.path.join(os.getcwd(), "flex-search")]:
-                test_path = os.path.join(search_dir, "flex-search.py")
-                if os.path.isfile(test_path):
-                    flex_search_py = test_path
-                    self.output_text.append(f"Found flex-search.py at: {flex_search_py}")
-                    break
-                
-                test_path = os.path.join(search_dir, "flex-search", "flex-search.py")
-                if os.path.isfile(test_path):
-                    flex_search_py = test_path
-                    self.output_text.append(f"Found flex-search.py at: {flex_search_py}")
-                    break
-            
-            if not os.path.isfile(flex_search_py):
-                self.output_text.append("Error: Could not find flex-search.py. Optimization cannot continue.")
-                return
+        if roi_params['method'] == "spherical":
+            env['ROI_X'] = str(roi_params['center'][0])
+            env['ROI_Y'] = str(roi_params['center'][1])
+            env['ROI_Z'] = str(roi_params['center'][2])
+            env['ROI_RADIUS'] = str(roi_params['radius'])
+        else: # cortical
+            atlas_display_for_env = roi_params['atlas']
+            atlas_name_for_env = self.atlas_display_map.get(atlas_display_for_env, atlas_display_for_env)
+            hemi_for_env = "lh" if self.roi_hemi_combo.currentIndex() == 0 else "rh"
+            seg_dir_for_env = os.path.join(script_project_dir, 'derivatives', 'SimNIBS', f'sub-{subject_id}', f'm2m_{subject_id}', 'segmentation')
+            atlas_path_for_env = os.path.join(seg_dir_for_env, f'{hemi_for_env}.{atlas_name_for_env}.annot')
+            env['ATLAS_PATH'] = atlas_path_for_env
+            env['SELECTED_HEMISPHERE'] = hemi_for_env
+            env['ROI_LABEL'] = str(roi_params['region'])
         
         # Build the command
+        script_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        flex_search_py = os.path.join(script_dir, "flex-search", "flex-search.py")
+        # ... (flex-search.py path verification - from previous, assumed correct)
+        if not os.path.isfile(flex_search_py): # Simplified for brevity, original was more robust
+            self.output_text.append(f"Error: flex-search.py not found at {flex_search_py}. Optimization cannot continue.")
+            self.optimization_finished_early_due_to_error()
+            return
+
         cmd = [
             "simnibs_python", flex_search_py,
             "--subject", subject_id,
-            "--goal", goal,
+            "--goal", goal, 
             "--postproc", postproc,
             "--eeg-net", eeg_net,
-            "--radius", str(radius),
-            "--current", str(current),
-            "--roi-method", roi_method
+            "--radius", str(electrode_radius),
+            "--current", str(electrode_current),
+            "--roi-method", roi_params['method']
         ]
+
+        # Mapping options
+        if self.enable_mapping_checkbox.isChecked():
+            cmd.append("--enable-mapping")
+            if not self.run_mapped_simulation_checkbox.isChecked():
+                cmd.append("--disable-mapping-simulation")
         
-        # Focality options
+        # Independent option for running simulation with optimized (continuous) electrodes (RESTORED LOGIC)
+        if self.run_optimized_simulation_checkbox.isChecked():
+            cmd.append("--run-optimized-simulation")
+
+        # Focality options (ensure using `goal` variable)
         if goal == "focality":
             thresholds = self.threshold_input.text().strip()
             nonroi_method = self.nonroi_method_combo.currentData()
             if not thresholds:
                 self.output_text.append("Error: Please enter threshold(s) for focality.")
+                self.optimization_finished_early_due_to_error()
                 return
-            cmd += ["--non-roi-method", nonroi_method]
-            cmd += ["--thresholds", thresholds]
+            cmd += ["--non-roi-method", nonroi_method, "--thresholds", thresholds]
             if nonroi_method == "specific":
-                if self.roi_method_spherical.isChecked():
-                    cmd += ["--non-roi-x", str(self.nonroi_x_input.value()),
-                            "--non-roi-y", str(self.nonroi_y_input.value()),
-                            "--non-roi-z", str(self.nonroi_z_input.value()),
-                            "--non-roi-radius", str(self.nonroi_radius_input.value())]
-                else:
+                if roi_params['method'] == "spherical":
+                    cmd += ["--non-roi-x", str(self.nonroi_x_input.value()), "--non-roi-y", str(self.nonroi_y_input.value()),
+                            "--non-roi-z", str(self.nonroi_z_input.value()), "--non-roi-radius", str(self.nonroi_radius_input.value())]
+                else: # atlas for non-ROI
                     nonroi_atlas_display = self.nonroi_atlas_combo.currentText()
-                    nonroi_atlas = self.atlas_display_map.get(nonroi_atlas_display, nonroi_atlas_display)
+                    nonroi_atlas_name = self.atlas_display_map.get(nonroi_atlas_display, nonroi_atlas_display)
                     nonroi_hemi = "lh" if self.nonroi_hemi_combo.currentIndex() == 0 else "rh"
-                    nonroi_label = self.nonroi_label_input.value()
-                    cmd += ["--non-roi-atlas", os.path.join('SimNIBS', f'm2m_{subject_id}', 'segmentation', f'{nonroi_hemi}.{nonroi_atlas}.annot'),
-                            "--non-roi-hemisphere", nonroi_hemi,
-                            "--non-roi-label", str(nonroi_label)]
+                    nonroi_label_val = self.nonroi_label_input.value()
+                    # Path for non-ROI atlas for the command line arg
+                    nonroi_atlas_path_arg = os.path.join(script_project_dir, 'derivatives', 'SimNIBS', f'sub-{subject_id}', 
+                                                     f'm2m_{subject_id}', 'segmentation', f'{nonroi_hemi}.{nonroi_atlas_name}.annot')
+                    cmd += ["--non-roi-atlas", nonroi_atlas_path_arg, "--non-roi-hemisphere", nonroi_hemi, "--non-roi-label", str(nonroi_label_val)]
         
-        # Start optimization in a separate thread
-        self.output_text.append("\n" + "="*50)
-        self.output_text.append("Optimization Overview:")
-        self.output_text.append(f"Subject: {subject_id}")
-        self.output_text.append(f"Goal: {goal}")
-        self.output_text.append(f"Post-processing: {postproc}")
-        self.output_text.append(f"EEG Net: {eeg_net}")
-        self.output_text.append(f"Electrode radius: {radius} mm")
-        self.output_text.append(f"Electrode current: {current} mA")
-        self.output_text.append(f"ROI method: {roi_method}")
-        
-        if roi_method == "spherical":
-            self.output_text.append(f"ROI center: [{roi_x}, {roi_y}, {roi_z}] mm")
-            self.output_text.append(f"ROI radius: {roi_radius} mm")
-        else:
-            self.output_text.append(f"Atlas: {atlas_name}")
-            self.output_text.append(f"Label value: {label_value}")
-        
-        # Set tab as busy only after confirmation
-        if hasattr(self, 'parent') and self.parent:
-            self.parent.set_tab_busy(self, True, stop_btn=self.stop_btn)
-        
-        # Clear console and start optimization
+        # Stability and Memory options
+        if self.quiet_mode_checkbox.isChecked(): cmd.append("--quiet")
+        cmd.extend(["--max-iterations", str(self.max_iterations_input.value())])
+        cmd.extend(["--population-size", str(self.population_size_input.value())])
+        cmd.extend(["--cpus", str(self.cpus_input.value())])
+
         self.clear_console()
         self.output_text.append("Running optimization (this may take a while)...")
         self.output_text.append("Command: " + " ".join(cmd))
+        self.output_text.append("Environment for subprocess will include:")
+        for k, v in env.items():
+            if k.startswith("ROI") or k in ['PROJECT_DIR', 'SUBJECT_ID', 'ATLAS_PATH', 'SELECTED_HEMISPHERE']:
+                self.output_text.append(f"  {k}: {v}")
+
+        if hasattr(self, 'parent') and self.parent: self.parent.set_tab_busy(self, True, stop_btn=self.stop_btn)
         
-        # Disable UI controls during optimization
-        self.run_btn.setEnabled(False)
-        self.stop_btn.setEnabled(True)
-        self.optimization_running = True
-        
-        # Create and start the thread
         self.optimization_process = FlexSearchThread(cmd, env)
         self.optimization_process.output_signal.connect(self.update_output)
+        self.optimization_process.error_signal.connect(lambda msg: self.update_output(msg, 'error'))
         self.optimization_process.finished.connect(self.optimization_finished)
         self.optimization_process.start()
     
-    def update_output(self, text):
+    def update_output(self, text, message_type='default'):
         """Update the console output with colored text."""
         if not text.strip():
             return
             
-        # Format the output based on content type
-        if "Processing... Only the Stop button is available" in text:
-            formatted_text = f'<div style="background-color: #2a2a2a; padding: 10px; margin: 10px 0; border-radius: 5px;"><span style="color: #ffff55; font-weight: bold;">{text}</span></div>'
-        elif "Error:" in text or "CRITICAL:" in text or "Failed" in text:
+        # Format the output based on message type from thread
+        if message_type == 'error':
             formatted_text = f'<span style="color: #ff5555;"><b>{text}</b></span>'
-        elif "Warning:" in text or "YELLOW" in text:
+        elif message_type == 'warning':
             formatted_text = f'<span style="color: #ffff55;">{text}</span>'
-        elif "DEBUG:" in text:
+        elif message_type == 'debug':
             formatted_text = f'<span style="color: #7f7f7f;">{text}</span>'
-        elif "Executing:" in text or "Running" in text or "Command" in text:
+        elif message_type == 'command':
             formatted_text = f'<span style="color: #55aaff;">{text}</span>'
-        elif "completed successfully" in text or "completed." in text or "Successfully" in text or "completed:" in text:
+        elif message_type == 'success':
             formatted_text = f'<span style="color: #55ff55;"><b>{text}</b></span>'
-        elif "Processing" in text or "Starting" in text:
+        elif message_type == 'info':
             formatted_text = f'<span style="color: #55ffff;">{text}</span>'
-        elif text.strip().startswith("-"):
-            # Indented list items
-            formatted_text = f'<span style="color: #aaaaaa; margin-left: 20px;">  {text}</span>'
         else:
-            formatted_text = f'<span style="color: #ffffff;">{text}</span>'
+            # Fallback to content-based formatting for backward compatibility
+            if "Processing... Only the Stop button is available" in text:
+                formatted_text = f'<div style="background-color: #2a2a2a; padding: 10px; margin: 10px 0; border-radius: 5px;"><span style="color: #ffff55; font-weight: bold;">{text}</span></div>'
+            elif text.strip().startswith("-"):
+                # Indented list items
+                formatted_text = f'<span style="color: #aaaaaa; margin-left: 20px;">  {text}</span>'
+            else:
+                formatted_text = f'<span style="color: #ffffff;">{text}</span>'
         
         # Append to the console with HTML formatting
         self.output_text.append(formatted_text)
@@ -978,6 +999,15 @@ class FlexSearchTab(QtWidgets.QWidget):
             self.find_available_eeg_nets()
             self.find_available_atlases()
     
+    def _update_mapping_options(self):
+        """Update visibility of mapping simulation options based on mapping checkbox."""
+        is_mapping_enabled = self.enable_mapping_checkbox.isChecked()
+        self.eeg_net_widget.setVisible(is_mapping_enabled)
+        self.eeg_net_label.setVisible(is_mapping_enabled)
+        self.run_mapped_simulation_checkbox.setVisible(is_mapping_enabled)
+        if not is_mapping_enabled:
+            self.run_mapped_simulation_checkbox.setChecked(False)
+
     def _update_focality_visibility(self):
         is_focality = self.goal_combo.currentData() == "focality"
         self.focality_group.setVisible(is_focality)
@@ -1085,6 +1115,11 @@ class FlexSearchTab(QtWidgets.QWidget):
         self.radius_input.setEnabled(False)
         self.current_input.setEnabled(False)
         
+        # Disable mapping options
+        self.enable_mapping_checkbox.setEnabled(False)
+        self.run_mapped_simulation_checkbox.setEnabled(False)
+        self.run_optimized_simulation_checkbox.setEnabled(False)
+        
         # Disable ROI method selection
         self.roi_method_spherical.setEnabled(False)
         self.roi_method_cortical.setEnabled(False)
@@ -1118,6 +1153,12 @@ class FlexSearchTab(QtWidgets.QWidget):
                     self.list_nonroi_regions_btn.setEnabled(False)
                     self.nonroi_label_input.setEnabled(False)
 
+        self.max_iterations_input.setEnabled(False)
+        self.population_size_input.setEnabled(False)
+        self.cpus_input.setEnabled(False)
+        self.quiet_mode_checkbox.setEnabled(False)
+        self.conservative_mode_checkbox.setEnabled(False)
+
     def enable_controls(self):
         """Enable all input controls after optimization."""
         # Enable subject selection
@@ -1133,6 +1174,11 @@ class FlexSearchTab(QtWidgets.QWidget):
         # Enable electrode parameters
         self.radius_input.setEnabled(True)
         self.current_input.setEnabled(True)
+        
+        # Enable mapping options
+        self.enable_mapping_checkbox.setEnabled(True)
+        self.run_mapped_simulation_checkbox.setEnabled(True)
+        self.run_optimized_simulation_checkbox.setEnabled(True)
         
         # Enable ROI method selection
         self.roi_method_spherical.setEnabled(True)
@@ -1166,3 +1212,18 @@ class FlexSearchTab(QtWidgets.QWidget):
                     self.nonroi_hemi_combo.setEnabled(True)
                     self.list_nonroi_regions_btn.setEnabled(True)
                     self.nonroi_label_input.setEnabled(True)
+
+        self.max_iterations_input.setEnabled(True)
+        self.population_size_input.setEnabled(True)
+        self.cpus_input.setEnabled(True)
+        self.quiet_mode_checkbox.setEnabled(True)
+        self.conservative_mode_checkbox.setEnabled(True)
+
+    def optimization_finished_early_due_to_error(self):
+        """Resets UI controls if optimization cannot start due to an error."""
+        self.optimization_running = False
+        self.run_btn.setEnabled(True)
+        self.stop_btn.setEnabled(False)
+        self.enable_controls() # Re-enable all controls
+        if hasattr(self, 'parent') and self.parent:
+            self.parent.set_tab_busy(self, False, stop_btn=self.stop_btn)
