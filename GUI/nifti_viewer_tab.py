@@ -205,11 +205,16 @@ class NiftiViewerTab(QtWidgets.QWidget):
         spacer = QtWidgets.QSpacerItem(20, 10, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Fixed)
         sim_block_layout.addItem(spacer, 3, 0, 1, 4)
         
+        # High frequency fields checkbox
+        self.high_freq_chk = QtWidgets.QCheckBox("Load High Frequency Fields")
+        self.high_freq_chk.setChecked(False)
+        sim_block_layout.addWidget(self.high_freq_chk, 4, 0, 1, 4)
+        
         # Refresh button
         self.refresh_btn = QtWidgets.QPushButton("Refresh")
         self.refresh_btn.setStyleSheet("QPushButton { padding: 5px 15px; }")
         self.refresh_btn.clicked.connect(self.refresh_subjects)
-        sim_block_layout.addWidget(self.refresh_btn, 4, 0, 1, 4)
+        sim_block_layout.addWidget(self.refresh_btn, 5, 0, 1, 4)
         
         config_layout.addWidget(sim_block)
         main_layout.addWidget(config_section)
@@ -592,7 +597,29 @@ class NiftiViewerTab(QtWidgets.QWidget):
                     "threshold_min": threshold_min,
                     "threshold_max": threshold_max
                 })
-            
+
+            # Load high frequency fields if requested
+            if self.high_freq_chk.isChecked():
+                high_freq_dir = os.path.join(sim_dir, "high_Frequency", "niftis")
+                if os.path.exists(high_freq_dir):
+                    # Look for scalar_magnE files
+                    for nifti_file in glob.glob(os.path.join(high_freq_dir, "*_scalar_magnE.nii.gz")):
+                        basename = os.path.basename(nifti_file)
+                        
+                        file_specs.append({
+                            "path": nifti_file,
+                            "type": "volume",
+                            "colormap": colormap,
+                            "opacity": opacity * 0.8,  # Slightly lower opacity for high frequency fields
+                            "visible": visible,
+                            "percentile": 1 if percentile else 0,
+                            "threshold_min": threshold_min,
+                            "threshold_max": threshold_max
+                        })
+                        self.info_area.append(f"\nLoading high frequency field: {basename}")
+                else:
+                    self.info_area.append(f"\nWarning: High frequency directory not found at {high_freq_dir}")
+
             # Then, add related analysis files from the Analyses directory
             if not is_mni_space:  # Only load analysis files in subject space
                 # Look for matching analysis directory
