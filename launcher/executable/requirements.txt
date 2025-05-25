@@ -1,2 +1,5 @@
 PyQt6>=6.6.0
 PyQt6-Qt6>=6.6.0 
+# Windows-specific packages for shortcut creation (optional)
+pywin32>=306; sys_platform == "win32"
+winshell>=0.6; sys_platform == "win32" 

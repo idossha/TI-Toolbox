@@ -38,9 +38,16 @@
 - **Organized Layout**: Cleaner button arrangement with logical grouping
 - **Enhanced Console**: Color-coded messages with better readability
 
+#### Desktop Shortcuts 🔗
+- **Create Desktop Shortcut button**: Available anytime from the main interface
+- **Desktop shortcut**: Creates an icon on your desktop for easy access
+- **Cross-platform**: Works on Windows, macOS, and Linux
+- **Manual activation**: Click the button when you want to create the shortcut
+
 ### What Each Button Does
 
 - **📋 System Requirements**: Opens detailed system requirements and setup information
+- **🔗 Create Desktop Shortcut**: Creates a shortcut on your desktop for easy access to TI-CSC
 - **Browse**: Select your BIDS-compliant project directory
 - **❓ Help**: Shows BIDS directory structure guide
 - **🐋 Start Docker Containers / 🛑 Stop Docker Containers**: Toggle switch for container management

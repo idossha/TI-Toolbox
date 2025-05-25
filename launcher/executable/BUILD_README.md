@@ -81,6 +81,15 @@ After building, you'll find the executable in the `dist/` folder:
 - **System requirements popup** instead of always-visible text
 - **Comprehensive help system** for BIDS directory structure
 
+### Desktop Shortcut Creation 🔗
+- **Create Desktop Shortcut button** available in the main interface
+- **Cross-platform support:**
+  - **macOS:** Desktop aliases
+  - **Windows:** Desktop shortcuts (.lnk files) with icons
+  - **Linux:** Desktop entries (.desktop files)
+- **Smart executable detection** for both development and compiled versions
+- **Manual activation** - users click the button when they want the shortcut
+
 ### Updated System Requirements
 - **RAM:** 32GB+ minimum for full functionality
 - **Storage:** ~30GB for Docker images (updated from 8GB)

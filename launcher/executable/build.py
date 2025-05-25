@@ -49,10 +49,33 @@ def install_dependencies():
             return False
     return True
 
+def check_required_files():
+    """Check if all required files are present"""
+    required_files = [
+        "src/ti_csc_launcher.py",
+        "src/dialogs.py",
+        "src/shortcuts_manager.py",
+        "docker-compose.yml",
+        "requirements.txt",
+        "ti_csc_launcher.spec"
+    ]
+    
+    missing_files = []
+    for file in required_files:
+        if not os.path.exists(file):
+            missing_files.append(file)
+    
+    if missing_files:
+        print("❌ Missing required files:")
+        for file in missing_files:
+            print(f"   • {file}")
+        return False
+    return True
+
 def build_executable():
     """Build the executable using PyInstaller"""
     # Clean previous builds
-    for dir_name in ['build', 'dist', '__pycache__']:
+    for dir_name in ['build', 'dist', '__pycache__', 'src/__pycache__']:
         if os.path.exists(dir_name):
             print(f"🧹 Cleaning {dir_name}...")
             shutil.rmtree(dir_name)
@@ -76,6 +99,11 @@ def main():
     arch = platform.machine()
     print(f"🖥️  Platform: {system} {arch}")
     print(f"🐍 Python: {sys.version}")
+    
+    # Check required files
+    if not check_required_files():
+        print("❌ Missing required files!")
+        sys.exit(1)
     
     # Install dependencies
     if not install_dependencies():

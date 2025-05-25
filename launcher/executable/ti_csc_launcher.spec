@@ -1,14 +1,21 @@
 # -*- mode: python ; coding: utf-8 -*-
 import platform
+import os
 
 block_cipher = None
 
+# Add source files
+src_path = os.path.join(os.getcwd(), 'src')
+# docker-compose.yml is in the same directory as the build script
+docker_compose_path = os.path.join(os.getcwd(), 'docker-compose.yml')
+
 a = Analysis(
-    ['ti_csc_launcher.py'],
-    pathex=[],
+    [os.path.join('src', 'ti_csc_launcher.py')],
+    pathex=[src_path],
     binaries=[],
     datas=[
-        ('docker-compose.yml', '.'),
+        (docker_compose_path, '.'),  # Include docker-compose.yml in the root of the bundle
+        ('src/*.py', 'src'),  # Include all Python files from src
     ],
     hiddenimports=[
         'PyQt6.QtCore',
