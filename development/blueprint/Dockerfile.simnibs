@@ -6,41 +6,54 @@ FROM ubuntu:22.04
 # Set noninteractive mode for apt-get
 ENV DEBIAN_FRONTEND=noninteractive
 
-# General Packages and pip
+# Install packages grouped by context and purpose
 ##########################################################
 RUN apt-get update && apt-get install -y \
+    # Core system utilities
     wget \
     git \
     unzip \
-    python3.8 \
-    python3-pip \
-    libglib2.0-0 \
-    libssl1.1 \
-    libopenblas-dev \
-    build-essential \
     tar \
     bzip2 \
+    curl \
+    gettext \
+    locales \
+    fontconfig \
+    \
+    # Python environment
+    python3.11 \
+    python3-pip \
+    python3.11-venv \
+    python3.11-dev \
+    \
+    # Build tools and compilers
+    build-essential \
     gcc \
     g++ \
     gcc-10 \
     g++-10 \
     cmake \
+    ninja-build \
     libtool \
     libtool-bin \
     autoconf \
     automake \
     pkg-config \
-    gettext \
-    curl \
-    ninja-build \
-    python3.8-venv \
-    python3.8-dev \
+    \
+    # System libraries
+    libglib2.0-0 \
+    libssl1.1 \
+    libopenblas-dev \
+    \
+    # OpenGL and Mesa libraries (for 3D graphics)
     libgl1-mesa-glx \
     libglu1-mesa \
     mesa-utils \
     libgl1-mesa-dri \
     libglapi-mesa \
     libosmesa6 \
+    \
+    # X11 libraries (for GUI applications)
     libxt6 \
     libxext6 \
     libxrender1 \
@@ -50,32 +63,36 @@ RUN apt-get update && apt-get install -y \
     libxcomposite1 \
     libxdamage1 \
     libxi6 \
+    \
+    # Qt5 libraries (for PyQt5 GUI)
     libqt5widgets5 \
     libqt5gui5 \
     libqt5core5a \
     libqt5svg5 \
     libqt5opengl5 \
+    \
+    # GTK libraries (for legacy GUI applications)
     libgtk2.0-0 \
-    libreoffice \
-    nodejs \
-    npm \
-    jq \
+    \
+    # Command-line tools and utilities
     bc \
-    dc \
+    jq \
     vim \
     tmux \
-    tcsh \
     tree \
-    locales \
-    fontconfig \
     execstack \
-    imagemagick \
     parallel \
-    dcm2niix \
     dos2unix \
+    \
+    # Neuroimaging specific tools
+    dcm2niix \
     && apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
-RUN pip3 install numpy scipy pandas meshio nibabel nilearn
+# Install Python packages and create symlinks
+RUN python3.11 -m pip install --upgrade pip && \
+    python3.11 -m pip install numpy scipy pandas meshio nibabel nilearn && \
+    ln -sf /usr/bin/python3.11 /usr/bin/python3 && \
+    ln -sf /usr/bin/python3.11 /usr/bin/python
 
 ######## Install SimNIBS ################
 RUN mkdir -p /simnibs && chmod -R 755 /simnibs

@@ -12,7 +12,7 @@
 # Developed by Ido Haber | ihaber@wisc.edu
 # https://fsl.fmrib.ox.ac.uk/fsl/docs/#/install/container
 
-FROM ubuntu:20.04
+FROM ubuntu:22.04
 
 ENV FSLDIR          "/usr/local/fsl"
 ENV DEBIAN_FRONTEND "noninteractive"
