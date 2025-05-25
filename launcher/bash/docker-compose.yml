@@ -30,7 +30,7 @@ services:
     restart: unless-stopped
 
   simnibs:
-    image: idossha/simnibs:22nd
+    image: idossha/simnibs:23rd
     platform: linux/amd64
     container_name: simnibs_container
     volumes:
@@ -52,6 +52,7 @@ services:
       FS_LICENSE: /usr/local/freesurfer/license.txt
       LOCAL_PROJECT_DIR: ${LOCAL_PROJECT_DIR}
       PROJECT_DIR_NAME: ${PROJECT_DIR_NAME}
+      KMP_AFFINITY: "disabled"
     networks:
       - ti_network
     depends_on:

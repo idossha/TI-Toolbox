@@ -1,6 +1,44 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv/
+
+# PyInstaller
+*.manifest
+*.spec.bak
+
+# System Files
 .DS_Store
 
+# Logs
+*.log
+logs/
 
-**/__pycache__/
+# Docker
+.dockerignore.bak
 
+# Distribution packages (created by package_for_distribution.py)
+TI-CSC_*_*/
+
+# Temporary and cache files
+*.tmp
+*.temp
+.cache/
+.pytest_cache/
+
+# Development-specific
 development/loader/.*
+development/**/dist/
+development/**/build/
