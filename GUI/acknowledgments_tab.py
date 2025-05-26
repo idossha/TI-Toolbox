@@ -89,6 +89,13 @@ class AcknowledgmentsTab(QtWidgets.QWidget):
             "Merkel, D. (2014). Docker: lightweight Linux containers for consistent development and deployment. Linux Journal, 2014(239), Article 2."
         )
         
+        self.add_acknowledgment_section(
+            scroll_layout, 
+            "Gmsh",
+            "C. Geuzaine and J.-F. Remacle. Gmsh: a three-dimensional finite element mesh generator with built-in pre- and post-processing facilities. International Journal for Numerical Methods in Engineering 79(11), pp. 1309-1331, 2009.<br><br>"
+            "Visit the official website: <a href='https://gmsh.info/'>https://gmsh.info/</a>"
+        )
+        
         # Add a note at the bottom about missing acknowledgments
         note_label = QtWidgets.QLabel(
             "<p><i>If you're using TI-CSC in academic work, please cite the appropriate references above.</i></p>"
