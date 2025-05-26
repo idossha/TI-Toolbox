@@ -671,13 +671,9 @@ class AnalyzerTab(QtWidgets.QWidget):
             self.field_name_label.setEnabled(is_mesh)
 
     def get_available_atlas_files(self, subject_id):
-        """Get available atlas files from the subject's segmentation directory."""
+        """Get available atlas files from the subject's FreeSurfer directory."""
         atlas_files = []
         if subject_id:
-            # Check SimNIBS segmentation directory
-            m2m_dir = self.get_m2m_dir_for_subject(subject_id)
-            segmentation_dir = os.path.join(m2m_dir, 'segmentation')
-            
             # Check FreeSurfer mri directory
             project_dir = os.path.join("/mnt", os.environ.get("PROJECT_DIR_NAME", "BIDS_new"))
             freesurfer_dir = os.path.join(project_dir, "derivatives", "freesurfer", f"sub-{subject_id}", f"{subject_id}", "mri")
@@ -685,11 +681,9 @@ class AnalyzerTab(QtWidgets.QWidget):
             # Define available atlases
             atlases = ['aparc.DKTatlas+aseg.mgz', 'aparc.a2009s+aseg.mgz']
             
-            # Check both directories for each atlas
+            # Check for each atlas
             for atlas in atlases:
-                if os.path.exists(segmentation_dir) and os.path.exists(os.path.join(segmentation_dir, atlas)):
-                    atlas_files.append((atlas, os.path.join(segmentation_dir, atlas)))
-                elif os.path.exists(freesurfer_dir) and os.path.exists(os.path.join(freesurfer_dir, atlas)):
+                if os.path.exists(freesurfer_dir) and os.path.exists(os.path.join(freesurfer_dir, atlas)):
                     atlas_files.append((atlas, os.path.join(freesurfer_dir, atlas)))
             
             # If no atlases found, add warning message
