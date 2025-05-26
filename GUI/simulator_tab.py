@@ -13,6 +13,7 @@ import subprocess
 from PyQt5 import QtWidgets, QtCore, QtGui
 from confirmation_dialog import ConfirmationDialog
 from utils import confirm_overwrite
+from simulation_report_generator import SimulationReportGenerator
 
 class SimulationThread(QtCore.QThread):
     """Thread to run simulation in background to prevent GUI freezing."""
@@ -113,6 +114,8 @@ class SimulatorTab(QtWidgets.QWidget):
         self.simulation_running = False
         self.simulation_process = None
         self.custom_conductivities = {}  # keys: int tissue number, values: float
+        self.report_generator = None
+        self.simulation_session_id = None
         self.setup_ui()
         
         # Initialize with available subjects and montages
@@ -914,6 +917,37 @@ class SimulatorTab(QtWidgets.QWidget):
             if hasattr(self, 'parent') and self.parent:
                 self.parent.set_tab_busy(self, True, stop_btn=self.stop_btn)
             
+            # Initialize simulation report generator
+            import datetime
+            self.simulation_session_id = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+            project_dir_path = f"/mnt/{os.environ.get('PROJECT_DIR_NAME', 'BIDS_new')}"
+            self.report_generator = SimulationReportGenerator(project_dir_path, self.simulation_session_id)
+            
+            # Add simulation parameters to report (including custom conductivities)
+            self.report_generator.add_simulation_parameters(
+                conductivity, sim_mode, eeg_net, current_ma_1, current_ma_2, False, 
+                conductivities=self._get_conductivities_for_report()
+            )
+            
+            # Add electrode parameters to report
+            dim_parts = dimensions.split(',')
+            self.report_generator.add_electrode_parameters(
+                electrode_shape, [float(dim_parts[0]), float(dim_parts[1])], float(thickness)
+            )
+            
+            # Add subjects to report
+            for subject_id in selected_subjects:
+                bids_subject_id = f"sub-{subject_id}"
+                m2m_path = os.path.join(project_dir_path, 'derivatives', 'SimNIBS', 
+                                      bids_subject_id, f'm2m_{subject_id}')
+                self.report_generator.add_subject(subject_id, m2m_path, 'processing')
+            
+            # Add montages to report
+            montage_type = 'unipolar' if sim_mode == 'U' else 'multipolar'
+            for montage_name in selected_montages:
+                # For now, we'll add placeholder electrode pairs - these would be loaded from the montage file
+                self.report_generator.add_montage(montage_name, [['E1', 'E2']], montage_type)
+            
             # Disable UI controls during simulation
             self.disable_controls()
             self.run_btn.setEnabled(False)
@@ -940,6 +974,9 @@ class SimulatorTab(QtWidgets.QWidget):
         self.output_console.append('<div style="margin: 10px 0;"><span style="color: #55ff55; font-size: 16px; font-weight: bold;">✅ Simulation process completed ✅</span></div>')
         self.output_console.append('<div style="border-bottom: 1px solid #555; margin-bottom: 10px;"></div>')
         
+        # Automatically generate simulation report
+        self.auto_generate_simulation_report()
+        
         self.simulation_running = False
         self.run_btn.setEnabled(True)
         self.run_btn.setText("Run Simulation")
@@ -947,6 +984,32 @@ class SimulatorTab(QtWidgets.QWidget):
         
         # Re-enable all controls
         self.enable_controls()
+    
+    def auto_generate_simulation_report(self):
+        """Automatically generate simulation report after completion."""
+        if not self.report_generator:
+            return
+        
+        try:
+            self.update_output("Generating simulation report...", 'info')
+            
+            # Update subject statuses to completed
+            for subject in self.report_generator.report_data['subjects']:
+                self.report_generator.update_subject_status(subject['subject_id'], 'completed')
+            
+            # Generate the report
+            report_path = self.report_generator.generate_report()
+            
+            if report_path and os.path.exists(report_path):
+                self.update_output(f"✅ Simulation report generated: {report_path}", 'success')
+                
+                # Report generated successfully - no automatic browser opening
+                self.update_output("📊 Open the report file in your browser to view detailed results", 'info')
+            else:
+                self.update_output("⚠️ Report generation completed but file not found", 'warning')
+                
+        except Exception as e:
+            self.update_output(f"❌ Error generating simulation report: {str(e)}", 'error')
     
     def disable_controls(self):
         """Disable all controls except the stop button."""
@@ -1324,6 +1387,28 @@ class SimulatorTab(QtWidgets.QWidget):
         dialog = ConductivityEditorDialog(self, self.custom_conductivities)
         if dialog.exec_() == QtWidgets.QDialog.Accepted:
             self.custom_conductivities = dialog.get_conductivities()
+    
+    def _get_conductivities_for_report(self):
+        """Get conductivity values formatted for the simulation report."""
+        # Start with default values
+        from simulation_report_generator import SimulationReportGenerator
+        temp_gen = SimulationReportGenerator("", "")
+        conductivities = temp_gen._get_default_conductivities()
+        
+        # Override with any custom values
+        for tissue_num, custom_value in self.custom_conductivities.items():
+            if tissue_num in conductivities:
+                conductivities[tissue_num]['conductivity'] = custom_value
+                conductivities[tissue_num]['reference'] = 'Custom (User Modified)'
+            else:
+                # Add new custom tissue
+                conductivities[tissue_num] = {
+                    'name': f'Custom Tissue {tissue_num}',
+                    'conductivity': custom_value,
+                    'reference': 'Custom (User Defined)'
+                }
+        
+        return conductivities
 
     def _format_montage_label(self, montage_name, pairs, is_unipolar=True):
         """Format montage label for the list widget: montage_name: ch1:X<->Y + ch2:A<->B (+ ch3/ch4...)"""

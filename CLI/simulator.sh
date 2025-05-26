@@ -198,6 +198,110 @@ EOL
             echo -e "${RED}Simulation failed for subject: $subject_id${RESET}"
         fi
     done
+    
+    # Skip report generation in direct mode - GUI will handle it
+    if [[ "$is_direct_mode" != "true" ]]; then
+        echo -e "${CYAN}Generating simulation reports...${RESET}"
+        
+        # Check if we have Python available
+        python_cmd=""
+        if command -v python3 &> /dev/null; then
+            python_cmd="python3"
+        elif command -v python &> /dev/null; then
+            python_cmd="python"
+        else
+            echo -e "${YELLOW}Warning: Python not found. Skipping report generation.${RESET}"
+            return
+        fi
+        
+        # Path to the report generator
+        report_generator_path="$script_dir/../GUI/simulation_report_generator.py"
+        
+        if [ ! -f "$report_generator_path" ]; then
+            echo -e "${YELLOW}Warning: Simulation report generator not found. Skipping report generation.${RESET}"
+            return
+        fi
+        
+        # Generate reports for each processed subject
+        reports_generated=0
+        for subject_num in "${selected_subjects[@]}"; do
+            subject_id="$subject_num"  # In direct mode, use subject IDs directly
+            
+            echo -e "${CYAN}Generating report for subject: $subject_id${RESET}"
+            
+            # Create a temporary Python script to generate the report
+            temp_script=$(mktemp)
+            cat > "$temp_script" << EOF
+#!/usr/bin/env python3
+import sys
+import os
+sys.path.append('$script_dir/../GUI')
+
+from simulation_report_generator import SimulationReportGenerator
+import datetime
+
+try:
+    # Initialize report generator
+    session_id = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    report_gen = SimulationReportGenerator('$project_dir', session_id)
+    
+    # Add simulation parameters
+    current_parts = '$current'.split(',')
+    current_1 = float(current_parts[0]) * 1000 if len(current_parts) > 0 else 1.0  # Convert A to mA
+    current_2 = float(current_parts[1]) * 1000 if len(current_parts) > 1 else 1.0  # Convert A to mA
+    
+    report_gen.add_simulation_parameters(
+        '$conductivity', '$sim_mode', '$eeg_net', 
+        current_1, current_2, False
+    )
+    
+    # Add electrode parameters
+    dimensions = '$dimensions'.split(',')
+    report_gen.add_electrode_parameters(
+        '$electrode_shape', [float(dimensions[0]), float(dimensions[1])], float('$thickness')
+    )
+    
+    # Add subject
+    m2m_path = os.path.join('$project_dir', 'derivatives', 'SimNIBS', 'sub-$subject_id', 'm2m_$subject_id')
+    report_gen.add_subject('$subject_id', m2m_path, 'completed')
+    
+    # Add montages
+    montage_type = 'unipolar' if '$sim_mode' == 'U' else 'multipolar'
+    montages = [$(printf "'%s'," "${selected_montages[@]}" | sed 's/,$//')]
+    for montage in montages:
+        if montage and montage != '--':  # Skip empty montages and end marker
+            report_gen.add_montage(montage, [['E1', 'E2']], montage_type)
+    
+    # Generate report
+    report_path = report_gen.generate_report()
+    if report_path:
+        print(f"✅ Report generated: {report_path}")
+    else:
+        print("❌ Failed to generate report")
+        
+except Exception as e:
+    print(f"❌ Error generating report: {str(e)}")
+    import traceback
+    traceback.print_exc()
+EOF
+            
+            # Run the report generation
+            if $python_cmd "$temp_script"; then
+                ((reports_generated++))
+            fi
+            
+            # Clean up temporary script
+            rm -f "$temp_script"
+        done
+        
+        # Summary
+        if [ $reports_generated -gt 0 ]; then
+            echo -e "${GREEN}✅ Generated $reports_generated simulation report(s)${RESET}"
+            echo -e "${CYAN}Reports saved to: $project_dir/derivatives/reports/${RESET}"
+        else
+            echo -e "${YELLOW}⚠️ No reports were generated${RESET}"
+        fi
+    fi
 }
 
 # Check if direct execution from GUI is requested
@@ -851,3 +955,119 @@ if [ "$new_montage_added" = true ]; then
 fi
 
 echo -e "${GREEN}All tasks completed successfully.${RESET}"
+
+# Generate simulation reports automatically
+echo -e "${CYAN}Generating simulation reports...${RESET}"
+
+# Check if we have Python available and the report generator
+python_cmd=""
+if command -v python3 &> /dev/null; then
+    python_cmd="python3"
+elif command -v python &> /dev/null; then
+    python_cmd="python"
+else
+    echo -e "${YELLOW}Warning: Python not found. Skipping report generation.${RESET}"
+    exit 0
+fi
+
+# Path to the report generator
+report_generator_path="$script_dir/../GUI/simulation_report_generator.py"
+
+if [ ! -f "$report_generator_path" ]; then
+    echo -e "${YELLOW}Warning: Simulation report generator not found. Skipping report generation.${RESET}"
+    exit 0
+fi
+
+# Generate reports for each processed subject
+reports_generated=0
+for subject_num in "${selected_subjects[@]}"; do
+    if [[ "$is_direct_mode" == "true" ]]; then
+        subject_id="$subject_num"
+    else
+        subject_id="${subjects[$((subject_num-1))]}"
+    fi
+    
+    echo -e "${CYAN}Generating report for subject: $subject_id${RESET}"
+    
+    # Create a temporary Python script to generate the report
+    temp_script=$(mktemp)
+    cat > "$temp_script" << EOF
+#!/usr/bin/env python3
+import sys
+import os
+sys.path.append('$script_dir/../GUI')
+
+from simulation_report_generator import SimulationReportGenerator
+import datetime
+
+try:
+    # Initialize report generator
+    session_id = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    report_gen = SimulationReportGenerator('$project_dir', session_id)
+    
+    # Add simulation parameters
+    current_parts = '$current'.split(',')
+    current_1 = float(current_parts[0]) * 1000 if len(current_parts) > 0 else 1.0  # Convert A to mA
+    current_2 = float(current_parts[1]) * 1000 if len(current_parts) > 1 else 1.0  # Convert A to mA
+    
+    # Collect custom conductivities from environment variables
+    import os
+    custom_conductivities = {}
+    for env_var in os.environ:
+        if env_var.startswith('TISSUE_COND_'):
+            tissue_num = int(env_var.replace('TISSUE_COND_', ''))
+            conductivity_value = float(os.environ[env_var])
+            custom_conductivities[tissue_num] = conductivity_value
+    
+    report_gen.add_simulation_parameters(
+        '$conductivity', '$sim_mode', '${subject_eeg_nets[$subject_id]:-EGI_template.csv}', 
+        current_1, current_2, False,  # Use actual current values from CLI
+        conductivities=custom_conductivities if custom_conductivities else None
+    )
+    
+    # Add electrode parameters
+    dimensions = '$dimensions'.split(',')
+    report_gen.add_electrode_parameters(
+        '$electrode_shape', [float(dimensions[0]), float(dimensions[1])], float('$thickness')
+    )
+    
+    # Add subject
+    m2m_path = os.path.join('$project_dir', 'derivatives', 'SimNIBS', 'sub-$subject_id', 'm2m_$subject_id')
+    report_gen.add_subject('$subject_id', m2m_path, 'completed')
+    
+    # Add montages
+    montage_type = 'unipolar' if '$sim_mode' == 'U' else 'multipolar'
+    montages = [$(printf "'%s'," "${selected_montages[@]}" | sed 's/,$//')]
+    for montage in montages:
+        if montage:  # Skip empty montages
+            report_gen.add_montage(montage, [['E1', 'E2']], montage_type)
+    
+    # Generate report
+    report_path = report_gen.generate_report()
+    if report_path:
+        print(f"✅ Report generated: {report_path}")
+    else:
+        print("❌ Failed to generate report")
+        
+except Exception as e:
+    print(f"❌ Error generating report: {str(e)}")
+    import traceback
+    traceback.print_exc()
+EOF
+    
+    # Run the report generation
+    if $python_cmd "$temp_script"; then
+        ((reports_generated++))
+    fi
+    
+    # Clean up temporary script
+    rm -f "$temp_script"
+done
+
+# Summary
+if [ $reports_generated -gt 0 ]; then
+    echo -e "${GREEN}✅ Generated $reports_generated simulation report(s)${RESET}"
+    echo -e "${CYAN}Reports saved to: $project_dir/derivatives/reports/${RESET}"
+else
+    echo -e "${YELLOW}⚠️ No reports were generated${RESET}"
+fi
