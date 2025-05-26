@@ -33,10 +33,10 @@ if [[ "$1" == "--run-direct" ]]; then
     
     # Set variables from environment
     CONVERT_DICOM=${CONVERT_DICOM:-false}
-    DICOM_TYPE=${DICOM_TYPE:-T1w_only}
     RUN_RECON=${RUN_RECON:-false}
     PARALLEL_RECON=${PARALLEL_RECON:-false}
     CREATE_M2M=${CREATE_M2M:-false}
+    CREATE_ATLAS=${CREATE_ATLAS:-false}
     QUIET=${QUIET:-false}
     
     # Process each subject
@@ -50,11 +50,9 @@ if [[ "$1" == "--run-direct" ]]; then
         subject_dir="$PROJECT_DIR/sub-$subject_id"
         cmd+=("$subject_dir")
         
-        # Create required directories
+        # Create required directories for both T1w and T2w
         mkdir -p "$PROJECT_DIR/sourcedata/sub-$subject_id/T1w/dicom"
-        if [[ "$DICOM_TYPE" == "T1w_T2w" ]]; then
-            mkdir -p "$PROJECT_DIR/sourcedata/sub-$subject_id/T2w/dicom"
-        fi
+        mkdir -p "$PROJECT_DIR/sourcedata/sub-$subject_id/T2w/dicom"
         mkdir -p "$subject_dir/anat"
         mkdir -p "$PROJECT_DIR/derivatives/freesurfer/sub-$subject_id"
         mkdir -p "$PROJECT_DIR/derivatives/SimNIBS/sub-$subject_id"
@@ -82,8 +80,7 @@ if [[ "$1" == "--run-direct" ]]; then
         
         echo -e "${GREEN}Executing: ${cmd[*]}${RESET}"
         
-        # Export environment variables for structural.sh
-        export DICOM_TYPE
+        # No need to export DICOM_TYPE as it's auto-detected now
         
         "${cmd[@]}"
         
@@ -168,10 +165,11 @@ show_confirmation_dialog() {
     
     # Processing Options
     echo -e "\n${BOLD_CYAN}Processing Options:${RESET}"
-    echo -e "Convert DICOM files to NIfTI:     ${CYAN}$(if $CONVERT_DICOM; then echo "Yes"; else echo "No"; fi)${RESET}"
+    echo -e "Convert DICOM files to NIfTI:     ${CYAN}$(if $CONVERT_DICOM; then echo "Yes (auto-detects T1w/T2w)"; else echo "No"; fi)${RESET}"
     echo -e "Run FreeSurfer recon-all:         ${CYAN}$(if $RUN_RECON; then echo "Yes"; else echo "No"; fi)${RESET}"
     echo -e "Run in parallel mode:             ${CYAN}$(if $PARALLEL_RECON; then echo "Yes"; else echo "No"; fi)${RESET}"
     echo -e "Create SimNIBS m2m folder:        ${CYAN}$(if $CREATE_M2M; then echo "Yes"; else echo "No"; fi)${RESET}"
+    echo -e "Create atlas segmentation:        ${CYAN}$(if $CREATE_ATLAS; then echo "Yes"; else echo "No"; fi)${RESET}"
     echo -e "Run in quiet mode:                ${CYAN}$(if $QUIET; then echo "Yes"; else echo "No"; fi)${RESET}"
     
     echo -e "\n${BOLD_YELLOW}Please review the configuration above.${RESET}"
@@ -326,24 +324,13 @@ CONVERT_DICOM=false
 RUN_RECON=false
 PARALLEL_RECON=false
 CREATE_M2M=false
+CREATE_ATLAS=false
 QUIET=false
 
 # Ask for DICOM conversion
 print_header "DICOM Conversion"
-if get_yes_no "Do you want to convert DICOM files to NIfTI?" "y"; then
+if get_yes_no "Do you want to convert DICOM files to NIfTI (auto-detects T1w/T2w)?" "y"; then
     CONVERT_DICOM=true
-    
-    # Ask for T1w/T2w selection
-    echo -e "\n${BOLD_CYAN}Select DICOM data type:${RESET}"
-    echo "1. T1w only"
-    echo "2. T1w + T2w"
-    while true; do
-        read -p "Enter your choice (1 or 2): " dicom_choice
-        case "$dicom_choice" in
-            1|2) break ;;
-            *) echo "Invalid choice. Please enter 1 or 2." ;;
-        esac
-    done
 fi
 
 # Ask for recon-all
@@ -363,10 +350,43 @@ if get_yes_no "Create SimNIBS m2m folder?" "y"; then
     CREATE_M2M=true
 fi
 
+# Ask for atlas creation
+print_header "Atlas Segmentation"
+if get_yes_no "Create atlas segmentation (requires m2m folder)?" "y"; then
+    CREATE_ATLAS=true
+else
+    CREATE_ATLAS=false
+fi
+
 # Ask for quiet mode
 print_header "Output Mode"
 if get_yes_no "Run in quiet mode (suppress output)?" "n"; then
     QUIET=true
+fi
+
+# Validate atlas creation requirements
+if $CREATE_ATLAS && ! $CREATE_M2M; then
+    print_message "$YELLOW" "Atlas creation requires m2m folders. Checking if they exist for selected subjects..."
+    missing_m2m_subjects=()
+    for SUBJECT_ID in "${selected_subjects[@]}"; do
+        BIDS_SUBJECT_ID="sub-${SUBJECT_ID}"
+        m2m_dir="$PROJECT_DIR/derivatives/SimNIBS/$BIDS_SUBJECT_ID/m2m_$SUBJECT_ID"
+        if [ ! -d "$m2m_dir" ]; then
+            missing_m2m_subjects+=("$SUBJECT_ID")
+        fi
+    done
+    
+    if [ ${#missing_m2m_subjects[@]} -gt 0 ]; then
+        print_message "$RED" "Error: Atlas creation requires m2m folders, but the following subjects don't have them:"
+        print_message "$RED" "${missing_m2m_subjects[*]}"
+        print_message "$YELLOW" "Please either:"
+        print_message "$YELLOW" "1. Enable 'Create SimNIBS m2m folder' option, or"
+        print_message "$YELLOW" "2. Run m2m creation for these subjects first, or"
+        print_message "$YELLOW" "3. Disable atlas creation"
+        exit 1
+    else
+        print_message "$GREEN" "All selected subjects have existing m2m folders."
+    fi
 fi
 
 # Show confirmation dialog before proceeding
@@ -381,18 +401,15 @@ for SUBJECT_ID in "${selected_subjects[@]}"; do
     
     # Create required directories
     mkdir -p "$PROJECT_DIR/sourcedata/$BIDS_SUBJECT_ID/T1w/dicom"
-    if [ "$dicom_choice" = "2" ]; then
-        mkdir -p "$PROJECT_DIR/sourcedata/$BIDS_SUBJECT_ID/T2w/dicom"
-    fi
+    mkdir -p "$PROJECT_DIR/sourcedata/$BIDS_SUBJECT_ID/T2w/dicom"
     mkdir -p "$PROJECT_DIR/$BIDS_SUBJECT_ID/anat"
     mkdir -p "$PROJECT_DIR/derivatives/freesurfer/$BIDS_SUBJECT_ID"
     mkdir -p "$PROJECT_DIR/derivatives/SimNIBS/$BIDS_SUBJECT_ID"
     
     if $CONVERT_DICOM; then
         print_message "$YELLOW" "Please place T1w DICOM files in: $PROJECT_DIR/sourcedata/$BIDS_SUBJECT_ID/T1w/dicom"
-        if [ "$dicom_choice" = "2" ]; then
-            print_message "$YELLOW" "Please place T2w DICOM files in: $PROJECT_DIR/sourcedata/$BIDS_SUBJECT_ID/T2w/dicom"
-        fi
+        print_message "$YELLOW" "Please place T2w DICOM files in: $PROJECT_DIR/sourcedata/$BIDS_SUBJECT_ID/T2w/dicom (optional)"
+        print_message "$CYAN" "The script will automatically detect and process available data types."
     fi
     
     # Build the command for structural.sh
@@ -423,24 +440,99 @@ for SUBJECT_ID in "${selected_subjects[@]}"; do
     print_message "$GREEN" "Running command: $CMD"
     eval "$CMD"
     
-    # If m2m was created, run all three atlases automatically
-    if $CREATE_M2M; then
+    # If atlas creation is requested, run all three atlases
+    if $CREATE_ATLAS; then
         m2m_folder="$PROJECT_DIR/derivatives/SimNIBS/$BIDS_SUBJECT_ID/m2m_$SUBJECT_ID"
         if [ -d "$m2m_folder" ]; then
-            for atlas in a2009s DK40 HCP_MMP1; do
-                output_dir="$m2m_folder/segmentation"
-                mkdir -p "$output_dir"
-                print_message "$YELLOW" "[Atlas] $SUBJECT_ID: Running subject_atlas -m $m2m_folder -a $atlas -o $output_dir"
-                subject_atlas -m "$m2m_folder" -a "$atlas" -o "$output_dir"
-                if [ $? -eq 0 ]; then
-                    print_message "$GREEN" "[Atlas] $SUBJECT_ID: Atlas $atlas segmentation complete."
-                else
-                    print_message "$RED" "[Atlas] $SUBJECT_ID: Atlas $atlas segmentation failed."
-                fi
-            done
+            output_dir="$m2m_folder/segmentation"
+            mkdir -p "$output_dir"
+            
+            # Check if output_dir is actually a directory and not a file
+            if [ -e "$output_dir" ] && [ ! -d "$output_dir" ]; then
+                print_message "$RED" "[Atlas] $SUBJECT_ID: Error - segmentation path exists but is not a directory: $output_dir"
+            else
+                for atlas in a2009s DK40 HCP_MMP1; do
+                    # Check for potential file conflicts before running
+                    lh_file="$output_dir/lh.${SUBJECT_ID}_${atlas}.annot"
+                    rh_file="$output_dir/rh.${SUBJECT_ID}_${atlas}.annot"
+                    
+                    # Check if any expected file exists as a directory (conflict)
+                    conflict_found=false
+                    if [ -e "$lh_file" ] && [ -d "$lh_file" ]; then
+                        print_message "$RED" "[Atlas] $SUBJECT_ID: Error - expected file path is a directory: $lh_file"
+                        conflict_found=true
+                    fi
+                    if [ -e "$rh_file" ] && [ -d "$rh_file" ]; then
+                        print_message "$RED" "[Atlas] $SUBJECT_ID: Error - expected file path is a directory: $rh_file"
+                        conflict_found=true
+                    fi
+                    
+                    if [ "$conflict_found" = true ]; then
+                        continue
+                    fi
+                    
+                    print_message "$YELLOW" "[Atlas] $SUBJECT_ID: Running subject_atlas -m $m2m_folder -a $atlas -o $output_dir"
+                    subject_atlas -m "$m2m_folder" -a "$atlas" -o "$output_dir"
+                    if [ $? -eq 0 ]; then
+                        # Verify that the expected .annot files were actually created
+                        created_files=""
+                        if [ -f "$lh_file" ]; then
+                            created_files="lh.${SUBJECT_ID}_${atlas}.annot"
+                        fi
+                        if [ -f "$rh_file" ]; then
+                            if [ -n "$created_files" ]; then
+                                created_files="$created_files, rh.${SUBJECT_ID}_${atlas}.annot"
+                            else
+                                created_files="rh.${SUBJECT_ID}_${atlas}.annot"
+                            fi
+                        fi
+                        
+                        if [ -f "$lh_file" ] && [ -f "$rh_file" ]; then
+                            print_message "$GREEN" "[Atlas] $SUBJECT_ID: Atlas $atlas segmentation complete. Created: $created_files"
+                        else
+                            print_message "$YELLOW" "[Atlas] $SUBJECT_ID: Atlas $atlas segmentation completed but some files missing. Created: $created_files"
+                        fi
+                    else
+                        print_message "$RED" "[Atlas] $SUBJECT_ID: Atlas $atlas segmentation failed."
+                    fi
+                done
+            fi
         else
             print_message "$RED" "[Atlas] $SUBJECT_ID: m2m folder not found, skipping atlas segmentation."
         fi
+    fi
+    
+    # Generate preprocessing report automatically
+    print_message "$CYAN" "[Report] $SUBJECT_ID: Generating preprocessing report..."
+    
+    # Create reports directory
+    reports_dir="$PROJECT_DIR/derivatives/reports"
+    mkdir -p "$reports_dir"
+    
+    # Generate report using Python script (if available)
+    if command -v python3 >/dev/null 2>&1; then
+        # Try to generate report using the report generator
+        python3 -c "
+import sys
+import os
+sys.path.insert(0, '/ti-csc/GUI')
+try:
+    from report_generator import create_preprocessing_report
+    report_path = create_preprocessing_report('$PROJECT_DIR', '$SUBJECT_ID')
+    print(f'Report generated: {os.path.basename(report_path)}')
+except Exception as e:
+    print(f'Error: {e}')
+    sys.exit(1)
+" 2>/dev/null
+        
+        if [ $? -eq 0 ]; then
+            print_message "$GREEN" "[Report] $SUBJECT_ID: Preprocessing report generated successfully."
+            print_message "$CYAN" "[Report] Location: $reports_dir/sub-${SUBJECT_ID}_preprocessing_report.html"
+        else
+            print_message "$YELLOW" "[Report] $SUBJECT_ID: Could not generate preprocessing report (Python report generator not available)."
+        fi
+    else
+        print_message "$YELLOW" "[Report] $SUBJECT_ID: Python not available, skipping report generation."
     fi
     
     print_message "$GREEN" "Completed processing for subject $SUBJECT_ID"
@@ -448,4 +540,15 @@ done
 
 # Final message
 print_header "Processing Complete"
-print_message "$GREEN" "Preprocessing of all selected subjects has been completed." 
+print_message "$GREEN" "Preprocessing of all selected subjects has been completed."
+
+# Summary of generated reports
+reports_dir="$PROJECT_DIR/derivatives/reports"
+if [ -d "$reports_dir" ]; then
+    report_count=$(find "$reports_dir" -name "*_preprocessing_report.html" | wc -l)
+    if [ "$report_count" -gt 0 ]; then
+        print_message "$CYAN" "📊 Generated $report_count preprocessing report(s)"
+        print_message "$CYAN" "📁 Reports location: $reports_dir"
+        print_message "$CYAN" "💡 Open the HTML files in your web browser to view detailed preprocessing reports."
+    fi
+fi 

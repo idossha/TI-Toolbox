@@ -228,8 +228,7 @@ echo "Processing subject: $SUBJECT_ID"
 ###############################################################################
 
 if $CONVERT_DICOM; then
-    # Check DICOM_TYPE environment variable to determine what to process
-    DICOM_TYPE=${DICOM_TYPE:-T1w_T2w}  # Default to both T1w and T2w if not specified
+    echo "Auto-detecting available DICOM data types..."
     
     # Function to handle compressed DICOM files
     handle_compressed_dicom() {
@@ -309,20 +308,16 @@ if $CONVERT_DICOM; then
         fi
     }
     
-    # Create required directories based on DICOM_TYPE
+    # Create required directories for both T1w and T2w
     mkdir -p "${SOURCEDATA_DIR}/T1w/dicom"
-    if [[ "$DICOM_TYPE" == "T1w_T2w" ]]; then
-        mkdir -p "${SOURCEDATA_DIR}/T2w/dicom"
-    fi
+    mkdir -p "${SOURCEDATA_DIR}/T2w/dicom"
     mkdir -p "$BIDS_ANAT_DIR"
     mkdir -p "$FREESURFER_DIR"
     mkdir -p "$SIMNIBS_DIR"
     
     # Handle compressed DICOM files if they exist
     handle_compressed_dicom "${SOURCEDATA_DIR}/T1w" "${SOURCEDATA_DIR}/T1w/dicom" "T1w"
-    if [[ "$DICOM_TYPE" == "T1w_T2w" ]]; then
-        handle_compressed_dicom "${SOURCEDATA_DIR}/T2w" "${SOURCEDATA_DIR}/T2w/dicom" "T2w"
-    fi
+    handle_compressed_dicom "${SOURCEDATA_DIR}/T2w" "${SOURCEDATA_DIR}/T2w/dicom" "T2w"
     
     # Process T1w directory
     T1_DICOM_DIR="${SOURCEDATA_DIR}/T1w/dicom"
@@ -335,11 +330,13 @@ if $CONVERT_DICOM; then
         
         # Process T1w directory if it exists and has files
         if [ -d "$T1_DICOM_DIR" ] && [ "$(ls -A "$T1_DICOM_DIR")" ]; then
+            echo "Found T1w DICOM data, processing..."
             process_dicom_directory "$T1_DICOM_DIR" "$T1_DICOM_DIR"
         fi
         
-        # Process T2w directory only if DICOM_TYPE includes T2w
-        if [[ "$DICOM_TYPE" == "T1w_T2w" ]] && [ -d "$T2_DICOM_DIR" ] && [ "$(ls -A "$T2_DICOM_DIR")" ]; then
+        # Process T2w directory if it exists and has files
+        if [ -d "$T2_DICOM_DIR" ] && [ "$(ls -A "$T2_DICOM_DIR")" ]; then
+            echo "Found T2w DICOM data, processing..."
             process_dicom_directory "$T2_DICOM_DIR" "$T2_DICOM_DIR"
         fi
     fi

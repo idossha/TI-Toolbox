@@ -18,6 +18,7 @@ import time
 from PyQt5 import QtWidgets, QtCore, QtGui
 from confirmation_dialog import ConfirmationDialog
 from utils import confirm_overwrite
+from report_generator import PreprocessingReportGenerator
 
 class PreProcessThread(QtCore.QThread):
     """Thread to run pre-processing in background to prevent GUI freezing."""
@@ -147,6 +148,7 @@ class PreProcessTab(QtWidgets.QWidget):
             
         self.processing_running = False
         self.processing_thread = None
+        self.report_generators = {}  # Store report generators for each subject
         self.setup_ui()
         
     def setup_ui(self):
@@ -263,34 +265,9 @@ class PreProcessTab(QtWidgets.QWidget):
         options_group_layout.setSpacing(10)  # Consistent spacing between options
         
         # DICOM conversion options
-        self.convert_dicom_cb = QtWidgets.QCheckBox("Convert DICOM files to NIfTI")
+        self.convert_dicom_cb = QtWidgets.QCheckBox("Convert DICOM files to NIfTI (auto-detects T1w/T2w)")
         self.convert_dicom_cb.setChecked(True)
         options_group_layout.addWidget(self.convert_dicom_cb)
-        
-        # T1w/T2w selection
-        self.dicom_type_group = QtWidgets.QGroupBox("DICOM Data Type")
-        self.dicom_type_group.setStyleSheet("""
-            QGroupBox {
-                font-weight: normal;
-                border: 1px solid #cccccc;
-                border-radius: 5px;
-                margin-top: 10px;
-                padding-top: 10px;
-            }
-            QGroupBox::title {
-                subcontrol-origin: margin;
-                left: 10px;
-                padding: 0 5px;
-            }
-        """)
-        dicom_type_layout = QtWidgets.QHBoxLayout(self.dicom_type_group)
-        self.t1_only_rb = QtWidgets.QRadioButton("T1w only")
-        self.t1_t2_rb = QtWidgets.QRadioButton("T1w + T2w")
-        self.t1_only_rb.setChecked(True)
-        dicom_type_layout.addWidget(self.t1_only_rb)
-        dicom_type_layout.addWidget(self.t1_t2_rb)
-        dicom_type_layout.addStretch()
-        options_group_layout.addWidget(self.dicom_type_group)
         
         # FreeSurfer options
         self.run_recon_cb = QtWidgets.QCheckBox("Run FreeSurfer recon-all")
@@ -305,6 +282,10 @@ class PreProcessTab(QtWidgets.QWidget):
         self.create_m2m_cb = QtWidgets.QCheckBox("Create SimNIBS m2m folder")
         self.create_m2m_cb.setChecked(True)
         options_group_layout.addWidget(self.create_m2m_cb)
+        
+        self.create_atlas_cb = QtWidgets.QCheckBox("Create atlas segmentation (requires m2m folder)")
+        self.create_atlas_cb.setChecked(True)
+        options_group_layout.addWidget(self.create_atlas_cb)
         
         # Other options
         self.quiet_cb = QtWidgets.QCheckBox("Run in quiet mode")
@@ -418,6 +399,7 @@ class PreProcessTab(QtWidgets.QWidget):
         """)
         
         # Add buttons to console buttons layout in the desired order
+        # Add buttons to console buttons layout in the desired order
         console_buttons_layout.addWidget(self.run_btn)
         console_buttons_layout.addWidget(self.stop_btn)
         console_buttons_layout.addWidget(clear_btn)
@@ -430,9 +412,7 @@ class PreProcessTab(QtWidgets.QWidget):
         
         main_layout.addLayout(console_layout)
         
-        # Enable/disable DICOM type selection based on DICOM conversion checkbox
-        self.convert_dicom_cb.toggled.connect(self.dicom_type_group.setEnabled)
-        self.dicom_type_group.setEnabled(self.convert_dicom_cb.isChecked())
+        # No longer need to manage DICOM type selection as it's auto-detected
         
         # Update available subjects initially
         self.update_available_subjects()
@@ -528,10 +508,10 @@ class PreProcessTab(QtWidgets.QWidget):
         self.select_none_btn.setEnabled(not is_processing)
         self.refresh_subjects_btn.setEnabled(not is_processing)
         self.convert_dicom_cb.setEnabled(not is_processing)
-        self.dicom_type_group.setEnabled(not is_processing and self.convert_dicom_cb.isChecked())
         self.run_recon_cb.setEnabled(not is_processing)
         self.parallel_cb.setEnabled(not is_processing and self.run_recon_cb.isChecked())
         self.create_m2m_cb.setEnabled(not is_processing)
+        self.create_atlas_cb.setEnabled(not is_processing)
         self.quiet_cb.setEnabled(not is_processing)
         
         # Update status label
@@ -573,6 +553,28 @@ class PreProcessTab(QtWidgets.QWidget):
                 "Parallel mode requires recon-all to be enabled."
             )
             return
+        
+        # Check if atlas creation is requested but m2m creation is not enabled
+        if self.create_atlas_cb.isChecked() and not self.create_m2m_cb.isChecked():
+            # Check if m2m folders already exist for selected subjects
+            missing_m2m_subjects = []
+            for subject_id in selected_subjects:
+                bids_subject_id = f"sub-{subject_id}"
+                m2m_dir = os.path.join(self.project_dir, "derivatives", "SimNIBS", bids_subject_id, f"m2m_{subject_id}")
+                if not os.path.exists(m2m_dir):
+                    missing_m2m_subjects.append(subject_id)
+            
+            if missing_m2m_subjects:
+                QtWidgets.QMessageBox.warning(
+                    self, "Missing m2m Folders",
+                    f"Atlas creation requires m2m folders, but the following subjects don't have them:\n"
+                    f"{', '.join(missing_m2m_subjects)}\n\n"
+                    f"Please either:\n"
+                    f"1. Enable 'Create SimNIBS m2m folder' option, or\n"
+                    f"2. Run m2m creation for these subjects first, or\n"
+                    f"3. Disable 'Create atlas segmentation' option"
+                )
+                return
 
         # Check for existing output directories and confirm overwrite
         for subject_id in selected_subjects:
@@ -601,11 +603,11 @@ class PreProcessTab(QtWidgets.QWidget):
 
         # Show confirmation dialog
         details = (f"This will process {len(selected_subjects)} subject(s) with the following options:\n\n" +
-                  f"• Convert DICOM: {'Yes' if self.convert_dicom_cb.isChecked() else 'No'}\n" +
-                  f"• DICOM Type: {'T1w + T2w' if self.t1_t2_rb.isChecked() else 'T1w only'}\n" +
+                  f"• Convert DICOM: {'Yes (auto-detects T1w/T2w)' if self.convert_dicom_cb.isChecked() else 'No'}\n" +
                   f"• Run recon-all: {'Yes' if self.run_recon_cb.isChecked() else 'No'}\n" +
                   f"• Parallel processing: {'Yes' if self.parallel_cb.isChecked() else 'No'}\n" +
                   f"• Create m2m folder: {'Yes' if self.create_m2m_cb.isChecked() else 'No'}\n" +
+                  f"• Create atlas segmentation: {'Yes' if self.create_atlas_cb.isChecked() else 'No'}\n" +
                   f"• Quiet mode: {'Yes' if self.quiet_cb.isChecked() else 'No'}")
         
         if not ConfirmationDialog.confirm(
@@ -616,6 +618,21 @@ class PreProcessTab(QtWidgets.QWidget):
         ):
             return
         
+        # Initialize report generators for selected subjects
+        for subject_id in selected_subjects:
+            self.report_generators[subject_id] = PreprocessingReportGenerator(self.project_dir, subject_id)
+            
+            # Add processing parameters to report
+            parameters = {
+                'convert_dicom': self.convert_dicom_cb.isChecked(),
+                'run_recon_all': self.run_recon_cb.isChecked(),
+                'parallel_processing': self.parallel_cb.isChecked(),
+                'create_m2m': self.create_m2m_cb.isChecked(),
+                'create_atlas': self.create_atlas_cb.isChecked(),
+                'quiet_mode': self.quiet_cb.isChecked()
+            }
+            self.report_generators[subject_id].report_data['parameters'] = parameters
+        
         # Set processing state
         self.set_processing_state(True)
         
@@ -625,7 +642,6 @@ class PreProcessTab(QtWidgets.QWidget):
         env['PROJECT_DIR'] = self.project_dir
         env['SUBJECTS'] = ','.join(selected_subjects)
         env['CONVERT_DICOM'] = str(self.convert_dicom_cb.isChecked()).lower()
-        env['DICOM_TYPE'] = 'T1w_T2w' if self.t1_t2_rb.isChecked() else 'T1w_only'
         env['RUN_RECON'] = str(self.run_recon_cb.isChecked()).lower()
         env['PARALLEL_RECON'] = str(self.parallel_cb.isChecked()).lower()
         env['CREATE_M2M'] = str(self.create_m2m_cb.isChecked()).lower()
@@ -655,10 +671,10 @@ class PreProcessTab(QtWidgets.QWidget):
         self.update_output(f"Running pre-processing with:", 'info')
         self.update_output(f"- Subjects: {env['SUBJECTS']}", 'info')
         self.update_output(f"- Convert DICOM: {env['CONVERT_DICOM']}", 'info')
-        self.update_output(f"- DICOM Type: {env['DICOM_TYPE']}", 'info')
         self.update_output(f"- Run recon-all: {env['RUN_RECON']}", 'info')
         self.update_output(f"- Parallel processing: {env['PARALLEL_RECON']}", 'info')
         self.update_output(f"- Create m2m folder: {env['CREATE_M2M']}", 'info')
+        self.update_output(f"- Create atlas segmentation: {str(self.create_atlas_cb.isChecked()).lower()}", 'info')
         self.update_output(f"- Quiet mode: {env['QUIET']}", 'info')
         
         # Create and start the thread
@@ -672,22 +688,39 @@ class PreProcessTab(QtWidgets.QWidget):
         """Handle the completion of the preprocessing process."""
         self.set_processing_state(False)
         self.update_output("\nPreprocessing completed.", 'success')
-
-        # --- Atlas Segmentation: Automatically run after m2m creation ---
-        if self.create_m2m_cb.isChecked():
-            selected_subjects = [item.text() for item in self.subject_list.selectedItems()]
-            
-            # Check for existing segmentation directories and confirm overwrite
-            for subject_id in selected_subjects:
-                bids_subject_id = f"sub-{subject_id}"
-                m2m_folder = os.path.join(self.project_dir, "derivatives", "SimNIBS", bids_subject_id, f"m2m_{subject_id}")
-                if not os.path.isdir(m2m_folder):
-                    continue
+        
+        # Add completion information to reports
+        selected_subjects = [item.text() for item in self.subject_list.selectedItems()]
+        for subject_id in selected_subjects:
+            if subject_id in self.report_generators:
+                # Add main processing steps based on what was enabled
+                if self.convert_dicom_cb.isChecked():
+                    self.report_generators[subject_id].add_processing_step(
+                        'DICOM Conversion',
+                        'Converted DICOM files to NIfTI format with automatic T1w/T2w detection',
+                        {'tool': 'dcm2niix', 'auto_detect': True},
+                        'completed'
+                    )
                 
-                output_dir = os.path.join(m2m_folder, 'segmentation')
-                if os.path.exists(output_dir):
-                    if not confirm_overwrite(self, output_dir, "segmentation output directory"):
-                        return
+                if self.run_recon_cb.isChecked():
+                    self.report_generators[subject_id].add_processing_step(
+                        'FreeSurfer Reconstruction',
+                        'Performed cortical surface reconstruction and tissue segmentation',
+                        {'tool': 'recon-all', 'parallel': self.parallel_cb.isChecked()},
+                        'completed'
+                    )
+                
+                if self.create_m2m_cb.isChecked():
+                    self.report_generators[subject_id].add_processing_step(
+                        'SimNIBS m2m Creation',
+                        'Created head model for electromagnetic field simulations',
+                        {'tool': 'charm', 'segmentation_method': 'charm'},
+                        'completed'
+                    )
+
+        # --- Atlas Segmentation: Run if requested ---
+        if self.create_atlas_cb.isChecked():
+            selected_subjects = [item.text() for item in self.subject_list.selectedItems()]
             
             self.update_output("\n=== Starting atlas segmentation ===", 'info')
             self.update_output("Running atlas segmentation for all selected subjects and all atlases...", 'info')
@@ -703,17 +736,65 @@ class PreProcessTab(QtWidgets.QWidget):
                 output_dir = os.path.join(m2m_folder, 'segmentation')
                 os.makedirs(output_dir, exist_ok=True)
                 
+                # Check if output_dir is actually a directory and not a file
+                if os.path.exists(output_dir) and not os.path.isdir(output_dir):
+                    self.update_output(f"[Atlas] {subject_id}: Error - segmentation path exists but is not a directory: {output_dir}", 'error')
+                    continue
+                
                 for atlas in ["a2009s", "DK40", "HCP_MMP1"]:
+                    # Check for potential file conflicts before running
+                    expected_files = [
+                        os.path.join(output_dir, f"lh.{subject_id}_{atlas}.annot"),
+                        os.path.join(output_dir, f"rh.{subject_id}_{atlas}.annot")
+                    ]
+                    
+                    # Check if any expected file exists as a directory (conflict)
+                    conflict_found = False
+                    for expected_file in expected_files:
+                        if os.path.exists(expected_file) and os.path.isdir(expected_file):
+                            self.update_output(f"[Atlas] {subject_id}: Error - expected file path is a directory: {expected_file}", 'error')
+                            conflict_found = True
+                    
+                    if conflict_found:
+                        continue
+                    
                     cmd = ["subject_atlas", "-m", m2m_folder, "-a", atlas, "-o", output_dir]
                     self.update_output(f"[Atlas] {subject_id}: Running {' '.join(cmd)}", 'info')
                     try:
                         proc = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
                         if proc.returncode == 0:
-                            self.update_output(f"[Atlas] {subject_id}: Atlas {atlas} segmentation complete.", 'success')
+                            # Verify that the expected .annot files were actually created
+                            created_files = []
+                            for expected_file in expected_files:
+                                if os.path.exists(expected_file) and os.path.isfile(expected_file):
+                                    created_files.append(os.path.basename(expected_file))
+                            
+                            if len(created_files) == 2:
+                                self.update_output(f"[Atlas] {subject_id}: Atlas {atlas} segmentation complete. Created: {', '.join(created_files)}", 'success')
+                            else:
+                                self.update_output(f"[Atlas] {subject_id}: Atlas {atlas} segmentation completed but some files missing. Created: {', '.join(created_files)}", 'warning')
                         else:
                             self.update_output(f"[Atlas] {subject_id}: Atlas {atlas} segmentation failed.\n{proc.stderr}", 'error')
+                            if subject_id in self.report_generators:
+                                self.report_generators[subject_id].add_error(f"Atlas {atlas} segmentation failed: {proc.stderr}", 'Atlas Segmentation')
                     except Exception as e:
                         self.update_output(f"[Atlas] {subject_id}: Error running subject_atlas: {e}", 'error')
+                        if subject_id in self.report_generators:
+                            self.report_generators[subject_id].add_error(f"Error running subject_atlas for {atlas}: {e}", 'Atlas Segmentation')
+            
+            # Add atlas segmentation step to report if it was requested
+            if self.create_atlas_cb.isChecked():
+                for subject_id in selected_subjects:
+                    if subject_id in self.report_generators:
+                                                 self.report_generators[subject_id].add_processing_step(
+                             'Atlas Segmentation',
+                             'Created cortical parcellation using multiple atlases (a2009s, DK40, HCP_MMP1)',
+                             {'atlases': ['a2009s', 'DK40', 'HCP_MMP1'], 'tool': 'subject_atlas'},
+                             'completed'
+                         )
+        
+        # Automatically generate reports for all processed subjects
+        self.auto_generate_reports()
 
     def stop_preprocessing(self):
         """Stop the running preprocessing process."""
@@ -732,6 +813,46 @@ class PreProcessTab(QtWidgets.QWidget):
     def clear_console(self):
         """Clear the output console."""
         self.output_text.clear()
+    
+    def auto_generate_reports(self):
+        """Automatically generate HTML reports for all processed subjects."""
+        if not self.report_generators:
+            return
+        
+        self.update_output("\n=== Generating preprocessing reports ===", 'info')
+        
+        generated_reports = []
+        failed_reports = []
+        
+        for subject_id, generator in self.report_generators.items():
+            try:
+                self.update_output(f"Generating report for {subject_id}...", 'info')
+                report_path = generator.generate_html_report()
+                generated_reports.append((subject_id, report_path))
+                self.update_output(f"✓ Report generated: {os.path.basename(report_path)}", 'success')
+            except Exception as e:
+                failed_reports.append((subject_id, str(e)))
+                self.update_output(f"✗ Failed to generate report for {subject_id}: {e}", 'error')
+        
+        # Summary of report generation
+        if generated_reports:
+            reports_dir = os.path.join(self.project_dir, "derivatives", "reports")
+            self.update_output(f"\n📊 Successfully generated {len(generated_reports)} preprocessing report(s)", 'success')
+            self.update_output(f"📁 Reports location: {reports_dir}", 'info')
+            
+            for subject_id, report_path in generated_reports:
+                self.update_output(f"   • {os.path.basename(report_path)}", 'info')
+            
+            self.update_output(f"\n💡 Open the HTML files in your web browser to view detailed preprocessing reports.", 'info')
+        
+        if failed_reports:
+            self.update_output(f"\n❌ Failed to generate {len(failed_reports)} report(s):", 'error')
+            for subject_id, error in failed_reports:
+                self.update_output(f"  • {subject_id}: {error}", 'error')
+        
+        self.update_output("=== Report generation completed ===", 'info')
+    
+
     
     def update_output(self, text, message_type='default'):
         """Update the console output with colored text."""
