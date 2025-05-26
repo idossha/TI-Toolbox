@@ -630,22 +630,180 @@ class TICSCLoaderApp(QWidget):
         system = platform.system()
         
         if system == "Darwin":  # macOS
+            # For Docker Desktop on macOS, we need the host IP
             try:
+                # Get the host IP that Docker can reach
                 result = subprocess.run(
-                    'ifconfig en0 | grep inet | awk \'$1=="inet" {print $2}\'',
-                    shell=True, capture_output=True, text=True
+                    ['ifconfig', 'en0'],
+                    capture_output=True, text=True, timeout=5
                 )
-                host_ip = result.stdout.strip()
-                if host_ip:
-                    return f"{host_ip}:0"
-            except Exception:
+                if result.returncode == 0:
+                    import re
+                    match = re.search(r'inet (\d+\.\d+\.\d+\.\d+)', result.stdout)
+                    if match:
+                        host_ip = match.group(1)
+                        self.log_message(f"Using host IP for DISPLAY: {host_ip}:0", "INFO")
+                        return f"{host_ip}:0"
+            except:
                 pass
-            return "127.0.0.1:0"
+            
+            # Fallback to localhost
+            self.log_message("Using localhost:0 for DISPLAY", "INFO")
+            return "localhost:0"
             
         elif system == "Linux":
             return os.environ.get("DISPLAY", ":0")
         else:  # Windows
             return "host.docker.internal:0.0"
+
+    def setup_xquartz_macos(self):
+        """Set up XQuartz for macOS GUI applications"""
+        try:
+            # Check if XQuartz is installed
+            xquartz_app = "/Applications/Utilities/XQuartz.app"
+            if not os.path.exists(xquartz_app):
+                self.log_message("XQuartz not found. Please install XQuartz to use GUI applications.", "WARNING")
+                return False
+            
+            # Check XQuartz version
+            try:
+                result = subprocess.run(['mdls', '-name', 'kMDItemVersion', xquartz_app], 
+                                      capture_output=True, text=True, timeout=5)
+                if result.returncode == 0:
+                    version_line = result.stdout.strip()
+                    # Extract version from output like: kMDItemVersion = "2.7.11"
+                    if '"' in version_line:
+                        version = version_line.split('"')[1]
+                        self.log_message(f"XQuartz version detected: {version}", "INFO")
+                        
+                        # Warn about versions > 2.8.0
+                        try:
+                            version_parts = version.split('.')
+                            if len(version_parts) >= 2:
+                                major, minor = int(version_parts[0]), int(version_parts[1])
+                                if major > 2 or (major == 2 and minor > 8):
+                                    self.log_message("Warning: XQuartz version > 2.8.0 may have compatibility issues", "WARNING")
+                        except:
+                            pass
+            except:
+                self.log_message("Could not check XQuartz version", "WARNING")
+            
+            # Enable network clients in XQuartz
+            self.log_message("Configuring XQuartz for network clients...", "INFO")
+            try:
+                subprocess.run(['defaults', 'write', 'org.macosforge.xquartz.X11', 'nolisten_tcp', '-bool', 'false'], 
+                             timeout=5)
+            except:
+                self.log_message("Could not configure XQuartz network settings", "WARNING")
+            
+            # Check if XQuartz is running
+            try:
+                result = subprocess.run(['pgrep', '-f', 'XQuartz'], capture_output=True, timeout=5)
+                xquartz_running = result.returncode == 0
+            except:
+                xquartz_running = False
+            
+            if not xquartz_running:
+                self.log_message("Starting XQuartz...", "INFO")
+                try:
+                    subprocess.Popen(['open', '-a', 'XQuartz'])
+                    # Give XQuartz time to start
+                    import time
+                    time.sleep(5)  # Increased wait time
+                except:
+                    self.log_message("Could not start XQuartz", "ERROR")
+                    return False
+                
+                # Wait a bit more for XQuartz to fully initialize
+                self.log_message("Waiting for XQuartz to initialize...", "INFO")
+                time.sleep(3)
+            
+            # Set up X11 permissions with proper error handling
+            self.log_message("Setting up X11 permissions...", "INFO")
+            
+            # Set DISPLAY environment variable first
+            os.environ['DISPLAY'] = ':0'
+            
+            try:
+                # Allow connections from localhost
+                result = subprocess.run(['xhost', '+localhost'], 
+                                      capture_output=True, text=True, timeout=10,
+                                      env=dict(os.environ, DISPLAY=':0'))
+                if result.returncode != 0:
+                    self.log_message(f"xhost +localhost failed: {result.stderr}", "WARNING")
+                
+                # Allow connections from hostname
+                try:
+                    hostname_result = subprocess.run(['hostname'], capture_output=True, text=True, timeout=5)
+                    if hostname_result.returncode == 0:
+                        hostname = hostname_result.stdout.strip()
+                        result = subprocess.run(['xhost', f'+{hostname}'], 
+                                              capture_output=True, text=True, timeout=10,
+                                              env=dict(os.environ, DISPLAY=':0'))
+                        if result.returncode != 0:
+                            self.log_message(f"xhost +{hostname} failed: {result.stderr}", "WARNING")
+                except Exception as e:
+                    self.log_message(f"Could not set hostname xhost permission: {e}", "WARNING")
+                
+                # Also allow Docker's internal IP access
+                try:
+                    # Add common Docker internal IPs
+                    docker_ips = ['172.17.0.1', '192.168.65.2', '172.16.0.1']
+                    for ip in docker_ips:
+                        subprocess.run(['xhost', f'+{ip}'], 
+                                     capture_output=True, text=True, timeout=5,
+                                     env=dict(os.environ, DISPLAY=':0'))
+                except:
+                    pass  # These are optional
+                
+            except Exception as e:
+                self.log_message(f"Warning: Could not set X11 permissions: {e}", "WARNING")
+            
+            # Verify X11 is accessible
+            try:
+                result = subprocess.run(['xset', 'q'], 
+                                      capture_output=True, text=True, timeout=5,
+                                      env=dict(os.environ, DISPLAY=':0'))
+                if result.returncode == 0:
+                    self.log_message("X11 server is accessible", "SUCCESS")
+                else:
+                    self.log_message("X11 server test failed", "WARNING")
+            except:
+                self.log_message("Could not test X11 server access", "WARNING")
+            
+            self.log_message("XQuartz setup completed", "SUCCESS")
+            return True
+            
+        except Exception as e:
+            self.log_message(f"XQuartz setup failed: {e}", "ERROR")
+            return False
+
+    def test_x11_connection(self, display_env):
+        """Test X11 connection from Docker container"""
+        try:
+            docker_executable = self._find_docker_executable()
+            
+            # Test if we can connect to X11 from container
+            test_cmd = [
+                docker_executable, 'exec', '-e', f'DISPLAY={display_env}',
+                'simnibs_container', 'xset', 'q'
+            ]
+            
+            result = subprocess.run(test_cmd, capture_output=True, text=True, timeout=10)
+            
+            if result.returncode == 0:
+                self.log_message("✓ X11 connection test successful", "SUCCESS")
+                return True
+            else:
+                self.log_message(f"✗ X11 connection test failed: {result.stderr}", "ERROR")
+                return False
+                
+        except subprocess.TimeoutExpired:
+            self.log_message("✗ X11 connection test timed out", "ERROR")
+            return False
+        except Exception as e:
+            self.log_message(f"✗ X11 connection test error: {e}", "ERROR")
+            return False
 
     def run_docker_command(self, cmd, description, show_progress=True):
         """Run a Docker command and log output"""
@@ -810,15 +968,45 @@ class TICSCLoaderApp(QWidget):
             display_env = self.setup_display_env()
             
             if system == "Darwin":  # macOS
-                # Use osascript to open Terminal with the docker exec command
                 docker_cmd = f'docker exec -it --workdir /ti-csc simnibs_container bash'
-                terminal_script = f'''
-                tell application "Terminal"
-                    activate
-                    do script "cd '{self.script_dir}' && {docker_cmd}"
-                end tell
-                '''
-                subprocess.Popen(['osascript', '-e', terminal_script])
+                
+                # Use the most reliable approach: open Terminal with a specific command file
+                # This avoids the double window issue entirely
+                try:
+                    # Create a temporary script file
+                    import tempfile
+                    with tempfile.NamedTemporaryFile(mode='w', suffix='.command', delete=False) as f:
+                        f.write(f'#!/bin/bash\ncd "{self.script_dir}"\n{docker_cmd}\n')
+                        script_path = f.name
+                    
+                    # Make it executable
+                    os.chmod(script_path, 0o755)
+                    
+                    # Open it with Terminal - this creates exactly one window
+                    subprocess.Popen(['open', '-a', 'Terminal', script_path])
+                    
+                    # Clean up the temp file after a delay
+                    import threading
+                    def cleanup():
+                        import time
+                        time.sleep(5)  # Give Terminal time to read the file
+                        try:
+                            os.unlink(script_path)
+                        except:
+                            pass
+                    
+                    threading.Thread(target=cleanup, daemon=True).start()
+                    
+                except Exception as e:
+                    # Fallback to the simple AppleScript method
+                    self.log_message(f"Temp file method failed, using fallback: {e}", "WARNING")
+                    terminal_script = f'''
+                    tell application "Terminal"
+                        do script "cd '{self.script_dir}' && {docker_cmd}"
+                        activate
+                    end tell
+                    '''
+                    subprocess.Popen(['osascript', '-e', terminal_script])
                 
             elif system == "Linux":
                 # Try different terminal emulators
@@ -860,6 +1048,23 @@ class TICSCLoaderApp(QWidget):
             return
         
         try:
+            system = platform.system()
+            
+            # Set up XQuartz on macOS first
+            if system == "Darwin":
+                self.log_message("Setting up XQuartz for GUI launch...", "INFO")
+                if not self.setup_xquartz_macos():
+                    self.message_box.show_message(
+                        "XQuartz Setup Failed", 
+                        "Could not properly set up XQuartz. GUI may not work correctly.\n\n" +
+                        "Please ensure:\n" +
+                        "1. XQuartz is installed\n" +
+                        "2. XQuartz version is 2.8.0 or lower (preferably 2.7.7)\n" +
+                        "3. You have proper permissions",
+                        "warning", "⚠️"
+                    )
+                    # Continue anyway, but warn the user
+            
             display_env = self.setup_display_env()
             
             # Set up environment
@@ -868,16 +1073,95 @@ class TICSCLoaderApp(QWidget):
             env["LOCAL_PROJECT_DIR"] = self.project_dir
             env["PROJECT_DIR_NAME"] = os.path.basename(self.project_dir)
             
+            # Additional X11 environment variables for better compatibility
+            if system == "Darwin":
+                env["LIBGL_ALWAYS_SOFTWARE"] = "1"
+                env["XDG_RUNTIME_DIR"] = "/tmp"
+                
+                # Start socat to bridge X11 connection if needed
+                if "localhost" in display_env or any(char.isdigit() for char in display_env.split(':')[0]):
+                    self.log_message("Setting up X11 forwarding bridge...", "INFO")
+                    try:
+                        # Check if socat is available in the container
+                        docker_executable = self._find_docker_executable()
+                        check_socat = subprocess.run([
+                            docker_executable, 'exec', 'simnibs_container', 
+                            'which', 'socat'
+                        ], capture_output=True, timeout=5)
+                        
+                        if check_socat.returncode == 0:
+                            # Kill any existing socat processes
+                            subprocess.run([
+                                docker_executable, 'exec', 'simnibs_container',
+                                'pkill', '-f', 'socat.*X11'
+                            ], capture_output=True)
+                            
+                            # Start socat bridge
+                            host_ip = display_env.split(':')[0]
+                            if host_ip in ['localhost', '127.0.0.1']:
+                                # For localhost, use the host gateway
+                                socat_cmd = [
+                                    docker_executable, 'exec', '-d', 'simnibs_container',
+                                    'socat', 'TCP-LISTEN:6000,reuseaddr,fork',
+                                    'TCP:host.docker.internal:6000'
+                                ]
+                            else:
+                                # For specific IP
+                                socat_cmd = [
+                                    docker_executable, 'exec', '-d', 'simnibs_container',
+                                    'socat', 'TCP-LISTEN:6000,reuseaddr,fork',
+                                    f'TCP:{host_ip}:6000'
+                                ]
+                            
+                            subprocess.run(socat_cmd, timeout=5)
+                            
+                            # Update display to use local X11 server in container
+                            display_env = ":0"
+                            env["DISPLAY"] = display_env
+                            
+                            self.log_message("X11 bridge established", "SUCCESS")
+                        else:
+                            self.log_message("socat not available in container, using direct connection", "WARNING")
+                    except Exception as e:
+                        self.log_message(f"Could not set up X11 bridge: {e}", "WARNING")
+            
+            # Test X11 connection before launching GUI
+            self.log_message("Testing X11 connection...", "INFO")
+            if not self.test_x11_connection(display_env):
+                self.log_message("X11 connection test failed, GUI may not work properly", "WARNING")
+                if system == "Darwin":
+                    self.message_box.show_message(
+                        "X11 Connection Failed",
+                        "Cannot connect to X11 server. Please:\n\n" +
+                        "1. Ensure XQuartz is running\n" +
+                        "2. Try restarting XQuartz\n" +
+                        "3. Check that X11 forwarding is enabled\n" +
+                        "4. Verify your network connection\n\n" +
+                        "Continuing anyway, but GUI may not appear.",
+                        "warning", "⚠️"
+                    )
+            
+            self.log_message(f"Launching GUI with DISPLAY={display_env}...", "INFO")
+            
             # Launch GUI using the same command as the old script
             cmd = ['docker', 'exec', '-e', f'DISPLAY={display_env}', 
+                   '-e', 'LIBGL_ALWAYS_SOFTWARE=1',
+                   '-e', 'QT_X11_NO_MITSHM=1',  # Additional Qt fix for X11
                    'simnibs_container', '/ti-csc/CLI/GUI.sh']
             
             docker_executable = self._find_docker_executable()
             if docker_executable:
                 cmd[0] = docker_executable
             
-            subprocess.Popen(cmd, cwd=self.script_dir, env=env)
-            self.log_message("✓ GUI launched successfully", "SUCCESS")
+            # Launch in background to avoid blocking
+            process = subprocess.Popen(cmd, cwd=self.script_dir, env=env,
+                                     stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            self.log_message("✓ GUI launch command executed", "SUCCESS")
+            
+            # Show helpful message for macOS users
+            if system == "Darwin":
+                self.log_message("Note: GUI should appear in a few seconds. If not, check XQuartz is running.", "INFO")
+                self.log_message("Troubleshooting: Try restarting XQuartz if GUI doesn't appear", "INFO")
             
         except Exception as e:
             self.log_message(f"Failed to launch GUI: {e}", "ERROR")

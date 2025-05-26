@@ -296,6 +296,38 @@ class SystemRequirementsDialog(StyledDialog):
         docker_card = self.create_info_card("🐋 Docker Setup Instructions", docker_setup_content)
         layout.addWidget(docker_card)
 
+        # XQuartz Setup Card (macOS specific)
+        xquartz_content = """
+        <div style='font-size: 13px; line-height: 1.4; background: transparent;'>
+        <div style='margin-bottom: 8px; background: transparent;'>
+            <b style='color: #333333; background: transparent;'>XQuartz Requirements (macOS):</b><br style='background: transparent;'>
+            <span style='color: #333333; background: transparent;'>XQuartz 2.7.7 - 2.8.0</span><span style='background: transparent;'> (newer versions may have issues)</span><br style='background: transparent;'>
+            <span style='color: #666666; background: transparent;'>Download from: xquartz.macosforge.org</span>
+        </div>
+        <div style='margin-bottom: 8px; background: transparent;'>
+            <b style='color: #333333; background: transparent;'>Installation Steps:</b><br style='background: transparent;'>
+            <span style='color: #666666; background: transparent;'>1. Download and install XQuartz</span><br style='background: transparent;'>
+            <span style='color: #666666; background: transparent;'>2. Log out and log back in (required!)</span><br style='background: transparent;'>
+            <span style='color: #666666; background: transparent;'>3. Launch XQuartz from Applications > Utilities</span><br style='background: transparent;'>
+            <span style='color: #666666; background: transparent;'>4. Check X11 forwarding is enabled in Terminal</span>
+        </div>
+        <div style='margin-bottom: 8px; background: transparent;'>
+            <b style='color: #333333; background: transparent;'>Automatic Configuration:</b><br style='background: transparent;'>
+            <span style='color: #666666; background: transparent;'>• TI-CSC launcher automatically configures XQuartz</span><br style='background: transparent;'>
+            <span style='color: #666666; background: transparent;'>• Enables network client connections</span><br style='background: transparent;'>
+            <span style='color: #666666; background: transparent;'>• Sets up proper X11 permissions</span>
+        </div>
+        <div style='background: transparent;'>
+            <b style='color: #333333; background: transparent;'>Troubleshooting:</b><br style='background: transparent;'>
+            <span style='color: #333333; background: transparent;'>GUI not appearing?</span><span style='background: transparent;'> Check XQuartz is running</span><br style='background: transparent;'>
+            <span style='color: #333333; background: transparent;'>Permission denied?</span><span style='background: transparent;'> Restart XQuartz and try again</span><br style='background: transparent;'>
+            <span style='color: #333333; background: transparent;'>Version issues?</span><span style='background: transparent;'> Downgrade to XQuartz 2.7.7</span>
+        </div>
+        </div>
+        """
+        xquartz_card = self.create_info_card("🖼️ XQuartz Setup (macOS GUI)", xquartz_content, "#f0f8ff")
+        layout.addWidget(xquartz_card)
+
         # Performance & Memory Card
         performance_content = """
         <div style='font-size: 13px; line-height: 1.4; background: transparent;'>
