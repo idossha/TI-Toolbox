@@ -115,6 +115,9 @@ class AnalysisThread(QtCore.QThread):
 class AnalyzerTab(QtWidgets.QWidget):
     """Tab for analyzer functionality."""
     
+    # Add signal for analysis completion
+    analysis_completed = QtCore.pyqtSignal(str, str, str)  # subject_id, simulation_name, analysis_type
+    
     def __init__(self, parent=None):
         super(AnalyzerTab, self).__init__(parent)
         self.parent = parent
@@ -1060,6 +1063,14 @@ class AnalyzerTab(QtWidgets.QWidget):
 
         self.output_console.append('<div style="margin: 10px 0;"><span style="color: #55ff55; font-size: 16px; font-weight: bold;">✅ Analysis process completed ✅</span></div>')
         self.output_console.append('<div style="border-bottom: 1px solid #555; margin-bottom: 10px;"></div>')
+        
+        # Get current analysis information
+        subject_id = self.subject_list.selectedItems()[0].text()
+        simulation_name = self.simulation_combo.currentText()
+        analysis_type = 'Mesh' if self.space_mesh.isChecked() else 'Voxel'
+        
+        # Emit signal to notify other tabs
+        self.analysis_completed.emit(subject_id, simulation_name, analysis_type)
         
         self.analysis_running = False
         self.run_btn.setEnabled(True)

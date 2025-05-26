@@ -74,6 +74,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self.contact_tab = ContactTab(self)
         self.acknowledgments_tab = AcknowledgmentsTab(self)
 
+        # Connect analyzer tab signals
+        self.analyzer_tab.analysis_completed.connect(self.on_analysis_completed)
+
         # Clear the tab widget in case we're reordering tabs
         self.tab_widget.clear()
         
@@ -178,6 +181,22 @@ class MainWindow(QtWidgets.QMainWindow):
         super().resizeEvent(event)
         # Optionally, keep window centered after resize (uncomment if desired):
         # self.center_on_screen()
+
+    def on_analysis_completed(self, subject_id, simulation_name, analysis_type):
+        """Handle analysis completion by updating relevant tabs."""
+        # Update NIFTI viewer's analysis regions if it's a voxel analysis
+        if analysis_type == 'Voxel':
+            # Update the NIFTI viewer's subject and simulation selection
+            self.nifti_viewer_tab.subject_combo.setCurrentText(subject_id)
+            self.nifti_viewer_tab.sim_combo.setCurrentText(simulation_name)
+            # Update available analyses for the current subject and simulation
+            self.nifti_viewer_tab.update_available_analyses()
+            
+        # Update mesh files list if it's a mesh analysis
+        if analysis_type == 'Mesh':
+            # Update the mesh files list in the analyzer tab
+            self.analyzer_tab.update_mesh_files()
+            self.analyzer_tab.update_field_files()
 
 def parse_version(version_str):
     """Parse a version string into a tuple of integers for comparison. Non-integer parts are ignored."""
