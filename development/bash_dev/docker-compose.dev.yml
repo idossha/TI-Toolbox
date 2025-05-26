@@ -31,7 +31,7 @@ services:
 
   simnibs:
     platform: linux/amd64
-    image: idossha/simnibs:22nd
+    image: idossha/simnibs:23rd
     container_name: simnibs_container
     volumes:
       - ti_csc_fsl_data:/usr/local/fsl/
@@ -41,23 +41,23 @@ services:
       - ${LOCAL_PROJECT_DIR}:/mnt/${PROJECT_DIR_NAME}
       - ${DEV_CODEBASE_DIR}:/development
     environment:
-      - USER=root
-      - DISPLAY
-      - LIBGL_ALWAYS_SOFTWARE=1
-      - FSLDIR=/usr/local/fsl
-      - FSLOUTPUTTYPE=NIFTI_GZ
-      - FSLMULTIFILEQUIT=TRUE
-      - POSSUMDIR=/usr/local/fsl
-      - FREESURFER_HOME=/usr/local/freesurfer
-      - SUBJECTS_DIR=/usr/local/freesurfer/subjects
-      - FS_LICENSE=/usr/local/freesurfer/license.txt
-      - LOCAL_PROJECT_DIR=${LOCAL_PROJECT_DIR}
-      - PROJECT_DIR_NAME=${PROJECT_DIR_NAME}
-      - DEV_CODEBASE_DIR=${DEV_CODEBASE_DIR}
-      - DEV_CODEBASE_NAME=${DEV_CODEBASE_NAME}
-      - KMP_AFFINITY=disabled
-      - LD_LIBRARY_PATH=/usr/local/MATLAB/MATLAB_Runtime/v124/runtime/glnxa64:/usr/local/MATLAB/MATLAB_Runtime/v124/bin/glnxa64:/usr/local/MATLAB/MATLAB_Runtime/v124/sys/os/glnxa64:${LD_LIBRARY_PATH}
-      - XAPPLRESDIR=/usr/local/MATLAB/MATLAB_Runtime/v124/X11/app-defaults
+      USER: root
+      DISPLAY: ${DISPLAY}
+      LIBGL_ALWAYS_SOFTWARE: "1"
+      FSLDIR: /usr/local/fsl
+      FSLOUTPUTTYPE: NIFTI_GZ
+      FSLMULTIFILEQUIT: "TRUE"
+      POSSUMDIR: /usr/local/fsl
+      FREESURFER_HOME: /usr/local/freesurfer
+      SUBJECTS_DIR: /usr/local/freesurfer/subjects
+      FS_LICENSE: /usr/local/freesurfer/license.txt
+      LOCAL_PROJECT_DIR: ${LOCAL_PROJECT_DIR}
+      PROJECT_DIR_NAME: ${PROJECT_DIR_NAME}
+      DEV_CODEBASE_DIR: ${DEV_CODEBASE_DIR}
+      DEV_CODEBASE_NAME: ${DEV_CODEBASE_NAME}
+      KMP_AFFINITY: "disabled"
+      LD_LIBRARY_PATH: /usr/local/MATLAB/MATLAB_Runtime/v124/runtime/glnxa64:/usr/local/MATLAB/MATLAB_Runtime/v124/bin/glnxa64:/usr/local/MATLAB/MATLAB_Runtime/v124/sys/os/glnxa64
+      XAPPLRESDIR: /usr/local/MATLAB/MATLAB_Runtime/v124/X11/app-defaults
     networks:
       - ti_network
     depends_on:
@@ -77,7 +77,10 @@ networks:
 volumes:
   ti_csc_fsl_data:
     external: true
+    name: ti_csc_fsl_data
   ti_csc_freesurfer_data:
     external: true
+    name: ti_csc_freesurfer_data
   matlab_runtime:
     external: true
+    name: matlab_runtime

@@ -206,9 +206,9 @@ run_docker_compose() {
   sleep 3
 
   # Check if simnibs service is up
-  if ! docker compose ps | grep -q "simnibs"; then
+  if ! docker compose -f "$SCRIPT_DIR/docker-compose.dev.yml" ps | grep -q "simnibs"; then
     echo "Error: simnibs service is not running. Please check your docker-compose.dev.yml and container logs."
-    docker compose logs
+    docker compose -f "$SCRIPT_DIR/docker-compose.dev.yml" logs
     exit 1
   fi
 
