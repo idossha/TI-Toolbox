@@ -207,7 +207,7 @@ class Visualizer(BaseVisualizer):
         # instead of creating them all at initialization
     
     def generate_cortex_scatter_plot(self, results, atlas_type, data_type='voxel'):
-        """Generate a scatter plot of median values for all cortical regions."""
+        """Generate a sorted scatter plot of median values for all cortical regions."""
         # Filter out regions with None values
         valid_results = {name: res for name, res in results.items() if res['mean_value'] is not None}
         
@@ -224,47 +224,6 @@ class Visualizer(BaseVisualizer):
         counts = [res[f'{data_type}s_in_roi'] for res in valid_results.values()]
         
         # Create figure with larger size
-        fig, ax = plt.subplots(figsize=(15, 10))
-        
-        # Create scatter plot with enhanced styling
-        scatter = ax.scatter(regions, mean_values, 
-                           c=counts,
-                           cmap='viridis',
-                           s=100,
-                           alpha=0.6,
-                           edgecolors='black',
-                           linewidths=1)
-        
-        # Add colorbar with enhanced styling
-        cbar = plt.colorbar(scatter, ax=ax)
-        cbar.set_label(f'Number of {data_type.capitalize()}s', fontsize=12, fontweight='bold')
-        
-        # Customize plot
-        ax.set_title(f'Cortical Region Analysis - {atlas_type}', 
-                    pad=20, 
-                    fontsize=14, 
-                    fontweight='bold')
-        ax.set_xlabel('Region Name', fontsize=12, fontweight='bold')
-        ax.set_ylabel('Mean Field Value', fontsize=12, fontweight='bold')
-        
-        # Rotate x-axis labels for better readability
-        plt.xticks(rotation=45, ha='right', fontsize=10)
-        plt.yticks(fontsize=10)
-        
-        # Add grid
-        ax.grid(True, linestyle='--', alpha=0.3)
-        
-        # Adjust layout to prevent label cutoff
-        plt.tight_layout()
-        
-        # Save plot directly in the output directory (not in a subdirectory)
-        output_file = os.path.join(self.output_dir, f'cortex_analysis_{atlas_type}.png')
-        plt.savefig(output_file, dpi=300, bbox_inches='tight')
-        plt.close()
-        
-        print(f"Generated scatter plot: {output_file}")
-        
-        # Generate additional plot with sorted values
         fig, ax = plt.subplots(figsize=(15, 10))
         
         # Sort regions by mean value
@@ -287,7 +246,7 @@ class Visualizer(BaseVisualizer):
         cbar.set_label(f'Number of {data_type.capitalize()}s', fontsize=12, fontweight='bold')
         
         # Customize plot
-        ax.set_title(f'Sorted Cortical Region Analysis - {atlas_type}', 
+        ax.set_title(f'Cortical Region Analysis - {atlas_type}', 
                     pad=20, 
                     fontsize=14, 
                     fontweight='bold')
@@ -308,12 +267,12 @@ class Visualizer(BaseVisualizer):
         # Adjust layout to prevent label cutoff
         plt.tight_layout()
         
-        # Save sorted plot directly in the output directory (not in a subdirectory)
-        sorted_output_file = os.path.join(self.output_dir, f'cortex_analysis_sorted_{atlas_type}.png')
-        plt.savefig(sorted_output_file, dpi=300, bbox_inches='tight')
+        # Save plot directly in the output directory (not in a subdirectory)
+        output_file = os.path.join(self.output_dir, f'cortex_analysis_{atlas_type}.png')
+        plt.savefig(output_file, dpi=300, bbox_inches='tight')
         plt.close()
         
-        print(f"Generated sorted scatter plot: {sorted_output_file}")
+        print(f"Generated sorted scatter plot: {output_file}")
 
     def generate_value_distribution_plot(self, field_values, region_name, atlas_type, mean_value, max_value, min_value, data_type='voxel'):
         """Generate a raincloud plot showing the distribution of individual values within a region."""

@@ -343,7 +343,7 @@ class VoxelAnalyzer:
         return output_filename
                 
     def _generate_whole_head_plots(self, results, atlas_type, data_type='voxel'):
-        """Generate scatter plots for whole head analysis directly in the main output directory."""
+        """Generate a sorted scatter plot for whole head analysis directly in the main output directory."""
         # Filter out regions with None values
         valid_results = {name: res for name, res in results.items() if res['mean_value'] is not None}
         
@@ -371,58 +371,6 @@ class VoxelAnalyzer:
             os.makedirs(self.output_dir, exist_ok=True)
             
             # Create figure with larger size for all regions
-            plt.figure(figsize=(15, 10))
-            fig, ax = plt.subplots(figsize=(15, 10))
-            
-            # Create scatter plot with enhanced styling
-            if use_counts_for_color:
-                scatter = ax.scatter(regions, mean_values, 
-                                c=counts,
-                                cmap='viridis',
-                                s=100,
-                                alpha=0.6,
-                                edgecolors='black',
-                                linewidths=1)
-                
-                # Add colorbar with enhanced styling
-                cbar = plt.colorbar(scatter, ax=ax)
-                cbar.set_label(f'Number of {data_type.capitalize()}s', fontsize=12, fontweight='bold')
-            else:
-                # Use a single color if we don't have count data
-                scatter = ax.scatter(regions, mean_values, 
-                                c='royalblue',
-                                s=100,
-                                alpha=0.6,
-                                edgecolors='black',
-                                linewidths=1)
-            
-            # Customize plot
-            ax.set_title(f'Cortical Region Analysis - {atlas_type}', 
-                    pad=20, 
-                    fontsize=14, 
-                    fontweight='bold')
-            ax.set_xlabel('Region Name', fontsize=12, fontweight='bold')
-            ax.set_ylabel('Mean Field Value', fontsize=12, fontweight='bold')
-            
-            # Rotate x-axis labels for better readability
-            plt.xticks(rotation=45, ha='right', fontsize=10)
-            plt.yticks(fontsize=10)
-            
-            # Add grid
-            ax.grid(True, linestyle='--', alpha=0.3)
-            
-            # Adjust layout to prevent label cutoff
-            plt.tight_layout()
-            
-            # Save plot directly in the main output directory
-            output_file = os.path.join(self.output_dir, f'cortex_analysis_{atlas_type}.png')
-            plt.savefig(output_file, dpi=300, bbox_inches='tight')
-            plt.close()
-            
-            print(f"Generated scatter plot: {output_file}")
-            
-            # Generate additional plot with sorted values
-            plt.figure(figsize=(15, 10))  # Create a new figure
             fig, ax = plt.subplots(figsize=(15, 10))
             
             # Sort regions by mean value
@@ -430,7 +378,7 @@ class VoxelAnalyzer:
             sorted_regions = [regions[i] for i in sorted_indices]
             sorted_values = [mean_values[i] for i in sorted_indices]
             
-            # Use the same coloring approach as the first plot
+            # Use the coloring approach based on availability of count data
             if use_counts_for_color:
                 sorted_counts = [counts[i] for i in sorted_indices]
                 scatter = ax.scatter(range(len(sorted_regions)), sorted_values,
@@ -453,7 +401,7 @@ class VoxelAnalyzer:
                                 linewidths=1)
             
             # Customize plot
-            ax.set_title(f'Sorted Cortical Region Analysis - {atlas_type}', 
+            ax.set_title(f'Cortical Region Analysis - {atlas_type}', 
                     pad=20, 
                     fontsize=14, 
                     fontweight='bold')
@@ -474,12 +422,12 @@ class VoxelAnalyzer:
             # Adjust layout to prevent label cutoff
             plt.tight_layout()
             
-            # Save sorted plot directly in the main output directory
-            sorted_output_file = os.path.join(self.output_dir, f'cortex_analysis_sorted_{atlas_type}.png')
-            plt.savefig(sorted_output_file, dpi=300, bbox_inches='tight')
+            # Save plot directly in the main output directory
+            output_file = os.path.join(self.output_dir, f'cortex_analysis_{atlas_type}.png')
+            plt.savefig(output_file, dpi=300, bbox_inches='tight')
             plt.close()
             
-            print(f"Generated sorted scatter plot: {sorted_output_file}")
+            print(f"Generated sorted scatter plot: {output_file}")
         except Exception as e:
             # If there's any error during plotting, log it but don't stop the overall analysis
             import traceback

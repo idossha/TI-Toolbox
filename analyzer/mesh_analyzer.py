@@ -369,7 +369,7 @@ class MeshAnalyzer:
         return output_filename
     
     def _generate_whole_head_plots(self, results, atlas_type, data_type='node'):
-        """Generate scatter plots for whole head analysis directly in the main output directory."""
+        """Generate a sorted scatter plot for whole head analysis directly in the main output directory."""
         # Filter out regions with None values
         valid_results = {name: res for name, res in results.items() if res['mean_value'] is not None}
         
@@ -382,42 +382,6 @@ class MeshAnalyzer:
         mean_values = [res['mean_value'] for res in valid_results.values()]
         
         # Create figure with larger size for all regions
-        fig, ax = plt.subplots(figsize=(15, 10))
-        
-        # Create scatter plot with enhanced styling (without color coding by count)
-        scatter = ax.scatter(regions, mean_values, 
-                          c='royalblue',
-                          s=100,
-                          alpha=0.6,
-                          edgecolors='black',
-                          linewidths=1)
-        
-        # Customize plot
-        ax.set_title(f'Cortical Region Analysis - {atlas_type}', 
-                   pad=20, 
-                   fontsize=14, 
-                   fontweight='bold')
-        ax.set_xlabel('Region Name', fontsize=12, fontweight='bold')
-        ax.set_ylabel('Mean Field Value', fontsize=12, fontweight='bold')
-        
-        # Rotate x-axis labels for better readability
-        plt.xticks(rotation=45, ha='right', fontsize=10)
-        plt.yticks(fontsize=10)
-        
-        # Add grid
-        ax.grid(True, linestyle='--', alpha=0.3)
-        
-        # Adjust layout to prevent label cutoff
-        plt.tight_layout()
-        
-        # Save plot directly in the main output directory
-        output_file = os.path.join(self.output_dir, f'cortex_analysis_{atlas_type}.png')
-        plt.savefig(output_file, dpi=300, bbox_inches='tight')
-        plt.close()
-        
-        print(f"Generated scatter plot: {output_file}")
-        
-        # Generate additional plot with sorted values
         fig, ax = plt.subplots(figsize=(15, 10))
         
         # Sort regions by mean value
@@ -434,7 +398,7 @@ class MeshAnalyzer:
                           linewidths=1)
         
         # Customize plot
-        ax.set_title(f'Sorted Cortical Region Analysis - {atlas_type}', 
+        ax.set_title(f'Cortical Region Analysis - {atlas_type}', 
                    pad=20, 
                    fontsize=14, 
                    fontweight='bold')
@@ -455,12 +419,12 @@ class MeshAnalyzer:
         # Adjust layout to prevent label cutoff
         plt.tight_layout()
         
-        # Save sorted plot directly in the main output directory
-        sorted_output_file = os.path.join(self.output_dir, f'cortex_analysis_sorted_{atlas_type}.png')
-        plt.savefig(sorted_output_file, dpi=300, bbox_inches='tight')
+        # Save plot directly in the main output directory
+        output_file = os.path.join(self.output_dir, f'cortex_analysis_{atlas_type}.png')
+        plt.savefig(output_file, dpi=300, bbox_inches='tight')
         plt.close()
         
-        print(f"Generated sorted scatter plot: {sorted_output_file}")
+        print(f"Generated sorted scatter plot: {output_file}")
 
     def _save_whole_head_summary_csv(self, results, atlas_type, data_type='node'):
         """Save a summary CSV of whole-head analysis results directly in the output directory."""
