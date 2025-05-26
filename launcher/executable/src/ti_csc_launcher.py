@@ -15,6 +15,12 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt, QProcess, QProcessEnvironment
 from PyQt6.QtGui import QFont, QIcon, QPixmap
 
+# Try to import yaml, with fallback if not available
+try:
+    import yaml
+except ImportError:
+    yaml = None
+
 # Import our dialog classes
 from dialogs import (
     SystemRequirementsDialog, ProjectHelpDialog, VersionInfoDialog, StyledMessageBox
@@ -40,13 +46,21 @@ class TICSCLoaderApp(QWidget):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("TI-CSC Docker Loader")
-        self.setGeometry(100, 100, 800, 650)
+        
+        # Set minimum size constraints to prevent design problems
+        self.setMinimumSize(900, 500)
+        
+        # Set initial size and position (not fullscreen)
+        self.resize(800, 650)
+        self.move(100, 100)
 
         # Initialize state variables
         self.project_dir = ""
         self.containers_running = False
         self.background_process = None
         self.cli_launching = False
+        self.containers_started_by_launcher = False  # Track if we started the containers
+        self.graceful_exit = False  # Track if this is a graceful exit
         
         # Setup paths and managers
         self._setup_paths()
@@ -805,8 +819,8 @@ class TICSCLoaderApp(QWidget):
             self.log_message(f"✗ X11 connection test error: {e}", "ERROR")
             return False
 
-    def run_docker_command(self, cmd, description, show_progress=True):
-        """Run a Docker command and log output"""
+    def run_docker_command(self, cmd, description, show_progress=True, timeout=None):
+        """Run a Docker command and log output with real-time progress"""
         if show_progress:
             self.log_message(f"Running: {description}")
         
@@ -824,21 +838,26 @@ class TICSCLoaderApp(QWidget):
             env["PROJECT_DIR_NAME"] = os.path.basename(self.project_dir)
             env["DISPLAY"] = self.setup_display_env()
             
-            result = subprocess.run(cmd, cwd=self.script_dir, env=env, 
-                                  capture_output=True, text=True, timeout=120)
-            
-            # Filter and log command output for cleaner display
-            if result.stdout.strip():
-                self._log_filtered_output(result.stdout, show_progress)
-            
-            if result.stderr.strip():
-                self._log_filtered_output(result.stderr, show_progress)
-            
-            if result.returncode != 0:
-                self.log_message(f"Command failed with exit code {result.returncode}", "ERROR")
-                return False
-            
-            return True
+            # For long-running operations, use real-time output
+            if timeout is None or timeout > 300:  # 5+ minutes
+                return self._run_docker_command_realtime(cmd, env, show_progress)
+            else:
+                # For quick operations, use the original method
+                result = subprocess.run(cmd, cwd=self.script_dir, env=env, 
+                                      capture_output=True, text=True, timeout=timeout)
+                
+                # Filter and log command output for cleaner display
+                if result.stdout.strip():
+                    self._log_filtered_output(result.stdout, show_progress)
+                
+                if result.stderr.strip():
+                    self._log_filtered_output(result.stderr, show_progress)
+                
+                if result.returncode != 0:
+                    self.log_message(f"Command failed with exit code {result.returncode}", "ERROR")
+                    return False
+                
+                return True
             
         except subprocess.TimeoutExpired:
             self.log_message("Command timed out", "ERROR")
@@ -846,6 +865,151 @@ class TICSCLoaderApp(QWidget):
         except Exception as e:
             self.log_message(f"Command error: {str(e)}", "ERROR")
             return False
+
+    def _run_docker_command_realtime(self, cmd, env, show_progress=True):
+        """Run Docker command with real-time output for long operations"""
+        try:
+            process = subprocess.Popen(
+                cmd, 
+                cwd=self.script_dir, 
+                env=env,
+                stdout=subprocess.PIPE, 
+                stderr=subprocess.STDOUT,  # Combine stderr with stdout
+                text=True,
+                bufsize=1,  # Line buffered
+                universal_newlines=True
+            )
+            
+            # Track progress state
+            shown_images = set()
+            shown_containers = set()
+            shown_volumes = set()
+            last_progress_line = ""
+            
+            # Read output line by line in real-time
+            while True:
+                output = process.stdout.readline()
+                if output == '' and process.poll() is not None:
+                    break
+                if output:
+                    line = output.strip()
+                    if line:
+                        self._log_realtime_output(line, shown_images, shown_containers, shown_volumes, show_progress)
+                        last_progress_line = line
+                
+                # Process Qt events to keep UI responsive
+                QApplication.processEvents()
+            
+            # Wait for process to complete
+            return_code = process.wait()
+            
+            if return_code != 0:
+                self.log_message(f"Command failed with exit code {return_code}", "ERROR")
+                return False
+            
+            return True
+            
+        except Exception as e:
+            self.log_message(f"Real-time command error: {str(e)}", "ERROR")
+            return False
+
+    def _log_realtime_output(self, line, shown_images, shown_containers, shown_volumes, show_progress=True):
+        """Process and log real-time Docker output with better progress tracking"""
+        if not line.strip():
+            return
+            
+        # Handle image pulling with detailed progress
+        if "Pulling" in line:
+            if " Pulling " in line and "fs layer" not in line.lower():
+                image_name = line.split(" ")[0] if " " in line else line
+                if image_name not in shown_images:
+                    self.log_message(f"⬇️  Pulling {image_name} image...", "INFO")
+                    shown_images.add(image_name)
+            elif "Pull complete" in line:
+                self.log_message("  ✓ Layer downloaded", "SUCCESS")
+            elif "Downloading" in line and "%" in line:
+                # Show download progress for large layers
+                if "MB" in line or "GB" in line:
+                    self.log_message(f"  📥 {line}", "INFO")
+            elif " Pulled" in line:
+                image_name = line.split(" ")[0] if " " in line else line
+                self.log_message(f"✅ {image_name} image ready", "SUCCESS")
+            return
+            
+        # Handle volume creation
+        if "volume" in line.lower() and any(keyword in line.lower() for keyword in ["creating", "created"]):
+            if "Creating" in line:
+                volume_name = self._extract_volume_name(line)
+                if volume_name and volume_name not in shown_volumes:
+                    self.log_message(f"💾 Creating volume: {volume_name}", "INFO")
+                    shown_volumes.add(volume_name)
+            elif "Created" in line:
+                volume_name = self._extract_volume_name(line)
+                if volume_name:
+                    self.log_message(f"✅ Volume ready: {volume_name}", "SUCCESS")
+            return
+            
+        # Handle container operations
+        if "Container" in line:
+            if "Creating" in line:
+                container_name = line.split("Container ")[1].split(" ")[0] if "Container " in line else ""
+                if container_name and container_name not in shown_containers:
+                    self.log_message(f"📦 Creating container: {container_name}", "INFO")
+                    shown_containers.add(container_name)
+            elif "Starting" in line:
+                container_name = line.split("Container ")[1].split(" ")[0] if "Container " in line else ""
+                if container_name:
+                    self.log_message(f"🚀 Starting container: {container_name}", "INFO")
+            elif "Started" in line:
+                container_name = line.split("Container ")[1].split(" ")[0] if "Container " in line else ""
+                if container_name:
+                    self.log_message(f"✅ Container ready: {container_name}", "SUCCESS")
+            return
+            
+        # Handle network operations
+        if "Network" in line:
+            if "Creating" in line:
+                self.log_message("🌐 Setting up Docker network...", "INFO")
+            elif "Created" in line:
+                self.log_message("✅ Network ready", "SUCCESS")
+            return
+            
+        # Handle build operations
+        if any(keyword in line.lower() for keyword in ["building", "step", "run", "copy", "add"]):
+            if "Step" in line and "/" in line:
+                self.log_message(f"🔨 Build {line}", "INFO")
+            elif "Successfully built" in line:
+                self.log_message("✅ Build completed successfully", "SUCCESS")
+            elif "Successfully tagged" in line:
+                self.log_message("🏷️  Image tagged successfully", "SUCCESS")
+            return
+            
+        # Handle errors and warnings
+        if any(keyword in line.lower() for keyword in ["error", "failed", "denied"]):
+            self.log_message(line, "ERROR")
+        elif any(keyword in line.lower() for keyword in ["warning", "warn"]):
+            self.log_message(line, "WARNING")
+        elif show_progress and line.strip():
+            # Show other important messages
+            self.log_message(line, "INFO")
+
+    def _extract_volume_name(self, line):
+        """Extract volume name from Docker output"""
+        try:
+            # Common patterns for volume creation messages
+            if "Creating volume" in line:
+                parts = line.split("Creating volume")
+                if len(parts) > 1:
+                    return parts[1].strip().strip('"').split()[0]
+            elif "volume" in line.lower() and any(char in line for char in ["_", "-"]):
+                # Try to extract volume name from various formats
+                words = line.split()
+                for word in words:
+                    if "_" in word or "-" in word:
+                        return word.strip('"').strip("'")
+            return None
+        except:
+            return None
 
     def _log_filtered_output(self, output, show_progress=True):
         """Filter Docker output to show only important messages"""
@@ -900,55 +1064,344 @@ class TICSCLoaderApp(QWidget):
                 self.log_message(line)
 
     def start_docker(self):
-        """Start Docker containers"""
+        """Start Docker containers with robust volume and image handling"""
         if not self.validate_requirements():
             self.docker_toggle.setChecked(False)
             return
         
         self.docker_toggle.setEnabled(False)
         self.log_message("🐋 Initializing Docker environment...")
-        self.log_message("--------------------------------")
+        self.log_message("This process may take 15-30 minutes on first run (downloading ~30GB)")
+        self.log_message("=" * 60)
         
         try:
-            # Pull images first (important for first-time setup)
-            self.log_message("📥 Checking for image updates (may take 10-15 minutes on first run)...")
-            if not self.run_docker_command(['docker', 'compose', '-f', self.docker_compose_file, 'pull'], 
-                                         "Pulling Docker images", show_progress=True):
-                raise Exception("Failed to pull Docker images")
+            # Step 1: Check and create volumes if needed
+            self.log_message("📋 Step 1/4: Checking Docker volumes...")
+            if not self._ensure_docker_volumes():
+                raise Exception("Failed to create required Docker volumes")
             
-            self.log_message("--------------------------------")
-            self.log_message("🚀 Launching containers...")
-            # Start containers
-            if not self.run_docker_command(['docker', 'compose', '-f', self.docker_compose_file, 'up', '-d'], 
-                                         "Starting containers", show_progress=True):
+            # Step 2: Pull/build images (no timeout for large downloads)
+            self.log_message("=" * 60)
+            self.log_message("📥 Step 2/4: Pulling/building Docker images...")
+            self.log_message("⏰ This may take 15-30 minutes depending on your internet connection")
+            if not self.run_docker_command(['docker', 'compose', '-f', self.docker_compose_file, 'pull'], 
+                                         "Pulling Docker images", show_progress=True, timeout=None):
+                self.log_message("⚠️  Image pull failed, attempting to build locally...", "WARNING")
+                if not self.run_docker_command(['docker', 'compose', '-f', self.docker_compose_file, 'build'], 
+                                             "Building Docker images", show_progress=True, timeout=None):
+                    raise Exception("Failed to pull or build Docker images")
+            
+            # Step 3: Create and start containers
+            self.log_message("=" * 60)
+            self.log_message("🚀 Step 3/4: Creating and starting containers...")
+            if not self.run_docker_command(['docker', 'compose', '-f', self.docker_compose_file, 'up', '-d', '--remove-orphans'], 
+                                         "Starting containers", show_progress=True, timeout=None):
                 raise Exception("Failed to start Docker containers")
             
-            # Wait for containers to initialize
-            self.log_message("--------------------------------")
-            self.log_message("⏳ Waiting for containers to initialize...")
-            import time
-            time.sleep(3)
-            
-            # Verify main container is running
-            docker_executable = self._find_docker_executable()
-            result = subprocess.run([docker_executable, 'ps', '--filter', 'name=simnibs_container', '--format', '{{.Names}}'], 
-                                  capture_output=True, text=True)
-            if 'simnibs_container' not in result.stdout:
-                raise Exception("simnibs_container is not running")
+            # Step 4: Verify containers are running
+            self.log_message("=" * 60)
+            self.log_message("🔍 Step 4/4: Verifying container health...")
+            if not self._verify_containers_running():
+                raise Exception("Containers started but are not healthy")
             
             self.containers_running = True
+            self.containers_started_by_launcher = True
             self.update_status_display()
-            self.log_message("--------------------------------")
-            self.log_message("🎉 All containers are ready! You can now launch CLI or GUI.", "SUCCESS")
+            self.log_message("=" * 60)
+            self.log_message("🎉 SUCCESS: All containers are ready!", "SUCCESS")
+            self.log_message("✅ You can now launch CLI or GUI applications", "SUCCESS")
+            self.log_message("=" * 60)
             
         except Exception as e:
-            self.log_message(f"❌ Startup failed: {str(e)}", "ERROR")
-            self.message_box.show_message("Startup Failed", str(e), "error", "❌")
+            self.log_message("=" * 60)
+            self.log_message(f"❌ STARTUP FAILED: {str(e)}", "ERROR")
+            self.log_message("💡 Try the following troubleshooting steps:", "INFO")
+            self.log_message("   1. Ensure Docker Desktop is running", "INFO")
+            self.log_message("   2. Check your internet connection", "INFO")
+            self.log_message("   3. Free up disk space (need ~30GB)", "INFO")
+            self.log_message("   4. Restart Docker Desktop and try again", "INFO")
+            self.log_message("=" * 60)
+            
+            self.message_box.show_message(
+                "Startup Failed", 
+                f"Docker startup failed: {str(e)}\n\nCheck the console for detailed troubleshooting steps.",
+                "error", "❌"
+            )
             self.containers_running = False
             self.docker_toggle.setChecked(False)
         
         finally:
             self.docker_toggle.setEnabled(True)
+
+    def _ensure_docker_volumes(self):
+        """Ensure all required Docker volumes exist"""
+        try:
+            docker_executable = self._find_docker_executable()
+            
+            # Set up environment variables needed for docker-compose
+            env = os.environ.copy()
+            env["LOCAL_PROJECT_DIR"] = self.project_dir
+            env["PROJECT_DIR_NAME"] = os.path.basename(self.project_dir)
+            env["DISPLAY"] = self.setup_display_env()
+            
+            self.log_message("🔍 Checking for required volumes...", "INFO")
+            
+            # First, try to create any external volumes that might be referenced
+            self._create_external_volumes(docker_executable, env)
+            
+            # Check if volumes are defined in compose file and create them
+            result = subprocess.run([
+                docker_executable, 'compose', '-f', self.docker_compose_file, 'config', '--volumes'
+            ], capture_output=True, text=True, timeout=30, env=env, cwd=self.script_dir)
+            
+            if result.returncode == 0 and result.stdout.strip():
+                volumes = result.stdout.strip().split('\n')
+                self.log_message(f"📋 Found {len(volumes)} volume(s) to check", "INFO")
+                
+                for volume in volumes:
+                    volume = volume.strip()
+                    if volume:
+                        self.log_message(f"💾 Ensuring volume exists: {volume}", "INFO")
+                        # Create volume if it doesn't exist
+                        create_result = subprocess.run([
+                            docker_executable, 'volume', 'create', volume
+                        ], capture_output=True, text=True, timeout=60)
+                        
+                        if create_result.returncode == 0:
+                            self.log_message(f"✅ Volume ready: {volume}", "SUCCESS")
+                        else:
+                            self.log_message(f"⚠️  Volume creation warning for {volume}: {create_result.stderr}", "WARNING")
+            else:
+                self.log_message("ℹ️  No explicit volumes found in compose file", "INFO")
+            
+            # Verify volumes are accessible by checking if they exist
+            self.log_message("🔧 Verifying volume accessibility...", "INFO")
+            if self._verify_volumes_exist(docker_executable):
+                self.log_message("✅ All volumes are ready and accessible", "SUCCESS")
+                return True
+            else:
+                self.log_message("⚠️  Some volumes may not be accessible, but continuing...", "WARNING")
+                return True  # Continue anyway, Docker will create volumes as needed
+                
+        except subprocess.TimeoutExpired:
+            self.log_message("⏰ Volume creation timed out", "ERROR")
+            return False
+        except Exception as e:
+            self.log_message(f"❌ Volume creation error: {str(e)}", "ERROR")
+            return False
+
+    def _create_external_volumes(self, docker_executable, env):
+        """Create external volumes defined in docker-compose.yml"""
+        # Get the actual external volumes from docker-compose.yml
+        try:
+            # Parse the compose file to get external volumes
+            result = subprocess.run([
+                docker_executable, 'compose', '-f', self.docker_compose_file, 'config'
+            ], capture_output=True, text=True, timeout=30, env=env, cwd=self.script_dir)
+            
+            if result.returncode == 0:
+                # Parse the output to find external volumes
+                external_volumes = self._parse_external_volumes_from_config(result.stdout)
+                
+                if external_volumes:
+                    self.log_message(f"📋 Found {len(external_volumes)} external volume(s) to create", "INFO")
+                    for volume in external_volumes:
+                        self._create_single_volume(docker_executable, volume)
+                else:
+                    self.log_message("ℹ️  No external volumes found in compose file", "INFO")
+            else:
+                self.log_message(f"⚠️  Could not parse compose file: {result.stderr}", "WARNING")
+                # Fallback: create the volumes we know are needed based on the actual compose file
+                self._create_fallback_volumes(docker_executable)
+                
+        except Exception as e:
+            self.log_message(f"⚠️  Error parsing compose file: {e}", "WARNING")
+            # Fallback: create the volumes we know are needed
+            self._create_fallback_volumes(docker_executable)
+
+    def _parse_external_volumes_from_config(self, config_output):
+        """Parse docker-compose config output to find external volumes"""
+        external_volumes = []
+        try:
+            if yaml is None:
+                self.log_message("⚠️  YAML library not available, using fallback", "WARNING")
+                return []
+                
+            config = yaml.safe_load(config_output)
+            
+            if 'volumes' in config:
+                for volume_name, volume_config in config['volumes'].items():
+                    if isinstance(volume_config, dict) and volume_config.get('external', False):
+                        # Use the 'name' field if specified, otherwise use the volume key
+                        actual_name = volume_config.get('name', volume_name)
+                        external_volumes.append(actual_name)
+                        
+        except Exception as e:
+            self.log_message(f"⚠️  Could not parse YAML config: {e}", "WARNING")
+            
+        return external_volumes
+
+    def _create_fallback_volumes(self, docker_executable):
+        """Create volumes based on what we know is in the actual docker-compose.yml"""
+        # These are the actual external volumes from the docker-compose.yml file
+        actual_external_volumes = [
+            'ti_csc_freesurfer_data',
+            'ti_csc_fsl_data', 
+            'matlab_runtime'
+        ]
+        
+        self.log_message("🔧 Using fallback volume creation for known external volumes", "INFO")
+        for volume in actual_external_volumes:
+            self._create_single_volume(docker_executable, volume)
+
+    def _create_single_volume(self, docker_executable, volume):
+        """Create a single Docker volume"""
+        try:
+            self.log_message(f"💾 Creating external volume: {volume}", "INFO")
+            result = subprocess.run([
+                docker_executable, 'volume', 'create', volume
+            ], capture_output=True, text=True, timeout=60)
+            
+            if result.returncode == 0:
+                self.log_message(f"✅ External volume created: {volume}", "SUCCESS")
+            else:
+                # Volume might already exist, which is fine
+                if "already exists" in result.stderr or "volume name" in result.stderr:
+                    self.log_message(f"ℹ️  Volume {volume} already exists", "INFO")
+                else:
+                    self.log_message(f"⚠️  Warning creating {volume}: {result.stderr}", "WARNING")
+        except Exception as e:
+            self.log_message(f"⚠️  Could not create external volume {volume}: {e}", "WARNING")
+
+    def _verify_volumes_exist(self, docker_executable):
+        """Verify that the required volumes exist"""
+        required_volumes = ['ti_csc_freesurfer_data', 'ti_csc_fsl_data', 'matlab_runtime']
+        
+        try:
+            # Get list of existing volumes
+            result = subprocess.run([
+                docker_executable, 'volume', 'ls', '--format', '{{.Name}}'
+            ], capture_output=True, text=True, timeout=30)
+            
+            if result.returncode == 0:
+                existing_volumes = set(result.stdout.strip().split('\n'))
+                missing_volumes = []
+                
+                for volume in required_volumes:
+                    if volume in existing_volumes:
+                        self.log_message(f"✅ Volume verified: {volume}", "SUCCESS")
+                    else:
+                        missing_volumes.append(volume)
+                        self.log_message(f"❌ Volume missing: {volume}", "ERROR")
+                
+                return len(missing_volumes) == 0
+            else:
+                self.log_message(f"⚠️  Could not list volumes: {result.stderr}", "WARNING")
+                return False
+                
+        except Exception as e:
+            self.log_message(f"⚠️  Error verifying volumes: {e}", "WARNING")
+            return False
+
+    def _handle_external_volume_error(self, error_message, docker_executable):
+        """Handle external volume not found errors"""
+        try:
+            # Extract volume name from error message
+            import re
+            match = re.search(r'external volume "([^"]+)" not found', error_message)
+            if match:
+                volume_name = match.group(1)
+                self.log_message(f"🔧 Creating missing external volume: {volume_name}", "INFO")
+                
+                result = subprocess.run([
+                    docker_executable, 'volume', 'create', volume_name
+                ], capture_output=True, text=True, timeout=60)
+                
+                if result.returncode == 0:
+                    self.log_message(f"✅ Created external volume: {volume_name}", "SUCCESS")
+                    return True
+                else:
+                    self.log_message(f"❌ Failed to create external volume {volume_name}: {result.stderr}", "ERROR")
+                    return False
+            return False
+        except Exception as e:
+            self.log_message(f"❌ Error handling external volume: {e}", "ERROR")
+            return False
+
+    def _verify_containers_running(self):
+        """Verify that the main simnibs container is running (other containers are data containers)"""
+        try:
+            docker_executable = self._find_docker_executable()
+            
+            # Wait a moment for containers to fully start
+            self.log_message("⏳ Waiting for containers to initialize...", "INFO")
+            import time
+            time.sleep(5)
+            
+            # Only check if simnibs_container is running (following loader.sh logic)
+            # Other containers (fsl, freesurfer, matlab) are data containers that may restart/exit
+            self.log_message("🔍 Checking simnibs_container status...", "INFO")
+            result = subprocess.run([
+                docker_executable, 'ps', '--filter', 'name=simnibs_container', '--format', '{{.Names}}\t{{.Status}}'
+            ], capture_output=True, text=True, timeout=30)
+            
+            if result.returncode != 0:
+                self.log_message("❌ Could not check container status", "ERROR")
+                return False
+            
+            if 'simnibs_container' in result.stdout:
+                # Extract status information
+                lines = result.stdout.strip().split('\n')
+                for line in lines:
+                    if 'simnibs_container' in line:
+                        parts = line.split('\t')
+                        if len(parts) >= 2:
+                            container_name = parts[0]
+                            status = parts[1]
+                            self.log_message(f"✅ {container_name}: {status}", "SUCCESS")
+                        else:
+                            self.log_message("✅ simnibs_container is running", "SUCCESS")
+                        break
+                
+                # Also check data containers status (informational only)
+                self._check_data_containers_info(docker_executable)
+                return True
+            else:
+                self.log_message("❌ simnibs_container is not running", "ERROR")
+                return False
+                    
+        except subprocess.TimeoutExpired:
+            self.log_message("⏰ Container verification timed out", "ERROR")
+            return False
+        except Exception as e:
+            self.log_message(f"❌ Container verification error: {str(e)}", "ERROR")
+            return False
+
+    def _check_data_containers_info(self, docker_executable):
+        """Check status of data containers (informational only)"""
+        try:
+            data_containers = ['fsl_container', 'freesurfer_container', 'matlab_container']
+            
+            for container in data_containers:
+                result = subprocess.run([
+                    docker_executable, 'ps', '-a', '--filter', f'name={container}', '--format', '{{.Names}}\t{{.Status}}'
+                ], capture_output=True, text=True, timeout=10)
+                
+                if result.returncode == 0 and container in result.stdout:
+                    lines = result.stdout.strip().split('\n')
+                    for line in lines:
+                        if container in line:
+                            parts = line.split('\t')
+                            if len(parts) >= 2:
+                                status = parts[1]
+                                if 'Restarting' in status or 'Exited' in status:
+                                    self.log_message(f"ℹ️  {container}: {status} (data container - normal behavior)", "INFO")
+                                else:
+                                    self.log_message(f"ℹ️  {container}: {status}", "INFO")
+                            break
+                            
+        except Exception as e:
+            self.log_message(f"⚠️  Could not check data container status: {e}", "WARNING")
 
     def launch_cli(self):
         """Launch CLI interface"""
@@ -1170,14 +1623,24 @@ class TICSCLoaderApp(QWidget):
     def stop_docker(self):
         """Stop Docker containers"""
         self.docker_toggle.setEnabled(False)
+        self.log_message("🛑 Stopping Docker containers...", "INFO")
         
-        if self.run_docker_command(['docker', 'compose', '-f', self.docker_compose_file, 'down'], 
-                                 "Stopping containers"):
-            self.containers_running = False
-            self.update_status_display()
-            self.log_message("✓ Docker containers stopped", "SUCCESS")
-        
-        self.docker_toggle.setEnabled(True)
+        try:
+            # Stop containers with reasonable timeout
+            if self.run_docker_command(['docker', 'compose', '-f', self.docker_compose_file, 'down'], 
+                                     "Stopping containers", show_progress=True, timeout=120):
+                self.containers_running = False
+                self.update_status_display()
+                self.log_message("✅ Docker containers stopped successfully", "SUCCESS")
+            else:
+                self.log_message("⚠️  Some containers may still be running", "WARNING")
+                # Try to update status anyway
+                self.containers_running = False
+                self.update_status_display()
+        except Exception as e:
+            self.log_message(f"❌ Error stopping containers: {str(e)}", "ERROR")
+        finally:
+            self.docker_toggle.setEnabled(True)
 
     def closeEvent(self, event):
         """Handle window close"""
