@@ -91,7 +91,7 @@ class NiftiViewerTab(QtWidgets.QWidget):
         """
         regions = []
         analyses_dir = os.path.join(self.base_dir, "derivatives", "SimNIBS", 
-                                  f"sub-{subject_id}", "Analyses", simulation_name)
+                                  f"sub-{subject_id}", "Simulations", simulation_name, "Analyses")
         
         if os.path.isdir(analyses_dir):
             # Look for Voxel analysis directory
@@ -529,8 +529,8 @@ class NiftiViewerTab(QtWidgets.QWidget):
             
             # Look for the ROI file
             analysis_dir = os.path.join(self.base_dir, "derivatives", "SimNIBS",
-                                    f"sub-{subject_id}", "Analyses", simulation_name,
-                                    "Voxel", region_name)
+                                    f"sub-{subject_id}", "Simulations", simulation_name,
+                                    "Analyses", "Voxel", region_name)
             
             if os.path.exists(analysis_dir):
                 # First try to find the specific ROI file

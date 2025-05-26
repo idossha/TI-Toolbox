@@ -331,18 +331,21 @@ class MeshAnalyzer:
 
     def _generate_region_visualization(self, gm_surf, roi_mask, target_region, field_values, max_value, output_dir):
         """Generate 3D visualization for a region and save it directly to the specified directory."""
+        # Load a fresh copy of the surface mesh to avoid accumulating ROI fields across regions
+        region_mesh = simnibs.read_msh(self._surface_mesh_path)
+        
         # Create a new field with field values only in ROI (zeros elsewhere)
-        masked_field = np.zeros(gm_surf.nodes.nr)
+        masked_field = np.zeros(region_mesh.nodes.nr)
         masked_field[roi_mask] = field_values[roi_mask]
         
-        # Add this as a new field to the original mesh
-        gm_surf.add_node_field(masked_field, 'ROI_field')
+        # Add this as a new field to the fresh mesh
+        region_mesh.add_node_field(masked_field, 'ROI_field')
         
         # Create the output filename in the region directory
-        output_filename = os.path.join(output_dir, f"region_overlay_{target_region}.msh")
+        output_filename = os.path.join(output_dir, f"{target_region}_ROI.msh")
         
-        # Save the modified original mesh
-        gm_surf.write(output_filename)
+        # Save the modified mesh
+        region_mesh.write(output_filename)
         
         # Create the .msh.opt file with custom color map and alpha settings
         with open(f"{output_filename}.opt", 'w') as f:

@@ -605,10 +605,10 @@ collect_visualization_pref() {
 setup_output_directory() {
     # Generate organized output directory structure
     subject_dir="$project_dir/derivatives/SimNIBS/sub-$subject_id"
-    analyses_dir="$subject_dir/Analyses"
+    analyses_dir="$subject_dir/Simulations/$simulation_name/Analyses"
 
     # Directory structure: Analyses > Simulation > (Mesh or Voxel) > analysis_output
-    analysis_type_dir="$analyses_dir/$simulation_name/${space_type^}"
+    analysis_type_dir="$analyses_dir/${space_type^}"
 
     # Create target_info based on analysis type
     if [ "$analysis_type" == "spherical" ]; then

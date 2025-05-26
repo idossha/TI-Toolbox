@@ -332,7 +332,7 @@ class VoxelAnalyzer:
         vis_arr[region_mask] = viz_field_arr[region_mask]
         
         # Create output filename directly in the region directory
-        output_filename = os.path.join(output_dir, f"region_overlay_{region_name}.nii.gz")
+        output_filename = os.path.join(output_dir, f"{region_name}_ROI.nii.gz")
         
         # Save as NIfTI
         import nibabel as nib

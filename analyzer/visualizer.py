@@ -554,7 +554,7 @@ class MeshVisualizer(Visualizer):
         
         # Create the output directory if it doesn't exist
         if output_dir:
-            output_filename = os.path.join(output_dir, f"brain_with_{target_region}_ROI.msh")
+            output_filename = os.path.join(output_dir, f"{target_region}_ROI.msh")
         
         # Save the modified original mesh
         gm_surf.write(output_filename)
@@ -608,7 +608,7 @@ class MeshVisualizer(Visualizer):
             
         # Create sphere identifier for filename
         sphere_id = f"sphere_x{center_coords[0]:.1f}_y{center_coords[1]:.1f}_z{center_coords[2]:.1f}_r{radius:.1f}"
-        output_filename = os.path.join(output_dir, f"brain_with_{sphere_id}.msh")
+        output_filename = os.path.join(output_dir, f"{sphere_id}.msh")
         
         # Save the modified mesh
         gm_surf.write(output_filename)
@@ -677,7 +677,7 @@ class VoxelVisualizer(Visualizer):
         vis_arr[region_mask] = field_arr[region_mask]
         
         # Save overlay file directly in the output directory
-        output_filename = os.path.join(self.output_dir, f"brain_with_{region_name}_ROI.nii.gz")
+        output_filename = os.path.join(self.output_dir, f"{region_name}_ROI.nii.gz")
         
         # Save as NIfTI
         import nibabel as nib
