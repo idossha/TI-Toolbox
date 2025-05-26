@@ -1311,21 +1311,39 @@ class AnalyzerTab(QtWidgets.QWidget):
         grey_files = [f for f in field_files if f.startswith('grey_')]
         other_files = [f for f in field_files if not f.startswith('grey_')]
         
-        # Add files to combo box with full paths, grey files first
-        for file in sorted(grey_files):
-            self.field_combo.addItem(file, os.path.join(search_dir, file))
-        for file in sorted(other_files):
-            self.field_combo.addItem(file, os.path.join(search_dir, file))
+        # For voxel analysis, further separate grey files into MNI and non-MNI
+        if not self.space_mesh.isChecked():
+            grey_mni_files = [f for f in grey_files if '_MNI_' in f]
+            grey_non_mni_files = [f for f in grey_files if '_MNI_' not in f]
+            # Add files to combo box with full paths, non-MNI grey files first, then MNI grey files
+            for file in sorted(grey_non_mni_files):
+                self.field_combo.addItem(file, os.path.join(search_dir, file))
+            for file in sorted(grey_mni_files):
+                self.field_combo.addItem(file, os.path.join(search_dir, file))
+            for file in sorted(other_files):
+                self.field_combo.addItem(file, os.path.join(search_dir, file))
             
-        # Try to restore previous selection if it exists in new list
-        if current_text != "Select field file...":
-            index = self.field_combo.findText(current_text)
-            if index >= 0:
-                self.field_combo.setCurrentIndex(index)
-            elif grey_files:  # If previous selection not found and we have grey files, select the first grey file
-                self.field_combo.setCurrentIndex(1)  # Index 1 because 0 is the placeholder
-        elif grey_files:  # If no previous selection and we have grey files, select the first grey file
-            self.field_combo.setCurrentIndex(1)  # Index 1 because 0 is the placeholder
+            # Set default selection for voxel analysis
+            if grey_non_mni_files:  # If we have non-MNI grey files
+                self.field_combo.setCurrentIndex(1)  # Select first non-MNI grey file
+            elif current_text != "Select field file...":  # Try to restore previous selection
+                index = self.field_combo.findText(current_text)
+                if index >= 0:
+                    self.field_combo.setCurrentIndex(index)
+        else:
+            # For mesh analysis, add all grey files together
+            for file in sorted(grey_files):
+                self.field_combo.addItem(file, os.path.join(search_dir, file))
+            for file in sorted(other_files):
+                self.field_combo.addItem(file, os.path.join(search_dir, file))
+            
+            # Set default selection for mesh analysis
+            if current_text != "Select field file...":  # Try to restore previous selection
+                index = self.field_combo.findText(current_text)
+                if index >= 0:
+                    self.field_combo.setCurrentIndex(index)
+            elif grey_files:  # If we have grey files, select the first one
+                self.field_combo.setCurrentIndex(1)
 
     def get_selected_field_path(self):
         """Get the full path of the selected field file."""
