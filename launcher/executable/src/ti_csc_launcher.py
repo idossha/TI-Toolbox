@@ -7,13 +7,13 @@ import sys
 import os
 import subprocess
 import platform
+import time
 from PyQt6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit,
-    QPushButton, QFileDialog, QTextEdit, QMessageBox, QFrame, 
-    QCheckBox
+    QPushButton, QFileDialog, QTextEdit, QMessageBox, QFrame
 )
-from PyQt6.QtCore import Qt, QProcess, QProcessEnvironment
-from PyQt6.QtGui import QFont, QIcon, QPixmap
+from PyQt6.QtCore import Qt, QTimer
+from PyQt6.QtGui import QFont, QIcon
 
 # Try to import yaml, with fallback if not available
 try:
@@ -26,6 +26,8 @@ from dialogs import (
     SystemRequirementsDialog, ProjectHelpDialog, VersionInfoDialog, StyledMessageBox
 )
 from shortcuts_manager import ShortcutsManager
+from docker_worker import DockerWorkerThread
+from progress_widget import ProgressWidget, StoppableOperationWidget
 
 # Add parent directory to path to import version module
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
@@ -40,25 +42,7 @@ except ImportError:
     version = MockVersion()
 
 
-class ProgressIndicator:
-    """Simple progress indicator to show activity without spam"""
-    
-    def __init__(self):
-        self.counter = 0
-        self.last_update = 0
-        self.symbols = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
-    
-    def update(self):
-        """Update progress indicator occasionally"""
-        import time
-        current_time = time.time()
-        
-        # Only update every 3 seconds
-        if current_time - self.last_update > 3.0:
-            self.counter += 1
-            symbol = self.symbols[self.counter % len(self.symbols)]
-            # This could be used to update a status, but for now we'll keep it simple
-            self.last_update = current_time
+
 
 
 class TICSCLoaderApp(QWidget):
@@ -78,10 +62,11 @@ class TICSCLoaderApp(QWidget):
         # Initialize state variables
         self.project_dir = ""
         self.containers_running = False
-        self.background_process = None
+        self.containers_ever_started = False  # Track if containers have ever been started
         self.cli_launching = False
         self.containers_started_by_launcher = False  # Track if we started the containers
-        self.graceful_exit = False  # Track if this is a graceful exit
+        self.worker_thread = None  # For background Docker operations
+        self.operation_cancelled = False  # Track if user cancelled operation
         
         # Setup paths and managers
         self._setup_paths()
@@ -211,6 +196,14 @@ class TICSCLoaderApp(QWidget):
         
         # Console Output
         self._create_console_section(main_layout)
+        
+        # Progress widgets
+        self.progress_widget = ProgressWidget(self)
+        main_layout.addWidget(self.progress_widget)
+        
+        self.stop_widget = StoppableOperationWidget(self)
+        self.stop_widget.stop_button.clicked.connect(self.stop_current_operation)
+        main_layout.addWidget(self.stop_widget)
 
         self.setLayout(main_layout)
         
@@ -400,7 +393,7 @@ class TICSCLoaderApp(QWidget):
         """)
         
         # Docker Status indicator
-        self.status_label = QLabel("Docker Status: Stopped")
+        self.status_label = QLabel("Docker Status: Not Started")
         self.status_label.setStyleSheet("""
             QLabel {
                 font-weight: bold;
@@ -508,9 +501,7 @@ class TICSCLoaderApp(QWidget):
         """)
         main_layout.addWidget(self.console_output)
 
-    def _create_button_section(self, main_layout):
-        """Create the requirements and utility buttons section - removed since buttons moved to header"""
-        pass
+
 
     # Core functionality methods
     def update_status_display(self):
@@ -533,7 +524,12 @@ class TICSCLoaderApp(QWidget):
             self.cli_button.setEnabled(True)
             self.gui_button.setEnabled(True)
         else:
-            self.status_label.setText("Docker Status: Stopped")
+            # Show different status based on whether containers were ever started
+            if self.containers_ever_started:
+                self.status_label.setText("Docker Status: Stopped")
+            else:
+                self.status_label.setText("Docker Status: Not Started")
+            
             self.status_label.setStyleSheet("""
                 QLabel {
                     font-weight: bold;
@@ -581,6 +577,19 @@ class TICSCLoaderApp(QWidget):
         """Clear the console output"""
         self.console_output.clear()
         self.log_message("Console cleared")
+
+    def stop_current_operation(self):
+        """Stop the current Docker operation"""
+        if self.worker_thread and self.worker_thread.isRunning():
+            self.log_message("🛑 Stopping operation...", "WARNING")
+            self.operation_cancelled = True
+            self.worker_thread.stop()
+            self.stop_widget.hide_operation()
+            self.progress_widget.clear_all()
+        
+        # Re-enable docker button
+        self.docker_toggle.setEnabled(True)
+        self.docker_toggle.setChecked(False)
 
     def on_dir_text_changed(self):
         """Handle manual text entry in project directory field"""
@@ -841,7 +850,7 @@ class TICSCLoaderApp(QWidget):
             return False
 
     def run_docker_command(self, cmd, description, show_progress=True, timeout=None):
-        """Run a Docker command and log output with real-time progress"""
+        """Run a Docker command with progress tracking and stop capability"""
         if show_progress:
             self.log_message(f"Running: {description}")
         
@@ -859,25 +868,22 @@ class TICSCLoaderApp(QWidget):
             env["PROJECT_DIR_NAME"] = os.path.basename(self.project_dir)
             env["DISPLAY"] = self.setup_display_env()
             
-            # For long-running operations, use real-time output
-            if timeout is None or timeout > 300:  # 5+ minutes
-                return self._run_docker_command_realtime(cmd, env, show_progress)
+            # For long-running operations, use threaded approach
+            if timeout is None or timeout > 300:
+                return self._run_docker_command_threaded(cmd, env, description)
             else:
                 # For quick operations, use the original method
                 result = subprocess.run(cmd, cwd=self.script_dir, env=env, 
                                       capture_output=True, text=True, timeout=timeout)
                 
-                # Filter and log command output for cleaner display
                 if result.stdout.strip():
-                    self._log_filtered_output(result.stdout, show_progress)
-                
+                    self.log_message(result.stdout.strip())
                 if result.stderr.strip():
-                    self._log_filtered_output(result.stderr, show_progress)
+                    self.log_message(result.stderr.strip(), "WARNING")
                 
                 if result.returncode != 0:
                     self.log_message(f"Command failed with exit code {result.returncode}", "ERROR")
                     return False
-                
                 return True
             
         except subprocess.TimeoutExpired:
@@ -887,216 +893,46 @@ class TICSCLoaderApp(QWidget):
             self.log_message(f"Command error: {str(e)}", "ERROR")
             return False
 
-    def _run_docker_command_realtime(self, cmd, env, show_progress=True):
-        """Run Docker command with real-time output for long operations"""
-        try:
-            process = subprocess.Popen(
-                cmd, 
-                cwd=self.script_dir, 
-                env=env,
-                stdout=subprocess.PIPE, 
-                stderr=subprocess.STDOUT,  # Combine stderr with stdout
-                text=True,
-                bufsize=1,  # Line buffered
-                universal_newlines=True
-            )
-            
-            # Track progress state
-            shown_images = set()
-            shown_containers = set()
-            shown_volumes = set()
-            progress_indicator = ProgressIndicator()
-            
-            # Read output line by line in real-time
-            while True:
-                output = process.stdout.readline()
-                if output == '' and process.poll() is not None:
-                    break
-                if output:
-                    line = output.strip()
-                    if line:
-                        # Update progress indicator
-                        progress_indicator.update()
-                        
-                        # Only log important events, not detailed download progress
-                        if self._should_log_line(line):
-                            self._log_realtime_output(line, shown_images, shown_containers, shown_volumes, show_progress)
-                
-                # Process Qt events to keep UI responsive
-                QApplication.processEvents()
-            
-            # Wait for process to complete
-            return_code = process.wait()
-            
-            if return_code != 0:
-                self.log_message(f"Command failed with exit code {return_code}", "ERROR")
-                return False
-            
-            return True
-            
-        except Exception as e:
-            self.log_message(f"Real-time command error: {str(e)}", "ERROR")
-            return False
-
-    def _should_log_line(self, line):
-        """Determine if a line should be logged (filter out verbose progress)"""
-        # Skip detailed downloading progress
-        if "Downloading" in line and ("[" in line or "%" in line):
-            return False
-        if "Pull complete" in line:
-            return False
-        if "Already exists" in line:
-            return False
-        if line.startswith(("4f4fb700ef54", "0622fac788ed", "73e816239689")) and "Download" in line:
-            return False
+    def _run_docker_command_threaded(self, cmd, env, description):
+        """Run Docker command using background thread with stop capability"""
+        # Reset cancellation flag
+        self.operation_cancelled = False
         
-        # Log important events
-        return True
-
-    def _log_realtime_output(self, line, shown_images, shown_containers, shown_volumes, show_progress=True):
-        """Process and log real-time Docker output with clean progress tracking"""
-        if not line.strip():
-            return
-            
-        # Handle image pulling with clean progress
-        if "Pulling" in line:
-            if " Pulling " in line and "fs layer" not in line.lower():
-                image_name = line.split(" ")[0] if " " in line else line
-                if image_name not in shown_images:
-                    self.log_message(f"⬇️  Pulling {image_name} image...", "INFO")
-                    shown_images.add(image_name)
-            elif " Pulled" in line:
-                image_name = line.split(" ")[0] if " " in line else line
-                self.log_message(f"✅ {image_name} image ready", "SUCCESS")
-            # Skip detailed downloading progress - it's too verbose
-            return
-            
-        # Handle volume creation
-        if "volume" in line.lower() and any(keyword in line.lower() for keyword in ["creating", "created"]):
-            if "Creating" in line:
-                volume_name = self._extract_volume_name(line)
-                if volume_name and volume_name not in shown_volumes:
-                    self.log_message(f"💾 Creating volume: {volume_name}", "INFO")
-                    shown_volumes.add(volume_name)
-            elif "Created" in line:
-                volume_name = self._extract_volume_name(line)
-                if volume_name:
-                    self.log_message(f"✅ Volume ready: {volume_name}", "SUCCESS")
-            return
-            
-        # Handle container operations
-        if "Container" in line:
-            if "Creating" in line:
-                container_name = line.split("Container ")[1].split(" ")[0] if "Container " in line else ""
-                if container_name and container_name not in shown_containers:
-                    self.log_message(f"📦 Creating container: {container_name}", "INFO")
-                    shown_containers.add(container_name)
-            elif "Starting" in line:
-                container_name = line.split("Container ")[1].split(" ")[0] if "Container " in line else ""
-                if container_name:
-                    self.log_message(f"🚀 Starting container: {container_name}", "INFO")
-            elif "Started" in line:
-                container_name = line.split("Container ")[1].split(" ")[0] if "Container " in line else ""
-                if container_name:
-                    self.log_message(f"✅ Container ready: {container_name}", "SUCCESS")
-            return
-            
-        # Handle network operations
-        if "Network" in line:
-            if "Creating" in line:
-                self.log_message("🌐 Setting up Docker network...", "INFO")
-            elif "Created" in line:
-                self.log_message("✅ Network ready", "SUCCESS")
-            return
-            
-        # Handle build operations
-        if any(keyword in line.lower() for keyword in ["building", "step", "run", "copy", "add"]):
-            if "Step" in line and "/" in line:
-                self.log_message(f"🔨 Build {line}", "INFO")
-            elif "Successfully built" in line:
-                self.log_message("✅ Build completed successfully", "SUCCESS")
-            elif "Successfully tagged" in line:
-                self.log_message("🏷️  Image tagged successfully", "SUCCESS")
-            return
-            
-        # Handle errors and warnings
-        if any(keyword in line.lower() for keyword in ["error", "failed", "denied"]):
-            self.log_message(line, "ERROR")
-        elif any(keyword in line.lower() for keyword in ["warning", "warn"]):
-            self.log_message(line, "WARNING")
-        elif show_progress and line.strip():
-            # Show other important messages
-            self.log_message(line, "INFO")
-
-    def _extract_volume_name(self, line):
-        """Extract volume name from Docker output"""
-        try:
-            # Common patterns for volume creation messages
-            if "Creating volume" in line:
-                parts = line.split("Creating volume")
-                if len(parts) > 1:
-                    return parts[1].strip().strip('"').split()[0]
-            elif "volume" in line.lower() and any(char in line for char in ["_", "-"]):
-                # Try to extract volume name from various formats
-                words = line.split()
-                for word in words:
-                    if "_" in word or "-" in word:
-                        return word.strip('"').strip("'")
-            return None
-        except:
-            return None
-
-    def _log_filtered_output(self, output, show_progress=True):
-        """Filter Docker output to show only important messages"""
-        lines = output.strip().split('\n')
+        # Show stop widget
+        self.stop_widget.show_operation(f"Running: {description}")
         
-        # Track what we've already shown to avoid duplicates
-        shown_images = set()
-        shown_containers = set()
+        # Create and start worker thread
+        self.worker_thread = DockerWorkerThread(cmd, env, self.script_dir)
         
-        for line in lines:
-            line = line.strip()
-            if not line:
-                continue
-                
-            # Filter out verbose container status messages during startup
-            if any(phrase in line for phrase in [
-                "Creating", "Created", "Starting", "Started"
-            ]) and "Container" in line:
-                # Extract container name and show simplified message
-                if "Creating" in line and "Container" in line:
-                    container_name = line.split("Container ")[1].split(" ")[0]
-                    if container_name not in shown_containers:
-                        self.log_message(f"📦 Starting {container_name}...")
-                        shown_containers.add(container_name)
-                continue
-                
-            # Filter out network creation messages
-            if "Network" in line and ("Creating" in line or "Created" in line):
-                if "Creating" in line:
-                    self.log_message("🌐 Setting up Docker network...")
-                continue
-                
-            # Show image pulling progress in a cleaner way
-            if "Pulling" in line and show_progress:
-                if " Pulling " in line:
-                    image_name = line.split(" ")[0]
-                    if image_name not in shown_images:
-                        self.log_message(f"⬇️  Pulling {image_name} image...")
-                        shown_images.add(image_name)
-                elif " Pulled" in line:
-                    image_name = line.split(" ")[0]
-                    self.log_message(f"✅ {image_name} image ready")
-                continue
-                
-            # Show other important messages
-            if any(keyword in line.lower() for keyword in [
-                "error", "warning", "failed", "timeout", "denied"
-            ]):
-                self.log_message(line, "WARNING")
-            elif show_progress:
-                # Show other non-filtered messages
-                self.log_message(line)
+        # Connect signals
+        self.worker_thread.log_signal.connect(self.log_message)
+        self.worker_thread.progress_signal.connect(self.progress_widget.add_layer_progress)
+        self.worker_thread.finished_signal.connect(self._on_docker_finished)
+        
+        # Start the thread
+        self.worker_thread.start()
+        
+        # Wait for completion while keeping UI responsive
+        while self.worker_thread.isRunning() and not self.operation_cancelled:
+            QApplication.processEvents()
+            time.sleep(0.05)  # Small delay to prevent excessive CPU usage
+        
+        # Hide progress widgets
+        self.stop_widget.hide_operation()
+        self.progress_widget.clear_all()
+        
+        # Return success status
+        if self.operation_cancelled:
+            return False
+        return hasattr(self, '_last_command_success') and self._last_command_success
+
+    def _on_docker_finished(self, success, error_message):
+        """Handle completion of Docker command"""
+        self._last_command_success = success
+        if not success and error_message and not self.operation_cancelled:
+            self.log_message(error_message, "ERROR")
+
+
 
     def start_docker(self):
         """Start Docker containers with robust volume and image handling"""
@@ -1129,6 +965,7 @@ class TICSCLoaderApp(QWidget):
             # Step 3: Create and start containers
             self.log_message("=" * 60)
             self.log_message("🚀 Step 3/4: Creating and starting containers...")
+            self.log_message("⏰ This step may take 2-5 minutes if containers need to be created for the first time")
             if not self.run_docker_command(['docker', 'compose', '-f', self.docker_compose_file, 'up', '-d', '--remove-orphans'], 
                                          "Starting containers", show_progress=True, timeout=None):
                 raise Exception("Failed to start Docker containers")
@@ -1140,6 +977,7 @@ class TICSCLoaderApp(QWidget):
                 raise Exception("Containers started but are not healthy")
             
             self.containers_running = True
+            self.containers_ever_started = True
             self.containers_started_by_launcher = True
             self.update_status_display()
             self.log_message("=" * 60)
@@ -1338,30 +1176,7 @@ class TICSCLoaderApp(QWidget):
             self.log_message(f"⚠️  Error verifying volumes: {e}", "WARNING")
             return False
 
-    def _handle_external_volume_error(self, error_message, docker_executable):
-        """Handle external volume not found errors"""
-        try:
-            # Extract volume name from error message
-            import re
-            match = re.search(r'external volume "([^"]+)" not found', error_message)
-            if match:
-                volume_name = match.group(1)
-                self.log_message(f"🔧 Creating missing external volume: {volume_name}", "INFO")
-                
-                result = subprocess.run([
-                    docker_executable, 'volume', 'create', volume_name
-                ], capture_output=True, text=True, timeout=60)
-                
-                if result.returncode == 0:
-                    self.log_message(f"✅ Created external volume: {volume_name}", "SUCCESS")
-                    return True
-                else:
-                    self.log_message(f"❌ Failed to create external volume {volume_name}: {result.stderr}", "ERROR")
-                    return False
-            return False
-        except Exception as e:
-            self.log_message(f"❌ Error handling external volume: {e}", "ERROR")
-            return False
+
 
     def _verify_containers_running(self):
         """Verify that the main simnibs container is running (other containers are data containers)"""
@@ -1661,30 +1476,56 @@ class TICSCLoaderApp(QWidget):
         self.log_message("🛑 Stopping Docker containers...", "INFO")
         
         try:
-            # Stop containers with reasonable timeout
-            if self.run_docker_command(['docker', 'compose', '-f', self.docker_compose_file, 'down'], 
-                                     "Stopping containers", show_progress=True, timeout=120):
+            # Stop containers with clean output (no verbose progress)
+            docker_executable = self._find_docker_executable()
+            
+            env = os.environ.copy()
+            env["LOCAL_PROJECT_DIR"] = self.project_dir
+            env["PROJECT_DIR_NAME"] = os.path.basename(self.project_dir)
+            
+            result = subprocess.run([
+                docker_executable, 'compose', '-f', self.docker_compose_file, 'down'
+            ], cwd=self.script_dir, env=env, capture_output=True, text=True, timeout=120)
+            
+            if result.returncode == 0:
                 self.containers_running = False
                 self.update_status_display()
                 self.log_message("✅ Docker containers stopped successfully", "SUCCESS")
             else:
                 self.log_message("⚠️  Some containers may still be running", "WARNING")
+                if result.stderr.strip():
+                    self.log_message(f"Stop error: {result.stderr.strip()}", "WARNING")
                 # Try to update status anyway
                 self.containers_running = False
                 self.update_status_display()
+                
+        except subprocess.TimeoutExpired:
+            self.log_message("⏰ Stop operation timed out", "ERROR") 
+            self.containers_running = False
+            self.update_status_display()
         except Exception as e:
             self.log_message(f"❌ Error stopping containers: {str(e)}", "ERROR")
+            self.containers_running = False
+            self.update_status_display()
         finally:
             self.docker_toggle.setEnabled(True)
 
     def closeEvent(self, event):
         """Handle window close"""
+        # Stop any running worker threads
+        if self.worker_thread and self.worker_thread.isRunning():
+            self.worker_thread.stop()
+            self.worker_thread.wait(3000)  # Wait up to 3 seconds
+        
         if self.containers_running:
             reply = QMessageBox.question(self, 'Confirm Exit',
                                        "Docker containers are running. Stop them before exiting?",
                                        QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
             if reply == QMessageBox.StandardButton.Yes:
                 self.stop_docker()
+        
+        # Ensure cursor is restored
+        QApplication.restoreOverrideCursor()
         event.accept()
 
 
