@@ -637,8 +637,10 @@ choose_intensity() {
         local default_value=$(get_default_value "intensity")
         if [ -n "$default_value" ]; then
             intensity_ma="$default_value"
-            intensity=$(echo "$intensity_ma * 0.001" | bc -l)
-            echo -e "${CYAN}Using default intensity: ${intensity_ma}mA${RESET}"
+            intensity_a=$(echo "$intensity_ma * 0.001" | bc -l)
+            # Set both channels to the same current value
+            current="${intensity_a},${intensity_a}"
+            echo -e "${CYAN}Using default intensity: ${intensity_ma}mA (${intensity_a}A)${RESET}"
             return
         fi
     fi
@@ -651,7 +653,11 @@ choose_intensity() {
         choose_intensity
         return
     fi
-    intensity=$(echo "$intensity_ma * 0.001" | bc -l)
+    
+    # Convert mA to A and set the current for both channels
+    intensity_a=$(echo "$intensity_ma * 0.001" | bc -l)
+    current="${intensity_a},${intensity_a}"
+    echo -e "${CYAN}Setting current to ${intensity_a}A for both channels${RESET}"
 }
 
 # Choose electrode shape

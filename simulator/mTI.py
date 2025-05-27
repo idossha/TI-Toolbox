@@ -5,6 +5,8 @@ from copy import deepcopy
 import numpy as np
 from simnibs import mesh_io, run_simnibs, sim_struct
 from simnibs.utils import TI_utils as TI
+from datetime import datetime
+import time
 
 ###########################################
 # Ido Haber / ihaber@wisc.edu
@@ -14,6 +16,10 @@ from simnibs.utils import TI_utils as TI
 # This script runs SimNIBS simulations for multipolar TI (mTI)
 # It preserves the original mTI computation logic while using BIDS directory structure
 ###########################################
+
+# Add logging utility import
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+from utils import logging_util
 
 # Get subject ID, simulation type, and montages from command-line arguments
 subject_id = sys.argv[1]
@@ -64,6 +70,22 @@ if eeg_net not in all_montages.get('nets', {}):
 net_montages = all_montages['nets'][eeg_net]
 montage_type = 'multi_polar_montages'  # mTI only uses multi-polar montages
 montages = {name: net_montages[montage_type].get(name) for name in montage_names}
+
+# Initialize logger
+# Check if log file path is provided through environment variable
+log_file = os.environ.get('TI_LOG_FILE')
+if not log_file:
+    # If not provided, create a new log file (fallback behavior)
+    time_stamp = time.strftime('%Y%m%d_%H%M%S')
+    log_dir = os.path.join(simulation_dir, montage_names[0], 'Documentation')
+    os.makedirs(log_dir, exist_ok=True)
+    log_file = os.path.join(log_dir, f'Simulator_{time_stamp}.log')
+
+# Initialize our main logger
+logger = logging_util.get_logger('simulator', log_file, overwrite=False)
+
+# Configure SimNIBS related loggers to use our logging setup
+logging_util.configure_external_loggers(['simnibs', 'mesh_io', 'sim_struct'], logger)
 
 def get_TI_vectors(E1_org, E2_org):
     """
@@ -118,9 +140,14 @@ tensor_file = os.path.join(conductivity_path, "DTI_coregT1_tensor.nii.gz")
 
 # Function to run simulations
 def run_simulation(montage_name, montage, output_dir):
+    logger.info(f"Starting simulation for montage: {montage_name}")
+    
     S = sim_struct.SESSION()
     S.subpath = base_subpath
     S.anisotropy_type = sim_type
+    
+    logger.info(f"Set up SimNIBS session with anisotropy type: {sim_type}")
+    
     S.pathfem = os.path.join(output_dir, montage_name)
     S.eeg_cap = os.path.join(base_subpath, "eeg_positions", eeg_net)
     S.map_to_surf = False
@@ -139,14 +166,14 @@ def run_simulation(montage_name, montage, output_dir):
     
     # Set custom conductivities if provided in environment variables
     for i in range(len(tdcs.cond)):
-        tissue_num = i + 1  # SimNIBS uses 0-based index, but our tissue numbers are 1-based
+        tissue_num = i + 1
         env_var = f"TISSUE_COND_{tissue_num}"
         if env_var in os.environ:
             try:
                 tdcs.cond[i].value = float(os.environ[env_var])
-                print(f"Setting conductivity for tissue {tissue_num} to {tdcs.cond[i].value} S/m")
+                logger.info(f"Setting conductivity for tissue {tissue_num} to {tdcs.cond[i].value} S/m")
             except ValueError:
-                print(f"Warning: Invalid conductivity value for tissue {tissue_num}")
+                logger.warning(f"Invalid conductivity value for tissue {tissue_num}")
 
     tdcs.currents = [intensity, -intensity]
     
@@ -170,7 +197,9 @@ def run_simulation(montage_name, montage, output_dir):
     tdcs_2.electrode[0].centre = montage[1][0]
     tdcs_2.electrode[1].centre = montage[1][1]
 
+    logger.info("Running SimNIBS simulation...")
     run_simnibs(S)
+    logger.info("SimNIBS simulation completed")
 
     subject_identifier = base_subpath.split('_')[-1]
     anisotropy_type = S.anisotropy_type
@@ -243,6 +272,7 @@ def run_simulation(montage_name, montage, output_dir):
     v = mout.view(visible_tags=[1002, 1006], visible_fields=["TI_vectors"])
     v.write_opt(output_mesh_path)
     
+    logger.info(f"Completed simulation for montage: {montage_name}")
     return output_mesh_path
 
 # Create pairs of montage names for mTI calculations
@@ -261,10 +291,11 @@ for pair in montage_pairs:
     
     # Run simulations for both montages
     if m1_name in montages and m2_name in montages:
+        logger.info(f"Processing montage pair: {m1_name} and {m2_name}")
         m1_path = run_simulation(m1_name, montages[m1_name], pair_output_dir)
         m2_path = run_simulation(m2_name, montages[m2_name], pair_output_dir)
 
-        # Calculate mTI using the TI vectors from both montages
+        logger.info("Loading mesh files for mTI calculation")
         m1 = mesh_io.read_msh(m1_path)
         m2 = mesh_io.read_msh(m2_path)
 
@@ -272,21 +303,23 @@ for pair in montage_pairs:
         ef1 = m1.field["TI_vectors"]
         ef2 = m2.field["TI_vectors"]
 
-        # Calculate the multi-polar TI field
+        logger.info("Calculating multi-polar TI field")
         TI_MultiPolar = TI.get_maxTI(ef1.value, ef2.value)
 
-        # Create output mesh for the multi-polar TI field
+        logger.info("Creating output mesh for multi-polar TI field")
         mout = deepcopy(m1)
         mout.elmdata = []
         mout.add_element_field(TI_MultiPolar, "TI_Max")
 
         # Save the multi-polar TI mesh
         output_mesh_path = os.path.join(mti_output_dir, f"{subject_id}_{pair_dir_name}_mTI.msh")
+        logger.info(f"Saving multi-polar TI mesh to: {output_mesh_path}")
         mesh_io.write_msh(mout, output_mesh_path)
 
         # Create visualization
         v = mout.view(visible_tags=[1002, 1006], visible_fields="TI_Max")
         v.write_opt(output_mesh_path)
+        logger.info(f"Completed mTI processing for pair: {pair_dir_name}")
     else:
-        print(f"Montage names {m1_name} and {m2_name} are not valid montages. Skipping.")
+        logger.error(f"Montage names {m1_name} and {m2_name} are not valid montages. Skipping.")
         

@@ -15,13 +15,16 @@ set -e # Exit immediately if a command exits with a non-zero status
 # Initialize logging
 setup_logging() {
     local montage_dir="$1"
-    local log_file="$montage_dir/documentation/sim_pipeline.log"
+    local timestamp=$(date '+%Y%m%d_%H%M%S')
+    local log_file="$montage_dir/Documentation/Simulator_${timestamp}.log"
     mkdir -p "$(dirname "$log_file")"
     # Clear the log file if it exists
     > "$log_file"
-    echo "$(date '+%Y-%m-%d %H:%M:%S') - Starting TI simulation pipeline" >> "$log_file"
-    echo "$(date '+%Y-%m-%d %H:%M:%S') - Script version: 2.0" >> "$log_file"
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] [simulator] [INFO] Starting TI simulation pipeline" >> "$log_file"
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] [simulator] [INFO] Script version: 2.0" >> "$log_file"
     echo "----------------------------------------" >> "$log_file"
+    # Export the log file path so it can be passed to Python script
+    export TI_LOG_FILE="$log_file"
 }
 
 # Logging function
@@ -29,24 +32,24 @@ log() {
     local level="$1"
     local message="$2"
     local montage_dir="$3"
-    local log_file="$montage_dir/documentation/sim_pipeline.log"
+    local log_file="$TI_LOG_FILE"
     local timestamp=$(date '+%Y-%m-%d %H:%M:%S')
     
     # Format the message based on level
     case "$level" in
         "INFO")
-            echo "[$timestamp] [INFO] $message" >> "$log_file"
+            echo "[$timestamp] [simulator] [INFO] $message" >> "$log_file"
             echo "$message"  # Clean console output
             ;;
         "DEBUG")
-            echo "[$timestamp] [DEBUG] $message" >> "$log_file"
+            echo "[$timestamp] [simulator] [DEBUG] $message" >> "$log_file"
             ;;
         "ERROR")
-            echo "[$timestamp] [ERROR] $message" >> "$log_file"
+            echo "[$timestamp] [simulator] [ERROR] $message" >> "$log_file"
             echo "ERROR: $message" >&2  # Error messages to stderr
             ;;
         *)
-            echo "[$timestamp] $message" >> "$log_file"
+            echo "[$timestamp] [simulator] $message" >> "$log_file"
             ;;
     esac
 }
@@ -90,7 +93,7 @@ echo "  - simnibs_dir: $simnibs_dir"
 echo "  - m2m_dir: $m2m_dir"
 echo "  - simulation_dir: $simulation_dir"
 echo "  - sim_mode: $sim_mode"
-echo "  - intensity: $intensity"
+echo "  - intensity: $intensity A"
 echo "  - electrode shape: $electrode_shape"
 echo "  - dimensions: $dimensions"
 echo "  - thickness: $thickness"
@@ -186,7 +189,7 @@ for montage in "${selected_montages[@]}"; do
     log "INFO" "Running SimNIBS simulation for montage: $montage" "$montage_dir"
 done
 
-# Pass the current value as intensity to TI.py
+# Pass the log file path to TI.py through environment variable
 simnibs_python "$script_dir/TI.py" "$subject_id" "$conductivity" "$project_dir" "$simulation_dir" "$sim_mode" "$intensity" "$electrode_shape" "$dimensions" "$thickness" "$eeg_net" "${selected_montages[@]}"
 
 # Function to extract fields (GM and WM meshes)

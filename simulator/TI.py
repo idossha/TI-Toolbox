@@ -6,6 +6,7 @@ import numpy as np
 from simnibs import mesh_io, run_simnibs, sim_struct
 from simnibs.utils import TI_utils as TI
 from datetime import datetime
+import time
 
 ###########################################
 
@@ -35,6 +36,9 @@ from datetime import datetime
 
 ###########################################
 
+# Add logging utility import
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+from utils import logging_util
 
 # Get subject ID, simulation type, and montages from command-line arguments
 subject_id = sys.argv[1]
@@ -105,6 +109,22 @@ def validate_montage(montage, montage_name):
         return False
     return True
 
+# Initialize logger
+# Check if log file path is provided through environment variable
+log_file = os.environ.get('TI_LOG_FILE')
+if not log_file:
+    # If not provided, create a new log file (fallback behavior)
+    time_stamp = time.strftime('%Y%m%d_%H%M%S')
+    log_dir = os.path.join(simulation_dir, montage_names[0], 'Documentation')
+    os.makedirs(log_dir, exist_ok=True)
+    log_file = os.path.join(log_dir, f'Simulator_{time_stamp}.log')
+
+# Initialize our main logger
+logger = logging_util.get_logger('simulator', log_file, overwrite=False)
+
+# Configure SimNIBS related loggers to use our logging setup
+logging_util.configure_external_loggers(['simnibs', 'mesh_io', 'sim_struct'], logger)
+
 # Base paths
 derivatives_dir = os.path.join(project_dir, 'derivatives')
 simnibs_dir = os.path.join(derivatives_dir, 'SimNIBS', f'sub-{subject_id}')
@@ -116,15 +136,21 @@ tensor_file = os.path.join(conductivity_path, "DTI_coregT1_tensor.nii.gz")
 temp_dir = os.path.join(simulation_dir, "tmp")
 if not os.path.exists(temp_dir):
     os.makedirs(temp_dir)
+    logger.info(f"Created temporary directory at {temp_dir}")
 
 # Function to run simulations
 def run_simulation(montage_name, montage):
+    logger.info(f"Starting simulation for montage: {montage_name}")
+    
     if not validate_montage(montage, montage_name):
+        logger.error(f"Invalid montage structure for {montage_name}. Skipping.")
         return
 
     S = sim_struct.SESSION()
     S.subpath = base_subpath
     S.anisotropy_type = sim_type
+    
+    logger.info(f"Set up SimNIBS session with anisotropy type: {sim_type}")
     
     # Use temporary directory for SimNIBS output
     S.pathfem = os.path.join(temp_dir, montage_name)
@@ -147,14 +173,14 @@ def run_simulation(montage_name, montage):
     
     # Set custom conductivities if provided in environment variables
     for i in range(len(tdcs.cond)):
-        tissue_num = i + 1  # SimNIBS uses 0-based index, but our tissue numbers are 1-based
+        tissue_num = i + 1
         env_var = f"TISSUE_COND_{tissue_num}"
         if env_var in os.environ:
             try:
                 tdcs.cond[i].value = float(os.environ[env_var])
-                print(f"Setting conductivity for tissue {tissue_num} to {tdcs.cond[i].value} S/m")
+                logger.info(f"Setting conductivity for tissue {tissue_num} to {tdcs.cond[i].value} S/m")
             except ValueError:
-                print(f"Warning: Invalid conductivity value for tissue {tissue_num}")
+                logger.warning(f"Invalid conductivity value for tissue {tissue_num}")
 
     # Set currents for first pair using intensity1
     tdcs.currents = [intensity1, -intensity1]
@@ -180,7 +206,9 @@ def run_simulation(montage_name, montage):
     tdcs_2.electrode[0].centre = montage[1][0]
     tdcs_2.electrode[1].centre = montage[1][1]
 
+    logger.info("Running SimNIBS simulation...")
     run_simnibs(S)
+    logger.info("SimNIBS simulation completed")
 
     subject_identifier = base_subpath.split('_')[-1]
     anisotropy_type = S.anisotropy_type
@@ -188,6 +216,7 @@ def run_simulation(montage_name, montage):
     m1_file = os.path.join(S.pathfem, f"{subject_identifier}_TDCS_1_{anisotropy_type}.msh")
     m2_file = os.path.join(S.pathfem, f"{subject_identifier}_TDCS_2_{anisotropy_type}.msh")
 
+    logger.info("Loading mesh files for TI calculation")
     m1 = mesh_io.read_msh(m1_file)
     m2 = mesh_io.read_msh(m2_file)
 
@@ -197,8 +226,10 @@ def run_simulation(montage_name, montage):
 
     ef1 = m1.field["E"]
     ef2 = m2.field["E"]
+    logger.info("Calculating TI maximum values")
     TImax = TI.get_maxTI(ef1.value, ef2.value)
 
+    logger.info("Writing output mesh files")
     mout = deepcopy(m1)
     mout.elmdata = []
     mout.add_element_field(TImax, "TI_max")
@@ -206,11 +237,14 @@ def run_simulation(montage_name, montage):
 
     v = mout.view(visible_tags=[1002, 1006], visible_fields="TI_max")
     v.write_opt(os.path.join(S.pathfem, "TI.msh"))
+    logger.info(f"Completed simulation for montage: {montage_name}")
 
 # Run the simulations for each selected montage
 for name in montage_names:
     if name in montages and montages[name]:
         run_simulation(name, montages[name])
     else:
-        print(f"Montage {name} not found or invalid. Skipping.")
+        logger.error(f"Montage {name} not found or invalid. Skipping.")
+
+logger.info("All simulations completed successfully")
         
