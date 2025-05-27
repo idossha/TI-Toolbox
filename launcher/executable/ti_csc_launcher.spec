@@ -9,6 +9,35 @@ src_path = os.path.join(os.getcwd(), 'src')
 # docker-compose.yml is in the same directory as the build script
 docker_compose_path = os.path.join(os.getcwd(), 'docker-compose.yml')
 
+# Determine which Qt framework to use and exclude the other
+system = platform.system()
+if system == "Windows":
+    # On Windows, use PySide6 and exclude PyQt6
+    qt_hiddenimports = [
+        'PySide6.QtCore',
+        'PySide6.QtWidgets', 
+        'PySide6.QtGui',
+    ]
+    qt_excludes = [
+        'PyQt6',
+        'PyQt6.QtCore',
+        'PyQt6.QtWidgets',
+        'PyQt6.QtGui',
+    ]
+else:
+    # On other platforms, prefer PyQt6 and exclude PySide6
+    qt_hiddenimports = [
+        'PyQt6.QtCore',
+        'PyQt6.QtWidgets',
+        'PyQt6.QtGui',
+    ]
+    qt_excludes = [
+        'PySide6',
+        'PySide6.QtCore',
+        'PySide6.QtWidgets',
+        'PySide6.QtGui',
+    ]
+
 a = Analysis(
     [os.path.join('src', 'ti_csc_launcher.py')],
     pathex=[src_path],
@@ -17,15 +46,11 @@ a = Analysis(
         (docker_compose_path, '.'),  # Include docker-compose.yml in the root of the bundle
         ('src/*.py', 'src'),  # Include all Python files from src
     ],
-    hiddenimports=[
-        'PyQt6.QtCore',
-        'PyQt6.QtWidgets',
-        'PyQt6.QtGui',
-    ],
+    hiddenimports=qt_hiddenimports,
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=[],
+    excludes=qt_excludes,
     win_no_prefer_redirects=False,
     win_private_assemblies=False,
     cipher=block_cipher,

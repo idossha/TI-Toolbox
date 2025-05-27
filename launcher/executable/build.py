@@ -38,9 +38,13 @@ def convert_icons():
 
 def install_dependencies():
     """Install required dependencies"""
+    # Use Windows-specific requirements file on Windows to avoid PyQt6 path length issues
+    system = platform.system()
+    requirements_file = "requirements-windows.txt" if system == "Windows" else "requirements.txt"
+    
     commands = [
         (f"{sys.executable} -m pip install --upgrade pip", "Upgrading pip"),
-        (f"{sys.executable} -m pip install -r requirements.txt", "Installing PyQt6"),
+        (f"{sys.executable} -m pip install -r {requirements_file}", "Installing Qt dependencies"),
         (f"{sys.executable} -m pip install pyinstaller", "Installing PyInstaller"),
     ]
     
@@ -55,8 +59,10 @@ def check_required_files():
         "src/ti_csc_launcher.py",
         "src/dialogs.py",
         "src/shortcuts_manager.py",
+        "src/qt_compat.py",
         "docker-compose.yml",
         "requirements.txt",
+        "requirements-windows.txt",
         "ti_csc_launcher.spec"
     ]
     

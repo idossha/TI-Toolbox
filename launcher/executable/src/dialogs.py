@@ -5,12 +5,10 @@ Handles all popup dialogs and styled message boxes for the TI-CSC launcher.
 
 import os
 import sys
-from PyQt6.QtWidgets import (
+from qt_compat import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, 
-    QScrollArea, QWidget, QMessageBox, QFrame
+    QScrollArea, QWidget, QMessageBox, QFrame, Qt, QFont, QPixmap
 )
-from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QFont, QPixmap
 
 # Add parent directory to path to import version module
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
@@ -749,6 +747,125 @@ class StyledMessageBox(StyledDialog):
     def __init__(self, parent):
         self.parent = parent
     
+    def show_custom_message(self, title, message, buttons=["OK", "Cancel"]):
+        """Show a styled message dialog with custom buttons"""
+        dialog = QDialog(self.parent)
+        dialog.setWindowTitle(title)
+        dialog.setFixedSize(480, 350)
+        dialog.setStyleSheet("""
+            QDialog {
+                background-color: white;
+            }
+        """)
+        
+        layout = QVBoxLayout(dialog)
+        layout.setSpacing(0)
+        layout.setContentsMargins(0, 0, 0, 0)
+        
+        # Header section
+        header_widget = QWidget()
+        header_widget.setStyleSheet("""
+            QWidget {
+                background-color: #f8f9fa;
+            }
+        """)
+        header_layout = QVBoxLayout(header_widget)
+        header_layout.setContentsMargins(20, 15, 20, 15)
+        
+        # Header title with icon
+        header_title = QLabel(f"🖥️ {title}")
+        header_title.setFont(QFont("Arial", 16, QFont.Weight.Bold))
+        header_title.setStyleSheet("color: #4a90e2; background: transparent;")
+        header_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        
+        header_layout.addWidget(header_title)
+        layout.addWidget(header_widget)
+        
+        # Content area
+        content_widget = QWidget()
+        content_widget.setStyleSheet("background-color: white;")
+        content_layout = QVBoxLayout(content_widget)
+        content_layout.setContentsMargins(20, 20, 20, 15)
+        
+        message_label = QLabel(message)
+        message_label.setWordWrap(True)
+        message_label.setFont(QFont("Arial", 11))
+        message_label.setStyleSheet("color: #444444; line-height: 1.4; background: transparent;")
+        message_label.setAlignment(Qt.AlignmentFlag.AlignLeft)
+        
+        content_layout.addWidget(message_label)
+        layout.addWidget(content_widget)
+        
+        # Footer with custom buttons
+        footer_widget = QWidget()
+        footer_widget.setStyleSheet("""
+            QWidget {
+                background-color: #f8f9fa;
+            }
+        """)
+        footer_layout = QHBoxLayout(footer_widget)
+        footer_layout.setContentsMargins(20, 12, 20, 12)
+        footer_layout.addStretch()
+        
+        result = None
+        
+        # Create buttons
+        for i, button_text in enumerate(buttons):
+            button = QPushButton(button_text)
+            
+            if i == 0:  # First button (primary action)
+                button.setStyleSheet("""
+                    QPushButton {
+                        background-color: #4a90e2;
+                        color: white;
+                        font-weight: bold;
+                        font-size: 13px;
+                        padding: 10px 20px;
+                        min-width: 80px;
+                        margin-left: 5px;
+                    }
+                    QPushButton:hover {
+                        background-color: #357abd;
+                    }
+                    QPushButton:pressed {
+                        background-color: #2968a3;
+                    }
+                """)
+            else:  # Secondary buttons
+                button.setStyleSheet("""
+                    QPushButton {
+                        background-color: #6c757d;
+                        color: white;
+                        font-weight: bold;
+                        font-size: 13px;
+                        padding: 10px 20px;
+                        min-width: 80px;
+                        margin-left: 5px;
+                    }
+                    QPushButton:hover {
+                        background-color: #5a6268;
+                    }
+                    QPushButton:pressed {
+                        background-color: #484e53;
+                    }
+                """)
+            
+            # Capture the button text in the lambda closure
+            button.clicked.connect(lambda checked, text=button_text: (
+                setattr(dialog, 'result_text', text),
+                dialog.accept()
+            ))
+            
+            footer_layout.addWidget(button)
+        
+        layout.addWidget(footer_widget)
+        
+        # Show dialog and return the result
+        dialog.result_text = buttons[-1] if buttons else "Cancel"  # Default to last button
+        dialog.exec()
+        
+        return getattr(dialog, 'result_text', buttons[-1] if buttons else "Cancel")
+
     def show_message(self, title, message, msg_type="info", icon_emoji="ℹ️"):
         """Show a styled message dialog"""
         dialog = QDialog(self.parent)

@@ -1,6 +1,4 @@
-from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QProgressBar, QPushButton
-from PyQt6.QtCore import Qt, QTimer
-from PyQt6.QtGui import QFont
+from qt_compat import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QProgressBar, QPushButton, Qt, QTimer, QFont
 
 
 class ProgressWidget(QWidget):
@@ -39,7 +37,9 @@ class ProgressWidget(QWidget):
     
     def add_layer_progress(self, layer_id, status, percentage):
         """Add or update progress for a layer"""
-        if not self.isVisible():
+        # Only show widget if we actually have meaningful progress to display
+        # This reduces unnecessary flickering for quick operations
+        if not self.isVisible() and (percentage > 0 or "downloading" in status.lower() or "pull" in status.lower()):
             self.show()
             
         if layer_id not in self.layer_widgets:
@@ -136,8 +136,10 @@ class ProgressWidget(QWidget):
             if widget_info.get('completed', False):
                 to_remove.append(layer_id)
         
-        for layer_id in to_remove:
-            QTimer.singleShot(2000, lambda lid=layer_id: self._remove_layer_widget(lid))
+        # Only clean up if we have multiple completed items to avoid flicker
+        if len(to_remove) > 1:
+            for layer_id in to_remove[:-1]:  # Keep the last completed item for a bit longer
+                QTimer.singleShot(3000, lambda lid=layer_id: self._remove_layer_widget(lid))
     
     def _remove_layer_widget(self, layer_id):
         """Remove a layer's progress widget"""
@@ -150,9 +152,10 @@ class ProgressWidget(QWidget):
             container.deleteLater()
             del self.layer_widgets[layer_id]
             
-            # Hide widget if no more progress bars
+            # Only hide widget if no more progress bars and no recent activity
             if not self.layer_widgets:
-                self.hide()
+                # Add a small delay before hiding to prevent flicker
+                QTimer.singleShot(1000, self.hide)
     
     def clear_all(self):
         """Clear all progress bars"""

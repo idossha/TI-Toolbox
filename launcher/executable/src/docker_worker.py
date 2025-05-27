@@ -1,7 +1,11 @@
 import subprocess
 import time
 import re
-from PyQt6.QtCore import QThread, pyqtSignal
+import platform
+from qt_compat import QThread, Signal
+
+# Alias for backward compatibility
+pyqtSignal = Signal
 
 
 class DockerWorkerThread(QThread):
@@ -36,16 +40,26 @@ class DockerWorkerThread(QThread):
     def run(self):
         """Run the Docker command in the background thread"""
         try:
-            self.process = subprocess.Popen(
-                self.cmd, 
-                cwd=self.script_dir, 
-                env=self.env,
-                stdout=subprocess.PIPE, 
-                stderr=subprocess.STDOUT,
-                text=True,
-                bufsize=1,
-                universal_newlines=True
-            )
+            # Set up process creation flags for Windows to prevent window flashing
+            kwargs = {
+                'cwd': self.script_dir,
+                'env': self.env,
+                'stdout': subprocess.PIPE,
+                'stderr': subprocess.STDOUT,
+                'text': True,
+                'bufsize': 1,
+                'universal_newlines': True
+            }
+            
+            # On Windows, prevent terminal windows from flashing
+            if platform.system() == "Windows":
+                startupinfo = subprocess.STARTUPINFO()
+                startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+                startupinfo.wShowWindow = subprocess.SW_HIDE
+                kwargs['startupinfo'] = startupinfo
+                kwargs['creationflags'] = subprocess.CREATE_NO_WINDOW
+            
+            self.process = subprocess.Popen(self.cmd, **kwargs)
             
             # Track state
             shown_images = set()

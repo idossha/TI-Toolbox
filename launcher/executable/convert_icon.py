@@ -6,11 +6,22 @@ Converts icon.png to .ico (Windows) and .icns (macOS) formats
 
 import os
 import sys
-from PIL import Image
 import platform
+
+# Try to import PIL with graceful fallback
+try:
+    from PIL import Image
+    PIL_AVAILABLE = True
+except ImportError:
+    PIL_AVAILABLE = False
+    print("WARNING: PIL/Pillow not available. Install with: pip install Pillow")
 
 def convert_png_to_ico(png_path, ico_path):
     """Convert PNG to ICO format for Windows"""
+    if not PIL_AVAILABLE:
+        print("ERROR: Cannot convert to ICO: Pillow not installed")
+        return False
+        
     try:
         # Open the PNG image
         img = Image.open(png_path)
@@ -27,21 +38,25 @@ def convert_png_to_ico(png_path, ico_path):
         
         # Save as ICO with multiple sizes
         images[0].save(ico_path, format='ICO', sizes=[img.size for img in images])
-        print(f"✅ Created Windows icon: {ico_path}")
+        print(f"SUCCESS: Created Windows icon: {ico_path}")
         return True
         
     except Exception as e:
-        print(f"❌ Error creating ICO: {e}")
+        print(f"ERROR: Error creating ICO: {e}")
         return False
 
 def convert_png_to_icns(png_path, icns_path):
     """Convert PNG to ICNS format for macOS"""
+    if not PIL_AVAILABLE:
+        print("ERROR: Cannot convert to ICNS: Pillow not installed")
+        return False
+        
     try:
         # For ICNS, we need to create temporary PNG files at specific sizes
         # and use the iconutil command (macOS only)
         
         if platform.system() != "Darwin":
-            print("⚠️  ICNS conversion requires macOS. Skipping...")
+            print("WARNING: ICNS conversion requires macOS. Skipping...")
             return False
             
         # Create iconset directory
@@ -80,17 +95,17 @@ def convert_png_to_icns(png_path, icns_path):
         ], capture_output=True, text=True)
         
         if result.returncode == 0:
-            print(f"✅ Created macOS icon: {icns_path}")
+            print(f"SUCCESS: Created macOS icon: {icns_path}")
             # Clean up iconset directory
             import shutil
             shutil.rmtree(iconset_dir)
             return True
         else:
-            print(f"❌ Error creating ICNS: {result.stderr}")
+            print(f"ERROR: Error creating ICNS: {result.stderr}")
             return False
             
     except Exception as e:
-        print(f"❌ Error creating ICNS: {e}")
+        print(f"ERROR: Error creating ICNS: {e}")
         return False
 
 def main():
@@ -99,13 +114,20 @@ def main():
     ico_path = "icon.ico"
     icns_path = "icon.icns"
     
-    print("🎨 Converting icon.png to executable formats...")
+    print("Converting icon.png to executable formats...")
     print()
     
     # Check if PNG exists
     if not os.path.exists(png_path):
-        print(f"❌ Error: {png_path} not found!")
-        return False
+        print(f"ERROR: {png_path} not found!")
+        print("WARNING: Building without custom icon (will use default)")
+        return True  # Not a critical error
+    
+    if not PIL_AVAILABLE:
+        print("ERROR: Pillow not installed. Cannot convert icons.")
+        print("INFO: Install with: pip install Pillow")
+        print("WARNING: Building without custom icon (will use default)")
+        return True  # Not a critical error
     
     success = True
     
@@ -124,19 +146,20 @@ def main():
     print()
     
     if success:
-        print("🎉 Icon conversion completed!")
+        print("SUCCESS: Icon conversion completed!")
         print()
         print("Files created:")
         if os.path.exists(ico_path):
-            print(f"  • {ico_path} (Windows)")
+            print(f"  * {ico_path} (Windows)")
         if os.path.exists(icns_path):
-            print(f"  • {icns_path} (macOS)")
+            print(f"  * {icns_path} (macOS)")
         print()
         print("The PyInstaller spec file will be updated to use these icons.")
     else:
-        print("⚠️  Some icon conversions failed. See errors above.")
+        print("WARNING: Some icon conversions failed. Building with default icon.")
     
-    return success
+    return True  # Always return True so build continues
 
 if __name__ == "__main__":
-    main() 
+    success = main()
+    sys.exit(0 if success else 1) 
