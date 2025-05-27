@@ -917,10 +917,10 @@ class AnalyzerTab(QtWidgets.QWidget):
             
             # Create organized output directory structure
             subject_dir = os.path.join(project_dir, 'derivatives', 'SimNIBS', f'sub-{subject_id}')
-            analyses_dir = os.path.join(subject_dir, 'Analyses')
+            analyses_dir = os.path.join(subject_dir,'Simulations', simulation_name, 'Analyses')
             
-            # Directory structure: Analyses > Simulation > (Mesh or Voxel) > analysis_output
-            analysis_type_dir = os.path.join(analyses_dir, simulation_name, 'Mesh' if self.space_mesh.isChecked() else 'Voxel')
+            # Directory structure: Simulations > Simulation > Analyses > (Mesh or Voxel) > analysis_output
+            analysis_type_dir = os.path.join(analyses_dir, 'Mesh' if self.space_mesh.isChecked() else 'Voxel')
             
             # Set output directory (without field name)
             output_dir = os.path.join(analysis_type_dir, target_info)
@@ -1044,35 +1044,43 @@ class AnalyzerTab(QtWidgets.QWidget):
     
     def analysis_finished(self):
         """Handle analysis completion."""
-        # Don't show completion message if the last line indicates analysis failed
-        last_line = self.output_console.toPlainText().strip().split('\n')[-1]
-        if "WARNING: Analysis Failed" in last_line:
-            # Just reset the UI state without showing completion message
+        # Guard against recursive calls
+        if hasattr(self, '_processing_analysis_finished') and self._processing_analysis_finished:
+            return
+        
+        self._processing_analysis_finished = True
+        try:
+            # Don't show completion message if the last line indicates analysis failed
+            last_line = self.output_console.toPlainText().strip().split('\n')[-1]
+            if "WARNING: Analysis Failed" in last_line:
+                # Just reset the UI state without showing completion message
+                self.analysis_running = False
+                self.run_btn.setEnabled(True)
+                self.run_btn.setText("Run Analysis")
+                self.stop_btn.setEnabled(False)
+                self.enable_controls()
+                return
+
+            self.output_console.append('<div style="margin: 10px 0;"><span style="color: #55ff55; font-size: 16px; font-weight: bold;">✅ Analysis process completed ✅</span></div>')
+            self.output_console.append('<div style="border-bottom: 1px solid #555; margin-bottom: 10px;"></div>')
+            
+            # Get current analysis information
+            subject_id = self.subject_list.selectedItems()[0].text()
+            simulation_name = self.simulation_combo.currentText()
+            analysis_type = 'Mesh' if self.space_mesh.isChecked() else 'Voxel'
+            
+            # Emit signal to notify other tabs
+            self.analysis_completed.emit(subject_id, simulation_name, analysis_type)
+            
             self.analysis_running = False
             self.run_btn.setEnabled(True)
             self.run_btn.setText("Run Analysis")
             self.stop_btn.setEnabled(False)
+            
+            # Re-enable all controls
             self.enable_controls()
-            return
-
-        self.output_console.append('<div style="margin: 10px 0;"><span style="color: #55ff55; font-size: 16px; font-weight: bold;">✅ Analysis process completed ✅</span></div>')
-        self.output_console.append('<div style="border-bottom: 1px solid #555; margin-bottom: 10px;"></div>')
-        
-        # Get current analysis information
-        subject_id = self.subject_list.selectedItems()[0].text()
-        simulation_name = self.simulation_combo.currentText()
-        analysis_type = 'Mesh' if self.space_mesh.isChecked() else 'Voxel'
-        
-        # Emit signal to notify other tabs
-        self.analysis_completed.emit(subject_id, simulation_name, analysis_type)
-        
-        self.analysis_running = False
-        self.run_btn.setEnabled(True)
-        self.run_btn.setText("Run Analysis")
-        self.stop_btn.setEnabled(False)
-        
-        # Re-enable all controls
-        self.enable_controls()
+        finally:
+            self._processing_analysis_finished = False
     
     def stop_analysis(self):
         """Stop the running analysis."""
@@ -1139,7 +1147,7 @@ class AnalyzerTab(QtWidgets.QWidget):
         # Append to the console with HTML formatting
         self.output_console.append(formatted_text)
         self.output_console.ensureCursorVisible()
-        QtWidgets.QApplication.processEvents()
+        # Removed QtWidgets.QApplication.processEvents() to prevent recursion issues
     
     def disable_controls(self):
         """Disable all controls except the stop button."""
@@ -1624,7 +1632,7 @@ class AnalyzerTab(QtWidgets.QWidget):
             
             project_dir = f"/mnt/{os.environ.get('PROJECT_DIR_NAME', 'BIDS_new')}"
             mesh_dir = os.path.join(project_dir, "derivatives", "SimNIBS", f"sub-{subject_id}", 
-                                   "Analyses", simulation, "Mesh")
+                                   "Simulations", simulation, "Analyses", "Mesh")
             
             if not os.path.exists(mesh_dir):
                 self.update_output(f"Mesh directory not found: {mesh_dir}")
@@ -1645,7 +1653,9 @@ class AnalyzerTab(QtWidgets.QWidget):
             
             # Add mesh files to combo box
             for rel_path, full_path in mesh_files:
-                self.mesh_combo.addItem(rel_path, full_path)
+                # Extract just the filename without extension for cleaner display
+                display_name = os.path.splitext(os.path.basename(rel_path))[0]
+                self.mesh_combo.addItem(display_name, full_path)
             
             if mesh_files:
                 self.update_output(f"Found {len(mesh_files)} mesh file(s) for {subject_id}/{simulation}")

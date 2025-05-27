@@ -121,8 +121,7 @@ Project Directory/
 │           ├── m2m_{subject}/
 │           ├── Simulations/
 │           ├── flex-search/
-│           ├── ex-search/
-│           └── analysis/
+│           └── ex-search/
 └── ti-csc/                                 <i>(Auto-created at first launch)</i>
     └── config/
         ├── montage_list.json

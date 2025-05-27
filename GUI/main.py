@@ -184,19 +184,27 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def on_analysis_completed(self, subject_id, simulation_name, analysis_type):
         """Handle analysis completion by updating relevant tabs."""
-        # Update NIFTI viewer's analysis regions if it's a voxel analysis
-        if analysis_type == 'Voxel':
-            # Update the NIFTI viewer's subject and simulation selection
-            self.nifti_viewer_tab.subject_combo.setCurrentText(subject_id)
-            self.nifti_viewer_tab.sim_combo.setCurrentText(simulation_name)
-            # Update available analyses for the current subject and simulation
-            self.nifti_viewer_tab.update_available_analyses()
-            
-        # Update mesh files list if it's a mesh analysis
-        if analysis_type == 'Mesh':
-            # Update the mesh files list in the analyzer tab
-            self.analyzer_tab.update_mesh_files()
-            self.analyzer_tab.update_field_files()
+        # Guard against recursive calls
+        if hasattr(self, '_processing_analysis_completion') and self._processing_analysis_completion:
+            return
+        
+        self._processing_analysis_completion = True
+        try:
+            # Update NIFTI viewer's analysis regions if it's a voxel analysis
+            if analysis_type == 'Voxel':
+                # Update the NIFTI viewer's subject and simulation selection
+                self.nifti_viewer_tab.subject_combo.setCurrentText(subject_id)
+                self.nifti_viewer_tab.sim_combo.setCurrentText(simulation_name)
+                # Update available analyses for the current subject and simulation
+                self.nifti_viewer_tab.update_available_analyses()
+                
+            # Update mesh files list if it's a mesh analysis
+            if analysis_type == 'Mesh':
+                # Update the mesh files list in the analyzer tab
+                self.analyzer_tab.update_mesh_files()
+                self.analyzer_tab.update_field_files()
+        finally:
+            self._processing_analysis_completion = False
 
 def parse_version(version_str):
     """Parse a version string into a tuple of integers for comparison. Non-integer parts are ignored."""
