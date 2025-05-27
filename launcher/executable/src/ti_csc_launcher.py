@@ -40,6 +40,27 @@ except ImportError:
     version = MockVersion()
 
 
+class ProgressIndicator:
+    """Simple progress indicator to show activity without spam"""
+    
+    def __init__(self):
+        self.counter = 0
+        self.last_update = 0
+        self.symbols = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
+    
+    def update(self):
+        """Update progress indicator occasionally"""
+        import time
+        current_time = time.time()
+        
+        # Only update every 3 seconds
+        if current_time - self.last_update > 3.0:
+            self.counter += 1
+            symbol = self.symbols[self.counter % len(self.symbols)]
+            # This could be used to update a status, but for now we'll keep it simple
+            self.last_update = current_time
+
+
 class TICSCLoaderApp(QWidget):
     """Main TI-CSC Docker Launcher Application"""
     
@@ -884,7 +905,7 @@ class TICSCLoaderApp(QWidget):
             shown_images = set()
             shown_containers = set()
             shown_volumes = set()
-            last_progress_line = ""
+            progress_indicator = ProgressIndicator()
             
             # Read output line by line in real-time
             while True:
@@ -894,8 +915,12 @@ class TICSCLoaderApp(QWidget):
                 if output:
                     line = output.strip()
                     if line:
-                        self._log_realtime_output(line, shown_images, shown_containers, shown_volumes, show_progress)
-                        last_progress_line = line
+                        # Update progress indicator
+                        progress_indicator.update()
+                        
+                        # Only log important events, not detailed download progress
+                        if self._should_log_line(line):
+                            self._log_realtime_output(line, shown_images, shown_containers, shown_volumes, show_progress)
                 
                 # Process Qt events to keep UI responsive
                 QApplication.processEvents()
@@ -913,27 +938,37 @@ class TICSCLoaderApp(QWidget):
             self.log_message(f"Real-time command error: {str(e)}", "ERROR")
             return False
 
+    def _should_log_line(self, line):
+        """Determine if a line should be logged (filter out verbose progress)"""
+        # Skip detailed downloading progress
+        if "Downloading" in line and ("[" in line or "%" in line):
+            return False
+        if "Pull complete" in line:
+            return False
+        if "Already exists" in line:
+            return False
+        if line.startswith(("4f4fb700ef54", "0622fac788ed", "73e816239689")) and "Download" in line:
+            return False
+        
+        # Log important events
+        return True
+
     def _log_realtime_output(self, line, shown_images, shown_containers, shown_volumes, show_progress=True):
-        """Process and log real-time Docker output with better progress tracking"""
+        """Process and log real-time Docker output with clean progress tracking"""
         if not line.strip():
             return
             
-        # Handle image pulling with detailed progress
+        # Handle image pulling with clean progress
         if "Pulling" in line:
             if " Pulling " in line and "fs layer" not in line.lower():
                 image_name = line.split(" ")[0] if " " in line else line
                 if image_name not in shown_images:
                     self.log_message(f"⬇️  Pulling {image_name} image...", "INFO")
                     shown_images.add(image_name)
-            elif "Pull complete" in line:
-                self.log_message("  ✓ Layer downloaded", "SUCCESS")
-            elif "Downloading" in line and "%" in line:
-                # Show download progress for large layers
-                if "MB" in line or "GB" in line:
-                    self.log_message(f"  📥 {line}", "INFO")
             elif " Pulled" in line:
                 image_name = line.split(" ")[0] if " " in line else line
                 self.log_message(f"✅ {image_name} image ready", "SUCCESS")
+            # Skip detailed downloading progress - it's too verbose
             return
             
         # Handle volume creation
