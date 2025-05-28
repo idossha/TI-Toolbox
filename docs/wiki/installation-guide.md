@@ -1,5 +1,5 @@
 ---
-layout: wiki
+layout: default
 title: Installation Guide
 permalink: /wiki/installation-guide/
 ---

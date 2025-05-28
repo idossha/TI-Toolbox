@@ -21,20 +21,6 @@ header_pages:
   - releases.md
   - about.md
 
-# Collections
-collections:
-  wiki:
-    output: true
-    permalink: /wiki/:path/
-
-# Defaults
-defaults:
-  - scope:
-      path: ""
-      type: "wiki"
-    values:
-      layout: "wiki"
-
 # Markdown settings
 markdown: kramdown
 kramdown:

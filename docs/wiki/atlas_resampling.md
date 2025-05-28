@@ -1,5 +1,5 @@
 ---
-layout: wiki
+layout: default
 title: Atlas Resampling
 permalink: /wiki/atlas_resampling/
 ---
@@ -51,4 +51,4 @@ The best solution is to generate subject-specific atlases using the same preproc
 
 The automatic resampling is a feature, not a bug. It ensures robustness by allowing analysis to proceed even when atlas and field dimensions don't match initially. The resampling process preserves the anatomical validity of your atlas while making it compatible with your field data.
 
-If you need further assistance with atlas generation or have questions about the resampling process, please contact support.
+If you need further assistance with atlas generation or have questions about the resampling process, please contact support. 
