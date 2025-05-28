@@ -163,11 +163,13 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
       - name: Update website version references
+        # Version tags should be named like: v2.0.2 (with a leading 'v')
         run: |
           VERSION="${{ needs.create-release.outputs.version }}"
           RELEASE_DATE=$(date '+%B %Y')
           RELEASE_NOTES="${{ needs.create-release.outputs.release_notes }}"
-          sed -i "s/**Version .***/**Version $VERSION***/" docs/index.md
+          # Update the version reference in index.md (match literal **Version ...**)
+          sed -i "s/\*\*Version [^*]*\*\*/**Version $VERSION**/" docs/index.md
           sed -i "s/Released .*/Released $RELEASE_DATE/" docs/index.md
           sed -i "s/version = {.*}/version = {$VERSION}/" docs/index.md
           TEMP_FILE=$(mktemp)
