@@ -120,7 +120,7 @@ if not log_file:
     log_file = os.path.join(log_dir, f'Simulator_{time_stamp}.log')
 
 # Initialize our main logger
-logger = logging_util.get_logger('simulator', log_file, overwrite=False)
+logger = logging_util.get_logger('TI', log_file, overwrite=False)
 
 # Configure SimNIBS related loggers to use our logging setup
 logging_util.configure_external_loggers(['simnibs', 'mesh_io', 'sim_struct'], logger)
