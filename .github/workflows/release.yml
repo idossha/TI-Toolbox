@@ -167,10 +167,7 @@ jobs:
           VERSION="${{ needs.create-release.outputs.version }}"
           RELEASE_DATE=$(date '+%B %Y')
           RELEASE_NOTES="${{ needs.create-release.outputs.release_notes }}"
-          sed -i "s/Latest Release: Version .*/Latest Release: Version $VERSION/" docs/downloads.md
-          sed -i "s/Released: .*/Released: $RELEASE_DATE/" docs/downloads.md
-          sed -i "s/v[0-9]\+\.[0-9]\+\.[0-9]\+/v$VERSION/g" docs/downloads.md
-          sed -i "s/\*\*Version .\*\*\*/\*\*Version $VERSION\*\*/" docs/index.md
+          sed -i "s/**Version .***/**Version $VERSION***/" docs/index.md
           sed -i "s/Released .*/Released $RELEASE_DATE/" docs/index.md
           sed -i "s/version = {.*}/version = {$VERSION}/" docs/index.md
           TEMP_FILE=$(mktemp)
