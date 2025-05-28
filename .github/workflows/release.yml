@@ -1,15 +1,54 @@
-name: Release and Build
+name: Release, Build, and Deploy
 
 on:
-  release:
-    types: [published]
+  push:
+    tags:
+      - 'v*.*.*'  # Only run on version tag pushes
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
 
 env:
   PYTHON_VERSION: '3.9'
 
 jobs:
+  create-release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    outputs:
+      upload_url: ${{ steps.create_release.outputs.upload_url }}
+      version: ${{ steps.extract_version.outputs.version }}
+      release_notes: ${{ steps.extract_version.outputs.release_notes }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Extract version and release notes
+        id: extract_version
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/v}
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          # Use latest commit message as release notes
+          RELEASE_NOTES=$(git log -1 --pretty=%B)
+          echo "release_notes<<EOF" >> $GITHUB_OUTPUT
+          echo "$RELEASE_NOTES" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+      - name: Create GitHub Release
+        id: create_release
+        uses: softprops/action-gh-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: Version ${{ steps.extract_version.outputs.version }}
+          body: ${{ steps.extract_version.outputs.release_notes }}
+          draft: false
+          prerelease: false
+
   build-executables:
     name: Build ${{ matrix.os }} executable
+    needs: create-release
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -18,229 +57,171 @@ jobs:
             artifact-name: TemporalInterferenceToolbox-macOS-universal
             artifact-path: launcher/executable/dist/TI-CSC.app
             archive-cmd: 'cd launcher/executable/dist && zip -r ../../../TemporalInterferenceToolbox-macOS-universal.zip TI-CSC.app'
+            asset-name: TemporalInterferenceToolbox-macOS-universal.zip
+            asset-content-type: application/zip
           - os: windows-latest
             artifact-name: TemporalInterferenceToolbox-Windows-x64
             artifact-path: launcher/executable/dist/TI-CSC.exe
             archive-cmd: 'cp launcher/executable/dist/TI-CSC.exe TemporalInterferenceToolbox-Windows-x64.exe'
+            asset-name: TemporalInterferenceToolbox-Windows-x64.exe
+            asset-content-type: application/octet-stream
           - os: ubuntu-latest
             artifact-name: TemporalInterferenceToolbox-Linux-x86_64
             artifact-path: launcher/executable/dist/TI-CSC
             archive-cmd: 'cp launcher/executable/dist/TI-CSC TemporalInterferenceToolbox-Linux-x86_64.AppImage && chmod +x TemporalInterferenceToolbox-Linux-x86_64.AppImage'
+            asset-name: TemporalInterferenceToolbox-Linux-x86_64.AppImage
+            asset-content-type: application/octet-stream
       fail-fast: false
-
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: ${{ env.PYTHON_VERSION }}
-
-    - name: Install system dependencies (Ubuntu)
-      if: matrix.os == 'ubuntu-latest'
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y \
-          build-essential \
-          python3-dev \
-          python3-venv \
-          libgl1-mesa-dev \
-          libegl1-mesa-dev \
-          libxrender1 \
-          libfontconfig1 \
-          libglib2.0-0 \
-          libdbus-1-3 \
-          xvfb
-
-    - name: Install system dependencies (macOS)
-      if: matrix.os == 'macos-latest'
-      run: |
-        # Install any macOS specific dependencies if needed
-        echo "Setting up macOS build environment"
-
-    - name: Update version in code
-      shell: bash
-      run: |
-        # Extract version from GitHub release
-        VERSION="${{ github.event.release.tag_name }}"
-        VERSION="${VERSION#v}"
-        echo "Updating version to: $VERSION"
-        sed -i.bak "s/__version__ = \".*\"/__version__ = \"$VERSION\"/" version.py
-        sed -i.bak "s/\"version\": \".*\"/\"version\": \"$VERSION\"/" version.py
-        sed -i.bak "s/__version__ = \".*\"/__version__ = \"$VERSION\"/" launcher/executable/src/ti_csc_launcher.py
-        sed -i.bak "s/\"version\": \".*\"/\"version\": \"$VERSION\"/" launcher/executable/src/ti_csc_launcher.py
-        sed -i.bak "s/__version__ = \".*\"/__version__ = \"$VERSION\"/" launcher/executable/src/dialogs.py
-        sed -i.bak "s/\"version\": \".*\"/\"version\": \"$VERSION\"/" launcher/executable/src/dialogs.py
-
-    - name: Build executable
-      working-directory: launcher/executable
-      shell: bash
-      env:
-        PYTHONIOENCODING: utf-8
-      run: |
-        if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
-          export PYTHONIOENCODING=utf-8
-          export PYTHONUTF8=1
-        fi
-        echo "Contents of launcher/executable directory:"
-        ls -la
-        echo "Contents of project root:"
-        ls -la ../../
-        echo "Checking docker-compose.yml location..."
-        if [ -f "docker-compose.yml" ]; then
-          echo "✅ docker-compose.yml already exists in build directory"
-        elif [ -f "../../docker-compose.yml" ]; then
-          echo "Copying docker-compose.yml from project root..."
-          cp ../../docker-compose.yml ./
-        else
-          echo "⚠️  docker-compose.yml not found in either location"
-        fi
-        echo "Verifying docker-compose.yml:"
-        ls -la docker-compose.yml
-        echo "Python version:"
-        python --version
-        echo "Installing pip dependencies..."
-        python -m pip install --upgrade pip
-        echo "Running build.py..."
-        python build.py
-        echo "Build completed, checking output:"
-        ls -la dist/
-
-    - name: Verify build output
-      shell: bash
-      run: |
-        echo "Checking if build artifact exists:"
-        if [ -e "${{ matrix.artifact-path }}" ]; then
-          echo "✅ Build artifact found: ${{ matrix.artifact-path }}"
-          ls -la "${{ matrix.artifact-path }}"
-        else
-          echo "❌ Build artifact not found: ${{ matrix.artifact-path }}"
-          echo "Contents of launcher/executable/dist/:"
-          ls -la launcher/executable/dist/ || echo "dist directory doesn't exist"
-          exit 1
-        fi
-
-    - name: Create archive
-      shell: bash
-      run: |
-        ${{ matrix.archive-cmd }}
-
-    - name: Upload artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: ${{ matrix.artifact-name }}
-        path: TemporalInterferenceToolbox-*
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Install system dependencies (Ubuntu)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            python3-dev \
+            python3-venv \
+            libgl1-mesa-dev \
+            libegl1-mesa-dev \
+            libxrender1 \
+            libfontconfig1 \
+            libglib2.0-0 \
+            libdbus-1-3 \
+            xvfb
+      - name: Install system dependencies (macOS)
+        if: matrix.os == 'macos-latest'
+        run: |
+          echo "Setting up macOS build environment"
+      - name: Update version in code
+        shell: bash
+        run: |
+          VERSION="${{ needs.create-release.outputs.version }}"
+          echo "Updating version to: $VERSION"
+          sed -i.bak "s/__version__ = \".*\"/__version__ = \"$VERSION\"/" version.py
+          sed -i.bak "s/\"version\": \".*\"/\"version\": \"$VERSION\"/" version.py
+          sed -i.bak "s/__version__ = \".*\"/__version__ = \"$VERSION\"/" launcher/executable/src/ti_csc_launcher.py
+          sed -i.bak "s/\"version\": \".*\"/\"version\": \"$VERSION\"/" launcher/executable/src/ti_csc_launcher.py
+          sed -i.bak "s/__version__ = \".*\"/__version__ = \"$VERSION\"/" launcher/executable/src/dialogs.py
+          sed -i.bak "s/\"version\": \".*\"/\"version\": \"$VERSION\"/" launcher/executable/src/dialogs.py
+      - name: Build executable
+        working-directory: launcher/executable
+        shell: bash
+        env:
+          PYTHONIOENCODING: utf-8
+        run: |
+          if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
+            export PYTHONIOENCODING=utf-8
+            export PYTHONUTF8=1
+          fi
+          if [ -f "docker-compose.yml" ]; then
+            echo "✅ docker-compose.yml already exists in build directory"
+          elif [ -f "../../docker-compose.yml" ]; then
+            echo "Copying docker-compose.yml from project root..."
+            cp ../../docker-compose.yml ./
+          else
+            echo "⚠️  docker-compose.yml not found in either location"
+          fi
+          python --version
+          python -m pip install --upgrade pip
+          python build.py
+      - name: Verify build output
+        shell: bash
+        run: |
+          if [ -e "${{ matrix.artifact-path }}" ]; then
+            echo "✅ Build artifact found: ${{ matrix.artifact-path }}"
+          else
+            echo "❌ Build artifact not found: ${{ matrix.artifact-path }}"
+            exit 1
+          fi
+      - name: Create archive
+        shell: bash
+        run: |
+          ${{ matrix.archive-cmd }}
+      - name: Upload artifact for release
+        uses: softprops/action-gh-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          files: |
+            TemporalInterferenceToolbox-*
+          tag_name: ${{ github.ref_name }}
+          token: ${{ secrets.GITHUB_TOKEN }}
 
   update-website:
     name: Update website with new release
     runs-on: ubuntu-latest
-    needs: build-executables
-    permissions:
-      contents: write
-      actions: read
+    needs: [create-release, build-executables]
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      with:
-        token: ${{ secrets.GITHUB_TOKEN }}
-    - name: Extract version information
-      id: version_info
-      run: |
-        VERSION="${{ github.event.release.tag_name }}"
-        VERSION="${VERSION#v}"
-        RELEASE_DATE=$(date '+%B %Y')
-        RELEASE_NOTES="${{ github.event.release.body }}"
-        echo "version=$VERSION" >> $GITHUB_OUTPUT
-        echo "release_date=$RELEASE_DATE" >> $GITHUB_OUTPUT
-        echo "release_notes<<EOF" >> $GITHUB_OUTPUT
-        echo "$RELEASE_NOTES" >> $GITHUB_OUTPUT
-        echo "EOF" >> $GITHUB_OUTPUT
-    - name: Update website version references
-      run: |
-        VERSION="${{ steps.version_info.outputs.version }}"
-        RELEASE_DATE="${{ steps.version_info.outputs.release_date }}"
-        sed -i "s/Latest Release: Version .*/Latest Release: Version $VERSION/" docs/downloads.md
-        sed -i "s/Released: .*/Released: $RELEASE_DATE/" docs/downloads.md
-        sed -i "s/v[0-9]\+\.[0-9]\+\.[0-9]\+/v$VERSION/g" docs/downloads.md
-        sed -i "s/\*\*Version .\*\*\*/\*\*Version $VERSION\*\*/" docs/index.md
-        sed -i "s/Released .*/Released $RELEASE_DATE/" docs/index.md
-        sed -i "s/version = {.*}/version = {$VERSION}/" docs/index.md
-        TEMP_FILE=$(mktemp)
-        cat > $TEMP_FILE << 'EOF'
-        <div class="release">
-          <div class="release-header">
-            <h2>Version $VERSION</h2>
-            <span class="release-date">$RELEASE_DATE</span>
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Update website version references
+        run: |
+          VERSION="${{ needs.create-release.outputs.version }}"
+          RELEASE_DATE=$(date '+%B %Y')
+          RELEASE_NOTES="${{ needs.create-release.outputs.release_notes }}"
+          sed -i "s/Latest Release: Version .*/Latest Release: Version $VERSION/" docs/downloads.md
+          sed -i "s/Released: .*/Released: $RELEASE_DATE/" docs/downloads.md
+          sed -i "s/v[0-9]\+\.[0-9]\+\.[0-9]\+/v$VERSION/g" docs/downloads.md
+          sed -i "s/\*\*Version .\*\*\*/\*\*Version $VERSION\*\*/" docs/index.md
+          sed -i "s/Released .*/Released $RELEASE_DATE/" docs/index.md
+          sed -i "s/version = {.*}/version = {$VERSION}/" docs/index.md
+          TEMP_FILE=$(mktemp)
+          cat > $TEMP_FILE << EOF
+          <div class="release">
+            <div class="release-header">
+              <h2>Version $VERSION</h2>
+              <span class="release-date">$RELEASE_DATE</span>
+            </div>
+            <p><strong>New Release</strong></p>
+            <h3>📋 Release Notes</h3>
+            <div style="background: #f5f5f5; padding: 15px; border-radius: 5px; margin: 10px 0;">
+              <pre style="background: transparent; padding: 0; margin: 0; white-space: pre-wrap;">$RELEASE_NOTES</pre>
+            </div>
+            <div class="release-downloads">
+              <a href="https://github.com/idossha/TI-Toolbox/releases/download/v$VERSION/TemporalInterferenceToolbox-macOS-universal.zip">macOS</a>
+              <a href="https://github.com/idossha/TI-Toolbox/releases/download/v$VERSION/TemporalInterferenceToolbox-Linux-x86_64.AppImage">Linux</a>
+              <a href="https://github.com/idossha/TI-Toolbox/releases/download/v$VERSION/TemporalInterferenceToolbox-Windows-x64.exe">Windows</a>
+            </div>
           </div>
-          <p><strong>New Release</strong></p>
-          <h3>📋 Release Notes</h3>
-          <div style="background: #f5f5f5; padding: 15px; border-radius: 5px; margin: 10px 0;">
-            <pre style="background: transparent; padding: 0; margin: 0; white-space: pre-wrap;">${{ steps.version_info.outputs.release_notes }}</pre>
-          </div>
-          <div class="release-downloads">
-            <a href="https://github.com/idossha/TI-Toolbox/releases/download/v$VERSION/TemporalInterferenceToolbox-macOS-universal.zip">macOS</a>
-            <a href="https://github.com/idossha/TI-Toolbox/releases/download/v$VERSION/TemporalInterferenceToolbox-Linux-x86_64.AppImage">Linux</a>
-            <a href="https://github.com/idossha/TI-Toolbox/releases/download/v$VERSION/TemporalInterferenceToolbox-Windows-x64.exe">Windows</a>
-          </div>
-        </div>
-        EOF
-        sed -i '/All notable changes and releases/r '"$TEMP_FILE" docs/releases.md
-        sed -i "s/\$VERSION/$VERSION/g" docs/releases.md
-        sed -i "s/\$RELEASE_DATE/$RELEASE_DATE/g" docs/releases.md
-    - name: Commit and push website updates
-      run: |
-        git config --local user.email "action@github.com"
-        git config --local user.name "GitHub Action"
-        git add docs/
-        git diff --staged --quiet || git commit -m "Update website for release v${{ steps.version_info.outputs.version }}"
-        git push
+          EOF
+          sed -i '/All notable changes and releases/r '"$TEMP_FILE" docs/releases.md
+          sed -i "s/\$VERSION/$VERSION/g" docs/releases.md
+          sed -i "s/\$RELEASE_DATE/$RELEASE_DATE/g" docs/releases.md
+      - name: Commit and push website updates
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add docs/
+          git diff --staged --quiet || git commit -m "Update website for release v${{ needs.create-release.outputs.version }}"
+          git push
 
-  upload-release-assets:
-    name: Upload release assets
+  deploy-docs:
+    name: Deploy Documentation to GitHub Pages
     runs-on: ubuntu-latest
-    needs: [build-executables, update-website]
-    permissions:
-      contents: write
+    needs: update-website
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     steps:
-    - name: Wait for GitHub Release to be available
-      run: |
-        for i in {1..30}; do
-          RELEASE_URL="https://api.github.com/repos/${{ github.repository }}/releases/tags/v${{ github.event.release.tag_name#v }}"
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" $RELEASE_URL)
-          if [ "$STATUS" == "200" ]; then
-            echo "Release is available!"
-            break
-          fi
-          echo "Waiting for release to be available..."
-          sleep 10
-        done
-    - name: Download all artifacts
-      uses: actions/download-artifact@v4
-    - name: Upload macOS asset
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ github.event.release.upload_url }}
-        asset_path: ./TemporalInterferenceToolbox-macOS-universal/TemporalInterferenceToolbox-macOS-universal.zip
-        asset_name: TemporalInterferenceToolbox-macOS-universal.zip
-        asset_content_type: application/zip
-    - name: Upload Linux asset
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ github.event.release.upload_url }}
-        asset_path: ./TemporalInterferenceToolbox-Linux-x86_64/TemporalInterferenceToolbox-Linux-x86_64.AppImage
-        asset_name: TemporalInterferenceToolbox-Linux-x86_64.AppImage
-        asset_content_type: application/octet-stream
-    - name: Upload Windows asset
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ github.event.release.upload_url }}
-        asset_path: ./TemporalInterferenceToolbox-Windows-x64/TemporalInterferenceToolbox-Windows-x64.exe
-        asset_name: TemporalInterferenceToolbox-Windows-x64.exe
-        asset_content_type: application/octet-stream 
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+      - name: Build with Jekyll
+        uses: actions/jekyll-build-pages@v1
+        with:
+          source: ./docs
+          destination: ./_site
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4 
