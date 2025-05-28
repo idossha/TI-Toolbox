@@ -1,4 +1,7 @@
-name: Deploy GitHub Pages
+name: Deploy GitHub Pages (DISABLED)
+
+# This workflow has been disabled in favor of docs-deploy.yml
+# To re-enable, rename this file back to .yml extension
 
 on:
   push:
