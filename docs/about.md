@@ -6,41 +6,39 @@ permalink: /about/
 
 # About Temporal Interference Toolbox
 
-## Our Mission
-
-Temporal Interference Toolbox (Temporal Interference Toolbox) is an open-source toolbox designed to advance research in non-invasive brain stimulation through temporal interference. Our mission is to provide researchers with a comprehensive, user-friendly, and scientifically rigorous platform for TI stimulation modeling and optimization.
-
-## What We Do
-
-We develop and maintain a complete software ecosystem for temporal interference research, including:
-
-- **Neuroimaging Pipeline**: Automated processing from raw MRI data to personalized head models
-- **Simulation Engine**: State-of-the-art finite element modeling for accurate field calculations
-- **Optimization Tools**: Advanced algorithms for finding optimal stimulation parameters
-- **Visualization Platform**: Interactive 3D visualization of brain anatomy and electric fields
-- **Analysis Framework**: Comprehensive tools for evaluating stimulation outcomes
+The Temporal Interference Toolbox is an open-source platform for advanced brain stimulation research. It provides a complete pipeline for temporal interference (TI) stimulation, from raw neuroimaging data to simulation, optimization, analysis, and visualization.
 
 ## Key Features
 
-### 🔬 Scientifically Rigorous
-- Based on validated finite element methods
-- Incorporates realistic tissue conductivity models
-- Peer-reviewed algorithms and approaches
+- **BIDS-compliant**: Organize your data using the Brain Imaging Data Structure
+- **Pre-processing**: DICOM to NIfTI, FreeSurfer, SimNIBS head modeling
+- **Optimization**: flex-search (evolutionary) and ex-search (exhaustive) algorithms
+- **Simulation**: FEM-based TI/mTI field solvers
+- **Analysis**: ROI and atlas-based tools
+- **Visualization**: NIfTI/mesh viewers, report generator
+- **Docker-based**: Fully containerized for reproducibility and easy deployment
 
-### 🚀 Performance Optimized
-- GPU acceleration support
-- Parallel processing capabilities
-- Efficient memory management
+## Workflow Overview
 
-### 🌍 Open Source
-- Fully open source under MIT license
-- Transparent development process
-- Community-driven improvements
+1. Set up your BIDS project directory
+2. Install Docker Desktop
+3. Download the latest release from the [releases page](/releases)
+4. Pre-process your data
+5. Optimize electrode placement
+6. Simulate TI fields
+7. Analyze and visualize results
 
-### 🐳 Reproducible
-- Docker-based deployment
-- Version-controlled environments
-- Standardized workflows
+For more details, see the [documentation](/documentation) or [wiki](/wiki).
+
+## Community & Support
+
+- [GitHub Repository](https://github.com/idossha/TI-Toolbox)
+- [Issue Tracker](https://github.com/idossha/TI-Toolbox/issues)
+- [Discussions](https://github.com/idossha/TI-Toolbox/discussions)
+
+## Citation
+
+If you use the toolbox in your research, please cite as described in the [main page](/).
 
 ## The Team
 

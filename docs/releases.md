@@ -6,6 +6,10 @@ permalink: /releases/
 
 # Release History
 
+**Note:** Versions 1.X.X and earlier are no longer supported. Please use the latest 2.X.X release from the [releases page on GitHub](https://github.com/idossha/TI-Toolbox/releases).
+
+All versions 2.0.0 and newer have been removed from this history for clarity.
+
 All notable changes and releases for Temporal Interference Toolbox are documented here.
 <div class="release">
   <div class="release-header">
@@ -75,50 +79,6 @@ All notable changes and releases for Temporal Interference Toolbox are documente
   </div>
 </div>
 
-
-<div class="release">
-  <div class="release-header">
-    <h2>Version 2.0.0</h2>
-    <span class="release-date">December 2024</span>
-  </div>
-  
-  <p><strong>Major Release - Complete Architecture Overhaul</strong></p>
-  
-  <h3>🎉 New Features</h3>
-  <ul>
-    <li>Completely new PyQt6-based launcher application</li>
-    <li>Automatic Docker container management</li>
-    <li>Integrated progress tracking for long operations</li>
-    <li>Native executables for macOS, Linux, and Windows</li>
-    <li>Improved XQuartz integration for macOS GUI support</li>
-    <li>Desktop shortcut creation</li>
-    <li>Real-time console output with color coding</li>
-  </ul>
-  
-  <h3>🚀 Improvements</h3>
-  <ul>
-    <li>30% faster simulation engine</li>
-    <li>Reduced Docker image size by 25%</li>
-    <li>Better error handling and user feedback</li>
-    <li>Streamlined installation process</li>
-    <li>Updated to latest SimNIBS 4.0</li>
-    <li>FreeSurfer 7.3 integration</li>
-  </ul>
-  
-  <h3>🐛 Bug Fixes</h3>
-  <ul>
-    <li>Fixed GUI display issues on high-DPI screens</li>
-    <li>Resolved Docker path detection on Apple Silicon</li>
-    <li>Fixed memory leaks in long-running simulations</li>
-    <li>Corrected electrode placement accuracy</li>
-  </ul>
-  
-  <div class="release-downloads">
-    <a href="https://github.com/idossha/TI-Toolbox/releases/download/v2.0.0/Temporal Interference Toolbox-macOS-universal.dmg">macOS</a>
-    <a href="https://github.com/idossha/TI-Toolbox/releases/download/v2.0.0/Temporal Interference Toolbox-Linux-x86_64.AppImage">Linux</a>
-    <a href="https://github.com/idossha/TI-Toolbox/releases/download/v2.0.0/Temporal Interference Toolbox-Windows-x64.exe">Windows</a>
-  </div>
-</div>
 
 <div class="release">
   <div class="release-header">

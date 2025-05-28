@@ -35,15 +35,19 @@ Temporal Interference Toolbox is a comprehensive toolbox for temporal interferen
 ### Prerequisites
 
 1. **Docker Desktop** - Download and install from [docker.com](https://www.docker.com/products/docker-desktop)
-2. **Temporal Interference Toolbox Launcher** - Download from our [downloads page](/downloads)
+2. **Temporal Interference Toolbox** - Download the latest release for your platform from the [releases page](/releases)
 3. **BIDS Dataset** - Your data should be organized in BIDS format
 
 ### Quick Start Guide
 
-1. Launch the Temporal Interference Toolbox application
-2. Select your BIDS-compliant project directory
-3. Click "Start Docker Containers" and wait for initialization
-4. Choose CLI or GUI interface based on your preference
+1. Set up your BIDS-compliant project directory. Place DICOM files in `sourcedata/sub-<subject>/T1w/dicom/` (and optionally T2w).
+2. Install Docker Desktop and ensure it is running.
+3. Download and launch the toolbox from the [releases page](/releases).
+4. Start the toolbox environment (Docker containers will be managed automatically).
+5. Pre-process your data (DICOM to NIfTI, FreeSurfer, SimNIBS head model).
+6. Optimize electrode placement (flex-search or ex-search).
+7. Simulate TI fields.
+8. Analyze and visualize results.
 
 ## Installation
 
@@ -58,18 +62,18 @@ Temporal Interference Toolbox is a comprehensive toolbox for temporal interferen
 
 #### macOS
 - Install Docker Desktop
-- Install XQuartz 2.7.7 or 2.8.0 (for GUI support)
-- Download and run Temporal Interference Toolbox launcher
+- Install XQuartz (for GUI support)
+- Download and run the launcher from the [releases page](/releases)
 
 #### Linux
 - Install Docker Desktop or Docker Engine
-- Ensure X11 forwarding is enabled
-- Download and run AppImage
+- Ensure X11 forwarding is enabled (for GUI)
+- Download and run AppImage from the [releases page](/releases)
 
 #### Windows
 - Install Docker Desktop with WSL2
 - Install VcXsrv or similar X server (for GUI)
-- Download and run installer
+- Download and run the installer from the [releases page](/releases)
 
 ## Project Structure
 
@@ -77,14 +81,14 @@ Temporal Interference Toolbox expects a BIDS-compliant directory structure:
 
 ```
 your_project/
+├── sourcedata/
+│   └── sub-01/
+│       └── T1w/
+│           └── dicom/
 ├── sub-01/
-│   ├── anat/
-│   │   ├── sub-01_T1w.nii.gz
-│   │   └── sub-01_T2w.nii.gz
-│   └── ses-01/
-│       └── anat/
-├── sub-02/
-│   └── ...
+│   └── anat/
+│       ├── sub-01_T1w.nii.gz
+│       └── sub-01_T2w.nii.gz
 ├── derivatives/
 │   ├── freesurfer/
 │   ├── simnibs/
@@ -94,243 +98,60 @@ your_project/
 
 ## Workflow Overview
 
-The typical Temporal Interference Toolbox workflow consists of:
+The typical workflow consists of:
 
-1. **Data Import** - Convert DICOM to NIfTI (if needed)
-2. **Pre-processing** - FreeSurfer reconstruction and SimNIBS head modeling
-3. **Simulation Setup** - Define electrode positions and parameters
-4. **Field Calculation** - Compute TI fields using FEM
-5. **Optimization** - Find optimal electrode configurations
-6. **Analysis** - Evaluate results using ROI tools
-7. **Visualization** - View and export results
+1. **Set up BIDS directory**
+2. **Pre-process** (DICOM to NIfTI, FreeSurfer, SimNIBS)
+3. **Optimize** (flex-search or ex-search)
+4. **Simulate** (TI/mTI field solvers)
+5. **Analyze** (ROI/atlas-based tools)
+6. **Visualize** (NIfTI/mesh viewers, report generator)
+
+For more details on each step, see the sections below or the [wiki](/wiki).
 
 ## CLI Commands
 
-The command-line interface provides full access to all Temporal Interference Toolbox functions:
-
-### Basic Commands
-
-```bash
-# Show help
-ti-csc --help
-
-# Process a subject
-ti-csc preprocess --subject sub-01
-
-# Run simulation
-ti-csc simulate --subject sub-01 --config simulation.json
-
-# Optimize parameters
-ti-csc optimize --subject sub-01 --target ROI_name
-```
-
-### Pre-processing Commands
-
-```bash
-# Run FreeSurfer
-ti-csc freesurfer --subject sub-01
-
-# Create head model
-ti-csc headmodel --subject sub-01 --type simnibs
-
-# Convert DICOM to NIfTI
-ti-csc dicom2nifti --input /path/to/dicoms --output /path/to/nifti
-```
-
-### Simulation Commands
-
-```bash
-# Basic TI simulation
-ti-csc simulate --subject sub-01 \
-  --freq1 1000 --freq2 1010 \
-  --amp1 1.0 --amp2 1.0
-
-# With custom electrode positions
-ti-csc simulate --subject sub-01 \
-  --electrodes electrodes.csv \
-  --config advanced_params.json
-```
+The command-line interface provides full access to all toolbox functions. See the [wiki](/wiki) for detailed usage and examples.
 
 ## GUI Interface
 
-The graphical interface provides an intuitive way to work with Temporal Interference Toolbox:
-
-### Main Features
-
-- **Project Manager** - Organize subjects and sessions
-- **3D Viewer** - Interactive brain and field visualization
-- **Electrode Editor** - Place and adjust electrodes visually
-- **Parameter Controls** - Real-time parameter adjustment
-- **Result Browser** - Compare different simulations
-
-### GUI Workflow
-
-1. Launch GUI from the Docker launcher
-2. Open or create a project
-3. Select a subject
-4. Place electrodes using the 3D editor
-5. Set simulation parameters
-6. Run simulation
-7. Visualize results
+The graphical interface provides an intuitive way to work with the toolbox, including project management, 3D visualization, and parameter controls.
 
 ## Pre-processing Pipeline
 
-### FreeSurfer Processing
-
-Temporal Interference Toolbox uses FreeSurfer for cortical reconstruction:
-
-```bash
-# Standard processing
-ti-csc freesurfer --subject sub-01
-
-# With custom options
-ti-csc freesurfer --subject sub-01 \
-  --parallel --threads 8 \
-  --hires
-```
-
-### Head Model Creation
-
-SimNIBS is used to create FEM head models:
-
-```bash
-# Create head model
-ti-csc headmodel --subject sub-01
-
-# With custom tissue conductivities
-ti-csc headmodel --subject sub-01 \
-  --skin 0.465 --skull 0.010 \
-  --csf 1.654 --gm 0.276 --wm 0.126
-```
-
-## TI Simulation
-
-### Basic Parameters
-
-- **Frequencies**: f1 and f2 (typically 1000-3000 Hz)
-- **Amplitudes**: Current amplitudes for each channel
-- **Electrode Positions**: 10-20 system or MNI coordinates
-
-### Advanced Options
-
-```json
-{
-  "simulation": {
-    "mesh_resolution": "high",
-    "solver": "gmres",
-    "tolerance": 1e-6,
-    "max_iterations": 1000
-  },
-  "electrodes": {
-    "type": "circular",
-    "diameter": 50,
-    "thickness": 2
-  }
-}
-```
+- DICOM to NIfTI conversion
+- FreeSurfer cortical reconstruction
+- SimNIBS head modeling
 
 ## Optimization
 
-### Evolution Algorithm
+- **flex-search**: Evolutionary optimization for electrode placement
+- **ex-search**: Exhaustive search for parameter sweeps
 
-```bash
-# Optimize for maximum field in target
-ti-csc optimize --subject sub-01 \
-  --algorithm evolution \
-  --target "left_motor_cortex" \
-  --generations 100 \
-  --population 50
-```
+## Simulation
 
-### Exhaustive Search
-
-```bash
-# Search all 10-20 positions
-ti-csc optimize --subject sub-01 \
-  --algorithm exhaustive \
-  --positions 10-20 \
-  --target ROI.nii.gz
-```
+- FEM-based TI/mTI field calculations
+- Supports custom montages and parameters
 
 ## Analysis Tools
 
-### ROI Analysis
-
-```bash
-# Analyze field in ROI
-ti-csc analyze --subject sub-01 \
-  --simulation sim_001 \
-  --roi hippocampus.nii.gz \
-  --metrics "mean,max,focality"
-```
-
-### Atlas-based Analysis
-
-```bash
-# Use brain atlas
-ti-csc analyze --subject sub-01 \
-  --simulation sim_001 \
-  --atlas AAL3 \
-  --output results.csv
-```
+- ROI-based and atlas-based analysis
+- Spherical and cortical region analysis
 
 ## Visualization
 
-### Command Line
-
-```bash
-# Generate field maps
-ti-csc visualize --subject sub-01 \
-  --simulation sim_001 \
-  --type field \
-  --output field_map.png
-
-# Create 3D rendering
-ti-csc visualize --subject sub-01 \
-  --simulation sim_001 \
-  --type 3d \
-  --view lateral
-```
-
-### GUI Visualization
-
-- Real-time 3D rendering
-- Slice viewers (axial, sagittal, coronal)
-- Field intensity overlays
-- Electrode visualization
-- Animation of interference patterns
+- NIfTI and mesh viewers
+- Overlay and 3D rendering tools
+- Report generator for results
 
 ## Troubleshooting
 
-### Common Issues
+See the [wiki](/wiki) or open an [issue](https://github.com/idossha/TI-Toolbox/issues) for help.
 
-#### Docker won't start
-- Ensure Docker Desktop is running
-- Check system resources (RAM, disk space)
-- Restart Docker Desktop
+## Need Help?
 
-#### GUI doesn't appear (macOS)
-- Install XQuartz 2.7.7 or 2.8.0
-- Enable "Allow connections from network clients" in XQuartz
-- Restart XQuartz and try again
-
-#### Out of memory errors
-- Increase Docker memory limit in Docker Desktop settings
-- Reduce mesh resolution in simulation parameters
-- Process subjects individually
-
-#### Slow performance
-- Enable GPU support if available
-- Reduce simulation resolution
-- Use parallel processing options
-
-### Getting Help
-
-- Check the [Wiki](/wiki) for detailed guides
-- Search [existing issues](https://github.com/idossha/TI-Toolbox/issues)
-- Ask in [Discussions](https://github.com/idossha/TI-Toolbox/discussions)
-- Contact support at support@ti-csc.org
-
-## Advanced Topics
-
-For advanced usage, custom extensions, and development guides, visit our [Wiki](/wiki). 
+- [Releases](/releases)
+- [Documentation](/documentation)
+- [Wiki](/wiki)
+- [Issue Tracker](https://github.com/idossha/TI-Toolbox/issues)
+- [Discussions](https://github.com/idossha/TI-Toolbox/discussions) 

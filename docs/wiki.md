@@ -6,7 +6,61 @@ permalink: /wiki/
 
 # Temporal Interference Toolbox Wiki
 
-Welcome to the Temporal Interference Toolbox Wiki. Here you'll find in-depth guides, tutorials, and technical documentation.
+Welcome to the Temporal Interference Toolbox Wiki. Here you'll find detailed guides, advanced usage, and troubleshooting tips for the toolbox.
+
+## Workflow Overview
+
+1. **Set up your BIDS project directory**
+2. **Install Docker Desktop**
+3. **Download the latest release from the [releases page](/releases)**
+4. **Pre-process your data** (DICOM to NIfTI, FreeSurfer, SimNIBS)
+5. **Optimize electrode placement** (flex-search or ex-search)
+6. **Simulate TI fields**
+7. **Analyze and visualize results**
+
+## Key Topics
+
+- [Project Structure](#project-structure)
+- [Pre-processing Pipeline](#pre-processing-pipeline)
+- [Optimization](#optimization)
+- [Simulation](#simulation)
+- [Analysis & Visualization](#analysis--visualization)
+- [Troubleshooting](#troubleshooting)
+
+## Project Structure
+
+The toolbox expects a BIDS-compliant directory structure. See the [documentation](/documentation) for details.
+
+## Pre-processing Pipeline
+
+- DICOM to NIfTI conversion
+- FreeSurfer cortical reconstruction
+- SimNIBS head modeling
+
+## Optimization
+
+- flex-search: Evolutionary optimization
+- ex-search: Exhaustive search
+
+## Simulation
+
+- FEM-based TI/mTI field calculations
+- Custom montages and parameters
+
+## Analysis & Visualization
+
+- ROI and atlas-based analysis
+- NIfTI/mesh viewers, report generator
+
+## Troubleshooting
+
+See the [issue tracker](https://github.com/idossha/TI-Toolbox/issues) or [discussions](https://github.com/idossha/TI-Toolbox/discussions) for help.
+
+## More Resources
+
+- [Releases](/releases)
+- [Documentation](/documentation)
+- [About](/about)
 
 <div class="wiki-layout">
   <div class="wiki-sidebar">

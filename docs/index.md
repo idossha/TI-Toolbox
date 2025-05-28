@@ -5,9 +5,9 @@ layout: home
 <div class="hero">
   <h1>Temporal Interference Toolbox</h1>
   <p>Advanced Brain Stimulation Simulation Platform</p>
-  <p>A comprehensive toolbox for temporal interference stimulation research, providing end-to-end neuroimaging and simulation capabilities</p>
+  <p>A comprehensive toolbox for temporal interference stimulation research, providing end-to-end neuroimaging and simulation capabilities.</p>
   <div class="hero-buttons">
-    <a href="/downloads" class="btn">Download Now</a>
+    <a href="/releases" class="btn">View Releases</a>
     <a href="/documentation" class="btn btn-secondary">Get Started</a>
   </div>
 </div>
@@ -16,75 +16,73 @@ layout: home
   <div class="feature-card">
     <div class="feature-icon">🧠</div>
     <h3>Pre-processing Pipeline</h3>
-    <p>Complete neuroimaging pipeline including DICOM to NIfTI conversion, FreeSurfer cortical reconstruction, and SimNIBS head modeling</p>
+    <p>DICOM to NIfTI conversion, FreeSurfer cortical reconstruction, and SimNIBS head modeling</p>
   </div>
-  
   <div class="feature-card">
     <div class="feature-icon">⚡</div>
     <h3>TI Field Simulation</h3>
-    <p>Advanced FEM-based temporal interference field calculations with enhanced control over simulation parameters</p>
+    <p>FEM-based temporal interference field calculations with flexible simulation parameters</p>
   </div>
-  
   <div class="feature-card">
     <div class="feature-icon">🎯</div>
     <h3>Optimization Algorithms</h3>
-    <p>Evolution-based and exhaustive search algorithms for optimal electrode placement and stimulation parameters</p>
+    <p>Flexible (flex-search) and exhaustive (ex-search) algorithms for optimal electrode placement and stimulation</p>
   </div>
-  
   <div class="feature-card">
     <div class="feature-icon">📊</div>
     <h3>Comprehensive Analysis</h3>
-    <p>Atlas-based and arbitrary ROI analysis tools for detailed examination of stimulation effects</p>
+    <p>Atlas-based and custom ROI analysis tools for detailed stimulation effect evaluation</p>
   </div>
-  
   <div class="feature-card">
     <div class="feature-icon">🖼️</div>
     <h3>Interactive Visualization</h3>
-    <p>Advanced NIfTI and mesh viewers with overlay capabilities and real-time 3D rendering</p>
+    <p>NIfTI and mesh viewers, overlay tools, and real-time 3D rendering</p>
   </div>
-  
   <div class="feature-card">
     <div class="feature-icon">🐳</div>
     <h3>Docker-based</h3>
-    <p>Fully containerized environment ensuring reproducibility and easy deployment across platforms</p>
+    <p>Containerized environment for reproducibility and easy deployment</p>
   </div>
 </div>
 
-## Quick Start
+## Quick Start Workflow
 
-1. **Install Docker Desktop** - Required for running the toolbox
-2. **Download Temporal Interference Toolbox** - Get the executable for your platform
-3. **Launch the Application** - Start the launcher and select your project directory
-4. **Start Docker Containers** - Click to download and start the toolbox environment
-5. **Launch CLI or GUI** - Choose your preferred interface
+1. **Set up your BIDS project directory**
+   - Organize your data in BIDS format. Place DICOM files in `sourcedata/sub-<subject>/T1w/dicom/` (and optionally T2w).
+2. **Install Docker Desktop**
+   - Required for running the toolbox environment.
+3. **Get the Latest Release**
+   - Download the launcher or CLI from the <a href="/releases">Releases page</a>.
+4. **Pre-process your data**
+   - Convert DICOM to NIfTI, run FreeSurfer, and create SimNIBS head models using the pre-processing pipeline.
+5. **Optimize electrode placement**
+   - Use <b>flex-search</b> (evolutionary) or <b>ex-search</b> (exhaustive) tools to find optimal stimulation parameters.
+6. **Simulate TI fields**
+   - Run FEM-based simulations for your selected montages and parameters.
+7. **Analyze and visualize results**
+   - Use the analyzer and visualization tools for ROI-based and atlas-based analysis, and to generate figures and reports.
 
-## What is Temporal Interference?
+For more details, see the <a href="/documentation">Documentation</a>.
 
-Temporal Interference (TI) is a non-invasive brain stimulation technique that uses multiple high-frequency electric fields to create a low-frequency envelope at their intersection point. This allows for deep brain stimulation without affecting superficial tissues.
+## Key Tools
 
-## Key Features
-
-- **BIDS-compliant**: Works with Brain Imaging Data Structure formatted datasets
-- **Multi-platform**: Runs on macOS, Linux, and Windows
-- **GPU Support**: Accelerated processing for compatible systems
-- **Extensible**: Modular architecture allows for custom extensions
-- **Open Source**: Free and open for research use
+- **Pre-processing**: DICOM to NIfTI, FreeSurfer, SimNIBS
+- **Optimization**: flex-search, ex-search
+- **Simulation**: TI/mTI field solvers
+- **Analysis**: ROI/atlas-based tools
+- **Visualization**: NIfTI/mesh viewers, report generator
 
 ## System Requirements
 
-- **Operating System**: macOS 10.14+, Ubuntu 18.04+, Windows 10+
-- **Docker Desktop**: Latest version required
-- **RAM**: Minimum 16GB (32GB recommended)
-- **Storage**: 50GB free space for Docker images
-- **GPU**: NVIDIA GPU with CUDA support (optional, for acceleration)
+- **OS**: macOS 10.14+, Ubuntu 18.04+, Windows 10+
+- **Docker Desktop**: Latest version
+- **RAM**: 16GB (32GB recommended)
+- **Storage**: 50GB free space
+- **GPU**: NVIDIA CUDA (optional)
 
 ## Latest Release
 
-**Version 2.3.0** - Released May 2025
-
-Major update with improved Docker integration, new GUI launcher, and enhanced optimization algorithms.
-
-[View all releases →](/releases)
+See the <a href="/releases">Releases page</a> for the latest version and change log.
 
 ## Community
 
@@ -94,7 +92,7 @@ Major update with improved Docker integration, new GUI launcher, and enhanced op
 
 ## Citation
 
-If you use Temporal Interference Toolbox in your research, please cite:
+If you use the Temporal Interference Toolbox in your research, please cite:
 
 ```bibtex
 @software{temporalinterference2024,
