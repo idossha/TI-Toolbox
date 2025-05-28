@@ -1,0 +1,42 @@
+name: Deploy GitHub Pages
+
+on:
+  push:
+    branches:
+      - main # Or your default branch
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # To push to gh-pages branch
+      pages: write    # To deploy to GitHub Pages (if using GitHub Pages settings)
+      id-token: write # To authenticate with GitHub Pages (if using OIDC)
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.1' # Or a version compatible with your Jekyll
+          bundler-cache: true # Automatically runs bundle install
+          working-directory: ./docs # Specify the directory of your Gemfile
+
+      - name: Build Jekyll site
+        run: cd docs && bundle exec jekyll build
+        env:
+          JEKYLL_ENV: production
+
+      - name: Deploy to gh-pages branch
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./docs/_site
+          # Optional: If your site is not at the root of the gh-pages branch
+          # publish_branch: gh-pages # Default is gh-pages
+          # user_name: 'github-actions[bot]' # Default
+          # user_email: 'github-actions[bot]@users.noreply.github.com' # Default
+          # Optional: If you want to force push (be careful)
+          # force_orphan: true 
