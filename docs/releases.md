@@ -29,30 +29,6 @@ All notable changes and releases are documented below.
   </div>
 </div>
 
-
-<div class="release">
-  <div class="release-header">
-    <h2>Version 2.0.2</h2>
-    <span class="release-date">May 2025</span>
-  </div>
-  
-  <p><strong>Latest Release</strong></p>
-  
-  <h3>📋 Release Notes</h3>
-  <div style="background: #f5f5f5; padding: 15px; border-radius: 5px; margin: 10px 0;">
-    <p>Windows GUI Launch Fixes: Fixed GUI launch failure on Windows by restoring proper DISPLAY environment handling. The launcher now correctly detects and uses the host system's DISPLAY settings, eliminating connection errors. Also cleaned up executable naming (now builds as 'TI Toolbox.exe'), removed debug print statements for cleaner output, and improved cross-platform compatibility. GitHub Actions workflow updated to use correct executable names for all platforms. macOS functionality remains unchanged and fully working.</p>
-  </div>
-  
-  <div class="release-downloads">
-    <a href="https://github.com/idossha/TI-Toolbox/releases/download/v2.0.2/TemporalInterferenceToolbox-macOS-universal.zip">macOS</a>
-    <a href="https://github.com/idossha/TI-Toolbox/releases/download/v2.0.2/TemporalInterferenceToolbox-Linux-x86_64.AppImage">Linux</a>
-    <a href="https://github.com/idossha/TI-Toolbox/releases/download/v2.0.2/TemporalInterferenceToolbox-Windows-x64.exe">Windows</a>
-  </div>
-</div>
-
-
-
-
 <div class="release">
   <div class="release-header">
     <h2>Version 2.0.0</h2>
