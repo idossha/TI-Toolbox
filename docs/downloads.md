@@ -10,7 +10,7 @@ Get the latest version of Temporal Interference Toolbox for your operating syste
 
 <div class="download-section">
   <h2>Latest Release: Version 2.1.2
-  <p>Released: May 2025</p>
+  <p>Released: May 2025
   
   <div class="download-grid">
     <div class="download-card">
