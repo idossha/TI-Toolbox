@@ -67,12 +67,6 @@ def update_version(new_version):
             (r'Released [A-Za-z]+ \d{4}', f'Released {release_month_year}'),
         ],
         
-        "docs/downloads.md": [
-            (r'Latest Release: Version [^\s]*', f'Latest Release: Version {new_version}'),
-            (r'Released: [A-Za-z]+ \d{4}', f'Released: {release_month_year}'),
-            (r'v\d+\.\d+\.\d+', f'v{new_version}'),
-        ],
-        
         "docs/_config.yml": [
             (r'version: "[^"]*"', f'version: "{new_version}"'),
         ]
@@ -160,7 +154,6 @@ def main():
         print("  • launcher/executable/src/ti_csc_launcher.py")
         print("  • launcher/executable/src/dialogs.py")
         print("  • docs/index.md")
-        print("  • docs/downloads.md")
         print("  • docs/_config.yml")
         sys.exit(0)
     

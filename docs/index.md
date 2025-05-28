@@ -52,7 +52,7 @@ layout: home
 2. **Install Docker Desktop**
    - Required for running the toolbox environment.
 3. **Get the Latest Release**
-   - Download the launcher or CLI from the <a href="/releases">Releases page</a>.
+   - Download the latest version (2.x.x or newer) from the <a href="/releases">Releases page</a>. Note: Versions 1.x.x are no longer supported.
 4. **Pre-process your data**
    - Convert DICOM to NIfTI, run FreeSurfer, and create SimNIBS head models using the pre-processing pipeline.
 5. **Optimize electrode placement**
@@ -80,9 +80,9 @@ For more details, see the <a href="/documentation">Documentation</a>.
 - **Storage**: 50GB free space
 - **GPU**: NVIDIA CUDA (optional)
 
-## Latest Release
+## Version Support
 
-See the <a href="/releases">Releases page</a> for the latest version and change log.
+We actively support and maintain versions 2.x.x and newer of the Temporal Interference Toolbox. Versions 1.x.x are no longer supported. For the latest version and changelog, please see the <a href="/releases">Releases page</a>.
 
 ## Community
 

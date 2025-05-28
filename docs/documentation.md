@@ -42,7 +42,7 @@ Temporal Interference Toolbox is a comprehensive toolbox for temporal interferen
 
 1. Set up your BIDS-compliant project directory. Place DICOM files in `sourcedata/sub-<subject>/T1w/dicom/` (and optionally T2w).
 2. Install Docker Desktop and ensure it is running.
-3. Download and launch the toolbox from the [releases page](/releases).
+3. Download and launch the latest toolbox version (2.x.x or newer) from the [releases page](/releases). Note: Versions 1.x.x are no longer supported.
 4. Start the toolbox environment (Docker containers will be managed automatically).
 5. Pre-process your data (DICOM to NIfTI, FreeSurfer, SimNIBS head model).
 6. Optimize electrode placement (flex-search or ex-search).

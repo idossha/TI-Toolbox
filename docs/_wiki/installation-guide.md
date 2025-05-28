@@ -59,9 +59,9 @@ Docker is required to run Temporal Interference Toolbox's containerized environm
 
 ### Step 1: Download Temporal Interference Toolbox
 
-1. Visit the [Downloads page](/downloads)
+1. Visit the [Releases page](/releases)
 2. Select your operating system
-3. Download the appropriate installer
+3. Download the appropriate installer (version 2.x.x or newer). Note: Versions 1.x.x are no longer supported.
 
 ### Step 2: Install the Application
 
@@ -140,15 +140,11 @@ Once containers are running, verify the installation:
 
 ## Next Steps
 
-- Follow the [Your First Project](/wiki/first-project) tutorial
-- Learn about [BIDS data format](/wiki/bids-format)
 - Explore the [CLI commands](/documentation#cli-commands)
 
 ## Getting Help
 
 If you encounter issues:
 
-1. Check the [FAQ](/wiki/faq)
-2. Search [existing issues](https://github.com/idossha/TI-Toolbox/issues)
-3. Ask in [Discussions](https://github.com/idossha/TI-Toolbox/discussions)
-4. Contact support@ti-csc.org 
+1. Search [existing issues](https://github.com/idossha/TI-Toolbox/issues)
+2. Ask in [Discussions](https://github.com/idossha/TI-Toolbox/discussions) 
