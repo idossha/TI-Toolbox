@@ -4,7 +4,7 @@ layout: home
 
 <div class="hero">
   <h1>TI-CSC</h1>
-  <p>Temporal Interference - Computational Stimulation Core</p>
+  <p>Temporal Interference Toolbox</p>
   <p>A comprehensive toolbox for temporal interference stimulation research, providing end-to-end neuroimaging and simulation capabilities</p>
   <div class="hero-buttons">
     <a href="/downloads" class="btn">Download Now</a>
@@ -98,7 +98,7 @@ If you use TI-CSC in your research, please cite:
 
 ```bibtex
 @software{ticsc2024,
-  title = {TI-CSC: Temporal Interference - Computational Stimulation Core},
+  title = {TI-CSC: Temporal Interference Toolbox},
   author = {Your Name and Contributors},
   year = {2024},
   version = {2.0.0},

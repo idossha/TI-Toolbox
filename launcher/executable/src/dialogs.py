@@ -674,7 +674,7 @@ class VersionInfoDialog(StyledDialog):
         title_widget = QWidget()
         title_widget.setLayout(title_layout)
         
-        subtitle_label = QLabel("Temporal Interference - Computational Stimulation Core")
+        subtitle_label = QLabel("Temporal Interference Toolbox")
         subtitle_label.setFont(QFont("Arial", 11))
         subtitle_label.setStyleSheet("color: #666666; background: transparent; margin-top: 4px;")
         subtitle_label.setAlignment(Qt.AlignmentFlag.AlignCenter)

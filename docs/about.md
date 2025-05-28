@@ -8,7 +8,7 @@ permalink: /about/
 
 ## Our Mission
 
-TI-CSC (Temporal Interference - Computational Stimulation Core) is an open-source toolbox designed to advance research in non-invasive brain stimulation through temporal interference. Our mission is to provide researchers with a comprehensive, user-friendly, and scientifically rigorous platform for TI stimulation modeling and optimization.
+TI-CSC (Temporal Interference Toolbox) is an open-source toolbox designed to advance research in non-invasive brain stimulation through temporal interference. Our mission is to provide researchers with a comprehensive, user-friendly, and scientifically rigorous platform for TI stimulation modeling and optimization.
 
 ## What We Do
 

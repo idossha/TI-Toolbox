@@ -1,6 +1,6 @@
 """
 TI-CSC Docker Launcher - Cross-Platform Edition
-A clean, robust launcher for the TI-CSC Docker environment with full Windows/macOS/Linux support.
+A clean, robust launcher for the Temporal Interference Toolbox Docker environment with full Windows/macOS/Linux support.
 
 Key Features:
 - Cross-platform Docker detection and management
@@ -302,7 +302,7 @@ class TICSCLoaderApp(QWidget):
         synthesis_layout.setContentsMargins(15, 10, 15, 10)
         synthesis_layout.setSpacing(8)
         
-        title_label = QLabel("TI-CSC (Temporal Interference - Computational Stimulation Core)")
+        title_label = QLabel("TI-CSC (Temporal Interference Toolbox)")
         title_label.setFont(QFont("Arial", 14, QFont.Weight.Bold))
         title_label.setStyleSheet("color: #2c3e50;")
         title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)

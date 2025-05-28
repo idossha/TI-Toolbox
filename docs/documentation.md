@@ -6,7 +6,7 @@ permalink: /documentation/
 
 # TI-CSC Documentation
 
-Welcome to the TI-CSC documentation. This guide will help you get started with the Temporal Interference - Computational Stimulation Core toolbox.
+Welcome to the TI-CSC documentation. This guide will help you get started with the Temporal Interference Toolbox.
 
 <div class="doc-content">
   <div class="toc">
