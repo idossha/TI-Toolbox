@@ -1,5 +1,5 @@
 ---
-layout: default
+layout: page
 title: Installation Guide
 permalink: /wiki/installation-guide/
 ---
@@ -89,7 +89,7 @@ The Temporal Interference Toolbox GUI on Windows requires an X11 server to displ
 
 ### Step 1: Download Temporal Interference Toolbox
 
-1. Visit the [Releases page](/releases)
+1. Visit the [Releases page]({{ site.baseurl }}/releases)
 2. Select your operating system
 3. Download the appropriate installer (version 2.x.x or newer). Note: Versions 1.x.x are no longer supported.
 
@@ -191,11 +191,5 @@ Once containers are running, verify the installation:
 
 ## Next Steps
 
-- Explore the [CLI commands](/documentation#cli-commands)
-
-## Getting Help
-
-If you encounter issues:
-
-1. Search [existing issues](https://github.com/idossha/TI-Toolbox/issues)
-2. Ask in [Discussions](https://github.com/idossha/TI-Toolbox/discussions) 
+- Return to [Wiki]({{ site.baseurl }}/wiki/)
+- View [Releases]({{ site.baseurl }}/releases/) 

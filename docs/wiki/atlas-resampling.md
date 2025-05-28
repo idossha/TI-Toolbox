@@ -1,7 +1,7 @@
 ---
-layout: default
+layout: page
 title: Atlas Resampling
-permalink: /wiki/atlas_resampling/
+permalink: /wiki/atlas-resampling/
 ---
 
 # Atlas Resampling in Cortical Region Analysis
@@ -28,7 +28,7 @@ Below are two images showing the effect of atlas resampling:
 
 | Original Atlas (Not Aligned) | Resampled Atlas (Aligned) |
 |-----------------------------|---------------------------|
-| ![Original Atlas](../photos/atlas_under_field.png) | ![Resampled Atlas](../photos/aligned_atlas_under_field.png) |
+| ![Original Atlas](assets/atlas_under_field.png) | ![Resampled Atlas](assets/aligned_atlas_under_field.png) |
 
 **Left:** The blue outline shows the original atlas, which does not perfectly align with the heat map of the cortical region (field data).
 
@@ -51,4 +51,9 @@ The best solution is to generate subject-specific atlases using the same preproc
 
 The automatic resampling is a feature, not a bug. It ensures robustness by allowing analysis to proceed even when atlas and field dimensions don't match initially. The resampling process preserves the anatomical validity of your atlas while making it compatible with your field data.
 
-If you need further assistance with atlas generation or have questions about the resampling process, please contact support. 
+If you need further assistance with atlas generation or have questions about the resampling process, please contact support.
+
+## See Also
+
+- Return to [Wiki]({{ site.baseurl }}/wiki/)
+- View [Installation Guide]({{ site.baseurl }}/wiki/installation-guide/) 

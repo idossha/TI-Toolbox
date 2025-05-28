@@ -63,7 +63,7 @@ layout: home
 7. **Analyze and visualize results**
    - Use the analyzer and visualization tools for ROI-based and atlas-based analysis, and to generate figures and reports.
 
-For more details, see the <a href="/documentation">Documentation</a> and <a href="/wiki">Wiki</a>.
+For more details, see the <a href="{{ site.baseurl }}/wiki">Wiki</a>.
 
 ## System Requirements
 

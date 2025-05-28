@@ -14,12 +14,9 @@ plugins:
 
 # Navigation
 header_pages:
-  - index.md
-  - downloads.md
-  - documentation.md
-  - wiki.md
-  - releases.md
-  - about.md
+  - wiki/wiki.md
+  - releases/releases.md
+  - about/about.md
 
 # Markdown settings
 markdown: kramdown
