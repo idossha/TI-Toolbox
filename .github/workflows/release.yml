@@ -84,6 +84,13 @@ jobs:
     - name: Build executable
       working-directory: launcher/executable
       run: |
+        echo "Contents of launcher/executable directory:"
+        ls -la
+        echo "Contents of project root:"
+        ls -la ../../
+        echo "Copying docker-compose.yml to build directory..."
+        cp ../../docker-compose.yml ./
+        echo "Running build.py..."
         python build.py
 
     - name: Create archive
@@ -92,12 +99,10 @@ jobs:
         ${{ matrix.archive-cmd }}
 
     - name: Upload artifact
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: ${{ matrix.artifact-name }}
-        path: |
-          ${{ matrix.artifact-name }}.*
-          TemporalInterferenceToolbox-*
+        path: TemporalInterferenceToolbox-*
 
   update-website:
     name: Update website with new release
@@ -194,7 +199,7 @@ jobs:
     
     steps:
     - name: Download all artifacts
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v4
 
     - name: Upload macOS asset
       uses: actions/upload-release-asset@v1
