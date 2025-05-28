@@ -11,23 +11,7 @@ permalink: /releases/
 All notable changes and releases are documented below.
 <div class="release">
   <div class="release-header">
-    <h2>Version 2.0.1</h2>
-    <span class="release-date">May 2025</span>
-  </div>
-  <p><strong>New Release</strong></p>
-  <h3>📋 Release Notes</h3>
-  <div style="background: #f5f5f5; padding: 15px; border-radius: 5px; margin: 10px 0;">
-    <pre style="background: transparent; padding: 0; margin: 0; white-space: pre-wrap;">Update version to 2.0.1</pre>
-  </div>
-  <div class="release-downloads">
-    <a href="https://github.com/idossha/TI-Toolbox/releases/download/v2.0.1/TemporalInterferenceToolbox-macOS-universal.zip">macOS</a>
-    <a href="https://github.com/idossha/TI-Toolbox/releases/download/v2.0.1/TemporalInterferenceToolbox-Linux-x86_64.AppImage">Linux</a>
-    <a href="https://github.com/idossha/TI-Toolbox/releases/download/v2.0.1/TI-Toolbox-Windows.exe">Windows</a>
-  </div>
-</div>
-<div class="release">
-  <div class="release-header">
-    <h2>Version 2.0.1</h2>
+    <h2>Version 2.0.0</h2>
     <span class="release-date">May 2025</span>
   </div>
   
@@ -35,13 +19,13 @@ All notable changes and releases are documented below.
   
   <h3>📋 Release Notes</h3>
   <div style="background: #f5f5f5; padding: 15px; border-radius: 5px; margin: 10px 0;">
-    <p>Fixed Windows GUI launcher issues with comprehensive VcXsrv X11 server support. Enhanced Docker volume naming consistency. Improved cross-platform launcher stability and user experience. Added hidden terminal mode for clean GUI launches on Windows.</p>
+    <p>init</p>
   </div>
   
   <div class="release-downloads">
-    <a href="https://github.com/idossha/TI-Toolbox/releases/download/v2.0.1/TemporalInterferenceToolbox-macOS-universal.zip">macOS</a>
-    <a href="https://github.com/idossha/TI-Toolbox/releases/download/v2.0.1/TemporalInterferenceToolbox-Linux-x86_64.AppImage">Linux</a>
-    <a href="https://github.com/idossha/TI-Toolbox/releases/download/v2.0.1/TI-Toolbox-Windows.exe">Windows</a>
+    <a href="https://github.com/idossha/TI-Toolbox/releases/download/v2.0.0/TemporalInterferenceToolbox-macOS-universal.zip">macOS</a>
+    <a href="https://github.com/idossha/TI-Toolbox/releases/download/v2.0.0/TemporalInterferenceToolbox-Linux-x86_64.AppImage">Linux</a>
+    <a href="https://github.com/idossha/TI-Toolbox/releases/download/v2.0.0/TI-Toolbox-Windows.exe">Windows</a>
   </div>
 </div>
 

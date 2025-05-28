@@ -210,8 +210,11 @@ jobs:
     environment:
       name: github-pages
     steps:
-      - name: Checkout
+      - name: Checkout main branch for docs deployment
         uses: actions/checkout@v4
+        with:
+          ref: main  # Always deploy docs from main branch, not tag
+          token: ${{ secrets.GITHUB_TOKEN }}
       - name: Setup Pages
         uses: actions/configure-pages@v4
       - name: Build with Jekyll
