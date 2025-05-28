@@ -1,5 +1,5 @@
 """
-TI-CSC Docker Launcher - Cross-Platform Edition
+Temporal Interference Toolbox - Cross-Platform Edition
 A clean, robust launcher for the Temporal Interference Toolbox Docker environment with full Windows/macOS/Linux support.
 
 Key Features:
@@ -58,7 +58,7 @@ except ImportError:
     class MockVersion:
         __version__ = "2.3.0"
         def get_version_info(self):
-            return {"ti_csc": {"version": "2.0.0", "release_date": "Unknown", "build": "unknown"}}
+            return {"ti_toolbox": {"version": "2.0.0", "release_date": "Unknown", "build": "unknown"}}
     version = MockVersion()
 
 
@@ -85,12 +85,12 @@ def run_subprocess_silent(cmd, **kwargs):
     return subprocess.run(cmd, **default_kwargs)
 
 
-class TICSCLoaderApp(QWidget):
-    """Main TI-CSC Docker Launcher Application"""
+class TIToolboxLoaderApp(QWidget):
+    """Main Temporal Interference Toolbox Application"""
     
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("TI-CSC Docker Loader")
+        self.setWindowTitle("Temporal Interference Toolbox")
         
         # Set minimum size constraints to prevent design problems
         self.setMinimumSize(900, 500)
@@ -247,7 +247,7 @@ class TICSCLoaderApp(QWidget):
             self.log_message("✅ Desktop shortcut created successfully", "SUCCESS")
             self.message_box.show_message(
                 "Shortcut Created",
-                "Desktop shortcut created successfully!\n\nYou can now double-click the TI-CSC icon on your desktop to launch the application.",
+                "Desktop shortcut created successfully!\n\nYou can now double-click the TI-toolbox icon on your desktop to launch the application.",
                 "success",
                 "✅"
             )
@@ -287,7 +287,7 @@ class TICSCLoaderApp(QWidget):
         self.setLayout(main_layout)
         
         # Initial message
-        self.log_message("TI-CSC Docker Launcher ready")
+        self.log_message("Temporal Interference Toolbox ready")
         self.log_message("Select a project directory and start Docker containers to begin")
         self.log_message("First-time setup will download ~30GB of Docker images")
 
@@ -309,7 +309,7 @@ class TICSCLoaderApp(QWidget):
         synthesis_layout.setContentsMargins(15, 10, 15, 10)
         synthesis_layout.setSpacing(8)
         
-        title_label = QLabel("TI-CSC (Temporal Interference Toolbox)")
+        title_label = QLabel("Temporal Interference Toolbox")
         title_label.setFont(QFont("Arial", 14, QFont.Weight.Bold))
         title_label.setStyleSheet("color: #2c3e50;")
         title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -1121,7 +1121,7 @@ class TICSCLoaderApp(QWidget):
             self.log_message("🔍 Checking Docker volumes...", "INFO")
             
             # Create required volumes
-            required_volumes = ['ti_csc_freesurfer_data', 'ti_csc_fsl_data', 'matlab_runtime']
+            required_volumes = ['ti-toolbox_freesurfer_data', 'ti-toolbox_fsl_data', 'matlab_runtime']
             
             for volume in required_volumes:
                 self.log_message(f"💾 Ensuring volume exists: {volume}", "INFO")
@@ -1248,7 +1248,7 @@ class TICSCLoaderApp(QWidget):
                         elif terminal == 'konsole':
                             subprocess.Popen([terminal, '-e', 'bash', '-c', f'cd "{self.script_dir}" && {docker_cmd}; exec bash'])
                         else:
-                            subprocess.Popen([terminal, '-e', f'bash -c "cd \\"{self.script_dir}\\" && {docker_cmd}; exec bash"'])
+                            subprocess.Popen([terminal, '-e', f'bash -c "cd \\"{self.script_dir}\\\" && {docker_cmd}; exec bash"'])
                         break
                     except FileNotFoundError:
                         continue
@@ -1426,15 +1426,15 @@ class TICSCLoaderApp(QWidget):
 def main():
     """Main application entry point"""
     app = QApplication(sys.argv)
-    app.setApplicationName("TI-CSC Docker Launcher")
-    app.setApplicationDisplayName("TI-CSC Docker Launcher")
+    app.setApplicationName("Temporal Interference Toolbox")
+    app.setApplicationDisplayName("Temporal Interference Toolbox")
     
     # Set application icon if available
     icon_path = os.path.join(os.path.dirname(__file__), "icon.icns")
     if os.path.exists(icon_path):
         app.setWindowIcon(QIcon(icon_path))
     
-    window = TICSCLoaderApp()
+    window = TIToolboxLoaderApp()
     window.show()
     
     sys.exit(app.exec())

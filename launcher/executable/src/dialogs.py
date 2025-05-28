@@ -1,6 +1,6 @@
 """
-TI-CSC Dialog Classes
-Handles all popup dialogs and styled message boxes for the TI-CSC launcher.
+Temporal Interference Toolbox Dialog Classes
+Handles all popup dialogs and styled message boxes for the Temporal Interference Toolbox launcher.
 """
 
 import os
@@ -26,7 +26,7 @@ except Exception as e:
     class MockVersion:
         __version__ = "2.3.0"
         def get_version_info(self):
-            return {"ti_csc": {"version": "2.0.0", "release_date": "Unknown", "build": "unknown"}}
+            return {"ti_toolbox": {"version": "2.0.0", "release_date": "Unknown", "build": "unknown"}}
     version = MockVersion()
 
 
@@ -219,7 +219,6 @@ class SystemRequirementsDialog(StyledDialog):
         <div style='margin-bottom: 8px; background: transparent;'>
             <b style='color: #333333; background: transparent;'>Memory (RAM):</b><br style='background: transparent;'>
             <span style='color: #333333; background: transparent;'>32GB+ minimum</span><span style='background: transparent;'> for full functionality</span><br style='background: transparent;'>
-            <span style='color: #333333; background: transparent;'>64GB+ recommended</span><span style='background: transparent;'> for optimal performance</span>
         </div>
         <div style='margin-bottom: 8px; background: transparent;'>
             <b style='color: #333333; background: transparent;'>Docker:</b><br style='background: transparent;'>
@@ -228,13 +227,13 @@ class SystemRequirementsDialog(StyledDialog):
         </div>
         <div style='margin-bottom: 8px; background: transparent;'>
             <b style='color: #333333; background: transparent;'>Disk Space:</b><br style='background: transparent;'>
-            <span style='color: #333333; background: transparent;'>~30GB</span><span style='background: transparent;'> for all Docker images</span><br style='background: transparent;'>
+            <span style='color: #333333; background: transparent;'>~40GB</span><span style='background: transparent;'> for all Docker images</span><br style='background: transparent;'>
             <span style='color: #666666; background: transparent;'>Additional space needed for project data</span>
         </div>
         <div style='background: transparent;'>
             <b style='color: #333333; background: transparent;'>CPU:</b><br style='background: transparent;'>
             <span style='color: #666666; background: transparent;'>Multi-core processor recommended</span><br style='background: transparent;'>
-            <span style='color: #666666; background: transparent;'>8+ cores for optimal FreeSurfer performance</span>
+            <span style='color: #666666; background: transparent;'>8+ cores for optimal performance</span>
         </div>
         </div>
         """
@@ -250,18 +249,11 @@ class SystemRequirementsDialog(StyledDialog):
             <span style='color: #666666; background: transparent;'>• SimNIBS Core: ~8GB</span><br style='background: transparent;'>
             <span style='color: #666666; background: transparent;'>• FreeSurfer: ~12GB</span><br style='background: transparent;'>
             <span style='color: #666666; background: transparent;'>• FSL: ~4GB</span><br style='background: transparent;'>
-            <span style='color: #666666; background: transparent;'>• Python Environment: ~3GB</span>
         </div>
         <div style='margin-bottom: 8px; background: transparent;'>
             <b style='color: #333333; background: transparent;'>Download Time:</b><br style='background: transparent;'>
             <span style='color: #666666; background: transparent;'>15-30 minutes</span><span style='background: transparent;'> with good internet connection</span><br style='background: transparent;'>
             <span style='color: #666666; background: transparent;'>Varies based on internet speed and Docker cache</span>
-        </div>
-        <div style='margin-bottom: 8px; background: transparent;'>
-            <b style='color: #333333; background: transparent;'>Internet Connection:</b><br style='background: transparent;'>
-            <span style='color: #333333; background: transparent;'>Stable, high-speed connection required</span><span style='background: transparent;'> for initial setup</span><br style='background: transparent;'>
-            <span style='color: #666666; background: transparent;'>Broadband recommended (25+ Mbps)</span>
-        </div>
         <div style='background: transparent;'>
             <b style='color: #333333; background: transparent;'>Subsequent Launches:</b><br style='background: transparent;'>
             <span style='color: #333333; background: transparent;'>Fast startup</span><span style='background: transparent;'> (30-60 seconds) - images cached locally</span><br style='background: transparent;'>
@@ -318,7 +310,7 @@ class SystemRequirementsDialog(StyledDialog):
         </div>
         <div style='margin-bottom: 8px; background: transparent;'>
             <b style='color: #333333; background: transparent;'>Automatic Configuration:</b><br style='background: transparent;'>
-            <span style='color: #666666; background: transparent;'>• TI-CSC launcher automatically configures XQuartz</span><br style='background: transparent;'>
+            <span style='color: #666666; background: transparent;'>• TI-toolbox launcher automatically configures XQuartz</span><br style='background: transparent;'>
             <span style='color: #666666; background: transparent;'>• Enables network client connections</span><br style='background: transparent;'>
             <span style='color: #666666; background: transparent;'>• Sets up proper X11 permissions</span>
         </div>
@@ -332,33 +324,6 @@ class SystemRequirementsDialog(StyledDialog):
         """
         xquartz_card = self.create_info_card("🖼️ XQuartz Setup (macOS GUI)", xquartz_content, "#f0f8ff")
         layout.addWidget(xquartz_card)
-
-        # Performance & Memory Card
-        performance_content = """
-        <div style='font-size: 13px; line-height: 1.4; background: transparent;'>
-        <div style='margin-bottom: 8px; background: transparent;'>
-            <b style='color: #333333; background: transparent;'>Memory Allocation:</b><br style='background: transparent;'>
-            <span style='color: #666666; background: transparent;'>• Docker: Allocate 16-24GB to Docker</span><br style='background: transparent;'>
-            <span style='color: #666666; background: transparent;'>• Host System: Reserve 8-16GB for OS</span><br style='background: transparent;'>
-            <span style='color: #666666; background: transparent;'>• Total: 32GB+ system memory required</span>
-        </div>
-        <div style='margin-bottom: 8px; background: transparent;'>
-            <b style='color: #333333; background: transparent;'>Performance Tips:</b><br style='background: transparent;'>
-            <span style='color: #666666; background: transparent;'>• Close other memory-intensive applications</span><br style='background: transparent;'>
-            <span style='color: #666666; background: transparent;'>• Use SSD storage for better I/O performance</span><br style='background: transparent;'>
-            <span style='color: #666666; background: transparent;'>• Monitor system resources during processing</span>
-        </div>
-        <div style='background: transparent;'>
-            <b style='color: #333333; background: transparent;'>Common Issues:</b><br style='background: transparent;'>
-            <span style='color: #333333; background: transparent;'>• Out of memory errors:</span><span style='background: transparent;'> Increase Docker memory</span><br style='background: transparent;'>
-            <span style='color: #333333; background: transparent;'>• Slow performance:</span><span style='background: transparent;'> Check available RAM</span><br style='background: transparent;'>
-            <span style='color: #333333; background: transparent;'>• Docker not found:</span><span style='background: transparent;'> Ensure Docker is running</span>
-        </div>
-        </div>
-        """
-        performance_card = self.create_info_card("⚡ Performance & Troubleshooting", performance_content)
-        layout.addWidget(performance_card)
-
 
 class ProjectHelpDialog(StyledDialog):
     """Dialog for showing project directory help"""
@@ -453,8 +418,10 @@ class ProjectHelpDialog(StyledDialog):
             <pre style='background: transparent; font-family: "SF Mono", "Monaco", "Inconsolata", "Fira Code", "Source Code Pro", Consolas, "Ubuntu Mono", monospace; font-size: 12px; color: #2d3748; margin: 0; padding: 0; border: none; line-height: 1.4; white-space: pre;'>my_project/
 ├── sourcedata/           <span style='color: #718096; background: transparent; font-style: italic;'># Your DICOM files go here</span>
 │   ├── sub-101/
-│   │   └── anat/         <span style='color: #718096; background: transparent; font-style: italic;'># Anatomical DICOMs</span>
-│   │       └── *.dcm
+│   │   ├── T1w/
+│   │   │   └── dicoms/   <span style='color: #718096; background: transparent; font-style: italic;'># T1w DICOMs (required)</span>
+│   │   ├── T2w/          <span style='color: #718096; background: transparent; font-style: italic;'># (optional)</span>
+│   │   │   └── dicoms/   <span style='color: #718096; background: transparent; font-style: italic;'># T2w DICOMs (optional)</span>
 │   └── sub-102/
 ├── sub-101/              <span style='color: #718096; background: transparent; font-style: italic;'># Generated by preprocessing</span>
 │   ├── anat/
@@ -466,7 +433,7 @@ class ProjectHelpDialog(StyledDialog):
 └── README.md</pre>
         </div>
         <div style='background: transparent;'>
-            <span style='color: #666666; background: transparent;'><b style='background: transparent;'>Note:</b> Only create the <code style='background: #f5f5f5; padding: 2px 4px; border-radius: 3px; font-family: monospace; color: #d73a49; border: 1px solid #e1e4e8;'>sourcedata/</code> directory manually. All other directories are generated automatically during preprocessing.</span>
+            <span style='color: #666666; background: transparent;'><b style='background: transparent;'>Note:</b> Only create the <code style='background: #f5f5f5; padding: 2px 4px; border-radius: 3px; font-family: monospace; color: #d73a49; border: 1px solid #e1e4e8;'>sourcedata/</code> directory manually. All other directories are generated automatically during preprocessing. Place your T1w DICOM files in <code>sourcedata/sub-101/T1w/dicoms/</code> (required) and T2w DICOM files in <code>sourcedata/sub-101/T2w/dicoms/</code> (optional).</span>
         </div>
         </div>
         """
@@ -479,17 +446,13 @@ class ProjectHelpDialog(StyledDialog):
         <div style='font-size: 13px; line-height: 1.5; background: transparent;'>
         <div style='margin-bottom: 10px; background: transparent;'>
             <b style='color: #333333; background: transparent;'>DICOM File Organization:</b><br style='background: transparent;'>
-            <span style='color: #666; background: transparent;'>• Extract all DICOM files from ZIP/TAR archives</span><br style='background: transparent;'>
-            <span style='color: #666; background: transparent;'>• Place in subject-specific folders under sourcedata/</span><br style='background: transparent;'>
-            <span style='color: #666; background: transparent;'>• Anatomical scans should be in anat/ subdirectory</span><br style='background: transparent;'>
-            <span style='color: #666; background: transparent;'>• Multiple sessions can be organized as ses-01/, ses-02/, etc.</span>
+            <span style='color: #666; background: transparent;'>• Place zip files or extracted DICOMs in subject-specific folders under sourcedata/</span><br style='background: transparent;'>
+
         </div>
         <div style='margin-bottom: 10px; background: transparent;'>
             <b style='color: #333333; background: transparent;'>Supported Formats:</b><br style='background: transparent;'>
-            <span style='color: #388e3c; background: transparent;'>✓ DICOM files (.dcm, .ima, no extension)</span><br style='background: transparent;'>
             <span style='color: #388e3c; background: transparent;'>✓ Compressed DICOM (.dcm.gz)</span><br style='background: transparent;'>
             <span style='color: #388e3c; background: transparent;'>✓ DICOM directories (multiple files)</span><br style='background: transparent;'>
-            <span style='color: #d32f2f; background: transparent;'>✗ NIfTI files (use dcm2niix first)</span>
         </div>
         <div style='margin-bottom: 6px; background: transparent;'>
             <b style='color: #333333; background: transparent;'>Example DICOM Structure:</b>
@@ -498,10 +461,16 @@ class ProjectHelpDialog(StyledDialog):
         <div style='background: #f5f5f5; border: 2px solid #999999; border-radius: 6px; padding: 12px; margin: 8px 0;'>
             <pre style='background: transparent; font-family: "SF Mono", "Monaco", "Inconsolata", "Fira Code", "Source Code Pro", Consolas, "Ubuntu Mono", monospace; font-size: 12px; color: #2d3748; margin: 0; padding: 0; border: none; line-height: 1.4; white-space: pre;'>sourcedata/
 ├── sub-101/
-│   └── anat/
-│       ├── IM_0001.dcm
-│       ├── IM_0002.dcm
-│       └── <span style='color: #718096; background: transparent; font-style: italic;'>... (all T1w DICOM slices)</span>
+│   ├── T1w/
+│   │   └── dicoms/
+│   │       ├── IM_0001.dcm
+│   │       ├── IM_0002.dcm
+│   │       └── <span style='color: #718096; background: transparent; font-style: italic;'>... (all T1w DICOM slices)</span>
+│   └── T2w/
+│       └── dicoms/
+│           ├── IM_0001.dcm
+│           ├── IM_0002.dcm
+│           └── <span style='color: #718096; background: transparent; font-style: italic;'>... (all T2w DICOM slices)</span>
 └── sub-102/</pre>
         </div>
         </div>
@@ -514,19 +483,27 @@ class ProjectHelpDialog(StyledDialog):
         <div style='background: #f5f5f5; border: 2px solid #999999; border-radius: 6px; padding: 12px; margin: 8px 0;'>
         <div style='font-size: 13px; line-height: 1.5; background: transparent;'>
         <div style='margin-bottom: 6px; background: transparent;'>
-            <b style='color: #333333; background: transparent;'>TI-CSC Processing Workflow:</b>
+            <b style='color: #333333; background: transparent;'>TI-toolbox Processing Workflow:</b>
             <ol style='margin: 8px 0; padding-left: 16px; background: transparent;'>
             <li style='margin-bottom: 6px; background: transparent;'>
                 <b style='background: transparent;'>DICOM to NIfTI Conversion</b><br style='background: transparent;'>
                 <span style='color: #666; background: transparent;'>Converts DICOM files to BIDS-compliant NIfTI format</span>
             </li>
             <li style='margin-bottom: 6px; background: transparent;'>
+                <b style='background: transparent;'>SimNIBS Head Modeling</b><br style='background: transparent;'>
+                <span style='color: #666; background: transparent;'>Finite element head model generation</span>
+            </li>
+            <li style='margin-bottom: 6px; background: transparent;'>
                 <b style='background: transparent;'>FreeSurfer Reconstruction</b><br style='background: transparent;'>
                 <span style='color: #666; background: transparent;'>Cortical surface reconstruction and segmentation</span>
             </li>
             <li style='margin-bottom: 6px; background: transparent;'>
-                <b style='background: transparent;'>SimNIBS Head Modeling</b><br style='background: transparent;'>
-                <span style='color: #666; background: transparent;'>Finite element head model generation</span>
+                <b style='background: transparent;'>flex-search</b><br style='background: transparent;'>
+                <span style='color: #666; background: transparent;'>Flexible search for optimal electrode positions</span>
+            </li>
+            <li style='margin-bottom: 6px; background: transparent;'>
+                <b style='background: transparent;'>ex-search</b><br style='background: transparent;'>
+                <span style='color: #666; background: transparent;'>Exhaustive search for all possible electrode montages</span>
             </li>
             <li style='background: transparent;'>
                 <b style='background: transparent;'>TI Field Simulation</b><br style='background: transparent;'>
@@ -536,10 +513,12 @@ class ProjectHelpDialog(StyledDialog):
         </div>
         <div style='background: transparent;'>
             <b style='color: #333333; background: transparent;'>Processing Time Estimates:</b><br style='background: transparent;'>
-            <span style='color: #666; background: transparent;'>• DICOM Conversion: 2-5 minutes</span><br style='background: transparent;'>
-            <span style='color: #666; background: transparent;'>• FreeSurfer: 4-8 hours</span><br style='background: transparent;'>
-            <span style='color: #666; background: transparent;'>• SimNIBS: 1-3 hours</span><br style='background: transparent;'>
-            <span style='color: #666; background: transparent;'>• TI Simulation: 10-30 minutes</span>
+            <span style='color: #666; background: transparent;'>• DICOM Conversion: 1-3 minutes</span><br style='background: transparent;'>
+            <span style='color: #666; background: transparent;'>• FreeSurfer: 2-6 hours</span><br style='background: transparent;'>
+            <span style='color: #666; background: transparent;'>• SimNIBS: ~1 hour</span><br style='background: transparent;'>
+            <span style='color: #666; background: transparent;'>• flex-search: ~20 minutes</span><br style='background: transparent;'>
+            <span style='color: #666; background: transparent;'>• ex-search: varies depending on the number of electrodes</span><br style='background: transparent;'>
+            <span style='color: #666; background: transparent;'>• TI Simulation: 10-20 minutes</span>
         </div>
         </div>
         </div>
@@ -555,7 +534,7 @@ class ProjectHelpDialog(StyledDialog):
             <b style='color: #333333; background: transparent;'>Common Issues & Solutions:</b>
             <div style='margin: 6px 0; background: transparent;'>
                 <span style='color: #d32f2f; background: transparent;'><b style='background: transparent;'>Error:</b> "No DICOM files found"</span><br style='background: transparent;'>
-                <span style='color: #666; background: transparent;'><b style='background: transparent;'>Solution:</b> Ensure DICOMs are in sourcedata/sub-XXX/anat/ folder</span>
+                <span style='color: #666; background: transparent;'><b style='background: transparent;'>Solution:</b> Ensure DICOMs are in sourcedata/sub-XXX/T1w/dicoms/ folder</span>
             </div>
             <div style='margin: 6px 0; background: transparent;'>
                 <span style='color: #d32f2f; background: transparent;'><b style='background: transparent;'>Error:</b> "Invalid BIDS structure"</span><br style='background: transparent;'>
@@ -636,7 +615,7 @@ class VersionInfoDialog(StyledDialog):
             dialog.exec()
             
             if self.logger:
-                self.logger(f"Displayed version information for TI-CSC v{version.__version__}")
+                self.logger(f"Displayed version information for TI-toolbox v{version.__version__}")
                 
         except Exception as e:
             if self.logger:
@@ -649,7 +628,7 @@ class VersionInfoDialog(StyledDialog):
             msg.exec()
     
     def _create_header_with_icon(self, parent):
-        """Create header with actual TI-CSC icon"""
+        """Create header with actual TI-toolbox icon"""
         header_widget = QWidget()
         header_widget.setStyleSheet("""
             QWidget {
@@ -673,7 +652,7 @@ class VersionInfoDialog(StyledDialog):
             icon_label.setPixmap(scaled_pixmap)
             title_layout.addWidget(icon_label)
         
-        main_title = QLabel("TI-CSC")
+        main_title = QLabel("TI-toolbox")
         main_title.setFont(QFont("Arial", 18, QFont.Weight.Bold))
         main_title.setStyleSheet("color: #333333; background: transparent; margin-left: 8px;")
         title_layout.addWidget(main_title)
@@ -695,12 +674,12 @@ class VersionInfoDialog(StyledDialog):
     def _add_version_cards(self, layout, version_info):
         """Add version information cards"""
         # Version info card
-        ti_csc_info = version_info.get('ti_csc', {})
+        ti_toolbox_info = version_info.get('ti_toolbox', {})
         version_content = f"""
         <div style='font-size: 14px; line-height: 1.6; background: transparent;'>
-        <b style='background: transparent;'>Version:</b><span style='background: transparent;'> {ti_csc_info.get('version', 'Unknown')}</span><br style='background: transparent;'>
-        <b style='background: transparent;'>Release Date:</b><span style='background: transparent;'> {ti_csc_info.get('release_date', 'Unknown')}</span><br style='background: transparent;'>
-        <b style='background: transparent;'>Build:</b><span style='background: transparent;'> {ti_csc_info.get('build', 'Unknown')}</span>
+        <b style='background: transparent;'>Version:</b><span style='background: transparent;'> {ti_toolbox_info.get('version', 'Unknown')}</span><br style='background: transparent;'>
+        <b style='background: transparent;'>Release Date:</b><span style='background: transparent;'> {ti_toolbox_info.get('release_date', 'Unknown')}</span><br style='background: transparent;'>
+        <b style='background: transparent;'>Build:</b><span style='background: transparent;'> {ti_toolbox_info.get('build', 'Unknown')}</span>
         </div>
         """
         version_card = self.create_info_card("📋 Version Information", version_content)
