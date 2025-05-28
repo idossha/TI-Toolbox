@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1"><!-- Begin Jekyll SEO tag v2.8.0 -->
+<title>Installation Guide | Temporal Interference Toolbox</title>
+<meta name="generator" content="Jekyll v4.3.4" />
+<meta property="og:title" content="Installation Guide" />
+<meta name="author" content="Temporal Interference Toolbox Team" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="Installation Guide" />
+<meta property="og:description" content="Installation Guide" />
+<link rel="canonical" href="https://idossha.github.io/TI-Toolbox/wiki/installation-guide/" />
+<meta property="og:url" content="https://idossha.github.io/TI-Toolbox/wiki/installation-guide/" />
+<meta property="og:site_name" content="Temporal Interference Toolbox" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2025-05-28T07:47:13+00:00" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="Installation Guide" />
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"BlogPosting","author":{"@type":"Person","name":"Temporal Interference Toolbox Team"},"dateModified":"2025-05-28T07:47:13+00:00","datePublished":"2025-05-28T07:47:13+00:00","description":"Installation Guide","headline":"Installation Guide","mainEntityOfPage":{"@type":"WebPage","@id":"https://idossha.github.io/TI-Toolbox/wiki/installation-guide/"},"url":"https://idossha.github.io/TI-Toolbox/wiki/installation-guide/"}</script>
+<!-- End Jekyll SEO tag -->
+<link rel="stylesheet" href="/TI-Toolbox/assets/main.css"><link type="application/atom+xml" rel="alternate" href="https://idossha.github.io/TI-Toolbox/feed.xml" title="Temporal Interference Toolbox" /></head>
+<body><header class="site-header" role="banner">
+
+  <div class="wrapper"><a class="site-title" rel="author" href="/TI-Toolbox/">Temporal Interference Toolbox</a><nav class="site-nav">
+        <input type="checkbox" id="nav-trigger" class="nav-trigger" />
+        <label for="nav-trigger">
+          <span class="menu-icon">
+            <svg viewBox="0 0 18 15" width="18px" height="15px">
+              <path d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.032C17.335,0,18,0.665,18,1.484L18,1.484z M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.032C17.335,6.031,18,6.696,18,7.516L18,7.516z M18,13.516C18,14.335,17.335,15,16.516,15H1.484 C0.665,15,0,14.335,0,13.516l0,0c0-0.82,0.665-1.483,1.484-1.483h15.032C17.335,12.031,18,12.695,18,13.516L18,13.516z"/>
+            </svg>
+          </span>
+        </label>
+
+        <div class="trigger"><a class="page-link" href="/TI-Toolbox/documentation/">Documentation</a><a class="page-link" href="/TI-Toolbox/wiki/">Wiki</a><a class="page-link" href="/TI-Toolbox/releases/">Releases</a><a class="page-link" href="/TI-Toolbox/about/">About</a></div>
+      </nav></div>
+</header>
+<main class="page-content" aria-label="Content">
+      <div class="wrapper">
+        <div class="wiki-layout">
+  <div class="wiki-sidebar">
+    <div class="wiki-nav">
+      <h3>Getting Started</h3>
+      <ul>
+        <li><a href="/wiki/installation-guide" class="active">Installation Guide</a></li>
+        <li><a href="/wiki/first-project" >Your First Project</a></li>
+        <li><a href="/wiki/bids-format" >BIDS Data Format</a></li>
+        <li><a href="/wiki/docker-basics" >Docker Basics</a></li>
+      </ul>
+      
+      <h3>Tutorials</h3>
+      <ul>
+        <li><a href="/wiki/preprocessing-tutorial" >Pre-processing Tutorial</a></li>
+        <li><a href="/wiki/simulation-tutorial" >Running Simulations</a></li>
+        <li><a href="/wiki/optimization-guide" >Optimization Guide</a></li>
+        <li><a href="/wiki/visualization-tutorial" >Visualization Tutorial</a></li>
+      </ul>
+      
+      <h3>Advanced Topics</h3>
+      <ul>
+        <li><a href="/wiki/custom-electrodes" >Custom Electrode Models</a></li>
+        <li><a href="/wiki/batch-processing" >Batch Processing</a></li>
+        <li><a href="/wiki/gpu-acceleration" >GPU Acceleration</a></li>
+        <li><a href="/wiki/scripting" >Scripting & Automation</a></li>
+      </ul>
+      
+      <h3>Theory</h3>
+      <ul>
+        <li><a href="/wiki/ti-theory" >TI Theory & Physics</a></li>
+        <li><a href="/wiki/fem-basics" >FEM Fundamentals</a></li>
+        <li><a href="/wiki/optimization-algorithms" >Optimization Algorithms</a></li>
+        <li><a href="/wiki/safety-guidelines" >Safety Guidelines</a></li>
+      </ul>
+      
+      <h3>Troubleshooting</h3>
+      <ul>
+        <li><a href="/wiki/common-errors" >Common Errors</a></li>
+        <li><a href="/wiki/performance-tuning" >Performance Tuning</a></li>
+        <li><a href="/wiki/debugging" >Debugging Guide</a></li>
+        <li><a href="/wiki/faq" >FAQ</a></li>
+      </ul>
+    </div>
+  </div>
+  
+  <div class="wiki-content">
+    <article class="post">
+      <header class="post-header">
+        <h1 class="post-title">Installation Guide</h1>
+      </header>
+
+      <div class="post-content">
+        <h1 id="installation-guide">Installation Guide</h1>
+
+<p>This guide will walk you through installing Temporal Interference Toolbox on your system.</p>
+
+<h2 id="prerequisites">Prerequisites</h2>
+
+<p>Before installing Temporal Interference Toolbox, ensure you have the following:</p>
+
+<h3 id="1-docker-desktop">1. Docker Desktop</h3>
+
+<p>Docker is required to run Temporal Interference Toolbox’s containerized environment.</p>
+
+<ul>
+  <li><strong>Download</strong>: <a href="https://www.docker.com/products/docker-desktop">Docker Desktop</a></li>
+  <li><strong>Version</strong>: Latest stable release</li>
+  <li><strong>Resources</strong>: Allocate at least 8GB RAM to Docker</li>
+</ul>
+
+<h4 id="platform-specific-docker-setup">Platform-Specific Docker Setup</h4>
+
+<p><strong>macOS:</strong></p>
+<ol>
+  <li>Download Docker Desktop for Mac</li>
+  <li>Install by dragging to Applications</li>
+  <li>Start Docker Desktop from Applications</li>
+  <li>Increase memory allocation in Preferences &gt; Resources</li>
+</ol>
+
+<p><strong>Linux:</strong></p>
+<ol>
+  <li>Install Docker Engine or Docker Desktop</li>
+  <li>Add your user to the docker group: <code class="language-plaintext highlighter-rouge">sudo usermod -aG docker $USER</code></li>
+  <li>Log out and back in for group changes to take effect</li>
+</ol>
+
+<p><strong>Windows:</strong></p>
+<ol>
+  <li>Enable WSL2 (Windows Subsystem for Linux)</li>
+  <li>Install Docker Desktop with WSL2 backend</li>
+  <li>Ensure virtualization is enabled in BIOS</li>
+</ol>
+
+<h3 id="2-display-server-for-gui">2. Display Server (for GUI)</h3>
+
+<p><strong>macOS:</strong> Install XQuartz</p>
+<ul>
+  <li>Download XQuartz 2.7.7 or 2.8.0 (not 2.8.1+)</li>
+  <li>Enable “Allow connections from network clients”</li>
+</ul>
+
+<p><strong>Linux:</strong> X11 is typically pre-installed</p>
+
+<p><strong>Windows:</strong> Install VcXsrv or Xming</p>
+
+<h3 id="3-system-requirements">3. System Requirements</h3>
+
+<ul>
+  <li><strong>RAM</strong>: 16GB minimum, 32GB recommended</li>
+  <li><strong>Storage</strong>: 50GB free space</li>
+  <li><strong>CPU</strong>: 4+ cores recommended</li>
+  <li><strong>GPU</strong>: Optional, NVIDIA with CUDA support</li>
+</ul>
+
+<h2 id="installation-steps">Installation Steps</h2>
+
+<h3 id="step-1-download-temporal-interference-toolbox">Step 1: Download Temporal Interference Toolbox</h3>
+
+<ol>
+  <li>Visit the <a href="/releases">Releases page</a></li>
+  <li>Select your operating system</li>
+  <li>Download the appropriate installer (version 2.x.x or newer). Note: Versions 1.x.x are no longer supported.</li>
+</ol>
+
+<h3 id="step-2-install-the-application">Step 2: Install the Application</h3>
+
+<h4 id="macos-installation">macOS Installation</h4>
+
+<ol>
+  <li>Open the downloaded DMG file</li>
+  <li>Drag Temporal Interference Toolbox to your Applications folder</li>
+  <li>Right-click Temporal Interference Toolbox and select “Open” (first time only)</li>
+  <li>If you see a security warning, click “Open” to proceed</li>
+</ol>
+
+<h4 id="linux-installation">Linux Installation</h4>
+
+<ol>
+  <li>Make the AppImage executable:
+    <div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">chmod</span> +x Temporal Interference Toolbox-Linux-x86_64.AppImage
+</code></pre></div>    </div>
+  </li>
+  <li>Run the AppImage:
+    <div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>./Temporal Interference Toolbox-Linux-x86_64.AppImage
+</code></pre></div>    </div>
+  </li>
+  <li>(Optional) Install AppImageLauncher for desktop integration</li>
+</ol>
+
+<h4 id="windows-installation">Windows Installation</h4>
+
+<ol>
+  <li>Run the downloaded installer</li>
+  <li>Follow the installation wizard</li>
+  <li>Choose installation directory</li>
+  <li>Create desktop shortcut (optional)</li>
+</ol>
+
+<h3 id="step-3-first-launch">Step 3: First Launch</h3>
+
+<ol>
+  <li><strong>Start Docker Desktop</strong> and wait for it to fully initialize</li>
+  <li><strong>Launch Temporal Interference Toolbox</strong> from your applications or desktop</li>
+  <li><strong>Select Project Directory</strong> - choose or create a BIDS-compliant folder</li>
+  <li><strong>Start Docker Containers</strong> - this will download ~30GB on first run</li>
+</ol>
+
+<h3 id="step-4-verify-installation">Step 4: Verify Installation</h3>
+
+<p>Once containers are running, verify the installation:</p>
+
+<ol>
+  <li>Click “Launch CLI”</li>
+  <li>In the terminal, run:
+    <div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>ti-csc <span class="nt">--version</span>
+</code></pre></div>    </div>
+  </li>
+  <li>You should see version information</li>
+</ol>
+
+<h2 id="troubleshooting">Troubleshooting</h2>
+
+<h3 id="docker-issues">Docker Issues</h3>
+
+<p><strong>Problem</strong>: “Docker daemon not running”</p>
+<ul>
+  <li><strong>Solution</strong>: Start Docker Desktop and wait for it to fully initialize</li>
+</ul>
+
+<p><strong>Problem</strong>: “Permission denied while trying to connect to Docker”</p>
+<ul>
+  <li><strong>Solution (Linux)</strong>: Add user to docker group: <code class="language-plaintext highlighter-rouge">sudo usermod -aG docker $USER</code></li>
+</ul>
+
+<h3 id="gui-issues-macos">GUI Issues (macOS)</h3>
+
+<p><strong>Problem</strong>: GUI windows don’t appear</p>
+<ul>
+  <li><strong>Solution</strong>:
+    <ol>
+      <li>Quit XQuartz</li>
+      <li>Open XQuartz preferences</li>
+      <li>Under Security, enable “Allow connections from network clients”</li>
+      <li>Restart XQuartz</li>
+    </ol>
+  </li>
+</ul>
+
+<h3 id="memory-issues">Memory Issues</h3>
+
+<p><strong>Problem</strong>: “Out of memory” errors</p>
+<ul>
+  <li><strong>Solution</strong>:
+    <ol>
+      <li>Open Docker Desktop settings</li>
+      <li>Increase memory allocation to at least 8GB</li>
+      <li>Restart Docker Desktop</li>
+    </ol>
+  </li>
+</ul>
+
+<h2 id="next-steps">Next Steps</h2>
+
+<ul>
+  <li>Explore the <a href="/documentation#cli-commands">CLI commands</a></li>
+</ul>
+
+<h2 id="getting-help">Getting Help</h2>
+
+<p>If you encounter issues:</p>
+
+<ol>
+  <li>Search <a href="https://github.com/idossha/TI-Toolbox/issues">existing issues</a></li>
+  <li>Ask in <a href="https://github.com/idossha/TI-Toolbox/discussions">Discussions</a></li>
+</ol>
+
+      </div>
+    </article>
+  </div>
+</div> 
+      </div>
+    </main><footer class="site-footer h-card">
+  <data class="u-url" href="/TI-Toolbox/"></data>
+
+  <div class="wrapper">
+
+    <h2 class="footer-heading">Temporal Interference Toolbox</h2>
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li class="p-name">Temporal Interference Toolbox Team</li><li><a class="u-email" href="mailto:your-email@example.com">your-email@example.com</a></li></ul>
+      </div>
+
+      <div class="footer-col footer-col-2"><ul class="social-media-list"></ul>
+</div>
+
+      <div class="footer-col footer-col-3">
+        <p>Temporal Interference Toolbox</p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+</body>
+
+</html>

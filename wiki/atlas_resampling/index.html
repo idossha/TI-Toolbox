@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1"><!-- Begin Jekyll SEO tag v2.8.0 -->
+<title>Atlas Resampling | Temporal Interference Toolbox</title>
+<meta name="generator" content="Jekyll v4.3.4" />
+<meta property="og:title" content="Atlas Resampling" />
+<meta name="author" content="Temporal Interference Toolbox Team" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="Atlas Resampling in Cortical Region Analysis" />
+<meta property="og:description" content="Atlas Resampling in Cortical Region Analysis" />
+<link rel="canonical" href="https://idossha.github.io/TI-Toolbox/wiki/atlas_resampling/" />
+<meta property="og:url" content="https://idossha.github.io/TI-Toolbox/wiki/atlas_resampling/" />
+<meta property="og:site_name" content="Temporal Interference Toolbox" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2025-05-28T07:47:13+00:00" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="Atlas Resampling" />
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"BlogPosting","author":{"@type":"Person","name":"Temporal Interference Toolbox Team"},"dateModified":"2025-05-28T07:47:13+00:00","datePublished":"2025-05-28T07:47:13+00:00","description":"Atlas Resampling in Cortical Region Analysis","headline":"Atlas Resampling","mainEntityOfPage":{"@type":"WebPage","@id":"https://idossha.github.io/TI-Toolbox/wiki/atlas_resampling/"},"url":"https://idossha.github.io/TI-Toolbox/wiki/atlas_resampling/"}</script>
+<!-- End Jekyll SEO tag -->
+<link rel="stylesheet" href="/TI-Toolbox/assets/main.css"><link type="application/atom+xml" rel="alternate" href="https://idossha.github.io/TI-Toolbox/feed.xml" title="Temporal Interference Toolbox" /></head>
+<body><header class="site-header" role="banner">
+
+  <div class="wrapper"><a class="site-title" rel="author" href="/TI-Toolbox/">Temporal Interference Toolbox</a><nav class="site-nav">
+        <input type="checkbox" id="nav-trigger" class="nav-trigger" />
+        <label for="nav-trigger">
+          <span class="menu-icon">
+            <svg viewBox="0 0 18 15" width="18px" height="15px">
+              <path d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.032C17.335,0,18,0.665,18,1.484L18,1.484z M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.032C17.335,6.031,18,6.696,18,7.516L18,7.516z M18,13.516C18,14.335,17.335,15,16.516,15H1.484 C0.665,15,0,14.335,0,13.516l0,0c0-0.82,0.665-1.483,1.484-1.483h15.032C17.335,12.031,18,12.695,18,13.516L18,13.516z"/>
+            </svg>
+          </span>
+        </label>
+
+        <div class="trigger"><a class="page-link" href="/TI-Toolbox/documentation/">Documentation</a><a class="page-link" href="/TI-Toolbox/wiki/">Wiki</a><a class="page-link" href="/TI-Toolbox/releases/">Releases</a><a class="page-link" href="/TI-Toolbox/about/">About</a></div>
+      </nav></div>
+</header>
+<main class="page-content" aria-label="Content">
+      <div class="wrapper">
+        <div class="wiki-layout">
+  <div class="wiki-sidebar">
+    <div class="wiki-nav">
+      <h3>Getting Started</h3>
+      <ul>
+        <li><a href="/wiki/installation-guide" >Installation Guide</a></li>
+        <li><a href="/wiki/first-project" >Your First Project</a></li>
+        <li><a href="/wiki/bids-format" >BIDS Data Format</a></li>
+        <li><a href="/wiki/docker-basics" >Docker Basics</a></li>
+      </ul>
+      
+      <h3>Tutorials</h3>
+      <ul>
+        <li><a href="/wiki/preprocessing-tutorial" >Pre-processing Tutorial</a></li>
+        <li><a href="/wiki/simulation-tutorial" >Running Simulations</a></li>
+        <li><a href="/wiki/optimization-guide" >Optimization Guide</a></li>
+        <li><a href="/wiki/visualization-tutorial" >Visualization Tutorial</a></li>
+      </ul>
+      
+      <h3>Advanced Topics</h3>
+      <ul>
+        <li><a href="/wiki/custom-electrodes" >Custom Electrode Models</a></li>
+        <li><a href="/wiki/batch-processing" >Batch Processing</a></li>
+        <li><a href="/wiki/gpu-acceleration" >GPU Acceleration</a></li>
+        <li><a href="/wiki/scripting" >Scripting & Automation</a></li>
+      </ul>
+      
+      <h3>Theory</h3>
+      <ul>
+        <li><a href="/wiki/ti-theory" >TI Theory & Physics</a></li>
+        <li><a href="/wiki/fem-basics" >FEM Fundamentals</a></li>
+        <li><a href="/wiki/optimization-algorithms" >Optimization Algorithms</a></li>
+        <li><a href="/wiki/safety-guidelines" >Safety Guidelines</a></li>
+      </ul>
+      
+      <h3>Troubleshooting</h3>
+      <ul>
+        <li><a href="/wiki/common-errors" >Common Errors</a></li>
+        <li><a href="/wiki/performance-tuning" >Performance Tuning</a></li>
+        <li><a href="/wiki/debugging" >Debugging Guide</a></li>
+        <li><a href="/wiki/faq" >FAQ</a></li>
+      </ul>
+    </div>
+  </div>
+  
+  <div class="wiki-content">
+    <article class="post">
+      <header class="post-header">
+        <h1 class="post-title">Atlas Resampling</h1>
+      </header>
+
+      <div class="post-content">
+        <h1 id="atlas-resampling-in-cortical-region-analysis">Atlas Resampling in Cortical Region Analysis</h1>
+
+<h2 id="understanding-atlas-field-dimension-mismatches">Understanding Atlas-Field Dimension Mismatches</h2>
+
+<p>When analyzing a field nifti within a specific cortical region, our software requires that the atlas and field files have matching dimensions. If you use custom .mgz atlas files that have different dimensions than your subject’s field nifti, you may notice the following:</p>
+
+<ol>
+  <li>The original atlas may not perfectly align with your field data</li>
+  <li>A new “resampled” version of your atlas is automatically created</li>
+  <li>The analysis proceeds using this resampled atlas instead of your original</li>
+</ol>
+
+<h2 id="what-happens-during-resampling">What Happens During Resampling</h2>
+
+<p>When a dimension mismatch is detected:</p>
+
+<ul>
+  <li>The software automatically resamples your atlas to match the field nifti dimensions</li>
+  <li>This ensures proper voxel-to-voxel correspondence between the atlas and field data</li>
+  <li>The original atlas remains unchanged, and a new resampled version is generated</li>
+</ul>
+
+<h2 id="visual-example">Visual Example</h2>
+
+<p>Below are two images showing the effect of atlas resampling:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Original Atlas (Not Aligned)</th>
+      <th>Resampled Atlas (Aligned)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><img src="../photos/atlas_under_field.png" alt="Original Atlas" /></td>
+      <td><img src="../photos/aligned_atlas_under_field.png" alt="Resampled Atlas" /></td>
+    </tr>
+  </tbody>
+</table>
+
+<p><strong>Left:</strong> The blue outline shows the original atlas, which does not perfectly align with the heat map of the cortical region (field data).</p>
+
+<p><strong>Right:</strong> The blue outline shows the resampled (aligned) atlas, which now matches the field data.</p>
+
+<p><strong>Explanation:</strong><br />
+In the left image, the blue atlas outline does not match the underlying heat map, indicating a dimension or alignment mismatch. In the right image, after resampling, the blue outline of the atlas is perfectly aligned with the heat map, ensuring accurate region analysis.</p>
+
+<h2 id="common-causes-and-solutions">Common Causes and Solutions</h2>
+
+<p>This dimension mismatch typically occurs when:</p>
+
+<ol>
+  <li>Using an atlas generated for a different subject</li>
+  <li>Using an atlas from a different imaging sequence or resolution</li>
+  <li>Using an atlas that was processed with different parameters</li>
+</ol>
+
+<p>The best solution is to generate subject-specific atlases using the same preprocessing pipeline. Running <code class="language-plaintext highlighter-rouge">recon-all</code> on your subject data will generate correctly dimensioned atlases that won’t require resampling.</p>
+
+<h2 id="important-note">Important Note</h2>
+
+<p>The automatic resampling is a feature, not a bug. It ensures robustness by allowing analysis to proceed even when atlas and field dimensions don’t match initially. The resampling process preserves the anatomical validity of your atlas while making it compatible with your field data.</p>
+
+<p>If you need further assistance with atlas generation or have questions about the resampling process, please contact support.</p>
+
+      </div>
+    </article>
+  </div>
+</div> 
+      </div>
+    </main><footer class="site-footer h-card">
+  <data class="u-url" href="/TI-Toolbox/"></data>
+
+  <div class="wrapper">
+
+    <h2 class="footer-heading">Temporal Interference Toolbox</h2>
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li class="p-name">Temporal Interference Toolbox Team</li><li><a class="u-email" href="mailto:your-email@example.com">your-email@example.com</a></li></ul>
+      </div>
+
+      <div class="footer-col footer-col-2"><ul class="social-media-list"></ul>
+</div>
+
+      <div class="footer-col footer-col-3">
+        <p>Temporal Interference Toolbox</p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+</body>
+
+</html>
