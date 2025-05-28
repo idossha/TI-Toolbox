@@ -14,50 +14,12 @@ All notable changes and releases are documented below.
     <h2>Version 2.0.0</h2>
     <span class="release-date">May 2025</span>
   </div>
-  <p><strong>New Release</strong></p>
-  <h3>📋 Release Notes</h3>
-  <div style="background: #f5f5f5; padding: 15px; border-radius: 5px; margin: 10px 0;">
-    <pre style="background: transparent; padding: 0; margin: 0; white-space: pre-wrap;">Update version to 2.0.0</pre>
-  </div>
-  <div class="release-downloads">
-    <a href="https://github.com/idossha/TI-Toolbox/releases/download/v2.0.0/TemporalInterferenceToolbox-macOS-universal.zip">macOS</a>
-    <a href="https://github.com/idossha/TI-Toolbox/releases/download/v2.0.0/TemporalInterferenceToolbox-Linux-x86_64.AppImage">Linux</a>
-    <a href="https://github.com/idossha/TI-Toolbox/releases/download/v2.0.0/TI-Toolbox-Windows.exe">Windows</a>
-  </div>
-</div>
-<div class="release">
-  <div class="release-header">
-    <h2>Version 2.0.0</h2>
-    <span class="release-date">May 2025</span>
-  </div>
   
   <p><strong>Latest Release</strong></p>
   
   <h3>📋 Release Notes</h3>
   <div style="background: #f5f5f5; padding: 15px; border-radius: 5px; margin: 10px 0;">
-    <p>init</p>
-  </div>
-  
-  <div class="release-downloads">
-    <a href="https://github.com/idossha/TI-Toolbox/releases/download/v2.0.0/TemporalInterferenceToolbox-macOS-universal.zip">macOS</a>
-    <a href="https://github.com/idossha/TI-Toolbox/releases/download/v2.0.0/TemporalInterferenceToolbox-Linux-x86_64.AppImage">Linux</a>
-    <a href="https://github.com/idossha/TI-Toolbox/releases/download/v2.0.0/TI-Toolbox-Windows.exe">Windows</a>
-  </div>
-</div>
-
-
-
-<div class="release">
-  <div class="release-header">
-    <h2>Version 2.0.0</h2>
-    <span class="release-date">May 2025</span>
-  </div>
-  
-  <p><strong>Latest Release</strong></p>
-  
-  <h3>📋 Release Notes</h3>
-  <div style="background: #f5f5f5; padding: 15px; border-radius: 5px; margin: 10px 0;">
-    <p>Official 2.0.0 release of the Temporal Interference Toolbox. This version marks a major update with a streamlined documentation and focus on core functionalities. All support for 1.x.x versions is now discontinued.</p>
+    <p>Major release of the Temporal Interference Toolbox with streamlined Docker launcher, enhanced cross-platform support, comprehensive Windows GUI functionality with VcXsrv integration, and improved documentation.</p>
   </div>
   
   <div class="release-downloads">
@@ -77,10 +39,9 @@ For older releases and detailed changelogs, visit our [GitHub Releases](https://
 
 We follow a regular release schedule:
 
-- **Major releases** (x.0.0): 
-- **Feature releases** (x.y.0): 
-- **Patch releases** (x.y.z): As needed for critical fixes
-
+- **Major releases** (x.0.0): Major features and breaking changes
+- **Feature releases** (x.y.0): New features and improvements  
+- **Patch releases** (x.y.z): Bug fixes and critical updates
 
 ## Contributing
 
