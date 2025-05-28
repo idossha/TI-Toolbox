@@ -95,7 +95,15 @@ jobs:
     - name: Build executable
       working-directory: launcher/executable
       shell: bash
+      env:
+        PYTHONIOENCODING: utf-8
       run: |
+        # Set UTF-8 encoding for Windows
+        if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
+          export PYTHONIOENCODING=utf-8
+          export PYTHONUTF8=1
+        fi
+        
         echo "Contents of launcher/executable directory:"
         ls -la
         echo "Contents of project root:"
