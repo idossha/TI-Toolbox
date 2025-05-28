@@ -7,7 +7,6 @@ This script updates version information across all project files.
 import os
 import re
 import sys
-import glob
 from datetime import datetime
 from pathlib import Path
 
@@ -43,8 +42,7 @@ def update_version(new_version):
     print(f"🚀 Updating version to {new_version}")
     print("=" * 50)
     
-    release_date = datetime.now().strftime("%Y-%m-%d")
-    release_month_year = datetime.now().strftime("%B %Y")
+    release_date = datetime.now().strftime("%B %d, %Y")
     
     # Files to update with their patterns
     files_to_update = {
@@ -60,11 +58,6 @@ def update_version(new_version):
         
         "launcher/executable/src/dialogs.py": [
             (r'__version__ = "[^"]*"', f'__version__ = "{new_version}"'),
-        ],
-        
-        "docs/index.md": [
-            (r'\*\*Version [^*]*\*\*', f'**Version {new_version}**'),
-            (r'Released [A-Za-z]+ \d{4}', f'Released {release_month_year}'),
         ],
         
         "docs/_config.yml": [
@@ -83,44 +76,34 @@ def update_version(new_version):
     print(f"📝 Updated {len(updated_files)} files:")
     for file_path in updated_files:
         print(f"   • {file_path}")
-    
-    print(f"\n💡 Next steps:")
-    print(f"   1. Review the changes: git diff")
-    print(f"   2. Commit the changes: git add . && git commit -m 'Update version to {new_version}'")
-    print(f"   3. Create a release tag: git tag v{new_version}")
-    print(f"   4. Push changes: git push && git push --tags")
-    print(f"   5. Create a GitHub release at: https://github.com/idossha/TI-Toolbox/releases/new")
 
 def add_release_to_changelog(version, release_notes=""):
     """Add a new release entry to the releases page"""
-    releases_file = "docs/releases.md"
+    releases_file = "docs/releases/releases.md"
     
     if not os.path.exists(releases_file):
         print(f"⚠️  Warning: {releases_file} not found")
         return
     
-    release_date = datetime.now().strftime("%B %Y")
+    release_date = datetime.now().strftime("%B %d, %Y")
     
-    new_release_entry = f"""
-<div class="release">
-  <div class="release-header">
-    <h2>Version {version}</h2>
-    <span class="release-date">{release_date}</span>
-  </div>
-  
-  <p><strong>Latest Release</strong></p>
-  
-  <h3>📋 Release Notes</h3>
-  <div style="background: #f5f5f5; padding: 15px; border-radius: 5px; margin: 10px 0;">
-    <p>{release_notes if release_notes else "No release notes provided."}</p>
-  </div>
-  
-  <div class="release-downloads">
-    <a href="https://github.com/idossha/TI-Toolbox/releases/download/v{version}/TemporalInterferenceToolbox-macOS-universal.zip">macOS</a>
-    <a href="https://github.com/idossha/TI-Toolbox/releases/download/v{version}/TemporalInterferenceToolbox-Linux-x86_64.AppImage">Linux</a>
-    <a href="https://github.com/idossha/TI-Toolbox/releases/download/v{version}/TI-Toolbox-Windows.exe">Windows</a>
-  </div>
-</div>
+    # Convert release notes to bullet points if they're not already
+    if not release_notes.strip().startswith('-'):
+        release_notes = '\n'.join(f'- {note.strip()}' for note in release_notes.split('.') if note.strip())
+    
+    new_release_entry = f"""### v{version}
+
+**Release Date**: {release_date}
+
+#### Major Changes
+{release_notes}
+
+#### Installation
+- [Windows Installer](https://github.com/idossha/TI-Toolbox/releases/download/v{version}/TI-Toolbox-Windows-x64.exe)
+- [macOS DMG](https://github.com/idossha/TI-Toolbox/releases/download/v{version}/TI-Toolbox-macOS-x64.dmg)
+- [Linux AppImage](https://github.com/idossha/TI-Toolbox/releases/download/v{version}/TI-Toolbox-Linux-x86_64.AppImage)
+
+For installation instructions, see the [Installation Guide]({{ site.baseurl }}/wiki/installation-guide).
 
 """
     
@@ -128,18 +111,18 @@ def add_release_to_changelog(version, release_notes=""):
         with open(releases_file, 'r', encoding='utf-8') as f:
             content = f.read()
         
-        # Find the position to insert the new release (after the header)
-        marker = "All notable changes and releases are documented below."
+        # Find the marker and insert the new release
+        marker = "<!-- DO NOT MODIFY: Auto-generated release content will be appended here -->"
         if marker in content:
             parts = content.split(marker, 1)
-            new_content = parts[0] + marker + new_release_entry + parts[1]
+            new_content = f"{parts[0]}{marker}\n\n{new_release_entry}{parts[1]}"
             
             with open(releases_file, 'w', encoding='utf-8') as f:
                 f.write(new_content)
             
             print(f"✅ Added release entry to {releases_file}")
         else:
-            print(f"⚠️  Could not find insertion point in {releases_file}")
+            print(f"⚠️  Could not find insertion marker in {releases_file}")
     
     except Exception as e:
         print(f"❌ Error updating releases file: {e}")
@@ -153,8 +136,8 @@ def main():
         print("  • version.py")
         print("  • launcher/executable/src/ti_csc_launcher.py")
         print("  • launcher/executable/src/dialogs.py")
-        print("  • docs/index.md")
         print("  • docs/_config.yml")
+        print("  • docs/releases/releases.md")
         sys.exit(0)
     
     new_version = sys.argv[1]
@@ -175,6 +158,12 @@ def main():
     # Add release to changelog if release notes provided
     if release_notes:
         add_release_to_changelog(new_version, release_notes)
+        print("\n💡 Next steps:")
+        print(f"   1. Review the changes: git diff")
+        print(f"   2. Commit the changes: git add . && git commit -m 'Release v{new_version}'")
+        print(f"   3. Create a release tag: git tag v{new_version}")
+        print(f"   4. Push changes: git push && git push --tags")
+        print(f"   5. Create a GitHub release at: https://github.com/idossha/TI-Toolbox/releases/new")
 
 if __name__ == "__main__":
     main() 

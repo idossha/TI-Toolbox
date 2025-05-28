@@ -10,6 +10,25 @@ permalink: /releases/
 
 <!-- DO NOT MODIFY: Auto-generated release content will be appended here -->
 
+### v2.0.0
+
+**Release Date**: May 28, 2025
+
+#### Major Changes
+- Complete rewrite of the Temporal Interference Toolbox with major enhancements: Cross-platform support for Windows, macOS, and Linux
+- Docker-based containerization for consistent environment and reproducibility
+- Dual interface with both GUI and CLI support, enabling local and remote server usage
+- Key functionalities include DICOM to NIfTI conversion, FreeSurfer segmentation, SimNIBS head modeling, flexible and exhaustive electrode optimization algorithms, FEM-based temporal interference field calculations, and comprehensive analysis tools with atlas-based ROI evaluation
+
+#### Installation
+- [Windows Installer](https://github.com/idossha/TI-Toolbox/releases/download/v2.0.0/TI-Toolbox-Windows-x64.exe)
+- [macOS DMG](https://github.com/idossha/TI-Toolbox/releases/download/v2.0.0/TI-Toolbox-macOS-x64.dmg)
+- [Linux AppImage](https://github.com/idossha/TI-Toolbox/releases/download/v2.0.0/TI-Toolbox-Linux-x86_64.AppImage)
+
+For installation instructions, see the [Installation Guide]({ site.baseurl }/wiki/installation-guide).
+
+
+
 ## Version Support
 
 We actively support and maintain versions 2.x.x and newer of the Temporal Interference Toolbox. Versions 1.x.x are no longer supported.
