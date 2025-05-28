@@ -21,9 +21,11 @@ permalink: /releases/
 - Key functionalities include DICOM to NIfTI conversion, FreeSurfer segmentation, SimNIBS head modeling, flexible and exhaustive electrode optimization algorithms, FEM-based temporal interference field calculations, and comprehensive analysis tools with atlas-based ROI evaluation
 
 #### Installation
-- [Windows Installer](https://github.com/idossha/TI-Toolbox/releases/download/v2.0.0/TI-Toolbox-Windows-x64.exe)
-- [macOS DMG](https://github.com/idossha/TI-Toolbox/releases/download/v2.0.0/TI-Toolbox-macOS-x64.dmg)
-- [Linux AppImage](https://github.com/idossha/TI-Toolbox/releases/download/v2.0.0/TI-Toolbox-Linux-x86_64.AppImage)
+- [Windows Installer](https://github.com/idossha/TI-Toolbox/releases/download/v2.0.0/TI-Toolbox-Windows.exe)
+- [macOS DMG](https://github.com/idossha/TI-Toolbox/releases/download/v2.0.0/TemporalInterferenceToolbox-macOS-universal.zip)
+- [Linux AppImage](https://github.com/idossha/TI-Toolbox/releases/download/v2.0.0/TemporalInterferenceToolbox-Linux-x86_64.AppImage)
+
+
 
 For installation instructions, see the [Installation Guide]({ site.baseurl }/wiki/installation-guide).
 
