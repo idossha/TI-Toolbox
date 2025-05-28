@@ -201,7 +201,7 @@ jobs:
           git config --local user.name "GitHub Action"
           git add docs/
           git diff --staged --quiet || git commit -m "Update website for release v${{ needs.create-release.outputs.version }}"
-          git push
+          git push origin HEAD:main
 
   deploy-docs:
     name: Deploy Documentation to GitHub Pages
