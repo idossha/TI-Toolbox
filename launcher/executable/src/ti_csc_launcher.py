@@ -49,7 +49,7 @@ try:
 except ImportError:
     # Fallback if version module not found
     class MockVersion:
-        __version__ = "2.1.5"
+        __version__ = "2.3.0"
         def get_version_info(self):
             return {"ti_csc": {"version": "2.0.0", "release_date": "Unknown", "build": "unknown"}}
     version = MockVersion()
