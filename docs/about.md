@@ -6,7 +6,7 @@ permalink: /about/
 
 # About Temporal Interference Toolbox
 
-The Temporal Interference Toolbox is an open-source platform for advanced brain stimulation research. It provides a complete pipeline for temporal interference (TI) stimulation, from raw neuroimaging data to simulation, optimization, analysis, and visualization.
+The Temporal Interference Toolbox is an open-source platform for advanced brain stimulation research, offering a comprehensive pipeline for temporal interference (TI) stimulation, from neuroimaging to simulation and analysis.
 
 ## Key Features
 
@@ -20,15 +20,7 @@ The Temporal Interference Toolbox is an open-source platform for advanced brain 
 
 ## Workflow Overview
 
-1. Set up your BIDS project directory
-2. Install Docker Desktop
-3. Download the latest release (2.x.x or newer) from the [releases page](/releases). Note: Versions 1.x.x are no longer supported.
-4. Pre-process your data
-5. Optimize electrode placement
-6. Simulate TI fields
-7. Analyze and visualize results
-
-For more details, see the [documentation](/documentation) or [wiki](/wiki).
+A typical workflow involves data preparation in BIDS format, pre-processing, electrode optimization, TI field simulation, and subsequent analysis and visualization. For a detailed workflow, please see the [Documentation](/documentation) or [Wiki](/wiki).
 
 ## Community & Support
 
@@ -52,20 +44,7 @@ If you use the Temporal Interference Toolbox in your research, please cite:
 
 ## Get Involved
 
-### For Researchers
-- Use Temporal Interference Toolbox in your research
-- Share your results and feedback
-- Contribute to validation studies
-
-### For Developers
-- Report bugs and request features
-- Submit pull requests
-- Help with documentation
-
-### For Everyone
-- Join our community discussions
-- Spread the word about Temporal Interference Toolbox
-- Attend our workshops and webinars
+We welcome contributions from researchers and developers. You can get involved by using the toolbox, sharing feedback, reporting bugs, requesting features, submitting pull requests, or helping with documentation. Join our community discussions to learn more.
 
 ## Acknowledgments
 

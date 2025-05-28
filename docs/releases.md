@@ -18,8 +18,8 @@ For older releases and detailed changelogs, visit our [GitHub Releases](https://
 
 We follow a regular release schedule:
 
-- **Major releases** (x.0.0): Annually in Q4
-- **Feature releases** (x.y.0): Quarterly
+- **Major releases** (x.0.0): 
+- **Feature releases** (x.y.0): 
 - **Patch releases** (x.y.z): As needed for critical fixes
 
 

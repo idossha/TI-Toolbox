@@ -14,32 +14,33 @@ layout: home
 
 <div class="features">
   <div class="feature-card">
-    <div class="feature-icon">🧠</div>
+    <div class="feature-icon"></div>
     <h3>Pre-processing Pipeline</h3>
-    <p>DICOM to NIfTI conversion, FreeSurfer cortical reconstruction, and SimNIBS head modeling</p>
+    <p>DICOM to NIfTI conversion, SimNIBS head modeling and FreeSurfer segmentation</p>
   </div>
+
   <div class="feature-card">
-    <div class="feature-icon">⚡</div>
-    <h3>TI Field Simulation</h3>
-    <p>FEM-based temporal interference field calculations with flexible simulation parameters</p>
-  </div>
-  <div class="feature-card">
-    <div class="feature-icon">🎯</div>
+    <div class="feature-icon"></div>
     <h3>Optimization Algorithms</h3>
     <p>Flexible (flex-search) and exhaustive (ex-search) algorithms for optimal electrode placement and stimulation</p>
   </div>
   <div class="feature-card">
-    <div class="feature-icon">📊</div>
+    <div class="feature-icon"></div>
+    <h3>TI Field Simulation</h3>
+    <p>FEM-based temporal interference field calculations with flexible simulation parameters</p>
+  </div>
+  <div class="feature-card">
+    <div class="feature-icon"></div>
     <h3>Comprehensive Analysis</h3>
     <p>Atlas-based and custom ROI analysis tools for detailed stimulation effect evaluation</p>
   </div>
   <div class="feature-card">
-    <div class="feature-icon">🖼️</div>
+    <div class="feature-icon"></div>
     <h3>Interactive Visualization</h3>
     <p>NIfTI and mesh viewers, overlay tools, and real-time 3D rendering</p>
   </div>
   <div class="feature-card">
-    <div class="feature-icon">🐳</div>
+    <div class="feature-icon"></div>
     <h3>Docker-based</h3>
     <p>Containerized environment for reproducibility and easy deployment</p>
   </div>
@@ -64,21 +65,12 @@ layout: home
 
 For more details, see the <a href="/documentation">Documentation</a>.
 
-## Key Tools
-
-- **Pre-processing**: DICOM to NIfTI, FreeSurfer, SimNIBS
-- **Optimization**: flex-search, ex-search
-- **Simulation**: TI/mTI field solvers
-- **Analysis**: ROI/atlas-based tools
-- **Visualization**: NIfTI/mesh viewers, report generator
-
 ## System Requirements
 
 - **OS**: macOS 10.14+, Ubuntu 18.04+, Windows 10+
 - **Docker Desktop**: Latest version
-- **RAM**: 16GB (32GB recommended)
+- **RAM**: 16GB (32GB recommended for full functionality)
 - **Storage**: 50GB free space
-- **GPU**: NVIDIA CUDA (optional)
 
 ## Version Support
 
@@ -92,14 +84,4 @@ We actively support and maintain versions 2.x.x and newer of the Temporal Interf
 
 ## Citation
 
-If you use the Temporal Interference Toolbox in your research, please cite:
 
-```bibtex
-@software{temporalinterference2024,
-  title = {Temporal Interference Toolbox},
-  author = {Your Name and Contributors},
-  year = {2024},
-  version = {2.0.1},
-  url = {https://github.com/idossha/TI-Toolbox}
-}
-``` 
