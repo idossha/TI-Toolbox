@@ -101,7 +101,7 @@ If you use Temporal Interference Toolbox in your research, please cite:
   title = {Temporal Interference Toolbox},
   author = {Your Name and Contributors},
   year = {2024},
-  version = {2.2.2},
+  version = {2.2.3},
   url = {https://github.com/idossha/TI-Toolbox}
 }
 ``` 

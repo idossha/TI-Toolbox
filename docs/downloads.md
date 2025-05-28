@@ -9,7 +9,7 @@ permalink: /downloads/
 Get the latest version of Temporal Interference Toolbox for your operating system. All downloads include the complete Docker-based environment.
 
 <div class="download-section">
-  <h2>Latest Release: Version 2.2.2
+  <h2>Latest Release: Version 2.2.3
   <p>Released: May 2025
   
   <div class="download-grid">
@@ -18,7 +18,7 @@ Get the latest version of Temporal Interference Toolbox for your operating syste
       <h4>macOS</h4>
       <p>For macOS 10.14 and later</p>
       <p>Intel and Apple Silicon</p>
-      <a href="https://github.com/idossha/TI-Toolbox/releases/download/v2.2.2/Temporal Interference Toolbox-macOS-universal.dmg" class="download-btn">Download DMG</a>
+      <a href="https://github.com/idossha/TI-Toolbox/releases/download/v2.2.3/Temporal Interference Toolbox-macOS-universal.dmg" class="download-btn">Download DMG</a>
       <p class="file-info">~150 MB</p>
     </div>
     
@@ -27,7 +27,7 @@ Get the latest version of Temporal Interference Toolbox for your operating syste
       <h4>Linux</h4>
       <p>For Ubuntu 18.04+ and compatible distros</p>
       <p>x86_64 architecture</p>
-      <a href="https://github.com/idossha/TI-Toolbox/releases/download/v2.2.2/Temporal Interference Toolbox-Linux-x86_64.AppImage" class="download-btn">Download AppImage</a>
+      <a href="https://github.com/idossha/TI-Toolbox/releases/download/v2.2.3/Temporal Interference Toolbox-Linux-x86_64.AppImage" class="download-btn">Download AppImage</a>
       <p class="file-info">~180 MB</p>
     </div>
     
@@ -36,7 +36,7 @@ Get the latest version of Temporal Interference Toolbox for your operating syste
       <h4>Windows</h4>
       <p>For Windows 10 and later</p>
       <p>64-bit only</p>
-      <a href="https://github.com/idossha/TI-Toolbox/releases/download/v2.2.2/Temporal Interference Toolbox-Windows-x64.exe" class="download-btn">Download EXE</a>
+      <a href="https://github.com/idossha/TI-Toolbox/releases/download/v2.2.3/Temporal Interference Toolbox-Windows-x64.exe" class="download-btn">Download EXE</a>
       <p class="file-info">~140 MB</p>
     </div>
   </div>
@@ -85,7 +85,7 @@ Temporal Interference Toolbox requires Docker Desktop to be installed and runnin
 
 For environments with limited internet access, you can download the Docker images separately:
 
-- [Temporal Interference Toolbox Docker Images Bundle](https://github.com/idossha/TI-Toolbox/releases/download/v2.2.2/ti-csc-docker-images.tar.gz) (~30 GB)
+- [Temporal Interference Toolbox Docker Images Bundle](https://github.com/idossha/TI-Toolbox/releases/download/v2.2.3/ti-csc-docker-images.tar.gz) (~30 GB)
 
 To load pre-downloaded images:
 ```bash
