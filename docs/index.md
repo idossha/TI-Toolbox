@@ -82,6 +82,3 @@ We actively support and maintain versions 2.x.x and newer of the Temporal Interf
 - [Issue Tracker](https://github.com/idossha/TI-Toolbox/issues)
 - [Discussions](https://github.com/idossha/TI-Toolbox/discussions)
 
-## Citation
-
-
