@@ -1,9 +1,9 @@
 #!/bin/bash
 
-# TI-CSC Documentation Local Server
+# Temporal Interference Toolbox Documentation Local Server
 # This script helps you run the documentation website locally
 
-echo "🚀 Starting TI-CSC Documentation Server..."
+echo "🚀 Starting Temporal Interference Toolbox Documentation Server..."
 echo ""
 
 # Check if Ruby is installed
@@ -30,7 +30,7 @@ fi
 # Start the server
 echo ""
 echo "🌐 Starting Jekyll server..."
-echo "   Local URL: http://localhost:4000/TI-CSC-2.0/"
+echo "   Local URL: http://localhost:4000/TI-Toolbox/"
 echo "   Press Ctrl+C to stop"
 echo ""
 

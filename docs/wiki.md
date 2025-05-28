@@ -4,9 +4,9 @@ title: Wiki
 permalink: /wiki/
 ---
 
-# TI-CSC Wiki
+# Temporal Interference Toolbox Wiki
 
-Welcome to the TI-CSC Wiki. Here you'll find in-depth guides, tutorials, and technical documentation.
+Welcome to the Temporal Interference Toolbox Wiki. Here you'll find in-depth guides, tutorials, and technical documentation.
 
 <div class="wiki-layout">
   <div class="wiki-sidebar">
@@ -64,8 +64,8 @@ Welcome to the TI-CSC Wiki. Here you'll find in-depth guides, tutorials, and tec
   <div class="wiki-content">
     <h2>Popular Articles</h2>
     
-    <h3>📚 Getting Started with TI-CSC</h3>
-    <p>New to TI-CSC? Start with our <a href="/wiki/installation-guide">Installation Guide</a> and then follow the <a href="/wiki/first-project">Your First Project</a> tutorial to get up and running quickly.</p>
+    <h3>📚 Getting Started with Temporal Interference Toolbox</h3>
+    <p>New to Temporal Interference Toolbox? Start with our <a href="/wiki/installation-guide">Installation Guide</a> and then follow the <a href="/wiki/first-project">Your First Project</a> tutorial to get up and running quickly.</p>
     
     <h3>🧠 Understanding Temporal Interference</h3>
     <p>Learn about the physics and theory behind temporal interference stimulation in our comprehensive <a href="/wiki/ti-theory">TI Theory & Physics</a> guide.</p>
@@ -87,7 +87,7 @@ Welcome to the TI-CSC Wiki. Here you'll find in-depth guides, tutorials, and tec
     
     <h2>Contributing to the Wiki</h2>
     
-    <p>The TI-CSC Wiki is maintained by the community. If you'd like to contribute:</p>
+    <p>The Temporal Interference Toolbox Wiki is maintained by the community. If you'd like to contribute:</p>
     
     <ol>
       <li>Fork the repository on GitHub</li>
@@ -107,8 +107,8 @@ Welcome to the TI-CSC Wiki. Here you'll find in-depth guides, tutorials, and tec
     <ul>
       <li>Searching the wiki using the search box above</li>
       <li>Checking the <a href="/wiki/faq">Frequently Asked Questions</a></li>
-      <li>Asking in our <a href="https://github.com/idossha/TI-CSC-2.0/discussions">GitHub Discussions</a></li>
-      <li>Opening an <a href="https://github.com/idossha/TI-CSC-2.0/issues">issue</a> if you've found a bug</li>
+      <li>Asking in our <a href="https://github.com/idossha/TI-Toolbox/discussions">GitHub Discussions</a></li>
+      <li>Opening an <a href="https://github.com/idossha/TI-Toolbox/issues">issue</a> if you've found a bug</li>
     </ul>
   </div>
 </div> 

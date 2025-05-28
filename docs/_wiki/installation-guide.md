@@ -6,15 +6,15 @@ permalink: /wiki/installation-guide/
 
 # Installation Guide
 
-This guide will walk you through installing TI-CSC on your system.
+This guide will walk you through installing Temporal Interference Toolbox on your system.
 
 ## Prerequisites
 
-Before installing TI-CSC, ensure you have the following:
+Before installing Temporal Interference Toolbox, ensure you have the following:
 
 ### 1. Docker Desktop
 
-Docker is required to run TI-CSC's containerized environment.
+Docker is required to run Temporal Interference Toolbox's containerized environment.
 
 - **Download**: [Docker Desktop](https://www.docker.com/products/docker-desktop)
 - **Version**: Latest stable release
@@ -57,7 +57,7 @@ Docker is required to run TI-CSC's containerized environment.
 
 ## Installation Steps
 
-### Step 1: Download TI-CSC
+### Step 1: Download Temporal Interference Toolbox
 
 1. Visit the [Downloads page](/downloads)
 2. Select your operating system
@@ -68,20 +68,20 @@ Docker is required to run TI-CSC's containerized environment.
 #### macOS Installation
 
 1. Open the downloaded DMG file
-2. Drag TI-CSC to your Applications folder
-3. Right-click TI-CSC and select "Open" (first time only)
+2. Drag Temporal Interference Toolbox to your Applications folder
+3. Right-click Temporal Interference Toolbox and select "Open" (first time only)
 4. If you see a security warning, click "Open" to proceed
 
 #### Linux Installation
 
 1. Make the AppImage executable:
    ```bash
-   chmod +x TI-CSC-Linux-x86_64.AppImage
+   chmod +x Temporal Interference Toolbox-Linux-x86_64.AppImage
    ```
 
 2. Run the AppImage:
    ```bash
-   ./TI-CSC-Linux-x86_64.AppImage
+   ./Temporal Interference Toolbox-Linux-x86_64.AppImage
    ```
 
 3. (Optional) Install AppImageLauncher for desktop integration
@@ -96,7 +96,7 @@ Docker is required to run TI-CSC's containerized environment.
 ### Step 3: First Launch
 
 1. **Start Docker Desktop** and wait for it to fully initialize
-2. **Launch TI-CSC** from your applications or desktop
+2. **Launch Temporal Interference Toolbox** from your applications or desktop
 3. **Select Project Directory** - choose or create a BIDS-compliant folder
 4. **Start Docker Containers** - this will download ~30GB on first run
 
@@ -149,6 +149,6 @@ Once containers are running, verify the installation:
 If you encounter issues:
 
 1. Check the [FAQ](/wiki/faq)
-2. Search [existing issues](https://github.com/idossha/TI-CSC-2.0/issues)
-3. Ask in [Discussions](https://github.com/idossha/TI-CSC-2.0/discussions)
+2. Search [existing issues](https://github.com/idossha/TI-Toolbox/issues)
+3. Ask in [Discussions](https://github.com/idossha/TI-Toolbox/discussions)
 4. Contact support@ti-csc.org 

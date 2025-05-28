@@ -3,8 +3,8 @@ layout: home
 ---
 
 <div class="hero">
-  <h1>TI-CSC</h1>
-  <p>Temporal Interference Toolbox</p>
+  <h1>Temporal Interference Toolbox</h1>
+  <p>Advanced Brain Stimulation Simulation Platform</p>
   <p>A comprehensive toolbox for temporal interference stimulation research, providing end-to-end neuroimaging and simulation capabilities</p>
   <div class="hero-buttons">
     <a href="/downloads" class="btn">Download Now</a>
@@ -52,10 +52,10 @@ layout: home
 
 ## Quick Start
 
-1. **Install Docker Desktop** - Required for running TI-CSC
-2. **Download TI-CSC** - Get the executable for your platform
+1. **Install Docker Desktop** - Required for running the toolbox
+2. **Download Temporal Interference Toolbox** - Get the executable for your platform
 3. **Launch the Application** - Start the launcher and select your project directory
-4. **Start Docker Containers** - Click to download and start the TI-CSC environment
+4. **Start Docker Containers** - Click to download and start the toolbox environment
 5. **Launch CLI or GUI** - Choose your preferred interface
 
 ## What is Temporal Interference?
@@ -88,20 +88,20 @@ Major update with improved Docker integration, new GUI launcher, and enhanced op
 
 ## Community
 
-- [GitHub Repository](https://github.com/idossha/TI-CSC-2.0)
-- [Issue Tracker](https://github.com/idossha/TI-CSC-2.0/issues)
-- [Discussions](https://github.com/idossha/TI-CSC-2.0/discussions)
+- [GitHub Repository](https://github.com/idossha/TI-Toolbox)
+- [Issue Tracker](https://github.com/idossha/TI-Toolbox/issues)
+- [Discussions](https://github.com/idossha/TI-Toolbox/discussions)
 
 ## Citation
 
-If you use TI-CSC in your research, please cite:
+If you use Temporal Interference Toolbox in your research, please cite:
 
 ```bibtex
-@software{ticsc2024,
-  title = {TI-CSC: Temporal Interference Toolbox},
+@software{temporalinterference2024,
+  title = {Temporal Interference Toolbox},
   author = {Your Name and Contributors},
   year = {2024},
   version = {2.0.0},
-  url = {https://github.com/idossha/TI-CSC-2.0}
+  url = {https://github.com/idossha/TI-Toolbox}
 }
 ``` 

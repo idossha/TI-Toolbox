@@ -4,9 +4,9 @@ title: Documentation
 permalink: /documentation/
 ---
 
-# TI-CSC Documentation
+# Documentation
 
-Welcome to the TI-CSC documentation. This guide will help you get started with the Temporal Interference Toolbox.
+Welcome to the Temporal Interference Toolbox documentation. This guide will help you get started with the Temporal Interference Toolbox.
 
 <div class="doc-content">
   <div class="toc">
@@ -30,17 +30,17 @@ Welcome to the TI-CSC documentation. This guide will help you get started with t
 
 ## Getting Started
 
-TI-CSC is a comprehensive toolbox for temporal interference brain stimulation research. It provides a complete pipeline from raw imaging data to optimized stimulation parameters.
+Temporal Interference Toolbox is a comprehensive toolbox for temporal interference brain stimulation research. It provides a complete pipeline from raw imaging data to optimized stimulation parameters.
 
 ### Prerequisites
 
 1. **Docker Desktop** - Download and install from [docker.com](https://www.docker.com/products/docker-desktop)
-2. **TI-CSC Launcher** - Download from our [downloads page](/downloads)
+2. **Temporal Interference Toolbox Launcher** - Download from our [downloads page](/downloads)
 3. **BIDS Dataset** - Your data should be organized in BIDS format
 
 ### Quick Start Guide
 
-1. Launch the TI-CSC application
+1. Launch the Temporal Interference Toolbox application
 2. Select your BIDS-compliant project directory
 3. Click "Start Docker Containers" and wait for initialization
 4. Choose CLI or GUI interface based on your preference
@@ -59,7 +59,7 @@ TI-CSC is a comprehensive toolbox for temporal interference brain stimulation re
 #### macOS
 - Install Docker Desktop
 - Install XQuartz 2.7.7 or 2.8.0 (for GUI support)
-- Download and run TI-CSC launcher
+- Download and run Temporal Interference Toolbox launcher
 
 #### Linux
 - Install Docker Desktop or Docker Engine
@@ -73,7 +73,7 @@ TI-CSC is a comprehensive toolbox for temporal interference brain stimulation re
 
 ## Project Structure
 
-TI-CSC expects a BIDS-compliant directory structure:
+Temporal Interference Toolbox expects a BIDS-compliant directory structure:
 
 ```
 your_project/
@@ -94,7 +94,7 @@ your_project/
 
 ## Workflow Overview
 
-The typical TI-CSC workflow consists of:
+The typical Temporal Interference Toolbox workflow consists of:
 
 1. **Data Import** - Convert DICOM to NIfTI (if needed)
 2. **Pre-processing** - FreeSurfer reconstruction and SimNIBS head modeling
@@ -106,7 +106,7 @@ The typical TI-CSC workflow consists of:
 
 ## CLI Commands
 
-The command-line interface provides full access to all TI-CSC functions:
+The command-line interface provides full access to all Temporal Interference Toolbox functions:
 
 ### Basic Commands
 
@@ -153,7 +153,7 @@ ti-csc simulate --subject sub-01 \
 
 ## GUI Interface
 
-The graphical interface provides an intuitive way to work with TI-CSC:
+The graphical interface provides an intuitive way to work with Temporal Interference Toolbox:
 
 ### Main Features
 
@@ -177,7 +177,7 @@ The graphical interface provides an intuitive way to work with TI-CSC:
 
 ### FreeSurfer Processing
 
-TI-CSC uses FreeSurfer for cortical reconstruction:
+Temporal Interference Toolbox uses FreeSurfer for cortical reconstruction:
 
 ```bash
 # Standard processing
@@ -327,8 +327,8 @@ ti-csc visualize --subject sub-01 \
 ### Getting Help
 
 - Check the [Wiki](/wiki) for detailed guides
-- Search [existing issues](https://github.com/idossha/TI-CSC-2.0/issues)
-- Ask in [Discussions](https://github.com/idossha/TI-CSC-2.0/discussions)
+- Search [existing issues](https://github.com/idossha/TI-Toolbox/issues)
+- Ask in [Discussions](https://github.com/idossha/TI-Toolbox/discussions)
 - Contact support at support@ti-csc.org
 
 ## Advanced Topics

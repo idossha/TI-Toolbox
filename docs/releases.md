@@ -6,7 +6,7 @@ permalink: /releases/
 
 # Release History
 
-All notable changes and releases for TI-CSC are documented here.
+All notable changes and releases for Temporal Interference Toolbox are documented here.
 
 <div class="release">
   <div class="release-header">
@@ -46,9 +46,9 @@ All notable changes and releases for TI-CSC are documented here.
   </ul>
   
   <div class="release-downloads">
-    <a href="https://github.com/idossha/TI-CSC-2.0/releases/download/v2.0.0/TI-CSC-macOS-universal.dmg">macOS</a>
-    <a href="https://github.com/idossha/TI-CSC-2.0/releases/download/v2.0.0/TI-CSC-Linux-x86_64.AppImage">Linux</a>
-    <a href="https://github.com/idossha/TI-CSC-2.0/releases/download/v2.0.0/TI-CSC-Windows-x64.exe">Windows</a>
+    <a href="https://github.com/idossha/TI-Toolbox/releases/download/v2.0.0/Temporal Interference Toolbox-macOS-universal.dmg">macOS</a>
+    <a href="https://github.com/idossha/TI-Toolbox/releases/download/v2.0.0/Temporal Interference Toolbox-Linux-x86_64.AppImage">Linux</a>
+    <a href="https://github.com/idossha/TI-Toolbox/releases/download/v2.0.0/Temporal Interference Toolbox-Windows-x64.exe">Windows</a>
   </div>
 </div>
 
@@ -155,7 +155,7 @@ All notable changes and releases for TI-CSC are documented here.
 
 ## Release Notes Archive
 
-For older releases and detailed changelogs, visit our [GitHub Releases](https://github.com/idossha/TI-CSC-2.0/releases) page.
+For older releases and detailed changelogs, visit our [GitHub Releases](https://github.com/idossha/TI-Toolbox/releases) page.
 
 ## Release Schedule
 
@@ -170,9 +170,9 @@ We follow a regular release schedule:
 Interested in testing new features? Join our beta program:
 
 1. Sign up for the [beta mailing list](https://ti-csc.org/beta)
-2. Download beta releases from the [beta channel](https://github.com/idossha/TI-CSC-2.0/releases?q=prerelease%3Atrue)
+2. Download beta releases from the [beta channel](https://github.com/idossha/TI-Toolbox/releases?q=prerelease%3Atrue)
 3. Report issues with the `beta` label
 
 ## Contributing
 
-Want to contribute to TI-CSC? Check our [contribution guidelines](https://github.com/idossha/TI-CSC-2.0/blob/main/CONTRIBUTING.md). 
+Want to contribute to Temporal Interference Toolbox? Check our [contribution guidelines](https://github.com/idossha/TI-Toolbox/blob/main/CONTRIBUTING.md). 

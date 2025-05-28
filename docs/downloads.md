@@ -4,9 +4,9 @@ title: Downloads
 permalink: /downloads/
 ---
 
-# Download TI-CSC
+# Download Temporal Interference Toolbox
 
-Get the latest version of TI-CSC for your operating system. All downloads include the complete Docker-based environment.
+Get the latest version of Temporal Interference Toolbox for your operating system. All downloads include the complete Docker-based environment.
 
 <div class="download-section">
   <h2>Latest Release: Version 2.0.0</h2>
@@ -18,7 +18,7 @@ Get the latest version of TI-CSC for your operating system. All downloads includ
       <h4>macOS</h4>
       <p>For macOS 10.14 and later</p>
       <p>Intel and Apple Silicon</p>
-      <a href="https://github.com/idossha/TI-CSC-2.0/releases/download/v2.0.0/TI-CSC-macOS-universal.dmg" class="download-btn">Download DMG</a>
+      <a href="https://github.com/idossha/TI-Toolbox/releases/download/v2.0.0/Temporal Interference Toolbox-macOS-universal.dmg" class="download-btn">Download DMG</a>
       <p class="file-info">~150 MB</p>
     </div>
     
@@ -27,7 +27,7 @@ Get the latest version of TI-CSC for your operating system. All downloads includ
       <h4>Linux</h4>
       <p>For Ubuntu 18.04+ and compatible distros</p>
       <p>x86_64 architecture</p>
-      <a href="https://github.com/idossha/TI-CSC-2.0/releases/download/v2.0.0/TI-CSC-Linux-x86_64.AppImage" class="download-btn">Download AppImage</a>
+      <a href="https://github.com/idossha/TI-Toolbox/releases/download/v2.0.0/Temporal Interference Toolbox-Linux-x86_64.AppImage" class="download-btn">Download AppImage</a>
       <p class="file-info">~180 MB</p>
     </div>
     
@@ -36,7 +36,7 @@ Get the latest version of TI-CSC for your operating system. All downloads includ
       <h4>Windows</h4>
       <p>For Windows 10 and later</p>
       <p>64-bit only</p>
-      <a href="https://github.com/idossha/TI-CSC-2.0/releases/download/v2.0.0/TI-CSC-Windows-x64.exe" class="download-btn">Download EXE</a>
+      <a href="https://github.com/idossha/TI-Toolbox/releases/download/v2.0.0/Temporal Interference Toolbox-Windows-x64.exe" class="download-btn">Download EXE</a>
       <p class="file-info">~140 MB</p>
     </div>
   </div>
@@ -61,14 +61,14 @@ Get the latest version of TI-CSC for your operating system. All downloads includ
 
 ### macOS
 1. Download the DMG file
-2. Open the DMG and drag TI-CSC to Applications
+2. Open the DMG and drag Temporal Interference Toolbox to Applications
 3. Right-click and select "Open" for first launch (security)
 4. Follow the setup wizard
 
 ### Linux
 1. Download the AppImage file
-2. Make it executable: `chmod +x TI-CSC-Linux-x86_64.AppImage`
-3. Run: `./TI-CSC-Linux-x86_64.AppImage`
+2. Make it executable: `chmod +x Temporal Interference Toolbox-Linux-x86_64.AppImage`
+3. Run: `./Temporal Interference Toolbox-Linux-x86_64.AppImage`
 4. Optional: Use AppImageLauncher for desktop integration
 
 ### Windows
@@ -79,13 +79,13 @@ Get the latest version of TI-CSC for your operating system. All downloads includ
 
 ## Docker Images
 
-TI-CSC requires Docker Desktop to be installed and running. On first launch, the application will automatically download the required Docker images (~30 GB). This process may take 15-30 minutes depending on your internet connection.
+Temporal Interference Toolbox requires Docker Desktop to be installed and running. On first launch, the application will automatically download the required Docker images (~30 GB). This process may take 15-30 minutes depending on your internet connection.
 
 ### Pre-downloaded Images
 
 For environments with limited internet access, you can download the Docker images separately:
 
-- [TI-CSC Docker Images Bundle](https://github.com/idossha/TI-CSC-2.0/releases/download/v2.0.0/ti-csc-docker-images.tar.gz) (~30 GB)
+- [Temporal Interference Toolbox Docker Images Bundle](https://github.com/idossha/TI-Toolbox/releases/download/v2.0.0/ti-csc-docker-images.tar.gz) (~30 GB)
 
 To load pre-downloaded images:
 ```bash
@@ -94,7 +94,7 @@ docker load < ti-csc-docker-images.tar.gz
 
 ## Previous Versions
 
-Need an older version? Check our [releases page](https://github.com/idossha/TI-CSC-2.0/releases) for all available versions.
+Need an older version? Check our [releases page](https://github.com/idossha/TI-Toolbox/releases) for all available versions.
 
 ## Checksums
 
@@ -114,7 +114,7 @@ SHA256: 345mno678pqr...
 ## Troubleshooting
 
 ### macOS Security Warning
-If you see "TI-CSC can't be opened because it is from an unidentified developer":
+If you see "Temporal Interference Toolbox can't be opened because it is from an unidentified developer":
 1. Right-click the application
 2. Select "Open" from the context menu
 3. Click "Open" in the dialog
@@ -122,7 +122,7 @@ If you see "TI-CSC can't be opened because it is from an unidentified developer"
 ### Linux Permissions
 If the AppImage won't run:
 ```bash
-chmod +x TI-CSC-Linux-x86_64.AppImage
+chmod +x Temporal Interference Toolbox-Linux-x86_64.AppImage
 ```
 
 ### Windows SmartScreen
@@ -134,5 +134,5 @@ If Windows SmartScreen blocks the installer:
 
 - Check our [Documentation](/documentation)
 - Visit the [Wiki](/wiki)
-- Open an [Issue](https://github.com/idossha/TI-CSC-2.0/issues)
-- Join the [Discussions](https://github.com/idossha/TI-CSC-2.0/discussions) 
+- Open an [Issue](https://github.com/idossha/TI-Toolbox/issues)
+- Join the [Discussions](https://github.com/idossha/TI-Toolbox/discussions) 

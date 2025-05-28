@@ -4,11 +4,11 @@ title: About
 permalink: /about/
 ---
 
-# About TI-CSC
+# About Temporal Interference Toolbox
 
 ## Our Mission
 
-TI-CSC (Temporal Interference Toolbox) is an open-source toolbox designed to advance research in non-invasive brain stimulation through temporal interference. Our mission is to provide researchers with a comprehensive, user-friendly, and scientifically rigorous platform for TI stimulation modeling and optimization.
+Temporal Interference Toolbox (Temporal Interference Toolbox) is an open-source toolbox designed to advance research in non-invasive brain stimulation through temporal interference. Our mission is to provide researchers with a comprehensive, user-friendly, and scientifically rigorous platform for TI stimulation modeling and optimization.
 
 ## What We Do
 
@@ -60,7 +60,7 @@ Computer graphics specialist with experience in medical imaging visualization.
 
 ### Contributors
 
-TI-CSC benefits from contributions from researchers and developers worldwide. See our [GitHub contributors page](https://github.com/idossha/TI-CSC-2.0/graphs/contributors) for a full list.
+Temporal Interference Toolbox benefits from contributions from researchers and developers worldwide. See our [GitHub contributors page](https://github.com/idossha/TI-Toolbox/graphs/contributors) for a full list.
 
 ## Collaborating Institutions
 
@@ -72,19 +72,19 @@ TI-CSC benefits from contributions from researchers and developers worldwide. Se
 
 ### Key Papers
 
-1. Smith, J., Doe, J., et al. (2024). "TI-CSC: An Open-Source Toolbox for Temporal Interference Brain Stimulation." *NeuroImage*, 123, 456-789.
+1. Smith, J., Doe, J., et al. (2024). "Temporal Interference Toolbox: An Open-Source Toolbox for Temporal Interference Brain Stimulation." *NeuroImage*, 123, 456-789.
 
 2. Johnson, S., Chen, M., et al. (2023). "Optimization Algorithms for Temporal Interference Electrode Placement." *Journal of Neural Engineering*, 20(4), 123-456.
 
 3. Doe, J., Smith, J., et al. (2023). "Validation of FEM Models for TI Stimulation." *Brain Stimulation*, 16(2), 234-567.
 
-### Citing TI-CSC
+### Citing Temporal Interference Toolbox
 
-If you use TI-CSC in your research, please cite:
+If you use Temporal Interference Toolbox in your research, please cite:
 
 ```bibtex
 @article{smith2024ticsc,
-  title={TI-CSC: An Open-Source Toolbox for Temporal Interference Brain Stimulation},
+  title={Temporal Interference Toolbox: An Open-Source Toolbox for Temporal Interference Brain Stimulation},
   author={Smith, Jane and Doe, John and Johnson, Sarah and Chen, Michael},
   journal={NeuroImage},
   volume={123},
@@ -96,7 +96,7 @@ If you use TI-CSC in your research, please cite:
 
 ## Funding
 
-TI-CSC development is supported by:
+Temporal Interference Toolbox development is supported by:
 
 - National Institutes of Health (NIH) Grant R01-NS123456
 - European Research Council (ERC) Grant 987654
@@ -105,7 +105,7 @@ TI-CSC development is supported by:
 ## Get Involved
 
 ### For Researchers
-- Use TI-CSC in your research
+- Use Temporal Interference Toolbox in your research
 - Share your results and feedback
 - Contribute to validation studies
 
@@ -116,7 +116,7 @@ TI-CSC development is supported by:
 
 ### For Everyone
 - Join our community discussions
-- Spread the word about TI-CSC
+- Spread the word about Temporal Interference Toolbox
 - Attend our workshops and webinars
 
 ## Contact
@@ -128,13 +128,13 @@ TI-CSC development is supported by:
 ## Social Media
 
 - Twitter: [@TICSC_toolbox](https://twitter.com/TICSC_toolbox)
-- LinkedIn: [TI-CSC Project](https://linkedin.com/company/ti-csc)
-- YouTube: [TI-CSC Channel](https://youtube.com/ti-csc)
+- LinkedIn: [Temporal Interference Toolbox Project](https://linkedin.com/company/ti-csc)
+- YouTube: [Temporal Interference Toolbox Channel](https://youtube.com/ti-csc)
 
 ## License
 
-TI-CSC is released under the [MIT License](https://github.com/idossha/TI-CSC-2.0/blob/main/LICENSE), making it free for academic and commercial use.
+Temporal Interference Toolbox is released under the [MIT License](https://github.com/idossha/TI-Toolbox/blob/main/LICENSE), making it free for academic and commercial use.
 
 ## Acknowledgments
 
-We thank all contributors, users, and supporters who have helped make TI-CSC a valuable resource for the brain stimulation research community. 
+We thank all contributors, users, and supporters who have helped make Temporal Interference Toolbox a valuable resource for the brain stimulation research community. 

@@ -1,9 +1,9 @@
-# TI-CSC GitHub Pages Configuration
-title: TI-CSC
+# Temporal Interference Toolbox GitHub Pages Configuration
+title: Temporal Interference Toolbox
 description: Temporal Interference Toolbox
-author: TI-CSC Team
+author: Temporal Interference Toolbox Team
 email: your-email@example.com
-baseurl: "/TI-CSC-2.0" # Your repository name
+baseurl: "/TI-Toolbox" # Your repository name
 url: "https://idossha.github.io" # Your GitHub Pages URL
 
 # Theme and plugins

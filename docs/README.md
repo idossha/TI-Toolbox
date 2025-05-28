@@ -1,6 +1,6 @@
-# TI-CSC Documentation Website
+# Temporal Interference Toolbox Documentation Website
 
-This directory contains the source files for the TI-CSC documentation website, built with Jekyll and hosted on GitHub Pages..
+This directory contains the source files for the Temporal Interference Toolbox documentation website, built with Jekyll and hosted on GitHub Pages..
 
 ## Local Development
 
@@ -26,7 +26,7 @@ This directory contains the source files for the TI-CSC documentation website, b
    bundle exec jekyll serve
    ```
 
-4. Open http://localhost:4000/TI-CSC-2.0/ in your browser
+4. Open http://localhost:4000/TI-Toolbox/ in your browser
 
 ### Live Reload
 
@@ -114,7 +114,7 @@ To enable GitHub Pages:
 4. Choose branch: `main` and folder: `/docs`
 5. Save changes
 
-The site will be available at: `https://idossha.github.io/TI-CSC-2.0/`
+The site will be available at: `https://idossha.github.io/TI-Toolbox/`
 
 ## Troubleshooting
 
