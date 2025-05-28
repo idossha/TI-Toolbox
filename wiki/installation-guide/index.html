@@ -14,11 +14,11 @@
 <meta property="og:url" content="https://idossha.github.io/TI-Toolbox/wiki/installation-guide/" />
 <meta property="og:site_name" content="Temporal Interference Toolbox" />
 <meta property="og:type" content="article" />
-<meta property="article:published_time" content="2025-05-28T19:18:02+00:00" />
+<meta property="article:published_time" content="2025-05-28T21:42:58+00:00" />
 <meta name="twitter:card" content="summary" />
 <meta property="twitter:title" content="Installation Guide" />
 <script type="application/ld+json">
-{"@context":"https://schema.org","@type":"BlogPosting","author":{"@type":"Person","name":"Ido Haber"},"dateModified":"2025-05-28T19:18:02+00:00","datePublished":"2025-05-28T19:18:02+00:00","description":"Installation Guide","headline":"Installation Guide","mainEntityOfPage":{"@type":"WebPage","@id":"https://idossha.github.io/TI-Toolbox/wiki/installation-guide/"},"url":"https://idossha.github.io/TI-Toolbox/wiki/installation-guide/"}</script>
+{"@context":"https://schema.org","@type":"BlogPosting","author":{"@type":"Person","name":"Ido Haber"},"dateModified":"2025-05-28T21:42:58+00:00","datePublished":"2025-05-28T21:42:58+00:00","description":"Installation Guide","headline":"Installation Guide","mainEntityOfPage":{"@type":"WebPage","@id":"https://idossha.github.io/TI-Toolbox/wiki/installation-guide/"},"url":"https://idossha.github.io/TI-Toolbox/wiki/installation-guide/"}</script>
 <!-- End Jekyll SEO tag -->
 <link rel="stylesheet" href="/TI-Toolbox/assets/main.css"><link type="application/atom+xml" rel="alternate" href="https://idossha.github.io/TI-Toolbox/feed.xml" title="Temporal Interference Toolbox" /></head>
 <body><header class="site-header" role="banner">
@@ -142,7 +142,48 @@
 
 <p><strong>Linux:</strong> X11 is typically pre-installed</p>
 
-<p><strong>Windows:</strong> Install VcXsrv or Xming</p>
+<p><strong>Windows:</strong> Install VcXsrv X11 Server (Required for GUI)</p>
+
+<h4 id="windows-vcxsrv-setup-detailed">Windows VcXsrv Setup (Detailed)</h4>
+
+<p>The Temporal Interference Toolbox GUI on Windows requires an X11 server to display Linux-based graphical applications from Docker containers.</p>
+
+<p><strong>Step 1: Install VcXsrv</strong></p>
+<ol>
+  <li>Download VcXsrv from: <a href="https://sourceforge.net/projects/vcxsrv/">https://sourceforge.net/projects/vcxsrv/</a></li>
+  <li>Run the installer with default settings</li>
+  <li>No special configuration needed during installation</li>
+</ol>
+
+<p><strong>Step 2: Configure and Launch VcXsrv</strong></p>
+<ol>
+  <li>Launch “XLaunch” from the Start Menu</li>
+  <li><strong>Configuration options:</strong>
+    <ul>
+      <li><strong>Display settings</strong>: Select “Multiple windows”</li>
+      <li><strong>Client startup</strong>: Select “Start no client”</li>
+      <li><strong>Extra settings</strong>: ✅ <strong>CHECK “Disable access control”</strong> (Critical!)</li>
+    </ul>
+  </li>
+  <li>Click “Finish”</li>
+  <li>XLaunch will start and show an icon in the system tray</li>
+  <li><strong>Keep VcXsrv running</strong> while using the TI-Toolbox GUI</li>
+</ol>
+
+<p><strong>Step 3: Verify VcXsrv Setup</strong></p>
+<ul>
+  <li>Look for the VcXsrv icon in your system tray (notification area)</li>
+  <li>If the GUI fails to launch, restart VcXsrv with correct settings</li>
+</ul>
+
+<p><strong>Important Notes:</strong></p>
+<ul>
+  <li>VcXsrv must be running <strong>before</strong> launching the TI-Toolbox GUI</li>
+  <li>The “Disable access control” setting is required for Docker containers to connect</li>
+  <li>You can save your XLaunch configuration for future use</li>
+</ul>
+
+<p><strong>Alternative:</strong> You can also use Xming as an alternative to VcXsrv, but VcXsrv is recommended for better compatibility.</p>
 
 <h3 id="3-system-requirements">3. System Requirements</h3>
 
@@ -243,6 +284,45 @@
       <li>Open XQuartz preferences</li>
       <li>Under Security, enable “Allow connections from network clients”</li>
       <li>Restart XQuartz</li>
+    </ol>
+  </li>
+</ul>
+
+<h3 id="gui-issues-windows">GUI Issues (Windows)</h3>
+
+<p><strong>Problem</strong>: “No X11 server detected” or GUI fails to launch</p>
+<ul>
+  <li><strong>Solution</strong>:
+    <ol>
+      <li>Ensure VcXsrv is installed and running (check system tray)</li>
+      <li>Restart VcXsrv with correct settings:
+        <ul>
+          <li>Multiple windows → Start no client → ✅ Disable access control</li>
+        </ul>
+      </li>
+      <li>If still failing, try restarting the TI-Toolbox launcher</li>
+    </ol>
+  </li>
+</ul>
+
+<p><strong>Problem</strong>: GUI launches but shows black screen or errors</p>
+<ul>
+  <li><strong>Solution</strong>:
+    <ol>
+      <li>Ensure “Disable access control” was checked in XLaunch</li>
+      <li>Temporarily disable Windows Firewall to test</li>
+      <li>Try launching CLI first, then run <code class="language-plaintext highlighter-rouge">GUI</code> command manually</li>
+    </ol>
+  </li>
+</ul>
+
+<p><strong>Problem</strong>: CLI works but GUI doesn’t</p>
+<ul>
+  <li><strong>Solution</strong>: This indicates VcXsrv is not running or configured correctly
+    <ol>
+      <li>Check system tray for VcXsrv icon</li>
+      <li>Restart XLaunch with proper configuration</li>
+      <li>Ensure VcXsrv is running before launching GUI</li>
     </ol>
   </li>
 </ul>
