@@ -1,7 +1,6 @@
 # Temporal Interference Toolbox GitHub Pages Configuration
 title: Temporal Interference Toolbox
-description: Temporal Interference Toolbox
-author: Temporal Interference Toolbox Team
+author: Ido Haber
 email: ihaber@wisc.edu
 baseurl: "/TI-Toolbox" # Your repository name
 url: "https://idossha.github.io" # Your GitHub Pages URL
