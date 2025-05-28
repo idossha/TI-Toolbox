@@ -569,8 +569,10 @@ class VersionInfoDialog(StyledDialog):
     def show(self):
         """Display the version information dialog"""
         try:
+            # Get version info
             version_info = version.get_version_info()
-            print("dialogs.py: version_info =", version_info)  # DEBUG PRINT
+            # Debug print (remove for production)
+            # print("dialogs.py: version_info =", version_info)
             
             dialog = QDialog(self.parent)
             dialog.setWindowTitle("Version Information")

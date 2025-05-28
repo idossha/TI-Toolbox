@@ -30,4 +30,8 @@ except ImportError:
     except ImportError:
         raise ImportError("Neither PyQt6 nor PySide6 is installed. Please install one of them.")
 
-print(f"Using {QT_FRAMEWORK} for Qt framework") 
+# Set the Qt framework name for reference
+QT_FRAMEWORK = "PyQt6" if USING_PYQT6 else "PySide6"
+
+# Debug info (remove for production)
+# print(f"Using {QT_FRAMEWORK} for Qt framework") 

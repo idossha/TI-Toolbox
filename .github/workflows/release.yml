@@ -60,10 +60,10 @@ jobs:
             asset-name: TemporalInterferenceToolbox-macOS-universal.zip
             asset-content-type: application/zip
           - os: windows-latest
-            artifact-name: TemporalInterferenceToolbox-Windows-x64
-            artifact-path: launcher/executable/dist/TI-CSC.exe
-            archive-cmd: 'cp launcher/executable/dist/TI-CSC.exe TemporalInterferenceToolbox-Windows-x64.exe'
-            asset-name: TemporalInterferenceToolbox-Windows-x64.exe
+            artifact-name: TI Toolbox
+            artifact-path: launcher/executable/dist/TI Toolbox.exe
+            archive-cmd: 'cp launcher/executable/dist/TI\ Toolbox.exe TI\ Toolbox.exe'
+            asset-name: TI Toolbox.exe
             asset-content-type: application/octet-stream
           - os: ubuntu-latest
             artifact-name: TemporalInterferenceToolbox-Linux-x86_64

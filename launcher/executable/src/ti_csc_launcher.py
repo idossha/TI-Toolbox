@@ -19,17 +19,20 @@ Recent Improvements:
 
 import os
 import sys
-# Ensure repo root is in sys.path for version.py import
-repo_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-if repo_root not in sys.path:
-    sys.path.insert(0, repo_root)
-print("launcher: sys.path =", sys.path)
-print("launcher: os.getcwd() =", os.getcwd())
-
 import subprocess
 import platform
 import time
 import shutil
+import datetime
+import tempfile
+import threading
+import re
+
+# Ensure repo root is in sys.path for version.py import
+repo_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+if repo_root not in sys.path:
+    sys.path.insert(0, repo_root)
+
 from qt_compat import (
     QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit,
     QPushButton, QFileDialog, QTextEdit, QMessageBox, QFrame, Qt, QTimer, QFont, QIcon
@@ -129,8 +132,10 @@ class TIToolboxLoaderApp(QWidget):
         self.docker_compose_file = os.path.join(self.script_dir, "docker-compose.yml")
         
         if not os.path.exists(self.docker_compose_file):
-            print(f"Warning: docker-compose.yml not found at {self.docker_compose_file}")
-            print(f"Current directory contents: {os.listdir(self.script_dir)}")
+            # Debug prints (remove for production)
+            # print(f"Warning: docker-compose.yml not found at {self.docker_compose_file}")
+            # print(f"Current directory contents: {os.listdir(self.script_dir)}")
+            pass
         
         self._setup_docker_path()
 
@@ -634,7 +639,6 @@ class TIToolboxLoaderApp(QWidget):
 
     def log_message(self, message, level="INFO"):
         """Add message to console output with auto-scroll"""
-        import datetime
         timestamp = datetime.datetime.now().strftime("%H:%M:%S")
         
         if level == "ERROR":
@@ -803,7 +807,6 @@ class TIToolboxLoaderApp(QWidget):
             try:
                 result = run_subprocess_silent(['ifconfig', 'en0'], timeout=5)
                 if result.returncode == 0:
-                    import re
                     match = re.search(r'inet (\d+\.\d+\.\d+\.\d+)', result.stdout)
                     if match:
                         host_ip = match.group(1)
@@ -820,10 +823,16 @@ class TIToolboxLoaderApp(QWidget):
             return os.environ.get("DISPLAY", ":0")
             
         else:  # Windows
-            # For Windows, use localhost - simpler and more reliable
-            # User should configure their X server (VcXsrv/Xming) to listen on localhost:0
-            self.log_message("Using localhost:0.0 for DISPLAY", "INFO")
-            return "localhost:0.0"
+            # For Windows, use the existing DISPLAY environment variable if set
+            # This matches the behavior of the working bash script
+            existing_display = os.environ.get("DISPLAY")
+            if existing_display:
+                self.log_message(f"Using existing DISPLAY: {existing_display}", "INFO")
+                return existing_display
+            else:
+                # Fallback to localhost if no DISPLAY is set
+                self.log_message("No DISPLAY set, using localhost:0.0 for DISPLAY", "INFO")
+                return "localhost:0.0"
 
     def setup_xquartz_macos(self):
         """Set up XQuartz for macOS GUI applications"""
@@ -877,7 +886,6 @@ class TIToolboxLoaderApp(QWidget):
                 try:
                     subprocess.Popen(['open', '-a', 'XQuartz'])
                     # Give XQuartz time to start
-                    import time
                     time.sleep(5)  # Increased wait time
                 except:
                     self.log_message("Could not start XQuartz", "ERROR")
@@ -1202,7 +1210,6 @@ class TIToolboxLoaderApp(QWidget):
                 # This avoids the double window issue entirely
                 try:
                     # Create a temporary script file
-                    import tempfile
                     with tempfile.NamedTemporaryFile(mode='w', suffix='.command', delete=False) as f:
                         f.write(f'#!/bin/bash\ncd "{self.script_dir}"\n{docker_cmd}\n')
                         script_path = f.name
@@ -1214,9 +1221,7 @@ class TIToolboxLoaderApp(QWidget):
                     subprocess.Popen(['open', '-a', 'Terminal', script_path])
                     
                     # Clean up the temp file after a delay
-                    import threading
                     def cleanup():
-                        import time
                         time.sleep(5)  # Give Terminal time to read the file
                         try:
                             os.unlink(script_path)
@@ -1301,23 +1306,33 @@ class TIToolboxLoaderApp(QWidget):
                 self.log_message("Docker executable not found", "ERROR")
                 return
             
+            # Use the exact same approach as CLI launch but run GUI command instead
+            # This duplicates the working CLI logic
             display_env = self.setup_display_env()
             
             if system == "Darwin":  # macOS
-                # Launch the GUI in the background, no Terminal window
-                env = os.environ.copy()
-                env["DISPLAY"] = display_env
-                subprocess.Popen(
-                    [
-                        docker_executable, "exec", "-e", f"DISPLAY={display_env}",
-                        "-w", "/ti-csc", "simnibs_container", "bash", "-c", "/ti-csc/CLI/GUI.sh"
-                    ],
-                    env=env,
-                    cwd=self.script_dir,
-                    stdout=subprocess.DEVNULL,
-                    stderr=subprocess.DEVNULL,
-                    start_new_session=True
-                )
+                # Create a temporary script that launches GUI instead of bash
+                with tempfile.NamedTemporaryFile(mode='w', suffix='.command', delete=False) as f:
+                    f.write(f'#!/bin/bash\ncd "{self.script_dir}"\n')
+                    f.write(f'docker exec -it --workdir /ti-csc simnibs_container bash -c "/ti-csc/CLI/GUI.sh"\n')
+                    script_path = f.name
+                
+                # Make it executable
+                os.chmod(script_path, 0o755)
+                
+                # Open it with Terminal - this creates exactly one window
+                subprocess.Popen(['open', '-a', 'Terminal', script_path])
+                
+                # Clean up the temp file after a delay
+                def cleanup():
+                    time.sleep(10)  # Give Terminal time to read the file and start
+                    try:
+                        os.unlink(script_path)
+                    except:
+                        pass
+                
+                threading.Thread(target=cleanup, daemon=True).start()
+                
             elif system == "Linux":
                 # Try different terminal emulators
                 terminals = ['gnome-terminal', 'konsole', 'xterm', 'x-terminal-emulator']
@@ -1330,7 +1345,7 @@ class TIToolboxLoaderApp(QWidget):
                         elif terminal == 'konsole':
                             subprocess.Popen([terminal, '-e', 'bash', '-c', f'cd "{self.script_dir}" && {docker_cmd}'])
                         else:
-                            subprocess.Popen([terminal, '-e', f'bash -c "cd \\\"{self.script_dir}\\\" && {docker_cmd}"'])
+                            subprocess.Popen([terminal, '-e', f'bash -c "cd \\"{self.script_dir}\\" && {docker_cmd}"'])
                         break
                     except FileNotFoundError:
                         continue

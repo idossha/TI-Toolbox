@@ -76,7 +76,7 @@ exe = EXE(
     a.zipfiles,
     a.datas,
     [],
-    name='TI-CSC',
+    name='TI Toolbox',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
