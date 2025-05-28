@@ -100,9 +100,16 @@ jobs:
         ls -la
         echo "Contents of project root:"
         ls -la ../../
-        echo "Copying docker-compose.yml to build directory..."
-        cp ../../docker-compose.yml ./
-        echo "Verifying docker-compose.yml copied:"
+        echo "Checking docker-compose.yml location..."
+        if [ -f "docker-compose.yml" ]; then
+          echo "✅ docker-compose.yml already exists in build directory"
+        elif [ -f "../../docker-compose.yml" ]; then
+          echo "Copying docker-compose.yml from project root..."
+          cp ../../docker-compose.yml ./
+        else
+          echo "⚠️  docker-compose.yml not found in either location"
+        fi
+        echo "Verifying docker-compose.yml:"
         ls -la docker-compose.yml
         echo "Python version:"
         python --version
