@@ -28,7 +28,7 @@ jobs:
           - os: windows-latest
             artifact-name: TemporalInterferenceToolbox-Windows-x64
             artifact-path: launcher/executable/dist/TI-CSC.exe
-            archive-cmd: 'copy launcher\\executable\\dist\\TI-CSC.exe TemporalInterferenceToolbox-Windows-x64.exe'
+            archive-cmd: 'cp launcher/executable/dist/TI-CSC.exe TemporalInterferenceToolbox-Windows-x64.exe'
             
           - os: ubuntu-latest
             artifact-name: TemporalInterferenceToolbox-Linux-x86_64
