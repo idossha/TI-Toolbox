@@ -99,9 +99,9 @@ def add_release_to_changelog(version, release_notes=""):
 {release_notes}
 
 #### Installation
-- [Windows Installer](https://github.com/idossha/TI-Toolbox/releases/download/v{version}/TI-Toolbox-Windows-x64.exe)
-- [macOS DMG](https://github.com/idossha/TI-Toolbox/releases/download/v{version}/TI-Toolbox-macOS-x64.dmg)
-- [Linux AppImage](https://github.com/idossha/TI-Toolbox/releases/download/v{version}/TI-Toolbox-Linux-x86_64.AppImage)
+- [Windows Installer](https://github.com/idossha/TI-Toolbox/releases/download/v{version}/TI-Toolbox-Windows.exe)
+- [macOS Universal](https://github.com/idossha/TI-Toolbox/releases/download/v{version}/TemporalInterferenceToolbox-macOS-universal.zip)
+- [Linux AppImage](https://github.com/idossha/TI-Toolbox/releases/download/v{version}/TemporalInterferenceToolbox-Linux-x86_64.AppImage)
 
 For installation instructions, see the [Installation Guide]({{ site.baseurl }}/wiki/installation-guide).
 
