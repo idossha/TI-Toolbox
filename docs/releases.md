@@ -9,6 +9,27 @@ permalink: /releases/
 **Note:** Versions 1.X.X and earlier are no longer supported. Please use the latest 2.X.X release from the [releases page on GitHub](https://github.com/idossha/TI-Toolbox/releases).
 
 All notable changes and releases are documented below.
+<div class="release">
+  <div class="release-header">
+    <h2>Version 2.0.0</h2>
+    <span class="release-date">May 2025</span>
+  </div>
+  
+  <p><strong>Latest Release</strong></p>
+  
+  <h3>📋 Release Notes</h3>
+  <div style="background: #f5f5f5; padding: 15px; border-radius: 5px; margin: 10px 0;">
+    <p>Official 2.0.0 release of the Temporal Interference Toolbox. This version marks a major update with a streamlined documentation and focus on core functionalities. All support for 1.x.x versions is now discontinued.</p>
+  </div>
+  
+  <div class="release-downloads">
+    <a href="https://github.com/idossha/TI-Toolbox/releases/download/v2.0.0/TemporalInterferenceToolbox-macOS-universal.zip">macOS</a>
+    <a href="https://github.com/idossha/TI-Toolbox/releases/download/v2.0.0/TemporalInterferenceToolbox-Linux-x86_64.AppImage">Linux</a>
+    <a href="https://github.com/idossha/TI-Toolbox/releases/download/v2.0.0/TemporalInterferenceToolbox-Windows-x64.exe">Windows</a>
+  </div>
+</div>
+
+
 
 ## Release Notes Archive
 
