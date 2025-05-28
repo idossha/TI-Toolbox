@@ -80,7 +80,7 @@ Temporal Interference (TI) is a non-invasive brain stimulation technique that us
 
 ## Latest Release
 
-**Version 2.1.2** - Released May 2025
+**Version 2.1.3** - Released May 2025
 
 Major update with improved Docker integration, new GUI launcher, and enhanced optimization algorithms.
 
