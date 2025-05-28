@@ -5,6 +5,8 @@ Handles all popup dialogs and styled message boxes for the TI-CSC launcher.
 
 import os
 import sys
+import importlib.util
+import pathlib
 from qt_compat import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, 
     QScrollArea, QWidget, QMessageBox, QFrame, Qt, QFont, QPixmap
@@ -12,9 +14,14 @@ from qt_compat import (
 
 # Add parent directory to path to import version module
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+
+version_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../version.py'))
 try:
-    import version
-except ImportError as e:
+    spec = importlib.util.spec_from_file_location("version", version_path)
+    version = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(version)
+except Exception as e:
+    import traceback
     # Fallback if version module not found
     class MockVersion:
         __version__ = "2.3.0"
@@ -584,6 +591,7 @@ class VersionInfoDialog(StyledDialog):
         """Display the version information dialog"""
         try:
             version_info = version.get_version_info()
+            print("dialogs.py: version_info =", version_info)  # DEBUG PRINT
             
             dialog = QDialog(self.parent)
             dialog.setWindowTitle("Version Information")
