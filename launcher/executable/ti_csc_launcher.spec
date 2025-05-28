@@ -76,7 +76,7 @@ exe = EXE(
     a.zipfiles,
     a.datas,
     [],
-    name='TI Toolbox',
+    name='TI-Toolbox',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -96,13 +96,18 @@ exe = EXE(
 if platform.system() == "Darwin":
     app = BUNDLE(
         exe,
-        name='TI-CSC.app',
-        icon='icon.icns',  # Use ICNS for macOS app bundle
-        bundle_identifier='com.yourcompany.ti-csc',
+        name='TI-Toolbox.app',
+        icon=icon_path,
+        bundle_identifier='com.idossha.ti-toolbox',
         info_plist={
-            'NSHighResolutionCapable': 'True',
-            'LSUIElement': '0',  # Ensure it shows in the dock
-            'CFBundleDisplayName': 'TI-CSC',
-            'CFBundleName': 'TI-CSC',
-        },
+            'CFBundleName': 'TI-Toolbox',
+            'CFBundleDisplayName': 'Temporal Interference Toolbox',
+            'CFBundleVersion': '2.0.0',
+            'CFBundleShortVersionString': '2.0.0',
+            'NSHighResolutionCapable': True,
+            'LSMinimumSystemVersion': '10.14',
+            'CFBundleInfoDictionaryVersion': '6.0',
+            'CFBundleExecutable': 'TI-Toolbox',
+            'CFBundleIconFile': 'icon.icns'
+        }
     ) 

@@ -55,20 +55,20 @@ jobs:
         include:
           - os: macos-latest
             artifact-name: TemporalInterferenceToolbox-macOS-universal
-            artifact-path: launcher/executable/dist/TI Toolbox.app
-            archive-cmd: 'cd launcher/executable/dist && zip -r ../../../TemporalInterferenceToolbox-macOS-universal.zip TI\ Toolbox.app'
+            artifact-path: launcher/executable/dist/TI-Toolbox.app
+            archive-cmd: 'cd launcher/executable/dist && zip -r ../../../TemporalInterferenceToolbox-macOS-universal.zip TI-Toolbox.app'
             asset-name: TemporalInterferenceToolbox-macOS-universal.zip
             asset-content-type: application/zip
           - os: windows-latest
-            artifact-name: TI Toolbox
-            artifact-path: launcher/executable/dist/TI Toolbox.exe
-            archive-cmd: 'cp launcher/executable/dist/TI\ Toolbox.exe TI\ Toolbox.exe'
-            asset-name: TI Toolbox.exe
+            artifact-name: TI-Toolbox-Windows
+            artifact-path: launcher/executable/dist/TI-Toolbox.exe
+            archive-cmd: 'cp launcher/executable/dist/TI-Toolbox.exe TI-Toolbox-Windows.exe'
+            asset-name: TI-Toolbox-Windows.exe
             asset-content-type: application/octet-stream
           - os: ubuntu-latest
             artifact-name: TemporalInterferenceToolbox-Linux-x86_64
-            artifact-path: launcher/executable/dist/TI Toolbox
-            archive-cmd: 'cp launcher/executable/dist/TI\ Toolbox TemporalInterferenceToolbox-Linux-x86_64.AppImage && chmod +x TemporalInterferenceToolbox-Linux-x86_64.AppImage'
+            artifact-path: launcher/executable/dist/TI-Toolbox
+            archive-cmd: 'cp launcher/executable/dist/TI-Toolbox TemporalInterferenceToolbox-Linux-x86_64.AppImage && chmod +x TemporalInterferenceToolbox-Linux-x86_64.AppImage'
             asset-name: TemporalInterferenceToolbox-Linux-x86_64.AppImage
             asset-content-type: application/octet-stream
       fail-fast: false
@@ -150,6 +150,7 @@ jobs:
         with:
           files: |
             TemporalInterferenceToolbox-*
+            TI-Toolbox-*
           tag_name: ${{ github.ref_name }}
           token: ${{ secrets.GITHUB_TOKEN }}
 
@@ -187,7 +188,7 @@ jobs:
             <div class="release-downloads">
               <a href="https://github.com/idossha/TI-Toolbox/releases/download/v$VERSION/TemporalInterferenceToolbox-macOS-universal.zip">macOS</a>
               <a href="https://github.com/idossha/TI-Toolbox/releases/download/v$VERSION/TemporalInterferenceToolbox-Linux-x86_64.AppImage">Linux</a>
-              <a href="https://github.com/idossha/TI-Toolbox/releases/download/v$VERSION/TI%20Toolbox.exe">Windows</a>
+              <a href="https://github.com/idossha/TI-Toolbox/releases/download/v$VERSION/TI-Toolbox-Windows.exe">Windows</a>
             </div>
           </div>
           EOF

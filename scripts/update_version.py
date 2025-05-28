@@ -118,7 +118,7 @@ def add_release_to_changelog(version, release_notes=""):
   <div class="release-downloads">
     <a href="https://github.com/idossha/TI-Toolbox/releases/download/v{version}/TemporalInterferenceToolbox-macOS-universal.zip">macOS</a>
     <a href="https://github.com/idossha/TI-Toolbox/releases/download/v{version}/TemporalInterferenceToolbox-Linux-x86_64.AppImage">Linux</a>
-    <a href="https://github.com/idossha/TI-Toolbox/releases/download/v{version}/TemporalInterferenceToolbox-Windows-x64.exe">Windows</a>
+    <a href="https://github.com/idossha/TI-Toolbox/releases/download/v{version}/TI-Toolbox-Windows.exe">Windows</a>
   </div>
 </div>
 
