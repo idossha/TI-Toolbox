@@ -34,6 +34,7 @@ jobs:
             artifact-name: TemporalInterferenceToolbox-Linux-x86_64
             artifact-path: launcher/executable/dist/TI-CSC
             archive-cmd: 'cp launcher/executable/dist/TI-CSC TemporalInterferenceToolbox-Linux-x86_64.AppImage && chmod +x TemporalInterferenceToolbox-Linux-x86_64.AppImage'
+      fail-fast: false  # Don't cancel other builds if one fails
 
     steps:
     - name: Checkout code
@@ -48,7 +49,33 @@ jobs:
       if: matrix.os == 'ubuntu-latest'
       run: |
         sudo apt-get update
-        sudo apt-get install -y build-essential libgl1-mesa-glx libegl1-mesa libxrandr2 libxss1 libxcursor1 libxcomposite1 libasound2 libxi6 libxtst6
+        sudo apt-get install -y \
+          build-essential \
+          libgl1-mesa-glx \
+          libegl1-mesa \
+          libxrandr2 \
+          libxss1 \
+          libxcursor1 \
+          libxcomposite1 \
+          libasound2 \
+          libxi6 \
+          libxtst6 \
+          libglib2.0-0 \
+          libxrender1 \
+          libfontconfig1 \
+          libdbus-1-3 \
+          libxkbcommon-x11-0 \
+          libxcb-icccm4 \
+          libxcb-image0 \
+          libxcb-keysyms1 \
+          libxcb-randr0 \
+          libxcb-render-util0 \
+          libxcb-xinerama0 \
+          libxcb-xfixes0 \
+          qt6-base-dev \
+          qt6-tools-dev \
+          python3-dev \
+          python3-venv
 
     - name: Install system dependencies (macOS)
       if: matrix.os == 'macos-latest'
@@ -90,8 +117,29 @@ jobs:
         ls -la ../../
         echo "Copying docker-compose.yml to build directory..."
         cp ../../docker-compose.yml ./
+        echo "Verifying docker-compose.yml copied:"
+        ls -la docker-compose.yml
+        echo "Python version:"
+        python --version
+        echo "Installing pip dependencies..."
+        python -m pip install --upgrade pip
         echo "Running build.py..."
         python build.py
+        echo "Build completed, checking output:"
+        ls -la dist/
+
+    - name: Verify build output
+      run: |
+        echo "Checking if build artifact exists:"
+        if [ -e "${{ matrix.artifact-path }}" ]; then
+          echo "✅ Build artifact found: ${{ matrix.artifact-path }}"
+          ls -la "${{ matrix.artifact-path }}"
+        else
+          echo "❌ Build artifact not found: ${{ matrix.artifact-path }}"
+          echo "Contents of launcher/executable/dist/:"
+          ls -la launcher/executable/dist/ || echo "dist directory doesn't exist"
+          exit 1
+        fi
 
     - name: Create archive
       shell: bash
