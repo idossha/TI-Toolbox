@@ -1,0 +1,61 @@
+---
+layout: default
+---
+
+<div class="wiki-layout">
+  <div class="wiki-sidebar">
+    <div class="wiki-nav">
+      <h3>Getting Started</h3>
+      <ul>
+        <li><a href="/wiki/installation-guide" {% if page.url == '/wiki/installation-guide/' %}class="active"{% endif %}>Installation Guide</a></li>
+        <li><a href="/wiki/first-project" {% if page.url == '/wiki/first-project/' %}class="active"{% endif %}>Your First Project</a></li>
+        <li><a href="/wiki/bids-format" {% if page.url == '/wiki/bids-format/' %}class="active"{% endif %}>BIDS Data Format</a></li>
+        <li><a href="/wiki/docker-basics" {% if page.url == '/wiki/docker-basics/' %}class="active"{% endif %}>Docker Basics</a></li>
+      </ul>
+      
+      <h3>Tutorials</h3>
+      <ul>
+        <li><a href="/wiki/preprocessing-tutorial" {% if page.url == '/wiki/preprocessing-tutorial/' %}class="active"{% endif %}>Pre-processing Tutorial</a></li>
+        <li><a href="/wiki/simulation-tutorial" {% if page.url == '/wiki/simulation-tutorial/' %}class="active"{% endif %}>Running Simulations</a></li>
+        <li><a href="/wiki/optimization-guide" {% if page.url == '/wiki/optimization-guide/' %}class="active"{% endif %}>Optimization Guide</a></li>
+        <li><a href="/wiki/visualization-tutorial" {% if page.url == '/wiki/visualization-tutorial/' %}class="active"{% endif %}>Visualization Tutorial</a></li>
+      </ul>
+      
+      <h3>Advanced Topics</h3>
+      <ul>
+        <li><a href="/wiki/custom-electrodes" {% if page.url == '/wiki/custom-electrodes/' %}class="active"{% endif %}>Custom Electrode Models</a></li>
+        <li><a href="/wiki/batch-processing" {% if page.url == '/wiki/batch-processing/' %}class="active"{% endif %}>Batch Processing</a></li>
+        <li><a href="/wiki/gpu-acceleration" {% if page.url == '/wiki/gpu-acceleration/' %}class="active"{% endif %}>GPU Acceleration</a></li>
+        <li><a href="/wiki/scripting" {% if page.url == '/wiki/scripting/' %}class="active"{% endif %}>Scripting & Automation</a></li>
+      </ul>
+      
+      <h3>Theory</h3>
+      <ul>
+        <li><a href="/wiki/ti-theory" {% if page.url == '/wiki/ti-theory/' %}class="active"{% endif %}>TI Theory & Physics</a></li>
+        <li><a href="/wiki/fem-basics" {% if page.url == '/wiki/fem-basics/' %}class="active"{% endif %}>FEM Fundamentals</a></li>
+        <li><a href="/wiki/optimization-algorithms" {% if page.url == '/wiki/optimization-algorithms/' %}class="active"{% endif %}>Optimization Algorithms</a></li>
+        <li><a href="/wiki/safety-guidelines" {% if page.url == '/wiki/safety-guidelines/' %}class="active"{% endif %}>Safety Guidelines</a></li>
+      </ul>
+      
+      <h3>Troubleshooting</h3>
+      <ul>
+        <li><a href="/wiki/common-errors" {% if page.url == '/wiki/common-errors/' %}class="active"{% endif %}>Common Errors</a></li>
+        <li><a href="/wiki/performance-tuning" {% if page.url == '/wiki/performance-tuning/' %}class="active"{% endif %}>Performance Tuning</a></li>
+        <li><a href="/wiki/debugging" {% if page.url == '/wiki/debugging/' %}class="active"{% endif %}>Debugging Guide</a></li>
+        <li><a href="/wiki/faq" {% if page.url == '/wiki/faq/' %}class="active"{% endif %}>FAQ</a></li>
+      </ul>
+    </div>
+  </div>
+  
+  <div class="wiki-content">
+    <article class="post">
+      <header class="post-header">
+        <h1 class="post-title">{{ page.title | escape }}</h1>
+      </header>
+
+      <div class="post-content">
+        {{ content }}
+      </div>
+    </article>
+  </div>
+</div> 

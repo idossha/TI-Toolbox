@@ -1,0 +1,49 @@
+# TI-CSC GitHub Pages Configuration
+title: TI-CSC
+description: Temporal Interference - Computational Stimulation Core
+author: TI-CSC Team
+email: your-email@example.com
+baseurl: "/TI-CSC-2.0" # Your repository name
+url: "https://idossha.github.io" # Your GitHub Pages URL
+
+# Theme and plugins
+theme: minima
+plugins:
+  - jekyll-feed
+  - jekyll-seo-tag
+  - jekyll-sitemap
+
+# Navigation
+header_pages:
+  - index.md
+  - downloads.md
+  - documentation.md
+  - wiki.md
+  - releases.md
+  - about.md
+
+# Collections
+collections:
+  wiki:
+    output: true
+    permalink: /wiki/:path/
+
+# Defaults
+defaults:
+  - scope:
+      path: ""
+      type: "wiki"
+    values:
+      layout: "wiki"
+
+# Markdown settings
+markdown: kramdown
+kramdown:
+  input: GFM
+  syntax_highlighter: rouge
+
+# Exclude files
+exclude:
+  - Gemfile
+  - Gemfile.lock
+  - README.md 
