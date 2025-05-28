@@ -8,26 +8,6 @@ permalink: /releases/
 
 ## Latest Release
 
-### v2.0.0
-
-**Release Date**: May 15, 2024
-
-#### Major Changes
-- Complete rewrite of the GUI launcher
-- New Docker-based architecture
-- Improved cross-platform compatibility
-- Added BIDS support
-- Enhanced visualization tools
-
-#### Installation
-- [Windows Installer](https://github.com/idossha/TI-Toolbox/releases/download/v2.0.0/TI-Toolbox-Windows-x64.exe)
-- [macOS DMG](https://github.com/idossha/TI-Toolbox/releases/download/v2.0.0/TI-Toolbox-macOS-x64.dmg)
-- [Linux AppImage](https://github.com/idossha/TI-Toolbox/releases/download/v2.0.0/TI-Toolbox-Linux-x86_64.AppImage)
-
-For installation instructions, see the [Installation Guide]({{ site.baseurl }}/wiki/installation-guide).
-
-## Previous Releases
-
 <!-- DO NOT MODIFY: Auto-generated release content will be appended here -->
 
 ## Version Support
