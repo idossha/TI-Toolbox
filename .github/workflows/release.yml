@@ -110,6 +110,7 @@ jobs:
 
     - name: Build executable
       working-directory: launcher/executable
+      shell: bash
       run: |
         echo "Contents of launcher/executable directory:"
         ls -la
@@ -129,6 +130,7 @@ jobs:
         ls -la dist/
 
     - name: Verify build output
+      shell: bash
       run: |
         echo "Checking if build artifact exists:"
         if [ -e "${{ matrix.artifact-path }}" ]; then
