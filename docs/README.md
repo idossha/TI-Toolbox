@@ -1,6 +1,6 @@
 # TI-CSC Documentation Website
 
-This directory contains the source files for the TI-CSC documentation website, built with Jekyll and hosted on GitHub Pages.
+This directory contains the source files for the TI-CSC documentation website, built with Jekyll and hosted on GitHub Pages..
 
 ## Local Development
 
