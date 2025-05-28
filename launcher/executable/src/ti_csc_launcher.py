@@ -694,45 +694,83 @@ class TIToolboxLoaderApp(QWidget):
             self.log_message(f"Project directory selected: {self.project_dir}")
 
     def validate_requirements(self):
-        """Validate all requirements before proceeding"""
+        """Validate that all requirements are met before starting Docker"""
         if not self.project_dir:
-            self.message_box.show_message("Error", "Please select a project directory", "error", "❌")
+            self.message_box.show_message("Error", "Please select a project directory first", "warning", "⚠️")
             return False
         
-        if not os.path.isdir(self.project_dir):
-            self.message_box.show_message("Error", f"Directory does not exist: {self.project_dir}", "error", "❌")
+        # Check if project directory is accessible
+        if not os.path.exists(self.project_dir):
+            self.message_box.show_message("Error", f"Project directory does not exist:\n{self.project_dir}", "error", "❌")
             return False
         
-        if not os.path.exists(self.docker_compose_file):
-            self.message_box.show_message("Error", f"docker-compose.yml not found at: {self.docker_compose_file}", "error", "❌")
-            return False
+        if not os.access(self.project_dir, os.W_OK):
+            self.message_box.show_message("Warning", 
+                f"No write permissions in project directory:\n{self.project_dir}\n\nDocker containers may not function properly.",
+                "warning", "⚠️")
+            # Continue anyway - user might have set up specific permissions
         
-        # Find Docker executable
+        # Enhanced Docker validation with Windows-specific handling
         docker_executable = self._find_docker_executable()
         if not docker_executable:
+            self.log_message("❌ Docker executable not found", "ERROR")
             self._show_docker_install_instructions()
             return False
         
-        # Test Docker connection
+        # Test Docker connectivity with better error handling
         try:
-            result = run_subprocess_silent([docker_executable, 'info'], timeout=10)
-            if result.returncode == 0:
-                self.log_message("Docker is running and accessible", "SUCCESS")
-                return True
-            else:
+            self.log_message("🔍 Testing Docker connectivity...", "INFO")
+            result = run_subprocess_silent([docker_executable, '--version'], timeout=10)
+            if result.returncode != 0:
+                self.log_message(f"❌ Docker version check failed: {result.stderr}", "ERROR")
                 self._show_docker_start_instructions()
                 return False
+            else:
+                self.log_message(f"✅ Docker version: {result.stdout.strip()}", "SUCCESS")
         except subprocess.TimeoutExpired:
-            self.log_message("Docker info command timed out", "ERROR")
-            self.message_box.show_message(
-                "Docker Error",
-                "Docker is not responding. Please restart Docker Desktop and try again.",
-                "error", "❌"
-            )
+            self.log_message("❌ Docker version check timed out", "ERROR")
+            self._show_docker_start_instructions()
             return False
         except Exception as e:
-            self.log_message(f"Docker validation error: {e}", "ERROR")
+            self.log_message(f"❌ Docker test error: {str(e)}", "ERROR")
+            self._show_docker_start_instructions()
             return False
+        
+        # Test Docker daemon connectivity
+        try:
+            self.log_message("🔍 Testing Docker daemon connectivity...", "INFO")
+            result = run_subprocess_silent([docker_executable, 'info'], timeout=15)
+            if result.returncode != 0:
+                self.log_message("❌ Docker daemon is not running or accessible", "ERROR")
+                if "permission denied" in result.stderr.lower():
+                    self.log_message("💡 Permission issue detected - try running as administrator", "INFO")
+                self._show_docker_start_instructions()
+                return False
+            else:
+                self.log_message("✅ Docker daemon is accessible", "SUCCESS")
+        except subprocess.TimeoutExpired:
+            self.log_message("❌ Docker daemon check timed out", "ERROR")
+            self._show_docker_start_instructions()
+            return False
+        except Exception as e:
+            self.log_message(f"❌ Docker daemon test error: {str(e)}", "ERROR")
+            self._show_docker_start_instructions()
+            return False
+        
+        # Test Docker Compose
+        try:
+            self.log_message("🔍 Testing Docker Compose...", "INFO")
+            result = run_subprocess_silent([docker_executable, 'compose', 'version'], timeout=10)
+            if result.returncode != 0:
+                self.log_message("⚠️  Docker Compose test failed, but continuing...", "WARNING")
+                self.log_message(f"Compose error: {result.stderr}", "WARNING")
+            else:
+                self.log_message(f"✅ Docker Compose: {result.stdout.strip()}", "SUCCESS")
+        except Exception as e:
+            self.log_message(f"⚠️  Docker Compose test error: {str(e)}", "WARNING")
+        
+        self.log_message("✅ All requirements validated", "SUCCESS")
+        return True
 
     def _show_docker_install_instructions(self):
         """Show platform-specific Docker installation instructions"""
@@ -799,7 +837,7 @@ class TIToolboxLoaderApp(QWidget):
         self.message_box.show_message("Docker Error", message, "error", "❌")
 
     def setup_display_env(self):
-        """Set up DISPLAY environment variable"""
+        """Set up DISPLAY environment variable - simplified to match working bash script"""
         system = platform.system()
         
         if system == "Darwin":  # macOS
@@ -823,137 +861,25 @@ class TIToolboxLoaderApp(QWidget):
             return os.environ.get("DISPLAY", ":0")
             
         else:  # Windows
-            # For Windows, use the existing DISPLAY environment variable if set
-            # This matches the behavior of the working bash script
+            # Docker Desktop on Windows X11 forwarding
+            # Need to find the right host reference for Docker to reach Windows X11
             existing_display = os.environ.get("DISPLAY")
             if existing_display:
                 self.log_message(f"Using existing DISPLAY: {existing_display}", "INFO")
                 return existing_display
             else:
-                # Fallback to localhost if no DISPLAY is set
-                self.log_message("No DISPLAY set, using localhost:0.0 for DISPLAY", "INFO")
-                return "localhost:0.0"
-
-    def setup_xquartz_macos(self):
-        """Set up XQuartz for macOS GUI applications"""
-        try:
-            # Check if XQuartz is installed
-            xquartz_app = "/Applications/Utilities/XQuartz.app"
-            if not os.path.exists(xquartz_app):
-                self.log_message("XQuartz not found. Please install XQuartz to use GUI applications.", "WARNING")
-                return False
-            
-            # Check XQuartz version
-            try:
-                result = subprocess.run(['mdls', '-name', 'kMDItemVersion', xquartz_app], 
-                                      capture_output=True, text=True, timeout=5)
-                if result.returncode == 0:
-                    version_line = result.stdout.strip()
-                    # Extract version from output like: kMDItemVersion = "2.7.11"
-                    if '"' in version_line:
-                        version = version_line.split('"')[1]
-                        self.log_message(f"XQuartz version detected: {version}", "INFO")
-                        
-                        # Warn about versions > 2.8.0
-                        try:
-                            version_parts = version.split('.')
-                            if len(version_parts) >= 2:
-                                major, minor = int(version_parts[0]), int(version_parts[1])
-                                if major > 2 or (major == 2 and minor > 8):
-                                    self.log_message("Warning: XQuartz version > 2.8.0 may have compatibility issues", "WARNING")
-                        except:
-                            pass
-            except:
-                self.log_message("Could not check XQuartz version", "WARNING")
-            
-            # Enable network clients in XQuartz
-            self.log_message("Configuring XQuartz for network clients...", "INFO")
-            try:
-                subprocess.run(['defaults', 'write', 'org.macosforge.xquartz.X11', 'nolisten_tcp', '-bool', 'false'], 
-                             timeout=5)
-            except:
-                self.log_message("Could not configure XQuartz network settings", "WARNING")
-            
-            # Check if XQuartz is running
-            try:
-                result = subprocess.run(['pgrep', '-f', 'XQuartz'], capture_output=True, timeout=5)
-                xquartz_running = result.returncode == 0
-            except:
-                xquartz_running = False
-            
-            if not xquartz_running:
-                self.log_message("Starting XQuartz...", "INFO")
-                try:
-                    subprocess.Popen(['open', '-a', 'XQuartz'])
-                    # Give XQuartz time to start
-                    time.sleep(5)  # Increased wait time
-                except:
-                    self.log_message("Could not start XQuartz", "ERROR")
-                    return False
+                # Try different Docker Desktop Windows approaches
+                system_info = platform.platform().lower()
                 
-                # Wait a bit more for XQuartz to fully initialize
-                self.log_message("Waiting for XQuartz to initialize...", "INFO")
-                time.sleep(3)
-            
-            # Set up X11 permissions with proper error handling
-            self.log_message("Setting up X11 permissions...", "INFO")
-            
-            # Set DISPLAY environment variable first
-            os.environ['DISPLAY'] = ':0'
-            
-            try:
-                # Allow connections from localhost
-                result = subprocess.run(['xhost', '+localhost'], 
-                                      capture_output=True, text=True, timeout=10,
-                                      env=dict(os.environ, DISPLAY=':0'))
-                if result.returncode != 0:
-                    self.log_message(f"xhost +localhost failed: {result.stderr}", "WARNING")
-                
-                # Allow connections from hostname
-                try:
-                    hostname_result = subprocess.run(['hostname'], capture_output=True, text=True, timeout=5)
-                    if hostname_result.returncode == 0:
-                        hostname = hostname_result.stdout.strip()
-                        result = subprocess.run(['xhost', f'+{hostname}'], 
-                                              capture_output=True, text=True, timeout=10,
-                                              env=dict(os.environ, DISPLAY=':0'))
-                        if result.returncode != 0:
-                            self.log_message(f"xhost +{hostname} failed: {result.stderr}", "WARNING")
-                except Exception as e:
-                    self.log_message(f"Could not set hostname xhost permission: {e}", "WARNING")
-                
-                # Also allow Docker's internal IP access
-                try:
-                    # Add common Docker internal IPs
-                    docker_ips = ['172.17.0.1', '192.168.65.2', '172.16.0.1']
-                    for ip in docker_ips:
-                        subprocess.run(['xhost', f'+{ip}'], 
-                                     capture_output=True, text=True, timeout=5,
-                                     env=dict(os.environ, DISPLAY=':0'))
-                except:
-                    pass  # These are optional
-                
-            except Exception as e:
-                self.log_message(f"Warning: Could not set X11 permissions: {e}", "WARNING")
-            
-            # Verify X11 is accessible
-            try:
-                result = subprocess.run(['xset', 'q'], 
-                                      capture_output=True, text=True, timeout=5,
-                                      env=dict(os.environ, DISPLAY=':0'))
-                if result.returncode == 0:
-                    self.log_message("X11 server is accessible", "SUCCESS")
+                # For Docker Desktop on Windows, try host.docker.internal
+                if "windows" in system_info:
+                    # Try the Docker Desktop internal hostname first
+                    self.log_message("Using host.docker.internal:0.0 for Docker Desktop on Windows", "INFO")
+                    return "host.docker.internal:0.0"
                 else:
-                    self.log_message("X11 server test failed", "WARNING")
-            except:
-                self.log_message("Could not test X11 server access", "WARNING")
-            
-            self.log_message("XQuartz setup completed", "SUCCESS")
-            return True
-            
-        except Exception as e:
-            self.log_message(f"XQuartz setup failed: {e}", "ERROR")
-            return False
+                    # Fallback to :0 for other cases
+                    self.log_message("Using :0 for DISPLAY", "INFO")
+                    return ":0"
 
     def run_docker_command(self, cmd, description, show_progress=True, timeout=None):
         """Run a Docker command with progress tracking and stop capability"""
@@ -1128,8 +1054,8 @@ class TIToolboxLoaderApp(QWidget):
                 
             self.log_message("🔍 Checking Docker volumes...", "INFO")
             
-            # Create required volumes
-            required_volumes = ['ti-toolbox_freesurfer_data', 'ti-toolbox_fsl_data', 'matlab_runtime']
+            # Create required volumes - FIXED: Use correct volume names that match docker-compose.yml
+            required_volumes = ['ti_csc_fsl_data', 'ti_csc_freesurfer_data', 'matlab_runtime']
             
             for volume in required_volumes:
                 self.log_message(f"💾 Ensuring volume exists: {volume}", "INFO")
@@ -1298,6 +1224,17 @@ class TIToolboxLoaderApp(QWidget):
                     )
                     # Continue anyway, but warn the user
             
+            # Windows X11 server guidance
+            elif system == "Windows":
+                self.log_message("=" * 60, "INFO")
+                self.log_message("Windows GUI Launch Requirement", "INFO") 
+                self.log_message("=" * 60, "INFO")
+                self.log_message("If GUI fails, you need VcXsrv X11 server:", "INFO")
+                self.log_message("1. Download: https://sourceforge.net/projects/vcxsrv/", "INFO")
+                self.log_message("2. Launch 'XLaunch' → Multiple windows → Start no client → Disable access control", "INFO")
+                self.log_message("3. Keep VcXsrv running while using GUI", "INFO")
+                self.log_message("=" * 60, "INFO")
+            
             self.log_message("Launching GUI using CLI approach...", "INFO")
             
             # Get Docker executable
@@ -1306,9 +1243,11 @@ class TIToolboxLoaderApp(QWidget):
                 self.log_message("Docker executable not found", "ERROR")
                 return
             
+            # Set up display environment for all platforms (simplified)
+            display_env = self.setup_display_env()
+            
             # Use the exact same approach as CLI launch but run GUI command instead
             # This duplicates the working CLI logic
-            display_env = self.setup_display_env()
             
             if system == "Darwin":  # macOS
                 # Create a temporary script that launches GUI instead of bash
@@ -1356,10 +1295,10 @@ class TIToolboxLoaderApp(QWidget):
                 # Use Command Prompt but run GUI command instead of bash
                 docker_cmd = f'docker exec -it --workdir /ti-csc simnibs_container bash -c "/ti-csc/CLI/GUI.sh"'
                 
-                # Create the command but make the window hidden/minimized
-                cmd_line = f'cmd /c "cd /d "{self.script_dir}" && {docker_cmd} && pause"'
+                # FIXED: Hide the terminal window for GUI launch - user only sees the GUI app
+                cmd_line = f'cmd /c "cd /d "{self.script_dir}" && {docker_cmd}"'
                 
-                # Use CREATE_NO_WINDOW to make it invisible
+                # Use hidden window creation
                 startupinfo = subprocess.STARTUPINFO()
                 startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
                 startupinfo.wShowWindow = subprocess.SW_HIDE
@@ -1436,6 +1375,127 @@ class TIToolboxLoaderApp(QWidget):
         # Ensure cursor is restored
         QApplication.restoreOverrideCursor()
         event.accept()
+
+    def setup_xquartz_macos(self):
+        """Set up XQuartz for macOS GUI applications"""
+        try:
+            # Check if XQuartz is installed
+            xquartz_app = "/Applications/Utilities/XQuartz.app"
+            if not os.path.exists(xquartz_app):
+                self.log_message("XQuartz not found. Please install XQuartz to use GUI applications.", "WARNING")
+                return False
+            
+            # Check XQuartz version
+            try:
+                result = subprocess.run(['mdls', '-name', 'kMDItemVersion', xquartz_app], 
+                                      capture_output=True, text=True, timeout=5)
+                if result.returncode == 0:
+                    version_line = result.stdout.strip()
+                    # Extract version from output like: kMDItemVersion = "2.7.11"
+                    if '"' in version_line:
+                        version = version_line.split('"')[1]
+                        self.log_message(f"XQuartz version detected: {version}", "INFO")
+                        
+                        # Warn about versions > 2.8.0
+                        try:
+                            version_parts = version.split('.')
+                            if len(version_parts) >= 2:
+                                major, minor = int(version_parts[0]), int(version_parts[1])
+                                if major > 2 or (major == 2 and minor > 8):
+                                    self.log_message("Warning: XQuartz version > 2.8.0 may have compatibility issues", "WARNING")
+                        except:
+                            pass
+            except:
+                self.log_message("Could not check XQuartz version", "WARNING")
+            
+            # Enable network clients in XQuartz
+            self.log_message("Configuring XQuartz for network clients...", "INFO")
+            try:
+                subprocess.run(['defaults', 'write', 'org.macosforge.xquartz.X11', 'nolisten_tcp', '-bool', 'false'], 
+                             timeout=5)
+            except:
+                self.log_message("Could not configure XQuartz network settings", "WARNING")
+            
+            # Check if XQuartz is running
+            try:
+                result = subprocess.run(['pgrep', '-f', 'XQuartz'], capture_output=True, timeout=5)
+                xquartz_running = result.returncode == 0
+            except:
+                xquartz_running = False
+            
+            if not xquartz_running:
+                self.log_message("Starting XQuartz...", "INFO")
+                try:
+                    subprocess.Popen(['open', '-a', 'XQuartz'])
+                    # Give XQuartz time to start
+                    time.sleep(5)  # Increased wait time
+                except:
+                    self.log_message("Could not start XQuartz", "ERROR")
+                    return False
+                
+                # Wait a bit more for XQuartz to fully initialize
+                self.log_message("Waiting for XQuartz to initialize...", "INFO")
+                time.sleep(3)
+            
+            # Set up X11 permissions with proper error handling
+            self.log_message("Setting up X11 permissions...", "INFO")
+            
+            # Set DISPLAY environment variable first
+            os.environ['DISPLAY'] = ':0'
+            
+            try:
+                # Allow connections from localhost
+                result = subprocess.run(['xhost', '+localhost'], 
+                                      capture_output=True, text=True, timeout=10,
+                                      env=dict(os.environ, DISPLAY=':0'))
+                if result.returncode != 0:
+                    self.log_message(f"xhost +localhost failed: {result.stderr}", "WARNING")
+                
+                # Allow connections from hostname
+                try:
+                    hostname_result = subprocess.run(['hostname'], capture_output=True, text=True, timeout=5)
+                    if hostname_result.returncode == 0:
+                        hostname = hostname_result.stdout.strip()
+                        result = subprocess.run(['xhost', f'+{hostname}'], 
+                                              capture_output=True, text=True, timeout=10,
+                                              env=dict(os.environ, DISPLAY=':0'))
+                        if result.returncode != 0:
+                            self.log_message(f"xhost +{hostname} failed: {result.stderr}", "WARNING")
+                except Exception as e:
+                    self.log_message(f"Could not set hostname xhost permission: {e}", "WARNING")
+                
+                # Also allow Docker's internal IP access
+                try:
+                    # Add common Docker internal IPs
+                    docker_ips = ['172.17.0.1', '192.168.65.2', '172.16.0.1']
+                    for ip in docker_ips:
+                        subprocess.run(['xhost', f'+{ip}'], 
+                                     capture_output=True, text=True, timeout=5,
+                                     env=dict(os.environ, DISPLAY=':0'))
+                except:
+                    pass  # These are optional
+                
+            except Exception as e:
+                self.log_message(f"Warning: Could not set X11 permissions: {e}", "WARNING")
+            
+            # Verify X11 is accessible
+            try:
+                result = subprocess.run(['xset', 'q'], 
+                                      capture_output=True, text=True, timeout=5,
+                                      env=dict(os.environ, DISPLAY=':0'))
+                if result.returncode == 0:
+                    self.log_message("X11 server is accessible", "SUCCESS")
+                else:
+                    self.log_message("X11 server test failed", "WARNING")
+            except:
+                self.log_message("Could not test X11 server access", "WARNING")
+            
+            self.log_message("XQuartz setup completed", "SUCCESS")
+            return True
+            
+        except Exception as e:
+            self.log_message(f"XQuartz setup failed: {e}", "ERROR")
+            return False
 
 
 def main():

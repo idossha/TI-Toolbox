@@ -9,7 +9,6 @@ permalink: /releases/
 **Note:** Versions 1.X.X and earlier are no longer supported. Please use the latest 2.X.X release from the [releases page on GitHub](https://github.com/idossha/TI-Toolbox/releases).
 
 All notable changes and releases are documented below.
-
 <div class="release">
   <div class="release-header">
     <h2>Version 2.0.1</h2>
@@ -20,7 +19,7 @@ All notable changes and releases are documented below.
   
   <h3>📋 Release Notes</h3>
   <div style="background: #f5f5f5; padding: 15px; border-radius: 5px; margin: 10px 0;">
-    <p>Standardized Executable Naming and Windows GUI Fixes: Updated executable naming to industry standards (TI-Toolbox.exe, TI-Toolbox.app, TI-Toolbox) eliminating issues with spaces in filenames. Fixed GUI launch failure on Windows by restoring proper DISPLAY environment handling. GitHub Actions workflow updated for correct cross-platform builds. Removed debug print statements for cleaner output. macOS functionality remains unchanged and fully working.</p>
+    <p>Fixed Windows GUI launcher issues with comprehensive VcXsrv X11 server support. Enhanced Docker volume naming consistency. Improved cross-platform launcher stability and user experience. Added hidden terminal mode for clean GUI launches on Windows.</p>
   </div>
   
   <div class="release-downloads">
@@ -29,6 +28,8 @@ All notable changes and releases are documented below.
     <a href="https://github.com/idossha/TI-Toolbox/releases/download/v2.0.1/TI-Toolbox-Windows.exe">Windows</a>
   </div>
 </div>
+
+
 
 <div class="release">
   <div class="release-header">

@@ -46,7 +46,37 @@ Docker is required to run Temporal Interference Toolbox's containerized environm
 
 **Linux:** X11 is typically pre-installed
 
-**Windows:** Install VcXsrv or Xming
+**Windows:** Install VcXsrv X11 Server (Required for GUI)
+
+#### Windows VcXsrv Setup (Detailed)
+
+The Temporal Interference Toolbox GUI on Windows requires an X11 server to display Linux-based graphical applications from Docker containers.
+
+**Step 1: Install VcXsrv**
+1. Download VcXsrv from: [https://sourceforge.net/projects/vcxsrv/](https://sourceforge.net/projects/vcxsrv/)
+2. Run the installer with default settings
+3. No special configuration needed during installation
+
+**Step 2: Configure and Launch VcXsrv**
+1. Launch "XLaunch" from the Start Menu
+2. **Configuration options:**
+   - **Display settings**: Select "Multiple windows"
+   - **Client startup**: Select "Start no client"
+   - **Extra settings**: ✅ **CHECK "Disable access control"** (Critical!)
+3. Click "Finish"
+4. XLaunch will start and show an icon in the system tray
+5. **Keep VcXsrv running** while using the TI-Toolbox GUI
+
+**Step 3: Verify VcXsrv Setup**
+- Look for the VcXsrv icon in your system tray (notification area)
+- If the GUI fails to launch, restart VcXsrv with correct settings
+
+**Important Notes:**
+- VcXsrv must be running **before** launching the TI-Toolbox GUI
+- The "Disable access control" setting is required for Docker containers to connect
+- You can save your XLaunch configuration for future use
+
+**Alternative:** You can also use Xming as an alternative to VcXsrv, but VcXsrv is recommended for better compatibility.
 
 ### 3. System Requirements
 
@@ -129,6 +159,27 @@ Once containers are running, verify the installation:
   2. Open XQuartz preferences
   3. Under Security, enable "Allow connections from network clients"
   4. Restart XQuartz
+
+### GUI Issues (Windows)
+
+**Problem**: "No X11 server detected" or GUI fails to launch
+- **Solution**: 
+  1. Ensure VcXsrv is installed and running (check system tray)
+  2. Restart VcXsrv with correct settings:
+     - Multiple windows → Start no client → ✅ Disable access control
+  3. If still failing, try restarting the TI-Toolbox launcher
+
+**Problem**: GUI launches but shows black screen or errors
+- **Solution**:
+  1. Ensure "Disable access control" was checked in XLaunch
+  2. Temporarily disable Windows Firewall to test
+  3. Try launching CLI first, then run `GUI` command manually
+
+**Problem**: CLI works but GUI doesn't
+- **Solution**: This indicates VcXsrv is not running or configured correctly
+  1. Check system tray for VcXsrv icon
+  2. Restart XLaunch with proper configuration
+  3. Ensure VcXsrv is running before launching GUI
 
 ### Memory Issues
 
