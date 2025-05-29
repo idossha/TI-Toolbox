@@ -2,25 +2,18 @@
 layout: home
 ---
 
-<div class="hero">
-  <img src="/assets/imgs/icon.png" alt="TI Toolbox Icon" style="display:block;margin:0 auto 1.5rem auto;width:96px;height:96px;">
-  <h1>Temporal Interference Toolbox</h1>
-  <p>Advanced Brain Stimulation Simulation Platform</p>
-  <p>A comprehensive toolbox for temporal interference stimulation research, providing end-to-end neuroimaging and simulation capabilities.</p>
-  <div class="hero-buttons">
-    <a href="/releases" class="btn">View Releases</a>
-    <a href="/installation" class="btn btn-secondary">Installation Guide</a>
+<div class="hero" style="display: flex; align-items: center; gap: 2rem;">
+  <img src="/assets/imgs/icon.png" alt="TI Toolbox Icon" style="width:80px;height:80px;flex-shrink:0;">
+  <div>
+    <h1>Temporal Interference Toolbox</h1>
+    <p>Advanced Brain Stimulation Simulation Platform</p>
+    <p>A comprehensive toolbox for temporal interference stimulation research, providing end-to-end neuroimaging and simulation capabilities.</p>
   </div>
 </div>
 
 <div class="features">
   <!-- ... existing code ... -->
 </div>
-
-## Overview
-
-The **TI-Toolbox** designed for end-to-end workflows simulating Temporal Interference (TI). It integrates several open-source applications along with custom in-house scripts, providing a robust platform for academic research. 
-
 
 ## Quick Start Workflow
 
