@@ -88,9 +88,3 @@ We extend our gratitude to the developers and contributors of the tools integrat
 - [**dcm2niix**](https://github.com/rordenlab/dcm2niix): A tool for converting DICOM images to NIfTI format
 - [**BIDS**](https://bids.neuroimaging.io/): A standardized way to organize and describe neuroimaging data.
 
-## Community
-
-- [GitHub Repository](https://github.com/idossha/TI-Toolbox)
-- [Issue Tracker](https://github.com/idossha/TI-Toolbox/issues)
-- [Discussions](https://github.com/idossha/TI-Toolbox/discussions)
-
