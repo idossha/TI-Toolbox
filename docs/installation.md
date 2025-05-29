@@ -146,6 +146,38 @@ If you encounter persistent issues:
 - Re-enable security protections after installation
 - Keep your operating system and Docker Desktop updated
 
+## Alternative: Command-Line Bash Script Usage
+
+You do **not** have to use the graphical executables to run the TI Toolbox! The executables simply provide a GUI for the launcher program. If you prefer, or if you are running on a remote server (or just want more control), you can use the bash script directly from the command line.
+
+### When to Use the Bash Script
+- Running on a remote server (no GUI)
+- Prefer command-line workflows
+- Want to automate or customize the launch process
+- Troubleshooting or advanced usage
+
+### How to Use the Bash Script
+
+1. **Download** the following two files from the [TI Toolbox GitHub Releases](https://github.com/idossha/TI-Toolbox/releases):
+   - `launcher/bash/loader.sh`
+   - `launcher/bash/docker-compose.yml`
+
+2. **Place both files in the same directory** on your system or server.
+
+3. **Make the script executable (optional, or use bash directly):**
+   ```bash
+   chmod +x loader.sh
+   ```
+
+4. **Run the script:**
+   ```bash
+   bash loader.sh
+   ```
+
+5. **Follow the prompts** in your terminal to set up and launch the toolbox environment.
+
+This method gives you the same core functionality as the GUI, but in a terminal-based.
+
 ---
 
 [Back to Releases]({{ site.baseurl }}/releases/) | [Back to Home]({{ site.baseurl }}/) 
