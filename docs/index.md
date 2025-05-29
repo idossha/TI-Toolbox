@@ -3,7 +3,7 @@ layout: home
 ---
 
 <div class="hero" style="display: flex; align-items: center; gap: 2rem;">
-  <img src="/assets/imgs/icon.png" alt="TI Toolbox Icon" style="width:80px;height:80px;flex-shrink:0;">
+  <img src="{{ site.baseurl }}/assets/imgs/icon.png" alt="TI Toolbox Icon" style="width:80px;height:80px;flex-shrink:0;">
   <div>
     <h1>Temporal Interference Toolbox</h1>
     <p>Advanced Brain Stimulation Simulation Platform</p>
