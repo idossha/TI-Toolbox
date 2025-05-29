@@ -4,47 +4,32 @@ layout: home
 
 <div class="hero">
   <h1>Temporal Interference Toolbox</h1>
-  <p>Advanced Brain Stimulation Simulation Platform</p>
-  <p>A comprehensive toolbox for temporal interference stimulation research, providing end-to-end neuroimaging and simulation capabilities.</p>
-  <div class="hero-buttons">
-    <a href="/releases" class="btn">View Releases</a>
-    <a href="/installation" class="btn btn-secondary">Installation Guide</a>
-  </div>
 </div>
 
-<div class="features">
-  <div class="feature-card">
-    <div class="feature-icon"></div>
-    <h3>Pre-processing Pipeline</h3>
-    <p>DICOM to NIfTI conversion, SimNIBS head modeling and FreeSurfer segmentation</p>
-  </div>
+## Overview
 
-  <div class="feature-card">
-    <div class="feature-icon"></div>
-    <h3>Optimization Algorithms</h3>
-    <p>Flexible (flex-search) and exhaustive (ex-search) algorithms for optimal electrode placement and stimulation</p>
-  </div>
-  <div class="feature-card">
-    <div class="feature-icon"></div>
-    <h3>TI Field Simulation</h3>
-    <p>FEM-based temporal interference field calculations with flexible simulation parameters</p>
-  </div>
-  <div class="feature-card">
-    <div class="feature-icon"></div>
-    <h3>Comprehensive Analysis</h3>
-    <p>Atlas-based and custom ROI analysis tools for detailed stimulation effect evaluation</p>
-  </div>
-  <div class="feature-card">
-    <div class="feature-icon"></div>
-    <h3>Interactive Visualization</h3>
-    <p>NIfTI and mesh viewers, overlay tools, and real-time 3D rendering</p>
-  </div>
-  <div class="feature-card">
-    <div class="feature-icon"></div>
-    <h3>Docker-based</h3>
-    <p>Containerized environment for reproducibility and easy deployment</p>
-  </div>
-</div>
+The **TI-Toolbox** designed for end-to-end workflows simulating Temporal Interference (TI). It integrates several open-source applications along with custom in-house scripts, providing a robust platform for academic research. 
+
+## Features
+
+- **SimNIBS**: A simulation environment for transcranial brain stimulation, enabling electric field modeling.
+- **FSL**: A comprehensive library of tools for analysis of functional and structural brain imaging data.
+- **FreeSurfer**: A software suite for the analysis and visualization of structural and functional neuroimaging data.
+- **Gmsh**: A three-dimensional finite element mesh generator with a built-in CAD engine and post-processor.
+- **Custom Scripts**: In-house developed scripts optimized for specific tasks within the TI-Toolbox pipeline, including mesh processing, NIfTI conversion, and ROI management.
+
+### Citation and Recognition
+
+TI-toolbox uses the following open-source tools:
+
+- **SimNIBS**: [SimNIBS Citation](https://simnibs.github.io/simnibs/build/html/publications.html)
+- **FSL**: [FSL Citation](https://fsl.fmrib.ox.ac.uk/fsl/fslwiki/RecommendedPapers)
+- **FreeSurfer**: [FreeSurfer Citation](https://surfer.nmr.mgh.harvard.edu/fswiki/FreeSurferMethodsCitation)
+- **Gmsh**: [Gmsh Citation](http://gmsh.info/#Acknowledging)
+
+
+
+
 
 ## Quick Start Workflow
 
@@ -54,14 +39,6 @@ layout: home
    - Required for running the toolbox environment.
 3. **Get the Latest Release**
    - Download the latest version (2.x.x or newer) from the <a href="/releases">Releases page</a>. See the <a href="/installation">Installation Guide</a> for platform-specific instructions. Note: Versions 1.x.x are no longer supported.
-4. **Pre-process your data**
-   - Convert DICOM to NIfTI, run FreeSurfer, and create SimNIBS head models using the pre-processing pipeline.
-5. **Optimize electrode placement**
-   - Use <b>flex-search</b> (evolutionary) or <b>ex-search</b> (exhaustive) tools to find optimal stimulation parameters.
-6. **Simulate TI fields**
-   - Run FEM-based simulations for your selected montages and parameters.
-7. **Analyze and visualize results**
-   - Use the analyzer and visualization tools for ROI-based and atlas-based analysis, and to generate figures and reports.
 
 For more details, see the <a href="{{ site.baseurl }}/wiki">Wiki</a>.
 
@@ -75,6 +52,11 @@ For more details, see the <a href="{{ site.baseurl }}/wiki">Wiki</a>.
 ## Version Support
 
 We actively support and maintain versions 2.x.x and newer of the Temporal Interference Toolbox. Versions 1.x.x are no longer supported. For the latest version and changelog, please see the <a href="/releases">Releases page</a>.
+
+
+## Acknowledgments
+
+We extend our gratitude to the developers and contributors of the open-source tools integrated into the TI-Toolbox. Their work has been instrumental in advancing research in the field of neurostimulation.
 
 ## Community
 
