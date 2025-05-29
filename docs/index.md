@@ -75,7 +75,8 @@ layout: home
 
 
 ---
-
+  
+  
 ## Acknowledgments
 
 We extend our gratitude to the developers and contributors of the tools integrated into the TI-Toolbox. 
