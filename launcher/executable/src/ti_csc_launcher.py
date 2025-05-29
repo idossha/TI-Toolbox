@@ -1179,7 +1179,7 @@ class TIToolboxLoaderApp(QWidget):
                         elif terminal == 'konsole':
                             subprocess.Popen([terminal, '-e', 'bash', '-c', f'cd "{self.script_dir}" && {docker_cmd}; exec bash'])
                         else:
-                            subprocess.Popen([terminal, '-e', f'bash -c "cd \\"{self.script_dir}\\\" && {docker_cmd}; exec bash"'])
+                            subprocess.Popen([terminal, '-e', f'bash -c "cd \\"{self.script_dir}\\" && {docker_cmd}; exec bash"'])
                         break
                     except FileNotFoundError:
                         continue
@@ -1201,7 +1201,7 @@ class TIToolboxLoaderApp(QWidget):
             self.cli_button.setEnabled(True)
 
     def launch_gui(self):
-        """Launch GUI interface by duplicating the CLI approach"""
+        """Launch GUI interface using hidden terminal approach"""
         if not self.containers_running:
             self.message_box.show_message("Error", "Please start Docker containers first", "warning", "⚠️")
             return
@@ -1235,68 +1235,48 @@ class TIToolboxLoaderApp(QWidget):
                 self.log_message("3. Keep VcXsrv running while using GUI", "INFO")
                 self.log_message("=" * 60, "INFO")
             
-            self.log_message("Launching GUI using CLI approach...", "INFO")
+            self.log_message("Launching GUI (hidden terminal)...", "INFO")
             
-            # Get Docker executable
+            # Get docker executable
             docker_executable = self._find_docker_executable()
             if not docker_executable:
                 self.log_message("Docker executable not found", "ERROR")
                 return
             
-            # Set up display environment for all platforms (simplified)
-            display_env = self.setup_display_env()
+            # Set up environment - same as CLI but run GUI command
+            env = os.environ.copy()
+            env["LOCAL_PROJECT_DIR"] = self.project_dir
+            env["PROJECT_DIR_NAME"] = os.path.basename(self.project_dir)
+            env["DISPLAY"] = self.setup_display_env()
             
-            # Use the exact same approach as CLI launch but run GUI command instead
-            # This duplicates the working CLI logic
+            # The docker command - same as CLI but runs GUI script
+            docker_cmd = [
+                docker_executable, 'exec', '-it', '--workdir', '/ti-csc',
+                'simnibs_container', 'bash', '-c', '/ti-csc/CLI/GUI.sh'
+            ]
             
             if system == "Darwin":  # macOS
-                # Create a temporary script that launches GUI instead of bash
-                with tempfile.NamedTemporaryFile(mode='w', suffix='.command', delete=False) as f:
-                    f.write(f'#!/bin/bash\ncd "{self.script_dir}"\n')
-                    f.write(f'docker exec -it --workdir /ti-csc simnibs_container bash -c "/ti-csc/CLI/GUI.sh"\n')
-                    script_path = f.name
-                
-                # Make it executable
-                os.chmod(script_path, 0o755)
-                
-                # Open it with Terminal - this creates exactly one window
-                subprocess.Popen(['open', '-a', 'Terminal', script_path])
-                
-                # Clean up the temp file after a delay
-                def cleanup():
-                    time.sleep(10)  # Give Terminal time to read the file and start
-                    try:
-                        os.unlink(script_path)
-                    except:
-                        pass
-                
-                threading.Thread(target=cleanup, daemon=True).start()
+                # Use osascript to run the command in a hidden terminal
+                applescript_cmd = f'''
+                tell application "Terminal"
+                    set targetWindow to do script "cd '{self.script_dir}' && {' '.join(docker_cmd)}"
+                    set miniaturized of window 1 to true
+                end tell
+                '''
+                subprocess.Popen(['osascript', '-e', applescript_cmd])
                 
             elif system == "Linux":
-                # Try different terminal emulators
-                terminals = ['gnome-terminal', 'konsole', 'xterm', 'x-terminal-emulator']
-                docker_cmd = f'docker exec -it --workdir /ti-csc simnibs_container bash -c "/ti-csc/CLI/GUI.sh"'
-                
-                for terminal in terminals:
-                    try:
-                        if terminal == 'gnome-terminal':
-                            subprocess.Popen([terminal, '--', 'bash', '-c', f'cd "{self.script_dir}" && {docker_cmd}'])
-                        elif terminal == 'konsole':
-                            subprocess.Popen([terminal, '-e', 'bash', '-c', f'cd "{self.script_dir}" && {docker_cmd}'])
-                        else:
-                            subprocess.Popen([terminal, '-e', f'bash -c "cd \\"{self.script_dir}\\" && {docker_cmd}"'])
-                        break
-                    except FileNotFoundError:
-                        continue
-                else:
-                    raise Exception("No suitable terminal emulator found")
+                # Run docker command directly in background with nohup to detach from terminal
+                subprocess.Popen(['nohup'] + docker_cmd, 
+                               cwd=self.script_dir, env=env,
+                               stdout=subprocess.DEVNULL, 
+                               stderr=subprocess.DEVNULL,
+                               stdin=subprocess.DEVNULL)
                     
             elif system == "Windows":
-                # Use Command Prompt but run GUI command instead of bash
-                docker_cmd = f'docker exec -it --workdir /ti-csc simnibs_container bash -c "/ti-csc/CLI/GUI.sh"'
-                
-                # FIXED: Hide the terminal window for GUI launch - user only sees the GUI app
-                cmd_line = f'cmd /c "cd /d "{self.script_dir}" && {docker_cmd}"'
+                # Keep Windows behavior - use hidden terminal window
+                docker_cmd_str = ' '.join(docker_cmd)
+                cmd_line = f'cmd /c "cd /d "{self.script_dir}" && {docker_cmd_str}"'
                 
                 # Use hidden window creation
                 startupinfo = subprocess.STARTUPINFO()
@@ -1307,8 +1287,8 @@ class TIToolboxLoaderApp(QWidget):
                                startupinfo=startupinfo, 
                                creationflags=subprocess.CREATE_NO_WINDOW)
             
-            self.log_message("✓ GUI launched using CLI method", "SUCCESS")
-            self.log_message("GUI should appear in a few seconds", "INFO")
+            self.log_message("✓ GUI launched (no visible terminal)", "SUCCESS")
+            self.log_message("GUI application should appear shortly", "INFO")
             
         except Exception as e:
             self.log_message(f"Failed to launch GUI: {e}", "ERROR")
@@ -1437,58 +1417,99 @@ class TIToolboxLoaderApp(QWidget):
                 self.log_message("Waiting for XQuartz to initialize...", "INFO")
                 time.sleep(3)
             
-            # Set up X11 permissions with proper error handling
+            # Find xhost executable more robustly
+            def find_xhost():
+                """Find xhost executable in common locations"""
+                common_paths = [
+                    '/usr/X11/bin/xhost',
+                    '/opt/X11/bin/xhost', 
+                    '/usr/local/bin/xhost',
+                    '/opt/homebrew/bin/xhost',
+                    '/usr/bin/xhost'
+                ]
+                
+                # First try shutil.which
+                xhost_path = shutil.which('xhost')
+                if xhost_path and os.path.exists(xhost_path):
+                    return xhost_path
+                
+                # Then try common paths
+                for path in common_paths:
+                    if os.path.exists(path) and os.access(path, os.X_OK):
+                        return path
+                
+                return None
+            
+            # Set up X11 permissions with robust xhost finding
             self.log_message("Setting up X11 permissions...", "INFO")
             
             # Set DISPLAY environment variable first
             os.environ['DISPLAY'] = ':0'
             
-            try:
-                # Allow connections from localhost
-                result = subprocess.run(['xhost', '+localhost'], 
-                                      capture_output=True, text=True, timeout=10,
-                                      env=dict(os.environ, DISPLAY=':0'))
-                if result.returncode != 0:
-                    self.log_message(f"xhost +localhost failed: {result.stderr}", "WARNING")
-                
-                # Allow connections from hostname
-                try:
-                    hostname_result = subprocess.run(['hostname'], capture_output=True, text=True, timeout=5)
-                    if hostname_result.returncode == 0:
-                        hostname = hostname_result.stdout.strip()
-                        result = subprocess.run(['xhost', f'+{hostname}'], 
-                                              capture_output=True, text=True, timeout=10,
-                                              env=dict(os.environ, DISPLAY=':0'))
-                        if result.returncode != 0:
-                            self.log_message(f"xhost +{hostname} failed: {result.stderr}", "WARNING")
-                except Exception as e:
-                    self.log_message(f"Could not set hostname xhost permission: {e}", "WARNING")
-                
-                # Also allow Docker's internal IP access
-                try:
-                    # Add common Docker internal IPs
-                    docker_ips = ['172.17.0.1', '192.168.65.2', '172.16.0.1']
-                    for ip in docker_ips:
-                        subprocess.run(['xhost', f'+{ip}'], 
-                                     capture_output=True, text=True, timeout=5,
-                                     env=dict(os.environ, DISPLAY=':0'))
-                except:
-                    pass  # These are optional
-                
-            except Exception as e:
-                self.log_message(f"Warning: Could not set X11 permissions: {e}", "WARNING")
+            # Find xhost executable
+            xhost_executable = find_xhost()
             
-            # Verify X11 is accessible
-            try:
-                result = subprocess.run(['xset', 'q'], 
-                                      capture_output=True, text=True, timeout=5,
-                                      env=dict(os.environ, DISPLAY=':0'))
-                if result.returncode == 0:
-                    self.log_message("X11 server is accessible", "SUCCESS")
-                else:
-                    self.log_message("X11 server test failed", "WARNING")
-            except:
-                self.log_message("Could not test X11 server access", "WARNING")
+            if xhost_executable:
+                self.log_message(f"Found xhost at: {xhost_executable}", "INFO")
+                try:
+                    # Allow connections from localhost
+                    result = subprocess.run([xhost_executable, '+localhost'], 
+                                          capture_output=True, text=True, timeout=10,
+                                          env=dict(os.environ, DISPLAY=':0'))
+                    if result.returncode != 0:
+                        self.log_message(f"xhost +localhost failed: {result.stderr}", "WARNING")
+                    else:
+                        self.log_message("✓ X11 permissions set for localhost", "SUCCESS")
+                    
+                    # Allow connections from hostname
+                    try:
+                        hostname_result = subprocess.run(['hostname'], capture_output=True, text=True, timeout=5)
+                        if hostname_result.returncode == 0:
+                            hostname = hostname_result.stdout.strip()
+                            result = subprocess.run([xhost_executable, f'+{hostname}'], 
+                                                  capture_output=True, text=True, timeout=10,
+                                                  env=dict(os.environ, DISPLAY=':0'))
+                            if result.returncode != 0:
+                                self.log_message(f"xhost +{hostname} failed: {result.stderr}", "WARNING")
+                            else:
+                                self.log_message(f"✓ X11 permissions set for {hostname}", "SUCCESS")
+                    except Exception as e:
+                        self.log_message(f"Could not set hostname xhost permission: {e}", "WARNING")
+                    
+                    # Also allow Docker's internal IP access
+                    try:
+                        # Add common Docker internal IPs
+                        docker_ips = ['172.17.0.1', '192.168.65.2', '172.16.0.1']
+                        for ip in docker_ips:
+                            subprocess.run([xhost_executable, f'+{ip}'], 
+                                         capture_output=True, text=True, timeout=5,
+                                         env=dict(os.environ, DISPLAY=':0'))
+                    except:
+                        pass  # These are optional
+                    
+                except Exception as e:
+                    self.log_message(f"Warning: Could not set X11 permissions: {e}", "WARNING")
+            else:
+                self.log_message("xhost not found - X11 permissions may not be set properly", "WARNING")
+                self.log_message("GUI may still work if XQuartz is already configured", "INFO")
+            
+            # Verify X11 is accessible (optional, don't fail if this doesn't work)
+            if xhost_executable:
+                try:
+                    # Try to find xset as well
+                    xset_executable = shutil.which('xset') or '/usr/X11/bin/xset' or '/opt/X11/bin/xset'
+                    if xset_executable and os.path.exists(xset_executable):
+                        result = subprocess.run([xset_executable, 'q'], 
+                                              capture_output=True, text=True, timeout=5,
+                                              env=dict(os.environ, DISPLAY=':0'))
+                        if result.returncode == 0:
+                            self.log_message("✓ X11 server is accessible", "SUCCESS")
+                        else:
+                            self.log_message("X11 server test failed, but continuing", "WARNING")
+                    else:
+                        self.log_message("xset not found, skipping X11 server test", "INFO")
+                except:
+                    self.log_message("Could not test X11 server access, but continuing", "INFO")
             
             self.log_message("XQuartz setup completed", "SUCCESS")
             return True
@@ -1517,10 +1538,3 @@ def main():
 
 if __name__ == '__main__':
     main() 
-
-# Code cleanup summary:
-# - Removed 125+ lines of complex GUI debugging methods
-# - Simplified GUI launch to use proven CLI approach across all platforms
-# - Unified subprocess handling preventing Windows terminal flashing
-# - Enhanced cross-platform compatibility
-# - Maintained all existing functionality while reducing complexity 
