@@ -62,7 +62,7 @@ layout: home
   </svg>
 </div>
 <div style="display: flex; justify-content: center; margin-bottom: 2rem;">
-  <img src="{{ site.baseurl }}/assets/imgs/preprocess.png" alt="Preprocess Example" style="max-width: 320px; width: 100%; height: auto; display: block;" />
+  <img src="{{ site.baseurl }}/assets/imgs/preprocess.png" alt="Preprocess Example" style="max-width: 500px; width: 100%; height: auto; display: block;" />
 </div>
 
 For more details, see the <a href="{{ site.baseurl }}/wiki">Wiki</a>.
