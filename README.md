@@ -5,7 +5,7 @@ https://idossha.github.io/TI-Toolbox/
 
 ## Contact
 
-For any questions or issues regarding the TI-Toolbox, please contact:
+For any inquirie sregarding the TI-Toolbox, please contact:
 
 - **Ido Haber**
 - Email: ihaber@wisc.edu
