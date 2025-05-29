@@ -42,7 +42,6 @@ RUN apt-get update && apt-get install -y \
     \
     # System libraries
     libglib2.0-0 \
-    libssl1.1 \
     libopenblas-dev \
     \
     # OpenGL and Mesa libraries (for 3D graphics)
@@ -52,7 +51,7 @@ RUN apt-get update && apt-get install -y \
     libgl1-mesa-dri \
     libglapi-mesa \
     libosmesa6 \
-    \
+        \
     # X11 libraries (for GUI applications)
     libxt6 \
     libxext6 \
@@ -63,6 +62,8 @@ RUN apt-get update && apt-get install -y \
     libxcomposite1 \
     libxdamage1 \
     libxi6 \
+    libxmu6 \
+    libxft2 \ 
     \
     # Qt5 libraries (for PyQt5 GUI)
     libqt5widgets5 \
@@ -105,7 +106,7 @@ ENV PATH="/root/SimNIBS-4.5/bin:$PATH"
 ENV SIMNIBSDIR="/root/SimNIBS-4.5"
 
 ########### TI-CSC ########################
-RUN git clone https://github.com/idossha/TI-CSC-2.0.git /ti-csc
+RUN git clone https://github.com/idossha/TI-Toolbox.git /ti-csc
 
 # Convert all shell scripts to Unix line endings
 RUN find /ti-csc -name "*.sh" -exec dos2unix {} \;
@@ -131,6 +132,12 @@ RUN git clone https://github.com/neovim/neovim.git /tmp/neovim \
 # Create symlinks for config files
 RUN ln -sf /ti-csc/config/.tmux.conf /root/.tmux.conf && \
     ln -sf /ti-csc/config/nvim /root/.config/
+
+# Install plugins using lazy.nvim
+RUN nvim --headless "+LAZY! sync" +qa
+
+# Source tmux
+RUN tmux source-file /root/.tmux.conf || true
 
 ############ MATLAB prep ###############
 
