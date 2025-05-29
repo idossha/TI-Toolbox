@@ -1256,14 +1256,28 @@ class TIToolboxLoaderApp(QWidget):
             ]
             
             if system == "Darwin":  # macOS
-                # Use osascript to run the command in a hidden terminal
+                # Create invisible Terminal window with proper TTY for docker exec -it
+                docker_cmd_str = ' '.join(docker_cmd)
+                
+                # AppleScript that creates a Terminal window but keeps it completely hidden
                 applescript_cmd = f'''
                 tell application "Terminal"
-                    set targetWindow to do script "cd '{self.script_dir}' && {' '.join(docker_cmd)}"
-                    set miniaturized of window 1 to true
+                    -- Create new window without bringing Terminal to front
+                    set newWindow to do script "cd '{self.script_dir}' && {docker_cmd_str}"
+                    
+                    -- Make window invisible immediately
+                    set visible of newWindow to false
+                    
+                    -- Optional: close the terminal after command completes
+                    delay 2
+                    do script "exit" in newWindow
                 end tell
                 '''
-                subprocess.Popen(['osascript', '-e', applescript_cmd])
+                
+                # Run AppleScript in background
+                subprocess.Popen(['osascript', '-e', applescript_cmd],
+                               stdout=subprocess.DEVNULL, 
+                               stderr=subprocess.DEVNULL)
                 
             elif system == "Linux":
                 # Run docker command directly in background with nohup to detach from terminal
