@@ -17,6 +17,7 @@ header_pages:
   - wiki/wiki.md
   - releases/releases.md
   - about/about.md
+  - installation.md
 
 # Markdown settings
 markdown: kramdown

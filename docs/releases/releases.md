@@ -29,14 +29,6 @@ permalink: /releases/
 
 We actively support and maintain versions 2.x.x and newer of the Temporal Interference Toolbox. Versions 1.x.x are no longer supported.
 
-## Release Process
-
-New releases are created through our automated release workflow:
-
-1. Version numbers are updated using `scripts/update_version.py`
-2. Release notes are automatically generated
-3. Installers are built for all platforms
-4. Documentation is updated
 
 ## Getting Help
 
