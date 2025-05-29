@@ -4,12 +4,9 @@ title: Releases
 permalink: /releases/
 ---
 
-# Releases
-
 ## Latest Release
 
 <!-- DO NOT MODIFY: Auto-generated release content will be appended here -->
-
 ### v2.0.0
 
 **Release Date**: May 28, 2025
@@ -25,6 +22,9 @@ permalink: /releases/
 - [macOS Universal](https://github.com/idossha/TI-Toolbox/releases/download/v2.0.0/TemporalInterferenceToolbox-macOS-universal.zip)
 - [Linux AppImage](https://github.com/idossha/TI-Toolbox/releases/download/v2.0.0/TemporalInterferenceToolbox-Linux-x86_64.AppImage)
 
+  
+---
+
 ## Version Support
 
 We actively support and maintain versions 2.x.x and newer of the Temporal Interference Toolbox. Versions 1.x.x are no longer supported.
@@ -39,7 +39,3 @@ If you encounter issues with any release:
 3. Search [existing issues](https://github.com/idossha/TI-Toolbox/issues)
 4. Ask in [GitHub Discussions](https://github.com/idossha/TI-Toolbox/discussions)
 
-## See Also
-
-- [Wiki]({{ site.baseurl }}/wiki/)
-- [About]({{ site.baseurl }}/about/) 

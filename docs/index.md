@@ -6,7 +6,6 @@ layout: home
   <img src="{{ site.baseurl }}/assets/imgs/icon.png" alt="TI Toolbox Icon" style="width:80px;height:80px;flex-shrink:0;">
   <div>
     <h1>Temporal Interference Toolbox</h1>
-    <p>Advanced Brain Stimulation Simulation Platform</p>
     <p>A comprehensive toolbox for temporal interference stimulation research, providing end-to-end neuroimaging and simulation capabilities.</p>
   </div>
 </div>

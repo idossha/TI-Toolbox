@@ -4,8 +4,6 @@ title: About
 permalink: /about/
 ---
 
-# About
-
 About the Temporal Interference Toolbox project.
 
 ## Links
