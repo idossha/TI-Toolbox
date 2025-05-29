@@ -103,7 +103,7 @@ def add_release_to_changelog(version, release_notes=""):
 - [macOS Universal](https://github.com/idossha/TI-Toolbox/releases/download/v{version}/TemporalInterferenceToolbox-macOS-universal.zip)
 - [Linux AppImage](https://github.com/idossha/TI-Toolbox/releases/download/v{version}/TemporalInterferenceToolbox-Linux-x86_64.AppImage)
 
-For installation instructions, see the [Installation Guide]({{ site.baseurl }}/wiki/installation-guide).
+For installation instructions, see the [Installation Guide]({{ site.baseurl }}/installation/).
 
 """
     

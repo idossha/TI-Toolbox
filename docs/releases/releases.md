@@ -25,15 +25,6 @@ permalink: /releases/
 - [macOS Universal](https://github.com/idossha/TI-Toolbox/releases/download/v2.0.0/TemporalInterferenceToolbox-macOS-universal.zip)
 - [Linux AppImage](https://github.com/idossha/TI-Toolbox/releases/download/v2.0.0/TemporalInterferenceToolbox-Linux-x86_64.AppImage)
 
-For installation instructions, see the [Installation Guide]({ site.baseurl }/wiki/installation-guide).
-
-
-
-
-For installation instructions, see the [Installation Guide]({ site.baseurl }/wiki/installation-guide).
-
-
-
 ## Version Support
 
 We actively support and maintain versions 2.x.x and newer of the Temporal Interference Toolbox. Versions 1.x.x are no longer supported.
@@ -51,8 +42,8 @@ New releases are created through our automated release workflow:
 
 If you encounter issues with any release:
 
-1. Check the [Installation Guide]({{ site.baseurl }}/wiki/installation-guide) for setup instructions
-2. Review the [Troubleshooting]({{ site.baseurl }}/wiki/installation-guide#troubleshooting) section
+1. Check the [Installation Guide]({{ site.baseurl }}/installation/) for setup instructions
+2. Review the [Troubleshooting]({{ site.baseurl }}/installation/#troubleshooting) section
 3. Search [existing issues](https://github.com/idossha/TI-Toolbox/issues)
 4. Ask in [GitHub Discussions](https://github.com/idossha/TI-Toolbox/discussions)
 

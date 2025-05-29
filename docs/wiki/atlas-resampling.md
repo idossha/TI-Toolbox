@@ -56,4 +56,4 @@ If you need further assistance with atlas generation or have questions about the
 ## See Also
 
 - Return to [Wiki]({{ site.baseurl }}/wiki/)
-- View [Installation Guide]({{ site.baseurl }}/wiki/installation-guide/) 
+- View [Installation Guide]({{ site.baseurl }}/installation/) 
