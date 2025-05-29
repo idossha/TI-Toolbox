@@ -65,7 +65,6 @@ layout: home
   <img src="{{ site.baseurl }}/assets/imgs/preprocess.png" alt="Preprocess Example" style="max-width: 500px; width: 100%; height: auto; display: block;" />
 </div>
 
-For more details, see the <a href="{{ site.baseurl }}/wiki">Wiki</a>.
 
 ## System Requirements
 
@@ -74,24 +73,20 @@ For more details, see the <a href="{{ site.baseurl }}/wiki">Wiki</a>.
 - **RAM**: 16GB (32GB recommended for full functionality)
 - **Storage**: 50GB free space
 
-## Version Support
-
-We actively support and maintain versions 2.x.x and newer of the Temporal Interference Toolbox. Versions 1.x.x are no longer supported. For the latest version and changelog, please see the <a href="/releases">Releases page</a>.
-
 
 ---
 
 ## Acknowledgments
 
-We extend our gratitude to the developers and contributors of the open-source tools integrated into the TI-Toolbox. Their work has been instrumental in advancing research in the field of neurostimulation.
+We extend our gratitude to the developers and contributors of the tools integrated into the TI-Toolbox. 
 
+- [**Docker**](https://www.docker.com): A containerization platform for developing, shipping, and running distributed applications.
 - [**SimNIBS**:](https://simnibs.github.io/simnibs/build/html/publications.html) A simulation environment for transcranial brain stimulation, enabling electric field modeling.
-- [**FSL**:](https://fsl.fmrib.ox.ac.uk/fsl/fslwiki/RecommendedPapers) A comprehensive library of tools for analysis of functional and structural brain imaging data.
 - [**FreeSurfer**:](https://surfer.nmr.mgh.harvard.edu/fswiki/FreeSurferMethodsCitation) A software suite for the analysis and visualization of structural and functional neuroimaging data.
 - [**Gmsh**:](http://gmsh.info/#Acknowledging) A three-dimensional finite element mesh generator with a built-in CAD engine and post-processor.  
+- [**FSL**:](https://fsl.fmrib.ox.ac.uk/fsl/fslwiki/RecommendedPapers) A comprehensive library of tools for analysis of functional and structural brain imaging data.
 - [**dcm2niix**](https://github.com/rordenlab/dcm2niix): A tool for converting DICOM images to NIfTI format
-
-
+- [**BIDS**](https://bids.neuroimaging.io/): A standardized way to organize and describe neuroimaging data.
 
 ## Community
 
