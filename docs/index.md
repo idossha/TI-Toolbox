@@ -22,7 +22,7 @@ layout: home
 2. **Install Docker Desktop**
    - Required for running the toolbox environment.
 3. **Get the Latest Release**
-   - Download the latest version (2.x.x or newer) from the <a href="/releases">Releases page</a>. See the <a href="/installation">Installation Guide</a> for platform-specific instructions. Note: Versions 1.x.x are no longer supported.
+   - Download the latest version (2.x.x or newer) from the <a href="/releases">Releases page</a>. See the <a href="/installation">Installation</a> for platform-specific instructions. Note: Versions 1.x.x are no longer supported.
 4. **Pre-process your data**
    - Convert DICOM to NIfTI, run FreeSurfer, and create SimNIBS head models using the pre-processing pipeline.
 5. **Optimize electrode placement**
@@ -33,20 +33,36 @@ layout: home
    - Use the analyzer and visualization tools for ROI-based and atlas-based analysis, and to generate figures and reports.
 
 <div style="display: flex; justify-content: center; margin: 2rem 0;">
-  <svg width="600" height="110" viewBox="0 0 600 110" xmlns="http://www.w3.org/2000/svg">
+  <svg width="650" height="110" viewBox="0 0 650 110" xmlns="http://www.w3.org/2000/svg">
+    <!-- Pre-processing Box -->
     <rect x="10" y="30" width="130" height="50" rx="12" fill="#f5f5f5" stroke="#0074D9" stroke-width="2"/>
     <text x="75" y="60" text-anchor="middle" alignment-baseline="middle" font-size="16" fill="#0074D9">Pre-processing</text>
-    <polygon points="140,55 170,55 170,65 140,65 150,60" fill="#0074D9"/>
-    <rect x="170" y="30" width="130" height="50" rx="12" fill="#f5f5f5" stroke="#2ECC40" stroke-width="2"/>
-    <text x="235" y="60" text-anchor="middle" alignment-baseline="middle" font-size="16" fill="#2ECC40">Optimization</text>
-    <polygon points="300,55 330,55 330,65 300,65 310,60" fill="#2ECC40"/>
-    <rect x="330" y="30" width="130" height="50" rx="12" fill="#f5f5f5" stroke="#FF851B" stroke-width="2"/>
-    <text x="395" y="60" text-anchor="middle" alignment-baseline="middle" font-size="16" fill="#FF851B">Simulation</text>
-    <polygon points="460,55 490,55 490,65 460,65 470,60" fill="#FF851B"/>
-    <rect x="490" y="30" width="100" height="50" rx="12" fill="#f5f5f5" stroke="#B10DC9" stroke-width="2"/>
-    <text x="540" y="53" text-anchor="middle" font-size="15" fill="#B10DC9">Analysis</text>
-    <text x="540" y="73" text-anchor="middle" font-size="13" fill="#B10DC9">& Viz</text>
+    <!-- Arrow 1 -->
+    <line x1="140" y1="55" x2="180" y2="55" stroke="#888" stroke-width="3" marker-end="url(#arrowhead)"/>
+    <!-- Optimization Box -->
+    <rect x="180" y="30" width="130" height="50" rx="12" fill="#f5f5f5" stroke="#2ECC40" stroke-width="2"/>
+    <text x="245" y="60" text-anchor="middle" alignment-baseline="middle" font-size="16" fill="#2ECC40">Optimization</text>
+    <!-- Arrow 2 -->
+    <line x1="310" y1="55" x2="350" y2="55" stroke="#888" stroke-width="3" marker-end="url(#arrowhead)"/>
+    <!-- Simulation Box -->
+    <rect x="350" y="30" width="130" height="50" rx="12" fill="#f5f5f5" stroke="#FF851B" stroke-width="2"/>
+    <text x="415" y="60" text-anchor="middle" alignment-baseline="middle" font-size="16" fill="#FF851B">Simulation</text>
+    <!-- Arrow 3 -->
+    <line x1="480" y1="55" x2="520" y2="55" stroke="#888" stroke-width="3" marker-end="url(#arrowhead)"/>
+    <!-- Analysis & Visualization Box -->
+    <rect x="520" y="30" width="120" height="50" rx="12" fill="#f5f5f5" stroke="#B10DC9" stroke-width="2"/>
+    <text x="580" y="53" text-anchor="middle" font-size="15" fill="#B10DC9">Analysis &</text>
+    <text x="580" y="73" text-anchor="middle" font-size="15" fill="#B10DC9">Visualization</text>
+    <!-- Arrowhead marker definition -->
+    <defs>
+      <marker id="arrowhead" markerWidth="6" markerHeight="4" refX="6" refY="2" orient="auto" markerUnits="strokeWidth">
+        <polygon points="0 0, 6 2, 0 4" fill="#888" />
+      </marker>
+    </defs>
   </svg>
+</div>
+<div style="display: flex; justify-content: center; margin-bottom: 2rem;">
+  <img src="{{ site.baseurl }}/assets/imgs/preprocess.png" alt="Preprocess Example" style="max-width: 320px; width: 100%; height: auto; display: block;" />
 </div>
 
 For more details, see the <a href="{{ site.baseurl }}/wiki">Wiki</a>.
