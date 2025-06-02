@@ -648,7 +648,7 @@ class MeshAnalyzer:
         
         # Save results to CSV
         region_name = f"sphere_x{center_coordinates[0]}_y{center_coordinates[1]}_z{center_coordinates[2]}_r{radius}"
-        self.visualizer.save_results_to_csv(results, 'spherical', region_name, 'node')
+        self.visualizer.save_results_to_csv(results, region_name, 'node')
         
         return results
 
@@ -698,7 +698,7 @@ class MeshAnalyzer:
                 }
                 
                 # Save results to CSV even if empty
-                self.visualizer.save_results_to_csv(results, 'cortical', target_region, 'node')
+                self.visualizer.save_results_to_csv(results, target_region, 'node')
                 
                 return results
             
@@ -747,7 +747,7 @@ class MeshAnalyzer:
                 )
             
             # Save results to CSV
-            self.visualizer.save_results_to_csv(results, 'cortical', target_region, 'node')
+            self.visualizer.save_results_to_csv(results, target_region, 'node')
             
             return results
                 
