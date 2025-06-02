@@ -399,7 +399,6 @@ class PreProcessTab(QtWidgets.QWidget):
         """)
         
         # Add buttons to console buttons layout in the desired order
-        # Add buttons to console buttons layout in the desired order
         console_buttons_layout.addWidget(self.run_btn)
         console_buttons_layout.addWidget(self.stop_btn)
         console_buttons_layout.addWidget(clear_btn)
@@ -648,7 +647,8 @@ class PreProcessTab(QtWidgets.QWidget):
         env['QUIET'] = str(self.quiet_cb.isChecked()).lower()
         
         # Build command using absolute Docker paths
-        cmd = ['/ti-csc/pre-process/structural.sh']
+        script_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        cmd = [os.path.join(script_dir, 'pre-process', 'structural.sh')]
         
         # Add optional flags based on checkbox states
         if self.run_recon_cb.isChecked():
