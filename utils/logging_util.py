@@ -30,7 +30,8 @@ def _copy_handler(handler: logging.Handler) -> logging.Handler:
     Create a fresh handler of the same type as 'handler', preserving its formatter and level.
     """
     if isinstance(handler, logging.FileHandler):
-        new_handler = logging.FileHandler(handler.baseFilename, mode=handler.mode)
+        # Always use append mode for external loggers to avoid overwriting
+        new_handler = logging.FileHandler(handler.baseFilename, mode='a')
     elif isinstance(handler, logging.StreamHandler):
         new_handler = logging.StreamHandler(sys.stdout)
     else:
