@@ -558,6 +558,8 @@ class AnalyzerTab(QtWidgets.QWidget):
         right_layout.addWidget(analysis_params_container)
         
         visualization_container = QtWidgets.QGroupBox("Visualization")
+        # Remove any fixed height settings and set size policy
+        visualization_container.setSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Fixed)
         visualization_layout = QtWidgets.QVBoxLayout(visualization_container)
         self.visualize_check = QtWidgets.QCheckBox("Generate Visualizations")
         self.visualize_check.setChecked(True)
@@ -659,7 +661,18 @@ class AnalyzerTab(QtWidgets.QWidget):
 
             self.populate_group_analysis_tabs(selected_subjects)
             self.update_group_tabs_visibility() # This should trigger field population
-            self.set_analysis_config_panel_size('group')
+            self.set_analysis_config_panel_size('group' if self.is_group_mode else 'single')
+            # Force layout recalculation to remove extra gap when switching modes
+            if hasattr(self, 'analysis_params_container'):
+                self.analysis_params_container.adjustSize()
+                self.analysis_params_container.updateGeometry()
+            # If the right container exists, adjust it as well
+            if hasattr(self, 'analysis_params_container') and self.analysis_params_container.parent():
+                parent_widget = self.analysis_params_container.parent()
+                if hasattr(parent_widget, 'adjustSize'):
+                    parent_widget.adjustSize()
+                if hasattr(parent_widget, 'updateGeometry'):
+                    parent_widget.updateGeometry()
         else:
             # Switch to single mode
             if self.is_group_mode:
@@ -1010,26 +1023,48 @@ class AnalyzerTab(QtWidgets.QWidget):
             self.atlas_name_combo.currentTextChanged.connect(self.update_group_mesh_atlas)
             self.update_group_mesh_atlas(self.atlas_name_combo.currentText()) # Initial update
         elif self.space_voxel.isChecked() and self.type_cortical.isChecked():
+            # Get atlases for first subject to start with
             available_atlases_for_first_subject = self.get_available_atlas_files(selected_subjects[0])
             common_atlases_display = []
+            
+            # If first subject has valid atlases, check against other subjects
             if isinstance(available_atlases_for_first_subject, list) and \
                available_atlases_for_first_subject and \
                isinstance(available_atlases_for_first_subject[0], tuple):
-                for disp_name, path_val in available_atlases_for_first_subject:
-                    self.atlas_combo.addItem(disp_name, path_val) # Add to the shared voxel atlas combo
+                
+                # Start with first subject's atlases
+                first_subject_atlases = {disp_name: path_val for disp_name, path_val in available_atlases_for_first_subject}
+                
+                # Check each subsequent subject
+                for subject_id in selected_subjects[1:]:
+                    subject_atlases = self.get_available_atlas_files(subject_id)
+                    if not isinstance(subject_atlases, list) or not subject_atlases or not isinstance(subject_atlases[0], tuple):
+                        # If any subject has no valid atlases, clear common atlases
+                        first_subject_atlases = {}
+                        break
+                    
+                    # Keep only atlases that exist in both subjects
+                    subject_atlas_names = {disp_name for disp_name, _ in subject_atlases}
+                    first_subject_atlases = {name: path for name, path in first_subject_atlases.items() 
+                                          if name in subject_atlas_names}
+                
+                # Add common atlases to combo
+                for disp_name, path_val in first_subject_atlases.items():
+                    self.atlas_combo.addItem(disp_name, path_val)
                     common_atlases_display.append(disp_name)
-                self.atlas_combo.setEnabled(self.atlas_combo.count() > 0)
-            else:
-                self.atlas_combo.addItem("No common atlases for selection")
-                self.atlas_combo.setEnabled(False)
+            
             if common_atlases_display:
                 self.atlas_combo.setCurrentIndex(0)
-                try: self.atlas_combo.currentTextChanged.disconnect(self.update_group_voxel_atlas) # Original name
+                self.atlas_combo.setEnabled(True)
+                try: self.atlas_combo.currentTextChanged.disconnect(self.update_group_voxel_atlas)
                 except TypeError: pass
                 self.atlas_combo.currentTextChanged.connect(self.update_group_voxel_atlas)
                 self.update_group_voxel_atlas(self.atlas_combo.currentText()) # Initial update
-
-
+            else:
+                self.atlas_combo.addItem("No common atlases for all selected subjects")
+                self.atlas_combo.setEnabled(False)
+                self.group_atlas_config.clear() # Clear all atlas configs since we have no common atlas
+    
     def update_group_mesh_atlas(self, atlas_name): # Called by shared mesh atlas_name_combo
         if not self.is_group_mode or not self.space_mesh.isChecked() or not self.type_cortical.isChecked(): return
             
@@ -1049,7 +1084,9 @@ class AnalyzerTab(QtWidgets.QWidget):
         for subject_id in selected_subjects:
             subject_specific_atlases = self.get_available_atlas_files(subject_id)
             found_path_for_this_subject = None
-            if isinstance(subject_specific_atlases, list):
+            
+            # Check if subject_specific_atlases is a list of tuples (valid atlases)
+            if isinstance(subject_specific_atlases, list) and subject_specific_atlases and isinstance(subject_specific_atlases[0], tuple):
                 for disp_name, subj_path in subject_specific_atlases:
                     # We match by display name, assuming they are consistent (e.g., "DKT Atlas + Aseg")
                     if disp_name == atlas_display_name_from_shared_combo:
@@ -1064,7 +1101,6 @@ class AnalyzerTab(QtWidgets.QWidget):
                 }
             else:
                 self.group_atlas_config.pop(subject_id, None) # Atlas not found for this subject
-                print(f"Warning: Atlas '{atlas_display_name_from_shared_combo}' not found for subject {subject_id}.")
 
 
     def toggle_region_input(self, state_int): # state is int from checkbox
@@ -2168,7 +2204,9 @@ General.Trackball = 1; General.RotationX = 0; General.RotationY = 0; General.Rot
     def set_analysis_config_panel_size(self, mode):
         if not hasattr(self, 'analysis_params_container'):
             return
-        # Always use the same size and policy for both modes
-        self.analysis_params_container.setMinimumHeight(250)
-        self.analysis_params_container.setMaximumHeight(250)
+        # Remove fixed height so the box fits its content
         self.analysis_params_container.setSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Fixed)
+        # Ensure the container's layout maintains consistent spacing
+        if hasattr(self.analysis_params_container, 'layout'):
+            self.analysis_params_container.layout().setSpacing(4)
+            self.analysis_params_container.layout().setContentsMargins(4, 4, 4, 4)
