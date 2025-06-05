@@ -57,6 +57,11 @@ from matplotlib.colors import Normalize
 import simnibs
 from pathlib import Path
 import csv
+import sys
+
+# Add the parent directory to the path to access utils
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+from utils import logging_util
 
 
 class BaseVisualizer:
@@ -70,17 +75,29 @@ class BaseVisualizer:
         output_dir (str): Directory where visualization files will be saved
     """
     
-    def __init__(self, output_dir: str):
+    def __init__(self, output_dir: str, logger=None):
         """
         Initialize the BaseVisualizer.
         
         Args:
             output_dir (str): Directory where visualization files will be saved
+            logger: Optional logger instance to use. If None, creates its own.
         """
         self.output_dir = output_dir
         
+        # Set up logger - use provided logger or create a new one
+        if logger is not None:
+            # Create a child logger to distinguish visualizer logs
+            self.logger = logger.getChild('visualizer')
+        else:
+            # Create our own logger if none provided
+            import time
+            time_stamp = time.strftime('%Y%m%d_%H%M%S')
+            self.logger = logging_util.get_logger('visualizer', f'output/Documentation/visualizer_{time_stamp}.log', overwrite=True)
+        
         # Create output directory if it doesn't exist
         if not os.path.exists(output_dir):
+            self.logger.info(f"Creating output directory: {output_dir}")
             os.makedirs(output_dir)
 
     def save_results_to_csv(self, results, analysis_type, region_name=None, data_type='node'):
@@ -141,7 +158,7 @@ class BaseVisualizer:
                 if 'visualization_file' in results and results['visualization_file']:
                     writer.writerow(['visualization_file', results['visualization_file']])
             
-        print(f"Saved analysis results to: {output_path}")
+        self.logger.info(f"Saved analysis results to: {output_path}")
         return output_path
 
     def save_whole_head_results_to_csv(self, results, atlas_type, data_type='node'):
@@ -183,7 +200,7 @@ class BaseVisualizer:
                 ]
                 writer.writerow(row)
         
-        print(f"Saved whole-head analysis results to: {output_path}")
+        self.logger.info(f"Saved whole-head analysis results to: {output_path}")
         return output_path
 
 
@@ -193,14 +210,15 @@ class Visualizer(BaseVisualizer):
     Contains common visualization methods used by both mesh and voxel analysis.
     """
     
-    def __init__(self, output_dir: str):
+    def __init__(self, output_dir: str, logger=None):
         """
         Initialize the Visualizer class.
         
         Args:
             output_dir (str): Directory where visualization files will be saved
+            logger: Optional logger instance to use. If None, creates its own.
         """
-        super().__init__(output_dir)
+        super().__init__(output_dir, logger)
         
         # Only create directories if needed for individual analyses, not for whole-head
         # We'll create these directories on demand in the specific methods that need them
@@ -208,12 +226,16 @@ class Visualizer(BaseVisualizer):
     
     def generate_cortex_scatter_plot(self, results, atlas_type, data_type='voxel'):
         """Generate a sorted scatter plot of median values for all cortical regions."""
+        self.logger.info(f"Generating cortex scatter plot for {atlas_type} atlas with {len(results)} regions")
+        
         # Filter out regions with None values
         valid_results = {name: res for name, res in results.items() if res['mean_value'] is not None}
         
         if not valid_results:
-            print("Warning: No valid results to plot")
+            self.logger.warning("No valid results to plot")
             return
+        
+        self.logger.info(f"Found {len(valid_results)} valid regions for plotting")
         
         # Save results to CSV
         self.save_whole_head_results_to_csv(results, atlas_type, data_type)
@@ -272,10 +294,12 @@ class Visualizer(BaseVisualizer):
         plt.savefig(output_file, dpi=300, bbox_inches='tight')
         plt.close()
         
-        print(f"Generated sorted scatter plot: {output_file}")
+        self.logger.info(f"Generated sorted scatter plot: {output_file}")
 
     def generate_value_distribution_plot(self, field_values, region_name, atlas_type, mean_value, max_value, min_value, data_type='voxel'):
         """Generate a raincloud plot showing the distribution of individual values within a region."""
+        self.logger.info(f"Generating value distribution plot for region: {region_name}")
+        self.logger.info(f"Data: {len(field_values)} {data_type}s, mean={mean_value:.6f}, max={max_value:.6f}, min={min_value:.6f}")
         # Create figure with subplots
         fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 10), 
                                       gridspec_kw={'height_ratios': [3, 1]})
@@ -359,18 +383,22 @@ class Visualizer(BaseVisualizer):
         plt.savefig(output_file, dpi=300, bbox_inches='tight')
         plt.close()
         
-        print(f"Generated {data_type} value distribution plot: {output_file}")
+        self.logger.info(f"Generated {data_type} value distribution plot: {output_file}")
         
         return output_file
 
     def _generate_whole_head_plots(self, results, atlas_type, data_type='voxel'):
         """Generate scatter plots for whole head analysis directly in the main output directory."""
+        self.logger.info(f"Generating whole head plots for {atlas_type} atlas with {len(results)} regions")
+        
         # Filter out regions with None values
         valid_results = {name: res for name, res in results.items() if res['mean_value'] is not None}
         
         if not valid_results:
-            print("Warning: No valid results to plot")
+            self.logger.warning("No valid results to plot")
             return
+        
+        self.logger.info(f"Found {len(valid_results)} valid regions for plotting")
         
         try:
             # Prepare data for plotting
@@ -382,9 +410,10 @@ class Visualizer(BaseVisualizer):
                 # Attempt to get voxel counts if they're in the data
                 counts = [res.get(f'{data_type}s_in_roi', 1) for res in valid_results.values()]
                 use_counts_for_color = True
+                self.logger.info(f"Using {data_type} counts for color mapping")
             except (KeyError, AttributeError):
                 # If not available, use a default color
-                print(f"Note: '{data_type}s_in_roi' not found in results, using default coloring")
+                self.logger.info(f"'{data_type}s_in_roi' not found in results, using default coloring")
                 counts = [1 for _ in valid_results.values()]
                 use_counts_for_color = False
             
@@ -482,28 +511,30 @@ class Visualizer(BaseVisualizer):
             plt.savefig(output_file, dpi=300, bbox_inches='tight')
             plt.close()
             
-            print(f"Generated cortical region plot: {output_file}")
+            self.logger.info(f"Generated cortical region plot: {output_file}")
             
             return output_file
             
         except Exception as e:
             # If there's any error during plotting, log it but don't stop the overall analysis
             import traceback
-            print(f"Warning: Failed to generate plot: {str(e)}")
-            print(f"Error details: {traceback.format_exc()}")
-            print("Continuing with analysis without visualizations.")
+            self.logger.warning(f"Failed to generate plot: {str(e)}")
+            self.logger.warning(f"Error details: {traceback.format_exc()}")
+            self.logger.warning("Continuing with analysis without visualizations.")
             return None
 
 
 class MeshVisualizer(Visualizer):
     """Class for generating mesh-specific visualizations."""
     
-    def __init__(self, output_dir: str):
+    def __init__(self, output_dir: str, logger=None):
         """Initialize the MeshVisualizer class."""
-        super().__init__(output_dir)
+        super().__init__(output_dir, logger)
 
     def visualize_cortex_roi(self, gm_surf, roi_mask, target_region, field_values, max_value, output_dir=None):
         """Create visualization files for a specific cortical ROI in mesh data."""
+        self.logger.info(f"Creating cortex ROI visualization for region: {target_region}")
+        self.logger.info(f"ROI contains {np.sum(roi_mask)} nodes, max value: {max_value:.6f}")
         # Create a new field with field values only in ROI (zeros elsewhere)
         masked_field = np.zeros(gm_surf.nodes.nr)
         masked_field[roi_mask] = field_values[roi_mask]
@@ -534,8 +565,8 @@ class MeshVisualizer(Visualizer):
     View[1].ColormapAlphaPower = 0.08;
     """)
         
-        print(f"Created visualization: {output_filename}")
-        print(f"Visualization settings saved to: {output_filename}.opt")
+        self.logger.info(f"Created visualization: {output_filename}")
+        self.logger.info(f"Visualization settings saved to: {output_filename}.opt")
         
         return output_filename
 
@@ -554,6 +585,8 @@ class MeshVisualizer(Visualizer):
         Returns:
             str: Path to the created visualization file
         """
+        self.logger.info(f"Creating spherical ROI visualization at center {center_coords} with radius {radius}mm")
+        self.logger.info(f"ROI contains {np.sum(roi_mask)} surface nodes, max value: {max_value:.6f}")
         # Create a new field with field values only in ROI (zeros elsewhere)
         masked_field = np.zeros(gm_surf.nodes.nr)
         masked_field[roi_mask] = field_values[roi_mask]
@@ -593,10 +626,10 @@ class MeshVisualizer(Visualizer):
     // Sphere radius: {radius:.2f} mm
     """)
         
-        print(f"Created spherical ROI visualization: {output_filename}")
-        print(f"Sphere center: ({center_coords[0]:.2f}, {center_coords[1]:.2f}, {center_coords[2]:.2f})")
-        print(f"Sphere radius: {radius:.2f} mm")
-        print(f"Visualization settings saved to: {output_filename}.opt")
+        self.logger.info(f"Created spherical ROI visualization: {output_filename}")
+        self.logger.info(f"Sphere center: ({center_coords[0]:.2f}, {center_coords[1]:.2f}, {center_coords[2]:.2f})")
+        self.logger.info(f"Sphere radius: {radius:.2f} mm")
+        self.logger.info(f"Visualization settings saved to: {output_filename}.opt")
         
         return output_filename
 
@@ -605,14 +638,15 @@ class VoxelVisualizer(Visualizer):
     Class for generating voxel-specific visualizations.
     """
     
-    def __init__(self, output_dir: str):
+    def __init__(self, output_dir: str, logger=None):
         """
         Initialize the VoxelVisualizer class.
         
         Args:
             output_dir (str): Directory where visualization files will be saved
+            logger: Optional logger instance to use. If None, creates its own.
         """
-        super().__init__(output_dir)
+        super().__init__(output_dir, logger)
 
     def create_cortex_nifti(self, atlas_img, atlas_arr, field_arr, region_id, region_name):
         """
@@ -628,6 +662,7 @@ class VoxelVisualizer(Visualizer):
         Returns:
             str: Path to the created visualization file
         """
+        self.logger.info(f"Creating NIfTI visualization for region: {region_name} (ID: {region_id})")
         # Create mask for this region
         region_mask = (atlas_arr == region_id)
         
@@ -643,7 +678,7 @@ class VoxelVisualizer(Visualizer):
         vis_img = nib.Nifti1Image(vis_arr, atlas_img.affine)
         nib.save(vis_img, output_filename)
         
-        print(f"Created visualization: {output_filename}")
+        self.logger.info(f"Created visualization: {output_filename}")
         return output_filename
 
     def find_region(self, target_region, region_info):

@@ -4,10 +4,34 @@ from __future__ import annotations
 import argparse
 import os
 import sys
+import time
+from pathlib import Path
+
+# Add the parent directory to the path to access utils
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 from simnibs import opt_struct
-
+from utils.logging_util import get_logger, configure_external_loggers
 from env_utils import apply_common_env_fixes
+
+# -----------------------------------------------------------------------------
+# Logger setup
+# -----------------------------------------------------------------------------
+def setup_logger(output_folder: str) -> None:
+    """Initialize logger with console and file output.
+    
+    Args:
+        output_folder: Path to the directory where logs should be stored
+    """
+    global logger
+    # Create Documentation directory in the output folder
+    output_dir = os.path.join(output_folder, "Documentation")
+    os.makedirs(output_dir, exist_ok=True)
+    
+    # Create timestamped log file
+    time_stamp = time.strftime('%Y%m%d_%H%M%S')
+    log_file = os.path.join(output_dir, f'flex_search_{time_stamp}.log')
+    logger = get_logger('flex-search', log_file, overwrite=True)
 
 # -----------------------------------------------------------------------------
 # Argument parsing (mapping is OFF by default)
@@ -190,48 +214,66 @@ def _roi_atlas(opt: opt_struct.TesFlexOptimization, args: argparse.Namespace) ->
 def main() -> int:
     apply_common_env_fixes()
     args = parse_arguments()
-
-    print(f"[flex-search] subject={args.subject} goal={args.goal} mapping={args.enable_mapping}")
-    if args.max_iterations is not None:
-        print(f"[flex-search] max_iterations={args.max_iterations}")
-    if args.population_size is not None:
-        print(f"[flex-search] population_size={args.population_size}")
-    if args.cpus is not None:
-        print(f"[flex-search] cpus={args.cpus}")
-
+    
     try:
+        # First build optimization to get output folder
         opt = build_optimisation(args)
+        
+        # Setup logger after output folder is created
+        setup_logger(opt.output_folder)
+        logger.info(f"Output directory created: {opt.output_folder}")
+        
+        # Log the command that was called
+        command = " ".join(sys.argv)
+        logger.info(f"Command: {command}")
+        
+        # Configure SimNIBS related loggers to use our logging setup
+        configure_external_loggers(['simnibs', 'mesh_io', 'sim_struct', 'opt_struct'], logger)
+        
+        # Log optimization parameters
+        logger.info(f"Starting optimization with parameters:")
+        logger.info(f"  Subject: {args.subject}")
+        logger.info(f"  Goal: {args.goal}")
+        logger.info(f"  Mapping: {args.enable_mapping}")
+        if args.max_iterations is not None:
+            logger.info(f"  Max iterations: {args.max_iterations}")
+        if args.population_size is not None:
+            logger.info(f"  Population size: {args.population_size}")
+        if args.cpus is not None:
+            logger.info(f"  CPUs: {args.cpus}")
         
         # Set optimizer display option based on quiet mode
         if args.quiet:
             if hasattr(opt, '_optimizer_options_std') and isinstance(opt._optimizer_options_std, dict):
                 opt._optimizer_options_std["disp"] = False
             else:
-                print("[flex-search] WARNING: opt._optimizer_options_std not found or not a dict, cannot set disp for quiet mode.", file=sys.stderr)
+                logger.warning("opt._optimizer_options_std not found or not a dict, cannot set disp for quiet mode.")
 
         # Apply max_iterations and population_size if provided
         if args.max_iterations is not None:
             if hasattr(opt, '_optimizer_options_std') and isinstance(opt._optimizer_options_std, dict):
                 opt._optimizer_options_std["maxiter"] = args.max_iterations
             else:
-                print("[flex-search] WARNING: opt._optimizer_options_std not found or not a dict, cannot set maxiter.", file=sys.stderr)
+                logger.warning("opt._optimizer_options_std not found or not a dict, cannot set maxiter.")
         
         if args.population_size is not None:
             if hasattr(opt, '_optimizer_options_std') and isinstance(opt._optimizer_options_std, dict):
                 opt._optimizer_options_std["popsize"] = args.population_size
             else:
-                print("[flex-search] WARNING: opt._optimizer_options_std not found or not a dict, cannot set popsize.", file=sys.stderr)
+                logger.warning("opt._optimizer_options_std not found or not a dict, cannot set popsize.")
             
     except Exception as exc:  # noqa: BLE001
-        print(f"[flex-search] ERROR during setup: {exc}", file=sys.stderr)
+        print(f"ERROR during setup: {exc}", file=sys.stderr)  # Fallback to print since logger might not be initialized
         return 1
 
     try:
         # Pass cpus argument to run method
         cpus_to_pass = args.cpus if args.cpus is not None else None 
+        logger.info("Starting optimization run...")
         opt.run(cpus=cpus_to_pass)
+        logger.info("Optimization completed successfully")
     except Exception as exc:  # noqa: BLE001
-        print(f"[flex-search] ERROR: {exc}", file=sys.stderr)
+        logger.error(f"ERROR during optimization: {exc}")
         return 1
 
     return 0
