@@ -32,16 +32,6 @@ This directory contains scripts and workflows for managing releases and deployme
    - ✅ Uploads downloadable assets to the release
    - ✅ Deploys updated website to GitHub Pages
 
-### Option 2: Manual Workflow Trigger
-
-If you need to build without creating a full release:
-
-1. Go to: https://github.com/idossha/TI-Toolbox/actions
-2. Select "Release and Build" workflow
-3. Click "Run workflow"
-4. Enter the version number
-5. The workflow will build executables and update the website
-
 ## 📁 Files and Workflows
 
 ### `.github/workflows/release.yml`
@@ -56,7 +46,7 @@ Documentation deployment workflow that:
 - **Triggers**: When docs/ folder changes are pushed to main
 - **Deploys**: Website to GitHub Pages using Jekyll
 
-### `scripts/update_version.py`
+### `development/update/update_version.py`
 Python script that updates version across all project files:
 - `version.py` - Main version file
 - `launcher/executable/src/ti_csc_launcher.py` - Launcher app
@@ -103,20 +93,6 @@ https://github.com/idossha/TI-Toolbox/releases/download/v{VERSION}/TemporalInter
 ### Local Development
 - Python 3.8+ for running the version update script
 - Git for version control and tagging
-
-## 📋 Manual Override
-
-If you need to manually update the website without a release:
-
-```bash
-# Update version in files
-python scripts/update_version.py 2.1.0 "Emergency hotfix"
-
-# Commit and push to trigger docs deployment
-git add docs/
-git commit -m "Update website for v2.1.0"
-git push
-```
 
 ## 🔍 Monitoring
 
