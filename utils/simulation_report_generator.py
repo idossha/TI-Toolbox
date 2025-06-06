@@ -334,129 +334,124 @@ class SimulationReportGenerator:
         Args:
             subject_id (str): Subject ID
             montage_name (str): Montage name
-            mesh_file (str): Path to mesh file
+            mesh_file (str): Path to mesh file (unused, kept for compatibility)
             nifti_file (str): Path to NIfTI file
             
         Returns:
-            str: Base64 encoded image or HTML for interactive visualization
+            str: HTML for interactive visualization or placeholder
         """
         try:
-            # Try to generate visualization using nilearn-style plotting
+            # Only handle NIfTI files with the interactive viewer
             if nifti_file and os.path.exists(nifti_file):
-                return self._generate_nifti_visualization(nifti_file)
-            elif mesh_file and os.path.exists(mesh_file):
-                return self._generate_mesh_visualization(mesh_file)
+                return self._generate_nifti_visualization_html(nifti_file)
             else:
                 return None
         except Exception as e:
             self.add_warning(f"Failed to generate visualization: {str(e)}", subject_id, montage_name)
             return None
     
-    def _generate_nifti_visualization(self, nifti_file):
-        """Generate NIfTI visualization using nilearn-style plotting.
-        
-        Args:
-            nifti_file (str): Path to NIfTI file
-            
-        Returns:
-            str: Base64 encoded image
-        """
-        try:
-            # This would use nilearn or similar for brain plotting
-            # For now, return a placeholder
-            return self._create_placeholder_visualization("NIfTI Visualization")
-        except Exception:
-            return None
-    
     def _generate_nifti_visualization_html(self, nifti_file, t1_file=None):
-        """Generate HTML for NIfTI visualization with basic slice views.
+        """Generate HTML for interactive NIfTI visualization using Papaya viewer.
         
         Args:
             nifti_file (str): Path to NIfTI file
             t1_file (str): Optional path to T1 structural file
             
         Returns:
-            str: HTML content for the visualization
+            str: HTML content for the interactive visualization
         """
         try:
-            # Try to use nibabel for basic visualization if available
-            try:
-                import nibabel as nib
-                import numpy as np
-                import matplotlib.pyplot as plt
-                import matplotlib
-                matplotlib.use('Agg')  # Use non-interactive backend
-                import io
-                import base64
-                
-                # Load the NIfTI file
-                img = nib.load(nifti_file)
-                data = img.get_fdata()
-                
-                # Create figure with subplots for three views
-                fig, axes = plt.subplots(1, 3, figsize=(15, 5))
-                fig.suptitle(f'TI Field: {os.path.basename(nifti_file)}', fontsize=14)
-                
-                # Get middle slices
-                mid_x = data.shape[0] // 2
-                mid_y = data.shape[1] // 2
-                mid_z = data.shape[2] // 2
-                
-                # Sagittal view (YZ plane)
-                axes[0].imshow(data[mid_x, :, :].T, cmap='hot', origin='lower', aspect='auto')
-                axes[0].set_title('Sagittal')
-                axes[0].set_xlabel('Y')
-                axes[0].set_ylabel('Z')
-                
-                # Coronal view (XZ plane)
-                axes[1].imshow(data[:, mid_y, :].T, cmap='hot', origin='lower', aspect='auto')
-                axes[1].set_title('Coronal')
-                axes[1].set_xlabel('X')
-                axes[1].set_ylabel('Z')
-                
-                # Axial view (XY plane)
-                axes[2].imshow(data[:, :, mid_z].T, cmap='hot', origin='lower', aspect='auto')
-                axes[2].set_title('Axial')
-                axes[2].set_xlabel('X')
-                axes[2].set_ylabel('Y')
-                
-                # Add colorbar
-                plt.tight_layout()
-                
-                # Convert to base64
-                buffer = io.BytesIO()
-                plt.savefig(buffer, format='png', dpi=100, bbox_inches='tight')
-                buffer.seek(0)
-                img_data = base64.b64encode(buffer.getvalue()).decode()
-                plt.close()
-                
-                return f"""
-                <div style="margin: 10px 0;">
-                    <h6>{os.path.basename(nifti_file)}</h6>
-                    <img src="data:image/png;base64,{img_data}" 
-                         alt="NIfTI visualization" 
-                         style="max-width: 100%; height: auto; border: 1px solid #ddd; border-radius: 4px;"/>
+            # Import papaya utilities
+            from .papaya_utils import get_papaya_viewer_html
+            
+            # Get the report directory (will be set during report generation)
+            if hasattr(self, '_current_report_dir'):
+                report_dir = self._current_report_dir
+            else:
+                # Fallback to a temporary directory for preview
+                import tempfile
+                report_dir = tempfile.gettempdir()
+            
+            # Use T1 file if available, otherwise use the NIfTI file as both reference and overlay
+            if t1_file and os.path.exists(t1_file):
+                viewer_html = get_papaya_viewer_html(t1_file, nifti_file, report_dir)
+            else:
+                # Create a placeholder viewer when T1 is not available
+                viewer_html = f"""
+                <div style="margin: 10px 0; padding: 15px; background-color: #e3f2fd; border-radius: 8px; border: 1px solid #2196f3;">
+                    <h6 style="color: #1976d2; margin-bottom: 10px;">📊 NIfTI File Available</h6>
+                    <p style="color: #1976d2; margin: 0; font-size: 14px;">
+                        <strong>File:</strong> {os.path.basename(nifti_file)}<br>
+                        <strong>Note:</strong> T1 reference not available for interactive viewing.<br>
+                        <em>The interactive viewer works best with both T1 structural and overlay data.</em>
+                    </p>
                 </div>
                 """
+            
+            return viewer_html
                 
-            except ImportError:
-                # Fallback: just show file information
-                file_size = os.path.getsize(nifti_file) / (1024 * 1024)  # MB
-                return f"""
-                <div style="margin: 10px 0; padding: 10px; background-color: #f8f9fa; border-radius: 4px;">
-                    <h6>{os.path.basename(nifti_file)}</h6>
-                    <p><strong>File size:</strong> {file_size:.1f} MB</p>
-                    <p><em>Install nibabel and matplotlib for slice visualizations</em></p>
-                </div>
-                """
-                
+        except ImportError:
+            return self._generate_papaya_installation_guide(nifti_file)
         except Exception as e:
             return f"""
-            <div style="margin: 10px 0; padding: 10px; background-color: #fff3cd; border-radius: 4px;">
-                <h6>{os.path.basename(nifti_file)}</h6>
-                <p><em>Error generating visualization: {str(e)}</em></p>
+            <div style="margin: 10px 0; padding: 15px; background-color: #fff3cd; border-radius: 8px; border: 1px solid #ffeaa7;">
+                <h6 style="color: #856404; margin-bottom: 10px;">⚠️ Visualization Error</h6>
+                <p style="color: #856404; margin: 0; font-size: 14px;">
+                    <strong>File:</strong> {os.path.basename(nifti_file)}<br>
+                    <strong>Error:</strong> {str(e)}<br>
+                    <em>Please check the console for more details.</em>
+                </p>
             </div>
             """
+    
+    def _generate_papaya_installation_guide(self, nifti_file):
+        """Generate HTML with Papaya installation instructions."""
+        filename = os.path.basename(nifti_file)
+        
+        return f"""
+        <div class="papaya-fallback" style="margin: 15px 0;">
+            <div style="background-color: #f8f9fa; border: 2px dashed #6c757d; border-radius: 8px; padding: 20px; text-align: center;">
+                <div style="font-size: 18px; margin-bottom: 10px;">🧠</div>
+                <h6 style="color: #495057; margin-bottom: 10px;">Papaya Viewer</h6>
+                <p style="color: #6c757d; margin-bottom: 15px;">
+                    <strong>File:</strong> {filename}
+                </p>
+                
+                <div style="background-color: #fff3cd; border: 1px solid #ffeaa7; padding: 12px; border-radius: 6px; margin-bottom: 15px;">
+                    <p style="color: #856404; margin: 0; font-size: 14px;">
+                        <strong>⚠️ Papaya viewer not available</strong><br>
+                        Please install Papaya to enable interactive visualization.
+                    </p>
+                </div>
+                
+                <div style="background-color: #e8f5e8; padding: 12px; border-radius: 6px; margin-bottom: 15px;">
+                    <p style="color: #2e7d32; margin: 0; font-size: 14px;">
+                        💡 <strong>To enable Papaya viewer:</strong><br>
+                        1. Clone the repository:<br>
+                        <code style="background: #333; color: #0f0; padding: 2px 4px;">git clone https://github.com/rii-mango/Papaya.git</code><br>
+                        2. Place it in project root directory<br>
+                        3. Regenerate your report for full interactive features!
+                    </p>
+                </div>
+                
+                <div style="margin-top: 15px;">
+                    <button onclick="window.open('https://github.com/rii-mango/Papaya', '_blank')" 
+                            style="background-color: #2196f3; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; margin-right: 10px; font-size: 12px;">
+                        🌐 Learn About Papaya
+                    </button>
+                    <button onclick="copyToClipboard('{nifti_file}')" 
+                            style="background-color: #6c757d; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-size: 12px;">
+                        📋 Copy File Path
+                    </button>
+                </div>
+                
+                <!-- File path for reference -->
+                <div style="margin-top: 15px; padding: 8px; background-color: #f1f3f4; border-radius: 4px; font-family: monospace; font-size: 11px; color: #5f6368; word-break: break-all;">
+                    <strong>File path:</strong> {nifti_file}
+                </div>
+            </div>
+        </div>
+        """
     
     def _generate_mesh_visualization(self, mesh_file):
         """Generate mesh visualization.
@@ -513,12 +508,34 @@ class SimulationReportGenerator:
                 subject_data['t1_path'] = self._find_t1_file(subject_data['m2m_path'])
 
         if output_path is None:
-            reports_dir = self.project_dir / "derivatives" / "reports"
-            reports_dir.mkdir(parents=True, exist_ok=True)
-            output_path = reports_dir / f"sub-{self.report_data['subjects'][0]['subject_id'] if self.report_data['subjects'] else 'unknown'}_simulation_{self.simulation_session_id}.html"
+            # Use standardized path: project_dir/derivatives/reports/sub-subjectID/simulation_report_date_time.html
+            # For single subject, or project_dir/derivatives/reports/simulation_session_ID.html for multi-subject
+            if len(self.report_data['subjects']) == 1:
+                # Single subject report
+                subject_id = self.report_data['subjects'][0]['subject_id']
+                bids_subject_id = f"sub-{subject_id}"
+                reports_dir = self.project_dir / "derivatives" / "reports" / bids_subject_id
+                reports_dir.mkdir(parents=True, exist_ok=True)
+                timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+                output_path = reports_dir / f"simulation_report_{timestamp}.html"
+            else:
+                # Multi-subject or session report
+                reports_dir = self.project_dir / "derivatives" / "reports"
+                reports_dir.mkdir(parents=True, exist_ok=True)
+                output_path = reports_dir / f"simulation_session_{self.simulation_session_id}.html"
+        
+        # Set the report directory for Papaya resource management
+        self._current_report_dir = str(Path(output_path).parent)
+        
+        # Ensure Papaya resources are available in the report directory
+        try:
+            from .papaya_utils import ensure_papaya_resources_in_report
+            papaya_available = ensure_papaya_resources_in_report(self._current_report_dir)
+        except ImportError:
+            papaya_available = False
         
         # Generate HTML content
-        html_content = self._generate_html_content()
+        html_content = self._generate_html_content(papaya_available)
         
         # Write to file
         with open(output_path, 'w', encoding='utf-8') as f:
@@ -530,25 +547,35 @@ class SimulationReportGenerator:
         """Alias for generate_report for backward compatibility."""
         return self.generate_report(output_path)
     
-    def _generate_html_content(self):
+    def _generate_html_content(self, papaya_available=False):
         """Generate the HTML content for the simulation report."""
-        html = f"""
+        
+        # Include Papaya resources if available
+        papaya_includes = ""
+        if papaya_available:
+            papaya_includes = """
+    <!-- Papaya Viewer Resources -->
+    <link rel="stylesheet" type="text/css" href="papaya.css" />
+    <script type="text/javascript" src="papaya.js"></script>
+    """
+        
+        html = """
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TI-CSC Simulation Report - Session {self.simulation_session_id}</title>
+    <title>TI-CSC Simulation Report - Session {simulation_session_id}</title>
     <style>
-        {self._get_css_styles()}
-    </style>
+        {css_styles}
+    </style>{papaya_includes}
 </head>
 <body>
     <div class="container">
         <header>
             <h1>TI-CSC Simulation Report</h1>
-            <h2>Session: {self.simulation_session_id}</h2>
-            <p class="timestamp">Generated on: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</p>
+            <h2>Session: {simulation_session_id}</h2>
+            <p class="timestamp">Generated on: {generation_time}</p>
         </header>
         
         <nav class="toc">
@@ -559,7 +586,8 @@ class SimulationReportGenerator:
                 <li><a href="#subjects">Subjects</a></li>
                 <li><a href="#montages">Montages</a></li>
                 <li><a href="#results">Simulation Results</a></li>
-                <li><a href="#visualizations">Brain Visualizations</a></li>
+                <li><a href="#visualizations">Interactive Brain Visualizations</a></li>
+                <li><a href="#setup-guide">Interactive Viewer Setup</a></li>
                 <li><a href="#software-info">Software Information</a></li>
                 <li><a href="#methods">Methods</a></li>
                 <li><a href="#errors-warnings">Errors and Warnings</a></li>
@@ -567,15 +595,16 @@ class SimulationReportGenerator:
         </nav>
         
         <main>
-            {self._generate_summary_section()}
-            {self._generate_simulation_parameters_section()}
-            {self._generate_subjects_section()}
-            {self._generate_montages_section()}
-            {self._generate_results_section()}
-            {self._generate_visualizations_section()}
-            {self._generate_software_section()}
-            {self._generate_methods_section()}
-            {self._generate_errors_warnings_section()}
+            {summary_section}
+            {simulation_parameters_section}
+            {subjects_section}
+            {montages_section}
+            {results_section}
+            {visualizations_section}
+            {server_setup_section}
+            {software_section}
+            {methods_section}
+            {errors_warnings_section}
         </main>
         
         <footer>
@@ -584,13 +613,80 @@ class SimulationReportGenerator:
         </footer>
     </div>
     
+    <!-- Copy to clipboard functionality -->
     <script>
-        {self._get_javascript()}
+        function copyToClipboard(text) {{
+            navigator.clipboard.writeText(text).then(function() {{
+                // Create temporary success notification
+                const notification = document.createElement('div');
+                notification.textContent = '✅ Copied to clipboard!';
+                notification.style.cssText = `
+                    position: fixed; top: 20px; right: 20px; 
+                    background: #28a745; color: white; 
+                    padding: 10px 15px; border-radius: 6px; 
+                    font-size: 14px; z-index: 1000;
+                    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+                `;
+                document.body.appendChild(notification);
+                setTimeout(() => notification.remove(), 2000);
+            }}).catch(function(err) {{
+                console.error('Could not copy text: ', err);
+                // Fallback for older browsers
+                const textArea = document.createElement('textarea');
+                textArea.value = text;
+                document.body.appendChild(textArea);
+                textArea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textArea);
+                alert('Copied to clipboard!');
+            }});
+        }}
+    </script>
+    
+    <!-- Papaya Integration CSS -->
+    <style>
+        .papaya-container {{
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }}
+        
+        .papaya-fallback {{
+            transition: all 0.3s ease;
+        }}
+        
+        .papaya-fallback:hover {{
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }}
+        
+        canvas {{
+            image-rendering: -webkit-optimize-contrast;
+            image-rendering: crisp-edges;
+        }}
+    </style>
+    
+    <script>
+        {javascript_code}
     </script>
 </body>
 </html>
-"""
-        return html
+""".format(
+            simulation_session_id=self.simulation_session_id,
+            generation_time=datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            css_styles=self._get_css_styles(),
+            papaya_includes=papaya_includes,
+            summary_section=self._generate_summary_section(),
+            simulation_parameters_section=self._generate_simulation_parameters_section(),
+            subjects_section=self._generate_subjects_section(),
+            montages_section=self._generate_montages_section(),
+            results_section=self._generate_results_section(),
+            visualizations_section=self._generate_visualizations_section(),
+            server_setup_section=self._generate_server_setup_section(),
+            software_section=self._generate_software_section(),
+            methods_section=self._generate_methods_section(),
+            errors_warnings_section=self._generate_errors_warnings_section(),
+            javascript_code=self._get_javascript()
+        )
+        return html.strip()
     
     def _get_css_styles(self):
         """Return CSS styles for the HTML report."""
@@ -873,20 +969,322 @@ class SimulationReportGenerator:
             font-size: 0.9rem;
             line-height: 1.4;
         }
-        """
-    
-    def _get_javascript(self):
-        """Return JavaScript for interactive elements."""
-        return """
-        function toggleMontage(index) {
-            const content = document.getElementById('montage-' + index);
-            content.classList.toggle('active');
+        
+        /* Enhanced setup section styles */
+        .setup-container {
+            max-width: 1000px;
+            margin: 0 auto;
         }
         
-        function toggleSection(sectionId) {
-            const section = document.getElementById(sectionId);
-            if (section) {
-                section.style.display = section.style.display === 'none' ? 'block' : 'none';
+        .quick-solution {
+            background: linear-gradient(135deg, #e8f5e8 0%, #d4f1d4 100%);
+            border: 2px solid #4caf50;
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 30px;
+            position: relative;
+        }
+        
+        .quick-solution::before {
+            content: "🚀";
+            position: absolute;
+            top: -15px;
+            left: 20px;
+            background: #4caf50;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 20px;
+            font-size: 16px;
+        }
+        
+        .command-box {
+            background: #2d2d2d;
+            color: #f8f8f2;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+            font-family: 'Courier New', monospace;
+            position: relative;
+            border-left: 4px solid #4caf50;
+        }
+        
+        .command-box .command {
+            display: block;
+            color: #a6e22e;
+            font-weight: bold;
+            margin-bottom: 10px;
+            font-size: 14px;
+        }
+        
+        .command-box button {
+            position: absolute;
+            right: 10px;
+            top: 10px;
+            background: #4caf50;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        
+        .command-box button:hover {
+            background: #45a049;
+        }
+        
+        .note {
+            background: #f0f9ff;
+            border-left: 4px solid #0ea5e9;
+            padding: 12px;
+            margin: 15px 0;
+            border-radius: 4px;
+            color: #0c4a6e;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+        
+        .alternative-methods {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 30px;
+        }
+        
+        .method {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .method h4 {
+            margin-top: 0;
+            color: #2c3e50;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .command-group {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        
+        .command-option {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 6px;
+            border-left: 3px solid #6c757d;
+        }
+        
+        .command-option .version {
+            font-weight: bold;
+            color: #495057;
+            min-width: 80px;
+            font-size: 12px;
+        }
+        
+        .command-option code {
+            flex: 1;
+            background: #2d2d2d;
+            color: #a6e22e;
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+        }
+        
+        .command-option button {
+            background: #6c757d;
+            color: white;
+            border: none;
+            padding: 6px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 11px;
+            min-width: 35px;
+        }
+        
+        .command-option button:hover {
+            background: #5a6268;
+        }
+        
+        .instructions {
+            background: #fff;
+            border: 2px solid #e9ecef;
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 30px;
+        }
+        
+        .instructions ol {
+            counter-reset: step-counter;
+            list-style: none;
+            padding-left: 0;
+        }
+        
+        .instructions ol li {
+            counter-increment: step-counter;
+            margin-bottom: 20px;
+            padding-left: 40px;
+            position: relative;
+        }
+        
+        .instructions ol li::before {
+            content: counter(step-counter);
+            position: absolute;
+            left: 0;
+            top: 0;
+            background: #007bff;
+            color: white;
+            width: 25px;
+            height: 25px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 12px;
+        }
+        
+        .instructions kbd {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 3px;
+            padding: 2px 6px;
+            font-family: monospace;
+            font-size: 12px;
+            color: #495057;
+        }
+        
+        .url-box {
+            background: #e3f2fd;
+            border: 1px solid #2196f3;
+            border-radius: 6px;
+            padding: 12px;
+            margin: 10px 0;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .url-box code {
+            flex: 1;
+            background: #1976d2;
+            color: white;
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-weight: bold;
+        }
+        
+        .url-box button {
+            background: #2196f3;
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        
+        .url-box button:hover {
+            background: #1976d2;
+        }
+        
+        .troubleshooting {
+            background: #fff9c4;
+            border: 2px solid #ffeb3b;
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 30px;
+        }
+        
+        .trouble-item {
+            background: white;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+            border-left: 4px solid #ff9800;
+        }
+        
+        .trouble-item h4 {
+            margin-top: 0;
+            color: #e65100;
+        }
+        
+        .trouble-item code {
+            background: #2d2d2d;
+            color: #a6e22e;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+        }
+        
+        .file-protocol-warning {
+            background: #fef7f0;
+            border: 2px solid #ff9800;
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 30px;
+        }
+        
+        .file-protocol-warning h3 {
+            color: #e65100;
+            margin-top: 0;
+        }
+        
+        .file-protocol-warning ul {
+            list-style-type: none;
+            padding-left: 0;
+        }
+        
+        .file-protocol-warning li {
+            padding: 5px 0;
+            padding-left: 25px;
+            position: relative;
+        }
+        
+        .file-protocol-warning li::before {
+            content: "✓";
+            position: absolute;
+            left: 0;
+            color: #4caf50;
+            font-weight: bold;
+        }
+        
+        /* Responsive design */
+        @media (max-width: 768px) {
+            .setup-container {
+                padding: 0 15px;
+            }
+            
+            .command-option {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 10px;
+            }
+            
+            .command-option .version {
+                min-width: auto;
+            }
+            
+            .url-box {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            
+            .command-box button {
+                position: static;
+                margin-top: 10px;
+                align-self: flex-start;
             }
         }
         """
@@ -1127,10 +1525,12 @@ class SimulationReportGenerator:
         return html
     
     def _generate_visualizations_section(self):
-        """Generate the brain visualizations section."""
+        """Generate the interactive brain visualizations section."""
         html = """
         <section id="visualizations" class="section">
-            <h2>Brain Visualizations</h2>
+            <h2>Interactive Brain Visualizations</h2>
+            <p>This section contains interactive 3D brain visualizations powered by Papaya viewer. 
+               You can navigate through slices, adjust opacity, and explore the electric field distributions directly in this HTML file.</p>
         """
         
         visualizations_found = False
@@ -1139,10 +1539,12 @@ class SimulationReportGenerator:
         for subject in self.report_data['subjects']:
             subject_id = subject['subject_id']
             simulation_outputs = subject.get('simulation_outputs', [])
+            t1_path = subject.get('t1_path')
             
             if simulation_outputs:
                 html += f"""
                 <h3>Subject {subject_id}</h3>
+                <div style="background-color: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px; padding: 15px; margin-bottom: 20px;">
                 """
                 
                 for montage_output in simulation_outputs:
@@ -1172,47 +1574,140 @@ class SimulationReportGenerator:
                         except Exception as e:
                             html += f"<p>Error loading montage image: {str(e)}</p>"
                     
-                    # Display NIfTI visualizations
+                    # Display Interactive NIfTI visualizations
                     nifti_visualizations = montage_output.get('nifti_visualizations', [])
                     if nifti_visualizations:
                         html += """
                         <div class="visualization-container">
-                            <h5>Electric Field Distributions (TI Max)</h5>
+                            <h5>Interactive Electric Field Distributions (TI Max)</h5>
+                            <p style="color: #666; font-size: 14px; margin-bottom: 15px;">
+                                🎛️ <strong>Interactive Controls:</strong> Use the Papaya viewer controls to:
+                                <ul>
+                                    <li>Navigate through brain slices</li>
+                                    <li>Adjust overlay opacity</li>
+                                    <li>Change color maps</li>
+                                    <li>Switch between axial, sagittal, and coronal views</li>
+                                </ul>
+                                All data is embedded directly in this HTML file - no server required!
+                            </p>
                         """
                         
+                        # Find grey matter TI max file
+                        grey_ti_max = None
                         for nifti_file in nifti_visualizations:
-                            if os.path.exists(nifti_file):
-                                try:
-                                    # Generate NIfTI visualization
-                                    viz_html = self._generate_nifti_visualization_html(nifti_file, subject.get('t1_path'))
-                                    if viz_html:
-                                        html += viz_html
-                                        visualizations_found = True
-                                except Exception as e:
-                                    html += f"<p>Error generating NIfTI visualization for {os.path.basename(nifti_file)}: {str(e)}</p>"
+                            if 'grey' in os.path.basename(nifti_file).lower() and 'ti_max' in os.path.basename(nifti_file).lower():
+                                grey_ti_max = nifti_file
+                                break
+                        
+                        # If we have both T1 and grey_TI_max, create the visualization
+                        if t1_path and grey_ti_max and os.path.exists(t1_path) and os.path.exists(grey_ti_max):
+                            try:
+                                viz_html = self._generate_nifti_visualization_html(grey_ti_max, t1_path)
+                                if viz_html:
+                                    html += viz_html
+                                    visualizations_found = True
+                            except Exception as e:
+                                html += f"""
+                                <div class="error">
+                                    <strong>Error generating visualization:</strong> {str(e)}
+                                </div>
+                                """
+                        else:
+                            # Fallback to individual file visualizations
+                            for nifti_file in nifti_visualizations:
+                                if os.path.exists(nifti_file):
+                                    try:
+                                        viz_html = self._generate_nifti_visualization_html(nifti_file, t1_path)
+                                        if viz_html:
+                                            html += viz_html
+                                            visualizations_found = True
+                                    except Exception as e:
+                                        html += f"<p>Error generating visualization for {os.path.basename(nifti_file)}: {str(e)}</p>"
                         
                         html += "</div>"
                     
                     html += "</div>"  # Close montage-visualization
+                
+                html += "</div>"  # Close subject container
         
         # Show placeholder if no visualizations found
         if not visualizations_found:
             html += """
             <div class="visualization-placeholder">
-                <h3>Brain Visualizations</h3>
+                <h3>Interactive Brain Visualizations</h3>
                 <p>No simulation visualizations found. Visualizations will be generated automatically when simulation results are available.</p>
                 <p>Expected visualizations include:</p>
                 <ul>
-                    <li>Electrode placement maps (montage_imgs/*.png)</li>
-                    <li>Electric field distribution maps (niftis/*_TI_max.nii.gz)</li>
-                    <li>Temporal interference patterns</li>
-                    <li>Cross-sectional views of stimulation effects</li>
+                    <li><strong>Interactive electrode placement maps</strong> (montage_imgs/*.png)</li>
+                    <li><strong>3D electric field distribution maps</strong> (niftis/*_TI_max.nii.gz) - <em>Interactive with Papaya viewer</em></li>
+                    <li><strong>Temporal interference patterns</strong> - <em>Slice navigation and overlay controls</em></li>
+                    <li><strong>Cross-sectional views</strong> - <em>Real-time slice browsing with embedded data</em></li>
                 </ul>
+                <div style="background-color: #e3f2fd; padding: 15px; border-radius: 8px; margin-top: 15px;">
+                    <p style="color: #1976d2; margin: 0; font-size: 14px;">
+                        💡 <strong>Note:</strong> When visualizations are available, you'll be able to:
+                    </p>
+                    <ul style="color: #1976d2; margin: 10px 0 0 20px; font-size: 14px;">
+                        <li>Navigate through brain slices by clicking and dragging</li>
+                        <li>Switch between background and overlay images with dropdown menus</li>
+                        <li>Adjust opacity and visualization parameters with interactive controls</li>
+                        <li>View multiple overlays (T1 anatomy + electric fields) in a self-contained viewer</li>
+                    </ul>
+                </div>
             </div>
             """
         
         html += "</section>"
         return html
+    
+    def _generate_server_setup_section(self):
+        """Generate simplified setup section for Papaya (no server needed)."""
+        return """
+        <div class="server-setup-section" style="margin: 20px 0; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; padding: 20px; color: white;">
+            <div style="display: flex; align-items: center; margin-bottom: 15px;">
+                <div style="font-size: 28px; margin-right: 15px;">🧠</div>
+                <div>
+                    <h4 style="margin: 0; color: white;">Interactive Brain Visualization</h4>
+                    <p style="margin: 5px 0 0 0; opacity: 0.9; font-size: 14px;">
+                        Powered by Papaya - No server setup required!
+                    </p>
+                </div>
+            </div>
+            
+            <div style="background: rgba(255,255,255,0.1); border-radius: 8px; padding: 15px; margin-bottom: 15px;">
+                <h5 style="margin: 0 0 10px 0; color: white;">✅ Ready to Use</h5>
+                <p style="margin: 0; opacity: 0.9; font-size: 14px;">
+                    This report includes self-contained interactive NIfTI viewers that work immediately when you open the HTML file.
+                    No web server setup or additional configuration is required!
+                </p>
+            </div>
+            
+            <div style="background: rgba(255,255,255,0.1); border-radius: 8px; padding: 15px; margin-bottom: 15px;">
+                <h5 style="margin: 0 0 10px 0; color: white;">🎮 How to Use</h5>
+                <ul style="margin: 0; padding-left: 20px; opacity: 0.9; font-size: 14px;">
+                    <li style="margin: 5px 0;">Left click and drag to rotate 3D view</li>
+                    <li style="margin: 5px 0;">Right click and drag to pan</li>
+                    <li style="margin: 5px 0;">Mouse wheel to zoom</li>
+                    <li style="margin: 5px 0;">Use toolbar controls to switch between views</li>
+                    <li style="margin: 5px 0;">Adjust overlay opacity and color maps in image controls</li>
+                </ul>
+            </div>
+            
+            <div style="background: rgba(255,255,255,0.1); border-radius: 8px; padding: 15px;">
+                <h5 style="margin: 0 0 10px 0; color: white;">🔧 Powered by Papaya</h5>
+                <p style="margin: 0 0 10px 0; opacity: 0.9; font-size: 14px;">
+                    Interactive visualizations use Papaya's powerful JavaScript-based NIfTI viewer.
+                    This is a widely-used tool in neuroimaging visualization.
+                </p>
+                <div style="background: rgba(0,0,0,0.2); padding: 10px; border-radius: 4px; font-family: monospace; font-size: 13px; margin: 10px 0;">
+                    <div style="color: #4fc3f7;">🐳 Works in any modern web browser - no plugins needed!</div>
+                </div>
+                <p style="margin: 0; opacity: 0.9; font-size: 12px;">
+                    All viewers are self-contained and work by simply double-clicking the HTML file.
+                </p>
+            </div>
+        </div>
+        """
     
     def _generate_software_section(self):
         """Generate the software information section."""
@@ -1330,6 +1825,22 @@ from individual anatomical MRI data processed through the TI-CSC preprocessing p
         
         html += "</section>"
         return html
+    
+    def _get_javascript(self):
+        """Return JavaScript for interactive elements."""
+        return """
+        function toggleMontage(index) {
+            const content = document.getElementById('montage-' + index);
+            content.classList.toggle('active');
+        }
+        
+        function toggleSection(sectionId) {
+            const section = document.getElementById(sectionId);
+            if (section) {
+                section.style.display = section.style.display === 'none' ? 'block' : 'none';
+            }
+        }
+        """
 
 
 def create_simulation_report(project_dir, simulation_session_id=None, simulation_log=None):

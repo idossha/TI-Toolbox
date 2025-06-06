@@ -244,9 +244,11 @@ class PreprocessingReportGenerator:
             str: Path to the generated report
         """
         if output_path is None:
-            reports_dir = self.project_dir / "derivatives" / "reports"
+            # Use standardized path: project_dir/derivatives/reports/sub-subjectID/pre_processing_report_date_time.html
+            reports_dir = self.project_dir / "derivatives" / "reports" / self.bids_subject_id
             reports_dir.mkdir(parents=True, exist_ok=True)
-            output_path = reports_dir / f"{self.bids_subject_id}_preprocessing_report.html"
+            timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+            output_path = reports_dir / f"pre_processing_report_{timestamp}.html"
         
         # Scan for data before generating report
         self.scan_for_data()

@@ -505,34 +505,44 @@ for SUBJECT_ID in "${selected_subjects[@]}"; do
     # Generate preprocessing report automatically
     print_message "$CYAN" "[Report] $SUBJECT_ID: Generating preprocessing report..."
     
-    # Create reports directory
-    reports_dir="$PROJECT_DIR/derivatives/reports"
-    mkdir -p "$reports_dir"
-    
-    # Generate report using Python script (if available)
-    if command -v python3 >/dev/null 2>&1; then
-        # Try to generate report using the report generator
-        python3 -c "
+    # Source the reporting utilities
+    if [ -f "$script_dir/../utils/bash_reporting.sh" ]; then
+        source "$script_dir/../utils/bash_reporting.sh"
+        
+        # Initialize reporting
+        init_reporting "$PROJECT_DIR"
+        
+        # Generate report using bash reporting utilities
+        if create_preprocessing_report "$SUBJECT_ID"; then
+            print_message "$GREEN" "[Report] $SUBJECT_ID: Preprocessing report generated successfully."
+        else
+            print_message "$YELLOW" "[Report] $SUBJECT_ID: Could not generate preprocessing report."
+        fi
+    else
+        # Fallback: try to generate report using Python directly
+        if command -v python3 >/dev/null 2>&1; then
+            # Try to generate report using the report generator
+            python3 -c "
 import sys
 import os
-sys.path.insert(0, '/ti-csc/GUI')
+sys.path.insert(0, '$script_dir/../utils')
 try:
-    from report_generator import create_preprocessing_report
+    from report_util import create_preprocessing_report
     report_path = create_preprocessing_report('$PROJECT_DIR', '$SUBJECT_ID')
     print(f'Report generated: {os.path.basename(report_path)}')
 except Exception as e:
     print(f'Error: {e}')
     sys.exit(1)
 " 2>/dev/null
-        
-        if [ $? -eq 0 ]; then
-            print_message "$GREEN" "[Report] $SUBJECT_ID: Preprocessing report generated successfully."
-            print_message "$CYAN" "[Report] Location: $reports_dir/sub-${SUBJECT_ID}_preprocessing_report.html"
+            
+            if [ $? -eq 0 ]; then
+                print_message "$GREEN" "[Report] $SUBJECT_ID: Preprocessing report generated successfully."
+            else
+                print_message "$YELLOW" "[Report] $SUBJECT_ID: Could not generate preprocessing report."
+            fi
         else
-            print_message "$YELLOW" "[Report] $SUBJECT_ID: Could not generate preprocessing report (Python report generator not available)."
+            print_message "$YELLOW" "[Report] $SUBJECT_ID: Python not available, skipping report generation."
         fi
-    else
-        print_message "$YELLOW" "[Report] $SUBJECT_ID: Python not available, skipping report generation."
     fi
     
     print_message "$GREEN" "Completed processing for subject $SUBJECT_ID"
@@ -545,10 +555,10 @@ print_message "$GREEN" "Preprocessing of all selected subjects has been complete
 # Summary of generated reports
 reports_dir="$PROJECT_DIR/derivatives/reports"
 if [ -d "$reports_dir" ]; then
-    report_count=$(find "$reports_dir" -name "*_preprocessing_report.html" | wc -l)
+    report_count=$(find "$reports_dir" -name "*pre_processing_report*.html" | wc -l)
     if [ "$report_count" -gt 0 ]; then
         print_message "$CYAN" "📊 Generated $report_count preprocessing report(s)"
-        print_message "$CYAN" "📁 Reports location: $reports_dir"
+        print_message "$CYAN" "📁 Reports location: $reports_dir/sub-{subjectID}/"
         print_message "$CYAN" "💡 Open the HTML files in your web browser to view detailed preprocessing reports."
     fi
 fi 
