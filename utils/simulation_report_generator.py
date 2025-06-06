@@ -343,26 +343,28 @@ class SimulationReportGenerator:
         try:
             # Only handle NIfTI files with the interactive viewer
             if nifti_file and os.path.exists(nifti_file):
-                return self._generate_nifti_visualization_html(nifti_file)
+                viewer_name = f"{subject_id}_{montage_name}"
+                return self._generate_nifti_visualization_html([nifti_file], viewer_name=viewer_name)
             else:
                 return None
         except Exception as e:
             self.add_warning(f"Failed to generate visualization: {str(e)}", subject_id, montage_name)
             return None
     
-    def _generate_nifti_visualization_html(self, nifti_file, t1_file=None):
+    def _generate_nifti_visualization_html(self, nifti_files, t1_file=None, viewer_name=None):
         """Generate HTML for interactive NIfTI visualization using Papaya viewer.
         
         Args:
-            nifti_file (str): Path to NIfTI file
+            nifti_files (list): List of NIfTI file paths to include
             t1_file (str): Optional path to T1 structural file
+            viewer_name (str): Name for this viewer
             
         Returns:
             str: HTML content for the interactive visualization
         """
         try:
             # Import papaya utilities
-            from .papaya_utils import get_papaya_viewer_html
+            from .papaya_utils import create_papaya_viewer
             
             # Get the report directory (will be set during report generation)
             if hasattr(self, '_current_report_dir'):
@@ -372,32 +374,66 @@ class SimulationReportGenerator:
                 import tempfile
                 report_dir = tempfile.gettempdir()
             
-            # Use T1 file if available, otherwise use the NIfTI file as both reference and overlay
+            # Ensure we have a list of files
+            if isinstance(nifti_files, str):
+                nifti_files = [nifti_files]
+            
+            # Filter to existing files
+            existing_files = [f for f in nifti_files if f and os.path.exists(f)]
+            if not existing_files:
+                return f"""
+                <div style="margin: 10px 0; padding: 15px; background-color: #fff3cd; border-radius: 8px; border: 1px solid #ffeaa7;">
+                    <h6 style="color: #856404; margin-bottom: 10px;">⚠️ No NIfTI Files Found</h6>
+                    <p style="color: #856404; margin: 0; font-size: 14px;">
+                        No valid NIfTI files were found for visualization.
+                    </p>
+                </div>
+                """
+            
+            # Use T1 file if available, otherwise create placeholder
             if t1_file and os.path.exists(t1_file):
-                viewer_html = get_papaya_viewer_html(t1_file, nifti_file, report_dir)
+                # Create labels for the files
+                labels = []
+                for nifti_file in existing_files:
+                    basename = os.path.basename(nifti_file)
+                    if 'ti_max' in basename.lower():
+                        labels.append(f"TI Max ({basename})")
+                    elif 'grey' in basename.lower():
+                        labels.append(f"Grey Matter ({basename})")
+                    elif 'white' in basename.lower():
+                        labels.append(f"White Matter ({basename})")
+                    else:
+                        labels.append(f"Field ({basename})")
+                
+                # Create the viewer
+                viewer_html = create_papaya_viewer(
+                    report_dir=report_dir,
+                    viewer_name=viewer_name or "brain_viewer",
+                    t1_file=t1_file,
+                    field_files=existing_files,
+                    labels=labels
+                )
+                return viewer_html
             else:
-                # Create a placeholder viewer when T1 is not available
-                viewer_html = f"""
+                return f"""
                 <div style="margin: 10px 0; padding: 15px; background-color: #e3f2fd; border-radius: 8px; border: 1px solid #2196f3;">
-                    <h6 style="color: #1976d2; margin-bottom: 10px;">📊 NIfTI File Available</h6>
+                    <h6 style="color: #1976d2; margin-bottom: 10px;">📊 NIfTI Files Available</h6>
                     <p style="color: #1976d2; margin: 0; font-size: 14px;">
-                        <strong>File:</strong> {os.path.basename(nifti_file)}<br>
+                        <strong>Files:</strong> {', '.join([os.path.basename(f) for f in existing_files])}<br>
                         <strong>Note:</strong> T1 reference not available for interactive viewing.<br>
                         <em>The interactive viewer works best with both T1 structural and overlay data.</em>
                     </p>
                 </div>
                 """
-            
-            return viewer_html
                 
         except ImportError:
-            return self._generate_papaya_installation_guide(nifti_file)
+            return self._generate_papaya_installation_guide(existing_files[0] if existing_files else "")
         except Exception as e:
             return f"""
             <div style="margin: 10px 0; padding: 15px; background-color: #fff3cd; border-radius: 8px; border: 1px solid #ffeaa7;">
                 <h6 style="color: #856404; margin-bottom: 10px;">⚠️ Visualization Error</h6>
                 <p style="color: #856404; margin: 0; font-size: 14px;">
-                    <strong>File:</strong> {os.path.basename(nifti_file)}<br>
+                    <strong>Files:</strong> {', '.join([os.path.basename(f) for f in existing_files]) if existing_files else 'None'}<br>
                     <strong>Error:</strong> {str(e)}<br>
                     <em>Please check the console for more details.</em>
                 </p>
@@ -527,15 +563,8 @@ class SimulationReportGenerator:
         # Set the report directory for Papaya resource management
         self._current_report_dir = str(Path(output_path).parent)
         
-        # Ensure Papaya resources are available in the report directory
-        try:
-            from .papaya_utils import ensure_papaya_resources_in_report
-            papaya_available = ensure_papaya_resources_in_report(self._current_report_dir)
-        except ImportError:
-            papaya_available = False
-        
         # Generate HTML content
-        html_content = self._generate_html_content(papaya_available)
+        html_content = self._generate_html_content()
         
         # Write to file
         with open(output_path, 'w', encoding='utf-8') as f:
@@ -547,17 +576,8 @@ class SimulationReportGenerator:
         """Alias for generate_report for backward compatibility."""
         return self.generate_report(output_path)
     
-    def _generate_html_content(self, papaya_available=False):
+    def _generate_html_content(self):
         """Generate the HTML content for the simulation report."""
-        
-        # Include Papaya resources if available
-        papaya_includes = ""
-        if papaya_available:
-            papaya_includes = """
-    <!-- Papaya Viewer Resources -->
-    <link rel="stylesheet" type="text/css" href="papaya.css" />
-    <script type="text/javascript" src="papaya.js"></script>
-    """
         
         html = """
 <!DOCTYPE html>
@@ -568,7 +588,7 @@ class SimulationReportGenerator:
     <title>TI-CSC Simulation Report - Session {simulation_session_id}</title>
     <style>
         {css_styles}
-    </style>{papaya_includes}
+    </style>
 </head>
 <body>
     <div class="container">
@@ -587,7 +607,7 @@ class SimulationReportGenerator:
                 <li><a href="#montages">Montages</a></li>
                 <li><a href="#results">Simulation Results</a></li>
                 <li><a href="#visualizations">Interactive Brain Visualizations</a></li>
-                <li><a href="#setup-guide">Interactive Viewer Setup</a></li>
+                <li><a href="#server-setup">Local Server Setup</a></li>
                 <li><a href="#software-info">Software Information</a></li>
                 <li><a href="#methods">Methods</a></li>
                 <li><a href="#errors-warnings">Errors and Warnings</a></li>
@@ -673,7 +693,6 @@ class SimulationReportGenerator:
             simulation_session_id=self.simulation_session_id,
             generation_time=datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
             css_styles=self._get_css_styles(),
-            papaya_includes=papaya_includes,
             summary_section=self._generate_summary_section(),
             simulation_parameters_section=self._generate_simulation_parameters_section(),
             subjects_section=self._generate_subjects_section(),
@@ -1530,105 +1549,101 @@ class SimulationReportGenerator:
         <section id="visualizations" class="section">
             <h2>Interactive Brain Visualizations</h2>
             <p>This section contains interactive 3D brain visualizations powered by Papaya viewer. 
-               You can navigate through slices, adjust opacity, and explore the electric field distributions directly in this HTML file.</p>
+               Each subject has one comprehensive viewer with all available field distributions.</p>
+            
+            <!-- Global Instructions -->
+            <div style="background-color: #e3f2fd; padding: 20px; border-radius: 8px; margin-bottom: 30px; border: 1px solid #2196f3;">
+                <h3 style="color: #1976d2; margin-top: 0;">🎯 How to Use the Viewers:</h3>
+                <ol style="color: #1976d2; margin: 10px 0; padding-left: 20px; font-size: 15px;">
+                    <li><strong>Right-click</strong> in any viewer area</li>
+                    <li><strong>Select "Change Image"</strong> from the context menu</li>
+                    <li><strong>Browse and select</strong> files from your file system</li>
+                    <li><strong>Repeat</strong> to load additional images as overlays</li>
+                </ol>
+                <div style="background-color: #fff3cd; padding: 12px; border-radius: 6px; margin-top: 15px; border: 1px solid #ffeaa7;">
+                    <p style="color: #856404; margin: 0; font-size: 14px;">
+                        💡 <strong>Recommended workflow:</strong> Load T1 reference first, then add field overlays one by one to compare montages.
+                    </p>
+                </div>
+            </div>
         """
         
         visualizations_found = False
         
-        # Generate visualizations from actual simulation outputs
+        # Generate one viewer per subject with all their NIfTI files
         for subject in self.report_data['subjects']:
             subject_id = subject['subject_id']
             simulation_outputs = subject.get('simulation_outputs', [])
             t1_path = subject.get('t1_path')
             
             if simulation_outputs:
-                html += f"""
-                <h3>Subject {subject_id}</h3>
-                <div style="background-color: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px; padding: 15px; margin-bottom: 20px;">
-                """
+                # Collect all NIfTI files for this subject across all montages
+                all_nifti_files = []
+                all_labels = []
+                montage_info = []
                 
                 for montage_output in simulation_outputs:
                     montage_name = montage_output['montage_name']
+                    nifti_visualizations = montage_output.get('nifti_visualizations', [])
+                    
+                    if nifti_visualizations:
+                        montage_info.append(montage_name)
+                        for nifti_file in nifti_visualizations:
+                            if os.path.exists(nifti_file):
+                                all_nifti_files.append(nifti_file)
+                                basename = os.path.basename(nifti_file)
+                                if 'ti_max' in basename.lower():
+                                    all_labels.append(f"{montage_name} - TI Max")
+                                elif 'grey' in basename.lower():
+                                    all_labels.append(f"{montage_name} - Grey Matter")
+                                elif 'white' in basename.lower():
+                                    all_labels.append(f"{montage_name} - White Matter")
+                                else:
+                                    all_labels.append(f"{montage_name} - Field")
+                
+                if all_nifti_files:
                     html += f"""
-                    <div class="montage-visualization">
-                        <h4>Montage: {montage_name}</h4>
+                    <h3>Subject {subject_id}</h3>
+                    <div style="background-color: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px; padding: 15px; margin-bottom: 30px;">
+                        <p style="color: #6c757d; margin-bottom: 15px; font-size: 14px;">
+                            <strong>Available montages:</strong> {', '.join(montage_info)} | 
+                            <strong>Files ready:</strong> T1 + {len(all_nifti_files)} field distributions
+                        </p>
                     """
                     
-                    # Display montage electrode placement image
-                    montage_image = montage_output.get('montage_image')
-                    if montage_image and os.path.exists(montage_image):
+                    # Create one comprehensive viewer for all files from this subject
+                    if t1_path and os.path.exists(t1_path):
                         try:
-                            # Convert image to base64 for embedding
-                            with open(montage_image, 'rb') as img_file:
-                                import base64
-                                img_data = base64.b64encode(img_file.read()).decode()
-                                html += f"""
-                                <div class="visualization-container">
-                                    <h5>Electrode Placement</h5>
-                                    <img src="data:image/png;base64,{img_data}" 
-                                         alt="Electrode placement for {montage_name}" 
-                                         style="max-width: 500px; height: auto; border: 1px solid #ddd; border-radius: 4px;"/>
-                                </div>
-                                """
+                            viewer_name = f"subject_{subject_id}"
+                            viz_html = self._generate_subject_nifti_viewer(
+                                subject_id=subject_id,
+                                t1_file=t1_path,
+                                nifti_files=all_nifti_files,
+                                labels=all_labels,
+                                viewer_name=viewer_name
+                            )
+                            if viz_html:
+                                html += viz_html
                                 visualizations_found = True
                         except Exception as e:
-                            html += f"<p>Error loading montage image: {str(e)}</p>"
-                    
-                    # Display Interactive NIfTI visualizations
-                    nifti_visualizations = montage_output.get('nifti_visualizations', [])
-                    if nifti_visualizations:
-                        html += """
-                        <div class="visualization-container">
-                            <h5>Interactive Electric Field Distributions (TI Max)</h5>
-                            <p style="color: #666; font-size: 14px; margin-bottom: 15px;">
-                                🎛️ <strong>Interactive Controls:</strong> Use the Papaya viewer controls to:
-                                <ul>
-                                    <li>Navigate through brain slices</li>
-                                    <li>Adjust overlay opacity</li>
-                                    <li>Change color maps</li>
-                                    <li>Switch between axial, sagittal, and coronal views</li>
-                                </ul>
-                                All data is embedded directly in this HTML file - no server required!
+                            html += f"""
+                            <div class="error">
+                                <strong>Error generating viewer for subject {subject_id}:</strong> {str(e)}
+                            </div>
+                            """
+                    else:
+                        html += f"""
+                        <div style="margin: 10px 0; padding: 15px; background-color: #e3f2fd; border-radius: 8px; border: 1px solid #2196f3;">
+                            <h6 style="color: #1976d2; margin-bottom: 10px;">📊 NIfTI Files Available</h6>
+                            <p style="color: #1976d2; margin: 0; font-size: 14px;">
+                                <strong>Files:</strong> {len(all_nifti_files)} field distributions<br>
+                                <strong>Note:</strong> T1 reference not available for interactive viewing.<br>
+                                <em>The interactive viewer works best with both T1 structural and overlay data.</em>
                             </p>
+                        </div>
                         """
-                        
-                        # Find grey matter TI max file
-                        grey_ti_max = None
-                        for nifti_file in nifti_visualizations:
-                            if 'grey' in os.path.basename(nifti_file).lower() and 'ti_max' in os.path.basename(nifti_file).lower():
-                                grey_ti_max = nifti_file
-                                break
-                        
-                        # If we have both T1 and grey_TI_max, create the visualization
-                        if t1_path and grey_ti_max and os.path.exists(t1_path) and os.path.exists(grey_ti_max):
-                            try:
-                                viz_html = self._generate_nifti_visualization_html(grey_ti_max, t1_path)
-                                if viz_html:
-                                    html += viz_html
-                                    visualizations_found = True
-                            except Exception as e:
-                                html += f"""
-                                <div class="error">
-                                    <strong>Error generating visualization:</strong> {str(e)}
-                                </div>
-                                """
-                        else:
-                            # Fallback to individual file visualizations
-                            for nifti_file in nifti_visualizations:
-                                if os.path.exists(nifti_file):
-                                    try:
-                                        viz_html = self._generate_nifti_visualization_html(nifti_file, t1_path)
-                                        if viz_html:
-                                            html += viz_html
-                                            visualizations_found = True
-                                    except Exception as e:
-                                        html += f"<p>Error generating visualization for {os.path.basename(nifti_file)}: {str(e)}</p>"
-                        
-                        html += "</div>"
                     
-                    html += "</div>"  # Close montage-visualization
-                
-                html += "</div>"  # Close subject container
+                    html += "</div>"  # Close subject container
         
         # Show placeholder if no visualizations found
         if not visualizations_found:
@@ -1640,18 +1655,18 @@ class SimulationReportGenerator:
                 <ul>
                     <li><strong>Interactive electrode placement maps</strong> (montage_imgs/*.png)</li>
                     <li><strong>3D electric field distribution maps</strong> (niftis/*_TI_max.nii.gz) - <em>Interactive with Papaya viewer</em></li>
-                    <li><strong>Temporal interference patterns</strong> - <em>Slice navigation and overlay controls</em></li>
-                    <li><strong>Cross-sectional views</strong> - <em>Real-time slice browsing with embedded data</em></li>
+                    <li><strong>Temporal interference patterns</strong> - <em>One viewer per subject with all montages</em></li>
+                    <li><strong>Cross-sectional views</strong> - <em>Load any combination of field files</em></li>
                 </ul>
                 <div style="background-color: #e3f2fd; padding: 15px; border-radius: 8px; margin-top: 15px;">
                     <p style="color: #1976d2; margin: 0; font-size: 14px;">
-                        💡 <strong>Note:</strong> When visualizations are available, you'll be able to:
+                        💡 <strong>Note:</strong> When visualizations are available, you'll have one comprehensive viewer per subject where you can:
                     </p>
                     <ul style="color: #1976d2; margin: 10px 0 0 20px; font-size: 14px;">
-                        <li>Navigate through brain slices by clicking and dragging</li>
-                        <li>Switch between background and overlay images with dropdown menus</li>
-                        <li>Adjust opacity and visualization parameters with interactive controls</li>
-                        <li>View multiple overlays (T1 anatomy + electric fields) in a self-contained viewer</li>
+                        <li>Load images selectively from the File menu dropdown</li>
+                        <li>Compare multiple montages side-by-side with overlays</li>
+                        <li>Navigate through brain slices and adjust visualization parameters</li>
+                        <li>Switch between different field distributions for the same subject</li>
                     </ul>
                 </div>
             </div>
@@ -1661,52 +1676,21 @@ class SimulationReportGenerator:
         return html
     
     def _generate_server_setup_section(self):
-        """Generate simplified setup section for Papaya (no server needed)."""
+        """Generate setup section for local web server (for better file access)."""
         return """
-        <div class="server-setup-section" style="margin: 20px 0; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; padding: 20px; color: white;">
-            <div style="display: flex; align-items: center; margin-bottom: 15px;">
-                <div style="font-size: 28px; margin-right: 15px;">🧠</div>
-                <div>
-                    <h4 style="margin: 0; color: white;">Interactive Brain Visualization</h4>
-                    <p style="margin: 5px 0 0 0; opacity: 0.9; font-size: 14px;">
-                        Powered by Papaya - No server setup required!
-                    </p>
+        <section id="server-setup" class="section">
+            <div class="server-setup-section" style="margin: 20px 0; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; padding: 20px; color: white;">
+                <div style="display: flex; align-items: center; margin-bottom: 15px;">
+                    <div style="font-size: 28px; margin-right: 15px;">🧠</div>
+                    <div>
+                        <h4 style="margin: 0; color: white;">Interactive Brain Visualization</h4>
+                        <p style="margin: 5px 0 0 0; opacity: 0.9; font-size: 14px;">
+                            Powered by Papaya - Self-contained viewers ready to use
+                        </p>
+                    </div>
                 </div>
             </div>
-            
-            <div style="background: rgba(255,255,255,0.1); border-radius: 8px; padding: 15px; margin-bottom: 15px;">
-                <h5 style="margin: 0 0 10px 0; color: white;">✅ Ready to Use</h5>
-                <p style="margin: 0; opacity: 0.9; font-size: 14px;">
-                    This report includes self-contained interactive NIfTI viewers that work immediately when you open the HTML file.
-                    No web server setup or additional configuration is required!
-                </p>
-            </div>
-            
-            <div style="background: rgba(255,255,255,0.1); border-radius: 8px; padding: 15px; margin-bottom: 15px;">
-                <h5 style="margin: 0 0 10px 0; color: white;">🎮 How to Use</h5>
-                <ul style="margin: 0; padding-left: 20px; opacity: 0.9; font-size: 14px;">
-                    <li style="margin: 5px 0;">Left click and drag to rotate 3D view</li>
-                    <li style="margin: 5px 0;">Right click and drag to pan</li>
-                    <li style="margin: 5px 0;">Mouse wheel to zoom</li>
-                    <li style="margin: 5px 0;">Use toolbar controls to switch between views</li>
-                    <li style="margin: 5px 0;">Adjust overlay opacity and color maps in image controls</li>
-                </ul>
-            </div>
-            
-            <div style="background: rgba(255,255,255,0.1); border-radius: 8px; padding: 15px;">
-                <h5 style="margin: 0 0 10px 0; color: white;">🔧 Powered by Papaya</h5>
-                <p style="margin: 0 0 10px 0; opacity: 0.9; font-size: 14px;">
-                    Interactive visualizations use Papaya's powerful JavaScript-based NIfTI viewer.
-                    This is a widely-used tool in neuroimaging visualization.
-                </p>
-                <div style="background: rgba(0,0,0,0.2); padding: 10px; border-radius: 4px; font-family: monospace; font-size: 13px; margin: 10px 0;">
-                    <div style="color: #4fc3f7;">🐳 Works in any modern web browser - no plugins needed!</div>
-                </div>
-                <p style="margin: 0; opacity: 0.9; font-size: 12px;">
-                    All viewers are self-contained and work by simply double-clicking the HTML file.
-                </p>
-            </div>
-        </div>
+        </section>
         """
     
     def _generate_software_section(self):
@@ -1841,6 +1825,59 @@ from individual anatomical MRI data processed through the TI-CSC preprocessing p
             }
         }
         """
+    
+    def _generate_subject_nifti_viewer(self, subject_id, t1_file, nifti_files, labels, viewer_name):
+        """Generate HTML for a simple, empty Papaya viewer for a subject with all their files.
+        
+        Args:
+            subject_id (str): Subject ID
+            t1_file (str): Path to T1 structural file
+            nifti_files (list): List of all NIfTI field files for this subject
+            labels (list): Labels for each field file
+            viewer_name (str): Name for this viewer
+            
+        Returns:
+            str: HTML content for the empty interactive visualization
+        """
+        try:
+            # Import papaya utilities
+            from .papaya_utils import create_papaya_viewer
+            
+            # Get the report directory
+            if hasattr(self, '_current_report_dir'):
+                report_dir = self._current_report_dir
+            else:
+                import tempfile
+                report_dir = tempfile.gettempdir()
+            
+            # Create the empty viewer with all files available in dropdown
+            viewer_html = create_papaya_viewer(
+                report_dir=report_dir,
+                viewer_name=viewer_name,
+                t1_file=t1_file,
+                field_files=nifti_files,
+                labels=labels
+            )
+            
+            return viewer_html
+                
+        except ImportError:
+            return self._generate_papaya_installation_guide(nifti_files[0] if nifti_files else "")
+        except Exception as e:
+            return f"""
+            <div style="margin: 10px 0; padding: 15px; background-color: #fff3cd; border-radius: 8px; border: 1px solid #ffeaa7;">
+                <h6 style="color: #856404; margin-bottom: 10px;">⚠️ Viewer Creation Error</h6>
+                <p style="color: #856404; margin: 0; font-size: 14px;">
+                    <strong>Subject:</strong> {subject_id}<br>
+                    <strong>Error:</strong> {str(e)}<br>
+                    <strong>Files available:</strong> {len(nifti_files)} field files + T1 reference
+                </p>
+            </div>
+            """
+    
+    def _generate_file_instruction_list(self, labels):
+        """Generate HTML list items for file loading instructions."""
+        return "\n".join([f"<li>🧠 <strong>{label}</strong></li>" for label in labels])
 
 
 def create_simulation_report(project_dir, simulation_session_id=None, simulation_log=None):
