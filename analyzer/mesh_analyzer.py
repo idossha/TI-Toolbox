@@ -110,7 +110,22 @@ class MeshAnalyzer:
         else:
             # Create our own logger if none provided
             time_stamp = time.strftime('%Y%m%d_%H%M%S')
-            self.logger = logging_util.get_logger('mesh_analyzer', f'output/Documentation/mesh_analyzer_{time_stamp}.log', overwrite=True)
+            
+            # Extract subject ID from subject_dir (e.g., m2m_subject -> subject)
+            subject_id = os.path.basename(self.subject_dir).split('_')[1] if '_' in os.path.basename(self.subject_dir) else os.path.basename(self.subject_dir)
+            
+            # Get project directory from subject_dir
+            project_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(self.subject_dir))))  # Go up four levels from m2m_subject
+            if not project_dir.startswith('/mnt/'):
+                project_dir = f"/mnt/{os.path.basename(project_dir)}"
+            
+            # Create derivatives/log/sub-* directory structure
+            log_dir = os.path.join(project_dir, 'derivatives', 'logs', f'sub-{subject_id}')
+            os.makedirs(log_dir, exist_ok=True)
+            
+            # Create log file in the new directory
+            log_file = os.path.join(log_dir, f'mesh_analyzer_{time_stamp}.log')
+            self.logger = logging_util.get_logger('mesh_analyzer', log_file, overwrite=True)
         
         # Initialize visualizer with logger
         self.visualizer = MeshVisualizer(output_dir, self.logger)

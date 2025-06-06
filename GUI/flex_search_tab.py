@@ -722,7 +722,7 @@ class FlexSearchTab(QtWidgets.QWidget):
                 return
                 
             roi_params = {
-                'method': 'cortical',
+                'method': 'atlas',
                 'atlas': self.atlas_combo.currentText(),
                 'region': str(self.label_value_input.value())
             }
