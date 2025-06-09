@@ -15,10 +15,29 @@ import subprocess
 import glob
 import threading
 import time
+from pathlib import Path
+import tempfile
+import shutil
+import datetime
+
 from PyQt5 import QtWidgets, QtCore, QtGui
 from confirmation_dialog import ConfirmationDialog
 from utils import confirm_overwrite
-from report_generator import PreprocessingReportGenerator
+
+# Add the utils directory to the path
+utils_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'utils')
+if utils_dir not in sys.path:
+    sys.path.insert(0, utils_dir)
+
+# Import from utils with error handling
+try:
+    from report_util import get_preprocessing_report_generator
+except ImportError as e:
+    print(f"Warning: Could not import report utilities: {e}")
+    # Define a fallback function
+    def get_preprocessing_report_generator(*args, **kwargs):
+        print("Warning: Report generation not available")
+        return None
 
 class PreProcessThread(QtCore.QThread):
     """Thread to run pre-processing in background to prevent GUI freezing."""
@@ -619,7 +638,7 @@ class PreProcessTab(QtWidgets.QWidget):
         
         # Initialize report generators for selected subjects
         for subject_id in selected_subjects:
-            self.report_generators[subject_id] = PreprocessingReportGenerator(self.project_dir, subject_id)
+            self.report_generators[subject_id] = get_preprocessing_report_generator(self.project_dir, subject_id)
             
             # Add processing parameters to report
             parameters = {

@@ -10,10 +10,34 @@ import os
 import json
 import re
 import subprocess
+import sys
+import time
+import threading
+from pathlib import Path
+import datetime
+import tempfile
+import shutil
+
 from PyQt5 import QtWidgets, QtCore, QtGui
 from confirmation_dialog import ConfirmationDialog
 from utils import confirm_overwrite
-from simulation_report_generator import SimulationReportGenerator
+
+# Add the utils directory to the path
+import sys
+import os
+utils_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'utils')
+if utils_dir not in sys.path:
+    sys.path.insert(0, utils_dir)
+
+# Now import from utils
+try:
+    from report_util import get_simulation_report_generator
+except ImportError as e:
+    print(f"Warning: Could not import report utilities: {e}")
+    # Define a fallback function
+    def get_simulation_report_generator(*args, **kwargs):
+        print("Warning: Report generation not available")
+        return None
 
 class SimulationThread(QtCore.QThread):
     """Thread to run simulation in background to prevent GUI freezing."""
@@ -917,11 +941,10 @@ class SimulatorTab(QtWidgets.QWidget):
             if hasattr(self, 'parent') and self.parent:
                 self.parent.set_tab_busy(self, True, stop_btn=self.stop_btn)
             
-            # Initialize simulation report generator
-            import datetime
+            # Initialize report generator for this simulation session
             self.simulation_session_id = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
             project_dir_path = f"/mnt/{os.environ.get('PROJECT_DIR_NAME', 'BIDS_new')}"
-            self.report_generator = SimulationReportGenerator(project_dir_path, self.simulation_session_id)
+            self.report_generator = get_simulation_report_generator(project_dir_path, self.simulation_session_id)
             
             # Add simulation parameters to report (including custom conductivities)
             self.report_generator.add_simulation_parameters(
@@ -1391,8 +1414,7 @@ class SimulatorTab(QtWidgets.QWidget):
     def _get_conductivities_for_report(self):
         """Get conductivity values formatted for the simulation report."""
         # Start with default values
-        from simulation_report_generator import SimulationReportGenerator
-        temp_gen = SimulationReportGenerator("", "")
+        temp_gen = get_simulation_report_generator("", "")
         conductivities = temp_gen._get_default_conductivities()
         
         # Override with any custom values
