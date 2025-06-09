@@ -93,7 +93,22 @@ class BaseVisualizer:
             # Create our own logger if none provided
             import time
             time_stamp = time.strftime('%Y%m%d_%H%M%S')
-            self.logger = logging_util.get_logger('visualizer', f'output/Documentation/visualizer_{time_stamp}.log', overwrite=True)
+            
+            # Create derivatives/log directory structure
+            # Get project directory from output_dir
+            project_dir = os.path.dirname(os.path.dirname(output_dir))  # Go up two levels from output_dir
+            if not project_dir.startswith('/mnt/'):
+                project_dir = f"/mnt/{os.path.basename(project_dir)}"
+            
+            # Extract subject ID from output_dir path
+            subject_id = os.path.basename(output_dir).split('_')[1] if '_' in os.path.basename(output_dir) else os.path.basename(output_dir)
+            
+            log_dir = os.path.join(project_dir, 'derivatives', 'logs', f'sub-{subject_id}')
+            os.makedirs(log_dir, exist_ok=True)
+            
+            # Create log file in the new directory
+            log_file = os.path.join(log_dir, f'visualizer_{time_stamp}.log')
+            self.logger = logging_util.get_logger('visualizer', log_file, overwrite=True)
         
         # Create output directory if it doesn't exist
         if not os.path.exists(output_dir):

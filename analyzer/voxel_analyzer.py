@@ -110,7 +110,17 @@ class VoxelAnalyzer:
         else:
             # Create our own logger if none provided
             time_stamp = time.strftime('%Y%m%d_%H%M%S')
-            self.logger = logging_util.get_logger('voxel_analyzer', f'output/Documentation/voxel_analyzer_{time_stamp}.log', overwrite=True)
+            
+            # Extract subject ID from subject_dir (e.g., m2m_subject -> subject)
+            subject_id = os.path.basename(self.subject_dir).split('_')[1] if '_' in os.path.basename(self.subject_dir) else os.path.basename(self.subject_dir)
+            
+            # Create derivatives/log/sub-* directory structure
+            log_dir = os.path.join('derivatives', 'logs', f'sub-{subject_id}')
+            os.makedirs(log_dir, exist_ok=True)
+            
+            # Create log file in the new directory
+            log_file = os.path.join(log_dir, f'voxel_analyzer_{time_stamp}.log')
+            self.logger = logging_util.get_logger('voxel_analyzer', log_file, overwrite=True)
         
         # Initialize visualizer with logger
         self.visualizer = VoxelVisualizer(output_dir, self.logger)

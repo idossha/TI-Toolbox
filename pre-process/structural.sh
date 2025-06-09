@@ -23,36 +23,6 @@
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$script_dir/../utils/bash_logging.sh"
 
-# Create logs directory if it doesn't exist
-logs_dir="$script_dir/logs"
-mkdir -p "$logs_dir"
-
-# Initialize logging with absolute paths
-set_logger_name "structural"
-set_log_file "${logs_dir}/structural.log"
-
-# Configure external loggers for FreeSurfer and SimNIBS
-configure_external_loggers '["freesurfer", "simnibs", "charm"]'
-
-# Function to run command with proper error handling
-run_command() {
-    local cmd="$1"
-    local error_msg="$2"
-    
-    # Run cmd, capture both stdout and stderr,
-    # append everything to the log file, and still show on console.
-    if ! eval "$cmd" 2>&1 | tee -a "$LOG_FILE"; then
-        # tee will forward stderr, so logger.error will also record the final error
-        log_error "$error_msg"
-        return 1
-    fi
-    return 0
-}
-
-###############################################################################
-#                      PARSE ARGUMENTS AND OPTIONS
-###############################################################################
-
 # Default values for optional flags
 RUN_RECON=false
 RECON_ONLY=false
@@ -94,8 +64,8 @@ while [[ $# -gt 0 ]]; do
       if [[ -z "$SUBJECT_DIR" ]]; then
         SUBJECT_DIR="$1"
       else
-        log_error "Unknown argument: $1"
-        log_error "Usage: $0 <subject_dir> [recon-all] [--recon-only] [--parallel] [--quiet] [--convert-dicom] [--create-m2m]"
+        echo "Unknown argument: $1"
+        echo "Usage: $0 <subject_dir> [recon-all] [--recon-only] [--parallel] [--quiet] [--convert-dicom] [--create-m2m]"
         exit 1
       fi
       shift
@@ -103,15 +73,52 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-# Extract subject ID from the subject directory path
-SUBJECT_ID=$(basename "$SUBJECT_DIR")
-
-# Validate subject directory - create if it doesn't exist
+# Validate subject directory
 if [[ -z "$SUBJECT_DIR" ]]; then
-  log_error "Error: <subject_dir> is required."
-  log_error "Usage: $0 <subject_dir> [recon-all] [--recon-only] [--parallel] [--quiet] [--convert-dicom] [--create-m2m]"
+  echo "Error: <subject_dir> is required."
+  echo "Usage: $0 <subject_dir> [recon-all] [--recon-only] [--parallel] [--quiet] [--convert-dicom] [--create-m2m]"
   exit 1
 fi
+
+# Get absolute path of subject directory and set up project structure
+SUBJECT_DIR="$(realpath "$SUBJECT_DIR")"
+PROJECT_NAME=$(basename "$(dirname "$SUBJECT_DIR")")
+PROJECT_DIR="/mnt/${PROJECT_NAME}"
+DERIVATIVES_DIR="${PROJECT_DIR}/derivatives"
+SUBJECT_ID=$(basename "$SUBJECT_DIR" | sed 's/^sub-//')  # Remove sub- prefix if it exists
+BIDS_SUBJECT_ID="sub-${SUBJECT_ID}"
+
+# Create logs directory in project derivatives under subject folder
+logs_dir="${DERIVATIVES_DIR}/logs/${BIDS_SUBJECT_ID}"
+mkdir -p "$logs_dir"
+echo "Logs directory: $logs_dir"
+
+# Now that we have the correct paths, set up logging
+set_logger_name "pre-process"
+timestamp=$(date +"%Y%m%d_%H%M%S")
+set_log_file "${logs_dir}/pre-process_${timestamp}.log"
+
+# Configure external loggers for FreeSurfer and SimNIBS
+configure_external_loggers '["freesurfer", "simnibs", "charm"]'
+
+# Function to run command with proper error handling
+run_command() {
+    local cmd="$1"
+    local error_msg="$2"
+    
+    # Run cmd, capture both stdout and stderr,
+    # append everything to the log file, and still show on console.
+    if ! eval "$cmd" 2>&1 | tee -a "$LOG_FILE"; then
+        # tee will forward stderr, so logger.error will also record the final error
+        log_error "$error_msg"
+        return 1
+    fi
+    return 0
+}
+
+###############################################################################
+#                      PARSE ARGUMENTS AND OPTIONS
+###############################################################################
 
 # Create subject directory if it doesn't exist
 if [[ ! -d "$SUBJECT_DIR" ]]; then
@@ -230,14 +237,8 @@ fi
 #                     DEFINE DIRECTORIES AND ENVIRONMENT
 ###############################################################################
 
-# Adjust directories for BIDS-like structure
-SUBJECT_ID=$(basename "$SUBJECT_DIR" | sed 's/^sub-//')  # Remove sub- prefix if it exists
-BIDS_SUBJECT_ID="sub-${SUBJECT_ID}"
-
 # Define BIDS directory structure
-PROJECT_DIR=$(dirname "$SUBJECT_DIR")  # Get project directory from subject directory
 SOURCEDATA_DIR="${PROJECT_DIR}/sourcedata/${BIDS_SUBJECT_ID}"
-DERIVATIVES_DIR="${PROJECT_DIR}/derivatives"
 BIDS_ANAT_DIR="${PROJECT_DIR}/${BIDS_SUBJECT_ID}/anat"
 FREESURFER_DIR="${DERIVATIVES_DIR}/freesurfer/${BIDS_SUBJECT_ID}"
 SIMNIBS_DIR="${DERIVATIVES_DIR}/SimNIBS/${BIDS_SUBJECT_ID}"

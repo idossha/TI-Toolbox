@@ -24,13 +24,18 @@ def setup_logger(output_folder: str) -> None:
         output_folder: Path to the directory where logs should be stored
     """
     global logger
-    # Create Documentation directory in the output folder
-    output_dir = os.path.join(output_folder, "Documentation")
-    os.makedirs(output_dir, exist_ok=True)
+    # Get project directory from environment
+    proj_dir = os.getenv("PROJECT_DIR")
+    if not proj_dir:
+        raise SystemExit("[flex-search] PROJECT_DIR env-var is missing")
+    
+    # Create logs directory in project derivatives
+    logs_dir = os.path.join(proj_dir, "derivatives", "logs", f"sub-{os.getenv('SUBJECT_ID')}")
+    os.makedirs(logs_dir, exist_ok=True)
     
     # Create timestamped log file
     time_stamp = time.strftime('%Y%m%d_%H%M%S')
-    log_file = os.path.join(output_dir, f'flex_search_{time_stamp}.log')
+    log_file = os.path.join(logs_dir, f'flex_search_{time_stamp}.log')
     logger = get_logger('flex-search', log_file, overwrite=True)
 
 # -----------------------------------------------------------------------------

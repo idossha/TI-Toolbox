@@ -222,7 +222,21 @@ def main():
         # Initialize logger after creating output directory
         global logger
         time_stamp = time.strftime('%Y%m%d_%H%M%S')
-        log_file = os.path.join(args.output_dir, 'Documentation', f'analyzer_{time_stamp}.log')
+        
+        # Extract subject ID from m2m_subject_path (e.g., m2m_subject -> subject)
+        subject_id = os.path.basename(args.m2m_subject_path).split('_')[1] if '_' in os.path.basename(args.m2m_subject_path) else os.path.basename(args.m2m_subject_path)
+        
+        # Get project directory from m2m_subject_path
+        project_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(args.m2m_subject_path))))  # Go up four levels from m2m_subject
+        if not project_dir.startswith('/mnt/'):
+            project_dir = f"/mnt/{os.path.basename(project_dir)}"
+        
+        # Create derivatives/log/sub-* directory structure
+        log_dir = os.path.join(project_dir, 'derivatives', 'logs', f'sub-{subject_id}')
+        os.makedirs(log_dir, exist_ok=True)
+        
+        # Create log file in the new directory
+        log_file = os.path.join(log_dir, f'analyzer_{time_stamp}.log')
         logger = logging_util.get_logger('analyzer', log_file, overwrite=True)
         logger.info(f"Output directory created: {args.output_dir}")
         
