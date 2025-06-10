@@ -11,12 +11,13 @@ subjects, and outputs with brain visualizations.
 import os
 import json
 import datetime
-import subprocess
-import glob
-import base64
-import tempfile
+import shutil
 from pathlib import Path
 import numpy as np
+import time
+import base64
+import io
+import subprocess
 
 class SimulationReportGenerator:
     """Generate comprehensive HTML reports for simulation pipelines."""
@@ -176,41 +177,55 @@ class SimulationReportGenerator:
                 subject['timestamp'] = datetime.datetime.now().isoformat()
                 break
     
-    def add_montage(self, montage_name, electrode_pairs, montage_type='unipolar'):
+    def add_montage(self, montage_name=None, name=None, electrode_pairs=None, montage_type='unipolar'):
         """Add a montage to the simulation report.
         
         Args:
-            montage_name (str): Name of the montage
+            montage_name (str): Name of the montage (new style)
+            name (str): Name of the montage (old style, for backward compatibility)
             electrode_pairs (list): List of electrode pairs
             montage_type (str): Type of montage ('unipolar' or 'multipolar')
         """
+        # Use montage_name if provided, otherwise fall back to name
+        final_name = montage_name if montage_name is not None else name
+        
+        if final_name is None:
+            raise ValueError("Either montage_name or name must be provided")
+            
         montage_data = {
-            'name': montage_name,
+            'name': final_name,
             'type': montage_type,
             'electrode_pairs': electrode_pairs,
-            'num_pairs': len(electrode_pairs),
-            'electrodes_used': list(set([e for pair in electrode_pairs for e in pair])),
+            'num_pairs': len(electrode_pairs) if electrode_pairs else 0,
+            'electrodes_used': list(set([e for pair in (electrode_pairs or []) for e in pair])),
             'timestamp': datetime.datetime.now().isoformat()
         }
         
         self.report_data['montages'].append(montage_data)
     
-    def add_simulation_result(self, subject_id, montage_name, output_files, 
+    def add_simulation_result(self, subject_id, montage_name=None, name=None, output_files=None, 
                             duration=None, status='completed'):
         """Add simulation results for a specific subject-montage combination.
         
         Args:
             subject_id (str): Subject ID
-            montage_name (str): Montage name
+            montage_name (str): Name of the montage (new style)
+            name (str): Name of the montage (old style, for backward compatibility)
             output_files (dict): Dictionary of output file types and paths
             duration (float): Simulation duration in seconds
             status (str): Simulation status
         """
-        result_key = f"{subject_id}_{montage_name}"
+        # Use montage_name if provided, otherwise fall back to name
+        final_name = montage_name if montage_name is not None else name
+        
+        if final_name is None:
+            raise ValueError("Either montage_name or name must be provided")
+            
+        result_key = f"{subject_id}_{final_name}"
         self.report_data['simulation_results'][result_key] = {
             'subject_id': subject_id,
-            'montage_name': montage_name,
-            'output_files': output_files,
+            'montage_name': final_name,
+            'output_files': output_files or {},
             'duration': duration,
             'status': status,
             'timestamp': datetime.datetime.now().isoformat()
@@ -246,6 +261,24 @@ class SimulationReportGenerator:
             'timestamp': datetime.datetime.now().isoformat()
         })
     
+    def _check_imagemagick_installation(self):
+        """Check if ImageMagick is installed and accessible."""
+        try:
+            result = subprocess.run(['convert', '-version'], 
+                                  capture_output=True, text=True, timeout=5)
+            return result.returncode == 0
+        except (subprocess.TimeoutExpired, FileNotFoundError, subprocess.SubprocessError):
+            return False
+    
+    def _add_imagemagick_warning(self):
+        """Add a warning about missing ImageMagick for montage visualization."""
+        if not self._check_imagemagick_installation():
+            self.add_warning(
+                "ImageMagick not found. Montage visualization images may not be generated. "
+                "Install ImageMagick: Ubuntu/Debian: 'sudo apt-get install imagemagick', "
+                "macOS: 'brew install imagemagick', CentOS/RHEL: 'sudo yum install ImageMagick'"
+            )
+    
     def _scan_simulation_outputs(self, subject_id, m2m_path):
         """Scan for simulation output files.
         
@@ -264,7 +297,7 @@ class SimulationReportGenerator:
             for montage_dir in simulations_dir.iterdir():
                 if montage_dir.is_dir():
                     montage_outputs = {
-                        'montage_name': montage_dir.name,
+                        'name': montage_dir.name,  # Store as 'name' for consistency
                         'files': {},
                         'montage_image': None,
                         'nifti_visualizations': []
@@ -351,144 +384,6 @@ class SimulationReportGenerator:
             self.add_warning(f"Failed to generate visualization: {str(e)}", subject_id, montage_name)
             return None
     
-    def _generate_nifti_visualization_html(self, nifti_files, t1_file=None, viewer_name=None):
-        """Generate HTML for interactive NIfTI visualization using Papaya viewer.
-        
-        Args:
-            nifti_files (list): List of NIfTI file paths to include
-            t1_file (str): Optional path to T1 structural file
-            viewer_name (str): Name for this viewer
-            
-        Returns:
-            str: HTML content for the interactive visualization
-        """
-        try:
-            # Import papaya utilities
-            from .papaya_utils import create_papaya_viewer
-            
-            # Get the report directory (will be set during report generation)
-            if hasattr(self, '_current_report_dir'):
-                report_dir = self._current_report_dir
-            else:
-                # Fallback to a temporary directory for preview
-                import tempfile
-                report_dir = tempfile.gettempdir()
-            
-            # Ensure we have a list of files
-            if isinstance(nifti_files, str):
-                nifti_files = [nifti_files]
-            
-            # Filter to existing files
-            existing_files = [f for f in nifti_files if f and os.path.exists(f)]
-            if not existing_files:
-                return f"""
-                <div style="margin: 10px 0; padding: 15px; background-color: #fff3cd; border-radius: 8px; border: 1px solid #ffeaa7;">
-                    <h6 style="color: #856404; margin-bottom: 10px;">⚠️ No NIfTI Files Found</h6>
-                    <p style="color: #856404; margin: 0; font-size: 14px;">
-                        No valid NIfTI files were found for visualization.
-                    </p>
-                </div>
-                """
-            
-            # Use T1 file if available, otherwise create placeholder
-            if t1_file and os.path.exists(t1_file):
-                # Create labels for the files
-                labels = []
-                for nifti_file in existing_files:
-                    basename = os.path.basename(nifti_file)
-                    if 'ti_max' in basename.lower():
-                        labels.append(f"TI Max ({basename})")
-                    elif 'grey' in basename.lower():
-                        labels.append(f"Grey Matter ({basename})")
-                    elif 'white' in basename.lower():
-                        labels.append(f"White Matter ({basename})")
-                    else:
-                        labels.append(f"Field ({basename})")
-                
-                # Create the viewer
-                viewer_html = create_papaya_viewer(
-                    report_dir=report_dir,
-                    viewer_name=viewer_name or "brain_viewer",
-                    t1_file=t1_file,
-                    field_files=existing_files,
-                    labels=labels
-                )
-                return viewer_html
-            else:
-                return f"""
-                <div style="margin: 10px 0; padding: 15px; background-color: #e3f2fd; border-radius: 8px; border: 1px solid #2196f3;">
-                    <h6 style="color: #1976d2; margin-bottom: 10px;">📊 NIfTI Files Available</h6>
-                    <p style="color: #1976d2; margin: 0; font-size: 14px;">
-                        <strong>Files:</strong> {', '.join([os.path.basename(f) for f in existing_files])}<br>
-                        <strong>Note:</strong> T1 reference not available for interactive viewing.<br>
-                        <em>The interactive viewer works best with both T1 structural and overlay data.</em>
-                    </p>
-                </div>
-                """
-                
-        except ImportError:
-            return self._generate_papaya_installation_guide(existing_files[0] if existing_files else "")
-        except Exception as e:
-            return f"""
-            <div style="margin: 10px 0; padding: 15px; background-color: #fff3cd; border-radius: 8px; border: 1px solid #ffeaa7;">
-                <h6 style="color: #856404; margin-bottom: 10px;">⚠️ Visualization Error</h6>
-                <p style="color: #856404; margin: 0; font-size: 14px;">
-                    <strong>Files:</strong> {', '.join([os.path.basename(f) for f in existing_files]) if existing_files else 'None'}<br>
-                    <strong>Error:</strong> {str(e)}<br>
-                    <em>Please check the console for more details.</em>
-                </p>
-            </div>
-            """
-    
-    def _generate_papaya_installation_guide(self, nifti_file):
-        """Generate HTML with Papaya installation instructions."""
-        filename = os.path.basename(nifti_file)
-        
-        return f"""
-        <div class="papaya-fallback" style="margin: 15px 0;">
-            <div style="background-color: #f8f9fa; border: 2px dashed #6c757d; border-radius: 8px; padding: 20px; text-align: center;">
-                <div style="font-size: 18px; margin-bottom: 10px;">🧠</div>
-                <h6 style="color: #495057; margin-bottom: 10px;">Papaya Viewer</h6>
-                <p style="color: #6c757d; margin-bottom: 15px;">
-                    <strong>File:</strong> {filename}
-                </p>
-                
-                <div style="background-color: #fff3cd; border: 1px solid #ffeaa7; padding: 12px; border-radius: 6px; margin-bottom: 15px;">
-                    <p style="color: #856404; margin: 0; font-size: 14px;">
-                        <strong>⚠️ Papaya viewer not available</strong><br>
-                        Please install Papaya to enable interactive visualization.
-                    </p>
-                </div>
-                
-                <div style="background-color: #e8f5e8; padding: 12px; border-radius: 6px; margin-bottom: 15px;">
-                    <p style="color: #2e7d32; margin: 0; font-size: 14px;">
-                        💡 <strong>To enable Papaya viewer:</strong><br>
-                        1. Clone the repository:<br>
-                        <code style="background: #333; color: #0f0; padding: 2px 4px;">git clone https://github.com/rii-mango/Papaya.git</code><br>
-                        2. Place it in project root directory<br>
-                        3. Regenerate your report for full interactive features!
-                    </p>
-                </div>
-                
-                <div style="margin-top: 15px;">
-                    <button onclick="window.open('https://github.com/rii-mango/Papaya', '_blank')" 
-                            style="background-color: #2196f3; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; margin-right: 10px; font-size: 12px;">
-                        🌐 Learn About Papaya
-                    </button>
-                    <button onclick="copyToClipboard('{nifti_file}')" 
-                            style="background-color: #6c757d; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-size: 12px;">
-                        📋 Copy File Path
-                    </button>
-                </div>
-                
-                <!-- File path for reference -->
-                <div style="margin-top: 15px; padding: 8px; background-color: #f1f3f4; border-radius: 4px; font-family: monospace; font-size: 11px; color: #5f6368; word-break: break-all;">
-                    <strong>File path:</strong> {nifti_file}
-                </div>
-            </div>
-        </div>
-        """
-    
     def _generate_mesh_visualization(self, mesh_file):
         """Generate mesh visualization.
         
@@ -537,6 +432,9 @@ class SimulationReportGenerator:
         Returns:
             str: Path to the generated report
         """
+        # Check for ImageMagick installation and add warning if missing
+        self._add_imagemagick_warning()
+        
         # Scan for simulation outputs for all subjects before generating HTML
         for subject_data in self.report_data['subjects']:
             if subject_data.get('m2m_path') and os.path.exists(subject_data['m2m_path']):
@@ -560,8 +458,8 @@ class SimulationReportGenerator:
                 reports_dir.mkdir(parents=True, exist_ok=True)
                 output_path = reports_dir / f"simulation_session_{self.simulation_session_id}.html"
         
-        # Set the report directory for Papaya resource management
-        self._current_report_dir = str(Path(output_path).parent)
+        # Set the report directory
+        self.output_dir = str(Path(output_path).parent)
         
         # Generate HTML content
         html_content = self._generate_html_content()
@@ -606,8 +504,7 @@ class SimulationReportGenerator:
                 <li><a href="#subjects">Subjects</a></li>
                 <li><a href="#montages">Montages</a></li>
                 <li><a href="#results">Simulation Results</a></li>
-                <li><a href="#visualizations">Interactive Brain Visualizations</a></li>
-                <li><a href="#server-setup">Local Server Setup</a></li>
+                <li><a href="#visualizations">Brain Visualizations</a></li>
                 <li><a href="#software-info">Software Information</a></li>
                 <li><a href="#methods">Methods</a></li>
                 <li><a href="#errors-warnings">Errors and Warnings</a></li>
@@ -621,7 +518,6 @@ class SimulationReportGenerator:
             {montages_section}
             {results_section}
             {visualizations_section}
-            {server_setup_section}
             {software_section}
             {methods_section}
             {errors_warnings_section}
@@ -663,27 +559,6 @@ class SimulationReportGenerator:
         }}
     </script>
     
-    <!-- Papaya Integration CSS -->
-    <style>
-        .papaya-container {{
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-        }}
-        
-        .papaya-fallback {{
-            transition: all 0.3s ease;
-        }}
-        
-        .papaya-fallback:hover {{
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-        }}
-        
-        canvas {{
-            image-rendering: -webkit-optimize-contrast;
-            image-rendering: crisp-edges;
-        }}
-    </style>
-    
     <script>
         {javascript_code}
     </script>
@@ -696,10 +571,9 @@ class SimulationReportGenerator:
             summary_section=self._generate_summary_section(),
             simulation_parameters_section=self._generate_simulation_parameters_section(),
             subjects_section=self._generate_subjects_section(),
-            montages_section=self._generate_montages_section(),
+            montages_section=self._generate_montage_section(),
             results_section=self._generate_results_section(),
             visualizations_section=self._generate_visualizations_section(),
-            server_setup_section=self._generate_server_setup_section(),
             software_section=self._generate_software_section(),
             methods_section=self._generate_methods_section(),
             errors_warnings_section=self._generate_errors_warnings_section(),
@@ -1462,44 +1336,103 @@ class SimulationReportGenerator:
         html += "</section>"
         return html
     
-    def _generate_montages_section(self):
-        """Generate the montages section."""
+    def _generate_montage_section(self):
+        """Generate the montage visualization section."""
         html = """
         <section id="montages" class="section">
-            <h2>Montages</h2>
+            <h2>Electrode Montages</h2>
+            <p style="color: #6c757d; margin-bottom: 20px;">
+                Electrode positioning and montage configurations used in the simulations.
+            </p>
         """
         
-        if not self.report_data['montages']:
-            html += "<p>No montages configured.</p>"
-        else:
-            for i, montage in enumerate(self.report_data['montages']):
-                html += f"""
-                <div class="montage-card">
-                    <div class="montage-header" onclick="toggleMontage({i})">
-                        <h4>{montage['name']} ({montage['type']})</h4>
-                        <span>{montage['num_pairs']} pair(s)</span>
-                    </div>
-                    <div class="montage-content" id="montage-{i}">
-                        <p><strong>Type:</strong> {montage['type'].title()}</p>
-                        <p><strong>Number of electrode pairs:</strong> {montage['num_pairs']}</p>
-                        <p><strong>Electrodes used:</strong> {', '.join(montage['electrodes_used'])}</p>
-                        
-                        <h5>Electrode Pairs:</h5>
-                        <div class="electrode-pairs">
-                """
+        montage_images_found = False
+        
+        # Check for montage images from scanned simulation outputs
+        for subject in self.report_data['subjects']:
+            subject_id = subject['subject_id']
+            simulation_outputs = subject.get('simulation_outputs', [])
+            
+            for output in simulation_outputs:
+                montage_name = output.get('montage_name', 'Unknown')
+                montage_img = output.get('montage_image')
                 
-                for j, pair in enumerate(montage['electrode_pairs']):
+                if montage_img and os.path.exists(montage_img):
+                    montage_images_found = True
+                    # Convert montage image to base64 for embedding
+                    try:
+                        with open(montage_img, 'rb') as img_file:
+                            img_data = base64.b64encode(img_file.read()).decode('utf-8')
+                            img_ext = os.path.splitext(montage_img)[1][1:].lower()
+                            
+                        html += f"""
+                        <div style="margin: 30px 0; border: 2px solid #dee2e6; border-radius: 8px; background: white; padding: 20px;">
+                            <h3 style="margin: 0 0 15px 0; color: #495057;">Subject {subject_id} - {montage_name}</h3>
+                            <div style="text-align: center;">
+                                <img src="data:image/{img_ext};base64,{img_data}" alt="Montage {montage_name}" style="max-width: 100%; height: auto; border: 1px solid #ddd; border-radius: 4px;">
+                            </div>
+                            <p style="color: #6c757d; margin-top: 15px; font-size: 14px; text-align: center;">
+                                <strong>Montage:</strong> {montage_name} electrode configuration
+                            </p>
+                        </div>
+                        """
+                    except Exception as e:
+                        html += f"""
+                        <div style="margin: 10px 0; padding: 15px; background-color: #f8d7da; border-radius: 8px; border: 1px solid #f5c6cb;">
+                            <h6 style="color: #721c24; margin-bottom: 10px;">⚠️ Montage Image Error</h6>
+                            <p style="color: #721c24; margin: 0; font-size: 14px;">
+                                <strong>Subject:</strong> {subject_id} - {montage_name}<br>
+                                <strong>Error:</strong> {str(e)}<br>
+                                <em>Could not load montage visualization image.</em>
+                            </p>
+                        </div>
+                        """
+                elif montage_img:
                     html += f"""
-                    <div class="electrode-pair">
-                        Pair {j+1}: {pair[0]} ↔ {pair[1]}
+                    <div style="margin: 10px 0; padding: 15px; background-color: #fff3cd; border-radius: 8px; border: 1px solid #ffeaa7;">
+                        <h6 style="color: #856404; margin-bottom: 10px;">⚠️ Missing Montage Image</h6>
+                        <p style="color: #856404; margin: 0; font-size: 14px;">
+                            <strong>Subject:</strong> {subject_id} - {montage_name}<br>
+                            <strong>Expected:</strong> {os.path.basename(montage_img)}<br>
+                            <em>Montage visualization not generated (ImageMagick required).</em>
+                        </p>
                     </div>
                     """
+        
+        # Show montages from the montage configuration
+        if self.report_data['montages']:
+            for montage in self.report_data['montages']:
+                montage_name = montage['name']  # Use 'name' field which is now consistently set
+                electrode_pairs = montage['electrode_pairs']
+                
+                html += f"""
+                <div class="info-card">
+                    <h4>{montage_name}</h4>
+                    <p><strong>Type:</strong> {montage.get('type', 'Unknown').replace('_', ' ').title()}</p>
+                    <p><strong>Electrode Pairs:</strong></p>
+                    <ul style="margin-left: 20px;">
+                """
+                
+                for i, pair in enumerate(electrode_pairs, 1):
+                    if isinstance(pair, (list, tuple)) and len(pair) >= 2:
+                        html += f"<li>Pair {i}: {pair[0]} ↔ {pair[1]}</li>"
+                    else:
+                        html += f"<li>Pair {i}: {pair}</li>"
                 
                 html += """
-                        </div>
-                    </div>
+                    </ul>
                 </div>
                 """
+        
+        if not montage_images_found and not self.report_data['montages']:
+            html += """
+            <div style="margin: 20px 0; padding: 20px; background-color: #e9ecef; border-radius: 8px; text-align: center;">
+                <h4 style="color: #6c757d; margin-bottom: 10px;">📍 No Montage Information Available</h4>
+                <p style="color: #6c757d; margin: 0;">
+                    No electrode montage configurations or visualization images were found.
+                </p>
+            </div>
+            """
         
         html += "</section>"
         return html
@@ -1522,17 +1455,27 @@ class SimulationReportGenerator:
                 <div class="info-card">
                     <h4>{result['subject_id']} - {result['montage_name']} <span class="{status_class}">{result['status'].upper()}</span></h4>
                     <p><strong>Duration:</strong> {duration_text}</p>
+                    <p><strong>Timestamp:</strong> {result.get('timestamp', 'N/A')}</p>
                     <p><strong>Output files:</strong></p>
                     <div class="file-list">
                         <ul>
                 """
                 
-                for file_type, files in result.get('output_files', {}).items():
-                    if isinstance(files, list):
-                        for file_path in files:
-                            html += f"<li>{file_type}: {os.path.basename(file_path)}</li>"
-                    else:
-                        html += f"<li>{file_type}: {files}</li>"
+                output_files = result.get('output_files', {})
+                if output_files:
+                    for file_type, files in output_files.items():
+                        if isinstance(files, list):
+                            for file_path in files:
+                                file_name = os.path.basename(file_path) if isinstance(file_path, str) else str(file_path)
+                                # Check if file exists and add status indicator
+                                exists_indicator = "✅" if isinstance(file_path, str) and os.path.exists(file_path) else "⚠️"
+                                html += f"<li>{exists_indicator} {file_type}: {file_name}</li>"
+                        else:
+                            file_name = os.path.basename(files) if isinstance(files, str) else str(files)
+                            exists_indicator = "✅" if isinstance(files, str) and os.path.exists(files) else "⚠️"
+                            html += f"<li>{exists_indicator} {file_type}: {file_name}</li>"
+                else:
+                    html += "<li>No output files recorded</li>"
                 
                 html += """
                         </ul>
@@ -1544,154 +1487,141 @@ class SimulationReportGenerator:
         return html
     
     def _generate_visualizations_section(self):
-        """Generate the interactive brain visualizations section."""
+        """Generate static brain visualization section with T1 + grey matter overlays."""
         html = """
-        <section id="visualizations" class="section">
-            <h2>Interactive Brain Visualizations</h2>
-            <p>This section contains interactive 3D brain visualizations powered by Papaya viewer. 
-               Each subject has one comprehensive viewer with all available field distributions.</p>
-            
-            <!-- Global Instructions -->
-            <div style="background-color: #e3f2fd; padding: 20px; border-radius: 8px; margin-bottom: 30px; border: 1px solid #2196f3;">
-                <h3 style="color: #1976d2; margin-top: 0;">🎯 How to Use the Viewers:</h3>
-                <ol style="color: #1976d2; margin: 10px 0; padding-left: 20px; font-size: 15px;">
-                    <li><strong>Right-click</strong> in any viewer area</li>
-                    <li><strong>Select "Change Image"</strong> from the context menu</li>
-                    <li><strong>Browse and select</strong> files from your file system</li>
-                    <li><strong>Repeat</strong> to load additional images as overlays</li>
-                </ol>
-                <div style="background-color: #fff3cd; padding: 12px; border-radius: 6px; margin-top: 15px; border: 1px solid #ffeaa7;">
-                    <p style="color: #856404; margin: 0; font-size: 14px;">
-                        💡 <strong>Recommended workflow:</strong> Load T1 reference first, then add field overlays one by one to compare montages.
-                    </p>
-                </div>
-            </div>
+        <h2 id="visualizations">Brain Visualizations</h2>
+        <p style="color: #6c757d; margin-bottom: 20px;">
+            Static brain slice views showing grey matter TI field overlays on T1 reference images.
+            Each visualization shows axial, sagittal, and coronal views with the TI field data overlaid on the structural T1 scan.
+        </p>
         """
         
         visualizations_found = False
         
-        # Generate one viewer per subject with all their NIfTI files
+        # Generate static images for each subject with only the most recent simulation
         for subject in self.report_data['subjects']:
             subject_id = subject['subject_id']
             simulation_outputs = subject.get('simulation_outputs', [])
             t1_path = subject.get('t1_path')
             
-            if simulation_outputs:
-                # Collect all NIfTI files for this subject across all montages
-                all_nifti_files = []
-                all_labels = []
-                montage_info = []
+
+            
+            if simulation_outputs and t1_path and os.path.exists(t1_path):
+                # Find the most recent montage based on file modification times
+                most_recent_montage = None
+                most_recent_time = 0
                 
                 for montage_output in simulation_outputs:
-                    montage_name = montage_output['montage_name']
                     nifti_visualizations = montage_output.get('nifti_visualizations', [])
-                    
                     if nifti_visualizations:
-                        montage_info.append(montage_name)
+                        # Get the most recent file modification time for this montage
+                        montage_latest_time = 0
                         for nifti_file in nifti_visualizations:
                             if os.path.exists(nifti_file):
-                                all_nifti_files.append(nifti_file)
-                                basename = os.path.basename(nifti_file)
-                                if 'ti_max' in basename.lower():
-                                    all_labels.append(f"{montage_name} - TI Max")
-                                elif 'grey' in basename.lower():
-                                    all_labels.append(f"{montage_name} - Grey Matter")
-                                elif 'white' in basename.lower():
-                                    all_labels.append(f"{montage_name} - White Matter")
-                                else:
-                                    all_labels.append(f"{montage_name} - Field")
+                                file_time = os.path.getmtime(nifti_file)
+                                montage_latest_time = max(montage_latest_time, file_time)
+                        
+                        # Update if this montage is more recent
+                        if montage_latest_time > most_recent_time:
+                            most_recent_time = montage_latest_time
+                            most_recent_montage = montage_output
                 
-                if all_nifti_files:
-                    html += f"""
-                    <h3>Subject {subject_id}</h3>
-                    <div style="background-color: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px; padding: 15px; margin-bottom: 30px;">
-                        <p style="color: #6c757d; margin-bottom: 15px; font-size: 14px;">
-                            <strong>Available montages:</strong> {', '.join(montage_info)} | 
-                            <strong>Files ready:</strong> T1 + {len(all_nifti_files)} field distributions
-                        </p>
-                    """
+                if most_recent_montage:
+                    montage_name = most_recent_montage['montage_name']
+                    nifti_visualizations = most_recent_montage.get('nifti_visualizations', [])
                     
-                    # Create one comprehensive viewer for all files from this subject
-                    if t1_path and os.path.exists(t1_path):
+                    # Find the grey matter TI file for overlay
+                    grey_file = None
+                    for nifti_file in nifti_visualizations:
+                        if os.path.exists(nifti_file) and 'grey' in os.path.basename(nifti_file).lower() and 'ti_max' in os.path.basename(nifti_file).lower():
+                            grey_file = nifti_file
+                            break
+                    
+                    if grey_file:
+                        # Generate the actual static images first
                         try:
-                            viewer_name = f"subject_{subject_id}"
-                            viz_html = self._generate_subject_nifti_viewer(
+                            generated_images = self._generate_static_overlay_images(
                                 subject_id=subject_id,
+                                montage_name=montage_name,
                                 t1_file=t1_path,
-                                nifti_files=all_nifti_files,
-                                labels=all_labels,
-                                viewer_name=viewer_name
+                                overlay_file=grey_file,
+                                output_dir=self.output_dir
                             )
-                            if viz_html:
-                                html += viz_html
-                                visualizations_found = True
-                        except Exception as e:
+                            
+                            # Generate HTML for image series display
                             html += f"""
-                            <div class="error">
-                                <strong>Error generating viewer for subject {subject_id}:</strong> {str(e)}
+                            <div style="margin: 30px 0; border: 2px solid #dee2e6; border-radius: 8px; background: white; padding: 20px;">
+                                <h3 style="margin: 0 0 15px 0; color: #495057;">Subject {subject_id} - {montage_name}</h3>
+                                <p style="color: #6c757d; margin-bottom: 20px; font-size: 14px;">
+                                    <strong>Overlay:</strong> {os.path.basename(grey_file)} (Grey Matter TI Field) on T1 Reference
+                                </p>
+                            """
+                            
+                            # Display each orientation series with embedded base64 images
+                            for orientation in ['axial', 'sagittal', 'coronal']:
+                                if orientation in generated_images and generated_images[orientation]:
+                                    html += f"""
+                                    <div style="margin: 25px 0;">
+                                        <h4 style="margin: 0 0 15px 0; color: #495057; text-transform: capitalize;">{orientation} Series</h4>
+                                        <div style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 10px; margin: 15px 0;">
+                                    """
+                                    
+                                    for img_data in generated_images[orientation]:
+                                        slice_num = img_data['slice_num']
+                                        base64_data = img_data['base64']
+                                        overlay_voxels = img_data['overlay_voxels']
+                                        html += f"""
+                                            <div style="text-align: center; border: 1px solid #e9ecef; border-radius: 4px; padding: 8px; background: #f8f9fa;">
+                                                <img src="data:image/png;base64,{base64_data}" alt="{orientation} slice {slice_num}" style="width: 100%; height: auto; border-radius: 3px;">
+                                                <p style="margin: 5px 0 0 0; font-size: 11px; color: #6c757d;">Slice {slice_num}</p>
+                                            </div>
+                                        """
+                                    
+                                    html += """
+                                        </div>
+                                    </div>
+                                    """
+                            
+                            html += """
+                                <div style="background-color: #f8f9fa; padding: 12px; border-radius: 6px; margin-top: 20px; border: 1px solid #dee2e6;">
+                                    <p style="color: #6c757d; margin: 0; font-size: 12px;">
+                                        <strong>Note:</strong> Images show multiple slices sweeping through each orientation with TI field intensity overlaid in color on grayscale T1 anatomy.
+                                        Overlay opacity is reduced to show underlying anatomy. Each series shows 7 slices from posterior to anterior (axial), left to right (sagittal), and posterior to anterior (coronal).
+                                    </p>
+                                </div>
                             </div>
                             """
-                    else:
-                        html += f"""
-                        <div style="margin: 10px 0; padding: 15px; background-color: #e3f2fd; border-radius: 8px; border: 1px solid #2196f3;">
-                            <h6 style="color: #1976d2; margin-bottom: 10px;">📊 NIfTI Files Available</h6>
-                            <p style="color: #1976d2; margin: 0; font-size: 14px;">
-                                <strong>Files:</strong> {len(all_nifti_files)} field distributions<br>
-                                <strong>Note:</strong> T1 reference not available for interactive viewing.<br>
-                                <em>The interactive viewer works best with both T1 structural and overlay data.</em>
-                            </p>
-                        </div>
-                        """
-                    
-                    html += "</div>"  # Close subject container
+                            visualizations_found = True
+                            
+                        except Exception as e:
+                            html += f"""
+                            <div style="margin: 10px 0; padding: 15px; background-color: #f8d7da; border-radius: 8px; border: 1px solid #f5c6cb;">
+                                <h6 style="color: #721c24; margin-bottom: 10px;">❌ Image Generation Error</h6>
+                                <p style="color: #721c24; margin: 0; font-size: 14px;">
+                                    <strong>Subject:</strong> {subject_id}<br>
+                                    <strong>Error:</strong> {str(e)}<br>
+                                    <em>Failed to generate static overlay images.</em>
+                                </p>
+                            </div>
+                            """
         
         # Show placeholder if no visualizations found
         if not visualizations_found:
             html += """
-            <div class="visualization-placeholder">
-                <h3>Interactive Brain Visualizations</h3>
-                <p>No simulation visualizations found. Visualizations will be generated automatically when simulation results are available.</p>
-                <p>Expected visualizations include:</p>
-                <ul>
-                    <li><strong>Interactive electrode placement maps</strong> (montage_imgs/*.png)</li>
-                    <li><strong>3D electric field distribution maps</strong> (niftis/*_TI_max.nii.gz) - <em>Interactive with Papaya viewer</em></li>
-                    <li><strong>Temporal interference patterns</strong> - <em>One viewer per subject with all montages</em></li>
-                    <li><strong>Cross-sectional views</strong> - <em>Load any combination of field files</em></li>
-                </ul>
-                <div style="background-color: #e3f2fd; padding: 15px; border-radius: 8px; margin-top: 15px;">
-                    <p style="color: #1976d2; margin: 0; font-size: 14px;">
-                        💡 <strong>Note:</strong> When visualizations are available, you'll have one comprehensive viewer per subject where you can:
-                    </p>
-                    <ul style="color: #1976d2; margin: 10px 0 0 20px; font-size: 14px;">
-                        <li>Load images selectively from the File menu dropdown</li>
-                        <li>Compare multiple montages side-by-side with overlays</li>
-                        <li>Navigate through brain slices and adjust visualization parameters</li>
-                        <li>Switch between different field distributions for the same subject</li>
-                    </ul>
-                </div>
+            <div style="margin: 20px 0; padding: 20px; background-color: #e9ecef; border-radius: 8px; text-align: center;">
+                <h4 style="color: #6c757d; margin-bottom: 10px;">📊 No Visualizations Available</h4>
+                <p style="color: #6c757d; margin: 0;">
+                    No brain visualization data is available for this simulation session.
+                    TI field files were not found or could not be processed.
+                </p>
             </div>
             """
         
-        html += "</section>"
         return html
     
     def _generate_server_setup_section(self):
         """Generate setup section for local web server (for better file access)."""
-        return """
-        <section id="server-setup" class="section">
-            <div class="server-setup-section" style="margin: 20px 0; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; padding: 20px; color: white;">
-                <div style="display: flex; align-items: center; margin-bottom: 15px;">
-                    <div style="font-size: 28px; margin-right: 15px;">🧠</div>
-                    <div>
-                        <h4 style="margin: 0; color: white;">Interactive Brain Visualization</h4>
-                        <p style="margin: 5px 0 0 0; opacity: 0.9; font-size: 14px;">
-                            Powered by Papaya - Self-contained viewers ready to use
-                        </p>
-                    </div>
-                </div>
-            </div>
-        </section>
-        """
+        return ""  # Remove the "Interactive Brain Visualization" section
     
     def _generate_software_section(self):
         """Generate the software information section."""
@@ -1826,58 +1756,292 @@ from individual anatomical MRI data processed through the TI-CSC preprocessing p
         }
         """
     
-    def _generate_subject_nifti_viewer(self, subject_id, t1_file, nifti_files, labels, viewer_name):
-        """Generate HTML for a simple, empty Papaya viewer for a subject with all their files.
-        
-        Args:
-            subject_id (str): Subject ID
-            t1_file (str): Path to T1 structural file
-            nifti_files (list): List of all NIfTI field files for this subject
-            labels (list): Labels for each field file
-            viewer_name (str): Name for this viewer
-            
-        Returns:
-            str: HTML content for the empty interactive visualization
-        """
-        try:
-            # Import papaya utilities
-            from .papaya_utils import create_papaya_viewer
-            
-            # Get the report directory
-            if hasattr(self, '_current_report_dir'):
-                report_dir = self._current_report_dir
-            else:
-                import tempfile
-                report_dir = tempfile.gettempdir()
-            
-            # Create the empty viewer with all files available in dropdown
-            viewer_html = create_papaya_viewer(
-                report_dir=report_dir,
-                viewer_name=viewer_name,
-                t1_file=t1_file,
-                field_files=nifti_files,
-                labels=labels
-            )
-            
-            return viewer_html
-                
-        except ImportError:
-            return self._generate_papaya_installation_guide(nifti_files[0] if nifti_files else "")
-        except Exception as e:
-            return f"""
-            <div style="margin: 10px 0; padding: 15px; background-color: #fff3cd; border-radius: 8px; border: 1px solid #ffeaa7;">
-                <h6 style="color: #856404; margin-bottom: 10px;">⚠️ Viewer Creation Error</h6>
-                <p style="color: #856404; margin: 0; font-size: 14px;">
-                    <strong>Subject:</strong> {subject_id}<br>
-                    <strong>Error:</strong> {str(e)}<br>
-                    <strong>Files available:</strong> {len(nifti_files)} field files + T1 reference
-                </p>
-            </div>
-            """
-    
     def _generate_file_instruction_list(self, labels):
         """Generate HTML list items for file loading instructions."""
         return "\n".join([f"<li>🧠 <strong>{label}</strong></li>" for label in labels])
+    
+    def _generate_static_overlay_images(self, subject_id, montage_name, t1_file, overlay_file, output_dir):
+        """Generate static overlay images for axial, sagittal, and coronal views.
+        Creates multiple slices for each orientation to sweep through the brain.
+        
+        Args:
+            subject_id (str): Subject ID
+            montage_name (str): Montage name
+            t1_file (str): Path to T1 NIfTI file
+            overlay_file (str): Path to grey matter TI field NIfTI file
+            output_dir (str): Output directory for images
+            
+        Returns:
+            dict: Dictionary with base64-encoded image data organized by orientation
+        """
+        try:
+            import nibabel as nib
+            import matplotlib.pyplot as plt
+            import numpy as np
+            from matplotlib.colors import ListedColormap
+            import matplotlib
+            import base64
+            import io
+            
+            # Load NIfTI files
+            t1_img = nib.load(t1_file)
+            overlay_img = nib.load(overlay_file)
+            
+            # Get data arrays
+            t1_data = t1_img.get_fdata()
+            overlay_data = overlay_img.get_fdata()
+            
+            # Get voxel dimensions (spacing) from header
+            voxel_sizes = t1_img.header.get_zooms()[:3]  # x, y, z dimensions in mm
+            
+            # Normalize T1 data for display (robust normalization)
+            t1_min, t1_max = np.percentile(t1_data[t1_data > 0], [2, 98])
+            t1_normalized = np.clip((t1_data - t1_min) / (t1_max - t1_min), 0, 1)
+            
+            # Normalize overlay data 
+            overlay_max = np.max(overlay_data)
+            if overlay_max > 0:
+                overlay_normalized = overlay_data / overlay_max
+            else:
+                overlay_normalized = overlay_data
+            
+            # Create mask for non-zero overlay values
+            overlay_mask = overlay_data > (overlay_max * 0.1)  # Show values above 10% of max
+            
+            # Get dimensions for slice planning
+            dims = t1_data.shape
+            
+            # Define slice positions for each orientation (create 7 slices each)
+            num_slices = 7
+            slice_positions = {
+                'axial': np.linspace(dims[2] * 0.2, dims[2] * 0.8, num_slices).astype(int),
+                'sagittal': np.linspace(dims[0] * 0.2, dims[0] * 0.8, num_slices).astype(int),
+                'coronal': np.linspace(dims[1] * 0.3, dims[1] * 0.7, num_slices).astype(int)
+            }
+            
+            # Create colormap for overlay (hot colormap)
+            cmap = plt.cm.hot
+            cmap.set_bad(color=(0, 0, 0, 0))  # Use RGBA tuple for transparency
+            
+            # Calculate aspect ratios for each view based on voxel dimensions
+            aspects = {
+                'axial': voxel_sizes[1] / voxel_sizes[0],      # y/x ratio for axial (looking down)
+                'sagittal': voxel_sizes[2] / voxel_sizes[1],   # z/y ratio for sagittal (looking from side)
+                'coronal': voxel_sizes[2] / voxel_sizes[0]     # z/x ratio for coronal (looking from front)
+            }
+            
+            # Dictionary to store base64-encoded image data
+            generated_images = {'axial': [], 'sagittal': [], 'coronal': []}
+            
+            # Generate slices for each orientation
+            orientations = [
+                ('axial', 2, aspects['axial']),      # slice along z-axis
+                ('sagittal', 0, aspects['sagittal']), # slice along x-axis
+                ('coronal', 1, aspects['coronal'])     # slice along y-axis
+            ]
+            
+            for orientation, axis, aspect_ratio in orientations:
+                positions = slice_positions[orientation]
+                
+                for i, slice_pos in enumerate(positions):
+                    # Extract slice data based on orientation
+                    if orientation == 'axial':
+                        t1_slice = t1_normalized[:, :, slice_pos]
+                        overlay_slice = overlay_normalized[:, :, slice_pos]
+                        mask_slice = overlay_mask[:, :, slice_pos]
+                    elif orientation == 'sagittal':
+                        t1_slice = t1_normalized[slice_pos, :, :]
+                        overlay_slice = overlay_normalized[slice_pos, :, :]
+                        mask_slice = overlay_mask[slice_pos, :, :]
+                    elif orientation == 'coronal':
+                        t1_slice = t1_normalized[:, slice_pos, :]
+                        overlay_slice = overlay_normalized[:, slice_pos, :]
+                        mask_slice = overlay_mask[:, slice_pos, :]
+                    
+                    # Apply orientation corrections
+                    if orientation == 'axial':
+                        # Axial view: rotate 90 degrees counter-clockwise
+                        t1_slice = np.rot90(t1_slice, k=1)
+                        overlay_slice = np.rot90(overlay_slice, k=1)
+                        mask_slice = np.rot90(mask_slice, k=1)
+                    elif orientation == 'sagittal':
+                        # Sagittal view: looking from the side
+                        t1_slice = np.rot90(t1_slice, k=1)
+                        overlay_slice = np.rot90(overlay_slice, k=1)
+                        mask_slice = np.rot90(mask_slice, k=1)
+                    elif orientation == 'coronal':
+                        # Coronal view: looking from the front/back
+                        t1_slice = np.rot90(t1_slice, k=1)
+                        overlay_slice = np.rot90(overlay_slice, k=1)
+                        mask_slice = np.rot90(mask_slice, k=1)
+                        # Flip for neurological convention
+                        t1_slice = np.fliplr(t1_slice)
+                        overlay_slice = np.fliplr(overlay_slice)
+                        mask_slice = np.fliplr(mask_slice)
+                    
+                    # Create masked overlay for transparency
+                    overlay_masked = np.ma.masked_where(~mask_slice, overlay_slice)
+                    
+                    # Create smaller figure for web display (4x4 inches)
+                    fig, ax = plt.subplots(1, 1, figsize=(4, 4 * aspect_ratio), dpi=100)
+                    
+                    # Display T1 in grayscale with correct aspect ratio
+                    ax.imshow(t1_slice, cmap='gray', alpha=1.0, aspect=aspect_ratio, vmin=0, vmax=1)
+                    
+                    # Overlay TI field with reduced opacity if there's data
+                    overlay_voxels = np.sum(mask_slice)
+                    if overlay_voxels > 0:
+                        im = ax.imshow(overlay_masked, cmap=cmap, alpha=0.6, aspect=aspect_ratio, vmin=0, vmax=1)
+                    
+                    # Remove axes and add minimal title
+                    ax.set_xticks([])
+                    ax.set_yticks([])
+                    ax.set_title(f'{orientation.title()} {i+1}', fontsize=12, fontweight='bold', pad=10)
+                    
+                    # Add compact orientation labels
+                    if orientation == 'axial':
+                        ax.text(0.05, 0.95, 'L', transform=ax.transAxes, fontsize=10, fontweight='bold', 
+                               color='white', va='top', ha='left')
+                        ax.text(0.95, 0.95, 'R', transform=ax.transAxes, fontsize=10, fontweight='bold', 
+                               color='white', va='top', ha='right')
+                    elif orientation == 'sagittal':
+                        ax.text(0.05, 0.95, 'A', transform=ax.transAxes, fontsize=10, fontweight='bold', 
+                               color='white', va='top', ha='left')
+                        ax.text(0.95, 0.95, 'P', transform=ax.transAxes, fontsize=10, fontweight='bold', 
+                               color='white', va='top', ha='right')
+                    elif orientation == 'coronal':
+                        ax.text(0.05, 0.95, 'R', transform=ax.transAxes, fontsize=10, fontweight='bold', 
+                               color='white', va='top', ha='left')
+                        ax.text(0.95, 0.95, 'L', transform=ax.transAxes, fontsize=10, fontweight='bold', 
+                               color='white', va='top', ha='right')
+                    
+                    # Convert plot to base64 string
+                    buffer = io.BytesIO()
+                    plt.savefig(buffer, dpi=100, bbox_inches='tight', 
+                              facecolor='white', edgecolor='none', format='png')
+                    buffer.seek(0)
+                    
+                    # Encode to base64
+                    image_base64 = base64.b64encode(buffer.getvalue()).decode('utf-8')
+                    plt.close()
+                    
+                    # Store base64 data with metadata
+                    image_data = {
+                        'base64': image_base64,
+                        'slice_num': i + 1,
+                        'overlay_voxels': overlay_voxels
+                    }
+                    generated_images[orientation].append(image_data)
+            
+            return generated_images
+                
+        except ImportError as e:
+            raise ImportError(f"Missing required libraries for image generation: {e}. Install with: pip install nibabel matplotlib numpy")
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            raise
+    
+    def _generate_montage_section(self):
+        """Generate the montage visualization section."""
+        html = """
+        <section id="montages" class="section">
+            <h2>Electrode Montages</h2>
+            <p style="color: #6c757d; margin-bottom: 20px;">
+                Electrode positioning and montage configurations used in the simulations.
+            </p>
+        """
+        
+        montage_images_found = False
+        
+        # Check for montage images from scanned simulation outputs
+        for subject in self.report_data['subjects']:
+            subject_id = subject['subject_id']
+            simulation_outputs = subject.get('simulation_outputs', [])
+            
+            for output in simulation_outputs:
+                montage_name = output.get('montage_name', 'Unknown')
+                montage_img = output.get('montage_image')
+                
+                if montage_img and os.path.exists(montage_img):
+                    montage_images_found = True
+                    # Convert montage image to base64 for embedding
+                    try:
+                        with open(montage_img, 'rb') as img_file:
+                            img_data = base64.b64encode(img_file.read()).decode('utf-8')
+                            img_ext = os.path.splitext(montage_img)[1][1:].lower()
+                            
+                        html += f"""
+                        <div style="margin: 30px 0; border: 2px solid #dee2e6; border-radius: 8px; background: white; padding: 20px;">
+                            <h3 style="margin: 0 0 15px 0; color: #495057;">Subject {subject_id} - {montage_name}</h3>
+                            <div style="text-align: center;">
+                                <img src="data:image/{img_ext};base64,{img_data}" alt="Montage {montage_name}" style="max-width: 100%; height: auto; border: 1px solid #ddd; border-radius: 4px;">
+                            </div>
+                            <p style="color: #6c757d; margin-top: 15px; font-size: 14px; text-align: center;">
+                                <strong>Montage:</strong> {montage_name} electrode configuration
+                            </p>
+                        </div>
+                        """
+                    except Exception as e:
+                        html += f"""
+                        <div style="margin: 10px 0; padding: 15px; background-color: #f8d7da; border-radius: 8px; border: 1px solid #f5c6cb;">
+                            <h6 style="color: #721c24; margin-bottom: 10px;">⚠️ Montage Image Error</h6>
+                            <p style="color: #721c24; margin: 0; font-size: 14px;">
+                                <strong>Subject:</strong> {subject_id} - {montage_name}<br>
+                                <strong>Error:</strong> {str(e)}<br>
+                                <em>Could not load montage visualization image.</em>
+                            </p>
+                        </div>
+                        """
+                elif montage_img:
+                    html += f"""
+                    <div style="margin: 10px 0; padding: 15px; background-color: #fff3cd; border-radius: 8px; border: 1px solid #ffeaa7;">
+                        <h6 style="color: #856404; margin-bottom: 10px;">⚠️ Missing Montage Image</h6>
+                        <p style="color: #856404; margin: 0; font-size: 14px;">
+                            <strong>Subject:</strong> {subject_id} - {montage_name}<br>
+                            <strong>Expected:</strong> {os.path.basename(montage_img)}<br>
+                            <em>Montage visualization not generated (ImageMagick required).</em>
+                        </p>
+                    </div>
+                    """
+        
+        # Show montages from the montage configuration
+        if self.report_data['montages']:
+            for montage in self.report_data['montages']:
+                montage_name = montage['name']  # Use 'name' field which is now consistently set
+                electrode_pairs = montage['electrode_pairs']
+                
+                html += f"""
+                <div class="info-card">
+                    <h4>{montage_name}</h4>
+                    <p><strong>Type:</strong> {montage.get('type', 'Unknown').replace('_', ' ').title()}</p>
+                    <p><strong>Electrode Pairs:</strong></p>
+                    <ul style="margin-left: 20px;">
+                """
+                
+                for i, pair in enumerate(electrode_pairs, 1):
+                    if isinstance(pair, (list, tuple)) and len(pair) >= 2:
+                        html += f"<li>Pair {i}: {pair[0]} ↔ {pair[1]}</li>"
+                    else:
+                        html += f"<li>Pair {i}: {pair}</li>"
+                
+                html += """
+                    </ul>
+                </div>
+                """
+        
+        if not montage_images_found and not self.report_data['montages']:
+            html += """
+            <div style="margin: 20px 0; padding: 20px; background-color: #e9ecef; border-radius: 8px; text-align: center;">
+                <h4 style="color: #6c757d; margin-bottom: 10px;">📍 No Montage Information Available</h4>
+                <p style="color: #6c757d; margin: 0;">
+                    No electrode montage configurations or visualization images were found.
+                </p>
+            </div>
+            """
+        
+        html += "</section>"
+        return html
 
 
 def create_simulation_report(project_dir, simulation_session_id=None, simulation_log=None):
