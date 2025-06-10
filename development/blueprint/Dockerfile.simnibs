@@ -85,8 +85,12 @@ RUN apt-get update && apt-get install -y \
     parallel \
     dos2unix \
     \
+    # Image processing tools
+    imagemagick \
+    \
     # Neuroimaging specific tools
     dcm2niix \
+    \
     && apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 # Install Python packages and create symlinks
