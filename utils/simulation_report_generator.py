@@ -1354,7 +1354,6 @@ class SimulationReportGenerator:
             simulation_outputs = subject.get('simulation_outputs', [])
             
             for output in simulation_outputs:
-                montage_name = output.get('montage_name', 'Unknown')
                 montage_img = output.get('montage_image')
                 
                 if montage_img and os.path.exists(montage_img):
@@ -1367,12 +1366,12 @@ class SimulationReportGenerator:
                             
                         html += f"""
                         <div style="margin: 30px 0; border: 2px solid #dee2e6; border-radius: 8px; background: white; padding: 20px;">
-                            <h3 style="margin: 0 0 15px 0; color: #495057;">Subject {subject_id} - {montage_name}</h3>
+                            <h3 style="margin: 0 0 15px 0; color: #495057;">Subject {subject_id}</h3>
                             <div style="text-align: center;">
-                                <img src="data:image/{img_ext};base64,{img_data}" alt="Montage {montage_name}" style="max-width: 100%; height: auto; border: 1px solid #ddd; border-radius: 4px;">
+                                <img src="data:image/{img_ext};base64,{img_data}" alt="Montage visualization" style="max-width: 100%; height: auto; border: 1px solid #ddd; border-radius: 4px;">
                             </div>
                             <p style="color: #6c757d; margin-top: 15px; font-size: 14px; text-align: center;">
-                                <strong>Montage:</strong> {montage_name} electrode configuration
+                                <strong>Electrode Configuration:</strong> Montage visualization showing electrode positions
                             </p>
                         </div>
                         """
@@ -1381,29 +1380,18 @@ class SimulationReportGenerator:
                         <div style="margin: 10px 0; padding: 15px; background-color: #f8d7da; border-radius: 8px; border: 1px solid #f5c6cb;">
                             <h6 style="color: #721c24; margin-bottom: 10px;">⚠️ Montage Image Error</h6>
                             <p style="color: #721c24; margin: 0; font-size: 14px;">
-                                <strong>Subject:</strong> {subject_id} - {montage_name}<br>
+                                <strong>Subject:</strong> {subject_id}<br>
                                 <strong>Error:</strong> {str(e)}<br>
                                 <em>Could not load montage visualization image.</em>
                             </p>
                         </div>
                         """
-                elif montage_img:
-                    html += f"""
-                    <div style="margin: 10px 0; padding: 15px; background-color: #fff3cd; border-radius: 8px; border: 1px solid #ffeaa7;">
-                        <h6 style="color: #856404; margin-bottom: 10px;">⚠️ Missing Montage Image</h6>
-                        <p style="color: #856404; margin: 0; font-size: 14px;">
-                            <strong>Subject:</strong> {subject_id} - {montage_name}<br>
-                            <strong>Expected:</strong> {os.path.basename(montage_img)}<br>
-                            <em>Montage visualization not generated (ImageMagick required).</em>
-                        </p>
-                    </div>
-                    """
         
-        # Show montages from the montage configuration
+        # Show basic montage configuration if available
         if self.report_data['montages']:
             for montage in self.report_data['montages']:
-                montage_name = montage['name']  # Use 'name' field which is now consistently set
-                electrode_pairs = montage['electrode_pairs']
+                montage_name = montage.get('name', 'Unknown')
+                electrode_pairs = montage.get('electrode_pairs', [])
                 
                 html += f"""
                 <div class="info-card">
@@ -1453,7 +1441,7 @@ class SimulationReportGenerator:
                 
                 html += f"""
                 <div class="info-card">
-                    <h4>{result['subject_id']} - {result['montage_name']} <span class="{status_class}">{result['status'].upper()}</span></h4>
+                    <h4>{result['subject_id']} <span class="{status_class}">{result['status'].upper()}</span></h4>
                     <p><strong>Duration:</strong> {duration_text}</p>
                     <p><strong>Timestamp:</strong> {result.get('timestamp', 'N/A')}</p>
                     <p><strong>Output files:</strong></p>
@@ -1504,8 +1492,6 @@ class SimulationReportGenerator:
             simulation_outputs = subject.get('simulation_outputs', [])
             t1_path = subject.get('t1_path')
             
-
-            
             if simulation_outputs and t1_path and os.path.exists(t1_path):
                 # Find the most recent montage based on file modification times
                 most_recent_montage = None
@@ -1527,7 +1513,6 @@ class SimulationReportGenerator:
                             most_recent_montage = montage_output
                 
                 if most_recent_montage:
-                    montage_name = most_recent_montage['montage_name']
                     nifti_visualizations = most_recent_montage.get('nifti_visualizations', [])
                     
                     # Find the grey matter TI file for overlay
@@ -1542,7 +1527,7 @@ class SimulationReportGenerator:
                         try:
                             generated_images = self._generate_static_overlay_images(
                                 subject_id=subject_id,
-                                montage_name=montage_name,
+                                montage_name="simulation",  # Use generic name
                                 t1_file=t1_path,
                                 overlay_file=grey_file,
                                 output_dir=self.output_dir
@@ -1551,7 +1536,7 @@ class SimulationReportGenerator:
                             # Generate HTML for image series display
                             html += f"""
                             <div style="margin: 30px 0; border: 2px solid #dee2e6; border-radius: 8px; background: white; padding: 20px;">
-                                <h3 style="margin: 0 0 15px 0; color: #495057;">Subject {subject_id} - {montage_name}</h3>
+                                <h3 style="margin: 0 0 15px 0; color: #495057;">Subject {subject_id}</h3>
                                 <p style="color: #6c757d; margin-bottom: 20px; font-size: 14px;">
                                     <strong>Overlay:</strong> {os.path.basename(grey_file)} (Grey Matter TI Field) on T1 Reference
                                 </p>
@@ -1708,10 +1693,7 @@ from individual anatomical MRI data processed through the TI-CSC preprocessing p
                 for error in self.report_data['errors']:
                     context = ""
                     if error.get('subject_id'):
-                        context += f" (Subject: {error['subject_id']}"
-                        if error.get('montage_name'):
-                            context += f", Montage: {error['montage_name']}"
-                        context += ")"
+                        context += f" (Subject: {error['subject_id']})"
                     
                     html += f"""
                     <div class="error">
@@ -1725,10 +1707,7 @@ from individual anatomical MRI data processed through the TI-CSC preprocessing p
                 for warning in self.report_data['warnings']:
                     context = ""
                     if warning.get('subject_id'):
-                        context += f" (Subject: {warning['subject_id']}"
-                        if warning.get('montage_name'):
-                            context += f", Montage: {warning['montage_name']}"
-                        context += ")"
+                        context += f" (Subject: {warning['subject_id']})"
                     
                     html += f"""
                     <div class="warning">
@@ -1960,7 +1939,6 @@ from individual anatomical MRI data processed through the TI-CSC preprocessing p
             simulation_outputs = subject.get('simulation_outputs', [])
             
             for output in simulation_outputs:
-                montage_name = output.get('montage_name', 'Unknown')
                 montage_img = output.get('montage_image')
                 
                 if montage_img and os.path.exists(montage_img):
@@ -1973,12 +1951,12 @@ from individual anatomical MRI data processed through the TI-CSC preprocessing p
                             
                         html += f"""
                         <div style="margin: 30px 0; border: 2px solid #dee2e6; border-radius: 8px; background: white; padding: 20px;">
-                            <h3 style="margin: 0 0 15px 0; color: #495057;">Subject {subject_id} - {montage_name}</h3>
+                            <h3 style="margin: 0 0 15px 0; color: #495057;">Subject {subject_id}</h3>
                             <div style="text-align: center;">
-                                <img src="data:image/{img_ext};base64,{img_data}" alt="Montage {montage_name}" style="max-width: 100%; height: auto; border: 1px solid #ddd; border-radius: 4px;">
+                                <img src="data:image/{img_ext};base64,{img_data}" alt="Montage visualization" style="max-width: 100%; height: auto; border: 1px solid #ddd; border-radius: 4px;">
                             </div>
                             <p style="color: #6c757d; margin-top: 15px; font-size: 14px; text-align: center;">
-                                <strong>Montage:</strong> {montage_name} electrode configuration
+                                <strong>Electrode Configuration:</strong> Montage visualization showing electrode positions
                             </p>
                         </div>
                         """
@@ -1987,29 +1965,18 @@ from individual anatomical MRI data processed through the TI-CSC preprocessing p
                         <div style="margin: 10px 0; padding: 15px; background-color: #f8d7da; border-radius: 8px; border: 1px solid #f5c6cb;">
                             <h6 style="color: #721c24; margin-bottom: 10px;">⚠️ Montage Image Error</h6>
                             <p style="color: #721c24; margin: 0; font-size: 14px;">
-                                <strong>Subject:</strong> {subject_id} - {montage_name}<br>
+                                <strong>Subject:</strong> {subject_id}<br>
                                 <strong>Error:</strong> {str(e)}<br>
                                 <em>Could not load montage visualization image.</em>
                             </p>
                         </div>
                         """
-                elif montage_img:
-                    html += f"""
-                    <div style="margin: 10px 0; padding: 15px; background-color: #fff3cd; border-radius: 8px; border: 1px solid #ffeaa7;">
-                        <h6 style="color: #856404; margin-bottom: 10px;">⚠️ Missing Montage Image</h6>
-                        <p style="color: #856404; margin: 0; font-size: 14px;">
-                            <strong>Subject:</strong> {subject_id} - {montage_name}<br>
-                            <strong>Expected:</strong> {os.path.basename(montage_img)}<br>
-                            <em>Montage visualization not generated (ImageMagick required).</em>
-                        </p>
-                    </div>
-                    """
         
-        # Show montages from the montage configuration
+        # Show basic montage configuration if available
         if self.report_data['montages']:
             for montage in self.report_data['montages']:
-                montage_name = montage['name']  # Use 'name' field which is now consistently set
-                electrode_pairs = montage['electrode_pairs']
+                montage_name = montage.get('name', 'Unknown')
+                electrode_pairs = montage.get('electrode_pairs', [])
                 
                 html += f"""
                 <div class="info-card">

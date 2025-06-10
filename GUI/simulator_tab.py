@@ -967,9 +967,34 @@ class SimulatorTab(QtWidgets.QWidget):
             
             # Add montages to report
             montage_type = 'unipolar' if sim_mode == 'U' else 'multipolar'
+            
+            # Load actual electrode pairs from montage file
+            montage_file = self.ensure_montage_file_exists(project_dir_path)
+            try:
+                with open(montage_file, 'r') as f:
+                    montage_data = json.load(f)
+            except:
+                montage_data = {"nets": {}}
+            
             for montage_name in selected_montages:
-                # For now, we'll add placeholder electrode pairs - these would be loaded from the montage file
-                self.report_generator.add_montage(montage_name, [['E1', 'E2']], montage_type)
+                # Try to get actual electrode pairs from the montage file
+                electrode_pairs = [['E1', 'E2']]  # Default fallback
+                
+                # Look for the montage in the appropriate net and type
+                net_type = "uni_polar_montages" if sim_mode == 'U' else "multi_polar_montages"
+                
+                if ("nets" in montage_data and 
+                    eeg_net in montage_data["nets"] and 
+                    net_type in montage_data["nets"][eeg_net] and 
+                    montage_name in montage_data["nets"][eeg_net][net_type]):
+                    electrode_pairs = montage_data["nets"][eeg_net][net_type][montage_name]
+                
+                # Use keyword arguments for consistency with updated method signature
+                self.report_generator.add_montage(
+                    name=montage_name,  # Use 'name' keyword argument for consistency
+                    electrode_pairs=electrode_pairs,
+                    montage_type=montage_type
+                )
             
             # Disable UI controls during simulation
             self.disable_controls()

@@ -290,11 +290,38 @@ try:
     # Add montages
     montage_type = 'unipolar' if '$sim_mode' == 'U' else 'multipolar'
     montages = [$(printf "'%s'," "${selected_montages[@]}" | sed 's/,$//')]
+    
+    # Load montage file to get actual electrode pairs
+    import json
+    import os
+    
+    montage_file = os.path.join('$project_dir', 'montage_list.json')
+    montage_data = {}
+    if os.path.exists(montage_file):
+        try:
+            with open(montage_file, 'r') as f:
+                montage_data = json.load(f)
+        except:
+            pass
+    
     for montage in montages:
         if montage:  # Skip empty montages
+            # Try to get actual electrode pairs from the montage file
+            electrode_pairs = [['E1', 'E2']]  # Default fallback
+            
+            # Look for the montage in the appropriate net and type
+            net_type = 'uni_polar_montages' if '$sim_mode' == 'U' else 'multi_polar_montages'
+            eeg_net = '${subject_eeg_nets[$subject_id]:-EGI_template.csv}'
+            
+            if ('nets' in montage_data and 
+                eeg_net in montage_data['nets'] and 
+                net_type in montage_data['nets'][eeg_net] and 
+                montage in montage_data['nets'][eeg_net][net_type]):
+                electrode_pairs = montage_data['nets'][eeg_net][net_type][montage]
+            
             simulation_log['montages'].append({
-                'montage_name': montage,
-                'electrode_pairs': [['E1', 'E2']],
+                'name': montage,  # Changed from 'montage_name' to 'name' for consistency
+                'electrode_pairs': electrode_pairs,
                 'montage_type': montage_type
             })
     
@@ -1084,11 +1111,38 @@ try:
     # Add montages
     montage_type = 'unipolar' if '$sim_mode' == 'U' else 'multipolar'
     montages = [$(printf "'%s'," "${selected_montages[@]}" | sed 's/,$//')]
+    
+    # Load montage file to get actual electrode pairs
+    import json
+    import os
+    
+    montage_file = os.path.join('$project_dir', 'montage_list.json')
+    montage_data = {}
+    if os.path.exists(montage_file):
+        try:
+            with open(montage_file, 'r') as f:
+                montage_data = json.load(f)
+        except:
+            pass
+    
     for montage in montages:
         if montage:  # Skip empty montages
+            # Try to get actual electrode pairs from the montage file
+            electrode_pairs = [['E1', 'E2']]  # Default fallback
+            
+            # Look for the montage in the appropriate net and type
+            net_type = 'uni_polar_montages' if '$sim_mode' == 'U' else 'multi_polar_montages'
+            eeg_net = '${subject_eeg_nets[$subject_id]:-EGI_template.csv}'
+            
+            if ('nets' in montage_data and 
+                eeg_net in montage_data['nets'] and 
+                net_type in montage_data['nets'][eeg_net] and 
+                montage in montage_data['nets'][eeg_net][net_type]):
+                electrode_pairs = montage_data['nets'][eeg_net][net_type][montage]
+            
             simulation_log['montages'].append({
-                'montage_name': montage,
-                'electrode_pairs': [['E1', 'E2']],
+                'name': montage,  # Changed from 'montage_name' to 'name' for consistency
+                'electrode_pairs': electrode_pairs,
                 'montage_type': montage_type
             })
     
