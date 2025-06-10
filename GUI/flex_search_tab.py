@@ -118,6 +118,7 @@ class FlexSearchTab(QtWidgets.QWidget):
         self.subjects = []
         self.eeg_nets = {}
         self.atlases = {}
+        self.volume_atlases = {}
         
         # Initialize all widgets that might be referenced before setup_ui
         self.subject_combo = QtWidgets.QComboBox()
@@ -189,6 +190,7 @@ class FlexSearchTab(QtWidgets.QWidget):
         # Initialize radio buttons
         self.roi_method_spherical = QtWidgets.QRadioButton("Spherical (coordinates and radius)")
         self.roi_method_cortical = QtWidgets.QRadioButton("Cortical (atlas-based parcellation)")
+        self.roi_method_subcortical = QtWidgets.QRadioButton("Subcortical (volume segmentation)")
         self.roi_method_spherical.setChecked(True)
         
         # Initialize spinboxes and line edits
@@ -211,10 +213,10 @@ class FlexSearchTab(QtWidgets.QWidget):
         self.cpus_input.setValue(1)
         self.cpus_input.setToolTip("Number of CPU cores to use for parallel processing during optimization.")
         
-        self.roi_x_input = QtWidgets.QDoubleSpinBox(); self.roi_x_input.setRange(-150, 150); self.roi_x_input.setValue(0); self.roi_x_input.setDecimals(1)
-        self.roi_y_input = QtWidgets.QDoubleSpinBox(); self.roi_y_input.setRange(-150, 150); self.roi_y_input.setValue(0); self.roi_y_input.setDecimals(1)
-        self.roi_z_input = QtWidgets.QDoubleSpinBox(); self.roi_z_input.setRange(-150, 150); self.roi_z_input.setValue(0); self.roi_z_input.setDecimals(1)
-        self.roi_radius_input = QtWidgets.QDoubleSpinBox(); self.roi_radius_input.setRange(1, 50); self.roi_radius_input.setValue(10); self.roi_radius_input.setDecimals(1)
+        self.roi_x_input = QtWidgets.QDoubleSpinBox(); self.roi_x_input.setRange(-150, 150); self.roi_x_input.setValue(0); self.roi_x_input.setDecimals(2)
+        self.roi_y_input = QtWidgets.QDoubleSpinBox(); self.roi_y_input.setRange(-150, 150); self.roi_y_input.setValue(0); self.roi_y_input.setDecimals(2)
+        self.roi_z_input = QtWidgets.QDoubleSpinBox(); self.roi_z_input.setRange(-150, 150); self.roi_z_input.setValue(0); self.roi_z_input.setDecimals(2)
+        self.roi_radius_input = QtWidgets.QDoubleSpinBox(); self.roi_radius_input.setRange(1, 50); self.roi_radius_input.setValue(10); self.roi_radius_input.setDecimals(2)
         
         self.label_value_input = QtWidgets.QSpinBox(); self.label_value_input.setRange(1, 10000); self.label_value_input.setValue(1)
         
@@ -237,10 +239,10 @@ class FlexSearchTab(QtWidgets.QWidget):
         self.nonroi_method_combo.addItem("Specific Region", "specific")
         
         # Non-ROI inputs (spherical)
-        self.nonroi_x_input = QtWidgets.QDoubleSpinBox(); self.nonroi_x_input.setRange(-150,150); self.nonroi_x_input.setDecimals(1)
-        self.nonroi_y_input = QtWidgets.QDoubleSpinBox(); self.nonroi_y_input.setRange(-150,150); self.nonroi_y_input.setDecimals(1)
-        self.nonroi_z_input = QtWidgets.QDoubleSpinBox(); self.nonroi_z_input.setRange(-150,150); self.nonroi_z_input.setDecimals(1)
-        self.nonroi_radius_input = QtWidgets.QDoubleSpinBox(); self.nonroi_radius_input.setRange(1,50); self.nonroi_radius_input.setDecimals(1)
+        self.nonroi_x_input = QtWidgets.QDoubleSpinBox(); self.nonroi_x_input.setRange(-150,150); self.nonroi_x_input.setDecimals(2)
+        self.nonroi_y_input = QtWidgets.QDoubleSpinBox(); self.nonroi_y_input.setRange(-150,150); self.nonroi_y_input.setDecimals(2)
+        self.nonroi_z_input = QtWidgets.QDoubleSpinBox(); self.nonroi_z_input.setRange(-150,150); self.nonroi_z_input.setDecimals(2)
+        self.nonroi_radius_input = QtWidgets.QDoubleSpinBox(); self.nonroi_radius_input.setRange(1,50); self.nonroi_radius_input.setDecimals(2)
         
         # Non-ROI inputs (atlas)
         self.nonroi_hemi_combo = QtWidgets.QComboBox(); self.nonroi_hemi_combo.addItems(["Left (lh)", "Right (rh)"])
@@ -248,10 +250,29 @@ class FlexSearchTab(QtWidgets.QWidget):
         self.list_nonroi_regions_btn = QtWidgets.QPushButton("List Regions")
         self.list_nonroi_regions_btn.setMaximumWidth(120)
         
+        # Non-ROI inputs (volume)
+        self.nonroi_volume_atlas_combo = QtWidgets.QComboBox()
+        self.nonroi_volume_label_input = QtWidgets.QSpinBox(); self.nonroi_volume_label_input.setRange(1,10000)
+        self.list_nonroi_volume_regions_btn = QtWidgets.QPushButton("List Regions")
+        self.list_nonroi_volume_regions_btn.setMaximumWidth(120)
+        
         # ROI hemisphere combo and list regions button (for cortical ROI)
         self.roi_hemi_combo = QtWidgets.QComboBox(); self.roi_hemi_combo.addItems(["Left (lh)", "Right (rh)"])
         self.list_roi_regions_btn = QtWidgets.QPushButton("List Regions")
         self.list_roi_regions_btn.setMaximumWidth(120)
+
+        # Subcortical volume controls
+        self.volume_atlas_combo = QtWidgets.QComboBox()
+        self.refresh_volume_atlases_btn = QtWidgets.QPushButton("Refresh")
+        self.refresh_volume_atlases_btn.setMaximumWidth(100)
+        self.volume_label_value_input = QtWidgets.QSpinBox(); self.volume_label_value_input.setRange(1, 10000); self.volume_label_value_input.setValue(10)
+        self.volume_label_value_input.setToolTip("Common values: 10=Left-Thalamus, 49=Right-Thalamus, 17=Left-Hippocampus, 53=Right-Hippocampus")
+        self.list_volume_regions_btn = QtWidgets.QPushButton("List Regions")
+        self.list_volume_regions_btn.setMaximumWidth(120)
+        
+        # Labels for subcortical controls
+        self.volume_atlas_label = QtWidgets.QLabel("Volume Atlas:")
+        self.volume_label_value_label = QtWidgets.QLabel("Region Label Value:")
 
         # Set up the UI
         self.setup_ui()
@@ -260,15 +281,22 @@ class FlexSearchTab(QtWidgets.QWidget):
         self.refresh_subjects_btn.clicked.connect(self.find_available_subjects)
         self.refresh_eeg_nets_btn.clicked.connect(self.find_available_eeg_nets)
         self.refresh_atlases_btn.clicked.connect(self.find_available_atlases)
+        self.refresh_volume_atlases_btn.clicked.connect(self.find_available_volume_atlases)
         self.list_roi_regions_btn.clicked.connect(self._list_roi_regions)
         self.list_nonroi_regions_btn.clicked.connect(self._list_nonroi_regions)
+        self.list_volume_regions_btn.clicked.connect(self._list_volume_regions)
+        self.list_nonroi_volume_regions_btn.clicked.connect(self._list_nonroi_volume_regions)
 
         self.goal_combo.currentIndexChanged.connect(self._update_focality_visibility)
         self.enable_mapping_checkbox.toggled.connect(self._update_mapping_options)
         self.subject_combo.currentIndexChanged.connect(self.on_subject_changed)
         self.nonroi_method_combo.currentIndexChanged.connect(self._update_nonroi_stacked)
         self.roi_method_spherical.toggled.connect(self.update_roi_method)
+        self.roi_method_cortical.toggled.connect(self.update_roi_method)
+        self.roi_method_subcortical.toggled.connect(self.update_roi_method)
         self.roi_method_spherical.toggled.connect(self._update_nonroi_stacked)
+        self.roi_method_cortical.toggled.connect(self._update_nonroi_stacked)
+        self.roi_method_subcortical.toggled.connect(self._update_nonroi_stacked)
         
         # Find available subjects (which will trigger finding EEG nets and atlases)
         self.find_available_subjects()
@@ -354,6 +382,7 @@ class FlexSearchTab(QtWidgets.QWidget):
         roi_method_radio_layout = QtWidgets.QHBoxLayout(roi_method_radio_container)
         roi_method_radio_layout.addWidget(self.roi_method_spherical)
         roi_method_radio_layout.addWidget(self.roi_method_cortical)
+        roi_method_radio_layout.addWidget(self.roi_method_subcortical)
         roi_method_radio_layout.addStretch()
         
         roi_method_layout_main.addWidget(self.roi_method_label)
@@ -392,6 +421,21 @@ class FlexSearchTab(QtWidgets.QWidget):
         cortical_roi_layout.addRow(self.label_value_label, self.label_value_input)
         self.roi_stacked_widget.addWidget(self.cortical_roi_widget)
         
+        # Subcortical ROI inputs
+        self.subcortical_roi_widget = QtWidgets.QWidget()
+        subcortical_roi_layout = QtWidgets.QFormLayout(self.subcortical_roi_widget)
+        
+        volume_controls_widget = QtWidgets.QWidget()
+        volume_controls_inner_layout = QtWidgets.QHBoxLayout(volume_controls_widget)
+        self.volume_atlas_combo.setMaximumWidth(350)
+        volume_controls_inner_layout.addWidget(self.volume_atlas_combo)
+        volume_controls_inner_layout.addWidget(self.refresh_volume_atlases_btn)
+        volume_controls_inner_layout.addWidget(self.list_volume_regions_btn)
+        volume_controls_inner_layout.addStretch()
+        subcortical_roi_layout.addRow(self.volume_atlas_label, volume_controls_widget)
+        subcortical_roi_layout.addRow(self.volume_label_value_label, self.volume_label_value_input)
+        self.roi_stacked_widget.addWidget(self.subcortical_roi_widget)
+        
         roi_method_layout_main.addWidget(self.roi_stacked_widget)
         scroll_layout.addWidget(self.roi_method_group)
 
@@ -429,6 +473,19 @@ class FlexSearchTab(QtWidgets.QWidget):
         nonroi_atlas_layout.addRow(self.nonroi_atlas_label, nonroi_atlas_controls_widget)
         nonroi_atlas_layout.addRow(self.nonroi_label_value_label, self.nonroi_label_input)
         self.nonroi_stacked.addWidget(self.nonroi_atlas_widget)
+
+        # Non-ROI Volume
+        self.nonroi_volume_widget = QtWidgets.QWidget()
+        nonroi_volume_layout = QtWidgets.QFormLayout(self.nonroi_volume_widget)
+        nonroi_volume_controls_widget = QtWidgets.QWidget()
+        nonroi_volume_controls_layout = QtWidgets.QHBoxLayout(nonroi_volume_controls_widget)
+        self.nonroi_volume_atlas_combo.setMaximumWidth(350)
+        nonroi_volume_controls_layout.addWidget(self.nonroi_volume_atlas_combo)
+        nonroi_volume_controls_layout.addWidget(self.list_nonroi_volume_regions_btn)
+        nonroi_volume_controls_layout.addStretch()
+        nonroi_volume_layout.addRow(QtWidgets.QLabel("Non-ROI Volume Atlas:"), nonroi_volume_controls_widget)
+        nonroi_volume_layout.addRow(QtWidgets.QLabel("Non-ROI Volume Label:"), self.nonroi_volume_label_input)
+        self.nonroi_stacked.addWidget(self.nonroi_volume_widget)
         
         focality_layout.addRow(QtWidgets.QLabel("Non-ROI Region (if 'Specific'):"), self.nonroi_stacked)
         scroll_layout.addWidget(self.focality_group)
@@ -594,6 +651,7 @@ class FlexSearchTab(QtWidgets.QWidget):
         if self.subjects:
             self.find_available_eeg_nets()
             self.find_available_atlases()
+            self.find_available_volume_atlases()
     
     def find_available_eeg_nets(self):
         """Find available EEG net templates for the selected subject."""
@@ -680,12 +738,53 @@ class FlexSearchTab(QtWidgets.QWidget):
         # Also update non-ROI atlas combo
         self._update_nonroi_atlas_combo()
 
+    def find_available_volume_atlases(self):
+        """Find available volume atlas files for the selected subject."""
+        if not self.subjects:
+            return
+            
+        self.volume_atlases = {}
+        self.volume_atlas_combo.clear()
+        
+        # Get the selected subject
+        subject_id = self.subject_combo.currentText()
+        if not subject_id:
+            return
+        
+        # Base directory where subjects are located
+        project_dir = os.environ.get('PROJECT_DIR', '/mnt/BIDS_test')
+        
+        # Check specifically for labeling.nii.gz in SimNIBS segmentation directory
+        seg_dir = os.path.join(project_dir, 'derivatives', 'SimNIBS', f'sub-{subject_id}', 
+                              f'm2m_{subject_id}', 'segmentation')
+        
+        labeling_file = os.path.join(seg_dir, 'labeling.nii.gz')
+        labeling_lut_file = os.path.join(seg_dir, 'labeling_LUT.txt')
+        
+        try:
+            if os.path.isfile(labeling_file):
+                self.volume_atlases['labeling.nii.gz'] = labeling_file
+                self.volume_atlas_combo.addItem('labeling.nii.gz')
+                
+                # Check if LUT file exists
+                if os.path.isfile(labeling_lut_file):
+                    self.output_text.append(f"Found subcortical segmentation for subject {subject_id}: labeling.nii.gz with LUT file.")
+                else:
+                    self.output_text.append(f"Found subcortical segmentation for subject {subject_id}: labeling.nii.gz (warning: no LUT file found).")
+            else:
+                self.output_text.append(f"No subcortical segmentation found for subject {subject_id}. Expected: {labeling_file}")
+                
+        except Exception as e:
+            self.output_text.append(f"Error scanning for subcortical segmentation: {str(e)}")
+
     def update_roi_method(self, checked):
         """Update the ROI method inputs based on selection."""
         if self.roi_method_spherical.isChecked():
             self.roi_stacked_widget.setCurrentIndex(0)
-        else:
+        elif self.roi_method_cortical.isChecked():
             self.roi_stacked_widget.setCurrentIndex(1)
+        else:  # subcortical
+            self.roi_stacked_widget.setCurrentIndex(2)
     
     def run_optimization(self):
         """Run the flex-search optimization."""
@@ -713,7 +812,7 @@ class FlexSearchTab(QtWidgets.QWidget):
                 ],
                 'radius': self.roi_radius_input.value()
             }
-        else:  # cortical ROI
+        elif self.roi_method_cortical.isChecked():  # cortical ROI
             if not self.atlas_combo.currentText():
                 QtWidgets.QMessageBox.warning(self, "Warning", "Please select an atlas for ROI.")
                 return
@@ -725,6 +824,19 @@ class FlexSearchTab(QtWidgets.QWidget):
                 'method': 'atlas',
                 'atlas': self.atlas_combo.currentText(),
                 'region': str(self.label_value_input.value())
+            }
+        else:  # subcortical ROI
+            if not self.volume_atlas_combo.currentText():
+                QtWidgets.QMessageBox.warning(self, "Warning", "Please select a volume atlas for subcortical ROI.")
+                return
+            if not self.volume_label_value_input.value():
+                QtWidgets.QMessageBox.warning(self, "Warning", "Please select a region label for subcortical ROI.")
+                return
+                
+            roi_params = {
+                'method': 'subcortical',
+                'volume_atlas': self.volume_atlas_combo.currentText(),
+                'volume_region': str(self.volume_label_value_input.value())
             }
             
         # Get optimization parameters for easier access and clarity
@@ -743,11 +855,21 @@ class FlexSearchTab(QtWidgets.QWidget):
             roi_coords_str = f"{roi_params['center'][0]:.1f}x{roi_params['center'][1]:.1f}y{roi_params['center'][2]:.1f}z_{roi_params['radius']:.1f}mm"
             opt_dir = os.path.join(project_dir_for_opt_path, 'derivatives', 'SimNIBS', bids_subject_id, 
                                  'flex-search', f'{roi_coords_str}_{goal}')
-        else: # cortical
+        elif roi_params['method'] == 'atlas': # cortical
             atlas_name_for_dir = roi_params['atlas'] # This should be display name as per original logic for dir name
             region_id_for_dir = roi_params['region']
             opt_dir = os.path.join(project_dir_for_opt_path, 'derivatives', 'SimNIBS', bids_subject_id, 
                                  'flex-search', f'cortical_{atlas_name_for_dir}_{region_id_for_dir}_{goal}')
+        else: # subcortical
+            volume_atlas_name = roi_params['volume_atlas']
+            # Remove file extension for directory name
+            if volume_atlas_name.endswith('.mgz') or volume_atlas_name.endswith('.gz'):
+                volume_atlas_name = os.path.splitext(volume_atlas_name)[0]
+                if volume_atlas_name.endswith('.nii'):  # Handle .nii.gz case
+                    volume_atlas_name = os.path.splitext(volume_atlas_name)[0]
+            volume_region_id = roi_params['volume_region']
+            opt_dir = os.path.join(project_dir_for_opt_path, 'derivatives', 'SimNIBS', bids_subject_id, 
+                                 'flex-search', f'subcortical_{volume_atlas_name}_{volume_region_id}_{goal}')
         
         # Check if directory exists and confirm overwrite (RESTORED)
         if os.path.exists(opt_dir):
@@ -768,9 +890,12 @@ class FlexSearchTab(QtWidgets.QWidget):
         if roi_params['method'] == 'spherical':
             details += (f"• ROI Center: ({roi_params['center'][0]}, {roi_params['center'][1]}, {roi_params['center'][2]}) mm\n" +
                         f"• ROI Radius: {roi_params['radius']} mm\n")
-        else:
+        elif roi_params['method'] == 'atlas':
             details += (f"• ROI Atlas: {roi_params['atlas']}\n" +
                         f"• ROI Region: {roi_params['region']}\n")
+        else:  # subcortical
+            details += (f"• Volume Atlas: {roi_params['volume_atlas']}\n" +
+                        f"• Volume Region Label: {roi_params['volume_region']}\n")
         if self.enable_mapping_checkbox.isChecked():
             details += f"• Electrode Mapping: ✓ ENABLED\n"
             if self.run_mapped_simulation_checkbox.isChecked():
@@ -843,7 +968,7 @@ class FlexSearchTab(QtWidgets.QWidget):
             env['ROI_Y'] = str(roi_params['center'][1])
             env['ROI_Z'] = str(roi_params['center'][2])
             env['ROI_RADIUS'] = str(roi_params['radius'])
-        else: # cortical
+        elif roi_params['method'] == "atlas": # cortical
             atlas_display_for_env = roi_params['atlas']
             atlas_name_for_env = self.atlas_display_map.get(atlas_display_for_env, atlas_display_for_env)
             hemi_for_env = "lh" if self.roi_hemi_combo.currentIndex() == 0 else "rh"
@@ -852,6 +977,11 @@ class FlexSearchTab(QtWidgets.QWidget):
             env['ATLAS_PATH'] = atlas_path_for_env
             env['SELECTED_HEMISPHERE'] = hemi_for_env
             env['ROI_LABEL'] = str(roi_params['region'])
+        else: # subcortical
+            volume_atlas_for_env = roi_params['volume_atlas']
+            volume_atlas_path_for_env = self.volume_atlases.get(volume_atlas_for_env)
+            env['VOLUME_ATLAS_PATH'] = volume_atlas_path_for_env
+            env['VOLUME_ROI_LABEL'] = str(roi_params['volume_region'])
         
         # Build the command
         script_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -896,7 +1026,7 @@ class FlexSearchTab(QtWidgets.QWidget):
                 if roi_params['method'] == "spherical":
                     cmd += ["--non-roi-x", str(self.nonroi_x_input.value()), "--non-roi-y", str(self.nonroi_y_input.value()),
                             "--non-roi-z", str(self.nonroi_z_input.value()), "--non-roi-radius", str(self.nonroi_radius_input.value())]
-                else: # atlas for non-ROI
+                elif roi_params['method'] == "atlas": # cortical atlas for non-ROI
                     nonroi_atlas_display = self.nonroi_atlas_combo.currentText()
                     nonroi_atlas_name = self.atlas_display_map.get(nonroi_atlas_display, nonroi_atlas_display)
                     nonroi_hemi = "lh" if self.nonroi_hemi_combo.currentIndex() == 0 else "rh"
@@ -905,6 +1035,12 @@ class FlexSearchTab(QtWidgets.QWidget):
                     nonroi_atlas_path_arg = os.path.join(script_project_dir, 'derivatives', 'SimNIBS', f'sub-{subject_id}', 
                                                      f'm2m_{subject_id}', 'segmentation', f'{nonroi_hemi}.{nonroi_atlas_name}.annot')
                     cmd += ["--non-roi-atlas", nonroi_atlas_path_arg, "--non-roi-hemisphere", nonroi_hemi, "--non-roi-label", str(nonroi_label_val)]
+                else: # subcortical volume for non-ROI
+                    nonroi_volume_atlas = self.nonroi_volume_atlas_combo.currentText()
+                    nonroi_volume_label_val = self.nonroi_volume_label_input.value()
+                    nonroi_volume_atlas_path = self.volume_atlases.get(nonroi_volume_atlas)
+                    env['VOLUME_NON_ROI_ATLAS_PATH'] = nonroi_volume_atlas_path
+                    env['VOLUME_NON_ROI_LABEL'] = str(nonroi_volume_label_val)
         
         # Stability and Memory options
         if self.quiet_mode_checkbox.isChecked(): cmd.append("--quiet")
@@ -917,7 +1053,7 @@ class FlexSearchTab(QtWidgets.QWidget):
         self.output_text.append("Command: " + " ".join(cmd))
         self.output_text.append("Environment for subprocess will include:")
         for k, v in env.items():
-            if k.startswith("ROI") or k in ['PROJECT_DIR', 'SUBJECT_ID', 'ATLAS_PATH', 'SELECTED_HEMISPHERE']:
+            if k.startswith("ROI") or k.startswith("VOLUME") or k in ['PROJECT_DIR', 'SUBJECT_ID', 'ATLAS_PATH', 'SELECTED_HEMISPHERE']:
                 self.output_text.append(f"  {k}: {v}")
 
         if hasattr(self, 'parent') and self.parent: self.parent.set_tab_busy(self, True, stop_btn=self.stop_btn)
@@ -998,6 +1134,7 @@ class FlexSearchTab(QtWidgets.QWidget):
         if index >= 0:
             self.find_available_eeg_nets()
             self.find_available_atlases()
+            self.find_available_volume_atlases()
     
     def _update_mapping_options(self):
         """Update visibility of mapping simulation options based on mapping checkbox."""
@@ -1022,14 +1159,21 @@ class FlexSearchTab(QtWidgets.QWidget):
         else:
             self.nonroi_stacked.setVisible(True)
             if self.roi_method_spherical.isChecked():
-                self.nonroi_stacked.setCurrentIndex(0)
-            else:
-                self.nonroi_stacked.setCurrentIndex(1)
+                self.nonroi_stacked.setCurrentIndex(0)  # Spherical non-ROI
+            elif self.roi_method_cortical.isChecked():
+                self.nonroi_stacked.setCurrentIndex(1)  # Atlas non-ROI
+            else:  # subcortical
+                self.nonroi_stacked.setCurrentIndex(2)  # Volume non-ROI
 
     def _update_nonroi_atlas_combo(self):
         self.nonroi_atlas_combo.clear()
         for i in range(self.atlas_combo.count()):
             self.nonroi_atlas_combo.addItem(self.atlas_combo.itemText(i))
+            
+        # Also update volume atlas combo for non-ROI
+        self.nonroi_volume_atlas_combo.clear()
+        for i in range(self.volume_atlas_combo.count()):
+            self.nonroi_volume_atlas_combo.addItem(self.volume_atlas_combo.itemText(i))
 
     def _list_roi_regions(self):
         atlas = self.atlas_combo.currentText()
@@ -1040,6 +1184,14 @@ class FlexSearchTab(QtWidgets.QWidget):
         atlas = self.nonroi_atlas_combo.currentText()
         hemi = "lh" if self.nonroi_hemi_combo.currentIndex() == 0 else "rh"
         self._show_atlas_regions_dialog(atlas, hemi)
+
+    def _list_volume_regions(self):
+        volume_atlas = self.volume_atlas_combo.currentText()
+        self._show_volume_regions_dialog(volume_atlas)
+
+    def _list_nonroi_volume_regions(self):
+        volume_atlas = self.nonroi_volume_atlas_combo.currentText()
+        self._show_volume_regions_dialog(volume_atlas)
 
     def _show_atlas_regions_dialog(self, atlas_display, hemi):
         # Find the atlas file path
@@ -1099,6 +1251,103 @@ class FlexSearchTab(QtWidgets.QWidget):
         layout.addWidget(btn)
         dlg.exec_()
 
+    def _show_volume_regions_dialog(self, volume_atlas):
+        """Show regions in labeling.nii.gz using the labeling_LUT.txt file."""
+        if not volume_atlas:
+            QtWidgets.QMessageBox.warning(self, "No Volume Atlas Selected", "Please select a volume atlas.")
+            return
+            
+        # Get the subject ID and construct LUT file path
+        subject_id = self.subject_combo.currentText()
+        if not subject_id:
+            QtWidgets.QMessageBox.warning(self, "No Subject Selected", "Please select a subject.")
+            return
+            
+        project_dir = os.environ.get('PROJECT_DIR', '/mnt/BIDS_test')
+        seg_dir = os.path.join(project_dir, 'derivatives', 'SimNIBS', f'sub-{subject_id}', 
+                              f'm2m_{subject_id}', 'segmentation')
+        labeling_lut_file = os.path.join(seg_dir, 'labeling_LUT.txt')
+        
+        if not os.path.isfile(labeling_lut_file):
+            QtWidgets.QMessageBox.warning(self, "LUT File Not Found", 
+                                         f"Could not find labeling_LUT.txt file at: {labeling_lut_file}")
+            return
+        
+        # Read and parse the LUT file
+        try:
+            output = "Subcortical Regions (labeling.nii.gz):\n"
+            output += "=" * 50 + "\n"
+            output += f"{'ID':<4} {'Structure Name':<35} {'RGB'}\n"
+            output += "-" * 50 + "\n"
+            
+            with open(labeling_lut_file, 'r') as f:
+                for line in f:
+                    line = line.strip()
+                    if line and not line.startswith('#'):
+                        # Split by tab first, then by whitespace to handle mixed separators
+                        parts = line.split('\t')
+                        if len(parts) >= 2:  # At least ID and Name
+                            try:
+                                label_id = parts[0].strip()
+                                label_name = parts[1].strip()
+                                
+                                # The remaining parts might be R G B A separated by whitespace
+                                # Join remaining parts and split by whitespace
+                                remaining = '\t'.join(parts[2:]) if len(parts) > 2 else ""
+                                rgb_parts = remaining.split()
+                                
+                                if len(rgb_parts) >= 3:  # We have R, G, B values
+                                    r = rgb_parts[0]
+                                    g = rgb_parts[1] 
+                                    b = rgb_parts[2]
+                                    output += f"{label_id:<4} {label_name:<35} ({r},{g},{b})\n"
+                                else:
+                                    # No RGB values found, just show ID and name
+                                    output += f"{label_id:<4} {label_name:<35} (no color)\n"
+                            except (ValueError, IndexError):
+                                continue  # Skip malformed lines
+                                
+        except Exception as e:
+            QtWidgets.QMessageBox.warning(self, "Error Reading LUT File", f"Error reading LUT file: {str(e)}")
+            return
+        
+        # Show output in a dialog with search
+        dlg = QtWidgets.QDialog(self)
+        dlg.setWindowTitle(f"Subcortical Regions - {volume_atlas}")
+        dlg.setMinimumWidth(700)
+        layout = QtWidgets.QVBoxLayout(dlg)
+        
+        # Search box
+        search_box = QtWidgets.QLineEdit()
+        search_box.setPlaceholderText("Search regions (by ID or name)...")
+        layout.addWidget(search_box)
+        
+        # Text area
+        text = QtWidgets.QTextEdit()
+        text.setReadOnly(True)
+        text.setFont(QtGui.QFont("Consolas", 10))  # Use monospace font for better alignment
+        text.setText(output)
+        layout.addWidget(text)
+        
+        # Filter function
+        def filter_regions():
+            query = search_box.text().strip().lower()
+            if not query:
+                text.setText(output)
+                return
+            filtered_lines = []
+            for line in output.splitlines():
+                if query in line.lower():
+                    filtered_lines.append(line)
+            text.setText('\n'.join(filtered_lines))
+        
+        search_box.textChanged.connect(filter_regions)
+        
+        btn = QtWidgets.QPushButton("Close")
+        btn.clicked.connect(dlg.accept)
+        layout.addWidget(btn)
+        dlg.exec_()
+
     def disable_controls(self):
         """Disable all input controls during optimization."""
         # Disable subject selection
@@ -1123,6 +1372,7 @@ class FlexSearchTab(QtWidgets.QWidget):
         # Disable ROI method selection
         self.roi_method_spherical.setEnabled(False)
         self.roi_method_cortical.setEnabled(False)
+        self.roi_method_subcortical.setEnabled(False)
         
         # Disable ROI inputs based on method
         if self.roi_method_spherical.isChecked():
@@ -1130,12 +1380,17 @@ class FlexSearchTab(QtWidgets.QWidget):
             self.roi_y_input.setEnabled(False)
             self.roi_z_input.setEnabled(False)
             self.roi_radius_input.setEnabled(False)
-        else:
+        elif self.roi_method_cortical.isChecked():
             self.atlas_combo.setEnabled(False)
             self.roi_hemi_combo.setEnabled(False)
             self.refresh_atlases_btn.setEnabled(False)
             self.list_roi_regions_btn.setEnabled(False)
             self.label_value_input.setEnabled(False)
+        else:  # subcortical
+            self.volume_atlas_combo.setEnabled(False)
+            self.refresh_volume_atlases_btn.setEnabled(False)
+            self.list_volume_regions_btn.setEnabled(False)
+            self.volume_label_value_input.setEnabled(False)
         
         # Disable focality options if visible
         if self.focality_group.isVisible():
@@ -1147,11 +1402,15 @@ class FlexSearchTab(QtWidgets.QWidget):
                     self.nonroi_y_input.setEnabled(False)
                     self.nonroi_z_input.setEnabled(False)
                     self.nonroi_radius_input.setEnabled(False)
-                else:
+                elif self.roi_method_cortical.isChecked():
                     self.nonroi_atlas_combo.setEnabled(False)
                     self.nonroi_hemi_combo.setEnabled(False)
                     self.list_nonroi_regions_btn.setEnabled(False)
                     self.nonroi_label_input.setEnabled(False)
+                else:  # subcortical
+                    self.nonroi_volume_atlas_combo.setEnabled(False)
+                    self.list_nonroi_volume_regions_btn.setEnabled(False)
+                    self.nonroi_volume_label_input.setEnabled(False)
 
         self.max_iterations_input.setEnabled(False)
         self.population_size_input.setEnabled(False)
@@ -1183,6 +1442,7 @@ class FlexSearchTab(QtWidgets.QWidget):
         # Enable ROI method selection
         self.roi_method_spherical.setEnabled(True)
         self.roi_method_cortical.setEnabled(True)
+        self.roi_method_subcortical.setEnabled(True)
         
         # Enable ROI inputs based on method
         if self.roi_method_spherical.isChecked():
@@ -1190,12 +1450,17 @@ class FlexSearchTab(QtWidgets.QWidget):
             self.roi_y_input.setEnabled(True)
             self.roi_z_input.setEnabled(True)
             self.roi_radius_input.setEnabled(True)
-        else:
+        elif self.roi_method_cortical.isChecked():
             self.atlas_combo.setEnabled(True)
             self.roi_hemi_combo.setEnabled(True)
             self.refresh_atlases_btn.setEnabled(True)
             self.list_roi_regions_btn.setEnabled(True)
             self.label_value_input.setEnabled(True)
+        else:  # subcortical
+            self.volume_atlas_combo.setEnabled(True)
+            self.refresh_volume_atlases_btn.setEnabled(True)
+            self.list_volume_regions_btn.setEnabled(True)
+            self.volume_label_value_input.setEnabled(True)
         
         # Enable focality options if visible
         if self.focality_group.isVisible():
@@ -1207,11 +1472,15 @@ class FlexSearchTab(QtWidgets.QWidget):
                     self.nonroi_y_input.setEnabled(True)
                     self.nonroi_z_input.setEnabled(True)
                     self.nonroi_radius_input.setEnabled(True)
-                else:
+                elif self.roi_method_cortical.isChecked():
                     self.nonroi_atlas_combo.setEnabled(True)
                     self.nonroi_hemi_combo.setEnabled(True)
                     self.list_nonroi_regions_btn.setEnabled(True)
                     self.nonroi_label_input.setEnabled(True)
+                else:  # subcortical
+                    self.nonroi_volume_atlas_combo.setEnabled(True)
+                    self.list_nonroi_volume_regions_btn.setEnabled(True)
+                    self.nonroi_volume_label_input.setEnabled(True)
 
         self.max_iterations_input.setEnabled(True)
         self.population_size_input.setEnabled(True)

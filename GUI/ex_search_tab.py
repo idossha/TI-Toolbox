@@ -996,10 +996,13 @@ class AddROIDialog(QtWidgets.QDialog):
         
         self.x_coord = QtWidgets.QDoubleSpinBox()
         self.x_coord.setRange(-1000, 1000)
+        self.x_coord.setDecimals(2)  # Allow 2 decimal places
         self.y_coord = QtWidgets.QDoubleSpinBox()
         self.y_coord.setRange(-1000, 1000)
+        self.y_coord.setDecimals(2)  # Allow 2 decimal places
         self.z_coord = QtWidgets.QDoubleSpinBox()
         self.z_coord.setRange(-1000, 1000)
+        self.z_coord.setDecimals(2)  # Allow 2 decimal places
         
         coord_layout.addRow("X:", self.x_coord)
         coord_layout.addRow("Y:", self.y_coord)

@@ -136,7 +136,7 @@ tensor_file = os.path.join(conductivity_path, "DTI_coregT1_tensor.nii.gz")
 # Create temporary directory for SimNIBS output
 temp_dir = os.path.join(simulation_dir, "tmp")
 if not os.path.exists(temp_dir):
-    os.makedirs(temp_dir)
+    os.makedirs(temp_dir, exist_ok=True)
     logger.info(f"Created temporary directory at {temp_dir}")
 
 # Function to run simulations

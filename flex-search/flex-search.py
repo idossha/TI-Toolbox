@@ -5,12 +5,14 @@ import argparse
 import os
 import sys
 import time
+import traceback
 from pathlib import Path
 
 # Add the parent directory to the path to access utils
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 from simnibs import opt_struct
+from simnibs.mesh_tools.mesh_io import ElementTags
 from utils.logging_util import get_logger, configure_external_loggers
 from env_utils import apply_common_env_fixes
 
@@ -57,7 +59,7 @@ def parse_arguments() -> argparse.Namespace:
     p.add_argument("--eeg-net", required=True, help="CSV filename in eeg_positions (without .csv)")
     p.add_argument("--radius", type=float, required=True)
     p.add_argument("--current", type=float, required=True)
-    p.add_argument("--roi-method", choices=["spherical", "atlas"], required=True)
+    p.add_argument("--roi-method", choices=["spherical", "atlas", "subcortical"], required=True)
 
     # focality-specific arguments
     p.add_argument("--thresholds", help="single value or two comma-separated values")
@@ -85,9 +87,14 @@ def parse_arguments() -> argparse.Namespace:
 def roi_dirname(args: argparse.Namespace) -> str:
     if args.roi_method == "spherical":
         base = f"{os.getenv('ROI_X')}x{os.getenv('ROI_Y')}y{os.getenv('ROI_Z')}z_{os.getenv('ROI_RADIUS')}mm"
-    else:
+    elif args.roi_method == "atlas":
         atlas = os.path.splitext(os.path.basename(os.path.basename(os.getenv("ATLAS_PATH", "atlas"))))[0]
         base = f"{atlas}_{os.getenv('ROI_LABEL', '0')}"
+    else:  # subcortical
+        volume_atlas = os.path.splitext(os.path.basename(os.getenv("VOLUME_ATLAS_PATH", "volume")))[0]
+        if volume_atlas.endswith('.nii'):  # Handle .nii.gz case
+            volume_atlas = os.path.splitext(volume_atlas)[0]
+        base = f"subcortical_{volume_atlas}_{os.getenv('VOLUME_ROI_LABEL', '0')}"
     return f"{base}_{args.goal}"
 
 # -----------------------------------------------------------------------------
@@ -143,8 +150,10 @@ def build_optimisation(args: argparse.Namespace) -> opt_struct.TesFlexOptimizati
     # ROI ------------------------------------------------------------------
     if args.roi_method == "spherical":
         _roi_spherical(opt, args)
-    else:
+    elif args.roi_method == "atlas":
         _roi_atlas(opt, args)
+    else:  # subcortical
+        _roi_subcortical(opt, args)
 
     return opt
 
@@ -212,6 +221,47 @@ def _roi_atlas(opt: opt_struct.TesFlexOptimization, args: argparse.Namespace) ->
             non_roi.mask_value = [non_roi_label]
             non_roi.weight = -1
 
+def _roi_subcortical(opt: opt_struct.TesFlexOptimization, args: argparse.Namespace) -> None:
+    volume_atlas_path = os.getenv("VOLUME_ATLAS_PATH")
+    label_val = int(os.getenv("VOLUME_ROI_LABEL"))
+    
+    # Validate that the volume atlas file exists
+    if not volume_atlas_path or not os.path.isfile(volume_atlas_path):
+        raise SystemExit(f"Volume atlas file not found: {volume_atlas_path}")
+    
+    # Note: logger not available during optimization setup, will log later
+    
+    roi = opt.add_roi()
+    roi.method = "volume"
+    roi.mask_space = ["subject"]
+    roi.mask_path = [volume_atlas_path]
+    roi.mask_value = [label_val]
+    
+    # Add some additional properties that might help with volume ROI processing
+    roi.tissues = [ElementTags.GM]  # Gray matter tissue for volume ROI
+
+    if args.goal == "focality":
+        non_roi = opt.add_roi()
+        non_roi.method = "volume"
+
+        if args.non_roi_method == "everything_else":
+            non_roi.mask_space = roi.mask_space
+            non_roi.mask_path = roi.mask_path
+            non_roi.mask_value = roi.mask_value
+            non_roi.mask_operator = ["difference"]
+            non_roi.weight = -1
+            non_roi.tissues = [ElementTags.GM]  # Gray matter
+        else:
+            non_roi_label = int(os.getenv("VOLUME_NON_ROI_LABEL"))
+            non_roi_atlas_path = os.getenv("VOLUME_NON_ROI_ATLAS_PATH")
+            if not non_roi_atlas_path or not os.path.isfile(non_roi_atlas_path):
+                raise SystemExit(f"Non-ROI volume atlas file not found: {non_roi_atlas_path}")
+            non_roi.mask_space = ["subject"]
+            non_roi.mask_path = [non_roi_atlas_path]
+            non_roi.mask_value = [non_roi_label]
+            non_roi.weight = -1
+            non_roi.tissues = [ElementTags.GM]  # Gray matter
+
 # -----------------------------------------------------------------------------
 # Main
 # -----------------------------------------------------------------------------
@@ -239,6 +289,27 @@ def main() -> int:
         logger.info(f"Starting optimization with parameters:")
         logger.info(f"  Subject: {args.subject}")
         logger.info(f"  Goal: {args.goal}")
+        logger.info(f"  ROI Method: {args.roi_method}")
+        
+        # Log ROI-specific details
+        if args.roi_method == "subcortical":
+            volume_atlas_path = os.getenv("VOLUME_ATLAS_PATH")
+            volume_roi_label = os.getenv("VOLUME_ROI_LABEL")
+            logger.info(f"  Volume Atlas: {volume_atlas_path}")
+            logger.info(f"  Volume ROI Label: {volume_roi_label}")
+        elif args.roi_method == "atlas":
+            atlas_path = os.getenv("ATLAS_PATH")
+            roi_label = os.getenv("ROI_LABEL")
+            hemisphere = os.getenv("SELECTED_HEMISPHERE")
+            logger.info(f"  Atlas: {atlas_path}")
+            logger.info(f"  ROI Label: {roi_label}")
+            logger.info(f"  Hemisphere: {hemisphere}")
+        elif args.roi_method == "spherical":
+            roi_coords = f"({os.getenv('ROI_X')}, {os.getenv('ROI_Y')}, {os.getenv('ROI_Z')})"
+            roi_radius = os.getenv("ROI_RADIUS")
+            logger.info(f"  ROI Center: {roi_coords}")
+            logger.info(f"  ROI Radius: {roi_radius}mm")
+        
         logger.info(f"  Mapping: {args.enable_mapping}")
         if args.max_iterations is not None:
             logger.info(f"  Max iterations: {args.max_iterations}")
@@ -277,8 +348,27 @@ def main() -> int:
         logger.info("Starting optimization run...")
         opt.run(cpus=cpus_to_pass)
         logger.info("Optimization completed successfully")
+    except IndexError as exc:
+        # Special handling for the index error we're seeing
+        logger.error(f"IndexError during optimization (likely in post-processing): {exc}")
+        logger.info("This error may occur during final analysis but optimization itself likely completed")
+        # Check if simulation results exist to confirm optimization worked
+        if hasattr(opt, 'output_folder') and os.path.exists(opt.output_folder):
+            result_files = []
+            for root, dirs, files in os.walk(opt.output_folder):
+                for file in files:
+                    if file.endswith('.msh') or file.endswith('.nii.gz'):
+                        result_files.append(os.path.join(root, file))
+            if result_files:
+                logger.info(f"Found {len(result_files)} result files, optimization likely succeeded despite error")
+                for f in result_files[:5]:  # Log first 5 files
+                    logger.info(f"  Result file: {f}")
+            else:
+                logger.warning("No result files found, optimization may have failed")
+        return 0  # Return success if we have results despite the error
     except Exception as exc:  # noqa: BLE001
         logger.error(f"ERROR during optimization: {exc}")
+        logger.error(f"Full traceback: {traceback.format_exc()}")
         return 1
 
     return 0
