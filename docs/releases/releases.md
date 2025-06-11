@@ -4,9 +4,9 @@ title: Releases
 permalink: /releases/
 ---
 
-### Command-Line and Remote Usage
-
 For headless server useage, see the [Bash Script & Compose YAML](https://github.com/idossha/TI-Toolbox/tree/main/launcher/bash).
+
+---
 
 <!-- DO NOT MODIFY: Auto-generated release content will be appended here -->
 
@@ -14,19 +14,17 @@ For headless server useage, see the [Bash Script & Compose YAML](https://github.
 
 **Release Date**: June 11, 2025
 
-#### Major Changes
-- #### Additions
-- new logger and report generators under projectDIR/derivatives/
+#### Additions
+- new logger and report generators under 'projectDIR/derivatives/'
 - sub-cortical atlas based targeting for flex-search (example: thalamus targeting)
 
 #### Fixes
 - 2 decimal spherical ROIs
-- TI
-- py overwrite protection removed
+- 'TI.py' overwrite protection removed
 - intenral 185 EGI net (removed 2 missed electrodes)
 - added imagemagick for montage visualizer
 
-#### Installation
+#### Download Links
 - [Windows Installer](https://github.com/idossha/TI-Toolbox/releases/download/v2.0.1/TI-Toolbox-Windows.exe)
 - [macOS Universal](https://github.com/idossha/TI-Toolbox/releases/download/v2.0.1/TemporalInterferenceToolbox-macOS-universal.zip)
 - [Linux AppImage](https://github.com/idossha/TI-Toolbox/releases/download/v2.0.1/TemporalInterferenceToolbox-Linux-x86_64.AppImage)
