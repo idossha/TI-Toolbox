@@ -1,11 +1,11 @@
 
 # Temporal Interference Toolbox
 
-https://idossha.github.io/TI-Toolbox/
+for releases, installation guide, and wiki please see: https://idossha.github.io/TI-Toolbox/
 
 ## Contact
 
-For any inquirie sregarding the TI-Toolbox, please contact:
+For inquiries regarding the TI-Toolbox, please contact:
 
 - **Ido Haber**
 - Email: ihaber@wisc.edu
