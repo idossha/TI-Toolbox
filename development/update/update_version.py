@@ -95,7 +95,7 @@ def add_release_to_changelog(version, release_notes=""):
     if not release_notes.strip().startswith('-'):
         release_notes = '\n'.join(f'- {note.strip()}' for note in release_notes.split('.') if note.strip())
     
-    new_release_entry = f"""### v{version}
+    new_release_entry = f"""### v{version} (Latest Release)
 
 **Release Date**: {release_date}
 
@@ -132,26 +132,64 @@ For installation instructions, see the [Installation Guide]({{ site.baseurl }}/i
     except Exception as e:
         print(f"❌ Error updating releases file: {e}")
 
+def get_release_info():
+    """Interactive prompt to collect release information"""
+    print("\n📝 Release Information Collection")
+    print("=" * 50)
+    
+    # Get version
+    while True:
+        version = input("\nEnter version number (e.g., 2.0.1): ").strip()
+        if re.match(r'^\d+\.\d+\.\d+$', version):
+            break
+        print("❌ Invalid version format. Please use X.Y.Z format (e.g., 2.0.1)")
+    
+    # Get additions
+    print("\n📦 Additions (Enter each addition on a new line, press Enter twice when done):")
+    additions = []
+    while True:
+        line = input().strip()
+        if not line and additions:  # Empty line and we have at least one addition
+            break
+        if line:  # Only add non-empty lines
+            additions.append(line)
+    
+    # Get fixes
+    print("\n🔧 Fixes (Enter each fix on a new line, press Enter twice when done):")
+    fixes = []
+    while True:
+        line = input().strip()
+        if not line and fixes:  # Empty line and we have at least one fix
+            break
+        if line:  # Only add non-empty lines
+            fixes.append(line)
+    
+    # Format the release notes
+    release_notes = []
+    if additions:
+        release_notes.append("#### Additions")
+        release_notes.extend(f"- {add}" for add in additions)
+    if fixes:
+        if additions:  # Add a newline between sections if we have both
+            release_notes.append("")
+        release_notes.append("#### Fixes")
+        release_notes.extend(f"- {fix}" for fix in fixes)
+    
+    return version, "\n".join(release_notes)
+
 def main():
     """Main function"""
-    if len(sys.argv) < 2 or sys.argv[1] in ['--help', '-h', 'help']:
-        print("Usage: python update_version.py <new_version> [release_notes]")
-        print("Example: python update_version.py 2.1.0 'Added new features and bug fixes'")
-        print("\nThis script updates version information across all project files:")
-        print("  • version.py")
-        print("  • launcher/executable/src/ti_csc_launcher.py")
-        print("  • launcher/executable/src/dialogs.py")
-        print("  • docs/_config.yml")
-        print("  • docs/releases/releases.md")
+    if len(sys.argv) > 1 and sys.argv[1] in ['--help', '-h', 'help']:
+        print("Usage: python update_version.py")
+        print("\nThis script will guide you through the version update process:")
+        print("  1. Enter the new version number")
+        print("  2. List additions (one per line)")
+        print("  3. List fixes (one per line)")
+        print("\nThe script will then update all necessary files and create release notes.")
         sys.exit(0)
     
-    new_version = sys.argv[1]
-    release_notes = sys.argv[2] if len(sys.argv) > 2 else ""
-    
-    # Validate version format
-    if not re.match(r'^\d+\.\d+\.\d+$', new_version):
-        print("❌ Error: Version must be in format X.Y.Z (e.g., 2.1.0)")
-        sys.exit(1)
+    # Get release information interactively
+    new_version, release_notes = get_release_info()
     
     # Change to script directory
     script_dir = Path(__file__).parent.parent.parent  # Go up one more level to reach project root
@@ -160,15 +198,15 @@ def main():
     # Update version in all files
     update_version(new_version)
     
-    # Add release to changelog if release notes provided
-    if release_notes:
-        add_release_to_changelog(new_version, release_notes)
-        print("\n💡 Next steps:")
-        print(f"   1. Review the changes: git diff")
-        print(f"   2. Commit the changes: git add . && git commit -m 'Release v{new_version}'")
-        print(f"   3. Create a release tag: git tag v{new_version}")
-        print(f"   4. Push changes: git push && git push --tags")
-        print(f"   5. Create a GitHub release at: https://github.com/idossha/TI-Toolbox/releases/new")
+    # Add release to changelog
+    add_release_to_changelog(new_version, release_notes)
+    
+    print("\n💡 Next steps:")
+    print(f"   1. Review the changes: git diff")
+    print(f"   2. Commit the changes: git add . && git commit -m 'Release v{new_version}'")
+    print(f"   3. Create a release tag: git tag v{new_version}")
+    print(f"   4. Push changes: git push && git push --tags")
+    print(f"   5. Create a GitHub release at: https://github.com/idossha/TI-Toolbox/releases/new")
 
 if __name__ == "__main__":
     main() 
