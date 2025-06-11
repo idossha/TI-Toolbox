@@ -7,6 +7,24 @@ permalink: /releases/
 ## Latest Release
 
 <!-- DO NOT MODIFY: Auto-generated release content will be appended here -->
+
+### v2.0.1
+
+**Release Date**: June 11, 2025
+
+#### Major Changes
+- Added new logger and report generators, sub-cortical flex targeting
+- Fixed: 2 decimal spherical ROIs, TI
+- py overwrite protection, 185 net, montage visualizer
+
+#### Installation
+- [Windows Installer](https://github.com/idossha/TI-Toolbox/releases/download/v2.0.1/TI-Toolbox-Windows.exe)
+- [macOS Universal](https://github.com/idossha/TI-Toolbox/releases/download/v2.0.1/TemporalInterferenceToolbox-macOS-universal.zip)
+- [Linux AppImage](https://github.com/idossha/TI-Toolbox/releases/download/v2.0.1/TemporalInterferenceToolbox-Linux-x86_64.AppImage)
+
+For installation instructions, see the [Installation Guide]({ site.baseurl }/installation/).
+
+
 ### v2.0.0
 
 **Release Date**: May 28, 2025
