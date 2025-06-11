@@ -13,16 +13,22 @@ permalink: /releases/
 **Release Date**: June 11, 2025
 
 #### Major Changes
-- **Added** new logger and report generators, sub-cortical flex targeting
-- **Fixed** 2 decimal spherical ROIs, TI.py overwrite protection, 185 net, montage visualizer
+**Added:**   
+- new logger and report generators
+- sub-cortical atlas based targeting for flex-search
+**Fixed:**   
+- 2 decimal spherical ROIs
+- TI.py overwrite protection removed
+- intenral 185 EGI net
+- added imagemagick for montage visualizer
 
 #### Installation
 - [Windows Installer](https://github.com/idossha/TI-Toolbox/releases/download/v2.0.1/TI-Toolbox-Windows.exe)
 - [macOS Universal](https://github.com/idossha/TI-Toolbox/releases/download/v2.0.1/TemporalInterferenceToolbox-macOS-universal.zip)
 - [Linux AppImage](https://github.com/idossha/TI-Toolbox/releases/download/v2.0.1/TemporalInterferenceToolbox-Linux-x86_64.AppImage)
+- [Bash Script & Compose YAML](https://github.com/idossha/TI-Toolbox/tree/main/launcher/bash) (for command-line/remote use)
 
 For installation instructions, see the [Installation Guide]({ site.baseurl }/installation/).
-
 
 ### v2.0.0
 
