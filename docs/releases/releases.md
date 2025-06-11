@@ -4,32 +4,37 @@ title: Releases
 permalink: /releases/
 ---
 
-## Latest Release
+## Command-Line and Remote Usage
+
+For command-line and remote usage, see the [Bash Script & Compose YAML](https://github.com/idossha/TI-Toolbox/tree/main/launcher/bash).
 
 <!-- DO NOT MODIFY: Auto-generated release content will be appended here -->
 
-### v2.0.1
+### v2.0.1 (Latest Release)
 
 **Release Date**: June 11, 2025
 
 #### Major Changes
-**Added:**   
-- new logger and report generators
-- sub-cortical atlas based targeting for flex-search  
+- #### Additions
+- new logger and report generators under projectDIR/derivatives/
+- sub-cortical atlas based targeting for flex-search (example: thalamus targeting)
 
-**Fixed:**   
+#### Fixes
 - 2 decimal spherical ROIs
-- TI.py overwrite protection removed
-- intenral 185 EGI net
+- TI
+- py overwrite protection removed
+- intenral 185 EGI net (removed 2 missed electrodes)
 - added imagemagick for montage visualizer
 
 #### Installation
 - [Windows Installer](https://github.com/idossha/TI-Toolbox/releases/download/v2.0.1/TI-Toolbox-Windows.exe)
 - [macOS Universal](https://github.com/idossha/TI-Toolbox/releases/download/v2.0.1/TemporalInterferenceToolbox-macOS-universal.zip)
 - [Linux AppImage](https://github.com/idossha/TI-Toolbox/releases/download/v2.0.1/TemporalInterferenceToolbox-Linux-x86_64.AppImage)
-- [Bash Script & Compose YAML](https://github.com/idossha/TI-Toolbox/tree/main/launcher/bash) (for command-line/remote use)
 
 For installation instructions, see the [Installation Guide]({ site.baseurl }/installation/).
+
+
+
 
 ### v2.0.0
 
@@ -45,7 +50,8 @@ For installation instructions, see the [Installation Guide]({ site.baseurl }/ins
 - [Windows Installer](https://github.com/idossha/TI-Toolbox/releases/download/v2.0.0/TI-Toolbox-Windows.exe)
 - [macOS Universal](https://github.com/idossha/TI-Toolbox/releases/download/v2.0.0/TemporalInterferenceToolbox-macOS-universal.zip)
 - [Linux AppImage](https://github.com/idossha/TI-Toolbox/releases/download/v2.0.0/TemporalInterferenceToolbox-Linux-x86_64.AppImage)
-- [Bash Script & Compose YAML](https://github.com/idossha/TI-Toolbox/tree/main/launcher/bash) (for command-line/remote use)
+
+For installation instructions, see the [Installation Guide]({ site.baseurl }/installation/).
 
   
 ---
