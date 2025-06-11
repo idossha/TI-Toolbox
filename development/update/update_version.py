@@ -149,7 +149,7 @@ def main():
         sys.exit(1)
     
     # Change to script directory
-    script_dir = Path(__file__).parent.parent
+    script_dir = Path(__file__).parent.parent.parent  # Go up one more level to reach project root
     os.chdir(script_dir)
     
     # Update version in all files
