@@ -1,7 +1,7 @@
 
 # Temporal Interference Toolbox
 
-for releases, installation guide, and wiki please see: https://idossha.github.io/TI-Toolbox/
+Releases, guides, and wiki please see: https://idossha.github.io/TI-Toolbox/
 
 ## Contact
 
