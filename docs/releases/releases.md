@@ -4,9 +4,9 @@ title: Releases
 permalink: /releases/
 ---
 
-## Command-Line and Remote Usage
+### Command-Line and Remote Usage
 
-For command-line and remote usage, see the [Bash Script & Compose YAML](https://github.com/idossha/TI-Toolbox/tree/main/launcher/bash).
+For headless server useage, see the [Bash Script & Compose YAML](https://github.com/idossha/TI-Toolbox/tree/main/launcher/bash).
 
 <!-- DO NOT MODIFY: Auto-generated release content will be appended here -->
 

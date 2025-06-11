@@ -4,8 +4,6 @@ title: Installation Guide
 permalink: /installation/
 ---
 
-# Installation Guide
-
 ## Getting the TI Toolbox
 
 The Temporal Interference Toolbox is distributed as compiled executables for Windows, macOS, and Linux. You can download the latest release from:
