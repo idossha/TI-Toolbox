@@ -62,6 +62,10 @@ def update_version(new_version):
         
         "docs/_config.yml": [
             (r'version: "[^"]*"', f'version: "{new_version}"'),
+        ],
+
+        "launcher/bash/docker-compose.yml": [
+            (r'image: idossha/simnibs:[^"]*"', f'image: idossha/simnibs:{new_version}"'),
         ]
     }
     
