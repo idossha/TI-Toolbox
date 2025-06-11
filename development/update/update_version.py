@@ -91,18 +91,13 @@ def add_release_to_changelog(version, release_notes=""):
     
     release_date = datetime.now().strftime("%B %d, %Y")
     
-    # Convert release notes to bullet points if they're not already
-    if not release_notes.strip().startswith('-'):
-        release_notes = '\n'.join(f'- {note.strip()}' for note in release_notes.split('.') if note.strip())
-    
     new_release_entry = f"""### v{version} (Latest Release)
 
 **Release Date**: {release_date}
 
-#### Major Changes
 {release_notes}
 
-#### Installation
+#### Download Links
 - [Windows Installer](https://github.com/idossha/TI-Toolbox/releases/download/v{version}/TI-Toolbox-Windows.exe)
 - [macOS Universal](https://github.com/idossha/TI-Toolbox/releases/download/v{version}/TemporalInterferenceToolbox-macOS-universal.zip)
 - [Linux AppImage](https://github.com/idossha/TI-Toolbox/releases/download/v{version}/TemporalInterferenceToolbox-Linux-x86_64.AppImage)
@@ -165,14 +160,18 @@ def get_release_info():
     
     # Format the release notes
     release_notes = []
+    release_notes.append("#### Additions")
     if additions:
-        release_notes.append("#### Additions")
         release_notes.extend(f"- {add}" for add in additions)
+    else:
+        release_notes.append("- N/A")
+    
+    release_notes.append("")
+    release_notes.append("#### Fixes")
     if fixes:
-        if additions:  # Add a newline between sections if we have both
-            release_notes.append("")
-        release_notes.append("#### Fixes")
         release_notes.extend(f"- {fix}" for fix in fixes)
+    else:
+        release_notes.append("- N/A")
     
     return version, "\n".join(release_notes)
 
