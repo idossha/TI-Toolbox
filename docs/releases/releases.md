@@ -15,7 +15,8 @@ permalink: /releases/
 #### Major Changes
 **Added:**   
 - new logger and report generators
-- sub-cortical atlas based targeting for flex-search
+- sub-cortical atlas based targeting for flex-search  
+
 **Fixed:**   
 - 2 decimal spherical ROIs
 - TI.py overwrite protection removed
