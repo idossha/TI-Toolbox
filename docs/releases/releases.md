@@ -10,7 +10,36 @@ For headless server useage, see the [Bash Script & Compose YAML](https://github.
 
 <!-- DO NOT MODIFY: Auto-generated release content will be appended here -->
 
-### v2.0.1 (Latest Release)
+### v2.0.2 (Latest Release)
+
+**Release Date**: June 19, 2025
+
+#### Additions
+- Enhanced X11 support for Windows with automatic host IP detection and VcXsrv/Xming configuration guidance
+- Created `windows_x11_setup.sh` helper script for simplified Windows X server setup
+- Added comprehensive Windows BIDS path guide (`WINDOWS_BIDS_PATH_GUIDE.md`) with troubleshooting tips
+- Improved cross-platform X11 configuration with better error handling and user guidance
+- Added OpenGL software rendering flags for better GUI compatibility across all platforms
+
+#### Fixes
+- Fixed volume mounting in docker-compose.yml - all required volumes now properly mounted to simnibs container
+- Fixed Windows path handling - automatic conversion of backslashes to forward slashes for Docker compatibility
+- Fixed paths with spaces on Windows - automatic quoting of paths containing spaces
+- Fixed X11 socket mounting for macOS XQuartz and Linux compatibility
+- Fixed DISPLAY environment variable configuration for Windows, macOS, and Linux
+- Fixed MATLAB Runtime library paths in container environment
+- Updated XQuartz version warning to reference memory about v2.7.7 compatibility requirement
+
+#### Download Links
+- [Windows Installer](https://github.com/idossha/TI-Toolbox/releases/download/v2.0.2/TI-Toolbox-Windows.exe)
+- [macOS Universal](https://github.com/idossha/TI-Toolbox/releases/download/v2.0.2/TemporalInterferenceToolbox-macOS-universal.zip)
+- [Linux AppImage](https://github.com/idossha/TI-Toolbox/releases/download/v2.0.2/TemporalInterferenceToolbox-Linux-x86_64.AppImage)
+
+For installation instructions, see the [Installation Guide]({ site.baseurl }/installation/).
+
+
+
+### v2.0.1
 
 **Release Date**: June 11, 2025
 
