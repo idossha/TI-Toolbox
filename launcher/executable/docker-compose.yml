@@ -30,7 +30,10 @@ services:
     restart: unless-stopped
 
   simnibs:
-    image: idossha/simnibs:2.0.1"1"
+    image: idossha/simnibs:2.0.1
+    platform: linux/amd64
+    container_name: simnibs_container
+    environment:
       FSLDIR: /usr/local/fsl
       FSLOUTPUTTYPE: NIFTI_GZ
       FSLMULTIFILEQUIT: "TRUE"
