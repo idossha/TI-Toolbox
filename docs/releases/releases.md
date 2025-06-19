@@ -12,13 +12,17 @@ For headless server useage, see the [Bash Script & Compose YAML](https://github.
 
 ### v2.0.1 (Latest Release)
 
-**Release Date**: June 19, 2025
+**Release Date**: June 11, 2025
 
 #### Additions
-- NA
+- new logger and report generators under 'projectDIR/derivatives/'  
+- sub-cortical atlas based targeting for flex-search (example: thalamus targeting)  
 
 #### Fixes
-- NA
+- 2 decimal spherical ROIs  
+- 'TI.py' overwrite protection removed  
+- intenral 185 EGI net (removed 2 missed electrodes)  
+- added imagemagick for montage visualizer  
 
 #### Download Links
 - [Windows Installer](https://github.com/idossha/TI-Toolbox/releases/download/v2.0.1/TI-Toolbox-Windows.exe)
