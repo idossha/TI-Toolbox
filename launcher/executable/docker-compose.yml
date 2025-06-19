@@ -30,19 +30,7 @@ services:
     restart: unless-stopped
 
   simnibs:
-    image: idossha/simnibs:2.0.0
-    platform: linux/amd64
-    container_name: simnibs_container
-    volumes:
-      - ti_csc_fsl_data:/usr/local/fsl/
-      - ti_csc_freesurfer_data:/usr/local/freesurfer/
-      - matlab_runtime:/usr/local/MATLAB/MATLAB_Runtime
-      - /tmp/.X11-unix:/tmp/.X11-unix
-      - ${LOCAL_PROJECT_DIR}:/mnt/${PROJECT_DIR_NAME}
-    environment:
-      USER: root
-      DISPLAY: ${DISPLAY}
-      LIBGL_ALWAYS_SOFTWARE: "1"
+    image: idossha/simnibs:2.0.1"1"
       FSLDIR: /usr/local/fsl
       FSLOUTPUTTYPE: NIFTI_GZ
       FSLMULTIFILEQUIT: "TRUE"
