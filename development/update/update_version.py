@@ -66,6 +66,9 @@ def update_version(new_version):
 
         "launcher/bash/docker-compose.yml": [
             (r'image: idossha/simnibs:[^"]*"', f'image: idossha/simnibs:{new_version}"'),
+        ],
+        "launcher/executable/docker-compose.yml": [
+            (r'image: idossha/simnibs:[^"]*"', f'image: idossha/simnibs:{new_version}"')
         ]
     }
     
