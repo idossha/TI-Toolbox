@@ -8,7 +8,7 @@ __version__ = "2.0.1"
 # TI-CSC Core Information
 TI_CSC_INFO = {
     "version": "2.0.1",
-    "release_date": "June 11, 2025", 
+    "release_date": "June 19, 2025", 
     "build": "stable"
 }
 
