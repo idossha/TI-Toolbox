@@ -248,6 +248,7 @@ class VoxelAnalyzer:
                             'mean_value': None,
                             'max_value': None,
                             'min_value': None,
+                            'focality': None,
                             'voxels_in_roi': 0
                         }
                         
@@ -271,6 +272,7 @@ class VoxelAnalyzer:
                             'mean_value': None,
                             'max_value': None,
                             'min_value': None,
+                            'focality': None,
                             'voxels_in_roi': 0
                         }
                         
@@ -283,12 +285,22 @@ class VoxelAnalyzer:
                     mean_value = np.mean(field_values)
                     max_value = np.max(field_values)
                     min_value = np.min(field_values)
+
+                    # Calculate focality (roi_average / whole_brain_average)
+                    # Only include positive values in the whole brain average
+                    whole_brain_positive_mask = field_arr > 0
+                    whole_brain_average = np.mean(field_arr[whole_brain_positive_mask])
+                    focality = mean_value / whole_brain_average
+                    
+                    # Log the whole brain average for debugging
+                    self.logger.info(f"Whole brain average (denominator for focality): {whole_brain_average:.6f}")
                     
                     # Create result dictionary for this region
                     region_results = {
                         'mean_value': mean_value,
                         'max_value': max_value,
                         'min_value': min_value,
+                        'focality': focality,
                         'voxels_in_roi': filtered_count  # Store the number of voxels
                     }
                     
@@ -329,6 +341,7 @@ class VoxelAnalyzer:
                         'mean_value': None,
                         'max_value': None,
                         'min_value': None,
+                        'focality': None,
                         'voxels_in_roi': 0
                     }
             
@@ -485,7 +498,7 @@ class VoxelAnalyzer:
             writer = csv.writer(csvfile)
             
             # Write header row
-            header = ['Region', 'Mean Value', 'Max Value', 'Min Value', f'{data_type.capitalize()}s in ROI']
+            header = ['Region', 'Mean Value', 'Max Value', 'Min Value', 'Focality', f'{data_type.capitalize()}s in ROI']
             writer.writerow(header)
             
             # Write data for each region
@@ -495,6 +508,7 @@ class VoxelAnalyzer:
                     region_data.get('mean_value', 'N/A'),
                     region_data.get('max_value', 'N/A'),
                     region_data.get('min_value', 'N/A'),
+                    region_data.get('focality', 'N/A'),
                     region_data.get(f'{data_type}s_in_roi', 0)
                 ]
                 writer.writerow(row)
@@ -582,11 +596,21 @@ class VoxelAnalyzer:
         max_value = np.max(roi_values)
         mean_value = np.mean(roi_values)
         
+        # Calculate focality (roi_average / whole_brain_average)
+        # Only include positive values in the whole brain average
+        whole_brain_positive_mask = field_data > 0
+        whole_brain_average = np.mean(field_data[whole_brain_positive_mask])
+        focality = mean_value / whole_brain_average
+        
+        # Log the whole brain average for debugging
+        self.logger.info(f"Whole brain average (denominator for focality): {whole_brain_average:.6f}")
+        
         # Create results dictionary
         results = {
             'mean_value': mean_value,
             'max_value': max_value,
             'min_value': min_value,
+            'focality': focality,
             'voxels_in_roi': roi_voxels_count
         }
         
@@ -860,7 +884,8 @@ class VoxelAnalyzer:
             results = {
                 'mean_value': None,
                 'max_value': None,
-                'min_value': None
+                'min_value': None,
+                'focality': None
             }
             
             # Save results to CSV even if empty
@@ -882,7 +907,8 @@ class VoxelAnalyzer:
             results = {
                 'mean_value': None,
                 'max_value': None,
-                'min_value': None
+                'min_value': None,
+                'focality': None
             }
             
             # Save results to CSV even if empty
@@ -895,12 +921,23 @@ class VoxelAnalyzer:
         mean_value = np.mean(field_values)
         max_value = np.max(field_values)
         min_value = np.min(field_values)
+
+        # Calculate focality (roi_average / whole_brain_average)
+        # Only include positive values in the whole brain average
+        whole_brain_positive_mask = field_arr > 0
+        whole_brain_average = np.mean(field_arr[whole_brain_positive_mask])
+        focality = mean_value / whole_brain_average
+        
+        # Log the whole brain average for debugging
+        self.logger.info(f"Whole brain average (denominator for focality): {whole_brain_average:.6f}")
         
         # Prepare results dictionary
         results = {
             'mean_value': mean_value,
             'max_value': max_value,
-            'min_value': min_value
+            'min_value': min_value,
+            'focality': focality,
+            'voxels_in_roi': filtered_count
         }
         
         # Generate visualization if requested

@@ -285,7 +285,8 @@ class MeshAnalyzer:
                         region_results = {
                             'mean_value': None,
                             'max_value': None,
-                            'min_value': None
+                            'min_value': None,
+                            'focality': None
                         }
                         
                         # Store in the overall results
@@ -298,19 +299,50 @@ class MeshAnalyzer:
                     field_values = gm_surf.field[self.field_name].value
                     field_values_in_roi = field_values[roi_mask]
                     
-                    # Calculate statistics
-                    min_value = np.min(field_values_in_roi)
-                    max_value = np.max(field_values_in_roi)
+                    # Filter for positive values in ROI (matching voxel analyzer behavior)
+                    positive_mask = field_values_in_roi > 0
+                    field_values_positive = field_values_in_roi[positive_mask]
                     
-                    # Calculate mean value using node areas for proper averaging
+                    # Check if we have any positive values in the ROI
+                    positive_count = len(field_values_positive)
+                    if positive_count == 0:
+                        self.logger.warning(f"Warning: Region {region_name} has no positive values")
+                        region_results = {
+                            'mean_value': None,
+                            'max_value': None,
+                            'min_value': None,
+                            'focality': None
+                        }
+                        
+                        # Store in the overall results
+                        results[region_name] = region_results
+                        
+                        continue
+                    
+                    # Calculate statistics on positive values only
+                    min_value = np.min(field_values_positive)
+                    max_value = np.max(field_values_positive)
+                    
+                    # Calculate mean value using node areas for proper averaging (only positive values)
                     node_areas = gm_surf.nodes_areas()
-                    mean_value = np.average(field_values[roi_mask], weights=node_areas[roi_mask])
+                    positive_node_areas = node_areas[roi_mask][positive_mask]
+                    mean_value = np.average(field_values_positive, weights=positive_node_areas)
+                    
+                    # Calculate focality (roi_average / whole_brain_average)
+                    # Only include positive values in the whole brain average
+                    whole_brain_positive_mask = field_values > 0
+                    whole_brain_average = np.mean(field_values[whole_brain_positive_mask])
+                    focality = mean_value / whole_brain_average
+                    
+                    # Log the whole brain average for debugging
+                    self.logger.info(f"Whole brain average (denominator for focality): {whole_brain_average:.6f}")
                     
                     # Create result dictionary for this region
                     region_results = {
                         'mean_value': mean_value,
                         'max_value': max_value,
-                        'min_value': min_value
+                        'min_value': min_value,
+                        'focality': focality
                     }
                     
                     # Store in the overall results
@@ -330,14 +362,14 @@ class MeshAnalyzer:
                         )
                         
                         # Generate region-specific value distribution plot
-                        if len(field_values_in_roi) > 0:
+                        if len(field_values_positive) > 0:
                             # Create a custom visualizer just for this region with the region directory as output
                             region_visualizer = MeshVisualizer(region_dir)
                             
                             # Generate value distribution plot for this region
                             self.logger.info(f"Generating value distribution plot for region: {region_name}")
                             region_visualizer.generate_value_distribution_plot(
-                                field_values_in_roi,
+                                field_values_positive,
                                 region_name,
                                 atlas_type,
                                 mean_value,
@@ -482,7 +514,7 @@ class MeshAnalyzer:
             writer = csv.writer(csvfile)
             
             # Write header row
-            header = ['Region', 'Mean Value', 'Max Value', 'Min Value']
+            header = ['Region', 'Mean Value', 'Max Value', 'Min Value', 'Focality']
             writer.writerow(header)
             
             # Write data for each region
@@ -491,7 +523,8 @@ class MeshAnalyzer:
                     region_name,
                     region_data.get('mean_value', 'N/A'),
                     region_data.get('max_value', 'N/A'),
-                    region_data.get('min_value', 'N/A')
+                    region_data.get('min_value', 'N/A'),
+                    region_data.get('focality', 'N/A')
                 ]
                 writer.writerow(row)
         
@@ -580,17 +613,40 @@ class MeshAnalyzer:
         # Get the field values within the ROI
         field_values_in_roi = field_values[roi_mask]
         
-        # Calculate statistics
-        min_value = np.min(field_values_in_roi)
-        max_value = np.max(field_values_in_roi)
-        mean_value = np.mean(field_values_in_roi)
+        # Filter for positive values in ROI (matching voxel analyzer behavior)
+        positive_mask = field_values_in_roi > 0
+        field_values_positive = field_values_in_roi[positive_mask]
+        
+        # Check if we have any positive values in the ROI
+        positive_count = len(field_values_positive)
+        if positive_count == 0:
+            self.logger.warning(f"Warning: No positive values found in spherical ROI")
+            return None
+        
+        self.logger.info(f"Found {positive_count} nodes with positive values in the ROI")
+        self.logger.info("Calculating statistics...")
+        
+        # Calculate statistics on positive values only
+        min_value = np.min(field_values_positive)
+        max_value = np.max(field_values_positive)
+        mean_value = np.mean(field_values_positive)
+
+        # Calculate focality (roi_average / whole_brain_average)
+        # Only include positive values in the whole brain average
+        whole_brain_positive_mask = field_values > 0
+        whole_brain_average = np.mean(field_values[whole_brain_positive_mask])
+        focality = mean_value / whole_brain_average
+
+        # Log the whole brain average for debugging
+        self.logger.info(f"Whole brain average (denominator for focality): {whole_brain_average:.6f}")
 
         # Create results dictionary
         results = {
             'mean_value': mean_value,
             'max_value': max_value,
             'min_value': min_value,
-            'nodes_in_roi': roi_nodes_count
+            'nodes_in_roi': roi_nodes_count,
+            'focality': focality
         }
         
         # Generate visualizations if requested
@@ -599,7 +655,7 @@ class MeshAnalyzer:
             
             # Generate distribution plot
             self.visualizer.generate_value_distribution_plot(
-                field_values_in_roi,
+                field_values_positive,
                 f"sphere_x{center_coordinates[0]}_y{center_coordinates[1]}_z{center_coordinates[2]}_r{radius}",
                 "Spherical",
                 mean_value,
@@ -711,7 +767,8 @@ class MeshAnalyzer:
                 results = {
                     'mean_value': None,
                     'max_value': None,
-                    'min_value': None
+                    'min_value': None,
+                    'focality': None
                 }
                 
                 # Save results to CSV even if empty
@@ -723,19 +780,50 @@ class MeshAnalyzer:
             field_values = gm_surf.field[self.field_name].value
             field_values_in_roi = field_values[roi_mask]
             
-            # Calculate statistics
-            min_value = np.min(field_values_in_roi)
-            max_value = np.max(field_values_in_roi)
+            # Filter for positive values in ROI (matching voxel analyzer behavior)
+            positive_mask = field_values_in_roi > 0
+            field_values_positive = field_values_in_roi[positive_mask]
             
-            # Calculate mean value using node areas for proper averaging
+            # Check if we have any positive values in the ROI
+            positive_count = len(field_values_positive)
+            if positive_count == 0:
+                self.logger.warning(f"Warning: Region {target_region} has no positive values")
+                results = {
+                    'mean_value': None,
+                    'max_value': None,
+                    'min_value': None,
+                    'focality': None
+                }
+                
+                # Save results to CSV even if empty
+                self.visualizer.save_results_to_csv(results, 'cortical', target_region, 'node')
+                
+                return results
+            
+            # Calculate statistics on positive values only
+            min_value = np.min(field_values_positive)
+            max_value = np.max(field_values_positive)
+            
+            # Calculate mean value using node areas for proper averaging (only positive values)
             node_areas = gm_surf.nodes_areas()
-            mean_value = np.average(field_values_in_roi, weights=node_areas[roi_mask])
+            positive_node_areas = node_areas[roi_mask][positive_mask]
+            mean_value = np.average(field_values_positive, weights=positive_node_areas)
+
+            # Calculate focality (roi_average / whole_brain_average)
+            # Only include positive values in the whole brain average
+            whole_brain_positive_mask = field_values > 0
+            whole_brain_average = np.mean(field_values[whole_brain_positive_mask])
+            focality = mean_value / whole_brain_average
+            
+            # Log the whole brain average for debugging
+            self.logger.info(f"Whole brain average (denominator for focality): {whole_brain_average:.6f}")
             
             # Prepare the results
             results = {
                 'mean_value': mean_value,
                 'max_value': max_value,
-                'min_value': min_value
+                'min_value': min_value,
+                'focality': focality
             }
             
             # Generate visualization if requested
@@ -743,7 +831,7 @@ class MeshAnalyzer:
                 self.logger.info("Generating visualizations...")
                 # Generate distribution plot
                 self.visualizer.generate_value_distribution_plot(
-                    field_values_in_roi,
+                    field_values_positive,
                     target_region,
                     atlas_type,
                     mean_value,

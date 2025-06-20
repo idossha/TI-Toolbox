@@ -1600,9 +1600,22 @@ class AnalyzerTab(QtWidgets.QWidget):
                 QtWidgets.QMessageBox.warning(self, "Error", f"T1 NIfTI file not found: {t1_path}")
                 return
             
-            # Launch Freeview with the T1 image
-            subprocess.Popen(["freeview", t1_path])
-            self.update_output(f"Launched Freeview with T1 image: {t1_path}")
+            # Build Freeview command with T1 image
+            freeview_cmd = ["freeview", "-v", t1_path]
+            
+            # Try to load field file if selected
+            field_path = self.get_selected_field_path()
+            if field_path and os.path.exists(field_path):
+                # Add the field file with heatmap colormap
+                freeview_cmd.extend(["-v", f"{field_path}:colormap=heat"])
+                self.update_output(f"Launched Freeview with T1 image and field overlay: {t1_path}")
+                self.update_output(f"Field overlay (heatmap): {field_path}")
+            else:
+                self.update_output(f"Launched Freeview with T1 image: {t1_path}")
+                self.update_output("Note: No valid field file selected for overlay")
+            
+            # Launch Freeview with the command
+            subprocess.Popen(freeview_cmd)
             
         except Exception as e:
             QtWidgets.QMessageBox.critical(self, "Error", f"Failed to launch Freeview: {str(e)}")
