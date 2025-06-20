@@ -1122,7 +1122,8 @@ class TesFlexOptimization:
                 'mapped_positions': [pos.tolist() for pos in mapping_result['mapped_positions']],
                 'mapped_labels': mapping_result['mapped_labels'],
                 'distances': mapping_result['distances'],
-                'channel_array_indices': mapping_result['channel_array_indices']
+                'channel_array_indices': mapping_result['channel_array_indices'],
+                'eeg_net': os.path.basename(net_csv_path)  # Add the EEG net file name
             }
             json.dump(json_data, f, indent=2)
         
