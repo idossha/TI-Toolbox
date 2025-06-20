@@ -10,6 +10,27 @@ For headless server useage, see the [Bash Script & Compose YAML](https://github.
 
 <!-- DO NOT MODIFY: Auto-generated release content will be appended here -->
 
+### v2.0.3 (Latest Release)
+
+**Release Date**: June 20, 2025
+
+#### Additions
+- Modified tes_flex_optimization.py to include eeg_net field in the .json
+- toggle between "Montage Simulation" (traditional) and "Flex-Search Simulation" with automatic discovery of optimization results and electrode type selection (mapped/optimized/both)
+- Modified TI.py and pipeline scripts to handle direct XYZ electrode coordinates instead of just electrode names, enabling optimized electrode positioning from flex-search results
+
+#### Fixes
+- N/A
+
+#### Download Links
+- [Windows Installer](https://github.com/idossha/TI-Toolbox/releases/download/v2.0.3/TI-Toolbox-Windows.exe)
+- [macOS Universal](https://github.com/idossha/TI-Toolbox/releases/download/v2.0.3/TemporalInterferenceToolbox-macOS-universal.zip)
+- [Linux AppImage](https://github.com/idossha/TI-Toolbox/releases/download/v2.0.3/TemporalInterferenceToolbox-Linux-x86_64.AppImage)
+
+For installation instructions, see the [Installation Guide]({ site.baseurl }/installation/).
+
+
+
 ### v2.0.2 (Latest Release)
 
 **Release Date**: June 19, 2025
