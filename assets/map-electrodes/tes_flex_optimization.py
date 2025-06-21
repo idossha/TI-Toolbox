@@ -2555,6 +2555,8 @@ def postprocess_e(e, e2=None, dirvec=None, type="magn"):
         - "tangential": determine tangential component (required surface normals in dirvec)
         - "max_TI": maximum envelope for TI fields
         - "dir_TI": directional sensitive maximum envelope for TI fields
+        - "dir_TI_normal": directional TI field normal component (requires surface normals in dirvec)
+        - "dir_TI_tangential": directional TI field tangential component (requires surface normals in dirvec)
 
     Returns
     -------
@@ -2568,8 +2570,11 @@ def postprocess_e(e, e2=None, dirvec=None, type="magn"):
         if dirvec.shape[0] == 1:
             dirvec = np.repeat(dirvec, e.shape[0], axis=0)
 
-    if type in ["max_TI", "dir_TI"] and e2 is None:
+    if type in ["max_TI", "dir_TI", "dir_TI_normal", "dir_TI_tangential"] and e2 is None:
         raise ValueError("Please provide second e-field to calculate TI field!")
+    
+    if type in ["normal", "tangential", "dir_TI", "dir_TI_normal", "dir_TI_tangential"] and dirvec is None:
+        raise ValueError(f"Please provide direction vectors (dirvec) for {type} component calculation!")
 
     if type == "magn":
         e_pp = np.linalg.norm(e, axis=1)
@@ -2585,6 +2590,21 @@ def postprocess_e(e, e2=None, dirvec=None, type="magn"):
 
     elif type == "dir_TI":
         e_pp = get_dirTI(E1=e, E2=e2, dirvec_org=dirvec)
+
+    elif type == "dir_TI_normal":
+        # Calculate directional TI field in normal direction
+        # get_dirTI likely returns the normal component by default
+        e_pp = get_dirTI(E1=e, E2=e2, dirvec_org=dirvec)
+
+    elif type == "dir_TI_tangential":
+        # For tangential component, we need to calculate the TI field envelope
+        # and then extract the tangential component
+        # First get the max TI field magnitude
+        max_ti = get_maxTI(E1_org=e, E2_org=e2)
+        # Get the normal component using get_dirTI
+        normal_ti = get_dirTI(E1=e, E2=e2, dirvec_org=dirvec)
+        # Calculate tangential component: sqrt(max_ti^2 - normal_ti^2)
+        e_pp = np.sqrt(np.maximum(0, max_ti ** 2 - normal_ti ** 2))
 
     else:
         raise NotImplementedError(f"Specified type for e-field post-processing '{type}' not implemented.")
@@ -2603,7 +2623,7 @@ def write_visualization(folder_path, base_file_name, roi_list, results_list, e_p
     e_postproc = list(np.unique(e_postproc))
     
     for i in e_postproc:
-        if i not in ["max_TI", "dir_TI", "magn", "normal", "tangential"]:
+        if i not in ["max_TI", "dir_TI", "dir_TI_normal", "dir_TI_tangential", "magn", "normal", "tangential"]:
             raise ValueError(f"postprocessing option {i} unknown")
     
     n_roi = len(roi_list)
@@ -2704,9 +2724,9 @@ def write_visualization(folder_path, base_file_name, roi_list, results_list, e_p
                     d_avg /= len(idx)
                     surfacemesh_newdata.append(m_surf.add_node_field(d_avg, 'average__'+metric))
                     
-        for metric in ['max_TI', 'dir_TI']:
+        for metric in ['max_TI', 'dir_TI', 'dir_TI_normal', 'dir_TI_tangential']:
             if metric in e_postproc and n_results == 2:
-                # append maxTI and dirTI
+                # append maxTI, dirTI, dir_TI_normal, and dir_TI_tangential
                 fieldnames = [results_txt[i]+'__E' for i in range(len(results_txt))]
                 idx = [i for i, data in enumerate(m_surf.nodedata) if data.field_name in fieldnames]
                 if len(idx) != 2:
@@ -2809,7 +2829,7 @@ def make_summary_text(m_surf, m_head, tissues_m_head = [ElementTags.GM]):
     """
     def summary_for_mesh(m):
         # get fields with final results
-        result_field_names = {'max_TI', 'dir_TI', 'magnE', 'E__normal', 'E__tangential', 
+        result_field_names = {'max_TI', 'dir_TI', 'dir_TI_normal', 'dir_TI_tangential', 'magnE', 'E__normal', 'E__tangential', 
                             'average__magnE', 'average__normal', 'average__tangential'}
         result_fields = m.field.keys() & result_field_names
 
