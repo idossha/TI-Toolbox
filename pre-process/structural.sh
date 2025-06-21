@@ -1,22 +1,12 @@
 #!/bin/bash
 #
-# This script creates head model directories for subjects in a project,
-# processing subjects either in serial (default) or in parallel (if --parallel is given).
-#
-# Additionally, it now supports a --recon-only option to run just the FreeSurfer recon-all
-# function (which requires that subject-specific T1 images already exist in the anat/niftis/ folder)
-# without performing DICOM conversion or head model generation.
+# Modular Pre-processing Pipeline Orchestrator
+# This script orchestrates DICOM conversion, FreeSurfer recon-all, and SimNIBS m2m creation
+# by calling individual specialized scripts.
 #
 # Usage:
-#   ./structural.sh <subject_dir> [recon-all] [--recon-only] [--parallel] [--quiet] [--convert-dicom] [--create-m2m]
-#
-#   <subject_dir>    : The subject directory (e.g., /mnt/BIDS_test/101)
-#   recon-all        : Optional; if provided (and not in --recon-only mode), FreeSurfer recon-all is run after head model creation.
-#   --recon-only     : Optional; if provided, only recon-all is run (all other processing is skipped).
-#   --parallel       : Optional; if provided, subjects are processed in parallel (only for recon-all).
-#   --quiet          : Optional; if provided, output is suppressed.
-#   --convert-dicom  : Optional; if provided, DICOM files will be converted to NIfTI.
-#   --create-m2m     : Optional; if provided, SimNIBS m2m folder will be created.
+#   ./structural.sh <subject_dir>... [recon-all] [--recon-only] [--parallel] [--quiet] [--convert-dicom] [--create-m2m]
+#   ./structural.sh --subjects <subject_id1,subject_id2,...> [options...]
 #
 
 # Source the logging utility
@@ -30,454 +20,264 @@ PARALLEL=false
 QUIET=false
 CONVERT_DICOM=false
 CREATE_M2M=false
-SUBJECT_DIR=""
+SUBJECT_DIRS=()
 
-# Loop over all arguments
-while [[ $# -gt 0 ]]; do
-  case "$1" in
+# Enhanced argument parsing to handle GUI command format
+# The GUI sends: script.sh /path/sub-101 /path/sub-102 recon-all --parallel --convert-dicom
+# We need to create directories first (like CLI does), then process arguments
+
+echo "DEBUG: Received arguments: $*" >&2
+
+# First pass: Extract subject IDs from paths and create directory structure
+temp_subject_ids=()
+temp_flags=()
+
+for arg in "$@"; do
+  if [[ "$arg" == *"/sub-"* ]]; then
+    # Extract subject ID from path like /mnt/data_for_Paper/sub-101
+    subject_id=$(basename "$arg" | sed 's/^sub-//')
+    temp_subject_ids+=("$subject_id")
+    echo "DEBUG: Extracted subject ID: $subject_id from path: $arg" >&2
+  else
+    temp_flags+=("$arg")
+    echo "DEBUG: Identified flag: $arg" >&2
+  fi
+done
+
+# Create directory structure for each subject (like CLI does)
+for subject_id in "${temp_subject_ids[@]}"; do
+  # Detect project directory from the first subject path
+  if [[ -z "$PROJECT_DIR" ]]; then
+    for arg in "$@"; do
+      if [[ "$arg" == *"/sub-"* ]]; then
+        PROJECT_DIR=$(dirname "$arg")
+        echo "DEBUG: Detected project directory: $PROJECT_DIR" >&2
+        break
+      fi
+    done
+  fi
+  
+  BIDS_SUBJECT_ID="sub-${subject_id}"
+  SUBJECT_DIR="$PROJECT_DIR/$BIDS_SUBJECT_ID"
+  
+  # Create directory structure (exactly like CLI does)
+  echo "DEBUG: Creating directory structure for subject: $subject_id" >&2
+  mkdir -p "$PROJECT_DIR/sourcedata/$BIDS_SUBJECT_ID/T1w/dicom"
+  mkdir -p "$PROJECT_DIR/sourcedata/$BIDS_SUBJECT_ID/T2w/dicom"
+  mkdir -p "$SUBJECT_DIR/anat"
+  mkdir -p "$PROJECT_DIR/derivatives/freesurfer/$BIDS_SUBJECT_ID"
+  mkdir -p "$PROJECT_DIR/derivatives/SimNIBS/$BIDS_SUBJECT_ID"
+  
+  SUBJECT_DIRS+=("$SUBJECT_DIR")
+  echo "DEBUG: Created and added subject directory: $SUBJECT_DIR" >&2
+done
+
+# Process flags
+for flag in "${temp_flags[@]}"; do
+  case "$flag" in
     --parallel)
       PARALLEL=true
-      shift
+      echo "DEBUG: Set PARALLEL=true" >&2
       ;;
     --quiet)
       QUIET=true
-      shift
+      echo "DEBUG: Set QUIET=true" >&2
       ;;
     --recon-only)
       RECON_ONLY=true
-      shift
+      echo "DEBUG: Set RECON_ONLY=true" >&2
       ;;
     --convert-dicom)
       CONVERT_DICOM=true
-      shift
+      echo "DEBUG: Set CONVERT_DICOM=true" >&2
       ;;
     --create-m2m)
       CREATE_M2M=true
-      shift
+      echo "DEBUG: Set CREATE_M2M=true" >&2
       ;;
     recon-all)
       RUN_RECON=true
-      shift
+      echo "DEBUG: Set RUN_RECON=true" >&2
       ;;
     *)
-      # Assume first unknown argument is the SUBJECT_DIR
-      if [[ -z "$SUBJECT_DIR" ]]; then
-        SUBJECT_DIR="$1"
-      else
-        echo "Unknown argument: $1"
-        echo "Usage: $0 <subject_dir> [recon-all] [--recon-only] [--parallel] [--quiet] [--convert-dicom] [--create-m2m]"
-        exit 1
-      fi
-      shift
+      echo "Unknown flag: $flag"
+      exit 1
       ;;
   esac
 done
 
-# Validate subject directory
-if [[ -z "$SUBJECT_DIR" ]]; then
-  echo "Error: <subject_dir> is required."
-  echo "Usage: $0 <subject_dir> [recon-all] [--recon-only] [--parallel] [--quiet] [--convert-dicom] [--create-m2m]"
+echo "DEBUG: Final SUBJECT_DIRS: ${SUBJECT_DIRS[*]}" >&2
+echo "DEBUG: RUN_RECON=$RUN_RECON, PARALLEL=$PARALLEL, CONVERT_DICOM=$CONVERT_DICOM" >&2
+
+# Validate subject directories
+if [[ ${#SUBJECT_DIRS[@]} -eq 0 ]]; then
+  echo "Error: At least one subject directory or subject ID is required."
+  echo "Usage: $0 <subject_dir_or_id>... [recon-all] [--recon-only] [--parallel] [--quiet] [--convert-dicom] [--create-m2m]"
+  echo "       $0 --subjects <subject_id1,subject_id2,...> [options...]"
   exit 1
 fi
 
-# Get absolute path of subject directory and set up project structure
-SUBJECT_DIR="$(realpath "$SUBJECT_DIR")"
-PROJECT_NAME=$(basename "$(dirname "$SUBJECT_DIR")")
-PROJECT_DIR="/mnt/${PROJECT_NAME}"
-DERIVATIVES_DIR="${PROJECT_DIR}/derivatives"
-SUBJECT_ID=$(basename "$SUBJECT_DIR" | sed 's/^sub-//')  # Remove sub- prefix if it exists
-BIDS_SUBJECT_ID="sub-${SUBJECT_ID}"
+# Print processing plan
+echo "Processing plan:"
+echo "- Subjects to process: ${#SUBJECT_DIRS[@]}"
+for i in "${!SUBJECT_DIRS[@]}"; do
+    echo "  $((i+1)). ${SUBJECT_DIRS[i]}"
+done
+echo "- Parallel processing: $PARALLEL"
+echo "- Run recon-all: $RUN_RECON"
+echo "- Recon-only mode: $RECON_ONLY"
+echo "- Convert DICOM: $CONVERT_DICOM"
+echo "- Create m2m: $CREATE_M2M"
 
-# Create logs directory in project derivatives under subject folder
-logs_dir="${DERIVATIVES_DIR}/logs/${BIDS_SUBJECT_ID}"
-mkdir -p "$logs_dir"
-echo "Logs directory: $logs_dir"
-
-# Now that we have the correct paths, set up logging
-set_logger_name "pre-process"
-timestamp=$(date +"%Y%m%d_%H%M%S")
-set_log_file "${logs_dir}/pre-process_${timestamp}.log"
-
-# Configure external loggers for FreeSurfer and SimNIBS
-configure_external_loggers '["freesurfer", "simnibs", "charm"]'
-
-# Function to run command with proper error handling
-run_command() {
-    local cmd="$1"
-    local error_msg="$2"
+# Function to process a single subject through all non-recon steps
+process_subject_non_recon() {
+    local subject_dir="$1"
+    local subject_id=$(basename "$subject_dir" | sed 's/^sub-//')
     
-    # Run cmd, capture both stdout and stderr,
-    # append everything to the log file, and still show on console.
-    if ! eval "$cmd" 2>&1 | tee -a "$LOG_FILE"; then
-        # tee will forward stderr, so logger.error will also record the final error
-        log_error "$error_msg"
-        return 1
+    echo "Processing non-recon steps for subject: $subject_id"
+    
+    # DICOM conversion
+    if $CONVERT_DICOM; then
+        echo "  Running DICOM conversion..."
+        local dicom_args=("$subject_dir")
+        if $QUIET; then
+            dicom_args+=("--quiet")
+        fi
+        
+        if ! "$script_dir/dicom2nifti.sh" "${dicom_args[@]}"; then
+            echo "  Error: DICOM conversion failed for subject: $subject_id"
+            return 1
+        fi
+        echo "  DICOM conversion completed for subject: $subject_id"
     fi
+    
+    # SimNIBS m2m creation
+    if $CREATE_M2M; then
+        echo "  Running SimNIBS charm..."
+        local charm_args=("$subject_dir")
+        if $QUIET; then
+            charm_args+=("--quiet")
+        fi
+        
+        if ! "$script_dir/charm.sh" "${charm_args[@]}"; then
+            echo "  Error: SimNIBS charm failed for subject: $subject_id"
+            return 1
+        fi
+        echo "  SimNIBS charm completed for subject: $subject_id"
+    fi
+    
+    echo "Non-recon processing completed for subject: $subject_id"
     return 0
 }
 
-###############################################################################
-#                      PARSE ARGUMENTS AND OPTIONS
-###############################################################################
-
-# Create subject directory if it doesn't exist
-if [[ ! -d "$SUBJECT_DIR" ]]; then
-  log_info "Subject directory $SUBJECT_DIR does not exist. Creating it..."
-  mkdir -p "$SUBJECT_DIR"
-  if [[ ! -d "$SUBJECT_DIR" ]]; then
-    log_error "Failed to create subject directory $SUBJECT_DIR"
-    exit 1
-  fi
-fi
-
-# If --quiet is set, redirect all output (stdout and stderr) to /dev/null
-if $QUIET; then
-  exec &>/dev/null
-fi
-
-###############################################################################
-#                   RECON-ONLY MODE: JUST RUN recon-all
-###############################################################################
-if $RECON_ONLY; then
-  log_info "Running in recon-all only mode (skipping DICOM conversion and head model creation)."
-
-  if ! command -v recon-all &>/dev/null; then
-    log_error "recon-all (FreeSurfer) is not installed."
-    exit 1
-  fi
-
-  # Define directories used for recon-all only
-  NIFTI_DIR="${SUBJECT_DIR}/anat/niftis"
-  FS_RECON_DIR="${SUBJECT_DIR}/anat/freesurfer"   # Directory for FreeSurfer output
-
-  # Ensure the necessary directories exist
-  mkdir -p "$NIFTI_DIR" "$FS_RECON_DIR"
-
-  run_recon_only() {
-    local subject="$1"
-    local nifti_dir="$2"
-    local fs_recon_dir="$3"
+# Function to run recon-all for a single subject
+run_recon_single() {
+    local subject_dir="$1"
+    local subject_id=$(basename "$subject_dir" | sed 's/^sub-//')
     
-    T1_file="${nifti_dir}/T1.nii"
-    if [ ! -f "$T1_file" ]; then
-      # Try gzipped version if regular doesn't exist
-      T1_file="${nifti_dir}/T1.nii.gz"
-      if [ ! -f "$T1_file" ]; then
-        log_error "T1.nii or T1.nii.gz not found in ${nifti_dir}, skipping recon-all."
-        return
-      fi
+    echo "Running FreeSurfer recon-all for subject: $subject_id"
+    
+    local recon_args=("$subject_dir")
+    if $QUIET; then
+        recon_args+=("--quiet")
+    fi
+    if $PARALLEL; then
+        recon_args+=("--parallel")
     fi
     
-    log_info "Running FreeSurfer recon-all for subject: $subject"
-    if ! run_command "recon-all -subject '$subject' -i '$T1_file' -all -sd '$fs_recon_dir'" "FreeSurfer recon-all failed for subject: $subject"; then
-      return 1
+    if ! "$script_dir/recon-all.sh" "${recon_args[@]}"; then
+        echo "Error: FreeSurfer recon-all failed for subject: $subject_id"
+        return 1
     fi
-    log_info "Finished FreeSurfer recon-all for subject: $subject"
-  }
+    
+    echo "FreeSurfer recon-all completed for subject: $subject_id"
+    return 0
+}
 
-  if ! $PARALLEL; then
-    log_info "Running recon-all in SERIAL mode."
-    run_recon_only "$SUBJECT_ID" "$NIFTI_DIR" "$FS_RECON_DIR"
-  else
-    log_info "Running recon-all in PARALLEL mode."
+# Main processing logic
+if $PARALLEL && ($RUN_RECON || $RECON_ONLY) && [[ ${#SUBJECT_DIRS[@]} -gt 1 ]]; then
+    echo "Starting parallel processing of ${#SUBJECT_DIRS[@]} subject(s) using GNU Parallel..."
+    
+    # Check for GNU Parallel
     if ! command -v parallel &>/dev/null; then
-      log_error "GNU Parallel is not installed, but --parallel was requested."
-      exit 1
-    fi
-    
-    export -f run_recon_only
-    export SUBJECT_ID NIFTI_DIR FS_RECON_DIR
-    
-    echo "$SUBJECT_ID" | parallel \
-      --line-buffer \
-      --tagstring '[{}] ' \
-      --progress \
-      --eta \
-      --halt now,fail=1 \
-      run_recon_only {} "$NIFTI_DIR" "$FS_RECON_DIR"
-  fi
-
-  log_info "Recon-all only mode completed."
-  exit 0
-fi
-
-###############################################################################
-#                 CHECK REQUIRED COMMANDS AND DIRECTORIES
-###############################################################################
-
-if $CONVERT_DICOM; then
-  if ! command -v dcm2niix &>/dev/null; then
-    log_error "dcm2niix is not installed."
-    exit 1
-  fi
-fi
-
-if $CREATE_M2M; then
-  if ! command -v charm &>/dev/null; then
-    log_error "charm (SimNIBS) is not installed."
-    exit 1
-  fi
-fi
-
-if $RUN_RECON; then
-  if ! command -v recon-all &>/dev/null; then
-    log_error "recon-all (FreeSurfer) is not installed."
-    exit 1
-  fi
-fi
-
-if $PARALLEL; then
-  if ! command -v parallel &>/dev/null; then
-    log_error "GNU Parallel is not installed, but --parallel was requested."
-    exit 1
-  fi
-fi
-
-###############################################################################
-#                     DEFINE DIRECTORIES AND ENVIRONMENT
-###############################################################################
-
-# Define BIDS directory structure
-SOURCEDATA_DIR="${PROJECT_DIR}/sourcedata/${BIDS_SUBJECT_ID}"
-BIDS_ANAT_DIR="${PROJECT_DIR}/${BIDS_SUBJECT_ID}/anat"
-FREESURFER_DIR="${DERIVATIVES_DIR}/freesurfer/${BIDS_SUBJECT_ID}"
-SIMNIBS_DIR="${DERIVATIVES_DIR}/SimNIBS/${BIDS_SUBJECT_ID}"
-
-# Create required directories
-mkdir -p "${SOURCEDATA_DIR}/T1w"
-mkdir -p "${SOURCEDATA_DIR}/T2w"
-mkdir -p "$BIDS_ANAT_DIR"
-mkdir -p "$FREESURFER_DIR"
-mkdir -p "$SIMNIBS_DIR"
-
-###############################################################################
-#                         PROCESS SUBJECT
-###############################################################################
-
-log_info "Processing subject: $SUBJECT_ID"
-
-###############################################################################
-#              DICOM TO NIFTI CONVERSION (IF REQUESTED)
-###############################################################################
-
-if $CONVERT_DICOM; then
-    log_info "Auto-detecting available DICOM data types..."
-    
-    # Function to handle compressed DICOM files
-    handle_compressed_dicom() {
-        local source_dir="$1"
-        local target_dir="$2"
-        local scan_type="$3"
-        
-        # Look for .tgz files in the source directory
-        for tgz_file in "$source_dir"/*.tgz; do
-            if [ -f "$tgz_file" ]; then
-                log_info "Found compressed DICOM file: $tgz_file"
-                
-                # Create a temporary directory for extraction
-                local temp_dir=$(mktemp -d)
-                
-                # Extract the .tgz file
-                log_info "Extracting $tgz_file to temporary directory..."
-                tar -xzf "$tgz_file" -C "$temp_dir"
-                
-                # Find all DICOM files in the extracted directory
-                local dicom_files=$(find "$temp_dir" -type f -name "*.dcm" -o -name "*.IMA" -o -name "*.dicom")
-                
-                if [ -n "$dicom_files" ]; then
-                    log_info "Found DICOM files in extracted archive"
-                    
-                    # Create scan type directory if it doesn't exist
-                    mkdir -p "$target_dir"
-                    
-                    # Move DICOM files to the target directory
-                    log_info "Moving DICOM files to $target_dir"
-                    find "$temp_dir" -type f \( -name "*.dcm" -o -name "*.IMA" -o -name "*.dicom" \) -exec mv {} "$target_dir" \;
-                    
-                    # Clean up temporary directory
-                    rm -rf "$temp_dir"
-                else
-                    log_warning "Could not find DICOM files in extracted archive"
-                    rm -rf "$temp_dir"
-                fi
-            fi
-        done
-    }
-    
-    # Function to find and process DICOM files in a directory
-    process_dicom_directory() {
-        local source_dir="$1"
-        local target_dir="$2"
-        
-        if [ -d "$source_dir" ] && [ "$(ls -A "$source_dir")" ]; then
-            log_info "Processing DICOM files in $source_dir..."
-            # First convert in place
-            dcm2niix -z y -o "$target_dir" "$source_dir"
-            
-            # Process each pair of files
-            for json_file in "$target_dir"/*.json; do
-                if [ -f "$json_file" ]; then
-                    # Get the corresponding nii.gz file
-                    nii_file="${json_file%.json}.nii.gz"
-                    if [ -f "$nii_file" ]; then
-                        # Extract SeriesDescription from JSON
-                        series_desc=$(grep -o '"SeriesDescription": *"[^"]*"' "$json_file" | cut -d'"' -f4)
-                        if [ -n "$series_desc" ]; then
-                            # Create new filenames based on SeriesDescription
-                            new_json="${BIDS_ANAT_DIR}/${series_desc}.json"
-                            new_nii="${BIDS_ANAT_DIR}/${series_desc}.nii.gz"
-                            # Move and rename the files
-                            mv "$json_file" "$new_json"
-                            mv "$nii_file" "$new_nii"
-                            log_info "Renamed files to: $series_desc"
-                        else
-                            # If no SeriesDescription found, move with original names
-                            mv "$json_file" "${BIDS_ANAT_DIR}/"
-                            mv "$nii_file" "${BIDS_ANAT_DIR}/"
-                        fi
-                    fi
-                fi
-            done
-        fi
-    }
-    
-    # Create required directories for both T1w and T2w
-    mkdir -p "${SOURCEDATA_DIR}/T1w/dicom"
-    mkdir -p "${SOURCEDATA_DIR}/T2w/dicom"
-    mkdir -p "$BIDS_ANAT_DIR"
-    mkdir -p "$FREESURFER_DIR"
-    mkdir -p "$SIMNIBS_DIR"
-    
-    # Handle compressed DICOM files if they exist
-    handle_compressed_dicom "${SOURCEDATA_DIR}/T1w" "${SOURCEDATA_DIR}/T1w/dicom" "T1w"
-    handle_compressed_dicom "${SOURCEDATA_DIR}/T2w" "${SOURCEDATA_DIR}/T2w/dicom" "T2w"
-    
-    # Process T1w directory
-    T1_DICOM_DIR="${SOURCEDATA_DIR}/T1w/dicom"
-    T2_DICOM_DIR="${SOURCEDATA_DIR}/T2w/dicom"
-    
-    if [ ! -d "$T1_DICOM_DIR" ] && [ ! -d "$T2_DICOM_DIR" ]; then
-        log_warning "No DICOM directories found in T1w or T2w. Skipping DICOM conversion."
-    else
-        log_info "Converting DICOM files to NIfTI..."
-        
-        # Process T1w directory if it exists and has files
-        if [ -d "$T1_DICOM_DIR" ] && [ "$(ls -A "$T1_DICOM_DIR")" ]; then
-            log_info "Found T1w DICOM data, processing..."
-            process_dicom_directory "$T1_DICOM_DIR" "$T1_DICOM_DIR"
-        fi
-        
-        # Process T2w directory if it exists and has files
-        if [ -d "$T2_DICOM_DIR" ] && [ "$(ls -A "$T2_DICOM_DIR")" ]; then
-            log_info "Found T2w DICOM data, processing..."
-            process_dicom_directory "$T2_DICOM_DIR" "$T2_DICOM_DIR"
-        fi
-    fi
-fi
-
-# Verify that NIfTI files were created and moved successfully
-if [ ! -d "$BIDS_ANAT_DIR" ] || [ -z "$(ls -A "$BIDS_ANAT_DIR")" ]; then
-    log_error "No NIfTI files found in $BIDS_ANAT_DIR"
-    log_error "Please ensure anatomical MRI data is available."
-    exit 1
-fi
-
-###############################################################################
-#                         PREPARE FOR HEAD MODEL
-###############################################################################
-
-# Find T1 and T2 images - look for any .nii or .nii.gz files
-T1_file=""
-T2_file=""
-
-# First try to find files with T1/T1w in the name
-for t1_candidate in "$BIDS_ANAT_DIR"/*T1*.nii* "$BIDS_ANAT_DIR"/*t1*.nii*; do
-    if [ -f "$t1_candidate" ]; then
-        T1_file="$t1_candidate"
-        log_info "Found T1 image: $T1_file"
-        break
-    fi
-done
-
-# If no T1 found, take the first NIfTI file as T1
-if [ -z "$T1_file" ]; then
-    for nii_file in "$BIDS_ANAT_DIR"/*.nii*; do
-        if [ -f "$nii_file" ]; then
-            T1_file="$nii_file"
-            log_info "Using $T1_file as T1 image"
-            break
-        fi
-    done
-fi
-
-# Look for T2 images
-for t2_candidate in "$BIDS_ANAT_DIR"/*T2*.nii* "$BIDS_ANAT_DIR"/*t2*.nii*; do
-    if [ -f "$t2_candidate" ]; then
-        T2_file="$t2_candidate"
-        log_info "Found T2 image: $T2_file"
-        break
-    fi
-done
-
-# Convert to absolute paths if files were found
-if [ -f "$T1_file" ]; then
-    T1_file=$(realpath "$T1_file")
-else
-    log_error "No NIfTI files found in $BIDS_ANAT_DIR"
-    log_error "Please ensure anatomical MRI data is available."
-    exit 1
-fi
-
-if [ -f "$T2_file" ]; then
-    T2_file=$(realpath "$T2_file")
-    log_info "T2 image found: $T2_file"
-else
-    log_info "No T2 image found. Proceeding with T1 only."
-    T2_file=""
-fi
-
-###############################################################################
-#                         CREATE HEAD MODEL
-###############################################################################
-
-if $CREATE_M2M; then
-    # --- Run the charm function to create head model ---
-    log_info "Creating head model with SimNIBS charm..."
-    
-    # Check if m2m directory already exists
-    m2m_dir="$SIMNIBS_DIR/m2m_${SUBJECT_ID}"
-    forcerun=""
-    if [ -d "$m2m_dir" ] && [ "$(ls -A "$m2m_dir" 2>/dev/null)" ]; then
-        log_warning "Head model directory already contains files. Using --forcerun option."
-        forcerun="--forcerun"
-    fi
-    
-    # Run charm
-    if [ -n "$T2_file" ]; then
-        log_info "Running charm with T1 and T2 images..."
-        ( cd "$SIMNIBS_DIR" || exit 1
-          if ! run_command "charm $forcerun '$SUBJECT_ID' '$T1_file' '$T2_file'" "SimNIBS charm failed with T1 and T2 images"; then
-              exit 1
-          fi
-        )
-    else
-        log_info "Running charm with T1 image only..."
-        ( cd "$SIMNIBS_DIR" || exit 1
-          if ! run_command "charm $forcerun '$SUBJECT_ID' '$T1_file'" "SimNIBS charm failed with T1 image only"; then
-              exit 1
-          fi
-        )
-    fi
-else
-    log_info "Skipping head model creation (not requested)."
-fi
-
-# --- Optionally run FreeSurfer recon-all ---
-if $RUN_RECON; then
-    log_info "Running FreeSurfer recon-all..."
-    if ! run_command "recon-all -subject '$SUBJECT_ID' -i '$T1_file' -all -sd '$FREESURFER_DIR'" "FreeSurfer recon-all failed"; then
+        echo "Error: GNU Parallel is not installed, but --parallel was requested."
+        echo "Please install GNU Parallel: apt-get install parallel"
         exit 1
     fi
+    
+    # Process non-recon steps first (sequentially to avoid conflicts)
+    if ! $RECON_ONLY; then
+        echo "Processing non-recon steps sequentially first..."
+        for subject_dir in "${SUBJECT_DIRS[@]}"; do
+            if ! process_subject_non_recon "$subject_dir"; then
+                echo "Error: Failed to pre-process subject: $subject_dir"
+                exit 1
+            fi
+        done
+    fi
+    
+    # Now run recon-all in parallel
+    echo "Running FreeSurfer recon-all in parallel for ${#SUBJECT_DIRS[@]} subjects..."
+    
+    # Use absolute path to recon-all.sh for parallel execution
+    recon_script="$(cd "$script_dir" && pwd)/recon-all.sh"
+    
+    # Build arguments for parallel execution
+    parallel_args=()
+    if $QUIET; then
+        parallel_args+=("--quiet")
+    fi
+    if $PARALLEL; then
+        parallel_args+=("--parallel")
+    fi
+    
+    # Run recon-all in parallel using the script directly
+    if ! printf '%s\n' "${SUBJECT_DIRS[@]}" | parallel \
+        --line-buffer \
+        --tagstring '[{/}] ' \
+        --halt now,fail=1 \
+        --jobs 0 \
+        "$recon_script" {} "${parallel_args[@]}"; then
+        echo "Error: Parallel recon-all processing failed"
+        exit 1
+    fi
+    
+    echo "Parallel FreeSurfer recon-all completed successfully!"
+    
+else
+    # Sequential processing
+    echo "Starting sequential processing of ${#SUBJECT_DIRS[@]} subject(s)..."
+    
+    for subject_dir in "${SUBJECT_DIRS[@]}"; do
+        subject_id=$(basename "$subject_dir" | sed 's/^sub-//')
+        echo "Processing subject: $subject_id"
+        
+        # Handle recon-only mode
+        if $RECON_ONLY; then
+            if ! run_recon_single "$subject_dir"; then
+                echo "Error: Failed to process subject: $subject_dir"
+                exit 1
+            fi
+        else
+            # Process non-recon steps first
+            if ! process_subject_non_recon "$subject_dir"; then
+                echo "Error: Failed to pre-process subject: $subject_dir"
+                exit 1
+            fi
+            
+            # Then run recon-all if requested
+            if $RUN_RECON; then
+                if ! run_recon_single "$subject_dir"; then
+                    echo "Error: Failed to process subject: $subject_dir"
+                    exit 1
+                fi
+            fi
+        fi
+        
+        echo "Successfully processed subject: $subject_id"
+    done
+    
+    echo "Sequential processing completed successfully!"
 fi
 
-log_info "Finished processing subject: $SUBJECT_ID" 
+echo "All subjects processed successfully!" 

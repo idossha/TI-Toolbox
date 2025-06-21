@@ -59,67 +59,57 @@ class PreProcessThread(QtCore.QThread):
         try:
             # Get list of subjects from environment
             subjects = self.env.get('SUBJECTS', '').split(',')
+            subjects = [s.strip() for s in subjects if s.strip()]  # Clean up subjects list
             
-            for subject_id in subjects:
+            # Always call the script once with all subjects - let the script handle parallelization
+            self.output_signal.emit(f"Starting processing for {len(subjects)} subjects: {', '.join(subjects)}", 'info')
+            
+            # Use the command as-is (subject directories already added in run_preprocessing)
+            current_cmd = self.cmd
+            
+            self.output_signal.emit(f"Command: {' '.join(current_cmd)}", 'info')
+            
+            # Set the environment variables for the current process
+            current_env = self.env.copy()
+            
+            self.process = subprocess.Popen(
+                current_cmd, 
+                stdout=subprocess.PIPE, 
+                stderr=subprocess.STDOUT,  # Combine stderr with stdout
+                universal_newlines=True,
+                bufsize=1,
+                env=current_env
+            )
+            
+            # Real-time output display
+            for line in iter(self.process.stdout.readline, ''):
                 if self.terminated:
                     break
-                
-                self.output_signal.emit(f"\nProcessing subject: {subject_id}", 'info')
-                
-                # Build the command for the current subject
-                current_cmd = [self.cmd[0]]  # Start with the script path
-                
-                # Add the subject directory for the current subject
-                subject_dir = f"{self.env['PROJECT_DIR']}/sub-{subject_id}"
-                current_cmd.append(subject_dir)
-                
-                # Add all the other flags from the original command
-                if len(self.cmd) > 1:  # If there are flags beyond script
-                    current_cmd.extend(self.cmd[1:])
-                
-                self.output_signal.emit(f"Command: {' '.join(current_cmd)}", 'info')
-                
-                # Set the DICOM_TYPE environment variable for the current process
-                current_env = self.env.copy()
-                
-                self.process = subprocess.Popen(
-                    current_cmd, 
-                    stdout=subprocess.PIPE, 
-                    stderr=subprocess.STDOUT,  # Combine stderr with stdout
-                    universal_newlines=True,
-                    bufsize=1,
-                    env=current_env
-                )
-                
-                # Real-time output display
-                for line in iter(self.process.stdout.readline, ''):
-                    if self.terminated:
-                        break
-                    if line:
-                        # Determine message type based on content
-                        line_stripped = line.strip()
-                        if any(keyword in line_stripped.lower() for keyword in ['error', 'failed', 'critical']):
-                            message_type = 'error'
-                        elif any(keyword in line_stripped.lower() for keyword in ['warning', 'warn']):
-                            message_type = 'warning'
-                        elif any(keyword in line_stripped.lower() for keyword in ['success', 'completed', 'finished']):
-                            message_type = 'success'
-                        elif any(keyword in line_stripped.lower() for keyword in ['debug']):
-                            message_type = 'debug'
-                        elif any(keyword in line_stripped.lower() for keyword in ['running', 'executing', 'processing']):
-                            message_type = 'info'
-                        else:
-                            message_type = 'default'
-                            
-                        self.output_signal.emit(line_stripped, message_type)
-                
-                # Check for errors
-                if not self.terminated:
-                    returncode = self.process.wait()
-                    if returncode != 0:
-                        self.error_signal.emit(f"Error processing subject {subject_id}: Process returned non-zero exit code: {returncode}")
+                if line:
+                    # Determine message type based on content
+                    line_stripped = line.strip()
+                    if any(keyword in line_stripped.lower() for keyword in ['error', 'failed', 'critical']):
+                        message_type = 'error'
+                    elif any(keyword in line_stripped.lower() for keyword in ['warning', 'warn']):
+                        message_type = 'warning'
+                    elif any(keyword in line_stripped.lower() for keyword in ['success', 'completed', 'finished']):
+                        message_type = 'success'
+                    elif any(keyword in line_stripped.lower() for keyword in ['debug']):
+                        message_type = 'debug'
+                    elif any(keyword in line_stripped.lower() for keyword in ['running', 'executing', 'processing']):
+                        message_type = 'info'
                     else:
-                        self.output_signal.emit(f"Successfully processed subject: {subject_id}", 'success')
+                        message_type = 'default'
+                        
+                    self.output_signal.emit(line_stripped, message_type)
+            
+            # Check for errors
+            if not self.terminated:
+                returncode = self.process.wait()
+                if returncode != 0:
+                    self.error_signal.emit(f"Error in processing: Process returned non-zero exit code: {returncode}")
+                else:
+                    self.output_signal.emit(f"Successfully completed processing for all subjects", 'success')
                 
         except Exception as e:
             self.error_signal.emit(f"Error running pre-processing: {str(e)}")
@@ -665,30 +655,37 @@ class PreProcessTab(QtWidgets.QWidget):
         env['CREATE_M2M'] = str(self.create_m2m_cb.isChecked()).lower()
         env['QUIET'] = str(self.quiet_cb.isChecked()).lower()
         
-        # Build command using absolute Docker paths
+        # Build command exactly like CLI does - subject directories first, then flags
         script_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         cmd = [os.path.join(script_dir, 'pre-process', 'structural.sh')]
         
-        # Add optional flags based on checkbox states
+        # Add subject directories as individual arguments (like CLI does)
+        for subject_id in selected_subjects:
+            bids_subject_id = f"sub-{subject_id}"
+            subject_dir = os.path.join(self.project_dir, bids_subject_id)
+            cmd.append(subject_dir)
+        
+        # Add optional flags based on checkbox states (like CLI does)
         if self.run_recon_cb.isChecked():
             cmd.append("recon-all")
 
         if self.parallel_cb.isChecked():
             cmd.append("--parallel")
 
-        if self.quiet_cb.isChecked():
-            cmd.append("--quiet")
-
         if self.convert_dicom_cb.isChecked():
             cmd.append("--convert-dicom")
 
         if self.create_m2m_cb.isChecked():
             cmd.append("--create-m2m")
+
+        if self.quiet_cb.isChecked():
+            cmd.append("--quiet")
         
         # Debug output
-        self.update_output(f"Running in direct execution mode from GUI", 'info')
-        self.update_output(f"Running pre-processing with:", 'info')
-        self.update_output(f"- Subjects: {env['SUBJECTS']}", 'info')
+        self.update_output(f"Running pre-processing from GUI", 'info')
+        self.update_output(f"Command: {' '.join(cmd)}", 'info')
+        self.update_output(f"Options:", 'info')
+        self.update_output(f"- Subjects: {', '.join(selected_subjects)}", 'info')
         self.update_output(f"- Convert DICOM: {env['CONVERT_DICOM']}", 'info')
         self.update_output(f"- Run recon-all: {env['RUN_RECON']}", 'info')
         self.update_output(f"- Parallel processing: {env['PARALLEL_RECON']}", 'info')
