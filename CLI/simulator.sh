@@ -206,8 +206,9 @@ EOL
         echo -e "${CYAN}Generating simulation reports...${RESET}"
         
         # Source the reporting utilities
-        if [ -f "$script_dir/../utils/bash_reporting.sh" ]; then
-            source "$script_dir/../utils/bash_reporting.sh"
+        reporting_script="$script_dir/../utils/bash_reporting.sh"
+        if [ -f "$reporting_script" ]; then
+            source "$reporting_script"
             
             # Initialize reporting
             init_reporting "$project_dir"
@@ -223,144 +224,133 @@ EOL
                 
                 echo -e "${CYAN}Generating report for subject: $subject_id${RESET}"
                 
-                # Use bash reporting utilities
-                if create_simulation_report "" "" "" "$subject_id"; then
-                    ((reports_generated++))
-                    echo -e "${GREEN}✅ Report generated for subject: $subject_id${RESET}"
-                else
-                    echo -e "${YELLOW}⚠️ Could not generate report for subject: $subject_id${RESET}"
-                fi
-            done
-        else
-            # Fallback: use Python directly with new utilities
-            python_cmd=""
-            if command -v python3 &> /dev/null; then
-                python_cmd="python3"
-            elif command -v python &> /dev/null; then
-                python_cmd="python"
-            else
-                echo -e "${YELLOW}Warning: Python not found. Skipping report generation.${RESET}"
-                exit 0
-            fi
-
-            # Generate reports for each processed subject
-            reports_generated=0
-            for subject_num in "${selected_subjects[@]}"; do
-                if [[ "$is_direct_mode" == "true" ]]; then
-                    subject_id="$subject_num"
-                else
-                    subject_id="${subjects[$((subject_num-1))]}"
+                # Create a unique simulation session ID for this CLI run
+                cli_session_id="CLI_$(date +%Y%m%d_%H%M%S)"
+                
+                # Check for completion reports from this session
+                completion_files=()
+                temp_dir="$project_dir/derivatives/temp"
+                if [[ -d "$temp_dir" ]]; then
+                    # Look for completion files from this subject
+                    while IFS= read -r -d '' completion_file; do
+                        completion_files+=("$completion_file")
+                    done < <(find "$temp_dir" -name "simulation_completion_${subject_id}_*.json" -print0 2>/dev/null)
                 fi
                 
-                echo -e "${CYAN}Generating report for subject: $subject_id${RESET}"
-                
-                # Create a temporary Python script to generate the report
-                temp_script=$(mktemp)
-                cat > "$temp_script" << EOF
+                # Generate Python script to create CLI report
+                temp_script=$(mktemp "${TMPDIR:-/tmp}/cli_report_XXXXXX.py")
+                cat > "$temp_script" <<EOF
 #!/usr/bin/env python3
 import sys
 import os
-sys.path.append('$script_dir/../utils')
-
-from report_util import create_simulation_report
+import json
 import datetime
 
+# Add utils to path
+sys.path.insert(0, '$script_dir/../utils')
+from simulation_report_generator import SimulationReportGenerator
+
+project_dir = '$project_dir'
+subject_id = '$subject_id'
+session_id = '$cli_session_id'
+
 try:
-    # Create simulation log with parameters
-    simulation_log = {
-        'simulation_parameters': {
-            'conductivity_type': '$conductivity',
-            'simulation_mode': '$sim_mode',
-            'eeg_net': '${subject_eeg_nets[$subject_id]:-EGI_template.csv}',
-            'intensity_ch1': $(echo '$current' | cut -d',' -f1 | awk '{print $1 * 1000}'),  # Convert A to mA
-            'intensity_ch2': $(echo '$current' | cut -d',' -f2 | awk '{print $1 * 1000}'),  # Convert A to mA
-            'quiet_mode': False
-        },
-        'electrode_parameters': {
-            'shape': '$electrode_shape',
-            'dimensions': [$(echo '$dimensions' | sed 's/,/, /g')],
-            'thickness': $thickness
-        },
-        'subjects': [{
-            'subject_id': '$subject_id',
-            'm2m_path': '$project_dir/derivatives/SimNIBS/sub-$subject_id/m2m_$subject_id',
-            'status': 'completed'
-        }],
-        'montages': []
-    }
+    # Create report generator
+    generator = SimulationReportGenerator(project_dir, session_id)
     
-    # Add montages
-    montage_type = 'unipolar' if '$sim_mode' == 'U' else 'multipolar'
-    montages = [$(printf "'%s'," "${selected_montages[@]}" | sed 's/,$//')]
-    
-    # Load montage file to get actual electrode pairs
-    import json
-    import os
-    
-    montage_file = os.path.join('$project_dir', 'montage_list.json')
-    montage_data = {}
-    if os.path.exists(montage_file):
-        try:
-            with open(montage_file, 'r') as f:
-                montage_data = json.load(f)
-        except:
-            pass
-    
-    for montage in montages:
-        if montage:  # Skip empty montages
-            # Try to get actual electrode pairs from the montage file
-            electrode_pairs = [['E1', 'E2']]  # Default fallback
-            
-            # Look for the montage in the appropriate net and type
-            net_type = 'uni_polar_montages' if '$sim_mode' == 'U' else 'multi_polar_montages'
-            eeg_net = '${subject_eeg_nets[$subject_id]:-EGI_template.csv}'
-            
-            if ('nets' in montage_data and 
-                eeg_net in montage_data['nets'] and 
-                net_type in montage_data['nets'][eeg_net] and 
-                montage in montage_data['nets'][eeg_net][net_type]):
-                electrode_pairs = montage_data['nets'][eeg_net][net_type][montage]
-            
-            simulation_log['montages'].append({
-                'name': montage,  # Changed from 'montage_name' to 'name' for consistency
-                'electrode_pairs': electrode_pairs,
-                'montage_type': montage_type
-            })
-    
-    # Generate report
-    report_path = create_simulation_report(
-        project_dir='$project_dir',
-        simulation_log=simulation_log,
-        subject_id='$subject_id'
+    # Add simulation parameters (basic defaults for CLI)
+    generator.add_simulation_parameters(
+        conductivity_type='$conductivity',
+        simulation_mode='$sim_mode',
+        eeg_net='${subject_eeg_nets[$subject_id]:-EGI_template.csv}',
+        intensity_ch1=${current_ma_1:-5.0},
+        intensity_ch2=${current_ma_2:-1.0},
+        quiet_mode=False
     )
     
-    if report_path:
-        print(f"✅ Report generated: {report_path}")
-    else:
-        print("❌ Failed to generate report")
-        
+    # Add electrode parameters
+    dimensions_list = '$dimensions'.split(',')
+    generator.add_electrode_parameters(
+        shape='$electrode_shape',
+        dimensions=[float(dimensions_list[0]), float(dimensions_list[1])],
+        thickness=float('$thickness')
+    )
+    
+    # Add subject
+    bids_subject_id = f"sub-{subject_id}"
+    m2m_path = os.path.join(project_dir, 'derivatives', 'SimNIBS', bids_subject_id, f'm2m_{subject_id}')
+    generator.add_subject(subject_id, m2m_path, 'completed')
+    
+    # Process any completion reports
+    completion_files = ${completion_files[@]@Q}
+    for completion_file in completion_files:
+        if os.path.exists(completion_file):
+            with open(completion_file, 'r') as f:
+                completion_data = json.load(f)
+            
+            # Add simulation results for each completed simulation
+            for sim in completion_data.get('completed_simulations', []):
+                montage_name = sim['montage_name']
+                
+                # Add montage info
+                generator.add_montage(
+                    montage_name=montage_name,
+                    electrode_pairs=[['E1', 'E2'], ['E3', 'E4']],  # Default pairs
+                    montage_type='unipolar' if '$sim_mode' == 'U' else 'multipolar'
+                )
+                
+                # Get expected output files
+                simulations_dir = os.path.join(project_dir, 'derivatives', 'SimNIBS', bids_subject_id, 'Simulations', montage_name)
+                ti_dir = os.path.join(simulations_dir, 'TI')
+                nifti_dir = os.path.join(ti_dir, 'niftis')
+                
+                output_files = {'TI': [], 'niftis': []}
+                if os.path.exists(nifti_dir):
+                    nifti_files = [f for f in os.listdir(nifti_dir) if f.endswith('.nii.gz')]
+                    output_files['niftis'] = [os.path.join(nifti_dir, f) for f in nifti_files]
+                    ti_files = [f for f in nifti_files if 'TI_max' in f]
+                    output_files['TI'] = [os.path.join(nifti_dir, f) for f in ti_files]
+                
+                # Add simulation result
+                generator.add_simulation_result(
+                    subject_id=subject_id,
+                    montage_name=montage_name,
+                    output_files=output_files,
+                    duration=None,
+                    status='completed'
+                )
+            
+            # Clean up completion report
+            os.remove(completion_file)
+    
+    # Generate report
+    report_path = generator.generate_report()
+    print(f"✅ CLI Report generated: {report_path}")
+    
 except Exception as e:
-    print(f"❌ Error generating report: {str(e)}")
+    print(f"❌ Error generating CLI report: {str(e)}")
     import traceback
     traceback.print_exc()
 EOF
                 
                 # Run the report generation
-                if $python_cmd "$temp_script"; then
+                if python3 "$temp_script"; then
                     ((reports_generated++))
                 fi
                 
                 # Clean up temporary script
                 rm -f "$temp_script"
             done
-        fi
-
-        # Summary
-        if [ $reports_generated -gt 0 ]; then
-            echo -e "${GREEN}✅ Generated $reports_generated simulation report(s)${RESET}"
-            echo -e "${CYAN}Reports saved to: $project_dir/derivatives/reports/sub-{subjectID}/${RESET}"
+            
+            # Summary
+            if [ $reports_generated -gt 0 ]; then
+                echo -e "${GREEN}✅ Generated $reports_generated simulation report(s)${RESET}"
+                echo -e "${CYAN}Reports saved to: $project_dir/derivatives/reports/sub-{subjectID}/${RESET}"
+            else
+                echo -e "${YELLOW}⚠️ No reports were generated${RESET}"
+            fi
         else
-            echo -e "${YELLOW}⚠️ No reports were generated${RESET}"
+            echo -e "${YELLOW}⚠️ Reporting utilities not found. Skipping report generation.${RESET}"
         fi
 
         # Clean up temporary flex montages file
@@ -369,9 +359,9 @@ EOF
             echo -e "${CYAN}Cleaned up temporary flex montages file${RESET}"
         fi
 
-        
     fi
-}
+
+} # Close run_simulation function
 
 # Function to read configuration
 read_config() {
@@ -1349,6 +1339,11 @@ for subject_num in "${selected_subjects[@]}"; do
     mkdir -p "$simulation_dir"
 
     # Call the appropriate main pipeline script with the gathered parameters
+    # Create a unique simulation session ID for CLI runs
+    if [[ -z "$SIMULATION_SESSION_ID" ]]; then
+        export SIMULATION_SESSION_ID="CLI_$(date +%Y%m%d_%H%M%S)_${subject_id}"
+    fi
+    
     if [[ "$simulation_framework" == "flex" ]]; then
         # For flex-search, export environment variables and pass empty montages array
         export FLEX_MONTAGES_FILE="$temp_flex_file"

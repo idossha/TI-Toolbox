@@ -1266,14 +1266,21 @@ class SimulatorTab(QtWidgets.QWidget):
             
             # Add simulation parameters to report (including custom conductivities)
             self.report_generator.add_simulation_parameters(
-                conductivity, sim_mode, eeg_net, current_ma_1, current_ma_2, False, 
+                conductivity_type=conductivity,
+                simulation_mode=sim_mode,
+                eeg_net=eeg_net,
+                intensity_ch1=current_ma_1,
+                intensity_ch2=current_ma_2,
+                quiet_mode=False,
                 conductivities=self._get_conductivities_for_report()
             )
             
             # Add electrode parameters to report
             dim_parts = dimensions.split(',')
             self.report_generator.add_electrode_parameters(
-                electrode_shape, [float(dim_parts[0]), float(dim_parts[1])], float(thickness)
+                shape=electrode_shape,
+                dimensions=[float(dim_parts[0]), float(dim_parts[1])],
+                thickness=float(thickness)
             )
             
             # Add subjects to report
@@ -1357,25 +1364,100 @@ class SimulatorTab(QtWidgets.QWidget):
             return
         
         try:
-            self.update_output("Generating simulation report...", 'info')
+            self.update_output("Generating simulation reports...", 'info')
             
-            # Update subject statuses to completed
+            # Get project directory
+            project_dir = f"/mnt/{os.environ.get('PROJECT_DIR_NAME', 'BIDS_new')}"
+            
+            # For each subject and montage combination, create a separate report
             for subject in self.report_generator.report_data['subjects']:
-                self.report_generator.update_subject_status(subject['subject_id'], 'completed')
-            
-            # Generate the report
-            report_path = self.report_generator.generate_report()
-            
-            if report_path and os.path.exists(report_path):
-                self.update_output(f"✅ Simulation report generated: {report_path}", 'success')
+                subject_id = subject['subject_id']
                 
-                # Report generated successfully - no automatic browser opening
-                self.update_output("📊 Open the report file in your browser to view detailed results", 'info')
-            else:
-                self.update_output("⚠️ Report generation completed but file not found", 'warning')
+                # Get the montages that were actually simulated in this run
+                simulated_montages = [m['name'] for m in self.report_generator.report_data['montages']]
+                
+                for montage_name in simulated_montages:
+                    try:
+                        # Create a new report generator for this specific simulation
+                        sim_session_id = f"{self.simulation_session_id}_{subject_id}_{montage_name}"
+                        single_sim_generator = get_simulation_report_generator(project_dir, sim_session_id)
+                        
+                        # Add simulation parameters (only the expected ones)
+                        params = self.report_generator.report_data['simulation_parameters']
+                        
+                        # Ensure all required parameters have valid values
+                        filtered_params = {
+                            'conductivity_type': params.get('conductivity_type', 'scalar'),
+                            'simulation_mode': params.get('simulation_mode', 'U'),
+                            'eeg_net': params.get('eeg_net', 'EGI_template.csv'),
+                            'intensity_ch1': float(params.get('intensity_ch1_ma') or 2.0),  # Note: stored as intensity_ch1_ma
+                            'intensity_ch2': float(params.get('intensity_ch2_ma') or 2.0),  # Note: stored as intensity_ch2_ma
+                            'quiet_mode': params.get('quiet_mode', False)
+                        }
+                        if 'conductivities' in params and params['conductivities']:
+                            filtered_params['conductivities'] = params['conductivities']
+                        
+                        single_sim_generator.add_simulation_parameters(**filtered_params)
+                        
+                        # Add electrode parameters
+                        electrode_params = self.report_generator.report_data['electrode_parameters']
+                        
+                        # Only pass the expected parameters, not the calculated fields
+                        single_sim_generator.add_electrode_parameters(
+                            shape=electrode_params['shape'],
+                            dimensions=electrode_params['dimensions'],
+                            thickness=electrode_params['thickness']
+                        )
+                        
+                        # Add just this subject
+                        single_sim_generator.add_subject(
+                            subject_id=subject_id,
+                            m2m_path=subject['m2m_path'],
+                            status='completed'
+                        )
+                        
+                        # Add just this montage
+                        for montage in self.report_generator.report_data['montages']:
+                            if montage['name'] == montage_name:
+                                # Only pass the expected parameters
+                                single_sim_generator.add_montage(
+                                    name=montage['name'],
+                                    electrode_pairs=montage.get('electrode_pairs', []),
+                                    montage_type=montage.get('type', 'unipolar')
+                                )
+                                break
+                        
+                        # Get output files for this specific simulation
+                        output_files = self._get_expected_output_files(project_dir, subject_id, montage_name)
+                        
+                        # Add simulation result
+                        single_sim_generator.add_simulation_result(
+                            subject_id=subject_id,
+                            montage_name=montage_name,
+                            output_files=output_files,
+                            duration=None,  # Duration not tracked yet
+                            status='completed'
+                        )
+                        
+                        # Generate individual report
+                        report_path = single_sim_generator.generate_report()
+                        
+                        if report_path and os.path.exists(report_path):
+                            self.update_output(f"✅ Report generated for {subject_id} - {montage_name}: {report_path}", 'success')
+                        else:
+                            self.update_output(f"⚠️ Failed to generate report for {subject_id} - {montage_name}", 'warning')
+                    
+                    except Exception as e:
+                        self.update_output(f"❌ Error generating report for {subject_id} - {montage_name}: {str(e)}", 'error')
+                        import traceback
+                        self.update_output(f"Traceback: {traceback.format_exc()}", 'error')
+            
+            self.update_output("📊 Open the report files in your browser to view detailed results", 'info')
                 
         except Exception as e:
-            self.update_output(f"❌ Error generating simulation report: {str(e)}", 'error')
+            self.update_output(f"❌ Error generating simulation reports: {str(e)}", 'error')
+            import traceback
+            self.update_output(f"Traceback: {traceback.format_exc()}", 'error')
     
     def disable_controls(self):
         """Disable all controls except the stop button."""
@@ -1600,8 +1682,11 @@ class SimulatorTab(QtWidgets.QWidget):
                 QtWidgets.QMessageBox.warning(self, "Warning", "Please select a montage to remove.")
                 return
             
-            # Get the montage name
-            montage_name = selected_items[0].text()
+            # Get the montage name from UserRole data
+            montage_name = selected_items[0].data(QtCore.Qt.UserRole)
+            if not montage_name:
+                QtWidgets.QMessageBox.warning(self, "Warning", "Invalid montage selection.")
+                return
             
             # Confirm deletion
             reply = QtWidgets.QMessageBox.question(
@@ -1639,7 +1724,9 @@ class SimulatorTab(QtWidgets.QWidget):
                         json.dump(montage_data, f, indent=4)
                     
                     self.update_output(f"Removed montage '{montage_name}' from {montage_type}")
-                    self.update_montage_list()
+                    
+                    # Remove the item from the list widget
+                    self.montage_list.takeItem(self.montage_list.row(selected_items[0]))
                 else:
                     QtWidgets.QMessageBox.warning(self, "Warning", f"Montage '{montage_name}' not found.")
         
@@ -1801,6 +1888,122 @@ class SimulatorTab(QtWidgets.QWidget):
                 channel = f"ch{idx+1}:{pair[0]}<-> {pair[1]}"
                 channel_labels.append(channel)
         return f"{montage_name}: " + " + ".join(channel_labels)
+
+    def check_simulation_completion_reports(self):
+        """Check for simulation completion reports and update the report generator."""
+        if not self.report_generator:
+            return
+        
+        try:
+            project_dir_path = f"/mnt/{os.environ.get('PROJECT_DIR_NAME', 'BIDS_new')}"
+            temp_dir = os.path.join(project_dir_path, 'derivatives', 'temp')
+            
+            if not os.path.exists(temp_dir):
+                return
+            
+            # Look for completion report files
+            completion_files = [f for f in os.listdir(temp_dir) if f.startswith('simulation_completion_') and f.endswith('.json')]
+            
+            for completion_file in completion_files:
+                completion_path = os.path.join(temp_dir, completion_file)
+                try:
+                    with open(completion_path, 'r') as f:
+                        completion_data = json.load(f)
+                    
+                    # Check if this completion report matches our session
+                    if completion_data.get('session_id') == self.simulation_session_id:
+                        self.update_output(f"Processing completion report for session {self.simulation_session_id}")
+                        
+                        # Add simulation results for each completed simulation
+                        for sim in completion_data.get('completed_simulations', []):
+                            subject_id = completion_data['subject_id']
+                            montage_name = sim['montage_name']
+                            
+                            # Determine final output files after main-TI.sh processing
+                            final_output_files = self._get_expected_output_files(
+                                completion_data['project_dir'], 
+                                subject_id, 
+                                montage_name
+                            )
+                            
+                            # Add the simulation result
+                            self.report_generator.add_simulation_result(
+                                subject_id=subject_id,
+                                montage_name=montage_name,
+                                output_files=final_output_files,
+                                duration=None,  # Duration not tracked yet
+                                status='completed'
+                            )
+                            
+                            self.update_output(f"Recorded simulation result for {subject_id} - {montage_name}")
+                        
+                        # Update subject status to completed
+                        self.report_generator.update_subject_status(completion_data['subject_id'], 'completed')
+                        
+                        # Clean up the completion report file
+                        os.remove(completion_path)
+                        self.update_output(f"Processed and removed completion report: {completion_file}")
+                        
+                except json.JSONDecodeError:
+                    self.update_output(f"Error: Invalid JSON in completion report {completion_file}")
+                except Exception as e:
+                    self.update_output(f"Error processing completion report {completion_file}: {str(e)}")
+                    
+        except Exception as e:
+            self.update_output(f"Error checking completion reports: {str(e)}")
+    
+    def _get_expected_output_files(self, project_dir, subject_id, montage_name):
+        """Get expected output files for a simulation."""
+        bids_subject_id = f"sub-{subject_id}"
+        simulations_dir = os.path.join(project_dir, "derivatives", "SimNIBS", bids_subject_id, "Simulations", montage_name)
+        ti_dir = os.path.join(simulations_dir, "TI")
+        nifti_dir = os.path.join(ti_dir, "niftis")
+        
+        output_files = {'TI': [], 'niftis': []}
+        if os.path.exists(nifti_dir):
+            # Add all NIfTI files
+            nifti_files = [f for f in os.listdir(nifti_dir) if f.endswith('.nii.gz')]
+            output_files['niftis'] = [os.path.join(nifti_dir, f) for f in nifti_files]
+            
+            # Add TI files specifically
+            ti_files = [f for f in nifti_files if 'TI_max' in f]
+            output_files['TI'] = [os.path.join(nifti_dir, f) for f in ti_files]
+        
+        return output_files
+
+    def on_worker_finished(self, worker_id, output):
+        """Handle completion of simulation worker."""
+        try:
+            # Set tab as not busy
+            if hasattr(self, 'parent') and self.parent:
+                self.parent.set_tab_busy(self, False, stop_btn=self.stop_btn)
+            
+            # Update subjects status
+            if not self.report_generator:
+                self.update_output("Warning: No report generator available")
+                return
+            
+            # Check for completion reports and update simulation results
+            self.check_simulation_completion_reports()
+            
+            # Generate individual simulation report
+            self.update_output("Generating simulation report...")
+            report_path = self.report_generator.generate_report()
+            self.update_output(f"✅ Simulation report generated: {report_path}")
+            
+            # Open report in browser
+            import webbrowser
+            try:
+                webbrowser.open('file://' + os.path.abspath(report_path))
+                self.update_output("📊 Report opened in web browser")
+            except Exception as e:
+                self.update_output(f"Report generated but couldn't open browser: {str(e)}")
+            
+        except Exception as e:
+            self.update_output(f"Error in simulation completion: {str(e)}")
+            # Still set tab as not busy even if there's an error
+            if hasattr(self, 'parent') and self.parent:
+                self.parent.set_tab_busy(self, False, stop_btn=self.stop_btn)
 
 class AddMontageDialog(QtWidgets.QDialog):
     """Dialog for adding new montages."""
