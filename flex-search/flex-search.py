@@ -133,7 +133,10 @@ def build_optimisation(args: argparse.Namespace) -> opt_struct.TesFlexOptimizati
             raise SystemExit(f"EEG net file not found: {opt.net_electrode_file}")
         if hasattr(opt, "run_mapped_electrodes_simulation") and not args.disable_mapping_simulation:
             opt.run_mapped_electrodes_simulation = True
-    # else: leave mapping attributes untouched
+    else:
+        # Initialize electrode_mapping to None when mapping is disabled
+        # This prevents AttributeError in SimNIBS logging code that checks for this attribute
+        opt.electrode_mapping = None
 
     # simulation options ---------------------------------------------------
     if args.run_optimized_simulation:
