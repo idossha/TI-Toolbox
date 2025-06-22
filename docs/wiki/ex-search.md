@@ -114,9 +114,9 @@ We demonstrate the Ex-Search pipeline capabilities using a representative TI sti
 
 | EEG Network | Leadfield Size | Loading Time | Simulation Time |
 |-------------|----------------|--------------|-----------------|
-| GSN-HydroCel-185 | ~2GB | 2-3 minutes | 3-5 seconds |
-| GSN-HydroCel-256 | ~8GB | 4-6 minutes | 5-8 seconds |
-| EGI10-20 | ~500MB | 30-60 seconds | 2-3 seconds |
+| GSN-HydroCel-185 | ~16GB | 2-3 minutes | 3-5 seconds |
+| GSN-HydroCel-256 | ~25GB | 4-6 minutes | 5-8 seconds |
+| EGI10-20 | ~2TGB | 30-60 seconds | 2-3 seconds |
 
 ## File Structure
 
