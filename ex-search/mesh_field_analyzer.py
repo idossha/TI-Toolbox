@@ -22,7 +22,7 @@ from pathlib import Path
 
 # Add utils directory to path for logging
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
-from utils.logging_util import get_logger
+from utils import logging_util
 
 class MeshFieldAnalyzer:
     def __init__(self, mesh_dir):
@@ -50,17 +50,16 @@ class MeshFieldAnalyzer:
             # Use shared log file and shared logger name for unified logging
             logger_name = 'Ex-Search'
             log_file = shared_log_file
-            logger = get_logger(logger_name, log_file, overwrite=False)
+            logger = logging_util.get_logger(logger_name, log_file, overwrite=False)
         else:
             # CLI usage: create individual log file
             logger_name = 'MeshFieldAnalyzer'
             time_stamp = time.strftime('%Y%m%d_%H%M%S')
             log_file = f'mesh_field_analyzer_{time_stamp}.log'
-            logger = get_logger(logger_name, log_file, overwrite=False)
+            logger = logging_util.get_logger(logger_name, log_file, overwrite=False)
 
         # Configure external loggers to use our logging setup (same as simulator)
-        from logging_util import configure_external_loggers
-        configure_external_loggers(['simnibs', 'mesh_io'], logger)
+        logging_util.configure_external_loggers(['simnibs', 'mesh_io'], logger)
         
         return logger
         
@@ -650,7 +649,7 @@ class MeshFieldAnalyzer:
 
 def main():
     # Create a basic logger for the main function
-    main_logger = get_logger('MeshFieldAnalyzer-Main')
+    main_logger = logging_util.get_logger('MeshFieldAnalyzer-Main')
     
     if len(sys.argv) != 2:
         main_logger.error("Usage: python mesh_field_analyzer.py <mesh_directory>")
