@@ -4,6 +4,32 @@
 
 Ex-search is a comprehensive optimization pipeline for Temporal Interference (TI) simulations with advanced electrode optimization capabilities. The system features **unified logging**, **multiple EEG net support**, **flexible leadfield management**, and complete **Python implementation** with no MATLAB dependencies.
 
+## 🎯 Showcase
+
+Ex-Search provides a powerful optimization pipeline for TI stimulation with rich visualization and analysis capabilities:
+
+### 📊 EEG Net Support & Field Analysis
+![EEG Net Examples](../docs/wiki/assets/ex-search/EEG10-20_Okamoto_2004_net.png)
+*Left: Example of the 10-20 EEG system supported by Ex-Search*
+
+![GSN Net](../docs/wiki/assets/ex-search/GSN256_net.png)
+*Right: High-density GSN-256 electrode net support*
+
+### 🔬 Field Visualization & Analysis
+![Field Mesh](../docs/wiki/assets/ex-search/field_msh.png)
+*TI field distribution visualized on the cortical surface*
+
+### 📈 Statistical Analysis
+![Field Histogram](../docs/wiki/assets/ex-search/TI_field_F7_T7_and_T8_Fz_histogram.png)
+*Volume-weighted field distribution histogram showing focality metrics*
+
+Example output metrics from analysis:
+```csv
+ROI,TImax_ROI,TImean_ROI,Field_95p,Field_99p,Field_99.9p,Focality_50,Focality_75,Focality_90,Focality_95
+L_Insula,0.82,0.65,0.45,0.68,0.89,12.5,18.2,25.7,31.4
+```
+*Sample metrics from final_output.csv showing ROI targeting and field distribution analysis*
+
 ## 🚀 Latest Updates (January 2025)
 
 ### ✨ **Unified Logging System**

@@ -13,6 +13,10 @@ Welcome to the Temporal Interference Toolbox Wiki. Here you'll find detailed gui
 ### [Flex Search Optimization](flex-search)
 Advanced electrode optimization for temporal interference stimulation. Learn how to find optimal electrode positions for targeting specific brain regions with directional field control.
 
+### [Ex Search Optimization](ex-search)
+Comprehensive TI optimization pipeline with unified logging and multiple EEG net support. Features leadfield-based electrode optimization, enhanced ROI analysis, and professional visualization capabilities.
+
+
 ### [Logging](logging)
 Comprehensive guide to the toolbox's logging system. Learn where to find log files, how to read them, and understand their structure. Includes real-world examples and developer documentation.
 
