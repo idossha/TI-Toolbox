@@ -958,9 +958,9 @@ class ExSearchTab(QtWidgets.QWidget):
                                                 f"No electrode labels found for {net_name}")
                 return
             
-            # Create and show electrode display dialog
-            electrode_dialog = ElectrodeDisplayDialog(net_name, electrodes, self)
-            electrode_dialog.exec_()
+            # Create and show electrode display dialog (non-modal)
+            self.electrode_dialog = ElectrodeDisplayDialog(net_name, electrodes, self)
+            self.electrode_dialog.show()
             
         except Exception as e:
             QtWidgets.QMessageBox.critical(self, "Error", 
@@ -1921,9 +1921,9 @@ class EEGNetSelectionDialog(QtWidgets.QDialog):
                                                 "No electrode labels found in the selected EEG net file")
                 return
             
-            # Create and show electrode display dialog
-            electrode_dialog = ElectrodeDisplayDialog(selected_net, electrodes, self)
-            electrode_dialog.exec_()
+            # Create and show electrode display dialog (non-modal)
+            self.electrode_dialog = ElectrodeDisplayDialog(selected_net, electrodes, self)
+            self.electrode_dialog.show()
             
         except Exception as e:
             QtWidgets.QMessageBox.critical(self, "Error", 
@@ -1957,7 +1957,10 @@ class ElectrodeDisplayDialog(QtWidgets.QDialog):
     def setup_ui(self):
         """Set up the electrode display dialog UI."""
         self.setWindowTitle(f"Electrodes for {self.eeg_net_name}")
-        self.setModal(True)
+        # Make dialog non-modal so user can interact with main GUI
+        self.setModal(False)
+        # Set window flags to make it a tool window that stays on top but allows main GUI interaction
+        self.setWindowFlags(QtCore.Qt.Tool | QtCore.Qt.WindowStaysOnTopHint)
         self.resize(400, 500)
         
         layout = QtWidgets.QVBoxLayout(self)
