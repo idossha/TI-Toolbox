@@ -16,6 +16,17 @@ Ex-Search utilizes leadfield-based optimization to determine optimal electrode c
 - **Field Metrics**: Volume-weighted analysis with percentiles and focality measures
 - **Unified Logging**: Professional pipeline tracking in single log file
 
+## User Interface
+
+![Ex-Search Interface](assets/ex-search/ex-search_UI.png)
+
+The interface provides comprehensive controls for:
+- **Subject Selection**: Choose from available subjects with automatic leadfield scanning
+- **Leadfield Management**: View existing leadfields, create new ones, and show electrode configurations
+- **ROI Configuration**: Add target regions with coordinates and manage multiple ROIs
+- **Electrode Setup**: Configure E1+, E1-, E2+, E2- with support for both GSN and 10-20 formats
+- **Execution Control**: Run optimization with real-time progress tracking
+
 ## Supported EEG Networks
 
 Ex-Search automatically detects and supports multiple EEG electrode configurations:
@@ -53,10 +64,10 @@ We demonstrate the Ex-Search pipeline capabilities using a representative TI sti
 *Volume-weighted field distribution histogram with focality thresholds and ROI indicators*
 
 **Quantitative Results:**
-```csv
-Mesh,TImax_ROI,TImean_ROI,TImax,PercentileValue_95,PercentileValue_99,PercentileValue_99.9,FocalityValue_50,FocalityValue_75,FocalityValue_90,FocalityValue_95,XYZ_Max
-F7_T7 <> T8_Fz,0.076,0.062,0.361,0.154,0.200,0.246,81.9,13.4,2.9,1.6,"-45.12,34.09,-40.45"
-```
+
+| Electrode Configuration | TImax ROI | TImean ROI | Peak Field | 95th % | 99th % | 99.9th % | Focality 50% | Focality 75% | Focality 90% | Focality 95% | Peak Location |
+|------------------------|-----------|------------|------------|--------|--------|----------|--------------|--------------|--------------|--------------|---------------|
+| F7_T7 <> T8_Fz | 0.076 V/m | 0.062 V/m | 0.361 V/m | 0.154 V/m | 0.200 V/m | 0.246 V/m | 81.9 mm² | 13.4 mm² | 2.9 mm² | 1.6 mm² | (-45.12, 34.09, -40.45) |
 
 ## Key Features
 
@@ -100,9 +111,12 @@ F7_T7 <> T8_Fz,0.076,0.062,0.361,0.154,0.200,0.246,81.9,13.4,2.9,1.6,"-45.12,34.
 ## Performance Characteristics
 
 ### Processing Times
-- **GSN-HydroCel-185**: ~2GB leadfield, 2-3 min loading, 3-5 sec per simulation
-- **GSN-HydroCel-256**: ~8GB leadfield, 4-6 min loading, 5-8 sec per simulation  
-- **EGI10-20**: ~500MB leadfield, 30-60 sec loading, 2-3 sec per simulation
+
+| EEG Network | Leadfield Size | Loading Time | Simulation Time |
+|-------------|----------------|--------------|-----------------|
+| GSN-HydroCel-185 | ~2GB | 2-3 minutes | 3-5 seconds |
+| GSN-HydroCel-256 | ~8GB | 4-6 minutes | 5-8 seconds |
+| EGI10-20 | ~500MB | 30-60 seconds | 2-3 seconds |
 
 ## File Structure
 

@@ -44,12 +44,15 @@ We demonstrate the effectiveness of flex-search by optimizing electrode position
 ![Maximum TI ROI Targeting](assets/flex-search/max_TI_ROI.png)
 
 **Optimization Summary:**
-- **Function Evaluations**: 4,080 (1,492 FEM evaluations)
-- **Final Goal Value**: -2.320
-- **Duration**: 25.1 minutes
-- **Peak Field (99.9%)**: 4.17 V/m
-- **Median ROI Field**: 2.21 V/m
-- **Focality (75% threshold)**: 3,250 mm²
+
+| Metric | Value |
+|--------|--------|
+| Function Evaluations | 4,080 (1,492 FEM evaluations) |
+| Final Goal Value | -2.320 |
+| Duration | 25.1 minutes |
+| Peak Field (99.9%) | 4.17 V/m |
+| Median ROI Field | 2.21 V/m |
+| Focality (75% threshold) | 3,250 mm² |
 
 ### Results: Normal Component Optimization
 
@@ -58,12 +61,15 @@ We demonstrate the effectiveness of flex-search by optimizing electrode position
 ![Normal ROI Targeting](assets/flex-search/normal_ROI.png)
 
 **Optimization Summary:**
-- **Function Evaluations**: 4,080 (1,708 FEM evaluations)
-- **Final Goal Value**: -1.627
-- **Duration**: 25.8 minutes
-- **Peak Field (99.9%)**: 3.15 V/m
-- **Median ROI Field**: 1.79 V/m
-- **Focality (75% threshold)**: 1,850 mm²
+
+| Metric | Value |
+|--------|--------|
+| Function Evaluations | 4,080 (1,708 FEM evaluations) |
+| Final Goal Value | -1.627 |
+| Duration | 25.8 minutes |
+| Peak Field (99.9%) | 3.15 V/m |
+| Median ROI Field | 1.79 V/m |
+| Focality (75% threshold) | 1,850 mm² |
 
 ### Results: Tangential Component Optimization
 
@@ -72,12 +78,15 @@ We demonstrate the effectiveness of flex-search by optimizing electrode position
 ![Tangential ROI Targeting](assets/flex-search/tangent_ROI.png)
 
 **Optimization Summary:**
-- **Function Evaluations**: 4,320 (1,587 FEM evaluations)
-- **Final Goal Value**: -1.762
-- **Duration**: 24.8 minutes
-- **Peak Field (99.9%)**: 3.27 V/m
-- **Median ROI Field**: 1.82 V/m
-- **Focality (75% threshold)**: 4,140 mm²
+
+| Metric | Value |
+|--------|--------|
+| Function Evaluations | 4,320 (1,587 FEM evaluations) |
+| Final Goal Value | -1.762 |
+| Duration | 24.8 minutes |
+| Peak Field (99.9%) | 3.27 V/m |
+| Median ROI Field | 1.82 V/m |
+| Focality (75% threshold) | 4,140 mm² |
 
 ## Key Findings
 
