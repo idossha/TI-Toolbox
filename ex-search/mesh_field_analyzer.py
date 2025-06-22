@@ -21,8 +21,8 @@ matplotlib.use('Agg')  # Use non-interactive backend
 from pathlib import Path
 
 # Add utils directory to path for logging
-sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'utils'))
-from logging_util import get_logger
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+from utils.logging_util import get_logger
 
 class MeshFieldAnalyzer:
     def __init__(self, mesh_dir):
@@ -30,14 +30,39 @@ class MeshFieldAnalyzer:
         self.analysis_dir = self.mesh_dir / 'analysis'
         self.analysis_dir.mkdir(exist_ok=True)
         
-        # Initialize logger
-        self.logger = get_logger('MeshFieldAnalyzer')
+        # Initialize logger following ex-search pattern
+        self.logger = self._setup_logger()
         
         # Standard parameters (matching MATLAB defaults)
         self.percentiles = [95, 99, 99.9]
         self.focality_cutoffs = [50, 75, 90, 95]
         self.field_name = 'TImax'  # Default field to analyze (from your TI simulations)
         self.region_idx = 2  # Gray matter tetrahedra
+    
+    def _setup_logger(self):
+        """Setup logger following ex-search pattern (same as simulator components)"""
+        import time
+        
+        # Check if log file path is provided through environment variable (from GUI)
+        shared_log_file = os.environ.get('TI_LOG_FILE')
+        
+        if shared_log_file:
+            # Use shared log file and shared logger name for unified logging
+            logger_name = 'Ex-Search'
+            log_file = shared_log_file
+            logger = get_logger(logger_name, log_file, overwrite=False)
+        else:
+            # CLI usage: create individual log file
+            logger_name = 'MeshFieldAnalyzer'
+            time_stamp = time.strftime('%Y%m%d_%H%M%S')
+            log_file = f'mesh_field_analyzer_{time_stamp}.log'
+            logger = get_logger(logger_name, log_file, overwrite=False)
+
+        # Configure external loggers to use our logging setup (same as simulator)
+        from logging_util import configure_external_loggers
+        configure_external_loggers(['simnibs', 'mesh_io'], logger)
+        
+        return logger
         
     def process_all_meshes(self):
         """Process all .msh files in the directory"""
@@ -78,27 +103,17 @@ class MeshFieldAnalyzer:
         try:
             # Load mesh using meshio
             mesh = meshio.read(mesh_file)
-            self.logger.debug(f"Loaded mesh with {len(mesh.cells)} cell blocks")
-            
-            # Debug: print available data
-            if hasattr(mesh, 'cell_data') and mesh.cell_data:
-                self.logger.debug(f"Available cell data fields: {list(mesh.cell_data.keys())}")
-            
             # Find the field data
             field_data = self.extract_field_data(mesh)
             if field_data is None or (hasattr(field_data, '__len__') and len(field_data) == 0):
                 self.logger.warning(f"No field data found in mesh file: {mesh_file.name}")
                 return None
             
-            self.logger.debug(f"Extracted field data - type: {self.field_name}, elements: {field_data.shape if hasattr(field_data, 'shape') else len(field_data)}")
-            
             # Extract regions (tetrahedra with specified region index)
             filtered_data, positions, element_sizes = self.filter_by_region(mesh, field_data)
             if len(filtered_data) == 0:
                 self.logger.warning(f"No gray matter region data found in: {mesh_file.name}")
                 return None
-            
-            self.logger.debug(f"Filtered to {len(filtered_data)} gray matter elements")
             
             # Calculate metrics
             results = self.calculate_field_metrics(filtered_data, positions, element_sizes)
@@ -124,13 +139,11 @@ class MeshFieldAnalyzer:
             # cell_data structure: {field_name: [data_list], ...}
             if field_name in mesh.cell_data:
                 field_data = mesh.cell_data[field_name]
-                self.logger.debug(f"Found field '{field_name}' in cell data, type: {type(field_data)}, length: {len(field_data) if hasattr(field_data, '__len__') else 'N/A'}")
                 return field_data, 'element'
         
         # Look in point_data (node data)
         if hasattr(mesh, 'point_data') and mesh.point_data:
             if isinstance(mesh.point_data, dict) and field_name in mesh.point_data:
-                self.logger.debug(f"Found field '{field_name}' in point data")
                 return mesh.point_data[field_name], 'node'
         
         # Try common field name variations
@@ -138,13 +151,11 @@ class MeshFieldAnalyzer:
         for variant in field_variations:
             if hasattr(mesh, 'cell_data') and mesh.cell_data:
                 if variant in mesh.cell_data:
-                    self.logger.debug(f"Using field variant '{variant}' from cell data")
                     self.field_name = variant
                     return mesh.cell_data[variant], 'element'
             
             if hasattr(mesh, 'point_data') and mesh.point_data:
                 if isinstance(mesh.point_data, dict) and variant in mesh.point_data:
-                    self.logger.debug(f"Using field variant '{variant}' from point data")
                     self.field_name = variant
                     return mesh.point_data[variant], 'node'
         
@@ -156,12 +167,9 @@ class MeshFieldAnalyzer:
         if field_data is not None:
             # Convert to numpy array for easier processing
             field_data = np.asarray(field_data)
-            self.logger.debug(f"Field data shape: {field_data.shape}, dtype: {field_data.dtype}")
-            
             # Flatten if needed (handle shape like (1, N) -> (N,))
             if field_data.ndim > 1:
                 field_data = field_data.flatten()
-                self.logger.debug(f"Flattened field data to shape: {field_data.shape}")
                 
         return field_data
     
@@ -174,7 +182,6 @@ class MeshFieldAnalyzer:
         for i, cell_block in enumerate(mesh.cells):
             if cell_block.type == 'tetra':
                 tet_cells = cell_block.data
-                self.logger.debug(f"Found {len(tet_cells)} tetrahedra in mesh")
                 
                 # Look for region information (gmsh:physical tags)
                 if hasattr(mesh, 'cell_data') and mesh.cell_data:
@@ -184,7 +191,6 @@ class MeshFieldAnalyzer:
                         # Flatten if needed (handle shape like (1, N) -> (N,))
                         if tet_regions.ndim > 1:
                             tet_regions = tet_regions.flatten()
-                        self.logger.debug(f"Found region tags: {np.unique(tet_regions)}, shape: {tet_regions.shape}")
                     elif 'Physical Names' in mesh.cell_data:
                         tet_regions = np.asarray(mesh.cell_data['Physical Names'])
                         if tet_regions.ndim > 1:
@@ -204,7 +210,6 @@ class MeshFieldAnalyzer:
             # Create mask for gray matter elements
             gray_matter_mask = tet_regions == self.region_idx
             gray_matter_tets = tet_cells[gray_matter_mask]
-            self.logger.debug(f"Found {len(gray_matter_tets)} gray matter tetrahedra (region {self.region_idx})")
             
             if len(gray_matter_tets) == 0:
                 self.logger.warning(f"No elements found for region {self.region_idx}")
@@ -240,7 +245,6 @@ class MeshFieldAnalyzer:
         element_centers = np.asarray(element_centers)
         element_sizes = np.asarray(element_sizes)
         
-        self.logger.debug(f"Returning {len(filtered_data)} filtered elements")
         return filtered_data, element_centers, element_sizes
     
     def calculate_tetrahedron_volumes(self, points, tetrahedra):
@@ -407,11 +411,11 @@ class MeshFieldAnalyzer:
                              frameon=True, fancybox=True, shadow=True)
                 
             else:
-                # Fallback to frequency histogram if no element sizes
+                # Frequency histogram if no element sizes available
                 ax.hist(data, bins=500, alpha=0.7, edgecolor='black', color='lightblue')
                 ax.set_ylabel('Frequency')
                 
-                # Still add ROI indicator for frequency plots
+                # Add ROI indicator for frequency plots
                 if roi_field_value is not None and np.min(data) <= roi_field_value <= np.max(data):
                     ax.axvline(x=roi_field_value, color='green', linestyle='-', linewidth=3, alpha=0.9,
                               label=f'Mean ROI Field\n({roi_field_value:.2f} V/m)')
@@ -474,14 +478,12 @@ class MeshFieldAnalyzer:
                         # Get the mean field value (assuming TImax column exists)
                         if 'TImax' in roi_df.columns:
                             mean_roi_value = roi_df['TImax'].mean()
-                            self.logger.debug(f"Found ROI field value: {mean_roi_value:.3f} V/m")
                             return mean_roi_value
                         else:
                             # Try other possible column names
                             for col in roi_df.columns:
                                 if 'TI' in col.upper() or 'FIELD' in col.upper():
                                     mean_roi_value = roi_df[col].mean()
-                                    self.logger.debug(f"Found ROI field value in column '{col}': {mean_roi_value:.3f} V/m")
                                     return mean_roi_value
             
             return None

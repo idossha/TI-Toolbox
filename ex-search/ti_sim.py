@@ -50,7 +50,11 @@ def get_roi_coordinates(roi_file):
             coords = next(reader)
             return [float(coord.strip()) for coord in coords]
     except Exception as e:
-        print(f"{RED}Error reading coordinates from {roi_file}: {e}{RESET}")
+        # Use logger if available, otherwise print
+        try:
+            logger.error(f"Error reading coordinates from {roi_file}: {e}")
+        except NameError:
+            print(f"{RED}Error reading coordinates from {roi_file}: {e}{RESET}")
         return None
 
 def generate_combinations(E1_plus, E1_minus, E2_plus, E2_minus):
@@ -127,25 +131,34 @@ def process_leadfield(leadfield_type, E1_plus, E1_minus, E2_plus, E2_minus,
     m2m_dir = os.path.join(subject_dir, f"m2m_{subject_name}")
     roi_dir = os.path.join(m2m_dir, "ROIs")
     
-    # Get ROI coordinates and create output directory
-    roi_list_path = os.path.join(roi_dir, 'roi_list.txt')
-    try:
-        with open(roi_list_path, 'r') as file:
-            first_roi_name = file.readline().strip()
-            first_roi_name = os.path.basename(first_roi_name)
-            first_roi = os.path.join(roi_dir, first_roi_name)
-    except FileNotFoundError:
-        logger.error(f"ROI list file not found: {roi_list_path}")
-        sys.exit(1)
-    
-    coords = get_roi_coordinates(first_roi)
-    if not coords:
-        logger.error("Could not read coordinates from ROI file")
-        sys.exit(1)
-    
-    # Create output directory
-    coord_dir = f"xyz_{int(coords[0])}_{int(coords[1])}_{int(coords[2])}"
-    output_dir = os.path.join(subject_dir, "ex-search", coord_dir)
+    # Get output directory from environment variables (set by GUI)
+    roi_name = os.getenv('ROI_NAME')
+    if roi_name:
+        # Use GUI-provided ROI name and EEG net for directory naming
+        output_dir_name = f"{roi_name}_{selected_net}"
+        output_dir = os.path.join(subject_dir, "ex-search", output_dir_name)
+        logger.info(f"Using GUI-selected ROI: {roi_name}")
+    else:
+        # CLI usage: fallback to coordinate-based naming
+        roi_list_path = os.path.join(roi_dir, 'roi_list.txt')
+        try:
+            with open(roi_list_path, 'r') as file:
+                first_roi_name = file.readline().strip()
+                first_roi_name = os.path.basename(first_roi_name)
+                first_roi = os.path.join(roi_dir, first_roi_name)
+        except FileNotFoundError:
+            logger.error(f"ROI list file not found: {roi_list_path}")
+            sys.exit(1)
+        
+        coords = get_roi_coordinates(first_roi)
+        if not coords:
+            logger.error("Could not read coordinates from ROI file")
+            sys.exit(1)
+        
+        # Create coordinate-based directory for CLI usage
+        coord_dir = f"xyz_{int(coords[0])}_{int(coords[1])}_{int(coords[2])}"
+        output_dir = os.path.join(subject_dir, "ex-search", coord_dir)
+        logger.info(f"Using coordinate-based directory: {coord_dir}")
     logger.info(f"Output directory: {output_dir}")
     
     if not os.path.exists(output_dir):
@@ -250,18 +263,20 @@ if __name__ == "__main__":
     project_dir = f"/mnt/{project_dir}"
     
     # Initialize logger
-    # Check if log file path is provided through environment variable (from bash script)
-    log_file = os.environ.get('TI_LOG_FILE')
-    if not log_file:
-        # If not provided, create a new log file (fallback behavior)
+    # Check if log file path is provided through environment variable (from GUI)
+    shared_log_file = os.environ.get('TI_LOG_FILE')
+    
+    if shared_log_file:
+        # Use shared log file and shared logger name for unified logging
+        logger_name = 'Ex-Search'
+        log_file = shared_log_file
+        logger = logging_util.get_logger(logger_name, log_file, overwrite=False)
+    else:
+        # CLI usage: create individual log file
+        logger_name = 'TI-Sim'
         time_stamp = time.strftime('%Y%m%d_%H%M%S')
-        derivatives_dir = os.path.join(project_dir, 'derivatives')
-        log_dir = os.path.join(derivatives_dir, 'logs', f'sub-{subject_name}')
-        os.makedirs(log_dir, exist_ok=True)
-        log_file = os.path.join(log_dir, f'ti_sim_{time_stamp}.log')
-
-    # Initialize our main logger
-    logger = logging_util.get_logger('TI-Sim', log_file, overwrite=False)
+        log_file = f'ti_sim_{time_stamp}.log'
+        logger = logging_util.get_logger(logger_name, log_file, overwrite=False)
 
     # Configure SimNIBS related loggers to use our logging setup
     logging_util.configure_external_loggers(['simnibs', 'mesh_io'], logger)

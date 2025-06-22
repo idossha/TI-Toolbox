@@ -12,6 +12,7 @@ import re
 import subprocess
 import csv
 import time
+import logging
 from PyQt5 import QtWidgets, QtCore, QtGui
 from confirmation_dialog import ConfirmationDialog
 from utils import confirm_overwrite
@@ -159,6 +160,257 @@ class ExSearchTab(QtWidgets.QWidget):
         except Exception as e:
             self.update_output(f"Warning: Could not create log file: {str(e)}", 'warning')
             return None
+    
+    def log_pipeline_configuration(self, subject_id, project_dir, selected_net_name, selected_hdf5_path, env):
+        """Log comprehensive pipeline configuration to the ex-search log file."""
+        try:
+            # Import logging utility to write directly to log file
+            import sys
+            # Get the parent directory of the GUI folder to access utils
+            script_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            utils_dir = os.path.join(script_dir, 'utils')
+            if utils_dir not in sys.path:
+                sys.path.insert(0, utils_dir)
+            import logging_util
+            
+            # Get the log file from environment
+            log_file = env.get("TI_LOG_FILE")
+            if not log_file:
+                return
+                
+            # Create a file-only logger for configuration details (no console output)
+            config_logger = logging.getLogger('Ex-Search-Config-File-Only')
+            config_logger.setLevel(logging.INFO)
+            config_logger.propagate = False
+            
+            # Remove any existing handlers
+            for handler in list(config_logger.handlers):
+                config_logger.removeHandler(handler)
+            
+            # Add only file handler (no console handler)
+            file_handler = logging.FileHandler(log_file, mode='a')
+            file_handler.setLevel(logging.INFO)
+            file_handler.setFormatter(logging.Formatter(
+                '[%(asctime)s] [%(name)s] [%(levelname)s] %(message)s',
+                datefmt='%Y-%m-%d %H:%M:%S'
+            ))
+            config_logger.addHandler(file_handler)
+            
+            # Log header
+            config_logger.info("="*80)
+            config_logger.info("EX-SEARCH PIPELINE CONFIGURATION")
+            config_logger.info("="*80)
+            
+            # Subject and project information
+            config_logger.info(f"Subject ID: {subject_id}")
+            config_logger.info(f"Project Directory: {project_dir}")
+            config_logger.info(f"Project Name: {os.environ.get('PROJECT_DIR_NAME', 'Unknown')}")
+            
+            # Leadfield information
+            config_logger.info(f"Selected EEG Net: {selected_net_name}")
+            config_logger.info(f"Leadfield HDF5 Path: {selected_hdf5_path}")
+            try:
+                file_size = os.path.getsize(selected_hdf5_path) / (1024**3)  # GB
+                config_logger.info(f"Leadfield File Size: {file_size:.2f} GB")
+            except:
+                config_logger.info("Leadfield File Size: Unable to determine")
+            
+            # ROI information
+            roi_count = len(self.roi_processing_queue)
+            config_logger.info(f"Number of ROIs to process: {roi_count}")
+            config_logger.info(f"ROI files: {', '.join(self.roi_processing_queue)}")
+            
+            # Electrode configuration
+            config_logger.info("Electrode Configuration:")
+            config_logger.info(f"  E1+ electrodes: {', '.join(self.e1_plus)}")
+            config_logger.info(f"  E1- electrodes: {', '.join(self.e1_minus)}")
+            config_logger.info(f"  E2+ electrodes: {', '.join(self.e2_plus)}")
+            config_logger.info(f"  E2- electrodes: {', '.join(self.e2_minus)}")
+            config_logger.info(f"  Total electrode combinations: {len(self.e1_plus)} per category")
+            
+            # Environment variables (important ones)
+            config_logger.info("Key Environment Variables:")
+            important_vars = [
+                'PROJECT_DIR_NAME', 'PROJECT_DIR', 'SUBJECT_NAME', 'SUBJECTS_DIR',
+                'LEADFIELD_HDF', 'SELECTED_EEG_NET', 'TI_LOG_FILE'
+            ]
+            for var in important_vars:
+                value = env.get(var, 'Not set')
+                config_logger.info(f"  {var}: {value}")
+            
+            # System information
+            import platform
+            import time
+            config_logger.info("System Information:")
+            config_logger.info(f"  Platform: {platform.system()} {platform.release()}")
+            config_logger.info(f"  Python Version: {platform.python_version()}")
+            config_logger.info(f"  Start Time: {time.strftime('%Y-%m-%d %H:%M:%S')}")
+            
+            # Pipeline steps
+            config_logger.info("Pipeline Steps:")
+            config_logger.info("  1. TI Simulation (ti_sim.py)")
+            config_logger.info("  2. ROI Analysis (roi-analyzer.py)")
+            config_logger.info("  3. Mesh Processing (mesh_field_analyzer.py)")
+            
+            config_logger.info("="*80)
+            
+        except Exception as e:
+            self.update_output(f"Warning: Could not log configuration details: {str(e)}", 'warning')
+    
+    def log_roi_configuration(self, current_roi, roi_name, x, y, z, env):
+        """Log ROI-specific configuration details."""
+        try:
+            # Import logging utility
+            import sys
+            # Get the parent directory of the GUI folder to access utils
+            script_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            utils_dir = os.path.join(script_dir, 'utils')
+            if utils_dir not in sys.path:
+                sys.path.insert(0, utils_dir)
+            import logging_util
+            
+            # Get the log file from environment
+            log_file = env.get("TI_LOG_FILE")
+            if not log_file:
+                return
+                
+            # Create a file-only logger for ROI details (no console output)
+            roi_logger = logging.getLogger('Ex-Search-ROI-File-Only')
+            roi_logger.setLevel(logging.INFO)
+            roi_logger.propagate = False
+            
+            # Remove any existing handlers
+            for handler in list(roi_logger.handlers):
+                roi_logger.removeHandler(handler)
+            
+            # Add only file handler (no console handler)
+            file_handler = logging.FileHandler(log_file, mode='a')
+            file_handler.setLevel(logging.INFO)
+            file_handler.setFormatter(logging.Formatter(
+                '[%(asctime)s] [%(name)s] [%(levelname)s] %(message)s',
+                datefmt='%Y-%m-%d %H:%M:%S'
+            ))
+            roi_logger.addHandler(file_handler)
+            
+            # Log ROI processing details
+            roi_index = self.current_roi_index + 1
+            total_rois = len(self.roi_processing_queue)
+            
+            roi_logger.info("-" * 60)
+            roi_logger.info(f"PROCESSING ROI {roi_index}/{total_rois}: {current_roi}")
+            roi_logger.info("-" * 60)
+            roi_logger.info(f"ROI File: {current_roi}")
+            roi_logger.info(f"ROI Name (clean): {roi_name}")
+            roi_logger.info(f"ROI Coordinates (RAS): x={x}, y={y}, z={z}")
+            roi_logger.info(f"Output Directory: {roi_name}_{env.get('SELECTED_EEG_NET', 'unknown')}")
+            
+            # Log ROI-specific environment variables
+            roi_specific_vars = ['ROI_NAME', 'ROI_COORDINATES', 'SELECTED_ROI_FILE', 'ROI_DIR']
+            for var in roi_specific_vars:
+                value = env.get(var, 'Not set')
+                roi_logger.info(f"  {var}: {value}")
+            
+            roi_logger.info(f"Processing steps for this ROI:")
+            roi_logger.info(f"  1. TI Simulation → {roi_name}_{env.get('SELECTED_EEG_NET', 'unknown')}/")
+            roi_logger.info(f"  2. ROI Analysis → Extract TImax/TImean at coordinates")
+            roi_logger.info(f"  3. Mesh Processing → Generate final analysis CSV")
+            roi_logger.info("-" * 60)
+            
+        except Exception as e:
+            self.update_output(f"Warning: Could not log ROI configuration: {str(e)}", 'warning')
+    
+    def log_pipeline_completion(self):
+        """Log pipeline completion summary."""
+        try:
+            # Import logging utility
+            import sys
+            # Get the parent directory of the GUI folder to access utils
+            script_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            utils_dir = os.path.join(script_dir, 'utils')
+            if utils_dir not in sys.path:
+                sys.path.insert(0, utils_dir)
+            import logging_util
+            import time
+            
+            # Try to get log file from the last environment
+            # This is a bit tricky since env might not be available, so we'll reconstruct it
+            subject_id = self.subject_combo.currentText()
+            if not subject_id:
+                return
+                
+            # Create log file path same way as before
+            project_dir = os.path.join("/mnt", os.environ.get("PROJECT_DIR_NAME", ""))
+            derivatives_dir = os.path.join(project_dir, 'derivatives')
+            log_dir = os.path.join(derivatives_dir, 'logs', f'sub-{subject_id}')
+            
+            # Find the most recent ex_search log file
+            if os.path.exists(log_dir):
+                ex_search_logs = [f for f in os.listdir(log_dir) if f.startswith('ex_search_') and f.endswith('.log')]
+                if ex_search_logs:
+                    # Use the most recent log file
+                    latest_log = os.path.join(log_dir, sorted(ex_search_logs)[-1])
+                    
+                    # Create a file-only logger for completion details (no console output)
+                    completion_logger = logging.getLogger('Ex-Search-Completion-File-Only')
+                    completion_logger.setLevel(logging.INFO)
+                    completion_logger.propagate = False
+                    
+                    # Remove any existing handlers
+                    for handler in list(completion_logger.handlers):
+                        completion_logger.removeHandler(handler)
+                    
+                    # Add only file handler (no console handler)
+                    file_handler = logging.FileHandler(latest_log, mode='a')
+                    file_handler.setLevel(logging.INFO)
+                    file_handler.setFormatter(logging.Formatter(
+                        '[%(asctime)s] [%(name)s] [%(levelname)s] %(message)s',
+                        datefmt='%Y-%m-%d %H:%M:%S'
+                    ))
+                    completion_logger.addHandler(file_handler)
+                    
+                    # Log completion summary
+                    completion_logger.info("="*80)
+                    completion_logger.info("EX-SEARCH PIPELINE COMPLETION SUMMARY")
+                    completion_logger.info("="*80)
+                    completion_logger.info(f"End Time: {time.strftime('%Y-%m-%d %H:%M:%S')}")
+                    completion_logger.info(f"Subject: {subject_id}")
+                    completion_logger.info(f"Total ROIs Processed: {len(self.roi_processing_queue)}")
+                    
+                    # List all processed ROIs and their output directories
+                    if hasattr(self, 'roi_processing_queue'):
+                        completion_logger.info("Processed ROIs:")
+                        for i, roi_file in enumerate(self.roi_processing_queue):
+                            roi_name = roi_file.replace('.csv', '')
+                            # Try to get EEG net name (might be stored in environment or reconstruct)
+                            try:
+                                selected_items = self.leadfield_list.selectedItems()
+                                if selected_items and selected_items[0].data(QtCore.Qt.UserRole):
+                                    eeg_net = selected_items[0].data(QtCore.Qt.UserRole)["net_name"]
+                                    output_dir = f"{roi_name}_{eeg_net}"
+                                    completion_logger.info(f"  {i+1}. {roi_file} → ex-search/{output_dir}/")
+                                else:
+                                    completion_logger.info(f"  {i+1}. {roi_file}")
+                            except:
+                                completion_logger.info(f"  {i+1}. {roi_file}")
+                    
+                    # Log electrode configuration summary
+                    if hasattr(self, 'e1_plus') and hasattr(self, 'e1_minus'):
+                        completion_logger.info("Electrode Configuration:")
+                        completion_logger.info(f"  Total electrode combinations per ROI: {len(self.e1_plus)}")
+                        completion_logger.info(f"  Total simulations completed: {len(self.roi_processing_queue) * len(self.e1_plus)}")
+                    
+                    # Note where results can be found
+                    completion_logger.info("Output Location:")
+                    completion_logger.info(f"  Results stored in: {project_dir}/derivatives/SimNIBS/sub-{subject_id}/ex-search/")
+                    completion_logger.info("  Each ROI has its own directory with analysis results")
+                    completion_logger.info("  Look for final_output.csv in each ROI's analysis/ subdirectory")
+                    
+                    completion_logger.info("="*80)
+                    completion_logger.info("Ex-search pipeline completed successfully!")
+                    completion_logger.info("="*80)
+            
+        except Exception as e:
+            self.update_output(f"Warning: Could not log completion summary: {str(e)}", 'warning')
         
     def setup_ui(self):
         """Set up the user interface for the ex-search tab."""
@@ -182,40 +434,40 @@ class ExSearchTab(QtWidgets.QWidget):
         self.status_label.hide()  # Initially hidden
         main_layout.addWidget(self.status_label)
         
-        # Create two main containers: controls and console
-        splitter = QtWidgets.QSplitter(QtCore.Qt.Vertical)
-        
-        # Top container for controls
-        controls_container = QtWidgets.QWidget()
-        controls_layout = QtWidgets.QVBoxLayout(controls_container)
-        
-        # Create a scroll area for the controls
+        # Create a scroll area for the form (matching other tabs)
         scroll_area = QtWidgets.QScrollArea()
         scroll_area.setWidgetResizable(True)
         scroll_content = QtWidgets.QWidget()
         scroll_layout = QtWidgets.QVBoxLayout(scroll_content)
+        scroll_layout.setContentsMargins(10, 10, 10, 10)
+        scroll_layout.setSpacing(10)
         
         # Main horizontal layout to separate left and right
         main_horizontal_layout = QtWidgets.QHBoxLayout()
+        main_horizontal_layout.setSpacing(15)  # Add some spacing between left and right sides
         
-        # Left side layout for subjects and ROIs
+        # Left side layout for Subject + Leadfield Management
         left_layout = QtWidgets.QVBoxLayout()
         
         # Subject selection
-        subject_container = QtWidgets.QGroupBox("Subject")
+        subject_container = QtWidgets.QGroupBox("Subject Selection")
+        subject_container.setFixedHeight(100)  # Fixed height for balance
         subject_layout = QtWidgets.QVBoxLayout(subject_container)
+        subject_layout.setContentsMargins(10, 10, 10, 10)
+        subject_layout.setSpacing(8)
         
         # Combo box for subject selection
         self.subject_combo = QtWidgets.QComboBox()
-        self.subject_combo.setMinimumHeight(25)
-        self.subject_combo.setMaximumHeight(25)
+        self.subject_combo.setFixedHeight(30)
         subject_layout.addWidget(self.subject_combo)
         
         # Subject control buttons
         subject_button_layout = QtWidgets.QHBoxLayout()
         self.list_subjects_btn = QtWidgets.QPushButton("Refresh List")
+        self.list_subjects_btn.setFixedHeight(25)
         self.list_subjects_btn.clicked.connect(self.list_subjects)
         self.clear_subject_selection_btn = QtWidgets.QPushButton("Clear")
+        self.clear_subject_selection_btn.setFixedHeight(25)
         self.clear_subject_selection_btn.clicked.connect(self.clear_subject_selection)
         
         subject_button_layout.addWidget(self.list_subjects_btn)
@@ -225,76 +477,9 @@ class ExSearchTab(QtWidgets.QWidget):
         # Add subject container to left layout
         left_layout.addWidget(subject_container)
         
-        # ROI selection
-        roi_container = QtWidgets.QGroupBox("ROI(s)")
-        roi_layout = QtWidgets.QVBoxLayout(roi_container)
-        
-        # List widget for ROI selection
-        self.roi_list = QtWidgets.QListWidget()
-        self.roi_list.setSelectionMode(QtWidgets.QAbstractItemView.ExtendedSelection)
-        self.roi_list.setMinimumHeight(80)  # Reduced from 100
-        self.roi_list.setMaximumHeight(80)  # Added maximum height
-        roi_layout.addWidget(self.roi_list)
-        
-        # ROI control buttons
-        roi_button_layout = QtWidgets.QHBoxLayout()
-        self.add_roi_btn = QtWidgets.QPushButton("Add ROI")
-        self.add_roi_btn.clicked.connect(self.show_add_roi_dialog)
-        self.remove_roi_btn = QtWidgets.QPushButton("Remove ROI")
-        self.remove_roi_btn.clicked.connect(self.remove_selected_roi)
-        self.list_rois_btn = QtWidgets.QPushButton("Refresh List")
-        self.list_rois_btn.clicked.connect(self.update_roi_list)
-        
-        roi_button_layout.addWidget(self.add_roi_btn)
-        roi_button_layout.addWidget(self.remove_roi_btn)
-        roi_button_layout.addWidget(self.list_rois_btn)
-        roi_layout.addLayout(roi_button_layout)
-        
-        # Add ROI container to left layout
-        left_layout.addWidget(roi_container)
-        
-        # Right side layout for electrodes and controls
-        right_layout = QtWidgets.QVBoxLayout()
-        
-        # Electrode selection
-        electrode_container = QtWidgets.QGroupBox("Electrode Selection")
-        electrode_layout = QtWidgets.QFormLayout(electrode_container)
-        electrode_layout.setContentsMargins(10, 10, 10, 10)  # Reduced margins
-        electrode_layout.setSpacing(5)  # Reduced spacing between elements
-        
-        # Create input fields for each electrode category
-        self.e1_plus_input = QtWidgets.QLineEdit()
-        self.e1_minus_input = QtWidgets.QLineEdit()
-        self.e2_plus_input = QtWidgets.QLineEdit()
-        self.e2_minus_input = QtWidgets.QLineEdit()
-        
-        # Set fixed height for input fields
-        for input_field in [self.e1_plus_input, self.e1_minus_input, self.e2_plus_input, self.e2_minus_input]:
-            input_field.setFixedHeight(25)
-        
-        # Set placeholders
-        self.e1_plus_input.setPlaceholderText("E.g., E1, E2")
-        self.e1_minus_input.setPlaceholderText("E.g., E3, E4")
-        self.e2_plus_input.setPlaceholderText("E.g., E5, E6")
-        self.e2_minus_input.setPlaceholderText("E.g., E7, E8")
-        
-        # Add input fields to layout with labels
-        electrode_layout.addRow("E1+ electrodes:", self.e1_plus_input)
-        electrode_layout.addRow("E1- electrodes:", self.e1_minus_input)
-        electrode_layout.addRow("E2+ electrodes:", self.e2_plus_input)
-        electrode_layout.addRow("E2- electrodes:", self.e2_minus_input)
-        
-        # Add help text
-        help_label = QtWidgets.QLabel("Enter electrode names separated by commas. All categories must have the same number of electrodes.")
-        help_label.setWordWrap(True)
-        help_label.setStyleSheet("color: #666; font-size: 11px; padding: 5px;")
-        electrode_layout.addRow(help_label)
-        
-        # Add electrode container to right layout
-        right_layout.addWidget(electrode_container)
-        
-        # Leadfield Management
+        # Leadfield Management (moved from right to left under subject)
         leadfield_container = QtWidgets.QGroupBox("Leadfield Management")
+        leadfield_container.setFixedHeight(240)  # Fixed height for balance
         leadfield_layout = QtWidgets.QVBoxLayout(leadfield_container)
         leadfield_layout.setContentsMargins(10, 10, 10, 10)
         leadfield_layout.setSpacing(8)
@@ -306,7 +491,7 @@ class ExSearchTab(QtWidgets.QWidget):
         
         # Leadfield list
         self.leadfield_list = QtWidgets.QListWidget()
-        self.leadfield_list.setMaximumHeight(100)
+        self.leadfield_list.setFixedHeight(140)  # Fixed height to control layout
         self.leadfield_list.setSelectionMode(QtWidgets.QAbstractItemView.SingleSelection)
         leadfield_layout.addWidget(self.leadfield_list)
         
@@ -325,22 +510,6 @@ class ExSearchTab(QtWidgets.QWidget):
         
         self.show_electrodes_leadfield_btn = QtWidgets.QPushButton("Show Electrodes")
         self.show_electrodes_leadfield_btn.setFixedHeight(25)
-        self.show_electrodes_leadfield_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #2196F3;
-                color: white;
-                padding: 5px 10px;
-                border: none;
-                border-radius: 3px;
-            }
-            QPushButton:hover {
-                background-color: #1976D2;
-            }
-            QPushButton:disabled {
-                background-color: #cccccc;
-                color: #888888;
-            }
-        """)
         self.show_electrodes_leadfield_btn.setEnabled(False)  # Initially disabled
         self.show_electrodes_leadfield_btn.clicked.connect(self.show_electrodes_for_selected_leadfield)
         leadfield_buttons_layout.addWidget(self.show_electrodes_leadfield_btn)
@@ -355,23 +524,95 @@ class ExSearchTab(QtWidgets.QWidget):
         # Connect leadfield selection
         self.leadfield_list.itemSelectionChanged.connect(self.on_leadfield_selection_changed)
         
-        # Add leadfield container to right layout
-        right_layout.addWidget(leadfield_container)
+        # Add leadfield container to left layout
+        left_layout.addWidget(leadfield_container)
         
-        # Add left and right layouts to main horizontal layout
-        main_horizontal_layout.addLayout(left_layout)
-        main_horizontal_layout.addLayout(right_layout)
+        # Right side layout for Electrodes + ROI
+        right_layout = QtWidgets.QVBoxLayout()
+        
+        # Electrode selection
+        electrode_container = QtWidgets.QGroupBox("Electrode Selection")
+        electrode_container.setFixedHeight(180)  # Fixed height for balance
+        electrode_layout = QtWidgets.QFormLayout(electrode_container)
+        electrode_layout.setContentsMargins(10, 10, 10, 10)
+        electrode_layout.setSpacing(8)
+        
+        # Create input fields for each electrode category
+        self.e1_plus_input = QtWidgets.QLineEdit()
+        self.e1_minus_input = QtWidgets.QLineEdit()
+        self.e2_plus_input = QtWidgets.QLineEdit()
+        self.e2_minus_input = QtWidgets.QLineEdit()
+        
+        # Set fixed height for input fields
+        for input_field in [self.e1_plus_input, self.e1_minus_input, self.e2_plus_input, self.e2_minus_input]:
+            input_field.setFixedHeight(30)
+        
+        # Set placeholders
+        self.e1_plus_input.setPlaceholderText("E.g., O1, F7")
+        self.e1_minus_input.setPlaceholderText("E.g., Fp1, T7")
+        self.e2_plus_input.setPlaceholderText("E.g., T8, P4")
+        self.e2_minus_input.setPlaceholderText("E.g., Fz, Cz")
+        
+        # Add input fields to layout with labels
+        electrode_layout.addRow("E1+ electrodes:", self.e1_plus_input)
+        electrode_layout.addRow("E1- electrodes:", self.e1_minus_input)
+        electrode_layout.addRow("E2+ electrodes:", self.e2_plus_input)
+        electrode_layout.addRow("E2- electrodes:", self.e2_minus_input)
+        
+        # Add help text
+        help_label = QtWidgets.QLabel("Enter electrode names separated by commas. All categories must have the same number of electrodes.")
+        help_label.setWordWrap(True)
+        help_label.setStyleSheet("color: #666; font-size: 11px; padding: 5px;")
+        electrode_layout.addRow(help_label)
+        
+        # Add electrode container to right layout
+        right_layout.addWidget(electrode_container)
+        
+        # ROI selection (moved from left to right under electrodes)
+        roi_container = QtWidgets.QGroupBox("ROI Selection")
+        roi_container.setFixedHeight(160)  # Fixed height for balance (total = 340 to match left side)
+        roi_layout = QtWidgets.QVBoxLayout(roi_container)
+        roi_layout.setContentsMargins(10, 10, 10, 10)
+        roi_layout.setSpacing(8)
+        
+        # List widget for ROI selection
+        self.roi_list = QtWidgets.QListWidget()
+        self.roi_list.setSelectionMode(QtWidgets.QAbstractItemView.ExtendedSelection)
+        self.roi_list.setFixedHeight(80)  # Adjusted to fit within ROI container
+        roi_layout.addWidget(self.roi_list)
+        
+        # ROI control buttons
+        roi_button_layout = QtWidgets.QHBoxLayout()
+        self.add_roi_btn = QtWidgets.QPushButton("Add ROI")
+        self.add_roi_btn.setFixedHeight(25)
+        self.add_roi_btn.clicked.connect(self.show_add_roi_dialog)
+        self.remove_roi_btn = QtWidgets.QPushButton("Remove ROI")
+        self.remove_roi_btn.setFixedHeight(25)
+        self.remove_roi_btn.clicked.connect(self.remove_selected_roi)
+        self.list_rois_btn = QtWidgets.QPushButton("Refresh List")
+        self.list_rois_btn.setFixedHeight(25)
+        self.list_rois_btn.clicked.connect(self.update_roi_list)
+        
+        roi_button_layout.addWidget(self.add_roi_btn)
+        roi_button_layout.addWidget(self.remove_roi_btn)
+        roi_button_layout.addWidget(self.list_rois_btn)
+        roi_layout.addLayout(roi_button_layout)
+        
+        # Add ROI container to right layout
+        right_layout.addWidget(roi_container)
+        
+        # Add left and right layouts to main horizontal layout with equal widths
+        main_horizontal_layout.addLayout(left_layout, 1)    # 50% width
+        main_horizontal_layout.addLayout(right_layout, 1)   # 50% width
         
         # Add main horizontal layout to scroll layout
         scroll_layout.addLayout(main_horizontal_layout)
         
-        # Set the scroll content and add to controls layout
+        # Set scroll content and add to main layout
         scroll_area.setWidget(scroll_content)
-        # Add the controls section to the main layout
         main_layout.addWidget(scroll_area)
         
-        # Remove old splitter-based console container code (no longer needed)
-        # --- Console and Buttons Section (MATCH OTHER TABS) ---
+        # --- Console and Buttons Section ---
         output_label = QtWidgets.QLabel("Output:")
         output_label.setStyleSheet("font-weight: bold; font-size: 14px; margin-top: 10px;")
         
@@ -775,46 +1016,42 @@ class ExSearchTab(QtWidgets.QWidget):
             self.roi_list.clear()
             
             if os.path.exists(roi_dir):
-                # First check for roi_list.txt
-                roi_list_file = os.path.join(roi_dir, "roi_list.txt")
-                if os.path.exists(roi_list_file):
-                    with open(roi_list_file, 'r') as f:
-                        rois = [line.strip() for line in f.readlines() if line.strip()]
-                    # For each ROI, read coordinates and display as 'name: x, y, z'
-                    for roi_name in rois:
-                        roi_path = os.path.join(roi_dir, roi_name)
-                        coords = None
-                        if os.path.exists(roi_path):
-                            with open(roi_path, 'r') as rf:
-                                line = rf.readline().strip()
-                                # Expect format: x, y, z
-                                parts = [p.strip() for p in line.split(',')]
-                                if len(parts) == 3:
-                                    coords = ', '.join(parts)
-                        display_name = roi_name.replace('.csv', '')
-                        if coords:
-                            self.roi_list.addItem(f"{display_name}: {coords}")
-                        else:
-                            self.roi_list.addItem(display_name)
-                else:
-                    # If roi_list.txt doesn't exist, look for all files in the ROIs directory
-                    rois = [f for f in os.listdir(roi_dir) 
-                           if not f.startswith('.') and f != 'roi_list.txt' 
+                # Always scan directory for actual CSV files and sync roi_list.txt
+                csv_files = [f for f in os.listdir(roi_dir) 
+                           if f.endswith('.csv') and not f.startswith('.') 
                            and os.path.isfile(os.path.join(roi_dir, f))]
-                    for roi_name in sorted(rois):
-                        roi_path = os.path.join(roi_dir, roi_name)
-                        coords = None
-                        if os.path.exists(roi_path):
-                            with open(roi_path, 'r') as rf:
-                                line = rf.readline().strip()
-                                parts = [p.strip() for p in line.split(',')]
-                                if len(parts) == 3:
-                                    coords = ', '.join(parts)
-                        display_name = roi_name.replace('.csv', '')
-                        if coords:
-                            self.roi_list.addItem(f"{display_name}: {coords}")
-                        else:
-                            self.roi_list.addItem(display_name)
+                
+                # Sync roi_list.txt with actual CSV files
+                roi_list_file = os.path.join(roi_dir, "roi_list.txt")
+                with open(roi_list_file, 'w') as f:
+                    for csv_file in sorted(csv_files):
+                        f.write(f"{csv_file}\n")
+                
+                # Display ROIs with coordinates
+                for roi_name in sorted(csv_files):
+                    roi_path = os.path.join(roi_dir, roi_name)
+                    coords = None
+                    try:
+                        with open(roi_path, 'r') as rf:
+                            line = rf.readline().strip()
+                            # Expect format: x, y, z
+                            parts = [p.strip() for p in line.split(',')]
+                            if len(parts) == 3:
+                                coords = ', '.join(parts)
+                    except Exception as e:
+                        self.update_output(f"Warning: Could not read coordinates from {roi_name}: {e}", 'warning')
+                    
+                    display_name = roi_name.replace('.csv', '')
+                    if coords:
+                        self.roi_list.addItem(f"{display_name}: {coords}")
+                    else:
+                        self.roi_list.addItem(display_name)
+                        
+                self.update_output(f"Found and synced {len(csv_files)} ROI file(s)")
+                
+                # Debug: Show what's in roi_list.txt vs actual files
+                if csv_files:
+                    self.update_output(f"ROI files: {', '.join(sorted(csv_files))}")
         except Exception as e:
             self.update_status(f"Error updating ROI list: {str(e)}", error=True)
     
@@ -901,6 +1138,12 @@ class ExSearchTab(QtWidgets.QWidget):
             self.update_status("Please add at least one ROI", error=True)
             return False
             
+        # Check if at least one ROI is selected
+        selected_rois = self.roi_list.selectedItems()
+        if not selected_rois:
+            self.update_status("Please select at least one ROI from the list", error=True)
+            return False
+            
         # Validate electrode inputs
         e1_plus = self.parse_electrode_input(self.e1_plus_input.text())
         e1_minus = self.parse_electrode_input(self.e1_minus_input.text())
@@ -935,6 +1178,19 @@ class ExSearchTab(QtWidgets.QWidget):
         e2_plus = self.parse_electrode_input(self.e2_plus_input.text())
         e2_minus = self.parse_electrode_input(self.e2_minus_input.text())
         
+        # Get selected ROI(s)
+        selected_rois = self.roi_list.selectedItems()
+        selected_roi_names = []
+        for roi_item in selected_rois:
+            # Extract ROI name from display format "name: x, y, z" or just "name"
+            roi_display = roi_item.text()
+            roi_name = roi_display.split(':')[0].strip()
+            if not roi_name.endswith('.csv'):
+                roi_name += '.csv'
+            selected_roi_names.append(roi_name)
+        
+        self.update_output(f"Selected ROI(s): {', '.join(selected_roi_names)}")
+        
         # Set up environment variables
         env = os.environ.copy()
         env["SUBJECTS_DIR"] = project_dir
@@ -943,11 +1199,28 @@ class ExSearchTab(QtWidgets.QWidget):
         self.disable_controls()
         self.update_status(f"Running optimization for subject {subject_id}...")
         
-        # Run the pipeline
-        self.run_pipeline(subject_id, project_dir, ex_search_dir, e1_plus, e1_minus, e2_plus, e2_minus, env)
+        # Initialize ROI processing queue and start pipeline
+        self.roi_processing_queue = selected_roi_names.copy()
+        self.current_roi_index = 0
+        self.e1_plus = e1_plus
+        self.e1_minus = e1_minus
+        self.e2_plus = e2_plus
+        self.e2_minus = e2_minus
+        
+        # Run the pipeline for the first ROI
+        self.run_roi_pipeline(subject_id, project_dir, ex_search_dir, env)
     
-    def run_pipeline(self, subject_id, project_dir, ex_search_dir, e1_plus, e1_minus, e2_plus, e2_minus, env):
-        """Run the ex-search pipeline steps sequentially."""
+    def run_roi_pipeline(self, subject_id, project_dir, ex_search_dir, env):
+        """Run the ex-search pipeline for the current ROI in the queue."""
+        # Check if we have more ROIs to process
+        if self.current_roi_index >= len(self.roi_processing_queue):
+            self.pipeline_completed()
+            return
+            
+        # Get current ROI
+        current_roi = self.roi_processing_queue[self.current_roi_index]
+        self.update_output(f"\n=== Processing ROI {self.current_roi_index + 1}/{len(self.roi_processing_queue)}: {current_roi} ===")
+        
         # Get the script directory
         script_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         ex_search_scripts_dir = os.path.join(script_dir, "ex-search")
@@ -963,7 +1236,24 @@ class ExSearchTab(QtWidgets.QWidget):
         selected_net_name = leadfield_data["net_name"]
         selected_hdf5_path = leadfield_data["hdf5_path"]
         
-        # Set up base environment variables with log file
+        # Get ROI coordinates for environment variables
+        roi_dir = os.path.join(project_dir, "derivatives", "SimNIBS", f"sub-{subject_id}", 
+                              f"m2m_{subject_id}", "ROIs")
+        roi_file = os.path.join(roi_dir, current_roi)
+        
+        try:
+            with open(roi_file, 'r') as f:
+                coordinates = f.readline().strip()
+            x, y, z = [float(coord.strip()) for coord in coordinates.split(',')]
+            roi_name = current_roi.replace('.csv', '')  # Remove .csv extension
+        except Exception as e:
+            self.update_output(f"Error reading ROI file {current_roi}: {str(e)}", 'error')
+            # Move to next ROI
+            self.current_roi_index += 1
+            self.run_roi_pipeline(subject_id, project_dir, ex_search_dir, env)
+            return
+        
+        # Set up complete environment variables including ROI information
         env = os.environ.copy()
         env["PROJECT_DIR_NAME"] = os.path.basename(project_dir)
         env["PROJECT_DIR"] = project_dir
@@ -971,30 +1261,47 @@ class ExSearchTab(QtWidgets.QWidget):
         env["SUBJECTS_DIR"] = project_dir
         env["LEADFIELD_HDF"] = selected_hdf5_path
         env["SELECTED_EEG_NET"] = selected_net_name
+        env["ROI_NAME"] = roi_name
+        env["ROI_COORDINATES"] = f"{x},{y},{z}"
+        env["SELECTED_ROI_FILE"] = current_roi
+        env["ROI_DIR"] = roi_dir
         
-        # Create shared log file for the entire ex-search pipeline
-        log_file = self.create_log_file_env('ex_search', subject_id)
-        if log_file:
-            env["TI_LOG_FILE"] = log_file
-            self.update_output(f"Ex-search log file: {log_file}")
+        # Create shared log file for the entire ex-search pipeline (only on first ROI)
+        if self.current_roi_index == 0:
+            log_file = self.create_log_file_env('ex_search', subject_id)
+            if log_file:
+                env["TI_LOG_FILE"] = log_file
+                self._shared_log_file = log_file  # Store for subsequent ROI processing
+                self.update_output(f"Ex-search log file: {log_file}")
         
-        self.update_output(f"Using leadfield: {selected_net_name}")
-        self.update_output(f"HDF5 file: {selected_hdf5_path}")
+            # Log comprehensive configuration details
+            self.update_output(f"Using leadfield: {selected_net_name}")
+            self.update_output(f"HDF5 file: {selected_hdf5_path}")
+            self.log_pipeline_configuration(subject_id, project_dir, selected_net_name, selected_hdf5_path, env)
+        else:
+            # Ensure log file is passed to subsequent ROI processing
+            if hasattr(self, '_shared_log_file'):
+                env["TI_LOG_FILE"] = self._shared_log_file
         
-        # Step 1: Run the TI simulation (sequential, SimNIBS compatible)
+        self.update_output(f"ROI coordinates: {x}, {y}, {z}")
+        
+        # Log ROI-specific configuration
+        self.log_roi_configuration(current_roi, roi_name, x, y, z, env)
+        
+        # Step 1: Run the TI simulation for this specific ROI
         self.update_output("Step 1: Running TI simulation...")
         ti_sim_script = os.path.join(ex_search_scripts_dir, "ti_sim.py")
         
         # Prepare input data for the script
         input_data = [
-            " ".join(e1_plus),
-            " ".join(e1_minus),
-            " ".join(e2_plus),
-            " ".join(e2_minus),
+            " ".join(self.e1_plus),
+            " ".join(self.e1_minus),
+            " ".join(self.e2_plus),
+            " ".join(self.e2_minus),
             ""   # Use default 1mA (empty input will use default)
         ]
         
-        # Command to run ti_sim.py (now with parallel processing)
+        # Command to run ti_sim.py
         cmd = ["simnibs_python", ti_sim_script]
         
         # Create and start thread for step 1
@@ -1003,65 +1310,188 @@ class ExSearchTab(QtWidgets.QWidget):
         self.optimization_process.output_signal.connect(self.update_output)
         self.optimization_process.error_signal.connect(lambda msg: self.handle_process_error(msg))
         
-        # Connect the finished signal to the next step
+        # Connect the finished signal to the mesh processing step for this ROI
         self.optimization_process.finished.connect(
-            lambda: self.run_roi_analyzer(subject_id, project_dir, ex_search_dir, env)
+            lambda: self.run_current_roi_analysis(subject_id, project_dir, ex_search_dir, env)
         )
         
         self.optimization_process.start()
     
-    def run_roi_analyzer(self, subject_id, project_dir, ex_search_dir, env):
-        """Run the ROI analyzer step."""
-        # Step 2: Run ROI analyzer
+    def run_current_roi_analysis(self, subject_id, project_dir, ex_search_dir, env):
+        """Run ROI analysis for the current ROI."""
+        current_roi = self.roi_processing_queue[self.current_roi_index]
+        roi_name = current_roi.replace('.csv', '')
+        eeg_net_name = env.get("SELECTED_EEG_NET", "unknown_net")
+        
         self.update_output("\nStep 2: Running ROI analysis...")
-        roi_dir = os.path.join(project_dir, "derivatives", "SimNIBS", f"sub-{subject_id}", 
-                              f"m2m_{subject_id}", "ROIs")
+        
+        # Create directory name: roi_leadfield format  
+        output_dir_name = f"{roi_name}_{eeg_net_name}"
+        mesh_dir = os.path.join(project_dir, "derivatives", "SimNIBS", f"sub-{subject_id}", 
+                               "ex-search", output_dir_name)
+        
+        # Create temporary roi_list.txt with just the current ROI for roi-analyzer.py
+        roi_dir = env.get("ROI_DIR")
+        temp_roi_list = os.path.join(roi_dir, "temp_roi_list.txt")
+        
+        try:
+            with open(temp_roi_list, 'w') as f:
+                f.write(f"{current_roi}\n")
+            
+            # Run ROI analyzer script
+            script_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            ex_search_scripts_dir = os.path.join(script_dir, "ex-search")
+            roi_analyzer_script = os.path.join(ex_search_scripts_dir, "roi-analyzer.py")
+            
+            # Update environment variables for ROI analyzer
+            roi_env = env.copy()
+            roi_env["MESH_DIR"] = mesh_dir
+            roi_env["ROI_LIST_FILE"] = temp_roi_list
+            
+            cmd = ["python3", roi_analyzer_script, roi_dir]
+            
+            self.optimization_process = ExSearchThread(cmd, roi_env)
+            self.optimization_process.output_signal.connect(self.update_output)
+            self.optimization_process.error_signal.connect(lambda msg: self.handle_process_error(msg))
+            
+            # Connect the finished signal to mesh processing
+            self.optimization_process.finished.connect(
+                lambda: self.cleanup_and_run_mesh_processing(subject_id, project_dir, ex_search_dir, env, temp_roi_list)
+            )
+            
+            self.optimization_process.start()
+            
+        except Exception as e:
+            self.update_output(f"Error setting up ROI analysis: {str(e)}", 'error')
+            # Skip to mesh processing
+            self.run_current_roi_mesh_processing(subject_id, project_dir, ex_search_dir, env)
+    
+    def cleanup_and_run_mesh_processing(self, subject_id, project_dir, ex_search_dir, env, temp_roi_list):
+        """Clean up temporary files and run mesh processing."""
+        # Clean up temporary roi_list.txt
+        try:
+            if os.path.exists(temp_roi_list):
+                os.remove(temp_roi_list)
+        except Exception as e:
+            self.update_output(f"Warning: Could not remove temporary file {temp_roi_list}: {str(e)}", 'warning')
+        
+        # Continue to mesh processing
+        self.run_current_roi_mesh_processing(subject_id, project_dir, ex_search_dir, env)
+    
+    def run_current_roi_mesh_processing(self, subject_id, project_dir, ex_search_dir, env):
+        """Run mesh processing for the current ROI."""
+        current_roi = self.roi_processing_queue[self.current_roi_index]
+        roi_name = current_roi.replace('.csv', '')
+        eeg_net_name = env.get("SELECTED_EEG_NET", "unknown_net")
+        
+        # Create directory name: roi_leadfield format
+        output_dir_name = f"{roi_name}_{eeg_net_name}"
+        mesh_dir = os.path.join(project_dir, "derivatives", "SimNIBS", f"sub-{subject_id}", 
+                               "ex-search", output_dir_name)
+        
+        self.update_output("\nStep 3: Running mesh processing...")
+        self.update_output(f"Output directory: ex-search/{output_dir_name}/")
+        
+        # Run Python mesh processing
         script_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         ex_search_scripts_dir = os.path.join(script_dir, "ex-search")
-        roi_analyzer_script = os.path.join(ex_search_scripts_dir, "roi-analyzer.py")
+        mesh_processing_script = os.path.join(ex_search_scripts_dir, "mesh_field_analyzer.py")
         
-        # Update environment variables for ROI analyzer
-        env["PROJECT_DIR"] = project_dir
-        env["SUBJECT_NAME"] = subject_id
+        # Update environment variables for mesh processing
+        env["MESH_DIR"] = mesh_dir
         
-        cmd = ["python3", roi_analyzer_script, roi_dir]
+        cmd = ["python3", mesh_processing_script, mesh_dir]
         
         self.optimization_process = ExSearchThread(cmd, env)
         self.optimization_process.output_signal.connect(self.update_output)
         self.optimization_process.error_signal.connect(lambda msg: self.handle_process_error(msg))
         
-        # Connect the finished signal to the next step
+        # Connect the finished signal to move to the next ROI
         self.optimization_process.finished.connect(
-            lambda: self.run_mesh_processing(subject_id, project_dir, ex_search_dir, roi_dir, env)
+            lambda: self.current_roi_completed(subject_id, project_dir, ex_search_dir, env)
         )
         
         self.optimization_process.start()
     
-    def run_mesh_processing(self, subject_id, project_dir, ex_search_dir, roi_dir, env):
+    def current_roi_completed(self, subject_id, project_dir, ex_search_dir, env):
+        """Handle completion of current ROI and move to the next."""
+        self.current_roi_index += 1
+        
+        # Process the next ROI if available
+        self.run_roi_pipeline(subject_id, project_dir, ex_search_dir, env)
+    
+    def run_roi_analyzer(self, subject_id, project_dir, ex_search_dir, selected_roi_names, env):
+        """Run the ROI analyzer step - SKIPPED in new workflow."""
+        # NOTE: ROI analysis is now integrated into the mesh processing step
+        # to ensure each selected ROI gets its own analysis directory
+        
+        self.update_output("\nStep 2: ROI analyzer skipped (integrated into mesh processing)")
+        
+        # Skip directly to mesh processing
+        roi_dir = os.path.join(project_dir, "derivatives", "SimNIBS", f"sub-{subject_id}", 
+                              f"m2m_{subject_id}", "ROIs")
+        self.run_mesh_processing(subject_id, project_dir, ex_search_dir, roi_dir, selected_roi_names, env)
+    
+    def run_mesh_processing(self, subject_id, project_dir, ex_search_dir, roi_dir, selected_roi_names, env):
         """Run the mesh processing step."""
-        # Step 3: Run mesh processing
-        self.update_output("\nStep 3: Running mesh processing...")
+        # Step 2: Run mesh processing (ROI analysis integrated)
+        self.update_output("\nStep 2: Running mesh processing and ROI analysis...")
         
         try:
-            # Get ROI coordinates from the first ROI file
-            roi_list_file = os.path.join(roi_dir, "roi_list.txt")
-            with open(roi_list_file, 'r') as f:
-                first_roi = f.readline().strip()
-            roi_file = os.path.join(roi_dir, first_roi)
+            # Process all selected ROIs individually
+            if not selected_roi_names:
+                raise ValueError("No ROI selected for processing")
+            
+            self.update_output(f"Processing {len(selected_roi_names)} ROI(s)...")
+            
+            # Store the ROI processing queue and start with the first one
+            self.roi_processing_queue = selected_roi_names.copy()
+            self.current_roi_index = 0
+            
+            # Start processing the first ROI
+            self.process_next_roi(subject_id, project_dir, ex_search_dir, roi_dir, env)
+            
+        except Exception as e:
+            self.update_output(f"Error in mesh processing: {str(e)}", 'error')
+            self.enable_controls()
+    
+    def process_next_roi(self, subject_id, project_dir, ex_search_dir, roi_dir, env):
+        """Process the next ROI in the queue."""
+        try:
+            if self.current_roi_index >= len(self.roi_processing_queue):
+                # All ROIs processed
+                self.pipeline_completed()
+                return
+                
+            selected_roi = self.roi_processing_queue[self.current_roi_index]
+            self.update_output(f"\n--- Processing ROI {self.current_roi_index + 1}/{len(self.roi_processing_queue)}: {selected_roi} ---")
+            
+            # Get ROI coordinates from the selected ROI file
+            roi_file = os.path.join(roi_dir, selected_roi)
+            if not os.path.exists(roi_file):
+                raise FileNotFoundError(f"ROI file not found: {roi_file}")
+                
             with open(roi_file, 'r') as f:
                 coordinates = f.readline().strip()
             
-            # Parse coordinates
+            # Parse coordinates (still needed for the analysis)
             x, y, z = [float(coord.strip()) for coord in coordinates.split(',')]
             x_int, y_int, z_int = int(x), int(y), int(z)
             
-            # Create directory name from coordinates
-            coord_dir = f"xyz_{x_int}_{y_int}_{z_int}"
+            # Get ROI name and EEG net for directory naming
+            roi_name = selected_roi.replace('.csv', '')  # Remove .csv extension
+            eeg_net_name = env.get("SELECTED_EEG_NET", "unknown_net")
+            
+            # Create directory name: roi_leadfield format
+            output_dir_name = f"{roi_name}_{eeg_net_name}"
             mesh_dir = os.path.join(project_dir, "derivatives", "SimNIBS", f"sub-{subject_id}", 
-                                   "ex-search", coord_dir)
+                                   "ex-search", output_dir_name)
             
             # Create output directory if it doesn't exist
             os.makedirs(mesh_dir, exist_ok=True)
+            
+            self.update_output(f"Output directory: ex-search/{output_dir_name}/")
+            self.update_output(f"ROI coordinates: {x}, {y}, {z}")
             
             # Run Python mesh processing (replaces MATLAB version)
             script_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -1072,6 +1502,10 @@ class ExSearchTab(QtWidgets.QWidget):
             env["PROJECT_DIR"] = project_dir
             env["SUBJECT_NAME"] = subject_id
             env["MESH_DIR"] = mesh_dir
+            env["ROI_NAME"] = roi_name
+            env["ROI_COORDINATES"] = f"{x},{y},{z}"
+            env["SELECTED_ROI_FILE"] = selected_roi
+            env["ROI_DIR"] = roi_dir
             
             cmd = ["python3", mesh_processing_script, mesh_dir]
             
@@ -1079,15 +1513,30 @@ class ExSearchTab(QtWidgets.QWidget):
             self.optimization_process.output_signal.connect(self.update_output)
             self.optimization_process.error_signal.connect(lambda msg: self.handle_process_error(msg))
             
-            # Connect the finished signal to completion (final CSV is created by mesh processor)
-            self.optimization_process.finished.connect(self.pipeline_completed)
+            # Connect the finished signal to process the next ROI
+            self.optimization_process.finished.connect(
+                lambda: self.roi_processing_completed(subject_id, project_dir, ex_search_dir, roi_dir, env)
+            )
             
             self.optimization_process.start()
+            
         except Exception as e:
-            self.update_output(f"Error in mesh processing: {str(e)}", 'error')
-            self.enable_controls()
+            self.update_output(f"Error processing ROI {selected_roi}: {str(e)}", 'error')
+            # Move to next ROI even if this one failed
+            self.current_roi_index += 1
+            self.process_next_roi(subject_id, project_dir, ex_search_dir, roi_dir, env)
     
-
+    def roi_processing_completed(self, subject_id, project_dir, ex_search_dir, roi_dir, env):
+        """Handle completion of one ROI and move to the next."""
+        self.current_roi_index += 1
+        
+        if self.current_roi_index < len(self.roi_processing_queue):
+            # Process the next ROI
+            self.process_next_roi(subject_id, project_dir, ex_search_dir, roi_dir, env)
+        else:
+            # All ROIs completed
+            self.pipeline_completed()
+    
     def handle_process_error(self, error_msg):
         """Handle process errors with proper GUI state management."""
         self.update_output(error_msg, 'error')
@@ -1102,6 +1551,9 @@ class ExSearchTab(QtWidgets.QWidget):
     
     def pipeline_completed(self):
         """Handle the completion of the pipeline."""
+        # Log completion summary
+        self.log_pipeline_completion()
+        
         # Final message
         self.update_output("\nOptimization process completed!")
         self.enable_controls()

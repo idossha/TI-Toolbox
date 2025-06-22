@@ -38,7 +38,11 @@ def get_roi_coordinates(roi_file):
             coords = next(reader)
             return [float(coord.strip()) for coord in coords]
     except Exception as e:
-        print(f"Error reading coordinates from {roi_file}: {e}")
+        # Use logger if available, otherwise print
+        try:
+            logger.error(f"Error reading coordinates from {roi_file}: {e}")
+        except NameError:
+            print(f"Error reading coordinates from {roi_file}: {e}")
         return None
 
 def generate_roi_sphere_points(center_coords, radius=3.0, num_points=20):
@@ -84,17 +88,20 @@ if not project_dir or not subject_name:
     sys.exit(1)
 
 # Initialize logger
-log_file = os.environ.get('TI_LOG_FILE')
-if not log_file:
-    # If not provided, create a new log file (fallback behavior)
-    time_stamp = time.strftime('%Y%m%d_%H%M%S')
-    derivatives_dir = os.path.join(project_dir, 'derivatives')
-    log_dir = os.path.join(derivatives_dir, 'logs', f'sub-{subject_name}')
-    os.makedirs(log_dir, exist_ok=True)
-    log_file = os.path.join(log_dir, f'roi_analyzer_{time_stamp}.log')
+# Check if log file path is provided through environment variable (from GUI)
+shared_log_file = os.environ.get('TI_LOG_FILE')
 
-# Initialize our main logger
-logger = logging_util.get_logger('ROI-Analyzer', log_file, overwrite=False)
+if shared_log_file:
+    # Use shared log file and shared logger name for unified logging
+    logger_name = 'Ex-Search'
+    log_file = shared_log_file
+    logger = logging_util.get_logger(logger_name, log_file, overwrite=False)
+else:
+    # CLI usage: create individual log file
+    logger_name = 'ROI-Analyzer'
+    time_stamp = time.strftime('%Y%m%d_%H%M%S')
+    log_file = f'roi_analyzer_{time_stamp}.log'
+    logger = logging_util.get_logger(logger_name, log_file, overwrite=False)
 
 # Configure external loggers
 logging_util.configure_external_loggers(['simnibs'], logger)
@@ -106,13 +113,20 @@ m2m_dir = os.path.join(subject_dir, f"m2m_{subject_name}")
 ex_search_dir = os.path.join(subject_dir, "ex-search")
 roi_directory = os.path.join(m2m_dir, 'ROIs')
 
-# Read the list of ROI files from the ROI directory
-roi_list_path = os.path.join(roi_directory, 'roi_list.txt')
+# Read the list of ROI files - use custom file if provided, otherwise default roi_list.txt
+custom_roi_list = os.getenv('ROI_LIST_FILE')
+if custom_roi_list and os.path.exists(custom_roi_list):
+    roi_list_path = custom_roi_list
+    logger.info(f"Using custom ROI list: {roi_list_path}")
+else:
+    roi_list_path = os.path.join(roi_directory, 'roi_list.txt')
+    logger.info(f"Using default ROI list: {roi_list_path}")
+
 try:
     with open(roi_list_path, 'r') as file:
         position_files = [os.path.join(roi_directory, line.strip()) for line in file]
 except FileNotFoundError:
-    print(f"Error: ROI list file not found at {roi_list_path}")
+    logger.error(f"ROI list file not found at {roi_list_path}")
     sys.exit(1)
 
 # Verify that all ROI files exist
@@ -123,16 +137,27 @@ if missing_files:
         logger.error(f"  - {f}")
     sys.exit(1)
 
-# Get coordinates from the first ROI file to create the directory name
-first_roi_file = position_files[0]
-coords = get_roi_coordinates(first_roi_file)
-if not coords:
-    logger.error("Could not read coordinates from ROI file")
-    sys.exit(1)
+# Get directory name - use GUI environment variables if available, otherwise fall back to coordinates
+roi_name = os.getenv('ROI_NAME')
+selected_eeg_net = os.getenv('SELECTED_EEG_NET')
 
-# Create directory name from coordinates
-coord_dir = f"xyz_{int(coords[0])}_{int(coords[1])}_{int(coords[2])}"
-opt_directory = os.path.join(ex_search_dir, coord_dir)
+if roi_name and selected_eeg_net:
+    # Use GUI-provided ROI name and EEG net for directory naming
+    output_dir_name = f"{roi_name}_{selected_eeg_net}"
+    opt_directory = os.path.join(ex_search_dir, output_dir_name)
+    logger.info(f"Using GUI-selected ROI directory: {output_dir_name}")
+else:
+    # CLI usage: coordinate-based naming
+    first_roi_file = position_files[0]
+    coords = get_roi_coordinates(first_roi_file)
+    if not coords:
+        logger.error("Could not read coordinates from ROI file")
+        sys.exit(1)
+
+    # Create directory name from coordinates
+    coord_dir = f"xyz_{int(coords[0])}_{int(coords[1])}_{int(coords[2])}"
+    opt_directory = os.path.join(ex_search_dir, coord_dir)
+    logger.info(f"Using coordinate-based directory: {coord_dir}")
 
 # Create analysis directory if it doesn't exist
 analysis_dir = os.path.join(opt_directory, "analysis")
@@ -163,7 +188,6 @@ for i, msh_file in enumerate(msh_files):
     # Iterate over all position files
     for pos_file in position_files:
         pos_base = os.path.splitext(os.path.basename(pos_file))[0]  # Extract the base name of the position file without extension
-        logger.debug(f"Using position file: {pos_file}")
 
         # Get ROI center coordinates and generate sampling sphere
         roi_coords = get_roi_coordinates(pos_file)
@@ -173,7 +197,6 @@ for i, msh_file in enumerate(msh_files):
             
         # Generate multiple sampling points in a 3mm sphere around ROI center
         sampling_points = generate_roi_sphere_points(roi_coords, radius=3.0, num_points=20)
-        logger.debug(f"Generated {len(sampling_points)} sampling points around ROI center")
         
         # Create temporary multi-point coordinates file
         temp_coords_file = os.path.join(roi_directory, f"{pos_base}_sampling_points.csv")
@@ -189,7 +212,6 @@ for i, msh_file in enumerate(msh_files):
         # Run the command to generate CSV files using multiple sampling points
         try:
             cmd = ["get_fields_at_coordinates", "-s", temp_coords_file, "-m", msh_file_path, "--method", "linear"]
-            logger.debug(f"Running command: {' '.join(cmd)}")
             subprocess.run(cmd, check=True)
         except subprocess.CalledProcessError as e:
             logger.error(f"Error running get_fields_at_coordinates: {e}")
@@ -206,7 +228,6 @@ for i, msh_file in enumerate(msh_files):
         
         # Process the TImax CSV file
         if os.path.exists(ti_max_csv):
-            logger.debug(f"Found TImax CSV file: {ti_max_csv}")
             try:
                 # Read the CSV file into a dataframe without headers
                 df_ti_max = pd.read_csv(ti_max_csv, header=None)
@@ -226,8 +247,6 @@ for i, msh_file in enumerate(msh_files):
                     # Store both values in the dictionary
                     mesh_data[mesh_key]['TImax_ROI'] = roi_max
                     mesh_data[mesh_key]['TImean_ROI'] = roi_mean
-                    
-                    logger.debug(f"ROI analysis for {mesh_key}: Max={roi_max:.6f}, Mean={roi_mean:.6f}, StdDev={np.std(ti_max_values):.6f}, Points={len(ti_max_values)}")
                 else:
                     mesh_data[mesh_key]['TImax_ROI'] = None
                     mesh_data[mesh_key]['TImean_ROI'] = None
