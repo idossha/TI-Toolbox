@@ -11,6 +11,7 @@ import json
 import re
 import subprocess
 import csv
+import time
 from PyQt5 import QtWidgets, QtCore, QtGui
 from confirmation_dialog import ConfirmationDialog
 from utils import confirm_overwrite
@@ -85,10 +86,19 @@ class ExSearchThread(QtCore.QThread):
             if not self.terminated:
                 returncode = self.process.wait()
                 if returncode != 0:
-                    self.error_signal.emit("Process returned non-zero exit code")
+                    self.error_signal.emit(f"Process returned non-zero exit code: {returncode}")
                     
         except Exception as e:
-            self.error_signal.emit(f"Error running ex-search: {str(e)}")
+            self.error_signal.emit(f"Error running process: {str(e)}")
+        finally:
+            # Ensure process is cleaned up
+            if self.process:
+                try:
+                    self.process.stdout.close()
+                    if self.process.stdin:
+                        self.process.stdin.close()
+                except:
+                    pass
     
     def terminate_process(self):
         """Terminate the running process."""
@@ -128,6 +138,27 @@ class ExSearchTab(QtWidgets.QWidget):
         
         # Initialize with available subjects and check leadfields
         QtCore.QTimer.singleShot(500, self.initial_setup)
+    
+    def create_log_file_env(self, process_name, subject_id):
+        """Create log file environment variable for processes."""
+        try:
+            # Create timestamp for log file
+            time_stamp = time.strftime('%Y%m%d_%H%M%S')
+            
+            # Get project directory structure
+            project_dir = os.path.join("/mnt", os.environ.get("PROJECT_DIR_NAME", ""))
+            derivatives_dir = os.path.join(project_dir, 'derivatives')
+            log_dir = os.path.join(derivatives_dir, 'logs', f'sub-{subject_id}')
+            os.makedirs(log_dir, exist_ok=True)
+            
+            # Create log file path
+            log_file = os.path.join(log_dir, f'{process_name}_{time_stamp}.log')
+            
+            return log_file
+            
+        except Exception as e:
+            self.update_output(f"Warning: Could not create log file: {str(e)}", 'warning')
+            return None
         
     def setup_ui(self):
         """Set up the user interface for the ex-search tab."""
@@ -262,20 +293,67 @@ class ExSearchTab(QtWidgets.QWidget):
         # Add electrode container to right layout
         right_layout.addWidget(electrode_container)
         
-        # Leadfield controls
-        leadfield_container = QtWidgets.QGroupBox("Leadfield")
+        # Leadfield Management
+        leadfield_container = QtWidgets.QGroupBox("Leadfield Management")
         leadfield_layout = QtWidgets.QVBoxLayout(leadfield_container)
-        leadfield_layout.setContentsMargins(10, 10, 10, 10)  # Reduced margins
-        leadfield_layout.setSpacing(5)  # Reduced spacing
+        leadfield_layout.setContentsMargins(10, 10, 10, 10)
+        leadfield_layout.setSpacing(8)
         
-        # Status and controls for leadfield
-        self.leadfield_status = QtWidgets.QLabel("Leadfield status: Not checked")
-        leadfield_layout.addWidget(self.leadfield_status)
+        # Available leadfields section
+        available_label = QtWidgets.QLabel("Available Leadfields:")
+        available_label.setStyleSheet("font-weight: bold; margin-bottom: 5px;")
+        leadfield_layout.addWidget(available_label)
         
-        self.create_leadfield_btn = QtWidgets.QPushButton("Create Leadfield")
-        self.create_leadfield_btn.setFixedHeight(25)  # Fixed height
-        leadfield_layout.addWidget(self.create_leadfield_btn)
-        self.create_leadfield_btn.clicked.connect(self.create_leadfield)
+        # Leadfield list
+        self.leadfield_list = QtWidgets.QListWidget()
+        self.leadfield_list.setMaximumHeight(100)
+        self.leadfield_list.setSelectionMode(QtWidgets.QAbstractItemView.SingleSelection)
+        leadfield_layout.addWidget(self.leadfield_list)
+        
+        # Selected leadfield info
+        self.selected_leadfield_label = QtWidgets.QLabel("Selected: None")
+        self.selected_leadfield_label.setStyleSheet("color: #666; font-style: italic; margin: 5px 0;")
+        leadfield_layout.addWidget(self.selected_leadfield_label)
+        
+        # Leadfield action buttons
+        leadfield_buttons_layout = QtWidgets.QHBoxLayout()
+        
+        self.refresh_leadfields_btn = QtWidgets.QPushButton("Refresh")
+        self.refresh_leadfields_btn.setFixedHeight(25)
+        self.refresh_leadfields_btn.clicked.connect(self.refresh_leadfields)
+        leadfield_buttons_layout.addWidget(self.refresh_leadfields_btn)
+        
+        self.show_electrodes_leadfield_btn = QtWidgets.QPushButton("Show Electrodes")
+        self.show_electrodes_leadfield_btn.setFixedHeight(25)
+        self.show_electrodes_leadfield_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #2196F3;
+                color: white;
+                padding: 5px 10px;
+                border: none;
+                border-radius: 3px;
+            }
+            QPushButton:hover {
+                background-color: #1976D2;
+            }
+            QPushButton:disabled {
+                background-color: #cccccc;
+                color: #888888;
+            }
+        """)
+        self.show_electrodes_leadfield_btn.setEnabled(False)  # Initially disabled
+        self.show_electrodes_leadfield_btn.clicked.connect(self.show_electrodes_for_selected_leadfield)
+        leadfield_buttons_layout.addWidget(self.show_electrodes_leadfield_btn)
+        
+        self.create_leadfield_btn = QtWidgets.QPushButton("Create New")
+        self.create_leadfield_btn.setFixedHeight(25)
+        self.create_leadfield_btn.clicked.connect(self.show_create_leadfield_dialog)
+        leadfield_buttons_layout.addWidget(self.create_leadfield_btn)
+        
+        leadfield_layout.addLayout(leadfield_buttons_layout)
+        
+        # Connect leadfield selection
+        self.leadfield_list.itemSelectionChanged.connect(self.on_leadfield_selection_changed)
         
         # Add leadfield container to right layout
         right_layout.addWidget(leadfield_container)
@@ -399,7 +477,7 @@ class ExSearchTab(QtWidgets.QWidget):
         
         # After self.subject_combo is created and added:
         self.subject_combo.currentTextChanged.connect(self.on_subject_selection_changed)
-        
+    
     def initial_setup(self):
         """Initial setup when the tab is first loaded."""
         self.list_subjects()
@@ -410,30 +488,44 @@ class ExSearchTab(QtWidgets.QWidget):
             project_dir = os.path.join("/mnt", os.environ.get("PROJECT_DIR_NAME", ""))
             simnibs_dir = os.path.join(project_dir, "derivatives", "SimNIBS")
             
-            # Count subjects and leadfields
+            # Count subjects and leadfields with new naming scheme
             subject_count = 0
-            leadfield_count = 0
-            subjects_without_leadfield = []
+            total_leadfields = 0
+            subjects_with_leadfields = {}
             
             for item in os.listdir(simnibs_dir):
                 if item.startswith("sub-"):
                     subject_id = item[4:]  # Remove 'sub-' prefix
                     subject_count += 1
+                    subject_dir = os.path.join(simnibs_dir, item)
                     
-                    # Check for both leadfield patterns
-                    leadfield_dir = os.path.join(simnibs_dir, item, f"leadfield_{subject_id}")
-                    leadfield_vol_dir = os.path.join(simnibs_dir, item, f"leadfield_vol_{subject_id}")
-                    if os.path.exists(leadfield_dir) or os.path.exists(leadfield_vol_dir):
-                        leadfield_count += 1
-                    else:
-                        subjects_without_leadfield.append(subject_id)
+                    # Look for leadfield directories with new pattern: leadfield_vol_*
+                    subject_leadfields = []
+                    for subdir in os.listdir(subject_dir):
+                        if subdir.startswith("leadfield_vol_"):
+                            leadfield_path = os.path.join(subject_dir, subdir)
+                            # Check if leadfield.hdf5 exists
+                            hdf5_file = os.path.join(leadfield_path, "leadfield.hdf5")
+                            if os.path.exists(hdf5_file):
+                                net_name = subdir[len("leadfield_vol_"):]
+                                subject_leadfields.append(net_name)
+                                total_leadfields += 1
+                    
+                    if subject_leadfields:
+                        subjects_with_leadfields[subject_id] = subject_leadfields
             
             # Display summary
             self.update_output(f"\nFound {subject_count} subject(s):")
-            self.update_output(f"- {leadfield_count} subject(s) have leadfield matrices")
+            self.update_output(f"- Total leadfield matrices: {total_leadfields}")
+            self.update_output(f"- Subjects with leadfields: {len(subjects_with_leadfields)}")
+            
+            for subject_id, nets in subjects_with_leadfields.items():
+                self.update_output(f"  {subject_id}: {', '.join(nets)}")
+            
+            subjects_without_leadfield = [sid for sid in range(1, subject_count+1) 
+                                        if str(sid) not in subjects_with_leadfields]
             if subjects_without_leadfield:
-                self.update_output(f"- {len(subjects_without_leadfield)} subject(s) need leadfield matrices:")
-                self.update_output(f"  Subjects without leadfields: {', '.join(subjects_without_leadfield)}")
+                self.update_output(f"- Subjects without leadfields: {', '.join(map(str, subjects_without_leadfield))}")
             
             self.update_output("\nTo start optimization:")
             self.update_output("1. Select a subject")
@@ -444,35 +536,194 @@ class ExSearchTab(QtWidgets.QWidget):
         except Exception as e:
             self.update_output(f"Error during initial setup: {str(e)}")
     
-    def check_leadfield_status(self):
-        """Check if selected subject has leadfield and update UI accordingly."""
+    def refresh_leadfields(self):
+        """Refresh the list of available leadfields for the selected subject."""
         subject_id = self.subject_combo.currentText()
+        self.leadfield_list.clear()
+        self.selected_leadfield_label.setText("Selected: None")
+        self.show_electrodes_leadfield_btn.setEnabled(False)
+        
         if not subject_id:
-            self.create_leadfield_btn.setEnabled(False)
             return
         
         project_dir = os.path.join("/mnt", os.environ.get("PROJECT_DIR_NAME", ""))
+        subject_dir = os.path.join(project_dir, "derivatives", "SimNIBS", f"sub-{subject_id}")
         
-        # Check both possible leadfield directory patterns
-        leadfield_dir = os.path.join(project_dir, "derivatives", "SimNIBS", f"sub-{subject_id}",
-                                   f"leadfield_{subject_id}")
-        leadfield_vol_dir = os.path.join(project_dir, "derivatives", "SimNIBS", f"sub-{subject_id}",
-                                   f"leadfield_vol_{subject_id}")
-        
-        has_leadfield = os.path.exists(leadfield_dir) or os.path.exists(leadfield_vol_dir)
-        
-        # Store the correct leadfield path for later use
-        self.current_leadfield_dir = leadfield_vol_dir if os.path.exists(leadfield_vol_dir) else leadfield_dir
-        
-        # Update button state and status
-        self.create_leadfield_btn.setEnabled(not has_leadfield)
-        
-        if has_leadfield:
-            self.leadfield_status.setText("Leadfield status: Available")
-            self.leadfield_status.setStyleSheet("color: #4caf50;")  # Green color
+        try:
+            # Look for leadfield directories with pattern: leadfield_vol_*
+            leadfields = []
+            if os.path.exists(subject_dir):
+                for item in os.listdir(subject_dir):
+                    if item.startswith("leadfield_vol_"):
+                        leadfield_path = os.path.join(subject_dir, item)
+                        # Check if leadfield.hdf5 exists
+                        hdf5_file = os.path.join(leadfield_path, "leadfield.hdf5")
+                        if os.path.exists(hdf5_file):
+                            net_name = item[len("leadfield_vol_"):]
+                            # Get file size for display
+                            file_size = os.path.getsize(hdf5_file) / (1024**3)  # GB
+                            leadfields.append((net_name, hdf5_file, file_size))
+            
+            # Populate the list
+            for net_name, hdf5_path, file_size in sorted(leadfields):
+                item_text = f"{net_name} ({file_size:.1f} GB)"
+                item = QtWidgets.QListWidgetItem(item_text)
+                item.setData(QtCore.Qt.UserRole, {"net_name": net_name, "hdf5_path": hdf5_path})
+                self.leadfield_list.addItem(item)
+            
+            if not leadfields:
+                no_leadfields_item = QtWidgets.QListWidgetItem("No leadfields found")
+                no_leadfields_item.setFlags(QtCore.Qt.NoItemFlags)  # Make it non-selectable
+                no_leadfields_item.setForeground(QtGui.QColor("#666"))
+                self.leadfield_list.addItem(no_leadfields_item)
+                
+        except Exception as e:
+            self.update_status(f"Error refreshing leadfields: {str(e)}", error=True)
+    
+    def on_leadfield_selection_changed(self):
+        """Handle leadfield selection changes."""
+        selected_items = self.leadfield_list.selectedItems()
+        if selected_items and selected_items[0].data(QtCore.Qt.UserRole):
+            data = selected_items[0].data(QtCore.Qt.UserRole)
+            net_name = data["net_name"]
+            self.selected_leadfield_label.setText(f"Selected: {net_name}")
+            self.selected_leadfield_label.setStyleSheet("color: #4caf50; font-weight: bold;")
+            self.show_electrodes_leadfield_btn.setEnabled(True)
         else:
-            self.leadfield_status.setText("Leadfield status: Not found")
-            self.leadfield_status.setStyleSheet("color: #f44336;")  # Red color
+            self.selected_leadfield_label.setText("Selected: None")
+            self.selected_leadfield_label.setStyleSheet("color: #666; font-style: italic;")
+            self.show_electrodes_leadfield_btn.setEnabled(False)
+    
+    def get_available_eeg_nets(self, subject_id):
+        """Get available EEG nets for a subject."""
+        project_dir = os.path.join("/mnt", os.environ.get("PROJECT_DIR_NAME", ""))
+        eeg_positions_dir = os.path.join(project_dir, "derivatives", "SimNIBS", f"sub-{subject_id}",
+                                        f"m2m_{subject_id}", "eeg_positions")
+        
+        eeg_nets = []
+        if os.path.exists(eeg_positions_dir):
+            for file in os.listdir(eeg_positions_dir):
+                if file.endswith('.csv'):
+                    eeg_nets.append(file)
+        
+        return sorted(eeg_nets)
+    
+    def show_create_leadfield_dialog(self):
+        """Show dialog to select EEG net and create leadfield."""
+        subject_id = self.subject_combo.currentText()
+        if not subject_id:
+            self.update_status("Please select a subject first", error=True)
+            return
+        
+        # Get available EEG nets
+        eeg_nets = self.get_available_eeg_nets(subject_id)
+        if not eeg_nets:
+            QtWidgets.QMessageBox.warning(self, "No EEG Nets Found", 
+                                        f"No EEG net files found for subject {subject_id}")
+            return
+        
+        # Create selection dialog
+        dialog = EEGNetSelectionDialog(eeg_nets, subject_id, self)
+        if dialog.exec_() == QtWidgets.QDialog.Accepted:
+            selected_net = dialog.get_selected_net()
+            if selected_net:
+                self.create_leadfield_with_net(subject_id, selected_net)
+    
+    def create_leadfield_with_net(self, subject_id, eeg_net_file):
+        """Create leadfield with selected EEG net."""
+        try:
+            project_dir = os.path.join("/mnt", os.environ.get("PROJECT_DIR_NAME", ""))
+            m2m_dir = os.path.join(project_dir, "derivatives", "SimNIBS", f"sub-{subject_id}",
+                                  f"m2m_{subject_id}")
+            eeg_cap_path = os.path.join(m2m_dir, "eeg_positions", eeg_net_file)
+            net_name_clean = eeg_net_file.replace('.csv', '')
+            
+            # Prepare command with new leadfield.py arguments
+            leadfield_script = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 
+                                          "ex-search", "leadfield.py")
+            cmd = ["simnibs_python", leadfield_script, m2m_dir, eeg_cap_path, net_name_clean]
+            
+            # Set up environment variables with log file
+            env = os.environ.copy()
+            log_file = self.create_log_file_env('leadfield_creation', subject_id)
+            if log_file:
+                env["TI_LOG_FILE"] = log_file
+                self.update_output(f"Log file: {log_file}")
+            
+            # Create and start thread
+            self.optimization_process = ExSearchThread(cmd, env)
+            self.optimization_process.output_signal.connect(self.update_output)
+            self.optimization_process.error_signal.connect(lambda msg: self.handle_process_error(msg))
+            self.optimization_process.finished.connect(self.leadfield_creation_completed)
+            self.optimization_process.start()
+            
+            # Update UI
+            self.disable_controls()
+            self.update_status(f"Creating leadfield for {net_name_clean}...")
+            self.update_output(f"Creating leadfield for EEG net: {eeg_net_file}")
+            
+        except Exception as e:
+            self.update_status(f"Error creating leadfield: {str(e)}", error=True)
+            self.enable_controls()
+    
+    def show_electrodes_for_selected_leadfield(self):
+        """Show electrodes for the currently selected leadfield."""
+        # Get selected leadfield
+        selected_items = self.leadfield_list.selectedItems()
+        if not selected_items or not selected_items[0].data(QtCore.Qt.UserRole):
+            QtWidgets.QMessageBox.warning(self, "No Selection", "Please select a leadfield first")
+            return
+        
+        # Get leadfield data
+        leadfield_data = selected_items[0].data(QtCore.Qt.UserRole)
+        net_name = leadfield_data["net_name"]
+        subject_id = self.subject_combo.currentText()
+        
+        if not subject_id:
+            QtWidgets.QMessageBox.warning(self, "No Subject", "Please select a subject first")
+            return
+        
+        try:
+            # Try to find the EEG cap file for this net
+            project_dir = os.path.join("/mnt", os.environ.get("PROJECT_DIR_NAME", ""))
+            
+            # First try the subject's eeg_positions directory
+            eeg_cap_file = f"{net_name}.csv"
+            eeg_path = os.path.join(project_dir, "derivatives", "SimNIBS", f"sub-{subject_id}",
+                                  f"m2m_{subject_id}", "eeg_positions", eeg_cap_file)
+            
+            if not os.path.exists(eeg_path):
+                # Fallback to assets directory
+                script_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+                eeg_path = os.path.join(script_dir, "assets", "ElectrodeCaps_MNI", eeg_cap_file)
+            
+            if not os.path.exists(eeg_path):
+                QtWidgets.QMessageBox.warning(self, "EEG File Not Found", 
+                                            f"Could not find EEG cap file for {net_name}")
+                return
+            
+            # Read electrode information - all files follow same format: Electrode,X,Y,Z,Label
+            electrodes = []
+            with open(eeg_path, 'r') as f:
+                for line in f:
+                    parts = line.strip().split(',')
+                    if len(parts) >= 5 and parts[0] == 'Electrode':
+                        electrode_label = parts[4].strip()  # 5th column (index 4) is the label
+                        if electrode_label and not electrode_label.replace('.', '').replace('-', '').isdigit():  # Skip numeric values
+                            electrodes.append(electrode_label)
+            
+            if not electrodes:
+                QtWidgets.QMessageBox.information(self, "No Electrodes", 
+                                                f"No electrode labels found for {net_name}")
+                return
+            
+            # Create and show electrode display dialog
+            electrode_dialog = ElectrodeDisplayDialog(net_name, electrodes, self)
+            electrode_dialog.exec_()
+            
+        except Exception as e:
+            QtWidgets.QMessageBox.critical(self, "Error", 
+                                         f"Error reading electrode information: {str(e)}")
     
     def list_subjects(self):
         """List available subjects in the combo box."""
@@ -508,6 +759,7 @@ class ExSearchTab(QtWidgets.QWidget):
     def clear_subject_selection(self):
         """Clear the subject selection."""
         self.subject_combo.setCurrentIndex(-1)
+        self.show_electrodes_leadfield_btn.setEnabled(False)
     
     def update_roi_list(self):
         """Update the list of available ROIs for the selected subject."""
@@ -624,8 +876,9 @@ class ExSearchTab(QtWidgets.QWidget):
         """Parse electrode input text into a list of electrodes."""
         # Split by comma and clean up whitespace
         electrodes = [e.strip() for e in text.split(',') if e.strip()]
-        # Validate electrode format (E followed by numbers)
-        pattern = re.compile(r'^E\d+$')
+        # Validate electrode format - support various naming conventions
+        # E001, E1, Fp1, F3, C4, P3, O1, T7, Cz, etc.
+        pattern = re.compile(r'^[A-Za-z][A-Za-z0-9]*$')
         if not all(pattern.match(e) for e in electrodes):
             return None
         return electrodes
@@ -635,6 +888,12 @@ class ExSearchTab(QtWidgets.QWidget):
         # Check if a subject is selected
         if self.subject_combo.currentText() == "":
             self.update_status("Please select a subject", error=True)
+            return False
+            
+        # Check if a leadfield is selected
+        selected_items = self.leadfield_list.selectedItems()
+        if not selected_items or not selected_items[0].data(QtCore.Qt.UserRole):
+            self.update_status("Please select a leadfield for simulation", error=True)
             return False
             
         # Check if ROIs are selected
@@ -693,11 +952,34 @@ class ExSearchTab(QtWidgets.QWidget):
         script_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         ex_search_scripts_dir = os.path.join(script_dir, "ex-search")
         
-        # Set up base environment variables
+        # Get selected leadfield information
+        selected_items = self.leadfield_list.selectedItems()
+        if not selected_items or not selected_items[0].data(QtCore.Qt.UserRole):
+            self.update_status("No leadfield selected", error=True)
+            self.enable_controls()
+            return
+            
+        leadfield_data = selected_items[0].data(QtCore.Qt.UserRole)
+        selected_net_name = leadfield_data["net_name"]
+        selected_hdf5_path = leadfield_data["hdf5_path"]
+        
+        # Set up base environment variables with log file
         env = os.environ.copy()
         env["PROJECT_DIR_NAME"] = os.path.basename(project_dir)
+        env["PROJECT_DIR"] = project_dir
         env["SUBJECT_NAME"] = subject_id
         env["SUBJECTS_DIR"] = project_dir
+        env["LEADFIELD_HDF"] = selected_hdf5_path
+        env["SELECTED_EEG_NET"] = selected_net_name
+        
+        # Create shared log file for the entire ex-search pipeline
+        log_file = self.create_log_file_env('ex_search', subject_id)
+        if log_file:
+            env["TI_LOG_FILE"] = log_file
+            self.update_output(f"Ex-search log file: {log_file}")
+        
+        self.update_output(f"Using leadfield: {selected_net_name}")
+        self.update_output(f"HDF5 file: {selected_hdf5_path}")
         
         # Step 1: Run the TI simulation (sequential, SimNIBS compatible)
         self.update_output("Step 1: Running TI simulation...")
@@ -719,7 +1001,7 @@ class ExSearchTab(QtWidgets.QWidget):
         self.optimization_process = ExSearchThread(cmd, env)
         self.optimization_process.set_input_data(input_data)
         self.optimization_process.output_signal.connect(self.update_output)
-        self.optimization_process.error_signal.connect(lambda msg: self.update_output(msg, 'error'))
+        self.optimization_process.error_signal.connect(lambda msg: self.handle_process_error(msg))
         
         # Connect the finished signal to the next step
         self.optimization_process.finished.connect(
@@ -746,7 +1028,7 @@ class ExSearchTab(QtWidgets.QWidget):
         
         self.optimization_process = ExSearchThread(cmd, env)
         self.optimization_process.output_signal.connect(self.update_output)
-        self.optimization_process.error_signal.connect(lambda msg: self.update_output(msg, 'error'))
+        self.optimization_process.error_signal.connect(lambda msg: self.handle_process_error(msg))
         
         # Connect the finished signal to the next step
         self.optimization_process.finished.connect(
@@ -795,40 +1077,28 @@ class ExSearchTab(QtWidgets.QWidget):
             
             self.optimization_process = ExSearchThread(cmd, env)
             self.optimization_process.output_signal.connect(self.update_output)
-            self.optimization_process.error_signal.connect(lambda msg: self.update_output(msg, 'error'))
+            self.optimization_process.error_signal.connect(lambda msg: self.handle_process_error(msg))
             
-            # Connect the finished signal to the next step
-            self.optimization_process.finished.connect(
-                lambda: self.run_update_csv(subject_id, project_dir, ex_search_dir, env)
-            )
+            # Connect the finished signal to completion (final CSV is created by mesh processor)
+            self.optimization_process.finished.connect(self.pipeline_completed)
             
             self.optimization_process.start()
         except Exception as e:
-            self.update_output(f"Error in mesh processing: {str(e)}")
+            self.update_output(f"Error in mesh processing: {str(e)}", 'error')
             self.enable_controls()
     
-    def run_update_csv(self, subject_id, project_dir, ex_search_dir, env):
-        """Run the update CSV step."""
-        # Step 4: Update output CSV
-        self.update_output("\nStep 4: Updating output CSV...")
-        script_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        ex_search_scripts_dir = os.path.join(script_dir, "ex-search")
-        update_csv_script = os.path.join(ex_search_scripts_dir, "update_output_csv.py")
-        
-        # Update environment variables for CSV update
-        env["PROJECT_DIR"] = project_dir
-        env["SUBJECT_NAME"] = subject_id
-        
-        cmd = ["python3", update_csv_script, project_dir, subject_id]
-        
-        self.optimization_process = ExSearchThread(cmd, env)
-        self.optimization_process.output_signal.connect(self.update_output)
-        self.optimization_process.error_signal.connect(lambda msg: self.update_output(msg, 'error'))
-        
-        # Connect the finished signal to the completion handler
-        self.optimization_process.finished.connect(self.pipeline_completed)
-        
-        self.optimization_process.start()
+
+    def handle_process_error(self, error_msg):
+        """Handle process errors with proper GUI state management."""
+        self.update_output(error_msg, 'error')
+        self.enable_controls()
+        self.update_status("Process failed - see console for details", error=True)
+    
+    def leadfield_creation_completed(self):
+        """Handle leadfield creation completion."""
+        self.enable_controls()
+        self.refresh_leadfields()
+        self.update_status("Leadfield creation completed")
     
     def pipeline_completed(self):
         """Handle the completion of the pipeline."""
@@ -841,7 +1111,10 @@ class ExSearchTab(QtWidgets.QWidget):
         """Stop the running optimization process."""
         if self.optimization_process and self.optimization_process.terminate_process():
             self.update_status("Optimization stopped by user")
+            self.update_output("Process terminated by user", 'warning')
             self.enable_controls()
+        else:
+            self.update_output("No running process to stop", 'warning')
     
     def clear_console(self):
         """Clear the console output."""
@@ -920,6 +1193,9 @@ class ExSearchTab(QtWidgets.QWidget):
         self.add_roi_btn.setEnabled(False)
         self.remove_roi_btn.setEnabled(False)
         self.list_rois_btn.setEnabled(False)
+        self.leadfield_list.setEnabled(False)
+        self.refresh_leadfields_btn.setEnabled(False)
+        self.show_electrodes_leadfield_btn.setEnabled(False)
         self.create_leadfield_btn.setEnabled(False)
     
     def enable_controls(self):
@@ -937,44 +1213,20 @@ class ExSearchTab(QtWidgets.QWidget):
         self.add_roi_btn.setEnabled(True)
         self.remove_roi_btn.setEnabled(True)
         self.list_rois_btn.setEnabled(True)
+        self.leadfield_list.setEnabled(True)
+        self.refresh_leadfields_btn.setEnabled(True)
         self.create_leadfield_btn.setEnabled(True)
-    
-    def create_leadfield(self):
-        """Create leadfield matrices for the selected subject."""
-        subject_id = self.subject_combo.currentText()
-        if not subject_id:
-            self.update_status("Please select a subject first", error=True)
-            return
         
-        # Set up environment variables
-        env = os.environ.copy()
-        project_dir = os.path.join("/mnt", os.environ.get("PROJECT_DIR_NAME", ""))
-        m2m_dir = os.path.join(project_dir, "derivatives", "SimNIBS", f"sub-{subject_id}",
-                              f"m2m_{subject_id}")
-        
-        try:
-            # Prepare command
-            leadfield_script = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 
-                                          "ex-search", "leadfield.py")
-            cmd = ["simnibs_python", leadfield_script, m2m_dir, "EGI_template.csv"]
-            
-            # Create and start thread
-            self.optimization_process = ExSearchThread(cmd, env)
-            self.optimization_process.output_signal.connect(self.update_output)
-            self.optimization_process.error_signal.connect(lambda msg: self.update_output(msg, 'error'))
-            self.optimization_process.finished.connect(self.check_leadfield_status)  # Recheck when done
-            self.optimization_process.start()
-            
-            # Update UI
-            self.disable_controls()
-            self.update_status("Creating leadfield matrices...")
-            
-        except Exception as e:
-            self.update_status(f"Error creating leadfield: {str(e)}", error=True)
+        # Show Electrodes button should only be enabled if a leadfield is selected
+        selected_items = self.leadfield_list.selectedItems()
+        if selected_items and selected_items[0].data(QtCore.Qt.UserRole):
+            self.show_electrodes_leadfield_btn.setEnabled(True)
+        else:
+            self.show_electrodes_leadfield_btn.setEnabled(False)
     
     def on_subject_selection_changed(self):
         """Handle subject selection changes."""
-        self.check_leadfield_status()
+        self.refresh_leadfields()
         self.update_roi_list()
 
 class AddROIDialog(QtWidgets.QDialog):
@@ -1091,4 +1343,257 @@ class AddROIDialog(QtWidgets.QDialog):
             super().accept()
             
         except Exception as e:
-            QtWidgets.QMessageBox.critical(self, "Error", f"Failed to create ROI: {str(e)}") 
+            QtWidgets.QMessageBox.critical(self, "Error", f"Failed to create ROI: {str(e)}")
+
+
+class EEGNetSelectionDialog(QtWidgets.QDialog):
+    """Dialog for selecting EEG net for leadfield creation with electrode viewing capability."""
+    
+    def __init__(self, eeg_nets, subject_id=None, parent=None):
+        super(EEGNetSelectionDialog, self).__init__(parent)
+        self.eeg_nets = eeg_nets
+        self.subject_id = subject_id
+        self.parent = parent
+        self.selected_net = None
+        self.setup_ui()
+        
+    def setup_ui(self):
+        """Set up the dialog UI."""
+        self.setWindowTitle("Select EEG Net")
+        self.setModal(True)
+        self.resize(500, 400)
+        
+        layout = QtWidgets.QVBoxLayout(self)
+        
+        # Title and description
+        title_label = QtWidgets.QLabel("Select EEG Net for Leadfield Creation")
+        title_label.setStyleSheet("font-weight: bold; font-size: 14px; margin-bottom: 10px;")
+        layout.addWidget(title_label)
+        
+        desc_label = QtWidgets.QLabel("Choose an EEG net configuration for the new leadfield matrix:")
+        desc_label.setWordWrap(True)
+        desc_label.setStyleSheet("color: #666; margin-bottom: 15px;")
+        layout.addWidget(desc_label)
+        
+        # EEG net list
+        self.net_list = QtWidgets.QListWidget()
+        self.net_list.setSelectionMode(QtWidgets.QAbstractItemView.SingleSelection)
+        
+        # Find default (GSN-HydroCel-185.csv) and populate list
+        default_item = None
+        for net in self.eeg_nets:
+            item = QtWidgets.QListWidgetItem(net)
+            self.net_list.addItem(item)
+            if net == "GSN-HydroCel-185.csv":
+                default_item = item
+        
+        # Select default if available
+        if default_item:
+            default_item.setSelected(True)
+            self.net_list.setCurrentItem(default_item)
+            
+        layout.addWidget(self.net_list)
+        
+        # Default info
+        if default_item:
+            default_info = QtWidgets.QLabel("Default: GSN-HydroCel-185.csv is pre-selected")
+            default_info.setStyleSheet("color: #4caf50; font-style: italic; margin: 5px 0;")
+            layout.addWidget(default_info)
+        
+        # Show Electrodes button
+        self.show_electrodes_btn = QtWidgets.QPushButton("Show Electrodes")
+        self.show_electrodes_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #2196F3;
+                color: white;
+                padding: 5px 15px;
+                border: none;
+                border-radius: 3px;
+                margin: 5px 0;
+            }
+            QPushButton:hover {
+                background-color: #1976D2;
+            }
+        """)
+        self.show_electrodes_btn.clicked.connect(self.show_electrodes)
+        layout.addWidget(self.show_electrodes_btn)
+        
+        # Buttons
+        button_box = QtWidgets.QDialogButtonBox(
+            QtWidgets.QDialogButtonBox.Ok | QtWidgets.QDialogButtonBox.Cancel
+        )
+        button_box.accepted.connect(self.accept)
+        button_box.rejected.connect(self.reject)
+        layout.addWidget(button_box)
+        
+        # Connect double-click to accept
+        self.net_list.itemDoubleClicked.connect(self.accept)
+    
+    def show_electrodes(self):
+        """Show available electrodes for the selected EEG net."""
+        selected_items = self.net_list.selectedItems()
+        if not selected_items:
+            QtWidgets.QMessageBox.warning(self, "No Selection", "Please select an EEG net first")
+            return
+        
+        selected_net = selected_items[0].text()
+        
+        try:
+            # Get path to EEG net file
+            if self.subject_id:
+                project_dir = os.path.join("/mnt", os.environ.get("PROJECT_DIR_NAME", ""))
+                eeg_path = os.path.join(project_dir, "derivatives", "SimNIBS", f"sub-{self.subject_id}",
+                                      f"m2m_{self.subject_id}", "eeg_positions", selected_net)
+            else:
+                # Fallback to assets directory
+                script_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+                eeg_path = os.path.join(script_dir, "assets", "ElectrodeCaps_MNI", selected_net)
+            
+            if not os.path.exists(eeg_path):
+                QtWidgets.QMessageBox.warning(self, "File Not Found", 
+                                            f"EEG net file not found: {eeg_path}")
+                return
+            
+            # Read electrode information - all files follow same format: Electrode,X,Y,Z,Label
+            electrodes = []
+            with open(eeg_path, 'r') as f:
+                for line in f:
+                    parts = line.strip().split(',')
+                    if len(parts) >= 5 and parts[0] == 'Electrode':
+                        electrode_label = parts[4].strip()  # 5th column (index 4) is the label
+                        if electrode_label and not electrode_label.replace('.', '').replace('-', '').isdigit():  # Skip numeric values
+                            electrodes.append(electrode_label)
+            
+            if not electrodes:
+                QtWidgets.QMessageBox.information(self, "No Electrodes", 
+                                                "No electrode labels found in the selected EEG net file")
+                return
+            
+            # Create and show electrode display dialog
+            electrode_dialog = ElectrodeDisplayDialog(selected_net, electrodes, self)
+            electrode_dialog.exec_()
+            
+        except Exception as e:
+            QtWidgets.QMessageBox.critical(self, "Error", 
+                                         f"Error reading EEG net file: {str(e)}")
+    
+    def get_selected_net(self):
+        """Get the selected EEG net."""
+        selected_items = self.net_list.selectedItems()
+        if selected_items:
+            return selected_items[0].text()
+        return None
+    
+    def accept(self):
+        """Handle dialog acceptance."""
+        if not self.net_list.selectedItems():
+            QtWidgets.QMessageBox.warning(self, "No Selection", "Please select an EEG net")
+            return
+        
+        super().accept()
+
+
+class ElectrodeDisplayDialog(QtWidgets.QDialog):
+    """Dialog to display available electrodes for a selected EEG net."""
+    
+    def __init__(self, eeg_net_name, electrodes, parent=None):
+        super(ElectrodeDisplayDialog, self).__init__(parent)
+        self.eeg_net_name = eeg_net_name
+        self.electrodes = electrodes
+        self.setup_ui()
+    
+    def setup_ui(self):
+        """Set up the electrode display dialog UI."""
+        self.setWindowTitle(f"Electrodes for {self.eeg_net_name}")
+        self.setModal(True)
+        self.resize(400, 500)
+        
+        layout = QtWidgets.QVBoxLayout(self)
+        
+        # Title
+        title_label = QtWidgets.QLabel(f"Available Electrodes ({len(self.electrodes)} total)")
+        title_label.setStyleSheet("font-weight: bold; font-size: 14px; margin-bottom: 10px;")
+        layout.addWidget(title_label)
+        
+        # EEG net info
+        net_info = QtWidgets.QLabel(f"EEG Net: {self.eeg_net_name}")
+        net_info.setStyleSheet("color: #666; margin-bottom: 15px;")
+        layout.addWidget(net_info)
+        
+        # Search box
+        search_layout = QtWidgets.QHBoxLayout()
+        search_label = QtWidgets.QLabel("Search:")
+        self.search_input = QtWidgets.QLineEdit()
+        self.search_input.setPlaceholderText("Filter electrodes (e.g., E1, E10)")
+        self.search_input.textChanged.connect(self.filter_electrodes)
+        search_layout.addWidget(search_label)
+        search_layout.addWidget(self.search_input)
+        layout.addLayout(search_layout)
+        
+        # Electrode list
+        self.electrode_list = QtWidgets.QListWidget()
+        self.electrode_list.setSelectionMode(QtWidgets.QAbstractItemView.ExtendedSelection)
+        
+        # Populate electrode list
+        for electrode in sorted(self.electrodes, key=lambda x: int(x[1:]) if x[1:].isdigit() else 0):
+            self.electrode_list.addItem(electrode)
+        
+        layout.addWidget(self.electrode_list)
+        
+        # Selection info
+        self.selection_info = QtWidgets.QLabel("Tip: You can select multiple electrodes and copy them")
+        self.selection_info.setStyleSheet("color: #666; font-size: 11px;")
+        layout.addWidget(self.selection_info)
+        
+        # Buttons
+        button_layout = QtWidgets.QHBoxLayout()
+        
+        self.copy_selected_btn = QtWidgets.QPushButton("Copy Selected")
+        self.copy_selected_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #4CAF50;
+                color: white;
+                padding: 5px 15px;
+                border: none;
+                border-radius: 3px;
+            }
+            QPushButton:hover {
+                background-color: #45a049;
+            }
+        """)
+        self.copy_selected_btn.clicked.connect(self.copy_selected_electrodes)
+        button_layout.addWidget(self.copy_selected_btn)
+        
+        close_btn = QtWidgets.QPushButton("Close")
+        close_btn.clicked.connect(self.accept)
+        button_layout.addWidget(close_btn)
+        
+        layout.addLayout(button_layout)
+    
+    def filter_electrodes(self):
+        """Filter electrode list based on search input."""
+        search_text = self.search_input.text().lower()
+        
+        for i in range(self.electrode_list.count()):
+            item = self.electrode_list.item(i)
+            item.setHidden(search_text not in item.text().lower())
+    
+    def copy_selected_electrodes(self):
+        """Copy selected electrodes to clipboard."""
+        selected_items = self.electrode_list.selectedItems()
+        if not selected_items:
+            QtWidgets.QMessageBox.information(self, "No Selection", "Please select electrodes to copy")
+            return
+        
+        electrode_list = [item.text() for item in selected_items]
+        electrode_text = ", ".join(electrode_list)
+        
+        clipboard = QtWidgets.QApplication.clipboard()
+        clipboard.setText(electrode_text)
+        
+        QtWidgets.QMessageBox.information(self, "Copied", 
+                                        f"Copied {len(electrode_list)} electrodes to clipboard:\n{electrode_text}")
+    
+    def accept(self):
+        """Handle dialog acceptance."""
+        super().accept() 

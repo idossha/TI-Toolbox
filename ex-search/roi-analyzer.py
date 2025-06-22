@@ -8,6 +8,7 @@ import json
 import csv
 import sys
 import time
+import numpy as np
 
 # Add logging utility import
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
@@ -39,6 +40,40 @@ def get_roi_coordinates(roi_file):
     except Exception as e:
         print(f"Error reading coordinates from {roi_file}: {e}")
         return None
+
+def generate_roi_sphere_points(center_coords, radius=3.0, num_points=20):
+    """Generate multiple sampling points in a sphere around the ROI center.
+    
+    Args:
+        center_coords: [x, y, z] center coordinates
+        radius: Radius in mm for sampling sphere
+        num_points: Number of points to sample within sphere
+    
+    Returns:
+        List of [x, y, z] coordinates
+    """
+    points = [center_coords]  # Always include the center point
+    
+    # Generate random points in a sphere
+    np.random.seed(42)  # For reproducible results
+    for _ in range(num_points - 1):
+        # Generate random point in unit sphere using rejection sampling
+        while True:
+            x = np.random.uniform(-1, 1)
+            y = np.random.uniform(-1, 1) 
+            z = np.random.uniform(-1, 1)
+            if x*x + y*y + z*z <= 1:
+                break
+        
+        # Scale to desired radius and translate to center
+        scaled_point = [
+            center_coords[0] + x * radius,
+            center_coords[1] + y * radius, 
+            center_coords[2] + z * radius
+        ]
+        points.append(scaled_point)
+    
+    return points
 
 # Get the project directory and subject name from environment variables
 project_dir = os.getenv('PROJECT_DIR')
@@ -130,18 +165,44 @@ for i, msh_file in enumerate(msh_files):
         pos_base = os.path.splitext(os.path.basename(pos_file))[0]  # Extract the base name of the position file without extension
         logger.debug(f"Using position file: {pos_file}")
 
-        # Run the command to generate CSV files in the ROI directory
+        # Get ROI center coordinates and generate sampling sphere
+        roi_coords = get_roi_coordinates(pos_file)
+        if not roi_coords:
+            logger.error(f"Could not read ROI coordinates from {pos_file}")
+            continue
+            
+        # Generate multiple sampling points in a 3mm sphere around ROI center
+        sampling_points = generate_roi_sphere_points(roi_coords, radius=3.0, num_points=20)
+        logger.debug(f"Generated {len(sampling_points)} sampling points around ROI center")
+        
+        # Create temporary multi-point coordinates file
+        temp_coords_file = os.path.join(roi_directory, f"{pos_base}_sampling_points.csv")
         try:
-            cmd = ["get_fields_at_coordinates", "-s", pos_file, "-m", msh_file_path, "--method", "linear"]
+            with open(temp_coords_file, 'w', newline='') as f:
+                writer = csv.writer(f)
+                for point in sampling_points:
+                    writer.writerow([f"{point[0]:.3f}", f"{point[1]:.3f}", f"{point[2]:.3f}"])
+        except Exception as e:
+            logger.error(f"Error creating temporary coordinates file: {e}")
+            continue
+
+        # Run the command to generate CSV files using multiple sampling points
+        try:
+            cmd = ["get_fields_at_coordinates", "-s", temp_coords_file, "-m", msh_file_path, "--method", "linear"]
             logger.debug(f"Running command: {' '.join(cmd)}")
             subprocess.run(cmd, check=True)
         except subprocess.CalledProcessError as e:
             logger.error(f"Error running get_fields_at_coordinates: {e}")
             continue
+        finally:
+            # Clean up temporary file
+            if os.path.exists(temp_coords_file):
+                os.remove(temp_coords_file)
         
-        # The generated CSV files will be in the current directory with names based on the position file and field names
-        ti_max_csv = os.path.join(roi_directory, f"{pos_base}_TImax.csv")
-        from_volume_csv = os.path.join(roi_directory, f"{pos_base}_from_volume.csv")
+        # The generated CSV files will be in the current directory with names based on the sampling points file
+        sampling_base = f"{pos_base}_sampling_points"
+        ti_max_csv = os.path.join(roi_directory, f"{sampling_base}_TImax.csv")
+        from_volume_csv = os.path.join(roi_directory, f"{sampling_base}_from_volume.csv")
         
         # Process the TImax CSV file
         if os.path.exists(ti_max_csv):
@@ -157,16 +218,32 @@ for i, msh_file in enumerate(msh_files):
                 # Extract values from the dataframe
                 ti_max_values = df_ti_max[0].tolist()  # Assuming the TImax CSV has values in the first column
                 
-                # Store the values in the dictionary
-                if 'TImax' not in mesh_data[mesh_key]:
-                    mesh_data[mesh_key]['TImax'] = ti_max_values[0] if ti_max_values else None
+                if ti_max_values:
+                    # Calculate both max and mean for ROI analysis
+                    roi_max = max(ti_max_values)
+                    roi_mean = sum(ti_max_values) / len(ti_max_values)
+                    
+                    # Store both values in the dictionary
+                    mesh_data[mesh_key]['TImax_ROI'] = roi_max
+                    mesh_data[mesh_key]['TImean_ROI'] = roi_mean
+                    
+                    logger.debug(f"ROI analysis for {mesh_key}: Max={roi_max:.6f}, Mean={roi_mean:.6f}, StdDev={np.std(ti_max_values):.6f}, Points={len(ti_max_values)}")
+                else:
+                    mesh_data[mesh_key]['TImax_ROI'] = None
+                    mesh_data[mesh_key]['TImean_ROI'] = None
+                    logger.warning(f"No valid TI values found for {mesh_key}")
+                    
             except Exception as e:
                 logger.error(f"Error processing TImax file {ti_max_csv}: {e}")
+                mesh_data[mesh_key]['TImax_ROI'] = None
+                mesh_data[mesh_key]['TImean_ROI'] = None
             finally:
                 if os.path.exists(ti_max_csv):
                     os.remove(ti_max_csv)
         else:
             logger.warning(f"TImax CSV file {ti_max_csv} not found")
+            mesh_data[mesh_key]['TImax_ROI'] = None
+            mesh_data[mesh_key]['TImean_ROI'] = None
 
 
 # Save the dictionary to a file for later use
@@ -177,20 +254,18 @@ with open(json_output_path, 'w') as json_file:
 logger.info(f"Dictionary saved to: {json_output_path}")
 
 # Prepare the CSV data
-header = ['Mesh', 'TImax']
+header = ['Mesh', 'TImax_ROI', 'TImean_ROI']
 csv_data = [header]
 
 for mesh_name, data in mesh_data.items():
-    # Format the mesh name as "E076_E172 <> E097_E162"
-    parts = re.findall(r'E\d{3}_E\d{3}', mesh_name)
-    if len(parts) == 2:
-        formatted_mesh_name = f"{parts[0]} <> {parts[1]}"
-    else:
-        formatted_mesh_name = mesh_name  # Fallback to the original name if the pattern doesn't match
+    # Format the mesh name to match mesh field analyzer format
+    # Convert "TI_field_O1_F7_and_T7_Pz.msh" to "O1_F7 <> T7_Pz"
+    formatted_mesh_name = re.sub(r"TI_field_(.*?)\.msh", r"\1", mesh_name).replace("_and_", " <> ")
     
-    ti_max_value = data.get('TImax', '')
+    ti_max_roi = data.get('TImax_ROI', '')
+    ti_mean_roi = data.get('TImean_ROI', '')
     
-    row = [formatted_mesh_name, ti_max_value]
+    row = [formatted_mesh_name, ti_max_roi, ti_mean_roi]
     csv_data.append(row)
 
 # Write to CSV file
@@ -200,4 +275,7 @@ with open(csv_output_path, 'w', newline='') as file:
     writer.writerows(csv_data)
 
 logger.info(f"CSV file created successfully at: {csv_output_path}")
+logger.info(f"Enhanced ROI analysis completed with {len(mesh_data)} simulations")
+logger.info("ROI sampling: 3mm radius sphere with 20 points around ROI center")
+logger.info("ROI metrics: TImax_ROI (peak field in ROI), TImean_ROI (average field in ROI)")
 

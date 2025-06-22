@@ -65,7 +65,8 @@ def generate_combinations(E1_plus, E1_minus, E2_plus, E2_minus):
 
 def get_electrode_list(prompt):
     """Get user input for electrode lists with validation."""
-    pattern = re.compile(r'^E\d{3}$')  # Match 'E' followed by exactly three digits
+    # Support various electrode naming conventions: E001, E1, Fp1, F3, C4, Cz, etc.
+    pattern = re.compile(r'^[A-Za-z][A-Za-z0-9]*$')
     while True:
         user_input = input(f"[INPUT] {prompt}").strip()
         # Replace commas with spaces and split into a list
@@ -75,7 +76,7 @@ def get_electrode_list(prompt):
             logger.info(f"Electrode list accepted: {electrodes}")
             return electrodes
         else:
-            logger.error("Invalid input. Please enter electrodes in the format E###, e.g., E001, E100")
+            logger.error("Invalid input. Please enter valid electrode names, e.g., E001, Fp1, F3, C4")
 
 def get_intensity(prompt):
     """Get stimulation intensity with default 1mA option."""
@@ -105,15 +106,26 @@ def process_leadfield(leadfield_type, E1_plus, E1_minus, E2_plus, E2_minus,
     """Process leadfield with sequential execution (SimNIBS-compatible)."""
     logger.info(f"Starting TI simulation for {leadfield_type} leadfield")
     
-    # Construct paths according to BIDS structure
+    # Get leadfield path from environment variable (set by CLI script)
+    leadfield_hdf = os.getenv('LEADFIELD_HDF')
+    selected_net = os.getenv('SELECTED_EEG_NET', 'Unknown')
+    
+    if not leadfield_hdf:
+        logger.error("LEADFIELD_HDF environment variable not set")
+        return
+    
+    if not os.path.exists(leadfield_hdf):
+        logger.error(f"Leadfield file not found: {leadfield_hdf}")
+        return
+    
+    logger.info(f"Using EEG net: {selected_net}")
+    logger.info(f"Leadfield HDF5 path: {leadfield_hdf}")
+    
+    # Construct other paths according to BIDS structure
     simnibs_dir = os.path.join(project_dir, "derivatives", "SimNIBS")
     subject_dir = os.path.join(simnibs_dir, f"sub-{subject_name}")
     m2m_dir = os.path.join(subject_dir, f"m2m_{subject_name}")
     roi_dir = os.path.join(m2m_dir, "ROIs")
-    leadfield_dir = os.path.join(subject_dir, f"leadfield_{leadfield_type}_{subject_name}")
-    leadfield_hdf = os.path.join(leadfield_dir, f"{subject_name}_leadfield_{os.getenv('EEG_CAP', 'EGI_template')}.hdf5")
-    
-    logger.info(f"Leadfield HDF5 path: {leadfield_hdf}")
     
     # Get ROI coordinates and create output directory
     roi_list_path = os.path.join(roi_dir, 'roi_list.txt')
@@ -259,10 +271,10 @@ if __name__ == "__main__":
     logger.info(f"Project Directory: {project_dir}")
     
     # Get electrode lists from user input
-    E1_plus = get_electrode_list("Enter electrodes for E1_plus separated by spaces or commas (format E###): ")
-    E1_minus = get_electrode_list("Enter electrodes for E1_minus separated by spaces or commas (format E###): ")
-    E2_plus = get_electrode_list("Enter electrodes for E2_plus separated by spaces or commas (format E###): ")
-    E2_minus = get_electrode_list("Enter electrodes for E2_minus separated by spaces or commas (format E###): ")
+    E1_plus = get_electrode_list("Enter electrodes for E1_plus separated by spaces or commas: ")
+    E1_minus = get_electrode_list("Enter electrodes for E1_minus separated by spaces or commas: ")
+    E2_plus = get_electrode_list("Enter electrodes for E2_plus separated by spaces or commas: ")
+    E2_minus = get_electrode_list("Enter electrodes for E2_minus separated by spaces or commas: ")
     
     # Get intensity (keeping the 1mA default)
     intensity = get_intensity("Stimulation intensity in mA")

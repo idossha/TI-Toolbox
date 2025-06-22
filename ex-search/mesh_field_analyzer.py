@@ -10,6 +10,7 @@ Replaces: process_mesh_files.m and process_mesh_files_new.m
 import os
 import sys
 import glob
+import re
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -66,6 +67,7 @@ class MeshFieldAnalyzer:
         # Save results
         if csv_data:
             self.save_summary_csv(csv_data)
+            self.save_final_output_csv(csv_data)  # Create final output directly
             self.save_summary_txt(summary_text)
             self.logger.info(f"Analysis results saved to: {self.analysis_dir}")
         else:
@@ -533,6 +535,92 @@ class MeshFieldAnalyzer:
         csv_file = self.analysis_dir / 'summary.csv'
         df.to_csv(csv_file, index=False)
         self.logger.info(f"Summary CSV saved to: {csv_file}")
+    
+    def save_final_output_csv(self, results_list):
+        """Merge mesh analysis results with existing ROI data in final output CSV"""
+        final_csv_file = self.analysis_dir / 'final_output.csv'
+        
+        # Check if ROI analyzer already created a CSV with ROI field data
+        if final_csv_file.exists():
+            self.logger.info("Loading existing final_output.csv from ROI analyzer")
+            existing_df = pd.read_csv(final_csv_file)
+            self.logger.info(f"Existing CSV has {len(existing_df)} rows with columns: {list(existing_df.columns)}")
+        else:
+            self.logger.warning("No existing final_output.csv found - creating new one")
+            existing_df = pd.DataFrame()
+        
+        # Create mesh analysis data
+        mesh_rows = []
+        for results in results_list:
+            # Convert mesh filename to user-friendly format
+            # TI_field_O1_Fp1_and_T7_F7.msh -> O1_Fp1 <> T7_F7
+            mesh_name = results['filename']
+            mesh_clean = re.sub(r"TI_field_(.*?)\.msh", r"\1", mesh_name).replace("_and_", " <> ")
+            
+            row = {
+                'Mesh': mesh_clean,
+                'TImax': results['max_value'],
+            }
+            
+            # Add percentile values
+            if len(results['percentile_values']) >= 3:
+                row['PercentileValue_95'] = results['percentile_values'][0]
+                row['PercentileValue_99'] = results['percentile_values'][1] 
+                row['PercentileValue_99.9'] = results['percentile_values'][2]
+            
+            # Add focality values
+            if len(results['focality_values']) >= 4:
+                row['FocalityValue_50'] = results['focality_values'][0]
+                row['FocalityValue_75'] = results['focality_values'][1]
+                row['FocalityValue_90'] = results['focality_values'][2]
+                row['FocalityValue_95'] = results['focality_values'][3]
+            
+            # Add XYZ coordinates (formatted as comma-separated string)
+            if results['xyz_max']:
+                xyz_coords = results['xyz_max']
+                row['XYZ_Max'] = f"{xyz_coords[0]:.2f},{xyz_coords[1]:.2f},{xyz_coords[2]:.2f}"
+            
+            mesh_rows.append(row)
+        
+        mesh_df = pd.DataFrame(mesh_rows)
+        
+        # Debug: Show what data we're working with
+        self.logger.info(f"Mesh analysis data mesh names: {mesh_df['Mesh'].tolist()}")
+        if not existing_df.empty:
+            self.logger.info(f"Existing ROI data mesh names: {existing_df['Mesh'].tolist() if 'Mesh' in existing_df.columns else 'No Mesh column'}")
+        
+        # Merge with existing ROI data if available
+        if not existing_df.empty and 'Mesh' in existing_df.columns:
+            # Merge on 'Mesh' column to preserve ROI field data
+            final_df = pd.merge(existing_df, mesh_df, on='Mesh', how='outer', suffixes=('_roi', '_mesh'))
+            
+            # Handle duplicate TImax columns (prefer mesh analysis values, but keep ROI TImax as separate column)
+            if 'TImax_mesh' in final_df.columns:
+                final_df['TImax_Brain'] = final_df['TImax_mesh']  # Rename to clarify this is brain-wide max
+                final_df.drop(columns=['TImax_mesh'], inplace=True)
+            
+            # Handle ROI TImax columns
+            if 'TImax_roi' in final_df.columns:
+                final_df.drop(columns=['TImax_roi'], inplace=True)  # Remove duplicate, keep original TImax_ROI
+            elif 'TImax' in existing_df.columns and 'TImax_ROI' not in final_df.columns:
+                # Handle case where there's no suffix conflict and old naming
+                final_df.rename(columns={'TImax': 'TImax_ROI'}, inplace=True)
+            
+            # Handle ROI TImean columns (should not have duplicates since mesh analyzer doesn't create TImean)
+            if 'TImean_ROI_roi' in final_df.columns:
+                final_df.rename(columns={'TImean_ROI_roi': 'TImean_ROI'}, inplace=True)
+            
+            self.logger.info(f"Successfully merged data - final shape: {final_df.shape}")
+            self.logger.info(f"Final columns: {list(final_df.columns)}")
+        else:
+            # No existing data or no proper structure - use mesh data only
+            final_df = mesh_df
+            self.logger.info("Using mesh analysis data only (no valid ROI data found)")
+        
+        # Save merged data
+        final_df.to_csv(final_csv_file, index=False)
+        self.logger.info(f"Final output CSV saved to: {final_csv_file}")
+        self.logger.info(f"Final output contains {len(final_df)} rows with columns: {list(final_df.columns)}")
     
     def save_summary_txt(self, summary_list):
         """Save text summary matching MATLAB format"""

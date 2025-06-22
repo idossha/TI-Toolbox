@@ -114,6 +114,264 @@ ex_search_dir="$script_dir/../ex-search"
 
 log_info "Selected subjects for processing: ${selected_subjects[*]}"
 
+# Function to list and select EEG nets
+select_eeg_net() {
+    local subject_name=$1
+    local m2m_dir=$2
+    local eeg_positions_dir="$m2m_dir/eeg_positions"
+    
+    log_info "Scanning available EEG nets for subject $subject_name..."
+    
+    if [ ! -d "$eeg_positions_dir" ]; then
+        log_error "EEG positions directory not found: $eeg_positions_dir"
+        exit 1
+    fi
+    
+    # Get available CSV files (EEG nets)
+    eeg_nets=()
+    default_net=""
+    i=1
+    
+    # Scan for CSV files
+    for net_file in "$eeg_positions_dir"/*.csv; do
+        if [ -f "$net_file" ]; then
+            net_name=$(basename "$net_file")
+            eeg_nets+=("$net_name")
+            
+            # Set default to GSN-HydroCel-185.csv if available
+            if [[ "$net_name" == "GSN-HydroCel-185.csv" ]]; then
+                default_net="$net_name"
+                default_index=$i
+            fi
+            
+            printf "%3d. %s\n" "$i" "$net_name"
+            ((i++))
+        fi
+    done
+    
+    if [ ${#eeg_nets[@]} -eq 0 ]; then
+        log_error "No EEG net CSV files found in: $eeg_positions_dir"
+        exit 1
+    fi
+    
+    log_info "Found ${#eeg_nets[@]} available EEG nets"
+    if [ -n "$default_net" ]; then
+        log_info "Default net: $default_net (option $default_index)"
+    fi
+    
+    # Prompt user to select EEG net
+    while true; do
+        if [ -n "$default_net" ]; then
+            echo -ne "${GREEN}Select EEG net [Press Enter for default: $default_net]: ${RESET}"
+        else
+            echo -ne "${GREEN}Select EEG net (enter number): ${RESET}"
+        fi
+        read -r net_choice
+        
+        if [[ -z "$net_choice" && -n "$default_net" ]]; then
+            # Use default
+            selected_net="$default_net"
+            log_info "Using default EEG net: $selected_net"
+            break
+        elif [[ "$net_choice" =~ ^[0-9]+$ ]] && (( net_choice >= 1 && net_choice <= ${#eeg_nets[@]} )); then
+            selected_net="${eeg_nets[$((net_choice-1))]}"
+            log_info "Selected EEG net: $selected_net"
+            break
+        else
+            log_error "Invalid selection. Please enter a number between 1 and ${#eeg_nets[@]}"
+        fi
+    done
+    
+    echo "$selected_net"
+}
+
+# Function to list available leadfields for a subject
+list_available_leadfields() {
+    local subject_name=$1
+    local subject_bids_dir=$2
+    
+    log_info "Scanning for existing leadfields for subject $subject_name..."
+    
+    leadfield_dirs=()
+    i=1
+    
+    # Look for leadfield directories with pattern: leadfield_vol_*
+    for leadfield_path in "$subject_bids_dir"/leadfield_vol_*; do
+        if [ -d "$leadfield_path" ]; then
+            # Extract net name from directory
+            dir_name=$(basename "$leadfield_path")
+            net_name=${dir_name#leadfield_vol_}
+            
+            # Check if leadfield.hdf5 exists
+            hdf5_file="$leadfield_path/leadfield.hdf5"
+            if [ -f "$hdf5_file" ]; then
+                leadfield_dirs+=("$net_name:$hdf5_file")
+                printf "%3d. %s (leadfield.hdf5)\n" "$i" "$net_name"
+                ((i++))
+            fi
+        fi
+    done
+    
+    if [ ${#leadfield_dirs[@]} -eq 0 ]; then
+        log_warning "No existing leadfields found for subject $subject_name"
+        return 1
+    else
+        log_info "Found ${#leadfield_dirs[@]} existing leadfield(s)"
+        return 0
+    fi
+}
+
+# Function to select leadfield for simulation
+select_leadfield() {
+    local subject_name=$1
+    local subject_bids_dir=$2
+    
+    if ! list_available_leadfields "$subject_name" "$subject_bids_dir"; then
+        log_error "No leadfields available for simulation"
+        return 1
+    fi
+    
+    # Prompt user to select leadfield
+    while true; do
+        echo -ne "${GREEN}Select leadfield for simulation (enter number): ${RESET}"
+        read -r leadfield_choice
+        
+        if [[ "$leadfield_choice" =~ ^[0-9]+$ ]] && (( leadfield_choice >= 1 && leadfield_choice <= ${#leadfield_dirs[@]} )); then
+            selected_leadfield_info="${leadfield_dirs[$((leadfield_choice-1))]}"
+            selected_net_name="${selected_leadfield_info%%:*}"
+            selected_hdf5_path="${selected_leadfield_info##*:}"
+            
+            log_info "Selected leadfield: $selected_net_name"
+            log_info "HDF5 file: $selected_hdf5_path"
+            
+            echo "$selected_net_name:$selected_hdf5_path"
+            return 0
+        else
+            log_error "Invalid selection. Please enter a number between 1 and ${#leadfield_dirs[@]}"
+        fi
+    done
+}
+
+# Function to check/create leadfields
+manage_leadfields() {
+    local subject_name=$1
+    local subject_bids_dir=$2
+    local m2m_dir=$3
+    
+    log_info "=========================================="
+    log_info "Leadfield Management for subject $subject_name"
+    log_info "=========================================="
+    
+    # Check for existing leadfields
+    if list_available_leadfields "$subject_name" "$subject_bids_dir"; then
+        echo ""
+        while true; do
+            echo -ne "${GREEN}Do you want to (C)reate new leadfield, (U)se existing, or (B)oth? [U/C/B]: ${RESET}"
+            read -r leadfield_action
+            
+            case "${leadfield_action^^}" in
+                U|"")
+                    log_info "Using existing leadfield"
+                    if selected_info=$(select_leadfield "$subject_name" "$subject_bids_dir"); then
+                        echo "$selected_info"
+                        return 0
+                    else
+                        return 1
+                    fi
+                    ;;
+                C)
+                    log_info "Creating new leadfield"
+                    create_new_leadfield "$subject_name" "$subject_bids_dir" "$m2m_dir"
+                    # After creation, let user select from available leadfields
+                    if selected_info=$(select_leadfield "$subject_name" "$subject_bids_dir"); then
+                        echo "$selected_info"
+                        return 0
+                    else
+                        return 1
+                    fi
+                    ;;
+                B)
+                    log_info "Creating new leadfield, then selecting for simulation"
+                    create_new_leadfield "$subject_name" "$subject_bids_dir" "$m2m_dir"
+                    # After creation, let user select from available leadfields
+                    if selected_info=$(select_leadfield "$subject_name" "$subject_bids_dir"); then
+                        echo "$selected_info"
+                        return 0
+                    else
+                        return 1
+                    fi
+                    ;;
+                *)
+                    log_error "Invalid input. Please enter U, C, or B"
+                    ;;
+            esac
+        done
+    else
+        log_warning "No existing leadfields found. Creating new leadfield..."
+        create_new_leadfield "$subject_name" "$subject_bids_dir" "$m2m_dir"
+        # After creation, automatically use the newly created leadfield
+        if list_available_leadfields "$subject_name" "$subject_bids_dir"; then
+            # If only one leadfield exists, use it automatically
+            if [ ${#leadfield_dirs[@]} -eq 1 ]; then
+                selected_leadfield_info="${leadfield_dirs[0]}"
+                selected_net_name="${selected_leadfield_info%%:*}"
+                selected_hdf5_path="${selected_leadfield_info##*:}"
+                log_info "Automatically using newly created leadfield: $selected_net_name"
+                echo "$selected_net_name:$selected_hdf5_path"
+                return 0
+            else
+                # Multiple leadfields available, let user choose
+                if selected_info=$(select_leadfield "$subject_name" "$subject_bids_dir"); then
+                    echo "$selected_info"
+                    return 0
+                else
+                    return 1
+                fi
+            fi
+        else
+            log_error "Leadfield creation failed"
+            return 1
+        fi
+    fi
+}
+
+# Function to create new leadfield
+create_new_leadfield() {
+    local subject_name=$1
+    local subject_bids_dir=$2
+    local m2m_dir=$3
+    
+    # Select EEG net for new leadfield
+    selected_net=$(select_eeg_net "$subject_name" "$m2m_dir")
+    
+    # Extract net name without .csv extension for directory naming
+    net_name_clean="${selected_net%.csv}"
+    
+    # Construct paths with new naming scheme
+    leadfield_dir="$subject_bids_dir/leadfield_vol_$net_name_clean"
+    eeg_cap_path="$m2m_dir/eeg_positions/$selected_net"
+    
+    log_info "Creating leadfield for EEG net: $selected_net"
+    log_info "Output directory: $leadfield_dir"
+    
+    # Create leadfield
+    if simnibs_python "$ex_search_dir/leadfield.py" "$m2m_dir" "$eeg_cap_path" "$net_name_clean"; then
+        log_info "Leadfield creation completed successfully"
+        
+        # Verify the leadfield file was created
+        expected_hdf5="$leadfield_dir/leadfield.hdf5"
+        if [ -f "$expected_hdf5" ]; then
+            log_info "Leadfield file verified: $expected_hdf5"
+        else
+            log_error "Leadfield file not found: $expected_hdf5"
+            return 1
+        fi
+    else
+        log_error "Leadfield creation failed"
+        return 1
+    fi
+}
+
 # Loop through selected subjects and run the pipeline
 for subject_index in "${selected_subjects[@]}"; do
     subject_name="${subjects[$((subject_index-1))]}"
@@ -141,40 +399,25 @@ for subject_index in "${selected_subjects[@]}"; do
         exit 1
     fi
 
-    # Define leadfield directories
-    leadfield_vol_dir="$subject_bids_dir/leadfield_vol_$subject_name"
-
-    # Check if leadfield directory exists
-    if [ ! -d "$leadfield_vol_dir" ] ; then
-        log_warning "Missing leadfield matrices for subject $subject_name"
-        while true; do
-            echo -ne "${GREEN}Do you wish to create them? It will take some time (Y/N):${RESET} "
-            read -r create_leadfield
-            if [[ "$create_leadfield" =~ ^[Yy]$ ]]; then
-                log_info "Starting leadfield generation for subject $subject_name"
-                if simnibs_python "$ex_search_dir/leadfield.py" "$m2m_dir" "EGI_template.csv"; then
-                    log_info "Leadfield generation completed successfully"
-                else
-                    log_error "Leadfield generation failed"
-                    exit 1
-                fi
-                break
-            elif [[ "$create_leadfield" =~ ^[Nn]$ ]]; then
-                log_warning "Skipping leadfield creation for subject $subject_name"
-                exit 1
-            else
-                log_error "Invalid input. Please enter Y or N"
-            fi
-        done
+    # Manage leadfields (check existing, create new, or select)
+    log_info "Managing leadfields for subject $subject_name"
+    if leadfield_info=$(manage_leadfields "$subject_name" "$subject_bids_dir" "$m2m_dir"); then
+        # Parse the returned information
+        selected_net_name="${leadfield_info%%:*}"
+        selected_hdf5_path="${leadfield_info##*:}"
+        
+        log_info "Using leadfield: $selected_net_name"
+        log_info "HDF5 path: $selected_hdf5_path"
     else
-        log_info "Leadfield directories already exist for subject $subject_name"
+        log_error "Leadfield management failed for subject $subject_name"
+        exit 1
     fi
 
-    # Set the leadfield_hdf path
-    leadfield_hdf="$subject_bids_dir/leadfield_$subject_name/${subject_name}_leadfield_EGI_template.hdf5"
-    export LEADFIELD_HDF=$leadfield_hdf
-    export PROJECT_DIR=$project_dir
-    export SUBJECT_NAME=$subject_name
+    # Set environment variables for TI simulation
+    export LEADFIELD_HDF="$selected_hdf5_path"
+    export SELECTED_EEG_NET="$selected_net_name"
+    export PROJECT_DIR="$project_dir"
+    export SUBJECT_NAME="$subject_name"
     export TI_LOG_FILE="$log_file"
 
     # Call the TI optimizer script (sequential processing for SimNIBS compatibility)
@@ -256,14 +499,8 @@ for subject_index in "${selected_subjects[@]}"; do
         exit 1
     fi
 
-    # Run the Python script to update the output.csv file
-    log_info "Starting CSV update process for subject $subject_name"
-    if python3 "$ex_search_dir/update_output_csv.py" "$project_dir" "$subject_name"; then
-        log_info "CSV update completed successfully for subject $subject_name"
-    else
-        log_error "CSV update failed for subject $subject_name"
-        exit 1
-    fi
+    # Note: Final output CSV is now created directly by the mesh field analyzer
+    # No separate CSV update step needed
 
     log_info "All pipeline steps completed successfully for subject $subject_name"
     log_info "Results saved to: $mesh_dir/analysis"
