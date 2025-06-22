@@ -699,7 +699,7 @@ class ExSearchTab(QtWidgets.QWidget):
         env["SUBJECT_NAME"] = subject_id
         env["SUBJECTS_DIR"] = project_dir
         
-        # Step 1: Run the TI simulation
+        # Step 1: Run the TI simulation (sequential, SimNIBS compatible)
         self.update_output("Step 1: Running TI simulation...")
         ti_sim_script = os.path.join(ex_search_scripts_dir, "ti_sim.py")
         
@@ -709,10 +709,10 @@ class ExSearchTab(QtWidgets.QWidget):
             " ".join(e1_minus),
             " ".join(e2_plus),
             " ".join(e2_minus),
-            "1000"  # Default intensity in mV (1V)
+            ""   # Use default 1mA (empty input will use default)
         ]
         
-        # Command to run ti_sim.py
+        # Command to run ti_sim.py (now with parallel processing)
         cmd = ["simnibs_python", ti_sim_script]
         
         # Create and start thread for step 1
@@ -781,17 +781,17 @@ class ExSearchTab(QtWidgets.QWidget):
             # Create output directory if it doesn't exist
             os.makedirs(mesh_dir, exist_ok=True)
             
-            # Run mesh processing
+            # Run Python mesh processing (replaces MATLAB version)
             script_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
             ex_search_scripts_dir = os.path.join(script_dir, "ex-search")
-            mesh_processing_script = os.path.join(ex_search_scripts_dir, "field-analysis", "run_process_mesh_files.sh")
+            mesh_processing_script = os.path.join(ex_search_scripts_dir, "mesh_field_analyzer.py")
             
             # Update environment variables for mesh processing
             env["PROJECT_DIR"] = project_dir
             env["SUBJECT_NAME"] = subject_id
             env["MESH_DIR"] = mesh_dir
             
-            cmd = ["bash", mesh_processing_script, mesh_dir]
+            cmd = ["python3", mesh_processing_script, mesh_dir]
             
             self.optimization_process = ExSearchThread(cmd, env)
             self.optimization_process.output_signal.connect(self.update_output)

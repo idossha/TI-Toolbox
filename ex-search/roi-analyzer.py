@@ -7,6 +7,11 @@ import subprocess
 import json
 import csv
 import sys
+import time
+
+# Add logging utility import
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+from utils import logging_util
 
 
 '''
@@ -43,6 +48,22 @@ if not project_dir or not subject_name:
     print("Error: PROJECT_DIR and SUBJECT_NAME environment variables must be set")
     sys.exit(1)
 
+# Initialize logger
+log_file = os.environ.get('TI_LOG_FILE')
+if not log_file:
+    # If not provided, create a new log file (fallback behavior)
+    time_stamp = time.strftime('%Y%m%d_%H%M%S')
+    derivatives_dir = os.path.join(project_dir, 'derivatives')
+    log_dir = os.path.join(derivatives_dir, 'logs', f'sub-{subject_name}')
+    os.makedirs(log_dir, exist_ok=True)
+    log_file = os.path.join(log_dir, f'roi_analyzer_{time_stamp}.log')
+
+# Initialize our main logger
+logger = logging_util.get_logger('ROI-Analyzer', log_file, overwrite=False)
+
+# Configure external loggers
+logging_util.configure_external_loggers(['simnibs'], logger)
+
 # Set the directories based on BIDS structure
 simnibs_dir = os.path.join(project_dir, "derivatives", "SimNIBS")
 subject_dir = os.path.join(simnibs_dir, f"sub-{subject_name}")
@@ -62,26 +83,26 @@ except FileNotFoundError:
 # Verify that all ROI files exist
 missing_files = [f for f in position_files if not os.path.exists(f)]
 if missing_files:
-    print("Error: The following ROI files are missing:")
+    logger.error("The following ROI files are missing:")
     for f in missing_files:
-        print(f"  - {f}")
+        logger.error(f"  - {f}")
     sys.exit(1)
 
 # Get coordinates from the first ROI file to create the directory name
 first_roi_file = position_files[0]
 coords = get_roi_coordinates(first_roi_file)
 if not coords:
-    print("Error: Could not read coordinates from ROI file")
+    logger.error("Could not read coordinates from ROI file")
     sys.exit(1)
 
 # Create directory name from coordinates
 coord_dir = f"xyz_{int(coords[0])}_{int(coords[1])}_{int(coords[2])}"
 opt_directory = os.path.join(ex_search_dir, coord_dir)
 
-# Create results directory if it doesn't exist
-results_dir = os.path.join(opt_directory, "results")
-if not os.path.exists(results_dir):
-    os.makedirs(results_dir)
+# Create analysis directory if it doesn't exist
+analysis_dir = os.path.join(opt_directory, "analysis")
+if not os.path.exists(analysis_dir):
+    os.makedirs(analysis_dir)
 
 # Create a dictionary to hold the data
 mesh_data = {}
@@ -90,13 +111,15 @@ mesh_data = {}
 msh_files = [f for f in os.listdir(opt_directory) if f.endswith('.msh')]
 total_files = len(msh_files)  # Total number of files to process
 
+logger.info(f"Found {total_files} mesh files to process")
+
 # Iterate over all .msh files in the opt directory with progress indicator
 for i, msh_file in enumerate(msh_files):
     msh_file_path = os.path.join(opt_directory, msh_file)
 
     # Progress indicator (formatted as 001/100)
     progress_str = f"{i+1:03}/{total_files}"
-    print(f"{progress_str} Processing {msh_file_path}")
+    logger.info(f"{progress_str} Processing {msh_file_path}")
     
     # Use only the file name part for mesh_key
     mesh_key = os.path.basename(msh_file_path)
@@ -105,15 +128,15 @@ for i, msh_file in enumerate(msh_files):
     # Iterate over all position files
     for pos_file in position_files:
         pos_base = os.path.splitext(os.path.basename(pos_file))[0]  # Extract the base name of the position file without extension
-        print(f"  Using position file {pos_file}")
+        logger.debug(f"Using position file: {pos_file}")
 
         # Run the command to generate CSV files in the ROI directory
         try:
             cmd = ["get_fields_at_coordinates", "-s", pos_file, "-m", msh_file_path, "--method", "linear"]
-            print(f"Running command: {' '.join(cmd)}")
+            logger.debug(f"Running command: {' '.join(cmd)}")
             subprocess.run(cmd, check=True)
         except subprocess.CalledProcessError as e:
-            print(f"Error running get_fields_at_coordinates: {e}")
+            logger.error(f"Error running get_fields_at_coordinates: {e}")
             continue
         
         # The generated CSV files will be in the current directory with names based on the position file and field names
@@ -122,7 +145,7 @@ for i, msh_file in enumerate(msh_files):
         
         # Process the TImax CSV file
         if os.path.exists(ti_max_csv):
-            print(f"Found TImax CSV file: {ti_max_csv}")
+            logger.debug(f"Found TImax CSV file: {ti_max_csv}")
             try:
                 # Read the CSV file into a dataframe without headers
                 df_ti_max = pd.read_csv(ti_max_csv, header=None)
@@ -138,20 +161,20 @@ for i, msh_file in enumerate(msh_files):
                 if 'TImax' not in mesh_data[mesh_key]:
                     mesh_data[mesh_key]['TImax'] = ti_max_values[0] if ti_max_values else None
             except Exception as e:
-                print(f"Error processing TImax file {ti_max_csv}: {e}")
+                logger.error(f"Error processing TImax file {ti_max_csv}: {e}")
             finally:
                 if os.path.exists(ti_max_csv):
                     os.remove(ti_max_csv)
         else:
-            print(f"    TImax CSV file {ti_max_csv} not found. Skipping this file.")
+            logger.warning(f"TImax CSV file {ti_max_csv} not found")
 
 
 # Save the dictionary to a file for later use
-json_output_path = os.path.join(results_dir, 'mesh_data.json')
+json_output_path = os.path.join(analysis_dir, 'mesh_data.json')
 with open(json_output_path, 'w') as json_file:
     json.dump(mesh_data, json_file, indent=4)
 
-print(f"Dictionary saved to {json_output_path}")
+logger.info(f"Dictionary saved to: {json_output_path}")
 
 # Prepare the CSV data
 header = ['Mesh', 'TImax']
@@ -171,10 +194,10 @@ for mesh_name, data in mesh_data.items():
     csv_data.append(row)
 
 # Write to CSV file
-csv_output_path = os.path.join(results_dir, 'output.csv')
+csv_output_path = os.path.join(analysis_dir, 'final_output.csv')
 with open(csv_output_path, 'w', newline='') as file:
     writer = csv.writer(file)
     writer.writerows(csv_data)
 
-print(f'CSV file created successfully at {csv_output_path}.')
+logger.info(f"CSV file created successfully at: {csv_output_path}")
 

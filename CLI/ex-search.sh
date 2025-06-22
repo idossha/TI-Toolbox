@@ -12,6 +12,19 @@
 
 set -e  # Exit immediately if a command exits with a non-zero status
 
+# Get the directory where this script is located
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+utils_dir="$(cd "$script_dir/../utils" && pwd)"
+
+# Set timestamp for consistent log naming
+timestamp=$(date +%Y%m%d_%H%M%S)
+
+# Source the logging utility
+source "$utils_dir/bash_logging.sh"
+
+# Initialize logging
+set_logger_name "ex-search"
+
 # Define color variables
 BOLD='\033[1m'
 UNDERLINE='\033[4m'
@@ -24,7 +37,7 @@ YELLOW='\033[0;33m' #Yellow for warnings or important notices
 
 # Check if PROJECT_DIR_NAME is set
 if [ -z "$PROJECT_DIR_NAME" ]; then
-    echo -e "${RED}Error: PROJECT_DIR_NAME environment variable is not set${RESET}"
+    log_error "PROJECT_DIR_NAME environment variable is not set"
     exit 1
 fi
 
@@ -32,6 +45,20 @@ fi
 project_dir="/mnt/$PROJECT_DIR_NAME"
 derivatives_dir="$project_dir/derivatives"
 simnibs_dir="$derivatives_dir/SimNIBS"
+
+# Set up logging directory and file
+logs_dir="$derivatives_dir/logs"
+mkdir -p "$logs_dir"
+log_file="${logs_dir}/ex_search_${timestamp}.log"
+set_log_file "$log_file"
+
+# Configure external loggers
+configure_external_loggers '["simnibs", "mesh_io"]'
+
+log_info "Ex-Search Optimization Pipeline"
+log_info "==============================="
+log_info "Project directory: $project_dir"
+log_info "Timestamp: $timestamp"
 
 # Function to list available subjects
 list_subjects() {
@@ -49,8 +76,16 @@ list_subjects() {
     done
 }
 
+log_info "Scanning for available subjects..."
 echo -e "${BOLD_CYAN}Choose subjects:${RESET}"
 list_subjects
+
+if [ ${#subjects[@]} -eq 0 ]; then
+    log_error "No subjects found in BIDS directory structure"
+    exit 1
+fi
+
+log_info "Found ${#subjects[@]} available subjects"
 
 # Prompt user to select subjects
 while true; do
@@ -61,7 +96,7 @@ while true; do
         valid_input=true
         for num in "${selected_subjects[@]}"; do
             if (( num < 1 || num >= i )); then
-                echo -e "${RED}Invalid subject number: $num. Please try again.${RESET}"
+                log_error "Invalid subject number: $num"
                 valid_input=false
                 break
             fi
@@ -70,13 +105,14 @@ while true; do
             break
         fi
     else
-        echo -e "${RED}Invalid input format. Please enter numbers separated by commas.${RESET}"
+        log_error "Invalid input format. Please enter numbers separated by commas"
     fi
 done
 
 # Get the current script directory and set paths
-script_dir=$(pwd)
 ex_search_dir="$script_dir/../ex-search"
+
+log_info "Selected subjects for processing: ${selected_subjects[*]}"
 
 # Loop through selected subjects and run the pipeline
 for subject_index in "${selected_subjects[@]}"; do
@@ -89,17 +125,19 @@ for subject_index in "${selected_subjects[@]}"; do
     # Create ex-search output directory if it doesn't exist
     mkdir -p "$ex_search_output_dir"
 
-    echo -e "\n${BOLD_CYAN}Processing subject: ${subject_name}${RESET}"
+    log_info "=========================================="
+    log_info "Processing subject: $subject_name"
+    log_info "Subject directory: $subject_bids_dir"
+    log_info "M2M directory: $m2m_dir"
+    log_info "ROI directory: $roi_dir"
+    log_info "=========================================="
 
     # Call the ROI creator script to handle ROI creation or selection
-    echo -e "${CYAN}Running roi-creator.py for subject $subject_name...${RESET}"
-    python3 "$ex_search_dir/roi-creator.py" "$roi_dir"
-
-    # Check if the ROI creation was successful
-    if [ $? -eq 0 ]; then
-        echo -e "${GREEN}ROI creation completed successfully for subject $subject_name.${RESET}"
+    log_info "Starting ROI creation/selection process"
+    if python3 "$ex_search_dir/roi-creator.py" "$roi_dir"; then
+        log_info "ROI creation completed successfully for subject $subject_name"
     else
-        echo -e "${RED}ROI creation failed for subject $subject_name. Exiting.${RESET}"
+        log_error "ROI creation failed for subject $subject_name"
         exit 1
     fi
 
@@ -108,23 +146,28 @@ for subject_index in "${selected_subjects[@]}"; do
 
     # Check if leadfield directory exists
     if [ ! -d "$leadfield_vol_dir" ] ; then
-        echo -e "${YELLOW}Missing Leadfield matrices for subject $subject_name.${RESET}"
+        log_warning "Missing leadfield matrices for subject $subject_name"
         while true; do
             echo -ne "${GREEN}Do you wish to create them? It will take some time (Y/N):${RESET} "
             read -r create_leadfield
             if [[ "$create_leadfield" =~ ^[Yy]$ ]]; then
-                echo -e "${CYAN}Running leadfield.py for subject $subject_name...${RESET}"
-                simnibs_python "$ex_search_dir/leadfield.py" "$m2m_dir" "EGI_template.csv"
+                log_info "Starting leadfield generation for subject $subject_name"
+                if simnibs_python "$ex_search_dir/leadfield.py" "$m2m_dir" "EGI_template.csv"; then
+                    log_info "Leadfield generation completed successfully"
+                else
+                    log_error "Leadfield generation failed"
+                    exit 1
+                fi
                 break
             elif [[ "$create_leadfield" =~ ^[Nn]$ ]]; then
-                echo -e "${RED}Skipping leadfield creation. Exiting.${RESET}"
+                log_warning "Skipping leadfield creation for subject $subject_name"
                 exit 1
             else
-                echo -e "${RED}Invalid input. Please enter Y or N.${RESET}"
+                log_error "Invalid input. Please enter Y or N"
             fi
         done
     else
-        echo -e "${GREEN}Leadfield directories already exist for subject $subject_name. Skipping leadfield.py.${RESET}"
+        log_info "Leadfield directories already exist for subject $subject_name"
     fi
 
     # Set the leadfield_hdf path
@@ -132,49 +175,44 @@ for subject_index in "${selected_subjects[@]}"; do
     export LEADFIELD_HDF=$leadfield_hdf
     export PROJECT_DIR=$project_dir
     export SUBJECT_NAME=$subject_name
+    export TI_LOG_FILE="$log_file"
 
-    # Call the TI optimizer script
-    echo -e "${CYAN}Running TImax_optimizer.py for subject $subject_name...${RESET}"
-    simnibs_python "$ex_search_dir/ti_sim.py"
-
-    # Check if the TI optimization was successful
-    if [ $? -eq 0 ]; then
-        echo -e "${GREEN}TI optimization completed successfully for subject $subject_name.${RESET}"
+    # Call the TI optimizer script (sequential processing for SimNIBS compatibility)
+    log_info "Starting TI simulation for subject $subject_name"
+    if simnibs_python "$ex_search_dir/ti_sim.py"; then
+        log_info "TI optimization completed successfully for subject $subject_name"
     else
-        echo -e "${RED}TI optimization failed for subject $subject_name. Exiting.${RESET}"
+        log_error "TI optimization failed for subject $subject_name"
         exit 1
     fi
 
     # Call the ROI analyzer script
-    echo -e "${CYAN}Running roi-analyzer.py for subject $subject_name...${RESET}"
-    python3 "$ex_search_dir/roi-analyzer.py" "$roi_dir"
-
-    # Check if the ROI analysis was successful
-    if [ $? -eq 0 ]; then
-        echo -e "${GREEN}ROI analysis completed successfully for subject $subject_name.${RESET}"
+    log_info "Starting ROI analysis for subject $subject_name"
+    if python3 "$ex_search_dir/roi-analyzer.py" "$roi_dir"; then
+        log_info "ROI analysis completed successfully for subject $subject_name"
     else
-        echo -e "${RED}ROI analysis failed for subject $subject_name. Exiting.${RESET}"
+        log_error "ROI analysis failed for subject $subject_name"
         exit 1
     fi
 
     # Define and check roi_list_file
     roi_list_file="$roi_dir/roi_list.txt"
     if [ ! -f "$roi_list_file" ]; then
-        echo -e "${RED}Error: roi_list.txt not found in $roi_dir${RESET}"
+        log_error "ROI list file not found: $roi_list_file"
         exit 1
     fi
 
     # Get ROI coordinates from the first ROI file
     first_roi=$(head -n1 "$roi_list_file" || echo "")
     if [ -z "$first_roi" ]; then
-        echo -e "${RED}Error: roi_list.txt is empty${RESET}"
+        log_error "ROI list file is empty: $roi_list_file"
         exit 1
     fi
     
     # Construct full path to ROI file
     roi_file="$roi_dir/$first_roi"
     if [ ! -f "$roi_file" ]; then
-        echo -e "${RED}Error: ROI file not found: $roi_file${RESET}"
+        log_error "ROI file not found: $roi_file"
         exit 1
     fi
 
@@ -187,8 +225,7 @@ for subject_index in "${selected_subjects[@]}"; do
     y=$(echo "$y" | tr -d ' ')
     z=$(echo "$z" | tr -d ' ')
     
-    # Print coordinates for debugging
-    echo -e "${CYAN}Processing coordinates from $roi_file: $x, $y, $z${RESET}"
+    log_info "Processing ROI coordinates: $x, $y, $z"
     
     # Round coordinates to integers using awk for better decimal and negative number handling
     x_int=$(echo "$x" | awk '{printf "%.0f", $1}')
@@ -197,47 +234,44 @@ for subject_index in "${selected_subjects[@]}"; do
     
     # Validate that we got all coordinates
     if [ -z "$x_int" ] || [ -z "$y_int" ] || [ -z "$z_int" ]; then
-        echo -e "${RED}Error: Failed to parse coordinates from $roi_file${RESET}"
-        echo -e "${RED}Raw coordinates: $coordinates${RESET}"
+        log_error "Failed to parse coordinates from ROI file: $roi_file"
+        log_error "Raw coordinates: $coordinates"
         exit 1
     fi
     
     # Create directory name from coordinates
     coord_dir="xyz_${x_int}_${y_int}_${z_int}"
-    echo -e "${CYAN}Creating directory: $coord_dir${RESET}"
+    log_info "Creating analysis directory: $coord_dir"
     mesh_dir="$ex_search_output_dir/$coord_dir"
 
     # Create output directory if it doesn't exist
     mkdir -p "$mesh_dir"
 
-    # Run the process_mesh_files_new.sh script
-    echo -e "${CYAN}Running process_mesh_files_new.sh for subject $subject_name...${RESET}"
-    "$ex_search_dir/field-analysis/run_process_mesh_files.sh" "$mesh_dir"
-
-    # Check if the mesh processing was successful
-    if [ $? -eq 0 ]; then
-        echo -e "${GREEN}Mesh processing completed successfully for subject $subject_name.${RESET}"
+    # Run the Python mesh analysis script
+    log_info "Starting mesh field analysis for subject $subject_name"
+    if python3 "$ex_search_dir/mesh_field_analyzer.py" "$mesh_dir"; then
+        log_info "Mesh field analysis completed successfully for subject $subject_name"
     else
-        echo -e "${RED}Mesh processing failed for subject $subject_name. Exiting.${RESET}"
+        log_error "Mesh field analysis failed for subject $subject_name"
         exit 1
     fi
 
     # Run the Python script to update the output.csv file
-    echo -e "${CYAN}Running update_output_csv.py for subject $subject_name...${RESET}"
-    python3 "$ex_search_dir/update_output_csv.py" "$project_dir" "$subject_name"
-
-    # Check if the Python script was successful
-    if [ $? -eq 0 ]; then
-        echo -e "${GREEN}Updated output.csv successfully for subject $subject_name.${RESET}"
+    log_info "Starting CSV update process for subject $subject_name"
+    if python3 "$ex_search_dir/update_output_csv.py" "$project_dir" "$subject_name"; then
+        log_info "CSV update completed successfully for subject $subject_name"
     else
-        echo -e "${RED}Failed to update output.csv for subject $subject_name. Exiting.${RESET}"
+        log_error "CSV update failed for subject $subject_name"
         exit 1
     fi
 
-    # Run the mesh selector script
-    echo -e "${CYAN}Running mesh-selector.sh for subject $subject_name...${RESET}"
-    #bash "$ex_search_dir/mesh-selector.sh"
+    log_info "All pipeline steps completed successfully for subject $subject_name"
+    log_info "Results saved to: $mesh_dir/analysis"
 
 done
 
-echo -e "\n${BOLD_CYAN}All tasks completed successfully for all selected subjects.${RESET}\n" 
+log_info "=========================================="
+log_info "Ex-Search pipeline completed successfully!"
+log_info "Total subjects processed: ${#selected_subjects[@]}"
+log_info "Complete pipeline log: $log_file"
+log_info "==========================================" 

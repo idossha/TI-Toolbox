@@ -3,6 +3,11 @@ import sys
 import re
 import os
 import csv
+import time
+
+# Add logging utility import
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+from utils import logging_util
 
 '''
 Ido Haber - ihaber@wisc.edu
@@ -27,7 +32,7 @@ def get_roi_coordinates(roi_file):
             coords = next(reader)
             return [float(coord.strip()) for coord in coords]
     except Exception as e:
-        print(f"Error reading coordinates from {roi_file}: {e}")
+        # Note: logger not available in this function - handled by caller
         return None
 
 def map_mesh_names(mesh_name):
@@ -35,6 +40,19 @@ def map_mesh_names(mesh_name):
     return "TI_field_" + mesh_name.replace(" <> ", "_and_") + ".msh"
 
 def update_output_csv(project_dir, subject_name):
+    # Initialize logger
+    log_file = os.environ.get('TI_LOG_FILE')
+    if not log_file:
+        # If not provided, create a new log file (fallback behavior)
+        time_stamp = time.strftime('%Y%m%d_%H%M%S')
+        derivatives_dir = os.path.join(project_dir, 'derivatives')
+        log_dir = os.path.join(derivatives_dir, 'logs', f'sub-{subject_name}')
+        os.makedirs(log_dir, exist_ok=True)
+        log_file = os.path.join(log_dir, f'update_csv_{time_stamp}.log')
+
+    # Initialize our main logger
+    logger = logging_util.get_logger('CSV-Updater', log_file, overwrite=False)
+    
     # Define paths according to BIDS structure
     simnibs_dir = os.path.join(project_dir, "derivatives", "SimNIBS")
     subject_dir = os.path.join(simnibs_dir, f"sub-{subject_name}")
@@ -50,24 +68,24 @@ def update_output_csv(project_dir, subject_name):
             first_roi_name = os.path.basename(first_roi_name)
             first_roi = os.path.join(roi_dir, first_roi_name)
     except FileNotFoundError:
-        print(f"Error: ROI list file not found at {roi_list_path}")
+        logger.error(f"ROI list file not found at: {roi_list_path}")
         sys.exit(1)
     
     coords = get_roi_coordinates(first_roi)
     if not coords:
-        print("Error: Could not read coordinates from ROI file")
+        logger.error("Could not read coordinates from ROI file")
         sys.exit(1)
     
     # Create directory name from coordinates
     coord_dir = f"xyz_{int(coords[0])}_{int(coords[1])}_{int(coords[2])}"
     opt_directory = os.path.join(ex_search_dir, coord_dir)
     
-    summary_csv_path = os.path.join(opt_directory, "results", "summary.csv")
-    output_csv_path = os.path.join(opt_directory, "output.csv")
+    summary_csv_path = os.path.join(opt_directory, "analysis", "summary.csv")
+    output_csv_path = os.path.join(opt_directory, "analysis", "final_output.csv")
     
     # Load the summary CSV
     summary_df = pd.read_csv(summary_csv_path)
-    print("Summary CSV columns:", summary_df.columns.tolist())  # Print column names for debugging
+    logger.info(f"Summary CSV columns: {summary_df.columns.tolist()}")
     
     # Columns to extract
     columns_to_extract = [
@@ -77,7 +95,7 @@ def update_output_csv(project_dir, subject_name):
     # Ensure the columns exist in the summary CSV
     missing_columns = [col for col in columns_to_extract if col not in summary_df.columns]
     if missing_columns:
-        print(f"Error: Missing columns in summary.csv: {', '.join(missing_columns)}")
+        logger.error(f"Missing columns in summary.csv: {', '.join(missing_columns)}")
         sys.exit(1)
     
     # Extract the necessary columns and map FileName
@@ -86,11 +104,11 @@ def update_output_csv(project_dir, subject_name):
     
     # Load the output CSV
     output_df = pd.read_csv(output_csv_path)
-    print("Output CSV columns:", output_df.columns.tolist())  # Print column names for debugging
+    logger.info(f"Output CSV columns: {output_df.columns.tolist()}")
     
     # Ensure 'Mesh' exists in output_df
     if 'Mesh' not in output_df.columns:
-        print("Error: 'Mesh' column is missing in output.csv")
+        logger.error("'Mesh' column is missing in output.csv")
         sys.exit(1)
     
     # Merge the dataframes on Mesh
@@ -98,7 +116,7 @@ def update_output_csv(project_dir, subject_name):
     
     # Save the updated output CSV
     merged_df.to_csv(output_csv_path, index=False)
-    print(f"Updated {output_csv_path} with new columns from summary.csv")
+    logger.info(f"Updated {output_csv_path} with new columns from summary.csv")
 
 if __name__ == "__main__":
     if len(sys.argv) != 3:
