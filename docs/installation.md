@@ -15,7 +15,7 @@ The Temporal Interference Toolbox is distributed as compiled executables for Win
 
 You are downloading **compiled executables** - standalone applications that include all necessary components bundled together. These executables:
 
-- Do not require Python or other dependencies to be installed
+- Do not require installation or any other dependencies to be installed aside of a Docker engine
 - Include the complete TI Toolbox environment
 - Are self-contained and portable
 
@@ -61,7 +61,7 @@ Since the TI Toolbox is an independent development effort in its early stages, t
 ### Windows Installation
 
 #### Step 1: Download the Installer
-1. Download the Windows EXE installer from the releases page
+1. Download the Windows EXE executable from the releases page
 2. Windows Defender SmartScreen may block the download
 
 #### Step 2: Bypass SmartScreen Protection

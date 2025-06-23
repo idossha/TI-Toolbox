@@ -173,6 +173,18 @@ run_command() {
     return 0
 }
 
+# Memory safeguards to prevent PETSC segmentation faults
+# Note: We only run one charm process at a time (sequential), but allow each charm 
+# to use multiple threads for optimal performance
+
+# Add memory debugging options for PETSC (optional - can help with debugging)
+export PETSC_OPTIONS="-malloc_debug -malloc_dump"
+
+# Add a small delay before starting charm to reduce memory contention when multiple subjects
+sleep $((RANDOM % 3 + 1))
+
+log_info "Starting charm with memory safeguards (multi-threaded, but sequential execution)..."
+
 # Change to SimNIBS directory and run charm
 cd "$SIMNIBS_DIR" || exit 1
 

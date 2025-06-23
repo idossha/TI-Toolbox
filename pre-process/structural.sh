@@ -151,22 +151,28 @@ process_subject_non_recon() {
         echo "  DICOM conversion completed for subject: $subject_id"
     fi
     
-    # SimNIBS m2m creation
-    if $CREATE_M2M; then
-        echo "  Running SimNIBS charm..."
-        local charm_args=("$subject_dir")
-        if $QUIET; then
-            charm_args+=("--quiet")
-        fi
-        
-        if ! "$script_dir/charm.sh" "${charm_args[@]}"; then
-            echo "  Error: SimNIBS charm failed for subject: $subject_id"
-            return 1
-        fi
-        echo "  SimNIBS charm completed for subject: $subject_id"
+    echo "Non-recon processing completed for subject: $subject_id"
+    return 0
+}
+
+# Function to run SimNIBS charm for a single subject (always sequential)
+run_charm_single() {
+    local subject_dir="$1"
+    local subject_id=$(basename "$subject_dir" | sed 's/^sub-//')
+    
+    echo "Running SimNIBS charm for subject: $subject_id"
+    
+    local charm_args=("$subject_dir")
+    if $QUIET; then
+        charm_args+=("--quiet")
     fi
     
-    echo "Non-recon processing completed for subject: $subject_id"
+    if ! "$script_dir/charm.sh" "${charm_args[@]}"; then
+        echo "Error: SimNIBS charm failed for subject: $subject_id"
+        return 1
+    fi
+    
+    echo "SimNIBS charm completed for subject: $subject_id"
     return 0
 }
 
@@ -207,13 +213,24 @@ if $PARALLEL && ($RUN_RECON || $RECON_ONLY) && [[ ${#SUBJECT_DIRS[@]} -gt 1 ]]; 
     
     # Process non-recon steps first (sequentially to avoid conflicts)
     if ! $RECON_ONLY; then
-        echo "Processing non-recon steps sequentially first..."
+        echo "Processing non-recon steps (DICOM conversion) first..."
         for subject_dir in "${SUBJECT_DIRS[@]}"; do
             if ! process_subject_non_recon "$subject_dir"; then
                 echo "Error: Failed to pre-process subject: $subject_dir"
                 exit 1
             fi
         done
+        
+        # Run SimNIBS charm sequentially to avoid PETSC segmentation faults
+        if $CREATE_M2M; then
+            echo "Running SimNIBS charm sequentially to prevent memory conflicts..."
+            for subject_dir in "${SUBJECT_DIRS[@]}"; do
+                if ! run_charm_single "$subject_dir"; then
+                    echo "Error: Failed to run SimNIBS charm for subject: $subject_dir"
+                    exit 1
+                fi
+            done
+        fi
     fi
     
     # Now run recon-all in parallel
@@ -263,6 +280,14 @@ else
             if ! process_subject_non_recon "$subject_dir"; then
                 echo "Error: Failed to pre-process subject: $subject_dir"
                 exit 1
+            fi
+            
+            # Run SimNIBS charm sequentially
+            if $CREATE_M2M; then
+                if ! run_charm_single "$subject_dir"; then
+                    echo "Error: Failed to run SimNIBS charm for subject: $subject_dir"
+                    exit 1
+                fi
             fi
             
             # Then run recon-all if requested
