@@ -13,10 +13,27 @@ import subprocess
 import time
 import threading
 from datetime import datetime
+from collections import deque
 
 from PyQt5 import QtWidgets, QtCore, QtGui
 from PyQt5.QtCore import QTimer, QThread, pyqtSignal
 from PyQt5.QtWidgets import QHeaderView
+
+# Import matplotlib for graphs
+try:
+    import matplotlib
+    matplotlib.use('Qt5Agg')
+    try:
+        from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+    except ImportError:
+        from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
+    from matplotlib.figure import Figure
+    import matplotlib.pyplot as plt
+    plt.style.use('dark_background')  # Use dark theme for graphs
+    MATPLOTLIB_AVAILABLE = True
+except ImportError:
+    MATPLOTLIB_AVAILABLE = False
+    print("Warning: matplotlib not available. Install with: pip install matplotlib")
 
 try:
     import psutil
@@ -209,6 +226,13 @@ class SystemMonitorTab(QtWidgets.QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.monitor_thread = None
+        
+        # Data storage for graphs (store last 60 data points = 2 minutes at 2-second intervals)
+        self.max_data_points = 60
+        self.cpu_data = deque(maxlen=self.max_data_points)
+        self.memory_data = deque(maxlen=self.max_data_points)
+        self.time_data = deque(maxlen=self.max_data_points)
+        
         self.setup_ui()
         self.start_monitoring()
     
@@ -289,17 +313,46 @@ class SystemMonitorTab(QtWidgets.QWidget):
         self.pause_btn = QtWidgets.QPushButton("Pause Monitoring")
         self.pause_btn.clicked.connect(self.toggle_monitoring)
         
+        # Add clear graphs button if matplotlib is available
+        if MATPLOTLIB_AVAILABLE:
+            self.clear_graphs_btn = QtWidgets.QPushButton("Clear Graphs")
+            self.clear_graphs_btn.clicked.connect(self.clear_graph_data)
+            self.clear_graphs_btn.setStyleSheet("background-color: #555; color: white;")
+        
         self.kill_btn = QtWidgets.QPushButton("Terminate Selected Process")
         self.kill_btn.clicked.connect(self.terminate_selected_process)
         self.kill_btn.setStyleSheet("background-color: #f44336; color: white;")
         
         controls_layout.addWidget(self.refresh_btn)
         controls_layout.addWidget(self.pause_btn)
+        if MATPLOTLIB_AVAILABLE:
+            controls_layout.addWidget(self.clear_graphs_btn)
         controls_layout.addStretch()
         controls_layout.addWidget(self.kill_btn)
         
         processes_layout.addLayout(controls_layout)
         main_layout.addWidget(processes_group)
+        
+        # Real-time graphs section
+        if MATPLOTLIB_AVAILABLE:
+            graphs_group = QtWidgets.QGroupBox("Real-time Performance Graphs")
+            graphs_layout = QtWidgets.QHBoxLayout(graphs_group)
+            
+            # Create matplotlib figures
+            self.setup_graphs()
+            
+            # Add graphs to layout
+            graphs_layout.addWidget(self.cpu_canvas)
+            graphs_layout.addWidget(self.memory_canvas)
+            
+            main_layout.addWidget(graphs_group)
+        else:
+            # Show message if matplotlib not available
+            graphs_warning = QtWidgets.QLabel(
+                "📊 Real-time graphs not available. Install matplotlib for enhanced monitoring: pip install matplotlib"
+            )
+            graphs_warning.setStyleSheet("color: orange; font-style: italic; padding: 10px;")
+            main_layout.addWidget(graphs_warning)
         
         # Status label
         self.status_label = QtWidgets.QLabel("Monitoring active...")
@@ -315,9 +368,59 @@ class SystemMonitorTab(QtWidgets.QWidget):
             warning_label.setStyleSheet("color: orange; font-weight: bold;")
             main_layout.addWidget(warning_label)
     
+    def setup_graphs(self):
+        """Set up the matplotlib graphs for CPU and memory monitoring."""
+        if not MATPLOTLIB_AVAILABLE:
+            return
+        
+        # Set up CPU graph
+        self.cpu_figure = Figure(figsize=(6, 3), dpi=80)
+        self.cpu_canvas = FigureCanvas(self.cpu_figure)
+        self.cpu_canvas.setMinimumHeight(200)
+        
+        self.cpu_ax = self.cpu_figure.add_subplot(111)
+        self.cpu_ax.set_title('CPU Usage (%)', color='white', fontsize=12, pad=10)
+        self.cpu_ax.set_xlabel('Time (seconds ago)', color='white')
+        self.cpu_ax.set_ylabel('CPU %', color='white')
+        self.cpu_ax.set_ylim(0, 100)
+        self.cpu_ax.grid(True, alpha=0.3)
+        self.cpu_ax.tick_params(colors='white')
+        
+        # Initialize empty line for CPU
+        self.cpu_line, = self.cpu_ax.plot([], [], 'cyan', linewidth=2, label='CPU Usage')
+        self.cpu_ax.legend(loc='upper right')
+        
+        # Set up Memory graph  
+        self.memory_figure = Figure(figsize=(6, 3), dpi=80)
+        self.memory_canvas = FigureCanvas(self.memory_figure)
+        self.memory_canvas.setMinimumHeight(200)
+        
+        self.memory_ax = self.memory_figure.add_subplot(111)
+        self.memory_ax.set_title('Memory Usage (%)', color='white', fontsize=12, pad=10)
+        self.memory_ax.set_xlabel('Time (seconds ago)', color='white')
+        self.memory_ax.set_ylabel('Memory %', color='white')
+        self.memory_ax.set_ylim(0, 100)
+        self.memory_ax.grid(True, alpha=0.3)
+        self.memory_ax.tick_params(colors='white')
+        
+        # Initialize empty line for Memory
+        self.memory_line, = self.memory_ax.plot([], [], 'orange', linewidth=2, label='Memory Usage')
+        self.memory_ax.legend(loc='upper right')
+        
+        # Style the figures
+        self.cpu_figure.patch.set_facecolor('#2b2b2b')
+        self.memory_figure.patch.set_facecolor('#2b2b2b')
+        
+        # Tight layout to prevent label cutoff
+        self.cpu_figure.tight_layout()
+        self.memory_figure.tight_layout()
+    
     def start_monitoring(self):
         """Start the process monitoring thread."""
         if self.monitor_thread is None or not self.monitor_thread.isRunning():
+            # Clear graph data when starting fresh
+            self.clear_graph_data()
+            
             self.monitor_thread = ProcessMonitorThread()
             self.monitor_thread.process_data_signal.connect(self.update_process_table)
             self.monitor_thread.system_stats_signal.connect(self.update_system_stats)
@@ -334,6 +437,17 @@ class SystemMonitorTab(QtWidgets.QWidget):
             self.status_label.setText("Monitoring paused")
             self.status_label.setStyleSheet("color: orange; font-weight: bold;")
             self.pause_btn.setText("Resume Monitoring")
+    
+    def clear_graph_data(self):
+        """Clear the graph data when monitoring is restarted."""
+        self.cpu_data.clear()
+        self.memory_data.clear()
+        self.time_data.clear()
+        if MATPLOTLIB_AVAILABLE and hasattr(self, 'cpu_line'):
+            self.cpu_line.set_data([], [])
+            self.memory_line.set_data([], [])
+            self.cpu_canvas.draw()
+            self.memory_canvas.draw()
     
     def toggle_monitoring(self):
         """Toggle monitoring on/off."""
@@ -361,6 +475,56 @@ class SystemMonitorTab(QtWidgets.QWidget):
             self.memory_label.setText(f"Memory: {stats['memory_percent']:.1f}%")
         
         self.update_label.setText(f"Last Update: {stats['timestamp']}")
+        
+        # Update graphs if matplotlib is available
+        if MATPLOTLIB_AVAILABLE and hasattr(self, 'cpu_line'):
+            self.update_graphs(stats)
+    
+    def update_graphs(self, stats):
+        """Update the real-time graphs with new data."""
+        if not MATPLOTLIB_AVAILABLE:
+            return
+        
+        # Get current time for x-axis (seconds since start)
+        current_time = time.time()
+        if len(self.time_data) == 0:
+            # First data point - set as time 0
+            self.start_time = current_time
+            relative_time = 0
+        else:
+            # Calculate relative time in seconds
+            relative_time = current_time - self.start_time
+        
+        # Add new data points
+        self.time_data.append(relative_time)
+        self.cpu_data.append(stats['cpu_percent'])
+        self.memory_data.append(stats['memory_percent'])
+        
+        # Convert to lists for plotting (deque to list)
+        times = list(self.time_data)
+        cpu_values = list(self.cpu_data)
+        memory_values = list(self.memory_data)
+        
+        # Create x-axis as "seconds ago" (reverse the time scale)
+        if len(times) > 1:
+            max_time = max(times)
+            x_axis = [max_time - t for t in times]
+        else:
+            x_axis = [0]
+        
+        # Update CPU graph
+        self.cpu_line.set_data(x_axis, cpu_values)
+        self.cpu_ax.set_xlim(0, max(60, max(x_axis) if x_axis else 60))  # Show at least 60 seconds
+        self.cpu_ax.set_ylim(0, max(100, max(cpu_values) if cpu_values else 100))
+        
+        # Update Memory graph
+        self.memory_line.set_data(x_axis, memory_values)
+        self.memory_ax.set_xlim(0, max(60, max(x_axis) if x_axis else 60))  # Show at least 60 seconds
+        self.memory_ax.set_ylim(0, max(100, max(memory_values) if memory_values else 100))
+        
+        # Refresh the canvases
+        self.cpu_canvas.draw()
+        self.memory_canvas.draw()
     
     def update_process_table(self, processes):
         """Update the process table with new data."""
