@@ -290,6 +290,7 @@ class PreProcessTab(QtWidgets.QWidget):
         # SimNIBS options
         self.create_m2m_cb = QtWidgets.QCheckBox("Create SimNIBS m2m folder")
         self.create_m2m_cb.setChecked(True)
+        self.create_m2m_cb.setToolTip("SimNIBS charm processes run one at a time (sequential) to prevent PETSC conflicts, but each uses full CPU power")
         options_group_layout.addWidget(self.create_m2m_cb)
         
         self.create_atlas_cb = QtWidgets.QCheckBox("Create atlas segmentation (requires m2m folder)")
