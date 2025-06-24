@@ -43,8 +43,7 @@ run_command() {
     local cmd="$1"
     local error_msg="$2"
     
-    # Run cmd, capture both stdout and stderr,
-    # append everything to the log file, and still show on console.
+    # Execute command and capture both exit status and output
     local temp_output=$(mktemp)
     local exit_code=0
     
@@ -61,16 +60,24 @@ run_command() {
         return 1
     fi
     
-    # Check for FreeSurfer-specific errors
-    if grep -q "ERROR\|FAILED\|Fatal" "$temp_output"; then
+    # Check for FreeSurfer-specific failure patterns (not just keywords)
+    if grep -q "recon-all.*exited with ERRORS\|FAILED.*recon-all\|Fatal error in recon-all" "$temp_output"; then
         log_error "Command encountered errors: $cmd"
         log_error "$error_msg"
         rm -f "$temp_output"
         return 1
     fi
     
+    # Check for successful completion message
+    if grep -q "finished without error" "$temp_output"; then
+        log_info "FreeSurfer completed successfully"
+        rm -f "$temp_output"
+        return 0
+    fi
+    
     rm -f "$temp_output"
     
+    # Only fail if the command actually returned a non-zero exit code
     if [ $exit_code -ne 0 ]; then
         log_error "$error_msg"
         return 1
