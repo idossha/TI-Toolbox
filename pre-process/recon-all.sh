@@ -216,8 +216,8 @@ log_info "FreeSurfer subjects directory: $SUBJECTS_DIR"
 
 # Check if subject already exists
 SUBJECT_FS_DIR="$SUBJECTS_DIR/$SUBJECT_ID"
-if [ -d "$SUBJECT_FS_DIR" ] && [ -f "$SUBJECT_FS_DIR/scripts/recon-all.log" ]; then
-    log_info "Subject $SUBJECT_ID already exists in FreeSurfer directory. Continuing existing analysis..."
+if [ -d "$SUBJECT_FS_DIR" ] && [ -f "$SUBJECT_FS_DIR/scripts/recon-all.log" ] && [ -f "$SUBJECT_FS_DIR/mri/orig/001.mgz" ]; then
+    log_info "Subject $SUBJECT_ID already exists in FreeSurfer directory with data. Continuing existing analysis..."
     # Continue existing analysis without -i flag
     recon_cmd="recon-all -subject \"$SUBJECT_ID\" -all -sd \"$SUBJECTS_DIR\""
 else
