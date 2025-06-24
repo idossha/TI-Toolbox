@@ -214,17 +214,16 @@ log_info "Subject ID: $SUBJECT_ID"
 log_info "T1 file: $T1_file"
 log_info "FreeSurfer subjects directory: $SUBJECTS_DIR"
 
-# Check if subject already exists
+# Check if subject already exists and remove it (GUI already confirmed overwrite)
 SUBJECT_FS_DIR="$SUBJECTS_DIR/$SUBJECT_ID"
-if [ -d "$SUBJECT_FS_DIR" ] && [ -f "$SUBJECT_FS_DIR/scripts/recon-all.log" ] && [ -f "$SUBJECT_FS_DIR/mri/orig/001.mgz" ]; then
-    log_info "Subject $SUBJECT_ID already exists in FreeSurfer directory with data. Continuing existing analysis..."
-    # Continue existing analysis without -i flag
-    recon_cmd="recon-all -subject \"$SUBJECT_ID\" -all -sd \"$SUBJECTS_DIR\""
-else
-    log_info "Starting new FreeSurfer analysis for subject: $SUBJECT_ID"
-    # New analysis with -i flag
-    recon_cmd="recon-all -subject \"$SUBJECT_ID\" -i \"$T1_file\" -all -sd \"$SUBJECTS_DIR\""
+if [ -d "$SUBJECT_FS_DIR" ]; then
+    log_info "Removing existing FreeSurfer directory for subject: $SUBJECT_ID (overwrite confirmed)"
+    rm -rf "$SUBJECT_FS_DIR"
 fi
+
+log_info "Starting new FreeSurfer analysis for subject: $SUBJECT_ID"
+# New analysis with -i flag
+recon_cmd="recon-all -subject \"$SUBJECT_ID\" -i \"$T1_file\" -all -sd \"$SUBJECTS_DIR\""
 
 if ! run_command "$recon_cmd" "FreeSurfer recon-all failed"; then
     log_error "FreeSurfer recon-all failed for subject: $SUBJECT_ID"
