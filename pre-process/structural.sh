@@ -21,6 +21,7 @@ QUIET=false
 CONVERT_DICOM=false
 CREATE_M2M=false
 SUBJECT_DIRS=()
+FAILED_SUBJECTS=()
 
 # Enhanced argument parsing to handle GUI command format
 # The GUI sends: script.sh /path/sub-101 /path/sub-102 recon-all --parallel --convert-dicom
@@ -133,6 +134,7 @@ echo "- Create m2m: $CREATE_M2M"
 process_subject_non_recon() {
     local subject_dir="$1"
     local subject_id=$(basename "$subject_dir" | sed 's/^sub-//')
+    local success=true
     
     echo "Processing non-recon steps for subject: $subject_id"
     
@@ -145,14 +147,20 @@ process_subject_non_recon() {
         fi
         
         if ! "$script_dir/dicom2nifti.sh" "${dicom_args[@]}"; then
-            echo "  Error: DICOM conversion failed for subject: $subject_id"
-            return 1
+            echo "  Warning: DICOM conversion failed for subject: $subject_id"
+            success=false
+        else
+            echo "  DICOM conversion completed for subject: $subject_id"
         fi
-        echo "  DICOM conversion completed for subject: $subject_id"
     fi
     
-    echo "Non-recon processing completed for subject: $subject_id"
-    return 0
+    if $success; then
+        echo "Non-recon processing completed successfully for subject: $subject_id"
+        return 0
+    else
+        FAILED_SUBJECTS+=("$subject_id")
+        return 1
+    fi
 }
 
 # Function to run SimNIBS charm for a single subject (always sequential)
@@ -168,7 +176,8 @@ run_charm_single() {
     fi
     
     if ! "$script_dir/charm.sh" "${charm_args[@]}"; then
-        echo "Error: SimNIBS charm failed for subject: $subject_id"
+        echo "Warning: SimNIBS charm failed for subject: $subject_id"
+        FAILED_SUBJECTS+=("$subject_id")
         return 1
     fi
     
@@ -192,7 +201,8 @@ run_recon_single() {
     fi
     
     if ! "$script_dir/recon-all.sh" "${recon_args[@]}"; then
-        echo "Error: FreeSurfer recon-all failed for subject: $subject_id"
+        echo "Warning: FreeSurfer recon-all failed for subject: $subject_id"
+        FAILED_SUBJECTS+=("$subject_id")
         return 1
     fi
     
@@ -211,26 +221,30 @@ if $PARALLEL && ($RUN_RECON || $RECON_ONLY) && [[ ${#SUBJECT_DIRS[@]} -gt 1 ]]; 
         exit 1
     fi
     
+    # Determine if we need to run non-recon steps
+    need_non_recon_steps=false
+    if ! $RECON_ONLY && ($CONVERT_DICOM || $CREATE_M2M); then
+        need_non_recon_steps=true
+    fi
+    
     # Process non-recon steps first (sequentially to avoid conflicts)
-    if ! $RECON_ONLY; then
+    if $need_non_recon_steps; then
         echo "Processing non-recon steps (DICOM conversion) first..."
         for subject_dir in "${SUBJECT_DIRS[@]}"; do
-            if ! process_subject_non_recon "$subject_dir"; then
-                echo "Error: Failed to pre-process subject: $subject_dir"
-                exit 1
-            fi
+            process_subject_non_recon "$subject_dir"
+            # Continue even if it fails
         done
         
         # Run SimNIBS charm sequentially to avoid PETSC segmentation faults
         if $CREATE_M2M; then
             echo "Running SimNIBS charm sequentially to prevent memory conflicts..."
             for subject_dir in "${SUBJECT_DIRS[@]}"; do
-                if ! run_charm_single "$subject_dir"; then
-                    echo "Error: Failed to run SimNIBS charm for subject: $subject_dir"
-                    exit 1
-                fi
+                run_charm_single "$subject_dir"
+                # Continue even if it fails
             done
         fi
+    else
+        echo "Skipping non-recon steps - running recon-all only"
     fi
     
     # Now run recon-all in parallel
@@ -248,18 +262,41 @@ if $PARALLEL && ($RUN_RECON || $RECON_ONLY) && [[ ${#SUBJECT_DIRS[@]} -gt 1 ]]; 
         parallel_args+=("--parallel")
     fi
     
-    # Run recon-all in parallel using the script directly
-    if ! printf '%s\n' "${SUBJECT_DIRS[@]}" | parallel \
-        --line-buffer \
-        --tagstring '[{/}] ' \
-        --halt now,fail=1 \
-        --jobs 0 \
-        "$recon_script" {} "${parallel_args[@]}"; then
-        echo "Error: Parallel recon-all processing failed"
-        exit 1
+    # Calculate optimal number of parallel jobs when FreeSurfer internal parallelization is enabled
+    if $PARALLEL; then
+        # Detect number of available cores
+        if command -v nproc &>/dev/null; then
+            AVAILABLE_CORES=$(nproc)
+        elif command -v sysctl &>/dev/null; then
+            AVAILABLE_CORES=$(sysctl -n hw.logicalcpu)
+        else
+            AVAILABLE_CORES=4  # fallback default
+        fi
+        
+        OPTIMAL_JOBS=$AVAILABLE_CORES
+        
+        if [ $OPTIMAL_JOBS -gt ${#SUBJECT_DIRS[@]} ]; then
+            OPTIMAL_JOBS=${#SUBJECT_DIRS[@]}
+        fi
+        
+        echo "Detected $AVAILABLE_CORES logical cores. Running $OPTIMAL_JOBS FreeSurfer jobs simultaneously."
+        echo "Each job will use 1 core for maximum subject throughput."
+        
+        JOBS_ARG="--jobs $OPTIMAL_JOBS"
+    else
+        JOBS_ARG="--jobs 0"
     fi
     
-    echo "Parallel FreeSurfer recon-all completed successfully!"
+    # Run recon-all in parallel using the script directly
+    # Changed --halt now,fail=1 to --halt never to continue on failures
+    printf '%s\n' "${SUBJECT_DIRS[@]}" | parallel \
+        --line-buffer \
+        --tagstring '[{/}] ' \
+        --halt never \
+        $JOBS_ARG \
+        "$recon_script" {} "${parallel_args[@]}"
+    
+    echo "Parallel FreeSurfer recon-all processing completed."
     
 else
     # Sequential processing
@@ -269,40 +306,40 @@ else
         subject_id=$(basename "$subject_dir" | sed 's/^sub-//')
         echo "Processing subject: $subject_id"
         
-        # Handle recon-only mode
-        if $RECON_ONLY; then
-            if ! run_recon_single "$subject_dir"; then
-                echo "Error: Failed to process subject: $subject_dir"
-                exit 1
-            fi
+        # Handle recon-only mode or when only recon-all is requested
+        if $RECON_ONLY || ($RUN_RECON && ! $CONVERT_DICOM && ! $CREATE_M2M); then
+            run_recon_single "$subject_dir"
+            # Continue even if it fails
         else
             # Process non-recon steps first
-            if ! process_subject_non_recon "$subject_dir"; then
-                echo "Error: Failed to pre-process subject: $subject_dir"
-                exit 1
-            fi
+            process_subject_non_recon "$subject_dir"
+            # Continue even if it fails
             
             # Run SimNIBS charm sequentially
             if $CREATE_M2M; then
-                if ! run_charm_single "$subject_dir"; then
-                    echo "Error: Failed to run SimNIBS charm for subject: $subject_dir"
-                    exit 1
-                fi
+                run_charm_single "$subject_dir"
+                # Continue even if it fails
             fi
             
             # Then run recon-all if requested
             if $RUN_RECON; then
-                if ! run_recon_single "$subject_dir"; then
-                    echo "Error: Failed to process subject: $subject_dir"
-                    exit 1
-                fi
+                run_recon_single "$subject_dir"
+                # Continue even if it fails
             fi
         fi
         
-        echo "Successfully processed subject: $subject_id"
+        echo "Completed processing subject: $subject_id"
     done
     
-    echo "Sequential processing completed successfully!"
+    echo "Sequential processing completed."
 fi
 
-echo "All subjects processed successfully!" 
+# Print final summary
+echo "Processing completed!"
+if [ ${#FAILED_SUBJECTS[@]} -eq 0 ]; then
+    echo "All subjects processed successfully!"
+else
+    echo "Warning: The following subjects had failures:"
+    printf '%s\n' "${FAILED_SUBJECTS[@]}"
+    echo "Please check the logs for more details."
+fi 

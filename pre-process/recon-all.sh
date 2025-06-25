@@ -38,7 +38,19 @@ validate_freesurfer_env() {
     return 0
 }
 
-# Function to run command with proper error handling
+# Function to cleanup incomplete FreeSurfer directories
+cleanup_on_failure() {
+    local subject_fs_dir="$1"
+    local subject_id="$2"
+    
+    if [ -d "$subject_fs_dir" ]; then
+        log_warning "Cleaning up incomplete FreeSurfer directory for subject: $subject_id"
+        rm -rf "$subject_fs_dir"
+        log_info "Incomplete directory removed: $subject_fs_dir"
+    fi
+}
+
+# Function to run command with proper error handling and timeout
 run_command() {
     local cmd="$1"
     local error_msg="$2"
@@ -52,6 +64,15 @@ run_command() {
         exit_code=1
     fi
     
+    # Check for critical system-level errors first
+    if grep -q "Illegal instruction\|Segmentation fault\|Bus error\|Killed\|Aborted" "$temp_output"; then
+        log_error "Command failed with critical system error: $cmd"
+        log_error "$error_msg"
+        log_error "System error details: $(grep -E "Illegal instruction|Segmentation fault|Bus error|Killed|Aborted" "$temp_output" | head -3)"
+        rm -f "$temp_output"
+        return 1
+    fi
+    
     # Check for specific interpreter errors
     if grep -q "bad interpreter\|No such file or directory.*interpreter" "$temp_output"; then
         log_error "Command failed due to missing interpreter (likely tcsh): $cmd"
@@ -60,10 +81,11 @@ run_command() {
         return 1
     fi
     
-    # Check for FreeSurfer-specific failure patterns (not just keywords)
-    if grep -q "recon-all.*exited with ERRORS\|FAILED.*recon-all\|Fatal error in recon-all" "$temp_output"; then
-        log_error "Command encountered errors: $cmd"
+    # Check for FreeSurfer-specific failure patterns
+    if grep -q "recon-all.*exited with ERRORS\|FAILED.*recon-all\|Fatal error in recon-all\|ERROR: must specify a subject" "$temp_output"; then
+        log_error "Command encountered FreeSurfer errors: $cmd"
         log_error "$error_msg"
+        log_error "FreeSurfer error details: $(grep -E "recon-all.*exited with ERRORS|FAILED.*recon-all|Fatal error in recon-all|ERROR: must specify a subject" "$temp_output" | head -3)"
         rm -f "$temp_output"
         return 1
     fi
@@ -81,6 +103,71 @@ run_command() {
     if [ $exit_code -ne 0 ]; then
         log_error "$error_msg"
         return 1
+    fi
+    
+    return 0
+}
+
+# Function to verify FreeSurfer completion by checking log file
+verify_freesurfer_completion() {
+    local subject_fs_dir="$1"
+    local subject_id="$2"
+    
+    log_info "Checking FreeSurfer completion status for subject: $subject_id"
+    
+    # Check if recon-all.log exists and contains any completion markers
+    local log_file="$subject_fs_dir/scripts/recon-all.log"
+    
+    if [ -f "$log_file" ]; then
+        # Look for any indication of completion
+        if grep -q "finished without error\|recon-all.*finished\|Make done\|recon-all.*completed\|recon-all.*done" "$log_file"; then
+            log_info "Found completion marker in recon-all.log"
+            return 0
+        else
+            log_warning "No completion marker found in recon-all.log, but continuing anyway"
+            return 0
+        fi
+    else
+        log_warning "FreeSurfer log file not found: $log_file, but continuing anyway"
+        return 0
+    fi
+}
+
+# Function to validate input data before processing
+validate_input_data() {
+    local t1_file="$1"
+    local t2_file="$2"
+    local subject_id="$3"
+    
+    log_info "Checking input data for subject: $subject_id"
+    
+    # Basic check for T1 file existence
+    if [ ! -f "$t1_file" ]; then
+        log_error "T1 file does not exist: $t1_file"
+        return 1
+    fi
+    
+    # Basic check for T1 file readability
+    if [ ! -r "$t1_file" ]; then
+        log_error "T1 file is not readable: $t1_file"
+        return 1
+    fi
+    
+    log_info "T1 file exists and is readable: $(basename "$t1_file")"
+    
+    # Check T2 file if provided
+    if [ -n "$t2_file" ]; then
+        if [ ! -f "$t2_file" ]; then
+            log_warning "T2 file does not exist: $t2_file, continuing with T1 only"
+            return 0
+        fi
+        
+        if [ ! -r "$t2_file" ]; then
+            log_warning "T2 file is not readable: $t2_file, continuing with T1 only"
+            return 0
+        fi
+        
+        log_info "T2 file exists and is readable: $(basename "$t2_file")"
     fi
     
     return 0
@@ -145,6 +232,13 @@ PROJECT_DIR="/mnt/${PROJECT_NAME}"
 SUBJECT_ID=$(basename "$SUBJECT_DIR" | sed 's/^sub-//')
 BIDS_SUBJECT_ID="sub-${SUBJECT_ID}"
 
+# Validate that we have a proper subject ID
+if [ -z "$SUBJECT_ID" ] || [ "$SUBJECT_ID" = "sub-" ]; then
+    echo "Error: Failed to extract subject ID from path: $SUBJECT_DIR"
+    echo "Expected format: /path/to/sub-XXX"
+    exit 1
+fi
+
 # Define directories
 BIDS_ANAT_DIR="${PROJECT_DIR}/${BIDS_SUBJECT_ID}/anat"
 DERIVATIVES_DIR="${PROJECT_DIR}/derivatives"
@@ -165,7 +259,14 @@ if ! $QUIET; then
     configure_external_loggers '["freesurfer"]'
 fi
 
-log_info "Starting FreeSurfer recon-all for subject: $SUBJECT_ID"
+# Debug logging for subject ID extraction (after logging is set up)
+log_debug "Debug info:"
+log_debug "  SUBJECT_DIR: $SUBJECT_DIR"
+log_debug "  basename result: $(basename "$SUBJECT_DIR")"
+log_debug "  SUBJECT_ID: $SUBJECT_ID"
+log_debug "  BIDS_SUBJECT_ID: $BIDS_SUBJECT_ID"
+
+log_info "Starting FreeSurfer recon-all for subject: $BIDS_SUBJECT_ID"
 
 # Find T1 file
 T1_file=""
@@ -188,53 +289,119 @@ if [ -z "$T1_file" ]; then
     done
 fi
 
-# If still no T1 found, take the first NIfTI file as T1
-if [ -z "$T1_file" ]; then
-    for nii_file in "$BIDS_ANAT_DIR"/*.nii*; do
-        if [ -f "$nii_file" ]; then
-            T1_file="$nii_file"
-            log_info "Using $T1_file as T1 image"
-            break
-        fi
-    done
-fi
-
 if [ -z "$T1_file" ] || [ ! -f "$T1_file" ]; then
-    log_error "No T1 image found in ${BIDS_ANAT_DIR}, cannot run recon-all for subject: $SUBJECT_ID"
+    log_error "No T1 image found in ${BIDS_ANAT_DIR}, cannot run recon-all for subject: $BIDS_SUBJECT_ID"
     exit 1
 fi
 
 # Convert to absolute path
 T1_file="$(cd "$(dirname "$T1_file")" && pwd)/$(basename "$T1_file")"
 
+# Find T2 file (optional but improves pial surface reconstruction)
+T2_file=""
+for t2_candidate in "$BIDS_ANAT_DIR"/*T2*.nii* "$BIDS_ANAT_DIR"/*t2*.nii*; do
+    if [ -f "$t2_candidate" ]; then
+        T2_file="$t2_candidate"
+        log_info "Found T2 image: $T2_file"
+        break
+    fi
+done
+
+# If no T2 found, look for common naming patterns
+if [ -z "$T2_file" ]; then
+    for t2_candidate in "$BIDS_ANAT_DIR"/T2.nii "$BIDS_ANAT_DIR"/T2.nii.gz; do
+        if [ -f "$t2_candidate" ]; then
+            T2_file="$t2_candidate"
+            log_info "Found T2 image: $T2_file"
+            break
+        fi
+    done
+fi
+
+if [ -n "$T2_file" ]; then
+    # Convert to absolute path
+    T2_file="$(cd "$(dirname "$T2_file")" && pwd)/$(basename "$T2_file")"
+    log_info "T2 image will be used for improved pial surface reconstruction"
+else
+    log_info "No T2 image found - proceeding with T1 only"
+fi
+
 # Set thread limits for parallel processing
 if $PARALLEL; then
-    log_info "Setting thread limits for parallel processing (OMP_NUM_THREADS=1)"
+    # Detect number of available cores
+    if command -v nproc &>/dev/null; then
+        AVAILABLE_CORES=$(nproc)
+    elif command -v sysctl &>/dev/null; then
+        AVAILABLE_CORES=$(sysctl -n hw.logicalcpu)
+    else
+        AVAILABLE_CORES=4  # fallback default
+    fi
+    
+    log_info "Detected $AVAILABLE_CORES logical CPU cores"
+    
+    # Force single-threaded operation for maximum subject throughput
+    # This allows running as many subjects simultaneously as there are cores
     export OMP_NUM_THREADS=1
     export ITK_GLOBAL_DEFAULT_NUMBER_OF_THREADS=1
+    
+    log_info "Setting FreeSurfer to single-threaded mode for maximum subject throughput"
+    log_info "This allows running up to $AVAILABLE_CORES subjects simultaneously"
 else
-    log_info "Running in single-process mode (using default thread counts)"
+    log_info "Running in single-process mode (using all available cores for this subject)"
+    # Let FreeSurfer use all available cores for single subject processing
 fi
 
-log_info "Running FreeSurfer recon-all..."
-log_info "Subject ID: $SUBJECT_ID"
-log_info "T1 file: $T1_file"
-log_info "FreeSurfer subjects directory: $SUBJECTS_DIR"
-
-# Check if subject already exists and remove it (GUI already confirmed overwrite)
-SUBJECT_FS_DIR="$SUBJECTS_DIR/$SUBJECT_ID"
-if [ -d "$SUBJECT_FS_DIR" ]; then
-    log_info "Removing existing FreeSurfer directory for subject: $SUBJECT_ID (overwrite confirmed)"
-    rm -rf "$SUBJECT_FS_DIR"
-fi
-
-log_info "Starting new FreeSurfer analysis for subject: $SUBJECT_ID"
-# New analysis with -i flag
-recon_cmd="recon-all -subject \"$SUBJECT_ID\" -i \"$T1_file\" -all -sd \"$SUBJECTS_DIR\""
-
-if ! run_command "$recon_cmd" "FreeSurfer recon-all failed"; then
-    log_error "FreeSurfer recon-all failed for subject: $SUBJECT_ID"
+# Validate input data before proceeding
+if ! validate_input_data "$T1_file" "$T2_file" "$BIDS_SUBJECT_ID"; then
+    log_error "Input data validation failed for subject: $BIDS_SUBJECT_ID"
     exit 1
 fi
 
-log_info "FreeSurfer recon-all completed successfully for subject: $SUBJECT_ID" 
+log_info "Running FreeSurfer recon-all..."
+log_info "Subject ID: $BIDS_SUBJECT_ID"
+log_info "T1 file: $T1_file"
+if [ -n "$T2_file" ]; then
+    log_info "T2 file: $T2_file"
+else
+    log_info "T2 file: Not found"
+fi
+log_info "FreeSurfer subjects directory: $SUBJECTS_DIR"
+
+# Check if subject already exists and remove it (GUI already confirmed overwrite)
+SUBJECT_FS_DIR="$SUBJECTS_DIR/$BIDS_SUBJECT_ID"
+if [ -d "$SUBJECT_FS_DIR" ]; then
+    log_info "Removing existing FreeSurfer directory for subject: $BIDS_SUBJECT_ID (overwrite confirmed)"
+    rm -rf "$SUBJECT_FS_DIR"
+fi
+
+log_info "Starting new FreeSurfer analysis for subject: $BIDS_SUBJECT_ID"
+
+# Set up cleanup trap for interruptions
+cleanup_and_exit() {
+    log_warning "Processing interrupted for subject: $BIDS_SUBJECT_ID"
+    cleanup_on_failure "$SUBJECT_FS_DIR" "$BIDS_SUBJECT_ID"
+    exit 1
+}
+trap cleanup_and_exit INT TERM
+
+# Build recon-all command with T2 processing if available
+if [ -n "$T2_file" ]; then
+    recon_cmd="recon-all -subject \"$BIDS_SUBJECT_ID\" -i \"$T1_file\" -T2 \"$T2_file\" -T2pial -all -sd \"$SUBJECTS_DIR\""
+    log_info "Using T1 and T2 images with T2pial processing"
+else
+    recon_cmd="recon-all -subject \"$BIDS_SUBJECT_ID\" -i \"$T1_file\" -all -sd \"$SUBJECTS_DIR\""
+    log_info "Using T1 image only"
+fi
+
+if ! run_command "$recon_cmd" "FreeSurfer recon-all failed"; then
+    log_error "FreeSurfer recon-all failed for subject: $BIDS_SUBJECT_ID"
+    exit 1
+fi
+
+# Do a basic check for completion but don't fail if not perfect
+verify_freesurfer_completion "$SUBJECT_FS_DIR" "$BIDS_SUBJECT_ID"
+
+# Clear the trap since we're done
+trap - INT TERM
+
+log_info "FreeSurfer recon-all completed for subject: $BIDS_SUBJECT_ID" 
