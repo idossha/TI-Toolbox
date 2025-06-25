@@ -20,6 +20,7 @@ PARALLEL=false
 QUIET=false
 CONVERT_DICOM=false
 CREATE_M2M=false
+
 SUBJECT_DIRS=()
 FAILED_SUBJECTS=()
 
@@ -102,6 +103,18 @@ for flag in "${temp_flags[@]}"; do
       ;;
     *)
       echo "Unknown flag: $flag"
+      echo "Usage: $0 <subject_dir_or_id>... [recon-all] [--recon-only] [--parallel] [--quiet] [--convert-dicom] [--create-m2m]"
+      echo "       $0 --subjects <subject_id1,subject_id2,...> [options...]"
+      echo ""
+      echo "Processing Modes:"
+      echo "  [default]       Sequential processing - one subject at a time using all cores"
+      echo "  --parallel      Parallel processing - multiple subjects with 1 core each"
+      echo ""
+      echo "Other Flags:"
+      echo "  --quiet         Suppress verbose output"
+      echo "  --recon-only    Run only FreeSurfer recon-all"
+      echo "  --convert-dicom Convert DICOM files"
+      echo "  --create-m2m    Create SimNIBS m2m models"
       exit 1
       ;;
   esac
@@ -115,6 +128,16 @@ if [[ ${#SUBJECT_DIRS[@]} -eq 0 ]]; then
   echo "Error: At least one subject directory or subject ID is required."
   echo "Usage: $0 <subject_dir_or_id>... [recon-all] [--recon-only] [--parallel] [--quiet] [--convert-dicom] [--create-m2m]"
   echo "       $0 --subjects <subject_id1,subject_id2,...> [options...]"
+  echo ""
+  echo "Processing Modes:"
+  echo "  [default]       Sequential processing - one subject at a time using all cores"
+  echo "  --parallel      Parallel processing - multiple subjects with 1 core each"
+  echo ""
+  echo "Other Flags:"
+  echo "  --quiet         Suppress verbose output"
+  echo "  --recon-only    Run only FreeSurfer recon-all"
+  echo "  --convert-dicom Convert DICOM files"
+  echo "  --create-m2m    Create SimNIBS m2m models"
   exit 1
 fi
 
@@ -129,6 +152,13 @@ echo "- Run recon-all: $RUN_RECON"
 echo "- Recon-only mode: $RECON_ONLY"
 echo "- Convert DICOM: $CONVERT_DICOM"
 echo "- Create m2m: $CREATE_M2M"
+echo ""
+if $PARALLEL; then
+    echo "🔄 PARALLEL MODE: Multiple subjects will run simultaneously, each using 1 core"
+else
+    echo "📈 SEQUENTIAL MODE: One subject at a time, each using all available cores"
+fi
+echo ""
 
 # Function to process a single subject through all non-recon steps
 process_subject_non_recon() {
@@ -196,8 +226,17 @@ run_recon_single() {
     if $QUIET; then
         recon_args+=("--quiet")
     fi
-    if $PARALLEL; then
+    
+    # Pass --parallel flag based on processing mode:
+    # Sequential mode (--parallel NOT specified): pass --parallel to recon-all (use all cores)
+    # Parallel mode (--parallel specified): don't pass --parallel to recon-all (use 1 core)
+    if ! $PARALLEL; then
+        # Sequential mode: this subject should use all available cores
         recon_args+=("--parallel")
+        echo "  → Sequential mode: subject will use all available cores"
+    else
+        # Parallel mode: this subject should use 1 core only
+        echo "  → Parallel mode: subject will use 1 core"
     fi
     
     if ! "$script_dir/recon-all.sh" "${recon_args[@]}"; then
@@ -212,7 +251,9 @@ run_recon_single() {
 
 # Main processing logic
 if $PARALLEL && ($RUN_RECON || $RECON_ONLY) && [[ ${#SUBJECT_DIRS[@]} -gt 1 ]]; then
-    echo "Starting parallel processing of ${#SUBJECT_DIRS[@]} subject(s) using GNU Parallel..."
+    # APPROACH 2: Simple parallelization - multiple subjects, each with 1 core
+    echo "Starting PARALLEL processing of ${#SUBJECT_DIRS[@]} subject(s) using GNU Parallel..."
+    echo "Each subject will use 1 core, multiple subjects will run simultaneously"
     
     # Check for GNU Parallel
     if ! command -v parallel &>/dev/null; then
@@ -220,6 +261,24 @@ if $PARALLEL && ($RUN_RECON || $RECON_ONLY) && [[ ${#SUBJECT_DIRS[@]} -gt 1 ]]; 
         echo "Please install GNU Parallel: apt-get install parallel"
         exit 1
     fi
+    
+    # Detect number of available cores
+    if command -v nproc &>/dev/null; then
+        AVAILABLE_CORES=$(nproc)
+    elif command -v sysctl &>/dev/null; then
+        AVAILABLE_CORES=$(sysctl -n hw.logicalcpu)
+    else
+        AVAILABLE_CORES=4  # fallback default
+    fi
+    
+    # Set number of parallel jobs to available cores (or number of subjects if fewer)
+    PARALLEL_JOBS=$AVAILABLE_CORES
+    if [[ $PARALLEL_JOBS -gt ${#SUBJECT_DIRS[@]} ]]; then
+        PARALLEL_JOBS=${#SUBJECT_DIRS[@]}
+    fi
+    
+    echo "System configuration: $AVAILABLE_CORES cores available"
+    echo "Will run $PARALLEL_JOBS subjects simultaneously, each using 1 core"
     
     # Determine if we need to run non-recon steps
     need_non_recon_steps=false
@@ -243,68 +302,49 @@ if $PARALLEL && ($RUN_RECON || $RECON_ONLY) && [[ ${#SUBJECT_DIRS[@]} -gt 1 ]]; 
                 # Continue even if it fails
             done
         fi
-    else
-        echo "Skipping non-recon steps - running recon-all only"
     fi
-    
-    # Now run recon-all in parallel
-    echo "Running FreeSurfer recon-all in parallel for ${#SUBJECT_DIRS[@]} subjects..."
     
     # Use absolute path to recon-all.sh for parallel execution
     recon_script="$(cd "$script_dir" && pwd)/recon-all.sh"
     
-    # Build arguments for parallel execution
+    # Build arguments - NO --parallel flag (single-threaded per subject)
     parallel_args=()
     if $QUIET; then
         parallel_args+=("--quiet")
     fi
-    if $PARALLEL; then
-        parallel_args+=("--parallel")
-    fi
     
-    # Calculate optimal number of parallel jobs when FreeSurfer internal parallelization is enabled
-    if $PARALLEL; then
-        # Detect number of available cores
-        if command -v nproc &>/dev/null; then
-            AVAILABLE_CORES=$(nproc)
-        elif command -v sysctl &>/dev/null; then
-            AVAILABLE_CORES=$(sysctl -n hw.logicalcpu)
-        else
-            AVAILABLE_CORES=4  # fallback default
-        fi
-        
-        OPTIMAL_JOBS=$AVAILABLE_CORES
-        
-        if [ $OPTIMAL_JOBS -gt ${#SUBJECT_DIRS[@]} ]; then
-            OPTIMAL_JOBS=${#SUBJECT_DIRS[@]}
-        fi
-        
-        echo "Detected $AVAILABLE_CORES logical cores. Running $OPTIMAL_JOBS FreeSurfer jobs simultaneously."
-        echo "Each job will use 1 core for maximum subject throughput."
-        
-        JOBS_ARG="--jobs $OPTIMAL_JOBS"
-    else
-        JOBS_ARG="--jobs 0"
-    fi
+    echo "Running FreeSurfer recon-all in parallel mode (1 core per subject)..."
     
-    # Run recon-all in parallel using the script directly
-    # Changed --halt now,fail=1 to --halt never to continue on failures
+    # Run recon-all in parallel using GNU parallel - each subject gets 1 core
     printf '%s\n' "${SUBJECT_DIRS[@]}" | parallel \
         --line-buffer \
         --tagstring '[{/}] ' \
         --halt never \
-        $JOBS_ARG \
+        --jobs $PARALLEL_JOBS \
         "$recon_script" {} "${parallel_args[@]}"
     
     echo "Parallel FreeSurfer recon-all processing completed."
     
 else
-    # Sequential processing
-    echo "Starting sequential processing of ${#SUBJECT_DIRS[@]} subject(s)..."
+    # APPROACH 1: Sequential processing - one subject at a time, each with multiple cores
+    echo "Starting SEQUENTIAL processing of ${#SUBJECT_DIRS[@]} subject(s)..."
+    echo "Each subject will be processed one at a time using all available cores"
+    
+    # Detect number of available cores
+    if command -v nproc &>/dev/null; then
+        AVAILABLE_CORES=$(nproc)
+    elif command -v sysctl &>/dev/null; then
+        AVAILABLE_CORES=$(sysctl -n hw.logicalcpu)
+    else
+        AVAILABLE_CORES=4  # fallback default
+    fi
+    
+    echo "System configuration: $AVAILABLE_CORES cores available"
+    echo "Each subject will use all $AVAILABLE_CORES cores for maximum speed"
     
     for subject_dir in "${SUBJECT_DIRS[@]}"; do
         subject_id=$(basename "$subject_dir" | sed 's/^sub-//')
-        echo "Processing subject: $subject_id"
+        echo "Processing subject: $subject_id (using all $AVAILABLE_CORES cores)"
         
         # Handle recon-only mode or when only recon-all is requested
         if $RECON_ONLY || ($RUN_RECON && ! $CONVERT_DICOM && ! $CREATE_M2M); then
