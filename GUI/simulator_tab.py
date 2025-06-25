@@ -1000,6 +1000,9 @@ class SimulatorTab(QtWidgets.QWidget):
                 QtWidgets.QMessageBox.warning(self, "Warning", "Please select at least one subject.")
                 return
             
+            # Get project directory
+            project_dir = f"/mnt/{os.environ.get('PROJECT_DIR_NAME', 'BIDS_new')}"
+            
             # Check simulation mode and validate selections
             is_montage_mode = self.sim_type_montage.isChecked()
             
@@ -1043,9 +1046,29 @@ class SimulatorTab(QtWidgets.QWidget):
                     
                     # Create montage entries based on selection
                     if use_mapped:
-                        mapped_positions = mapping_data['mapped_positions']
-                        mapped_labels = mapping_data['mapped_labels']
-                        eeg_net_from_json = mapping_data.get('eeg_net', 'EGI_template.csv')
+                        # Read electrode_mapping.json for this flex-search
+                        mapping_file = os.path.join(project_dir, 'derivatives', 'SimNIBS', 
+                                                  f'sub-{subject_id}', 'flex-search', search_name, 
+                                                  'electrode_mapping.json')
+                        
+                        if not os.path.exists(mapping_file):
+                            self.update_output(f"Error: Could not find electrode mapping file: {mapping_file}", 'error')
+                            continue
+                            
+                        with open(mapping_file, 'r') as f:
+                            mapping_data_from_file = json.load(f)
+                            
+                        if 'mapped_positions' not in mapping_data_from_file or 'mapped_labels' not in mapping_data_from_file:
+                            self.update_output(f"Error: Invalid electrode mapping file format: {mapping_file}", 'error')
+                            continue
+                            
+                        mapped_positions = mapping_data_from_file['mapped_positions']
+                        mapped_labels = mapping_data_from_file['mapped_labels']
+                        eeg_net = mapping_data_from_file.get('eeg_net')
+                        
+                        if not eeg_net:
+                            self.update_output("Error: No EEG net specified in electrode mapping file", 'error')
+                            continue
                         
                         # Create montage structure for mapped electrodes
                         if len(mapped_positions) >= 4:  # Need at least 4 electrodes for TI
@@ -1055,7 +1078,7 @@ class SimulatorTab(QtWidgets.QWidget):
                                 'name': montage_name,
                                 'type': 'flex_mapped',
                                 'subject_id': subject_id,
-                                'eeg_net': eeg_net_from_json,  # Use the EEG net from the JSON
+                                'eeg_net': eeg_net,  # Use the EEG net from the mapping file
                                 'electrode_labels': mapped_labels[:4],
                                 'pairs': [[mapped_labels[0], mapped_labels[1]], [mapped_labels[2], mapped_labels[3]]]
                             }
@@ -1359,106 +1382,131 @@ class SimulatorTab(QtWidgets.QWidget):
         self.enable_controls()
     
     def auto_generate_simulation_report(self):
-        """Automatically generate simulation report after completion."""
-        if not self.report_generator:
-            return
-        
+        """Auto-generate simulation report for each subject and montage."""
         try:
-            self.update_output("Generating simulation reports...", 'info')
-            
-            # Get project directory
+            # Get project directory from environment variable
             project_dir = f"/mnt/{os.environ.get('PROJECT_DIR_NAME', 'BIDS_new')}"
             
-            # For each subject and montage combination, create a separate report
-            for subject in self.report_generator.report_data['subjects']:
-                subject_id = subject['subject_id']
-                
-                # Get the montages that were actually simulated in this run
-                simulated_montages = [m['name'] for m in self.report_generator.report_data['montages']]
-                
-                for montage_name in simulated_montages:
-                    try:
-                        # Create a new report generator for this specific simulation
-                        sim_session_id = f"{self.simulation_session_id}_{subject_id}_{montage_name}"
-                        single_sim_generator = get_simulation_report_generator(project_dir, sim_session_id)
-                        
-                        # Add simulation parameters (only the expected ones)
-                        params = self.report_generator.report_data['simulation_parameters']
-                        
-                        # Ensure all required parameters have valid values
-                        filtered_params = {
-                            'conductivity_type': params.get('conductivity_type', 'scalar'),
-                            'simulation_mode': params.get('simulation_mode', 'U'),
-                            'eeg_net': params.get('eeg_net', 'EGI_template.csv'),
-                            'intensity_ch1': float(params.get('intensity_ch1_ma') or 2.0),  # Note: stored as intensity_ch1_ma
-                            'intensity_ch2': float(params.get('intensity_ch2_ma') or 2.0),  # Note: stored as intensity_ch2_ma
-                            'quiet_mode': params.get('quiet_mode', False)
-                        }
-                        if 'conductivities' in params and params['conductivities']:
-                            filtered_params['conductivities'] = params['conductivities']
-                        
-                        single_sim_generator.add_simulation_parameters(**filtered_params)
-                        
-                        # Add electrode parameters
-                        electrode_params = self.report_generator.report_data['electrode_parameters']
-                        
-                        # Only pass the expected parameters, not the calculated fields
-                        single_sim_generator.add_electrode_parameters(
-                            shape=electrode_params['shape'],
-                            dimensions=electrode_params['dimensions'],
-                            thickness=electrode_params['thickness']
-                        )
-                        
-                        # Add just this subject
-                        single_sim_generator.add_subject(
-                            subject_id=subject_id,
-                            m2m_path=subject['m2m_path'],
-                            status='completed'
-                        )
-                        
-                        # Add just this montage
-                        for montage in self.report_generator.report_data['montages']:
-                            if montage['name'] == montage_name:
-                                # Only pass the expected parameters
-                                single_sim_generator.add_montage(
-                                    name=montage['name'],
-                                    electrode_pairs=montage.get('electrode_pairs', []),
-                                    montage_type=montage.get('type', 'unipolar')
-                                )
-                                break
-                        
-                        # Get output files for this specific simulation
-                        output_files = self._get_expected_output_files(project_dir, subject_id, montage_name)
-                        
-                        # Add simulation result
-                        single_sim_generator.add_simulation_result(
-                            subject_id=subject_id,
-                            montage_name=montage_name,
-                            output_files=output_files,
-                            duration=None,  # Duration not tracked yet
-                            status='completed'
-                        )
-                        
-                        # Generate individual report
-                        report_path = single_sim_generator.generate_report()
-                        
-                        if report_path and os.path.exists(report_path):
-                            self.update_output(f"✅ Report generated for {subject_id} - {montage_name}: {report_path}", 'success')
-                        else:
-                            self.update_output(f"⚠️ Failed to generate report for {subject_id} - {montage_name}", 'warning')
-                    
-                    except Exception as e:
-                        self.update_output(f"❌ Error generating report for {subject_id} - {montage_name}: {str(e)}", 'error')
-                        import traceback
-                        self.update_output(f"Traceback: {traceback.format_exc()}", 'error')
+            # Initialize report generator with project directory and session ID
+            self.simulation_session_id = str(int(time.time()))
+            self.report_generator = get_simulation_report_generator(project_dir, self.simulation_session_id)
             
-            self.update_output("📊 Open the report files in your browser to view detailed results", 'info')
-                
+            # Add simulation parameters
+            params = {
+                'conductivity_type': self.sim_type_combo.currentData(),  # Get conductivity type from combo box
+                'simulation_mode': 'U' if self.sim_mode_unipolar.isChecked() else 'M',
+                'quiet_mode': True,  # Always run in quiet mode for GUI
+            }
+
+            # Handle EEG net selection based on simulation type
+            if self.sim_type_montage.isChecked():
+                # For montage mode, use the selected EEG net
+                params['eeg_net'] = self.eeg_net_combo.currentText()
+            else:
+                                    # For flex-search mode, try to get EEG net from the electrode_mapping.json
+                    try:
+                        flex_montages = self.flex_search_list.selectedItems()
+                        if flex_montages:
+                            first_montage = flex_montages[0].data(QtCore.Qt.UserRole)
+                            subject_id = first_montage['subject_id']
+                            search_name = first_montage['search_name']
+                            
+                            # Construct path to electrode_mapping.json
+                            mapping_file = os.path.join(project_dir, 'derivatives', 'SimNIBS', 
+                                                      f'sub-{subject_id}', 'flex-search', search_name, 
+                                                      'electrode_mapping.json')
+                            
+                            if os.path.exists(mapping_file):
+                                with open(mapping_file, 'r') as f:
+                                    mapping_data = json.load(f)
+                                    if 'eeg_net' in mapping_data:
+                                        params['eeg_net'] = mapping_data['eeg_net']
+                                    else:
+                                        self.update_output("Error: You must optimize with mapped electrode option selected", 'error')
+                                        return
+                            else:
+                                self.update_output(f"Error: Could not find electrode mapping file: {mapping_file}", 'error')
+                                return
+                    except Exception as e:
+                        self.update_output(f"Error reading electrode mapping file: {str(e)}", 'error')
+                        return
+
+            # Add currents if they are set
+            if self.current_input_1.text():
+                params['intensity_ch1_ma'] = float(self.current_input_1.text())
+            if self.current_input_2.text():
+                params['intensity_ch2_ma'] = float(self.current_input_2.text())
+
+            # Add conductivities from the conductivity editor
+            conductivities = self._get_conductivities_for_report()
+            if conductivities:
+                params['conductivities'] = conductivities
+
+            # Add electrode shape and dimensions
+            params['electrode_shape'] = "rect" if self.electrode_shape_rect.isChecked() else "ellipse"
+            params['dimensions'] = self.dimensions_input.text() or "8,8"
+            params['thickness'] = self.thickness_input.text() or "8"
+
+            # Get selected subjects and montages
+            selected_subjects = [item.text() for item in self.subject_list.selectedItems()]
+            if not selected_subjects:
+                self.update_output("Error: No subjects selected", 'error')
+                return
+
+            # Get selected montages based on simulation type
+            if self.sim_type_montage.isChecked():
+                selected_montages = [item.data(QtCore.Qt.UserRole) for item in self.montage_list.selectedItems()]
+                if not selected_montages:
+                    self.update_output("Error: No montages selected", 'error')
+                    return
+            else:
+                # For flex-search, get montages from flex-search list
+                selected_montages = [item.data(QtCore.Qt.UserRole)['search_name'] for item in self.flex_search_list.selectedItems()]
+                if not selected_montages:
+                    self.update_output("Error: No flex-search outputs selected", 'error')
+                    return
+
+            # Add subjects and montages
+            for subject_id in selected_subjects:
+                bids_subject_id = f"sub-{subject_id}"
+                m2m_path = os.path.join(project_dir, 'derivatives', 'SimNIBS', bids_subject_id, f'm2m_{subject_id}')
+                self.report_generator.add_subject(subject_id, m2m_path, 'processing')
+                for montage_name in selected_montages:
+                    self.report_generator.add_montage(
+                        name=montage_name,
+                        electrode_pairs=[['E1', 'E2']],  # Assuming default pairs
+                        montage_type='unipolar' if self.sim_mode_unipolar.isChecked() else 'multipolar'
+                    )
+
+            # Add simulation results
+            for subject_id in selected_subjects:
+                bids_subject_id = f"sub-{subject_id}"
+                for montage_name in selected_montages:
+                    self.report_generator.add_simulation_result(
+                        subject_id=subject_id,
+                        montage_name=montage_name,
+                        output_files=[],  # Assuming no output files yet
+                        duration=None,  # Duration not tracked yet
+                        status='completed'
+                    )
+
+            # Generate report
+            report_path = self.report_generator.generate_report()
+            self.update_output(f"✅ Simulation report generated: {report_path}")
+
+            # Open report in browser
+            import webbrowser
+            try:
+                webbrowser.open('file://' + os.path.abspath(report_path))
+                self.update_output("📊 Report opened in web browser")
+            except Exception as e:
+                self.update_output(f"Report generated but couldn't open browser: {str(e)}")
+
         except Exception as e:
-            self.update_output(f"❌ Error generating simulation reports: {str(e)}", 'error')
+            self.update_output(f"❌ Error generating simulation report: {str(e)}", 'error')
             import traceback
             self.update_output(f"Traceback: {traceback.format_exc()}", 'error')
-    
+
     def disable_controls(self):
         """Disable all controls except the stop button."""
         # Disable all buttons
