@@ -109,16 +109,17 @@ sub-101/
 #### Features
 
 - **T1 + T2 Processing**: Utilizes both T1 and T2 images when available for improved pial surface reconstruction
-- **Robust Error Detection**: Advanced failure detection including system-level errors
-- **File Validation**: Verifies essential output files before declaring success
+- **Flexible Processing**: Continues processing even if some stages encounter issues
+- **Basic Input Validation**: Simple checks for file existence and readability
 - **Parallel Processing**: Configurable for single-threaded or multi-threaded execution
-- **Cleanup on Failure**: Automatic removal of incomplete processing directories
+- **Resilient Execution**: Continues processing other subjects even if some fail
+- **Flexible Output Validation**: Basic completion checks without strict file requirements
 
 #### Process Flow
 
 ```mermaid
 graph TD
-    A[Input Validation] --> B[T1/T2 Detection]
+    A[Basic Input Validation] --> B[T1/T2 Detection]
     B --> C[FreeSurfer Environment Check]
     C --> D[Motion Correction]
     D --> E[Intensity Normalization]
@@ -126,22 +127,17 @@ graph TD
     F --> G[White Matter Segmentation]
     G --> H[Surface Generation]
     H --> I[T2pial Refinement]
-    I --> J[Output Verification]
-    J --> K[Success/Failure Report]
+    I --> J[Basic Completion Check]
 ```
 
-#### Essential Output Files
+#### Completion Checking
 
-The script verifies the following essential files for successful completion:
+The script performs basic completion checking:
 
-| File | Description |
-|------|-------------|
-| `aseg.mgz` | Volumetric segmentation |
-| `brain.mgz` | Skull-stripped brain |
-| `brainmask.mgz` | Brain mask |
-| `lh.pial`, `rh.pial` | Pial surfaces |
-| `lh.white`, `rh.white` | White matter surfaces |
-| `lh.inflated`, `rh.inflated` | Inflated surfaces |
+- Looks for completion markers in `recon-all.log`
+- Accepts various completion patterns
+- Continues processing even if markers aren't found
+- Maintains partial results for manual inspection
 
 #### Usage
 
@@ -162,18 +158,9 @@ The script verifies the following essential files for successful completion:
 derivatives/
 └── freesurfer/
     └── sub-101/
-        ├── mri/
-        │   ├── aseg.mgz
-        │   ├── brain.mgz
-        │   ├── brainmask.mgz
-        │   └── ...
-        ├── surf/
-        │   ├── lh.pial
-        │   ├── rh.pial
-        │   ├── lh.white
-        │   ├── rh.white
-        │   └── ...
-        ├── label/
+        ├── mri/           # Volumetric data
+        ├── surf/          # Surface meshes
+        ├── label/         # Anatomical labels
         └── scripts/
             └── recon-all.log
 ```
@@ -421,7 +408,18 @@ ls -la /mnt/project/derivatives/freesurfer/*/mri/aseg.mgz
 | **Missing T1 Image** | "No T1 image found" error | Ensure DICOM conversion completed successfully |
 | **Illegal Instruction** | FreeSurfer crashes early | Check Docker CPU compatibility, try different base image |
 | **PETSC Segmentation Fault** | SimNIBS charm crashes | Ensure sequential processing, check memory limits |
-| **Incomplete FreeSurfer Output** | Missing essential files | Check log files for specific errors, ensure sufficient disk space |
+| **Partial FreeSurfer Output** | Some files missing | Check log files, results may still be usable |
+| **Missing T2 Image** | Warning in logs | Processing continues with T1 only |
+
+### Processing Behavior
+
+The pipeline now implements a more flexible approach:
+
+1. **Partial Results**: Keeps partial results instead of deleting them
+2. **Continued Processing**: Continues with other subjects even if some fail
+3. **T2 Handling**: Gracefully falls back to T1-only if T2 is missing/unreadable
+4. **Basic Validation**: Simple existence checks replace strict file validation
+5. **Error Reporting**: Provides warnings instead of errors for non-critical issues
 
 ### System Requirements
 
@@ -438,6 +436,7 @@ ls -la /mnt/project/derivatives/freesurfer/*/mri/aseg.mgz
 2. **Memory Management**: Ensure adequate Docker memory allocation
 3. **Disk I/O**: Use fast storage (SSD) for improved performance
 4. **CPU Utilization**: Match number of parallel jobs to available cores
+5. **Failure Handling**: Pipeline continues even if some subjects fail
 
 ## Integration with Analysis Pipeline
 
