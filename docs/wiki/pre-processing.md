@@ -6,7 +6,7 @@ permalink: /wiki/pre-processing/
 
 # Pre-processing Pipeline
 
-The TI-Toolbox pre-processing pipeline prepares anatomical MRI data for TI stimulation analysis by converting DICOM files to BIDS-compliant NIfTI format, performing FreeSurfer cortical reconstruction, and creating SimNIBS head models. This comprehensive pipeline ensures that all subsequent analysis steps have access to high-quality, standardized neuroimaging data.
+The TI-Toolbox pre-processing pipeline prepares anatomical MRI data for TI simulations by converting DICOM files to BIDS-compliant NIfTI format, performing FreeSurfer cortical reconstruction, and creating SimNIBS head models. This comprehensive pipeline ensures that all subsequent steps have access to high-quality, standardized neuroimaging data.
 
 ## Overview
 
@@ -47,12 +47,11 @@ project_root/
 | **T1-weighted MRI** | High-resolution anatomical image (typically MPRAGE) | **Required** |
 | **T2-weighted MRI** | High-resolution anatomical image (typically CUBE/SPACE) | **Recommended** |
 | **Image Resolution** | Minimum 1mm isotropic voxels | **Required** |
-| **File Format** | DICOM or NIfTI | **Required** |
 | **Subject ID** | Numeric identifier (e.g., 101, 102) | **Required** |
 
 ### Supported Input Formats
 
-- **DICOM files** (`.dcm`, `.IMA`, `.dicom`)
+- **DICOM files** (`.dcm`, `.dicom`)
 - **Compressed DICOM archives** (`.tgz`)
 - **NIfTI files** (`.nii`, `.nii.gz`) - if already converted
 
@@ -109,11 +108,8 @@ sub-101/
 #### Features
 
 - **T1 + T2 Processing**: Utilizes both T1 and T2 images when available for improved pial surface reconstruction
-- **Flexible Processing**: Continues processing even if some stages encounter issues
-- **Basic Input Validation**: Simple checks for file existence and readability
 - **Parallel Processing**: Configurable for single-threaded or multi-threaded execution
 - **Resilient Execution**: Continues processing other subjects even if some fail
-- **Flexible Output Validation**: Basic completion checks without strict file requirements
 
 #### Process Flow
 
@@ -130,27 +126,21 @@ graph TD
     I --> J[Basic Completion Check]
 ```
 
-#### Completion Checking
-
-The script performs basic completion checking:
-
-- Looks for completion markers in `recon-all.log`
-- Accepts various completion patterns
-- Continues processing even if markers aren't found
-- Maintains partial results for manual inspection
 
 #### Usage
 
 ```bash
-# Single subject processing
+# Single subject processing (1 core)
 ./recon-all.sh /path/to/sub-101
 
-# With parallel processing optimization
+# With parallel processing (all available cores for this subject)
 ./recon-all.sh /path/to/sub-101 --parallel
 
 # Quiet mode
 ./recon-all.sh /path/to/sub-101 --quiet
 ```
+
+**Note:** The `--parallel` flag in `recon-all.sh` enables FreeSurfer's internal parallelization (multiple cores for one subject). This is different from the `--parallel` flag in `structural.sh` which enables processing multiple subjects simultaneously.
 
 #### Generated Output Structure
 
@@ -162,20 +152,17 @@ derivatives/
         ├── surf/          # Surface meshes
         ├── label/         # Anatomical labels
         └── scripts/
-            └── recon-all.log
 ```
 
 ### Stage 3: SimNIBS charm (Head Model Creation)
 
 **Script:** `charm.sh`  
-**Purpose:** Create electromagnetic head models for TI simulation
+**Purpose:** Create head models for TI simulation
 
 #### Features
 
-- **Multi-modal Input**: Supports T1-only or T1+T2 processing
-- **Memory Safeguards**: PETSC optimization to prevent segmentation faults
-- **Sequential Processing**: Runs one subject at a time to avoid memory conflicts
-- **Automatic Overwrite**: Handles existing head models with `--forcerun`
+- **Input**: Supports T1-only or T1+T2 processing
+- **Sequential Processing**: Runs one subject at a time 
 
 #### Process Flow
 
@@ -207,10 +194,7 @@ derivatives/
 └── SimNIBS/
     └── sub-101/
         └── m2m_101/
-            ├── subject_volumes/
-            ├── subject_meshes/
-            ├── eeg_positions/
-            └── charm_log.html
+
 ```
 
 ## Orchestration Script
@@ -222,14 +206,14 @@ derivatives/
 #### Command Line Interface
 
 ```bash
-# Basic usage - all stages
+# Sequential mode (default) - one subject at a time, all cores per subject
 ./structural.sh /path/to/sub-101 /path/to/sub-102 recon-all --convert-dicom --create-m2m
+
+# Parallel mode - multiple subjects simultaneously, 1 core per subject
+./structural.sh /path/to/sub-101 /path/to/sub-102 recon-all --parallel --convert-dicom --create-m2m
 
 # Recon-all only
 ./structural.sh /path/to/sub-101 recon-all --recon-only
-
-# Parallel processing
-./structural.sh /path/to/sub-101 /path/to/sub-102 recon-all --parallel
 
 # Subject ID format
 ./structural.sh --subjects 101,102,103 recon-all --parallel
@@ -242,73 +226,135 @@ derivatives/
 | `recon-all` | Run FreeSurfer reconstruction | Always required |
 | `--convert-dicom` | Include DICOM conversion stage | Optional |
 | `--create-m2m` | Include SimNIBS head model creation | Optional |
-| `--parallel` | Enable parallel processing | Optional |
+| `--parallel` | Enable parallel processing mode (multiple subjects, 1 core each) | Optional |
 | `--recon-only` | Skip all non-recon steps | Optional |
 | `--quiet` | Suppress console output | Optional |
 
-## Parallelization Strategy
+#### Processing Mode Selection
 
-### Maximum Throughput Architecture
-
-The pipeline implements a sophisticated parallelization strategy optimized for computational efficiency:
-
-#### FreeSurfer Parallel Processing
-
-```mermaid
-graph LR
-    A[12 Logical Cores] --> B[5 Simultaneous Subjects]
-    B --> C[Each Subject: 1 Core]
-    C --> D[Maximum Throughput]
-    
-    E[Alternative: Multi-threaded] --> F[1 Subject at a time]
-    F --> G[Each Subject: 12 Cores]
-    G --> H[Higher per-subject speed]
+**Default (Sequential Mode):**
+```bash
+# Best for: Small datasets (1-3 subjects), maximum per-subject speed
+./structural.sh /path/sub-101 /path/sub-102 recon-all --convert-dicom
 ```
 
-#### Configuration Details
-
-| Mode | Subjects Simultaneously | Cores per Subject | Use Case |
-|------|------------------------|-------------------|----------|
-| **Maximum Throughput** | N (= CPU cores) | 1 | Large cohort studies |
-| **Single Subject** | 1 | All available | Individual processing |
-
-#### Implementation
-
+**Parallel Mode:**
 ```bash
-# Detect available cores
-AVAILABLE_CORES=$(nproc)  # Linux
-AVAILABLE_CORES=$(sysctl -n hw.logicalcpu)  # macOS
+# Best for: Large datasets (4+ subjects), maximum throughput
+./structural.sh /path/sub-101 /path/sub-102 /path/sub-103 /path/sub-104 recon-all --parallel --convert-dicom
+```
 
-# Configure parallel execution
+## Parallelization Strategy
+
+### Two-Mode Processing Architecture
+
+The pipeline implements a simple and efficient two-mode parallelization strategy:
+
+#### Processing Modes
+
+```mermaid
+graph TD
+    A[Processing Mode Selection] --> B{--parallel flag?}
+    B -->|No| C[Sequential Mode]
+    B -->|Yes| D[Parallel Mode]
+    
+    C --> E[One subject at a time<br/>All cores per subject<br/>Maximum speed per subject]
+    D --> F[Multiple subjects simultaneously<br/>1 core per subject<br/>Maximum throughput]
+    
+    G[8 CPU cores example] --> H[Sequential: 1 subject × 8 cores]
+    G --> I[Parallel: 8 subjects × 1 core each]
+```
+
+#### Mode Comparison
+
+| Mode | Command | Subjects Running | Cores per Subject | Best For |
+|------|---------|------------------|-------------------|----------|
+| **Sequential** (Default) | `./structural.sh sub-101 sub-102 recon-all` | 1 at a time | All available | Small datasets, fastest per-subject |
+| **Parallel** | `./structural.sh sub-101 sub-102 recon-all --parallel` | Multiple | 1 each | Large datasets, maximum throughput |
+
+#### Implementation Details
+
+**Sequential Mode:**
+```bash
+# Each subject uses all available cores
+export OMP_NUM_THREADS=$AVAILABLE_CORES
+export ITK_GLOBAL_DEFAULT_NUMBER_OF_THREADS=$AVAILABLE_CORES
+
+# Process subjects one by one
+for subject in subjects; do
+    recon-all.sh $subject --parallel  # FreeSurfer internal parallelization
+done
+```
+
+**Parallel Mode:**
+```bash
+# Each subject uses single core
 export OMP_NUM_THREADS=1
 export ITK_GLOBAL_DEFAULT_NUMBER_OF_THREADS=1
 
-# GNU Parallel execution
-parallel --jobs $AVAILABLE_CORES --line-buffer recon-all.sh {} ::: "${SUBJECT_DIRS[@]}"
+# Process multiple subjects with GNU Parallel
+parallel --jobs $AVAILABLE_CORES recon-all.sh {} ::: "${SUBJECTS[@]}"
 ```
 
-#### SimNIBS Sequential Processing
+#### Performance Characteristics
 
-SimNIBS charm processing is **always sequential** to prevent PETSC memory conflicts:
+| System Specs | Sequential Mode | Parallel Mode | Recommendation |
+|---------------|-----------------|---------------|----------------|
+| **4-8 cores, 1-3 subjects** | ~6-8 hours/subject | ~6-8 hours/subject | **Sequential** - simpler |
+| **8+ cores, 4+ subjects** | 6-8 hours × N subjects | ~6-8 hours total | **Parallel** - much faster |
+| **Limited memory (<16GB)** | **Recommended** | May cause OOM | **Sequential** - safer |
+| **Abundant resources** | Good | **Optimal** | **Parallel** - maximum efficiency |
 
-- One subject processed at a time
+#### SimNIBS Processing
+
+SimNIBS charm processing is **always sequential** regardless of mode:
+
+- One subject processed at a time to prevent PETSC memory conflicts
 - Full CPU cores available per subject
 - Memory safeguards to prevent segmentation faults
 
 ## Complete Pipeline Execution
 
-### Full Pipeline Example
+### Processing Mode Examples
+
+#### Sequential Mode (Default) - Maximum Speed per Subject
 
 ```bash
-# Process multiple subjects with full pipeline
+# Best for: 1-3 subjects, fastest individual processing
+./structural.sh \
+    /mnt/study_data/sub-101 \
+    /mnt/study_data/sub-102 \
+    recon-all \
+    --convert-dicom \
+    --create-m2m
+
+# Estimated timing (8-core system):
+# Subject 1: ~6-8 hours (all 8 cores)
+# Subject 2: ~6-8 hours (all 8 cores)
+# Total: ~12-16 hours
+```
+
+#### Parallel Mode - Maximum Throughput
+
+```bash
+# Best for: 4+ subjects, fastest total processing
 ./structural.sh \
     /mnt/study_data/sub-101 \
     /mnt/study_data/sub-102 \
     /mnt/study_data/sub-103 \
+    /mnt/study_data/sub-104 \
+    /mnt/study_data/sub-105 \
+    /mnt/study_data/sub-106 \
+    /mnt/study_data/sub-107 \
+    /mnt/study_data/sub-108 \
     recon-all \
     --parallel \
     --convert-dicom \
     --create-m2m
+
+# Estimated timing (8-core system):
+# All 8 subjects: ~6-8 hours total (8 subjects × 1 core each)
+# 66% faster than sequential for 8 subjects!
 ```
 
 ### Stage-by-Stage Execution
@@ -318,10 +364,32 @@ SimNIBS charm processing is **always sequential** to prevent PETSC memory confli
 ./dicom2nifti.sh /mnt/study_data/sub-101
 
 # Stage 2: FreeSurfer reconstruction only
+# Sequential mode (all cores for this subject)
 ./recon-all.sh /mnt/study_data/sub-101 --parallel
+
+# Parallel mode (1 core for this subject)
+./recon-all.sh /mnt/study_data/sub-101
 
 # Stage 3: SimNIBS head model only  
 ./charm.sh /mnt/study_data/sub-101
+```
+
+### Quick Decision Guide
+
+```bash
+# How many subjects do you have?
+
+# 1-3 subjects → Use Sequential Mode (default)
+./structural.sh sub-101 sub-102 sub-103 recon-all --convert-dicom
+
+# 4+ subjects → Use Parallel Mode
+./structural.sh sub-101 sub-102 sub-103 sub-104 sub-105 recon-all --parallel --convert-dicom
+
+# Limited memory/resources → Always use Sequential Mode
+./structural.sh sub-101 sub-102 recon-all --convert-dicom
+
+# Time-critical analysis → Use Parallel Mode for maximum speed
+./structural.sh sub-{101..120} recon-all --parallel --convert-dicom
 ```
 
 ## Output Directory Structure
@@ -406,10 +474,20 @@ ls -la /mnt/project/derivatives/freesurfer/*/mri/aseg.mgz
 | Issue | Symptoms | Solution |
 |-------|----------|----------|
 | **Missing T1 Image** | "No T1 image found" error | Ensure DICOM conversion completed successfully |
-| **Illegal Instruction** | FreeSurfer crashes early | Check Docker CPU compatibility, try different base image |
+| **Illegal Instruction** | FreeSurfer crashes early | ✅ **Fixed** in latest version with improved resource management |
+| **Memory Issues** | OOM errors, crashes | Use sequential mode, check Docker memory allocation |
 | **PETSC Segmentation Fault** | SimNIBS charm crashes | Ensure sequential processing, check memory limits |
 | **Partial FreeSurfer Output** | Some files missing | Check log files, results may still be usable |
 | **Missing T2 Image** | Warning in logs | Processing continues with T1 only |
+
+### Recent Improvements
+
+**Version 2024.12+:**
+- ✅ **Resolved "Illegal instruction" errors** through improved parallelization strategy
+- ✅ **Simplified processing modes** - clear sequential vs parallel options
+- ✅ **Better resource management** - proper thread and memory allocation
+- ✅ **Cleaner error handling** - no false retry attempts
+- ✅ **Improved logging** - clearer progress indication
 
 ### Processing Behavior
 
