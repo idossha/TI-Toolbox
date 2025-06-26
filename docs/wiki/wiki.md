@@ -1,20 +1,27 @@
 ---
-layout: page
+layout: wiki
 title: Wiki
 permalink: /wiki/
 ---
 
-# Temporal Interference Toolbox Wiki
+Welcome to the Temporal Interference Toolbox Wiki. Here you'll find detailed guides and documentation for all aspects of the toolbox.
 
-Welcome to the Temporal Interference Toolbox Wiki. Here you'll find detailed guides and documentation.
+## Getting Started
 
-## Available Guides
+Use the navigation sidebar to explore different sections of the documentation. Each guide provides comprehensive information with examples and best practices.
 
-### [Atlas Resampling](atlas-resampling)
-Learn how to work with different brain atlases and resampling techniques. 
+## Quick Access
 
-## Additional Resources
+### Core Functionality
+- **[Flex Search](flex-search)** - Advanced electrode optimization for TI stimulation
+- **[Ex Search](ex-search)** - Comprehensive TI optimization pipeline with leadfield analysis
+- **[Pre-Processing](pre-processing)** - Data preparation and mesh generation workflows
 
-- [Installation Guide]({{ site.baseurl }}/installation/) - Complete installation instructions for all platforms
-- [Releases]({{ site.baseurl }}/releases/) - Latest versions and release notes
-- [GitHub Repository](https://github.com/idossha/TI-Toolbox) - Source code and issue tracking 
+### Analysis & Reporting
+- **[Reports](reports)** - Understanding HTML simulation reports and results
+- **[Logging](logging)** - Comprehensive logging system documentation
+- **[Atlas Resampling](atlas-resampling)** - Working with brain atlases and resampling
+
+## Support & Development
+
+For additional help, installation instructions, and development resources, check the links in the sidebar or visit our [GitHub repository](https://github.com/idossha/TI-Toolbox). 

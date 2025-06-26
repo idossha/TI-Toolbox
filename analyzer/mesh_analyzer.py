@@ -63,6 +63,11 @@ from visualizer import MeshVisualizer
 import csv
 from datetime import datetime
 import matplotlib.pyplot as plt
+import sys
+
+# Add the parent directory to the path to access utils
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+from utils import logging_util
 
 class MeshAnalyzer:
     """
@@ -82,7 +87,7 @@ class MeshAnalyzer:
         _surface_mesh_path (str): Path to the generated surface mesh
     """
     
-    def __init__(self, field_mesh_path: str, field_name: str, subject_dir: str, output_dir: str):
+    def __init__(self, field_mesh_path: str, field_name: str, subject_dir: str, output_dir: str, logger=None):
         """
         Initialize the MeshAnalyzer class.
 
@@ -91,12 +96,39 @@ class MeshAnalyzer:
             field_name (str): Name of the field to analyze
             subject_dir (str): Directory containing subject data (m2m folder)
             output_dir (str): Directory where analysis results will be saved
+            logger: Optional logger instance to use. If None, creates its own.
         """
         self.field_mesh_path = field_mesh_path
         self.field_name = field_name
         self.subject_dir = subject_dir
         self.output_dir = output_dir
-        self.visualizer = MeshVisualizer(output_dir)
+        
+        # Set up logger - use provided logger or create a new one
+        if logger is not None:
+            # Create a child logger to distinguish mesh analyzer logs
+            self.logger = logger.getChild('mesh_analyzer')
+        else:
+            # Create our own logger if none provided
+            time_stamp = time.strftime('%Y%m%d_%H%M%S')
+            
+            # Extract subject ID from subject_dir (e.g., m2m_subject -> subject)
+            subject_id = os.path.basename(self.subject_dir).split('_')[1] if '_' in os.path.basename(self.subject_dir) else os.path.basename(self.subject_dir)
+            
+            # Get project directory from subject_dir
+            project_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(self.subject_dir))))  # Go up four levels from m2m_subject
+            if not project_dir.startswith('/mnt/'):
+                project_dir = f"/mnt/{os.path.basename(project_dir)}"
+            
+            # Create derivatives/log/sub-* directory structure
+            log_dir = os.path.join(project_dir, 'derivatives', 'logs', f'sub-{subject_id}')
+            os.makedirs(log_dir, exist_ok=True)
+            
+            # Create log file in the new directory
+            log_file = os.path.join(log_dir, f'mesh_analyzer_{time_stamp}.log')
+            self.logger = logging_util.get_logger('mesh_analyzer', log_file, overwrite=True)
+        
+        # Initialize visualizer with logger
+        self.visualizer = MeshVisualizer(output_dir, self.logger)
         
         # Initialize temporary directory and surface mesh path
         self._temp_dir = None
@@ -104,11 +136,19 @@ class MeshAnalyzer:
         
         # Create output directory if it doesn't exist
         if not os.path.exists(output_dir):
+            self.logger.info(f"Creating output directory: {output_dir}")
             os.makedirs(output_dir)
         
         # Validate that field mesh exists
         if not os.path.exists(field_mesh_path):
+            self.logger.error(f"Field mesh file not found: {field_mesh_path}")
             raise FileNotFoundError(f"Field mesh file not found: {field_mesh_path}")
+        
+        self.logger.info(f"Mesh analyzer initialized successfully")
+        self.logger.info(f"Field mesh path: {field_mesh_path}")
+        self.logger.info(f"Field name: {field_name}")
+        self.logger.info(f"Subject directory: {subject_dir}")
+        self.logger.info(f"Output directory: {output_dir}")
 
     def _generate_surface_mesh(self):
         """
@@ -146,12 +186,11 @@ class MeshAnalyzer:
             
             # If we already have a valid surface mesh, return it
             if os.path.exists(surface_mesh_path):
-                print(f"Using existing surface mesh at: {surface_mesh_path}")
+                self.logger.info(f"Using existing surface mesh at: {surface_mesh_path}")
                 self._surface_mesh_path = surface_mesh_path
                 return surface_mesh_path
                 
-            print(f"Generating surface mesh using msh2cortex...")
-            print(f"This may take a few moments...")
+            self.logger.info(f"Generating surface mesh using msh2cortex...")
             
             try:
                 # Run msh2cortex command
@@ -162,42 +201,45 @@ class MeshAnalyzer:
                     '-o', surface_mesh_dir
                 ]
                 
-                print(f"Running: {' '.join(cmd)}")
+                self.logger.info(f"Running: {' '.join(cmd)}")
                 subprocess.run(cmd, check=True, capture_output=True)
                 
                 if not os.path.exists(surface_mesh_path):
+                    self.logger.error(f"Expected surface mesh file not found at: {surface_mesh_path}")
                     raise FileNotFoundError(f"Expected surface mesh file not found at: {surface_mesh_path}")
                 
                 # Store the path
                 self._surface_mesh_path = surface_mesh_path
-                print(f"Surface mesh generated successfully at: {surface_mesh_path}")
+                self.logger.info(f"Surface mesh generated successfully at: {surface_mesh_path}")
                 
                 return surface_mesh_path
                 
             except subprocess.CalledProcessError as e:
-                print(f"Error running msh2cortex: {str(e)}")
-                print(f"Command output: {e.stdout.decode() if e.stdout else ''}")
-                print(f"Command error: {e.stderr.decode() if e.stderr else ''}")
+                self.logger.error(f"Error running msh2cortex: {str(e)}")
+                self.logger.error(f"Command output: {e.stdout.decode() if e.stdout else ''}")
+                self.logger.error(f"Command error: {e.stderr.decode() if e.stderr else ''}")
                 raise RuntimeError("Failed to generate surface mesh using msh2cortex")
             except FileNotFoundError as e:
-                print(f"Error: {str(e)}")
-                print("msh2cortex completed but did not generate the expected file.")
-                print(f"Contents of output directory {surface_mesh_dir}:")
+                self.logger.error(f"Error: {str(e)}")
+                self.logger.error("msh2cortex completed but did not generate the expected file.")
+                self.logger.error(f"Contents of output directory {surface_mesh_dir}:")
                 try:
                     files = os.listdir(surface_mesh_dir)
                     for f in files:
-                        print(f"  {f}")
+                        self.logger.error(f"  {f}")
                 except:
-                    print("  Could not list directory contents")
+                    self.logger.error("  Could not list directory contents")
                 raise
                 
         except (ValueError, IndexError) as e:
+            self.logger.error(f"Could not determine simulation name from field mesh path. Expected path structure: .../sub-<name>/Simulations/simulation_name/TI/mesh/field.msh")
             raise ValueError("Could not determine simulation name from field mesh path. Expected path structure: .../sub-<name>/Simulations/simulation_name/TI/mesh/field.msh")
 
     def __del__(self):
         """Cleanup temporary directory when the analyzer is destroyed."""
         if self._temp_dir is not None:
             try:
+                self.logger.info("Cleaning up temporary directory...")
                 self._temp_dir.cleanup()
             except:
                 pass
@@ -207,19 +249,18 @@ class MeshAnalyzer:
         Analyze all regions in the specified atlas.
         """
         start_time = time.time()
-        print(f"Starting whole head analysis using {atlas_type} atlas")
+        self.logger.info(f"Starting whole head analysis using {atlas_type} atlas")
         
         try:
             # Generate surface mesh if needed
-            print("Generating surface mesh...")
             surface_mesh_path = self._generate_surface_mesh()
-            
+      
             # Load the surface mesh
-            print("Loading surface mesh...")
+            self.logger.info("Loading surface mesh...")
             gm_surf = simnibs.read_msh(surface_mesh_path)
             
             # Load the atlas
-            print("Loading atlas...")
+            self.logger.info(f"Loading atlas {atlas_type}...")
             atlas = simnibs.subject_atlas(atlas_type, self.subject_dir)
             
             # Dictionary to store results for each region
@@ -228,7 +269,7 @@ class MeshAnalyzer:
             # Analyze each region in the atlas
             for region_name in atlas.keys():
                 try:
-                    print(f"Processing region: {region_name}")
+                    self.logger.info(f"Processing region: {region_name}")
                     
                     # Create a directory for this region in the main output directory
                     region_dir = os.path.join(self.output_dir, region_name)
@@ -240,7 +281,7 @@ class MeshAnalyzer:
                     # Check if we have any nodes in the ROI
                     roi_nodes_count = np.sum(roi_mask)
                     if roi_nodes_count == 0:
-                        print(f"Warning: No nodes found in the specified region '{region_name}'")
+                        self.logger.warning(f"Warning: No nodes found in the specified region '{region_name}'")
                         region_results = {
                             'mean_value': None,
                             'max_value': None,
@@ -252,6 +293,7 @@ class MeshAnalyzer:
                         
                         continue
                     
+                    self.logger.info(f"Getting field values within the ROI...")
                     # Get the field values within the ROI
                     field_values = gm_surf.field[self.field_name].value
                     field_values_in_roi = field_values[roi_mask]
@@ -276,8 +318,9 @@ class MeshAnalyzer:
                     
                     # Generate visualizations if requested
                     if visualize:
+                        self.logger.info(f"Generating 3D visualization for region: {region_name}")
                         # Generate 3D visualization and save directly to the region directory
-                        viz_file = self._generate_region_visualization(
+                        self._generate_region_visualization(
                             gm_surf=gm_surf,
                             roi_mask=roi_mask,
                             target_region=region_name,
@@ -292,6 +335,7 @@ class MeshAnalyzer:
                             region_visualizer = MeshVisualizer(region_dir)
                             
                             # Generate value distribution plot for this region
+                            self.logger.info(f"Generating value distribution plot for region: {region_name}")
                             region_visualizer.generate_value_distribution_plot(
                                 field_values_in_roi,
                                 region_name,
@@ -303,7 +347,7 @@ class MeshAnalyzer:
                             )
                     
                 except Exception as e:
-                    print(f"Warning: Failed to analyze region {region_name}: {str(e)}")
+                    self.logger.warning(f"Warning: Failed to analyze region {region_name}: {str(e)}")
                     results[region_name] = {
                         'mean_value': None,
                         'max_value': None,
@@ -312,11 +356,12 @@ class MeshAnalyzer:
             
             # Generate global scatter plot and save whole-head results to CSV directly in the main output directory
             if visualize and results:
-                print("Generating global visualization plots...")
+                self.logger.info("Generating global visualization plot...")
                 # Generate scatter plots in the main output directory
                 self._generate_whole_head_plots(results, atlas_type, 'node')
                 
                 # Generate and save summary CSV
+                self.logger.info("Saving whole-head analysis summary to CSV...")
                 self._save_whole_head_summary_csv(results, atlas_type, 'node')
             
             return results
@@ -363,8 +408,8 @@ class MeshAnalyzer:
     View[1].ColormapAlphaPower = 0.08;
     """)
         
-        print(f"Created visualization: {output_filename}")
-        print(f"Visualization settings saved to: {output_filename}.opt")
+        self.logger.info(f"Created visualization: {output_filename}")
+        self.logger.info(f"Visualization settings saved to: {output_filename}.opt")
         
         return output_filename
     
@@ -374,7 +419,7 @@ class MeshAnalyzer:
         valid_results = {name: res for name, res in results.items() if res['mean_value'] is not None}
         
         if not valid_results:
-            print("Warning: No valid results to plot")
+            self.logger.warning("No valid results to plot")
             return
         
         # Prepare data for plotting
@@ -424,7 +469,7 @@ class MeshAnalyzer:
         plt.savefig(output_file, dpi=300, bbox_inches='tight')
         plt.close()
         
-        print(f"Generated sorted scatter plot: {output_file}")
+        self.logger.info(f"Generated sorted scatter plot: {output_file}")
 
     def _save_whole_head_summary_csv(self, results, atlas_type, data_type='node'):
         """Save a summary CSV of whole-head analysis results directly in the output directory."""
@@ -450,7 +495,7 @@ class MeshAnalyzer:
                 ]
                 writer.writerow(row)
         
-        print(f"Saved whole-head analysis summary to: {output_path}")
+        self.logger.info(f"Saved whole-head analysis summary to: {output_path}")
         return output_path
 
     def analyze_sphere(self, center_coordinates, radius, visualize=False):
@@ -465,10 +510,10 @@ class MeshAnalyzer:
         Returns:
             Dictionary containing analysis results or None if no nodes found
         """
-        print(f"Starting spherical ROI analysis (radius={radius}mm) at coordinates {center_coordinates}")
+        self.logger.info(f"Starting spherical ROI analysis (radius={radius}mm) at coordinates {center_coordinates}")
         
         # Load the mesh
-        print("Loading mesh data...")
+        self.logger.info("Loading mesh data...")
         mesh = simnibs.read_msh(self.field_mesh_path)
         
         # Check if field exists before any cropping
@@ -483,7 +528,7 @@ class MeshAnalyzer:
         field_values = field_data.value
         
         # Create spherical ROI manually
-        print(f"Creating spherical ROI at {center_coordinates} with radius {radius}mm...")
+        self.logger.info(f"Creating spherical ROI at {center_coordinates} with radius {radius}mm...")
         node_coords = mesh.nodes.node_coord
         
         # Calculate distance from each node to the center
@@ -523,17 +568,14 @@ class MeshAnalyzer:
             field_mesh_name = os.path.basename(self.field_mesh_path).lower()
             tissue_type = "grey matter" if "grey" in field_mesh_name else "white matter" if "white" in field_mesh_name else "brain tissue"
             
-            warning_msg = f"""
-\033[93m⚠️  WARNING: Analysis Failed ⚠️
-• No nodes found in ROI at [{center_coordinates[0]}, {center_coordinates[1]}, {center_coordinates[2]}], r={radius}mm
-• ROI is not capturing any {tissue_type}
-• Adjust coordinates/radius or verify using freeview\033[0m"""
-            print(warning_msg)
+            self.logger.error(f"Analysis Failed: No nodes found in ROI at [{center_coordinates[0]}, {center_coordinates[1]}, {center_coordinates[2]}], r={radius}mm")
+            self.logger.error(f"ROI is not capturing any {tissue_type}")
+            self.logger.error("Suggestion: Adjust coordinates/radius or verify using freeview")
             
             return None
         
-        print(f"Found {roi_nodes_count} nodes in the ROI")
-        print("Calculating statistics...")
+        self.logger.info(f"Found {roi_nodes_count} nodes in the ROI")
+        self.logger.info("Calculating statistics...")
         
         # Get the field values within the ROI
         field_values_in_roi = field_values[roi_mask]
@@ -542,31 +584,7 @@ class MeshAnalyzer:
         min_value = np.min(field_values_in_roi)
         max_value = np.max(field_values_in_roi)
         mean_value = np.mean(field_values_in_roi)
-        
-        # Try to calculate weighted mean if possible
-        try:
-            # Try to get node areas for weighted average
-            node_areas = mesh.nodes_areas()
-            
-            # Check if we have node areas data for the ROI mask nodes
-            # NodeData objects don't support len(), so we need to check if the values
-            # attribute exists and has the right shape
-            if hasattr(node_areas, 'value') and node_areas.value.shape[0] >= len(roi_mask):
-                # Get the actual values from the NodeData object
-                node_area_values = node_areas.value
-                
-                # Make sure we're only using values up to the length of roi_mask
-                if node_area_values.shape[0] > len(roi_mask):
-                    node_area_values = node_area_values[:len(roi_mask)]
-                
-                print("Calculating weighted average using node areas")
-                # Use the actual values for weighting
-                mean_value = np.average(field_values_in_roi, weights=node_area_values[roi_mask])
-            else:
-                print("Node areas shape incompatible - using simple average instead")
-        except Exception as e:
-            print(f"Could not calculate weighted average: {str(e)}")
-        
+
         # Create results dictionary
         results = {
             'mean_value': mean_value,
@@ -577,7 +595,7 @@ class MeshAnalyzer:
         
         # Generate visualizations if requested
         if visualize:
-            print("Generating visualizations...")
+            self.logger.info("Generating visualizations...")
             
             # Generate distribution plot
             self.visualizer.generate_value_distribution_plot(
@@ -592,7 +610,7 @@ class MeshAnalyzer:
             
             # For 3D mesh visualization, we need to generate a surface mesh
             try:
-                print("Generating surface mesh for visualization...")
+                self.logger.info("Generating surface mesh for visualization...")
                 surface_mesh_path = self._generate_surface_mesh()
                 
                 # Load the surface mesh
@@ -600,7 +618,7 @@ class MeshAnalyzer:
                 
                 # We need to create the spherical ROI on the surface mesh
                 # since the surface mesh may have different node coordinates/indices
-                print("Creating spherical ROI on surface mesh...")
+                self.logger.info("Creating spherical ROI on surface mesh...")
                 surface_node_coords = gm_surf.nodes.node_coord
                 
                 # Calculate distances on the surface mesh
@@ -619,14 +637,14 @@ class MeshAnalyzer:
                 # Check surface ROI has nodes
                 surface_roi_count = np.sum(surface_roi_mask)
                 if surface_roi_count > 0:
-                    print(f"Found {surface_roi_count} surface nodes in the ROI")
+                    self.logger.info(f"Found {surface_roi_count} surface nodes in the ROI")
                     
                     # Get max value from surface field for proper color scaling
                     surface_field_values_in_roi = surface_field_values[surface_roi_mask]
                     surface_max_value = np.max(surface_field_values_in_roi)
                     
                     # Create spherical ROI overlay visualization
-                    print("Creating spherical ROI overlay visualization...")
+                    self.logger.info("Creating spherical ROI overlay visualization...")
                     viz_file = self.visualizer.visualize_spherical_roi(
                         gm_surf=gm_surf,
                         roi_mask=surface_roi_mask,
@@ -638,12 +656,12 @@ class MeshAnalyzer:
                     )
                     results['visualization_file'] = viz_file
                 else:
-                    print("Warning: No surface nodes found in spherical ROI")
-                    print("This may happen if the sphere is in deep brain regions not represented on the cortical surface")
+                    self.logger.warning("No surface nodes found in spherical ROI")
+                    self.logger.warning("This may happen if the sphere is in deep brain regions not represented on the cortical surface")
                     
             except Exception as viz_error:
-                print(f"Warning: Could not generate 3D visualization: {str(viz_error)}")
-                print("This may happen if surface mesh generation fails or sphere is outside cortical surface")
+                self.logger.warning(f"Could not generate 3D visualization: {str(viz_error)}")
+                self.logger.warning("This may happen if surface mesh generation fails or sphere is outside cortical surface")
                 # Continue without 3D visualization but still save other results
         
         # Save results to CSV
@@ -664,19 +682,18 @@ class MeshAnalyzer:
         Returns:
             Dictionary containing analysis results
         """
-        print(f"Starting cortical analysis for region '{target_region}' using {atlas_type} atlas")
+        self.logger.info(f"Starting cortical analysis for region '{target_region}' using {atlas_type} atlas")
         
         try:
             # Generate surface mesh if needed
-            print("Generating surface mesh...")
             surface_mesh_path = self._generate_surface_mesh()
             
             # Load the surface mesh
-            print("Loading surface mesh...")
+            self.logger.info("Loading surface mesh...")
             gm_surf = simnibs.read_msh(surface_mesh_path)
             
             # Load the atlas
-            print("Loading atlas...")
+            self.logger.info(f"Loading atlas {atlas_type}...")
             atlas = simnibs.subject_atlas(atlas_type, self.subject_dir)
             
             # Verify region exists in atlas
@@ -690,7 +707,7 @@ class MeshAnalyzer:
             # Check if we have any nodes in the ROI
             roi_nodes_count = np.sum(roi_mask)
             if roi_nodes_count == 0:
-                print(f"Warning: No nodes found in the specified region '{target_region}'")
+                self.logger.warning(f"No nodes found in the specified region '{target_region}'")
                 results = {
                     'mean_value': None,
                     'max_value': None,
@@ -723,7 +740,7 @@ class MeshAnalyzer:
             
             # Generate visualization if requested
             if visualize:
-                print("Generating visualizations...")
+                self.logger.info("Generating visualizations...")
                 # Generate distribution plot
                 self.visualizer.generate_value_distribution_plot(
                     field_values_in_roi,
@@ -752,5 +769,5 @@ class MeshAnalyzer:
             return results
                 
         except Exception as e:
-            print(f"Error in cortical analysis: {str(e)}")
+            self.logger.error(f"Error in cortical analysis: {str(e)}")
             raise

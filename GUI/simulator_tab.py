@@ -10,10 +10,34 @@ import os
 import json
 import re
 import subprocess
+import sys
+import time
+import threading
+from pathlib import Path
+import datetime
+import tempfile
+import shutil
+
 from PyQt5 import QtWidgets, QtCore, QtGui
 from confirmation_dialog import ConfirmationDialog
 from utils import confirm_overwrite
-from simulation_report_generator import SimulationReportGenerator
+
+# Add the utils directory to the path
+import sys
+import os
+utils_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'utils')
+if utils_dir not in sys.path:
+    sys.path.insert(0, utils_dir)
+
+# Now import from utils
+try:
+    from report_util import get_simulation_report_generator
+except ImportError as e:
+    print(f"Warning: Could not import report utilities: {e}")
+    # Define a fallback function
+    def get_simulation_report_generator(*args, **kwargs):
+        print("Warning: Report generation not available")
+        return None
 
 class SimulationThread(QtCore.QThread):
     """Thread to run simulation in background to prevent GUI freezing."""
@@ -121,6 +145,8 @@ class SimulatorTab(QtWidgets.QWidget):
         # Initialize with available subjects and montages
         QtCore.QTimer.singleShot(500, self.list_subjects)
         QtCore.QTimer.singleShot(700, self.update_montage_list)
+        QtCore.QTimer.singleShot(900, self.refresh_flex_search_list)
+        QtCore.QTimer.singleShot(1000, self.initialize_ui_state)  # Initialize UI state silently
         
     def setup_ui(self):
         """Set up the user interface for the simulator tab."""
@@ -145,7 +171,8 @@ class SimulatorTab(QtWidgets.QWidget):
         # List widget for subject selection
         self.subject_list = QtWidgets.QListWidget()
         self.subject_list.setSelectionMode(QtWidgets.QAbstractItemView.ExtendedSelection)
-        self.subject_list.setMinimumHeight(100)
+        self.subject_list.setMinimumHeight(90)  # Reduced by 10% (100 * 0.9 = 90)
+        self.subject_list.itemSelectionChanged.connect(self.refresh_flex_search_list)  # Refresh flex-search when subjects change
         subject_layout.addWidget(self.subject_list)
         
         # Subject control buttons
@@ -167,12 +194,17 @@ class SimulatorTab(QtWidgets.QWidget):
         
         # Montage selection - now placed below subjects on left side
         montage_container = QtWidgets.QGroupBox("Montage(s)")
+        montage_container.setMinimumHeight(202)  # Reduced by 10% (224 * 0.9 = 202)
+        montage_container.setMaximumHeight(202)  # Set maximum height for consistency
+        montage_container.setMinimumWidth(450)   # Reduced by 10% (500 * 0.9 = 450)
+        montage_container.setMaximumWidth(450)   # Set maximum width for consistency
         montage_layout = QtWidgets.QVBoxLayout(montage_container)
         
         # List widget for montage selection
         self.montage_list = QtWidgets.QListWidget()
         self.montage_list.setSelectionMode(QtWidgets.QAbstractItemView.ExtendedSelection)
-        self.montage_list.setMinimumHeight(100)
+        self.montage_list.setMinimumHeight(86)   # Reduced by 10% (96 * 0.9 = 86)
+        self.montage_list.setMaximumHeight(86)   # Fixed height for consistency
         montage_layout.addWidget(self.montage_list)
         
         # Montage control buttons
@@ -186,20 +218,64 @@ class SimulatorTab(QtWidgets.QWidget):
         # Other montage buttons
         self.list_montages_btn = QtWidgets.QPushButton("Refresh List")
         self.list_montages_btn.clicked.connect(self.update_montage_list)
-        self.select_all_montages_btn = QtWidgets.QPushButton("Select All")
-        self.select_all_montages_btn.clicked.connect(self.select_all_montages)
         self.clear_montage_selection_btn = QtWidgets.QPushButton("Clear")
         self.clear_montage_selection_btn.clicked.connect(self.clear_montage_selection)
         
         montage_button_layout.addWidget(self.add_new_montage_btn)
         montage_button_layout.addWidget(self.remove_montage_btn)
         montage_button_layout.addWidget(self.list_montages_btn)
-        montage_button_layout.addWidget(self.select_all_montages_btn)
         montage_button_layout.addWidget(self.clear_montage_selection_btn)
         montage_layout.addLayout(montage_button_layout)
         
         # Add montage container to left layout
         left_layout.addWidget(montage_container)
+        
+        # Flex-search outputs selection
+        flex_search_container = QtWidgets.QGroupBox("Flex-Search Outputs")
+        flex_search_container.setMinimumHeight(202)  # Reduced by 10% (224 * 0.9 = 202)
+        flex_search_container.setMaximumHeight(202)  # Set maximum height for consistency
+        flex_search_container.setMinimumWidth(450)   # Reduced by 10% (500 * 0.9 = 450)
+        flex_search_container.setMaximumWidth(450)   # Set maximum width for consistency
+        flex_search_layout = QtWidgets.QVBoxLayout(flex_search_container)
+        
+        # List widget for flex-search output selection
+        self.flex_search_list = QtWidgets.QListWidget()
+        self.flex_search_list.setSelectionMode(QtWidgets.QAbstractItemView.ExtendedSelection)
+        self.flex_search_list.setMinimumHeight(86)   # Reduced by 10% (96 * 0.9 = 86)
+        self.flex_search_list.setMaximumHeight(86)   # Fixed height for consistency
+        flex_search_layout.addWidget(self.flex_search_list)
+        
+        # Flex-search options
+        flex_options_layout = QtWidgets.QHBoxLayout()
+        self.flex_use_mapped = QtWidgets.QCheckBox("Use Mapped")
+        self.flex_use_optimized = QtWidgets.QCheckBox("Use Optimized")
+        self.flex_use_mapped.setChecked(True)  # Default to mapped
+        
+        # No button group - checkboxes are independent
+        
+        flex_options_layout.addWidget(QtWidgets.QLabel("Electrode Type:"))
+        flex_options_layout.addWidget(self.flex_use_mapped)
+        flex_options_layout.addWidget(self.flex_use_optimized)
+        flex_options_layout.addStretch()
+        flex_search_layout.addLayout(flex_options_layout)
+        
+        # Flex-search control buttons
+        flex_button_layout = QtWidgets.QHBoxLayout()
+        self.refresh_flex_btn = QtWidgets.QPushButton("Refresh List")
+        self.refresh_flex_btn.clicked.connect(self.refresh_flex_search_list)
+        self.clear_flex_selection_btn = QtWidgets.QPushButton("Clear")
+        self.clear_flex_selection_btn.clicked.connect(self.clear_flex_search_selection)
+        
+        flex_button_layout.addWidget(self.refresh_flex_btn)
+        flex_button_layout.addWidget(self.clear_flex_selection_btn)
+        flex_search_layout.addLayout(flex_button_layout)
+        
+        # Add flex-search container to left layout
+        left_layout.addWidget(flex_search_container)
+        
+        # Store containers for show/hide functionality
+        self.montage_container = montage_container
+        self.flex_search_container = flex_search_container
         
         # Right side layout for simulation parameters
         right_layout = QtWidgets.QVBoxLayout()
@@ -255,7 +331,29 @@ class SimulatorTab(QtWidgets.QWidget):
         # Connect EEG net selection change to montage list update
         self.eeg_net_combo.currentTextChanged.connect(self.update_montage_list)
 
-        # Simulation mode (Unipolar/Multipolar)
+        # Simulation Type Selection (Montage vs Flex)
+        sim_type_selection_layout = QtWidgets.QHBoxLayout()
+        self.sim_type_selection_label = QtWidgets.QLabel("Simulation Type:")
+        self.sim_type_montage = QtWidgets.QRadioButton("Montage Simulation")
+        self.sim_type_flex = QtWidgets.QRadioButton("Flex-Search Simulation")
+        self.sim_type_montage.setChecked(True)  # Default to montage simulation
+        
+        # Create button group for mutual exclusion
+        self.sim_type_group = QtWidgets.QButtonGroup()
+        self.sim_type_group.addButton(self.sim_type_montage, 1)
+        self.sim_type_group.addButton(self.sim_type_flex, 2)
+        
+        sim_type_selection_layout.addWidget(self.sim_type_selection_label)
+        sim_type_selection_layout.addWidget(self.sim_type_montage)
+        sim_type_selection_layout.addWidget(self.sim_type_flex)
+        sim_type_selection_layout.addStretch()
+        sim_params_layout.addLayout(sim_type_selection_layout)
+        
+        # Connect to mode change handler - use clicked to avoid double signals
+        self.sim_type_montage.clicked.connect(self.on_simulation_type_changed)
+        self.sim_type_flex.clicked.connect(self.on_simulation_type_changed)
+
+        # Simulation mode (Unipolar/Multipolar) - only for montage simulation
         sim_mode_layout = QtWidgets.QHBoxLayout()
         self.sim_mode_label = QtWidgets.QLabel("Simulation Mode:")
         self.sim_mode_unipolar = QtWidgets.QRadioButton("Unipolar")
@@ -268,6 +366,9 @@ class SimulatorTab(QtWidgets.QWidget):
         self.sim_mode_unipolar.toggled.connect(self.update_montage_list)
         self.sim_mode_multipolar.toggled.connect(self.update_montage_list)
         sim_params_layout.addLayout(sim_mode_layout)
+        
+        # Store the sim_mode_layout for show/hide
+        self.sim_mode_layout_widgets = [self.sim_mode_label, self.sim_mode_unipolar, self.sim_mode_multipolar]
         
         # Electrode parameters group
         self.electrode_params_group = QtWidgets.QGroupBox("Electrode Parameters")
@@ -346,7 +447,7 @@ class SimulatorTab(QtWidgets.QWidget):
         
         self.output_console = QtWidgets.QTextEdit()
         self.output_console.setReadOnly(True)
-        self.output_console.setMinimumHeight(200)
+        self.output_console.setMinimumHeight(180)  # Reduced by 10% (200 * 0.9 = 180)
         self.output_console.setStyleSheet("""
             QTextEdit {
                 background-color: #1e1e1e;
@@ -574,14 +675,117 @@ class SimulatorTab(QtWidgets.QWidget):
         """Clear the selection in the subject list."""
         self.subject_list.clearSelection()
     
-    def select_all_montages(self):
-        """Select all montages in the montage list."""
-        self.montage_list.selectAll()
-    
     def clear_montage_selection(self):
         """Clear the selection in the montage list."""
         self.montage_list.clearSelection()
     
+    def refresh_flex_search_list(self):
+        """Refresh the list of available flex-search outputs based on selected subjects."""
+        try:
+            self.flex_search_list.clear()
+            
+            # Get project directory
+            project_dir = f"/mnt/{os.environ.get('PROJECT_DIR_NAME', 'BIDS_new')}"
+            if not project_dir:
+                return
+            
+            # Get selected subjects to filter flex-search outputs
+            selected_subjects = [item.text() for item in self.subject_list.selectedItems()]
+            
+            # Only show flex-search outputs if subjects are selected (similar to montage behavior)
+            if not selected_subjects:
+                return
+            
+            # Search for flex-search outputs
+            simnibs_dir = os.path.join(project_dir, 'derivatives', 'SimNIBS')
+            
+            if os.path.exists(simnibs_dir):
+                # Iterate through selected subject directories only
+                for subject_id in selected_subjects:
+                    subject_dir = f"sub-{subject_id}"
+                    subject_path = os.path.join(simnibs_dir, subject_dir)
+                    
+                    if os.path.exists(subject_path):
+                        flex_search_dir = os.path.join(subject_path, 'flex-search')
+                        
+                        if os.path.exists(flex_search_dir):
+                            # Look for search directories
+                            for search_name in os.listdir(flex_search_dir):
+                                search_dir = os.path.join(flex_search_dir, search_name)
+                                mapping_file = os.path.join(search_dir, 'electrode_mapping.json')
+                                
+                                if os.path.isdir(search_dir) and os.path.exists(mapping_file):
+                                    # Read the mapping file to get details
+                                    try:
+                                        with open(mapping_file, 'r') as f:
+                                            mapping_data = json.load(f)
+                                        
+                                        # Get EEG net if available
+                                        eeg_net = mapping_data.get('eeg_net', 'Unknown Net')
+                                        n_electrodes = len(mapping_data.get('optimized_positions', []))
+                                        
+                                        # Create display label
+                                        label = f"{subject_id} | {search_name} | {n_electrodes} electrodes | {eeg_net}"
+                                        
+                                        # Add item to list
+                                        item = QtWidgets.QListWidgetItem(label)
+                                        item.setData(QtCore.Qt.UserRole, {
+                                            'subject_id': subject_id,
+                                            'search_name': search_name,
+                                            'mapping_file': mapping_file,
+                                            'mapping_data': mapping_data
+                                        })
+                                        self.flex_search_list.addItem(item)
+                                        
+                                    except Exception as e:
+                                        print(f"Error reading flex-search mapping file {mapping_file}: {e}")
+                                        
+        except Exception as e:
+            print(f"Error refreshing flex-search list: {str(e)}")
+    
+    def clear_flex_search_selection(self):
+        """Clear all flex-search selections."""
+        self.flex_search_list.clearSelection()
+    
+    def on_simulation_type_changed(self):
+        """Handle changes between Montage and Flex simulation modes."""
+        is_montage_mode = self.sim_type_montage.isChecked()
+        
+        # Show/hide montage-related UI elements
+        self.montage_container.setVisible(is_montage_mode)
+        
+        # Enable/disable (grey out) simulation mode and EEG net controls instead of hiding
+        for widget in self.sim_mode_layout_widgets:
+            widget.setEnabled(is_montage_mode)
+        self.eeg_net_combo.setEnabled(is_montage_mode)
+        self.eeg_net_label.setEnabled(is_montage_mode)
+        
+        # Show/hide flex-search-related UI elements
+        self.flex_search_container.setVisible(not is_montage_mode)
+        
+        # Update window title or status
+        if is_montage_mode:
+            self.update_output("Switched to Montage Simulation mode", 'info')
+            self.update_montage_list()  # Refresh montage list
+        else:
+            self.update_output("Switched to Flex-Search Simulation mode", 'info')
+            self.refresh_flex_search_list()  # Refresh flex-search list
+
+    def initialize_ui_state(self):
+        """Initialize UI state without printing messages."""
+        is_montage_mode = self.sim_type_montage.isChecked()
+        
+        # Show/hide montage-related UI elements
+        self.montage_container.setVisible(is_montage_mode)
+        
+        # Enable/disable (grey out) simulation mode and EEG net controls instead of hiding
+        for widget in self.sim_mode_layout_widgets:
+            widget.setEnabled(is_montage_mode)
+        self.eeg_net_combo.setEnabled(is_montage_mode)
+        self.eeg_net_label.setEnabled(is_montage_mode)
+        
+        # Show/hide flex-search-related UI elements
+        self.flex_search_container.setVisible(not is_montage_mode)
 
     def ensure_montage_file_exists(self, project_dir):
         """Ensure the montage file exists with proper structure."""
@@ -796,11 +1000,108 @@ class SimulatorTab(QtWidgets.QWidget):
                 QtWidgets.QMessageBox.warning(self, "Warning", "Please select at least one subject.")
                 return
             
-            # Get selected montages
-            selected_montages = [item.data(QtCore.Qt.UserRole) for item in self.montage_list.selectedItems()]
-            if not selected_montages:
-                QtWidgets.QMessageBox.warning(self, "Warning", "Please select at least one montage.")
-                return
+            # Get project directory
+            project_dir = f"/mnt/{os.environ.get('PROJECT_DIR_NAME', 'BIDS_new')}"
+            
+            # Check simulation mode and validate selections
+            is_montage_mode = self.sim_type_montage.isChecked()
+            
+            if is_montage_mode:
+                # Montage simulation mode
+                selected_montages = [item.data(QtCore.Qt.UserRole) for item in self.montage_list.selectedItems()]
+                if not selected_montages:
+                    QtWidgets.QMessageBox.warning(self, "Warning", "Please select at least one montage.")
+                    return
+                selected_flex_searches = []  # No flex-search in montage mode
+                flex_montages = []
+            else:
+                # Flex-search simulation mode
+                selected_flex_searches = [item.data(QtCore.Qt.UserRole) for item in self.flex_search_list.selectedItems()]
+                if not selected_flex_searches:
+                    QtWidgets.QMessageBox.warning(self, "Warning", "Please select at least one flex-search output.")
+                    return
+                selected_montages = []  # No regular montages in flex mode
+                
+                # Process flex-search outputs into montage format
+                flex_montages = []
+                flex_montages_by_subject = {}  # Store flex montages by subject
+                
+                # Check which electrode types are selected
+                use_mapped = self.flex_use_mapped.isChecked()
+                use_optimized = self.flex_use_optimized.isChecked()
+                
+                # Validate that at least one option is selected
+                if not use_mapped and not use_optimized:
+                    QtWidgets.QMessageBox.warning(self, "Warning", "Please select at least one electrode type (Mapped or Optimized).")
+                    return
+                
+                for flex_data in selected_flex_searches:
+                    subject_id = flex_data['subject_id']
+                    search_name = flex_data['search_name']
+                    mapping_data = flex_data['mapping_data']
+                    
+                    # Initialize subject list if needed
+                    if subject_id not in flex_montages_by_subject:
+                        flex_montages_by_subject[subject_id] = []
+                    
+                    # Create montage entries based on selection
+                    if use_mapped:
+                        # Read electrode_mapping.json for this flex-search
+                        mapping_file = os.path.join(project_dir, 'derivatives', 'SimNIBS', 
+                                                  f'sub-{subject_id}', 'flex-search', search_name, 
+                                                  'electrode_mapping.json')
+                        
+                        if not os.path.exists(mapping_file):
+                            self.update_output(f"Error: Could not find electrode mapping file: {mapping_file}", 'error')
+                            continue
+                            
+                        with open(mapping_file, 'r') as f:
+                            mapping_data_from_file = json.load(f)
+                            
+                        if 'mapped_positions' not in mapping_data_from_file or 'mapped_labels' not in mapping_data_from_file:
+                            self.update_output(f"Error: Invalid electrode mapping file format: {mapping_file}", 'error')
+                            continue
+                            
+                        mapped_positions = mapping_data_from_file['mapped_positions']
+                        mapped_labels = mapping_data_from_file['mapped_labels']
+                        eeg_net = mapping_data_from_file.get('eeg_net')
+                        
+                        if not eeg_net:
+                            self.update_output("Error: No EEG net specified in electrode mapping file", 'error')
+                            continue
+                        
+                        # Create montage structure for mapped electrodes
+                        if len(mapped_positions) >= 4:  # Need at least 4 electrodes for TI
+                            montage_name = f"flex_{search_name}_mapped"
+                            # TI requires 2 pairs of electrodes
+                            montage_data = {
+                                'name': montage_name,
+                                'type': 'flex_mapped',
+                                'subject_id': subject_id,
+                                'eeg_net': eeg_net,  # Use the EEG net from the mapping file
+                                'electrode_labels': mapped_labels[:4],
+                                'pairs': [[mapped_labels[0], mapped_labels[1]], [mapped_labels[2], mapped_labels[3]]]
+                            }
+                            flex_montages.append(montage_data)
+                            flex_montages_by_subject[subject_id].append(montage_data)
+                    
+                    if use_optimized:
+                        optimized_positions = mapping_data['optimized_positions']
+                        
+                        # Create montage structure for optimized electrodes
+                        if len(optimized_positions) >= 4:  # Need at least 4 electrodes for TI
+                            montage_name = f"flex_{search_name}_optimized"
+                            # TI requires 2 pairs of electrodes (using XYZ coordinates)
+                            montage_data = {
+                                'name': montage_name,
+                                'type': 'flex_optimized',
+                                'subject_id': subject_id,
+                                'electrode_positions': optimized_positions[:4],
+                                'pairs': [[optimized_positions[0], optimized_positions[1]], 
+                                         [optimized_positions[2], optimized_positions[3]]]
+                            }
+                            flex_montages.append(montage_data)
+                            flex_montages_by_subject[subject_id].append(montage_data)
             
             # Check if simulation directories already exist
             project_dir = f"/mnt/{os.environ.get('PROJECT_DIR_NAME', 'BIDS_new')}"
@@ -818,8 +1119,14 @@ class SimulatorTab(QtWidgets.QWidget):
             
             # Get simulation parameters
             conductivity = self.sim_type_combo.currentData()  # Get conductivity from combo box
-            sim_mode = "U" if self.sim_mode_unipolar.isChecked() else "M"
-            eeg_net = self.eeg_net_combo.currentText()
+            
+            if is_montage_mode:
+                sim_mode = "U" if self.sim_mode_unipolar.isChecked() else "M"
+                eeg_net = self.eeg_net_combo.currentText()
+            else:
+                # For flex mode, always use TI pipeline (main-TI.sh) since we're doing temporal interference
+                sim_mode = "FLEX_TI"  # Special mode for flex-search TI simulations
+                eeg_net = "flex_mode"  # Placeholder since EEG net is determined per montage
             
             # Get current values and convert to Amperes (from mA)
             try:
@@ -855,18 +1162,39 @@ class SimulatorTab(QtWidgets.QWidget):
                 return
             
             # Show confirmation dialog with details
-            details = (f"This will run simulations for:\n\n"
-                      f"• {len(selected_subjects)} subject(s)\n"
-                      f"• {len(selected_montages)} montage(s)\n\n"
-                      f"Parameters:\n"
-                      f"• Simulation type: {conductivity}\n"
-                      f"• Mode: {'Unipolar' if sim_mode == 'U' else 'Multipolar'}\n"
-                      f"• EEG Net: {eeg_net}\n"
-                      f"• Current Channel 1: {current_ma_1} mA\n"
-                      f"• Current Channel 2: {current_ma_2} mA\n"
-                      f"• Electrode shape: {electrode_shape}\n"
-                      f"• Dimensions: {dimensions} mm\n"
-                      f"• Thickness: {thickness} mm")
+            if is_montage_mode:
+                details = (f"This will run MONTAGE simulations for:\n\n"
+                          f"• {len(selected_subjects)} subject(s)\n"
+                          f"• {len(selected_montages)} montage(s)\n\n"
+                          f"Parameters:\n"
+                          f"• Simulation type: {conductivity}\n"
+                          f"• Mode: {'Unipolar' if sim_mode == 'U' else 'Multipolar'}\n"
+                          f"• EEG Net: {eeg_net}\n"
+                          f"• Current Channel 1: {current_ma_1} mA\n"
+                          f"• Current Channel 2: {current_ma_2} mA\n"
+                          f"• Electrode shape: {electrode_shape}\n"
+                          f"• Dimensions: {dimensions} mm\n"
+                          f"• Thickness: {thickness} mm")
+            else:
+                details = (f"This will run FLEX-SEARCH simulations for:\n\n"
+                          f"• {len(selected_subjects)} subject(s)\n"
+                          f"• {len(flex_montages)} flex-search montage(s)\n")
+                
+                # Show which electrode types are selected
+                if use_mapped and use_optimized:
+                    details += "• Using both mapped electrode positions and optimized XYZ coordinates\n"
+                elif use_mapped:
+                    details += "• Using mapped electrode positions (will use EEG net from optimization)\n"
+                elif use_optimized:
+                    details += "• Using optimized XYZ coordinates (no EEG net required)\n"
+                
+                details += (f"\nParameters:\n"
+                          f"• Simulation type: {conductivity}\n"
+                          f"• Current Channel 1: {current_ma_1} mA\n"
+                          f"• Current Channel 2: {current_ma_2} mA\n"
+                          f"• Electrode shape: {electrode_shape}\n"
+                          f"• Dimensions: {dimensions} mm\n"
+                          f"• Thickness: {thickness} mm")
             
             if not ConfirmationDialog.confirm(
                 self,
@@ -888,51 +1216,94 @@ class SimulatorTab(QtWidgets.QWidget):
                 '--run-direct'
             ]
             
-            # Set environment variables for simulator.sh
-            env['SUBJECTS'] = ','.join(selected_subjects)
+            # Set environment variables for simulator.sh (match CLI script expectations)
+            env['SUBJECT_CHOICES'] = ','.join(selected_subjects)  # CLI expects SUBJECT_CHOICES
+            env['SIM_TYPE'] = 'TI'  # CLI expects SIM_TYPE (always TI for this GUI)
             env['CONDUCTIVITY'] = conductivity
             env['SIM_MODE'] = sim_mode
-            env['SELECTED_MONTAGES'] = ' '.join(selected_montages)  # Join with spaces since these are command line args
             env['EEG_NET'] = eeg_net
+            
+            # For montage mode with multiple subjects, provide EEG_NETS (comma-separated)
+            if is_montage_mode:
+                # For now, use the same EEG net for all subjects
+                # In the future, this could be made more sophisticated to support different nets per subject
+                eeg_nets_list = [eeg_net] * len(selected_subjects)
+                env['EEG_NETS'] = ','.join(eeg_nets_list)
             env['CURRENT'] = current  # Now in Amperes, comma-separated for two channels
             env['ELECTRODE_SHAPE'] = electrode_shape
             env['DIMENSIONS'] = dimensions
             env['THICKNESS'] = thickness
             
+            if is_montage_mode:
+                # Montage simulation mode
+                env['SELECTED_MONTAGES'] = ' '.join(selected_montages)
+                env['SIMULATION_FRAMEWORK'] = 'montage'  # CLI expects SIMULATION_FRAMEWORK
+            else:
+                # Flex-search simulation mode
+                env['SELECTED_MONTAGES'] = ''  # No regular montages
+                env['SIMULATION_FRAMEWORK'] = 'flex'  # CLI expects SIMULATION_FRAMEWORK
+                
+                # Create a temporary JSON file with flex montage data
+                import tempfile
+                with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as tf:
+                    json.dump(flex_montages, tf)
+                    env['FLEX_MONTAGES_FILE'] = tf.name
+            
             # Debug output
             self.update_output(f"Running in direct execution mode from GUI")
-            self.update_output(f"Running simulation with:")
-            self.update_output(f"- Subjects: {env['SUBJECTS']}")
+            self.update_output(f"Running {env['SIMULATION_FRAMEWORK']} simulation with:")
+            self.update_output(f"- Subjects: {env['SUBJECT_CHOICES']}")
             self.update_output(f"- Simulation type: {env['CONDUCTIVITY']}")
-            self.update_output(f"- Mode: {'Unipolar' if sim_mode == 'U' else 'Multipolar'}")
-            self.update_output(f"- EEG Net: {env['EEG_NET']}")
+            
+            if is_montage_mode:
+                self.update_output(f"- Mode: {'Unipolar' if sim_mode == 'U' else 'Multipolar'}")
+                self.update_output(f"- EEG Net: {env['EEG_NET']}")
+                self.update_output(f"- Montages: {', '.join(selected_montages)}")
+            else:
+                self.update_output(f"- Flex-search montages: {', '.join([fm['name'] for fm in flex_montages])}")
+                
+                # Determine electrode types based on checkboxes
+                electrode_types = []
+                if self.flex_use_mapped.isChecked():
+                    electrode_types.append("mapped")
+                if self.flex_use_optimized.isChecked():
+                    electrode_types.append("optimized")
+                electrode_type_text = ", ".join(electrode_types) if electrode_types else "none"
+                
+                self.update_output(f"- Electrode type: {electrode_type_text}")
+            
             self.update_output(f"- Current Channel 1: {current_ma_1} mA")
             self.update_output(f"- Current Channel 2: {current_ma_2} mA")
             self.update_output(f"- Electrode shape: {electrode_shape}")
             self.update_output(f"- Dimensions: {dimensions} mm")
             self.update_output(f"- Thickness: {thickness} mm")
-            self.update_output(f"- Montages: {', '.join(selected_montages)}")
             
             # Set tab as busy
             if hasattr(self, 'parent') and self.parent:
                 self.parent.set_tab_busy(self, True, stop_btn=self.stop_btn)
             
-            # Initialize simulation report generator
-            import datetime
+            # Initialize report generator for this simulation session
             self.simulation_session_id = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
             project_dir_path = f"/mnt/{os.environ.get('PROJECT_DIR_NAME', 'BIDS_new')}"
-            self.report_generator = SimulationReportGenerator(project_dir_path, self.simulation_session_id)
+            self.report_generator = get_simulation_report_generator(project_dir_path, self.simulation_session_id)
             
             # Add simulation parameters to report (including custom conductivities)
             self.report_generator.add_simulation_parameters(
-                conductivity, sim_mode, eeg_net, current_ma_1, current_ma_2, False, 
+                conductivity_type=conductivity,
+                simulation_mode=sim_mode,
+                eeg_net=eeg_net,
+                intensity_ch1=current_ma_1,
+                intensity_ch2=current_ma_2,
+                quiet_mode=False,
                 conductivities=self._get_conductivities_for_report()
             )
             
             # Add electrode parameters to report
             dim_parts = dimensions.split(',')
             self.report_generator.add_electrode_parameters(
-                electrode_shape, [float(dim_parts[0]), float(dim_parts[1])], float(thickness)
+                shape=electrode_shape,
+                dimensions=[float(dim_parts[0]), float(dim_parts[1])],
+                thickness=float(thickness)
             )
             
             # Add subjects to report
@@ -944,9 +1315,34 @@ class SimulatorTab(QtWidgets.QWidget):
             
             # Add montages to report
             montage_type = 'unipolar' if sim_mode == 'U' else 'multipolar'
+            
+            # Load actual electrode pairs from montage file
+            montage_file = self.ensure_montage_file_exists(project_dir_path)
+            try:
+                with open(montage_file, 'r') as f:
+                    montage_data = json.load(f)
+            except:
+                montage_data = {"nets": {}}
+            
             for montage_name in selected_montages:
-                # For now, we'll add placeholder electrode pairs - these would be loaded from the montage file
-                self.report_generator.add_montage(montage_name, [['E1', 'E2']], montage_type)
+                # Try to get actual electrode pairs from the montage file
+                electrode_pairs = [['E1', 'E2']]  # Default fallback
+                
+                # Look for the montage in the appropriate net and type
+                net_type = "uni_polar_montages" if sim_mode == 'U' else "multi_polar_montages"
+                
+                if ("nets" in montage_data and 
+                    eeg_net in montage_data["nets"] and 
+                    net_type in montage_data["nets"][eeg_net] and 
+                    montage_name in montage_data["nets"][eeg_net][net_type]):
+                    electrode_pairs = montage_data["nets"][eeg_net][net_type][montage_name]
+                
+                # Use keyword arguments for consistency with updated method signature
+                self.report_generator.add_montage(
+                    name=montage_name,  # Use 'name' keyword argument for consistency
+                    electrode_pairs=electrode_pairs,
+                    montage_type=montage_type
+                )
             
             # Disable UI controls during simulation
             self.disable_controls()
@@ -986,31 +1382,131 @@ class SimulatorTab(QtWidgets.QWidget):
         self.enable_controls()
     
     def auto_generate_simulation_report(self):
-        """Automatically generate simulation report after completion."""
-        if not self.report_generator:
-            return
-        
+        """Auto-generate simulation report for each subject and montage."""
         try:
-            self.update_output("Generating simulation report...", 'info')
+            # Get project directory from environment variable
+            project_dir = f"/mnt/{os.environ.get('PROJECT_DIR_NAME', 'BIDS_new')}"
             
-            # Update subject statuses to completed
-            for subject in self.report_generator.report_data['subjects']:
-                self.report_generator.update_subject_status(subject['subject_id'], 'completed')
+            # Initialize report generator with project directory and session ID
+            self.simulation_session_id = str(int(time.time()))
+            self.report_generator = get_simulation_report_generator(project_dir, self.simulation_session_id)
             
-            # Generate the report
-            report_path = self.report_generator.generate_report()
-            
-            if report_path and os.path.exists(report_path):
-                self.update_output(f"✅ Simulation report generated: {report_path}", 'success')
-                
-                # Report generated successfully - no automatic browser opening
-                self.update_output("📊 Open the report file in your browser to view detailed results", 'info')
+            # Add simulation parameters
+            params = {
+                'conductivity_type': self.sim_type_combo.currentData(),  # Get conductivity type from combo box
+                'simulation_mode': 'U' if self.sim_mode_unipolar.isChecked() else 'M',
+                'quiet_mode': True,  # Always run in quiet mode for GUI
+            }
+
+            # Handle EEG net selection based on simulation type
+            if self.sim_type_montage.isChecked():
+                # For montage mode, use the selected EEG net
+                params['eeg_net'] = self.eeg_net_combo.currentText()
             else:
-                self.update_output("⚠️ Report generation completed but file not found", 'warning')
-                
+                                    # For flex-search mode, try to get EEG net from the electrode_mapping.json
+                    try:
+                        flex_montages = self.flex_search_list.selectedItems()
+                        if flex_montages:
+                            first_montage = flex_montages[0].data(QtCore.Qt.UserRole)
+                            subject_id = first_montage['subject_id']
+                            search_name = first_montage['search_name']
+                            
+                            # Construct path to electrode_mapping.json
+                            mapping_file = os.path.join(project_dir, 'derivatives', 'SimNIBS', 
+                                                      f'sub-{subject_id}', 'flex-search', search_name, 
+                                                      'electrode_mapping.json')
+                            
+                            if os.path.exists(mapping_file):
+                                with open(mapping_file, 'r') as f:
+                                    mapping_data = json.load(f)
+                                    if 'eeg_net' in mapping_data:
+                                        params['eeg_net'] = mapping_data['eeg_net']
+                                    else:
+                                        self.update_output("Error: You must optimize with mapped electrode option selected", 'error')
+                                        return
+                            else:
+                                self.update_output(f"Error: Could not find electrode mapping file: {mapping_file}", 'error')
+                                return
+                    except Exception as e:
+                        self.update_output(f"Error reading electrode mapping file: {str(e)}", 'error')
+                        return
+
+            # Add currents if they are set
+            if self.current_input_1.text():
+                params['intensity_ch1_ma'] = float(self.current_input_1.text())
+            if self.current_input_2.text():
+                params['intensity_ch2_ma'] = float(self.current_input_2.text())
+
+            # Add conductivities from the conductivity editor
+            conductivities = self._get_conductivities_for_report()
+            if conductivities:
+                params['conductivities'] = conductivities
+
+            # Add electrode shape and dimensions
+            params['electrode_shape'] = "rect" if self.electrode_shape_rect.isChecked() else "ellipse"
+            params['dimensions'] = self.dimensions_input.text() or "8,8"
+            params['thickness'] = self.thickness_input.text() or "8"
+
+            # Get selected subjects and montages
+            selected_subjects = [item.text() for item in self.subject_list.selectedItems()]
+            if not selected_subjects:
+                self.update_output("Error: No subjects selected", 'error')
+                return
+
+            # Get selected montages based on simulation type
+            if self.sim_type_montage.isChecked():
+                selected_montages = [item.data(QtCore.Qt.UserRole) for item in self.montage_list.selectedItems()]
+                if not selected_montages:
+                    self.update_output("Error: No montages selected", 'error')
+                    return
+            else:
+                # For flex-search, get montages from flex-search list
+                selected_montages = [item.data(QtCore.Qt.UserRole)['search_name'] for item in self.flex_search_list.selectedItems()]
+                if not selected_montages:
+                    self.update_output("Error: No flex-search outputs selected", 'error')
+                    return
+
+            # Add subjects and montages
+            for subject_id in selected_subjects:
+                bids_subject_id = f"sub-{subject_id}"
+                m2m_path = os.path.join(project_dir, 'derivatives', 'SimNIBS', bids_subject_id, f'm2m_{subject_id}')
+                self.report_generator.add_subject(subject_id, m2m_path, 'processing')
+                for montage_name in selected_montages:
+                    self.report_generator.add_montage(
+                        name=montage_name,
+                        electrode_pairs=[['E1', 'E2']],  # Assuming default pairs
+                        montage_type='unipolar' if self.sim_mode_unipolar.isChecked() else 'multipolar'
+                    )
+
+            # Add simulation results
+            for subject_id in selected_subjects:
+                bids_subject_id = f"sub-{subject_id}"
+                for montage_name in selected_montages:
+                    self.report_generator.add_simulation_result(
+                        subject_id=subject_id,
+                        montage_name=montage_name,
+                        output_files=[],  # Assuming no output files yet
+                        duration=None,  # Duration not tracked yet
+                        status='completed'
+                    )
+
+            # Generate report
+            report_path = self.report_generator.generate_report()
+            self.update_output(f"✅ Simulation report generated: {report_path}")
+
+            # Open report in browser
+            import webbrowser
+            try:
+                webbrowser.open('file://' + os.path.abspath(report_path))
+                self.update_output("📊 Report opened in web browser")
+            except Exception as e:
+                self.update_output(f"Report generated but couldn't open browser: {str(e)}")
+
         except Exception as e:
             self.update_output(f"❌ Error generating simulation report: {str(e)}", 'error')
-    
+            import traceback
+            self.update_output(f"Traceback: {traceback.format_exc()}", 'error')
+
     def disable_controls(self):
         """Disable all controls except the stop button."""
         # Disable all buttons
@@ -1018,13 +1514,14 @@ class SimulatorTab(QtWidgets.QWidget):
         self.select_all_subjects_btn.setEnabled(False)
         self.clear_subject_selection_btn.setEnabled(False)
         self.list_montages_btn.setEnabled(False)
-        self.select_all_montages_btn.setEnabled(False)
         self.clear_montage_selection_btn.setEnabled(False)
         self.add_new_montage_btn.setEnabled(False)
         self.remove_montage_btn.setEnabled(False)
         
         # Disable all inputs
         self.sim_type_combo.setEnabled(False)
+        self.sim_type_montage.setEnabled(False)
+        self.sim_type_flex.setEnabled(False)
         self.eeg_net_combo.setEnabled(False)
         self.sim_mode_unipolar.setEnabled(False)
         self.sim_mode_multipolar.setEnabled(False)
@@ -1038,6 +1535,13 @@ class SimulatorTab(QtWidgets.QWidget):
         # Disable list widgets
         self.subject_list.setEnabled(False)
         self.montage_list.setEnabled(False)
+        self.flex_search_list.setEnabled(False)
+        
+        # Disable flex-search controls
+        self.refresh_flex_btn.setEnabled(False)
+        self.clear_flex_selection_btn.setEnabled(False)
+        self.flex_use_mapped.setEnabled(False)
+        self.flex_use_optimized.setEnabled(False)
     
     def enable_controls(self):
         """Re-enable all controls."""
@@ -1046,13 +1550,14 @@ class SimulatorTab(QtWidgets.QWidget):
         self.select_all_subjects_btn.setEnabled(True)
         self.clear_subject_selection_btn.setEnabled(True)
         self.list_montages_btn.setEnabled(True)
-        self.select_all_montages_btn.setEnabled(True)
         self.clear_montage_selection_btn.setEnabled(True)
         self.add_new_montage_btn.setEnabled(True)
         self.remove_montage_btn.setEnabled(True)
         
         # Enable all inputs
         self.sim_type_combo.setEnabled(True)
+        self.sim_type_montage.setEnabled(True)
+        self.sim_type_flex.setEnabled(True)
         self.eeg_net_combo.setEnabled(True)
         self.sim_mode_unipolar.setEnabled(True)
         self.sim_mode_multipolar.setEnabled(True)
@@ -1066,6 +1571,13 @@ class SimulatorTab(QtWidgets.QWidget):
         # Enable list widgets
         self.subject_list.setEnabled(True)
         self.montage_list.setEnabled(True)
+        self.flex_search_list.setEnabled(True)
+        
+        # Enable flex-search controls
+        self.refresh_flex_btn.setEnabled(True)
+        self.clear_flex_selection_btn.setEnabled(True)
+        self.flex_use_mapped.setEnabled(True)
+        self.flex_use_optimized.setEnabled(True)
     
     def update_electrode_inputs(self, checked):
         """Update the electrode input form based on the selected simulation mode.
@@ -1218,8 +1730,11 @@ class SimulatorTab(QtWidgets.QWidget):
                 QtWidgets.QMessageBox.warning(self, "Warning", "Please select a montage to remove.")
                 return
             
-            # Get the montage name
-            montage_name = selected_items[0].text()
+            # Get the montage name from UserRole data
+            montage_name = selected_items[0].data(QtCore.Qt.UserRole)
+            if not montage_name:
+                QtWidgets.QMessageBox.warning(self, "Warning", "Invalid montage selection.")
+                return
             
             # Confirm deletion
             reply = QtWidgets.QMessageBox.question(
@@ -1257,7 +1772,9 @@ class SimulatorTab(QtWidgets.QWidget):
                         json.dump(montage_data, f, indent=4)
                     
                     self.update_output(f"Removed montage '{montage_name}' from {montage_type}")
-                    self.update_montage_list()
+                    
+                    # Remove the item from the list widget
+                    self.montage_list.takeItem(self.montage_list.row(selected_items[0]))
                 else:
                     QtWidgets.QMessageBox.warning(self, "Warning", f"Montage '{montage_name}' not found.")
         
@@ -1391,8 +1908,7 @@ class SimulatorTab(QtWidgets.QWidget):
     def _get_conductivities_for_report(self):
         """Get conductivity values formatted for the simulation report."""
         # Start with default values
-        from simulation_report_generator import SimulationReportGenerator
-        temp_gen = SimulationReportGenerator("", "")
+        temp_gen = get_simulation_report_generator("", "")
         conductivities = temp_gen._get_default_conductivities()
         
         # Override with any custom values
@@ -1420,6 +1936,122 @@ class SimulatorTab(QtWidgets.QWidget):
                 channel = f"ch{idx+1}:{pair[0]}<-> {pair[1]}"
                 channel_labels.append(channel)
         return f"{montage_name}: " + " + ".join(channel_labels)
+
+    def check_simulation_completion_reports(self):
+        """Check for simulation completion reports and update the report generator."""
+        if not self.report_generator:
+            return
+        
+        try:
+            project_dir_path = f"/mnt/{os.environ.get('PROJECT_DIR_NAME', 'BIDS_new')}"
+            temp_dir = os.path.join(project_dir_path, 'derivatives', 'temp')
+            
+            if not os.path.exists(temp_dir):
+                return
+            
+            # Look for completion report files
+            completion_files = [f for f in os.listdir(temp_dir) if f.startswith('simulation_completion_') and f.endswith('.json')]
+            
+            for completion_file in completion_files:
+                completion_path = os.path.join(temp_dir, completion_file)
+                try:
+                    with open(completion_path, 'r') as f:
+                        completion_data = json.load(f)
+                    
+                    # Check if this completion report matches our session
+                    if completion_data.get('session_id') == self.simulation_session_id:
+                        self.update_output(f"Processing completion report for session {self.simulation_session_id}")
+                        
+                        # Add simulation results for each completed simulation
+                        for sim in completion_data.get('completed_simulations', []):
+                            subject_id = completion_data['subject_id']
+                            montage_name = sim['montage_name']
+                            
+                            # Determine final output files after main-TI.sh processing
+                            final_output_files = self._get_expected_output_files(
+                                completion_data['project_dir'], 
+                                subject_id, 
+                                montage_name
+                            )
+                            
+                            # Add the simulation result
+                            self.report_generator.add_simulation_result(
+                                subject_id=subject_id,
+                                montage_name=montage_name,
+                                output_files=final_output_files,
+                                duration=None,  # Duration not tracked yet
+                                status='completed'
+                            )
+                            
+                            self.update_output(f"Recorded simulation result for {subject_id} - {montage_name}")
+                        
+                        # Update subject status to completed
+                        self.report_generator.update_subject_status(completion_data['subject_id'], 'completed')
+                        
+                        # Clean up the completion report file
+                        os.remove(completion_path)
+                        self.update_output(f"Processed and removed completion report: {completion_file}")
+                        
+                except json.JSONDecodeError:
+                    self.update_output(f"Error: Invalid JSON in completion report {completion_file}")
+                except Exception as e:
+                    self.update_output(f"Error processing completion report {completion_file}: {str(e)}")
+                    
+        except Exception as e:
+            self.update_output(f"Error checking completion reports: {str(e)}")
+    
+    def _get_expected_output_files(self, project_dir, subject_id, montage_name):
+        """Get expected output files for a simulation."""
+        bids_subject_id = f"sub-{subject_id}"
+        simulations_dir = os.path.join(project_dir, "derivatives", "SimNIBS", bids_subject_id, "Simulations", montage_name)
+        ti_dir = os.path.join(simulations_dir, "TI")
+        nifti_dir = os.path.join(ti_dir, "niftis")
+        
+        output_files = {'TI': [], 'niftis': []}
+        if os.path.exists(nifti_dir):
+            # Add all NIfTI files
+            nifti_files = [f for f in os.listdir(nifti_dir) if f.endswith('.nii.gz')]
+            output_files['niftis'] = [os.path.join(nifti_dir, f) for f in nifti_files]
+            
+            # Add TI files specifically
+            ti_files = [f for f in nifti_files if 'TI_max' in f]
+            output_files['TI'] = [os.path.join(nifti_dir, f) for f in ti_files]
+        
+        return output_files
+
+    def on_worker_finished(self, worker_id, output):
+        """Handle completion of simulation worker."""
+        try:
+            # Set tab as not busy
+            if hasattr(self, 'parent') and self.parent:
+                self.parent.set_tab_busy(self, False, stop_btn=self.stop_btn)
+            
+            # Update subjects status
+            if not self.report_generator:
+                self.update_output("Warning: No report generator available")
+                return
+            
+            # Check for completion reports and update simulation results
+            self.check_simulation_completion_reports()
+            
+            # Generate individual simulation report
+            self.update_output("Generating simulation report...")
+            report_path = self.report_generator.generate_report()
+            self.update_output(f"✅ Simulation report generated: {report_path}")
+            
+            # Open report in browser
+            import webbrowser
+            try:
+                webbrowser.open('file://' + os.path.abspath(report_path))
+                self.update_output("📊 Report opened in web browser")
+            except Exception as e:
+                self.update_output(f"Report generated but couldn't open browser: {str(e)}")
+            
+        except Exception as e:
+            self.update_output(f"Error in simulation completion: {str(e)}")
+            # Still set tab as not busy even if there's an error
+            if hasattr(self, 'parent') and self.parent:
+                self.parent.set_tab_busy(self, False, stop_btn=self.stop_btn)
 
 class AddMontageDialog(QtWidgets.QDialog):
     """Dialog for adding new montages."""

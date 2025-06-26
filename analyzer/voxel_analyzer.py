@@ -59,11 +59,17 @@ import time
 from visualizer import VoxelVisualizer
 import csv
 from datetime import datetime
+import sys
+import traceback
 
 # Configure matplotlib for non-interactive backend before importing
 import matplotlib
 matplotlib.use('Agg')  # Use non-interactive backend
 import matplotlib.pyplot as plt
+
+# Add the parent directory to the path to access utils
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+from utils import logging_util
 
 
 class VoxelAnalyzer:
@@ -80,7 +86,7 @@ class VoxelAnalyzer:
         visualizer (VoxelVisualizer): Instance of visualizer for generating plots
     """
     
-    def __init__(self, field_nifti: str, subject_dir: str, output_dir: str):
+    def __init__(self, field_nifti: str, subject_dir: str, output_dir: str, logger=None):
         """
         Initialize the VoxelAnalyzer with paths to required data.
         
@@ -88,6 +94,7 @@ class VoxelAnalyzer:
             field_nifti (str): Path to the NIfTI file containing field data
             subject_dir (str): Directory containing subject data
             output_dir (str): Directory where analysis results will be saved
+            logger: Optional logger instance to use. If None, creates its own.
             
         Raises:
             FileNotFoundError: If field_nifti file does not exist
@@ -95,15 +102,43 @@ class VoxelAnalyzer:
         self.field_nifti = field_nifti
         self.subject_dir = subject_dir
         self.output_dir = output_dir
-        self.visualizer = VoxelVisualizer(output_dir)
+        
+        # Set up logger - use provided logger or create a new one
+        if logger is not None:
+            # Create a child logger to distinguish voxel analyzer logs
+            self.logger = logger.getChild('voxel_analyzer')
+        else:
+            # Create our own logger if none provided
+            time_stamp = time.strftime('%Y%m%d_%H%M%S')
+            
+            # Extract subject ID from subject_dir (e.g., m2m_subject -> subject)
+            subject_id = os.path.basename(self.subject_dir).split('_')[1] if '_' in os.path.basename(self.subject_dir) else os.path.basename(self.subject_dir)
+            
+            # Create derivatives/log/sub-* directory structure
+            log_dir = os.path.join('derivatives', 'logs', f'sub-{subject_id}')
+            os.makedirs(log_dir, exist_ok=True)
+            
+            # Create log file in the new directory
+            log_file = os.path.join(log_dir, f'voxel_analyzer_{time_stamp}.log')
+            self.logger = logging_util.get_logger('voxel_analyzer', log_file, overwrite=True)
+        
+        # Initialize visualizer with logger
+        self.visualizer = VoxelVisualizer(output_dir, self.logger)
         
         # Create output directory if it doesn't exist
         if not os.path.exists(output_dir):
+            self.logger.info(f"Creating output directory: {output_dir}")
             os.makedirs(output_dir)
         
         # Validate that field_nifti exists
         if not os.path.exists(field_nifti):
+            self.logger.error(f"Field file not found: {field_nifti}")
             raise FileNotFoundError(f"Field file not found: {field_nifti}")
+        
+        self.logger.info(f"Voxel analyzer initialized successfully")
+        self.logger.info(f"Field NIfTI path: {field_nifti}")
+        self.logger.info(f"Subject directory: {subject_dir}")
+        self.logger.info(f"Output directory: {output_dir}")
 
     def _extract_atlas_type(self, atlas_file):
         """
@@ -136,51 +171,56 @@ class VoxelAnalyzer:
         Analyze all regions in the specified atlas.
         """
         start_time = time.time()
-        print(f"Starting whole head analysis of atlas: {atlas_file}")
+        self.logger.info(f"Starting whole head analysis of atlas: {atlas_file}")
         
         # Extract atlas type from filename
         atlas_type = self._extract_atlas_type(atlas_file)
-        print(f"Detected atlas type: {atlas_type}")
+        self.logger.info(f"Detected atlas type: {atlas_type}")
         
         try:
             # Load region information once
             region_info = self.get_atlas_regions(atlas_file)
             
             # Load atlas and field data once
-            print(f"Loading atlas from {atlas_file}...")
+            self.logger.info(f"Loading atlas from {atlas_file}...")
             atlas_tuple = self.load_brain_image(atlas_file)
             atlas_img, atlas_arr = atlas_tuple
             
-            print(f"Loading field from {self.field_nifti}...")
+            self.logger.info(f"Loading field from {self.field_nifti}...")
             field_tuple = self.load_brain_image(self.field_nifti)
             field_img, field_arr = field_tuple
             
             # Handle 4D field data (extract first volume if multiple volumes)
             if len(field_arr.shape) == 4:
-                print(f"Detected 4D field data with shape {field_arr.shape}")
+                self.logger.info(f"Detected 4D field data with shape {field_arr.shape}")
                 field_shape_3d = field_arr.shape[:3]
                 # If time dimension is 1, we can simply reshape to 3D
                 if field_arr.shape[3] == 1:
-                    print("Reshaping 4D field data to 3D")
+                    self.logger.info("Reshaping 4D field data to 3D")
                     field_arr = field_arr[:,:,:,0]
                 else:
-                    print(f"Warning: 4D field has {field_arr.shape[3]} volumes. Using only the first volume.")
+                    self.logger.warning(f"4D field has {field_arr.shape[3]} volumes. Using only the first volume.")
                     field_arr = field_arr[:,:,:,0]
             else:
                 field_shape_3d = field_arr.shape
             
             # Check if resampling is needed and do it once if necessary
             if atlas_arr.shape != field_shape_3d:
-                print("Resampling atlas to match field dimensions...")
+                self.logger.info("Atlas and field dimensions don't match, attempting to resample...")
+                self.logger.debug(f"Atlas shape: {atlas_arr.shape}")
+                self.logger.debug(f"Field shape: {field_arr.shape}")
+
+                # Resample the atlas to match the field data, passing atlas_file
                 atlas_img, atlas_arr = self.resample_to_match(
-                    atlas_img,  
-                    field_shape_3d,
+                    atlas_img,
+                    field_shape_3d,  # Use only the spatial dimensions
                     field_img.affine,
                     source_path=atlas_file  # Pass the atlas file path
                 )
-                atlas_tuple = (atlas_img, atlas_arr)
-            else:
-                atlas_tuple = (atlas_img, atlas_arr)
+                
+                # Verify the resampling worked
+                if atlas_arr.shape != field_shape_3d:
+                    raise ValueError(f"Failed to resample atlas to match field dimensions: {atlas_arr.shape} vs {field_shape_3d}")
             
             field_tuple = (field_img, field_arr)
             
@@ -191,7 +231,7 @@ class VoxelAnalyzer:
             for region_id, info in region_info.items():
                 region_name = info['name']
                 try:
-                    print(f"Processing region: {region_name}")
+                    self.logger.info(f"Processing region: {region_name}")
                     
                     # Create a directory for this region in the main output directory
                     region_dir = os.path.join(self.output_dir, region_name)
@@ -203,7 +243,7 @@ class VoxelAnalyzer:
                     # Check if the mask contains any voxels
                     mask_count = np.sum(region_mask)
                     if mask_count == 0:
-                        print(f"Warning: Region {region_name} (ID: {region_id}) contains 0 voxels in the atlas")
+                        self.logger.warning(f"Warning: Region {region_name} (ID: {region_id}) contains 0 voxels in the atlas")
                         region_results = {
                             'mean_value': None,
                             'max_value': None,
@@ -226,7 +266,7 @@ class VoxelAnalyzer:
                     # Check if any voxels remain after filtering
                     filtered_count = len(field_values)
                     if filtered_count == 0:
-                        print(f"Warning: Region {region_name} (ID: {region_id}) has no voxels with positive values")
+                        self.logger.warning(f"Warning: Region {region_name} (ID: {region_id}) has no voxels with positive values")
                         region_results = {
                             'mean_value': None,
                             'max_value': None,
@@ -270,7 +310,7 @@ class VoxelAnalyzer:
                         # Generate region-specific value distribution plot
                         if len(field_values) > 0:
                             # Create a custom visualizer just for this region with the region directory as output
-                            region_visualizer = VoxelVisualizer(region_dir)
+                            region_visualizer = VoxelVisualizer(region_dir, self.logger)
                             
                             # Generate value distribution plot for this region
                             region_visualizer.generate_value_distribution_plot(
@@ -284,7 +324,7 @@ class VoxelAnalyzer:
                             )
                     
                 except Exception as e:
-                    print(f"Warning: Failed to analyze region {region_name}: {str(e)}")
+                    self.logger.warning(f"Warning: Failed to analyze region {region_name}: {str(e)}")
                     results[region_name] = {
                         'mean_value': None,
                         'max_value': None,
@@ -294,7 +334,7 @@ class VoxelAnalyzer:
             
             # Generate global scatter plot and save whole-head results to CSV directly in the main output directory
             if visualize and results:
-                print("Generating global visualization plots...")
+                self.logger.info("Generating global visualization plots...")
                 # Generate scatter plots in the main output directory
                 self._generate_whole_head_plots(results, atlas_type, 'voxel')
                 
@@ -339,7 +379,7 @@ class VoxelAnalyzer:
         vis_img = nib.Nifti1Image(vis_arr, atlas_img.affine)
         nib.save(vis_img, output_filename)
         
-        print(f"Created visualization: {output_filename}")
+        self.logger.info(f"Created visualization: {output_filename}")
         return output_filename
                 
     def _generate_whole_head_plots(self, results, atlas_type, data_type='voxel'):
@@ -348,7 +388,7 @@ class VoxelAnalyzer:
         valid_results = {name: res for name, res in results.items() if res['mean_value'] is not None}
         
         if not valid_results:
-            print("Warning: No valid results to plot")
+            self.logger.warning("Warning: No valid results to plot")
             return
         
         try:
@@ -363,7 +403,7 @@ class VoxelAnalyzer:
                 use_counts_for_color = True
             except (KeyError, AttributeError):
                 # If not available, use a default color
-                print(f"Note: '{data_type}s_in_roi' not found in results, using default coloring")
+                self.logger.note(f"Note: '{data_type}s_in_roi' not found in results, using default coloring")
                 counts = [1 for _ in valid_results.values()]
                 use_counts_for_color = False
             
@@ -427,13 +467,12 @@ class VoxelAnalyzer:
             plt.savefig(output_file, dpi=300, bbox_inches='tight')
             plt.close()
             
-            print(f"Generated sorted scatter plot: {output_file}")
+            self.logger.info(f"Generated sorted scatter plot: {output_file}")
         except Exception as e:
             # If there's any error during plotting, log it but don't stop the overall analysis
-            import traceback
-            print(f"Warning: Failed to generate plots: {str(e)}")
-            print(f"Error details: {traceback.format_exc()}")
-            print("Continuing with analysis without visualizations.")
+            self.logger.warning(f"Warning: Failed to generate plots: {str(e)}")
+            self.logger.error(f"Error details: {traceback.format_exc()}")
+            self.logger.info("Continuing with analysis without visualizations.")
 
     def _save_whole_head_summary_csv(self, results, atlas_type, data_type='voxel'):
         """Save a summary CSV of whole-head analysis results directly in the output directory."""
@@ -460,7 +499,7 @@ class VoxelAnalyzer:
                 ]
                 writer.writerow(row)
         
-        print(f"Saved whole-head analysis summary to: {output_path}")
+        self.logger.info(f"Saved whole-head analysis summary to: {output_path}")
         return output_path
 
     def analyze_sphere(self, center_coordinates, radius, visualize=False):
@@ -470,10 +509,10 @@ class VoxelAnalyzer:
         Returns:
             Dictionary containing analysis results or None if no valid voxels found
         """
-        print(f"Starting spherical ROI analysis (radius={radius}mm) at coordinates {center_coordinates}")
+        self.logger.info(f"Starting spherical ROI analysis (radius={radius}mm) at coordinates {center_coordinates}")
         
         # Load the NIfTI data
-        print("Loading field data...")
+        self.logger.info("Loading field data...")
         img = nib.load(self.field_nifti)
         field_data = img.get_fdata()
         
@@ -491,7 +530,7 @@ class VoxelAnalyzer:
         affine = img.affine
         
         # Convert world coordinates to voxel coordinates if needed
-        print("Converting coordinates and creating ROI mask...")
+        self.logger.info("Converting coordinates and creating ROI mask...")
         inv_affine = np.linalg.inv(affine)
         voxel_coords = np.dot(inv_affine, np.append(center_coordinates, 1))[:3]
         
@@ -530,11 +569,11 @@ class VoxelAnalyzer:
 • No valid voxels found in ROI at [{center_coordinates[0]}, {center_coordinates[1]}, {center_coordinates[2]}], r={radius}mm
 • {"ROI not intersecting " + tissue_type if total_roi_voxels == 0 else "ROI contains only zero/invalid values"}
 • {"Adjust coordinates/radius" if total_roi_voxels == 0 else "Check field data"} or verify using freeview\033[0m"""
-            print(warning_msg)
+            self.logger.warning(warning_msg)
             
             return None
         
-        print("Calculating statistics...")
+        self.logger.info("Calculating statistics...")
         # Get the field values within the ROI
         roi_values = field_data[combined_mask]
         
@@ -563,7 +602,7 @@ class VoxelAnalyzer:
             vis_img = nib.Nifti1Image(vis_arr, affine)
             output_filename = os.path.join(self.output_dir, f"sphere_overlay_{region_name}.nii.gz")
             nib.save(vis_img, output_filename)
-            print(f"Created visualization overlay: {output_filename}")
+            self.logger.info(f"Created visualization overlay: {output_filename}")
             
             # Generate value distribution plot
             self.visualizer.generate_value_distribution_plot(
@@ -632,25 +671,25 @@ class VoxelAnalyzer:
         tuple
             (resampled nibabel image, resampled data array)
         """
-        print(f"Resampling image from shape {source_img.shape} to {target_shape}")
+        self.logger.info(f"Resampling image from shape {source_img.shape} to {target_shape}")
         
         # If source_path is provided, try to find an existing resampled file
         if source_path:
             resampled_path = self._get_resampled_atlas_filename(source_path, target_shape)
             if os.path.exists(resampled_path):
-                print(f"Found existing resampled atlas: {resampled_path}")
+                self.logger.info(f"Found existing resampled atlas: {resampled_path}")
                 try:
                     resampled_img = nib.load(resampled_path)
                     resampled_data = resampled_img.get_fdata()
                     
                     # Check if the resampled image has the correct shape
                     if resampled_data.shape[:3] == target_shape[:3]:
-                        print("Loaded previously resampled atlas")
+                        self.logger.info("Loaded previously resampled atlas")
                         
                         # If target is 4D but resampled is 3D, reshape it to match
                         is_target_4d = len(target_shape) == 4
                         if is_target_4d and len(resampled_data.shape) == 3:
-                            print(f"Reshaping 3D data {resampled_data.shape} to match 4D target {target_shape}")
+                            self.logger.info(f"Reshaping 3D data {resampled_data.shape} to match 4D target {target_shape}")
                             # Add a dimension to match the 4D target shape
                             resampled_data = np.expand_dims(resampled_data, axis=3)
                             
@@ -661,12 +700,12 @@ class VoxelAnalyzer:
                         
                         return resampled_img, resampled_data
                     else:
-                        print(f"Existing resampled atlas has wrong shape: {resampled_data.shape[:3]} vs expected {target_shape[:3]}")
+                        self.logger.warning(f"Existing resampled atlas has wrong shape: {resampled_data.shape[:3]} vs expected {target_shape[:3]}")
                 except Exception as e:
-                    print(f"Error loading existing resampled atlas: {str(e)}")
-                    print("Will generate a new one")
+                    self.logger.error(f"Error loading existing resampled atlas: {str(e)}")
+                    self.logger.info("Will generate a new one")
         
-        print("Generating new resampled atlas...")
+        self.logger.info("Generating new resampled atlas...")
         
         # If target shape is 4D but source is 3D, we need to handle this specially
         is_target_4d = len(target_shape) == 4
@@ -704,7 +743,7 @@ class VoxelAnalyzer:
                 output_path                       # Output image
             ]
             
-            print(f"Running: {' '.join(cmd)}")
+            self.logger.info(f"Running: {' '.join(cmd)}")
             result = subprocess.run(cmd, check=True, capture_output=True)
             
             # Load the resampled image
@@ -713,7 +752,7 @@ class VoxelAnalyzer:
             
             # If target is 4D but resampled is 3D, reshape it to match
             if is_target_4d and len(resampled_data.shape) == 3:
-                print(f"Reshaping 3D data {resampled_data.shape} to match 4D target {target_shape}")
+                self.logger.info(f"Reshaping 3D data {resampled_data.shape} to match 4D target {target_shape}")
                 # Add a dimension to match the 4D target shape
                 resampled_data = np.expand_dims(resampled_data, axis=3)
                 
@@ -725,10 +764,10 @@ class VoxelAnalyzer:
             # Save the resampled atlas for future use if source_path was provided and not temporary
             if source_path and not temp_source_created:
                 resampled_save_path = self._get_resampled_atlas_filename(source_path, target_shape)
-                print(f"Saving resampled atlas for future use: {resampled_save_path}")
+                self.logger.info(f"Saving resampled atlas for future use: {resampled_save_path}")
                 nib.save(resampled_img, resampled_save_path)
             
-            print("Resampling complete")
+            self.logger.info("Resampling complete")
             return resampled_img, resampled_data
             
         finally:
@@ -755,7 +794,7 @@ class VoxelAnalyzer:
         
         # Load the atlas and field data if not provided
         if atlas_data is None:
-            print(f"Loading atlas from {atlas_file}...")
+            self.logger.info(f"Loading atlas from {atlas_file}...")
             atlas_tuple = self.load_brain_image(atlas_file)
             atlas_img, atlas_arr = atlas_tuple
         else:
@@ -763,7 +802,7 @@ class VoxelAnalyzer:
             atlas_img, atlas_arr = atlas_data
             
         if field_data is None:
-            print(f"Loading field from {self.field_nifti}...")
+            self.logger.info(f"Loading field from {self.field_nifti}...")
             field_tuple = self.load_brain_image(self.field_nifti)
             field_img, field_arr = field_tuple
         else:
@@ -772,23 +811,23 @@ class VoxelAnalyzer:
         
         # Handle 4D field data (extract first volume if multiple volumes)
         if len(field_arr.shape) == 4:
-            print(f"Detected 4D field data with shape {field_arr.shape}")
+            self.logger.info(f"Detected 4D field data with shape {field_arr.shape}")
             field_shape_3d = field_arr.shape[:3]
             # If time dimension is 1, we can simply reshape to 3D
             if field_arr.shape[3] == 1:
-                print("Reshaping 4D field data to 3D")
+                self.logger.info("Reshaping 4D field data to 3D")
                 field_arr = field_arr[:,:,:,0]
             else:
-                print(f"Warning: 4D field has {field_arr.shape[3]} volumes. Using only the first volume.")
+                self.logger.warning(f"4D field has {field_arr.shape[3]} volumes. Using only the first volume.")
                 field_arr = field_arr[:,:,:,0]
         else:
             field_shape_3d = field_arr.shape
                 
         # Compare spatial dimensions for atlas and field
         if atlas_arr.shape != field_shape_3d:
-            print("Atlas and field dimensions don't match, attempting to resample...")
-            print(f"Atlas shape: {atlas_arr.shape}")
-            print(f"Field shape: {field_arr.shape}")
+            self.logger.info("Atlas and field dimensions don't match, attempting to resample...")
+            self.logger.debug(f"Atlas shape: {atlas_arr.shape}")
+            self.logger.debug(f"Field shape: {field_arr.shape}")
 
             # Resample the atlas to match the field data, passing atlas_file
             atlas_img, atlas_arr = self.resample_to_match(
@@ -807,9 +846,9 @@ class VoxelAnalyzer:
             region_info = self.get_atlas_regions(atlas_file)
         
         # Determine region ID based on target_region
-        print(f"Finding region information for {target_region}...")
+        self.logger.info(f"Finding region information for {target_region}...")
         region_id, region_name = self.find_region(target_region, region_info)
-        print(f"Processing region: {region_name} (ID: {region_id})")
+        self.logger.info(f"Processing region: {region_name} (ID: {region_id})")
         
         # Create mask for this region
         region_mask = (atlas_arr == region_id)
@@ -817,7 +856,7 @@ class VoxelAnalyzer:
         # Check if the mask contains any voxels
         mask_count = np.sum(region_mask)
         if mask_count == 0:
-            print(f"Warning: Region {region_name} (ID: {region_id}) contains 0 voxels in the atlas")
+            self.logger.warning(f"Warning: Region {region_name} (ID: {region_id}) contains 0 voxels in the atlas")
             results = {
                 'mean_value': None,
                 'max_value': None,
@@ -839,7 +878,7 @@ class VoxelAnalyzer:
         # Check if any voxels remain after filtering
         filtered_count = len(field_values)
         if filtered_count == 0:
-            print(f"Warning: Region {region_name} (ID: {region_id}) has no voxels with positive values")
+            self.logger.warning(f"Warning: Region {region_name} (ID: {region_id}) has no voxels with positive values")
             results = {
                 'mean_value': None,
                 'max_value': None,
@@ -851,7 +890,7 @@ class VoxelAnalyzer:
             
             return results
         
-        print("Calculating statistics...")
+        self.logger.info("Calculating statistics...")
         # Calculate statistics
         mean_value = np.mean(field_values)
         max_value = np.max(field_values)
@@ -866,7 +905,7 @@ class VoxelAnalyzer:
         
         # Generate visualization if requested
         if visualize:
-            print("Generating visualizations...")
+            self.logger.info("Generating visualizations...")
             self.visualizer.generate_value_distribution_plot(
                 field_values,
                 region_name,
@@ -934,13 +973,13 @@ class VoxelAnalyzer:
             ]
             
             try:
-                print(f"Running: {' '.join(cmd)}")
+                self.logger.info(f"Running: {' '.join(cmd)}")
                 subprocess.run(cmd, check=True, capture_output=True)
                 return True
             except subprocess.CalledProcessError as e:
-                print(f"Warning: Could not extract region information using mri_segstats: {str(e)}")
-                print(f"Command output: {e.stdout.decode() if e.stdout else ''}")
-                print(f"Command error: {e.stderr.decode() if e.stderr else ''}")
+                self.logger.warning(f"Warning: Could not extract region information using mri_segstats: {str(e)}")
+                self.logger.debug(f"Command output: {e.stdout.decode() if e.stdout else ''}")
+                self.logger.debug(f"Command error: {e.stderr.decode() if e.stderr else ''}")
                 return False
         
         # Function to parse the labels file
@@ -983,30 +1022,30 @@ class VoxelAnalyzer:
                                         'color': (r, g, b)
                                     }
                                 except (ValueError, IndexError) as e:
-                                    print(f"Warning: Could not parse line: {line.strip()}")
-                                    print(f"Error: {str(e)}")
+                                    self.logger.warning(f"Warning: Could not parse line: {line.strip()}")
+                                    self.logger.debug(f"Error: {str(e)}")
                 
                 return len(region_info) > 0
             except Exception as e:
-                print(f"Error reading labels file: {str(e)}")
+                self.logger.error(f"Error reading labels file: {str(e)}")
                 return False
         
         # Try to use existing file first
         if os.path.exists(output_file):
-            print(f"Found existing labels file: {output_file}")
+            self.logger.info(f"Found existing labels file: {output_file}")
             if parse_labels_file():
-                print(f"Successfully parsed {len(region_info)} regions from existing file")
+                self.logger.info(f"Successfully parsed {len(region_info)} regions from existing file")
                 return region_info
             else:
-                print("Existing file is invalid or empty, regenerating...")
+                self.logger.info("Existing file is invalid or empty, regenerating...")
         
         # Generate new file if needed
         if generate_labels_file():
             if parse_labels_file():
-                print(f"Successfully generated and parsed {len(region_info)} regions")
+                self.logger.info(f"Successfully generated and parsed {len(region_info)} regions")
                 return region_info
         
-        print("Warning: Could not get region information from atlas file")
+        self.logger.warning("Warning: Could not get region information from atlas file")
         return region_info
 
     def load_brain_image(self, file_path):
@@ -1031,7 +1070,7 @@ class VoxelAnalyzer:
                 data = img.get_fdata()
                 return img, data
             except Exception as e:
-                print(f"Could not load MGZ file directly: {str(e)}")
+                self.logger.warning(f"Could not load MGZ file directly: {str(e)}")
                 
                 # Try to convert MGZ to NIfTI using mri_convert
                 try:

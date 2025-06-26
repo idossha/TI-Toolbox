@@ -1,0 +1,80 @@
+====================================================================================================
+Optimization summary:
+====================================================================================================
+Date: 2025-06-21 18:56:59
+Headmodel:                        /mnt/BIDS_new/derivatives/SimNIBS/sub-102/m2m_102/102.msh
+Electrode_mask:                   /root/SimNIBS-4.5/simnibs_env/lib/python3.11/site-packages/simnibs/resources/templates/MNI152_T1_1mm_upper_head_mask.nii.gz
+Conductivity anisotropy type:     scalar
+Output_folder:                    /mnt/BIDS_new/derivatives/SimNIBS/sub-102/flex-search/lh.102_DK40_35_mean
+ 
+Optimization and FEM settings
+----------------------------------------------------------------------------------------------------
+Optimizer:                        differential_evolution
+Goal:                             ['mean']
+Postprocessing:                   ['dir_TI_tangential']
+Threshold:                        None
+Number of ROIs:                   1
+Number of Channels:               2
+ROI weights:                      [1.]
+Constrain electrode locations:    False
+Polish (local optimization):      False
+Map to net electrodes:            True
+Net electrode file:               /mnt/BIDS_new/derivatives/SimNIBS/sub-102/m2m_102/eeg_positions/EEG10-10_Neuroelectrics.csv
+Run mapped electrodes simulation: True
+Optimizer settings:
+	len_tol: 2.7777777777777777e-10
+	f_min_rtol: 1e-12
+	maxiter: 100
+	disp: True
+	recombination: 0.7
+	mutation: [0.01, 0.5]
+	popsize: 30
+	tol: 0.1
+	locally_biased: False
+	seed: None
+	lb: [-1.57079633 -3.14159265 -1.57079633 -3.14159265 -1.57079633 -3.14159265
+ -1.57079633 -3.14159265]
+	ub: [1.57079633 3.14159265 1.57079633 3.14159265 1.57079633 3.14159265
+ 1.57079633 3.14159265]
+	init_vals: [ 0.67354196 -1.23076111  1.25016975  3.10534952 -0.49185574  1.4175648
+ -0.48563805  0.20303282]
+	vol_tol: 3.3333333333333334e-09
+ 
+FEM solver options:               pardiso
+Dirichlet correction:             False
+Dirichlet correction (detailed):  False
+Current outlier correction:       False
+ 
+====================================================================================================
+Optimization results:
+====================================================================================================
+Number of function evaluations (global optimization):   4320
+Number of FEM evaluations (global optimization):        1587
+Goal function value (global optimization):              -1.7616289527537823
+Total number of function evaluations:                   4320
+Total number of FEM evaluations:                        1587
+Final goal function value:                              -1.7616289527537823
+Duration (setup and optimization):                      1488.5341866016388
+The current calibration error exceeded 10%! Estimated error value: 14.29%
+
+Results for surface_mesh:
+======================
+Field Percentiles
+-----------------
+Top percentiles of the field (or field magnitude for vector fields)
+|Field             |99.9%    |50.0%    |
+|------------------|---------|---------|
+|dir_TI_tangential |3.27e+00 |9.93e-01 |
+
+Field Focality
+---------------
+Mesh volume or area with a field >= X% of the 99.9th percentile
+|Field             |75.0%        |50.0%        |
+|------------------|-------------|-------------|
+|dir_TI_tangential |4.14e+03 mm² |3.05e+04 mm² |
+
+Median fields per ROI
+----------------------
+|                  |ROI       |
+|------------------|----------|
+|dir_TI_tangential | 1.82e+00 |

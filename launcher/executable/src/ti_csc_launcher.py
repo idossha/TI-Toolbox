@@ -59,7 +59,7 @@ try:
 except ImportError:
     # Fallback if version module not found
     class MockVersion:
-        __version__ = "2.0.0"
+        __version__ = "2.0.4"
         def get_version_info(self):
             return {"ti_toolbox": {"version": "2.0.0", "release_date": "Unknown", "build": "unknown"}}
     version = MockVersion()
@@ -896,7 +896,20 @@ class TIToolboxLoaderApp(QWidget):
                     raise FileNotFoundError("Docker executable not found")
             
             env = os.environ.copy()
-            env["LOCAL_PROJECT_DIR"] = self.project_dir
+            
+            # Normalize Windows paths for Docker volume mounting
+            if platform.system() == "Windows":
+                # Convert Windows path to Docker-compatible format
+                # C:\Users\name\project -> C:/Users/name/project
+                normalized_path = self.project_dir.replace('\\', '/')
+                # Handle potential UNC paths or paths with spaces
+                if ' ' in normalized_path and not (normalized_path.startswith('"') and normalized_path.endswith('"')):
+                    normalized_path = f'"{normalized_path}"'
+                env["LOCAL_PROJECT_DIR"] = normalized_path
+                self.log_message(f"Windows path normalized for Docker: {normalized_path}", "INFO")
+            else:
+                env["LOCAL_PROJECT_DIR"] = self.project_dir
+                
             env["PROJECT_DIR_NAME"] = os.path.basename(self.project_dir)
             env["DISPLAY"] = self.setup_display_env()
             
@@ -1321,7 +1334,16 @@ class TIToolboxLoaderApp(QWidget):
             
             # Set up environment
             env = os.environ.copy()
-            env["LOCAL_PROJECT_DIR"] = self.project_dir
+            
+            # Normalize Windows paths for Docker volume mounting
+            if platform.system() == "Windows":
+                normalized_path = self.project_dir.replace('\\', '/')
+                if ' ' in normalized_path and not (normalized_path.startswith('"') and normalized_path.endswith('"')):
+                    normalized_path = f'"{normalized_path}"'
+                env["LOCAL_PROJECT_DIR"] = normalized_path
+            else:
+                env["LOCAL_PROJECT_DIR"] = self.project_dir
+                
             env["PROJECT_DIR_NAME"] = os.path.basename(self.project_dir)
             
             # Stop containers

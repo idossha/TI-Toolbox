@@ -20,6 +20,7 @@ from simulator_tab import SimulatorTab
 from flex_search_tab import FlexSearchTab
 from ex_search_tab import ExSearchTab
 from pre_process_tab import PreProcessTab
+from system_monitor_tab import SystemMonitorTab
 from help_tab import HelpTab
 from contact_tab import ContactTab
 from acknowledgments_tab import AcknowledgmentsTab
@@ -70,6 +71,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.simulator_tab = SimulatorTab(self)
         self.analyzer_tab = AnalyzerTab(self)
         self.nifti_viewer_tab = NiftiViewerTab(self)
+        self.system_monitor_tab = SystemMonitorTab(self)
         self.help_tab = HelpTab(self)
         self.contact_tab = ContactTab(self)
         self.acknowledgments_tab = AcknowledgmentsTab(self)
@@ -87,6 +89,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.tab_widget.addTab(self.simulator_tab, "Simulator")
         self.tab_widget.addTab(self.analyzer_tab, "Analyzer")
         self.tab_widget.addTab(self.nifti_viewer_tab, "NIfTI Viewer")
+        self.tab_widget.addTab(self.system_monitor_tab, "System Monitor")
 
         # Step 2: Count how many tabs we have to calculate positions from the right
         total_tabs = self.tab_widget.count() + 3  # +3 for Help, Contact, and Acknowledgments
@@ -136,6 +139,9 @@ class MainWindow(QtWidgets.QMainWindow):
         )
         
         if reply == QtWidgets.QMessageBox.Yes:
+            # Clean up system monitor thread before closing
+            if hasattr(self, 'system_monitor_tab'):
+                self.system_monitor_tab.stop_monitoring()
             event.accept()
         else:
             event.ignore()

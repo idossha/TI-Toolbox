@@ -34,6 +34,51 @@ if [[ ! "$output_directory" = /* ]]; then
     output_directory="$project_base/$output_directory"
 fi
 
+# Function to determine which coordinate file to use based on EEG net
+get_coordinate_file() {
+    local net_name="$1"
+    
+    # GSN-HD compatible nets
+    case "$net_name" in
+        "EGI_template.csv" | "GSN-HydroCel-185.csv" | "GSN-HydroCel-256.csv")
+            echo "/ti-csc/assets/amv/GSN-HD.csv"
+            ;;
+        "EEG10-10_UI_Jurak_2007.csv" | "EEG10-10_Neuroelectrics.csv")
+            echo "/ti-csc/assets/amv/10-10-net.csv"
+            ;;
+        *)
+            echo "Error: Unsupported EEG net: $net_name"
+            exit 1
+            ;;
+    esac
+}
+
+# Function to get coordinates based on file type
+get_electrode_coordinates() {
+    local electrode_label="$1"
+    local coord_file="$2"
+    
+    if [[ "$coord_file" == *"GSN-HD.csv" ]]; then
+        # GSN-HD format: name,xcord,modifiedxcord,ycord,modifiedycord (columns 3,5)
+        awk -F, -v label="$electrode_label" '$1 == label {print $3, $5}' "$coord_file"
+    elif [[ "$coord_file" == *"10-10-net.csv" ]]; then
+        # 10-10-net format: electrode_name,x,y (columns 2,3)
+        awk -F, -v label="$electrode_label" '$1 == label {print $2, $3}' "$coord_file"
+    else
+        echo "Error: Unknown coordinate file format: $coord_file"
+        return 1
+    fi
+}
+
+# Determine which coordinate file to use
+coordinate_file=$(get_coordinate_file "$eeg_net")
+if [[ $? -ne 0 ]]; then
+    echo "$coordinate_file"  # This will be the error message
+    exit 1
+fi
+
+echo "Using coordinate file: $coordinate_file for EEG net: $eeg_net"
+
 # Dynamically determine the montage type based on the sim_mode
 if [[ "$sim_mode" == "U" ]]; then
     montage_type="uni_polar_montages"
@@ -54,11 +99,32 @@ echo "Output Directory: $output_directory"
 # Create output directory if it doesn't exist
 mkdir -p "$output_directory"
 
+# Function to get the appropriate template image based on EEG net
+get_template_image() {
+    local net_name="$1"
+    
+    case "$net_name" in
+        "EGI_template.csv" | "GSN-HydroCel-185.csv" | "GSN-HydroCel-256.csv")
+            echo "/ti-csc/assets/amv/256template.png"
+            ;;
+        "EEG10-10_UI_Jurak_2007.csv" | "EEG10-10_Neuroelectrics.csv")
+            echo "/ti-csc/assets/amv/10-10-net.png"
+            ;;
+        *)
+            echo "/ti-csc/assets/amv/256template.png"  # Default fallback
+            ;;
+    esac
+}
+
+# Get the appropriate template image
+template_image=$(get_template_image "$eeg_net")
+echo "Using template image: $template_image for EEG net: $eeg_net"
+
 # Initialize the output image for Multipolar mode (M)
 if [[ "$sim_mode" == "M" ]]; then
     combined_output_image="$output_directory/combined_montage_visualization.png"
-    # Start with a blank template
-    cp "/ti-csc/assets/amv/256template.png" "$combined_output_image"
+    # Start with the appropriate template
+    cp "$template_image" "$combined_output_image"
 fi
 
 # Ring images for each pair (using distinct ones for multipolar montages)
@@ -76,8 +142,8 @@ overlay_rings() {
     local ring_image=$2
     echo "Overlaying ring for electrode: $electrode_label using image: $ring_image"
 
-    # Get modified coordinates for the current electrode label from the CSV
-    coords=$(awk -F, -v label="$electrode_label" '$1 == label {print $3, $5}' "/ti-csc/assets/amv/electrodes.csv")
+    # Get coordinates for the current electrode label using the appropriate coordinate file
+    coords=$(get_electrode_coordinates "$electrode_label" "$coordinate_file")
     if [ -z "$coords" ]; then
         echo "Warning: Coordinates not found for electrode '$electrode_label'. Skipping overlay."
         return
@@ -111,9 +177,9 @@ for montage in "${selected_montages[@]}"; do
     # Generate the output image filename for the current montage (only for Unipolar)
     if [[ "$sim_mode" == "U" ]]; then
         output_image=$(generate_output_filename "$montage")
-        # Initialize output image to the template image (create only once for the montage)
-        cp "/ti-csc/assets/amv/256template.png" "$output_image" || {
-            echo "Error: Failed to copy template image to '$output_image'."
+        # Initialize output image to the appropriate template image (create only once for the montage)
+        cp "$template_image" "$output_image" || {
+            echo "Error: Failed to copy template image '$template_image' to '$output_image'."
             continue
         }
     fi

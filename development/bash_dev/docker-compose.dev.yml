@@ -31,7 +31,7 @@ services:
 
   simnibs:
     platform: linux/amd64
-    image: idossha/simnibs:23rd
+    image: idossha/simnibs:2.0.3
     container_name: simnibs_container
     volumes:
       - ti_csc_fsl_data:/usr/local/fsl/

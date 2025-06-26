@@ -69,9 +69,14 @@ Example Usage:
 import os
 import sys
 import argparse
+import time
 from pathlib import Path
 from mesh_analyzer import MeshAnalyzer
 from voxel_analyzer import VoxelAnalyzer
+
+# Add the parent directory to the path to access utils
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+from utils import logging_util
 
 def validate_file_extension(file_path, valid_extensions):
     """Validate file extension against a list of valid extensions."""
@@ -146,16 +151,19 @@ def validate_args(args):
     """Validate command line arguments based on analysis type and space."""
     # Validate m2m_subject_path exists
     if not os.path.isdir(args.m2m_subject_path):
+        logger.error(f"m2m subject directory not found: {args.m2m_subject_path}")
         raise ValueError(f"m2m subject directory not found: {args.m2m_subject_path}")
     
     # Validate field_path exists and has correct extension
     if not os.path.exists(args.field_path):
+        logger.error(f"Field file not found: {args.field_path}")
         raise ValueError(f"Field file not found: {args.field_path}")
     
     # Validate space-specific requirements
     if args.space == 'mesh':
         validate_file_extension(args.field_path, ['.msh'])
         if not args.field_name:
+            logger.error("--field_name is required for mesh analysis")
             raise ValueError("--field_name is required for mesh analysis")
     else:  # voxel
         validate_file_extension(args.field_path, ['.nii', '.nii.gz', '.mgz'])
@@ -163,8 +171,10 @@ def validate_args(args):
     # Validate analysis-specific arguments
     if args.analysis_type == 'spherical':
         if not args.coordinates:
+            logger.error("Coordinates are required for spherical analysis")
             raise ValueError("Coordinates are required for spherical analysis")
         if args.radius is None:
+            logger.error("Radius is required for spherical analysis")
             raise ValueError("Radius is required for spherical analysis")
         
         args.coordinates = validate_coordinates(args.coordinates)
@@ -173,19 +183,30 @@ def validate_args(args):
     else:  # cortical
         if args.space == 'mesh':
             if not args.atlas_name:
+                logger.error("Atlas name is required for mesh-based cortical analysis")
                 raise ValueError("Atlas name is required for mesh-based cortical analysis")
         else:  # voxel
             if not args.atlas_path:
+                logger.error("Atlas path is required for voxel-based cortical analysis")
                 raise ValueError("Atlas path is required for voxel-based cortical analysis")
             if not os.path.exists(args.atlas_path):
+                logger.error(f"Atlas file not found: {args.atlas_path}")
                 raise ValueError(f"Atlas file not found: {args.atlas_path}")
             validate_file_extension(args.atlas_path, ['.nii', '.nii.gz', '.mgz'])
             
         # Validate region specification for cortical analysis
         if not args.whole_head and not args.region:
+            logger.error("Either --whole_head flag or --region must be specified for cortical analysis")
             raise ValueError("Either --whole_head flag or --region must be specified for cortical analysis")
         if args.whole_head and args.region:
-            print("Warning: --region is ignored when --whole_head is specified")
+            logger.warning("Warning: --region is ignored when --whole_head is specified")
+        
+    logger.info(f"  Atlas name: {getattr(args, 'atlas_name', None)}")
+    logger.info(f"  Atlas path: {getattr(args, 'atlas_path', None)}")
+    logger.info(f"  Coordinates: {getattr(args, 'coordinates', None)}")
+    logger.info(f"  Radius: {getattr(args, 'radius', None)}")
+    logger.info(f"  Region: {getattr(args, 'region', None)}")
+    logger.info(f"  Whole head: {getattr(args, 'whole_head', None)}")
 
 def main():
     """Main function to run the analysis."""
@@ -194,11 +215,34 @@ def main():
     args = parser.parse_args()
     
     try:
+        # Create output directory & documentation directory
+        os.makedirs(args.output_dir, exist_ok=True)
+        os.makedirs(os.path.join(args.output_dir, 'Documentation'), exist_ok=True)
+        
+        # Initialize logger after creating output directory
+        global logger
+        time_stamp = time.strftime('%Y%m%d_%H%M%S')
+        
+        # Extract subject ID from m2m_subject_path (e.g., m2m_subject -> subject)
+        subject_id = os.path.basename(args.m2m_subject_path).split('_')[1] if '_' in os.path.basename(args.m2m_subject_path) else os.path.basename(args.m2m_subject_path)
+        
+        # Get project directory from m2m_subject_path
+        project_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(args.m2m_subject_path))))  # Go up four levels from m2m_subject
+        if not project_dir.startswith('/mnt/'):
+            project_dir = f"/mnt/{os.path.basename(project_dir)}"
+        
+        # Create derivatives/log/sub-* directory structure
+        log_dir = os.path.join(project_dir, 'derivatives', 'logs', f'sub-{subject_id}')
+        os.makedirs(log_dir, exist_ok=True)
+        
+        # Create log file in the new directory
+        log_file = os.path.join(log_dir, f'analyzer_{time_stamp}.log')
+        logger = logging_util.get_logger('analyzer', log_file, overwrite=True)
+        logger.info(f"Output directory created: {args.output_dir}")
+        
         # Validate arguments
         validate_args(args)
-        
-        # Create output directory
-        os.makedirs(args.output_dir, exist_ok=True)
+        logger.info("Arguments validated successfully")
         
         # Initialize appropriate analyzer
         if args.space == 'mesh':
@@ -206,18 +250,28 @@ def main():
                 field_mesh_path=args.field_path,
                 field_name=args.field_name,
                 subject_dir=args.m2m_subject_path,
-                output_dir=args.output_dir
+                output_dir=args.output_dir,
+                logger=logger
             )
+            if analyzer is None:
+                logger.error("Failed to initialize mesh analyzer")
+                raise ValueError("Failed to initialize mesh analyzer")
+
         else:  # voxel
             analyzer = VoxelAnalyzer(
                 field_nifti=args.field_path,
                 subject_dir=args.m2m_subject_path,
-                output_dir=args.output_dir
+                output_dir=args.output_dir,
+                logger=logger
             )
-        
+            if analyzer is None:
+                logger.error("Failed to initialize voxel analyzer")
+                raise ValueError("Failed to initialize voxel analyzer")
+
         # Perform analysis based on type
         if args.analysis_type == 'spherical':
             if args.space == 'mesh':
+                logger.info("Performing spherical analysis on mesh")
                 # Mesh analyzer 
                 results = analyzer.analyze_sphere(
                     center_coordinates=args.coordinates,
@@ -226,6 +280,7 @@ def main():
                 )
             else:  # voxel
                 # Voxel analyzer 
+                logger.info("Performing spherical analysis on voxel")
                 results = analyzer.analyze_sphere(
                     center_coordinates=args.coordinates,
                     radius=args.radius,
@@ -234,32 +289,33 @@ def main():
         else:  # cortical
             if args.whole_head:
                 if args.space == 'mesh':
+                    logger.info("Performing whole head analysis on mesh")
                     results = analyzer.analyze_whole_head(
                         atlas_type=args.atlas_name,
                         visualize=args.visualize
                     )
                 else:  # voxel
+                    logger.info("Performing whole head analysis on voxel")
                     results = analyzer.analyze_whole_head(
                         atlas_file=args.atlas_path,
                         visualize=args.visualize
                     )
             else:  # specific region
                 if args.space == 'mesh':
+                    logger.info("Performing region analysis on mesh")
                     results = analyzer.analyze_cortex(
                         atlas_type=args.atlas_name,
                         target_region=args.region,
                         visualize=args.visualize
                     )
                 else:  # voxel
+                    logger.info("Performing region analysis on voxel")
                     results = analyzer.analyze_cortex(
                         atlas_file=args.atlas_path,
                         target_region=args.region,
                         visualize=args.visualize
                     )
-        
-        # Print results summary - standardized to only show mean, max, min values
-        print("\nAnalysis Results Summary:")
-        print("-" * 50)
+        logger.info(f"Analysis completed successfully: {results}")
         
         # Handle both single region results and whole-head multi-region results
         if isinstance(results, dict) and any(k in results for k in ['mean_value', 'max_value', 'min_value']):
@@ -278,7 +334,7 @@ def main():
                     print_stat_if_exists(region_data, 'min_value', 'Min Value')
     
     except Exception as e:
-        print(f"Error: {str(e)}", file=sys.stderr)
+        logger.error(f"Error: {str(e)}")
         sys.exit(1)
 
 def print_stat_if_exists(results_dict, key, label):

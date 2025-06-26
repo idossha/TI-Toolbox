@@ -3,29 +3,33 @@
 import copy
 import os
 import re
-import sys  # Added for better exception handling
+import sys
+import time
 import numpy as np
 from itertools import product
 from simnibs import mesh_io
 from simnibs.utils import TI_utils as TI
 import csv
 
+# Add logging utility import
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+from utils import logging_util
+
 '''
 Ido Haber - ihaber@wisc.edu
-October 3, 2024
-Optimized for optimizer pipeline
+October 31, 2024
+TI Simulation Script - Optimized for ex-search pipeline
 
-This script is designed for performing Temporal Interference (TI) simulations 
-based on two types of leadfields:
+This script performs Temporal Interference (TI) simulations with:
+1. Default 1mA current amplitude
+2. Optimized sequential processing (SimNIBS has internal parallelization)
+3. Better progress tracking and error handling
 
-1. Volumetric Leadfield:
-   - Used for calculating TI_max, the maximal amplitude of the TI field in the volume.
-
-2. Surface Leadfield:
-   - Used for calculating TI_localnorm, the TI amplitude along the local normal orientation in gray matter.
-
-The script generates all possible electrode pair combinations, calculates the corresponding electric fields, 
-and exports the results in mesh format for further visualization.
+Key improvements:
+- Default stimulation amplitude set to 1mA (0.001A)
+- Progress tracking and time estimation
+- Robust error handling
+- Compatible with SimNIBS internal parallel processing
 '''
 
 # Define color variables
@@ -36,6 +40,7 @@ RED = '\033[0;31m'     # Red for errors
 GREEN = '\033[0;32m'   # Green for success messages and prompts
 CYAN = '\033[0;36m'    # Cyan for actions being performed
 BOLD_CYAN = '\033[1;36m'
+YELLOW = '\033[0;33m'  # Yellow for warnings
 
 def get_roi_coordinates(roi_file):
     """Read coordinates from a ROI CSV file."""
@@ -45,201 +50,258 @@ def get_roi_coordinates(roi_file):
             coords = next(reader)
             return [float(coord.strip()) for coord in coords]
     except Exception as e:
-        print(f"{RED}Error reading coordinates from {roi_file}: {e}{RESET}")
+        # Use logger if available, otherwise print
+        try:
+            logger.error(f"Error reading coordinates from {roi_file}: {e}")
+        except NameError:
+            print(f"{RED}Error reading coordinates from {roi_file}: {e}{RESET}")
         return None
 
-# Function to generate all combinations
 def generate_combinations(E1_plus, E1_minus, E2_plus, E2_minus):
-    print(f"{CYAN}Generating all electrode pair combinations...{RESET}")
+    """Generate all electrode pair combinations."""
+    logger.info("Generating all electrode pair combinations")
     combinations = []
     for e1p, e1m in product(E1_plus, E1_minus):
         for e2p, e2m in product(E2_plus, E2_minus):
             combinations.append(((e1p, e1m), (e2p, e2m)))
-    print(f"{GREEN}Total combinations generated: {len(combinations)}{RESET}")
+    logger.info(f"Generated {len(combinations)} total combinations")
     return combinations
 
-# Function to get user input for electrode lists
 def get_electrode_list(prompt):
-    pattern = re.compile(r'^E\d{3}$')  # Match 'E' followed by exactly three digits
+    """Get user input for electrode lists with validation."""
+    # Support various electrode naming conventions: E001, E1, Fp1, F3, C4, Cz, etc.
+    pattern = re.compile(r'^[A-Za-z][A-Za-z0-9]*$')
     while True:
-        user_input = input(f"{GREEN}{prompt}{RESET}").strip()
+        user_input = input(f"[INPUT] {prompt}").strip()
         # Replace commas with spaces and split into a list
         electrodes = user_input.replace(',', ' ').split()
         # Validate electrodes
         if all(pattern.match(e) for e in electrodes):
-            print(f"{GREEN}Electrode list accepted: {electrodes}{RESET}")
+            logger.info(f"Electrode list accepted: {electrodes}")
             return electrodes
         else:
-            print(f"{RED}Invalid input. Please enter electrodes in the format E###, e.g., E001, E100.{RESET}")
+            logger.error("Invalid input. Please enter valid electrode names, e.g., E001, Fp1, F3, C4")
 
-# Get the intensity of stimulation from user input
 def get_intensity(prompt):
-    while True:
-        try:
-            intensity_mV = float(input(f"{GREEN}{prompt}{RESET}").strip())
-            intensity_V = intensity_mV / 1000.0  # Convert mV to V
-            print(f"{GREEN}Intensity of stimulation set to {intensity_V} V{RESET}")
-            return intensity_V
-        except ValueError:
-            print(f"{RED}Please enter a valid number for the intensity of stimulation.{RESET}")
-
-# Function to process lead field and generate the meshes
-def process_leadfield(leadfield_type, E1_plus, E1_minus, E2_plus, E2_minus, intensity, project_dir, subject_name):
-    print(f"{CYAN}Starting processing for {leadfield_type} leadfield...{RESET}")
+    """Get stimulation intensity with default 1mA option."""
+    default_ma = 1.0  # Default 1mA
+    default_a = default_ma / 1000.0  # Convert to Amperes (0.001A)
     
-    # Construct paths according to BIDS structure
+    logger.info("Stimulation intensity configuration:")
+    logger.info(f"  Default: {default_ma} mA ({default_a} A)")
+    
+    while True:
+        user_input = input(f"[INPUT] {prompt} [Press Enter for {default_ma} mA]: ").strip()
+        
+        if not user_input:  # Use default if empty
+            logger.info(f"Using default intensity: {default_ma} mA ({default_a} A)")
+            return default_a
+            
+        try:
+            intensity_ma = float(user_input)
+            intensity_a = intensity_ma / 1000.0  # Convert mA to A
+            logger.info(f"Intensity set to {intensity_ma} mA ({intensity_a} A)")
+            return intensity_a
+        except ValueError:
+            logger.error("Please enter a valid number for the intensity")
+
+def process_leadfield(leadfield_type, E1_plus, E1_minus, E2_plus, E2_minus, 
+                     intensity, project_dir, subject_name):
+    """Process leadfield with sequential execution (SimNIBS-compatible)."""
+    logger.info(f"Starting TI simulation for {leadfield_type} leadfield")
+    
+    # Get leadfield path from environment variable (set by CLI script)
+    leadfield_hdf = os.getenv('LEADFIELD_HDF')
+    selected_net = os.getenv('SELECTED_EEG_NET', 'Unknown')
+    
+    if not leadfield_hdf:
+        logger.error("LEADFIELD_HDF environment variable not set")
+        return
+    
+    if not os.path.exists(leadfield_hdf):
+        logger.error(f"Leadfield file not found: {leadfield_hdf}")
+        return
+    
+    logger.info(f"Using EEG net: {selected_net}")
+    logger.info(f"Leadfield HDF5 path: {leadfield_hdf}")
+    
+    # Construct other paths according to BIDS structure
     simnibs_dir = os.path.join(project_dir, "derivatives", "SimNIBS")
     subject_dir = os.path.join(simnibs_dir, f"sub-{subject_name}")
     m2m_dir = os.path.join(subject_dir, f"m2m_{subject_name}")
     roi_dir = os.path.join(m2m_dir, "ROIs")
-    leadfield_dir = os.path.join(subject_dir, f"leadfield_{leadfield_type}_{subject_name}")  # Directly under subject directory
-    leadfield_hdf = os.path.join(leadfield_dir, f"{subject_name}_leadfield_{os.getenv('EEG_CAP', 'EGI_template')}.hdf5")
     
-    print(f"{CYAN}Leadfield Directory: {leadfield_dir}{RESET}")
-    print(f"{CYAN}Leadfield HDF5 Path: {leadfield_hdf}{RESET}")
+    # Get output directory from environment variables (set by GUI)
+    roi_name = os.getenv('ROI_NAME')
+    if roi_name:
+        # Use GUI-provided ROI name and EEG net for directory naming
+        output_dir_name = f"{roi_name}_{selected_net}"
+        output_dir = os.path.join(subject_dir, "ex-search", output_dir_name)
+        logger.info(f"Using GUI-selected ROI: {roi_name}")
+    else:
+        # CLI usage: fallback to coordinate-based naming
+        roi_list_path = os.path.join(roi_dir, 'roi_list.txt')
+        try:
+            with open(roi_list_path, 'r') as file:
+                first_roi_name = file.readline().strip()
+                first_roi_name = os.path.basename(first_roi_name)
+                first_roi = os.path.join(roi_dir, first_roi_name)
+        except FileNotFoundError:
+            logger.error(f"ROI list file not found: {roi_list_path}")
+            sys.exit(1)
+        
+        coords = get_roi_coordinates(first_roi)
+        if not coords:
+            logger.error("Could not read coordinates from ROI file")
+            sys.exit(1)
+        
+        # Create coordinate-based directory for CLI usage
+        coord_dir = f"xyz_{int(coords[0])}_{int(coords[1])}_{int(coords[2])}"
+        output_dir = os.path.join(subject_dir, "ex-search", coord_dir)
+        logger.info(f"Using coordinate-based directory: {coord_dir}")
+    logger.info(f"Output directory: {output_dir}")
     
-    # Get ROI coordinates from the first ROI file
-    roi_list_path = os.path.join(roi_dir, 'roi_list.txt')
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+        logger.info("Output directory created")
+    
+    # Load leadfield (SimNIBS handles internal optimization)
     try:
-        with open(roi_list_path, 'r') as file:
-            first_roi_name = file.readline().strip()
-            # Extract just the filename without path
-            first_roi_name = os.path.basename(first_roi_name)
-            first_roi = os.path.join(roi_dir, first_roi_name)
-    except FileNotFoundError:
-        print(f"{RED}Error: ROI list file not found at {roi_list_path}{RESET}")
-        sys.exit(1)
-    
-    coords = get_roi_coordinates(first_roi)
-    if not coords:
-        print(f"{RED}Error: Could not read coordinates from ROI file{RESET}")
-        sys.exit(1)
-    
-    # Create directory name from coordinates
-    coord_dir = f"xyz_{int(coords[0])}_{int(coords[1])}_{int(coords[2])}"
-    output_dir = os.path.join(subject_dir, "ex-search", coord_dir)
-    print(f"{CYAN}Output Directory: {output_dir}{RESET}")
-    
-    # Attempt to load leadfield
-    try:
-        print(f"{CYAN}Loading leadfield from {leadfield_hdf}...{RESET}")
+        logger.info(f"Loading leadfield matrix from: {leadfield_hdf}")
+        logger.info("This may take several minutes for large leadfield matrices...")
+        start_load_time = time.time()
         leadfield, mesh, idx_lf = TI.load_leadfield(leadfield_hdf)
-        print(f"{GREEN}Leadfield loaded successfully.{RESET}")
+        load_time = time.time() - start_load_time
+        logger.info(f"Leadfield loaded successfully in {load_time:.1f} seconds")
     except Exception as e:
-        print(f"{RED}Error loading leadfield: {e}{RESET}")
+        logger.error(f"Failed to load leadfield: {e}")
         return
     
-    # Create output directory if it doesn't exist
-    if not os.path.exists(output_dir):
-        print(f"{CYAN}Output directory does not exist. Creating {output_dir}...{RESET}")
-        os.makedirs(output_dir)
-        print(f"{GREEN}Output directory created.{RESET}")
-    else:
-        print(f"{GREEN}Output directory already exists.{RESET}")
-    
-    # Generate all electrode pair combinations
+    # Generate combinations for sequential processing
     all_combinations = generate_combinations(E1_plus, E1_minus, E2_plus, E2_minus)
-    total_combinations = len(all_combinations)  # Calculate total configurations
-    print(f"{CYAN}Starting TI simulation for {total_combinations} electrode combinations...{RESET}")
+    total_combinations = len(all_combinations)
     
-    # Create results directory
-    results_dir = os.path.join(output_dir, "results")
-    if not os.path.exists(results_dir):
-        os.makedirs(results_dir)
+    logger.info(f"Starting sequential TI simulations for {total_combinations} combinations")
+    logger.info("Note: Using sequential processing for SimNIBS compatibility")
     
-    # Iterate through all combinations of electrode pairs
+    # Process combinations sequentially with progress tracking
+    start_time = time.time()
+    completed_count = 0
+    failed_count = 0
+    
     for i, ((e1p, e1m), (e2p, e2m)) in enumerate(all_combinations):
-        print(f"{CYAN}Processing combination {i+1}/{total_combinations}: "
-              f"{e1p}-{e1m} and {e2p}-{e2m}{RESET}")
-        TIpair1 = [e1p, e1m, intensity]
-        TIpair2 = [e2p, e2m, intensity]
-    
-        # Get fields for the two pairs
         try:
-            print(f"{CYAN}Calculating fields for {e1p}-{e1m} and {e2p}-{e2m}...{RESET}")
+            logger.info(f"Processing combination {i+1}/{total_combinations}: {e1p}-{e1m} and {e2p}-{e2m}")
+            
+            # Create TI pairs
+            TIpair1 = [e1p, e1m, intensity]
+            TIpair2 = [e2p, e2m, intensity]
+            
+            # Calculate fields
             ef1 = TI.get_field(TIpair1, leadfield, idx_lf)
             ef2 = TI.get_field(TIpair2, leadfield, idx_lf)
-            print(f"{GREEN}Fields calculated successfully.{RESET}")
-        except Exception as e:
-            print(f"{RED}Error calculating fields for electrodes {e1p}, {e1m}, {e2p}, {e2m}: {e}{RESET}")
-            continue
-    
-        # Add to mesh for later visualization
-        mout = copy.deepcopy(mesh)
-        print(f"{CYAN}Deep copied mesh for modification.{RESET}")
-    
-        # Calculate the maximal TI amplitude for vol
-        print(f"{CYAN}Calculating TI_max for the current electrode pair...{RESET}")
-        try:
+            
+            # Calculate TI_max
             TImax = TI.get_maxTI(ef1, ef2)
-            print(f"{GREEN}TI_max calculated: {TImax}{RESET}")
-        except Exception as e:
-            print(f"{RED}Error calculating TI_max: {e}{RESET}")
-            continue
-    
-        mout.add_element_field(TImax, "TImax")  # for visualization
-        mesh_filename = os.path.join(output_dir, f"TI_field_{e1p}_{e1m}_and_{e2p}_{e2m}.msh")
-        visible_field = "TImax"
-        print(f"{CYAN}Mesh Filename: {mesh_filename}{RESET}")
-    
-        # Save the updated mesh with a unique name in the output directory
-        try:
-            print(f"{CYAN}Writing mesh to file...{RESET}")
+            
+            # Create output mesh
+            mout = copy.deepcopy(mesh)
+            mout.add_element_field(TImax, "TImax")
+            
+            # Save mesh
+            mesh_filename = os.path.join(output_dir, f"TI_field_{e1p}_{e1m}_and_{e2p}_{e2m}.msh")
             mesh_io.write_msh(mout, mesh_filename)
-            print(f"{GREEN}Mesh written to {mesh_filename}.{RESET}")
+            
+            # Create optimized view
+            try:
+                v = mout.view(
+                    visible_tags=[1, 2, 1006],
+                    visible_fields="TImax",
+                )
+                v.write_opt(mesh_filename)
+            except Exception as view_error:
+                # Non-critical error - continue without optimized view
+                logger.warning(f"Could not create optimized view: {view_error}")
+            
+            completed_count += 1
+            
+            # Progress tracking with ETA
+            elapsed_time = time.time() - start_time
+            avg_time = elapsed_time / completed_count
+            eta_seconds = avg_time * (total_combinations - completed_count)
+            eta_str = f"{eta_seconds/60:.1f}m" if eta_seconds > 60 else f"{eta_seconds:.1f}s"
+            
+            progress_str = f"{completed_count:03}/{total_combinations}"
+            logger.info(f"Completed {progress_str} - {e1p}_{e1m}_and_{e2p}_{e2m} - ETA: {eta_str}")
+            
         except Exception as e:
-            print(f"{RED}Error writing mesh to file: {e}{RESET}")
-            continue
-        
-        # Attempt to create an optimized view of the mesh
-        try:
-            print(f"{CYAN}Creating optimized view for mesh...{RESET}")
-            v = mout.view(
-                visible_tags=[1, 2, 1006],
-                visible_fields=visible_field,
-            )
-            v.write_opt(mesh_filename)
-            print(f"{GREEN}Optimized view written to {mesh_filename}.{RESET}")
-        except Exception as e:
-            print(f"{RED}Error creating optimized view: {e}{RESET}")
+            failed_count += 1
+            logger.error(f"Failed: {e1p}_{e1m}_and_{e2p}_{e2m} - Error: {str(e)}")
             continue
     
-        # Progress indicator (formatted as 003/256)
-        progress_str = f"{i+1:03}/{total_combinations}"
-        print(f"{BOLD}Progress: {progress_str} - Mesh saved.{RESET}\n")
-    
-    print(f"{BOLD_CYAN}TI simulation and mesh generation completed for subject {subject_name}.{RESET}")
+    # Summary
+    total_time = time.time() - start_time
+    logger.info("========================================")
+    logger.info("TI simulation completed")
+    logger.info(f"  Successful: {completed_count}/{total_combinations}")
+    if failed_count > 0:
+        logger.warning(f"  Failed: {failed_count}/{total_combinations}")
+    logger.info(f"  Total time: {total_time/60:.1f} minutes")
+    if completed_count > 0:
+        logger.info(f"  Average time per simulation: {total_time/completed_count:.1f} seconds")
+    logger.info("========================================")
 
 if __name__ == "__main__":
     # Check for required environment variables
-    project_dir = os.getenv('PROJECT_DIR_NAME')  # Changed from PROJECT_DIR to PROJECT_DIR_NAME
+    project_dir = os.getenv('PROJECT_DIR_NAME')
     subject_name = os.getenv('SUBJECT_NAME')
     if not project_dir or not subject_name:
-        print(f"{RED}Error: PROJECT_DIR_NAME and SUBJECT_NAME environment variables must be set.{RESET}")
+        print("Error: PROJECT_DIR_NAME and SUBJECT_NAME environment variables must be set")
         sys.exit(1)
     
     # Construct the full project path
-    project_dir = f"/mnt/{project_dir}"  # Add /mnt/ prefix here
+    project_dir = f"/mnt/{project_dir}"
     
-    print(f"{BOLD_CYAN}Starting TI Simulation for Subject: {subject_name}{RESET}")
-    print(f"{BOLD_CYAN}Project Directory: {project_dir}{RESET}\n")
+    # Initialize logger
+    # Check if log file path is provided through environment variable (from GUI)
+    shared_log_file = os.environ.get('TI_LOG_FILE')
+    
+    if shared_log_file:
+        # Use shared log file and shared logger name for unified logging
+        logger_name = 'Ex-Search'
+        log_file = shared_log_file
+        logger = logging_util.get_logger(logger_name, log_file, overwrite=False)
+    else:
+        # CLI usage: create individual log file
+        logger_name = 'TI-Sim'
+        time_stamp = time.strftime('%Y%m%d_%H%M%S')
+        log_file = f'ti_sim_{time_stamp}.log'
+        logger = logging_util.get_logger(logger_name, log_file, overwrite=False)
+
+    # Configure SimNIBS related loggers to use our logging setup
+    logging_util.configure_external_loggers(['simnibs', 'mesh_io'], logger)
+    
+    logger.info("TI Simulation (SimNIBS Compatible)")
+    logger.info(f"Subject: {subject_name}")
+    logger.info(f"Project Directory: {project_dir}")
     
     # Get electrode lists from user input
-    E1_plus = get_electrode_list("Enter electrodes for E1_plus separated by spaces or commas (format E###): ")
-    E1_minus = get_electrode_list("Enter electrodes for E1_minus separated by spaces or commas (format E###): ")
-    E2_plus = get_electrode_list("Enter electrodes for E2_plus separated by spaces or commas (format E###): ")
-    E2_minus = get_electrode_list("Enter electrodes for E2_minus separated by spaces or commas (format E###): ")
+    E1_plus = get_electrode_list("Enter electrodes for E1_plus separated by spaces or commas: ")
+    E1_minus = get_electrode_list("Enter electrodes for E1_minus separated by spaces or commas: ")
+    E2_plus = get_electrode_list("Enter electrodes for E2_plus separated by spaces or commas: ")
+    E2_minus = get_electrode_list("Enter electrodes for E2_minus separated by spaces or commas: ")
     
-    # Get intensity of stimulation
-    intensity = get_intensity("Intensity of stimulation in mV: ")
+    # Get intensity (keeping the 1mA default)
+    intensity = get_intensity("Stimulation intensity in mA")
     
-    print(f"\n{BOLD_CYAN}Electrode Configuration:{RESET}")
-    print(f"E1_plus: {E1_plus}")
-    print(f"E1_minus: {E1_minus}")
-    print(f"E2_plus: {E2_plus}")
-    print(f"E2_minus: {E2_minus}")
-    print(f"Stimulation Intensity: {intensity} V\n")
+    logger.info("Configuration Summary:")
+    logger.info(f"  E1_plus: {E1_plus}")
+    logger.info(f"  E1_minus: {E1_minus}")
+    logger.info(f"  E2_plus: {E2_plus}")
+    logger.info(f"  E2_minus: {E2_minus}")
+    logger.info(f"  Stimulation Current: {intensity*1000} mA ({intensity} A)")
     
-    # Start processing leadfield
-    process_leadfield("vol", E1_plus, E1_minus, E2_plus, E2_minus, intensity, project_dir, subject_name)
+    # Start sequential processing (SimNIBS compatible)
+    process_leadfield("vol", E1_plus, E1_minus, E2_plus, E2_minus, 
+                     intensity, project_dir, subject_name)
 
