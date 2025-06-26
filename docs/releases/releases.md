@@ -10,7 +10,31 @@ For headless server useage, see the [Bash Script & Compose YAML](https://github.
 
 <!-- DO NOT MODIFY: Auto-generated release content will be appended here -->
 
-### v2.0.3 (Latest Release)
+### v2.0.4 (Latest Release)
+
+**Release Date**: June 26, 2025
+
+#### Additions
+- flex-search -> simulator integration. Simulator now recognizes previous flex-searches and allows for simulation of both optimized and mapped electrodes.
+- system monitor -> added a GUI tab that allows users monitor the activity of processes hapenning within the toolbox
+
+#### Fixes
+- pre-process -> added missing shell for recon-all step
+- pre-process -> fixed parallalization problem
+- ex-search redesign -> now is not dependent on MATLAB Runtime, but is fully Python implemented
+- ex-search -> users can now creat multiple leadfields for the same subject
+- flex-search -> post processing method for TI envelope direction is implemented
+
+#### Download Links
+- [Windows Installer](https://github.com/idossha/TI-Toolbox/releases/download/v2.0.4/TI-Toolbox-Windows.exe)
+- [macOS Universal](https://github.com/idossha/TI-Toolbox/releases/download/v2.0.4/TemporalInterferenceToolbox-macOS-universal.zip)
+- [Linux AppImage](https://github.com/idossha/TI-Toolbox/releases/download/v2.0.4/TemporalInterferenceToolbox-Linux-x86_64.AppImage)
+
+For installation instructions, see the [Installation Guide]({ site.baseurl }/installation/).
+
+
+
+### v2.0.3
 
 **Release Date**: June 20, 2025
 
@@ -30,8 +54,7 @@ For headless server useage, see the [Bash Script & Compose YAML](https://github.
 For installation instructions, see the [Installation Guide]({ site.baseurl }/installation/).
 
 
-
-### v2.0.2 (Latest Release)
+### v2.0.2
 
 **Release Date**: June 19, 2025
 
@@ -59,7 +82,6 @@ For installation instructions, see the [Installation Guide]({ site.baseurl }/ins
 For installation instructions, see the [Installation Guide]({ site.baseurl }/installation/).
 
 
-
 ### v2.0.1
 
 **Release Date**: June 11, 2025
@@ -80,8 +102,6 @@ For installation instructions, see the [Installation Guide]({ site.baseurl }/ins
 - [Linux AppImage](https://github.com/idossha/TI-Toolbox/releases/download/v2.0.1/TemporalInterferenceToolbox-Linux-x86_64.AppImage)
 
 For installation instructions, see the [Installation Guide]({ site.baseurl }/installation/).
-
-
 
 
 ### v2.0.0
