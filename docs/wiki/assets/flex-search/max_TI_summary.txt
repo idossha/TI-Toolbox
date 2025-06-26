@@ -1,0 +1,117 @@
+====================================================================================================
+Optimization summary:
+====================================================================================================
+Date: 2025-06-21 20:26:03
+Headmodel:                        /mnt/BIDS_new/derivatives/SimNIBS/sub-102/m2m_102/102.msh
+Electrode_mask:                   /root/SimNIBS-4.5/simnibs_env/lib/python3.11/site-packages/simnibs/resources/templates/MNI152_T1_1mm_upper_head_mask.nii.gz
+Conductivity anisotropy type:     scalar
+Output_folder:                    /mnt/BIDS_new/derivatives/SimNIBS/sub-102/flex-search/lh.102_DK40_35_mean
+ 
+Optimization and FEM settings
+----------------------------------------------------------------------------------------------------
+Optimizer:                        differential_evolution
+Goal:                             ['mean']
+Postprocessing:                   ['max_TI']
+Threshold:                        None
+Number of ROIs:                   1
+Number of Channels:               2
+ROI weights:                      [1.]
+Constrain electrode locations:    False
+Polish (local optimization):      False
+Map to net electrodes:            False
+Optimizer settings:
+	len_tol: 2.7777777777777777e-10
+	f_min_rtol: 1e-12
+	maxiter: 100
+	disp: True
+	recombination: 0.7
+	mutation: [0.01, 0.5]
+	popsize: 30
+	tol: 0.1
+	locally_biased: False
+	seed: None
+	lb: [-1.57079633 -3.14159265 -1.57079633 -3.14159265 -1.57079633 -3.14159265
+ -1.57079633 -3.14159265]
+	ub: [1.57079633 3.14159265 1.57079633 3.14159265 1.57079633 3.14159265
+ 1.57079633 3.14159265]
+	init_vals: [ 1.38401033 -2.73190691 -0.06633004  0.33463395  0.76852423 -1.43288918
+  0.53720551 -1.84188089]
+	vol_tol: 3.3333333333333334e-09
+ 
+FEM solver options:               pardiso
+Dirichlet correction:             False
+Dirichlet correction (detailed):  False
+Current outlier correction:       False
+ 
+====================================================================================================
+Optimization results:
+====================================================================================================
+Number of function evaluations (global optimization):   4080
+Number of FEM evaluations (global optimization):        1492
+Goal function value (global optimization):              -2.3198488856358166
+Total number of function evaluations:                   4080
+Total number of FEM evaluations:                        1492
+Final goal function value:                              -2.3198488856358166
+Duration (setup and optimization):                      1506.3210952281952
+The current calibration error exceeded 10%! Estimated error value: 12.40%
+The current calibration error exceeded 10%! Estimated error value: 31.59%
+
+Results for surface_mesh:
+======================
+Field Percentiles
+-----------------
+Top percentiles of the field (or field magnitude for vector fields)
+|Field  |99.9%    |50.0%    |
+|-------|---------|---------|
+|max_TI |4.17e+00 |1.54e+00 |
+
+Field Focality
+---------------
+Mesh volume or area with a field >= X% of the 99.9th percentile
+|Field  |75.0%        |50.0%        |
+|-------|-------------|-------------|
+|max_TI |3.25e+03 mm² |2.92e+04 mm² |
+
+Median fields per ROI
+----------------------
+|       |ROI       |
+|-------|----------|
+|max_TI | 2.21e+00 |
+
+
+
+Electrode array infos:
+====================================================================================================
+Stimulation channel 0:
+	currents: [ 0.008 -0.008]
+Stimulation channel 1:
+	currents: [ 0.008 -0.008]
+ 
+Electrode coordinates (Cartesian space):
+----------------------------------------------------------------------------------------------------
+Stimulation channel 0:
+Array 0:
+	Electrode 0 (spherical):
+		 1.000,  0.000,  0.000, -72.010
+		 0.000,  1.000,  0.000,  18.004
+		 0.000,  0.000,  1.000,  0.775
+		 0.000,  0.000,  0.000,  1.000
+Array 1:
+	Electrode 0 (spherical):
+		 1.000,  0.000,  0.000,  66.073
+		 0.000,  1.000,  0.000, -65.167
+		 0.000,  0.000,  1.000, -7.239
+		 0.000,  0.000,  0.000,  1.000
+Stimulation channel 1:
+Array 0:
+	Electrode 0 (spherical):
+		 1.000,  0.000,  0.000, -75.006
+		 0.000,  1.000,  0.000,  11.052
+		 0.000,  0.000,  1.000, -6.386
+		 0.000,  0.000,  0.000,  1.000
+Array 1:
+	Electrode 0 (spherical):
+		 1.000,  0.000,  0.000,  73.145
+		 0.000,  1.000,  0.000, -50.992
+		 0.000,  0.000,  1.000, -15.726
+		 0.000,  0.000,  0.000,  1.000

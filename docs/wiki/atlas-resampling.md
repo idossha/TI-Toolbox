@@ -1,10 +1,8 @@
 ---
-layout: page
-title: Atlas Resampling
+layout: wiki
+title: Atlas Resampling in Cortical Region Analysis
 permalink: /wiki/atlas-resampling/
 ---
-
-# Atlas Resampling in Cortical Region Analysis
 
 ## Overview
 
@@ -16,7 +14,7 @@ Below are two images showing the effect of atlas resampling:
 
 | Original Atlas (Not Aligned) | Resampled Atlas (Aligned) |
 |-----------------------------|---------------------------|
-| ![Original Atlas](assets/atlas_under_field.png) | ![Resampled Atlas](assets/aligned_atlas_under_field.png) |
+| ![Original Atlas]({{ site.baseurl }}/wiki/assets/atlas_under_field.png) | ![Resampled Atlas]({{ site.baseurl }}/wiki/assets/aligned_atlas_under_field.png) |
 
 **Left:** The blue outline shows the original atlas, which does not perfectly align with the heat map of the cortical region (field data).
 

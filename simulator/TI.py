@@ -327,5 +327,87 @@ for flex_montage in flex_montages:
         logger.info(f"Running flex optimized simulation with XYZ coordinates")
         run_simulation(montage_name, montage_data, is_xyz=True)
 
+# Create a simulation completion report for the GUI
+completion_report = {
+    'session_id': os.environ.get('SIMULATION_SESSION_ID', 'unknown'),
+    'subject_id': subject_id,
+    'project_dir': project_dir,
+    'simulation_dir': simulation_dir,
+    'completed_simulations': [],
+    'timestamp': datetime.now().isoformat(),
+    'total_simulations': 0,
+    'success_count': 0,
+    'error_count': 0
+}
+
+# Track completed regular montages
+successful_montages = []
+if montage_names:
+    for name in montage_names:
+        if name in montages and montages[name]:
+            # Check if simulation files were created
+            temp_montage_dir = os.path.join(temp_dir, name)
+            if os.path.exists(temp_montage_dir):
+                ti_mesh_file = os.path.join(temp_montage_dir, "TI.msh")
+                if os.path.exists(ti_mesh_file):
+                    successful_montages.append(name)
+                    completion_report['completed_simulations'].append({
+                        'montage_name': name,
+                        'montage_type': 'regular',
+                        'status': 'completed',
+                        'temp_path': temp_montage_dir,
+                        'output_files': {
+                            'TI': [ti_mesh_file]
+                        }
+                    })
+                    completion_report['success_count'] += 1
+                else:
+                    logger.error(f"TI mesh file not found for {name}")
+                    completion_report['error_count'] += 1
+            else:
+                logger.error(f"Simulation directory not found for {name}")
+                completion_report['error_count'] += 1
+        else:
+            logger.error(f"Montage {name} not found or invalid")
+            completion_report['error_count'] += 1
+
+# Track completed flex montages
+successful_flex_montages = []
+for flex_montage in flex_montages:
+    montage_name = flex_montage['name']
+    temp_montage_dir = os.path.join(temp_dir, montage_name)
+    
+    if os.path.exists(temp_montage_dir):
+        ti_mesh_file = os.path.join(temp_montage_dir, "TI.msh")
+        if os.path.exists(ti_mesh_file):
+            successful_flex_montages.append(montage_name)
+            completion_report['completed_simulations'].append({
+                'montage_name': montage_name,
+                'montage_type': flex_montage['type'],
+                'status': 'completed',
+                'temp_path': temp_montage_dir,
+                'output_files': {
+                    'TI': [ti_mesh_file]
+                }
+            })
+            completion_report['success_count'] += 1
+        else:
+            logger.error(f"TI mesh file not found for flex montage {montage_name}")
+            completion_report['error_count'] += 1
+    else:
+        logger.error(f"Simulation directory not found for flex montage {montage_name}")
+        completion_report['error_count'] += 1
+
+completion_report['total_simulations'] = len(montage_names) + len(flex_montages)
+
+# Write completion report to a file the GUI can read
+completion_file = os.path.join(project_dir, 'derivatives', 'temp', f'simulation_completion_{subject_id}_{int(time.time())}.json')
+os.makedirs(os.path.dirname(completion_file), exist_ok=True)
+with open(completion_file, 'w') as f:
+    json.dump(completion_report, f, indent=2)
+
+logger.info(f"Simulation completion report written to: {completion_file}")
+logger.info(f"Successfully completed {completion_report['success_count']}/{completion_report['total_simulations']} simulations")
+
 logger.info("All simulations completed successfully")
         
