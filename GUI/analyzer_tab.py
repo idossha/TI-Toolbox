@@ -1306,13 +1306,14 @@ class AnalyzerTab(QtWidgets.QWidget):
             self.update_output(f"Montage: {montage_name}")
             self.update_output(f"Command: {' '.join(cmd)}")
             
-            self.optimization_process = AnalysisThread(cmd, env)
-            self.optimization_process.output_signal.connect(self.update_output)
-            self.optimization_process.finished.connect(
+            # Create and start thread
+            self.analysis_process = AnalysisThread(cmd, env)
+            self.analysis_process.output_signal.connect(self.update_output)
+            self.analysis_process.finished.connect(
                 lambda sid=subject_id, mname=montage_name: self.on_group_subject_finished(sid, mname)
             )
-            self.optimization_process.start()
-
+            self.analysis_process.start()
+            
         except Exception as e:
             self.update_output(f"Error running analysis for subject {subject_id}: {str(e)}")
             QtCore.QTimer.singleShot(0, self.run_next_subject_in_group) # Try next
@@ -1554,10 +1555,27 @@ class AnalyzerTab(QtWidgets.QWidget):
             formatted_text = f'<span style="color: #7f7f7f;"><i>{text}</i></span>' # Italic grey
         elif "Command:" in text or "Running" in text or "Executing" in text:
             formatted_text = f'<span style="color: #55aaff;">{text}</span>'
-        elif "completed" in text or "Successfully" in text or "Finished" in text :
-            if "✅" not in text and "❌" not in text and "indicated failure" not in text : # Avoid double styling
-                 formatted_text = f'<span style="color: #55ff55;"><b>{text}</b></span>'
+        elif "completed successfully" in text or "completed." in text or "Successfully" in text or "completed:" in text:
+            formatted_text = f'<span style="color: #55ff55;"><b>{text}</b></span>'
+        elif "Processing" in text or "Starting" in text:
+            formatted_text = f'<span style="color: #55ffff;">{text}</span>'
+        elif "Analysis Results Summary:" in text:
+            formatted_text = f'<div style="background-color: #2a2a2a; padding: 10px; margin: 10px 0; border-radius: 5px;"><span style="color: #55ff55; font-weight: bold; font-size: 14px;">{text}</span></div>'
+        elif any(value_type in text for value_type in ["Mean Value:", "Max Value:", "Min Value:", "Focality:"]):
+            # Extract the value type and the numeric value
+            parts = text.split(":")
+            if len(parts) == 2:
+                value_type, value = parts
+                formatted_text = f'<div style="margin: 5px 20px;"><span style="color: #aaaaaa;">{value_type}:</span> <span style="color: #55ffff; font-weight: bold;">{value}</span></div>'
+            else:
+                formatted_text = f'<span style="color: #ffffff;">{text}</span>'
+        elif text.strip().startswith("-"):
+            # Indented list items
+            formatted_text = f'<span style="color: #aaaaaa; margin-left: 20px;">  {text}</span>'
+        else:
+            formatted_text = f'<span style="color: #ffffff;">{text}</span>'
         
+        # Append to the console with HTML formatting
         self.output_console.append(formatted_text)
         self.output_console.ensureCursorVisible()
         # QtWidgets.QApplication.processEvents() # Generally avoid
