@@ -55,6 +55,8 @@ run_command() {
     local cmd="$1"
     local error_msg="$2"
     
+    log_info "Running: $cmd"
+    
     # Execute command and capture both exit status and output
     local temp_output=$(mktemp)
     local exit_code=0
@@ -64,11 +66,19 @@ run_command() {
         exit_code=1
     fi
     
-    # Check for critical system-level errors first
+    # Check for successful completion message FIRST - this is most important
+    if grep -q "finished without error" "$temp_output"; then
+        log_info "FreeSurfer completed successfully"
+        rm -f "$temp_output"
+        return 0
+    fi
+    
+    # Only check for errors if FreeSurfer didn't complete successfully
+    # Check for critical system-level errors
     if grep -q "Illegal instruction\|Segmentation fault\|Bus error\|Killed\|Aborted" "$temp_output"; then
         log_error "Command failed with critical system error: $cmd"
-        log_error "$error_msg"
         log_error "System error details: $(grep -E "Illegal instruction|Segmentation fault|Bus error|Killed|Aborted" "$temp_output" | head -3)"
+        log_error "$error_msg"
         rm -f "$temp_output"
         return 1
     fi
@@ -84,22 +94,15 @@ run_command() {
     # Check for FreeSurfer-specific failure patterns
     if grep -q "recon-all.*exited with ERRORS\|FAILED.*recon-all\|Fatal error in recon-all\|ERROR: must specify a subject" "$temp_output"; then
         log_error "Command encountered FreeSurfer errors: $cmd"
-        log_error "$error_msg"
         log_error "FreeSurfer error details: $(grep -E "recon-all.*exited with ERRORS|FAILED.*recon-all|Fatal error in recon-all|ERROR: must specify a subject" "$temp_output" | head -3)"
+        log_error "$error_msg"
         rm -f "$temp_output"
         return 1
     fi
     
-    # Check for successful completion message
-    if grep -q "finished without error" "$temp_output"; then
-        log_info "FreeSurfer completed successfully"
-        rm -f "$temp_output"
-        return 0
-    fi
-    
     rm -f "$temp_output"
     
-    # Only fail if the command actually returned a non-zero exit code
+    # Check exit code if no success/error patterns found
     if [ $exit_code -ne 0 ]; then
         log_error "$error_msg"
         return 1
@@ -171,6 +174,28 @@ validate_input_data() {
     fi
     
     return 0
+}
+
+# Function to monitor system resources
+monitor_resources() {
+    local context="$1"
+    log_info "Resource monitoring - $context:"
+    
+    # Memory information
+    if command -v free &>/dev/null; then
+        log_info "Memory usage: $(free -h | grep '^Mem:' | awk '{print "Used: "$3"/"$2" ("$3/$2*100"%), Available: "$7}')"
+    fi
+    
+    # Load average
+    if [ -f /proc/loadavg ]; then
+        log_info "Load average: $(cat /proc/loadavg | awk '{print $1" "$2" "$3}')"
+    fi
+    
+    # Available disk space for output directory
+    if command -v df &>/dev/null; then
+        local disk_usage=$(df -h "$SUBJECTS_DIR" 2>/dev/null | tail -1 | awk '{print "Used: "$3"/"$2" ("$5"), Available: "$4}')
+        log_info "Disk usage (FreeSurfer output): $disk_usage"
+    fi
 }
 
 # Parse arguments
@@ -326,9 +351,9 @@ else
     log_info "No T2 image found - proceeding with T1 only"
 fi
 
-# Set thread limits for parallel processing
+# Set threading mode based on processing approach
 if $PARALLEL; then
-    # Detect number of available cores
+    # APPROACH 1: Sequential processing - use all available cores for this subject
     if command -v nproc &>/dev/null; then
         AVAILABLE_CORES=$(nproc)
     elif command -v sysctl &>/dev/null; then
@@ -337,19 +362,35 @@ if $PARALLEL; then
         AVAILABLE_CORES=4  # fallback default
     fi
     
-    log_info "Detected $AVAILABLE_CORES logical CPU cores"
+    log_info "SEQUENTIAL MODE: Using all $AVAILABLE_CORES cores for this subject"
     
-    # Force single-threaded operation for maximum subject throughput
-    # This allows running as many subjects simultaneously as there are cores
+    # Use all available cores for maximum performance per subject
+    export OMP_NUM_THREADS=$AVAILABLE_CORES
+    export ITK_GLOBAL_DEFAULT_NUMBER_OF_THREADS=$AVAILABLE_CORES
+    export MKL_NUM_THREADS=$AVAILABLE_CORES
+    export NUMBA_NUM_THREADS=$AVAILABLE_CORES
+    export VECLIB_MAXIMUM_THREADS=$AVAILABLE_CORES
+    export OPENBLAS_NUM_THREADS=$AVAILABLE_CORES
+    
+    log_info "All threading libraries set to use $AVAILABLE_CORES cores"
+else
+    # APPROACH 2: Parallel processing - use single core per subject
+    log_info "PARALLEL MODE: Using 1 core for this subject (multiple subjects running)"
+    
+    # Force single-threaded operation to prevent resource conflicts
     export OMP_NUM_THREADS=1
     export ITK_GLOBAL_DEFAULT_NUMBER_OF_THREADS=1
+    export MKL_NUM_THREADS=1
+    export NUMBA_NUM_THREADS=1
+    export VECLIB_MAXIMUM_THREADS=1
+    export OPENBLAS_NUM_THREADS=1
     
-    log_info "Setting FreeSurfer to single-threaded mode for maximum subject throughput"
-    log_info "This allows running up to $AVAILABLE_CORES subjects simultaneously"
-else
-    log_info "Running in single-process mode (using all available cores for this subject)"
-    # Let FreeSurfer use all available cores for single subject processing
+    log_info "All threading libraries set to single-threaded mode"
 fi
+
+# Additional FreeSurfer-specific optimizations
+export SUBJECTS_DIR="$SUBJECTS_DIR"
+export FS_FREESURFERENV_NO_OUTPUT=1
 
 # Validate input data before proceeding
 if ! validate_input_data "$T1_file" "$T2_file" "$BIDS_SUBJECT_ID"; then
@@ -393,10 +434,18 @@ else
     log_info "Using T1 image only"
 fi
 
+# Monitor resources before starting
+monitor_resources "Before FreeSurfer recon-all"
+
+# Run recon-all command
 if ! run_command "$recon_cmd" "FreeSurfer recon-all failed"; then
     log_error "FreeSurfer recon-all failed for subject: $BIDS_SUBJECT_ID"
+    monitor_resources "After FreeSurfer failure"
     exit 1
 fi
+
+# Monitor resources after completion
+monitor_resources "After FreeSurfer recon-all"
 
 # Do a basic check for completion but don't fail if not perfect
 verify_freesurfer_completion "$SUBJECT_FS_DIR" "$BIDS_SUBJECT_ID"
