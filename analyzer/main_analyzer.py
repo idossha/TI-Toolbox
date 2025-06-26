@@ -311,7 +311,18 @@ def main():
                         target_region=args.region,
                         visualize=args.visualize
                     )
-        logger.info(f"Analysis completed successfully: {results}")
+        # Log completion with summary instead of full results
+        if isinstance(results, dict):
+            if any(k in results for k in ['mean_value', 'max_value', 'min_value']):
+                # Single region results
+                logger.info("Analysis completed successfully: Single region analysis")
+            else:
+                # Multiple region results - log count instead of full data
+                valid_regions = len([r for r in results.values() if isinstance(r, dict) and r.get('mean_value') is not None])
+                total_regions = len(results)
+                logger.info(f"Analysis completed successfully: {valid_regions}/{total_regions} regions processed")
+        else:
+            logger.info(f"Analysis completed successfully")
         
         # Handle both single region results and whole-head multi-region results
         if isinstance(results, dict) and any(k in results for k in ['mean_value', 'max_value', 'min_value']):

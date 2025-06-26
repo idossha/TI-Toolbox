@@ -999,10 +999,10 @@ class AnalyzerTab(QtWidgets.QWidget):
             self.update_output(f"Command: {' '.join(cmd)}")
             
             # Create and start thread
-            self.optimization_process = AnalysisThread(cmd, env)
-            self.optimization_process.output_signal.connect(self.update_output)
-            self.optimization_process.finished.connect(self.analysis_finished)
-            self.optimization_process.start()
+            self.analysis_process = AnalysisThread(cmd, env)
+            self.analysis_process.output_signal.connect(self.update_output)
+            self.analysis_process.finished.connect(self.analysis_finished)
+            self.analysis_process.start()
             
         except Exception as e:
             self.update_output(f"Error running analysis: {str(e)}")
@@ -1130,7 +1130,7 @@ class AnalyzerTab(QtWidgets.QWidget):
             formatted_text = f'<span style="color: #55ffff;">{text}</span>'
         elif "Analysis Results Summary:" in text:
             formatted_text = f'<div style="background-color: #2a2a2a; padding: 10px; margin: 10px 0; border-radius: 5px;"><span style="color: #55ff55; font-weight: bold; font-size: 14px;">{text}</span></div>'
-        elif any(value_type in text for value_type in ["Mean Value:", "Max Value:", "Min Value:"]):
+        elif any(value_type in text for value_type in ["Mean Value:", "Max Value:", "Min Value:", "Focality:"]):
             # Extract the value type and the numeric value
             parts = text.split(":")
             if len(parts) == 2:

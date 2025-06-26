@@ -159,6 +159,8 @@ class VoxelAnalyzer:
         # Check for common atlas types in filename
         if 'dk40' in atlas_file:
             return 'DK40'
+        if 'DKT' in atlas_file:
+            return 'DKT'
         elif 'hcp_mmp1' in atlas_file:
             return 'HCP_MMP1'
         elif 'a2009s' in atlas_file:
@@ -310,7 +312,7 @@ class VoxelAnalyzer:
                     # Generate visualizations if requested
                     if visualize:
                         # Create visualization NIfTI file directly in the region directory
-                        viz_file = self._generate_region_visualization(
+                        viz_file = self.visualizer._generate_region_visualization(
                             atlas_img=atlas_img,
                             atlas_arr=atlas_arr,
                             field_arr=field_arr,
@@ -334,6 +336,23 @@ class VoxelAnalyzer:
                                 min_value,
                                 data_type='voxel'
                             )
+                            
+                            # Generate focality histogram for this region
+                            try:
+                                self.logger.info(f"Generating focality histogram for region: {region_name}")
+                                # Get voxel dimensions from the field image
+                                field_img_tuple = self.load_brain_image(self.field_nifti)
+                                voxel_dims = field_img_tuple[0].header.get_zooms()[:3]
+                                
+                                region_visualizer.generate_focality_histogram(
+                                    field_values,
+                                    region_name=region_name,
+                                    roi_field_value=mean_value,
+                                    data_type='voxel',
+                                    voxel_dims=voxel_dims
+                                )
+                            except Exception as e:
+                                self.logger.warning(f"Could not generate focality histogram for {region_name}: {str(e)}")
                     
                 except Exception as e:
                     self.logger.warning(f"Warning: Failed to analyze region {region_name}: {str(e)}")
@@ -349,10 +368,10 @@ class VoxelAnalyzer:
             if visualize and results:
                 self.logger.info("Generating global visualization plots...")
                 # Generate scatter plots in the main output directory
-                self._generate_whole_head_plots(results, atlas_type, 'voxel')
+                self.visualizer._generate_whole_head_plots(results, atlas_type, 'voxel')
                 
                 # Generate and save summary CSV
-                self._save_whole_head_summary_csv(results, atlas_type, 'voxel')
+                self.visualizer.save_whole_head_results_to_csv(results, atlas_type, 'voxel')
             
             return results
             
@@ -369,152 +388,11 @@ class VoxelAnalyzer:
             except:
                 pass
     
-    def _generate_region_visualization(self, atlas_img, atlas_arr, field_arr, region_id, region_name, output_dir):
-        """Generate a NIfTI file visualization for a specific cortical region and save it directly to the specified directory."""
-        # Create mask for this region
-        region_mask = (atlas_arr == region_id)
-        
-        # Ensure field_arr is 3D for visualization
-        if len(field_arr.shape) == 4:
-            viz_field_arr = field_arr[:,:,:,0]  # Use the first volume
-        else:
-            viz_field_arr = field_arr
-        
-        # Create visualization array (zeros everywhere except the region)
-        vis_arr = np.zeros_like(atlas_arr)
-        vis_arr[region_mask] = viz_field_arr[region_mask]
-        
-        # Create output filename directly in the region directory
-        output_filename = os.path.join(output_dir, f"{region_name}_ROI.nii.gz")
-        
-        # Save as NIfTI
-        import nibabel as nib
-        vis_img = nib.Nifti1Image(vis_arr, atlas_img.affine)
-        nib.save(vis_img, output_filename)
-        
-        self.logger.info(f"Created visualization: {output_filename}")
-        return output_filename
-                
-    def _generate_whole_head_plots(self, results, atlas_type, data_type='voxel'):
-        """Generate a sorted scatter plot for whole head analysis directly in the main output directory."""
-        # Filter out regions with None values
-        valid_results = {name: res for name, res in results.items() if res['mean_value'] is not None}
-        
-        if not valid_results:
-            self.logger.warning("Warning: No valid results to plot")
-            return
-        
-        try:
-            # Prepare data for plotting
-            regions = list(valid_results.keys())
-            mean_values = [res['mean_value'] for res in valid_results.values()]
-            
-            # Check if voxel count data is available, and use it if possible
-            try:
-                # Attempt to get voxel counts if they're in the data
-                counts = [res.get(f'{data_type}s_in_roi', 1) for res in valid_results.values()]
-                use_counts_for_color = True
-            except (KeyError, AttributeError):
-                # If not available, use a default color
-                self.logger.note(f"Note: '{data_type}s_in_roi' not found in results, using default coloring")
-                counts = [1 for _ in valid_results.values()]
-                use_counts_for_color = False
-            
-            # Create output directory if it doesn't exist
-            os.makedirs(self.output_dir, exist_ok=True)
-            
-            # Create figure with larger size for all regions
-            fig, ax = plt.subplots(figsize=(15, 10))
-            
-            # Sort regions by mean value
-            sorted_indices = np.argsort(mean_values)
-            sorted_regions = [regions[i] for i in sorted_indices]
-            sorted_values = [mean_values[i] for i in sorted_indices]
-            
-            # Use the coloring approach based on availability of count data
-            if use_counts_for_color:
-                sorted_counts = [counts[i] for i in sorted_indices]
-                scatter = ax.scatter(range(len(sorted_regions)), sorted_values,
-                                c=sorted_counts,
-                                cmap='viridis',
-                                s=100,
-                                alpha=0.6,
-                                edgecolors='black',
-                                linewidths=1)
-                
-                # Add colorbar with enhanced styling
-                cbar = plt.colorbar(scatter, ax=ax)
-                cbar.set_label(f'Number of {data_type.capitalize()}s', fontsize=12, fontweight='bold')
-            else:
-                scatter = ax.scatter(range(len(sorted_regions)), sorted_values,
-                                c='royalblue',
-                                s=100,
-                                alpha=0.6,
-                                edgecolors='black',
-                                linewidths=1)
-            
-            # Customize plot
-            ax.set_title(f'Cortical Region Analysis - {atlas_type}', 
-                    pad=20, 
-                    fontsize=14, 
-                    fontweight='bold')
-            ax.set_xlabel('Region Index (sorted by mean value)', 
-                        fontsize=12, 
-                        fontweight='bold')
-            ax.set_ylabel('Mean Field Value', 
-                        fontsize=12, 
-                        fontweight='bold')
-            
-            # Add grid
-            ax.grid(True, linestyle='--', alpha=0.3)
-            
-            # Set x-ticks to show region names at the bottom
-            ax.set_xticks(range(len(sorted_regions)))
-            ax.set_xticklabels(sorted_regions, rotation=45, ha='right', fontsize=8)
-            
-            # Adjust layout to prevent label cutoff
-            plt.tight_layout()
-            
-            # Save plot directly in the main output directory
-            output_file = os.path.join(self.output_dir, f'cortex_analysis_{atlas_type}.png')
-            plt.savefig(output_file, dpi=300, bbox_inches='tight')
-            plt.close()
-            
-            self.logger.info(f"Generated sorted scatter plot: {output_file}")
-        except Exception as e:
-            # If there's any error during plotting, log it but don't stop the overall analysis
-            self.logger.warning(f"Warning: Failed to generate plots: {str(e)}")
-            self.logger.error(f"Error details: {traceback.format_exc()}")
-            self.logger.info("Continuing with analysis without visualizations.")
 
-    def _save_whole_head_summary_csv(self, results, atlas_type, data_type='voxel'):
-        """Save a summary CSV of whole-head analysis results directly in the output directory."""
-        # Create the CSV
-        filename = f"whole_head_{atlas_type}_summary.csv"
-        output_path = os.path.join(self.output_dir, filename)
-        
-        # Write results to CSV
-        with open(output_path, 'w', newline='') as csvfile:
-            writer = csv.writer(csvfile)
-            
-            # Write header row
-            header = ['Region', 'Mean Value', 'Max Value', 'Min Value', 'Focality', f'{data_type.capitalize()}s in ROI']
-            writer.writerow(header)
-            
-            # Write data for each region
-            for region_name, region_data in results.items():
-                row = [
-                    region_name,
-                    region_data.get('mean_value', 'N/A'),
-                    region_data.get('max_value', 'N/A'),
-                    region_data.get('min_value', 'N/A'),
-                    region_data.get('focality', 'N/A'),
-                    region_data.get(f'{data_type}s_in_roi', 0)
-                ]
-                writer.writerow(row)
-        
-        self.logger.info(f"Saved whole-head analysis summary to: {output_path}")
-        return output_path
+                
+
+
+
 
     def analyze_sphere(self, center_coordinates, radius, visualize=False):
         """
@@ -638,6 +516,22 @@ class VoxelAnalyzer:
                 min_value,
                 data_type='voxel'
             )
+            
+            # Generate focality histogram
+            try:
+                self.logger.info("Generating focality histogram for spherical ROI...")
+                # Get voxel dimensions from the loaded image
+                voxel_dims = img.header.get_zooms()[:3]
+                
+                self.visualizer.generate_focality_histogram(
+                    roi_values,
+                    region_name=region_name,
+                    roi_field_value=mean_value,
+                    data_type='voxel',
+                    voxel_dims=voxel_dims
+                )
+            except Exception as e:
+                self.logger.warning(f"Could not generate focality histogram for spherical ROI: {str(e)}")
         
         # Save results to CSV
         region_name = f"sphere_x{center_coordinates[0]}_y{center_coordinates[1]}_z{center_coordinates[2]}_r{radius}"
@@ -952,6 +846,22 @@ class VoxelAnalyzer:
                 min_value,
                 data_type='voxel'
             )
+            
+            # Generate focality histogram
+            try:
+                self.logger.info(f"Generating focality histogram for region: {region_name}")
+                # Get voxel dimensions from the field image
+                voxel_dims = field_img.header.get_zooms()[:3]
+                
+                self.visualizer.generate_focality_histogram(
+                    field_values,
+                    region_name=region_name,
+                    roi_field_value=mean_value,
+                    data_type='voxel',
+                    voxel_dims=voxel_dims
+                )
+            except Exception as e:
+                self.logger.warning(f"Could not generate focality histogram for {region_name}: {str(e)}")
 
             # Create visualization NIfTI file
             viz_file = self.visualizer.create_cortex_nifti(

@@ -114,13 +114,8 @@ class MeshAnalyzer:
             # Extract subject ID from subject_dir (e.g., m2m_subject -> subject)
             subject_id = os.path.basename(self.subject_dir).split('_')[1] if '_' in os.path.basename(self.subject_dir) else os.path.basename(self.subject_dir)
             
-            # Get project directory from subject_dir
-            project_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(self.subject_dir))))  # Go up four levels from m2m_subject
-            if not project_dir.startswith('/mnt/'):
-                project_dir = f"/mnt/{os.path.basename(project_dir)}"
-            
-            # Create derivatives/log/sub-* directory structure
-            log_dir = os.path.join(project_dir, 'derivatives', 'logs', f'sub-{subject_id}')
+            # Create derivatives/log/sub-* directory structure (using relative path like voxel analyzer)
+            log_dir = os.path.join('derivatives', 'logs', f'sub-{subject_id}')
             os.makedirs(log_dir, exist_ok=True)
             
             # Create log file in the new directory
@@ -276,7 +271,18 @@ class MeshAnalyzer:
                     os.makedirs(region_dir, exist_ok=True)
                     
                     # Get ROI mask for this region
-                    roi_mask = atlas[region_name]
+                    try:
+                        roi_mask = atlas[region_name]
+                        # Check if roi_mask is actually a mask array
+                        if callable(roi_mask):
+                            self.logger.error(f"Region {region_name}: atlas[region_name] returned a callable object, not a mask")
+                            raise TypeError(f"Region {region_name}: Expected mask array, got callable object")
+                        elif not hasattr(roi_mask, '__len__'):
+                            self.logger.error(f"Region {region_name}: atlas[region_name] returned non-array object: {type(roi_mask)}")
+                            raise TypeError(f"Region {region_name}: Expected mask array, got {type(roi_mask)}")
+                    except Exception as e:
+                        self.logger.error(f"Failed to get ROI mask for region {region_name}: {str(e)}")
+                        raise
                     
                     # Check if we have any nodes in the ROI
                     roi_nodes_count = np.sum(roi_mask)
@@ -286,7 +292,8 @@ class MeshAnalyzer:
                             'mean_value': None,
                             'max_value': None,
                             'min_value': None,
-                            'focality': None
+                            'focality': None,
+                            'nodes_in_roi': 0
                         }
                         
                         # Store in the overall results
@@ -296,8 +303,17 @@ class MeshAnalyzer:
                     
                     self.logger.info(f"Getting field values within the ROI...")
                     # Get the field values within the ROI
-                    field_values = gm_surf.field[self.field_name].value
-                    field_values_in_roi = field_values[roi_mask]
+                    try:
+                        field_values = gm_surf.field[self.field_name].value
+                        if callable(field_values):
+                            self.logger.error(f"Region {region_name}: field values returned a callable object")
+                            raise TypeError(f"Region {region_name}: Expected field values array, got callable object")
+                        field_values_in_roi = field_values[roi_mask]
+                    except Exception as e:
+                        self.logger.error(f"Failed to get field values for region {region_name}: {str(e)}")
+                        self.logger.error(f"Field values type: {type(field_values) if 'field_values' in locals() else 'undefined'}")
+                        self.logger.error(f"ROI mask type: {type(roi_mask)}")
+                        raise
                     
                     # Filter for positive values in ROI (matching voxel analyzer behavior)
                     positive_mask = field_values_in_roi > 0
@@ -311,7 +327,8 @@ class MeshAnalyzer:
                             'mean_value': None,
                             'max_value': None,
                             'min_value': None,
-                            'focality': None
+                            'focality': None,
+                            'nodes_in_roi': 0
                         }
                         
                         # Store in the overall results
@@ -324,8 +341,16 @@ class MeshAnalyzer:
                     max_value = np.max(field_values_positive)
                     
                     # Calculate mean value using node areas for proper averaging (only positive values)
-                    node_areas = gm_surf.nodes_areas()
-                    positive_node_areas = node_areas[roi_mask][positive_mask]
+                    try:
+                        node_areas = gm_surf.nodes_areas()
+                        if callable(node_areas):
+                            self.logger.error(f"Region {region_name}: nodes_areas() returned a callable object")
+                            raise TypeError(f"Region {region_name}: Expected node areas array, got callable object")
+                        positive_node_areas = node_areas[roi_mask][positive_mask]
+                    except Exception as e:
+                        self.logger.error(f"Failed to get node areas for region {region_name}: {str(e)}")
+                        self.logger.error(f"Node areas type: {type(node_areas) if 'node_areas' in locals() else 'undefined'}")
+                        raise
                     mean_value = np.average(field_values_positive, weights=positive_node_areas)
                     
                     # Calculate focality (roi_average / whole_brain_average)
@@ -342,7 +367,8 @@ class MeshAnalyzer:
                         'mean_value': mean_value,
                         'max_value': max_value,
                         'min_value': min_value,
-                        'focality': focality
+                        'focality': focality,
+                        'nodes_in_roi': positive_count
                     }
                     
                     # Store in the overall results
@@ -352,19 +378,21 @@ class MeshAnalyzer:
                     if visualize:
                         self.logger.info(f"Generating 3D visualization for region: {region_name}")
                         # Generate 3D visualization and save directly to the region directory
-                        self._generate_region_visualization(
+                        self.visualizer.visualize_cortex_roi(
                             gm_surf=gm_surf,
                             roi_mask=roi_mask,
                             target_region=region_name,
                             field_values=field_values,
                             max_value=max_value,
-                            output_dir=region_dir
+                            output_dir=region_dir,
+                            surface_mesh_path=self._surface_mesh_path
                         )
                         
                         # Generate region-specific value distribution plot
                         if len(field_values_positive) > 0:
                             # Create a custom visualizer just for this region with the region directory as output
-                            region_visualizer = MeshVisualizer(region_dir)
+                            # Pass the main logger to avoid creating derivatives folder in region directory
+                            region_visualizer = MeshVisualizer(region_dir, self.logger)
                             
                             # Generate value distribution plot for this region
                             self.logger.info(f"Generating value distribution plot for region: {region_name}")
@@ -377,24 +405,43 @@ class MeshAnalyzer:
                                 min_value,
                                 data_type='node'
                             )
+                            
+                            # Generate focality histogram for this region
+                            try:
+                                self.logger.info(f"Generating focality histogram for region: {region_name}")
+                                # Get node areas for volume weighting
+                                node_areas = gm_surf.nodes_areas()
+                                positive_node_areas = node_areas[roi_mask][positive_mask]
+                                
+                                region_visualizer.generate_focality_histogram(
+                                    field_values_positive,
+                                    element_sizes=positive_node_areas,
+                                    region_name=region_name,
+                                    roi_field_value=mean_value,
+                                    data_type='node'
+                                )
+                            except Exception as e:
+                                self.logger.warning(f"Could not generate focality histogram for {region_name}: {str(e)}")
                     
                 except Exception as e:
                     self.logger.warning(f"Warning: Failed to analyze region {region_name}: {str(e)}")
                     results[region_name] = {
                         'mean_value': None,
                         'max_value': None,
-                        'min_value': None
+                        'min_value': None,
+                        'focality': None,
+                        'nodes_in_roi': 0
                     }
             
             # Generate global scatter plot and save whole-head results to CSV directly in the main output directory
             if visualize and results:
                 self.logger.info("Generating global visualization plot...")
                 # Generate scatter plots in the main output directory
-                self._generate_whole_head_plots(results, atlas_type, 'node')
+                self.visualizer._generate_whole_head_plots(results, atlas_type, 'node')
                 
                 # Generate and save summary CSV
                 self.logger.info("Saving whole-head analysis summary to CSV...")
-                self._save_whole_head_summary_csv(results, atlas_type, 'node')
+                self.visualizer.save_whole_head_results_to_csv(results, atlas_type, 'node')
             
             return results
             
@@ -406,130 +453,6 @@ class MeshAnalyzer:
             except:
                 pass
 
-    def _generate_region_visualization(self, gm_surf, roi_mask, target_region, field_values, max_value, output_dir):
-        """Generate 3D visualization for a region and save it directly to the specified directory."""
-        # Load a fresh copy of the surface mesh to avoid accumulating ROI fields across regions
-        region_mesh = simnibs.read_msh(self._surface_mesh_path)
-        
-        # Create a new field with field values only in ROI (zeros elsewhere)
-        masked_field = np.zeros(region_mesh.nodes.nr)
-        masked_field[roi_mask] = field_values[roi_mask]
-        
-        # Add this as a new field to the fresh mesh
-        region_mesh.add_node_field(masked_field, 'ROI_field')
-        
-        # Create the output filename in the region directory
-        output_filename = os.path.join(output_dir, f"{target_region}_ROI.msh")
-        
-        # Save the modified mesh
-        region_mesh.write(output_filename)
-        
-        # Create the .msh.opt file with custom color map and alpha settings
-        with open(f"{output_filename}.opt", 'w') as f:
-            f.write(f"""
-    // Make View[1] (ROI_field) visible with custom colormap
-    View[1].Visible = 1;
-    View[1].ColormapNumber = 1;  // Use the first predefined colormap
-    View[1].RangeType = 2;       // Custom range
-    View[1].CustomMin = 0;       // Specific minimum value
-    View[1].CustomMax = {max_value};  // Specific maximum value for this cortex
-    View[1].ShowScale = 1;       // Show the color scale
-
-    // Add alpha/transparency based on value
-    View[1].ColormapAlpha = 1;
-    View[1].ColormapAlphaPower = 0.08;
-    """)
-        
-        self.logger.info(f"Created visualization: {output_filename}")
-        self.logger.info(f"Visualization settings saved to: {output_filename}.opt")
-        
-        return output_filename
-    
-    def _generate_whole_head_plots(self, results, atlas_type, data_type='node'):
-        """Generate a sorted scatter plot for whole head analysis directly in the main output directory."""
-        # Filter out regions with None values
-        valid_results = {name: res for name, res in results.items() if res['mean_value'] is not None}
-        
-        if not valid_results:
-            self.logger.warning("No valid results to plot")
-            return
-        
-        # Prepare data for plotting
-        regions = list(valid_results.keys())
-        mean_values = [res['mean_value'] for res in valid_results.values()]
-        
-        # Create figure with larger size for all regions
-        fig, ax = plt.subplots(figsize=(15, 10))
-        
-        # Sort regions by mean value
-        sorted_indices = np.argsort(mean_values)
-        sorted_regions = [regions[i] for i in sorted_indices]
-        sorted_values = [mean_values[i] for i in sorted_indices]
-        
-        # Create sorted scatter plot with enhanced styling
-        scatter = ax.scatter(range(len(sorted_regions)), sorted_values,
-                          c='royalblue',
-                          s=100,
-                          alpha=0.6,
-                          edgecolors='black',
-                          linewidths=1)
-        
-        # Customize plot
-        ax.set_title(f'Cortical Region Analysis - {atlas_type}', 
-                   pad=20, 
-                   fontsize=14, 
-                   fontweight='bold')
-        ax.set_xlabel('Region Index (sorted by mean value)', 
-                    fontsize=12, 
-                    fontweight='bold')
-        ax.set_ylabel('Mean Field Value', 
-                    fontsize=12, 
-                    fontweight='bold')
-        
-        # Add grid
-        ax.grid(True, linestyle='--', alpha=0.3)
-        
-        # Set x-ticks to show region names at the bottom
-        ax.set_xticks(range(len(sorted_regions)))
-        ax.set_xticklabels(sorted_regions, rotation=45, ha='right', fontsize=8)
-        
-        # Adjust layout to prevent label cutoff
-        plt.tight_layout()
-        
-        # Save plot directly in the main output directory
-        output_file = os.path.join(self.output_dir, f'cortex_analysis_{atlas_type}.png')
-        plt.savefig(output_file, dpi=300, bbox_inches='tight')
-        plt.close()
-        
-        self.logger.info(f"Generated sorted scatter plot: {output_file}")
-
-    def _save_whole_head_summary_csv(self, results, atlas_type, data_type='node'):
-        """Save a summary CSV of whole-head analysis results directly in the output directory."""
-        # Create the CSV
-        filename = f"whole_head_{atlas_type}_summary.csv"
-        output_path = os.path.join(self.output_dir, filename)
-        
-        # Write results to CSV
-        with open(output_path, 'w', newline='') as csvfile:
-            writer = csv.writer(csvfile)
-            
-            # Write header row
-            header = ['Region', 'Mean Value', 'Max Value', 'Min Value', 'Focality']
-            writer.writerow(header)
-            
-            # Write data for each region
-            for region_name, region_data in results.items():
-                row = [
-                    region_name,
-                    region_data.get('mean_value', 'N/A'),
-                    region_data.get('max_value', 'N/A'),
-                    region_data.get('min_value', 'N/A'),
-                    region_data.get('focality', 'N/A')
-                ]
-                writer.writerow(row)
-        
-        self.logger.info(f"Saved whole-head analysis summary to: {output_path}")
-        return output_path
 
     def analyze_sphere(self, center_coordinates, radius, visualize=False):
         """
@@ -663,6 +586,18 @@ class MeshAnalyzer:
                 min_value,
                 data_type='node'
             )
+            
+            # Generate focality histogram
+            try:
+                self.logger.info("Generating focality histogram for spherical ROI...")
+                self.visualizer.generate_focality_histogram(
+                    field_values_positive,
+                    region_name=f"sphere_x{center_coordinates[0]}_y{center_coordinates[1]}_z{center_coordinates[2]}_r{radius}",
+                    roi_field_value=mean_value,
+                    data_type='node'
+                )
+            except Exception as e:
+                self.logger.warning(f"Could not generate focality histogram for spherical ROI: {str(e)}")
             
             # For 3D mesh visualization, we need to generate a surface mesh
             try:
@@ -840,15 +775,33 @@ class MeshAnalyzer:
                     data_type='node'
                 )
                 
+                # Generate focality histogram
+                try:
+                    self.logger.info(f"Generating focality histogram for region: {target_region}")
+                    # Get node areas for volume weighting
+                    node_areas = gm_surf.nodes_areas()
+                    positive_node_areas = node_areas[roi_mask][positive_mask]
+                    
+                    self.visualizer.generate_focality_histogram(
+                        field_values_positive,
+                        element_sizes=positive_node_areas,
+                        region_name=target_region,
+                        roi_field_value=mean_value,
+                        data_type='node'
+                    )
+                except Exception as e:
+                    self.logger.warning(f"Could not generate focality histogram for {target_region}: {str(e)}")
+                
                 # Create region mesh visualization
                 # This creates a mesh file with the ROI highlighted
-                region_mesh_file = self._generate_region_visualization(
+                region_mesh_file = self.visualizer.visualize_cortex_roi(
                     gm_surf=gm_surf,
                     roi_mask=roi_mask,
                     target_region=target_region,
                     field_values=field_values,
                     max_value=max_value,
-                    output_dir=self.output_dir
+                    output_dir=self.output_dir,
+                    surface_mesh_path=self._surface_mesh_path
                 )
             
             # Save results to CSV

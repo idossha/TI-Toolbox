@@ -94,16 +94,11 @@ class BaseVisualizer:
             import time
             time_stamp = time.strftime('%Y%m%d_%H%M%S')
             
-            # Create derivatives/log directory structure
-            # Get project directory from output_dir
-            project_dir = os.path.dirname(os.path.dirname(output_dir))  # Go up two levels from output_dir
-            if not project_dir.startswith('/mnt/'):
-                project_dir = f"/mnt/{os.path.basename(project_dir)}"
-            
             # Extract subject ID from output_dir path
             subject_id = os.path.basename(output_dir).split('_')[1] if '_' in os.path.basename(output_dir) else os.path.basename(output_dir)
             
-            log_dir = os.path.join(project_dir, 'derivatives', 'logs', f'sub-{subject_id}')
+            # Create derivatives/log directory structure (using relative path)
+            log_dir = os.path.join('derivatives', 'logs', f'sub-{subject_id}')
             os.makedirs(log_dir, exist_ok=True)
             
             # Create log file in the new directory
@@ -176,32 +171,18 @@ class BaseVisualizer:
         self.logger.info(f"Saved analysis results to: {output_path}")
         return output_path
 
-    def save_whole_head_results_to_csv(self, results, atlas_type, data_type='node'):
-        """
-        Save whole-head analysis results to a CSV file.
-        
-        Args:
-            results (dict): Whole-head analysis results to save
-            atlas_type (str): Type of atlas used
-            data_type (str): Type of data ('node' or 'voxel')
-        
-        Returns:
-            str: Path to the created CSV file
-        """
-        # Create CSV directory if it doesn't exist
-        csv_dir = os.path.join(self.output_dir, 'csv_results')
-        os.makedirs(csv_dir, exist_ok=True)
-        
-        # Generate filename
-        filename = f"whole_head_{atlas_type}.csv"
-        output_path = os.path.join(csv_dir, filename)
+    def save_whole_head_results_to_csv(self, results, atlas_type, data_type='voxel'):
+        """Save a summary CSV of whole-head analysis results directly in the output directory."""
+        # Create the CSV
+        filename = f"whole_head_{atlas_type}_summary.csv"
+        output_path = os.path.join(self.output_dir, filename)
         
         # Write results to CSV
         with open(output_path, 'w', newline='') as csvfile:
             writer = csv.writer(csvfile)
             
             # Write header row
-            header = ['Region', 'Mean Value', 'Max Value', 'Min Value', f'{data_type.capitalize()}s in ROI']
+            header = ['Region', 'Mean Value', 'Max Value', 'Min Value', 'Focality', f'{data_type.capitalize()}s in ROI']
             writer.writerow(header)
             
             # Write data for each region
@@ -211,12 +192,175 @@ class BaseVisualizer:
                     region_data.get('mean_value', 'N/A'),
                     region_data.get('max_value', 'N/A'),
                     region_data.get('min_value', 'N/A'),
+                    region_data.get('focality', 'N/A'),
                     region_data.get(f'{data_type}s_in_roi', 0)
                 ]
                 writer.writerow(row)
         
-        self.logger.info(f"Saved whole-head analysis results to: {output_path}")
+        self.logger.info(f"Saved whole-head analysis summary to: {output_path}")
         return output_path
+
+    def generate_focality_histogram(self, field_data, element_sizes=None, filename=None, 
+                                   region_name=None, roi_field_value=None, data_type='element',
+                                   voxel_dims=None):
+        """
+        Generate enhanced histogram visualization with focality cutoffs and volume weighting.
+        
+        Args:
+            field_data (numpy.ndarray): Field strength values
+            element_sizes (numpy.ndarray, optional): Element/voxel sizes for volume weighting
+            filename (str, optional): Filename for the output image
+            region_name (str, optional): Name of the analyzed region
+            roi_field_value (float, optional): ROI field value to display as reference line
+            data_type (str): Type of data elements ('element', 'voxel', 'node')
+            voxel_dims (tuple, optional): Voxel dimensions (x,y,z) for voxel volume calculation
+            
+        Returns:
+            str: Path to the generated histogram file
+        """
+        self.logger.info(f"Generating focality histogram for {len(field_data)} {data_type}s")
+        
+        try:
+            # Check for valid data
+            if len(field_data) == 0:
+                self.logger.warning(f"No data to plot for focality histogram")
+                return None
+            
+            # Remove NaN values
+            valid_mask = ~np.isnan(field_data)
+            field_data = field_data[valid_mask]
+            
+            # Handle element sizes for different data types
+            if element_sizes is not None:
+                element_sizes = element_sizes[valid_mask]
+                if len(element_sizes) != len(field_data):
+                    self.logger.warning("Element sizes don't match field data length, using frequency histogram")
+                    element_sizes = None
+            elif data_type == 'voxel' and voxel_dims is not None:
+                # Calculate voxel volumes from dimensions
+                voxel_volume = np.prod(voxel_dims[:3])  # x * y * z
+                element_sizes = np.full(len(field_data), voxel_volume)
+                self.logger.info(f"Using uniform voxel volume: {voxel_volume:.3f} mm³")
+            
+            # Set up focality parameters
+            focality_cutoffs = [50, 75, 90, 95]  # Percentages of 99.9 percentile
+            
+            fig, ax = plt.subplots(figsize=(12, 8))
+            
+            # Create volume-weighted histogram if element sizes are provided
+            if element_sizes is not None and len(element_sizes) == len(field_data):
+                # Create histogram with volume weighting (convert mm³ to cm³ if needed)
+                weights = element_sizes / 1000.0 if np.max(element_sizes) > 100 else element_sizes
+                n, bins, patches = ax.hist(field_data, bins=100, weights=weights, alpha=0.7, 
+                                         edgecolor='black', color='lightblue')
+                ax.set_ylabel('Volume (cm³)' if np.max(element_sizes) > 100 else 'Volume')
+                
+                # Calculate focality cutoffs based on 99.9 percentile
+                percentile_99_9 = np.percentile(field_data, 99.9)
+                focality_thresholds = []
+                focality_volumes = []
+                
+                for cutoff in focality_cutoffs:
+                    threshold = (cutoff / 100.0) * percentile_99_9
+                    focality_thresholds.append(threshold)
+                    
+                    # Calculate volume above this threshold
+                    above_threshold = field_data >= threshold
+                    if np.any(above_threshold):
+                        volume = np.sum(element_sizes[above_threshold])
+                        if np.max(element_sizes) > 100:  # Convert to cm³ if in mm³
+                            volume = volume / 1000.0
+                        focality_volumes.append(volume)
+                    else:
+                        focality_volumes.append(0.0)
+                
+                # Add vertical red lines for focality cutoffs
+                colors = ['red', 'darkred', 'crimson', 'maroon']
+                lines_added = 0
+                for i, (threshold, cutoff) in enumerate(zip(focality_thresholds, focality_cutoffs)):
+                    if threshold <= np.max(field_data) and threshold >= np.min(field_data):
+                        color = colors[i % len(colors)]
+                        unit = 'cm³' if np.max(element_sizes) > 100 else 'units'
+                        ax.axvline(x=threshold, color=color, linestyle='--', linewidth=2, alpha=0.8,
+                                  label=f'{cutoff}% of 99.9%ile\n({threshold:.2f} V/m)\nVol: {focality_volumes[i]:.1f} {unit}')
+                        lines_added += 1
+                
+                # Add mean ROI field value indicator line (if available)
+                if roi_field_value is not None and np.min(field_data) <= roi_field_value <= np.max(field_data):
+                    ax.axvline(x=roi_field_value, color='green', linestyle='-', linewidth=3, alpha=0.9,
+                              label=f'Mean ROI Field\n({roi_field_value:.2f} V/m)')
+                    lines_added += 1
+                
+                # Add legend for all lines (only if lines were added)
+                if lines_added > 0:
+                    ax.legend(loc='upper right', bbox_to_anchor=(1.25, 1), 
+                             frameon=True, fancybox=True, shadow=True)
+                
+            else:
+                # Frequency histogram if no element sizes available
+                ax.hist(field_data, bins=100, alpha=0.7, edgecolor='black', color='lightblue')
+                ax.set_ylabel('Frequency')
+                
+                # Add ROI indicator for frequency plots
+                if roi_field_value is not None and np.min(field_data) <= roi_field_value <= np.max(field_data):
+                    ax.axvline(x=roi_field_value, color='green', linestyle='-', linewidth=3, alpha=0.9,
+                              label=f'Mean ROI Field\n({roi_field_value:.2f} V/m)')
+                    ax.legend(loc='upper right')
+            
+            # Customize plot
+            ax.set_xlabel('Field Strength (V/m)')
+            
+            # Create title
+            title_parts = ['Field Distribution with Focality Cutoffs']
+            if region_name:
+                title_parts.append(f'Region: {region_name}')
+            if filename:
+                title_parts.append(f'File: {filename}')
+            
+            ax.set_title('\n'.join(title_parts), fontsize=14, fontweight='bold')
+            ax.grid(True, alpha=0.3)
+            
+            # Add statistics text box
+            stats_text = f'Max: {np.max(field_data):.2f} V/m\n'
+            stats_text += f'Mean: {np.mean(field_data):.2f} V/m\n'
+            stats_text += f'99.9%ile: {np.percentile(field_data, 99.9):.2f} V/m\n'
+            stats_text += f'{data_type.capitalize()}s: {len(field_data):,}'
+            
+            if element_sizes is not None:
+                total_volume = np.sum(element_sizes)
+                if np.max(element_sizes) > 100:  # Convert to cm³ if in mm³
+                    total_volume = total_volume / 1000.0
+                    unit = 'cm³'
+                else:
+                    unit = 'units'
+                stats_text += f'\nTotal Vol: {total_volume:.1f} {unit}'
+            
+            if roi_field_value is not None:
+                stats_text += f'\nROI Field: {roi_field_value:.2f} V/m'
+            
+            ax.text(0.02, 0.98, stats_text, transform=ax.transAxes, fontsize=10,
+                   verticalalignment='top', bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.8))
+            
+            # Generate output filename
+            if filename:
+                base_name = Path(filename).stem if hasattr(Path, 'stem') else os.path.splitext(os.path.basename(filename))[0]
+            elif region_name:
+                base_name = f"{region_name}_focality"
+            else:
+                base_name = "focality_histogram"
+            
+            # Save histogram with tight layout
+            hist_file = os.path.join(self.output_dir, f'{base_name}_histogram.png')
+            plt.tight_layout()
+            plt.savefig(hist_file, dpi=150, bbox_inches='tight')
+            plt.close(fig)
+            
+            self.logger.info(f"Generated focality histogram: {hist_file}")
+            return hist_file
+            
+        except Exception as e:
+            self.logger.error(f"Failed to generate focality histogram: {str(e)}")
+            return None
 
 
 class Visualizer(BaseVisualizer):
@@ -403,17 +547,13 @@ class Visualizer(BaseVisualizer):
         return output_file
 
     def _generate_whole_head_plots(self, results, atlas_type, data_type='voxel'):
-        """Generate scatter plots for whole head analysis directly in the main output directory."""
-        self.logger.info(f"Generating whole head plots for {atlas_type} atlas with {len(results)} regions")
-        
+        """Generate a sorted scatter plot for whole head analysis directly in the main output directory."""
         # Filter out regions with None values
         valid_results = {name: res for name, res in results.items() if res['mean_value'] is not None}
         
         if not valid_results:
-            self.logger.warning("No valid results to plot")
+            self.logger.warning("Warning: No valid results to plot")
             return
-        
-        self.logger.info(f"Found {len(valid_results)} valid regions for plotting")
         
         try:
             # Prepare data for plotting
@@ -425,43 +565,17 @@ class Visualizer(BaseVisualizer):
                 # Attempt to get voxel counts if they're in the data
                 counts = [res.get(f'{data_type}s_in_roi', 1) for res in valid_results.values()]
                 use_counts_for_color = True
-                self.logger.info(f"Using {data_type} counts for color mapping")
             except (KeyError, AttributeError):
                 # If not available, use a default color
-                self.logger.info(f"'{data_type}s_in_roi' not found in results, using default coloring")
+                self.logger.info(f"Note: '{data_type}s_in_roi' not found in results, using default coloring")
                 counts = [1 for _ in valid_results.values()]
                 use_counts_for_color = False
             
-            # Dynamically calculate figure width based on number of regions
-            num_regions = len(regions)
+            # Create output directory if it doesn't exist
+            os.makedirs(self.output_dir, exist_ok=True)
             
-            # Base width for a plot with 30 regions
-            base_width = 15
-            
-            # Calculate width scaling factor (more regions = wider plot)
-            # This adds extra width as the number of regions increases
-            width_scaling = max(1.0, num_regions / 30)
-            
-            # Calculate height scaling factor (taller for many regions to maintain proportion)
-            height_scaling = min(1.2, max(1.0, num_regions / 60))
-            
-            # Calculate final dimensions with minimum width
-            fig_width = max(base_width, base_width * width_scaling)
-            fig_height = 10 * height_scaling
-            
-            # Adjust font size for region labels based on number of regions
-            if num_regions <= 30:
-                label_fontsize = 8
-            elif num_regions <= 50:
-                label_fontsize = 7
-            elif num_regions <= 100:
-                label_fontsize = 6
-            else:
-                label_fontsize = 5
-            
-            # Create figure for the sorted plot with dynamic size
-            plt.figure(figsize=(fig_width, fig_height))
-            fig, ax = plt.subplots(figsize=(fig_width, fig_height))
+            # Create figure with larger size for all regions
+            fig, ax = plt.subplots(figsize=(15, 10))
             
             # Sort regions by mean value
             sorted_indices = np.argsort(mean_values)
@@ -495,7 +609,7 @@ class Visualizer(BaseVisualizer):
                     pad=20, 
                     fontsize=14, 
                     fontweight='bold')
-            ax.set_xlabel('Region Index', 
+            ax.set_xlabel('Region Index (sorted by mean value)', 
                         fontsize=12, 
                         fontweight='bold')
             ax.set_ylabel('Mean Field Value', 
@@ -505,38 +619,25 @@ class Visualizer(BaseVisualizer):
             # Add grid
             ax.grid(True, linestyle='--', alpha=0.3)
             
-            # If there are too many regions, we need to limit the displayed labels
-            if num_regions > 200:
-                # For very large region counts, only show every Nth label
-                step = max(1, num_regions // 100)  # Show approximately 100 labels max
-                xticks_pos = range(0, len(sorted_regions), step)
-                xticks_labels = [sorted_regions[i] for i in xticks_pos]
-                ax.set_xticks(xticks_pos)
-                ax.set_xticklabels(xticks_labels, rotation=45, ha='right', fontsize=label_fontsize)
-            else:
-                # Otherwise show all labels
-                ax.set_xticks(range(len(sorted_regions)))
-                ax.set_xticklabels(sorted_regions, rotation=45, ha='right', fontsize=label_fontsize)
+            # Set x-ticks to show region names at the bottom
+            ax.set_xticks(range(len(sorted_regions)))
+            ax.set_xticklabels(sorted_regions, rotation=45, ha='right', fontsize=8)
             
             # Adjust layout to prevent label cutoff
             plt.tight_layout()
             
-            # Save plot directly in the main output directory (without "sorted" in the name)
+            # Save plot directly in the main output directory
             output_file = os.path.join(self.output_dir, f'cortex_analysis_{atlas_type}.png')
             plt.savefig(output_file, dpi=300, bbox_inches='tight')
             plt.close()
             
-            self.logger.info(f"Generated cortical region plot: {output_file}")
-            
-            return output_file
-            
+            self.logger.info(f"Generated sorted scatter plot: {output_file}")
         except Exception as e:
             # If there's any error during plotting, log it but don't stop the overall analysis
             import traceback
-            self.logger.warning(f"Failed to generate plot: {str(e)}")
-            self.logger.warning(f"Error details: {traceback.format_exc()}")
-            self.logger.warning("Continuing with analysis without visualizations.")
-            return None
+            self.logger.warning(f"Warning: Failed to generate plots: {str(e)}")
+            self.logger.error(f"Error details: {traceback.format_exc()}")
+            self.logger.info("Continuing with analysis without visualizations.")
 
 
 class MeshVisualizer(Visualizer):
@@ -546,23 +647,34 @@ class MeshVisualizer(Visualizer):
         """Initialize the MeshVisualizer class."""
         super().__init__(output_dir, logger)
 
-    def visualize_cortex_roi(self, gm_surf, roi_mask, target_region, field_values, max_value, output_dir=None):
-        """Create visualization files for a specific cortical ROI in mesh data."""
+    def visualize_cortex_roi(self, gm_surf, roi_mask, target_region, field_values, max_value, output_dir=None, surface_mesh_path=None):
+        """Generate 3D visualization for a region and save it directly to the specified directory."""
         self.logger.info(f"Creating cortex ROI visualization for region: {target_region}")
         self.logger.info(f"ROI contains {np.sum(roi_mask)} nodes, max value: {max_value:.6f}")
+        
+        # Load a fresh copy of the surface mesh to avoid accumulating ROI fields across regions
+        if surface_mesh_path:
+            region_mesh = simnibs.read_msh(surface_mesh_path)
+        else:
+            # Use the provided mesh if no path is given
+            region_mesh = gm_surf
+        
         # Create a new field with field values only in ROI (zeros elsewhere)
-        masked_field = np.zeros(gm_surf.nodes.nr)
+        masked_field = np.zeros(region_mesh.nodes.nr)
         masked_field[roi_mask] = field_values[roi_mask]
         
-        # Add this as a new field to the original mesh
-        gm_surf.add_node_field(masked_field, 'ROI_field')
+        # Add this as a new field to the fresh mesh
+        region_mesh.add_node_field(masked_field, 'ROI_field')
         
-        # Create the output directory if it doesn't exist
-        if output_dir:
-            output_filename = os.path.join(output_dir, f"{target_region}_ROI.msh")
+        # Use provided output_dir or default to self.output_dir
+        if output_dir is None:
+            output_dir = self.output_dir
+            
+        # Create the output filename in the region directory
+        output_filename = os.path.join(output_dir, f"{target_region}_ROI.msh")
         
-        # Save the modified original mesh
-        gm_surf.write(output_filename)
+        # Save the modified mesh
+        region_mesh.write(output_filename)
         
         # Create the .msh.opt file with custom color map and alpha settings
         with open(f"{output_filename}.opt", 'w') as f:
@@ -687,6 +799,32 @@ class VoxelVisualizer(Visualizer):
         
         # Save overlay file directly in the output directory
         output_filename = os.path.join(self.output_dir, f"{region_name}_ROI.nii.gz")
+        
+        # Save as NIfTI
+        import nibabel as nib
+        vis_img = nib.Nifti1Image(vis_arr, atlas_img.affine)
+        nib.save(vis_img, output_filename)
+        
+        self.logger.info(f"Created visualization: {output_filename}")
+        return output_filename
+
+    def _generate_region_visualization(self, atlas_img, atlas_arr, field_arr, region_id, region_name, output_dir):
+        """Generate a NIfTI file visualization for a specific cortical region and save it directly to the specified directory."""
+        # Create mask for this region
+        region_mask = (atlas_arr == region_id)
+        
+        # Ensure field_arr is 3D for visualization
+        if len(field_arr.shape) == 4:
+            viz_field_arr = field_arr[:,:,:,0]  # Use the first volume
+        else:
+            viz_field_arr = field_arr
+        
+        # Create visualization array (zeros everywhere except the region)
+        vis_arr = np.zeros_like(atlas_arr)
+        vis_arr[region_mask] = viz_field_arr[region_mask]
+        
+        # Create output filename directly in the region directory
+        output_filename = os.path.join(output_dir, f"{region_name}_ROI.nii.gz")
         
         # Save as NIfTI
         import nibabel as nib
