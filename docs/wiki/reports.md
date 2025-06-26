@@ -4,8 +4,6 @@ title: TI-Toolbox Reports
 permalink: /wiki/reports/
 ---
 
-# TI-Toolbox Reports
-
 The TI-Toolbox generates comprehensive HTML reports that provide detailed documentation of preprocessing and simulation workflows. These professional reports ensure reproducibility, facilitate quality control, and provide publication-ready methodology descriptions.
 
 ## Overview

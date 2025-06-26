@@ -1,10 +1,8 @@
 ---
 layout: wiki
-title: Logging
+title: Logging Processes in the Toolbox
 permalink: /wiki/logging/
 ---
-
-# Logging Processes in the Toolbox
 
 The TI-Toolbox features its very own logging utility that provides a consistent and flexible way to handle logging across all components of the toolbox. This logging system is designed to be both powerful and easy to use, with support for both console and file output.
 

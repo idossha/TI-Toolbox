@@ -4,8 +4,6 @@ title: Flex Search Electrode Optimization
 permalink: /wiki/flex-search/
 ---
 
-# Flex Search Electrode Optimization
-
 The Flex Search module provides advanced electrode optimization for temporal interference (TI) stimulation, allowing users to find optimal electrode positions for targeting specific regions of interest (ROIs) while maximizing different components of the TI field.
 
 ## Overview

@@ -1,10 +1,8 @@
 ---
 layout: wiki
-title: Atlas Resampling
+title: Atlas Resampling in Cortical Region Analysis
 permalink: /wiki/atlas-resampling/
 ---
-
-# Atlas Resampling in Cortical Region Analysis
 
 ## Overview
 

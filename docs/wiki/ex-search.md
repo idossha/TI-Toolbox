@@ -4,8 +4,6 @@ title: Ex-Search TI Optimization Pipeline
 permalink: /wiki/ex-search/
 ---
 
-# Ex-Search TI Optimization Pipeline
-
 The Ex-Search module provides an exaustive search approach for Temporal Interference (TI) simulations. The system features unified logging, multiple EEG net support, flexible leadfield management.
 
 ## Overview

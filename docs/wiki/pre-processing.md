@@ -4,8 +4,6 @@ title: Pre-processing Pipeline
 permalink: /wiki/pre-processing/
 ---
 
-# Pre-processing Pipeline
-
 The TI-Toolbox pre-processing pipeline prepares anatomical MRI data for TI simulations by converting DICOM files to BIDS-compliant NIfTI format, performing FreeSurfer cortical reconstruction, and creating SimNIBS head models. This comprehensive pipeline ensures that all subsequent steps have access to high-quality, standardized neuroimaging data.
 
 ## Overview
