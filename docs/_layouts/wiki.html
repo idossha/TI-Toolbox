@@ -1,0 +1,28 @@
+---
+layout: default
+---
+
+<link rel="stylesheet" href="{{ '/assets/css/wiki.css' | relative_url }}">
+
+<div class="wiki-layout">
+  <div class="wiki-sidebar">
+    <div class="wiki-nav">
+      <h3>Wiki Guides</h3>
+      <ul>
+        <li><a href="{{ site.baseurl }}/wiki/" {% if page.url == '/wiki/' or page.url == '/TI-Toolbox/wiki/' %}class="active"{% endif %}>Overview</a></li>
+        <li><a href="{{ site.baseurl }}/wiki/pre-processing/" {% if page.url == '/wiki/pre-processing/' or page.url == '/TI-Toolbox/wiki/pre-processing/' %}class="active"{% endif %}>Pre-Processing</a></li>
+        <li><a href="{{ site.baseurl }}/wiki/flex-search/" {% if page.url == '/wiki/flex-search/' or page.url == '/TI-Toolbox/wiki/flex-search/' %}class="active"{% endif %}>Flex Search</a></li>
+        <li><a href="{{ site.baseurl }}/wiki/ex-search/" {% if page.url == '/wiki/ex-search/' or page.url == '/TI-Toolbox/wiki/ex-search/' %}class="active"{% endif %}>Ex Search</a></li>
+        <li><a href="{{ site.baseurl }}/wiki/logging/" {% if page.url == '/wiki/logging/' or page.url == '/TI-Toolbox/wiki/logging/' %}class="active"{% endif %}>Logging</a></li>
+        <li><a href="{{ site.baseurl }}/wiki/reports/" {% if page.url == '/wiki/reports/' or page.url == '/TI-Toolbox/wiki/reports/' %}class="active"{% endif %}>Reports</a></li>
+        <li><a href="{{ site.baseurl }}/wiki/atlas-resampling/" {% if page.url == '/wiki/atlas-resampling/' or page.url == '/TI-Toolbox/wiki/atlas-resampling/' %}class="active"{% endif %}>Atlas Resampling</a></li>
+      </ul>
+    </div>
+  </div>
+  <div class="wiki-content">
+    <div class="wiki-content-inner">
+      <h1>{{ page.title | escape }}</h1>
+      {{ content }}
+    </div>
+  </div>
+</div> 

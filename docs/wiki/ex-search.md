@@ -1,5 +1,5 @@
 ---
-layout: page
+layout: wiki
 title: Ex-Search TI Optimization Pipeline
 permalink: /wiki/ex-search/
 ---
@@ -18,7 +18,7 @@ Ex-Search utilizes leadfield-based optimization to determine optimal electrode c
 
 ## User Interface
 
-![Ex-Search Interface](assets/ex-search/ex-search_UI.png)
+![Ex-Search Interface]({{ site.baseurl }}/wiki/assets/ex-search/ex-search_UI.png)
 
 The interface provides comprehensive controls for:
 - **Subject Selection**: Choose from available subjects with automatic leadfield scanning
@@ -32,11 +32,11 @@ The interface provides comprehensive controls for:
 Ex-Search automatically detects and supports multiple EEG electrode configurations:
 
 ### Standard 10-20 System
-![EEG 10-20 Network](assets/ex-search/EEG10-20_Okamoto_2004_net.png)
+![EEG 10-20 Network]({{ site.baseurl }}/wiki/assets/ex-search/EEG10-20_Okamoto_2004_net.png)
 *EGI 10-20 Okamoto 2004 electrode configuration - widely used standard with 32 electrodes*
 
 ### High-Density GSN System  
-![GSN 256 Network](assets/ex-search/GSN256_net.png)
+![GSN 256 Network]({{ site.baseurl }}/wiki/assets/ex-search/GSN256_net.png)
 *GSN-HydroCel 256 electrode configuration - high-density net for precise targeting*
 
 ## Example: TI Field Analysis Pipeline
@@ -54,13 +54,13 @@ We demonstrate the Ex-Search pipeline capabilities using a representative TI sti
 ### Field Visualization
 
 **Cortical Surface Distribution:**
-![TI Field Mesh](assets/ex-search/field_msh.png)
+![TI Field Mesh]({{ site.baseurl }}/wiki/assets/ex-search/field_msh.png)
 *TI field distribution visualized on the cortical surface showing spatial targeting and field intensity*
 
 ### Statistical Analysis
 
 **Volume-Weighted Field Distribution:**
-![Field Histogram](assets/ex-search/TI_field_F7_T7_and_T8_Fz_histogram.png)
+![Field Histogram]({{ site.baseurl }}/wiki/assets/ex-search/TI_field_F7_T7_and_T8_Fz_histogram.png)
 *Volume-weighted field distribution histogram with focality thresholds and ROI indicators*
 
 **Quantitative Results:**

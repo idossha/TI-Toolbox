@@ -1,5 +1,5 @@
 ---
-layout: page
+layout: wiki
 title: TI-Toolbox Reports
 permalink: /wiki/reports/
 ---

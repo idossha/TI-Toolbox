@@ -1,5 +1,5 @@
 ---
-layout: page
+layout: wiki
 title: Flex Search Electrode Optimization
 permalink: /wiki/flex-search/
 ---
@@ -17,7 +17,7 @@ Flex Search uses differential evolution optimization to determine the best elect
 
 ## User Interface
 
-![Flex Search Interface](assets/flex-search/flex-search_UI.png)
+![Flex Search Interface]({{ site.baseurl }}/wiki/assets/flex-search/flex-search_UI.png)
 
 The interface provides comprehensive controls for:
 - **Basic Parameters**: Subject selection, optimization goal, and post-processing method
@@ -40,8 +40,8 @@ We demonstrate the effectiveness of flex-search by optimizing electrode position
 ### Results: Maximum TI Field Optimization
 
 **Field Distribution:**
-![Maximum TI Field](assets/flex-search/max_TI_field.png)
-![Maximum TI ROI Targeting](assets/flex-search/max_TI_ROI.png)
+![Maximum TI Field]({{ site.baseurl }}/wiki/assets/flex-search/max_TI_field.png)
+![Maximum TI ROI Targeting]({{ site.baseurl }}/wiki/assets/flex-search/max_TI_ROI.png)
 
 **Optimization Summary:**
 
@@ -57,8 +57,8 @@ We demonstrate the effectiveness of flex-search by optimizing electrode position
 ### Results: Normal Component Optimization
 
 **Field Distribution:**
-![Normal TI Field](assets/flex-search/Normal_field.png)
-![Normal ROI Targeting](assets/flex-search/normal_ROI.png)
+![Normal TI Field]({{ site.baseurl }}/wiki/assets/flex-search/Normal_field.png)
+![Normal ROI Targeting]({{ site.baseurl }}/wiki/assets/flex-search/normal_ROI.png)
 
 **Optimization Summary:**
 
@@ -74,8 +74,8 @@ We demonstrate the effectiveness of flex-search by optimizing electrode position
 ### Results: Tangential Component Optimization
 
 **Field Distribution:**
-![Tangential TI Field](assets/flex-search/tangent_field.png)
-![Tangential ROI Targeting](assets/flex-search/tangent_ROI.png)
+![Tangential TI Field]({{ site.baseurl }}/wiki/assets/flex-search/tangent_field.png)
+![Tangential ROI Targeting]({{ site.baseurl }}/wiki/assets/flex-search/tangent_ROI.png)
 
 **Optimization Summary:**
 
