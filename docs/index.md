@@ -21,7 +21,7 @@ layout: home
 2. **Install Docker Desktop**
    - Required for running the toolbox environment.
 3. **Get the Latest Release**
-   - Download the latest version (2.x.x or newer) from the <a href="/releases">Releases page</a>. See the <a href="/installation">Installation</a> for platform-specific instructions. Note: Versions 1.x.x are no longer supported.
+   - Download the latest version (2.x.x or newer) from the <a href="{{ site.baseurl }}/releases/">Releases page</a>. See the <a href="{{ site.baseurl }}/installation/">Installation</a> for platform-specific instructions. Note: Versions 1.x.x are no longer supported.
 4. **Pre-process your data**
    - Convert DICOM to NIfTI, run FreeSurfer, and create SimNIBS head models using the pre-processing pipeline.
 5. **Optimize electrode placement**
