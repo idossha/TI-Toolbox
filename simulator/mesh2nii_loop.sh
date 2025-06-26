@@ -49,7 +49,7 @@ for FN_MESH in "$input_mesh_dir"/*.msh; do
   BASE_NAME=$(basename "$FN_MESH" .msh)
   
   # Define the output file names with the desired naming convention
-  FN_OUT="$output_dir/${BASE_NAME}"
+  FN_OUT="$output_dir/${BASE_NAME}_MNI.nii.gz"
   
   # Run the subject2mni command for MNI space
   subject2mni -i "$FN_MESH" -m "$m2m_dir" -o "$FN_OUT"
@@ -59,7 +59,8 @@ for FN_MESH in "$input_mesh_dir"/*.msh; do
   fi
   
   # Run msh2nii for subject space
-  msh2nii "$FN_MESH" "$m2m_dir" "$FN_OUT"
+  FN_OUT_SUBJECT="$output_dir/${BASE_NAME}_subject.nii.gz"
+  msh2nii "$FN_MESH" "$m2m_dir" "$FN_OUT_SUBJECT"
   if [ $? -ne 0 ]; then
     echo "Error: msh2nii command failed for $FN_MESH."
     exit 1

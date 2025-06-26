@@ -126,8 +126,20 @@ get_host_ip() {
     # On Linux, we don't need to calculate HOST_IP for DISPLAY
     HOST_IP=""
     ;;
+  MINGW*|MSYS*|CYGWIN*)
+    # On Windows, get the host IP from WSL
+    HOST_IP=$(powershell.exe -Command "(Get-NetIPAddress -AddressFamily IPv4 | Where-Object {$_.InterfaceAlias -notlike '*Loopback*' -and $_.InterfaceAlias -notlike '*vEthernet*'} | Select-Object -First 1).IPAddress" | tr -d '\r\n')
+    # If that fails, try alternative method
+    if [[ -z "$HOST_IP" ]]; then
+      HOST_IP=$(hostname -I | awk '{print $1}')
+    fi
+    # If still empty, use default
+    if [[ -z "$HOST_IP" ]]; then
+      HOST_IP="host.docker.internal"
+    fi
+    ;;
   *)
-    echo "Unsupported OS. Please use macOS or Linux."
+    echo "Unsupported OS. Please use macOS, Linux, or Windows."
     exit 1
     ;;
   esac
@@ -138,29 +150,55 @@ get_host_ip() {
 set_display_env() {
   echo "Setting DISPLAY environment variable..."
 
-  if [[ "$(uname -s)" == "Linux" ]]; then
+  case "$(uname -s)" in
+  Linux)
     # If Linux, use the existing DISPLAY
-    export DISPLAY=$DISPLAY
+    export DISPLAY=${DISPLAY:-:0}
     echo "Using system's DISPLAY: $DISPLAY"
-  else
+    ;;
+  Darwin)
     # For macOS, dynamically obtain the host IP and set DISPLAY
     get_host_ip # Get the IP address dynamically
     export DISPLAY="$HOST_IP:0"
     echo "DISPLAY set to $DISPLAY"
-  fi
+    ;;
+  MINGW*|MSYS*|CYGWIN*)
+    # For Windows (Git Bash, MSYS2, Cygwin)
+    get_host_ip
+    export DISPLAY="$HOST_IP:0.0"
+    echo "DISPLAY set to $DISPLAY"
+    ;;
+  *)
+    echo "Unsupported OS for X11 display configuration."
+    exit 1
+    ;;
+  esac
 }
 
 # Function to allow connections from XQuartz or X11
 allow_xhost() {
   echo "Allowing connections from XQuartz or X11..."
 
-  if [[ "$(uname -s)" == "Linux" ]]; then
+  case "$(uname -s)" in
+  Linux)
     # Allow connections for Linux
-    xhost +local:root
-  else
+    if command -v xhost >/dev/null 2>&1; then
+      xhost +local:root >/dev/null 2>&1
+      xhost +local:docker >/dev/null 2>&1
+    fi
+    ;;
+  Darwin)
     # Use the dynamically obtained IP for macOS xhost
-    xhost + "$HOST_IP"
-  fi
+    if command -v xhost >/dev/null 2>&1; then
+      xhost + "$HOST_IP" >/dev/null 2>&1
+      xhost +localhost >/dev/null 2>&1
+    fi
+    ;;
+  MINGW*|MSYS*|CYGWIN*)
+    # Windows doesn't have xhost in Git Bash
+    echo "Note: Make sure your X server (VcXsrv/Xming) is configured to accept connections."
+    ;;
+  esac
 }
 
 # Function to validate docker-compose.yml existence
@@ -178,7 +216,11 @@ display_welcome() {
   echo "Welcome to the TI toolbox from the Center for Sleep and Consciousness"
   echo "Developed by Ido Haber as a wrapper around Modified SimNIBS"
   echo " "
-  echo "Make sure you have XQuartz (on macOS), X11 (on Linux), or Xming/VcXsrv (on Windows) running."
+  echo "Make sure you have:"
+  echo "  - XQuartz (on macOS) - [version 2.7.7 recommended for OpenGL support][[memory:3056357008131702354]]"
+  echo "  - X11 (on Linux)"
+  echo "  - VcXsrv or Xming (on Windows) - with 'Disable access control' checked"
+  echo ""
   echo "If you wish to use the optimizer, consider allocating more RAM to Docker."
   echo "#####################################################################"
   echo " "
@@ -201,6 +243,9 @@ ensure_docker_volumes() {
 run_docker_compose() {
   # Ensure volumes exist
   ensure_docker_volumes
+
+  # Set HOME environment variable for .Xauthority access
+  export HOME=${HOME:-$USERPROFILE}
 
   # Pull images if they don't exist
   echo "Pulling required Docker images..."
@@ -228,7 +273,14 @@ run_docker_compose() {
   docker compose -f "$SCRIPT_DIR/docker-compose.yml" down >/dev/null 2>&1
 
   # Revert X server access permissions
-  xhost -local:root >/dev/null 2>&1
+  case "$(uname -s)" in
+  Linux|Darwin)
+    if command -v xhost >/dev/null 2>&1; then
+      xhost -local:root >/dev/null 2>&1
+      xhost -local:docker >/dev/null 2>&1
+    fi
+    ;;
+  esac
 }
 
 # Function to get version from version.py
@@ -395,12 +447,41 @@ if [[ "$(uname -s)" == "Darwin" ]]; then
     allow_network_clients
 fi
 
+# Check Windows X server
+if [[ "$(uname -s)" =~ ^(MINGW|MSYS|CYGWIN) ]]; then
+    echo "Windows detected. Please ensure your X server (VcXsrv/Xming) is running with:"
+    echo "  - 'Multiple windows' mode"
+    echo "  - 'Disable access control' checked"
+    echo "  - Firewall configured to allow X server connections"
+    echo ""
+    read -p "Press Enter to continue once X server is configured..."
+fi
+
 load_default_paths
 get_project_directory
 PROJECT_DIR_NAME=$(basename "$LOCAL_PROJECT_DIR")
 
 # Set up Docker Compose environment variables
-export LOCAL_PROJECT_DIR
+# Handle Windows paths for Docker
+case "$(uname -s)" in
+  MINGW*|MSYS*|CYGWIN*)
+    # Convert Windows paths to Docker-compatible format
+    # C:\Users\name\project -> /c/Users/name/project (Git Bash style)
+    # or C:\Users\name\project -> C:/Users/name/project (Docker style)
+    if [[ "$LOCAL_PROJECT_DIR" =~ ^[A-Za-z]: ]]; then
+      # Convert C:\path to /c/path for Git Bash
+      DOCKER_PROJECT_DIR="/$(echo "$LOCAL_PROJECT_DIR" | sed 's/://' | sed 's/\\/\//g' | tr '[:upper:]' '[:lower:]')"
+      # Alternative: Keep Windows style but with forward slashes
+      # DOCKER_PROJECT_DIR=$(echo "$LOCAL_PROJECT_DIR" | sed 's/\\/\//g')
+    else
+      DOCKER_PROJECT_DIR="$LOCAL_PROJECT_DIR"
+    fi
+    export LOCAL_PROJECT_DIR="$DOCKER_PROJECT_DIR"
+    ;;
+  *)
+    export LOCAL_PROJECT_DIR
+    ;;
+esac
 export PROJECT_DIR_NAME
 
 # Save the paths for next time

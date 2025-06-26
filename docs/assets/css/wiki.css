@@ -1,0 +1,215 @@
+/* Wiki Sidebar Layout */
+.wiki-layout {
+  position: relative;
+  max-width: none;
+  margin: 0;
+  padding: 0; /* Remove all padding - let content be full width */
+  margin-left: 270px; /* Just enough margin to clear the sidebar */
+  margin-right: 120px; /* Add right margin to prevent content from reaching screen edge */
+}
+
+.wiki-sidebar {
+  position: fixed;
+  left: 20px;
+  top: 120px;
+  width: 250px;
+  z-index: 100;
+}
+
+.wiki-nav {
+  background: #f8f9fa;
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+  max-height: calc(100vh - 140px);
+  overflow-y: auto;
+}
+
+.wiki-nav h3 {
+  margin-top: 0;
+  margin-bottom: 15px;
+  color: #2E86AB;
+  font-size: 1.1em;
+  font-weight: 600;
+}
+
+.wiki-nav h4 {
+  margin-top: 25px;
+  margin-bottom: 10px;
+  color: #2E86AB;
+  font-size: 1em;
+  font-weight: 600;
+}
+
+.wiki-nav ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.wiki-nav li {
+  margin: 8px 0;
+}
+
+.wiki-nav a {
+  color: #333;
+  text-decoration: none;
+  display: block;
+  padding: 8px 12px;
+  border-radius: 4px;
+  transition: all 0.3s ease;
+}
+
+.wiki-nav a:hover {
+  color: #2E86AB;
+  background-color: rgba(46, 134, 171, 0.1);
+}
+
+.wiki-nav a.active {
+  font-weight: 600;
+  color: #2E86AB;
+  background-color: rgba(46, 134, 171, 0.15);
+}
+
+.wiki-content {
+  width: 100%;
+  margin-left: 0;
+  max-width: none;
+}
+
+/* Aggressive width overrides for all theme containers */
+.wiki-layout .wrapper,
+.wiki-layout .page-content,
+.wiki-layout .page-content .wrapper,
+.wiki-content,
+.wiki-content .post,
+.wiki-content .post-content,
+.wiki-content article,
+.wiki-content .wrapper,
+.post-content,
+.page-content,
+.page-content .wrapper {
+  max-width: none !important;
+  width: 100% !important;
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+}
+
+/* Force full width on all content elements but respect container boundaries */
+.wiki-content h1,
+.wiki-content h2, 
+.wiki-content h3,
+.wiki-content h4,
+.wiki-content p,
+.wiki-content ul,
+.wiki-content ol,
+.wiki-content table,
+.wiki-content pre,
+.wiki-content blockquote,
+.wiki-content .highlight {
+  max-width: 100% !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+  overflow-x: auto !important; /* Handle wide content with scroll instead of overflow */
+}
+
+/* Add padding to inner content for readability */
+.wiki-content-inner {
+  padding: 20px; /* Uniform padding since margin handles the right spacing */
+  max-width: none !important;
+  width: 100% !important;
+  box-sizing: border-box; /* Ensure padding doesn't cause overflow */
+}
+
+/* Image size constraints for all wiki images */
+.wiki-content img {
+  max-width: 800px !important;
+  max-height: 600px !important;
+  width: auto !important;
+  height: auto !important;
+  display: block;
+  margin: 20px auto; /* Center images with some spacing */
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  object-fit: contain; /* Maintain aspect ratio */
+}
+
+/* Smaller images for interface screenshots */
+.wiki-content img[alt*="Interface"],
+.wiki-content img[alt*="UI"] {
+  max-width: 600px !important;
+  max-height: 400px !important;
+}
+
+/* Larger images for detailed visualizations */
+.wiki-content img[alt*="Field"],
+.wiki-content img[alt*="Distribution"],
+.wiki-content img[alt*="Histogram"] {
+  max-width: 900px !important;
+  max-height: 700px !important;
+}
+
+/* Network diagrams - medium size */
+.wiki-content img[alt*="Network"],
+.wiki-content img[alt*="EEG"] {
+  max-width: 500px !important;
+  max-height: 500px !important;
+}
+
+/* Responsive design */
+/* Remove max-width constraints to let content be as wide as possible */
+
+@media (max-width: 1200px) {
+  /* On smaller screens, move sidebar to top */
+  .wiki-sidebar {
+    position: static;
+    width: 100%;
+    margin-bottom: 20px;
+  }
+  
+  .wiki-nav {
+    max-height: none;
+    overflow-y: visible;
+  }
+  
+  .wiki-layout {
+    margin-left: 0; /* Remove left margin when sidebar is on top */
+    margin-right: 0; /* Remove right margin on smaller screens */
+  }
+  
+  .wiki-content {
+    margin-left: 0;
+    max-width: none;
+  }
+  
+  .wiki-content-inner {
+    padding: 20px; /* Symmetric padding on mobile */
+  }
+  
+  /* Responsive image sizing for smaller screens */
+  .wiki-content img {
+    max-width: 100% !important;
+    max-height: 400px !important;
+  }
+  
+  .wiki-content img[alt*="Field"],
+  .wiki-content img[alt*="Distribution"],
+  .wiki-content img[alt*="Histogram"] {
+    max-width: 100% !important;
+    max-height: 450px !important;
+  }
+  
+  .wiki-content img[alt*="Interface"],
+  .wiki-content img[alt*="UI"] {
+    max-width: 100% !important;
+    max-height: 300px !important;
+  }
+  
+  .wiki-content img[alt*="Network"],
+  .wiki-content img[alt*="EEG"] {
+    max-width: 100% !important;
+    max-height: 350px !important;
+  }
+} 

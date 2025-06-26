@@ -169,6 +169,27 @@ if ! simnibs_python "$script_dir/TI.py" "$subject_id" "$conductivity" "$project_
     exit 1
 fi
 
+# For flex-search mode, discover the montages that were created by TI.py
+if [ "$sim_mode" = "FLEX_TI" ] && [ ${#selected_montages[@]} -eq 0 ]; then
+    log_info "Flex-search mode detected - discovering created montages"
+    flex_montages=()
+    if [ -d "$sim_dir" ]; then
+        for montage_dir in "$sim_dir"/*/; do
+            if [ -d "$montage_dir" ]; then
+                montage_name=$(basename "$montage_dir")
+                # Skip the tmp directory
+                if [ "$montage_name" != "tmp" ]; then
+                    flex_montages+=("$montage_name")
+                    log_info "Found flex montage: $montage_name"
+                fi
+            fi
+        done
+    fi
+    # Use flex montages for post-processing
+    selected_montages=("${flex_montages[@]}")
+    log_info "Will process ${#selected_montages[@]} flex montages"
+fi
+
 # Function to extract fields (GM and WM meshes)
 extract_fields() {
     local input_file="$1"

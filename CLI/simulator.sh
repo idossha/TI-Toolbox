@@ -189,6 +189,8 @@ EOL
         echo -e "${CYAN}- Montages: ${selected_montages[*]}${RESET}"
         
         # Execute simulation
+        # Ensure FLEX_MONTAGES_FILE is available to child processes
+        export FLEX_MONTAGES_FILE
         "${cmd[@]}"
         
         # Check execution status
@@ -204,8 +206,9 @@ EOL
         echo -e "${CYAN}Generating simulation reports...${RESET}"
         
         # Source the reporting utilities
-        if [ -f "$script_dir/../utils/bash_reporting.sh" ]; then
-            source "$script_dir/../utils/bash_reporting.sh"
+        reporting_script="$script_dir/../utils/bash_reporting.sh"
+        if [ -f "$reporting_script" ]; then
+            source "$reporting_script"
             
             # Initialize reporting
             init_reporting "$project_dir"
@@ -221,207 +224,144 @@ EOL
                 
                 echo -e "${CYAN}Generating report for subject: $subject_id${RESET}"
                 
-                # Use bash reporting utilities
-                if create_simulation_report "" "" "" "$subject_id"; then
-                    ((reports_generated++))
-                    echo -e "${GREEN}✅ Report generated for subject: $subject_id${RESET}"
-                else
-                    echo -e "${YELLOW}⚠️ Could not generate report for subject: $subject_id${RESET}"
-                fi
-            done
-        else
-            # Fallback: use Python directly with new utilities
-            python_cmd=""
-            if command -v python3 &> /dev/null; then
-                python_cmd="python3"
-            elif command -v python &> /dev/null; then
-                python_cmd="python"
-            else
-                echo -e "${YELLOW}Warning: Python not found. Skipping report generation.${RESET}"
-                exit 0
-            fi
-
-            # Generate reports for each processed subject
-            reports_generated=0
-            for subject_num in "${selected_subjects[@]}"; do
-                if [[ "$is_direct_mode" == "true" ]]; then
-                    subject_id="$subject_num"
-                else
-                    subject_id="${subjects[$((subject_num-1))]}"
+                # Create a unique simulation session ID for this CLI run
+                cli_session_id="CLI_$(date +%Y%m%d_%H%M%S)"
+                
+                # Check for completion reports from this session
+                completion_files=()
+                temp_dir="$project_dir/derivatives/temp"
+                if [[ -d "$temp_dir" ]]; then
+                    # Look for completion files from this subject
+                    while IFS= read -r -d '' completion_file; do
+                        completion_files+=("$completion_file")
+                    done < <(find "$temp_dir" -name "simulation_completion_${subject_id}_*.json" -print0 2>/dev/null)
                 fi
                 
-                echo -e "${CYAN}Generating report for subject: $subject_id${RESET}"
-                
-                # Create a temporary Python script to generate the report
-                temp_script=$(mktemp)
-                cat > "$temp_script" << EOF
+                # Generate Python script to create CLI report
+                temp_script=$(mktemp "${TMPDIR:-/tmp}/cli_report_XXXXXX.py")
+                cat > "$temp_script" <<EOF
 #!/usr/bin/env python3
 import sys
 import os
-sys.path.append('$script_dir/../utils')
-
-from report_util import create_simulation_report
+import json
 import datetime
 
+# Add utils to path
+sys.path.insert(0, '$script_dir/../utils')
+from simulation_report_generator import SimulationReportGenerator
+
+project_dir = '$project_dir'
+subject_id = '$subject_id'
+session_id = '$cli_session_id'
+
 try:
-    # Create simulation log with parameters
-    simulation_log = {
-        'simulation_parameters': {
-            'conductivity_type': '$conductivity',
-            'simulation_mode': '$sim_mode',
-            'eeg_net': '${subject_eeg_nets[$subject_id]:-EGI_template.csv}',
-            'intensity_ch1': $(echo '$current' | cut -d',' -f1 | awk '{print $1 * 1000}'),  # Convert A to mA
-            'intensity_ch2': $(echo '$current' | cut -d',' -f2 | awk '{print $1 * 1000}'),  # Convert A to mA
-            'quiet_mode': False
-        },
-        'electrode_parameters': {
-            'shape': '$electrode_shape',
-            'dimensions': [$(echo '$dimensions' | sed 's/,/, /g')],
-            'thickness': $thickness
-        },
-        'subjects': [{
-            'subject_id': '$subject_id',
-            'm2m_path': '$project_dir/derivatives/SimNIBS/sub-$subject_id/m2m_$subject_id',
-            'status': 'completed'
-        }],
-        'montages': []
-    }
+    # Create report generator
+    generator = SimulationReportGenerator(project_dir, session_id)
     
-    # Add montages
-    montage_type = 'unipolar' if '$sim_mode' == 'U' else 'multipolar'
-    montages = [$(printf "'%s'," "${selected_montages[@]}" | sed 's/,$//')]
-    
-    # Load montage file to get actual electrode pairs
-    import json
-    import os
-    
-    montage_file = os.path.join('$project_dir', 'montage_list.json')
-    montage_data = {}
-    if os.path.exists(montage_file):
-        try:
-            with open(montage_file, 'r') as f:
-                montage_data = json.load(f)
-        except:
-            pass
-    
-    for montage in montages:
-        if montage:  # Skip empty montages
-            # Try to get actual electrode pairs from the montage file
-            electrode_pairs = [['E1', 'E2']]  # Default fallback
-            
-            # Look for the montage in the appropriate net and type
-            net_type = 'uni_polar_montages' if '$sim_mode' == 'U' else 'multi_polar_montages'
-            eeg_net = '${subject_eeg_nets[$subject_id]:-EGI_template.csv}'
-            
-            if ('nets' in montage_data and 
-                eeg_net in montage_data['nets'] and 
-                net_type in montage_data['nets'][eeg_net] and 
-                montage in montage_data['nets'][eeg_net][net_type]):
-                electrode_pairs = montage_data['nets'][eeg_net][net_type][montage]
-            
-            simulation_log['montages'].append({
-                'name': montage,  # Changed from 'montage_name' to 'name' for consistency
-                'electrode_pairs': electrode_pairs,
-                'montage_type': montage_type
-            })
-    
-    # Generate report
-    report_path = create_simulation_report(
-        project_dir='$project_dir',
-        simulation_log=simulation_log,
-        subject_id='$subject_id'
+    # Add simulation parameters (basic defaults for CLI)
+    generator.add_simulation_parameters(
+        conductivity_type='$conductivity',
+        simulation_mode='$sim_mode',
+        eeg_net='${subject_eeg_nets[$subject_id]:-EGI_template.csv}',
+        intensity_ch1=${current_ma_1:-5.0},
+        intensity_ch2=${current_ma_2:-1.0},
+        quiet_mode=False
     )
     
-    if report_path:
-        print(f"✅ Report generated: {report_path}")
-    else:
-        print("❌ Failed to generate report")
-        
+    # Add electrode parameters
+    dimensions_list = '$dimensions'.split(',')
+    generator.add_electrode_parameters(
+        shape='$electrode_shape',
+        dimensions=[float(dimensions_list[0]), float(dimensions_list[1])],
+        thickness=float('$thickness')
+    )
+    
+    # Add subject
+    bids_subject_id = f"sub-{subject_id}"
+    m2m_path = os.path.join(project_dir, 'derivatives', 'SimNIBS', bids_subject_id, f'm2m_{subject_id}')
+    generator.add_subject(subject_id, m2m_path, 'completed')
+    
+    # Process any completion reports
+    completion_files = ${completion_files[@]@Q}
+    for completion_file in completion_files:
+        if os.path.exists(completion_file):
+            with open(completion_file, 'r') as f:
+                completion_data = json.load(f)
+            
+            # Add simulation results for each completed simulation
+            for sim in completion_data.get('completed_simulations', []):
+                montage_name = sim['montage_name']
+                
+                # Add montage info
+                generator.add_montage(
+                    montage_name=montage_name,
+                    electrode_pairs=[['E1', 'E2'], ['E3', 'E4']],  # Default pairs
+                    montage_type='unipolar' if '$sim_mode' == 'U' else 'multipolar'
+                )
+                
+                # Get expected output files
+                simulations_dir = os.path.join(project_dir, 'derivatives', 'SimNIBS', bids_subject_id, 'Simulations', montage_name)
+                ti_dir = os.path.join(simulations_dir, 'TI')
+                nifti_dir = os.path.join(ti_dir, 'niftis')
+                
+                output_files = {'TI': [], 'niftis': []}
+                if os.path.exists(nifti_dir):
+                    nifti_files = [f for f in os.listdir(nifti_dir) if f.endswith('.nii.gz')]
+                    output_files['niftis'] = [os.path.join(nifti_dir, f) for f in nifti_files]
+                    ti_files = [f for f in nifti_files if 'TI_max' in f]
+                    output_files['TI'] = [os.path.join(nifti_dir, f) for f in ti_files]
+                
+                # Add simulation result
+                generator.add_simulation_result(
+                    subject_id=subject_id,
+                    montage_name=montage_name,
+                    output_files=output_files,
+                    duration=None,
+                    status='completed'
+                )
+            
+            # Clean up completion report
+            os.remove(completion_file)
+    
+    # Generate report
+    report_path = generator.generate_report()
+    print(f"✅ CLI Report generated: {report_path}")
+    
 except Exception as e:
-    print(f"❌ Error generating report: {str(e)}")
+    print(f"❌ Error generating CLI report: {str(e)}")
     import traceback
     traceback.print_exc()
 EOF
                 
                 # Run the report generation
-                if $python_cmd "$temp_script"; then
+                if python3 "$temp_script"; then
                     ((reports_generated++))
                 fi
                 
                 # Clean up temporary script
                 rm -f "$temp_script"
             done
-        fi
-
-        # Summary
-        if [ $reports_generated -gt 0 ]; then
-            echo -e "${GREEN}✅ Generated $reports_generated simulation report(s)${RESET}"
-            echo -e "${CYAN}Reports saved to: $project_dir/derivatives/reports/sub-{subjectID}/${RESET}"
+            
+            # Summary
+            if [ $reports_generated -gt 0 ]; then
+                echo -e "${GREEN}✅ Generated $reports_generated simulation report(s)${RESET}"
+                echo -e "${CYAN}Reports saved to: $project_dir/derivatives/reports/sub-{subjectID}/${RESET}"
+            else
+                echo -e "${YELLOW}⚠️ No reports were generated${RESET}"
+            fi
         else
-            echo -e "${YELLOW}⚠️ No reports were generated${RESET}"
+            echo -e "${YELLOW}⚠️ Reporting utilities not found. Skipping report generation.${RESET}"
         fi
-    fi
-}
 
-# Check if direct execution from GUI is requested
-if [[ "$1" == "--run-direct" ]]; then
-    echo "Running in direct execution mode from GUI"
-    
-    # Set direct mode flag
-    export DIRECT_MODE=true
-    
-    # Check for required environment variables
-    if [[ -z "$SUBJECTS" || -z "$CONDUCTIVITY" || -z "$SIM_MODE" || -z "$SELECTED_MONTAGES" || -z "$EEG_NET" ]]; then
-        echo -e "${RED}Error: Missing required environment variables for direct execution.${RESET}"
-        echo "Required: SUBJECTS, CONDUCTIVITY, SIM_MODE, SELECTED_MONTAGES, EEG_NET"
-        exit 1
+        # Clean up temporary flex montages file
+        if [[ -n "$temp_flex_file" && -f "$temp_flex_file" ]]; then
+            rm -f "$temp_flex_file"
+            echo -e "${CYAN}Cleaned up temporary flex montages file${RESET}"
+        fi
+
     fi
-    
-    # Set variables from environment without prompting
-    subject_choices="$SUBJECTS"
-    conductivity="$CONDUCTIVITY"
-    sim_mode="$SIM_MODE"
-    eeg_net="$EEG_NET"
-    
-    # Set up mode-specific variables
-    if [[ "$sim_mode" == "U" ]]; then
-        montage_type="uni_polar_montages"
-        main_script="main-TI.sh"
-        montage_type_text="Unipolar"
-    elif [[ "$sim_mode" == "M" ]]; then
-        montage_type="multi_polar_montages"
-        main_script="main-mTI.sh"
-        montage_type_text="Multipolar"
-    fi
-    
-    # Parse selected montages
-    selected_montages=($SELECTED_MONTAGES)
-    
-    # Set electrode parameters
-    electrode_shape="${ELECTRODE_SHAPE:-rect}"
-    dimensions="${DIMENSIONS:-50,50}"
-    thickness="${THICKNESS:-5}"
-    current="${CURRENT:-2.0,2.0}"
-    
-    # Skip to execution
-    echo "Running simulation with:"
-    echo "  - Subjects: $subject_choices"
-    echo "  - Simulation type: $conductivity"
-    echo "  - Mode: $montage_type_text"
-    echo "  - EEG Net: $eeg_net"
-    echo "  - Montages: ${selected_montages[*]}"
-    echo "  - Electrode shape: $electrode_shape"
-    echo "  - Dimensions: $dimensions mm"
-    echo "  - Thickness: $thickness mm" 
-    echo "  - Current (channels): $current A"
-    
-    # List available subjects to set the subjects array
-    list_subjects
-    
-    # Jump directly to execution
-    run_simulation "--run-direct"
-    exit 0
-fi
+
+} # Close run_simulation function
 
 # Function to read configuration
 read_config() {
@@ -556,8 +496,49 @@ choose_anisotropic_type() {
     done
 }
 
+# Choose between regular montage and flex-search simulation
+choose_simulation_framework() {
+    if ! is_prompt_enabled "simulation_framework"; then
+        local default_value=$(get_default_value "simulation_framework")
+        if [ -n "$default_value" ]; then
+            simulation_framework="$default_value"
+            echo -e "${CYAN}Using default simulation framework: $simulation_framework${RESET}"
+            return
+        fi
+    fi
+
+    echo -e "${GREEN}Choose simulation framework:${RESET}"
+    echo "1. Montage Simulation (traditional electrode placement)"
+    echo "2. Flex-Search Simulation (from optimization results)"
+    
+    while true; do
+        read -p "Enter your choice (1 or 2): " framework_choice
+        if [[ "$framework_choice" == "1" ]]; then
+            simulation_framework="montage"
+            export SIMULATION_MODE="MONTAGE"
+            break
+        elif [[ "$framework_choice" == "2" ]]; then
+            simulation_framework="flex"
+            export SIMULATION_MODE="FLEX"
+            break
+        else
+            reprompt
+        fi
+    done
+}
+
 # Choose simulation mode with configuration support
 choose_simulation_mode() {
+    if [[ "$simulation_framework" == "flex" ]]; then
+        # For flex-search, always use FLEX_TI mode
+        sim_mode="FLEX_TI"
+        montage_type="flex_temporal_interference"
+        main_script="main-TI.sh"
+        montage_type_text="Flex-Search TI"
+        echo -e "${CYAN}Using Flex-Search TI mode${RESET}"
+        return
+    fi
+
     if ! is_prompt_enabled "sim_mode"; then
         local default_value=$(get_default_value "sim_mode")
         if [ -n "$default_value" ]; then
@@ -594,8 +575,227 @@ choose_simulation_mode() {
     done
 }
 
+# Choose flex-search outputs and electrode types
+choose_flex_search_outputs() {
+    if ! is_prompt_enabled "flex_outputs"; then
+        local default_value=$(get_default_value "flex_outputs")
+        if [ -n "$default_value" ]; then
+            selected_flex_outputs=($default_value)
+            echo -e "${CYAN}Using default flex-search outputs: ${selected_flex_outputs[*]}${RESET}"
+            return
+        fi
+    fi
+
+    echo -e "${BOLD_CYAN}Available Flex-Search Outputs:${RESET}"
+    echo "----------------------------------------"
+    
+    # Find all flex-search outputs for selected subjects
+    local flex_outputs=()
+    local flex_output_paths=()
+    local flex_output_details=()
+    
+    for subject_num in "${selected_subjects[@]}"; do
+        local subject_id="${subjects[$((subject_num-1))]}"
+        local flex_search_dir="$project_dir/derivatives/SimNIBS/sub-$subject_id/flex-search"
+        
+        if [ -d "$flex_search_dir" ]; then
+            for search_dir in "$flex_search_dir"/*; do
+                if [ -d "$search_dir" ]; then
+                    local search_name=$(basename "$search_dir")
+                    local mapping_file="$search_dir/electrode_mapping.json"
+                    
+                    if [ -f "$mapping_file" ]; then
+                        # Parse JSON to get details
+                        local details=$(python3 -c "
+import json
+import sys
+try:
+    with open('$mapping_file', 'r') as f:
+        data = json.load(f)
+    eeg_net = data.get('eeg_net', 'Unknown')
+    n_electrodes = len(data.get('optimized_positions', []))
+    print(f'{n_electrodes} electrodes | {eeg_net}')
+except:
+    print('Unable to parse')
+")
+                        
+                        flex_outputs+=("$subject_id | $search_name")
+                        flex_output_paths+=("$mapping_file")
+                        flex_output_details+=("$details")
+                    fi
+                fi
+            done
+        fi
+    done
+    
+    if [ ${#flex_outputs[@]} -eq 0 ]; then
+        echo -e "${RED}No flex-search outputs found for selected subjects${RESET}"
+        echo -e "${YELLOW}Please run flex-search optimization first${RESET}"
+        exit 1
+    fi
+    
+    # Display available outputs
+    for i in "${!flex_outputs[@]}"; do
+        printf "%3d. %-40s | %s\n" $((i+1)) "${flex_outputs[i]}" "${flex_output_details[i]}"
+    done
+    echo
+    
+    # Choose outputs
+    read -p "Enter the numbers of the flex-search outputs to simulate (comma-separated): " flex_choices
+    if [[ ! "$flex_choices" =~ ^[0-9,]+$ ]]; then
+        echo -e "${RED}Invalid input. Please enter numbers separated by commas.${RESET}"
+        choose_flex_search_outputs
+        return
+    fi
+    
+    IFS=',' read -r -a selected_numbers <<< "$flex_choices"
+    selected_flex_outputs=()
+    selected_flex_paths=()
+    
+    for number in "${selected_numbers[@]}"; do
+        if (( number > 0 && number <= ${#flex_outputs[@]} )); then
+            selected_flex_outputs+=("${flex_outputs[$((number - 1))]}")
+            selected_flex_paths+=("${flex_output_paths[$((number - 1))]}")
+        else
+            echo -e "${RED}Invalid output number: $number. Please try again.${RESET}"
+            choose_flex_search_outputs
+            return
+        fi
+    done
+    
+    # Choose electrode types
+    echo -e "\n${GREEN}Choose electrode types to simulate:${RESET}"
+    echo "1. Mapped electrodes only (use EEG net positions)"
+    echo "2. Optimized electrodes only (use XYZ coordinates)"
+    echo "3. Both mapped and optimized"
+    
+    while true; do
+        read -p "Enter your choice (1, 2, or 3): " electrode_type_choice
+        case "$electrode_type_choice" in
+            1)
+                use_mapped=true
+                use_optimized=false
+                electrode_type_text="Mapped"
+                break
+                ;;
+            2)
+                use_mapped=false
+                use_optimized=true
+                electrode_type_text="Optimized"
+                break
+                ;;
+            3)
+                use_mapped=true
+                use_optimized=true
+                electrode_type_text="Both"
+                break
+                ;;
+            *)
+                reprompt
+                ;;
+        esac
+    done
+    
+    echo -e "${CYAN}Selected ${#selected_flex_outputs[@]} flex-search output(s) with $electrode_type_text electrode type(s)${RESET}"
+    
+    # Create temporary flex montages file
+    temp_flex_file=$(mktemp --suffix=.json)
+    
+    # Create a temporary script to process the flex montages
+    temp_script=$(mktemp --suffix=.py)
+    cat > "$temp_script" << 'EOF'
+import json
+import sys
+import os
+
+flex_montages = []
+
+# Get parameters from command line
+if len(sys.argv) < 3:
+    print("Usage: script.py use_mapped use_optimized file1 file2 ...")
+    sys.exit(1)
+
+use_mapped = sys.argv[1] == 'true'
+use_optimized = sys.argv[2] == 'true'
+flex_paths = sys.argv[3:]  # Rest are file paths
+
+# Process each selected output
+for path in flex_paths:
+    try:
+        with open(path, 'r') as f:
+            mapping_data = json.load(f)
+        
+        # Extract subject ID from path: /path/to/derivatives/SimNIBS/sub-101/flex-search/search_name/electrode_mapping.json
+        path_parts = path.split('/')
+        subject_part = [part for part in path_parts if part.startswith('sub-')][0]
+        subject_id = subject_part.replace('sub-', '')
+        search_name = path_parts[-2]  # Extract search name from path
+        
+        if use_mapped:
+            mapped_labels = mapping_data.get('mapped_labels', [])
+            eeg_net = mapping_data.get('eeg_net', 'EGI_template.csv')
+            
+            if len(mapped_labels) >= 4:
+                montage_data = {
+                    'name': f'flex_{search_name}_mapped',
+                    'type': 'flex_mapped',
+                    'subject_id': subject_id,
+                    'eeg_net': eeg_net,
+                    'electrode_labels': mapped_labels[:4],
+                    'pairs': [[mapped_labels[0], mapped_labels[1]], [mapped_labels[2], mapped_labels[3]]]
+                }
+                flex_montages.append(montage_data)
+        
+        if use_optimized:
+            optimized_positions = mapping_data.get('optimized_positions', [])
+            
+            if len(optimized_positions) >= 4:
+                montage_data = {
+                    'name': f'flex_{search_name}_optimized',
+                    'type': 'flex_optimized',
+                    'subject_id': subject_id,
+                    'electrode_positions': optimized_positions[:4],
+                    'pairs': [[optimized_positions[0], optimized_positions[1]], 
+                             [optimized_positions[2], optimized_positions[3]]]
+                }
+                flex_montages.append(montage_data)
+    except Exception as e:
+        print(f'Error processing {path}: {e}', file=sys.stderr)
+
+# Write the flex montages file to the output file specified in environment
+output_file = os.environ.get('TEMP_FLEX_FILE')
+if output_file:
+    with open(output_file, 'w') as f:
+        json.dump(flex_montages, f, indent=2)
+    print(f'Created flex montages file with {len(flex_montages)} montages')
+else:
+    print("Error: TEMP_FLEX_FILE environment variable not set")
+    sys.exit(1)
+EOF
+    
+    # Set environment variable for the temp file
+    export TEMP_FLEX_FILE="$temp_flex_file"
+    
+    # Run the Python script with proper arguments
+    python3 "$temp_script" "$use_mapped" "$use_optimized" "${selected_flex_paths[@]}"
+    
+    # Clean up the temporary script
+    rm -f "$temp_script"
+
+    # Export the flex montages file for the simulation
+    export FLEX_MONTAGES_FILE="$temp_flex_file"
+    export SIMULATION_MODE="flex"
+    
+    echo -e "${GREEN}Created flex montages file: $temp_flex_file${RESET}"
+}
+
 # Choose montages with configuration support
 prompt_montages() {
+    if [[ "$simulation_framework" == "flex" ]]; then
+        choose_flex_search_outputs
+        return
+    fi
+    
     if ! is_prompt_enabled "montages"; then
         local default_value=$(get_default_value "montages")
         if [ -n "$default_value" ]; then
@@ -809,15 +1009,31 @@ show_confirmation_dialog() {
             subject_list+=", "
         fi
         local current_subject="${subjects[$((num-1))]}"
-        subject_list+="${current_subject} (EEG Net: ${subject_eeg_nets[$current_subject]:-EGI_template.csv})"
+        
+        if [[ "$simulation_framework" == "flex" ]]; then
+            subject_list+="${current_subject}"
+        else
+            subject_list+="${current_subject} (EEG Net: ${subject_eeg_nets[$current_subject]:-EGI_template.csv})"
+        fi
     done
     echo -e "Subjects: ${CYAN}$subject_list${RESET}"
+    
+    if [[ "$simulation_framework" == "flex" ]]; then
+        echo -e "EEG Nets: ${CYAN}Determined from flex-search optimization results${RESET}"
+    fi
     
     # Simulation Parameters
     echo -e "\n${BOLD_CYAN}Simulation Parameters:${RESET}"
     echo -e "Simulation Type: ${CYAN}${sim_type_text}${RESET}"
+    echo -e "Framework: ${CYAN}$(if [[ "$simulation_framework" == "flex" ]]; then echo "Flex-Search"; else echo "Traditional Montage"; fi)${RESET}"
     echo -e "Mode: ${CYAN}${montage_type_text}${RESET}"
-    echo -e "Selected Montages: ${CYAN}${selected_montages[*]}${RESET}"
+    
+    if [[ "$simulation_framework" == "flex" ]]; then
+        echo -e "Selected Flex-Search Outputs: ${CYAN}${selected_flex_outputs[*]}${RESET}"
+        echo -e "Electrode Types: ${CYAN}${electrode_type_text}${RESET}"
+    else
+        echo -e "Selected Montages: ${CYAN}${selected_montages[*]}${RESET}"
+    fi
     
     # Electrode Configuration
     echo -e "\n${BOLD_CYAN}Electrode Configuration:${RESET}"
@@ -973,23 +1189,129 @@ choose_tissue_conductivities() {
     done
 }
 
-# Main script execution
+# Check if direct execution from GUI is requested FIRST
+if [[ "$1" == "--run-direct" ]]; then
+    echo "Running in direct execution mode from GUI"
+    is_direct_mode="true"
+    
+    # Extract parameters from environment variables
+    subject_choices="$SUBJECT_CHOICES"
+    sim_type="$SIM_TYPE"
+    simulation_framework="$SIMULATION_FRAMEWORK"
+    sim_mode="$SIM_MODE"
+    conductivity="$CONDUCTIVITY"
+    current="$CURRENT"
+    electrode_shape="$ELECTRODE_SHAPE"
+    dimensions="$DIMENSIONS"
+    thickness="$THICKNESS"
+    temp_flex_file="$FLEX_MONTAGES_FILE"
+    
+    # Parse subjects from environment
+    IFS=',' read -ra selected_subjects <<< "$subject_choices"
+    
+    # Set simulation mode based on framework
+    if [[ "$simulation_framework" == "flex" ]]; then
+        sim_mode="FLEX_TI"  # Force TI mode for flex-search
+    fi
+    
+    # Set selected montages from environment
+    if [[ -n "$SELECTED_MONTAGES" ]]; then
+        IFS=',' read -ra selected_montages <<< "$SELECTED_MONTAGES"
+    else
+        selected_montages=()
+    fi
+    
+    # Set up EEG nets for each subject (only for montage mode)
+    declare -A subject_eeg_nets
+    if [[ "$simulation_framework" != "flex" ]]; then
+        # For regular montages, get EEG nets from environment
+        if [[ -n "$EEG_NETS" ]]; then
+            IFS=',' read -ra eeg_net_list <<< "$EEG_NETS"
+            for i in "${!selected_subjects[@]}"; do
+                subject_num="${selected_subjects[i]}"
+                subject_id="$subject_num"  # In direct mode, use subject IDs directly
+                if [[ $i -lt ${#eeg_net_list[@]} ]]; then
+                    subject_eeg_nets["$subject_id"]="${eeg_net_list[i]}"
+                else
+                    subject_eeg_nets["$subject_id"]="EGI_template.csv"
+                fi
+            done
+        fi
+    fi
+    
+    # Export environment variables for the simulation
+    export SELECTED_MONTAGES
+    export SIMULATION_MODE="$simulation_framework"
+    export FLEX_MONTAGES_FILE="$temp_flex_file"
+    
+    # Determine simulator directory and main script
+    simulator_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../simulator"
+    if [[ "$sim_type" == "TI" ]]; then
+        main_script="main-TI.sh"
+    else
+        main_script="main-mTI.sh"
+    fi
+    
+    # Process each subject
+    for subject_num in "${selected_subjects[@]}"; do
+        subject_id="$subject_num"  # In direct mode, use subject IDs directly
+        subject_dir="$project_dir/sub-$subject_id"
+        simulation_dir="$subject_dir/SimNIBS/Simulations"
+        
+        # Set EEG net based on simulation framework
+        if [[ "$simulation_framework" == "flex" ]]; then
+            eeg_net="flex_mode"  # Placeholder - actual EEG nets come from JSON files
+        else
+            eeg_net="${subject_eeg_nets[$subject_id]:-EGI_template.csv}"
+        fi
+        
+        # Create simulation directory if it doesn't exist
+        mkdir -p "$simulation_dir"
+        
+        echo "Executing: $simulator_dir/$main_script $subject_id $conductivity $project_dir $simulation_dir $sim_mode $current $electrode_shape $dimensions $thickness $eeg_net"
+        
+        # Call the appropriate main pipeline script
+        if [[ "$simulation_framework" == "flex" ]]; then
+            # For flex-search, pass empty montages array and rely on FLEX_MONTAGES_FILE
+            "$simulator_dir/$main_script" "$subject_id" "$conductivity" "$project_dir" "$simulation_dir" "$sim_mode" "$current" "$electrode_shape" "$dimensions" "$thickness" "$eeg_net" --
+        else
+            # For regular montages, pass the selected montages
+            "$simulator_dir/$main_script" "$subject_id" "$conductivity" "$project_dir" "$simulation_dir" "$sim_mode" "$current" "$electrode_shape" "$dimensions" "$thickness" "$eeg_net" "${selected_montages[@]}" --
+        fi
+    done
+    
+    # Clean up temporary flex montages file
+    if [[ -n "$temp_flex_file" && -f "$temp_flex_file" ]]; then
+        rm -f "$temp_flex_file"
+        echo -e "${CYAN}Cleaned up temporary flex montages file${RESET}"
+    fi
+    
+    echo "Direct execution completed"
+    exit 0
+fi
+
+# Main script execution (interactive mode)
 show_welcome_message
 
 # Collect all necessary inputs in the specified order
 choose_subjects
 choose_simulation_type
+choose_simulation_framework
 choose_simulation_mode
 choose_tissue_conductivities
 
-# For each selected subject, choose an EEG net
+# For each selected subject, choose an EEG net (only for montage mode)
 declare -A subject_eeg_nets
-for subject_num in "${selected_subjects[@]}"; do
-    subject_id="${subjects[$((subject_num-1))]}"
-    echo -e "\n${BOLD_CYAN}Selecting EEG net for subject: $subject_id${RESET}"
-    choose_eeg_net "$subject_id"
-    subject_eeg_nets["$subject_id"]="$selected_eeg_net"
-done
+if [[ "$simulation_framework" != "flex" ]]; then
+    for subject_num in "${selected_subjects[@]}"; do
+        subject_id="${subjects[$((subject_num-1))]}"
+        echo -e "\n${BOLD_CYAN}Selecting EEG net for subject: $subject_id${RESET}"
+        choose_eeg_net "$subject_id"
+        subject_eeg_nets["$subject_id"]="$selected_eeg_net"
+    done
+else
+    echo -e "\n${CYAN}Flex-search mode: EEG nets will be taken from optimization results${RESET}"
+fi
 
 prompt_montages
 choose_electrode_shape
@@ -1005,13 +1327,33 @@ for subject_num in "${selected_subjects[@]}"; do
     subject_id="${subjects[$((subject_num-1))]}"
     subject_dir="$project_dir/sub-$subject_id"
     simulation_dir="$subject_dir/SimNIBS/Simulations"
-    eeg_net="${subject_eeg_nets[$subject_id]:-EGI_template.csv}"  # Use default if not set
+    
+    # Set EEG net based on simulation framework
+    if [[ "$simulation_framework" == "flex" ]]; then
+        eeg_net="flex_mode"  # Placeholder - actual EEG nets come from JSON files
+    else
+        eeg_net="${subject_eeg_nets[$subject_id]:-EGI_template.csv}"  # Use selected or default
+    fi
 
     # Create simulation directory if it doesn't exist
     mkdir -p "$simulation_dir"
 
     # Call the appropriate main pipeline script with the gathered parameters
-    "$simulator_dir/$main_script" "$subject_id" "$conductivity" "$project_dir" "$simulation_dir" "$sim_mode" "$current" "$electrode_shape" "$dimensions" "$thickness" "$eeg_net" "${selected_montages[@]}" -- "${selected_roi_names[@]}"
+    # Create a unique simulation session ID for CLI runs
+    if [[ -z "$SIMULATION_SESSION_ID" ]]; then
+        export SIMULATION_SESSION_ID="CLI_$(date +%Y%m%d_%H%M%S)_${subject_id}"
+    fi
+    
+    if [[ "$simulation_framework" == "flex" ]]; then
+        # For flex-search, export environment variables and pass empty montages array
+        export FLEX_MONTAGES_FILE="$temp_flex_file"
+        export SIMULATION_MODE="flex"
+        export SELECTED_MONTAGES=""
+        "$simulator_dir/$main_script" "$subject_id" "$conductivity" "$project_dir" "$simulation_dir" "$sim_mode" "$current" "$electrode_shape" "$dimensions" "$thickness" "$eeg_net" --
+    else
+        # For regular montages, pass the selected montages
+        "$simulator_dir/$main_script" "$subject_id" "$conductivity" "$project_dir" "$simulation_dir" "$sim_mode" "$current" "$electrode_shape" "$dimensions" "$thickness" "$eeg_net" "${selected_montages[@]}" --
+    fi
 done
 
 # Output success message if new montages or ROIs were added
@@ -1025,8 +1367,11 @@ echo -e "${GREEN}All tasks completed successfully.${RESET}"
 echo -e "${CYAN}Generating simulation reports...${RESET}"
 
 # Source the reporting utilities
-if [ -f "$script_dir/../utils/bash_reporting.sh" ]; then
-    source "$script_dir/../utils/bash_reporting.sh"
+reporting_script="$script_dir/../utils/bash_reporting.sh"
+if [ -f "$reporting_script" ]; then
+    source "$reporting_script"
+elif [ -f "/development/utils/bash_reporting.sh" ]; then
+    source "/development/utils/bash_reporting.sh"
     
     # Initialize reporting
     init_reporting "$project_dir"
@@ -1180,4 +1525,10 @@ if [ $reports_generated -gt 0 ]; then
     echo -e "${CYAN}Reports saved to: $project_dir/derivatives/reports/sub-{subjectID}/${RESET}"
 else
     echo -e "${YELLOW}⚠️ No reports were generated${RESET}"
+fi
+
+# Clean up temporary flex montages file
+if [[ -n "$temp_flex_file" && -f "$temp_flex_file" ]]; then
+    rm -f "$temp_flex_file"
+    echo -e "${CYAN}Cleaned up temporary flex montages file${RESET}"
 fi

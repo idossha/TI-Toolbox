@@ -172,9 +172,7 @@ class FlexSearchTab(QtWidgets.QWidget):
         self.nonroi_label_value_label = QtWidgets.QLabel("Non-ROI Label Value:")
 
         # Initialize checkboxes
-        self.run_optimized_simulation_checkbox = QtWidgets.QCheckBox("✓ Run simulation with optimized electrodes")
-        self.run_optimized_simulation_checkbox.setChecked(False)
-        
+
         self.enable_mapping_checkbox = QtWidgets.QCheckBox("✓ Enable electrode mapping to EEG net positions")
         self.enable_mapping_checkbox.setChecked(False)
         
@@ -199,6 +197,11 @@ class FlexSearchTab(QtWidgets.QWidget):
         
         self.current_input = QtWidgets.QDoubleSpinBox()
         self.current_input.setRange(0.1, 100); self.current_input.setValue(2); self.current_input.setDecimals(1)
+        
+        # Initialize Freeview button for spherical ROI
+        self.view_t1_btn = QtWidgets.QPushButton("View T1 in Freeview")
+        self.view_t1_btn.setMaximumWidth(150)
+        self.view_t1_btn.setToolTip("Open subject's T1 scan in Freeview to find RAS coordinates")
         
         self.max_iterations_input = QtWidgets.QSpinBox()
         self.max_iterations_input.setRange(50, 2000); self.max_iterations_input.setValue(500)
@@ -297,6 +300,7 @@ class FlexSearchTab(QtWidgets.QWidget):
         self.roi_method_spherical.toggled.connect(self._update_nonroi_stacked)
         self.roi_method_cortical.toggled.connect(self._update_nonroi_stacked)
         self.roi_method_subcortical.toggled.connect(self._update_nonroi_stacked)
+        self.view_t1_btn.clicked.connect(self.load_t1_in_freeview)
         
         # Find available subjects (which will trigger finding EEG nets and atlases)
         self.find_available_subjects()
@@ -337,8 +341,6 @@ class FlexSearchTab(QtWidgets.QWidget):
         
         self.postproc_combo.setMaximumWidth(350)
         basic_params_layout.addRow(self.postproc_label, self.postproc_combo)
-
-        basic_params_layout.addRow(self.run_optimized_simulation_checkbox)
         top_row_layout.addWidget(basic_params_group, 1)
 
         self.electrode_params_group = QtWidgets.QGroupBox("Electrode Parameters")
@@ -400,6 +402,8 @@ class FlexSearchTab(QtWidgets.QWidget):
         roi_coords_controls_layout.addWidget(self.roi_y_input)
         roi_coords_controls_layout.addWidget(QtWidgets.QLabel("Z:"))
         roi_coords_controls_layout.addWidget(self.roi_z_input)
+        roi_coords_controls_layout.addWidget(self.view_t1_btn)
+        roi_coords_controls_layout.addStretch()
         spherical_roi_layout.addRow(self.roi_coords_label, roi_coords_controls_widget)
         spherical_roi_layout.addRow(self.roi_radius_label, self.roi_radius_input)
         self.roi_stacked_widget.addWidget(self.spherical_roi_widget)
@@ -781,10 +785,13 @@ class FlexSearchTab(QtWidgets.QWidget):
         """Update the ROI method inputs based on selection."""
         if self.roi_method_spherical.isChecked():
             self.roi_stacked_widget.setCurrentIndex(0)
+            self.view_t1_btn.setVisible(True)
         elif self.roi_method_cortical.isChecked():
             self.roi_stacked_widget.setCurrentIndex(1)
+            self.view_t1_btn.setVisible(False)
         else:  # subcortical
             self.roi_stacked_widget.setCurrentIndex(2)
+            self.view_t1_btn.setVisible(False)
     
     def run_optimization(self):
         """Run the flex-search optimization."""
@@ -904,8 +911,6 @@ class FlexSearchTab(QtWidgets.QWidget):
                 details += f"• Mapping Simulation: ✗ DISABLED (analysis only for mapped)\n"
         else:
             details += f"• Electrode Mapping: ✗ DISABLED (continuous optimization)\n"
-        if self.run_optimized_simulation_checkbox.isChecked():
-             details += f"• Post-Optimized Simulation: ✓ ENABLED (runs simulation with optimized continuous positions)\n"
 
         details += f"\nStability & Memory:\n"
         if self.conservative_mode_checkbox.isChecked():
@@ -1009,9 +1014,6 @@ class FlexSearchTab(QtWidgets.QWidget):
             if not self.run_mapped_simulation_checkbox.isChecked():
                 cmd.append("--disable-mapping-simulation")
         
-        # Independent option for running simulation with optimized (continuous) electrodes (RESTORED LOGIC)
-        if self.run_optimized_simulation_checkbox.isChecked():
-            cmd.append("--run-optimized-simulation")
 
         # Focality options (ensure using `goal` variable)
         if goal == "focality":
@@ -1135,6 +1137,37 @@ class FlexSearchTab(QtWidgets.QWidget):
             self.find_available_eeg_nets()
             self.find_available_atlases()
             self.find_available_volume_atlases()
+    
+    def load_t1_in_freeview(self):
+        """Load the subject's T1 NIfTI file in Freeview for coordinate selection."""
+        try:
+            subject_id = self.subject_combo.currentText()
+            if not subject_id:
+                QtWidgets.QMessageBox.warning(self, "Error", "Please select a subject first")
+                return
+            
+            # Construct path to T1 scan
+            project_dir_name = os.environ.get('PROJECT_DIR_NAME')
+            if not project_dir_name:
+                QtWidgets.QMessageBox.warning(self, "Error", "PROJECT_DIR_NAME environment variable not set")
+                return
+                
+            project_dir = f"/mnt/{project_dir_name}"
+            t1_path = os.path.join(project_dir, "derivatives", "SimNIBS", f"sub-{subject_id}", 
+                                  f"m2m_{subject_id}", "T1.nii.gz")
+            
+            if not os.path.exists(t1_path):
+                QtWidgets.QMessageBox.warning(self, "Error", f"T1 NIfTI file not found: {t1_path}")
+                return
+            
+            # Launch Freeview in background
+            import subprocess
+            subprocess.Popen(["freeview", t1_path])
+            self.output_text.append(f"Launched Freeview with T1 scan: {t1_path}")
+            
+        except Exception as e:
+            QtWidgets.QMessageBox.critical(self, "Error", f"Failed to launch Freeview: {str(e)}")
+            self.output_text.append(f"Error launching Freeview: {str(e)}")
     
     def _update_mapping_options(self):
         """Update visibility of mapping simulation options based on mapping checkbox."""
@@ -1367,7 +1400,6 @@ class FlexSearchTab(QtWidgets.QWidget):
         # Disable mapping options
         self.enable_mapping_checkbox.setEnabled(False)
         self.run_mapped_simulation_checkbox.setEnabled(False)
-        self.run_optimized_simulation_checkbox.setEnabled(False)
         
         # Disable ROI method selection
         self.roi_method_spherical.setEnabled(False)
@@ -1380,6 +1412,7 @@ class FlexSearchTab(QtWidgets.QWidget):
             self.roi_y_input.setEnabled(False)
             self.roi_z_input.setEnabled(False)
             self.roi_radius_input.setEnabled(False)
+            self.view_t1_btn.setEnabled(False)
         elif self.roi_method_cortical.isChecked():
             self.atlas_combo.setEnabled(False)
             self.roi_hemi_combo.setEnabled(False)
@@ -1437,7 +1470,6 @@ class FlexSearchTab(QtWidgets.QWidget):
         # Enable mapping options
         self.enable_mapping_checkbox.setEnabled(True)
         self.run_mapped_simulation_checkbox.setEnabled(True)
-        self.run_optimized_simulation_checkbox.setEnabled(True)
         
         # Enable ROI method selection
         self.roi_method_spherical.setEnabled(True)
@@ -1450,6 +1482,7 @@ class FlexSearchTab(QtWidgets.QWidget):
             self.roi_y_input.setEnabled(True)
             self.roi_z_input.setEnabled(True)
             self.roi_radius_input.setEnabled(True)
+            self.view_t1_btn.setEnabled(True)
         elif self.roi_method_cortical.isChecked():
             self.atlas_combo.setEnabled(True)
             self.roi_hemi_combo.setEnabled(True)
