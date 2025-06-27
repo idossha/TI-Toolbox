@@ -138,8 +138,6 @@ class AnalyzerTab(QtWidgets.QWidget):
         self.group_field_config = {}
         self.group_atlas_config = {}
         
-        self.current_group_subjects = [] # For iterating group analysis
-
         self.setup_ui()
         
         QtCore.QTimer.singleShot(500, self.list_subjects) # Delay subject listing
@@ -1374,7 +1372,7 @@ class AnalyzerTab(QtWidgets.QWidget):
                  self.analysis_finished(success=False)
                  return
 
-            cmd = self.build_analysis_command(subject_id, simulation_name, field_path)
+            cmd = self.build_single_analysis_command(subject_id, simulation_name, field_path)
             if not cmd: # build_analysis_command returns None on error
                 self.analysis_finished(success=False)
                 return
@@ -1399,173 +1397,138 @@ class AnalyzerTab(QtWidgets.QWidget):
             self.analysis_finished(success=False)
     
     def run_group_analysis(self):
-        self.current_group_subjects = [item.text() for item in self.subject_list.selectedItems()]
-        if not self.current_group_subjects:
+        """Run group analysis using the group_analyzer.py script."""
+        selected_subjects = [item.text() for item in self.subject_list.selectedItems()]
+        if not selected_subjects:
             self.update_output("No subjects selected for group analysis.")
             self.analysis_finished(success=False)
             return
         
-        self.update_output(f"Starting group analysis for subjects: {', '.join(self.current_group_subjects)}")
-        self.run_next_subject_in_group()
-    
-    def run_next_subject_in_group(self):
-        if not self.current_group_subjects:
-            self.update_output("Group analysis batch completed.")
-            self.analysis_finished(success=True) # Entire batch finished
-            return
-
-        subject_id = self.current_group_subjects.pop(0)
-        
         try:
-            # Use common montage for all subjects
-            montage_name = self.group_montage_config.get('common_montage')
-            # Use auto-selected field path for this subject
-            field_path = self.group_field_config.get(subject_id)
-
-            if not montage_name:
-                self.update_output(f"Skipping subject {subject_id}: No common montage configured.")
-                QtCore.QTimer.singleShot(0, self.run_next_subject_in_group) # Schedule next
-                return
-                
-            if not field_path:
-                self.update_output(f"Skipping subject {subject_id}: No auto-selected field file found.")
-                QtCore.QTimer.singleShot(0, self.run_next_subject_in_group) # Schedule next
-                return
-
-            cmd = self.build_analysis_command(subject_id, montage_name, field_path)
+            # Build the group analyzer command
+            cmd = self.build_group_analyzer_command(selected_subjects)
             if not cmd:
-                self.update_output(f"Skipping subject {subject_id}: Could not build command (check configurations).")
-                QtCore.QTimer.singleShot(0, self.run_next_subject_in_group)
+                self.update_output("Error: Could not build group analyzer command.")
+                self.analysis_finished(success=False)
                 return
 
             env = os.environ.copy()
             project_dir_name = os.environ.get('PROJECT_DIR_NAME', 'BIDS_new')
             env['PROJECT_DIR'] = f"/mnt/{project_dir_name}"
-            env['SUBJECT_ID'] = subject_id
             
-            self.update_output(f"\n{'='*15} Group Analysis: Subject {subject_id} ({len(self.current_group_subjects)} remaining) {'='*15}")
-            self.update_output(f"Common Montage: {montage_name}")
+            self.update_output(f"Starting group analysis for subjects: {', '.join(selected_subjects)}")
             self.update_output(f"Command: {' '.join(cmd)}")
             
             # Create and start thread
-            self.analysis_process = AnalysisThread(cmd, env)
-            self.analysis_process.output_signal.connect(self.update_output)
-            self.analysis_process.finished.connect(
-                lambda sid=subject_id, mname=montage_name: self.on_group_subject_finished(sid, mname)
+            self.optimization_process = AnalysisThread(cmd, env)
+            self.optimization_process.output_signal.connect(self.update_output)
+            self.optimization_process.finished.connect(
+                lambda: self.analysis_finished(success=True)
             )
-            self.analysis_process.start()
+            self.optimization_process.start()
             
         except Exception as e:
-            self.update_output(f"Error running analysis for subject {subject_id}: {str(e)}")
-            QtCore.QTimer.singleShot(0, self.run_next_subject_in_group) # Try next
+            self.update_output(f"Error preparing group analysis: {str(e)}")
+            self.analysis_finished(success=False)
     
-    def on_group_subject_finished(self, subject_id, montage_name):
-        # Called when one subject in the group finishes
-        analysis_type_str = 'Mesh' if self.space_mesh.isChecked() else 'Voxel'
-        self.analysis_completed.emit(subject_id, montage_name, analysis_type_str) # Emit for this subject
-        self.update_output(f"Finished analysis for subject: {subject_id} (Montage: {montage_name})")
-        self.run_next_subject_in_group() # Proceed to the next one
-    
-    def build_analysis_command(self, subject_id, simulation_name, field_path):
+    def build_group_analyzer_command(self, selected_subjects):
+        """Build command to run group_analyzer.py with all selected subjects."""
         try:
-            project_dir_name = os.environ.get('PROJECT_DIR_NAME', 'BIDS_new')
-            project_dir = f"/mnt/{project_dir_name}"
-            
-            target_info = ""
-            if self.type_spherical.isChecked():
-                coords = [c.text().strip() or "0" for c in [self.coord_x, self.coord_y, self.coord_z]]
-                radius_val = self.radius_input.text().strip() or "5"
-                target_info = f"sphere_x{coords[0]}_y{coords[1]}_z{coords[2]}_r{radius_val}"
-            else: # Cortical
-                atlas_name_cleaned = "unknown_atlas"
-                if self.space_mesh.isChecked():
-                    atlas_name_cleaned = self.atlas_name_combo.currentText().replace("+", "_").replace(".", "_")
-                else: # Voxel
-                    atlas_config_for_subj = {}
-                    if self.is_group_mode:
-                        atlas_config_for_subj = self.group_atlas_config.get(subject_id, {})
-                    else: # Single mode voxel
-                        atlas_config_for_subj = {'name': self.atlas_combo.currentText(), 'path': self.atlas_combo.currentData()}
-                    
-                    if atlas_config_for_subj.get('name'):
-                        atlas_name_cleaned = atlas_config_for_subj['name'].split('+')[0].replace('.mgz','').replace('.nii.gz','').replace('.nii','')
-                    else:
-                        return None
-
-                if self.whole_head_check.isChecked():
-                    target_info = f"whole_head_{atlas_name_cleaned}"
-                else:
-                    region_val = self.region_input.text().strip()
-                    if not region_val:
-                        return None
-                    target_info = f"region_{region_val}_{atlas_name_cleaned}"
-            
-            field_name_for_cmd = ""
-            if self.space_mesh.isChecked():
-                if self.is_group_mode:
-                    # Use common field name for all subjects in group mode
-                    field_name_for_cmd = self.group_field_name_input.text().strip()
-                else: 
-                    field_name_for_cmd = self.field_name_input.text().strip()
-                if not field_name_for_cmd:
-                     return None
-
-            analysis_space_folder = 'Mesh' if self.space_mesh.isChecked() else 'Voxel'
-            if simulation_name == "Select montage...":
-                 return None
-
-            output_dir = os.path.join(project_dir, 'derivatives', 'SimNIBS', f'sub-{subject_id}',
-                                      'Simulations', simulation_name, 'Analyses',
-                                      analysis_space_folder, target_info)
-
-            if not self.is_group_mode:
-                if os.path.exists(output_dir) and not confirm_overwrite(self, output_dir, "analysis output directory"):
-                    return None
-            os.makedirs(output_dir, exist_ok=True)
-
+            # Locate group_analyzer.py script
             app_root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-            main_analyzer_script_path = os.path.join(app_root_dir, 'analyzer', 'main_analyzer.py')
-            if not os.path.exists(main_analyzer_script_path):
+            group_analyzer_script_path = os.path.join(app_root_dir, 'analyzer', 'group_analyzer.py')
+            if not os.path.exists(group_analyzer_script_path):
+                self.update_output(f"Error: group_analyzer.py not found at {group_analyzer_script_path}")
                 return None
 
-            m2m_path = self.get_m2m_dir_for_subject(subject_id)
-            if not m2m_path or not os.path.isdir(m2m_path):
-                 return None
+            # Create temporary output directory for legacy compatibility
+            project_dir_name = os.environ.get('PROJECT_DIR_NAME', 'BIDS_new')
+            project_dir = f"/mnt/{project_dir_name}"
+            timestamp = QtCore.QDateTime.currentDateTime().toString("yyyyMMdd_hhmmss")
+            legacy_output_dir = os.path.join(project_dir, 'ti-csc', 'group_analyses', 
+                                           f"group_{'cortical' if self.type_cortical.isChecked() else 'spherical'}_"
+                                           f"{'mesh' if self.space_mesh.isChecked() else 'voxel'}_{timestamp}")
+            os.makedirs(legacy_output_dir, exist_ok=True)
 
-            cmd = [ 'simnibs_python', main_analyzer_script_path,
-                    '--m2m_subject_path', m2m_path,
-                    '--field_path', field_path,
-                    '--space', 'mesh' if self.space_mesh.isChecked() else 'voxel',
-                    '--analysis_type', 'spherical' if self.type_spherical.isChecked() else 'cortical',
-                    '--output_dir', output_dir ]
+            # Build base command
+            cmd = ['simnibs_python', group_analyzer_script_path,
+                   '--space', 'mesh' if self.space_mesh.isChecked() else 'voxel',
+                   '--analysis_type', 'spherical' if self.type_spherical.isChecked() else 'cortical',
+                   '--output_dir', legacy_output_dir]
 
+            # Add space-specific parameters
+            if self.space_mesh.isChecked():
+                field_name = self.group_field_name_input.text().strip()
+                if not field_name:
+                    self.update_output("Error: Field name is required for mesh analysis.")
+                    return None
+                cmd.extend(['--field_name', field_name])
+
+            # Add analysis-specific parameters
             if self.type_spherical.isChecked():
-                coords_str = [self.coord_x.text().strip() or "0", self.coord_y.text().strip() or "0", self.coord_z.text().strip() or "0"]
-                cmd.extend(['--coordinates'] + coords_str)
-                cmd.extend(['--radius', self.radius_input.text().strip() or "5"])
-            else: # Cortical
+                coords = [self.coord_x.text().strip() or "0", 
+                         self.coord_y.text().strip() or "0", 
+                         self.coord_z.text().strip() or "0"]
+                radius = self.radius_input.text().strip() or "5"
+                cmd.extend(['--coordinates'] + coords)
+                cmd.extend(['--radius', radius])
+            else:  # cortical
                 if self.space_mesh.isChecked():
-                    cmd.extend(['--atlas_name', self.atlas_name_combo.currentText()])
-                else: # Voxel Cortical
-                    atlas_path_for_script = None
-                    if self.is_group_mode:
-                        atlas_cfg = self.group_atlas_config.get(subject_id)
-                        if atlas_cfg: atlas_path_for_script = atlas_cfg.get('path')
-                    else: # Single mode voxel
-                        atlas_path_for_script = self.atlas_combo.currentData()
-                    
-                    if not atlas_path_for_script:
+                    atlas_name = self.atlas_name_combo.currentText()
+                    if not atlas_name:
+                        self.update_output("Error: Atlas name is required for mesh cortical analysis.")
                         return None
-                    cmd.extend(['--atlas_path', atlas_path_for_script])
+                    cmd.extend(['--atlas_name', atlas_name])
                 
-                if self.whole_head_check.isChecked(): cmd.append('--whole_head')
-                else: cmd.extend(['--region', self.region_input.text().strip()])
-            
-            if self.space_mesh.isChecked() and field_name_for_cmd:
-                cmd.extend(['--field_name', field_name_for_cmd])
-            if self.visualize_check.isChecked(): cmd.append('--visualize')
+                if self.whole_head_check.isChecked():
+                    cmd.append('--whole_head')
+                else:
+                    region = self.region_input.text().strip()
+                    if not region:
+                        self.update_output("Error: Region name is required for cortical analysis.")
+                        return None
+                    cmd.extend(['--region', region])
+
+            # Always enable visualizations
+            cmd.append('--visualize')
+
+            # Add subject specifications
+            common_montage = self.group_montage_config.get('common_montage')
+            if not common_montage:
+                self.update_output("Error: No common montage configured.")
+                return None
+
+            for subject_id in selected_subjects:
+                # Get m2m path
+                m2m_path = self.get_m2m_dir_for_subject(subject_id)
+                if not m2m_path or not os.path.isdir(m2m_path):
+                    self.update_output(f"Error: m2m directory not found for subject {subject_id}")
+                    return None
+
+                # Get field path
+                field_path = self.group_field_config.get(subject_id)
+                if not field_path or not os.path.exists(field_path):
+                    self.update_output(f"Error: Field file not found for subject {subject_id}")
+                    return None
+
+                # Build subject specification
+                subject_spec = [subject_id, m2m_path, field_path]
+                
+                # For voxel cortical analysis, add atlas path
+                if self.space_voxel.isChecked() and self.type_cortical.isChecked():
+                    atlas_config = self.group_atlas_config.get(subject_id, {})
+                    atlas_path = atlas_config.get('path')
+                    if not atlas_path or not os.path.exists(atlas_path):
+                        self.update_output(f"Error: Atlas file not found for subject {subject_id}")
+                        return None
+                    subject_spec.append(atlas_path)
+
+                cmd.extend(['--subject'] + subject_spec)
+
             return cmd
-        except Exception:
+
+        except Exception as e:
+            self.update_output(f"Error building group analyzer command: {str(e)}")
             return None
 
     def get_single_analysis_details(self):
@@ -1634,10 +1597,18 @@ class AnalyzerTab(QtWidgets.QWidget):
                 else:
                     self.update_output('<div style="margin: 10px 0;"><span style="color: #55ff55; font-size: 16px; font-weight: bold;">✅ Analysis process completed.</span></div>')
                 
-                if not self.is_group_mode or not self.current_group_subjects: # Single mode OR end of group batch
-                    if subject_id and simulation_name: # From single analysis that just finished
-                         analysis_type_str = 'Mesh' if self.space_mesh.isChecked() else 'Voxel'
-                         self.analysis_completed.emit(subject_id, simulation_name, analysis_type_str)
+                # Emit analysis completed signal for single mode or group mode
+                if subject_id and simulation_name:  # Single mode analysis
+                    analysis_type_str = 'Mesh' if self.space_mesh.isChecked() else 'Voxel'
+                    self.analysis_completed.emit(subject_id, simulation_name, analysis_type_str)
+                elif self.is_group_mode:  # Group mode analysis
+                    # For group analysis, emit a signal indicating group completion
+                    selected_subjects = [item.text() for item in self.subject_list.selectedItems()]
+                    analysis_type_str = 'Mesh' if self.space_mesh.isChecked() else 'Voxel'
+                    # Emit for the first subject as representative of the group
+                    if selected_subjects:
+                        common_montage = self.group_montage_config.get('common_montage', 'group_analysis')
+                        self.analysis_completed.emit(selected_subjects[0], common_montage, analysis_type_str)
             else:
                  self.update_output('<div style="margin: 10px 0;"><span style="color: #ff5555; font-weight: bold;">❌ Analysis process failed or was cancelled by user.</span></div>')
 
@@ -1695,6 +1666,13 @@ class AnalyzerTab(QtWidgets.QWidget):
             formatted_text = f'<span style="color: #55ff55;"><b>{text}</b></span>'
         elif "Processing" in text or "Starting" in text:
             formatted_text = f'<span style="color: #55ffff;">{text}</span>'
+        # Group analysis specific patterns
+        elif "=== Processing subject:" in text or "=== GROUP ANALYSIS SUMMARY ===" in text:
+            formatted_text = f'<div style="background-color: #2a2a2a; padding: 5px; margin: 5px 0; border-radius: 3px;"><span style="color: #55ffff; font-weight: bold;">{text}</span></div>'
+        elif "✔ Subject" in text or "✖ Subject" in text:
+            formatted_text = f'<span style="color: #55ff55; font-weight: bold;">{text}</span>' if "✔" in text else f'<span style="color: #ff5555; font-weight: bold;">{text}</span>'
+        elif "Group analysis complete" in text or "Comprehensive group results" in text:
+            formatted_text = f'<div style="background-color: #2a2a2a; padding: 10px; margin: 10px 0; border-radius: 5px;"><span style="color: #55ff55; font-weight: bold; font-size: 14px;">{text}</span></div>'
         elif "Analysis Results Summary:" in text:
             formatted_text = f'<div style="background-color: #2a2a2a; padding: 10px; margin: 10px 0; border-radius: 5px;"><span style="color: #55ff55; font-weight: bold; font-size: 14px;">{text}</span></div>'
         elif any(value_type in text for value_type in ["Mean Value:", "Max Value:", "Min Value:", "Focality:"]):
@@ -2149,3 +2127,92 @@ General.Trackball = 1; General.RotationX = 0; General.RotationY = 0; General.Rot
     def set_analysis_config_panel_size(self, mode):
         # Simplified - let layout managers handle sizing naturally
         pass
+
+    def build_single_analysis_command(self, subject_id, simulation_name, field_path):
+        """Build command to run main_analyzer.py for a single subject."""
+        try:
+            project_dir_name = os.environ.get('PROJECT_DIR_NAME', 'BIDS_new')
+            project_dir = f"/mnt/{project_dir_name}"
+            
+            target_info = ""
+            if self.type_spherical.isChecked():
+                coords = [c.text().strip() or "0" for c in [self.coord_x, self.coord_y, self.coord_z]]
+                radius_val = self.radius_input.text().strip() or "5"
+                target_info = f"sphere_x{coords[0]}_y{coords[1]}_z{coords[2]}_r{radius_val}"
+            else: # Cortical
+                atlas_name_cleaned = "unknown_atlas"
+                if self.space_mesh.isChecked():
+                    atlas_name_cleaned = self.atlas_name_combo.currentText().replace("+", "_").replace(".", "_")
+                else: # Voxel
+                    atlas_config_for_subj = {'name': self.atlas_combo.currentText(), 'path': self.atlas_combo.currentData()}
+                    
+                    if atlas_config_for_subj.get('name'):
+                        atlas_name_cleaned = atlas_config_for_subj['name'].split('+')[0].replace('.mgz','').replace('.nii.gz','').replace('.nii','')
+                    else:
+                        return None
+
+                if self.whole_head_check.isChecked():
+                    target_info = f"whole_head_{atlas_name_cleaned}"
+                else:
+                    region_val = self.region_input.text().strip()
+                    if not region_val:
+                        return None
+                    target_info = f"region_{region_val}_{atlas_name_cleaned}"
+            
+            field_name_for_cmd = ""
+            if self.space_mesh.isChecked():
+                field_name_for_cmd = self.field_name_input.text().strip()
+                if not field_name_for_cmd:
+                     return None
+
+            analysis_space_folder = 'Mesh' if self.space_mesh.isChecked() else 'Voxel'
+            if simulation_name == "Select montage...":
+                 return None
+
+            output_dir = os.path.join(project_dir, 'derivatives', 'SimNIBS', f'sub-{subject_id}',
+                                      'Simulations', simulation_name, 'Analyses',
+                                      analysis_space_folder, target_info)
+
+            if os.path.exists(output_dir) and not confirm_overwrite(self, output_dir, "analysis output directory"):
+                return None
+            os.makedirs(output_dir, exist_ok=True)
+
+            app_root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            main_analyzer_script_path = os.path.join(app_root_dir, 'analyzer', 'main_analyzer.py')
+            if not os.path.exists(main_analyzer_script_path):
+                return None
+
+            m2m_path = self.get_m2m_dir_for_subject(subject_id)
+            if not m2m_path or not os.path.isdir(m2m_path):
+                 return None
+
+            cmd = [ 'simnibs_python', main_analyzer_script_path,
+                    '--m2m_subject_path', m2m_path,
+                    '--field_path', field_path,
+                    '--space', 'mesh' if self.space_mesh.isChecked() else 'voxel',
+                    '--analysis_type', 'spherical' if self.type_spherical.isChecked() else 'cortical',
+                    '--output_dir', output_dir ]
+
+            if self.type_spherical.isChecked():
+                coords_str = [self.coord_x.text().strip() or "0", self.coord_y.text().strip() or "0", self.coord_z.text().strip() or "0"]
+                cmd.extend(['--coordinates'] + coords_str)
+                cmd.extend(['--radius', self.radius_input.text().strip() or "5"])
+            else: # Cortical
+                if self.space_mesh.isChecked():
+                    cmd.extend(['--atlas_name', self.atlas_name_combo.currentText()])
+                else: # Voxel Cortical
+                    atlas_path_for_script = self.atlas_combo.currentData()
+                    
+                    if not atlas_path_for_script:
+                        return None
+                    cmd.extend(['--atlas_path', atlas_path_for_script])
+                
+                if self.whole_head_check.isChecked(): cmd.append('--whole_head')
+                else: cmd.extend(['--region', self.region_input.text().strip()])
+            
+            if self.space_mesh.isChecked() and field_name_for_cmd:
+                cmd.extend(['--field_name', field_name_for_cmd])
+            if self.visualize_check.isChecked(): cmd.append('--visualize')
+            return cmd
+        except Exception:
+            return None

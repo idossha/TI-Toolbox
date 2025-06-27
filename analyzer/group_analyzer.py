@@ -19,6 +19,34 @@ import subprocess
 from pathlib import Path
 from typing import List, Tuple
 
+# Import our comparison functions
+try:
+    from .compare_analyses import run_all_group_comparisons, _extract_project_name
+except ImportError:
+    # Fallback for direct execution
+    sys.path.insert(0, os.path.dirname(__file__))
+    from compare_analyses import run_all_group_comparisons, _extract_project_name
+
+
+def create_group_output_directory(first_subject_path: str) -> str:
+    """
+    Create centralized group analysis output directory.
+    
+    Args:
+        first_subject_path (str): Path from the first subject to extract project name
+        
+    Returns:
+        str: Path to the created group analysis directory
+    """
+    # Extract project name from the first subject's path
+    project_name = _extract_project_name(first_subject_path)
+    
+    # Create centralized group analysis directory
+    group_output_dir = os.path.join("/mnt", project_name, "derivatives", "group_analysis")
+    os.makedirs(group_output_dir, exist_ok=True)
+    
+    print(f"Created group analysis directory: {group_output_dir}")
+    return group_output_dir
 
 def setup_parser():
     """Set up command line argument parser."""
@@ -51,9 +79,9 @@ def setup_parser():
 
     # Output and comparison options
     parser.add_argument("--output_dir", required=True,
-                        help="Directory for all group analysis outputs (used for comparison summaries)")
-    parser.add_argument("--compare", action="store_true",
-                        help="Run comparison analysis after all subjects are processed")
+                        help="Directory for legacy group analysis outputs (comprehensive results go to centralized location)")
+    parser.add_argument("--no-compare", action="store_true",
+                        help="Skip comparison analysis after all subjects are processed (comparison runs by default)")
     parser.add_argument("--visualize", action="store_true",
                         help="Generate visualization outputs for each analysis")
 
@@ -285,29 +313,32 @@ def collect_analysis_paths(successful_dirs: List[str]) -> List[str]:
     return analysis_paths
 
 
-def run_comparison(analysis_paths: List[str], output_dir: str):
-    """Run compare_analyses.py on all collected analysis paths."""
-    if len(analysis_paths) < 2:
-        print(f"Warning: Only {len(analysis_paths)} analyses found; need ≥2 to compare.")
-        return
-
-    script_dir = Path(__file__).parent
-    compare_script = script_dir / "compare_analyses.py"
-
-    os.makedirs(output_dir, exist_ok=True)
-    cmd = ["python", str(compare_script), "-analyses"] + analysis_paths + ["--output", output_dir]
-
-    print(f"\n=== Running comparison on {len(analysis_paths)} analyses ===")
-    print(f"  Comparison output dir: {output_dir}")
-    print(f"  Command:\n    {' '.join(cmd)}\n")
-
-    result = subprocess.run(cmd, capture_output=True, text=True)
-    if result.returncode == 0:
-        print("✔ Comparison completed successfully.")
-        print(result.stdout)
-    else:
-        print("✖ Comparison failed with error:")
-        print(result.stderr)
+def run_comprehensive_group_analysis(analysis_paths: List[str], project_name: str = None) -> str:
+    """
+    Run comprehensive group analysis using all available comparison methods.
+    
+    Args:
+        analysis_paths (List[str]): List of paths to individual subject analysis directories
+        project_name (str, optional): Project name. If None, extracted from first path.
+        
+    Returns:
+        str: Path to the group analysis output directory
+    """
+    if len(analysis_paths) == 0:
+        print("Warning: No analysis paths provided for group comparison.")
+        return ""
+    
+    print(f"\n=== Running comprehensive group analysis on {len(analysis_paths)} analyses ===")
+    
+    try:
+        # Use the comprehensive comparison function from compare_analyses.py
+        group_output_dir = run_all_group_comparisons(analysis_paths, project_name)
+        print(f"✔ Comprehensive group analysis completed successfully.")
+        print(f"  All results saved to: {group_output_dir}")
+        return group_output_dir
+    except Exception as e:
+        print(f"✖ Group analysis failed with error: {e}")
+        return ""
 
 
 def main():
@@ -316,11 +347,22 @@ def main():
 
     try:
         validate_args(args)
-        os.makedirs(args.output_dir, exist_ok=True)
+        
+        # Create centralized group output directory based on first subject's path
+        first_subject_path = args.subject[0][1]  # m2m_path from first subject
+        centralized_group_dir = create_group_output_directory(first_subject_path)
+        
+        # Extract project name for later use
+        project_name = _extract_project_name(first_subject_path)
 
         print(f"\n>>> Starting group analysis with {len(args.subject)} subject(s).")
+        print(f"    Project: {project_name}")
         print(f"    Analysis = {args.analysis_type} (space={args.space})")
-        print(f"    Comparison results (if requested) will go to: {args.output_dir}\n")
+        print(f"    Centralized group results will go to: {centralized_group_dir}")
+        
+        # Still create the user-specified output directory for legacy compatibility
+        os.makedirs(args.output_dir, exist_ok=True)
+        print(f"    Legacy output directory: {args.output_dir}\n")
 
         successful_dirs = []
         failed_subjects = []
@@ -340,15 +382,40 @@ def main():
         if failed_subjects:
             print(f"Failed subjects: {', '.join(failed_subjects)}")
 
-        if args.compare and len(successful_dirs) >= 2:
+        # Always run comprehensive group analysis if we have successful analyses (unless --no-compare is specified)
+        if len(successful_dirs) >= 1 and not args.no_compare:
             analysis_dirs = collect_analysis_paths(successful_dirs)
-            run_comparison(analysis_dirs, args.output_dir)
-        elif args.compare:
-            print("Warning: comparison requested but fewer than 2 successful analyses.\n")
+            if analysis_dirs:
+                final_group_dir = run_comprehensive_group_analysis(analysis_dirs, project_name)
+                
+                # Also create a simple summary in the legacy output directory
+                legacy_summary = os.path.join(args.output_dir, "group_analysis_summary.txt")
+                with open(legacy_summary, 'w') as f:
+                    f.write(f"Group Analysis Completed\n")
+                    f.write(f"========================\n\n")
+                    f.write(f"Comprehensive results are available in:\n")
+                    f.write(f"{final_group_dir}\n\n")
+                    f.write(f"This includes:\n")
+                    f.write(f"- Statistical comparisons\n")
+                    f.write(f"- Averaged NIfTI images\n")
+                    f.write(f"- High-value intersection analysis\n")
+                    f.write(f"- Organized output structure\n")
+                print(f"Legacy summary created: {legacy_summary}")
+            else:
+                print("Warning: No valid analysis directories found for group comparison.")
+        elif args.no_compare:
+            print("Group comparison skipped (--no-compare flag specified).")
+        else:
+            print("Warning: No successful analyses to compare.\n")
 
         print("\n>>> Group analysis complete.")
-        if args.compare:
-            print(f"Comparison results (text) are in: {args.output_dir}\n")
+        if len(successful_dirs) >= 1 and not args.no_compare:
+            print(f"Comprehensive group results are in: {centralized_group_dir}")
+            print(f"Legacy comparison summary is in: {args.output_dir}\n")
+        elif args.no_compare:
+            print(f"Group comparison was skipped. Individual subject results are in their respective directories.\n")
+        else:
+            print("No successful analyses completed.\n")
 
     except Exception as e:
         print(f"Error: {e}", file=sys.stderr)
