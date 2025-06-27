@@ -144,6 +144,8 @@ def setup_parser():
                       help="Directory for output files (default: analysis_output)")
     parser.add_argument("--visualize", action="store_true",
                       help="Generate visualization outputs")
+    parser.add_argument("--log_file",
+                      help="Path to centralized log file (for group analysis integration)")
     
     return parser
 
@@ -222,18 +224,26 @@ def main():
         # Extract subject ID from m2m_subject_path (e.g., m2m_subject -> subject)
         subject_id = os.path.basename(args.m2m_subject_path).split('_')[1] if '_' in os.path.basename(args.m2m_subject_path) else os.path.basename(args.m2m_subject_path)
         
-        # Get project directory from m2m_subject_path
-        project_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(args.m2m_subject_path))))  # Go up four levels from m2m_subject
-        if not project_dir.startswith('/mnt/'):
-            project_dir = f"/mnt/{os.path.basename(project_dir)}"
+        # Set up logging - use centralized log file if provided, otherwise use subject-specific
+        if args.log_file:
+            # Use centralized log file for group analysis
+            logger = logging_util.get_logger('analyzer', args.log_file, overwrite=False)
+            logger.info(f"=== Subject {subject_id} Analysis Started ===")
+        else:
+            # Use default subject-specific logging
+            # Get project directory from m2m_subject_path
+            project_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(args.m2m_subject_path))))  # Go up four levels from m2m_subject
+            if not project_dir.startswith('/mnt/'):
+                project_dir = f"/mnt/{os.path.basename(project_dir)}"
+            
+            # Create derivatives/log/sub-* directory structure
+            log_dir = os.path.join(project_dir, 'derivatives', 'logs', f'sub-{subject_id}')
+            os.makedirs(log_dir, exist_ok=True)
+            
+            # Create log file in the new directory
+            log_file = os.path.join(log_dir, f'analyzer_{time_stamp}.log')
+            logger = logging_util.get_logger('analyzer', log_file, overwrite=True)
         
-        # Create derivatives/log/sub-* directory structure
-        log_dir = os.path.join(project_dir, 'derivatives', 'logs', f'sub-{subject_id}')
-        os.makedirs(log_dir, exist_ok=True)
-        
-        # Create log file in the new directory
-        log_file = os.path.join(log_dir, f'analyzer_{time_stamp}.log')
-        logger = logging_util.get_logger('analyzer', log_file, overwrite=True)
         logger.info(f"Output directory created: {args.output_dir}")
         
         # Validate arguments
@@ -311,6 +321,7 @@ def main():
                         target_region=args.region,
                         visualize=args.visualize
                     )
+        
         # Log completion with summary instead of full results
         if isinstance(results, dict):
             if any(k in results for k in ['mean_value', 'max_value', 'min_value']):
@@ -323,6 +334,10 @@ def main():
                 logger.info(f"Analysis completed successfully: {valid_regions}/{total_regions} regions processed")
         else:
             logger.info(f"Analysis completed successfully")
+        
+        # Add completion marker for group analysis
+        if args.log_file:
+            logger.info(f"=== Subject {subject_id} Analysis Completed ===")
         
         # Handle both single region results and whole-head multi-region results
         if isinstance(results, dict) and any(k in results for k in ['mean_value', 'max_value', 'min_value']):
@@ -344,6 +359,8 @@ def main():
     
     except Exception as e:
         logger.error(f"Error: {str(e)}")
+        if args.log_file:
+            logger.error(f"=== Subject {subject_id} Analysis Failed ===")
         sys.exit(1)
 
 def print_stat_if_exists(results_dict, key, label):

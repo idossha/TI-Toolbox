@@ -6,14 +6,52 @@ import argparse
 import pandas as pd
 import nibabel as nib
 import numpy as np
+import matplotlib.pyplot as plt
+import matplotlib.patches as mpatches
+import logging
+from pathlib import Path
 
 # Add the parent directory to the path to access utils
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 from utils import logging_util
 from utils.logging_util import get_logger
 
-# Initialize logger
-logger = get_logger(__name__)
+# Initialize centralized group analysis logger (will be configured in setup_group_logger)
+group_logger = None
+
+def setup_group_logger(project_name: str) -> logging.Logger:
+    """
+    Set up centralized group analysis logging with timestamped log files.
+    
+    Args:
+        project_name (str): Project name to determine log file location
+        
+    Returns:
+        logging.Logger: Configured group analysis logger
+    """
+    global group_logger
+    
+    if group_logger is not None:
+        return group_logger
+    
+    # Create timestamped log directory
+    log_dir = os.path.join("/mnt", project_name, "derivatives", "logs", "group_analysis")
+    os.makedirs(log_dir, exist_ok=True)
+    
+    # Create timestamped group analysis log file
+    timestamp = __import__('datetime').datetime.now().strftime("%Y%m%d_%H%M%S")
+    log_file = os.path.join(log_dir, f"group_analysis_{timestamp}.log")
+    
+    # Use logging_util to create the logger
+    group_logger = logging_util.get_logger("group_analysis", log_file, overwrite=False)
+    
+    # Add a separator for new runs
+    group_logger.info("=" * 80)
+    group_logger.info(f"NEW GROUP ANALYSIS SESSION STARTED")
+    group_logger.info(f"Timestamp: {timestamp}")
+    group_logger.info("=" * 80)
+    
+    return group_logger
 
 def _extract_project_name(file_path: str) -> str:
     """
@@ -49,10 +87,133 @@ def _extract_project_name(file_path: str) -> str:
     # Final fallback
     return 'unknown_project'
 
+def _extract_montage_and_region_info(analysis_dirs: list[str]) -> tuple[str, str]:
+    """
+    Extract montage name and region information from analysis directory paths.
+    
+    Expected path structure:
+    .../derivatives/SimNIBS/sub-XXX/Simulations/{montage}/Analyses/{Mesh|Voxel}/{analysis_type}/
+    
+    Args:
+        analysis_dirs (list[str]): List of analysis directory paths
+        
+    Returns:
+        tuple[str, str]: (montage_name, region_name)
+    """
+    if not analysis_dirs:
+        return "unknown_montage", "unknown_region"
+    
+    # Use the first analysis directory to extract common montage and region info
+    first_path = analysis_dirs[0]
+    path_parts = first_path.replace('\\', '/').split('/')
+    
+    montage_name = "unknown_montage"
+    region_name = "unknown_region"
+    
+    try:
+        if group_logger:
+            group_logger.debug(f"Extracting montage/region from path: {first_path}")
+            group_logger.debug(f"Path parts: {path_parts}")
+        
+        # Find 'Simulations' in path and extract montage name
+        if 'Simulations' in path_parts:
+            sim_idx = path_parts.index('Simulations')
+            if sim_idx + 1 < len(path_parts):
+                montage_name = path_parts[sim_idx + 1]
+                if group_logger:
+                    group_logger.debug(f"Found montage: {montage_name}")
+        
+        # Extract region name from the analysis directory name (last part of path)
+        analysis_dir_name = os.path.basename(first_path.rstrip('/\\'))
+        if group_logger:
+            group_logger.debug(f"Analysis directory name: {analysis_dir_name}")
+        
+        # Parse common analysis directory name patterns
+        if analysis_dir_name.startswith('sphere_'):
+            # For spherical analysis: sphere_x{X}_y{Y}_z{Z}_r{R}
+            # Extract coordinates and radius for a cleaner name
+            parts = analysis_dir_name.split('_')
+            if len(parts) >= 4:
+                # Extract x, y, z, r values for a shorter name
+                coords = []
+                radius = ""
+                for part in parts[1:]:
+                    if part.startswith('x'):
+                        coords.append(part)
+                    elif part.startswith('y'):
+                        coords.append(part)
+                    elif part.startswith('z'):
+                        coords.append(part)
+                    elif part.startswith('r'):
+                        radius = part
+                        break
+                region_name = f"sphere_{'_'.join(coords)}_{radius}" if coords and radius else analysis_dir_name
+            else:
+                region_name = analysis_dir_name
+        elif analysis_dir_name.startswith('region_'):
+            # For cortical region analysis: region_{region_name}
+            region_name = analysis_dir_name.replace('region_', '')
+        elif analysis_dir_name.startswith('whole_head_'):
+            # For whole head analysis: whole_head_{atlas_info}
+            atlas_info = analysis_dir_name.replace('whole_head_', '')
+            region_name = f"{atlas_info}_wholehead"
+        else:
+            # Fallback: use the analysis directory name as region
+            region_name = analysis_dir_name
+        
+        # Clean up names - remove problematic characters and limit length
+        region_name = region_name.replace('/', '_').replace('\\', '_').replace(' ', '_')
+        montage_name = montage_name.replace('/', '_').replace('\\', '_').replace(' ', '_')
+        
+        # Limit length to avoid filesystem issues
+        if len(region_name) > 50:
+            region_name = region_name[:47] + "..."
+        if len(montage_name) > 30:
+            montage_name = montage_name[:27] + "..."
+        
+        if group_logger:
+            group_logger.debug(f"Final montage: {montage_name}, region: {region_name}")
+        
+    except Exception as e:
+        if group_logger:
+            group_logger.warning(f"Error extracting montage/region info from {first_path}: {e}")
+            group_logger.warning(f"Using fallback names")
+    
+    return montage_name, region_name
+
+def _get_run_specific_output_dir(input_paths: list[str]) -> str:
+    """
+    Create run-specific output directory using montage and region information.
+    
+    Args:
+        input_paths (list[str]): List of input analysis paths
+        
+    Returns:
+        str: Path to run-specific output directory
+    """
+    # Extract project name
+    project_name = _extract_project_name(input_paths[0])
+    
+    # Extract montage and region information
+    montage_name, region_name = _extract_montage_and_region_info(input_paths)
+    
+    # Create run-specific folder name
+    run_folder_name = f"{montage_name}_{region_name}"
+    
+    # Create full output directory path (now under SimNIBS)
+    output_dir = os.path.join("/mnt", project_name, "derivatives", "SimNIBS", "group_analysis", run_folder_name)
+    os.makedirs(output_dir, exist_ok=True)
+    
+    if group_logger:
+        group_logger.info(f"Created run-specific output directory: {output_dir}")
+        group_logger.info(f"Montage: {montage_name}, Region: {region_name}")
+    
+    return output_dir
+
 def _get_output_path(input_paths: list[str], method_name: str, 
                     filename: str, custom_suffix: str = "") -> str:
     """
-    Construct centralized output path for generated files.
+    Construct output path for generated files in the run-specific directory.
     
     Args:
         input_paths (list[str]): List of input file paths
@@ -61,75 +222,516 @@ def _get_output_path(input_paths: list[str], method_name: str,
         custom_suffix (str): Optional suffix to add before file extension
         
     Returns:
-        str: Full path for output file in centralized directory
+        str: Full path for output file in run-specific directory
     """
-    # Extract project name from first input path
-    project_name = _extract_project_name(input_paths[0])
+    # Get run-specific output directory
+    output_dir = _get_run_specific_output_dir(input_paths)
     
-    # Create centralized output directory
-    output_dir = os.path.join("/mnt", project_name, "derivatives", "group_analysis")
+    # Get montage and region info for simpler naming
+    montage_name, region_name = _extract_montage_and_region_info(input_paths)
     
-    # Extract subject IDs or base names from input paths for descriptive naming
-    input_identifiers = []
-    for path in input_paths[:5]:  # Limit to first 5 to avoid overly long names
-        # Extract meaningful identifier from path
-        basename = os.path.basename(path)
-        # Remove common extensions
-        for ext in ['.nii.gz', '.nii', '.csv']:
-            if basename.endswith(ext):
-                basename = basename[:-len(ext)]
-                break
-        
-        # Extract subject ID if present (patterns like sub-XXX)
-        if 'sub-' in basename:
-            parts = basename.split('sub-')
-            if len(parts) > 1:
-                subject_part = parts[1].split('_')[0]  # Get part after sub- until next underscore
-                input_identifiers.append(f"sub-{subject_part}")
-            else:
-                input_identifiers.append(basename[:20])  # Truncate long names
-        else:
-            input_identifiers.append(basename[:20])  # Truncate long names
+    # Extract subject count for naming
+    subject_count = len(input_paths)
     
-    # If more than 5 inputs, add count
-    if len(input_paths) > 5:
-        input_identifiers.append(f"plus{len(input_paths)-5}more")
-    
-    # Construct descriptive filename
-    if filename and not filename.startswith("group_"):
-        # Parse the original filename to extract extension
+    # Determine file extension
+    extension = ""
+    if filename.endswith('.nii.gz'):
+        extension = '.nii.gz'
+        base_filename = filename[:-7]  # Remove .nii.gz
+    elif filename.endswith('.nii'):
+        extension = '.nii'
+        base_filename = filename[:-4]  # Remove .nii
+    elif filename.endswith('.csv'):
+        extension = '.csv'
+        base_filename = filename[:-4]  # Remove .csv
+    elif filename.endswith('.png'):
+        extension = '.png'
+        base_filename = filename[:-4]  # Remove .png
+    else:
+        # Try to extract extension
         name_parts = filename.split('.')
         if len(name_parts) > 1:
-            base_name = '.'.join(name_parts[:-1])
-            extension = name_parts[-1]
+            extension = '.' + name_parts[-1]
+            base_filename = '.'.join(name_parts[:-1])
         else:
-            base_name = filename
-            extension = ""
-        
-        # Create new descriptive name
-        identifier_str = "_".join(input_identifiers)
-        descriptive_name = f"group_{method_name}_{identifier_str}"
+            base_filename = filename
+    
+    # Create simplified descriptive name
+    if not filename.startswith("group_"):
+        # Build a cleaner, shorter filename
+        if subject_count == 1:
+            descriptive_name = f"group_{method_name}_{montage_name}_{region_name}"
+        else:
+            descriptive_name = f"group_{method_name}_{montage_name}_{region_name}_{subject_count}subj"
         
         if custom_suffix:
             descriptive_name += f"_{custom_suffix}"
             
-        if extension:
-            descriptive_name += f".{extension}"
-        else:
-            # Try to preserve original extension pattern
-            if filename.endswith('.nii.gz'):
-                descriptive_name += '.nii.gz'
-            elif '.' in filename:
-                descriptive_name += '.' + filename.split('.')[-1]
-                
-        final_filename = descriptive_name
+        final_filename = descriptive_name + extension
     else:
         final_filename = filename
     
-    # Create output directory if it doesn't exist
-    os.makedirs(output_dir, exist_ok=True)
+    # Clean up filename - remove problematic characters and limit length
+    final_filename = final_filename.replace(' ', '_').replace('/', '_').replace('\\', '_')
     
-    return os.path.join(output_dir, final_filename)
+    # Limit total filename length
+    name_without_ext = final_filename
+    if extension and final_filename.endswith(extension):
+        name_without_ext = final_filename[:-len(extension)]
+    
+    if len(name_without_ext) > 100:  # Limit base name to 100 chars
+        name_without_ext = name_without_ext[:97] + "..."
+        final_filename = name_without_ext + extension
+    
+    output_path = os.path.join(output_dir, final_filename)
+    
+    if group_logger:
+        group_logger.debug(f"Generated output path: {output_path}")
+    
+    return output_path
+
+def _load_subject_data(analyses: list[str]) -> dict:
+    """
+    Load CSV data from each analysis directory and extract subject information.
+    
+    Args:
+        analyses (list[str]): List of absolute paths to analysis directories
+        
+    Returns:
+        dict: Dictionary with subject identifiers as keys and analysis data as values
+              Each value contains: subject_id, montage_name, analysis_name, metrics dict
+    """
+    group_logger.info(f"Loading data from {len(analyses)} analysis directories...")
+    analysis_results = {}
+    
+    for analysis_path in analyses:
+        try:
+            # Parse path to extract subject and montage info
+            path_parts = analysis_path.split('/')
+            
+            subject_id = "unknown"
+            montage_name = "unknown"
+            analysis_name = os.path.basename(os.path.normpath(analysis_path))
+            
+            for i, part in enumerate(path_parts):
+                if part.startswith('sub-'):
+                    subject_id = part
+                elif 'Simulations' in path_parts and i < len(path_parts) - 1:
+                    # Look for the directory after 'Simulations'
+                    sim_idx = path_parts.index('Simulations')
+                    if i == sim_idx + 1:
+                        montage_name = part
+            
+            # Create unique identifier: subject_montage_analysis
+            unique_name = f"{subject_id}_{montage_name}_{analysis_name}"
+            
+            # Find the CSV file in the analysis directory
+            csv_files = [f for f in os.listdir(analysis_path) if f.endswith('.csv')]
+            if not csv_files:
+                group_logger.warning(f"No CSV file found in {analysis_path}")
+                continue
+            
+            csv_path = os.path.join(analysis_path, csv_files[0])
+            group_logger.debug(f"Reading CSV from: {csv_path}")
+            
+            # Read specific rows from the CSV
+            df = pd.read_csv(csv_path, header=None)
+            metrics = {
+                'mean_value': float(df.iloc[1, 1]),  # Row 2, Column 2
+                'max_value': float(df.iloc[2, 1]),   # Row 3, Column 2
+                'min_value': float(df.iloc[3, 1]),   # Row 4, Column 2
+            }
+            
+            analysis_results[unique_name] = {
+                'subject_id': subject_id,
+                'montage_name': montage_name,
+                'analysis_name': analysis_name,
+                'analysis_path': analysis_path,
+                'csv_path': csv_path,
+                'metrics': metrics
+            }
+            
+            group_logger.debug(f"Loaded data for {unique_name}: mean={metrics['mean_value']:.6f}, "
+                        f"max={metrics['max_value']:.6f}, min={metrics['min_value']:.6f}")
+            
+        except Exception as e:
+            group_logger.error(f"Error loading data from {analysis_path}: {str(e)}")
+            continue
+    
+    group_logger.info(f"Successfully loaded data from {len(analysis_results)} analyses")
+    return analysis_results
+
+def _compute_subject_stats(analysis_results: dict, region_name: str = None) -> pd.DataFrame:
+    """
+    Compute statistics including focality for each subject and aggregate statistics.
+    
+    Args:
+        analysis_results (dict): Dictionary with analysis data from _load_subject_data
+        region_name (str, optional): Region name for ROI-specific column headers
+        
+    Returns:
+        pd.DataFrame: DataFrame with ROI-specific columns: Subject_ID, ROI_Mean, ROI_Max, ROI_Min, ROI_Focality,
+                     plus rows for averages and difference percentages
+    """
+    group_logger.info("Computing subject statistics and focality metrics...")
+    
+    # Determine region name for headers if not provided
+    if region_name is None:
+        region_name = "ROI"
+    
+    # Create list to store individual subject data
+    subject_data = []
+    
+    for unique_name, data in analysis_results.items():
+        metrics = data['metrics']
+        
+        # Calculate focality as the ratio of max to mean (higher = more focal)
+        # Add small epsilon to avoid division by zero
+        if metrics['mean_value'] > 1e-12:
+            focality = metrics['max_value'] / metrics['mean_value']
+        else:
+            focality = 0.0
+            group_logger.warning(f"Mean value too small for {unique_name}, setting focality to 0")
+        
+        subject_data.append({
+            'Subject_ID': data['subject_id'],
+            'Montage': data['montage_name'],
+            'Analysis': data['analysis_name'],
+            f'ROI_Mean': metrics['mean_value'],
+            f'ROI_Max': metrics['max_value'],
+            f'ROI_Min': metrics['min_value'],
+            f'ROI_Focality': focality
+        })
+    
+    # Create DataFrame
+    df = pd.DataFrame(subject_data)
+    
+    if len(df) == 0:
+        group_logger.warning("No valid subject data found")
+        return df
+    
+    # Calculate averages across all subjects
+    numeric_cols = [f'ROI_Mean', f'ROI_Max', f'ROI_Min', f'ROI_Focality']
+    averages = df[numeric_cols].mean()
+    
+    # Create average row
+    avg_row = {
+        'Subject_ID': 'AVERAGE',
+        'Montage': 'ALL',
+        'Analysis': 'SUMMARY',
+        **averages.to_dict()
+    }
+    
+    # Calculate difference percentages from average for each subject
+    diff_data = []
+    for _, row in df.iterrows():
+        diff_row = {
+            'Subject_ID': f"{row['Subject_ID']}_DIFF%",
+            'Montage': row['Montage'],
+            'Analysis': 'PERCENT_DIFF',
+        }
+        
+        for col in numeric_cols:
+            if averages[col] != 0:
+                diff_pct = abs(row[col] - averages[col]) / averages[col] * 100
+                diff_row[col] = diff_pct
+            else:
+                diff_row[col] = 0.0
+        
+        diff_data.append(diff_row)
+    
+    # Combine all data: subjects + average + differences
+    all_data = df.to_dict('records') + [avg_row] + diff_data
+    final_df = pd.DataFrame(all_data)
+    
+    group_logger.info(f"Computed statistics for {len(subject_data)} subjects")
+    group_logger.info(f"Average values - ROI_Mean: {averages[f'ROI_Mean']:.6f}, ROI_Max: {averages[f'ROI_Max']:.6f}, "
+               f"ROI_Min: {averages[f'ROI_Min']:.6f}, ROI_Focality: {averages[f'ROI_Focality']:.6f}")
+    
+    return final_df
+
+def _write_summary_csv(stats_df: pd.DataFrame, output_path: str, region_name: str = None) -> str:
+    """
+    Write ROI-specific summary CSV with individual and aggregate statistics.
+    
+    Args:
+        stats_df (pd.DataFrame): DataFrame with computed statistics
+        output_path (str): Base output path for file naming
+        region_name (str, optional): Region name for filename
+        
+    Returns:
+        str: Path to the saved CSV file
+    """
+    # Construct CSV output path with region information
+    if region_name:
+        csv_filename = f"roi_comparison_summary_{region_name}.csv"
+    else:
+        csv_filename = "roi_comparison_summary.csv"
+    
+    csv_path = os.path.join(output_path, csv_filename)
+    
+    group_logger.info(f"Writing ROI-specific summary CSV to: {csv_path}")
+    
+    # Ensure output directory exists
+    os.makedirs(output_path, exist_ok=True)
+    
+    # Write CSV with proper formatting
+    stats_df.to_csv(csv_path, index=False, float_format='%.6f')
+    
+    group_logger.info(f"ROI-specific summary CSV successfully written with {len(stats_df)} rows")
+    return csv_path
+
+def _generate_comparison_plot(stats_df: pd.DataFrame, output_path: str, region_name: str = None) -> str:
+    """
+    Generate ROI-specific comparison visualization showing each subject's deviation from mean in standard deviations.
+    
+    Args:
+        stats_df (pd.DataFrame): DataFrame with computed statistics
+        output_path (str): Base output path for file naming
+        region_name (str, optional): Region name for plot title and filename
+        
+    Returns:
+        str: Path to the saved plot file
+    """
+    group_logger.info("Generating ROI-specific standard deviation comparison visualization...")
+    
+    # Filter to only subject rows (exclude AVERAGE and DIFF% rows)
+    subject_df = stats_df[~stats_df['Subject_ID'].str.contains('AVERAGE|DIFF%', na=False)].copy()
+    
+    if len(subject_df) == 0:
+        group_logger.warning("No subject data available for plotting")
+        return ""
+    
+    if len(subject_df) < 2:
+        group_logger.warning("At least 2 subjects required for standard deviation analysis")
+        return ""
+    
+    # Calculate means and standard deviations for each metric
+    metrics = ['ROI_Mean', 'ROI_Max', 'ROI_Min', 'ROI_Focality']
+    metric_labels = ['Mean', 'Max', 'Min', 'Focality']
+    
+    std_devs = {}
+    means = {}
+    z_scores = {}
+    
+    for metric in metrics:
+        values = subject_df[metric].values
+        means[metric] = np.mean(values)
+        std_devs[metric] = np.std(values, ddof=1)  # Sample standard deviation
+        
+        # Calculate z-scores (how many standard deviations from mean)
+        if std_devs[metric] > 0:
+            z_scores[metric] = (values - means[metric]) / std_devs[metric]
+        else:
+            z_scores[metric] = np.zeros_like(values)
+    
+    # Create figure with subplots
+    fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(15, 10))
+    axes = [ax1, ax2, ax3, ax4]
+    
+    # Set main title with region information
+    if region_name:
+        main_title = f'Standard Deviation Analysis for {region_name}'
+    else:
+        main_title = 'Standard Deviation Analysis'
+    
+    fig.suptitle(main_title, fontsize=16, fontweight='bold')
+    
+    # Prepare data for plotting
+    subjects = subject_df['Subject_ID'].tolist()
+    x_pos = np.arange(len(subjects))
+    
+    # Colors for each metric - use positive/negative coloring
+    colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728']  # blue, orange, green, red
+    
+    for i, (metric, label, color, ax) in enumerate(zip(metrics, metric_labels, colors, axes)):
+        z_values = z_scores[metric]
+        
+        # Color bars based on positive/negative deviation
+        bar_colors = []
+        for z in z_values:
+            if z > 0:
+                bar_colors.append(color)  # Above mean
+            else:
+                bar_colors.append(color)  # Below mean - same color but we'll use alpha
+        
+        # Create bars
+        bars = ax.bar(x_pos, z_values, color=bar_colors, alpha=0.7)
+        
+        # Color bars differently for positive vs negative
+        for bar, z in zip(bars, z_values):
+            if z >= 0:
+                bar.set_color(color)
+                bar.set_alpha(0.8)
+            else:
+                bar.set_color(color)
+                bar.set_alpha(0.4)
+        
+        # Add horizontal line at mean (z=0)
+        ax.axhline(y=0, color='black', linestyle='-', linewidth=1, alpha=0.8)
+        
+        # Add ±1 and ±2 standard deviation lines
+        ax.axhline(y=1, color='gray', linestyle='--', linewidth=1, alpha=0.6)
+        ax.axhline(y=-1, color='gray', linestyle='--', linewidth=1, alpha=0.6)
+        ax.axhline(y=2, color='red', linestyle='--', linewidth=1, alpha=0.6)
+        ax.axhline(y=-2, color='red', linestyle='--', linewidth=1, alpha=0.6)
+        
+        # Formatting
+        ax.set_title(f'ROI {label} (Z-scores)', fontweight='bold')
+        ax.set_ylabel('Standard Deviations from Mean')
+        ax.tick_params(axis='x', rotation=45)
+        ax.set_xticks(x_pos)
+        ax.set_xticklabels(subjects, ha='right')
+        ax.grid(True, alpha=0.3)
+        
+        # Set y-axis limits to show all data with some padding
+        y_max = max(abs(min(z_values)), abs(max(z_values)))
+        y_limit = max(2.5, y_max + 0.5)  # At least ±2.5 or data range + 0.5
+        ax.set_ylim(-y_limit, y_limit)
+        
+        # Add text annotations for extreme values (>2 std devs)
+        for j, (subject, z) in enumerate(zip(subjects, z_values)):
+            if abs(z) > 2:
+                ax.annotate(f'{z:.1f}σ', (j, z), 
+                           xytext=(0, 10 if z > 0 else -15), 
+                           textcoords='offset points',
+                           ha='center', va='bottom' if z > 0 else 'top',
+                           fontweight='bold', fontsize=8,
+                           color='darkred')
+    
+    # Create legend
+    from matplotlib.lines import Line2D
+    legend_elements = [
+        Line2D([0], [0], color='black', linestyle='-', label='Group Mean'),
+        Line2D([0], [0], color='gray', linestyle='--', label='±1 Std Dev'),
+        Line2D([0], [0], color='red', linestyle='--', label='±2 Std Dev'),
+        mpatches.Patch(color='gray', alpha=0.8, label='Above Mean'),
+        mpatches.Patch(color='gray', alpha=0.4, label='Below Mean')
+    ]
+    fig.legend(handles=legend_elements, loc='upper right', bbox_to_anchor=(0.98, 0.95))
+    
+    # Adjust layout to prevent overlap
+    plt.tight_layout()
+    plt.subplots_adjust(top=0.93)
+    
+    # Save plot
+    if region_name:
+        plot_filename = f"roi_std_deviation_plot_{region_name}.png"
+    else:
+        plot_filename = "roi_std_deviation_plot.png"
+    
+    plot_path = os.path.join(output_path, plot_filename)
+    
+    # Ensure output directory exists
+    os.makedirs(output_path, exist_ok=True)
+    
+    plt.savefig(plot_path, dpi=300, bbox_inches='tight')
+    plt.close()
+    
+    group_logger.info(f"ROI-specific standard deviation plot saved to: {plot_path}")
+    return plot_path
+
+def compare_analyses(analyses: list[str], output_dir: str, 
+                    generate_plot: bool = True, generate_csv: bool = True):
+    """
+    Compare multiple analyses using structured sub-methods and generate comprehensive reports.
+    
+    This refactored function breaks down the comparison process into logical steps:
+    1. Load subject data from CSV files
+    2. Compute ROI-specific statistics including focality metrics
+    3. Generate CSV summary with averages and differences
+    4. Create visualization plots (optional)
+    
+    Args:
+        analyses (list[str]): List of absolute paths to analysis directories
+        output_dir (str): Path to the output directory (legacy parameter for compatibility)
+        generate_plot (bool, optional): Whether to generate comparison plots. Defaults to True.
+        generate_csv (bool, optional): Whether to generate CSV summary. Defaults to True.
+        
+    Returns:
+        dict: Dictionary containing paths to generated files and summary statistics
+    """
+    # Set up centralized logging
+    project_name = _extract_project_name(analyses[0])
+    global group_logger
+    group_logger = setup_group_logger(project_name)
+    
+    group_logger.info(f"Starting comprehensive analysis comparison for {len(analyses)} analyses")
+    group_logger.info(f"Options - Generate CSV: {generate_csv}, Generate Plot: {generate_plot}")
+    
+    if len(analyses) == 0:
+        group_logger.error("No analysis directories provided")
+        return {}
+    
+    # Extract montage and region information for this run
+    montage_name, region_name = _extract_montage_and_region_info(analyses)
+    
+    # Create run-specific output directory
+    run_output_dir = _get_run_specific_output_dir(analyses)
+    
+    group_logger.info(f"Using run-specific output directory: {run_output_dir}")
+    group_logger.info(f"Analysis focus: {montage_name} montage, {region_name} region")
+    
+    try:
+        # Step 1: Load subject data
+        analysis_results = _load_subject_data(analyses)
+        
+        if len(analysis_results) == 0:
+            group_logger.error("No valid analysis data could be loaded")
+            return {}
+        
+        # Step 2: Compute ROI-specific statistics
+        stats_df = _compute_subject_stats(analysis_results, region_name)
+        
+        if len(stats_df) == 0:
+            group_logger.error("No statistics could be computed")
+            return {}
+        
+        generated_files = {}
+        
+        # Step 3: Generate ROI-specific CSV summary (if requested)
+        if generate_csv:
+            csv_path = _write_summary_csv(stats_df, run_output_dir, region_name)
+            generated_files['csv_summary'] = csv_path
+        
+        # Step 4: Generate ROI-specific visualization (if requested and sufficient data)
+        if generate_plot:
+            # Only generate plot if we have subject data (not just averages)
+            subject_count = len(stats_df[~stats_df['Subject_ID'].str.contains('AVERAGE|DIFF%', na=False)])
+            if subject_count > 0:
+                plot_path = _generate_comparison_plot(stats_df, run_output_dir, region_name)
+                if plot_path:
+                    generated_files['comparison_plot'] = plot_path
+            else:
+                group_logger.warning("Insufficient subject data for plot generation")
+        
+        # Generate summary information
+        summary_info = {
+            'total_subjects': len(analysis_results),
+            'output_directory': run_output_dir,
+            'montage_name': montage_name,
+            'region_name': region_name,
+            'generated_files': generated_files
+        }
+        
+        # Add average statistics to summary
+        avg_row = stats_df[stats_df['Subject_ID'] == 'AVERAGE']
+        if len(avg_row) > 0:
+            summary_info['average_statistics'] = {
+                'mean': avg_row['ROI_Mean'].iloc[0],
+                'max': avg_row['ROI_Max'].iloc[0],
+                'min': avg_row['ROI_Min'].iloc[0],
+                'focality': avg_row['ROI_Focality'].iloc[0]
+            }
+        
+        group_logger.info("Analysis comparison completed successfully")
+        group_logger.info(f"Generated files: {list(generated_files.keys())}")
+        
+        return summary_info
+        
+    except Exception as e:
+        group_logger.error(f"Error during analysis comparison: {str(e)}")
+        raise
 
 def collect_arguments() -> tuple[list[str], str]:
     """
@@ -168,118 +770,14 @@ def setup_output_dir(output_path: str) -> str:
     os.makedirs(output_path, exist_ok=True)
     return output_path
 
-def compare_analyses(analyses: list[str], output_dir: str):
-    """
-    Compare multiple analyses and write their names to a file.
-    Extracts mean, max, and min values from each analysis CSV and computes percent differences.
-    
-    Args:
-        analyses (list[str]): List of absolute paths to analysis directories
-        output_dir (str): Path to the output directory
-    """
-    # Dictionary to store results for each analysis
-    analysis_results = {}
-    
-    # Process each analysis directory
-    for analysis_path in analyses:
-        # Create a unique identifier that includes more path info to avoid collisions
-        # Instead of just using the last directory name, use a more descriptive identifier
-        path_parts = analysis_path.split('/')
-        
-        # Try to find subject and montage info in the path
-        subject_id = "unknown"
-        montage_name = "unknown"
-        analysis_name = os.path.basename(os.path.normpath(analysis_path))
-        
-        for i, part in enumerate(path_parts):
-            if part.startswith('sub-'):
-                subject_id = part
-            elif 'Simulations' in path_parts and i < len(path_parts) - 1:
-                # Look for the directory after 'Simulations'
-                sim_idx = path_parts.index('Simulations')
-                if i == sim_idx + 1:
-                    montage_name = part
-        
-        # Create unique identifier: subject_montage_analysis
-        unique_name = f"{subject_id}_{montage_name}_{analysis_name}"
-        
-        # Find the CSV file in the analysis directory
-        csv_files = [f for f in os.listdir(analysis_path) if f.endswith('.csv')]
-        if not csv_files:
-            print(f"Warning: No CSV file found in {analysis_path}")
-            continue
-        
-        csv_path = os.path.join(analysis_path, csv_files[0])
-        logger.info(f"Reading CSV from: {csv_path}")
-        
-        # Read specific rows from the CSV
-        try:
-            df = pd.read_csv(csv_path, header=None)
-            metrics = {
-                'mean_value': float(df.iloc[1, 1]),  # Row 2, Column 2
-                'max_value': float(df.iloc[2, 1]),   # Row 3, Column 2
-                'min_value': float(df.iloc[3, 1]),   # Row 4, Column 2
-            }
-            analysis_results[unique_name] = metrics
-            logger.info(f"Extracted metrics from {unique_name}: mean={metrics['mean_value']:.6f}, max={metrics['max_value']:.6f}, min={metrics['min_value']:.6f}")
-        except Exception as e:
-            logger.error(f"Error reading CSV for {unique_name}: {str(e)}")
-            continue
-    
-    logger.info(f"Found {len(analysis_results)} valid analyses for comparison")
-    
-    # Calculate and write percent differences
-    if len(analysis_results) < 2:
-        logger.error("Need at least 2 valid analyses to compare")
-        return
-    
-    # Construct centralized output path
-    output_file_path = _get_output_path(analyses, 'comparison', 'comparison_results.txt')
-    logger.info(f"Saving comparison results to: {output_file_path}")
-    
-    # Write results to file
-    with open(output_file_path, 'w') as f:
-        f.write("Analysis Comparison Results\n")
-        f.write("=========================\n\n")
-        
-        # Write the analysis names
-        f.write("Analyses compared:\n")
-        for i, name in enumerate(analysis_results.keys(), 1):
-            f.write(f"{i}. {name}\n")
-        f.write("\n")
-        
-        # Calculate percent differences between each pair
-        analysis_names = list(analysis_results.keys())
-        for i in range(len(analysis_names)):
-            for j in range(i + 1, len(analysis_names)):
-                name1, name2 = analysis_names[i], analysis_names[j]
-                results1, results2 = analysis_results[name1], analysis_results[name2]
-                
-                f.write(f"\nComparison between {name1} and {name2}:\n")
-                f.write("-" * 40 + "\n")
-                
-                for metric in ['mean_value', 'max_value', 'min_value']:
-                    val1, val2 = results1[metric], results2[metric]
-                    # Calculate percent difference
-                    avg = (val1 + val2) / 2
-                    if avg != 0:
-                        pct_diff = abs(val1 - val2) / avg * 100
-                        f.write(f"{metric}:\n")
-                        f.write(f"  {name1}: {val1:.6f}\n")
-                        f.write(f"  {name2}: {val2:.6f}\n")
-                        f.write(f"  Percent difference: {pct_diff:.2f}%\n\n")
-                    else:
-                        f.write(f"{metric}: Both values are 0\n\n")
-        
-        logger.info(f"Comparison results successfully written to {output_file_path}")
-
-def average_nifti_images(nifti_paths: list[str], output_filename: str = "average_output.nii.gz") -> str:
+def average_nifti_images(nifti_paths: list[str], output_filename: str = "average_output.nii.gz", output_dir: str = None) -> str:
     """
     Loads multiple NIfTI images, computes their element-wise average, and saves the result.
     
     Args:
         nifti_paths (list[str]): List of file paths to NIfTI images (.nii or .nii.gz)
         output_filename (str, optional): Name of the output file. Defaults to "average_output.nii.gz"
+        output_dir (str, optional): Output directory. If None, uses old path generation logic.
     
     Returns:
         str: Path to the saved averaged NIfTI file
@@ -302,7 +800,8 @@ def average_nifti_images(nifti_paths: list[str], output_filename: str = "average
         if not (path.endswith('.nii') or path.endswith('.nii.gz')):
             raise ValueError(f"File does not appear to be a NIfTI file: {path}")
     
-    logger.info(f"Loading and averaging {len(nifti_paths)} NIfTI images...")
+    if group_logger:
+        group_logger.info(f"Loading and averaging {len(nifti_paths)} NIfTI images...")
     
     try:
         # Load the first image to get reference shape and affine
@@ -311,7 +810,8 @@ def average_nifti_images(nifti_paths: list[str], output_filename: str = "average
         reference_affine = first_img.affine
         reference_header = first_img.header
         
-        logger.info(f"Reference image shape: {reference_shape}")
+        if group_logger:
+            group_logger.info(f"Reference image shape: {reference_shape}")
         
         # Initialize array to store all image data
         all_data = np.zeros((len(nifti_paths),) + reference_shape, dtype=np.float64)
@@ -340,21 +840,31 @@ def average_nifti_images(nifti_paths: list[str], output_filename: str = "average
             all_data[i] = img.get_fdata().astype(np.float64)
         
         # Compute element-wise average
-        logger.info("Computing element-wise average...")
+        if group_logger:
+            group_logger.info("Computing element-wise average...")
         averaged_data = np.mean(all_data, axis=0)
         
         # Create new NIfTI image with averaged data
         averaged_img = nib.Nifti1Image(averaged_data, reference_affine, reference_header)
         
-        # Construct centralized output path
-        output_path = _get_output_path(nifti_paths, 'averaging', output_filename, 'avg')
-        logger.info(f"Saving averaged NIfTI to: {output_path}")
+        # Determine output path
+        if output_dir:
+            # Use provided output directory
+            output_path = os.path.join(output_dir, output_filename)
+            os.makedirs(output_dir, exist_ok=True)
+        else:
+            # Use old path generation logic for backward compatibility
+            output_path = _get_output_path(nifti_paths, 'averaging', output_filename, 'avg')
+        
+        if group_logger:
+            group_logger.info(f"Saving averaged NIfTI to: {output_path}")
         
         # Save the averaged image
         nib.save(averaged_img, output_path)
         
-        logger.info(f"Successfully created averaged NIfTI image: {output_path}")
-        logger.info(f"Output shape: {averaged_data.shape}, Mean value: {np.mean(averaged_data):.6f}")
+        if group_logger:
+            group_logger.info(f"Successfully created averaged NIfTI image: {output_path}")
+            group_logger.info(f"Output shape: {averaged_data.shape}, Mean value: {np.mean(averaged_data):.6f}")
         
         return output_path
         
@@ -366,7 +876,8 @@ def intersection_high_values_nifti(nifti_paths: list[str],
                                  output_filename: str = "intersection_high_values.nii.gz",
                                  fill_value: float = 0.0,
                                  percentile_low: float = 95.0,
-                                 percentile_high: float = 99.9) -> str:
+                                 percentile_high: float = 99.9,
+                                 output_dir: str = None) -> str:
     """
     Computes intersection of high-value voxels across multiple NIfTI images.
     
@@ -383,6 +894,7 @@ def intersection_high_values_nifti(nifti_paths: list[str],
                                     Use np.nan for NaN fill.
         percentile_low (float, optional): Lower percentile threshold (default: 95.0)
         percentile_high (float, optional): Upper percentile threshold (default: 99.9)
+        output_dir (str, optional): Output directory. If None, uses old path generation logic.
     
     Returns:
         str: Path to the saved intersection NIfTI file
@@ -415,8 +927,9 @@ def intersection_high_values_nifti(nifti_paths: list[str],
         if not (path.endswith('.nii') or path.endswith('.nii.gz')):
             raise ValueError(f"File does not appear to be a NIfTI file: {path}")
     
-    logger.info(f"Processing {len(nifti_paths)} NIfTI images for high-value intersection")
-    logger.info(f"Percentile range: {percentile_low}%-{percentile_high}%, Min overlap: {min_overlap}/{len(nifti_paths)}")
+    if group_logger:
+        group_logger.info(f"Processing {len(nifti_paths)} NIfTI images for high-value intersection")
+        group_logger.info(f"Percentile range: {percentile_low}%-{percentile_high}%, Min overlap: {min_overlap}/{len(nifti_paths)}")
     
     try:
         # Load the first image to get reference shape and affine
@@ -425,7 +938,8 @@ def intersection_high_values_nifti(nifti_paths: list[str],
         reference_affine = first_img.affine
         reference_header = first_img.header
         
-        logger.info(f"Reference image shape: {reference_shape}")
+        if group_logger:
+            group_logger.info(f"Reference image shape: {reference_shape}")
         
         # Initialize arrays for processing
         high_value_masks = np.zeros((len(nifti_paths),) + reference_shape, dtype=bool)
@@ -465,29 +979,35 @@ def intersection_high_values_nifti(nifti_paths: list[str],
                 # Create mask for high-value voxels (between percentile_low and percentile_high)
                 high_value_masks[i] = (data >= p_low) & (data <= p_high) & finite_nonzero_mask
                 num_high_voxels = np.sum(high_value_masks[i])
-                logger.debug(f"Image {i+1}: percentiles {p_low:.6f}-{p_high:.6f}, high-value voxels: {num_high_voxels}")
+                if group_logger:
+                    group_logger.debug(f"Image {i+1}: percentiles {p_low:.6f}-{p_high:.6f}, high-value voxels: {num_high_voxels}")
             else:
-                logger.warning(f"No finite non-zero values found in {os.path.basename(path)}")
+                if group_logger:
+                    group_logger.warning(f"No finite non-zero values found in {os.path.basename(path)}")
                 high_value_masks[i] = np.zeros(reference_shape, dtype=bool)
         
         # Compute intersection mask based on min_overlap
-        logger.info("Computing intersection mask...")
+        if group_logger:
+            group_logger.info("Computing intersection mask...")
         overlap_count = np.sum(high_value_masks, axis=0)  # Count how many images have high values at each voxel
         intersection_mask = overlap_count >= min_overlap
         
         num_intersection_voxels = np.sum(intersection_mask)
         intersection_percent = num_intersection_voxels/np.prod(reference_shape)*100
-        logger.info(f"Intersection voxels: {num_intersection_voxels} ({intersection_percent:.2f}%)")
+        if group_logger:
+            group_logger.info(f"Intersection voxels: {num_intersection_voxels} ({intersection_percent:.2f}%)")
         
         if num_intersection_voxels == 0:
-            logger.warning("No voxels meet intersection criteria - output will be filled with fill_value")
+            if group_logger:
+                group_logger.warning("No voxels meet intersection criteria - output will be filled with fill_value")
         
         # Create output array
         output_data = np.full(reference_shape, fill_value, dtype=np.float64)
         
         if num_intersection_voxels > 0:
             # For intersection voxels, compute weighted average across contributing images
-            logger.info("Computing weighted averages for intersection voxels...")
+            if group_logger:
+                group_logger.info("Computing weighted averages for intersection voxels...")
             
             # Create a mask for where we need to compute averages
             intersection_indices = np.where(intersection_mask)
@@ -514,10 +1034,18 @@ def intersection_high_values_nifti(nifti_paths: list[str],
         # Create new NIfTI image with intersection data
         intersection_img = nib.Nifti1Image(output_data, reference_affine, reference_header)
         
-        # Construct centralized output path with descriptive suffix
-        suffix = f"overlap{percentile_low}-{percentile_high}pct_min{min_overlap}"
-        output_path = _get_output_path(nifti_paths, 'intersection', output_filename, suffix)
-        logger.info(f"Saving intersection NIfTI to: {output_path}")
+        # Determine output path
+        if output_dir:
+            # Use provided output directory
+            output_path = os.path.join(output_dir, output_filename)
+            os.makedirs(output_dir, exist_ok=True)
+        else:
+            # Use old path generation logic for backward compatibility
+            suffix = f"overlap{percentile_low}-{percentile_high}pct_min{min_overlap}"
+            output_path = _get_output_path(nifti_paths, 'intersection', output_filename, suffix)
+        
+        if group_logger:
+            group_logger.info(f"Saving intersection NIfTI to: {output_path}")
         
         # Save the intersection image
         nib.save(intersection_img, output_path)
@@ -527,10 +1055,12 @@ def intersection_high_values_nifti(nifti_paths: list[str],
             valid_values = output_data[intersection_mask]
             value_range = f"{np.min(valid_values):.6f} to {np.max(valid_values):.6f}"
             mean_value = np.mean(valid_values)
-            logger.info(f"Successfully created intersection NIfTI: {output_path}")
-            logger.info(f"Intersection statistics - voxels: {num_intersection_voxels}, range: {value_range}, mean: {mean_value:.6f}")
+            if group_logger:
+                group_logger.info(f"Successfully created intersection NIfTI: {output_path}")
+                group_logger.info(f"Intersection statistics - voxels: {num_intersection_voxels}, range: {value_range}, mean: {mean_value:.6f}")
         else:
-            logger.info(f"Created intersection NIfTI filled with {fill_value}: {output_path}")
+            if group_logger:
+                group_logger.info(f"Created intersection NIfTI filled with {fill_value}: {output_path}")
         
         return output_path
         
@@ -549,35 +1079,46 @@ def run_all_group_comparisons(analysis_dirs: list[str], project_name: str = None
         project_name (str, optional): Project name for output directory. If None, extracted from first path.
         
     Returns:
-        str: Path to the group analysis output directory containing all results
+        str: Path to the run-specific group analysis output directory containing all results
     """
-    if not analysis_dirs:
-        logger.error("No analysis directories provided for group comparison")
-        return ""
-    
-    if len(analysis_dirs) < 2:
-        logger.warning(f"Only {len(analysis_dirs)} analysis directory provided. Some comparisons require multiple subjects.")
-    
-    # Extract project name if not provided
+    # Set up centralized logging
     if project_name is None:
         project_name = _extract_project_name(analysis_dirs[0])
     
-    # Create centralized group analysis directory
-    group_output_dir = os.path.join("/mnt", project_name, "derivatives", "group_analysis")
-    os.makedirs(group_output_dir, exist_ok=True)
+    global group_logger
+    group_logger = setup_group_logger(project_name)
     
-    logger.info(f"Starting comprehensive group analysis for {len(analysis_dirs)} subjects")
-    logger.info(f"Group output directory: {group_output_dir}")
+    if not analysis_dirs:
+        group_logger.error("No analysis directories provided for group comparison")
+        return ""
     
-    # 1. Run traditional CSV-based comparison analysis
-    if len(analysis_dirs) >= 2:
-        logger.info("Running CSV-based statistical comparison...")
+    if len(analysis_dirs) < 2:
+        group_logger.warning(f"Only {len(analysis_dirs)} analysis directory provided. Some comparisons require multiple subjects.")
+    
+    # Extract montage and region information for this run
+    montage_name, region_name = _extract_montage_and_region_info(analysis_dirs)
+    
+    # Create run-specific output directory
+    run_output_dir = _get_run_specific_output_dir(analysis_dirs)
+    
+    group_logger.info(f"Starting comprehensive group analysis for {len(analysis_dirs)} subjects")
+    group_logger.info(f"Analysis focus: {montage_name} montage, {region_name} region")
+    group_logger.info(f"Run-specific output directory: {run_output_dir}")
+    
+    # 1. Run ROI-specific statistical comparison analysis
+    comparison_results = None
+    if len(analysis_dirs) >= 1:  # Allow single subject for basic statistics
+        group_logger.info("Running ROI-specific statistical comparison...")
         try:
-            csv_output_dir = os.path.join(group_output_dir, "statistical_comparison")
-            os.makedirs(csv_output_dir, exist_ok=True)
-            compare_analyses(analysis_dirs, csv_output_dir)
+            comparison_results = compare_analyses(analysis_dirs, run_output_dir, 
+                                                generate_plot=True, generate_csv=True)
+            if comparison_results:
+                group_logger.info(f"Statistical comparison completed for {comparison_results.get('total_subjects', 0)} subjects")
+                generated_files = comparison_results.get('generated_files', {})
+                for file_type, file_path in generated_files.items():
+                    group_logger.info(f"Generated {file_type}: {file_path}")
         except Exception as e:
-            logger.error(f"CSV comparison failed: {e}")
+            group_logger.error(f"Statistical comparison failed: {e}")
     
     # 2. Collect standardized grey matter MNI NIfTI files for image-based comparisons
     nifti_files = []
@@ -589,7 +1130,7 @@ def run_all_group_comparisons(analysis_dirs: list[str], project_name: str = None
         path_parts = analysis_dir.split(os.sep)
         
         subject_id = None
-        montage_name = None
+        extracted_montage = None
         
         # Find subject ID (sub-XXX pattern)
         for i, part in enumerate(path_parts):
@@ -597,32 +1138,67 @@ def run_all_group_comparisons(analysis_dirs: list[str], project_name: str = None
                 subject_id = part
                 # Look for Simulations directory and get montage name
                 if i + 2 < len(path_parts) and path_parts[i + 1] == 'Simulations':
-                    montage_name = path_parts[i + 2]
+                    extracted_montage = path_parts[i + 2]
                 break
         
-        if not subject_id or not montage_name:
-            logger.warning(f"Could not extract subject ID or montage from path: {analysis_dir}")
+        if not subject_id or not extracted_montage:
+            group_logger.warning(f"Could not extract subject ID or montage from path: {analysis_dir}")
             continue
         
         # Construct path to the standardized grey matter MNI NIfTI file
         # Format: projectdir/derivatives/SimNIBS/sub-{subject_id}/Simulations/{montage_name}/TI/niftis/grey_{subject_short}_TI_MNI_MNI_TI_max.nii.gz
         subject_short = subject_id.replace('sub-', '')  # Remove 'sub-' prefix
         nifti_dir = os.path.join("/mnt", project_name, "derivatives", "SimNIBS", 
-                                subject_id, "Simulations", montage_name, "TI", "niftis")
+                                subject_id, "Simulations", extracted_montage, "TI", "niftis")
         
         if not os.path.exists(nifti_dir):
-            logger.warning(f"NIfTI directory not found: {nifti_dir}")
+            group_logger.warning(f"NIfTI directory not found: {nifti_dir}")
             continue
         
-        # Look for the standardized grey matter MNI file
-        # Actual pattern: grey_{subject_short}_{montage_name}_TI_MNI_MNI_TI_max.nii.gz
-        # Note: The montage name in the file is the actual montage name, and MNI appears twice
-        target_pattern = f"grey_{subject_short}_{montage_name}_TI_MNI_MNI_TI_max"
-        matching_files = []
+        # Look for the standardized grey matter MNI file with flexible pattern matching
+        # Try multiple common patterns for grey matter NIfTI files
+        potential_patterns = [
+            f"grey_{subject_short}_{extracted_montage}_TI_MNI_MNI_TI_max",
+            f"grey_{subject_short}_{extracted_montage}_TI_MNI_TI_max", 
+            f"grey_{subject_short}_{extracted_montage}_TI_max",
+            f"grey_{subject_short}_{extracted_montage}_MNI_TI_max",
+            f"grey_{subject_short}_TI_MNI_MNI_TI_max",
+            f"grey_{subject_short}_TI_MNI_TI_max"
+        ]
         
-        for file in os.listdir(nifti_dir):
-            if file.startswith(target_pattern) and file.endswith(('.nii', '.nii.gz')):
-                matching_files.append(file)
+        # List all files in the directory for debugging
+        all_files = os.listdir(nifti_dir)
+        grey_files = [f for f in all_files if f.startswith('grey_') and f.endswith(('.nii', '.nii.gz'))]
+        
+        group_logger.info(f"Found {len(grey_files)} grey matter NIfTI files in {nifti_dir}")
+        group_logger.debug(f"Grey matter files: {grey_files}")
+        
+        matching_files = []
+        used_pattern = None
+        
+        # Try each pattern until we find a match
+        for pattern in potential_patterns:
+            for file in grey_files:
+                if file.startswith(pattern):
+                    matching_files.append(file)
+                    used_pattern = pattern
+                    break
+            if matching_files:
+                break
+        
+        # If no exact pattern match, try more flexible matching
+        if not matching_files:
+            group_logger.info(f"No exact pattern match found, trying flexible matching for {subject_id}")
+            for file in grey_files:
+                # Check if file contains the subject and montage info in any order
+                if (subject_short in file and 
+                    extracted_montage in file and 
+                    'TI' in file and 
+                    'max' in file):
+                    matching_files.append(file)
+                    used_pattern = "flexible_match"
+                    group_logger.info(f"Found flexible match: {file}")
+                    break
         
         if matching_files:
             # Use the first matching file (they should be equivalent)
@@ -630,155 +1206,121 @@ def run_all_group_comparisons(analysis_dirs: list[str], project_name: str = None
             nifti_path = os.path.join(nifti_dir, nifti_filename)
             nifti_files.append(nifti_path)
             subject_ids.append(subject_id)
-            logger.info(f"Found standardized NIfTI for {subject_id}: {nifti_filename}")
+            group_logger.info(f"Found standardized NIfTI for {subject_id}: {nifti_filename} (pattern: {used_pattern})")
         else:
-            logger.warning(f"No standardized grey matter MNI NIfTI found for {subject_id} in {nifti_dir}")
-            logger.warning(f"Expected pattern: {target_pattern}*.nii*")
+            group_logger.warning(f"No standardized grey matter MNI NIfTI found for {subject_id} in {nifti_dir}")
+            group_logger.warning(f"Tried patterns: {potential_patterns}")
+            group_logger.warning(f"Available grey matter files: {grey_files}")
     
-    logger.info(f"Found {len(nifti_files)} standardized grey matter MNI NIfTI files for image-based analysis")
+    group_logger.info(f"Found {len(nifti_files)} standardized grey matter MNI NIfTI files for image-based analysis")
+    
+    # Track generated NIfTI files
+    nifti_results = {}
     
     # 3. Run NIfTI averaging if multiple files found
     if len(nifti_files) >= 2:
-        logger.info("Running NIfTI averaging analysis...")
+        group_logger.info("Running NIfTI averaging analysis...")
         try:
-            avg_output_dir = os.path.join(group_output_dir, "averaged_images")
-            os.makedirs(avg_output_dir, exist_ok=True)
-            
-            # Temporarily override the output path logic for organized output
-            original_get_output_path = globals()['_get_output_path']
-            
-            def _organized_output_path(input_paths, method_name, filename, custom_suffix=""):
-                # Create filename in the avg_output_dir
-                subject_str = "_".join(subject_ids[:5])  # Use collected subject IDs
-                if len(subject_ids) > 5:
-                    subject_str += f"_plus{len(subject_ids)-5}more"
-                
-                final_filename = f"group_{method_name}_{subject_str}"
-                if custom_suffix:
-                    final_filename += f"_{custom_suffix}"
-                
-                # Preserve original extension
-                if filename.endswith('.nii.gz'):
-                    final_filename += '.nii.gz'
-                elif filename.endswith('.nii'):
-                    final_filename += '.nii'
-                elif '.' in filename:
-                    final_filename += '.' + filename.split('.')[-1]
-                
-                return os.path.join(avg_output_dir, final_filename)
-            
-            # Temporarily replace the function
-            globals()['_get_output_path'] = _organized_output_path
-            
-            avg_output = average_nifti_images(nifti_files, "averaged_field.nii.gz")
-            logger.info(f"Average NIfTI saved to: {avg_output}")
-            
-            # Restore original function
-            globals()['_get_output_path'] = original_get_output_path
-            
+            avg_output = average_nifti_images(
+                nifti_files, 
+                f"averaged_field_{region_name}.nii.gz",
+                output_dir=run_output_dir
+            )
+            group_logger.info(f"Average NIfTI saved to: {avg_output}")
+            nifti_results['averaged_nifti'] = avg_output
         except Exception as e:
-            logger.error(f"NIfTI averaging failed: {e}")
+            group_logger.error(f"NIfTI averaging failed: {e}")
+    elif len(nifti_files) == 1:
+        group_logger.info("Only 1 NIfTI file found - skipping averaging (requires at least 2 files)")
+    else:
+        group_logger.info("No NIfTI files found - skipping averaging")
     
     # 4. Run high-value intersection analysis if multiple files found
     if len(nifti_files) >= 2:
-        logger.info("Running high-value intersection analysis...")
+        group_logger.info("Running high-value intersection analysis...")
         try:
-            intersection_output_dir = os.path.join(group_output_dir, "intersection_analysis")
-            os.makedirs(intersection_output_dir, exist_ok=True)
-            
-            # Temporarily override the output path logic for organized output
-            def _organized_intersection_path(input_paths, method_name, filename, custom_suffix=""):
-                # Create filename in the intersection_output_dir
-                subject_str = "_".join(subject_ids[:5])  # Use collected subject IDs
-                if len(subject_ids) > 5:
-                    subject_str += f"_plus{len(subject_ids)-5}more"
-                
-                final_filename = f"group_{method_name}_{subject_str}"
-                if custom_suffix:
-                    final_filename += f"_{custom_suffix}"
-                
-                # Preserve original extension
-                if filename.endswith('.nii.gz'):
-                    final_filename += '.nii.gz'
-                elif filename.endswith('.nii'):
-                    final_filename += '.nii'
-                elif '.' in filename:
-                    final_filename += '.' + filename.split('.')[-1]
-                
-                return os.path.join(intersection_output_dir, final_filename)
-            
-            # Temporarily replace the function
-            original_get_output_path = globals()['_get_output_path']
-            globals()['_get_output_path'] = _organized_intersection_path
-            
             # Run intersection with all subjects required (strictest)
             intersection_all = intersection_high_values_nifti(
                 nifti_files, 
                 min_overlap=len(nifti_files),
-                output_filename="intersection_all_subjects.nii.gz",
+                output_filename=f"intersection_all_subjects_{region_name}.nii.gz",
                 percentile_low=95.0,
-                percentile_high=99.9
+                percentile_high=99.9,
+                output_dir=run_output_dir
             )
-            logger.info(f"Strict intersection (all subjects) saved to: {intersection_all}")
+            group_logger.info(f"Strict intersection (all subjects) saved to: {intersection_all}")
+            nifti_results['intersection_all'] = intersection_all
             
-            # Run intersection with 50% overlap requirement if more than 2 subjects
-            if len(nifti_files) > 2:
-                min_overlap = max(2, len(nifti_files) // 2)
-                intersection_partial = intersection_high_values_nifti(
-                    nifti_files,
-                    min_overlap=min_overlap,
-                    output_filename="intersection_partial_overlap.nii.gz",
-                    percentile_low=95.0,
-                    percentile_high=99.9
-                )
-                logger.info(f"Partial intersection ({min_overlap}/{len(nifti_files)} subjects) saved to: {intersection_partial}")
-            
-            # Restore original function
-            globals()['_get_output_path'] = original_get_output_path
+            # Note: Partial intersection method is available but not currently produced
+            # To enable partial intersection, uncomment the following code:
+            # if len(nifti_files) > 2:
+            #     min_overlap = max(2, len(nifti_files) // 2)
+            #     intersection_partial = intersection_high_values_nifti(
+            #         nifti_files,
+            #         min_overlap=min_overlap,
+            #         output_filename=f"intersection_partial_overlap_{region_name}.nii.gz",
+            #         percentile_low=95.0,
+            #         percentile_high=99.9,
+            #         output_dir=run_output_dir
+            #     )
+            #     group_logger.info(f"Partial intersection ({min_overlap}/{len(nifti_files)} subjects) saved to: {intersection_partial}")
+            #     nifti_results['intersection_partial'] = intersection_partial
             
         except Exception as e:
-            logger.error(f"Intersection analysis failed: {e}")
+            group_logger.error(f"Intersection analysis failed: {e}")
+    elif len(nifti_files) == 1:
+        group_logger.info("Only 1 NIfTI file found - skipping intersection (requires at least 2 files)")
+    else:
+        group_logger.info("No NIfTI files found - skipping intersection")
     
-    # 5. Create summary report
-    summary_file = os.path.join(group_output_dir, "group_analysis_summary.txt")
-    logger.info(f"Creating group analysis summary: {summary_file}")
+    # Summary information is already logged, no need for separate summary file
     
-    with open(summary_file, 'w') as f:
-        f.write("Group Analysis Summary\n")
-        f.write("=" * 50 + "\n\n")
-        f.write(f"Analysis Date: {__import__('datetime').datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
-        f.write(f"Project: {project_name}\n")
-        f.write(f"Total Subjects: {len(analysis_dirs)}\n")
-        f.write(f"Standardized NIfTI Files Found: {len(nifti_files)}\n\n")
-        
-        f.write("Subject Analysis Directories:\n")
-        for i, analysis_dir in enumerate(analysis_dirs, 1):
-            f.write(f"  {i}. {analysis_dir}\n")
-        f.write("\n")
-        
-        f.write("Standardized Grey Matter MNI NIfTI Files Used:\n")
-        for i, nifti_path in enumerate(nifti_files, 1):
-            f.write(f"  {i}. {nifti_path}\n")
-        f.write("\n")
-        
-        f.write("Analyses Performed:\n")
-        if len(analysis_dirs) >= 2:
-            f.write("  ✓ Statistical comparison (CSV-based)\n")
-        if len(nifti_files) >= 2:
-            f.write("  ✓ NIfTI averaging (using standardized grey matter MNI files)\n")
-            f.write("  ✓ High-value intersection analysis (using standardized grey matter MNI files)\n")
-        
-        f.write("\nOutput Organization:\n")
-        f.write(f"  Main directory: {group_output_dir}\n")
-        f.write("  ├── statistical_comparison/     # CSV-based statistical analysis\n")
-        f.write("  ├── averaged_images/           # Group-averaged NIfTI images\n")
-        f.write("  ├── intersection_analysis/     # High-value intersection maps\n")
-        f.write("  └── group_analysis_summary.txt # This summary file\n")
+    group_logger.info(f"Group analysis complete. All results saved to: {run_output_dir}")
+    if nifti_results:
+        group_logger.info(f"Generated NIfTI files: {list(nifti_results.keys())}")
+        for analysis_type, file_path in nifti_results.items():
+            group_logger.info(f"  • {analysis_type}: {os.path.basename(file_path)}")
     
-    logger.info(f"Group analysis complete. All results saved to: {group_output_dir}")
-    return group_output_dir
+    return run_output_dir
 
 if __name__ == "__main__":
     analyses, output_path = collect_arguments()
     output_dir = setup_output_dir(output_path)
-    compare_analyses(analyses, output_dir)
+    
+    # Run the refactored comparison analysis
+    try:
+        results = compare_analyses(analyses, output_dir, generate_plot=True, generate_csv=True)
+        
+        if results:
+            if group_logger:
+                group_logger.info("\n" + "="*60)
+                group_logger.info("ROI-SPECIFIC ANALYSIS COMPARISON COMPLETED SUCCESSFULLY")
+                group_logger.info("="*60)
+                group_logger.info(f"Total subjects analyzed: {results.get('total_subjects', 0)}")
+                group_logger.info(f"Montage: {results.get('montage_name', 'N/A')}")
+                group_logger.info(f"Region/ROI: {results.get('region_name', 'N/A')}")
+                group_logger.info(f"Output directory: {results.get('output_directory', 'N/A')}")
+                
+                generated_files = results.get('generated_files', {})
+                if generated_files:
+                    group_logger.info("\nGenerated files:")
+                    for file_type, file_path in generated_files.items():
+                        group_logger.info(f"  • {file_type}: {file_path}")
+                
+                avg_stats = results.get('average_statistics', {})
+                if avg_stats:
+                    group_logger.info(f"\nGroup average ROI statistics:")
+                    group_logger.info(f"  • ROI Mean: {avg_stats.get('mean', 0):.6f}")
+                    group_logger.info(f"  • ROI Max: {avg_stats.get('max', 0):.6f}")
+                    group_logger.info(f"  • ROI Min: {avg_stats.get('min', 0):.6f}")
+                    group_logger.info(f"  • ROI Focality: {avg_stats.get('focality', 0):.6f}")
+                
+                group_logger.info("\n" + "="*60)
+        else:
+            if group_logger:
+                group_logger.warning("Analysis comparison completed but no results were generated.")
+            
+    except Exception as e:
+        if group_logger:
+            group_logger.error(f"Error during analysis comparison: {e}")
+        sys.exit(1)
