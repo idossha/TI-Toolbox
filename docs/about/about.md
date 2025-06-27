@@ -4,8 +4,6 @@ title: About
 permalink: /about/
 ---
 
-# About the Temporal Interference Toolbox
-
 The Temporal Interference Toolbox is a comprehensive research platform for non-invasive brain stimulation using temporal interference (TI) techniques. This project enables researchers to perform end-to-end analysis from neuroimaging data to optimized stimulation parameters.
 
 ### Contributors
