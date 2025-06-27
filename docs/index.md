@@ -82,9 +82,9 @@ We extend our gratitude to the developers and contributors of the tools integrat
 
 - [**Docker**](https://www.docker.com): A containerization platform for developing, shipping, and running distributed applications.
 - [**SimNIBS**:](https://simnibs.github.io/simnibs/build/html/index.html) A simulation environment for transcranial brain stimulation, enabling electric field modeling.
-- [**FreeSurfer**:](https://surfer.nmr.mgh.harvard.edu/) A software suite for the analysis and visualization of structural and functional neuroimaging data.
+- [**FreeSurfer**:](https://surfer.nmr.mgh.harvard.edu/) A software suite for the analysis and visualization of structural and functional neuroimaging data. While our toolbox includes FreeSurfer functionality, users are encouraged to register with FreeSurfer as a recognition of their software utilization.
 - [**Gmsh**:](http://gmsh.info/) A three-dimensional finite element mesh generator with a built-in CAD engine and post-processor.  
-- [**FSL**:](https://fsl.fmrib.ox.ac.uk/fsl/) A comprehensive library of tools for analysis of functional and structural brain imaging data.
+- [**FSL**:](https://fsl.fmrib.ox.ac.uk/fsl/) A comprehensive library of tools for analysis of functional and structural brain imaging data. While our toolbox includes FSL functionality, users are encouraged to register with FSL as a recognition of their software utilization.
 - [**dcm2niix**](https://github.com/rordenlab/dcm2niix): A tool for converting DICOM images to NIfTI format
 - [**BIDS**](https://bids.neuroimaging.io/): A standardized way to organize and describe neuroimaging data.
 
