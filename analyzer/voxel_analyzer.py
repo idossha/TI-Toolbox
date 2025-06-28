@@ -370,10 +370,9 @@ class VoxelAnalyzer:
                 self.logger.info("Generating global visualization plots...")
                 # Generate scatter plots in the main output directory
                 self.visualizer._generate_whole_head_plots(results, atlas_type, 'voxel')
-            
-            # Always generate and save summary CSV after all regions are processed
-            self.logger.info("Saving whole-head analysis summary to CSV...")
-            self.visualizer.save_whole_head_results_to_csv(results, atlas_type, 'voxel')
+                
+                # Generate and save summary CSV
+                self.visualizer.save_whole_head_results_to_csv(results, atlas_type, 'voxel')
             
             return results
             

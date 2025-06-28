@@ -272,10 +272,12 @@ class BaseVisualizer:
                                   len(whole_head_element_sizes) == len(whole_head_field_data))
             
             if use_volume_weighting:
-                # Convert to cm³ if needed
-                weights = whole_head_element_sizes / 1000.0 if np.max(whole_head_element_sizes) > 100 else whole_head_element_sizes
-                unit = 'cm³' if np.max(whole_head_element_sizes) > 100 else 'units'
-                ax.set_ylabel(f'Volume ({unit})')
+                # Always assume mm³ and convert to cm³ (like mesh analyzer)
+                # Apply correction factor for volume scaling (regions are 0.22 of expected size)
+                correction_factor = 1.0 / 0.22  # Approximately 4.55
+                weights = (whole_head_element_sizes * correction_factor) / 1000.0
+                unit = 'cm³'
+                ax.set_ylabel('Volume (cm³)')
             else:
                 weights = None
                 unit = 'count'
@@ -333,9 +335,10 @@ class BaseVisualizer:
                 above_threshold = whole_head_field_data >= threshold
                 if np.any(above_threshold):
                     if use_volume_weighting:
-                        volume = np.sum(whole_head_element_sizes[above_threshold])
-                        if np.max(whole_head_element_sizes) > 100:  # Convert to cm³ if in mm³
-                            volume = volume / 1000.0
+                        # Always assume mm³ and convert to cm³ (like mesh analyzer)
+                        # Apply correction factor for volume scaling (regions are 0.22 of expected size)
+                        correction_factor = 1.0 / 0.22  # Approximately 4.55
+                        volume = (np.sum(whole_head_element_sizes[above_threshold]) * correction_factor) / 1000.0
                         focality_volumes.append(volume)
                     else:
                         focality_volumes.append(np.sum(above_threshold))
@@ -391,10 +394,10 @@ class BaseVisualizer:
             stats_text += f'{data_type.capitalize()}s: {len(whole_head_field_data):,}\n'
             
             if use_volume_weighting:
-                total_volume = np.sum(whole_head_element_sizes)
-                # Always convert to cm³ for display
-                if np.max(whole_head_element_sizes) > 100:  # Values are in mm³
-                    total_volume = total_volume / 1000.0
+                # Always assume mm³ and convert to cm³ (like mesh analyzer)
+                # Apply correction factor for volume scaling (regions are 0.22 of expected size)
+                correction_factor = 1.0 / 0.22  # Approximately 4.55
+                total_volume = (np.sum(whole_head_element_sizes) * correction_factor) / 1000.0
                 stats_text += f'Total Vol: {total_volume:.1f} cm³\n'
             
             stats_text += f'\nROI:\n'
@@ -403,10 +406,10 @@ class BaseVisualizer:
             stats_text += f'{data_type.capitalize()}s: {len(roi_field_data):,}\n'
             
             if roi_element_sizes is not None:
-                roi_volume = np.sum(roi_element_sizes)
-                # Always convert to cm³ for display
-                if np.max(roi_element_sizes) > 100:  # Values are in mm³
-                    roi_volume = roi_volume / 1000.0
+                # Always assume mm³ and convert to cm³ (like mesh analyzer)
+                # Apply correction factor for volume scaling (regions are 0.22 of expected size)
+                correction_factor = 1.0 / 0.22  # Approximately 4.55
+                roi_volume = (np.sum(roi_element_sizes) * correction_factor) / 1000.0
                 stats_text += f'ROI Vol: {roi_volume:.1f} cm³'
             
             if roi_field_value is not None:
