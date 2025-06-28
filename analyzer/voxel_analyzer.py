@@ -344,8 +344,12 @@ class VoxelAnalyzer:
                                 field_img_tuple = self.load_brain_image(self.field_nifti)
                                 voxel_dims = field_img_tuple[0].header.get_zooms()[:3]
                                 
+                                # Filter out zero values from whole head data for histogram
+                                whole_head_positive_mask = field_arr > 0
+                                whole_head_filtered = field_arr[whole_head_positive_mask]
+                                
                                 region_visualizer.generate_focality_histogram(
-                                    whole_head_field_data=field_arr,
+                                    whole_head_field_data=whole_head_filtered,
                                     roi_field_data=field_values,
                                     region_name=region_name,
                                     roi_field_value=mean_value,
@@ -518,8 +522,12 @@ class VoxelAnalyzer:
                 # Get voxel dimensions from the loaded image
                 voxel_dims = img.header.get_zooms()[:3]
                 
+                # Filter out zero values from whole head data for histogram
+                whole_head_positive_mask = field_data > 0
+                whole_head_filtered = field_data[whole_head_positive_mask]
+                
                 self.visualizer.generate_focality_histogram(
-                    whole_head_field_data=field_data,
+                    whole_head_field_data=whole_head_filtered,
                     roi_field_data=roi_values,
                     region_name=region_name,
                     roi_field_value=mean_value,
@@ -849,8 +857,12 @@ class VoxelAnalyzer:
                 # Get voxel dimensions from the field image
                 voxel_dims = field_img.header.get_zooms()[:3]
                 
+                # Filter out zero values from whole head data for histogram
+                whole_head_positive_mask = field_arr > 0
+                whole_head_filtered = field_arr[whole_head_positive_mask]
+                
                 self.visualizer.generate_focality_histogram(
-                    whole_head_field_data=field_arr,
+                    whole_head_field_data=whole_head_filtered,
                     roi_field_data=field_values,
                     region_name=region_name,
                     roi_field_value=mean_value,

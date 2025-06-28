@@ -253,7 +253,10 @@ class BaseVisualizer:
                 # Calculate voxel volumes from dimensions
                 voxel_volume = np.prod(voxel_dims[:3])  # x * y * z
                 whole_head_element_sizes = np.full(len(whole_head_field_data), voxel_volume)
+                self.logger.info(f"Voxel dimensions: {voxel_dims[:3]} mm")
                 self.logger.info(f"Using uniform voxel volume: {voxel_volume:.3f} mm³")
+                self.logger.info(f"Number of whole head voxels: {len(whole_head_field_data):,}")
+                self.logger.info(f"Total whole head volume: {np.sum(whole_head_element_sizes) / 1000.0:.1f} cm³")
             
             # Handle element sizes for ROI
             if roi_element_sizes is not None:
@@ -271,17 +274,10 @@ class BaseVisualizer:
             use_volume_weighting = (whole_head_element_sizes is not None and 
                                   len(whole_head_element_sizes) == len(whole_head_field_data))
             
-            if use_volume_weighting:
-                # Always assume mm³ and convert to cm³ (like mesh analyzer)
-                # Apply correction factor for volume scaling (regions are 0.22 of expected size)
-                correction_factor = 1.0 / 0.22  # Approximately 4.55
-                weights = (whole_head_element_sizes * correction_factor) / 1000.0
-                unit = 'cm³'
-                ax.set_ylabel('Volume (cm³)')
-            else:
-                weights = None
-                unit = 'count'
-                ax.set_ylabel('Frequency')
+            # Use element/voxel counts instead of volume measurements
+            weights = None
+            unit = 'count'
+            ax.set_ylabel(f'{data_type.capitalize()}s')
             
             # Create histogram bins based on whole head data
             n_bins = 100
@@ -331,19 +327,13 @@ class BaseVisualizer:
                 threshold = (cutoff / 100.0) * percentile_99_9
                 focality_thresholds.append(threshold)
                 
-                # Calculate volume above this threshold
+                # Calculate count above this threshold
                 above_threshold = whole_head_field_data >= threshold
                 if np.any(above_threshold):
-                    if use_volume_weighting:
-                        # Always assume mm³ and convert to cm³ (like mesh analyzer)
-                        # Apply correction factor for volume scaling (regions are 0.22 of expected size)
-                        correction_factor = 1.0 / 0.22  # Approximately 4.55
-                        volume = (np.sum(whole_head_element_sizes[above_threshold]) * correction_factor) / 1000.0
-                        focality_volumes.append(volume)
-                    else:
-                        focality_volumes.append(np.sum(above_threshold))
+                    count = np.sum(above_threshold)
+                    focality_volumes.append(count)
                 else:
-                    focality_volumes.append(0.0)
+                    focality_volumes.append(0)
             
             # Add vertical red lines for focality cutoffs
             colors_lines = ['red', 'darkred', 'crimson', 'maroon']
@@ -352,7 +342,7 @@ class BaseVisualizer:
                 if threshold <= np.max(whole_head_field_data) and threshold >= np.min(whole_head_field_data):
                     color = colors_lines[i % len(colors_lines)]
                     ax.axvline(x=threshold, color=color, linestyle='--', linewidth=2, alpha=0.8,
-                              label=f'{cutoff}% of 99.9%ile\n({threshold:.2f} V/m)\nVol: {focality_volumes[i]:.1f} {unit}')
+                              label=f'{cutoff}% of 99.9%ile\n({threshold:.2f} V/m)\nCount: {focality_volumes[i]:,} {data_type}s')
                     lines_added += 1
             
             # Add mean ROI field value indicator line (if available)
@@ -393,24 +383,10 @@ class BaseVisualizer:
             stats_text += f'99.9%ile: {np.percentile(whole_head_field_data, 99.9):.2f} V/m\n'
             stats_text += f'{data_type.capitalize()}s: {len(whole_head_field_data):,}\n'
             
-            if use_volume_weighting:
-                # Always assume mm³ and convert to cm³ (like mesh analyzer)
-                # Apply correction factor for volume scaling (regions are 0.22 of expected size)
-                correction_factor = 1.0 / 0.22  # Approximately 4.55
-                total_volume = (np.sum(whole_head_element_sizes) * correction_factor) / 1000.0
-                stats_text += f'Total Vol: {total_volume:.1f} cm³\n'
-            
             stats_text += f'\nROI:\n'
             stats_text += f'Max: {np.max(roi_field_data):.2f} V/m\n'
             stats_text += f'Mean: {np.mean(roi_field_data):.2f} V/m\n'
-            stats_text += f'{data_type.capitalize()}s: {len(roi_field_data):,}\n'
-            
-            if roi_element_sizes is not None:
-                # Always assume mm³ and convert to cm³ (like mesh analyzer)
-                # Apply correction factor for volume scaling (regions are 0.22 of expected size)
-                correction_factor = 1.0 / 0.22  # Approximately 4.55
-                roi_volume = (np.sum(roi_element_sizes) * correction_factor) / 1000.0
-                stats_text += f'ROI Vol: {roi_volume:.1f} cm³'
+            stats_text += f'{data_type.capitalize()}s: {len(roi_field_data):,}'
             
             if roi_field_value is not None:
                 stats_text += f'\nROI Field: {roi_field_value:.2f} V/m'
