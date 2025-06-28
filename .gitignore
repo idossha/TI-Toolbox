@@ -42,3 +42,4 @@ TI-CSC_*_*/
 development/loader/.*
 development/**/dist/
 development/**/build/
+development/bash_dev/.default_paths.dev

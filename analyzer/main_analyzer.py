@@ -215,10 +215,6 @@ def main():
     args = parser.parse_args()
     
     try:
-        # Create output directory & documentation directory
-        os.makedirs(args.output_dir, exist_ok=True)
-        os.makedirs(os.path.join(args.output_dir, 'Documentation'), exist_ok=True)
-        
         # Initialize logger after creating output directory
         global logger
         time_stamp = time.strftime('%Y%m%d_%H%M%S')
@@ -315,7 +311,18 @@ def main():
                         target_region=args.region,
                         visualize=args.visualize
                     )
-        logger.info(f"Analysis completed successfully: {results}")
+        # Log completion with summary instead of full results
+        if isinstance(results, dict):
+            if any(k in results for k in ['mean_value', 'max_value', 'min_value']):
+                # Single region results
+                logger.info("Analysis completed successfully: Single region analysis")
+            else:
+                # Multiple region results - log count instead of full data
+                valid_regions = len([r for r in results.values() if isinstance(r, dict) and r.get('mean_value') is not None])
+                total_regions = len(results)
+                logger.info(f"Analysis completed successfully: {valid_regions}/{total_regions} regions processed")
+        else:
+            logger.info(f"Analysis completed successfully")
         
         # Handle both single region results and whole-head multi-region results
         if isinstance(results, dict) and any(k in results for k in ['mean_value', 'max_value', 'min_value']):
@@ -323,6 +330,7 @@ def main():
             print_stat_if_exists(results, 'mean_value', 'Mean Value')
             print_stat_if_exists(results, 'max_value', 'Max Value')
             print_stat_if_exists(results, 'min_value', 'Min Value')
+            print_stat_if_exists(results, 'focality', 'Focality')
         elif isinstance(results, dict):
             # Whole head results with multiple regions
             print("Multiple region analysis results:")
@@ -332,6 +340,7 @@ def main():
                     print_stat_if_exists(region_data, 'mean_value', 'Mean Value')
                     print_stat_if_exists(region_data, 'max_value', 'Max Value')
                     print_stat_if_exists(region_data, 'min_value', 'Min Value')
+                    print_stat_if_exists(region_data, 'focality', 'Focality')
     
     except Exception as e:
         logger.error(f"Error: {str(e)}")

@@ -999,10 +999,10 @@ class AnalyzerTab(QtWidgets.QWidget):
             self.update_output(f"Command: {' '.join(cmd)}")
             
             # Create and start thread
-            self.optimization_process = AnalysisThread(cmd, env)
-            self.optimization_process.output_signal.connect(self.update_output)
-            self.optimization_process.finished.connect(self.analysis_finished)
-            self.optimization_process.start()
+            self.analysis_process = AnalysisThread(cmd, env)
+            self.analysis_process.output_signal.connect(self.update_output)
+            self.analysis_process.finished.connect(self.analysis_finished)
+            self.analysis_process.start()
             
         except Exception as e:
             self.update_output(f"Error running analysis: {str(e)}")
@@ -1130,7 +1130,7 @@ class AnalyzerTab(QtWidgets.QWidget):
             formatted_text = f'<span style="color: #55ffff;">{text}</span>'
         elif "Analysis Results Summary:" in text:
             formatted_text = f'<div style="background-color: #2a2a2a; padding: 10px; margin: 10px 0; border-radius: 5px;"><span style="color: #55ff55; font-weight: bold; font-size: 14px;">{text}</span></div>'
-        elif any(value_type in text for value_type in ["Mean Value:", "Max Value:", "Min Value:"]):
+        elif any(value_type in text for value_type in ["Mean Value:", "Max Value:", "Min Value:", "Focality:"]):
             # Extract the value type and the numeric value
             parts = text.split(":")
             if len(parts) == 2:
@@ -1600,9 +1600,22 @@ class AnalyzerTab(QtWidgets.QWidget):
                 QtWidgets.QMessageBox.warning(self, "Error", f"T1 NIfTI file not found: {t1_path}")
                 return
             
-            # Launch Freeview with the T1 image
-            subprocess.Popen(["freeview", t1_path])
-            self.update_output(f"Launched Freeview with T1 image: {t1_path}")
+            # Build Freeview command with T1 image
+            freeview_cmd = ["freeview", "-v", t1_path]
+            
+            # Try to load field file if selected
+            field_path = self.get_selected_field_path()
+            if field_path and os.path.exists(field_path):
+                # Add the field file with heatmap colormap
+                freeview_cmd.extend(["-v", f"{field_path}:colormap=heat"])
+                self.update_output(f"Launched Freeview with T1 image and field overlay: {t1_path}")
+                self.update_output(f"Field overlay (heatmap): {field_path}")
+            else:
+                self.update_output(f"Launched Freeview with T1 image: {t1_path}")
+                self.update_output("Note: No valid field file selected for overlay")
+            
+            # Launch Freeview with the command
+            subprocess.Popen(freeview_cmd)
             
         except Exception as e:
             QtWidgets.QMessageBox.critical(self, "Error", f"Failed to launch Freeview: {str(e)}")
