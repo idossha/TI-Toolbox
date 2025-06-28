@@ -345,7 +345,8 @@ class VoxelAnalyzer:
                                 voxel_dims = field_img_tuple[0].header.get_zooms()[:3]
                                 
                                 region_visualizer.generate_focality_histogram(
-                                    field_values,
+                                    whole_head_field_data=field_arr,
+                                    roi_field_data=field_values,
                                     region_name=region_name,
                                     roi_field_value=mean_value,
                                     data_type='voxel',
@@ -369,9 +370,10 @@ class VoxelAnalyzer:
                 self.logger.info("Generating global visualization plots...")
                 # Generate scatter plots in the main output directory
                 self.visualizer._generate_whole_head_plots(results, atlas_type, 'voxel')
-                
-                # Generate and save summary CSV
-                self.visualizer.save_whole_head_results_to_csv(results, atlas_type, 'voxel')
+            
+            # Always generate and save summary CSV after all regions are processed
+            self.logger.info("Saving whole-head analysis summary to CSV...")
+            self.visualizer.save_whole_head_results_to_csv(results, atlas_type, 'voxel')
             
             return results
             
@@ -387,12 +389,6 @@ class VoxelAnalyzer:
                     del field_tuple
             except:
                 pass
-    
-
-                
-
-
-
 
     def analyze_sphere(self, center_coordinates, radius, visualize=False):
         """
@@ -524,7 +520,8 @@ class VoxelAnalyzer:
                 voxel_dims = img.header.get_zooms()[:3]
                 
                 self.visualizer.generate_focality_histogram(
-                    roi_values,
+                    whole_head_field_data=field_data,
+                    roi_field_data=roi_values,
                     region_name=region_name,
                     roi_field_value=mean_value,
                     data_type='voxel',
@@ -854,7 +851,8 @@ class VoxelAnalyzer:
                 voxel_dims = field_img.header.get_zooms()[:3]
                 
                 self.visualizer.generate_focality_histogram(
-                    field_values,
+                    whole_head_field_data=field_arr,
+                    roi_field_data=field_values,
                     region_name=region_name,
                     roi_field_value=mean_value,
                     data_type='voxel',

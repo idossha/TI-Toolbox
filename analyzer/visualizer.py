@@ -200,15 +200,21 @@ class BaseVisualizer:
         self.logger.info(f"Saved whole-head analysis summary to: {output_path}")
         return output_path
 
-    def generate_focality_histogram(self, field_data, element_sizes=None, filename=None, 
-                                   region_name=None, roi_field_value=None, data_type='element',
-                                   voxel_dims=None):
+    def generate_focality_histogram(self, whole_head_field_data, roi_field_data, 
+                                    whole_head_element_sizes=None, roi_element_sizes=None,
+                                    filename=None, region_name=None, roi_field_value=None, 
+                                    data_type='element', voxel_dims=None):
         """
-        Generate enhanced histogram visualization with focality cutoffs and volume weighting.
+        Generate a whole-head histogram with ROI contribution color coding.
+        
+        This creates a histogram of field values across the entire brain volume,
+        with bars color-coded to show how much of each bin's volume comes from the ROI.
         
         Args:
-            field_data (numpy.ndarray): Field strength values
-            element_sizes (numpy.ndarray, optional): Element/voxel sizes for volume weighting
+            whole_head_field_data (numpy.ndarray): Field strength values for entire head
+            roi_field_data (numpy.ndarray): Field strength values for ROI only
+            whole_head_element_sizes (numpy.ndarray, optional): Element sizes for entire head
+            roi_element_sizes (numpy.ndarray, optional): Element sizes for ROI only
             filename (str, optional): Filename for the output image
             region_name (str, optional): Name of the analyzed region
             roi_field_value (float, optional): ROI field value to display as reference line
@@ -218,136 +224,206 @@ class BaseVisualizer:
         Returns:
             str: Path to the generated histogram file
         """
-        self.logger.info(f"Generating focality histogram for {len(field_data)} {data_type}s")
+        self.logger.info(f"Generating whole-head ROI histogram for {len(whole_head_field_data)} {data_type}s")
         
         try:
             # Check for valid data
-            if len(field_data) == 0:
-                self.logger.warning(f"No data to plot for focality histogram")
+            if len(whole_head_field_data) == 0:
+                self.logger.warning(f"No whole-head data to plot")
                 return None
             
-            # Remove NaN values
-            valid_mask = ~np.isnan(field_data)
-            field_data = field_data[valid_mask]
+            if len(roi_field_data) == 0:
+                self.logger.warning(f"No ROI data to plot")
+                return None
             
-            # Handle element sizes for different data types
-            if element_sizes is not None:
-                element_sizes = element_sizes[valid_mask]
-                if len(element_sizes) != len(field_data):
-                    self.logger.warning("Element sizes don't match field data length, using frequency histogram")
-                    element_sizes = None
+            # Remove NaN values from both datasets
+            whole_head_valid_mask = ~np.isnan(whole_head_field_data)
+            roi_valid_mask = ~np.isnan(roi_field_data)
+            
+            whole_head_field_data = whole_head_field_data[whole_head_valid_mask]
+            roi_field_data = roi_field_data[roi_valid_mask]
+            
+            # Handle element sizes for whole head
+            if whole_head_element_sizes is not None:
+                whole_head_element_sizes = whole_head_element_sizes[whole_head_valid_mask]
+                if len(whole_head_element_sizes) != len(whole_head_field_data):
+                    self.logger.warning("Whole head element sizes don't match data length, using frequency histogram")
+                    whole_head_element_sizes = None
             elif data_type == 'voxel' and voxel_dims is not None:
                 # Calculate voxel volumes from dimensions
                 voxel_volume = np.prod(voxel_dims[:3])  # x * y * z
-                element_sizes = np.full(len(field_data), voxel_volume)
+                whole_head_element_sizes = np.full(len(whole_head_field_data), voxel_volume)
                 self.logger.info(f"Using uniform voxel volume: {voxel_volume:.3f} mm³")
+            
+            # Handle element sizes for ROI
+            if roi_element_sizes is not None:
+                roi_element_sizes = roi_element_sizes[roi_valid_mask]
+                if len(roi_element_sizes) != len(roi_field_data):
+                    self.logger.warning("ROI element sizes don't match data length")
+                    roi_element_sizes = None
             
             # Set up focality parameters
             focality_cutoffs = [50, 75, 90, 95]  # Percentages of 99.9 percentile
             
-            fig, ax = plt.subplots(figsize=(12, 8))
+            fig, ax = plt.subplots(figsize=(14, 10))
             
-            # Create volume-weighted histogram if element sizes are provided
-            if element_sizes is not None and len(element_sizes) == len(field_data):
-                # Create histogram with volume weighting (convert mm³ to cm³ if needed)
-                weights = element_sizes / 1000.0 if np.max(element_sizes) > 100 else element_sizes
-                n, bins, patches = ax.hist(field_data, bins=100, weights=weights, alpha=0.7, 
-                                         edgecolor='black', color='lightblue')
-                ax.set_ylabel('Volume (cm³)' if np.max(element_sizes) > 100 else 'Volume')
+            # Determine if we're doing volume-weighted or frequency histogram
+            use_volume_weighting = (whole_head_element_sizes is not None and 
+                                  len(whole_head_element_sizes) == len(whole_head_field_data))
+            
+            if use_volume_weighting:
+                # Convert to cm³ if needed
+                weights = whole_head_element_sizes / 1000.0 if np.max(whole_head_element_sizes) > 100 else whole_head_element_sizes
+                unit = 'cm³' if np.max(whole_head_element_sizes) > 100 else 'units'
+                ax.set_ylabel(f'Volume ({unit})')
+            else:
+                weights = None
+                unit = 'count'
+                ax.set_ylabel('Frequency')
+            
+            # Create histogram bins based on whole head data
+            n_bins = 100
+            hist, bin_edges = np.histogram(whole_head_field_data, bins=n_bins, weights=weights)
+            bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2
+            
+            # Calculate ROI contribution to each bin
+            roi_hist, _ = np.histogram(roi_field_data, bins=bin_edges, weights=roi_element_sizes if roi_element_sizes is not None else None)
+            
+            # Calculate ROI contribution percentage for each bin
+            roi_contribution = np.zeros_like(hist, dtype=float)
+            for i in range(len(hist)):
+                if hist[i] > 0:
+                    roi_contribution[i] = roi_hist[i] / hist[i]
+                else:
+                    roi_contribution[i] = 0.0
+            
+            # Calculate a more meaningful color scale based on the actual distribution
+            # Use the 95th percentile of non-zero contributions as the upper bound
+            non_zero_contributions = roi_contribution[roi_contribution > 0]
+            if len(non_zero_contributions) > 0:
+                max_contribution = np.percentile(non_zero_contributions, 95)
+                # Ensure we have a reasonable range (at least 0.01)
+                max_contribution = max(max_contribution, 0.01)
+            else:
+                max_contribution = 0.01
+            
+            # Normalize contributions to the new scale
+            normalized_contributions = np.clip(roi_contribution / max_contribution, 0, 1)
+            
+            # Use a blue-green-red (rainbow) colormap
+            rainbow_cmap = plt.cm.get_cmap('rainbow')
+            # To get blue at 0, green at 0.5, red at 1, use the full range
+            colors = rainbow_cmap(normalized_contributions)
+            colors[:, 3] = 0.7  # Set alpha to 0.7 for transparency
+            
+            # Plot the histogram bars
+            bars = ax.bar(bin_centers, hist, width=bin_edges[1]-bin_edges[0], 
+                         color=colors, edgecolor='black', alpha=0.8)
+            
+            # Calculate focality cutoffs based on 99.9 percentile of whole head data
+            percentile_99_9 = np.percentile(whole_head_field_data, 99.9)
+            focality_thresholds = []
+            focality_volumes = []
+            
+            for cutoff in focality_cutoffs:
+                threshold = (cutoff / 100.0) * percentile_99_9
+                focality_thresholds.append(threshold)
                 
-                # Calculate focality cutoffs based on 99.9 percentile
-                percentile_99_9 = np.percentile(field_data, 99.9)
-                focality_thresholds = []
-                focality_volumes = []
-                
-                for cutoff in focality_cutoffs:
-                    threshold = (cutoff / 100.0) * percentile_99_9
-                    focality_thresholds.append(threshold)
-                    
-                    # Calculate volume above this threshold
-                    above_threshold = field_data >= threshold
-                    if np.any(above_threshold):
-                        volume = np.sum(element_sizes[above_threshold])
-                        if np.max(element_sizes) > 100:  # Convert to cm³ if in mm³
+                # Calculate volume above this threshold
+                above_threshold = whole_head_field_data >= threshold
+                if np.any(above_threshold):
+                    if use_volume_weighting:
+                        volume = np.sum(whole_head_element_sizes[above_threshold])
+                        if np.max(whole_head_element_sizes) > 100:  # Convert to cm³ if in mm³
                             volume = volume / 1000.0
                         focality_volumes.append(volume)
                     else:
-                        focality_volumes.append(0.0)
-                
-                # Add vertical red lines for focality cutoffs
-                colors = ['red', 'darkred', 'crimson', 'maroon']
-                lines_added = 0
-                for i, (threshold, cutoff) in enumerate(zip(focality_thresholds, focality_cutoffs)):
-                    if threshold <= np.max(field_data) and threshold >= np.min(field_data):
-                        color = colors[i % len(colors)]
-                        unit = 'cm³' if np.max(element_sizes) > 100 else 'units'
-                        ax.axvline(x=threshold, color=color, linestyle='--', linewidth=2, alpha=0.8,
-                                  label=f'{cutoff}% of 99.9%ile\n({threshold:.2f} V/m)\nVol: {focality_volumes[i]:.1f} {unit}')
-                        lines_added += 1
-                
-                # Add mean ROI field value indicator line (if available)
-                if roi_field_value is not None and np.min(field_data) <= roi_field_value <= np.max(field_data):
-                    ax.axvline(x=roi_field_value, color='green', linestyle='-', linewidth=3, alpha=0.9,
-                              label=f'Mean ROI Field\n({roi_field_value:.2f} V/m)')
+                        focality_volumes.append(np.sum(above_threshold))
+                else:
+                    focality_volumes.append(0.0)
+            
+            # Add vertical red lines for focality cutoffs
+            colors_lines = ['red', 'darkred', 'crimson', 'maroon']
+            lines_added = 0
+            for i, (threshold, cutoff) in enumerate(zip(focality_thresholds, focality_cutoffs)):
+                if threshold <= np.max(whole_head_field_data) and threshold >= np.min(whole_head_field_data):
+                    color = colors_lines[i % len(colors_lines)]
+                    ax.axvline(x=threshold, color=color, linestyle='--', linewidth=2, alpha=0.8,
+                              label=f'{cutoff}% of 99.9%ile\n({threshold:.2f} V/m)\nVol: {focality_volumes[i]:.1f} {unit}')
                     lines_added += 1
-                
-                # Add legend for all lines (only if lines were added)
-                if lines_added > 0:
-                    ax.legend(loc='upper right', bbox_to_anchor=(1.25, 1), 
-                             frameon=True, fancybox=True, shadow=True)
-                
-            else:
-                # Frequency histogram if no element sizes available
-                ax.hist(field_data, bins=100, alpha=0.7, edgecolor='black', color='lightblue')
-                ax.set_ylabel('Frequency')
-                
-                # Add ROI indicator for frequency plots
-                if roi_field_value is not None and np.min(field_data) <= roi_field_value <= np.max(field_data):
-                    ax.axvline(x=roi_field_value, color='green', linestyle='-', linewidth=3, alpha=0.9,
-                              label=f'Mean ROI Field\n({roi_field_value:.2f} V/m)')
-                    ax.legend(loc='upper right')
+            
+            # Add mean ROI field value indicator line (if available)
+            if roi_field_value is not None and np.min(whole_head_field_data) <= roi_field_value <= np.max(whole_head_field_data):
+                ax.axvline(x=roi_field_value, color='green', linestyle='-', linewidth=3, alpha=0.9,
+                          label=f'Mean ROI Field\n({roi_field_value:.2f} V/m)')
+                lines_added += 1
+            
+            # Add legend for all lines (only if lines were added)
+            if lines_added > 0:
+                ax.legend(loc='upper left', bbox_to_anchor=(0.02, 0.98),
+                          frameon=True, fancybox=True, shadow=True, fontsize=9)
             
             # Customize plot
             ax.set_xlabel('Field Strength (V/m)')
             
             # Create title
-            title_parts = ['Field Distribution with Focality Cutoffs']
+            title_parts = ['Whole-Head Field Distribution with ROI Contribution']
             if region_name:
-                title_parts.append(f'Region: {region_name}')
+                title_parts.append(f'ROI: {region_name}')
             if filename:
                 title_parts.append(f'File: {filename}')
             
             ax.set_title('\n'.join(title_parts), fontsize=14, fontweight='bold')
             ax.grid(True, alpha=0.3)
             
-            # Add statistics text box
-            stats_text = f'Max: {np.max(field_data):.2f} V/m\n'
-            stats_text += f'Mean: {np.mean(field_data):.2f} V/m\n'
-            stats_text += f'99.9%ile: {np.percentile(field_data, 99.9):.2f} V/m\n'
-            stats_text += f'{data_type.capitalize()}s: {len(field_data):,}'
+            # Add colorbar for ROI contribution
+            norm = plt.Normalize(0, 1)
+            sm = plt.cm.ScalarMappable(cmap=rainbow_cmap, norm=norm)
+            sm.set_array([])
+            cbar = plt.colorbar(sm, ax=ax, shrink=0.7, pad=0.02, aspect=25)
+            cbar.set_label(f'ROI Contribution Fraction\n(Blue→Green→Red, max={max_contribution:.3f})', fontsize=10, fontweight='bold')
             
-            if element_sizes is not None:
-                total_volume = np.sum(element_sizes)
-                if np.max(element_sizes) > 100:  # Convert to cm³ if in mm³
+            # Add statistics text box
+            stats_text = f'Whole Head:\n'
+            stats_text += f'Max: {np.max(whole_head_field_data):.2f} V/m\n'
+            stats_text += f'Mean: {np.mean(whole_head_field_data):.2f} V/m\n'
+            stats_text += f'99.9%ile: {np.percentile(whole_head_field_data, 99.9):.2f} V/m\n'
+            stats_text += f'{data_type.capitalize()}s: {len(whole_head_field_data):,}\n'
+            
+            if use_volume_weighting:
+                total_volume = np.sum(whole_head_element_sizes)
+                # Always convert to cm³ for display
+                if np.max(whole_head_element_sizes) > 100:  # Values are in mm³
                     total_volume = total_volume / 1000.0
-                    unit = 'cm³'
-                else:
-                    unit = 'units'
-                stats_text += f'\nTotal Vol: {total_volume:.1f} {unit}'
+                stats_text += f'Total Vol: {total_volume:.1f} cm³\n'
+            
+            stats_text += f'\nROI:\n'
+            stats_text += f'Max: {np.max(roi_field_data):.2f} V/m\n'
+            stats_text += f'Mean: {np.mean(roi_field_data):.2f} V/m\n'
+            stats_text += f'{data_type.capitalize()}s: {len(roi_field_data):,}\n'
+            
+            if roi_element_sizes is not None:
+                roi_volume = np.sum(roi_element_sizes)
+                # Always convert to cm³ for display
+                if np.max(roi_element_sizes) > 100:  # Values are in mm³
+                    roi_volume = roi_volume / 1000.0
+                stats_text += f'ROI Vol: {roi_volume:.1f} cm³'
             
             if roi_field_value is not None:
                 stats_text += f'\nROI Field: {roi_field_value:.2f} V/m'
             
-            ax.text(0.02, 0.98, stats_text, transform=ax.transAxes, fontsize=10,
-                   verticalalignment='top', bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.8))
+            # Position stats box on the right side of the plot
+            ax.text(0.98, 0.98, stats_text, transform=ax.transAxes, fontsize=9,
+                   verticalalignment='top', horizontalalignment='right',
+                   bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.8))
             
             # Generate output filename
             if filename:
                 base_name = Path(filename).stem if hasattr(Path, 'stem') else os.path.splitext(os.path.basename(filename))[0]
             elif region_name:
-                base_name = f"{region_name}_focality"
+                base_name = f"{region_name}_whole_head_roi"
             else:
-                base_name = "focality_histogram"
+                base_name = "whole_head_roi_histogram"
             
             # Save histogram with tight layout
             hist_file = os.path.join(self.output_dir, f'{base_name}_histogram.png')
@@ -355,11 +431,11 @@ class BaseVisualizer:
             plt.savefig(hist_file, dpi=150, bbox_inches='tight')
             plt.close(fig)
             
-            self.logger.info(f"Generated focality histogram: {hist_file}")
+            self.logger.info(f"Generated whole-head ROI histogram: {hist_file}")
             return hist_file
             
         except Exception as e:
-            self.logger.error(f"Failed to generate focality histogram: {str(e)}")
+            self.logger.error(f"Failed to generate whole-head ROI histogram: {str(e)}")
             return None
 
 
