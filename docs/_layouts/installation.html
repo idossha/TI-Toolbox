@@ -1,0 +1,30 @@
+---
+layout: default
+---
+
+<link rel="stylesheet" href="{{ '/assets/css/wiki.css' | relative_url }}">
+
+<div class="wiki-layout">
+  <div class="wiki-sidebar">
+    <div class="wiki-nav">
+      <h3>Installation</h3>
+      <ul>
+        <li><a href="{{ site.baseurl }}/installation/" {% if page.url == '/installation/' or page.url == '/TI-Toolbox/installation/' %}class="active"{% endif %}>Quick Start</a></li>
+        <li><a href="{{ site.baseurl }}/installation/dependencies/" {% if page.url == '/installation/dependencies/' or page.url == '/TI-Toolbox/installation/dependencies/' %}class="active"{% endif %}>Dependencies</a></li>
+        <h4>Platform Guides</h4>
+        <li><a href="{{ site.baseurl }}/installation/windows/" {% if page.url == '/installation/windows/' or page.url == '/TI-Toolbox/installation/windows/' %}class="active"{% endif %}>Windows</a></li>
+        <li><a href="{{ site.baseurl }}/installation/macos/" {% if page.url == '/installation/macos/' or page.url == '/TI-Toolbox/installation/macos/' %}class="active"{% endif %}>macOS</a></li>
+        <li><a href="{{ site.baseurl }}/installation/linux/" {% if page.url == '/installation/linux/' or page.url == '/TI-Toolbox/installation/linux/' %}class="active"{% endif %}>Linux</a></li>
+        <h4>Additional Guides</h4>
+        <li><a href="{{ site.baseurl }}/installation/bash-cli/" {% if page.url == '/installation/bash-cli/' or page.url == '/TI-Toolbox/installation/bash-cli/' %}class="active"{% endif %}>Bash/CLI Usage</a></li>
+        <li><a href="{{ site.baseurl }}/installation/troubleshooting/" {% if page.url == '/installation/troubleshooting/' or page.url == '/TI-Toolbox/installation/troubleshooting/' %}class="active"{% endif %}>Troubleshooting</a></li>
+      </ul>
+    </div>
+  </div>
+  <div class="wiki-content">
+    <div class="wiki-content-inner">
+      <h1>{{ page.title | escape }}</h1>
+      {{ content }}
+    </div>
+  </div>
+</div> 

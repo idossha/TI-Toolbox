@@ -14,10 +14,11 @@ plugins:
 
 # Navigation
 header_pages:
+  - installation/installation.md
   - wiki/wiki.md
   - releases/releases.md
+  - gallery/gallery.md
   - about/about.md
-  - installation.md
 
 # Markdown settings
 markdown: kramdown
