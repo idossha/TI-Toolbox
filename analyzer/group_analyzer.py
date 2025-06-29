@@ -17,6 +17,8 @@ import sys
 import argparse
 import subprocess
 import logging
+import shutil
+import glob
 from pathlib import Path
 from typing import List, Tuple
 
@@ -371,6 +373,212 @@ def run_comprehensive_group_analysis(analysis_paths: List[str], project_name: st
         return ""
 
 
+def determine_group_subfolder_name(args, first_subject_args: List[str]) -> str:
+    """
+    Determine the group subfolder name in format: {montage}_{roi}
+    
+    Args:
+        args: Command line arguments
+        first_subject_args: First subject's arguments to extract montage info
+        
+    Returns:
+        str: Subfolder name like "montage_roi"
+    """
+    # Extract montage name from field path
+    field_path = first_subject_args[2]
+    path_parts = Path(field_path).parts
+    
+    try:
+        # Locate "Simulations" in the file path
+        sim_idx = path_parts.index('Simulations')
+        # Montage name is the folder immediately after "Simulations"
+        montage_name = path_parts[sim_idx + 1]
+    except (ValueError, IndexError):
+        # Fallback to generic name if structure is unexpected
+        montage_name = "unknown_montage"
+    
+    # Determine ROI description
+    if args.analysis_type == 'spherical':
+        roi_desc = f"sphere_r{args.radius}"
+    else:  # cortical
+        if args.whole_head:
+            if args.space == 'mesh':
+                roi_desc = f"whole_head_{args.atlas_name}"
+            else:  # voxel
+                atlas_path = first_subject_args[3] if len(first_subject_args) > 3 else "unknown_atlas"
+                atlas_name = os.path.basename(atlas_path).split('.')[0] if atlas_path != "unknown_atlas" else "unknown_atlas"
+                roi_desc = f"whole_head_{atlas_name}"
+        else:
+            roi_desc = args.region
+    
+    return f"{montage_name}_{roi_desc}"
+
+
+def copy_subject_visual_outputs(subject_args: List[str], subject_analysis_dir: str, 
+                                group_visual_dir: str, analysis_space: str) -> int:
+    """
+    Copy visual outputs from a single subject's analysis directory to group folder.
+    
+    Args:
+        subject_args: Subject arguments (subject_id, m2m_path, field_path, [atlas_path])
+        subject_analysis_dir: Path to subject's analysis directory
+        group_visual_dir: Path to group analysis visual output directory
+        analysis_space: 'mesh' or 'voxel'
+        
+    Returns:
+        int: Number of files successfully copied
+    """
+    global group_logger
+    
+    subject_id = subject_args[0]
+    files_copied = 0
+    
+    # Create subject-specific directory in group folder
+    subject_group_dir = os.path.join(group_visual_dir, f"sub-{subject_id}")
+    os.makedirs(subject_group_dir, exist_ok=True)
+    
+    if group_logger:
+        group_logger.info(f"Collecting visual outputs for subject {subject_id}")
+        group_logger.info(f"  Source: {subject_analysis_dir}")
+        group_logger.info(f"  Destination: {subject_group_dir}")
+    
+    # 1. Find and copy distribution plots (with region names in filename)
+    if analysis_space == 'mesh':
+        distribution_pattern = os.path.join(subject_analysis_dir, 'node_distribution_*.png')
+    else:
+        distribution_pattern = os.path.join(subject_analysis_dir, 'voxel_distribution_*.png')
+    
+    distribution_files = glob.glob(distribution_pattern)
+    if distribution_files:
+        for dist_file in distribution_files:
+            filename = os.path.basename(dist_file)
+            dest_path = os.path.join(subject_group_dir, filename)
+            try:
+                shutil.copy2(dist_file, dest_path)
+                files_copied += 1
+                if group_logger:
+                    group_logger.info(f"  ✓ Copied {filename}")
+            except Exception as e:
+                if group_logger:
+                    group_logger.warning(f"  ✗ Failed to copy {filename}: {e}")
+    else:
+        dist_type = 'node' if analysis_space == 'mesh' else 'voxel'
+        if group_logger:
+            group_logger.warning(f"  ✗ No {dist_type}_distribution_*.png files found")
+    
+    # 2. Find and copy focality histograms (with region names in filename)
+    histogram_pattern = os.path.join(subject_analysis_dir, '*_histogram.png')
+    histogram_files = glob.glob(histogram_pattern)
+    if histogram_files:
+        for hist_file in histogram_files:
+            filename = os.path.basename(hist_file)
+            dest_path = os.path.join(subject_group_dir, filename)
+            try:
+                shutil.copy2(hist_file, dest_path)
+                files_copied += 1
+                if group_logger:
+                    group_logger.info(f"  ✓ Copied {filename}")
+            except Exception as e:
+                if group_logger:
+                    group_logger.warning(f"  ✗ Failed to copy {filename}: {e}")
+    else:
+        if group_logger:
+            group_logger.warning(f"  ✗ No *_histogram.png files found")
+    
+    # 3. ROI visualization files (search for .msh, .nii, .nii.gz)
+    roi_extensions = ['*.msh', '*.nii', '*.nii.gz']
+    roi_files_found = []
+    
+    for ext in roi_extensions:
+        pattern = os.path.join(subject_analysis_dir, ext)
+        matches = glob.glob(pattern)
+        roi_files_found.extend(matches)
+    
+    # Copy ROI visualization files
+    for roi_file in roi_files_found:
+        if os.path.isfile(roi_file):
+            filename = os.path.basename(roi_file)
+            dest_path = os.path.join(subject_group_dir, filename)
+            try:
+                shutil.copy2(roi_file, dest_path)
+                files_copied += 1
+                if group_logger:
+                    group_logger.info(f"  ✓ Copied ROI file: {filename}")
+            except Exception as e:
+                if group_logger:
+                    group_logger.warning(f"  ✗ Failed to copy ROI file {filename}: {e}")
+    
+    if len(roi_files_found) == 0:
+        if group_logger:
+            group_logger.warning(f"  ✗ No ROI visualization files found (.msh, .nii, .nii.gz)")
+    
+    if group_logger:
+        group_logger.info(f"  Total files copied: {files_copied}")
+    
+    return files_copied
+
+
+def collect_all_visual_outputs(args, successful_subjects_info: List[Tuple[List[str], str]], 
+                              centralized_group_dir: str) -> str:
+    """
+    Collect visual outputs from all successful subject analyses.
+    
+    Args:
+        args: Command line arguments
+        successful_subjects_info: List of (subject_args, output_dir) tuples for successful subjects
+        centralized_group_dir: Path to centralized group analysis directory
+        
+    Returns:
+        str: Path to the visual outputs directory
+    """
+    global group_logger
+    
+    if len(successful_subjects_info) == 0:
+        if group_logger:
+            group_logger.warning("No successful analyses for visual output collection.")
+        return ""
+    
+    if group_logger:
+        group_logger.info(f"\n=== Collecting visual outputs from {len(successful_subjects_info)} successful analyses ===")
+    
+    # Determine the group subfolder name using the first successful subject
+    first_subject_args = successful_subjects_info[0][0]
+    subfolder_name = determine_group_subfolder_name(args, first_subject_args)
+    
+    # Create visual outputs directory
+    visual_outputs_dir = os.path.join(centralized_group_dir, subfolder_name)
+    os.makedirs(visual_outputs_dir, exist_ok=True)
+    
+    if group_logger:
+        group_logger.info(f"Visual outputs will be collected in: {visual_outputs_dir}")
+    
+    total_files_copied = 0
+    successful_subjects = []
+    
+    # Process each successful subject
+    for subject_args, subject_analysis_dir in successful_subjects_info:
+        subject_id = subject_args[0]
+        
+        files_copied = copy_subject_visual_outputs(
+            subject_args, subject_analysis_dir, visual_outputs_dir, args.space
+        )
+        
+        if files_copied > 0:
+            successful_subjects.append(subject_id)
+            total_files_copied += files_copied
+    
+    if group_logger:
+        group_logger.info(f"\n=== Visual Output Collection Summary ===")
+        group_logger.info(f"Total files collected: {total_files_copied}")
+        group_logger.info(f"Subjects with visual outputs: {len(successful_subjects)}")
+        if successful_subjects:
+            group_logger.info(f"Successful subjects: {', '.join(successful_subjects)}")
+        group_logger.info(f"Visual outputs directory: {visual_outputs_dir}")
+    
+    return visual_outputs_dir
+
+
+
 def main():
     global group_logger
     
@@ -402,6 +610,7 @@ def main():
             group_logger.info(f"    Legacy output directory: {args.output_dir}\n")
 
         successful_dirs = []
+        successful_subjects_info = []  # Store (subject_args, output_dir) pairs
         failed_subjects = []
 
         for subj_args in args.subject:
@@ -409,6 +618,7 @@ def main():
             ok, outdir = run_subject_analysis(args, subj_args)
             if ok:
                 successful_dirs.append(outdir)
+                successful_subjects_info.append((subj_args, outdir))
             else:
                 failed_subjects.append(subj_id)
 
@@ -426,6 +636,15 @@ def main():
             if analysis_dirs:
                 final_group_dir = run_comprehensive_group_analysis(analysis_dirs, project_name)
                 
+                if group_logger:
+                    group_logger.info(f"Group comparison completed. Output directory: {final_group_dir}")
+                
+                # Collect visual outputs from individual subject analyses
+                if successful_subjects_info:
+                    visual_outputs_dir = collect_all_visual_outputs(
+                        args, successful_subjects_info, centralized_group_dir
+                    )
+                
                 # Results are comprehensively logged, no need for separate summary files
             else:
                 if group_logger:
@@ -433,6 +652,11 @@ def main():
         elif args.no_compare:
             if group_logger:
                 group_logger.info("Group comparison skipped (--no-compare flag specified).")
+            # Still collect visual outputs even if comparison is skipped
+            if successful_subjects_info:
+                visual_outputs_dir = collect_all_visual_outputs(
+                    args, successful_subjects_info, centralized_group_dir
+                )
         else:
             if group_logger:
                 group_logger.warning("No successful analyses to compare.")
@@ -440,7 +664,8 @@ def main():
         if group_logger:
             group_logger.info("\n>>> Group analysis complete.")
             if len(successful_dirs) >= 1 and not args.no_compare:
-                group_logger.info(f"Comprehensive group results are available in the centralized location.\n")
+                group_logger.info(f"Comprehensive group results are available in the centralized location.")
+                group_logger.info("")  # Empty line for spacing
             elif args.no_compare:
                 group_logger.info(f"Group comparison was skipped. Individual subject results are in their respective directories.\n")
             else:
