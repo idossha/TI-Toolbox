@@ -414,8 +414,10 @@ class MeshAnalyzer:
                                 positive_node_areas = node_areas[roi_mask][positive_mask]
                                 
                                 region_visualizer.generate_focality_histogram(
-                                    field_values_positive,
-                                    element_sizes=positive_node_areas,
+                                    whole_head_field_data=field_values,
+                                    roi_field_data=field_values_positive,
+                                    whole_head_element_sizes=node_areas,
+                                    roi_element_sizes=positive_node_areas,
                                     region_name=region_name,
                                     roi_field_value=mean_value,
                                     data_type='node'
@@ -438,10 +440,10 @@ class MeshAnalyzer:
                 self.logger.info("Generating global visualization plot...")
                 # Generate scatter plots in the main output directory
                 self.visualizer._generate_whole_head_plots(results, atlas_type, 'node')
-                
-                # Generate and save summary CSV
-                self.logger.info("Saving whole-head analysis summary to CSV...")
-                self.visualizer.save_whole_head_results_to_csv(results, atlas_type, 'node')
+            
+            # Always generate and save summary CSV after all regions are processed
+            self.logger.info("Saving whole-head analysis summary to CSV...")
+            self.visualizer.save_whole_head_results_to_csv(results, atlas_type, 'node')
             
             return results
             
@@ -591,7 +593,8 @@ class MeshAnalyzer:
             try:
                 self.logger.info("Generating focality histogram for spherical ROI...")
                 self.visualizer.generate_focality_histogram(
-                    field_values_positive,
+                    whole_head_field_data=field_values,
+                    roi_field_data=field_values_positive,
                     region_name=f"sphere_x{center_coordinates[0]}_y{center_coordinates[1]}_z{center_coordinates[2]}_r{radius}",
                     roi_field_value=mean_value,
                     data_type='node'
@@ -783,8 +786,10 @@ class MeshAnalyzer:
                     positive_node_areas = node_areas[roi_mask][positive_mask]
                     
                     self.visualizer.generate_focality_histogram(
-                        field_values_positive,
-                        element_sizes=positive_node_areas,
+                        whole_head_field_data=field_values,
+                        roi_field_data=field_values_positive,
+                        whole_head_element_sizes=node_areas,
+                        roi_element_sizes=positive_node_areas,
                         region_name=target_region,
                         roi_field_value=mean_value,
                         data_type='node'
