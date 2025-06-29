@@ -74,9 +74,40 @@ from pathlib import Path
 from mesh_analyzer import MeshAnalyzer
 from voxel_analyzer import VoxelAnalyzer
 
+# Force unbuffered output for real-time GUI updates
+try:
+    sys.stdout.reconfigure(line_buffering=True)
+    sys.stderr.reconfigure(line_buffering=True)
+except AttributeError:
+    # For Python < 3.7, use this approach
+    import functools
+    original_stdout_write = sys.stdout.write
+    original_stderr_write = sys.stderr.write
+    
+    def flushing_stdout_write(text):
+        result = original_stdout_write(text)
+        sys.stdout.flush()
+        return result
+    
+    def flushing_stderr_write(text):
+        result = original_stderr_write(text)
+        sys.stderr.flush()
+        return result
+    
+    sys.stdout.write = flushing_stdout_write
+    sys.stderr.write = flushing_stderr_write
+
 # Add the parent directory to the path to access utils
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 from utils import logging_util
+
+def flush_output():
+    """Force flush stdout and stderr for real-time GUI updates."""
+    try:
+        sys.stdout.flush()
+        sys.stderr.flush()
+    except:
+        pass
 
 def validate_file_extension(file_path, valid_extensions):
     """Validate file extension against a list of valid extensions."""
@@ -229,6 +260,7 @@ def main():
             # Use centralized log file for group analysis
             logger = logging_util.get_logger('analyzer', args.log_file, overwrite=False)
             logger.info(f"=== Subject {subject_id} Analysis Started ===")
+            flush_output()
         else:
             # Use default subject-specific logging
             # Get project directory from m2m_subject_path
@@ -245,13 +277,17 @@ def main():
             logger = logging_util.get_logger('analyzer', log_file, overwrite=True)
         
         logger.info(f"Output directory created: {args.output_dir}")
+        flush_output()
         
         # Validate arguments
         validate_args(args)
         logger.info("Arguments validated successfully")
+        flush_output()
         
         # Initialize appropriate analyzer
         if args.space == 'mesh':
+            logger.info("Initializing mesh analyzer...")
+            flush_output()
             analyzer = MeshAnalyzer(
                 field_mesh_path=args.field_path,
                 field_name=args.field_name,
@@ -261,9 +297,12 @@ def main():
             )
             if analyzer is None:
                 logger.error("Failed to initialize mesh analyzer")
+                flush_output()
                 raise ValueError("Failed to initialize mesh analyzer")
 
         else:  # voxel
+            logger.info("Initializing voxel analyzer...")
+            flush_output()
             analyzer = VoxelAnalyzer(
                 field_nifti=args.field_path,
                 subject_dir=args.m2m_subject_path,
@@ -272,12 +311,14 @@ def main():
             )
             if analyzer is None:
                 logger.error("Failed to initialize voxel analyzer")
+                flush_output()
                 raise ValueError("Failed to initialize voxel analyzer")
 
         # Perform analysis based on type
         if args.analysis_type == 'spherical':
             if args.space == 'mesh':
                 logger.info("Performing spherical analysis on mesh")
+                flush_output()
                 # Mesh analyzer 
                 results = analyzer.analyze_sphere(
                     center_coordinates=args.coordinates,
@@ -287,6 +328,7 @@ def main():
             else:  # voxel
                 # Voxel analyzer 
                 logger.info("Performing spherical analysis on voxel")
+                flush_output()
                 results = analyzer.analyze_sphere(
                     center_coordinates=args.coordinates,
                     radius=args.radius,
@@ -296,12 +338,14 @@ def main():
             if args.whole_head:
                 if args.space == 'mesh':
                     logger.info("Performing whole head analysis on mesh")
+                    flush_output()
                     results = analyzer.analyze_whole_head(
                         atlas_type=args.atlas_name,
                         visualize=args.visualize
                     )
                 else:  # voxel
                     logger.info("Performing whole head analysis on voxel")
+                    flush_output()
                     results = analyzer.analyze_whole_head(
                         atlas_file=args.atlas_path,
                         visualize=args.visualize
@@ -309,6 +353,7 @@ def main():
             else:  # specific region
                 if args.space == 'mesh':
                     logger.info("Performing region analysis on mesh")
+                    flush_output()
                     results = analyzer.analyze_cortex(
                         atlas_type=args.atlas_name,
                         target_region=args.region,
@@ -316,6 +361,7 @@ def main():
                     )
                 else:  # voxel
                     logger.info("Performing region analysis on voxel")
+                    flush_output()
                     results = analyzer.analyze_cortex(
                         atlas_file=args.atlas_path,
                         target_region=args.region,
@@ -327,17 +373,21 @@ def main():
             if any(k in results for k in ['mean_value', 'max_value', 'min_value']):
                 # Single region results
                 logger.info("Analysis completed successfully: Single region analysis")
+                flush_output()
             else:
                 # Multiple region results - log count instead of full data
                 valid_regions = len([r for r in results.values() if isinstance(r, dict) and r.get('mean_value') is not None])
                 total_regions = len(results)
                 logger.info(f"Analysis completed successfully: {valid_regions}/{total_regions} regions processed")
+                flush_output()
         else:
             logger.info(f"Analysis completed successfully")
+            flush_output()
         
         # Add completion marker for group analysis
         if args.log_file:
             logger.info(f"=== Subject {subject_id} Analysis Completed ===")
+            flush_output()
         
         # Handle both single region results and whole-head multi-region results
         if isinstance(results, dict) and any(k in results for k in ['mean_value', 'max_value', 'min_value']):

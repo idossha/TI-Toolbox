@@ -13,6 +13,7 @@ from PyQt5 import QtWidgets, QtCore, QtGui
 from confirmation_dialog import ConfirmationDialog # Assuming this exists from original
 from utils import confirm_overwrite # Assuming this exists from original
 import traceback # For more detailed error logging if needed
+import time
 
 class AnalysisThread(QtCore.QThread):
     """Thread to run analysis in background to prevent GUI freezing."""
@@ -37,8 +38,9 @@ class AnalysisThread(QtCore.QThread):
     def run(self):
         """Run the analysis command in a separate thread."""
         try:
-            # Set up Python unbuffered output
+            # Set up Python unbuffered output and force line flushing
             self.env['PYTHONUNBUFFERED'] = '1'
+            self.env['PYTHONFAULTHANDLER'] = '1'
             
             self.process = subprocess.Popen(
                 self.cmd, 
@@ -46,39 +48,104 @@ class AnalysisThread(QtCore.QThread):
                 stderr=subprocess.PIPE,
                 universal_newlines=True, # Use text mode
                 bufsize=1, # Line buffered
-                env=self.env
+                env=self.env,
+                # Add these for better real-time output
+                preexec_fn=None if os.name == 'nt' else os.setsid,  # For Unix process group management
+                creationflags=subprocess.CREATE_NEW_PROCESS_GROUP if os.name == 'nt' else 0
             )
+            
+            # Import for non-blocking reads
+            import select
+            import fcntl
+            
+            # Set non-blocking mode for stdout and stderr on Unix systems
+            if os.name != 'nt':
+                fd_stdout = self.process.stdout.fileno()
+                fd_stderr = self.process.stderr.fileno()
+                fl_stdout = fcntl.fcntl(fd_stdout, fcntl.F_GETFL)
+                fl_stderr = fcntl.fcntl(fd_stderr, fcntl.F_GETFL)
+                fcntl.fcntl(fd_stdout, fcntl.F_SETFL, fl_stdout | os.O_NONBLOCK)
+                fcntl.fcntl(fd_stderr, fcntl.F_SETFL, fl_stderr | os.O_NONBLOCK)
             
             # Real-time output display for both stdout and stderr
             while True:
-                # Read stdout
-                stdout_line = self.process.stdout.readline()
-                if stdout_line:
-                    self.output_signal.emit(self._strip_ansi_codes(stdout_line.strip()))
-                
-                # Read stderr
-                stderr_line = self.process.stderr.readline()
-                if stderr_line:
-                    line = self._strip_ansi_codes(stderr_line.strip())
-                    # Simple check for error-like messages
-                    if "ERROR:" in line or "CRITICAL:" in line or "Failed" in line.upper():
-                        self.output_signal.emit(f"Error: {line}")
-                    else:
-                        self.output_signal.emit(line)
+                if self.terminated:
+                    break
                 
                 # Check if process has finished
-                if self.terminated: # If terminate_process was called
-                    break 
-                    
-                # Check if both stdout and stderr are empty and process has finished
-                if not stdout_line and not stderr_line and self.process.poll() is not None:
+                if self.process.poll() is not None:
+                    # Process finished, read any remaining output
+                    try:
+                        remaining_stdout = self.process.stdout.read()
+                        if remaining_stdout:
+                            for line in remaining_stdout.splitlines():
+                                if line.strip():
+                                    self.output_signal.emit(self._strip_ansi_codes(line.strip()))
+                        
+                        remaining_stderr = self.process.stderr.read()
+                        if remaining_stderr:
+                            for line in remaining_stderr.splitlines():
+                                if line.strip():
+                                    cleaned_line = self._strip_ansi_codes(line.strip())
+                                    if "ERROR:" in cleaned_line or "CRITICAL:" in cleaned_line or "Failed" in cleaned_line.upper():
+                                        self.output_signal.emit(f"Error: {cleaned_line}")
+                                    else:
+                                        self.output_signal.emit(cleaned_line)
+                    except:
+                        pass
                     break
+                
+                # Use select for non-blocking reads on Unix, polling on Windows
+                if os.name != 'nt':
+                    # Unix/Linux - use select for non-blocking I/O
+                    ready, _, _ = select.select([self.process.stdout, self.process.stderr], [], [], 0.1)
+                    
+                    if self.process.stdout in ready:
+                        try:
+                            line = self.process.stdout.readline()
+                            if line:
+                                self.output_signal.emit(self._strip_ansi_codes(line.strip()))
+                        except:
+                            pass
+                    
+                    if self.process.stderr in ready:
+                        try:
+                            line = self.process.stderr.readline()
+                            if line:
+                                cleaned_line = self._strip_ansi_codes(line.strip())
+                                if "ERROR:" in cleaned_line or "CRITICAL:" in cleaned_line or "Failed" in cleaned_line.upper():
+                                    self.output_signal.emit(f"Error: {cleaned_line}")
+                                else:
+                                    self.output_signal.emit(cleaned_line)
+                        except:
+                            pass
+                else:
+                    # Windows - use polling approach
+                    try:
+                        # Read stdout
+                        stdout_line = self.process.stdout.readline()
+                        if stdout_line:
+                            self.output_signal.emit(self._strip_ansi_codes(stdout_line.strip()))
+                        
+                        # Read stderr
+                        stderr_line = self.process.stderr.readline()
+                        if stderr_line:
+                            line = self._strip_ansi_codes(stderr_line.strip())
+                            if "ERROR:" in line or "CRITICAL:" in line or "Failed" in line.upper():
+                                self.output_signal.emit(f"Error: {line}")
+                            else:
+                                self.output_signal.emit(line)
+                        
+                        # Small sleep to prevent busy waiting
+                        if not stdout_line and not stderr_line:
+                            time.sleep(0.05)
+                    except:
+                        time.sleep(0.1)
             
             # Check for errors if not manually terminated
             if not self.terminated:
-                returncode = self.process.wait() # Ensure process is waited for if not polled yet
+                returncode = self.process.wait()
                 if returncode != 0:
-                    # Emit a generic error if no specific stderr was captured before
                     self.output_signal.emit(f"Error: Process returned non-zero exit code {returncode}")
                     
         except Exception as e:
@@ -1021,6 +1088,10 @@ class AnalyzerTab(QtWidgets.QWidget):
 
     def update_atlas_combo(self): # For single mode
         if self.is_group_mode: return
+        
+        # Store current enable state to potentially restore it
+        was_enabled = self.atlas_combo.isEnabled()
+        
         self.atlas_combo.clear()
         
         # Get selected subject from appropriate widget based on mode
@@ -1034,23 +1105,36 @@ class AnalyzerTab(QtWidgets.QWidget):
         subject_id = selected_subjects[0] # Short ID
         atlas_files_data = self.get_available_atlas_files(subject_id)
         has_valid_atlas = False
+        
         if not atlas_files_data:
-            if self.type_cortical.isChecked() and not self.space_mesh.isChecked(): # Voxel Cortical
-                pass
+            # No atlas files found - but don't disable if we were enabled before
+            if was_enabled and self.space_voxel.isChecked() and self.type_cortical.isChecked():
+                self.atlas_combo.addItem("No atlases found - browse to select")
+                self.atlas_combo.setEnabled(True)  # Keep enabled for browsing
+            else:
+                self.atlas_combo.addItem("No atlases found")
+                self.atlas_combo.setEnabled(False)
         elif isinstance(atlas_files_data[0], str) and atlas_files_data[0].startswith('⚠️'): # Warning message
-            if self.type_cortical.isChecked() and not self.space_mesh.isChecked():
-                pass
             self.atlas_combo.addItem(atlas_files_data[0])
             self.atlas_combo.model().item(self.atlas_combo.count() - 1).setEnabled(False)
-            self.atlas_combo.setEnabled(False)
+            # Keep combo enabled for browsing if we're in the right mode
+            if was_enabled and self.space_voxel.isChecked() and self.type_cortical.isChecked():
+                self.atlas_combo.setEnabled(True)
+            else:
+                self.atlas_combo.setEnabled(False)
         else: # Has valid atlas tuples
             for display_name, full_path in atlas_files_data:
                 self.atlas_combo.addItem(display_name, full_path)
             if self.atlas_combo.count() > 0:
                 has_valid_atlas = True
                 self.atlas_combo.setCurrentIndex(0)
-            self.atlas_combo.setEnabled(has_valid_atlas)
-        self.show_regions_btn.setEnabled(has_valid_atlas and not self.whole_head_check.isChecked() and self.type_cortical.isChecked())
+                self.atlas_combo.setEnabled(True)
+        
+        # Update show regions button based on valid atlas and current mode
+        can_show_regions = (has_valid_atlas or (was_enabled and self.atlas_combo.isEnabled())) and \
+                          not self.whole_head_check.isChecked() and \
+                          self.type_cortical.isChecked()
+        self.show_regions_btn.setEnabled(can_show_regions)
 
 
     def browse_atlas(self): # For single mode voxel atlas browsing
@@ -1102,42 +1186,87 @@ class AnalyzerTab(QtWidgets.QWidget):
             if hasattr(self, 'field_name_input'): self.field_name_input.setEnabled(is_mesh)
             if hasattr(self, 'field_name_label'): self.field_name_label.setEnabled(is_mesh)
         
+        # Enable/disable whole head checkbox based on analysis type
+        self.whole_head_check.setEnabled(is_cortical)
+        
         # Original logic for region inputs
         region_enabled = is_cortical and not self.whole_head_check.isChecked()
         self.region_label.setEnabled(region_enabled)
         self.region_input.setEnabled(region_enabled)
-        # self.show_regions_btn.setEnabled(is_cortical) # Original was simpler
+        
         # More nuanced enablement for show_regions_btn:
-        can_list_regions = is_cortical
-        if not self.is_group_mode: # Single mode depends on atlas_combo state
-            can_list_regions = can_list_regions and self.atlas_combo.isEnabled() and not self.whole_head_check.isChecked()
-        else: # Group mode
-            can_list_regions = can_list_regions and not self.whole_head_check.isChecked()
+        can_list_regions = is_cortical and not self.whole_head_check.isChecked()
+        if not self.is_group_mode: # Single mode - check if we have valid atlases
+            # Only disable if we explicitly know there are no valid atlases
+            has_valid_atlas = True
+            if hasattr(self, 'atlas_combo') and self.atlas_combo.count() > 0:
+                # Check if the current item is a warning/error message
+                current_text = self.atlas_combo.currentText()
+                if current_text.startswith('⚠️') or current_text == "Select a subject first" or current_text == "No common atlases":
+                    has_valid_atlas = False
+            can_list_regions = can_list_regions and has_valid_atlas
+        # For group mode, keep it simple - just check cortical and not whole head
         self.show_regions_btn.setEnabled(can_list_regions)
 
-
-        self.mesh_atlas_widget.setEnabled(is_mesh and is_cortical)
-        self.voxel_atlas_widget.setEnabled(not is_mesh and is_cortical)
+        # Enable atlas widgets based on analysis type, but be more permissive
+        mesh_atlas_enabled = is_mesh and is_cortical
+        voxel_atlas_enabled = not is_mesh and is_cortical
+        
+        self.mesh_atlas_widget.setEnabled(mesh_atlas_enabled)
+        self.voxel_atlas_widget.setEnabled(voxel_atlas_enabled)
+        
+        # For the atlas combos specifically, enable them if their widget is enabled
+        if mesh_atlas_enabled:
+            self.atlas_name_combo.setEnabled(True)
+        
+        if voxel_atlas_enabled and not self.is_group_mode:
+            # For single mode voxel atlas, only disable if we explicitly have no valid atlases
+            should_enable_voxel_atlas = True
+            if hasattr(self, 'atlas_combo') and self.atlas_combo.count() > 0:
+                current_text = self.atlas_combo.currentText()
+                if current_text.startswith('⚠️') or current_text == "Select a subject first":
+                    should_enable_voxel_atlas = False
+            self.atlas_combo.setEnabled(should_enable_voxel_atlas)
+        elif voxel_atlas_enabled and self.is_group_mode:
+            # For group mode, enable if we have any items
+            self.atlas_combo.setEnabled(self.atlas_combo.count() > 0)
         
         self.mesh_atlas_widget.update() # Original calls
         self.voxel_atlas_widget.update()
         
+        # Update atlas options but don't let them override our enable states
         if self.is_group_mode and is_cortical:
             self.update_group_atlas_options()
         elif not self.is_group_mode: # Ensure single mode atlas combo is also updated
+            # Store current enable state before update
+            atlas_combo_was_enabled = self.atlas_combo.isEnabled()
             self.update_atlas_combo()
+            # If it was enabled before and should still be enabled, restore it
+            if atlas_combo_was_enabled and voxel_atlas_enabled:
+                if self.atlas_combo.count() > 0:
+                    current_text = self.atlas_combo.currentText()
+                    if not (current_text.startswith('⚠️') or current_text == "Select a subject first"):
+                        self.atlas_combo.setEnabled(True)
 
 
     def update_group_atlas_options(self): # For shared atlas selectors in group mode
         if not self.is_group_mode: return
         selected_subjects = [item.text() for item in self.subject_list.selectedItems()]
-        if not selected_subjects: return
+        if not selected_subjects: 
+            # Don't disable everything if no subjects - user might be in process of selecting
+            return
+            
+        # Store current states
+        mesh_atlas_was_enabled = self.atlas_name_combo.isEnabled()
+        voxel_atlas_was_enabled = self.atlas_combo.isEnabled()
+        
         self.atlas_name_combo.clear() # For mesh
         self.atlas_combo.clear()      # For voxel (this was for single mode, repurposing for group shared voxel if needed)
+        
         if self.space_mesh.isChecked() and self.type_cortical.isChecked():
             self.atlas_name_combo.addItems(["DK40", "HCP_MMP1", "a2009s"]) # Predefined mesh atlases
             self.atlas_name_combo.setCurrentText("DK40")
-            self.atlas_name_combo.setEnabled(self.atlas_name_combo.count() > 0)
+            self.atlas_name_combo.setEnabled(True)  # Always enable for mesh
             try: self.atlas_name_combo.currentTextChanged.disconnect(self.update_group_mesh_atlas)
             except TypeError: pass
             self.atlas_name_combo.currentTextChanged.connect(self.update_group_mesh_atlas)
@@ -1182,7 +1311,8 @@ class AnalyzerTab(QtWidgets.QWidget):
                 self.update_group_voxel_atlas(self.atlas_combo.currentText()) # Initial update
             else:
                 self.atlas_combo.addItem("No common atlases for all selected subjects")
-                self.atlas_combo.setEnabled(False)
+                # Don't disable completely - keep enabled for potential browsing or if user changes selection
+                self.atlas_combo.setEnabled(voxel_atlas_was_enabled)
                 self.group_atlas_config.clear() # Clear all atlas configs since we have no common atlas
     
     def update_group_mesh_atlas(self, atlas_name): # Called by shared mesh atlas_name_combo
@@ -1241,7 +1371,8 @@ class AnalyzerTab(QtWidgets.QWidget):
             return self.validate_single_inputs()
     
     def validate_single_inputs(self):
-        if not self.subject_list.selectedItems():
+        selected_subjects = self.get_selected_subjects()
+        if not selected_subjects:
             QtWidgets.QMessageBox.warning(self, "Warning", "Please select a subject.")
             return False
         if self.simulation_combo.currentIndex() == 0:
@@ -1354,9 +1485,13 @@ class AnalyzerTab(QtWidgets.QWidget):
     
     def run_single_analysis(self):
         try:
-            # In single mode, use the first selected subject (or the only one if validation passed)
-            selected_subjects = [item.text() for item in self.subject_list.selectedItems()]
-            subject_id = selected_subjects[0]  # Take first selected subject
+            # In single mode, get the selected subject from the combo
+            selected_subjects = self.get_selected_subjects()
+            if not selected_subjects:
+                self.update_output("Error: No subject selected for single analysis.")
+                self.analysis_finished(success=False)
+                return
+            subject_id = selected_subjects[0]  # Take the selected subject
             
             field_path = self.get_selected_field_path() # Uses currentData from field_combo
             if not field_path: # Should be caught by validation, but double check
@@ -1387,9 +1522,10 @@ class AnalyzerTab(QtWidgets.QWidget):
             self.update_output(f"Command: {' '.join(cmd)}")
             
             self.optimization_process = AnalysisThread(cmd, env)
-            self.optimization_process.output_signal.connect(self.update_output)
+            self.optimization_process.output_signal.connect(self.update_output, QtCore.Qt.QueuedConnection)
             self.optimization_process.finished.connect(
-                lambda sid=subject_id, sim_name=simulation_name: self.analysis_finished(subject_id=sid, simulation_name=sim_name, success=True)
+                lambda sid=subject_id, sim_name=simulation_name: self.analysis_finished(subject_id=sid, simulation_name=sim_name, success=True),
+                QtCore.Qt.QueuedConnection
             )
             self.optimization_process.start()
         except Exception as e:
@@ -1421,9 +1557,10 @@ class AnalyzerTab(QtWidgets.QWidget):
             
             # Create and start thread
             self.optimization_process = AnalysisThread(cmd, env)
-            self.optimization_process.output_signal.connect(self.update_output)
+            self.optimization_process.output_signal.connect(self.update_output, QtCore.Qt.QueuedConnection)
             self.optimization_process.finished.connect(
-                lambda: self.analysis_finished(success=True)
+                lambda: self.analysis_finished(success=True),
+                QtCore.Qt.QueuedConnection
             )
             self.optimization_process.start()
             
@@ -1532,9 +1669,9 @@ class AnalyzerTab(QtWidgets.QWidget):
             return None
 
     def get_single_analysis_details(self):
-        if not self.subject_list.selectedItems(): return "No subject selected."
-        selected_subjects = [item.text() for item in self.subject_list.selectedItems()]
-        subj = selected_subjects[0]  # Use first selected subject
+        selected_subjects = self.get_selected_subjects()
+        if not selected_subjects: return "No subject selected."
+        subj = selected_subjects[0]  # Use the selected subject
         space = 'Mesh' if self.space_mesh.isChecked() else 'Voxel'
         atype = 'Spherical' if self.type_spherical.isChecked() else 'Cortical'
         mont = self.simulation_combo.currentText()
@@ -1586,6 +1723,33 @@ class AnalyzerTab(QtWidgets.QWidget):
         details += f"• Generate Visualizations: {'Yes' if self.visualize_check.isChecked() else 'No'}"
         return details
 
+    def force_ui_refresh(self):
+        """Force a complete UI refresh to ensure all controls are in the correct state."""
+        # Force update of all relevant UI components
+        if not self.is_group_mode:
+            self.update_simulations()
+            self.update_field_files()
+            self.update_mesh_files()
+        
+        # Update atlas and region controls
+        self.update_atlas_visibility()
+        
+        # Force refresh group mode configurations if applicable
+        if self.is_group_mode:
+            selected_subjects = self.get_selected_subjects()
+            if selected_subjects:
+                self.populate_group_common_config(selected_subjects)
+        
+        # Update button states
+        self.update_gmsh_button_state()
+        
+        # Force widget updates
+        if hasattr(self, 'analysis_params_container'):
+            self.analysis_params_container.update()
+        
+        # Process any pending events
+        QtWidgets.QApplication.processEvents()
+
     def analysis_finished(self, subject_id=None, simulation_name=None, success=True):
         if hasattr(self, '_processing_analysis_finished_lock') and self._processing_analysis_finished_lock: return
         self._processing_analysis_finished_lock = True
@@ -1617,6 +1781,10 @@ class AnalyzerTab(QtWidgets.QWidget):
             self.run_btn.setEnabled(True)
             self.stop_btn.setEnabled(False)
             self.enable_controls()
+            
+            # Force a complete UI refresh to ensure everything is properly restored
+            QtCore.QTimer.singleShot(100, self.force_ui_refresh)
+            
         finally:
             self._processing_analysis_finished_lock = False
 
@@ -1691,8 +1859,14 @@ class AnalyzerTab(QtWidgets.QWidget):
         
         # Append to the console with HTML formatting
         self.output_console.append(formatted_text)
+        
+        # Force immediate GUI update and scroll to bottom
         self.output_console.ensureCursorVisible()
-        # QtWidgets.QApplication.processEvents() # Generally avoid
+        QtWidgets.QApplication.processEvents()  # Force immediate GUI refresh
+        
+        # Scroll to the very bottom to show latest output
+        scrollbar = self.output_console.verticalScrollBar()
+        scrollbar.setValue(scrollbar.maximum())
 
     def disable_controls(self):
         # List of widgets to disable, similar to original
@@ -1736,6 +1910,15 @@ class AnalyzerTab(QtWidgets.QWidget):
         for widget in widgets_to_set_enabled:
              if hasattr(widget, 'setEnabled'): widget.setEnabled(True)
         
+        # Force enable these controls first, then let update_atlas_visibility handle proper state
+        self.whole_head_check.setEnabled(True)
+        self.region_input.setEnabled(True)
+        self.region_label.setEnabled(True)
+        self.atlas_name_combo.setEnabled(True)
+        self.atlas_combo.setEnabled(True)
+        self.show_regions_btn.setEnabled(True)
+        
+        # Now update visibility and proper enable states
         self.update_atlas_visibility() # This will correctly set enable states for atlas/region and field_name_input
         self.update_gmsh_button_state()
 
