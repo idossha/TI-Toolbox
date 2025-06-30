@@ -483,7 +483,7 @@ def _write_summary_csv(stats_df: pd.DataFrame, output_path: str, region_name: st
 
 def _generate_comparison_plot(stats_df: pd.DataFrame, output_path: str, region_name: str = None) -> str:
     """
-    Generate ROI-specific comparison visualization showing each subject's deviation from mean in standard deviations.
+    Generate ROI-specific comparison visualization showing each subject's actual values with standard deviation reference lines.
     
     Args:
         stats_df (pd.DataFrame): DataFrame with computed statistics
@@ -493,7 +493,7 @@ def _generate_comparison_plot(stats_df: pd.DataFrame, output_path: str, region_n
     Returns:
         str: Path to the saved plot file
     """
-    group_logger.info("Generating ROI-specific standard deviation comparison visualization...")
+    group_logger.info("Generating ROI-specific field value comparison visualization...")
     
     # Filter to only subject rows (exclude AVERAGE and DIFF% rows)
     subject_df = stats_df[~stats_df['Subject_ID'].str.contains('AVERAGE|DIFF%', na=False)].copy()
@@ -512,18 +512,13 @@ def _generate_comparison_plot(stats_df: pd.DataFrame, output_path: str, region_n
     
     std_devs = {}
     means = {}
-    z_scores = {}
+    actual_values = {}
     
     for metric in metrics:
         values = subject_df[metric].values
         means[metric] = np.mean(values)
         std_devs[metric] = np.std(values, ddof=1)  # Sample standard deviation
-        
-        # Calculate z-scores (how many standard deviations from mean)
-        if std_devs[metric] > 0:
-            z_scores[metric] = (values - means[metric]) / std_devs[metric]
-        else:
-            z_scores[metric] = np.zeros_like(values)
+        actual_values[metric] = values
     
     # Create figure with subplots
     fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(15, 10))
@@ -531,9 +526,9 @@ def _generate_comparison_plot(stats_df: pd.DataFrame, output_path: str, region_n
     
     # Set main title with region information
     if region_name:
-        main_title = f'Standard Deviation Analysis for {region_name}'
+        main_title = f'Field Value Comparison for {region_name}'
     else:
-        main_title = 'Standard Deviation Analysis'
+        main_title = 'Field Value Comparison'
     
     fig.suptitle(main_title, fontsize=16, fontweight='bold')
     
@@ -541,68 +536,89 @@ def _generate_comparison_plot(stats_df: pd.DataFrame, output_path: str, region_n
     subjects = subject_df['Subject_ID'].tolist()
     x_pos = np.arange(len(subjects))
     
-    # Colors for each metric - use positive/negative coloring
+    # Colors for each metric - use positive/negative coloring relative to mean
     colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728']  # blue, orange, green, red
     
     for i, (metric, label, color, ax) in enumerate(zip(metrics, metric_labels, colors, axes)):
-        z_values = z_scores[metric]
+        values = actual_values[metric]
+        mean_val = means[metric]
+        std_val = std_devs[metric]
         
-        # Color bars based on positive/negative deviation
+        # Color bars based on whether above or below mean
         bar_colors = []
-        for z in z_values:
-            if z > 0:
+        for val in values:
+            if val >= mean_val:
                 bar_colors.append(color)  # Above mean
             else:
-                bar_colors.append(color)  # Below mean - same color but we'll use alpha
+                bar_colors.append(color)  # Below mean - same color but different alpha
         
-        # Create bars
-        bars = ax.bar(x_pos, z_values, color=bar_colors, alpha=0.7)
+        # Create bars with actual values
+        bars = ax.bar(x_pos, values, color=bar_colors, alpha=0.7)
         
-        # Color bars differently for positive vs negative
-        for bar, z in zip(bars, z_values):
-            if z >= 0:
+        # Color bars differently for above vs below mean
+        for bar, val in zip(bars, values):
+            if val >= mean_val:
                 bar.set_color(color)
                 bar.set_alpha(0.8)
             else:
                 bar.set_color(color)
                 bar.set_alpha(0.4)
         
-        # Add horizontal line at mean (z=0)
-        ax.axhline(y=0, color='black', linestyle='-', linewidth=1, alpha=0.8)
+        # Add horizontal line at actual mean
+        ax.axhline(y=mean_val, color='black', linestyle='-', linewidth=2, alpha=0.8, label=f'Mean ({mean_val:.3f})')
         
-        # Add ±1 and ±2 standard deviation lines
-        ax.axhline(y=1, color='gray', linestyle='--', linewidth=1, alpha=0.6)
-        ax.axhline(y=-1, color='gray', linestyle='--', linewidth=1, alpha=0.6)
-        ax.axhline(y=2, color='red', linestyle='--', linewidth=1, alpha=0.6)
-        ax.axhline(y=-2, color='red', linestyle='--', linewidth=1, alpha=0.6)
+        # Add ±1 and ±2 standard deviation lines using actual values
+        if std_val > 0:
+            ax.axhline(y=mean_val + std_val, color='gray', linestyle='--', linewidth=1, alpha=0.6, label=f'+1σ ({mean_val + std_val:.3f})')
+            ax.axhline(y=mean_val - std_val, color='gray', linestyle='--', linewidth=1, alpha=0.6, label=f'-1σ ({mean_val - std_val:.3f})')
+            ax.axhline(y=mean_val + 2*std_val, color='red', linestyle='--', linewidth=1, alpha=0.6, label=f'+2σ ({mean_val + 2*std_val:.3f})')
+            ax.axhline(y=mean_val - 2*std_val, color='red', linestyle='--', linewidth=1, alpha=0.6, label=f'-2σ ({mean_val - 2*std_val:.3f})')
+        
+        # Determine appropriate units for labeling
+        if 'Focality' in metric:
+            unit_label = 'Field Strength Units'
+            value_format = '.3f'
+        else:
+            unit_label = 'V/m'  # Common unit for electric field
+            value_format = '.4f'
         
         # Formatting
-        ax.set_title(f'ROI {label} (Z-scores)', fontweight='bold')
-        ax.set_ylabel('Standard Deviations from Mean')
+        ax.set_title(f'ROI {label} ({unit_label})', fontweight='bold')
+        ax.set_ylabel(f'{label} {unit_label}')
         ax.tick_params(axis='x', rotation=45)
         ax.set_xticks(x_pos)
         ax.set_xticklabels(subjects, ha='right')
         ax.grid(True, alpha=0.3)
         
         # Set y-axis limits to show all data with some padding
-        y_max = max(abs(min(z_values)), abs(max(z_values)))
-        y_limit = max(2.5, y_max + 0.5)  # At least ±2.5 or data range + 0.5
-        ax.set_ylim(-y_limit, y_limit)
+        if std_val > 0:
+            y_min = min(np.min(values), mean_val - 2.5*std_val)
+            y_max = max(np.max(values), mean_val + 2.5*std_val)
+        else:
+            y_range = np.max(values) - np.min(values)
+            padding = max(0.1 * y_range, 0.01 * np.abs(mean_val))
+            y_min = np.min(values) - padding
+            y_max = np.max(values) + padding
         
-        # Add text annotations for extreme values (>2 std devs)
-        for j, (subject, z) in enumerate(zip(subjects, z_values)):
-            if abs(z) > 2:
-                ax.annotate(f'{z:.1f}σ', (j, z), 
-                           xytext=(0, 10 if z > 0 else -15), 
-                           textcoords='offset points',
-                           ha='center', va='bottom' if z > 0 else 'top',
-                           fontweight='bold', fontsize=8,
-                           color='darkred')
+        ax.set_ylim(y_min, y_max)
+        
+        # Add text annotations for extreme values (>2 std devs from mean)
+        for j, (subject, val) in enumerate(zip(subjects, values)):
+            if std_val > 0:
+                z_score = abs(val - mean_val) / std_val
+                if z_score > 2:
+                    ax.annotate(f'{val:{value_format}}\n({z_score:.1f}σ)', (j, val), 
+                               xytext=(0, 15 if val > mean_val else -25), 
+                               textcoords='offset points',
+                               ha='center', va='bottom' if val > mean_val else 'top',
+                               fontweight='bold', fontsize=8,
+                               color='darkred',
+                               bbox=dict(boxstyle='round,pad=0.3', facecolor='yellow', alpha=0.7))
     
     # Create legend
     from matplotlib.lines import Line2D
     legend_elements = [
-        Line2D([0], [0], color='black', linestyle='-', label='Group Mean'),
+        Line2D([0], [0], color='black', linestyle='-', linewidth=2, label='Group Mean'),
         Line2D([0], [0], color='gray', linestyle='--', label='±1 Std Dev'),
         Line2D([0], [0], color='red', linestyle='--', label='±2 Std Dev'),
         mpatches.Patch(color='gray', alpha=0.8, label='Above Mean'),
@@ -616,9 +632,9 @@ def _generate_comparison_plot(stats_df: pd.DataFrame, output_path: str, region_n
     
     # Save plot
     if region_name:
-        plot_filename = f"roi_std_deviation_plot_{region_name}.png"
+        plot_filename = f"roi_field_comparison_plot_{region_name}.png"
     else:
-        plot_filename = "roi_std_deviation_plot.png"
+        plot_filename = "roi_field_comparison_plot.png"
     
     plot_path = os.path.join(output_path, plot_filename)
     
@@ -628,7 +644,7 @@ def _generate_comparison_plot(stats_df: pd.DataFrame, output_path: str, region_n
     plt.savefig(plot_path, dpi=300, bbox_inches='tight')
     plt.close()
     
-    group_logger.info(f"ROI-specific standard deviation plot saved to: {plot_path}")
+    group_logger.info(f"ROI-specific field value comparison plot saved to: {plot_path}")
     return plot_path
 
 def compare_analyses(analyses: list[str], output_dir: str, 
@@ -694,14 +710,14 @@ def compare_analyses(analyses: list[str], output_dir: str,
             csv_path = _write_summary_csv(stats_df, run_output_dir, region_name)
             generated_files['csv_summary'] = csv_path
         
-        # Step 4: Generate ROI-specific visualization (if requested and sufficient data)
+        # Step 4: Generate ROI-specific field value visualization (if requested and sufficient data)
         if generate_plot:
             # Only generate plot if we have subject data (not just averages)
             subject_count = len(stats_df[~stats_df['Subject_ID'].str.contains('AVERAGE|DIFF%', na=False)])
             if subject_count > 0:
                 plot_path = _generate_comparison_plot(stats_df, run_output_dir, region_name)
                 if plot_path:
-                    generated_files['comparison_plot'] = plot_path
+                    generated_files['field_comparison_plot'] = plot_path
             else:
                 group_logger.warning("Insufficient subject data for plot generation")
         

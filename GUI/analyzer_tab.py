@@ -256,43 +256,51 @@ class AnalyzerTab(QtWidgets.QWidget):
         mode_layout.addWidget(self.group_mode_radio)
         left_layout.addWidget(mode_container)
         
-        subject_container = QtWidgets.QGroupBox("Subject(s)")
-        subject_layout = QtWidgets.QVBoxLayout(subject_container)
-        
-        # Create stacked widget to switch between single and group subject selection
+        # Create stacked widget to switch between entire subject containers
         self.subject_selection_stack = QtWidgets.QStackedWidget()
         
-        # Single mode: dropdown
-        single_subject_widget = QtWidgets.QWidget()
-        single_subject_layout = QtWidgets.QVBoxLayout(single_subject_widget)
+        # Single mode: separate container with just dropdown
+        single_subject_container = QtWidgets.QGroupBox("Subject")
+        single_subject_layout = QtWidgets.QVBoxLayout(single_subject_container)
         self.subject_combo = QtWidgets.QComboBox()
         self.subject_combo.addItem("Select subject...")
         single_subject_layout.addWidget(self.subject_combo)
-        single_subject_layout.addStretch()
-        self.subject_selection_stack.addWidget(single_subject_widget)
         
-        # Group mode: list widget (existing)
-        group_subject_widget = QtWidgets.QWidget()
-        group_subject_layout = QtWidgets.QVBoxLayout(group_subject_widget)
+        # Single mode buttons
+        single_button_layout = QtWidgets.QHBoxLayout()
+        self.list_subjects_btn = QtWidgets.QPushButton("Refresh List")
+        self.list_subjects_btn.clicked.connect(self.list_subjects)
+        self.clear_subject_selection_btn = QtWidgets.QPushButton("Reset")
+        self.clear_subject_selection_btn.clicked.connect(self.clear_subject_selection)
+        single_button_layout.addWidget(self.list_subjects_btn)
+        single_button_layout.addWidget(self.clear_subject_selection_btn)
+        single_subject_layout.addLayout(single_button_layout)
+        
+        self.subject_selection_stack.addWidget(single_subject_container)
+        
+        # Group mode: separate container with list widget
+        group_subject_container = QtWidgets.QGroupBox("Subjects")
+        group_subject_layout = QtWidgets.QVBoxLayout(group_subject_container)
         self.subject_list = QtWidgets.QListWidget()
         self.subject_list.setSelectionMode(QtWidgets.QAbstractItemView.ExtendedSelection)
         group_subject_layout.addWidget(self.subject_list)
-        self.subject_selection_stack.addWidget(group_subject_widget)
         
-        subject_layout.addWidget(self.subject_selection_stack)
-        
-        subject_button_layout = QtWidgets.QHBoxLayout()
-        self.list_subjects_btn = QtWidgets.QPushButton("Refresh List")
-        self.list_subjects_btn.clicked.connect(self.list_subjects)
+        # Group mode buttons
+        group_button_layout = QtWidgets.QHBoxLayout()
+        self.list_subjects_btn_group = QtWidgets.QPushButton("Refresh List")
+        self.list_subjects_btn_group.clicked.connect(self.list_subjects)
         self.select_all_subjects_btn = QtWidgets.QPushButton("Select All")
         self.select_all_subjects_btn.clicked.connect(self.select_all_subjects)
-        self.clear_subject_selection_btn = QtWidgets.QPushButton("Clear")
-        self.clear_subject_selection_btn.clicked.connect(self.clear_subject_selection)
-        subject_button_layout.addWidget(self.list_subjects_btn)
-        subject_button_layout.addWidget(self.select_all_subjects_btn)
-        subject_button_layout.addWidget(self.clear_subject_selection_btn)
-        subject_layout.addLayout(subject_button_layout)
-        left_layout.addWidget(subject_container)
+        self.clear_subject_selection_btn_group = QtWidgets.QPushButton("Clear")
+        self.clear_subject_selection_btn_group.clicked.connect(self.clear_subject_selection)
+        group_button_layout.addWidget(self.list_subjects_btn_group)
+        group_button_layout.addWidget(self.select_all_subjects_btn)
+        group_button_layout.addWidget(self.clear_subject_selection_btn_group)
+        group_subject_layout.addLayout(group_button_layout)
+        
+        self.subject_selection_stack.addWidget(group_subject_container)
+        
+        left_layout.addWidget(self.subject_selection_stack)
         
         self.analysis_mode_stack = QtWidgets.QStackedWidget()
         self.single_analysis_widget = self.create_single_analysis_widget()
@@ -539,14 +547,9 @@ class AnalyzerTab(QtWidgets.QWidget):
     
     def update_subject_button_states(self):
         """Update button visibility/text based on current mode."""
-        if self.is_group_mode:
-            # Group mode: show all buttons
-            self.select_all_subjects_btn.setVisible(True)
-            self.clear_subject_selection_btn.setText("Clear")
-        else:
-            # Single mode: hide select all button, change clear to reset
-            self.select_all_subjects_btn.setVisible(False)
-            self.clear_subject_selection_btn.setText("Reset")
+        # No longer need to change button states since we have separate containers
+        # The correct buttons are automatically shown based on the stacked widget
+        pass
 
     def on_subject_selection_changed(self):
         """Handle subject selection changes - update UI based on current mode."""
@@ -638,7 +641,6 @@ class AnalyzerTab(QtWidgets.QWidget):
         self.group_montage_combo.currentTextChanged.connect(self.update_common_montage_config)
         montage_selection_layout.addWidget(montage_label)
         montage_selection_layout.addWidget(self.group_montage_combo)
-        montage_selection_layout.addStretch()
         montage_layout.addLayout(montage_selection_layout)
         common_config_layout.addWidget(montage_group)
         
@@ -653,7 +655,6 @@ class AnalyzerTab(QtWidgets.QWidget):
         self.group_field_name_input.setPlaceholderText("e.g., TI_max")
         field_name_layout.addWidget(self.group_field_name_label)
         field_name_layout.addWidget(self.group_field_name_input)
-        field_name_layout.addStretch()
         field_layout.addLayout(field_name_layout)
         
         # Auto-selection info and status
@@ -670,7 +671,6 @@ class AnalyzerTab(QtWidgets.QWidget):
         common_config_layout.addWidget(field_group)
         
         layout.addWidget(common_config_group)
-        layout.addStretch()
         return widget
     
     # create_subject_tab method removed - no longer using individual subject tabs
@@ -791,9 +791,6 @@ class AnalyzerTab(QtWidgets.QWidget):
         
         visualization_container = QtWidgets.QGroupBox("Visualization")
         visualization_layout = QtWidgets.QVBoxLayout(visualization_container)
-        self.visualize_check = QtWidgets.QCheckBox("Generate Visualizations")
-        self.visualize_check.setChecked(True)
-        visualization_layout.addWidget(self.visualize_check)
         mesh_viz_layout = QtWidgets.QVBoxLayout()
         mesh_viz_label = QtWidgets.QLabel("View Mesh in Gmsh:")
         mesh_viz_label.setStyleSheet("font-weight: bold;")
@@ -1755,7 +1752,7 @@ class AnalyzerTab(QtWidgets.QWidget):
             else: details += f"• Voxel Atlas File: {self.atlas_combo.currentText()} (Path: {self.atlas_combo.currentData() or 'N/A'})\n" # Show path
             if self.whole_head_check.isChecked(): details += "• Analysis Target: Whole Head\n"
             else: details += f"• Region: {self.region_input.text()}\n"
-        details += f"• Generate Visualizations: {'Yes' if self.visualize_check.isChecked() else 'No'}"
+        details += f"• Generate Visualizations: Yes"
         return details
 
     def get_group_analysis_details(self, subjects):
@@ -1787,7 +1784,7 @@ class AnalyzerTab(QtWidgets.QWidget):
             details += "• Analysis Target: Whole Head (for all)\n"
         else: 
             details += f"• Region: {self.region_input.text()} (for all)\n"
-        details += f"• Generate Visualizations: {'Yes' if self.visualize_check.isChecked() else 'No'}"
+        details += f"• Generate Visualizations: Yes"
         return details
 
     def force_ui_refresh(self):
@@ -1938,14 +1935,17 @@ class AnalyzerTab(QtWidgets.QWidget):
     def disable_controls(self):
         # List of widgets to disable, similar to original
         widgets_to_set_enabled = [
-            self.list_subjects_btn, self.select_all_subjects_btn, self.clear_subject_selection_btn,
+            # Subject buttons for both modes
+            self.list_subjects_btn, self.clear_subject_selection_btn,  # Single mode
+            self.list_subjects_btn_group, self.select_all_subjects_btn, self.clear_subject_selection_btn_group,  # Group mode
+            # Other widgets
             self.subject_list, self.subject_combo, self.single_mode_radio, self.group_mode_radio,
             self.simulation_combo, self.field_combo, self.browse_field_btn, self.field_name_input,
             self.space_mesh, self.space_voxel, self.type_spherical, self.type_cortical,
             self.coord_x, self.coord_y, self.coord_z, self.radius_input,
             self.view_in_freeview_btn,
             self.atlas_name_combo, self.atlas_combo, self.show_regions_btn, self.region_input, self.whole_head_check,
-            self.visualize_check, self.mesh_combo, self.launch_gmsh_btn
+            self.mesh_combo, self.launch_gmsh_btn
         ]
         for widget in widgets_to_set_enabled:
             if hasattr(widget, 'setEnabled'): widget.setEnabled(False)
@@ -1965,14 +1965,17 @@ class AnalyzerTab(QtWidgets.QWidget):
 
     def enable_controls(self):
         widgets_to_set_enabled = [
-            self.list_subjects_btn, self.select_all_subjects_btn, self.clear_subject_selection_btn,
+            # Subject buttons for both modes
+            self.list_subjects_btn, self.clear_subject_selection_btn,  # Single mode
+            self.list_subjects_btn_group, self.select_all_subjects_btn, self.clear_subject_selection_btn_group,  # Group mode
+            # Other widgets
             self.subject_list, self.subject_combo, self.single_mode_radio, self.group_mode_radio,
             self.simulation_combo, self.field_combo, self.browse_field_btn, # field_name_input handled by atlas_visibility
             self.space_mesh, self.space_voxel, self.type_spherical, self.type_cortical,
             self.coord_x, self.coord_y, self.coord_z, self.radius_input,
             self.view_in_freeview_btn,
             # atlas_name_combo, atlas_combo, show_regions_btn, region_input, whole_head_check handled by update_atlas_visibility
-            self.visualize_check, self.mesh_combo # launch_gmsh_btn handled by its own update
+            self.mesh_combo # launch_gmsh_btn handled by its own update
         ]
         for widget in widgets_to_set_enabled:
              if hasattr(widget, 'setEnabled'): widget.setEnabled(True)
@@ -2462,7 +2465,7 @@ General.Trackball = 1; General.RotationX = 0; General.RotationY = 0; General.Rot
             
             if self.space_mesh.isChecked() and field_name_for_cmd:
                 cmd.extend(['--field_name', field_name_for_cmd])
-            if self.visualize_check.isChecked(): cmd.append('--visualize')
+            cmd.append('--visualize')
             return cmd
         except Exception:
             return None
