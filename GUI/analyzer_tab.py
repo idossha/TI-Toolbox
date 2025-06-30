@@ -961,15 +961,15 @@ class AnalyzerTab(QtWidgets.QWidget):
         
         # Update status
         if success_count == len(selected_subjects):
-            self.group_field_status_label.setText(f"✅ Auto-selected fields for all {success_count} subjects")
+            self.group_field_status_label.setText(f"[SUCCESS] Auto-selected fields for all {success_count} subjects")
             self.group_field_status_label.setStyleSheet("color: #228B22; font-weight: bold;")
             self.show_selected_fields_btn.setEnabled(True)
         elif success_count > 0:
-            self.group_field_status_label.setText(f"⚠️ Auto-selected fields for {success_count}/{len(selected_subjects)} subjects")
+            self.group_field_status_label.setText(f"[WARNING] Auto-selected fields for {success_count}/{len(selected_subjects)} subjects")
             self.group_field_status_label.setStyleSheet("color: #FF8C00; font-weight: bold;")
             self.show_selected_fields_btn.setEnabled(True)
         else:
-            self.group_field_status_label.setText(f"❌ Failed to auto-select fields")
+            self.group_field_status_label.setText(f"[ERROR] Failed to auto-select fields")
             self.group_field_status_label.setStyleSheet("color: #DC143C; font-weight: bold;")
             self.show_selected_fields_btn.setEnabled(False)
         
@@ -1146,7 +1146,7 @@ class AnalyzerTab(QtWidgets.QWidget):
         
         if not atlas_files: # No specific atlases found
             # Original warning message logic
-            atlas_files.append("⚠️ FreeSurfer recon-all preprocessing required for atlas generation")
+            atlas_files.append("[WARNING] FreeSurfer recon-all preprocessing required for atlas generation")
         return atlas_files
 
 
@@ -1178,7 +1178,7 @@ class AnalyzerTab(QtWidgets.QWidget):
             else:
                 self.atlas_combo.addItem("No atlases found")
                 self.atlas_combo.setEnabled(False)
-        elif isinstance(atlas_files_data[0], str) and atlas_files_data[0].startswith('⚠️'): # Warning message
+        elif isinstance(atlas_files_data[0], str) and atlas_files_data[0].startswith('[WARNING]'): # Warning message
             self.atlas_combo.addItem(atlas_files_data[0])
             self.atlas_combo.model().item(self.atlas_combo.count() - 1).setEnabled(False)
             # Keep combo enabled for browsing if we're in the right mode
@@ -1266,7 +1266,7 @@ class AnalyzerTab(QtWidgets.QWidget):
             if hasattr(self, 'atlas_combo') and self.atlas_combo.count() > 0:
                 # Check if the current item is a warning/error message
                 current_text = self.atlas_combo.currentText()
-                if current_text.startswith('⚠️') or current_text == "Select a subject first" or current_text == "No common atlases":
+                if current_text.startswith('[WARNING]') or current_text == "Select a subject first" or current_text == "No common atlases":
                     has_valid_atlas = False
             can_list_regions = can_list_regions and has_valid_atlas
         # For group mode, keep it simple - just check cortical and not whole head
@@ -1288,7 +1288,7 @@ class AnalyzerTab(QtWidgets.QWidget):
             should_enable_voxel_atlas = True
             if hasattr(self, 'atlas_combo') and self.atlas_combo.count() > 0:
                 current_text = self.atlas_combo.currentText()
-                if current_text.startswith('⚠️') or current_text == "Select a subject first":
+                if current_text.startswith('[WARNING]') or current_text == "Select a subject first":
                     should_enable_voxel_atlas = False
             self.atlas_combo.setEnabled(should_enable_voxel_atlas)
         elif voxel_atlas_enabled and self.is_group_mode:
@@ -1309,7 +1309,7 @@ class AnalyzerTab(QtWidgets.QWidget):
             if atlas_combo_was_enabled and voxel_atlas_enabled:
                 if self.atlas_combo.count() > 0:
                     current_text = self.atlas_combo.currentText()
-                    if not (current_text.startswith('⚠️') or current_text == "Select a subject first"):
+                    if not (current_text.startswith('[WARNING]') or current_text == "Select a subject first"):
                         self.atlas_combo.setEnabled(True)
 
 
@@ -1740,27 +1740,27 @@ class AnalyzerTab(QtWidgets.QWidget):
         atype = 'Spherical' if self.type_spherical.isChecked() else 'Cortical'
         mont = self.simulation_combo.currentText()
         fpath = self.field_combo.currentText()
-        details = f"• Subject: {subj}\n• Space: {space}\n• Analysis Type: {atype}\n• Montage: {mont}\n• Field File: {fpath}\n"
+        details = f"- Subject: {subj}\n- Space: {space}\n- Analysis Type: {atype}\n- Montage: {mont}\n- Field File: {fpath}\n"
         if len(selected_subjects) > 1:
-            details += f"• Note: Using first selected subject ({subj}) for single analysis\n"
-        if self.space_mesh.isChecked(): details += f"• Field Name: {self.field_name_input.text()}\n"
+            details += f"- Note: Using first selected subject ({subj}) for single analysis\n"
+        if self.space_mesh.isChecked(): details += f"- Field Name: {self.field_name_input.text()}\n"
         if self.type_spherical.isChecked():
-            details += (f"• Coordinates: ({self.coord_x.text() or '0'}, {self.coord_y.text() or '0'}, {self.coord_z.text() or '0'})\n"
-                        f"• Radius: {self.radius_input.text() or '5'} mm\n")
+            details += (f"- Coordinates: ({self.coord_x.text() or '0'}, {self.coord_y.text() or '0'}, {self.coord_z.text() or '0'})\n"
+                        f"- Radius: {self.radius_input.text() or '5'} mm\n")
         else: # Cortical
-            if self.space_mesh.isChecked(): details += f"• Mesh Atlas: {self.atlas_name_combo.currentText()}\n"
-            else: details += f"• Voxel Atlas File: {self.atlas_combo.currentText()} (Path: {self.atlas_combo.currentData() or 'N/A'})\n" # Show path
-            if self.whole_head_check.isChecked(): details += "• Analysis Target: Whole Head\n"
-            else: details += f"• Region: {self.region_input.text()}\n"
-        details += f"• Generate Visualizations: Yes"
+            if self.space_mesh.isChecked(): details += f"- Mesh Atlas: {self.atlas_name_combo.currentText()}\n"
+            else: details += f"- Voxel Atlas File: {self.atlas_combo.currentText()} (Path: {self.atlas_combo.currentData() or 'N/A'})\n" # Show path
+            if self.whole_head_check.isChecked(): details += "- Analysis Target: Whole Head\n"
+            else: details += f"- Region: {self.region_input.text()}\n"
+        details += f"- Generate Visualizations: Yes"
         return details
 
     def get_group_analysis_details(self, subjects):
         space = 'Mesh' if self.space_mesh.isChecked() else 'Voxel'
-        details = (f"• Subjects: {', '.join(subjects)}\n• Space: {space}\n• Analysis Type: Cortical (only type supported in group mode)\n")
+        details = (f"- Subjects: {', '.join(subjects)}\n- Space: {space}\n- Analysis Type: Cortical (only type supported in group mode)\n")
         
         # Common configuration
-        details += "\n• Common Configuration (Applied to All Subjects):\n"
+        details += "\n- Common Configuration (Applied to All Subjects):\n"
         common_montage = self.group_montage_config.get('common_montage', 'N/A')
         details += f"  - Common Montage: {common_montage}\n"
         
@@ -1775,16 +1775,16 @@ class AnalyzerTab(QtWidgets.QWidget):
             details += f"  - Field Files: None auto-selected\n"
         
         # Shared analysis parameters (cortical only)
-        details += "\n• Shared Analysis Parameters:\n"
+        details += "\n- Shared Analysis Parameters:\n"
         if self.space_mesh.isChecked(): 
-            details += f"• Shared Mesh Atlas: {self.atlas_name_combo.currentText()}\n"
+            details += f"- Shared Mesh Atlas: {self.atlas_name_combo.currentText()}\n"
         else:
-            details += f"• Voxel Atlas: Common atlas configuration\n"
+            details += f"- Voxel Atlas: Common atlas configuration\n"
         if self.whole_head_check.isChecked(): 
-            details += "• Analysis Target: Whole Head (for all)\n"
+            details += "- Analysis Target: Whole Head (for all)\n"
         else: 
-            details += f"• Region: {self.region_input.text()} (for all)\n"
-        details += f"• Generate Visualizations: Yes"
+            details += f"- Region: {self.region_input.text()} (for all)\n"
+        details += f"- Generate Visualizations: Yes"
         return details
 
     def force_ui_refresh(self):
@@ -1821,9 +1821,9 @@ class AnalyzerTab(QtWidgets.QWidget):
             if success:
                 last_line = self.output_console.toPlainText().strip().split('\n')[-1] if self.output_console.toPlainText() else ""
                 if "WARNING: Analysis Failed" in last_line or "Error: Process returned non-zero" in last_line or "failed" in last_line.lower():
-                    self.update_output('<div style="margin: 10px 0;"><span style="color: #ff5555; font-weight: bold;">❌ Analysis process indicated failure.</span></div>')
+                    self.update_output('<div style="margin: 10px 0;"><span style="color: #ff5555; font-weight: bold;">[ERROR] Analysis process indicated failure.</span></div>')
                 else:
-                    self.update_output('<div style="margin: 10px 0;"><span style="color: #55ff55; font-size: 16px; font-weight: bold;">✅ Analysis process completed.</span></div>')
+                    self.update_output('<div style="margin: 10px 0;"><span style="color: #55ff55; font-size: 16px; font-weight: bold;">[SUCCESS] Analysis process completed.</span></div>')
                 
                 # Emit analysis completed signal for single mode or group mode
                 if subject_id and simulation_name:  # Single mode analysis
@@ -1838,7 +1838,7 @@ class AnalyzerTab(QtWidgets.QWidget):
                         common_montage = self.group_montage_config.get('common_montage', 'group_analysis')
                         self.analysis_completed.emit(selected_subjects[0], common_montage, analysis_type_str)
             else:
-                 self.update_output('<div style="margin: 10px 0;"><span style="color: #ff5555; font-weight: bold;">❌ Analysis process failed or was cancelled by user.</span></div>')
+                 self.update_output('<div style="margin: 10px 0;"><span style="color: #ff5555; font-weight: bold;">[ERROR] Analysis process failed or was cancelled by user.</span></div>')
 
             self.output_console.append('<div style="border-bottom: 1px solid #555; margin-bottom: 10px;"></div>')
             self.analysis_running = False
@@ -1901,8 +1901,8 @@ class AnalyzerTab(QtWidgets.QWidget):
         # Group analysis specific patterns
         elif "=== Processing subject:" in text or "=== GROUP ANALYSIS SUMMARY ===" in text:
             formatted_text = f'<div style="background-color: #2a2a2a; padding: 5px; margin: 5px 0; border-radius: 3px;"><span style="color: #55ffff; font-weight: bold;">{text}</span></div>'
-        elif "✔ Subject" in text or "✖ Subject" in text:
-            formatted_text = f'<span style="color: #55ff55; font-weight: bold;">{text}</span>' if "✔" in text else f'<span style="color: #ff5555; font-weight: bold;">{text}</span>'
+        elif "[OK] Subject" in text or "[FAILED] Subject" in text:
+            formatted_text = f'<span style="color: #55ff55; font-weight: bold;">{text}</span>' if "[OK]" in text else f'<span style="color: #ff5555; font-weight: bold;">{text}</span>'
         elif "Group analysis complete" in text or "Comprehensive group results" in text:
             formatted_text = f'<div style="background-color: #2a2a2a; padding: 10px; margin: 10px 0; border-radius: 5px;"><span style="color: #55ff55; font-weight: bold; font-size: 14px;">{text}</span></div>'
         elif "Analysis Results Summary:" in text:
@@ -2361,7 +2361,7 @@ General.Trackball = 1; General.RotationX = 0; General.RotationY = 0; General.Rot
         atlas_files = self.get_available_atlas_files(subject_id)
         if not atlas_files:
             atlas_combo.addItem("No atlases found"); atlas_combo.setEnabled(False)
-        elif isinstance(atlas_files[0], str) and atlas_files[0].startswith('⚠️'):
+        elif isinstance(atlas_files[0], str) and atlas_files[0].startswith('[WARNING]'):
             atlas_combo.addItem(atlas_files[0]); atlas_combo.setEnabled(False)
         else:
             atlas_combo.setEnabled(True)
