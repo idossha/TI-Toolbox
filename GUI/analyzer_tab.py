@@ -306,17 +306,117 @@ class AnalyzerTab(QtWidgets.QWidget):
         
         # Create right container (for analysis configuration)
         right_layout_container = QtWidgets.QWidget()
-        right_layout_actual = self.create_analysis_parameters_widget(right_layout_container) # Pass container
-        main_horizontal_layout.addWidget(right_layout_container, 2) # Add the container widget
+        right_layout_actual = self.create_analysis_parameters_widget(right_layout_container)
+        main_horizontal_layout.addWidget(right_layout_container, 2)
         
         scroll_layout.addLayout(main_horizontal_layout)
         scroll_area.setWidget(scroll_content)
         main_layout.addWidget(scroll_area)
         
-        # Create a container widget for the console_layout
-        console_layout_container = QtWidgets.QWidget()
-        console_layout_actual = self.create_console_widget(console_layout_container) # Pass container
-        main_layout.addWidget(console_layout_container)
+        # Output console (directly added like in simulator tab)
+        output_label = QtWidgets.QLabel("Output:")
+        output_label.setStyleSheet("font-weight: bold; font-size: 14px; margin-top: 10px;")
+        
+        self.output_console = QtWidgets.QTextEdit()
+        self.output_console.setReadOnly(True)
+        self.output_console.setMinimumHeight(180)
+        self.output_console.setStyleSheet("""
+            QTextEdit {
+                background-color: #1e1e1e;
+                color: #f0f0f0;
+                font-family: 'Consolas', 'Courier New', monospace;
+                font-size: 13px;
+                border: 1px solid #3c3c3c;
+                border-radius: 5px;
+                padding: 8px;
+            }
+        """)
+        self.output_console.setAcceptRichText(True)
+
+        # Console layout
+        console_layout = QtWidgets.QVBoxLayout()
+        header_layout = QtWidgets.QHBoxLayout()
+        header_layout.addWidget(output_label)
+        header_layout.addStretch()
+        
+        # Create button layout for console controls
+        console_buttons_layout = QtWidgets.QHBoxLayout()
+        
+        # Run button
+        self.run_btn = QtWidgets.QPushButton("Run Analysis")
+        self.run_btn.clicked.connect(self.run_analysis)
+        self.run_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #4CAF50;
+                color: white;
+                padding: 5px 10px;
+                border: none;
+                border-radius: 3px;
+            }
+            QPushButton:hover {
+                background-color: #45a049;
+            }
+            QPushButton:pressed {
+                background-color: #3d8b40;
+            }
+            QPushButton:disabled {
+                background-color: #cccccc;
+                color: #888888;
+            }
+        """)
+        
+        # Stop button (initially disabled)
+        self.stop_btn = QtWidgets.QPushButton("Stop Analysis")
+        self.stop_btn.clicked.connect(self.stop_analysis)
+        self.stop_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #f44336;
+                color: white;
+                padding: 5px 10px;
+                border: none;
+                border-radius: 3px;
+            }
+            QPushButton:hover {
+                background-color: #d32f2f;
+            }
+            QPushButton:pressed {
+                background-color: #b71c1c;
+            }
+            QPushButton:disabled {
+                background-color: #cccccc;
+                color: #888888;
+            }
+        """)
+        self.stop_btn.setEnabled(False)  # Initially disabled
+        
+        # Clear console button
+        clear_btn = QtWidgets.QPushButton("Clear Console")
+        clear_btn.clicked.connect(self.clear_console)
+        clear_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #555;
+                color: white;
+                padding: 5px 10px;
+                border: none;
+                border-radius: 3px;
+            }
+            QPushButton:hover {
+                background-color: #666;
+            }
+        """)
+        
+        # Add buttons to console buttons layout in the desired order
+        console_buttons_layout.addWidget(self.run_btn)
+        console_buttons_layout.addWidget(self.stop_btn)
+        console_buttons_layout.addWidget(clear_btn)
+        
+        # Add console buttons layout to header layout
+        header_layout.addLayout(console_buttons_layout)
+        
+        console_layout.addLayout(header_layout)
+        console_layout.addWidget(self.output_console)
+        
+        main_layout.addLayout(console_layout)
 
         # Connect signals after all widgets are created
         self.subject_list.itemSelectionChanged.connect(self.on_subject_selection_changed)
@@ -575,8 +675,8 @@ class AnalyzerTab(QtWidgets.QWidget):
     
     # create_subject_tab method removed - no longer using individual subject tabs
     
-    def create_analysis_parameters_widget(self, container_widget): # Accept container
-        right_layout = QtWidgets.QVBoxLayout(container_widget) # Use container
+    def create_analysis_parameters_widget(self, container_widget):
+        right_layout = QtWidgets.QVBoxLayout(container_widget)
 
         analysis_params_container = QtWidgets.QGroupBox("Analysis Configuration")
         self.analysis_params_container = analysis_params_container
@@ -712,40 +812,7 @@ class AnalyzerTab(QtWidgets.QWidget):
         visualization_layout.addLayout(mesh_viz_layout)
         right_layout.addWidget(visualization_container)
         
-        return right_layout # Return the layout itself
-    
-    def create_console_widget(self, container_widget): # Accept container
-        console_layout = QtWidgets.QVBoxLayout(container_widget) # Use container
-
-        output_label = QtWidgets.QLabel("Output:")
-        output_label.setStyleSheet("font-weight: bold;")
-        self.output_console = QtWidgets.QTextEdit()
-        self.output_console.setReadOnly(True)
-        self.output_console.setStyleSheet("""
-            QTextEdit { background-color: #1e1e1e; color: #f0f0f0; font-family: 'Consolas', 'Courier New', monospace; }
-        """)
-        self.output_console.setAcceptRichText(True)
-
-        header_layout = QtWidgets.QHBoxLayout()
-        header_layout.addWidget(output_label)
-        header_layout.addStretch()
-        
-        console_buttons_layout = QtWidgets.QHBoxLayout()
-        self.run_btn = QtWidgets.QPushButton("Run Analysis")
-        self.run_btn.clicked.connect(self.run_analysis)
-        self.stop_btn = QtWidgets.QPushButton("Stop Analysis")
-        self.stop_btn.clicked.connect(self.stop_analysis)
-        self.stop_btn.setEnabled(False)
-        clear_btn = QtWidgets.QPushButton("Clear Console")
-        clear_btn.clicked.connect(self.clear_console)
-        console_buttons_layout.addWidget(self.run_btn)
-        console_buttons_layout.addWidget(self.stop_btn)
-        console_buttons_layout.addWidget(clear_btn)
-        header_layout.addLayout(console_buttons_layout)
-        
-        console_layout.addLayout(header_layout)
-        console_layout.addWidget(self.output_console)
-        return console_layout
+        return right_layout
 
     def select_all_subjects(self):
         if self.is_group_mode:
