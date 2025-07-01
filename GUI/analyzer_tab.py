@@ -1784,22 +1784,10 @@ class AnalyzerTab(QtWidgets.QWidget):
                 self.update_output(f"Error: group_analyzer.py not found at {group_analyzer_script_path}")
                 return None
 
-            # Create temporary output directory for legacy compatibility
-            project_dir_name = os.environ.get('PROJECT_DIR_NAME', 'BIDS_new')
-            project_dir = f"/mnt/{project_dir_name}"
-            timestamp = QtCore.QDateTime.currentDateTime().toString("yyyyMMdd_hhmmss")
-            
-            # Store group analysis results directly in derivatives/reports instead of ti-csc
-            legacy_output_dir = os.path.join(project_dir, 'derivatives', 'reports', 
-                                           f"group_{'cortical' if self.type_cortical.isChecked() else 'spherical'}_"
-                                           f"{'mesh' if self.space_mesh.isChecked() else 'voxel'}_{timestamp}")
-            os.makedirs(legacy_output_dir, exist_ok=True)
-
-            # Build base command
+            # Build base command (group_analyzer.py creates its own output directories)
             cmd = ['simnibs_python', group_analyzer_script_path,
                    '--space', 'mesh' if self.space_mesh.isChecked() else 'voxel',
-                   '--analysis_type', 'spherical' if self.type_spherical.isChecked() else 'cortical',
-                   '--output_dir', legacy_output_dir]
+                   '--analysis_type', 'spherical' if self.type_spherical.isChecked() else 'cortical']
 
             # Add space-specific parameters
             if self.space_mesh.isChecked():
