@@ -267,7 +267,7 @@ def run_simulation(montage_name, montage, output_dir):
     mout.elmdata = []
     mout.add_element_field(TImax_vectors, "TI_vectors")
     
-    output_mesh_path = os.path.join(ti_mesh_dir, f"{subject_identifier}_{montage_name}_TI.msh")
+    output_mesh_path = os.path.join(ti_mesh_dir, f"{montage_name}_TI.msh")
     mesh_io.write_msh(mout, output_mesh_path)
 
     v = mout.view(visible_tags=[1002, 1006], visible_fields=["TI_vectors"])
@@ -312,8 +312,8 @@ for pair in montage_pairs:
         mout.elmdata = []
         mout.add_element_field(TI_MultiPolar, "TI_Max")
 
-        # Save the multi-polar TI mesh
-        output_mesh_path = os.path.join(mti_output_dir, f"{subject_id}_{pair_dir_name}_mTI.msh")
+        # Save the multi-polar TI mesh (without subject ID)
+        output_mesh_path = os.path.join(mti_output_dir, f"{pair_dir_name}_mTI.msh")
         logger.info(f"Saving multi-polar TI mesh to: {output_mesh_path}")
         mesh_io.write_msh(mout, output_mesh_path)
 

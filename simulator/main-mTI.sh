@@ -265,17 +265,17 @@ for montage in "${selected_montages[@]}"; do
     if [ -f "$tmp_montage_dir/mTI.msh" ]; then
         log_info "Processing mTI mesh"
         
-        # Move and rename mTI mesh and its opt file
-        mv "$tmp_montage_dir/mTI.msh" "$montage_dir/mTI/mesh/${subject_id}_${montage}_mTI.msh"
+        # Move and rename mTI mesh and its opt file (without subject ID)
+        mv "$tmp_montage_dir/mTI.msh" "$montage_dir/mTI/mesh/${montage}_mTI.msh"
         if [ -f "$tmp_montage_dir/mTI.msh.opt" ]; then
-            mv "$tmp_montage_dir/mTI.msh.opt" "$montage_dir/mTI/mesh/${subject_id}_${montage}_mTI.msh.opt"
+            mv "$tmp_montage_dir/mTI.msh.opt" "$montage_dir/mTI/mesh/${montage}_mTI.msh.opt"
         fi
         log_info "Moved and renamed mTI mesh files"
         
-        # Extract GM and WM fields
-        mti_mesh="$montage_dir/mTI/mesh/${subject_id}_${montage}_mTI.msh"
-        gm_output="$montage_dir/mTI/mesh/grey_${subject_id}_${montage}_mTI.msh"
-        wm_output="$montage_dir/mTI/mesh/white_${subject_id}_${montage}_mTI.msh"
+        # Extract GM and WM fields (without subject ID)
+        mti_mesh="$montage_dir/mTI/mesh/${montage}_mTI.msh"
+        gm_output="$montage_dir/mTI/mesh/grey_${montage}_mTI.msh"
+        wm_output="$montage_dir/mTI/mesh/white_${montage}_mTI.msh"
         extract_fields "$mti_mesh" "$gm_output" "$wm_output"
         
         # Transform to NIfTI

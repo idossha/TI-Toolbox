@@ -223,6 +223,8 @@ class VoxelAnalyzer:
                 # Verify the resampling worked
                 if atlas_arr.shape != field_shape_3d:
                     raise ValueError(f"Failed to resample atlas to match field dimensions: {atlas_arr.shape} vs {field_shape_3d}")
+            else:
+                self.logger.info("Atlas and field dimensions already match - skipping resampling")
             
             field_tuple = (field_img, field_arr)
             
@@ -762,6 +764,8 @@ class VoxelAnalyzer:
             # Verify the resampling worked
             if atlas_arr.shape != field_shape_3d:
                 raise ValueError(f"Failed to resample atlas to match field dimensions: {atlas_arr.shape} vs {field_shape_3d}")
+        else:
+            self.logger.info("Atlas and field dimensions already match - skipping resampling")
         
         # Load region information if not provided
         if region_info is None:

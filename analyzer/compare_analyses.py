@@ -202,7 +202,7 @@ def _get_run_specific_output_dir(input_paths: list[str]) -> str:
     # Create run-specific folder name
     run_folder_name = f"{montage_name}_{region_name}"
     
-    # Create full output directory path (now under SimNIBS)
+    # Create full output directory path under derivatives/SimNIBS/group_analysis
     output_dir = os.path.join("/mnt", project_name, "derivatives", "SimNIBS", "group_analysis", run_folder_name)
     os.makedirs(output_dir, exist_ok=True)
     

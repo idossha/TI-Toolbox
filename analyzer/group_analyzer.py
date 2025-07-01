@@ -46,13 +46,15 @@ def create_group_output_directory(first_subject_path: str) -> str:
     # Extract project name from the first subject's path
     project_name = _extract_project_name(first_subject_path)
     
-    # Create centralized group analysis directory (now under SimNIBS)
-    group_output_dir = os.path.join("/mnt", project_name, "derivatives", "SimNIBS", "group_analysis")
-    os.makedirs(group_output_dir, exist_ok=True)
+    # No longer create centralized group analysis directory under SimNIBS
+    # Individual subject analyses are stored in their respective subject directories
+    # Group comparisons will be stored in the user-specified output directory
     
     if group_logger:
-        group_logger.info(f"Created group analysis directory: {group_output_dir}")
-    return group_output_dir
+        group_logger.info(f"Using project: {project_name}")
+    
+    # Return a placeholder path - not actually used since we don't create central directories
+    return f"/mnt/{project_name}/derivatives/SimNIBS"
 
 def setup_parser():
     """Set up command line argument parser."""

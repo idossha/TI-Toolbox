@@ -295,7 +295,11 @@ collect_analysis_type() {
 
     echo -e "${GREEN}Choose analysis type:${RESET}"
     echo "1. Spherical (ROI defined by coordinates and radius)"
-    echo "2. Cortical (ROI defined by brain atlas regions)"
+    if [ "$space_type" == "voxel" ]; then
+        echo "2. Sub/Cortical (ROI defined by brain atlas regions)"
+    else
+        echo "2. Cortical (ROI defined by brain atlas regions)"
+    fi
     valid_analysis=false
     until $valid_analysis; do
         read -p "Enter your choice (1 or 2): " analysis_choice

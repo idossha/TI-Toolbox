@@ -158,14 +158,14 @@ class MeshAnalyzer:
         base_name = os.path.splitext(input_name)[0]
         
         # Get the simulation name and subject ID from the field mesh path
-        # Field path structure: .../sub-<name>/Simulations/simulation_name/TI/mesh/field.msh
+        # Field path structure: .../sub-<n>/Simulations/simulation_name/TI/mesh/field.msh
         field_path_parts = self.field_mesh_path.split(os.sep)
         try:
             sim_idx = field_path_parts.index('Simulations')
             simulation_name = field_path_parts[sim_idx + 1]
             
             # Get the subject ID from the m2m directory path
-            # m2m path structure: .../sub-<name>/m2m_<name>
+            # m2m path structure: .../sub-<n>/m2m_<n>
             m2m_name = os.path.basename(self.subject_dir)  # e.g., 'm2m_ido'
             subject_id = m2m_name.split('_')[1]  # e.g., 'ido'
             
@@ -176,7 +176,7 @@ class MeshAnalyzer:
             surface_mesh_dir = os.path.join(simnibs_dir, f'sub-{subject_id}', 'Simulations', simulation_name, 'TI', 'mesh')
             os.makedirs(surface_mesh_dir, exist_ok=True)
             
-            # The surface mesh file path
+            # The surface mesh file path - specific to this field mesh only
             surface_mesh_path = os.path.join(surface_mesh_dir, f"{base_name}_central.msh")
             
             # If we already have a valid surface mesh, return it
@@ -185,10 +185,10 @@ class MeshAnalyzer:
                 self._surface_mesh_path = surface_mesh_path
                 return surface_mesh_path
                 
-            self.logger.info(f"Generating surface mesh using msh2cortex...")
+            self.logger.info(f"Generating surface mesh for specific field: {input_name} using msh2cortex...")
             
             try:
-                # Run msh2cortex command
+                # Run msh2cortex command only for this specific field mesh
                 cmd = [
                     'msh2cortex',
                     '-i', self.field_mesh_path,
@@ -205,7 +205,7 @@ class MeshAnalyzer:
                 
                 # Store the path
                 self._surface_mesh_path = surface_mesh_path
-                self.logger.info(f"Surface mesh generated successfully at: {surface_mesh_path}")
+                self.logger.info(f"Surface mesh generated successfully for {input_name} at: {surface_mesh_path}")
                 
                 return surface_mesh_path
                 
@@ -227,8 +227,8 @@ class MeshAnalyzer:
                 raise
                 
         except (ValueError, IndexError) as e:
-            self.logger.error(f"Could not determine simulation name from field mesh path. Expected path structure: .../sub-<name>/Simulations/simulation_name/TI/mesh/field.msh")
-            raise ValueError("Could not determine simulation name from field mesh path. Expected path structure: .../sub-<name>/Simulations/simulation_name/TI/mesh/field.msh")
+            self.logger.error(f"Could not determine simulation name from field mesh path. Expected path structure: .../sub-<n>/Simulations/simulation_name/TI/mesh/field.msh")
+            raise ValueError("Could not determine simulation name from field mesh path. Expected path structure: .../sub-<n>/Simulations/simulation_name/TI/mesh/field.msh")
 
     def __del__(self):
         """Cleanup temporary directory when the analyzer is destroyed."""

@@ -815,7 +815,12 @@ class AnalyzerTab(QtWidgets.QWidget):
         self.space_mesh.toggled.connect(self.update_group_field_widgets)
         self.space_voxel.toggled.connect(self.update_group_field_widgets)
         
+        # Connect signals to update cortical button text based on space
+        self.space_mesh.toggled.connect(self.update_cortical_button_text)
+        self.space_voxel.toggled.connect(self.update_cortical_button_text)
+        
         self.update_atlas_visibility() # Initial call
+        self.update_cortical_button_text() # Initial call
         analysis_params_layout.addWidget(self.analysis_stack)
         right_layout.addWidget(analysis_params_container)
         
@@ -975,9 +980,29 @@ class AnalyzerTab(QtWidgets.QWidget):
             else:
                 eligible_files = [f for f in all_files if any(f.endswith(ext) for ext in ['.nii', '.nii.gz', '.mgz'])]
             
-            # Find grey matter subject space files (prefix "grey", no "MNI" or "central")
+            # Find grey matter subject space files with flexible naming patterns
+            # Try multiple patterns in order of preference
+            grey_subject_files = []
+            
+            # Pattern 1: Files starting with 'grey' (traditional naming)
+            # Exclude surface mesh files (_central.msh) but not montages containing 'central'
             grey_subject_files = [f for f in eligible_files 
-                                if f.startswith('grey') and 'MNI' not in f and 'central' not in f]
+                                if f.startswith('grey') and 'MNI' not in f and not f.endswith('_central.msh')]
+            
+            # Pattern 2: If no 'grey' files, look for TI_max files (newer naming)
+            if not grey_subject_files:
+                grey_subject_files = [f for f in eligible_files 
+                                    if 'TI_max' in f and 'MNI' not in f and not f.endswith('_central.msh')]
+            
+            # Pattern 3: If still none, look for any file with montage name and no MNI
+            if not grey_subject_files:
+                grey_subject_files = [f for f in eligible_files 
+                                    if montage_name.lower() in f.lower() and 'MNI' not in f and not f.endswith('_central.msh')]
+            
+            # Pattern 4: Last resort - any eligible file that's not MNI or central surface mesh
+            if not grey_subject_files:
+                grey_subject_files = [f for f in eligible_files 
+                                    if 'MNI' not in f and not f.endswith('_central.msh')]
             
             if not grey_subject_files:
                 failed_subjects.append(f"{subject_id} (no grey matter subject space files found)")
@@ -1082,9 +1107,9 @@ class AnalyzerTab(QtWidgets.QWidget):
                 return
             
             subjects = []
-            for item_name in os.listdir(simnibs_dir): # item_name is like 'sub-001'
+            for item_name in os.listdir(simnibs_dir): # item_name is like 'sub-001' or 'sub-ernie'
                 if item_name.startswith('sub-'):
-                    subject_id_short = item_name[4:] # '001'
+                    subject_id_short = item_name[4:] # '001' or 'ernie'
                     m2m_dir_to_check = os.path.join(simnibs_dir, item_name, f'm2m_{subject_id_short}')
                     if os.path.isdir(m2m_dir_to_check):
                         subjects.append(subject_id_short)
@@ -1408,6 +1433,13 @@ class AnalyzerTab(QtWidgets.QWidget):
         else:
             # For non-cortical modes or when not in group mode, update controls directly
             self.update_atlas_dependent_controls(has_valid_atlas=False, requires_atlas=False)
+
+    def update_cortical_button_text(self):
+        """Update the cortical radio button text based on the selected analysis space."""
+        if self.space_voxel.isChecked():
+            self.type_cortical.setText("Sub/Cortical")
+        else:
+            self.type_cortical.setText("Cortical")
 
     def update_group_atlas_options(self): # For shared atlas selectors in group mode
         if not self.is_group_mode: return
@@ -1756,7 +1788,9 @@ class AnalyzerTab(QtWidgets.QWidget):
             project_dir_name = os.environ.get('PROJECT_DIR_NAME', 'BIDS_new')
             project_dir = f"/mnt/{project_dir_name}"
             timestamp = QtCore.QDateTime.currentDateTime().toString("yyyyMMdd_hhmmss")
-            legacy_output_dir = os.path.join(project_dir, 'ti-csc', 'group_analyses', 
+            
+            # Store group analysis results directly in derivatives/reports instead of ti-csc
+            legacy_output_dir = os.path.join(project_dir, 'derivatives', 'reports', 
                                            f"group_{'cortical' if self.type_cortical.isChecked() else 'spherical'}_"
                                            f"{'mesh' if self.space_mesh.isChecked() else 'voxel'}_{timestamp}")
             os.makedirs(legacy_output_dir, exist_ok=True)

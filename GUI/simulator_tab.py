@@ -1072,12 +1072,14 @@ class SimulatorTab(QtWidgets.QWidget):
                         
                         # Create montage structure for mapped electrodes
                         if len(mapped_positions) >= 4:  # Need at least 4 electrodes for TI
-                            montage_name = f"flex_{search_name}_mapped"
+                            # Parse search_name to extract components for new naming format
+                            # search_name format: lh.101_DK40_14_mean or subcortical_atlas_region_goal
+                            montage_name = self._parse_flex_search_name(search_name, 'mapped')
+                            
                             # TI requires 2 pairs of electrodes
                             montage_data = {
                                 'name': montage_name,
                                 'type': 'flex_mapped',
-                                'subject_id': subject_id,
                                 'eeg_net': eeg_net,  # Use the EEG net from the mapping file
                                 'electrode_labels': mapped_labels[:4],
                                 'pairs': [[mapped_labels[0], mapped_labels[1]], [mapped_labels[2], mapped_labels[3]]]
@@ -1090,12 +1092,13 @@ class SimulatorTab(QtWidgets.QWidget):
                         
                         # Create montage structure for optimized electrodes
                         if len(optimized_positions) >= 4:  # Need at least 4 electrodes for TI
-                            montage_name = f"flex_{search_name}_optimized"
+                            # Parse search_name to extract components for new naming format
+                            montage_name = self._parse_flex_search_name(search_name, 'optimized')
+                            
                             # TI requires 2 pairs of electrodes (using XYZ coordinates)
                             montage_data = {
                                 'name': montage_name,
                                 'type': 'flex_optimized',
-                                'subject_id': subject_id,
                                 'electrode_positions': optimized_positions[:4],
                                 'pairs': [[optimized_positions[0], optimized_positions[1]], 
                                          [optimized_positions[2], optimized_positions[3]]]
@@ -1103,19 +1106,7 @@ class SimulatorTab(QtWidgets.QWidget):
                             flex_montages.append(montage_data)
                             flex_montages_by_subject[subject_id].append(montage_data)
             
-            # Check if simulation directories already exist
-            project_dir = f"/mnt/{os.environ.get('PROJECT_DIR_NAME', 'BIDS_new')}"
-            for subject_id in selected_subjects:
-                bids_subject_id = f"sub-{subject_id}"
-                for montage_name in selected_montages:
-                    # Get montage name without path if it's a file path
-                    montage_base = os.path.splitext(os.path.basename(montage_name))[0]
-                    sim_dir = os.path.join(project_dir, 'derivatives', 'SimNIBS', 
-                                         bids_subject_id, 'Simulations', montage_base)
-                    if os.path.exists(sim_dir):
-                        if not confirm_overwrite(self, sim_dir, "simulation output directory"):
-                            self.update_output("Simulation cancelled: Output directory already exists.")
-                            return
+            # Skip directory existence check for now - let the simulation scripts handle it
             
             # Get simulation parameters
             conductivity = self.sim_type_combo.currentData()  # Get conductivity from combo box
@@ -1236,7 +1227,7 @@ class SimulatorTab(QtWidgets.QWidget):
             
             if is_montage_mode:
                 # Montage simulation mode
-                env['SELECTED_MONTAGES'] = ' '.join(selected_montages)
+                env['SELECTED_MONTAGES'] = ','.join(selected_montages)  # Use comma-separated for CLI parsing
                 env['SIMULATION_FRAMEWORK'] = 'montage'  # CLI expects SIMULATION_FRAMEWORK
             else:
                 # Flex-search simulation mode
@@ -1373,6 +1364,9 @@ class SimulatorTab(QtWidgets.QWidget):
         # Automatically generate simulation report
         self.auto_generate_simulation_report()
         
+        # Clean up temporary completion files
+        self.cleanup_temporary_files()
+        
         self.simulation_running = False
         self.run_btn.setEnabled(True)
         self.run_btn.setText("Run Simulation")
@@ -1382,71 +1376,11 @@ class SimulatorTab(QtWidgets.QWidget):
         self.enable_controls()
     
     def auto_generate_simulation_report(self):
-        """Auto-generate simulation report for each subject and montage."""
+        """Auto-generate individual simulation reports for each subject-montage combination."""
         try:
             # Get project directory from environment variable
             project_dir = f"/mnt/{os.environ.get('PROJECT_DIR_NAME', 'BIDS_new')}"
             
-            # Initialize report generator with project directory and session ID
-            self.simulation_session_id = str(int(time.time()))
-            self.report_generator = get_simulation_report_generator(project_dir, self.simulation_session_id)
-            
-            # Add simulation parameters
-            params = {
-                'conductivity_type': self.sim_type_combo.currentData(),  # Get conductivity type from combo box
-                'simulation_mode': 'U' if self.sim_mode_unipolar.isChecked() else 'M',
-                'quiet_mode': True,  # Always run in quiet mode for GUI
-            }
-
-            # Handle EEG net selection based on simulation type
-            if self.sim_type_montage.isChecked():
-                # For montage mode, use the selected EEG net
-                params['eeg_net'] = self.eeg_net_combo.currentText()
-            else:
-                                    # For flex-search mode, try to get EEG net from the electrode_mapping.json
-                    try:
-                        flex_montages = self.flex_search_list.selectedItems()
-                        if flex_montages:
-                            first_montage = flex_montages[0].data(QtCore.Qt.UserRole)
-                            subject_id = first_montage['subject_id']
-                            search_name = first_montage['search_name']
-                            
-                            # Construct path to electrode_mapping.json
-                            mapping_file = os.path.join(project_dir, 'derivatives', 'SimNIBS', 
-                                                      f'sub-{subject_id}', 'flex-search', search_name, 
-                                                      'electrode_mapping.json')
-                            
-                            if os.path.exists(mapping_file):
-                                with open(mapping_file, 'r') as f:
-                                    mapping_data = json.load(f)
-                                    if 'eeg_net' in mapping_data:
-                                        params['eeg_net'] = mapping_data['eeg_net']
-                                    else:
-                                        self.update_output("Error: You must optimize with mapped electrode option selected", 'error')
-                                        return
-                            else:
-                                self.update_output(f"Error: Could not find electrode mapping file: {mapping_file}", 'error')
-                                return
-                    except Exception as e:
-                        self.update_output(f"Error reading electrode mapping file: {str(e)}", 'error')
-                        return
-
-            # Add currents if they are set
-            if self.current_input_1.text():
-                params['intensity_ch1_ma'] = float(self.current_input_1.text())
-            if self.current_input_2.text():
-                params['intensity_ch2_ma'] = float(self.current_input_2.text())
-
-            # Add conductivities from the conductivity editor
-            conductivities = self._get_conductivities_for_report()
-            if conductivities:
-                params['conductivities'] = conductivities
-
-            # Add electrode shape and dimensions
-            params['electrode_shape'] = "rect" if self.electrode_shape_rect.isChecked() else "ellipse"
-            params['dimensions'] = self.dimensions_input.text() or "8,8"
-            params['thickness'] = self.thickness_input.text() or "8"
-
             # Get selected subjects and montages
             selected_subjects = [item.text() for item in self.subject_list.selectedItems()]
             if not selected_subjects:
@@ -1459,51 +1393,148 @@ class SimulatorTab(QtWidgets.QWidget):
                 if not selected_montages:
                     self.update_output("Error: No montages selected", 'error')
                     return
+                simulation_mode = "montage"
             else:
                 # For flex-search, get montages from flex-search list
-                selected_montages = [item.data(QtCore.Qt.UserRole)['search_name'] for item in self.flex_search_list.selectedItems()]
-                if not selected_montages:
+                selected_flex_data = [item.data(QtCore.Qt.UserRole) for item in self.flex_search_list.selectedItems()]
+                if not selected_flex_data:
                     self.update_output("Error: No flex-search outputs selected", 'error')
                     return
+                simulation_mode = "flex"
 
-            # Add subjects and montages
+            # Generate individual reports for each subject-montage combination
+            total_reports = 0
+            successful_reports = 0
+            
             for subject_id in selected_subjects:
-                bids_subject_id = f"sub-{subject_id}"
-                m2m_path = os.path.join(project_dir, 'derivatives', 'SimNIBS', bids_subject_id, f'm2m_{subject_id}')
-                self.report_generator.add_subject(subject_id, m2m_path, 'processing')
-                for montage_name in selected_montages:
-                    self.report_generator.add_montage(
-                        name=montage_name,
-                        electrode_pairs=[['E1', 'E2']],  # Assuming default pairs
-                        montage_type='unipolar' if self.sim_mode_unipolar.isChecked() else 'multipolar'
-                    )
-
-            # Add simulation results
-            for subject_id in selected_subjects:
-                bids_subject_id = f"sub-{subject_id}"
-                for montage_name in selected_montages:
-                    self.report_generator.add_simulation_result(
-                        subject_id=subject_id,
-                        montage_name=montage_name,
-                        output_files=[],  # Assuming no output files yet
-                        duration=None,  # Duration not tracked yet
-                        status='completed'
-                    )
-
-            # Generate report
-            report_path = self.report_generator.generate_report()
-            self.update_output(f"✅ Simulation report generated: {report_path}")
-
-            # Open report in browser
-            import webbrowser
-            try:
-                webbrowser.open('file://' + os.path.abspath(report_path))
-                self.update_output("📊 Report opened in web browser")
-            except Exception as e:
-                self.update_output(f"Report generated but couldn't open browser: {str(e)}")
+                if simulation_mode == "montage":
+                    # Regular montage mode
+                    montages_to_process = selected_montages
+                    eeg_net = self.eeg_net_combo.currentText()
+                else:
+                    # Flex-search mode - filter by subject
+                    subject_flex_data = [data for data in selected_flex_data if data.get('subject_id') == subject_id]
+                    montages_to_process = []
+                    
+                    # Process flex montages for this subject
+                    for flex_data in subject_flex_data:
+                        search_name = flex_data['search_name']
+                        
+                        # Check which electrode types are selected
+                        if self.flex_use_mapped.isChecked():
+                            montages_to_process.append(self._parse_flex_search_name(search_name, 'mapped'))
+                        if self.flex_use_optimized.isChecked():
+                            montages_to_process.append(self._parse_flex_search_name(search_name, 'optimized'))
+                    
+                    # Get EEG net from first flex data for this subject
+                    if subject_flex_data:
+                        try:
+                            search_name = subject_flex_data[0]['search_name']
+                            mapping_file = os.path.join(project_dir, 'derivatives', 'SimNIBS', 
+                                                      f'sub-{subject_id}', 'flex-search', search_name, 
+                                                      'electrode_mapping.json')
+                            
+                            if os.path.exists(mapping_file):
+                                with open(mapping_file, 'r') as f:
+                                    mapping_data = json.load(f)
+                                    eeg_net = mapping_data.get('eeg_net', 'EGI_template.csv')
+                            else:
+                                eeg_net = 'EGI_template.csv'
+                        except:
+                            eeg_net = 'EGI_template.csv'
+                    else:
+                        eeg_net = 'EGI_template.csv'
+                
+                # Generate individual report for each montage for this subject
+                for montage_name in montages_to_process:
+                    total_reports += 1
+                    
+                    try:
+                        # Create unique session ID for each report
+                        individual_session_id = f"{self.simulation_session_id}_{subject_id}_{montage_name}"
+                        report_generator = get_simulation_report_generator(project_dir, individual_session_id)
+                        
+                        if not report_generator:
+                            self.update_output(f"⚠️ Report generator not available for {subject_id}-{montage_name}")
+                            continue
+                        
+                        # Add simulation parameters
+                        report_generator.add_simulation_parameters(
+                            conductivity_type=self.sim_type_combo.currentData(),
+                            simulation_mode='U' if self.sim_mode_unipolar.isChecked() else 'M',
+                            eeg_net=eeg_net,
+                            intensity_ch1=float(self.current_input_1.text() or "5.0"),
+                            intensity_ch2=float(self.current_input_2.text() or "5.0"),
+                            quiet_mode=True,
+                            conductivities=self._get_conductivities_for_report()
+                        )
+                        
+                        # Add electrode parameters
+                        dim_parts = (self.dimensions_input.text() or "8,8").split(',')
+                        report_generator.add_electrode_parameters(
+                            shape="rect" if self.electrode_shape_rect.isChecked() else "ellipse",
+                            dimensions=[float(dim_parts[0]), float(dim_parts[1])],
+                            thickness=float(self.thickness_input.text() or "8")
+                        )
+                        
+                        # Add this specific subject
+                        bids_subject_id = f"sub-{subject_id}"
+                        m2m_path = os.path.join(project_dir, 'derivatives', 'SimNIBS', bids_subject_id, f'm2m_{subject_id}')
+                        report_generator.add_subject(subject_id, m2m_path, 'completed')
+                        
+                        # Add this specific montage
+                        report_generator.add_montage(
+                            name=montage_name,
+                            electrode_pairs=[['E1', 'E2']],  # Default pairs
+                            montage_type='unipolar' if self.sim_mode_unipolar.isChecked() else 'multipolar'
+                        )
+                        
+                        # Get expected output files for this specific combination
+                        simulations_dir = os.path.join(project_dir, 'derivatives', 'SimNIBS', bids_subject_id, 'Simulations', montage_name)
+                        ti_dir = os.path.join(simulations_dir, 'TI')
+                        nifti_dir = os.path.join(ti_dir, 'niftis')
+                        
+                        output_files = {'TI': [], 'niftis': []}
+                        if os.path.exists(nifti_dir):
+                            nifti_files = [f for f in os.listdir(nifti_dir) if f.endswith('.nii.gz')]
+                            output_files['niftis'] = [os.path.join(nifti_dir, f) for f in nifti_files]
+                            ti_files = [f for f in nifti_files if 'TI_max' in f]
+                            output_files['TI'] = [os.path.join(nifti_dir, f) for f in ti_files]
+                        
+                        # Add simulation result for this specific combination
+                        report_generator.add_simulation_result(
+                            subject_id=subject_id,
+                            montage_name=montage_name,
+                            output_files=output_files,
+                            duration=None,
+                            status='completed'
+                        )
+                        
+                        # Generate individual report
+                        report_path = report_generator.generate_report()
+                        successful_reports += 1
+                        self.update_output(f"✅ Individual report generated for {subject_id}-{montage_name}: {os.path.basename(report_path)}")
+                        
+                    except Exception as e:
+                        self.update_output(f"❌ Error generating report for {subject_id}-{montage_name}: {str(e)}", 'error')
+            
+            # Summary
+            self.update_output(f"📊 Generated {successful_reports}/{total_reports} individual simulation reports")
+            
+            if successful_reports > 0:
+                reports_dir = os.path.join(project_dir, 'derivatives', 'reports')
+                self.update_output(f"📂 Reports saved in: {reports_dir}")
+                
+                # Open the reports directory instead of individual files
+                import webbrowser
+                try:
+                    webbrowser.open('file://' + os.path.abspath(reports_dir))
+                    self.update_output("📊 Reports directory opened in file browser")
+                except Exception as e:
+                    self.update_output(f"Reports generated but couldn't open directory: {str(e)}")
 
         except Exception as e:
-            self.update_output(f"❌ Error generating simulation report: {str(e)}", 'error')
+            self.update_output(f"❌ Error generating simulation reports: {str(e)}", 'error')
             import traceback
             self.update_output(f"Traceback: {traceback.format_exc()}", 'error')
 
@@ -1909,7 +1940,18 @@ class SimulatorTab(QtWidgets.QWidget):
         """Get conductivity values formatted for the simulation report."""
         # Start with default values
         temp_gen = get_simulation_report_generator("", "")
-        conductivities = temp_gen._get_default_conductivities()
+        
+        if not temp_gen:
+            # Fallback to manual conductivity dict if report generator not available
+            conductivities = {
+                1: {'name': 'White Matter', 'conductivity': 0.126, 'reference': 'Wagner et al., 2004'},
+                2: {'name': 'Gray Matter', 'conductivity': 0.275, 'reference': 'Wagner et al., 2004'},
+                3: {'name': 'CSF', 'conductivity': 1.654, 'reference': 'Wagner et al., 2004'},
+                4: {'name': 'Bone', 'conductivity': 0.01, 'reference': 'Wagner et al., 2004'},
+                5: {'name': 'Scalp', 'conductivity': 0.465, 'reference': 'Wagner et al., 2004'},
+            }
+        else:
+            conductivities = temp_gen._get_default_conductivities()
         
         # Override with any custom values
         for tissue_num, custom_value in self.custom_conductivities.items():
@@ -1925,6 +1967,54 @@ class SimulatorTab(QtWidgets.QWidget):
                 }
         
         return conductivities
+
+    def cleanup_temporary_files(self):
+        """Clean up temporary simulation completion files after processing."""
+        try:
+            # Get project directory
+            project_dir = f"/mnt/{os.environ.get('PROJECT_DIR_NAME', 'BIDS_new')}"
+            temp_dir = os.path.join(project_dir, 'derivatives', 'temp')
+            
+            if not os.path.exists(temp_dir):
+                return
+            
+            # Find and clean up completion files
+            cleaned_count = 0
+            for filename in os.listdir(temp_dir):
+                if filename.startswith('simulation_completion_') and filename.endswith('.json'):
+                    file_path = os.path.join(temp_dir, filename)
+                    try:
+                        # Check if file is older than 5 minutes to avoid cleaning files from concurrent simulations
+                        file_mtime = os.path.getmtime(file_path)
+                        current_time = time.time()
+                        if current_time - file_mtime > 300:  # 5 minutes
+                            os.remove(file_path)
+                            cleaned_count += 1
+                            self.update_output(f"🗑️ Cleaned up temporary file: {filename}")
+                        else:
+                            # If it's our session, clean it up immediately
+                            if (hasattr(self, 'simulation_session_id') and 
+                                self.simulation_session_id and 
+                                self.simulation_session_id in filename):
+                                os.remove(file_path)
+                                cleaned_count += 1
+                                self.update_output(f"🗑️ Cleaned up session file: {filename}")
+                    except Exception as e:
+                        self.update_output(f"⚠️ Could not clean up {filename}: {str(e)}", 'warning')
+            
+            if cleaned_count > 0:
+                self.update_output(f"🧹 Cleaned up {cleaned_count} temporary completion file(s)")
+            
+            # Also try to remove the temp directory if it's empty
+            try:
+                if not os.listdir(temp_dir):
+                    os.rmdir(temp_dir)
+                    self.update_output("🗑️ Removed empty temp directory")
+            except:
+                pass  # Directory not empty or permission issue, ignore
+                
+        except Exception as e:
+            self.update_output(f"⚠️ Error during cleanup: {str(e)}", 'warning')
 
     def _format_montage_label(self, montage_name, pairs, is_unipolar=True):
         """Format montage label for the list widget: montage_name: ch1:X<->Y + ch2:A<->B (+ ch3/ch4...)"""
@@ -2052,6 +2142,76 @@ class SimulatorTab(QtWidgets.QWidget):
             # Still set tab as not busy even if there's an error
             if hasattr(self, 'parent') and self.parent:
                 self.parent.set_tab_busy(self, False, stop_btn=self.stop_btn)
+
+    def _parse_flex_search_name(self, search_name, electrode_type):
+        """
+        Parse flex-search name and create proper naming format.
+        
+        Args:
+            search_name: Original search name (e.g., 'lh.101_DK40_14_mean')
+            electrode_type: 'mapped' or 'optimized'
+            
+        Returns:
+            str: Formatted name following flex_{hemisphere}_{atlas}_{region}_{goal}_{postProc}_{electrode_type}
+        """
+        try:
+            # Handle cortical search names: lh.101_DK40_14_mean
+            if search_name.startswith(('lh.', 'rh.')):
+                parts = search_name.split('_')
+                if len(parts) >= 3:
+                    hemisphere_region = parts[0]  # e.g., 'lh.101'
+                    atlas = parts[1]  # e.g., 'DK40'
+                    goal_postproc = '_'.join(parts[2:])  # e.g., '14_mean'
+                    
+                    # Extract hemisphere and region
+                    if '.' in hemisphere_region:
+                        hemisphere, region = hemisphere_region.split('.', 1)
+                    else:
+                        hemisphere = 'unknown'
+                        region = hemisphere_region
+                    
+                    # Split goal and postProc if possible
+                    if '_' in goal_postproc:
+                        goal_parts = goal_postproc.split('_')
+                        goal = goal_parts[0]
+                        post_proc = '_'.join(goal_parts[1:])
+                    else:
+                        goal = goal_postproc
+                        post_proc = 'default'
+                    
+                    return f"flex_{hemisphere}_{atlas}_{region}_{goal}_{post_proc}_{electrode_type}"
+            
+            # Handle subcortical search names: subcortical_atlas_region_goal
+            elif search_name.startswith('subcortical_'):
+                parts = search_name.split('_')
+                if len(parts) >= 4:
+                    hemisphere = 'subcortical'
+                    atlas = parts[1]
+                    region = parts[2]
+                    goal = parts[3]
+                    post_proc = '_'.join(parts[4:]) if len(parts) > 4 else 'default'
+                    
+                    return f"flex_{hemisphere}_{atlas}_{region}_{goal}_{post_proc}_{electrode_type}"
+            
+            # Handle spherical coordinates: x.x_y.y_z.z_radius_goal
+            elif '_' in search_name and any(char.isdigit() for char in search_name):
+                parts = search_name.split('_')
+                # Assume spherical coordinate format
+                hemisphere = 'spherical'
+                atlas = 'coordinates'
+                region = '_'.join(parts[:-1])  # Everything except goal
+                goal = parts[-1] if parts else 'optimization'
+                post_proc = 'default'
+                
+                return f"flex_{hemisphere}_{atlas}_{region}_{goal}_{post_proc}_{electrode_type}"
+            
+            # Fallback for unrecognized formats
+            else:
+                return f"flex_unknown_unknown_{search_name}_optimization_default_{electrode_type}"
+                
+        except Exception as e:
+            self.update_output(f"Warning: Could not parse flex search name '{search_name}': {e}", 'warning')
+            return f"flex_unknown_unknown_{search_name}_optimization_default_{electrode_type}"
 
 class AddMontageDialog(QtWidgets.QDialog):
     """Dialog for adding new montages."""

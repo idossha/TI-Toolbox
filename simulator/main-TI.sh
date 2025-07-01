@@ -285,17 +285,17 @@ for montage in "${selected_montages[@]}"; do
     if [ -f "$tmp_montage_dir/TI.msh" ]; then
         log_info "Processing TI mesh"
         
-        # Move and rename TI mesh and its opt file
-        mv "$tmp_montage_dir/TI.msh" "$montage_dir/TI/mesh/${subject_id}_${montage}_TI.msh"
+        # Move and rename TI mesh and its opt file (without subject ID)
+        mv "$tmp_montage_dir/TI.msh" "$montage_dir/TI/mesh/${montage}_TI.msh"
         if [ -f "$tmp_montage_dir/TI.msh.opt" ]; then
-            mv "$tmp_montage_dir/TI.msh.opt" "$montage_dir/TI/mesh/${subject_id}_${montage}_TI.msh.opt"
+            mv "$tmp_montage_dir/TI.msh.opt" "$montage_dir/TI/mesh/${montage}_TI.msh.opt"
         fi
         log_info "Moved and renamed TI mesh files"
         
-        # Extract GM and WM fields
-        ti_mesh="$montage_dir/TI/mesh/${subject_id}_${montage}_TI.msh"
-        gm_output="$montage_dir/TI/mesh/grey_${subject_id}_${montage}_TI.msh"
-        wm_output="$montage_dir/TI/mesh/white_${subject_id}_${montage}_TI.msh"
+        # Extract GM and WM fields (without subject ID)
+        ti_mesh="$montage_dir/TI/mesh/${montage}_TI.msh"
+        gm_output="$montage_dir/TI/mesh/grey_${montage}_TI.msh"
+        wm_output="$montage_dir/TI/mesh/white_${montage}_TI.msh"
         extract_fields "$ti_mesh" "$gm_output" "$wm_output"
         
         # Transform to NIfTI
@@ -317,8 +317,8 @@ verify_files() {
         "$montage_base_dir/high_Frequency/niftis"
         "$montage_base_dir/high_Frequency/analysis/fields_summary.txt"
         "$montage_base_dir/documentation"
-        "$montage_base_dir/TI/mesh/${subject_id}_${montage_name}_TI.msh"
-        "$montage_base_dir/TI/mesh/${subject_id}_${montage_name}_TI.msh.opt"
+        "$montage_base_dir/TI/mesh/${montage_name}_TI.msh"
+        "$montage_base_dir/TI/mesh/${montage_name}_TI.msh.opt"
     )
 
     for path in "${essential_paths[@]}"; do
