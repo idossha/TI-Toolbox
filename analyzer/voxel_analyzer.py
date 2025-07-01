@@ -1091,3 +1091,53 @@ class VoxelAnalyzer:
             
             # If we get here, region name was not found
             raise ValueError(f"Region name '{target_region}' not found in region labels")
+
+    def get_grey_matter_statistics(self):
+        """
+        Calculate grey matter field statistics from the NIfTI data.
+        
+        Returns:
+            dict: Dictionary containing grey matter statistics (mean, max, min)
+        """
+        self.logger.info("Calculating grey matter field statistics...")
+        
+        try:
+            # Load the field data
+            img = nib.load(self.field_nifti)
+            field_data = img.get_fdata()
+            
+            # Handle 4D field data (extract first volume if multiple volumes)
+            if len(field_data.shape) == 4:
+                if field_data.shape[3] == 1:
+                    field_data = field_data[:,:,:,0]
+                else:
+                    field_data = field_data[:,:,:,0]
+            
+            # For voxel analysis, we assume the entire field is grey matter
+            # (since we're typically working with grey matter NIfTI files)
+            # Filter for positive values only (matching ROI analysis behavior)
+            positive_mask = field_data > 0
+            field_data_positive = field_data[positive_mask]
+            
+            # Check if we have any positive values
+            if len(field_data_positive) == 0:
+                self.logger.warning("No positive values found in grey matter data")
+                return {'grey_mean': 0.0, 'grey_max': 0.0, 'grey_min': 0.0}
+            
+            # Calculate statistics on positive values only
+            grey_mean = np.mean(field_data_positive)
+            grey_max = np.max(field_data_positive)
+            grey_min = np.min(field_data_positive)
+            
+            self.logger.info(f"Grey matter statistics for field '{os.path.basename(self.field_nifti)}' (positive values only): "
+                           f"mean={grey_mean:.6f}, max={grey_max:.6f}, min={grey_min:.6f}")
+            
+            return {
+                'grey_mean': float(grey_mean),
+                'grey_max': float(grey_max),
+                'grey_min': float(grey_min)
+            }
+            
+        except Exception as e:
+            self.logger.error(f"Error calculating grey matter statistics: {str(e)}")
+            return {'grey_mean': 0.0, 'grey_max': 0.0, 'grey_min': 0.0}

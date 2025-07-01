@@ -242,10 +242,14 @@ class AnalyzerTab(QtWidgets.QWidget):
         # Create left container (for subjects)
         left_container = QtWidgets.QWidget()
         left_layout = QtWidgets.QVBoxLayout(left_container)
-        
+        left_layout.setContentsMargins(0, 0, 0, 0)
+        left_layout.setSpacing(2)
         # Add mode selection toggle at the top
         mode_container = QtWidgets.QGroupBox("Analysis Mode")
         mode_layout = QtWidgets.QHBoxLayout(mode_container)
+        mode_layout.setContentsMargins(2, 2, 2, 2)
+        mode_layout.setSpacing(5)
+        mode_container.setSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Maximum)
         self.single_mode_radio = QtWidgets.QRadioButton("Single Subject")
         self.group_mode_radio = QtWidgets.QRadioButton("Group Analysis")
         self.single_mode_radio.setChecked(True)  # Default to single mode
@@ -262,12 +266,17 @@ class AnalyzerTab(QtWidgets.QWidget):
         # Single mode: separate container with just dropdown
         single_subject_container = QtWidgets.QGroupBox("Subject")
         single_subject_layout = QtWidgets.QVBoxLayout(single_subject_container)
+        single_subject_layout.setContentsMargins(2, 2, 2, 2)
+        single_subject_layout.setSpacing(2)
+        single_subject_container.setSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Maximum)
         self.subject_combo = QtWidgets.QComboBox()
         self.subject_combo.addItem("Select subject...")
         single_subject_layout.addWidget(self.subject_combo)
         
         # Single mode buttons
         single_button_layout = QtWidgets.QHBoxLayout()
+        single_button_layout.setContentsMargins(0, 0, 0, 0)
+        single_button_layout.setSpacing(5)
         self.list_subjects_btn = QtWidgets.QPushButton("Refresh List")
         self.list_subjects_btn.clicked.connect(self.list_subjects)
         self.clear_subject_selection_btn = QtWidgets.QPushButton("Reset")
@@ -281,12 +290,17 @@ class AnalyzerTab(QtWidgets.QWidget):
         # Group mode: separate container with list widget
         group_subject_container = QtWidgets.QGroupBox("Subjects")
         group_subject_layout = QtWidgets.QVBoxLayout(group_subject_container)
+        group_subject_layout.setContentsMargins(2, 2, 2, 2)
+        group_subject_layout.setSpacing(2)
+        group_subject_container.setSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Maximum)
         self.subject_list = QtWidgets.QListWidget()
         self.subject_list.setSelectionMode(QtWidgets.QAbstractItemView.ExtendedSelection)
         group_subject_layout.addWidget(self.subject_list)
         
         # Group mode buttons
         group_button_layout = QtWidgets.QHBoxLayout()
+        group_button_layout.setContentsMargins(0, 0, 0, 0)
+        group_button_layout.setSpacing(5)
         self.list_subjects_btn_group = QtWidgets.QPushButton("Refresh List")
         self.list_subjects_btn_group.clicked.connect(self.list_subjects)
         self.select_all_subjects_btn = QtWidgets.QPushButton("Select All")
@@ -626,15 +640,23 @@ class AnalyzerTab(QtWidgets.QWidget):
     def create_group_analysis_widget(self):
         widget = QtWidgets.QWidget()
         layout = QtWidgets.QVBoxLayout(widget)
-        
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(2)
         # Create common configuration section instead of tabs
         common_config_group = QtWidgets.QGroupBox("Common Configuration (Applied to All Selected Subjects)")
         common_config_layout = QtWidgets.QVBoxLayout(common_config_group)
-        
+        common_config_layout.setContentsMargins(2, 2, 2, 2)
+        common_config_layout.setSpacing(2)
+        common_config_group.setSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Maximum)
         # Common montage selection
         montage_group = QtWidgets.QGroupBox("Shared Montage")
         montage_layout = QtWidgets.QVBoxLayout(montage_group)
+        montage_layout.setContentsMargins(2, 2, 2, 2)
+        montage_layout.setSpacing(2)
+        montage_group.setSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Maximum)
         montage_selection_layout = QtWidgets.QHBoxLayout()
+        montage_selection_layout.setContentsMargins(0, 0, 0, 0)
+        montage_selection_layout.setSpacing(5)
         montage_label = QtWidgets.QLabel("Montage:")
         self.group_montage_combo = QtWidgets.QComboBox()
         self.group_montage_combo.addItem("Select common montage...")
@@ -643,11 +665,12 @@ class AnalyzerTab(QtWidgets.QWidget):
         montage_selection_layout.addWidget(self.group_montage_combo)
         montage_layout.addLayout(montage_selection_layout)
         common_config_layout.addWidget(montage_group)
-        
         # Common field selection (auto-selects grey matter subject space scans)
         field_group = QtWidgets.QGroupBox("Shared Field Configuration")
         field_layout = QtWidgets.QVBoxLayout(field_group)
-        
+        field_layout.setContentsMargins(2, 2, 2, 2)
+        field_layout.setSpacing(2)
+        field_group.setSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Maximum)
         # Field name input (only visible for mesh analysis)
         field_name_layout = QtWidgets.QHBoxLayout()
         self.group_field_name_label = QtWidgets.QLabel("Field Name:")
@@ -656,20 +679,16 @@ class AnalyzerTab(QtWidgets.QWidget):
         field_name_layout.addWidget(self.group_field_name_label)
         field_name_layout.addWidget(self.group_field_name_input)
         field_layout.addLayout(field_name_layout)
-        
         # Auto-selection info and status
         self.group_field_status_label = QtWidgets.QLabel("Field files will be auto-selected when montage is chosen...")
         self.group_field_status_label.setStyleSheet("color: #666666; font-style: italic;")
         field_layout.addWidget(self.group_field_status_label)
-        
         # Show selected fields button
         self.show_selected_fields_btn = QtWidgets.QPushButton("Show Selected Field Files")
         self.show_selected_fields_btn.clicked.connect(self.show_selected_field_files)
         self.show_selected_fields_btn.setEnabled(False)
         field_layout.addWidget(self.show_selected_fields_btn)
-        
         common_config_layout.addWidget(field_group)
-        
         layout.addWidget(common_config_group)
         return widget
     
@@ -746,13 +765,24 @@ class AnalyzerTab(QtWidgets.QWidget):
         self.atlas_name_combo.setCurrentText("DK40")
         mesh_atlas_layout.addWidget(self.mesh_atlas_label)
         mesh_atlas_layout.addWidget(self.atlas_name_combo)
+
+        # --- Change voxel_atlas_widget to QVBoxLayout with a row container ---
         self.voxel_atlas_widget = QtWidgets.QWidget()
-        voxel_atlas_layout = QtWidgets.QHBoxLayout(self.voxel_atlas_widget)
+        voxel_atlas_vlayout = QtWidgets.QVBoxLayout(self.voxel_atlas_widget)
+        voxel_atlas_vlayout.setContentsMargins(0, 0, 0, 0)
+        voxel_atlas_vlayout.setSpacing(2)
+        # Add warning label placeholder (will be managed in update_atlas_combo)
+        # Add row container for label and combo
+        voxel_atlas_row = QtWidgets.QWidget()
+        voxel_atlas_row_layout = QtWidgets.QHBoxLayout(voxel_atlas_row)
+        voxel_atlas_row_layout.setContentsMargins(0, 0, 0, 0)
+        voxel_atlas_row_layout.setSpacing(5)
         self.voxel_atlas_label = QtWidgets.QLabel("Atlas File:")
         self.atlas_combo = QtWidgets.QComboBox() # This is for single mode voxel atlas
         self.atlas_combo.setEditable(False) # Original was non-editable
-        voxel_atlas_layout.addWidget(self.voxel_atlas_label)
-        voxel_atlas_layout.addWidget(self.atlas_combo)
+        voxel_atlas_row_layout.addWidget(self.voxel_atlas_label)
+        voxel_atlas_row_layout.addWidget(self.atlas_combo)
+        voxel_atlas_vlayout.addWidget(voxel_atlas_row)
         cortical_layout.addWidget(self.mesh_atlas_widget)
         cortical_layout.addWidget(self.voxel_atlas_widget)
         region_layout = QtWidgets.QHBoxLayout()
@@ -1132,7 +1162,7 @@ class AnalyzerTab(QtWidgets.QWidget):
         project_dir_name = os.environ.get("PROJECT_DIR_NAME", "BIDS_new")
         project_dir = os.path.join("/mnt", project_dir_name)
         # Freesurfer path uses full subject ID for both levels, e.g., sub-001/sub-001/mri
-        freesurfer_mri_dir = os.path.join(project_dir, "derivatives", "freesurfer", f"sub-{subject_id}", f"{subject_id}", "mri") # Original used f"{subject_id}" twice
+        freesurfer_mri_dir = os.path.join(project_dir, "derivatives", "freesurfer", f"sub-{subject_id}", "mri")
         
         # Original defined atlases
         atlases_to_check = ['aparc.DKTatlas+aseg.mgz', 'aparc.a2009s+aseg.mgz']
@@ -1146,60 +1176,139 @@ class AnalyzerTab(QtWidgets.QWidget):
         
         if not atlas_files: # No specific atlases found
             # Original warning message logic
-            atlas_files.append("[WARNING] FreeSurfer recon-all preprocessing required for atlas generation")
+            atlas_files.append("FreeSurfer recon-all preprocessing required for atlas generation")
         return atlas_files
 
 
     def update_atlas_combo(self): # For single mode
         if self.is_group_mode: return
         
-        # Store current enable state to potentially restore it
-        was_enabled = self.atlas_combo.isEnabled()
-        
         self.atlas_combo.clear()
+        
+        # --- Add or show warning label above atlas_combo ---
+        if not hasattr(self, 'atlas_warning_label'):
+            self.atlas_warning_label = QtWidgets.QLabel()
+            self.atlas_warning_label.setStyleSheet("color: #c62828; font-weight: bold;")
+            self.atlas_warning_label.setWordWrap(True)
+            self.atlas_warning_label.setVisible(False)
+            self.atlas_warning_label.setSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Ignored)
+            # Insert above the atlas_combo in the layout
+            if hasattr(self, 'voxel_atlas_widget'):
+                self.voxel_atlas_widget.layout().insertWidget(0, self.atlas_warning_label)
+        
+        # Handle mesh atlas combo for single mode
+        if self.space_mesh.isChecked() and self.type_cortical.isChecked():
+            # Ensure mesh atlas combo is populated with predefined atlases
+            if self.atlas_name_combo.count() == 0:
+                self.atlas_name_combo.addItems(["DK40", "HCP_MMP1", "a2009s"])
+                self.atlas_name_combo.setCurrentText("DK40")
+            self.atlas_name_combo.setEnabled(True)
         
         # Get selected subject from appropriate widget based on mode
         selected_subjects = self.get_selected_subjects()
         if not selected_subjects:
             self.atlas_combo.addItem("Select a subject first")
             self.atlas_combo.setEnabled(False)
-            self.show_regions_btn.setEnabled(False)
+            self.atlas_warning_label.setText(
+                "<i>*Please run FreeSurfer recon-all in the Preprocessing tab to enable voxel cortical analysis.*</i>"
+            )
+            self.atlas_warning_label.setVisible(True)
+            # Update all related controls
+            self.update_atlas_dependent_controls(has_valid_atlas=False, requires_atlas=False)
             return
         
         subject_id = selected_subjects[0] # Short ID
         atlas_files_data = self.get_available_atlas_files(subject_id)
         has_valid_atlas = False
         
-        if not atlas_files_data:
-            # No atlas files found - but don't disable if we were enabled before
-            if was_enabled and self.space_voxel.isChecked() and self.type_cortical.isChecked():
-                self.atlas_combo.addItem("No atlases found - browse to select")
-                self.atlas_combo.setEnabled(True)  # Keep enabled for browsing
-            else:
-                self.atlas_combo.addItem("No atlases found")
-                self.atlas_combo.setEnabled(False)
-        elif isinstance(atlas_files_data[0], str) and atlas_files_data[0].startswith('[WARNING]'): # Warning message
-            self.atlas_combo.addItem(atlas_files_data[0])
-            self.atlas_combo.model().item(self.atlas_combo.count() - 1).setEnabled(False)
-            # Keep combo enabled for browsing if we're in the right mode
-            if was_enabled and self.space_voxel.isChecked() and self.type_cortical.isChecked():
-                self.atlas_combo.setEnabled(True)
-            else:
-                self.atlas_combo.setEnabled(False)
-        else: # Has valid atlas tuples
-            for display_name, full_path in atlas_files_data:
-                self.atlas_combo.addItem(display_name, full_path)
-            if self.atlas_combo.count() > 0:
-                has_valid_atlas = True
-                self.atlas_combo.setCurrentIndex(0)
-                self.atlas_combo.setEnabled(True)
+        # Check if we're in a mode that requires atlases (voxel + cortical)
+        requires_atlas = self.space_voxel.isChecked() and self.type_cortical.isChecked()
         
-        # Update show regions button based on valid atlas and current mode
-        can_show_regions = (has_valid_atlas or (was_enabled and self.atlas_combo.isEnabled())) and \
-                          not self.whole_head_check.isChecked() and \
-                          self.type_cortical.isChecked()
-        self.show_regions_btn.setEnabled(can_show_regions)
+        # Determine if we have valid atlas data
+        if atlas_files_data and isinstance(atlas_files_data[0], tuple):
+            # We have valid atlas tuples
+            has_valid_atlas = True
+            for item in atlas_files_data:
+                if isinstance(item, tuple) and len(item) == 2:
+                    display_name, full_path = item
+                    self.atlas_combo.addItem(display_name, full_path)
+            if self.atlas_combo.count() > 0:
+                self.atlas_combo.setCurrentIndex(0)
+        else:
+            # No valid atlases found
+            if atlas_files_data and isinstance(atlas_files_data[0], str):
+                # Warning message from get_available_atlas_files
+                self.atlas_combo.addItem(atlas_files_data[0])
+            else:
+                # No atlas files at all
+                self.atlas_combo.addItem("No atlases found")
+        
+        # Determine if the combo should be enabled
+        should_enable_combo = False
+        
+        if requires_atlas:
+            # In voxel + cortical mode, only enable if we have valid atlases
+            should_enable_combo = has_valid_atlas
+        else:
+            # In other modes (mesh cortical, spherical), atlas combo is not needed
+            should_enable_combo = False
+        
+        # Set the combo state
+        self.atlas_combo.setEnabled(should_enable_combo)
+        
+        # Update warning label visibility
+        if requires_atlas and not has_valid_atlas:
+            self.atlas_warning_label.setText(
+                "<i>*Please run FreeSurfer recon-all in the Preprocessing tab to enable voxel cortical analysis.*</i>"
+            )
+            self.atlas_warning_label.setVisible(True)
+        else:
+            self.atlas_warning_label.setVisible(False)
+        
+        # Update all related controls using centralized method
+        self.update_atlas_dependent_controls(has_valid_atlas=has_valid_atlas, requires_atlas=requires_atlas)
 
+    def update_atlas_dependent_controls(self, has_valid_atlas=False, requires_atlas=False):
+        """
+        Centralized method to update all atlas-dependent UI controls.
+        
+        Args:
+            has_valid_atlas (bool): Whether valid atlas data is available
+            requires_atlas (bool): Whether the current mode requires atlas data
+        """
+        is_mesh = self.space_mesh.isChecked()
+        is_cortical = self.type_cortical.isChecked()
+        is_voxel_cortical = not is_mesh and is_cortical
+        
+        # Determine if we should enable cortical analysis controls
+        # For mesh cortical: always enable (atlases are predefined)
+        # For voxel cortical: only enable if we have valid atlases
+        # For spherical: disable (no atlas needed)
+        cortical_controls_enabled = False
+        
+        if is_cortical:
+            if is_mesh:
+                # Mesh cortical: always enable (uses predefined atlases)
+                cortical_controls_enabled = True
+            else:
+                # Voxel cortical: only enable if we have valid atlases
+                cortical_controls_enabled = has_valid_atlas and requires_atlas
+        
+        # Update whole head checkbox
+        # Should be enabled for cortical analysis, but disabled if no valid atlas in voxel mode
+        whole_head_enabled = is_cortical and cortical_controls_enabled
+        self.whole_head_check.setEnabled(whole_head_enabled)
+        
+        # Update region input controls
+        # Should be enabled for cortical analysis when not whole head, but only if atlas controls are enabled
+        region_enabled = cortical_controls_enabled and not self.whole_head_check.isChecked()
+        self.region_label.setEnabled(region_enabled)
+        self.region_input.setEnabled(region_enabled)
+        
+        # Update show regions button
+        # Should be enabled for cortical analysis when not whole head, but only if we have valid atlases
+        can_list_regions = cortical_controls_enabled and not self.whole_head_check.isChecked()
+        self.show_regions_btn.setEnabled(can_list_regions)
 
     def browse_atlas(self): # For single mode voxel atlas browsing
         initial_dir = ""
@@ -1230,6 +1339,15 @@ class AnalyzerTab(QtWidgets.QWidget):
                 self.atlas_combo.addItem(base_name, file_name) # Use base_name for display, path for data
                 self.atlas_combo.setCurrentIndex(self.atlas_combo.count() - 1) # Select newly added
             
+            # Since we now have a valid atlas, enable the combo and related controls
+            if self.space_voxel.isChecked() and self.type_cortical.isChecked():
+                self.atlas_combo.setEnabled(True)
+                # Hide warning label if it was showing
+                if hasattr(self, 'atlas_warning_label'):
+                    self.atlas_warning_label.setVisible(False)
+                # Update all related controls using centralized method
+                self.update_atlas_dependent_controls(has_valid_atlas=True, requires_atlas=True)
+            
             # Update button state after selection/addition
             can_list_regions = self.atlas_combo.isEnabled() and \
                                self.type_cortical.isChecked() and \
@@ -1241,6 +1359,10 @@ class AnalyzerTab(QtWidgets.QWidget):
         is_mesh = self.space_mesh.isChecked()
         is_cortical = self.type_cortical.isChecked()
         
+        # Hide warning label in group mode - it should never show in group mode
+        if self.is_group_mode and hasattr(self, 'atlas_warning_label'):
+            self.atlas_warning_label.setVisible(False)
+        
         # Original visibility logic for atlas selection widgets
         self.mesh_atlas_widget.setVisible(is_mesh and is_cortical)
         self.voxel_atlas_widget.setVisible(not is_mesh and is_cortical)
@@ -1250,47 +1372,26 @@ class AnalyzerTab(QtWidgets.QWidget):
             if hasattr(self, 'field_name_input'): self.field_name_input.setEnabled(is_mesh)
             if hasattr(self, 'field_name_label'): self.field_name_label.setEnabled(is_mesh)
         
-        # Enable/disable whole head checkbox based on analysis type
-        self.whole_head_check.setEnabled(is_cortical)
-        
-        # Original logic for region inputs
-        region_enabled = is_cortical and not self.whole_head_check.isChecked()
-        self.region_label.setEnabled(region_enabled)
-        self.region_input.setEnabled(region_enabled)
-        
-        # More nuanced enablement for show_regions_btn:
-        can_list_regions = is_cortical and not self.whole_head_check.isChecked()
-        if not self.is_group_mode: # Single mode - check if we have valid atlases
-            # Only disable if we explicitly know there are no valid atlases
-            has_valid_atlas = True
-            if hasattr(self, 'atlas_combo') and self.atlas_combo.count() > 0:
-                # Check if the current item is a warning/error message
-                current_text = self.atlas_combo.currentText()
-                if current_text.startswith('[WARNING]') or current_text == "Select a subject first" or current_text == "No common atlases":
-                    has_valid_atlas = False
-            can_list_regions = can_list_regions and has_valid_atlas
-        # For group mode, keep it simple - just check cortical and not whole head
-        self.show_regions_btn.setEnabled(can_list_regions)
-
-        # Enable atlas widgets based on analysis type, but be more permissive
+        # Enable atlas widgets based on analysis type
         mesh_atlas_enabled = is_mesh and is_cortical
         voxel_atlas_enabled = not is_mesh and is_cortical
         
         self.mesh_atlas_widget.setEnabled(mesh_atlas_enabled)
         self.voxel_atlas_widget.setEnabled(voxel_atlas_enabled)
         
-        # For the atlas combos specifically, enable them if their widget is enabled
+        # For the atlas combos specifically
         if mesh_atlas_enabled:
             self.atlas_name_combo.setEnabled(True)
+            # Ensure mesh atlas combo is populated with predefined atlases in single mode
+            if not self.is_group_mode and self.atlas_name_combo.count() == 0:
+                self.atlas_name_combo.addItems(["DK40", "HCP_MMP1", "a2009s"])
+                self.atlas_name_combo.setCurrentText("DK40")
         
+        # For voxel atlas combo, let update_atlas_combo handle the enable state
+        # based on actual atlas availability
         if voxel_atlas_enabled and not self.is_group_mode:
-            # For single mode voxel atlas, only disable if we explicitly have no valid atlases
-            should_enable_voxel_atlas = True
-            if hasattr(self, 'atlas_combo') and self.atlas_combo.count() > 0:
-                current_text = self.atlas_combo.currentText()
-                if current_text.startswith('[WARNING]') or current_text == "Select a subject first":
-                    should_enable_voxel_atlas = False
-            self.atlas_combo.setEnabled(should_enable_voxel_atlas)
+            # update_atlas_combo will handle the enable state properly
+            pass
         elif voxel_atlas_enabled and self.is_group_mode:
             # For group mode, enable if we have any items
             self.atlas_combo.setEnabled(self.atlas_combo.count() > 0)
@@ -1298,20 +1399,15 @@ class AnalyzerTab(QtWidgets.QWidget):
         self.mesh_atlas_widget.update() # Original calls
         self.voxel_atlas_widget.update()
         
-        # Update atlas options but don't let them override our enable states
+        # Update atlas options and related controls
         if self.is_group_mode and is_cortical:
             self.update_group_atlas_options()
         elif not self.is_group_mode: # Ensure single mode atlas combo is also updated
-            # Store current enable state before update
-            atlas_combo_was_enabled = self.atlas_combo.isEnabled()
+            # Let update_atlas_combo handle the enable state properly
             self.update_atlas_combo()
-            # If it was enabled before and should still be enabled, restore it
-            if atlas_combo_was_enabled and voxel_atlas_enabled:
-                if self.atlas_combo.count() > 0:
-                    current_text = self.atlas_combo.currentText()
-                    if not (current_text.startswith('[WARNING]') or current_text == "Select a subject first"):
-                        self.atlas_combo.setEnabled(True)
-
+        else:
+            # For non-cortical modes or when not in group mode, update controls directly
+            self.update_atlas_dependent_controls(has_valid_atlas=False, requires_atlas=False)
 
     def update_group_atlas_options(self): # For shared atlas selectors in group mode
         if not self.is_group_mode: return
@@ -1327,10 +1423,14 @@ class AnalyzerTab(QtWidgets.QWidget):
         self.atlas_name_combo.clear() # For mesh
         self.atlas_combo.clear()      # For voxel (this was for single mode, repurposing for group shared voxel if needed)
         
+        has_valid_atlas = False
+        requires_atlas = self.space_voxel.isChecked() and self.type_cortical.isChecked()
+        
         if self.space_mesh.isChecked() and self.type_cortical.isChecked():
             self.atlas_name_combo.addItems(["DK40", "HCP_MMP1", "a2009s"]) # Predefined mesh atlases
             self.atlas_name_combo.setCurrentText("DK40")
             self.atlas_name_combo.setEnabled(True)  # Always enable for mesh
+            has_valid_atlas = True  # Mesh atlases are always available
             try: self.atlas_name_combo.currentTextChanged.disconnect(self.update_group_mesh_atlas)
             except TypeError: pass
             self.atlas_name_combo.currentTextChanged.connect(self.update_group_mesh_atlas)
@@ -1369,16 +1469,31 @@ class AnalyzerTab(QtWidgets.QWidget):
             if common_atlases_display:
                 self.atlas_combo.setCurrentIndex(0)
                 self.atlas_combo.setEnabled(True)
+                has_valid_atlas = True
                 try: self.atlas_combo.currentTextChanged.disconnect(self.update_group_voxel_atlas)
                 except TypeError: pass
                 self.atlas_combo.currentTextChanged.connect(self.update_group_voxel_atlas)
                 self.update_group_voxel_atlas(self.atlas_combo.currentText()) # Initial update
             else:
+                # No common atlas: show only the message, disable all controls, and hide warning label
+                self.atlas_combo.clear()
                 self.atlas_combo.addItem("No common atlases for all selected subjects")
-                # Don't disable completely - keep enabled for potential browsing or if user changes selection
-                self.atlas_combo.setEnabled(voxel_atlas_was_enabled)
+                self.atlas_combo.setEnabled(False)
+                has_valid_atlas = False
                 self.group_atlas_config.clear() # Clear all atlas configs since we have no common atlas
-    
+                # Hide the warning label if present
+                if hasattr(self, 'atlas_warning_label'):
+                    self.atlas_warning_label.setVisible(False)
+                # Disable all region/atlas controls
+                self.region_label.setEnabled(False)
+                self.region_input.setEnabled(False)
+                self.show_regions_btn.setEnabled(False)
+                self.whole_head_check.setEnabled(False)
+                return  # Skip the centralized update, as we've set everything explicitly
+        
+        # Update all related controls using centralized method
+        self.update_atlas_dependent_controls(has_valid_atlas=has_valid_atlas, requires_atlas=requires_atlas)
+
     def update_group_mesh_atlas(self, atlas_name): # Called by shared mesh atlas_name_combo
         if not self.is_group_mode or not self.space_mesh.isChecked() or not self.type_cortical.isChecked(): return
             
@@ -1419,15 +1534,10 @@ class AnalyzerTab(QtWidgets.QWidget):
 
     def toggle_region_input(self, state_int): # state is int from checkbox
         is_checked = bool(state_int)
-        self.region_input.setEnabled(not is_checked and self.type_cortical.isChecked()) # Enable if not whole head & cortical
-        self.region_label.setEnabled(not is_checked and self.type_cortical.isChecked())
-        
-        # Update "List Regions" button enablement based on original logic
-        can_list_regions = self.type_cortical.isChecked() and (not is_checked)
-        if not self.is_group_mode: # Single mode also depends on atlas_combo
-            can_list_regions = can_list_regions and self.atlas_combo.isEnabled() 
-        self.show_regions_btn.setEnabled(can_list_regions)
-    
+        # The centralized method will handle all the enable/disable logic
+        # Just call update_atlas_visibility which will trigger the proper state updates
+        self.update_atlas_visibility()
+
     def validate_inputs(self):
         if self.is_group_mode:
             return self.validate_group_inputs()
@@ -1985,7 +2095,7 @@ class AnalyzerTab(QtWidgets.QWidget):
         self.region_input.setEnabled(True)
         self.region_label.setEnabled(True)
         self.atlas_name_combo.setEnabled(True)
-        self.atlas_combo.setEnabled(True)
+        # Don't force enable atlas_combo - let update_atlas_visibility handle it properly
         self.show_regions_btn.setEnabled(True)
         
         # Now update visibility and proper enable states

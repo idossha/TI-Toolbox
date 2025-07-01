@@ -10,6 +10,8 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 import logging
 from pathlib import Path
+import json
+import re
 
 # Add the parent directory to the path to access utils
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
@@ -340,7 +342,17 @@ def _load_subject_data(analyses: list[str]) -> dict:
                 'mean_value': float(df.iloc[1, 1]),  # Row 2, Column 2
                 'max_value': float(df.iloc[2, 1]),   # Row 3, Column 2
                 'min_value': float(df.iloc[3, 1]),   # Row 4, Column 2
+                'focality': float(df.iloc[4, 1]),    # Row 5, Column 2 (focality)
             }
+            
+            # Try to find the field file path used during analysis
+            field_path = _find_field_path_from_analysis(analysis_path, subject_id, montage_name)
+            
+            # Get grey matter statistics by reconstructing the analyzer
+            # Note: This is optional and will return 0.0 values if the analyzers can't be imported
+            # due to module path issues. The CSV will still be generated with the basic ROI statistics.
+            grey_stats = _get_grey_matter_statistics(analysis_path, subject_id, montage_name, field_path)
+            metrics.update(grey_stats)
             
             analysis_results[unique_name] = {
                 'subject_id': subject_id,
@@ -361,6 +373,270 @@ def _load_subject_data(analyses: list[str]) -> dict:
     group_logger.info(f"Successfully loaded data from {len(analysis_results)} analyses")
     return analysis_results
 
+def _find_field_path_from_analysis(analysis_path: str, subject_id: str, montage_name: str) -> str:
+    """
+    Try to find the field file path used during analysis by looking for log files or configuration files.
+    
+    Args:
+        analysis_path (str): Path to the analysis directory
+        subject_id (str): Subject ID
+        montage_name (str): Montage name
+        
+    Returns:
+        str: Path to the field file if found, None otherwise
+    """
+    try:
+        # Look for log files that might contain field path information
+        log_files = [f for f in os.listdir(analysis_path) if f.endswith('.log')]
+        
+        for log_file in log_files:
+            log_path = os.path.join(analysis_path, log_file)
+            try:
+                with open(log_path, 'r') as f:
+                    content = f.read()
+                    
+                    # Look for field path patterns in the log
+                    # Common patterns: --field_path, field_mesh_path, field_nifti
+                    import re
+                    
+                    # Pattern for field path arguments
+                    field_patterns = [
+                        r'--field_path\s+([^\s]+)',
+                        r'field_mesh_path[=:]\s*([^\s\n]+)',
+                        r'field_nifti[=:]\s*([^\s\n]+)',
+                        r'field_file[=:]\s*([^\s\n]+)'
+                    ]
+                    
+                    for pattern in field_patterns:
+                        match = re.search(pattern, content)
+                        if match:
+                            field_path = match.group(1).strip()
+                            # Clean up the path (remove quotes, etc.)
+                            field_path = field_path.strip('"\'')
+                            
+                            # Verify the file exists
+                            if os.path.exists(field_path):
+                                group_logger.debug(f"Found field path in {log_file}: {field_path}")
+                                return field_path
+                            
+            except Exception as e:
+                group_logger.debug(f"Error reading log file {log_file}: {str(e)}")
+                continue
+        
+        # If no field path found in logs, try to construct it from the analysis path
+        # This is a fallback method
+        project_name = _extract_project_name(analysis_path)
+        path_parts = analysis_path.split('/')
+        space_type = "unknown"
+        
+        # Look for Mesh or Voxel in the path
+        for part in path_parts:
+            if part == 'Mesh':
+                space_type = 'mesh'
+                break
+            elif part == 'Voxel':
+                space_type = 'voxel'
+                break
+        
+        if space_type == 'mesh':
+            # For mesh analysis, construct the expected field path
+            field_dir = os.path.join("/mnt", project_name, "derivatives", "SimNIBS", 
+                                   subject_id, "Simulations", montage_name, "TI", "mesh")
+            if os.path.exists(field_dir):
+                msh_files = [f for f in os.listdir(field_dir) if f.endswith('.msh') and not f.endswith('.msh.opt')]
+                if msh_files:
+                    field_path = os.path.join(field_dir, msh_files[0])
+                    group_logger.debug(f"Constructed mesh field path: {field_path}")
+                    return field_path
+        elif space_type == 'voxel':
+            # For voxel analysis, construct the expected field path
+            field_dir = os.path.join("/mnt", project_name, "derivatives", "SimNIBS", 
+                                   subject_id, "Simulations", montage_name, "TI", "niftis")
+            if os.path.exists(field_dir):
+                grey_files = [f for f in os.listdir(field_dir) if f.startswith('grey_') and f.endswith(('.nii', '.nii.gz'))]
+                if grey_files:
+                    field_path = os.path.join(field_dir, grey_files[0])
+                    group_logger.debug(f"Constructed voxel field path: {field_path}")
+                    return field_path
+        
+        group_logger.warning(f"Could not find field path for {analysis_path}")
+        return None
+        
+    except Exception as e:
+        group_logger.warning(f"Error finding field path for {analysis_path}: {str(e)}")
+        return None
+
+def _get_grey_matter_statistics(analysis_path: str, subject_id: str, montage_name: str, field_path: str = None) -> dict:
+    """
+    Get grey matter statistics by reconstructing the analyzer and calling the appropriate method.
+    
+    Args:
+        analysis_path (str): Path to the analysis directory
+        subject_id (str): Subject ID
+        montage_name (str): Montage name
+        field_path (str, optional): Path to the field file used during analysis
+        
+    Returns:
+        dict: Dictionary with grey matter statistics
+    """
+    try:
+        # Extract project name from analysis path
+        project_name = _extract_project_name(analysis_path)
+        
+        # Determine if this is mesh or voxel analysis based on the analysis path
+        path_parts = analysis_path.split('/')
+        space_type = "unknown"
+        
+        # Look for Mesh or Voxel in the path
+        for part in path_parts:
+            if part == 'Mesh':
+                space_type = 'mesh'
+                break
+            elif part == 'Voxel':
+                space_type = 'voxel'
+                break
+        
+        if space_type == 'unknown':
+            group_logger.warning(f"Could not determine space type for {analysis_path}")
+            return {'grey_mean': 0.0, 'grey_max': 0.0, 'grey_min': 0.0}
+        
+        # Construct paths to find the field file and subject directory
+        subject_short = subject_id.replace('sub-', '')
+        
+        if space_type == 'mesh':
+            # For mesh analysis, use the provided field path or look for .msh files
+            if field_path and os.path.exists(field_path):
+                # Use the provided field path
+                subject_dir = os.path.join("/mnt", project_name, "derivatives", "SimNIBS", 
+                                         subject_id, f"m2m_{subject_short}")
+                
+                # Try to import and create mesh analyzer
+                try:
+                    # Add the analyzer directory to the path
+                    analyzer_dir = os.path.dirname(os.path.abspath(__file__))
+                    if analyzer_dir not in sys.path:
+                        sys.path.insert(0, analyzer_dir)
+                    
+                    from mesh_analyzer import MeshAnalyzer
+                    analyzer = MeshAnalyzer(
+                        field_mesh_path=field_path,
+                        field_name='TI_max',  # Default field name
+                        subject_dir=subject_dir,
+                        output_dir=analysis_path,
+                        logger=group_logger
+                    )
+                    
+                    return analyzer.get_grey_matter_statistics()
+                except ImportError as e:
+                    group_logger.warning(f"Could not import mesh_analyzer for {analysis_path}: {str(e)}")
+                    return {'grey_mean': 0.0, 'grey_max': 0.0, 'grey_min': 0.0}
+            else:
+                # Fallback: look for .msh files in the directory
+                field_dir = os.path.join("/mnt", project_name, "derivatives", "SimNIBS", 
+                                       subject_id, "Simulations", montage_name, "TI", "mesh")
+                if not os.path.exists(field_dir):
+                    group_logger.warning(f"Mesh field directory not found: {field_dir}")
+                    return {'grey_mean': 0.0, 'grey_max': 0.0, 'grey_min': 0.0}
+                
+                # Find .msh files
+                msh_files = [f for f in os.listdir(field_dir) if f.endswith('.msh') and not f.endswith('.msh.opt')]
+                if not msh_files:
+                    group_logger.warning(f"No .msh files found in {field_dir}")
+                    return {'grey_mean': 0.0, 'grey_max': 0.0, 'grey_min': 0.0}
+                
+                field_path = os.path.join(field_dir, msh_files[0])
+                subject_dir = os.path.join("/mnt", project_name, "derivatives", "SimNIBS", 
+                                         subject_id, f"m2m_{subject_short}")
+                
+                # Try to import and create mesh analyzer
+                try:
+                    # Add the analyzer directory to the path
+                    analyzer_dir = os.path.dirname(os.path.abspath(__file__))
+                    if analyzer_dir not in sys.path:
+                        sys.path.insert(0, analyzer_dir)
+                    
+                    from mesh_analyzer import MeshAnalyzer
+                    analyzer = MeshAnalyzer(
+                        field_mesh_path=field_path,
+                        field_name='TI_max',  # Default field name
+                        subject_dir=subject_dir,
+                        output_dir=analysis_path,
+                        logger=group_logger
+                    )
+                    
+                    return analyzer.get_grey_matter_statistics()
+                except ImportError as e:
+                    group_logger.warning(f"Could not import mesh_analyzer for {analysis_path}: {str(e)}")
+                    return {'grey_mean': 0.0, 'grey_max': 0.0, 'grey_min': 0.0}
+            
+        else:  # voxel
+            # For voxel analysis, use the provided field path or look for grey matter NIfTI files
+            if field_path and os.path.exists(field_path):
+                # Use the provided field path
+                subject_dir = os.path.join("/mnt", project_name, "derivatives", "SimNIBS", 
+                                         subject_id, f"m2m_{subject_short}")
+                
+                # Try to import and create voxel analyzer
+                try:
+                    # Add the analyzer directory to the path
+                    analyzer_dir = os.path.dirname(os.path.abspath(__file__))
+                    if analyzer_dir not in sys.path:
+                        sys.path.insert(0, analyzer_dir)
+                    
+                    from voxel_analyzer import VoxelAnalyzer
+                    analyzer = VoxelAnalyzer(
+                        field_nifti=field_path,
+                        subject_dir=subject_dir,
+                        output_dir=analysis_path,
+                        logger=group_logger
+                    )
+                    
+                    return analyzer.get_grey_matter_statistics()
+                except ImportError as e:
+                    group_logger.warning(f"Could not import voxel_analyzer for {analysis_path}: {str(e)}")
+                    return {'grey_mean': 0.0, 'grey_max': 0.0, 'grey_min': 0.0}
+            else:
+                # Fallback: look for grey matter NIfTI files in the directory
+                field_dir = os.path.join("/mnt", project_name, "derivatives", "SimNIBS", 
+                                       subject_id, "Simulations", montage_name, "TI", "niftis")
+                if not os.path.exists(field_dir):
+                    group_logger.warning(f"Voxel field directory not found: {field_dir}")
+                    return {'grey_mean': 0.0, 'grey_max': 0.0, 'grey_min': 0.0}
+                
+                # Find grey matter NIfTI files
+                grey_files = [f for f in os.listdir(field_dir) if f.startswith('grey_') and f.endswith(('.nii', '.nii.gz'))]
+                if not grey_files:
+                    group_logger.warning(f"No grey matter NIfTI files found in {field_dir}")
+                    return {'grey_mean': 0.0, 'grey_max': 0.0, 'grey_min': 0.0}
+                
+                field_path = os.path.join(field_dir, grey_files[0])
+                subject_dir = os.path.join("/mnt", project_name, "derivatives", "SimNIBS", 
+                                         subject_id, f"m2m_{subject_short}")
+                
+                # Try to import and create voxel analyzer
+                try:
+                    # Add the analyzer directory to the path
+                    analyzer_dir = os.path.dirname(os.path.abspath(__file__))
+                    if analyzer_dir not in sys.path:
+                        sys.path.insert(0, analyzer_dir)
+                    
+                    from voxel_analyzer import VoxelAnalyzer
+                    analyzer = VoxelAnalyzer(
+                        field_nifti=field_path,
+                        subject_dir=subject_dir,
+                        output_dir=analysis_path,
+                        logger=group_logger
+                    )
+                    
+                    return analyzer.get_grey_matter_statistics()
+                except ImportError as e:
+                    group_logger.warning(f"Could not import voxel_analyzer for {analysis_path}: {str(e)}")
+                    return {'grey_mean': 0.0, 'grey_max': 0.0, 'grey_min': 0.0}
+        
+    except Exception as e:
+        group_logger.error(f"Error getting grey matter statistics for {analysis_path}: {str(e)}")
+        return {'grey_mean': 0.0, 'grey_max': 0.0, 'grey_min': 0.0}
+
 def _compute_subject_stats(analysis_results: dict, region_name: str = None) -> pd.DataFrame:
     """
     Compute statistics including focality for each subject and aggregate statistics.
@@ -371,7 +647,8 @@ def _compute_subject_stats(analysis_results: dict, region_name: str = None) -> p
         
     Returns:
         pd.DataFrame: DataFrame with ROI-specific columns: Subject_ID, ROI_Mean, ROI_Max, ROI_Min, ROI_Focality,
-                     plus rows for averages and difference percentages
+                     ROI_Mean_STD, ROI_Max_STD, ROI_Min_STD, ROI_Focality_STD,
+                     Grey_Mean, Grey_Max, Grey_Min, plus row for averages
     """
     group_logger.info("Computing subject statistics and focality metrics...")
     
@@ -385,13 +662,8 @@ def _compute_subject_stats(analysis_results: dict, region_name: str = None) -> p
     for unique_name, data in analysis_results.items():
         metrics = data['metrics']
         
-        # Calculate focality as the ratio of max to mean (higher = more focal)
-        # Add small epsilon to avoid division by zero
-        if metrics['mean_value'] > 1e-12:
-            focality = metrics['max_value'] / metrics['mean_value']
-        else:
-            focality = 0.0
-            group_logger.warning(f"Mean value too small for {unique_name}, setting focality to 0")
+        # Use focality value from the CSV (not recalculated)
+        focality = metrics.get('focality', 0.0)
         
         subject_data.append({
             'Subject_ID': data['subject_id'],
@@ -400,7 +672,10 @@ def _compute_subject_stats(analysis_results: dict, region_name: str = None) -> p
             f'ROI_Mean': metrics['mean_value'],
             f'ROI_Max': metrics['max_value'],
             f'ROI_Min': metrics['min_value'],
-            f'ROI_Focality': focality
+            f'ROI_Focality': focality,
+            f'Grey_Mean': metrics.get('grey_mean', 0.0),
+            f'Grey_Max': metrics.get('grey_max', 0.0),
+            f'Grey_Min': metrics.get('grey_min', 0.0)
         })
     
     # Create DataFrame
@@ -410,9 +685,23 @@ def _compute_subject_stats(analysis_results: dict, region_name: str = None) -> p
         group_logger.warning("No valid subject data found")
         return df
     
-    # Calculate averages across all subjects
-    numeric_cols = [f'ROI_Mean', f'ROI_Max', f'ROI_Min', f'ROI_Focality']
+    # Calculate averages and standard deviations across all subjects
+    numeric_cols = [f'ROI_Mean', f'ROI_Max', f'ROI_Min', f'ROI_Focality',
+                   f'Grey_Mean', f'Grey_Max', f'Grey_Min']
     averages = df[numeric_cols].mean()
+    std_devs = df[numeric_cols].std(ddof=1)  # Sample standard deviation
+    
+    # Calculate z-scores for each subject (how many std devs from group mean)
+    # Only for ROI metrics, not grey matter metrics
+    roi_cols = [f'ROI_Mean', f'ROI_Max', f'ROI_Min', f'ROI_Focality']
+    for col in roi_cols:
+        std_col = col + '_STD'
+        if std_devs[col] > 0:
+            # Calculate z-score: (subject_value - group_mean) / group_std
+            df[std_col] = (df[col] - averages[col]) / std_devs[col]
+        else:
+            # If no variability, set z-score to 0
+            df[std_col] = 0.0
     
     # Create average row
     avg_row = {
@@ -422,37 +711,27 @@ def _compute_subject_stats(analysis_results: dict, region_name: str = None) -> p
         **averages.to_dict()
     }
     
-    # Calculate difference percentages from average for each subject
-    diff_data = []
-    for _, row in df.iterrows():
-        diff_row = {
-            'Subject_ID': f"{row['Subject_ID']}_DIFF%",
-            'Montage': row['Montage'],
-            'Analysis': 'PERCENT_DIFF',
-        }
-        
-        for col in numeric_cols:
-            if averages[col] != 0:
-                diff_pct = abs(row[col] - averages[col]) / averages[col] * 100
-                diff_row[col] = diff_pct
-            else:
-                diff_row[col] = 0.0
-        
-        diff_data.append(diff_row)
+    # Add standard deviation values to the average row (these are the group std devs)
+    # Only for ROI metrics, not grey matter metrics
+    for col in roi_cols:
+        std_col = col + '_STD'
+        avg_row[std_col] = std_devs[col]
     
-    # Combine all data: subjects + average + differences
-    all_data = df.to_dict('records') + [avg_row] + diff_data
+    # Combine all data: subjects + average (no difference percentage rows)
+    all_data = df.to_dict('records') + [avg_row]
     final_df = pd.DataFrame(all_data)
     
     group_logger.info(f"Computed statistics for {len(subject_data)} subjects")
     group_logger.info(f"Average values - ROI_Mean: {averages[f'ROI_Mean']:.6f}, ROI_Max: {averages[f'ROI_Max']:.6f}, "
                f"ROI_Min: {averages[f'ROI_Min']:.6f}, ROI_Focality: {averages[f'ROI_Focality']:.6f}")
+    group_logger.info(f"Standard deviations - ROI_Mean: {std_devs[f'ROI_Mean']:.6f}, ROI_Max: {std_devs[f'ROI_Max']:.6f}, "
+               f"ROI_Min: {std_devs[f'ROI_Min']:.6f}, ROI_Focality: {std_devs[f'ROI_Focality']:.6f}")
     
     return final_df
 
 def _write_summary_csv(stats_df: pd.DataFrame, output_path: str, region_name: str = None) -> str:
     """
-    Write ROI-specific summary CSV with individual and aggregate statistics.
+    Write enhanced ROI-specific summary CSV with individual and aggregate statistics.
     
     Args:
         stats_df (pd.DataFrame): DataFrame with computed statistics
@@ -464,13 +743,13 @@ def _write_summary_csv(stats_df: pd.DataFrame, output_path: str, region_name: st
     """
     # Construct CSV output path with region information
     if region_name:
-        csv_filename = f"roi_comparison_summary_{region_name}.csv"
+        csv_filename = f"enhanced_roi_comparison_summary_{region_name}.csv"
     else:
-        csv_filename = "roi_comparison_summary.csv"
+        csv_filename = "enhanced_roi_comparison_summary.csv"
     
     csv_path = os.path.join(output_path, csv_filename)
     
-    group_logger.info(f"Writing ROI-specific summary CSV to: {csv_path}")
+    group_logger.info(f"Writing enhanced ROI-specific summary CSV to: {csv_path}")
     
     # Ensure output directory exists
     os.makedirs(output_path, exist_ok=True)
@@ -478,7 +757,7 @@ def _write_summary_csv(stats_df: pd.DataFrame, output_path: str, region_name: st
     # Write CSV with proper formatting
     stats_df.to_csv(csv_path, index=False, float_format='%.6f')
     
-    group_logger.info(f"ROI-specific summary CSV successfully written with {len(stats_df)} rows")
+    group_logger.info(f"Enhanced ROI-specific summary CSV successfully written with {len(stats_df)} rows")
     return csv_path
 
 def _generate_comparison_plot(stats_df: pd.DataFrame, output_path: str, region_name: str = None) -> str:
@@ -625,7 +904,7 @@ def _generate_comparison_plot(stats_df: pd.DataFrame, output_path: str, region_n
         mpatches.Patch(color='gray', alpha=0.4, label='Below Mean')
     ]
     fig.legend(handles=legend_elements, loc='upper right', bbox_to_anchor=(0.98, 0.95))
-    
+        
     # Adjust layout to prevent overlap
     plt.tight_layout()
     plt.subplots_adjust(top=0.93)
@@ -654,9 +933,10 @@ def compare_analyses(analyses: list[str], output_dir: str,
     
     This refactored function breaks down the comparison process into logical steps:
     1. Load subject data from CSV files
-    2. Compute ROI-specific statistics including focality metrics
+    2. Compute ROI-specific statistics
     3. Generate CSV summary with averages and differences
-    4. Create visualization plots (optional)
+    4. Create analysis information JSON file
+    5. Generate visualization plots (optional)
     
     Args:
         analyses (list[str]): List of absolute paths to analysis directories
@@ -710,7 +990,11 @@ def compare_analyses(analyses: list[str], output_dir: str,
             csv_path = _write_summary_csv(stats_df, run_output_dir, region_name)
             generated_files['csv_summary'] = csv_path
         
-        # Step 4: Generate ROI-specific field value visualization (if requested and sufficient data)
+        # Step 4: Create analysis information JSON file
+        json_path = _create_analysis_info_json(analysis_results, run_output_dir, region_name)
+        generated_files['analysis_info'] = json_path
+        
+        # Step 5: Generate ROI-specific field value visualization (if requested and sufficient data)
         if generate_plot:
             # Only generate plot if we have subject data (not just averages)
             subject_count = len(stats_df[~stats_df['Subject_ID'].str.contains('AVERAGE|DIFF%', na=False)])
@@ -1298,6 +1582,105 @@ def run_all_group_comparisons(analysis_dirs: list[str], project_name: str = None
             group_logger.info(f"  • {analysis_type}: {os.path.basename(file_path)}")
     
     return run_output_dir
+
+def _create_analysis_info_json(analysis_results: dict, output_path: str, region_name: str = None) -> str:
+    """
+    Create a JSON file with information about each analysis.
+    
+    Args:
+        analysis_results (dict): Dictionary with analysis data from _load_subject_data
+        output_path (str): Base output path for file naming
+        region_name (str, optional): Region name for filename
+        
+    Returns:
+        str: Path to the saved JSON file
+    """
+    # Construct JSON output path with region information
+    if region_name:
+        json_filename = f"analysis_info_{region_name}.json"
+    else:
+        json_filename = "analysis_info.json"
+    
+    json_path = os.path.join(output_path, json_filename)
+    
+    group_logger.info(f"Creating analysis information JSON file: {json_path}")
+    
+    # Ensure output directory exists
+    os.makedirs(output_path, exist_ok=True)
+    
+    # Create analysis information dictionary
+    analysis_info = {
+        "metadata": {
+            "total_analyses": len(analysis_results),
+            "region_name": region_name,
+            "created_at": __import__('datetime').datetime.now().isoformat()
+        },
+        "analyses": []
+    }
+    
+    for unique_name, data in analysis_results.items():
+        # Extract field file information
+        field_file_name = "unknown"
+        space_type = "unknown"
+        
+        # Determine space type and field file from analysis path
+        analysis_path = data['analysis_path']
+        path_parts = analysis_path.split('/')
+        
+        # Look for Mesh or Voxel in the path
+        for part in path_parts:
+            if part == 'Mesh':
+                space_type = 'mesh'
+                break
+            elif part == 'Voxel':
+                space_type = 'voxel'
+                break
+        
+        # Try to find the field file name
+        try:
+            project_name = _extract_project_name(analysis_path)
+            subject_id = data['subject_id']
+            montage_name = data['montage_name']
+            subject_short = subject_id.replace('sub-', '')
+            
+            if space_type == 'mesh':
+                # Look for .msh files in the mesh directory
+                field_dir = os.path.join("/mnt", project_name, "derivatives", "SimNIBS", 
+                                       subject_id, "Simulations", montage_name, "TI", "mesh")
+                if os.path.exists(field_dir):
+                    msh_files = [f for f in os.listdir(field_dir) if f.endswith('.msh') and not f.endswith('.msh.opt')]
+                    if msh_files:
+                        field_file_name = msh_files[0]
+            else:  # voxel
+                # Look for grey matter NIfTI files
+                field_dir = os.path.join("/mnt", project_name, "derivatives", "SimNIBS", 
+                                       subject_id, "Simulations", montage_name, "TI", "niftis")
+                if os.path.exists(field_dir):
+                    grey_files = [f for f in os.listdir(field_dir) if f.startswith('grey_') and f.endswith(('.nii', '.nii.gz'))]
+                    if grey_files:
+                        field_file_name = grey_files[0]
+        except Exception as e:
+            group_logger.warning(f"Could not determine field file for {unique_name}: {str(e)}")
+        
+        # Create analysis entry
+        analysis_entry = {
+            "subject_id": data['subject_id'],
+            "montage": data['montage_name'],
+            "roi": data['analysis_name'],
+            "space": space_type,
+            "folder_path": data['analysis_path'],
+            "field_file_name": field_file_name,
+            "csv_file": os.path.basename(data['csv_path']) if 'csv_path' in data else "unknown"
+        }
+        
+        analysis_info["analyses"].append(analysis_entry)
+    
+    # Write JSON file
+    with open(json_path, 'w') as f:
+        json.dump(analysis_info, f, indent=2)
+    
+    group_logger.info(f"Analysis information JSON file created with {len(analysis_info['analyses'])} entries")
+    return json_path
 
 if __name__ == "__main__":
     analyses, output_path = collect_arguments()

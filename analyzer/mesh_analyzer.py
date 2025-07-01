@@ -470,199 +470,141 @@ class MeshAnalyzer:
         """
         self.logger.info(f"Starting spherical ROI analysis (radius={radius}mm) at coordinates {center_coordinates}")
         
-        # Load the mesh
-        self.logger.info("Loading mesh data...")
-        mesh = simnibs.read_msh(self.field_mesh_path)
-        
-        # Check if field exists before any cropping
-        if self.field_name not in mesh.field:
-            available_fields = list(mesh.field.keys())
-            raise ValueError(f"Field '{self.field_name}' not found in mesh. Available fields: {available_fields}")
-        
-        # Get field directly from the mesh
-        field_data = mesh.field[self.field_name]
-        
-        # Get field values
-        field_values = field_data.value
-        
-        # Create spherical ROI manually
-        self.logger.info(f"Creating spherical ROI at {center_coordinates} with radius {radius}mm...")
-        node_coords = mesh.nodes.node_coord
-        
-        # Calculate distance from each node to the center
-        distances = np.sqrt(
-            (node_coords[:, 0] - center_coordinates[0])**2 +
-            (node_coords[:, 1] - center_coordinates[1])**2 + 
-            (node_coords[:, 2] - center_coordinates[2])**2
-        )
-        
-        # Create mask for nodes within radius
-        roi_mask = distances <= radius
-        
-        # Check if field_values and roi_mask have compatible shapes
-        if len(field_values.shape) > 1 and field_values.shape[0] != len(roi_mask):
-            if len(field_values.shape) == 2 and field_values.shape[0] == len(roi_mask):
-                field_values = field_values[:, 0]
-            elif len(field_values.shape) == 2 and field_values.shape[1] == len(roi_mask):
-                field_values = field_values.T
-            else:
-                field_values = field_values.flatten()
-                if len(field_values) > len(roi_mask):
-                    field_values = field_values[:len(roi_mask)]
-                elif len(field_values) < len(roi_mask):
-                    temp_mask = np.zeros(len(field_values), dtype=bool)
-                    temp_mask[:len(roi_mask)] = roi_mask[:len(field_values)]
-                    roi_mask = temp_mask
-        elif len(field_values) != len(roi_mask):
-            if len(field_values) > len(roi_mask):
-                field_values = field_values[:len(roi_mask)]
-            else:
-                roi_mask = roi_mask[:len(field_values)]
-        
-        # Check if we have any nodes in the ROI
-        roi_nodes_count = np.sum(roi_mask)
-        if roi_nodes_count == 0:
-            # Determine the tissue type from the field mesh name
-            field_mesh_name = os.path.basename(self.field_mesh_path).lower()
-            tissue_type = "grey matter" if "grey" in field_mesh_name else "white matter" if "white" in field_mesh_name else "brain tissue"
+        try:
+            # Generate surface mesh if needed and load it (for consistency with cortical analysis)
+            surface_mesh_path = self._generate_surface_mesh()
+            gm_surf = simnibs.read_msh(surface_mesh_path)
             
-            self.logger.error(f"Analysis Failed: No nodes found in ROI at [{center_coordinates[0]}, {center_coordinates[1]}, {center_coordinates[2]}], r={radius}mm")
-            self.logger.error(f"ROI is not capturing any {tissue_type}")
-            self.logger.error("Suggestion: Adjust coordinates/radius or verify using freeview")
+            # Check if field exists
+            if self.field_name not in gm_surf.field:
+                available_fields = list(gm_surf.field.keys())
+                raise ValueError(f"Field '{self.field_name}' not found in surface mesh. Available fields: {available_fields}")
             
-            return None
-        
-        self.logger.info(f"Found {roi_nodes_count} nodes in the ROI")
-        self.logger.info("Calculating statistics...")
-        
-        # Get the field values within the ROI
-        field_values_in_roi = field_values[roi_mask]
-        
-        # Filter for positive values in ROI (matching voxel analyzer behavior)
-        positive_mask = field_values_in_roi > 0
-        field_values_positive = field_values_in_roi[positive_mask]
-        
-        # Check if we have any positive values in the ROI
-        positive_count = len(field_values_positive)
-        if positive_count == 0:
-            self.logger.warning(f"Warning: No positive values found in spherical ROI")
-            return None
-        
-        self.logger.info(f"Found {positive_count} nodes with positive values in the ROI")
-        self.logger.info("Calculating statistics...")
-        
-        # Calculate statistics on positive values only
-        min_value = np.min(field_values_positive)
-        max_value = np.max(field_values_positive)
-        mean_value = np.mean(field_values_positive)
-
-        # Calculate focality (roi_average / whole_brain_average)
-        # Only include positive values in the whole brain average
-        whole_brain_positive_mask = field_values > 0
-        whole_brain_average = np.mean(field_values[whole_brain_positive_mask])
-        focality = mean_value / whole_brain_average
-
-        # Log the whole brain average for debugging
-        self.logger.info(f"Whole brain average (denominator for focality): {whole_brain_average:.6f}")
-
-        # Create results dictionary
-        results = {
-            'mean_value': mean_value,
-            'max_value': max_value,
-            'min_value': min_value,
-            'nodes_in_roi': roi_nodes_count,
-            'focality': focality
-        }
-        
-        # Generate visualizations if requested
-        if visualize:
-            self.logger.info("Generating visualizations...")
+            # Get field values from surface mesh
+            field_values = gm_surf.field[self.field_name].value
             
-            # Generate distribution plot
-            self.visualizer.generate_value_distribution_plot(
-                field_values_positive,
-                f"sphere_x{center_coordinates[0]}_y{center_coordinates[1]}_z{center_coordinates[2]}_r{radius}",
-                "Spherical",
-                mean_value,
-                max_value,
-                min_value,
-                data_type='node'
+            # Create spherical ROI on surface mesh
+            self.logger.info(f"Creating spherical ROI at {center_coordinates} with radius {radius}mm...")
+            node_coords = gm_surf.nodes.node_coord
+            
+            # Calculate distance from each node to the center
+            distances = np.sqrt(
+                (node_coords[:, 0] - center_coordinates[0])**2 +
+                (node_coords[:, 1] - center_coordinates[1])**2 + 
+                (node_coords[:, 2] - center_coordinates[2])**2
             )
             
-            # Generate focality histogram
-            try:
-                self.logger.info("Generating focality histogram for spherical ROI...")
-                self.visualizer.generate_focality_histogram(
-                    whole_head_field_data=field_values,
-                    roi_field_data=field_values_positive,
-                    region_name=f"sphere_x{center_coordinates[0]}_y{center_coordinates[1]}_z{center_coordinates[2]}_r{radius}",
-                    roi_field_value=mean_value,
+            # Create mask for nodes within radius
+            roi_mask = distances <= radius
+            
+            # Check if we have any nodes in the ROI
+            roi_nodes_count = np.sum(roi_mask)
+            if roi_nodes_count == 0:
+                self.logger.error(f"Analysis Failed: No nodes found in ROI at [{center_coordinates[0]}, {center_coordinates[1]}, {center_coordinates[2]}], r={radius}mm")
+                self.logger.error("ROI is not capturing any grey matter surface nodes")
+                self.logger.error("Suggestion: Adjust coordinates/radius or verify using freeview")
+                return None
+            
+            self.logger.info(f"Found {roi_nodes_count} nodes in the ROI")
+            self.logger.info("Calculating statistics...")
+            
+            # Get the field values within the ROI
+            field_values_in_roi = field_values[roi_mask]
+            
+            # Filter for positive values in ROI (matching voxel analyzer behavior)
+            positive_mask = field_values_in_roi > 0
+            field_values_positive = field_values_in_roi[positive_mask]
+            
+            # Check if we have any positive values in the ROI
+            positive_count = len(field_values_positive)
+            if positive_count == 0:
+                self.logger.warning(f"Warning: No positive values found in spherical ROI")
+                return None
+            
+            self.logger.info(f"Found {positive_count} nodes with positive values in the ROI")
+            self.logger.info("Calculating statistics...")
+            
+            # Calculate statistics on positive values only
+            min_value = np.min(field_values_positive)
+            max_value = np.max(field_values_positive)
+            
+            # Calculate mean value using node areas for proper averaging (only positive values)
+            node_areas = gm_surf.nodes_areas()
+            positive_node_areas = node_areas[roi_mask][positive_mask]
+            mean_value = np.average(field_values_positive, weights=positive_node_areas)
+
+            # Calculate focality (roi_average / whole_brain_average)
+            # Only include positive values in the whole brain average
+            # Use area-weighted averaging for consistency with ROI calculations
+            whole_brain_positive_mask = field_values > 0
+            whole_brain_node_areas = node_areas[whole_brain_positive_mask]
+            whole_brain_average = np.average(field_values[whole_brain_positive_mask], weights=whole_brain_node_areas)
+            focality = mean_value / whole_brain_average
+
+            # Log the whole brain average for debugging
+            self.logger.info(f"Whole brain average (denominator for focality): {whole_brain_average:.6f}")
+
+            # Create results dictionary
+            results = {
+                'mean_value': mean_value,
+                'max_value': max_value,
+                'min_value': min_value,
+                'nodes_in_roi': roi_nodes_count,
+                'focality': focality
+            }
+            
+            # Generate visualizations if requested
+            if visualize:
+                self.logger.info("Generating visualizations...")
+                
+                # Generate distribution plot
+                self.visualizer.generate_value_distribution_plot(
+                    field_values_positive,
+                    f"sphere_x{center_coordinates[0]}_y{center_coordinates[1]}_z{center_coordinates[2]}_r{radius}",
+                    "Spherical",
+                    mean_value,
+                    max_value,
+                    min_value,
                     data_type='node'
                 )
-            except Exception as e:
-                self.logger.warning(f"Could not generate focality histogram for spherical ROI: {str(e)}")
-            
-            # For 3D mesh visualization, we need to generate a surface mesh
-            try:
-                self.logger.info("Generating surface mesh for visualization...")
-                surface_mesh_path = self._generate_surface_mesh()
                 
-                # Load the surface mesh
-                gm_surf = simnibs.read_msh(surface_mesh_path)
-                
-                # We need to create the spherical ROI on the surface mesh
-                # since the surface mesh may have different node coordinates/indices
-                self.logger.info("Creating spherical ROI on surface mesh...")
-                surface_node_coords = gm_surf.nodes.node_coord
-                
-                # Calculate distances on the surface mesh
-                surface_distances = np.sqrt(
-                    (surface_node_coords[:, 0] - center_coordinates[0])**2 +
-                    (surface_node_coords[:, 1] - center_coordinates[1])**2 + 
-                    (surface_node_coords[:, 2] - center_coordinates[2])**2
-                )
-                
-                # Create ROI mask for surface mesh
-                surface_roi_mask = surface_distances <= radius
-                
-                # Get field values from surface mesh
-                surface_field_values = gm_surf.field[self.field_name].value
-                
-                # Check surface ROI has nodes
-                surface_roi_count = np.sum(surface_roi_mask)
-                if surface_roi_count > 0:
-                    self.logger.info(f"Found {surface_roi_count} surface nodes in the ROI")
-                    
-                    # Get max value from surface field for proper color scaling
-                    surface_field_values_in_roi = surface_field_values[surface_roi_mask]
-                    surface_max_value = np.max(surface_field_values_in_roi)
-                    
-                    # Create spherical ROI overlay visualization
-                    self.logger.info("Creating spherical ROI overlay visualization...")
-                    viz_file = self.visualizer.visualize_spherical_roi(
-                        gm_surf=gm_surf,
-                        roi_mask=surface_roi_mask,
-                        center_coords=center_coordinates,
-                        radius=radius,
-                        field_values=surface_field_values,
-                        max_value=surface_max_value,
-                        output_dir=self.output_dir
+                # Generate focality histogram
+                try:
+                    self.logger.info("Generating focality histogram for spherical ROI...")
+                    self.visualizer.generate_focality_histogram(
+                        whole_head_field_data=field_values,
+                        roi_field_data=field_values_positive,
+                        whole_head_element_sizes=node_areas,
+                        roi_element_sizes=positive_node_areas,
+                        region_name=f"sphere_x{center_coordinates[0]}_y{center_coordinates[1]}_z{center_coordinates[2]}_r{radius}",
+                        roi_field_value=mean_value,
+                        data_type='node'
                     )
-                    results['visualization_file'] = viz_file
-                else:
-                    self.logger.warning("No surface nodes found in spherical ROI")
-                    self.logger.warning("This may happen if the sphere is in deep brain regions not represented on the cortical surface")
-                    
-            except Exception as viz_error:
-                self.logger.warning(f"Could not generate 3D visualization: {str(viz_error)}")
-                self.logger.warning("This may happen if surface mesh generation fails or sphere is outside cortical surface")
-                # Continue without 3D visualization but still save other results
-        
-        # Save results to CSV
-        region_name = f"sphere_x{center_coordinates[0]}_y{center_coordinates[1]}_z{center_coordinates[2]}_r{radius}"
-        self.visualizer.save_results_to_csv(results, 'spherical', region_name, 'node')
-        
-        return results
+                except Exception as e:
+                    self.logger.warning(f"Could not generate focality histogram for spherical ROI: {str(e)}")
+                
+                # Create spherical ROI overlay visualization
+                self.logger.info("Creating spherical ROI overlay visualization...")
+                viz_file = self.visualizer.visualize_spherical_roi(
+                    gm_surf=gm_surf,
+                    roi_mask=roi_mask,
+                    center_coords=center_coordinates,
+                    radius=radius,
+                    field_values=field_values,
+                    max_value=max_value,
+                    output_dir=self.output_dir
+                )
+                results['visualization_file'] = viz_file
+            
+            # Save results to CSV
+            region_name = f"sphere_x{center_coordinates[0]}_y{center_coordinates[1]}_z{center_coordinates[2]}_r{radius}"
+            self.visualizer.save_results_to_csv(results, 'spherical', region_name, 'node')
+            
+            return results
+            
+        except Exception as e:
+            self.logger.error(f"Error in spherical analysis: {str(e)}")
+            raise
 
     def analyze_cortex(self, atlas_type, target_region, visualize=False):
         """
@@ -749,8 +691,10 @@ class MeshAnalyzer:
 
             # Calculate focality (roi_average / whole_brain_average)
             # Only include positive values in the whole brain average
+            # Use area-weighted averaging for consistency with ROI calculations
             whole_brain_positive_mask = field_values > 0
-            whole_brain_average = np.mean(field_values[whole_brain_positive_mask])
+            whole_brain_node_areas = node_areas[whole_brain_positive_mask]
+            whole_brain_average = np.average(field_values[whole_brain_positive_mask], weights=whole_brain_node_areas)
             focality = mean_value / whole_brain_average
             
             # Log the whole brain average for debugging
@@ -817,3 +761,55 @@ class MeshAnalyzer:
         except Exception as e:
             self.logger.error(f"Error in cortical analysis: {str(e)}")
             raise
+
+    def get_grey_matter_statistics(self):
+        """
+        Calculate grey matter field statistics from the surface mesh data.
+        
+        Returns:
+            dict: Dictionary containing grey matter statistics (mean, max, min)
+        """
+        self.logger.info("Calculating grey matter field statistics from surface mesh...")
+        
+        try:
+            # Generate surface mesh if needed and load it
+            surface_mesh_path = self._generate_surface_mesh()
+            gm_surf = simnibs.read_msh(surface_mesh_path)
+            
+            # Check if field exists
+            if self.field_name not in gm_surf.field:
+                available_fields = list(gm_surf.field.keys())
+                raise ValueError(f"Field '{self.field_name}' not found in surface mesh. Available fields: {available_fields}")
+            
+            # Get field values from surface mesh (same as analyze_cortex)
+            field_values = gm_surf.field[self.field_name].value
+            
+            # Filter for positive values only (matching ROI analysis behavior)
+            positive_mask = field_values > 0
+            field_values_positive = field_values[positive_mask]
+            
+            # Check if we have any positive values
+            if len(field_values_positive) == 0:
+                self.logger.warning("No positive values found in grey matter surface")
+                return {'grey_mean': 0.0, 'grey_max': 0.0, 'grey_min': 0.0}
+            
+            # Calculate statistics on positive values only
+            # Use area-weighted averaging for consistency with ROI calculations
+            node_areas = gm_surf.nodes_areas()
+            positive_node_areas = node_areas[positive_mask]
+            grey_mean = np.average(field_values_positive, weights=positive_node_areas)
+            grey_max = np.max(field_values_positive)
+            grey_min = np.min(field_values_positive)
+            
+            self.logger.info(f"Grey matter statistics from surface mesh for field '{self.field_name}' (positive values only): "
+                           f"mean={grey_mean:.6f}, max={grey_max:.6f}, min={grey_min:.6f}")
+            
+            return {
+                'grey_mean': float(grey_mean),
+                'grey_max': float(grey_max),
+                'grey_min': float(grey_min)
+            }
+            
+        except Exception as e:
+            self.logger.error(f"Error calculating grey matter statistics from surface mesh: {str(e)}")
+            return {'grey_mean': 0.0, 'grey_max': 0.0, 'grey_min': 0.0}
