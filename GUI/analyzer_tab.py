@@ -38,111 +38,32 @@ class AnalysisThread(QtCore.QThread):
     def run(self):
         """Run the analysis command in a separate thread."""
         try:
-            # Set up Python unbuffered output and force line flushing
+            # Set up Python unbuffered output
             self.env['PYTHONUNBUFFERED'] = '1'
             self.env['PYTHONFAULTHANDLER'] = '1'
             
             self.process = subprocess.Popen(
                 self.cmd, 
                 stdout=subprocess.PIPE, 
-                stderr=subprocess.PIPE,
-                universal_newlines=True, # Use text mode
-                bufsize=1, # Line buffered
+                stderr=subprocess.STDOUT,  # Combine stderr with stdout to avoid file descriptor issues
+                universal_newlines=True,
+                bufsize=1,
                 env=self.env,
-                # Add these for better real-time output
-                preexec_fn=None if os.name == 'nt' else os.setsid,  # For Unix process group management
+                preexec_fn=None if os.name == 'nt' else os.setsid,
                 creationflags=subprocess.CREATE_NEW_PROCESS_GROUP if os.name == 'nt' else 0
             )
             
-            # Import for non-blocking reads
-            import select
-            import fcntl
-            
-            # Set non-blocking mode for stdout and stderr on Unix systems
-            if os.name != 'nt':
-                fd_stdout = self.process.stdout.fileno()
-                fd_stderr = self.process.stderr.fileno()
-                fl_stdout = fcntl.fcntl(fd_stdout, fcntl.F_GETFL)
-                fl_stderr = fcntl.fcntl(fd_stderr, fcntl.F_GETFL)
-                fcntl.fcntl(fd_stdout, fcntl.F_SETFL, fl_stdout | os.O_NONBLOCK)
-                fcntl.fcntl(fd_stderr, fcntl.F_SETFL, fl_stderr | os.O_NONBLOCK)
-            
-            # Real-time output display for both stdout and stderr
-            while True:
+            # Simple line-by-line reading without select() to avoid file descriptor issues
+            for line in iter(self.process.stdout.readline, ''):
                 if self.terminated:
                     break
-                
-                # Check if process has finished
-                if self.process.poll() is not None:
-                    # Process finished, read any remaining output
-                    try:
-                        remaining_stdout = self.process.stdout.read()
-                        if remaining_stdout:
-                            for line in remaining_stdout.splitlines():
-                                if line.strip():
-                                    self.output_signal.emit(self._strip_ansi_codes(line.strip()))
-                        
-                        remaining_stderr = self.process.stderr.read()
-                        if remaining_stderr:
-                            for line in remaining_stderr.splitlines():
-                                if line.strip():
-                                    cleaned_line = self._strip_ansi_codes(line.strip())
-                                    if "ERROR:" in cleaned_line or "CRITICAL:" in cleaned_line or "Failed" in cleaned_line.upper():
-                                        self.output_signal.emit(f"Error: {cleaned_line}")
-                                    else:
-                                        self.output_signal.emit(cleaned_line)
-                    except:
-                        pass
-                    break
-                
-                # Use select for non-blocking reads on Unix, polling on Windows
-                if os.name != 'nt':
-                    # Unix/Linux - use select for non-blocking I/O
-                    ready, _, _ = select.select([self.process.stdout, self.process.stderr], [], [], 0.1)
-                    
-                    if self.process.stdout in ready:
-                        try:
-                            line = self.process.stdout.readline()
-                            if line:
-                                self.output_signal.emit(self._strip_ansi_codes(line.strip()))
-                        except:
-                            pass
-                    
-                    if self.process.stderr in ready:
-                        try:
-                            line = self.process.stderr.readline()
-                            if line:
-                                cleaned_line = self._strip_ansi_codes(line.strip())
-                                if "ERROR:" in cleaned_line or "CRITICAL:" in cleaned_line or "Failed" in cleaned_line.upper():
-                                    self.output_signal.emit(f"Error: {cleaned_line}")
-                                else:
-                                    self.output_signal.emit(cleaned_line)
-                        except:
-                            pass
-                else:
-                    # Windows - use polling approach
-                    try:
-                        # Read stdout
-                        stdout_line = self.process.stdout.readline()
-                        if stdout_line:
-                            self.output_signal.emit(self._strip_ansi_codes(stdout_line.strip()))
-                        
-                        # Read stderr
-                        stderr_line = self.process.stderr.readline()
-                        if stderr_line:
-                            line = self._strip_ansi_codes(stderr_line.strip())
-                            if "ERROR:" in line or "CRITICAL:" in line or "Failed" in line.upper():
-                                self.output_signal.emit(f"Error: {line}")
-                            else:
-                                self.output_signal.emit(line)
-                        
-                        # Small sleep to prevent busy waiting
-                        if not stdout_line and not stderr_line:
-                            time.sleep(0.05)
-                    except:
-                        time.sleep(0.1)
+                if line:
+                    line_stripped = line.strip()
+                    if line_stripped:
+                        cleaned_line = self._strip_ansi_codes(line_stripped)
+                        self.output_signal.emit(cleaned_line)
             
-            # Check for errors if not manually terminated
+            # Wait for process completion if not terminated
             if not self.terminated:
                 returncode = self.process.wait()
                 if returncode != 0:
@@ -1784,10 +1705,15 @@ class AnalyzerTab(QtWidgets.QWidget):
                 self.update_output(f"Error: group_analyzer.py not found at {group_analyzer_script_path}")
                 return None
 
-            # Build base command (group_analyzer.py creates its own output directories)
+            # Build base command with temporary output directory (group_analyzer.py will create the actual organized directories)
+            project_dir_name = os.environ.get('PROJECT_DIR_NAME', 'BIDS_new')
+            project_dir = f"/mnt/{project_dir_name}"
+            temp_output_dir = os.path.join(project_dir, 'derivatives', 'SimNIBS')
+            
             cmd = ['simnibs_python', group_analyzer_script_path,
                    '--space', 'mesh' if self.space_mesh.isChecked() else 'voxel',
-                   '--analysis_type', 'spherical' if self.type_spherical.isChecked() else 'cortical']
+                   '--analysis_type', 'spherical' if self.type_spherical.isChecked() else 'cortical',
+                   '--output_dir', temp_output_dir]
 
             # Add space-specific parameters
             if self.space_mesh.isChecked():

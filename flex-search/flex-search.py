@@ -84,17 +84,63 @@ def parse_arguments() -> argparse.Namespace:
 # -----------------------------------------------------------------------------
 
 def roi_dirname(args: argparse.Namespace) -> str:
+    """Generate output directory name following the naming convention:
+    - Atlas: {hemisphere}_{atlas}_{region}_{goal}_{postprocess}
+    - Spherical: sphere_x{X}y{Y}z{Z}r{radius}_{goal}_{postprocess}
+    - Subcortical: subcortical_{volume_atlas}_{region}_{goal}_{postprocess}
+    """
+    # Convert postproc to shorter format
+    postproc_map = {
+        "max_TI": "maxTI",
+        "dir_TI_normal": "normalTI", 
+        "dir_TI_tangential": "tangentialTI"
+    }
+    postproc_short = postproc_map.get(args.postproc, args.postproc)
+    
     if args.roi_method == "spherical":
-        base = f"{os.getenv('ROI_X')}x{os.getenv('ROI_Y')}y{os.getenv('ROI_Z')}z_{os.getenv('ROI_RADIUS')}mm"
+        # Format: sphere_x{X}y{Y}z{Z}r{radius}_{goal}_{postprocess}
+        roi_x = os.getenv('ROI_X', '0')
+        roi_y = os.getenv('ROI_Y', '0') 
+        roi_z = os.getenv('ROI_Z', '0')
+        roi_radius = os.getenv('ROI_RADIUS', '10')
+        base = f"sphere_x{roi_x}y{roi_y}z{roi_z}r{roi_radius}"
     elif args.roi_method == "atlas":
-        atlas = os.path.splitext(os.path.basename(os.path.basename(os.getenv("ATLAS_PATH", "atlas"))))[0]
-        base = f"{atlas}_{os.getenv('ROI_LABEL', '0')}"
+        # Format: {hemisphere}_{atlas}_{region}_{goal}_{postprocess}
+        atlas_path = os.getenv("ATLAS_PATH", "")
+        hemisphere = os.getenv("SELECTED_HEMISPHERE", "lh")
+        roi_label = os.getenv("ROI_LABEL", "0")
+        
+        # Extract atlas name from path (e.g., lh.101_DK40.annot -> DK40)
+        if atlas_path:
+            atlas_filename = os.path.basename(atlas_path)
+            # Remove hemisphere prefix and .annot suffix, then extract atlas name
+            # e.g., lh.101_DK40.annot -> 101_DK40 -> DK40
+            atlas_with_subject = atlas_filename.replace(f"{hemisphere}.", "").replace(".annot", "")
+            atlas_name = atlas_with_subject.split("_", 1)[-1] if "_" in atlas_with_subject else atlas_with_subject
+        else:
+            atlas_name = "atlas"
+        
+        base = f"{hemisphere}_{atlas_name}_{roi_label}"
     else:  # subcortical
-        volume_atlas = os.path.splitext(os.path.basename(os.getenv("VOLUME_ATLAS_PATH", "volume")))[0]
-        if volume_atlas.endswith('.nii'):  # Handle .nii.gz case
-            volume_atlas = os.path.splitext(volume_atlas)[0]
-        base = f"subcortical_{volume_atlas}_{os.getenv('VOLUME_ROI_LABEL', '0')}"
-    return f"{base}_{args.goal}"
+        # Format: subcortical_{volume_atlas}_{region}_{goal}_{postprocess}
+        volume_atlas_path = os.getenv("VOLUME_ATLAS_PATH", "")
+        roi_label = os.getenv("VOLUME_ROI_LABEL", "0")
+        
+        if volume_atlas_path:
+            volume_atlas = os.path.basename(volume_atlas_path)
+            # Remove file extensions
+            if volume_atlas.endswith('.nii.gz'):
+                volume_atlas = volume_atlas[:-7]
+            elif volume_atlas.endswith('.mgz'):
+                volume_atlas = volume_atlas[:-4]
+            elif volume_atlas.endswith('.nii'):
+                volume_atlas = volume_atlas[:-4]
+        else:
+            volume_atlas = "volume"
+        
+        base = f"subcortical_{volume_atlas}_{roi_label}"
+    
+    return f"{base}_{args.goal}_{postproc_short}"
 
 # -----------------------------------------------------------------------------
 # Set-up optimisation object

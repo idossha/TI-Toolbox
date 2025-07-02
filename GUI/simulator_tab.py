@@ -2148,15 +2148,58 @@ class SimulatorTab(QtWidgets.QWidget):
         Parse flex-search name and create proper naming format.
         
         Args:
-            search_name: Original search name (e.g., 'lh.101_DK40_14_mean')
+            search_name: Search directory name with new format:
+                        - Atlas: {hemisphere}_{atlas}_{region}_{goal}_{postprocess}
+                        - Spherical: sphere_x{X}y{Y}z{Z}r{radius}_{goal}_{postprocess}
+                        - Subcortical: subcortical_{volume_atlas}_{region}_{goal}_{postprocess}
             electrode_type: 'mapped' or 'optimized'
             
         Returns:
-            str: Formatted name following flex_{hemisphere}_{atlas}_{region}_{goal}_{postProc}_{electrode_type}
+            str: Formatted name following flex_{hemisphere}_{atlas}_{region}_{goal}_{postproc}_{electrode_type}
         """
         try:
-            # Handle cortical search names: lh.101_DK40_14_mean
-            if search_name.startswith(('lh.', 'rh.')):
+            # Handle new naming convention first
+            
+            # Handle spherical search names: sphere_x{X}y{Y}z{Z}r{radius}_{goal}_{postprocess}
+            if search_name.startswith('sphere_'):
+                parts = search_name.split('_')
+                if len(parts) >= 3:
+                    hemisphere = 'spherical'
+                    # Extract coordinate part (e.g., x10y-5z20r5)
+                    coords_part = parts[1] if len(parts) > 1 else 'coords'
+                    goal = parts[-2] if len(parts) >= 3 else 'optimization'
+                    post_proc = parts[-1] if len(parts) >= 3 else 'maxTI'
+                    
+                    return f"flex_{hemisphere}_{coords_part}_{goal}_{post_proc}_{electrode_type}"
+            
+            # Handle subcortical search names: subcortical_{volume_atlas}_{region}_{goal}_{postprocess}
+            elif search_name.startswith('subcortical_'):
+                parts = search_name.split('_')
+                if len(parts) >= 5:
+                    hemisphere = 'subcortical'
+                    atlas = parts[1]
+                    region = parts[2]
+                    goal = parts[3]
+                    post_proc = parts[4]
+                    
+                    return f"flex_{hemisphere}_{atlas}_{region}_{goal}_{post_proc}_{electrode_type}"
+            
+            # Handle cortical search names: {hemisphere}_{atlas}_{region}_{goal}_{postprocess}
+            elif '_' in search_name and len(search_name.split('_')) >= 5:
+                parts = search_name.split('_')
+                if len(parts) >= 5 and parts[0] in ['lh', 'rh']:
+                    hemisphere = parts[0]
+                    atlas = parts[1]
+                    region = parts[2]
+                    goal = parts[3]
+                    post_proc = parts[4]
+                    
+                    return f"flex_{hemisphere}_{atlas}_{region}_{goal}_{post_proc}_{electrode_type}"
+            
+            # Fallback: Handle legacy formats for backward compatibility
+            
+            # Legacy cortical search names: lh.101_DK40_14_mean
+            elif search_name.startswith(('lh.', 'rh.')):
                 parts = search_name.split('_')
                 if len(parts) >= 3:
                     hemisphere_region = parts[0]  # e.g., 'lh.101'
@@ -2173,45 +2216,45 @@ class SimulatorTab(QtWidgets.QWidget):
                     # Split goal and postProc if possible
                     if '_' in goal_postproc:
                         goal_parts = goal_postproc.split('_')
-                        goal = goal_parts[0]
-                        post_proc = '_'.join(goal_parts[1:])
+                        region = goal_parts[0]  # First part is actually the region
+                        goal = goal_parts[1] if len(goal_parts) > 1 else 'optimization'
+                        post_proc = '_'.join(goal_parts[2:]) if len(goal_parts) > 2 else 'maxTI'
                     else:
                         goal = goal_postproc
-                        post_proc = 'default'
+                        post_proc = 'maxTI'
                     
                     return f"flex_{hemisphere}_{atlas}_{region}_{goal}_{post_proc}_{electrode_type}"
             
-            # Handle subcortical search names: subcortical_atlas_region_goal
-            elif search_name.startswith('subcortical_'):
+            # Legacy subcortical search names: subcortical_atlas_region_goal
+            elif search_name.startswith('subcortical_') and len(search_name.split('_')) == 4:
                 parts = search_name.split('_')
                 if len(parts) >= 4:
                     hemisphere = 'subcortical'
                     atlas = parts[1]
                     region = parts[2]
                     goal = parts[3]
-                    post_proc = '_'.join(parts[4:]) if len(parts) > 4 else 'default'
+                    post_proc = 'maxTI'  # Default for legacy
                     
                     return f"flex_{hemisphere}_{atlas}_{region}_{goal}_{post_proc}_{electrode_type}"
             
-            # Handle spherical coordinates: x.x_y.y_z.z_radius_goal
-            elif '_' in search_name and any(char.isdigit() for char in search_name):
+            # Legacy spherical coordinates: assume any other format with underscores
+            elif '_' in search_name:
                 parts = search_name.split('_')
-                # Assume spherical coordinate format
                 hemisphere = 'spherical'
                 atlas = 'coordinates'
-                region = '_'.join(parts[:-1])  # Everything except goal
+                region = '_'.join(parts[:-1]) if len(parts) > 1 else search_name
                 goal = parts[-1] if parts else 'optimization'
-                post_proc = 'default'
+                post_proc = 'maxTI'
                 
                 return f"flex_{hemisphere}_{atlas}_{region}_{goal}_{post_proc}_{electrode_type}"
             
             # Fallback for unrecognized formats
             else:
-                return f"flex_unknown_unknown_{search_name}_optimization_default_{electrode_type}"
+                return f"flex_unknown_unknown_{search_name}_optimization_maxTI_{electrode_type}"
                 
         except Exception as e:
             self.update_output(f"Warning: Could not parse flex search name '{search_name}': {e}", 'warning')
-            return f"flex_unknown_unknown_{search_name}_optimization_default_{electrode_type}"
+            return f"flex_unknown_unknown_{search_name}_optimization_maxTI_{electrode_type}"
 
 class AddMontageDialog(QtWidgets.QDialog):
     """Dialog for adding new montages."""

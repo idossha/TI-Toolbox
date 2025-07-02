@@ -347,6 +347,151 @@ choose_electrode_params() {
     done
 }
 
+# Choose optimization parameters (max iterations, population size, CPUs)
+choose_optimization_params() {
+    if ! is_prompt_enabled "optimization_params"; then
+        local default_max_iter=$(get_default_value "max_iterations")
+        local default_pop_size=$(get_default_value "population_size")
+        local default_cpus=$(get_default_value "cpus")
+        if [ -n "$default_max_iter" ] && [ -n "$default_pop_size" ] && [ -n "$default_cpus" ]; then
+            max_iterations="$default_max_iter"
+            population_size="$default_pop_size"
+            cpus="$default_cpus"
+            echo -e "${CYAN}Using default optimization parameters: max_iter=${max_iterations}, pop_size=${population_size}, cpus=${cpus}${RESET}"
+            return
+        fi
+    fi
+
+    echo -e "${GREEN}Configure optimization parameters:${RESET}"
+    
+    # Max iterations
+    while true; do
+        read -p "Enter maximum optimization iterations [default: 500]: " max_iterations
+        if [ -z "$max_iterations" ]; then
+            max_iterations=500
+            break
+        elif [[ "$max_iterations" =~ ^[0-9]+$ ]] && [ "$max_iterations" -ge 50 ] && [ "$max_iterations" -le 2000 ]; then
+            break
+        else
+            echo -e "${RED}Invalid value. Please enter a number between 50 and 2000.${RESET}"
+        fi
+    done
+
+    # Population size
+    while true; do
+        read -p "Enter population size [default: 13]: " population_size
+        if [ -z "$population_size" ]; then
+            population_size=13
+            break
+        elif [[ "$population_size" =~ ^[0-9]+$ ]] && [ "$population_size" -ge 4 ] && [ "$population_size" -le 100 ]; then
+            break
+        else
+            echo -e "${RED}Invalid value. Please enter a number between 4 and 100.${RESET}"
+        fi
+    done
+
+    # Number of CPUs
+    local max_cpus=$(nproc 2>/dev/null || echo "16")
+    while true; do
+        read -p "Enter number of CPU cores to use [default: 1, max: $max_cpus]: " cpus
+        if [ -z "$cpus" ]; then
+            cpus=1
+            break
+        elif [[ "$cpus" =~ ^[0-9]+$ ]] && [ "$cpus" -ge 1 ] && [ "$cpus" -le "$max_cpus" ]; then
+            break
+        else
+            echo -e "${RED}Invalid value. Please enter a number between 1 and $max_cpus.${RESET}"
+        fi
+    done
+
+    echo -e "${GREEN}Optimization parameters set: max_iter=${max_iterations}, pop_size=${population_size}, cpus=${cpus}${RESET}"
+}
+
+# Choose mapping options
+choose_mapping_options() {
+    if ! is_prompt_enabled "mapping_options"; then
+        local default_enable_mapping=$(get_default_value "enable_mapping")
+        local default_run_mapped_sim=$(get_default_value "run_mapped_simulation")
+        if [ -n "$default_enable_mapping" ]; then
+            enable_mapping="$default_enable_mapping"
+            run_mapped_simulation="$default_run_mapped_sim"
+            echo -e "${CYAN}Using default mapping options: enable_mapping=${enable_mapping}, run_mapped_simulation=${run_mapped_simulation}${RESET}"
+            return
+        fi
+    fi
+
+    echo -e "${GREEN}Configure electrode mapping options:${RESET}"
+    echo -e "${YELLOW}⚠️  Electrode mapping finds the nearest EEG net electrodes to the optimized positions.${RESET}"
+    echo -e "${YELLOW}   This feature may increase computation time and memory usage.${RESET}"
+    echo
+
+    while true; do
+        read -p "Enable electrode mapping to EEG net positions? (y/n) [default: n]: " enable_mapping_input
+        if [ -z "$enable_mapping_input" ]; then
+            enable_mapping="false"
+            break
+        elif [[ "$enable_mapping_input" =~ ^[yY]$ ]]; then
+            enable_mapping="true"
+            break
+        elif [[ "$enable_mapping_input" =~ ^[nN]$ ]]; then
+            enable_mapping="false"
+            break
+        else
+            echo -e "${RED}Invalid choice. Please enter 'y' for yes or 'n' for no.${RESET}"
+        fi
+    done
+
+    if [ "$enable_mapping" = "true" ]; then
+        while true; do
+            read -p "Run additional simulation with mapped electrodes? (y/n) [default: n]: " run_mapped_sim_input
+            if [ -z "$run_mapped_sim_input" ]; then
+                run_mapped_simulation="false"
+                break
+            elif [[ "$run_mapped_sim_input" =~ ^[yY]$ ]]; then
+                run_mapped_simulation="true"
+                break
+            elif [[ "$run_mapped_sim_input" =~ ^[nN]$ ]]; then
+                run_mapped_simulation="false"
+                break
+            else
+                echo -e "${RED}Invalid choice. Please enter 'y' for yes or 'n' for no.${RESET}"
+            fi
+        done
+    else
+        run_mapped_simulation="false"
+    fi
+
+    echo -e "${GREEN}Mapping options set: enable_mapping=${enable_mapping}, run_mapped_simulation=${run_mapped_simulation}${RESET}"
+}
+
+# Choose quiet mode option
+choose_quiet_mode() {
+    if ! is_prompt_enabled "quiet_mode"; then
+        local default_quiet=$(get_default_value "quiet_mode")
+        if [ -n "$default_quiet" ]; then
+            quiet_mode="$default_quiet"
+            echo -e "${CYAN}Using default quiet mode: ${quiet_mode}${RESET}"
+            return
+        fi
+    fi
+
+    while true; do
+        read -p "Hide optimization steps output? (y/n) [default: y]: " quiet_input
+        if [ -z "$quiet_input" ]; then
+            quiet_mode="true"
+            break
+        elif [[ "$quiet_input" =~ ^[yY]$ ]]; then
+            quiet_mode="true"
+            break
+        elif [[ "$quiet_input" =~ ^[nN]$ ]]; then
+            quiet_mode="false"
+            break
+        else
+            echo -e "${RED}Invalid choice. Please enter 'y' for yes or 'n' for no.${RESET}"
+        fi
+    done
+}
+
 # Function to choose ROI method
 choose_roi_method() {
     echo "Choose ROI definition method:"
@@ -862,6 +1007,20 @@ show_confirmation_dialog() {
     echo -e "Electrode Radius: ${CYAN}${radius}mm${RESET}"
     echo -e "Electrode Current: ${CYAN}${current}mA${RESET}"
     
+    # Optimization Settings
+    echo -e "\n${BOLD_CYAN}Optimization Settings:${RESET}"
+    echo -e "Max Iterations: ${CYAN}$max_iterations${RESET}"
+    echo -e "Population Size: ${CYAN}$population_size${RESET}"
+    echo -e "CPU Cores: ${CYAN}$cpus${RESET}"
+    echo -e "Quiet Mode: ${CYAN}$quiet_mode${RESET}"
+    
+    # Mapping Options
+    echo -e "\n${BOLD_CYAN}Mapping Options:${RESET}"
+    echo -e "Enable Mapping: ${CYAN}$enable_mapping${RESET}"
+    if [ "$enable_mapping" = "true" ]; then
+        echo -e "Run Mapped Simulation: ${CYAN}$run_mapped_simulation${RESET}"
+    fi
+    
     # ROI Configuration
     echo -e "\n${BOLD_CYAN}ROI Configuration:${RESET}"
     echo -e "ROI Method: ${CYAN}$ROI_METHOD${RESET}"
@@ -921,6 +1080,11 @@ print_section_header "Electrode Configuration"
 choose_eeg_net
 choose_electrode_params
 
+print_section_header "Optimization Settings"
+choose_optimization_params
+choose_mapping_options
+choose_quiet_mode
+
 print_section_header "ROI Configuration"
 choose_roi_method "$first_subject"
 
@@ -946,6 +1110,24 @@ for subject_id in "${selected_subjects[@]}"; do
     cmd+=" --radius \"$radius\""
     cmd+=" --current \"$current\""
     cmd+=" --roi-method \"$ROI_METHOD\""
+    
+    # Add optimization parameters
+    cmd+=" --max-iterations \"$max_iterations\""
+    cmd+=" --population-size \"$population_size\""
+    cmd+=" --cpus \"$cpus\""
+    
+    # Add mapping options
+    if [ "$enable_mapping" = "true" ]; then
+        cmd+=" --enable-mapping"
+        if [ "$run_mapped_simulation" = "false" ]; then
+            cmd+=" --disable-mapping-simulation"
+        fi
+    fi
+    
+    # Add quiet mode
+    if [ "$quiet_mode" = "true" ]; then
+        cmd+=" --quiet"
+    fi
     
     # Add non-ROI arguments if goal is focality
     if [ "$goal" = "focality" ] && [ -n "$non_roi_method" ]; then

@@ -371,7 +371,22 @@ parse_flex_search_name() {
     local search_name="$1"
     local electrode_type="$2"
     
-    # Handle cortical search names: lh.101_DK40_14_mean
+    # Handle new cortical search format: lh_DK40_14_mean_maxTI
+    if [[ "$search_name" == lh_* ]] || [[ "$search_name" == rh_* ]]; then
+        IFS='_' read -ra parts <<< "$search_name"
+        if [ ${#parts[@]} -ge 5 ]; then
+            local hemisphere="${parts[0]}"      # e.g., 'lh'
+            local atlas="${parts[1]}"           # e.g., 'DK40'
+            local region="${parts[2]}"          # e.g., '14'
+            local goal="${parts[3]}"            # e.g., 'mean'
+            local post_proc="${parts[4]}"       # e.g., 'maxTI'
+            
+            echo "flex_${hemisphere}_${atlas}_${region}_${goal}_${post_proc}_${electrode_type}"
+            return
+        fi
+    fi
+    
+    # Handle legacy cortical search format: lh.101_DK40_14_mean (for backward compatibility)
     if [[ "$search_name" == lh.* ]] || [[ "$search_name" == rh.* ]]; then
         IFS='_' read -ra parts <<< "$search_name"
         if [ ${#parts[@]} -ge 3 ]; then
@@ -403,24 +418,36 @@ parse_flex_search_name() {
         fi
     fi
     
-    # Handle subcortical search names: subcortical_atlas_region_goal
+    # Handle new subcortical search format: subcortical_atlas_region_goal_postprocess
     if [[ "$search_name" == subcortical_* ]]; then
         IFS='_' read -ra parts <<< "$search_name"
-        if [ ${#parts[@]} -ge 4 ]; then
+        if [ ${#parts[@]} -ge 5 ]; then
             local hemisphere="subcortical"
             local atlas="${parts[1]}"
             local region="${parts[2]}"
             local goal="${parts[3]}"
-            local post_proc="${parts[*]:4}"
-            post_proc="${post_proc// /_}"
-            [ -z "$post_proc" ] && post_proc="default"
+            local post_proc="${parts[4]}"
             
             echo "flex_${hemisphere}_${atlas}_${region}_${goal}_${post_proc}_${electrode_type}"
             return
         fi
     fi
     
-    # Handle spherical coordinates or other formats
+    # Handle new spherical search format: sphere_x0y0z0r10_mean_normalTI
+    if [[ "$search_name" == sphere_* ]]; then
+        IFS='_' read -ra parts <<< "$search_name"
+        if [ ${#parts[@]} -ge 4 ]; then
+            local hemisphere="spherical"
+            local coordinates="${parts[1]}"     # e.g., 'x0y0z0r10'
+            local goal="${parts[2]}"            # e.g., 'mean'
+            local post_proc="${parts[3]}"       # e.g., 'normalTI'
+            
+            echo "flex_${hemisphere}_coordinates_${coordinates}_${goal}_${post_proc}_${electrode_type}"
+            return
+        fi
+    fi
+    
+    # Legacy spherical coordinates or other formats (for backward compatibility)
     if [[ "$search_name" == *"_"* ]] && [[ "$search_name" =~ [0-9] ]]; then
         IFS='_' read -ra parts <<< "$search_name"
         local hemisphere="spherical"
@@ -822,8 +849,20 @@ for path in flex_paths:
                 
                 # Simple Python parsing logic (equivalent to bash function)
                 def parse_flex_search_name_py(search_name, electrode_type):
-                    # Handle cortical search names: lh.101_DK40_14_mean
-                    if search_name.startswith(('lh.', 'rh.')):
+                    # Handle new cortical search format: lh_DK40_14_mean_maxTI
+                    if search_name.startswith(('lh_', 'rh_')):
+                        parts = search_name.split('_')
+                        if len(parts) >= 5:
+                            hemisphere = parts[0]       # e.g., 'lh'
+                            atlas = parts[1]            # e.g., 'DK40'
+                            region = parts[2]           # e.g., '14'
+                            goal = parts[3]             # e.g., 'mean'
+                            post_proc = parts[4]        # e.g., 'maxTI'
+                            
+                            return f"flex_{hemisphere}_{atlas}_{region}_{goal}_{post_proc}_{electrode_type}"
+                    
+                    # Handle legacy cortical search format: lh.101_DK40_14_mean (for backward compatibility)
+                    elif search_name.startswith(('lh.', 'rh.')):
                         parts = search_name.split('_')
                         if len(parts) >= 3:
                             hemisphere_region = parts[0]  # e.g., 'lh.101'
@@ -848,19 +887,30 @@ for path in flex_paths:
                             
                             return f"flex_{hemisphere}_{atlas}_{region}_{goal}_{post_proc}_{electrode_type}"
                     
-                    # Handle subcortical search names: subcortical_atlas_region_goal
+                    # Handle new subcortical search format: subcortical_atlas_region_goal_postprocess
                     elif search_name.startswith('subcortical_'):
                         parts = search_name.split('_')
-                        if len(parts) >= 4:
+                        if len(parts) >= 5:
                             hemisphere = 'subcortical'
                             atlas = parts[1]
                             region = parts[2]
                             goal = parts[3]
-                            post_proc = '_'.join(parts[4:]) if len(parts) > 4 else 'default'
+                            post_proc = parts[4]
                             
                             return f"flex_{hemisphere}_{atlas}_{region}_{goal}_{post_proc}_{electrode_type}"
                     
-                    # Handle spherical coordinates or other formats
+                    # Handle new spherical search format: sphere_x0y0z0r10_mean_normalTI
+                    elif search_name.startswith('sphere_'):
+                        parts = search_name.split('_')
+                        if len(parts) >= 4:
+                            hemisphere = 'spherical'
+                            coordinates = parts[1]     # e.g., 'x0y0z0r10'
+                            goal = parts[2]            # e.g., 'mean'
+                            post_proc = parts[3]       # e.g., 'normalTI'
+                            
+                            return f"flex_{hemisphere}_coordinates_{coordinates}_{goal}_{post_proc}_{electrode_type}"
+                    
+                    # Legacy spherical coordinates or other formats (for backward compatibility)
                     elif '_' in search_name and any(char.isdigit() for char in search_name):
                         parts = search_name.split('_')
                         hemisphere = 'spherical'
