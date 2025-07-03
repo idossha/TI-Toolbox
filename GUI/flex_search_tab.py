@@ -150,7 +150,7 @@ class FlexSearchTab(QtWidgets.QWidget):
         self.refresh_atlases_btn.setMaximumWidth(100)
         
         # Initialize labels
-        self.subject_label = QtWidgets.QLabel("Subject(s) (Ctrl+Click for multiple):")
+        self.subject_label = QtWidgets.QLabel("Subjects:")
         self.goal_label = QtWidgets.QLabel("Optimization Goal:")
         self.postproc_label = QtWidgets.QLabel("Post-processing Method:")
         self.roi_method_label = QtWidgets.QLabel("ROI Definition Method:")
@@ -328,6 +328,7 @@ class FlexSearchTab(QtWidgets.QWidget):
 
         top_row_layout = QtWidgets.QHBoxLayout()
 
+        # Left column: Basic Parameters (expanded)
         basic_params_group = QtWidgets.QGroupBox("Basic Parameters")
         basic_params_layout = QtWidgets.QFormLayout(basic_params_group)
         
@@ -345,30 +346,20 @@ class FlexSearchTab(QtWidgets.QWidget):
         basic_params_layout.addRow(self.postproc_label, self.postproc_combo)
         top_row_layout.addWidget(basic_params_group, 1)
 
-        self.electrode_params_group = QtWidgets.QGroupBox("Electrode Parameters")
-        electrode_params_layout = QtWidgets.QFormLayout(self.electrode_params_group)
-        electrode_params_layout.addRow(self.radius_label, self.radius_input)
-        electrode_params_layout.addRow(self.current_label, self.current_input)
-        top_row_layout.addWidget(self.electrode_params_group, 1)
+        # Right column: Mapping (top) + Electrode Parameters (bottom)
+        right_column_widget = QtWidgets.QWidget()
+        right_column_layout = QtWidgets.QVBoxLayout(right_column_widget)
+        right_column_layout.setContentsMargins(0, 0, 0, 0)
         
-        scroll_layout.addLayout(top_row_layout)
-
-        self.mapping_group = QtWidgets.QGroupBox("Electrode Mapping Options (Optional)")
+        # Electrode Mapping Options (compact, no warning text)
+        self.mapping_group = QtWidgets.QGroupBox("Electrode Mapping (Optional)")
         mapping_layout = QtWidgets.QFormLayout(self.mapping_group)
-        
-        mapping_help_label = QtWidgets.QLabel(
-            "⚠️ Electrode mapping finds the nearest EEG net electrodes to the optimized positions.\n"
-            "This feature is DISABLED by default as it may increase computation time and memory usage."
-        )
-        mapping_help_label.setStyleSheet("font-size: 11px; color: #666666; font-style: italic; padding: 5px; background-color: #f5f5f5; border-radius: 3px;")
-        mapping_help_label.setWordWrap(True)
-        mapping_layout.addRow(mapping_help_label)
         
         mapping_layout.addRow(self.enable_mapping_checkbox)
 
         eeg_net_controls_inner_layout = QtWidgets.QHBoxLayout()
+        self.eeg_net_combo.setFixedWidth(200)  # Force width to be 2.5x larger
         eeg_net_controls_inner_layout.addWidget(self.eeg_net_combo)
-        eeg_net_controls_inner_layout.addWidget(self.refresh_eeg_nets_btn)
         eeg_net_controls_inner_layout.addStretch()
         self.eeg_net_widget.setLayout(eeg_net_controls_inner_layout)
         self.eeg_net_widget.setVisible(False)
@@ -377,7 +368,18 @@ class FlexSearchTab(QtWidgets.QWidget):
         
         self.run_mapped_simulation_checkbox.setVisible(False)
         mapping_layout.addRow(self.run_mapped_simulation_checkbox)
-        scroll_layout.addWidget(self.mapping_group)
+        right_column_layout.addWidget(self.mapping_group)
+        
+        # Electrode Parameters
+        self.electrode_params_group = QtWidgets.QGroupBox("Electrode Parameters")
+        electrode_params_layout = QtWidgets.QFormLayout(self.electrode_params_group)
+        electrode_params_layout.addRow(self.radius_label, self.radius_input)
+        electrode_params_layout.addRow(self.current_label, self.current_input)
+        right_column_layout.addWidget(self.electrode_params_group)
+        
+        top_row_layout.addWidget(right_column_widget, 1)
+        
+        scroll_layout.addLayout(top_row_layout)
 
         self.roi_method_group = QtWidgets.QGroupBox("ROI Definition")
         roi_method_layout_main = QtWidgets.QVBoxLayout(self.roi_method_group)
