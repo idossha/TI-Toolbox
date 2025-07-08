@@ -111,6 +111,7 @@ setup_montage_dirs() {
     mkdir -p "$montage_dir/high_Frequency/analysis"
     mkdir -p "$montage_dir/TI/mesh"
     mkdir -p "$montage_dir/TI/niftis"
+    mkdir -p "$montage_dir/TI/surface_overlays"
     mkdir -p "$montage_dir/TI/montage_imgs"
     mkdir -p "$montage_dir/documentation"
     
@@ -267,6 +268,13 @@ for montage in "${selected_montages[@]}"; do
         log_info "Moved subject volumes to high frequency niftis directory"
     fi
     
+    # Handle subject_overlays directory (surface files)
+    if [ -d "$tmp_montage_dir/subject_overlays" ]; then
+        mv "$tmp_montage_dir/subject_overlays"/* "$montage_dir/TI/surface_overlays/"
+        rmdir "$tmp_montage_dir/subject_overlays"
+        log_info "Moved subject overlays to TI surface overlays directory"
+    fi
+    
     # Move fields_summary.txt to analysis
     if [ -f "$tmp_montage_dir/fields_summary.txt" ]; then
         mv "$tmp_montage_dir/fields_summary.txt" "$montage_dir/high_Frequency/analysis/"
@@ -298,8 +306,37 @@ for montage in "${selected_montages[@]}"; do
         wm_output="$montage_dir/TI/mesh/white_${montage}_TI.msh"
         extract_fields "$ti_mesh" "$gm_output" "$wm_output"
         
-        # Transform to NIfTI
-        transform_parcellated_meshes_to_nifti "$montage_dir/TI/mesh" "$montage_dir/TI/niftis"
+        # Transform volume meshes to NIfTI (excluding central surface meshes)
+        # Create temporary directory with only volume meshes for NIfTI conversion
+        temp_nifti_dir="$tmp_dir/${montage}_nifti_conversion"
+        mkdir -p "$temp_nifti_dir"
+        
+        # Copy only volume mesh files (exclude TI_central files)
+        cp "$montage_dir/TI/mesh/${montage}_TI.msh" "$temp_nifti_dir/"
+        if [ -f "$montage_dir/TI/mesh/grey_${montage}_TI.msh" ]; then
+            cp "$montage_dir/TI/mesh/grey_${montage}_TI.msh" "$temp_nifti_dir/"
+        fi
+        if [ -f "$montage_dir/TI/mesh/white_${montage}_TI.msh" ]; then
+            cp "$montage_dir/TI/mesh/white_${montage}_TI.msh" "$temp_nifti_dir/"
+        fi
+        
+        # Convert only volume meshes to NIfTI
+        transform_parcellated_meshes_to_nifti "$temp_nifti_dir" "$montage_dir/TI/niftis"
+        
+        # Clean up temporary directory
+        rm -rf "$temp_nifti_dir"
+    fi
+    
+    # Process TI central surface mesh (middle cortical layer) - AFTER NIfTI conversion
+    if [ -f "$tmp_montage_dir/TI_central.msh" ]; then
+        log_info "Processing TI central surface mesh (surface-only, no NIfTI conversion)"
+        
+        # Move and rename TI central mesh and its opt file
+        mv "$tmp_montage_dir/TI_central.msh" "$montage_dir/TI/mesh/${montage}_TI_central.msh"
+        if [ -f "$tmp_montage_dir/TI_central.msh.opt" ]; then
+            mv "$tmp_montage_dir/TI_central.msh.opt" "$montage_dir/TI/mesh/${montage}_TI_central.msh.opt"
+        fi
+        log_info "Moved and renamed TI central surface mesh files (surface format preserved)"
     fi
 done
 
@@ -319,6 +356,8 @@ verify_files() {
         "$montage_base_dir/documentation"
         "$montage_base_dir/TI/mesh/${montage_name}_TI.msh"
         "$montage_base_dir/TI/mesh/${montage_name}_TI.msh.opt"
+        "$montage_base_dir/TI/mesh/${montage_name}_TI_central.msh"
+        "$montage_base_dir/TI/surface_overlays"
     )
 
     for path in "${essential_paths[@]}"; do
