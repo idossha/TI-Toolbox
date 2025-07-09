@@ -1,0 +1,15 @@
+# TI-CSC-2.0 GUI Requirements
+# Core GUI functionality
+PyQt5>=5.15.0
+
+# Enhanced system monitoring
+psutil>=5.8.0
+
+# Real-time performance graphs  
+matplotlib>=3.5.0
+
+# Data processing for graphs
+numpy>=1.21.0
+
+# Optional: For even better system monitoring
+# htop  # Install via system package manager if available 
