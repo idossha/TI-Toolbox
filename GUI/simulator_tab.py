@@ -18,7 +18,13 @@ import datetime
 import tempfile
 import shutil
 
-from PyQt5 import QtWidgets, QtCore, QtGui
+try:
+    from PyQt5 import QtWidgets, QtCore, QtGui
+    PYQT5_AVAILABLE = True
+except ImportError:
+    PYQT5_AVAILABLE = False
+    print("Warning: PyQt5 not available")
+
 from confirmation_dialog import ConfirmationDialog
 from utils import confirm_overwrite
 
@@ -32,8 +38,10 @@ if utils_dir not in sys.path:
 # Now import from utils
 try:
     from report_util import get_simulation_report_generator
+    REPORT_UTIL_AVAILABLE = True
 except ImportError as e:
     print(f"Warning: Could not import report utilities: {e}")
+    REPORT_UTIL_AVAILABLE = False
     # Define a fallback function
     def get_simulation_report_generator(*args, **kwargs):
         print("Warning: Report generation not available")
@@ -67,28 +75,29 @@ class SimulationThread(QtCore.QThread):
             )
             
             # Real-time output display with message type detection
-            for line in iter(self.process.stdout.readline, ''):
-                if self.terminated:
-                    break
-                if line:
-                    # Detect message type based on content
-                    line_stripped = line.strip()
-                    if any(keyword in line_stripped.lower() for keyword in ['error:', 'critical:', 'failed', 'exception']):
-                        message_type = 'error'
-                    elif any(keyword in line_stripped.lower() for keyword in ['warning:', 'warn']):
-                        message_type = 'warning'
-                    elif any(keyword in line_stripped.lower() for keyword in ['debug:']):
-                        message_type = 'debug'
-                    elif any(keyword in line_stripped.lower() for keyword in ['executing:', 'running', 'command']):
-                        message_type = 'command'
-                    elif any(keyword in line_stripped.lower() for keyword in ['completed successfully', 'completed.', 'successfully', 'completed:']):
-                        message_type = 'success'
-                    elif any(keyword in line_stripped.lower() for keyword in ['processing', 'starting']):
-                        message_type = 'info'
-                    else:
-                        message_type = 'default'
-                    
-                    self.output_signal.emit(line_stripped, message_type)
+            if self.process.stdout:
+                for line in iter(self.process.stdout.readline, ''):
+                    if self.terminated:
+                        break
+                    if line:
+                        # Detect message type based on content
+                        line_stripped = line.strip()
+                        if any(keyword in line_stripped.lower() for keyword in ['error:', 'critical:', 'failed', 'exception']):
+                            message_type = 'error'
+                        elif any(keyword in line_stripped.lower() for keyword in ['warning:', 'warn']):
+                            message_type = 'warning'
+                        elif any(keyword in line_stripped.lower() for keyword in ['debug:']):
+                            message_type = 'debug'
+                        elif any(keyword in line_stripped.lower() for keyword in ['executing:', 'running', 'command']):
+                            message_type = 'command'
+                        elif any(keyword in line_stripped.lower() for keyword in ['completed successfully', 'completed.', 'successfully', 'completed:']):
+                            message_type = 'success'
+                        elif any(keyword in line_stripped.lower() for keyword in ['processing', 'starting']):
+                            message_type = 'info'
+                        else:
+                            message_type = 'default'
+                        
+                        self.output_signal.emit(line_stripped, message_type)
             
             # Check process completion
             if not self.terminated:
@@ -128,6 +137,174 @@ class SimulationThread(QtCore.QThread):
             
             return True
         return False
+
+    def _parse_flex_search_name(self, search_name, electrode_type):
+        """
+        Parse flex-search name and create proper naming format.
+        
+        Args:
+            search_name: Search directory name with format:
+                        - Atlas: {hemisphere}_{atlas}_{region}_{goal}_{postprocess}
+                        - Spherical: sphere_x{X}y{Y}z{Z}r{radius}_{goal}_{postprocess}
+                        - Subcortical: subcortical_{volume_atlas}_{region}_{goal}_{postprocess}
+                        - Legacy cortical: {hemisphere}.{region}_{atlas}_{goal}_{postprocess}
+            electrode_type: 'mapped' or 'optimized'
+            
+        Returns:
+            str: Formatted name following flex_{hemisphere}_{atlas}_{region}_{goal}_{postproc}_{electrode_type}
+        """
+        try:
+            # Clean the search name first
+            search_name = search_name.strip()
+            
+            # Handle new naming convention first
+            
+            # Handle spherical search names: sphere_x{X}y{Y}z{Z}r{radius}_{goal}_{postprocess}
+            if search_name.startswith('sphere_'):
+                parts = search_name.split('_')
+                if len(parts) >= 3:
+                    hemisphere = 'spherical'
+                    # Extract coordinate part (e.g., x10y-5z20r5)
+                    coords_part = parts[1] if len(parts) > 1 else 'coords'
+                    goal = parts[-2] if len(parts) >= 3 else 'optimization'
+                    post_proc = parts[-1] if len(parts) >= 3 else 'maxTI'
+                    
+                    return f"flex_{hemisphere}_{coords_part}_{goal}_{post_proc}_{electrode_type}"
+            
+            # Handle subcortical search names: subcortical_{volume_atlas}_{region}_{goal}_{postprocess}
+            elif search_name.startswith('subcortical_'):
+                parts = search_name.split('_')
+                if len(parts) >= 5:
+                    hemisphere = 'subcortical'
+                    atlas = parts[1]
+                    region = parts[2]
+                    goal = parts[3]
+                    post_proc = parts[4]
+                    
+                    return f"flex_{hemisphere}_{atlas}_{region}_{goal}_{post_proc}_{electrode_type}"
+            
+            # Handle cortical search names: {hemisphere}_{atlas}_{region}_{goal}_{postprocess}
+            elif '_' in search_name and len(search_name.split('_')) >= 5:
+                parts = search_name.split('_')
+                if len(parts) >= 5 and parts[0] in ['lh', 'rh']:
+                    hemisphere = parts[0]
+                    atlas = parts[1]
+                    region = parts[2]
+                    goal = parts[3]
+                    post_proc = parts[4]
+                    
+                    return f"flex_{hemisphere}_{atlas}_{region}_{goal}_{post_proc}_{electrode_type}"
+            
+            # Fallback: Handle legacy formats for backward compatibility
+            
+            # Legacy cortical search names: lh.101_DK40_14_mean
+            elif search_name.startswith(('lh.', 'rh.')):
+                parts = search_name.split('_')
+                if len(parts) >= 3:
+                    hemisphere_region = parts[0]  # e.g., 'lh.101'
+                    atlas = parts[1]  # e.g., 'DK40'
+                    goal_postproc = '_'.join(parts[2:])  # e.g., '14_mean'
+                    
+                    # Extract hemisphere and region
+                    if '.' in hemisphere_region:
+                        hemisphere, region = hemisphere_region.split('.', 1)
+                    else:
+                        hemisphere = 'unknown'
+                        region = hemisphere_region
+                    
+                    # Split goal and postProc if possible
+                    if '_' in goal_postproc:
+                        goal_parts = goal_postproc.split('_')
+                        region = goal_parts[0]  # First part is actually the region
+                        goal = goal_parts[1] if len(goal_parts) > 1 else 'optimization'
+                        post_proc = '_'.join(goal_parts[2:]) if len(goal_parts) > 2 else 'maxTI'
+                    else:
+                        goal = goal_postproc
+                        post_proc = 'maxTI'
+                    
+                    return f"flex_{hemisphere}_{atlas}_{region}_{goal}_{post_proc}_{electrode_type}"
+            
+            # Legacy subcortical search names: subcortical_atlas_region_goal
+            elif search_name.startswith('subcortical_') and len(search_name.split('_')) == 4:
+                parts = search_name.split('_')
+                if len(parts) >= 4:
+                    hemisphere = 'subcortical'
+                    atlas = parts[1]
+                    region = parts[2]
+                    goal = parts[3]
+                    post_proc = 'maxTI'  # Default for legacy
+                    
+                    return f"flex_{hemisphere}_{atlas}_{region}_{goal}_{post_proc}_{electrode_type}"
+            
+            # Legacy spherical coordinates: assume any other format with underscores
+            elif '_' in search_name:
+                parts = search_name.split('_')
+                hemisphere = 'spherical'
+                atlas = 'coordinates'
+                region = '_'.join(parts[:-1]) if len(parts) > 1 else search_name
+                goal = parts[-1] if parts else 'optimization'
+                post_proc = 'maxTI'
+                
+                return f"flex_{hemisphere}_{atlas}_{region}_{goal}_{post_proc}_{electrode_type}"
+            
+            # Fallback for unrecognized formats
+            else:
+                return f"flex_unknown_unknown_{search_name}_optimization_maxTI_{electrode_type}"
+                
+        except Exception as e:
+            self.update_output(f"Warning: Could not parse flex search name '{search_name}': {e}", 'warning')
+            return f"flex_unknown_unknown_{search_name}_optimization_maxTI_{electrode_type}"
+            
+    def cleanup_old_simulation_directories(self, subject_id):
+        """
+        Clean up old simulation directories that might interfere with flex-search discovery.
+        Only removes directories that don't have recent simulation results.
+        """
+        try:
+            # Get project directory
+            project_dir = f"/mnt/{os.environ.get('PROJECT_DIR_NAME', 'BIDS_new')}"
+            simulation_dir = os.path.join(project_dir, 'derivatives', 'SimNIBS', f'sub-{subject_id}', 'Simulations')
+            
+            if not os.path.exists(simulation_dir):
+                return
+            
+            # Get current time
+            current_time = time.time()
+            cutoff_time = current_time - (24 * 60 * 60)  # 24 hours ago
+            
+            for item in os.listdir(simulation_dir):
+                item_path = os.path.join(simulation_dir, item)
+                
+                # Skip tmp directory and files
+                if not os.path.isdir(item_path) or item == 'tmp':
+                    continue
+                
+                # Check if directory is old and potentially stale
+                try:
+                    dir_mtime = os.path.getmtime(item_path)
+                    
+                    # If directory is older than cutoff and doesn't have recent TI results, consider removing
+                    if dir_mtime < cutoff_time:
+                        ti_mesh_path = os.path.join(item_path, 'TI', 'mesh')
+                        
+                        # Check if it has valid TI results
+                        has_valid_results = False
+                        if os.path.exists(ti_mesh_path):
+                            for file in os.listdir(ti_mesh_path):
+                                if file.endswith('_TI.msh') and os.path.getmtime(os.path.join(ti_mesh_path, file)) > cutoff_time:
+                                    has_valid_results = True
+                                    break
+                        
+                        # If no valid recent results, ask user if they want to clean up
+                        if not has_valid_results:
+                            self.update_output(f"Found old simulation directory: {item} (last modified: {datetime.datetime.fromtimestamp(dir_mtime).strftime('%Y-%m-%d %H:%M')})", 'info')
+                            # For now, just warn - in the future could add cleanup logic
+                            
+                except Exception as e:
+                    self.update_output(f"Warning: Could not check directory {item}: {e}", 'warning')
+                    
+        except Exception as e:
+            self.update_output(f"Warning: Could not clean up old directories: {e}", 'warning')
 
 class SimulatorTab(QtWidgets.QWidget):
     """Tab for simulator functionality."""
@@ -1000,6 +1177,11 @@ class SimulatorTab(QtWidgets.QWidget):
                 QtWidgets.QMessageBox.warning(self, "Warning", "Please select at least one subject.")
                 return
             
+            # Clean up old directories for flex-search mode
+            if not self.sim_type_montage.isChecked():
+                for subject_id in selected_subjects:
+                    self.cleanup_old_simulation_directories(subject_id)
+            
             # Get project directory
             project_dir = f"/mnt/{os.environ.get('PROJECT_DIR_NAME', 'BIDS_new')}"
             
@@ -1071,21 +1253,27 @@ class SimulatorTab(QtWidgets.QWidget):
                             continue
                         
                         # Create montage structure for mapped electrodes
-                        if len(mapped_positions) >= 4:  # Need at least 4 electrodes for TI
+                        if len(mapped_positions) >= 4 and len(mapped_labels) >= 4:  # Need at least 4 electrodes for TI
                             # Parse search_name to extract components for new naming format
-                            # search_name format: lh.101_DK40_14_mean or subcortical_atlas_region_goal
                             montage_name = self._parse_flex_search_name(search_name, 'mapped')
                             
-                            # TI requires 2 pairs of electrodes
-                            montage_data = {
-                                'name': montage_name,
-                                'type': 'flex_mapped',
-                                'eeg_net': eeg_net,  # Use the EEG net from the mapping file
-                                'electrode_labels': mapped_labels[:4],
-                                'pairs': [[mapped_labels[0], mapped_labels[1]], [mapped_labels[2], mapped_labels[3]]]
-                            }
-                            flex_montages.append(montage_data)
-                            flex_montages_by_subject[subject_id].append(montage_data)
+                            # Validate montage name doesn't conflict with existing directories
+                            if montage_name.startswith('flex_'):
+                                # TI requires 2 pairs of electrodes
+                                montage_data = {
+                                    'name': montage_name,
+                                    'type': 'flex_mapped',
+                                    'eeg_net': eeg_net,  # Use the EEG net from the mapping file
+                                    'electrode_labels': mapped_labels[:4],
+                                    'pairs': [[mapped_labels[0], mapped_labels[1]], [mapped_labels[2], mapped_labels[3]]]
+                                }
+                                flex_montages.append(montage_data)
+                                flex_montages_by_subject[subject_id].append(montage_data)
+                                self.update_output(f"Created flex mapped montage: {montage_name}")
+                            else:
+                                self.update_output(f"Warning: Generated invalid montage name '{montage_name}' for search '{search_name}'", 'warning')
+                        else:
+                            self.update_output(f"Error: Not enough electrodes for TI simulation in {search_name} (need at least 4)", 'error')
                     
                     if use_optimized:
                         optimized_positions = mapping_data['optimized_positions']
@@ -1095,16 +1283,23 @@ class SimulatorTab(QtWidgets.QWidget):
                             # Parse search_name to extract components for new naming format
                             montage_name = self._parse_flex_search_name(search_name, 'optimized')
                             
-                            # TI requires 2 pairs of electrodes (using XYZ coordinates)
-                            montage_data = {
-                                'name': montage_name,
-                                'type': 'flex_optimized',
-                                'electrode_positions': optimized_positions[:4],
-                                'pairs': [[optimized_positions[0], optimized_positions[1]], 
-                                         [optimized_positions[2], optimized_positions[3]]]
-                            }
-                            flex_montages.append(montage_data)
-                            flex_montages_by_subject[subject_id].append(montage_data)
+                            # Validate montage name doesn't conflict with existing directories
+                            if montage_name.startswith('flex_'):
+                                # TI requires 2 pairs of electrodes (using XYZ coordinates)
+                                montage_data = {
+                                    'name': montage_name,
+                                    'type': 'flex_optimized',
+                                    'electrode_positions': optimized_positions[:4],
+                                    'pairs': [[optimized_positions[0], optimized_positions[1]], 
+                                             [optimized_positions[2], optimized_positions[3]]]
+                                }
+                                flex_montages.append(montage_data)
+                                flex_montages_by_subject[subject_id].append(montage_data)
+                                self.update_output(f"Created flex optimized montage: {montage_name}")
+                            else:
+                                self.update_output(f"Warning: Generated invalid montage name '{montage_name}' for search '{search_name}'", 'warning')
+                        else:
+                            self.update_output(f"Error: Not enough electrodes for TI simulation in {search_name} (need at least 4)", 'error')
             
             # Skip directory existence check for now - let the simulation scripts handle it
             
@@ -1237,8 +1432,9 @@ class SimulatorTab(QtWidgets.QWidget):
                 # Create a temporary JSON file with flex montage data
                 import tempfile
                 with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as tf:
-                    json.dump(flex_montages, tf)
+                    json.dump(flex_montages, tf, indent=2)
                     env['FLEX_MONTAGES_FILE'] = tf.name
+                self.update_output(f"Created temporary flex montages file: {env['FLEX_MONTAGES_FILE']}")
             
             # Debug output
             self.update_output(f"Running in direct execution mode from GUI")
@@ -1276,64 +1472,69 @@ class SimulatorTab(QtWidgets.QWidget):
             # Initialize report generator for this simulation session
             self.simulation_session_id = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
             project_dir_path = f"/mnt/{os.environ.get('PROJECT_DIR_NAME', 'BIDS_new')}"
-            self.report_generator = get_simulation_report_generator(project_dir_path, self.simulation_session_id)
+            
+            if REPORT_UTIL_AVAILABLE:
+                self.report_generator = get_simulation_report_generator(project_dir_path, self.simulation_session_id)
+            else:
+                self.report_generator = None
             
             # Add simulation parameters to report (including custom conductivities)
-            self.report_generator.add_simulation_parameters(
-                conductivity_type=conductivity,
-                simulation_mode=sim_mode,
-                eeg_net=eeg_net,
-                intensity_ch1=current_ma_1,
-                intensity_ch2=current_ma_2,
-                quiet_mode=False,
-                conductivities=self._get_conductivities_for_report()
-            )
-            
-            # Add electrode parameters to report
-            dim_parts = dimensions.split(',')
-            self.report_generator.add_electrode_parameters(
-                shape=electrode_shape,
-                dimensions=[float(dim_parts[0]), float(dim_parts[1])],
-                thickness=float(thickness)
-            )
-            
-            # Add subjects to report
-            for subject_id in selected_subjects:
-                bids_subject_id = f"sub-{subject_id}"
-                m2m_path = os.path.join(project_dir_path, 'derivatives', 'SimNIBS', 
-                                      bids_subject_id, f'm2m_{subject_id}')
-                self.report_generator.add_subject(subject_id, m2m_path, 'processing')
-            
-            # Add montages to report
-            montage_type = 'unipolar' if sim_mode == 'U' else 'multipolar'
-            
-            # Load actual electrode pairs from montage file
-            montage_file = self.ensure_montage_file_exists(project_dir_path)
-            try:
-                with open(montage_file, 'r') as f:
-                    montage_data = json.load(f)
-            except:
-                montage_data = {"nets": {}}
-            
-            for montage_name in selected_montages:
-                # Try to get actual electrode pairs from the montage file
-                electrode_pairs = [['E1', 'E2']]  # Default fallback
-                
-                # Look for the montage in the appropriate net and type
-                net_type = "uni_polar_montages" if sim_mode == 'U' else "multi_polar_montages"
-                
-                if ("nets" in montage_data and 
-                    eeg_net in montage_data["nets"] and 
-                    net_type in montage_data["nets"][eeg_net] and 
-                    montage_name in montage_data["nets"][eeg_net][net_type]):
-                    electrode_pairs = montage_data["nets"][eeg_net][net_type][montage_name]
-                
-                # Use keyword arguments for consistency with updated method signature
-                self.report_generator.add_montage(
-                    name=montage_name,  # Use 'name' keyword argument for consistency
-                    electrode_pairs=electrode_pairs,
-                    montage_type=montage_type
+            if self.report_generator:
+                self.report_generator.add_simulation_parameters(
+                    conductivity_type=conductivity,
+                    simulation_mode=sim_mode,
+                    eeg_net=eeg_net,
+                    intensity_ch1=current_ma_1,
+                    intensity_ch2=current_ma_2,
+                    quiet_mode=False,
+                    conductivities=self._get_conductivities_for_report()
                 )
+                
+                # Add electrode parameters to report
+                dim_parts = dimensions.split(',')
+                self.report_generator.add_electrode_parameters(
+                    shape=electrode_shape,
+                    dimensions=[float(dim_parts[0]), float(dim_parts[1])],
+                    thickness=float(thickness)
+                )
+                
+                # Add subjects to report
+                for subject_id in selected_subjects:
+                    bids_subject_id = f"sub-{subject_id}"
+                    m2m_path = os.path.join(project_dir_path, 'derivatives', 'SimNIBS', 
+                                          bids_subject_id, f'm2m_{subject_id}')
+                    self.report_generator.add_subject(subject_id, m2m_path, 'processing')
+                
+                # Add montages to report
+                montage_type = 'unipolar' if sim_mode == 'U' else 'multipolar'
+                
+                # Load actual electrode pairs from montage file
+                montage_file = self.ensure_montage_file_exists(project_dir_path)
+                try:
+                    with open(montage_file, 'r') as f:
+                        montage_data = json.load(f)
+                except:
+                    montage_data = {"nets": {}}
+                
+                for montage_name in selected_montages:
+                    # Try to get actual electrode pairs from the montage file
+                    electrode_pairs = [['E1', 'E2']]  # Default fallback
+                    
+                    # Look for the montage in the appropriate net and type
+                    net_type = "uni_polar_montages" if sim_mode == 'U' else "multi_polar_montages"
+                    
+                    if ("nets" in montage_data and 
+                        eeg_net in montage_data["nets"] and 
+                        net_type in montage_data["nets"][eeg_net] and 
+                        montage_name in montage_data["nets"][eeg_net][net_type]):
+                        electrode_pairs = montage_data["nets"][eeg_net][net_type][montage_name]
+                    
+                    # Use keyword arguments for consistency with updated method signature
+                    self.report_generator.add_montage(
+                        name=montage_name,  # Use 'name' keyword argument for consistency
+                        electrode_pairs=electrode_pairs,
+                        montage_type=montage_type
+                    )
             
             # Disable UI controls during simulation
             self.disable_controls()
@@ -2148,16 +2349,20 @@ class SimulatorTab(QtWidgets.QWidget):
         Parse flex-search name and create proper naming format.
         
         Args:
-            search_name: Search directory name with new format:
+            search_name: Search directory name with format:
                         - Atlas: {hemisphere}_{atlas}_{region}_{goal}_{postprocess}
                         - Spherical: sphere_x{X}y{Y}z{Z}r{radius}_{goal}_{postprocess}
                         - Subcortical: subcortical_{volume_atlas}_{region}_{goal}_{postprocess}
+                        - Legacy cortical: {hemisphere}.{region}_{atlas}_{goal}_{postprocess}
             electrode_type: 'mapped' or 'optimized'
             
         Returns:
             str: Formatted name following flex_{hemisphere}_{atlas}_{region}_{goal}_{postproc}_{electrode_type}
         """
         try:
+            # Clean the search name first
+            search_name = search_name.strip()
+            
             # Handle new naming convention first
             
             # Handle spherical search names: sphere_x{X}y{Y}z{Z}r{radius}_{goal}_{postprocess}
@@ -2255,6 +2460,57 @@ class SimulatorTab(QtWidgets.QWidget):
         except Exception as e:
             self.update_output(f"Warning: Could not parse flex search name '{search_name}': {e}", 'warning')
             return f"flex_unknown_unknown_{search_name}_optimization_maxTI_{electrode_type}"
+
+    def cleanup_old_simulation_directories(self, subject_id):
+        """
+        Clean up old simulation directories that might interfere with flex-search discovery.
+        Only removes directories that don't have recent simulation results.
+        """
+        try:
+            # Get project directory
+            project_dir = f"/mnt/{os.environ.get('PROJECT_DIR_NAME', 'BIDS_new')}"
+            simulation_dir = os.path.join(project_dir, 'derivatives', 'SimNIBS', f'sub-{subject_id}', 'Simulations')
+            
+            if not os.path.exists(simulation_dir):
+                return
+            
+            # Get current time
+            current_time = time.time()
+            cutoff_time = current_time - (24 * 60 * 60)  # 24 hours ago
+            
+            for item in os.listdir(simulation_dir):
+                item_path = os.path.join(simulation_dir, item)
+                
+                # Skip tmp directory and files
+                if not os.path.isdir(item_path) or item == 'tmp':
+                    continue
+                
+                # Check if directory is old and potentially stale
+                try:
+                    dir_mtime = os.path.getmtime(item_path)
+                    
+                    # If directory is older than cutoff and doesn't have recent TI results, consider removing
+                    if dir_mtime < cutoff_time:
+                        ti_mesh_path = os.path.join(item_path, 'TI', 'mesh')
+                        
+                        # Check if it has valid TI results
+                        has_valid_results = False
+                        if os.path.exists(ti_mesh_path):
+                            for file in os.listdir(ti_mesh_path):
+                                if file.endswith('_TI.msh') and os.path.getmtime(os.path.join(ti_mesh_path, file)) > cutoff_time:
+                                    has_valid_results = True
+                                    break
+                        
+                        # If no valid recent results, ask user if they want to clean up
+                        if not has_valid_results:
+                            self.update_output(f"Found old simulation directory: {item} (last modified: {datetime.datetime.fromtimestamp(dir_mtime).strftime('%Y-%m-%d %H:%M')})", 'info')
+                            # For now, just warn - in the future could add cleanup logic
+                            
+                except Exception as e:
+                    self.update_output(f"Warning: Could not check directory {item}: {e}", 'warning')
+                    
+        except Exception as e:
+            self.update_output(f"Warning: Could not clean up old directories: {e}", 'warning')
 
 class AddMontageDialog(QtWidgets.QDialog):
     """Dialog for adding new montages."""

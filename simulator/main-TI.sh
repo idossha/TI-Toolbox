@@ -151,12 +151,263 @@ run_visualize_montages() {
     done
 }
 
+# Function to create temporary montage entries for flex-search visualization
+create_flex_montage_entries() {
+    local flex_montages_file="$1"
+    local montage_config_file="$project_dir/ti-csc/config/montage_list.json"
+    
+    # Backup original montage file
+    local backup_file="${montage_config_file}.backup_${timestamp}"
+    cp "$montage_config_file" "$backup_file"
+    
+    # Read flex montages data
+    if [[ ! -f "$flex_montages_file" ]]; then
+        log_warning "Flex montages file not found: $flex_montages_file"
+        return 0
+    fi
+    
+    log_info "Creating temporary montage entries for flex-search visualization"
+    
+    # Use Python to process the JSON and add temporary entries
+    python3 -c "
+import json
+import sys
+import os
+
+# Read flex montages
+with open('$flex_montages_file', 'r') as f:
+    flex_montages = json.load(f)
+
+# Read current montage config
+with open('$montage_config_file', 'r') as f:
+    montage_config = json.load(f)
+
+# Add temporary entries for mapped flex montages
+for flex_montage in flex_montages:
+    if flex_montage['type'] == 'flex_mapped':
+        montage_name = flex_montage['name']
+        eeg_net = flex_montage['eeg_net']
+        pairs = flex_montage['pairs']
+        
+        # Ensure the net exists in config
+        if 'nets' not in montage_config:
+            montage_config['nets'] = {}
+        if eeg_net not in montage_config['nets']:
+            montage_config['nets'][eeg_net] = {
+                'uni_polar_montages': {},
+                'multi_polar_montages': {}
+            }
+        
+        # Add to unipolar montages (TI simulations are always treated as unipolar for visualization)
+        montage_config['nets'][eeg_net]['uni_polar_montages'][montage_name] = pairs
+        
+        print(f'Added temporary montage entry: {montage_name} for net {eeg_net}')
+
+# Write updated config
+with open('$montage_config_file', 'w') as f:
+    json.dump(montage_config, f, indent=4)
+" 2>&1 | tee -a "${logs_dir}/simulator_${timestamp}.log"
+    
+    log_info "Temporary montage entries created successfully"
+}
+
+# Function to restore original montage file
+restore_montage_file() {
+    local backup_file="$project_dir/ti-csc/config/montage_list.json.backup_${timestamp}"
+    local montage_config_file="$project_dir/ti-csc/config/montage_list.json"
+    
+    if [[ -f "$backup_file" ]]; then
+        mv "$backup_file" "$montage_config_file"
+        log_info "Restored original montage configuration file"
+    fi
+}
+
+# Function to visualize flex montages with mapped electrodes
+run_visualize_flex_montages() {
+    # Only run if we have a flex montages file
+    local flex_montages_file="${FLEX_MONTAGES_FILE:-}"
+    
+    if [[ -z "$flex_montages_file" ]] || [[ ! -f "$flex_montages_file" ]]; then
+        log_info "No flex montages file found, skipping flex visualization"
+        return 0
+    fi
+    
+    log_info "Starting visualization for flex-search montages with mapped electrodes"
+    
+    # Create temporary montage entries
+    create_flex_montage_entries "$flex_montages_file"
+    
+    # Extract flex montage information and visualize mapped ones
+    python3 -c "
+import json
+import subprocess
+import sys
+import os
+
+# Read flex montages
+with open('$flex_montages_file', 'r') as f:
+    flex_montages = json.load(f)
+
+# Process each flex montage
+for flex_montage in flex_montages:
+    if flex_montage['type'] == 'flex_mapped':
+        montage_name = flex_montage['name']
+        eeg_net = flex_montage['eeg_net']
+        
+        # Create montage directory
+        montage_dir = os.path.join('$sim_dir', montage_name)
+        montage_output_dir = os.path.join(montage_dir, 'TI', 'montage_imgs')
+        os.makedirs(montage_output_dir, exist_ok=True)
+        
+        print(f'Visualizing flex montage: {montage_name} with EEG net: {eeg_net}')
+        
+        # Call visualize-montage.sh for this specific montage
+        cmd = [
+            'bash', '$utils_dir/visualize-montage.sh',
+            montage_name, 'U', eeg_net, montage_output_dir
+        ]
+        
+        try:
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+            if result.returncode == 0:
+                print(f'Successfully visualized flex montage: {montage_name}')
+            else:
+                print(f'Failed to visualize flex montage: {montage_name}')
+                print(f'Error: {result.stderr}')
+        except subprocess.TimeoutExpired:
+            print(f'Timeout while visualizing flex montage: {montage_name}')
+        except Exception as e:
+            print(f'Exception while visualizing flex montage {montage_name}: {e}')
+    else:
+        print(f'Skipping visualization for optimized montage: {flex_montage[\"name\"]} (coordinates-based)')
+" 2>&1 | tee -a "${logs_dir}/simulator_${timestamp}.log"
+    
+    # Restore original montage file
+    restore_montage_file
+    
+    log_info "Flex-search montage visualization completed"
+}
+
+# Function to visualize a single discovered flex montage after simulation
+visualize_flex_montage_post_simulation() {
+    local montage_name="$1"
+    local montage_dir="$sim_dir/$montage_name"
+    local montage_output_dir="$montage_dir/TI/montage_imgs"
+    
+    # Try to reconstruct the montage data from the simulation results
+    # Look for the original flex-search data that created this montage
+    log_info "Attempting to visualize discovered flex montage: $montage_name"
+    
+    # Try to find the corresponding flex-search directory to get the electrode mapping
+    local subject_flex_dir="$project_dir/derivatives/SimNIBS/sub-$subject_id/flex-search"
+    
+    if [[ -d "$subject_flex_dir" ]]; then
+        # Extract the search name from the montage name (remove flex_ prefix and _mapped/_optimized suffix)
+        local search_name_pattern="${montage_name#flex_*}"  # Remove flex_ prefix
+        search_name_pattern="${search_name_pattern%_mapped}"  # Remove _mapped suffix
+        search_name_pattern="${search_name_pattern%_optimized}"  # Remove _optimized suffix
+        
+        # Find matching flex-search directory
+        for search_dir in "$subject_flex_dir"/*; do
+            if [[ -d "$search_dir" ]]; then
+                local search_basename=$(basename "$search_dir")
+                # Try to match with our search pattern
+                if [[ "$search_basename" == *"${search_name_pattern##*_}"* ]] || [[ "$search_basename" == "${search_name_pattern%_*}"* ]]; then
+                    local mapping_file="$search_dir/electrode_mapping.json"
+                    if [[ -f "$mapping_file" ]]; then
+                        log_info "Found mapping file for $montage_name: $mapping_file"
+                        
+                        # Extract electrode data and create temporary montage entry
+                        python3 -c "
+import json
+import subprocess
+import os
+
+mapping_file = '$mapping_file'
+montage_name = '$montage_name'
+montage_config_file = '$project_dir/ti-csc/config/montage_list.json'
+montage_output_dir = '$montage_output_dir'
+utils_dir = '$utils_dir'
+
+try:
+    # Read the electrode mapping
+    with open(mapping_file, 'r') as f:
+        mapping_data = json.load(f)
+    
+    mapped_labels = mapping_data.get('mapped_labels', [])
+    eeg_net = mapping_data.get('eeg_net', 'EGI_template.csv')
+    
+    if len(mapped_labels) >= 4:
+        # Create electrode pairs (first 4 electrodes)
+        pairs = [[mapped_labels[0], mapped_labels[1]], [mapped_labels[2], mapped_labels[3]]]
+        
+        # Read current montage config
+        try:
+            with open(montage_config_file, 'r') as f:
+                montage_config = json.load(f)
+        except:
+            montage_config = {'nets': {}}
+        
+        # Add temporary entry
+        if 'nets' not in montage_config:
+            montage_config['nets'] = {}
+        if eeg_net not in montage_config['nets']:
+            montage_config['nets'][eeg_net] = {'uni_polar_montages': {}, 'multi_polar_montages': {}}
+        
+        montage_config['nets'][eeg_net]['uni_polar_montages'][montage_name] = pairs
+        
+        # Write updated config
+        with open(montage_config_file, 'w') as f:
+            json.dump(montage_config, f, indent=4)
+        
+        print(f'Created temporary montage entry for {montage_name}')
+        
+        # Ensure output directory exists
+        os.makedirs(montage_output_dir, exist_ok=True)
+        
+        # Call visualization script
+        cmd = ['bash', f'{utils_dir}/visualize-montage.sh', montage_name, 'U', eeg_net, montage_output_dir]
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+        
+        if result.returncode == 0:
+            print(f'Successfully visualized flex montage: {montage_name}')
+        else:
+            print(f'Failed to visualize flex montage: {montage_name}')
+            print(f'Error: {result.stderr}')
+        
+        # Clean up temporary entry
+        del montage_config['nets'][eeg_net]['uni_polar_montages'][montage_name]
+        with open(montage_config_file, 'w') as f:
+            json.dump(montage_config, f, indent=4)
+    else:
+        print(f'Not enough mapped electrodes for visualization: {len(mapped_labels)}')
+
+except Exception as e:
+    print(f'Error visualizing {montage_name}: {e}')
+" 2>&1 | tee -a "${logs_dir}/simulator_${timestamp}.log"
+                        return 0
+                    fi
+                fi
+            fi
+        done
+    fi
+    
+    log_warning "Could not find electrode mapping data for flex montage: $montage_name"
+    return 1
+}
+
 # Create temporary directory for SimNIBS output
 tmp_dir="$sim_dir/tmp"
 mkdir -p "$tmp_dir"
 
-# Run the pipeline
-run_visualize_montages
+# Run the visualization pipeline
+if [ "$sim_mode" = "FLEX_TI" ]; then
+    # For flex mode, first try to visualize any mapped montages if we have the file
+    run_visualize_flex_montages
+else
+    # For regular montage mode, use the standard visualization
+    run_visualize_montages
+fi
 
 # Run TI.py with the selected parameters
 for montage in "${selected_montages[@]}"; do
@@ -171,24 +422,43 @@ if ! simnibs_python "$script_dir/TI.py" "$subject_id" "$conductivity" "$project_
 fi
 
 # For flex-search mode, discover the montages that were created by TI.py
+# Only process montages that have simulation results in the tmp directory
 if [ "$sim_mode" = "FLEX_TI" ] && [ ${#selected_montages[@]} -eq 0 ]; then
-    log_info "Flex-search mode detected - discovering created montages"
+    log_info "Flex-search mode detected - discovering created montages from tmp directory"
     flex_montages=()
-    if [ -d "$sim_dir" ]; then
-        for montage_dir in "$sim_dir"/*/; do
-            if [ -d "$montage_dir" ]; then
-                montage_name=$(basename "$montage_dir")
-                # Skip the tmp directory
-                if [ "$montage_name" != "tmp" ]; then
+    if [ -d "$tmp_dir" ]; then
+        for tmp_montage_dir in "$tmp_dir"/*/; do
+            if [ -d "$tmp_montage_dir" ]; then
+                montage_name=$(basename "$tmp_montage_dir")
+                # Check if this montage has actual simulation results (TI.msh file)
+                if [ -f "$tmp_montage_dir/TI.msh" ]; then
                     flex_montages+=("$montage_name")
-                    log_info "Found flex montage: $montage_name"
+                    log_info "Found flex montage with simulation results: $montage_name"
+                    # Ensure the permanent directory structure exists for this montage
+                    setup_montage_dirs "$montage_name"
+                else
+                    log_warning "Found directory $montage_name in tmp but no TI.msh file - skipping"
                 fi
             fi
         done
     fi
     # Use flex montages for post-processing
     selected_montages=("${flex_montages[@]}")
-    log_info "Will process ${#selected_montages[@]} flex montages"
+    log_info "Will process ${#selected_montages[@]} flex montages with valid simulation results"
+    
+    # Now that we have discovered flex montages with simulation results, visualize the mapped ones
+    if [ ${#selected_montages[@]} -gt 0 ]; then
+        log_info "Generating AMV visualizations for discovered flex montages"
+        for flex_montage in "${selected_montages[@]}"; do
+            # Check if this is a mapped montage by looking for the JSON file from TI.py
+            if [[ "$flex_montage" == *"_mapped" ]]; then
+                # For mapped montages, we need to reconstruct the montage data for visualization
+                visualize_flex_montage_post_simulation "$flex_montage"
+            else
+                log_info "Skipping visualization for optimized montage: $flex_montage (coordinates-based)"
+            fi
+        done
+    fi
 fi
 
 # Function to extract fields (GM and WM meshes)
