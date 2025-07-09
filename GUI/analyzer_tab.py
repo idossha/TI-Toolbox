@@ -525,34 +525,18 @@ class AnalyzerTab(QtWidgets.QWidget):
         field_container = QtWidgets.QGroupBox("Field Selection")
         field_layout = QtWidgets.QGridLayout(field_container)
 
-        # Field Name row
-        self.field_name_label = QtWidgets.QLabel("Field Name:")
-        self.field_name_input = QtWidgets.QLineEdit()
-        self.field_name_input.setPlaceholderText("e.g., TI_max")
-        field_layout.addWidget(self.field_name_label, 0, 0)
-        field_layout.addWidget(self.field_name_input, 0, 1, 1, 2)
-
-        # Field File row
+        # Field File row (field name is now hardcoded to TI_max)
         self.field_file_label = QtWidgets.QLabel("Field File:")
         self.field_combo = QtWidgets.QComboBox()
         self.browse_field_btn = QtWidgets.QPushButton()
         self.browse_field_btn.setIcon(self.style().standardIcon(QtWidgets.QStyle.SP_DirIcon))
         self.browse_field_btn.setToolTip("Browse for field file")
         self.browse_field_btn.clicked.connect(self.browse_field)
-        field_layout.addWidget(self.field_file_label, 1, 0)
-        field_layout.addWidget(self.field_combo, 1, 1)
-        field_layout.addWidget(self.browse_field_btn, 1, 2)
+        field_layout.addWidget(self.field_file_label, 0, 0)
+        field_layout.addWidget(self.field_combo, 0, 1)
+        field_layout.addWidget(self.browse_field_btn, 0, 2)
 
         layout.addWidget(field_container)
-
-        # Show/hide field name row based on mesh/voxel
-        def update_field_name_row():
-            is_mesh = self.space_mesh.isChecked()
-            self.field_name_label.setVisible(is_mesh)
-            self.field_name_input.setVisible(is_mesh)
-        self.space_mesh.toggled.connect(lambda checked: update_field_name_row())
-        self.space_voxel.toggled.connect(lambda checked: update_field_name_row())
-        update_field_name_row()
 
         # Connect signals for single mode
         self.simulation_combo.currentTextChanged.connect(self.update_field_files)
@@ -592,18 +576,12 @@ class AnalyzerTab(QtWidgets.QWidget):
         field_layout.setContentsMargins(2, 2, 2, 2)
         field_layout.setSpacing(2)
         field_group.setSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Maximum)
-        # Field name input (only visible for mesh analysis)
-        field_name_layout = QtWidgets.QHBoxLayout()
-        self.group_field_name_label = QtWidgets.QLabel("Field Name:")
-        self.group_field_name_input = QtWidgets.QLineEdit()
-        self.group_field_name_input.setPlaceholderText("e.g., TI_max")
-        field_name_layout.addWidget(self.group_field_name_label)
-        field_name_layout.addWidget(self.group_field_name_input)
-        field_layout.addLayout(field_name_layout)
-        # Auto-selection info and status
+        
+        # Auto-selection info and status (field name is now hardcoded to TI_max)
         self.group_field_status_label = QtWidgets.QLabel("Field files will be auto-selected when montage is chosen...")
         self.group_field_status_label.setStyleSheet("color: #666666; font-style: italic;")
         field_layout.addWidget(self.group_field_status_label)
+        
         # Show selected fields button
         self.show_selected_fields_btn = QtWidgets.QPushButton("Show Selected Field Files")
         self.show_selected_fields_btn.clicked.connect(self.show_selected_field_files)
@@ -1096,9 +1074,7 @@ class AnalyzerTab(QtWidgets.QWidget):
                     self.field_combo.setCurrentIndex(i)
                     break
             
-            # Original logic for field_name_input enablement
-            self.field_name_input.setEnabled(is_mesh_ext) 
-            self.field_name_label.setEnabled(is_mesh_ext)
+            # Field name is now hardcoded to TI_max
 
 
     def get_available_atlas_files(self, subject_id): # subject_id is short form
@@ -1313,10 +1289,7 @@ class AnalyzerTab(QtWidgets.QWidget):
         self.mesh_atlas_widget.setVisible(is_mesh and is_cortical)
         self.voxel_atlas_widget.setVisible(not is_mesh and is_cortical)
         
-        # Original logic for field name input (single mode)
-        if not self.is_group_mode: # Only for single mode
-            if hasattr(self, 'field_name_input'): self.field_name_input.setEnabled(is_mesh)
-            if hasattr(self, 'field_name_label'): self.field_name_label.setEnabled(is_mesh)
+        # Field name is now hardcoded to TI_max
         
         # Enable atlas widgets based on analysis type
         mesh_atlas_enabled = is_mesh and is_cortical
@@ -1508,9 +1481,7 @@ class AnalyzerTab(QtWidgets.QWidget):
         if self.field_combo.currentIndex() == 0:
             QtWidgets.QMessageBox.warning(self, "Warning", "Please select a field file.")
             return False
-        if self.space_mesh.isChecked() and not self.field_name_input.text().strip():
-            QtWidgets.QMessageBox.warning(self, "Warning", "Please enter a field name for mesh analysis.")
-            return False
+        # Field name is now hardcoded to TI_max for mesh analysis
         return self.validate_analysis_parameters()
     
     def validate_group_inputs(self):
@@ -1535,12 +1506,7 @@ class AnalyzerTab(QtWidgets.QWidget):
             QtWidgets.QMessageBox.warning(self, "Warning", f"Missing field files for subjects: {', '.join(missing_fields)}")
             return False
             
-        # Check field name for mesh analysis
-        if self.space_mesh.isChecked():
-            field_name = self.group_field_name_input.text().strip()
-            if not field_name:
-                QtWidgets.QMessageBox.warning(self, "Warning", "Please enter a field name for mesh analysis.")
-                return False
+        # Field name is now hardcoded to TI_max for mesh analysis
         
         # Group analysis only supports cortical analysis
         if not self.type_cortical.isChecked():
@@ -1715,13 +1681,7 @@ class AnalyzerTab(QtWidgets.QWidget):
                    '--analysis_type', 'spherical' if self.type_spherical.isChecked() else 'cortical',
                    '--output_dir', temp_output_dir]
 
-            # Add space-specific parameters
-            if self.space_mesh.isChecked():
-                field_name = self.group_field_name_input.text().strip()
-                if not field_name:
-                    self.update_output("Error: Field name is required for mesh analysis.")
-                    return None
-                cmd.extend(['--field_name', field_name])
+            # Field name is now hardcoded to TI_max in the main analyzer
 
             # Add analysis-specific parameters
             if self.type_spherical.isChecked():
@@ -1801,7 +1761,7 @@ class AnalyzerTab(QtWidgets.QWidget):
         details = f"- Subject: {subj}\n- Space: {space}\n- Analysis Type: {atype}\n- Montage: {mont}\n- Field File: {fpath}\n"
         if len(selected_subjects) > 1:
             details += f"- Note: Using first selected subject ({subj}) for single analysis\n"
-        if self.space_mesh.isChecked(): details += f"- Field Name: {self.field_name_input.text()}\n"
+        if self.space_mesh.isChecked(): details += f"- Field Name: TI_max (hardcoded)\n"
         if self.type_spherical.isChecked():
             details += (f"- Coordinates: ({self.coord_x.text() or '0'}, {self.coord_y.text() or '0'}, {self.coord_z.text() or '0'})\n"
                         f"- Radius: {self.radius_input.text() or '5'} mm\n")
@@ -1998,7 +1958,7 @@ class AnalyzerTab(QtWidgets.QWidget):
             self.list_subjects_btn_group, self.select_all_subjects_btn, self.clear_subject_selection_btn_group,  # Group mode
             # Other widgets
             self.subject_list, self.subject_combo, self.single_mode_radio, self.group_mode_radio,
-            self.simulation_combo, self.field_combo, self.browse_field_btn, self.field_name_input,
+            self.simulation_combo, self.field_combo, self.browse_field_btn,
             self.space_mesh, self.space_voxel, self.type_spherical, self.type_cortical,
             self.coord_x, self.coord_y, self.coord_z, self.radius_input,
             self.view_in_freeview_btn,
@@ -2011,8 +1971,6 @@ class AnalyzerTab(QtWidgets.QWidget):
         if self.is_group_mode: # Also disable group configuration widgets
             if hasattr(self, 'group_montage_combo'):
                 self.group_montage_combo.setEnabled(False)
-            if hasattr(self, 'group_field_name_input'):
-                self.group_field_name_input.setEnabled(False)
             if hasattr(self, 'show_selected_fields_btn'):
                 self.show_selected_fields_btn.setEnabled(False)
             # Keep spherical analysis disabled in group mode
@@ -2028,7 +1986,7 @@ class AnalyzerTab(QtWidgets.QWidget):
             self.list_subjects_btn_group, self.select_all_subjects_btn, self.clear_subject_selection_btn_group,  # Group mode
             # Other widgets
             self.subject_list, self.subject_combo, self.single_mode_radio, self.group_mode_radio,
-            self.simulation_combo, self.field_combo, self.browse_field_btn, # field_name_input handled by atlas_visibility
+            self.simulation_combo, self.field_combo, self.browse_field_btn,
             self.space_mesh, self.space_voxel, self.type_spherical, self.type_cortical,
             self.coord_x, self.coord_y, self.coord_z, self.radius_input,
             self.view_in_freeview_btn,
@@ -2047,15 +2005,12 @@ class AnalyzerTab(QtWidgets.QWidget):
         self.show_regions_btn.setEnabled(True)
         
         # Now update visibility and proper enable states
-        self.update_atlas_visibility() # This will correctly set enable states for atlas/region and field_name_input
+        self.update_atlas_visibility() # This will correctly set enable states for atlas/region controls
         self.update_gmsh_button_state()
 
         if self.is_group_mode:
             if hasattr(self, 'group_montage_combo'):
                 self.group_montage_combo.setEnabled(True)
-            if hasattr(self, 'group_field_name_input'):
-                # Field name input should only be enabled for mesh analysis
-                self.group_field_name_input.setEnabled(self.space_mesh.isChecked())
             if hasattr(self, 'show_selected_fields_btn'):
                 # Button state depends on whether fields are selected
                 self.show_selected_fields_btn.setEnabled(bool(self.group_field_config))
@@ -2141,8 +2096,15 @@ class AnalyzerTab(QtWidgets.QWidget):
         # Original filtering and sorting logic for single mode
         field_files_paths = [] # Store (display_name, full_path)
         if self.space_mesh.isChecked():
-            mesh_files = sorted([f for f in all_files_in_dir if f.endswith('.msh') and not f.endswith('.msh.opt')])
-            for f_name in mesh_files: field_files_paths.append((f_name, os.path.join(search_dir, f_name)))
+            # For mesh analysis, look for the specific pattern <montage>_TI.msh
+            expected_mesh_file = f"{simulation_name}_TI.msh"
+            if expected_mesh_file in all_files_in_dir:
+                field_files_paths.append((expected_mesh_file, os.path.join(search_dir, expected_mesh_file)))
+            else:
+                # Fallback: look for any .msh files if the expected pattern doesn't exist
+                mesh_files = sorted([f for f in all_files_in_dir if f.endswith('.msh') and not f.endswith('.msh.opt')])
+                for f_name in mesh_files:
+                    field_files_paths.append((f_name, os.path.join(search_dir, f_name)))
         else: # Voxel
             nifti_mgz_files = [f for f in all_files_in_dir if any(f.endswith(ext) for ext in ['.nii', '.nii.gz', '.mgz'])]
             grey_non_mni = sorted([f for f in nifti_mgz_files if f.startswith('grey_') and '_MNI_' not in f])
@@ -2172,16 +2134,12 @@ class AnalyzerTab(QtWidgets.QWidget):
         if restored_idx != -1 and restored_idx !=0 :
             self.field_combo.setCurrentIndex(restored_idx)
         elif self.field_combo.count() > 1: # Default selection if not restored
-            if not self.space_mesh.isChecked() and grey_non_mni: # Voxel: prefer first non-MNI grey
+            if self.space_mesh.isChecked():
+                # For mesh analysis, automatically select the first file (should be the correct pattern)
+                self.field_combo.setCurrentIndex(1)
+            elif not self.space_mesh.isChecked() and grey_non_mni: # Voxel: prefer first non-MNI grey
                 idx_pref = self.field_combo.findText(grey_non_mni[0])
                 if idx_pref != -1 : self.field_combo.setCurrentIndex(idx_pref)
-                else: self.field_combo.setCurrentIndex(1)
-            elif self.space_mesh.isChecked() and any(f.startswith('grey_') for f,p in field_files_paths): # Mesh: prefer first grey
-                first_grey = next((f for f,p in field_files_paths if f.startswith('grey_')), None)
-                if first_grey:
-                    idx_pref = self.field_combo.findText(first_grey)
-                    if idx_pref != -1: self.field_combo.setCurrentIndex(idx_pref)
-                    else: self.field_combo.setCurrentIndex(1)
                 else: self.field_combo.setCurrentIndex(1)
             else: # Fallback to first actual item
                 self.field_combo.setCurrentIndex(1) 
@@ -2470,11 +2428,7 @@ General.Trackball = 1; General.RotationX = 0; General.RotationY = 0; General.Rot
                         return None
                     target_info = f"region_{region_val}_{atlas_name_cleaned}"
             
-            field_name_for_cmd = ""
-            if self.space_mesh.isChecked():
-                field_name_for_cmd = self.field_name_input.text().strip()
-                if not field_name_for_cmd:
-                     return None
+            # Field name is now hardcoded to TI_max
 
             analysis_space_folder = 'Mesh' if self.space_mesh.isChecked() else 'Voxel'
             if simulation_name == "Select montage...":
@@ -2499,10 +2453,15 @@ General.Trackball = 1; General.RotationX = 0; General.RotationY = 0; General.Rot
 
             cmd = [ 'simnibs_python', main_analyzer_script_path,
                     '--m2m_subject_path', m2m_path,
-                    '--field_path', field_path,
                     '--space', 'mesh' if self.space_mesh.isChecked() else 'voxel',
                     '--analysis_type', 'spherical' if self.type_spherical.isChecked() else 'cortical',
                     '--output_dir', output_dir ]
+                    
+            # Add field path or montage name based on analysis space
+            if self.space_mesh.isChecked():
+                cmd.extend(['--montage_name', simulation_name])
+            else:
+                cmd.extend(['--field_path', field_path])
 
             if self.type_spherical.isChecked():
                 coords_str = [self.coord_x.text().strip() or "0", self.coord_y.text().strip() or "0", self.coord_z.text().strip() or "0"]
@@ -2521,8 +2480,7 @@ General.Trackball = 1; General.RotationX = 0; General.RotationY = 0; General.Rot
                 if self.whole_head_check.isChecked(): cmd.append('--whole_head')
                 else: cmd.extend(['--region', self.region_input.text().strip()])
             
-            if self.space_mesh.isChecked() and field_name_for_cmd:
-                cmd.extend(['--field_name', field_name_for_cmd])
+            # Field name and field path are now handled in the main command building above
             cmd.append('--visualize')
             return cmd
         except Exception:

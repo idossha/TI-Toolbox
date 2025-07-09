@@ -331,12 +331,12 @@ for montage in "${selected_montages[@]}"; do
     if [ -f "$tmp_montage_dir/TI_central.msh" ]; then
         log_info "Processing TI central surface mesh (surface-only, no NIfTI conversion)"
         
-        # Move and rename TI central mesh and its opt file
-        mv "$tmp_montage_dir/TI_central.msh" "$montage_dir/TI/mesh/${montage}_TI_central.msh"
+        # Move and rename TI central mesh and its opt file to match montage_normal.msh pattern
+        mv "$tmp_montage_dir/TI_central.msh" "$montage_dir/TI/mesh/${montage}_normal.msh"
         if [ -f "$tmp_montage_dir/TI_central.msh.opt" ]; then
-            mv "$tmp_montage_dir/TI_central.msh.opt" "$montage_dir/TI/mesh/${montage}_TI_central.msh.opt"
+            mv "$tmp_montage_dir/TI_central.msh.opt" "$montage_dir/TI/mesh/${montage}_normal.msh.opt"
         fi
-        log_info "Moved and renamed TI central surface mesh files (surface format preserved)"
+        log_info "Moved and renamed TI central surface mesh to ${montage}_normal.msh (surface format preserved)"
     fi
 done
 
@@ -356,7 +356,7 @@ verify_files() {
         "$montage_base_dir/documentation"
         "$montage_base_dir/TI/mesh/${montage_name}_TI.msh"
         "$montage_base_dir/TI/mesh/${montage_name}_TI.msh.opt"
-        "$montage_base_dir/TI/mesh/${montage_name}_TI_central.msh"
+        "$montage_base_dir/TI/mesh/${montage_name}_normal.msh"
         "$montage_base_dir/TI/surface_overlays"
     )
 

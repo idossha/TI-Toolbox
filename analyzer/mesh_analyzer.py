@@ -1,9 +1,9 @@
 """
 MeshAnalyzer: A tool for analyzing mesh-based neuroimaging data
 
-This module provides functionality for analyzing mesh-based data from medical imaging,
-particularly focusing on field analysis in specific regions of interest (ROIs) using
-SimNIBS mesh files.
+This module provides functionality for analyzing field data in specific regions of interest,
+including spherical ROIs and cortical regions defined by an atlas. It works with
+SimNIBS mesh files and can generate surface meshes for cortical analysis.
 
 Inputs:
     - SimNIBS mesh files (.msh) containing field data
@@ -239,6 +239,111 @@ class MeshAnalyzer:
             except:
                 pass
 
+    def _construct_normal_mesh_path(self):
+        """
+        Construct the path to the normal mesh file based on the main field mesh path.
+        Expected pattern: <montage>_TI.msh -> <montage>_normal.msh
+        
+        Returns:
+            str: Path to the normal mesh file
+        """
+        # Get the directory and filename from the main field mesh path
+        mesh_dir = os.path.dirname(self.field_mesh_path)
+        mesh_filename = os.path.basename(self.field_mesh_path)
+        
+        # Replace _TI.msh with _normal.msh
+        if mesh_filename.endswith('_TI.msh'):
+            normal_filename = mesh_filename.replace('_TI.msh', '_normal.msh')
+        else:
+            # Fallback: just replace .msh with _normal.msh
+            base_name = os.path.splitext(mesh_filename)[0]
+            normal_filename = f"{base_name}_normal.msh"
+        
+        normal_mesh_path = os.path.join(mesh_dir, normal_filename)
+        return normal_mesh_path
+
+    def _extract_normal_field_values(self, roi_mask):
+        """
+        Extract TI_normal field values from the normal mesh file for a given ROI mask.
+        
+        Args:
+            roi_mask: Boolean array indicating which nodes are in the ROI
+            
+        Returns:
+            tuple: (normal_field_values_positive, normal_statistics)
+                normal_field_values_positive: Array of positive TI_normal values in ROI
+                normal_statistics: Dict with mean, max, min values, or None if no values found
+        """
+        try:
+            # Construct path to normal mesh file
+            normal_mesh_path = self._construct_normal_mesh_path()
+            
+            # Check if normal mesh file exists
+            if not os.path.exists(normal_mesh_path):
+                self.logger.warning(f"Normal mesh file not found: {normal_mesh_path}")
+                return None, None
+            
+            self.logger.info(f"Loading normal mesh: {normal_mesh_path}")
+            
+            # Load the normal mesh
+            normal_mesh = simnibs.read_msh(normal_mesh_path)
+            
+            # Check if TI_normal field exists
+            if 'TI_normal' not in normal_mesh.field:
+                available_fields = list(normal_mesh.field.keys())
+                self.logger.warning(f"TI_normal field not found in normal mesh. Available fields: {available_fields}")
+                return None, None
+            
+            # Get TI_normal field values
+            normal_field_values = normal_mesh.field['TI_normal'].value
+            
+            # Apply ROI mask to get values in the region of interest
+            normal_field_values_in_roi = normal_field_values[roi_mask]
+            
+            # Filter for positive values
+            positive_mask = normal_field_values_in_roi > 0
+            normal_field_values_positive = normal_field_values_in_roi[positive_mask]
+            
+            # Check if we have any positive values
+            if len(normal_field_values_positive) == 0:
+                self.logger.warning("No positive TI_normal values found in ROI")
+                return None, None
+            
+            # Calculate statistics on positive values only
+            normal_min_value = np.min(normal_field_values_positive)
+            normal_max_value = np.max(normal_field_values_positive)
+            
+            # Calculate mean value using node areas for proper averaging (only positive values)
+            # Note: We assume the normal mesh has the same node structure as the surface mesh
+            # so we can use the same ROI mask
+            node_areas = normal_mesh.nodes_areas()
+            positive_node_areas = node_areas[roi_mask][positive_mask]
+            normal_mean_value = np.average(normal_field_values_positive, weights=positive_node_areas)
+            
+            # Calculate focality for TI_normal
+            whole_brain_positive_mask = normal_field_values > 0
+            whole_brain_node_areas = node_areas[whole_brain_positive_mask]
+            whole_brain_normal_average = np.average(normal_field_values[whole_brain_positive_mask], weights=whole_brain_node_areas)
+            normal_focality = normal_mean_value / whole_brain_normal_average
+            
+            normal_statistics = {
+                'normal_mean_value': normal_mean_value,
+                'normal_max_value': normal_max_value,
+                'normal_min_value': normal_min_value,
+                'normal_focality': normal_focality
+            }
+            
+            self.logger.info(f"TI_normal statistics calculated successfully")
+            
+            # Clean up
+            del normal_mesh
+            
+            return normal_field_values_positive, normal_statistics
+            
+        except Exception as e:
+            self.logger.warning(f"Failed to extract TI_normal values: {str(e)}")
+            return None, None
+
     def analyze_whole_head(self, atlas_type='HCP_MMP1', visualize=False):
         """
         Analyze all regions in the specified atlas.
@@ -293,7 +398,11 @@ class MeshAnalyzer:
                             'max_value': None,
                             'min_value': None,
                             'focality': None,
-                            'nodes_in_roi': 0
+                            'nodes_in_roi': 0,
+                            'normal_mean_value': None,
+                            'normal_max_value': None,
+                            'normal_min_value': None,
+                            'normal_focality': None
                         }
                         
                         # Store in the overall results
@@ -328,7 +437,11 @@ class MeshAnalyzer:
                             'max_value': None,
                             'min_value': None,
                             'focality': None,
-                            'nodes_in_roi': 0
+                            'nodes_in_roi': 0,
+                            'normal_mean_value': None,
+                            'normal_max_value': None,
+                            'normal_min_value': None,
+                            'normal_focality': None
                         }
                         
                         # Store in the overall results
@@ -362,7 +475,7 @@ class MeshAnalyzer:
                     # Log the whole brain average for debugging
                     self.logger.info(f"Whole brain average (denominator for focality): {whole_brain_average:.6f}")
                     
-                    # Create result dictionary for this region
+                    # Create result dictionary for this region with TI_max values
                     region_results = {
                         'mean_value': mean_value,
                         'max_value': max_value,
@@ -370,6 +483,17 @@ class MeshAnalyzer:
                         'focality': focality,
                         'nodes_in_roi': positive_count
                     }
+                    
+                    # Extract TI_normal values from normal mesh for this region
+                    self.logger.info(f"Extracting TI_normal values for region: {region_name}")
+                    normal_field_values_positive, normal_statistics = self._extract_normal_field_values(roi_mask)
+                    
+                    # Add TI_normal statistics to region results if available
+                    if normal_statistics is not None:
+                        region_results.update(normal_statistics)
+                        self.logger.info(f"TI_normal values successfully added for region: {region_name}")
+                    else:
+                        self.logger.warning(f"TI_normal values not available for region: {region_name}")
                     
                     # Store in the overall results
                     results[region_name] = region_results
@@ -432,7 +556,11 @@ class MeshAnalyzer:
                         'max_value': None,
                         'min_value': None,
                         'focality': None,
-                        'nodes_in_roi': 0
+                        'nodes_in_roi': 0,
+                        'normal_mean_value': None,
+                        'normal_max_value': None,
+                        'normal_min_value': None,
+                        'normal_focality': None
                     }
             
             # Generate global scatter plot and save whole-head results to CSV directly in the main output directory
@@ -544,7 +672,7 @@ class MeshAnalyzer:
             # Log the whole brain average for debugging
             self.logger.info(f"Whole brain average (denominator for focality): {whole_brain_average:.6f}")
 
-            # Create results dictionary
+            # Create results dictionary with TI_max values
             results = {
                 'mean_value': mean_value,
                 'max_value': max_value,
@@ -552,6 +680,17 @@ class MeshAnalyzer:
                 'nodes_in_roi': roi_nodes_count,
                 'focality': focality
             }
+            
+            # Extract TI_normal values from normal mesh
+            self.logger.info("Extracting TI_normal values from normal mesh...")
+            normal_field_values_positive, normal_statistics = self._extract_normal_field_values(roi_mask)
+            
+            # Add TI_normal statistics to results if available
+            if normal_statistics is not None:
+                results.update(normal_statistics)
+                self.logger.info("TI_normal values successfully added to results")
+            else:
+                self.logger.warning("TI_normal values not available - results will only contain TI_max values")
             
             # Generate visualizations if requested
             if visualize:
@@ -648,7 +787,11 @@ class MeshAnalyzer:
                     'mean_value': None,
                     'max_value': None,
                     'min_value': None,
-                    'focality': None
+                    'focality': None,
+                    'normal_mean_value': None,
+                    'normal_max_value': None,
+                    'normal_min_value': None,
+                    'normal_focality': None
                 }
                 
                 # Save results to CSV even if empty
@@ -672,7 +815,11 @@ class MeshAnalyzer:
                     'mean_value': None,
                     'max_value': None,
                     'min_value': None,
-                    'focality': None
+                    'focality': None,
+                    'normal_mean_value': None,
+                    'normal_max_value': None,
+                    'normal_min_value': None,
+                    'normal_focality': None
                 }
                 
                 # Save results to CSV even if empty
@@ -700,13 +847,24 @@ class MeshAnalyzer:
             # Log the whole brain average for debugging
             self.logger.info(f"Whole brain average (denominator for focality): {whole_brain_average:.6f}")
             
-            # Prepare the results
+            # Prepare the results with TI_max values
             results = {
                 'mean_value': mean_value,
                 'max_value': max_value,
                 'min_value': min_value,
                 'focality': focality
             }
+            
+            # Extract TI_normal values from normal mesh
+            self.logger.info("Extracting TI_normal values from normal mesh...")
+            normal_field_values_positive, normal_statistics = self._extract_normal_field_values(roi_mask)
+            
+            # Add TI_normal statistics to results if available
+            if normal_statistics is not None:
+                results.update(normal_statistics)
+                self.logger.info("TI_normal values successfully added to results")
+            else:
+                self.logger.warning("TI_normal values not available - results will only contain TI_max values")
             
             # Generate visualization if requested
             if visualize:

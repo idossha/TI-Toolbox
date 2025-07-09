@@ -11,32 +11,29 @@ Example Usage:
     # For mesh-based spherical analysis:
     python main_analyzer.py \
         --m2m_subject_path /path/to/m2m_folder \
-        --field_path field.msh \
+        --montage_name montage_name \
         --space mesh \
         --analysis_type spherical \
         --coordinates 10 20 30 \
-        --radius 5 \
-        --field_name normE
+        --radius 5
 
     # For mesh-based cortical analysis (single region):
     python main_analyzer.py \
         --m2m_subject_path /path/to/m2m_folder \
-        --field_path field.msh \
+        --montage_name montage_name \
         --space mesh \
         --analysis_type cortical \
         --atlas_name DK40 \
-        --region superiorfrontal \
-        --field_name normE
+        --region superiorfrontal
 
     # For mesh-based cortical analysis (whole head):
     python main_analyzer.py \
         --m2m_subject_path /path/to/m2m_folder \
-        --field_path field.msh \
+        --montage_name montage_name \
         --space mesh \
         --analysis_type cortical \
         --atlas_name DK40 \
-        --whole_head \
-        --field_name normE
+        --whole_head
 
     # For voxel-based spherical analysis:
     python main_analyzer.py \
@@ -76,10 +73,16 @@ from voxel_analyzer import VoxelAnalyzer
 
 # Force unbuffered output for real-time GUI updates
 try:
-    sys.stdout.reconfigure(line_buffering=True)
-    sys.stderr.reconfigure(line_buffering=True)
-except AttributeError:
-    # For Python < 3.7, use this approach
+    # Try to reconfigure for line buffering if available (Python 3.7+)
+    stdout_reconfigure = getattr(sys.stdout, 'reconfigure', None)
+    stderr_reconfigure = getattr(sys.stderr, 'reconfigure', None)
+    if stdout_reconfigure and stderr_reconfigure:
+        stdout_reconfigure(line_buffering=True)
+        stderr_reconfigure(line_buffering=True)
+    else:
+        raise AttributeError("reconfigure not available")
+except (AttributeError, OSError):
+    # For Python < 3.7 or when reconfigure is not available, use this approach
     import functools
     original_stdout_write = sys.stdout.write
     original_stderr_write = sys.stderr.write
@@ -140,6 +143,22 @@ def validate_radius(radius):
     except ValueError:
         raise ValueError("Radius must be a positive number")
 
+def construct_mesh_field_path(m2m_subject_path, montage_name):
+    """Construct the mesh field path using the pattern <montage>_TI.msh."""
+    # Extract subject ID from m2m_subject_path
+    subject_id = os.path.basename(m2m_subject_path).split('_')[1] if '_' in os.path.basename(m2m_subject_path) else os.path.basename(m2m_subject_path)
+    
+    # Navigate up to find the project directory
+    project_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(m2m_subject_path))))
+    if not project_dir.startswith('/mnt/'):
+        project_dir = f"/mnt/{os.path.basename(project_dir)}"
+    
+    # Construct the expected mesh field path
+    field_path = os.path.join(project_dir, 'derivatives', 'SimNIBS', f'sub-{subject_id}', 
+                             'Simulations', montage_name, 'TI', 'mesh', f'{montage_name}_TI.msh')
+    
+    return field_path
+
 def setup_parser():
     """Set up command line argument parser."""
     parser = argparse.ArgumentParser(description="Analyze neuroimaging data in mesh or voxel space")
@@ -147,12 +166,16 @@ def setup_parser():
     # Required arguments
     parser.add_argument("--m2m_subject_path", required=True,
                       help="Path to the m2m subject folder")
-    parser.add_argument("--field_path", required=True,
-                      help="Path to the field file (.msh, .nii, or .nii.gz)")
     parser.add_argument("--space", required=True, choices=['mesh', 'voxel'],
                       help="Analysis space: mesh or voxel")
     parser.add_argument("--analysis_type", required=True, choices=['spherical', 'cortical'],
                       help="Type of analysis to perform")
+    
+    # Field/montage specification - different for mesh vs voxel
+    parser.add_argument("--montage_name",
+                      help="Montage name for mesh analysis (field path will be auto-constructed)")
+    parser.add_argument("--field_path",
+                      help="Path to the field file (.nii, .nii.gz, .mgz) for voxel analysis")
     
     # Optional arguments based on analysis type
     parser.add_argument("--atlas_name",
@@ -167,8 +190,6 @@ def setup_parser():
                       help="Region name for cortical analysis (required if not doing whole head analysis)")
     parser.add_argument("--whole_head", action="store_true",
                       help="Analyze the whole head instead of a specific region")
-    parser.add_argument("--field_name",
-                      help="Field name for mesh analysis (e.g., normE)")
     
     # Additional options
     parser.add_argument("--output_dir", default="analysis_output",
@@ -187,18 +208,29 @@ def validate_args(args):
         logger.error(f"m2m subject directory not found: {args.m2m_subject_path}")
         raise ValueError(f"m2m subject directory not found: {args.m2m_subject_path}")
     
-    # Validate field_path exists and has correct extension
-    if not os.path.exists(args.field_path):
-        logger.error(f"Field file not found: {args.field_path}")
-        raise ValueError(f"Field file not found: {args.field_path}")
-    
     # Validate space-specific requirements
     if args.space == 'mesh':
+        if not args.montage_name:
+            logger.error("--montage_name is required for mesh analysis")
+            raise ValueError("--montage_name is required for mesh analysis")
+        
+        # Construct and validate mesh field path
+        args.field_path = construct_mesh_field_path(args.m2m_subject_path, args.montage_name)
+        if not os.path.exists(args.field_path):
+            logger.error(f"Constructed mesh field file not found: {args.field_path}")
+            raise ValueError(f"Constructed mesh field file not found: {args.field_path}")
+        
         validate_file_extension(args.field_path, ['.msh'])
-        if not args.field_name:
-            logger.error("--field_name is required for mesh analysis")
-            raise ValueError("--field_name is required for mesh analysis")
+        
     else:  # voxel
+        if not args.field_path:
+            logger.error("--field_path is required for voxel analysis")
+            raise ValueError("--field_path is required for voxel analysis")
+        
+        if not os.path.exists(args.field_path):
+            logger.error(f"Field file not found: {args.field_path}")
+            raise ValueError(f"Field file not found: {args.field_path}")
+        
         validate_file_extension(args.field_path, ['.nii', '.nii.gz', '.mgz'])
     
     # Validate analysis-specific arguments
@@ -284,13 +316,16 @@ def main():
         logger.info("Arguments validated successfully")
         flush_output()
         
+        # Hardcode field name to TI_max
+        field_name = "TI_max"
+        
         # Initialize appropriate analyzer
         if args.space == 'mesh':
             logger.info("Initializing mesh analyzer...")
             flush_output()
             analyzer = MeshAnalyzer(
                 field_mesh_path=args.field_path,
-                field_name=args.field_name,
+                field_name=field_name,
                 subject_dir=args.m2m_subject_path,
                 output_dir=args.output_dir,
                 logger=logger
@@ -396,6 +431,15 @@ def main():
             print_stat_if_exists(results, 'max_value', 'Max Value')
             print_stat_if_exists(results, 'min_value', 'Min Value')
             print_stat_if_exists(results, 'focality', 'Focality')
+            
+            # Print TI_normal values if available
+            if any(k in results for k in ['normal_mean_value', 'normal_max_value', 'normal_min_value']):
+                print("\nTI_normal Values:")
+                print_stat_if_exists(results, 'normal_mean_value', 'Normal Mean Value')
+                print_stat_if_exists(results, 'normal_max_value', 'Normal Max Value')
+                print_stat_if_exists(results, 'normal_min_value', 'Normal Min Value')
+                print_stat_if_exists(results, 'normal_focality', 'Normal Focality')
+            
         elif isinstance(results, dict):
             # Whole head results with multiple regions
             print("Multiple region analysis results:")
@@ -406,6 +450,14 @@ def main():
                     print_stat_if_exists(region_data, 'max_value', 'Max Value')
                     print_stat_if_exists(region_data, 'min_value', 'Min Value')
                     print_stat_if_exists(region_data, 'focality', 'Focality')
+                    
+                    # Print TI_normal values if available
+                    if any(k in region_data for k in ['normal_mean_value', 'normal_max_value', 'normal_min_value']):
+                        print("  TI_normal Values:")
+                        print_stat_if_exists(region_data, 'normal_mean_value', '  Normal Mean Value')
+                        print_stat_if_exists(region_data, 'normal_max_value', '  Normal Max Value')
+                        print_stat_if_exists(region_data, 'normal_min_value', '  Normal Min Value')
+                        print_stat_if_exists(region_data, 'normal_focality', '  Normal Focality')
     
     except Exception as e:
         logger.error(f"Error: {str(e)}")

@@ -336,14 +336,33 @@ def _load_subject_data(analyses: list[str]) -> dict:
             csv_path = os.path.join(analysis_path, csv_files[0])
             group_logger.debug(f"Reading CSV from: {csv_path}")
             
-            # Read specific rows from the CSV
-            df = pd.read_csv(csv_path, header=None)
+            # Read CSV with headers to handle both old and new formats
+            df = pd.read_csv(csv_path)
+            
+            # Create a dictionary from the CSV for flexible field access
+            csv_data = {}
+            for _, row in df.iterrows():
+                csv_data[row['Metric']] = row['Value']
+            
+            # Extract TI_max fields (always present)
             metrics = {
-                'mean_value': float(df.iloc[1, 1]),  # Row 2, Column 2
-                'max_value': float(df.iloc[2, 1]),   # Row 3, Column 2
-                'min_value': float(df.iloc[3, 1]),   # Row 4, Column 2
-                'focality': float(df.iloc[4, 1]),    # Row 5, Column 2 (focality)
+                'mean_value': float(csv_data.get('mean_value', 0)),
+                'max_value': float(csv_data.get('max_value', 0)),
+                'min_value': float(csv_data.get('min_value', 0)),
+                'focality': float(csv_data.get('focality', 0)),
             }
+            
+            # Extract TI_normal fields (if available)
+            if 'normal_mean_value' in csv_data:
+                metrics.update({
+                    'normal_mean_value': float(csv_data.get('normal_mean_value', 0)),
+                    'normal_max_value': float(csv_data.get('normal_max_value', 0)),
+                    'normal_min_value': float(csv_data.get('normal_min_value', 0)),
+                    'normal_focality': float(csv_data.get('normal_focality', 0)),
+                })
+                group_logger.debug(f"TI_normal fields found for {unique_name}")
+            else:
+                group_logger.debug(f"TI_normal fields not available for {unique_name} (legacy format)")
             
             # Try to find the field file path used during analysis
             field_path = _find_field_path_from_analysis(analysis_path, subject_id, montage_name)
@@ -659,13 +678,17 @@ def _compute_subject_stats(analysis_results: dict, region_name: str = None) -> p
     # Create list to store individual subject data
     subject_data = []
     
+    # Check if any subject has TI_normal data
+    has_normal_data = any('normal_mean_value' in data['metrics'] for data in analysis_results.values())
+    
     for unique_name, data in analysis_results.items():
         metrics = data['metrics']
         
         # Use focality value from the CSV (not recalculated)
         focality = metrics.get('focality', 0.0)
         
-        subject_data.append({
+        # Basic subject data with TI_max fields
+        subject_row = {
             'Subject_ID': data['subject_id'],
             'Montage': data['montage_name'],
             'Analysis': data['analysis_name'],
@@ -676,7 +699,18 @@ def _compute_subject_stats(analysis_results: dict, region_name: str = None) -> p
             f'Grey_Mean': metrics.get('grey_mean', 0.0),
             f'Grey_Max': metrics.get('grey_max', 0.0),
             f'Grey_Min': metrics.get('grey_min', 0.0)
-        })
+        }
+        
+        # Add TI_normal fields if available
+        if has_normal_data:
+            subject_row.update({
+                f'Normal_Mean': metrics.get('normal_mean_value', 0.0),
+                f'Normal_Max': metrics.get('normal_max_value', 0.0),
+                f'Normal_Min': metrics.get('normal_min_value', 0.0),
+                f'Normal_Focality': metrics.get('normal_focality', 0.0)
+            })
+        
+        subject_data.append(subject_row)
     
     # Create DataFrame
     df = pd.DataFrame(subject_data)
@@ -688,12 +722,20 @@ def _compute_subject_stats(analysis_results: dict, region_name: str = None) -> p
     # Calculate averages and standard deviations across all subjects
     numeric_cols = [f'ROI_Mean', f'ROI_Max', f'ROI_Min', f'ROI_Focality',
                    f'Grey_Mean', f'Grey_Max', f'Grey_Min']
+    
+    # Add normal columns if present
+    if has_normal_data:
+        numeric_cols.extend([f'Normal_Mean', f'Normal_Max', f'Normal_Min', f'Normal_Focality'])
+    
     averages = df[numeric_cols].mean()
     std_devs = df[numeric_cols].std(ddof=1)  # Sample standard deviation
     
     # Calculate z-scores for each subject (how many std devs from group mean)
-    # Only for ROI metrics, not grey matter metrics
+    # Only for ROI and Normal metrics, not grey matter metrics
     roi_cols = [f'ROI_Mean', f'ROI_Max', f'ROI_Min', f'ROI_Focality']
+    if has_normal_data:
+        roi_cols.extend([f'Normal_Mean', f'Normal_Max', f'Normal_Min', f'Normal_Focality'])
+        
     for col in roi_cols:
         std_col = col + '_STD'
         if std_devs[col] > 0:
@@ -712,7 +754,7 @@ def _compute_subject_stats(analysis_results: dict, region_name: str = None) -> p
     }
     
     # Add standard deviation values to the average row (these are the group std devs)
-    # Only for ROI metrics, not grey matter metrics
+    # Only for ROI and Normal metrics, not grey matter metrics
     for col in roi_cols:
         std_col = col + '_STD'
         avg_row[std_col] = std_devs[col]
@@ -722,10 +764,17 @@ def _compute_subject_stats(analysis_results: dict, region_name: str = None) -> p
     final_df = pd.DataFrame(all_data)
     
     group_logger.info(f"Computed statistics for {len(subject_data)} subjects")
-    group_logger.info(f"Average values - ROI_Mean: {averages[f'ROI_Mean']:.6f}, ROI_Max: {averages[f'ROI_Max']:.6f}, "
+    group_logger.info(f"TI_max averages - ROI_Mean: {averages[f'ROI_Mean']:.6f}, ROI_Max: {averages[f'ROI_Max']:.6f}, "
                f"ROI_Min: {averages[f'ROI_Min']:.6f}, ROI_Focality: {averages[f'ROI_Focality']:.6f}")
-    group_logger.info(f"Standard deviations - ROI_Mean: {std_devs[f'ROI_Mean']:.6f}, ROI_Max: {std_devs[f'ROI_Max']:.6f}, "
+    group_logger.info(f"TI_max std devs - ROI_Mean: {std_devs[f'ROI_Mean']:.6f}, ROI_Max: {std_devs[f'ROI_Max']:.6f}, "
                f"ROI_Min: {std_devs[f'ROI_Min']:.6f}, ROI_Focality: {std_devs[f'ROI_Focality']:.6f}")
+    
+    # Log TI_normal statistics if available
+    if has_normal_data:
+        group_logger.info(f"TI_normal averages - Normal_Mean: {averages[f'Normal_Mean']:.6f}, Normal_Max: {averages[f'Normal_Max']:.6f}, "
+                   f"Normal_Min: {averages[f'Normal_Min']:.6f}, Normal_Focality: {averages[f'Normal_Focality']:.6f}")
+        group_logger.info(f"TI_normal std devs - Normal_Mean: {std_devs[f'Normal_Mean']:.6f}, Normal_Max: {std_devs[f'Normal_Max']:.6f}, "
+                   f"Normal_Min: {std_devs[f'Normal_Min']:.6f}, Normal_Focality: {std_devs[f'Normal_Focality']:.6f}")
     
     return final_df
 

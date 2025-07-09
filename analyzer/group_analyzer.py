@@ -77,8 +77,6 @@ def setup_parser():
                         help="Region name for cortical analysis")
     parser.add_argument("--whole_head", action="store_true",
                         help="Analyze the whole head instead of a specific region")
-    parser.add_argument("--field_name",
-                        help="Field name for mesh analysis (e.g., normE)")
 
     # Subject specification; for voxel‐cortical we expect an extra atlas_path
     parser.add_argument("--subject", action="append", nargs='+', metavar="ARG",
@@ -139,9 +137,8 @@ def validate_args(args):
         if not args.whole_head and not args.region:
             raise ValueError("Either --whole_head flag or --region must be specified for cortical analysis")
 
-    # Validate space‐specific: mesh needs a field_name
-    if args.space == 'mesh' and not args.field_name:
-        raise ValueError("--field_name is required for mesh analysis")
+    # Validate space‐specific: mesh needs a field_name (now hardcoded)
+    # Field name is now hardcoded to "TI_max", no validation needed
 
     # Validate existence of provided paths
     for subject_args in args.subject:
@@ -232,7 +229,16 @@ def build_main_analyzer_command(
 
     # Add arguments in the same order as analyzer_tab.py
     cmd += ["--m2m_subject_path", m2m_path]
-    cmd += ["--field_path", field_path]
+    
+    # For mesh analysis, we need to determine the montage name from the field path
+    # For voxel analysis, we use the field path directly
+    if args.space == 'mesh':
+        # Extract montage name from field path (assuming pattern: .../montage_name/TI/mesh/montage_name_TI.msh)
+        montage_name = Path(field_path).stem.replace('_TI', '')  # Remove _TI suffix to get montage name
+        cmd += ["--montage_name", montage_name]
+    else:
+        cmd += ["--field_path", field_path]
+    
     cmd += ["--space", args.space]
     cmd += ["--analysis_type", args.analysis_type]
 
@@ -256,10 +262,8 @@ def build_main_analyzer_command(
         else:
             cmd += ["--region", args.region]
 
-    # Add field name for mesh analysis
-    if args.space == 'mesh':
-        cmd += ["--field_name", args.field_name]
-
+    # Field name is now hardcoded in main_analyzer.py, no need to pass it
+    
     # Add output directory
     cmd += ["--output_dir", subject_output_dir]
     

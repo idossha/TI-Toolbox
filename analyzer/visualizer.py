@@ -181,8 +181,10 @@ class BaseVisualizer:
         with open(output_path, 'w', newline='') as csvfile:
             writer = csv.writer(csvfile)
             
-            # Write header row
-            header = ['Region', 'Mean Value', 'Max Value', 'Min Value', 'Focality', f'{data_type.capitalize()}s in ROI']
+            # Write header row - include both TI_max and TI_normal columns
+            header = ['Region', 'Mean Value', 'Max Value', 'Min Value', 'Focality', 
+                     'Normal Mean Value', 'Normal Max Value', 'Normal Min Value', 'Normal Focality',
+                     f'{data_type.capitalize()}s in ROI']
             writer.writerow(header)
             
             # Write data for each region
@@ -193,6 +195,10 @@ class BaseVisualizer:
                     region_data.get('max_value', 'N/A'),
                     region_data.get('min_value', 'N/A'),
                     region_data.get('focality', 'N/A'),
+                    region_data.get('normal_mean_value', 'N/A'),
+                    region_data.get('normal_max_value', 'N/A'),
+                    region_data.get('normal_min_value', 'N/A'),
+                    region_data.get('normal_focality', 'N/A'),
                     region_data.get(f'{data_type}s_in_roi', 0)
                 ]
                 writer.writerow(row)
@@ -702,7 +708,7 @@ class MeshVisualizer(Visualizer):
         """Initialize the MeshVisualizer class."""
         super().__init__(output_dir, logger)
 
-    def visualize_cortex_roi(self, gm_surf, roi_mask, target_region, field_values, max_value, output_dir=None, surface_mesh_path=None):
+    def visualize_cortex_roi(self, gm_surf, roi_mask, target_region, field_values, max_value, output_dir=None, surface_mesh_path=None, normal_mesh_path=None):
         """Generate 3D visualization for a region and save it directly to the specified directory."""
         self.logger.info(f"Creating cortex ROI visualization for region: {target_region}")
         self.logger.info(f"ROI contains {np.sum(roi_mask)} nodes, max value: {max_value:.6f}")
@@ -714,12 +720,66 @@ class MeshVisualizer(Visualizer):
             # Use the provided mesh if no path is given
             region_mesh = gm_surf
         
-        # Create a new field with field values only in ROI (zeros elsewhere)
+        # Create a new field with TI_max field values only in ROI (zeros elsewhere)
         masked_field = np.zeros(region_mesh.nodes.nr)
         masked_field[roi_mask] = field_values[roi_mask]
         
-        # Add this as a new field to the fresh mesh
-        region_mesh.add_node_field(masked_field, 'ROI_field')
+        # Add TI_max field to the mesh
+        region_mesh.add_node_field(masked_field, 'TI_max_ROI')
+        
+        # Try to add TI_normal field if normal mesh is available
+        normal_max_value = max_value  # Default fallback
+        try:
+            # Construct normal mesh path if not provided
+            if normal_mesh_path is None and surface_mesh_path:
+                # Try to construct normal mesh path from surface mesh path
+                # Surface mesh: /path/to/montage_TI_central.msh -> Normal mesh: /path/to/montage_normal.msh
+                mesh_dir = os.path.dirname(surface_mesh_path)
+                surface_filename = os.path.basename(surface_mesh_path)
+                
+                if '_TI_central.msh' in surface_filename:
+                    normal_mesh_filename = surface_filename.replace('_TI_central.msh', '_normal.msh')
+                elif '_TI.msh' in surface_filename:
+                    # Fallback: if it's the original mesh path, still try to construct normal path
+                    normal_mesh_filename = surface_filename.replace('_TI.msh', '_normal.msh')
+                else:
+                    # General fallback: try to replace .msh with _normal.msh
+                    base_name = os.path.splitext(surface_filename)[0]
+                    normal_mesh_filename = f"{base_name}_normal.msh"
+                
+                normal_mesh_path = os.path.join(mesh_dir, normal_mesh_filename)
+            
+            # Load normal mesh and extract TI_normal values
+            if normal_mesh_path and os.path.exists(normal_mesh_path):
+                self.logger.info(f"Adding TI_normal field from: {normal_mesh_path}")
+                normal_mesh = simnibs.read_msh(normal_mesh_path)
+                
+                if 'TI_normal' in normal_mesh.field:
+                    normal_field_values = normal_mesh.field['TI_normal'].value
+                    
+                    # Create masked normal field (zeros everywhere except ROI)
+                    masked_normal_field = np.zeros(region_mesh.nodes.nr)
+                    masked_normal_field[roi_mask] = normal_field_values[roi_mask]
+                    
+                    # Add TI_normal field to the mesh
+                    region_mesh.add_node_field(masked_normal_field, 'TI_normal_ROI')
+                    
+                    # Calculate max value for normal field for color scaling
+                    normal_roi_values = normal_field_values[roi_mask]
+                    if len(normal_roi_values[normal_roi_values > 0]) > 0:
+                        normal_max_value = np.max(normal_roi_values[normal_roi_values > 0])
+                        self.logger.info(f"TI_normal max value in ROI: {normal_max_value:.6f}")
+                    
+                    # Clean up
+                    del normal_mesh
+                    
+                else:
+                    self.logger.warning("TI_normal field not found in normal mesh")
+            else:
+                self.logger.warning(f"Normal mesh not found at: {normal_mesh_path}")
+                
+        except Exception as e:
+            self.logger.warning(f"Could not add TI_normal field to visualization: {str(e)}")
         
         # Use provided output_dir or default to self.output_dir
         if output_dir is None:
@@ -731,20 +791,42 @@ class MeshVisualizer(Visualizer):
         # Save the modified mesh
         region_mesh.write(output_filename)
         
-        # Create the .msh.opt file with custom color map and alpha settings
+        # Create the .msh.opt file with custom color map and alpha settings for both fields
         with open(f"{output_filename}.opt", 'w') as f:
             f.write(f"""
-    // Make View[1] (ROI_field) visible with custom colormap
+    // Hide 2D mesh element faces for cleaner field visualization
+    Mesh.SurfaceFaces = 0;       // Hide surface faces
+    Mesh.SurfaceEdges = 0;       // Hide surface edges
+    Mesh.Points = 0;             // Hide mesh points
+    Mesh.Lines = 0;              // Hide mesh lines
+
+    // Make View[1] (TI_max_ROI) visible with custom colormap
     View[1].Visible = 1;
     View[1].ColormapNumber = 1;  // Use the first predefined colormap
     View[1].RangeType = 2;       // Custom range
     View[1].CustomMin = 0;       // Specific minimum value
-    View[1].CustomMax = {max_value};  // Specific maximum value for this cortex
+    View[1].CustomMax = {max_value};  // Specific maximum value for TI_max
     View[1].ShowScale = 1;       // Show the color scale
 
     // Add alpha/transparency based on value
     View[1].ColormapAlpha = 1;
     View[1].ColormapAlphaPower = 0.08;
+
+    // Make View[2] (TI_normal_ROI) visible with different colormap (if available)
+    View[2].Visible = 0;         // Initially hidden - user can toggle
+    View[2].ColormapNumber = 2;  // Use the second predefined colormap
+    View[2].RangeType = 2;       // Custom range
+    View[2].CustomMin = 0;       // Specific minimum value
+    View[2].CustomMax = {normal_max_value};  // Specific maximum value for TI_normal
+    View[2].ShowScale = 1;       // Show the color scale
+
+    // Add alpha/transparency based on value
+    View[2].ColormapAlpha = 1;
+    View[2].ColormapAlphaPower = 0.08;
+    
+    // Field information as comments
+    // View[1]: TI_max field (max value: {max_value:.6f})
+    // View[2]: TI_normal field (max value: {normal_max_value:.6f})
     """)
         
         self.logger.info(f"Created visualization: {output_filename}")
@@ -791,6 +873,12 @@ class MeshVisualizer(Visualizer):
         # Use different colormap from cortical (colormap #2) to distinguish spherical ROIs
         with open(f"{output_filename}.opt", 'w') as f:
             f.write(f"""
+    // Hide 2D mesh element faces for cleaner field visualization
+    Mesh.SurfaceFaces = 0;       // Hide surface faces
+    Mesh.SurfaceEdges = 0;       // Hide surface edges
+    Mesh.Points = 0;             // Hide mesh points
+    Mesh.Lines = 0;              // Hide mesh lines
+
     // Make View[1] (Spherical_ROI_field) visible with custom colormap
     View[1].Visible = 1;
     View[1].ColormapNumber = 2;  // Use the second predefined colormap (different from cortical)
