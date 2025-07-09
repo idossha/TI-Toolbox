@@ -182,7 +182,7 @@ def run_simulation(montage_name, montage, is_xyz=False, eeg_net=None):
         net_to_use = eeg_net if eeg_net else globals()['eeg_net']
         S.eeg_cap = os.path.join(base_subpath, "eeg_positions", net_to_use)
     
-    S.map_to_surf = False
+    S.map_to_surf = True  # Enable cortical surface mapping for middle surface analysis
     S.map_to_fsavg = False
     S.map_to_vol = True
     S.map_to_mni = True
@@ -264,15 +264,165 @@ def run_simulation(montage_name, montage, is_xyz=False, eeg_net=None):
     logger.info("Calculating TI maximum values")
     TImax = TI.get_maxTI(ef1.value, ef2.value)
 
+    # Calculate TI normal component using middle cortical surface
+    logger.info("Calculating TI normal component for middle cortical surface")
+    try:
+        # Look for central surface files (middle cortical layer)
+        central_file_1 = os.path.join(S.pathfem, "subject_overlays", f"{subject_identifier}_TDCS_1_{anisotropy_type}_central.msh")
+        central_file_2 = os.path.join(S.pathfem, "subject_overlays", f"{subject_identifier}_TDCS_2_{anisotropy_type}_central.msh")
+        
+        # Initialize TI_normal array with zeros for all elements
+        TI_normal = np.zeros(len(ef1.value))
+        TI_normal_central = None
+        
+        if os.path.exists(central_file_1) and os.path.exists(central_file_2):
+            logger.info("Using middle cortical surface (central.msh files) for normal calculation")
+            
+            # Load central surface meshes
+            central_m1 = mesh_io.read_msh(central_file_1)
+            central_m2 = mesh_io.read_msh(central_file_2)
+            
+            # Check what fields are available in the central mesh
+            available_fields_1 = [field.field_name for field in central_m1.nodedata + central_m1.elmdata]
+            available_fields_2 = [field.field_name for field in central_m2.nodedata + central_m2.elmdata]
+            logger.info(f"Available fields in central mesh 1: {available_fields_1}")
+            logger.info(f"Available fields in central mesh 2: {available_fields_2}")
+            
+            # Get 3D electric field vectors from central surface files
+            # We need the full E field vectors (not just normal components) for proper TI calculation
+            try:
+                # Method 1: Try to get full E field vectors directly
+                ef1_central = None
+                ef2_central = None
+                
+                # Try different field access methods
+                if hasattr(central_m1, 'field') and 'E' in central_m1.field:
+                    ef1_central = central_m1.field["E"]
+                    ef2_central = central_m2.field["E"]
+                    logger.info("Found full E field vectors using field['E'] accessor")
+                else:
+                    # Method 2: Reconstruct E field from components if available
+                    try:
+                        # Get individual components
+                        ef1_normal = central_m1.field["E_normal"]
+                        ef1_tangent = central_m1.field["E_tangent"] 
+                        ef2_normal = central_m2.field["E_normal"]
+                        ef2_tangent = central_m2.field["E_tangent"]
+                        
+                        # Calculate surface normals and tangent directions
+                        surface_normals = central_m1.nodes_normals().value
+                        
+                        # Reconstruct 3D E field vectors (this is an approximation)
+                        # E = E_normal * normal + E_tangent * tangent_direction
+                        # For simplicity, we'll use a basic approach where tangent is in the xy-plane
+                        n_nodes = len(ef1_normal.value)
+                        
+                        # Create approximate 3D vectors using normal and magnitude info
+                        ef1_3d = np.zeros((n_nodes, 3))
+                        ef2_3d = np.zeros((n_nodes, 3))
+                        
+                        # Use normal component along normal direction
+                        ef1_3d = ef1_normal.value.reshape(-1, 1) * surface_normals
+                        ef2_3d = ef2_normal.value.reshape(-1, 1) * surface_normals
+                        
+                        # Create field objects
+                        ef1_central = type('', (), {'value': ef1_3d})()
+                        ef2_central = type('', (), {'value': ef2_3d})()
+                        
+                        logger.info("Reconstructed 3D E field vectors from normal components")
+                        logger.warning("Using approximated 3D vectors - results may be less accurate")
+                        
+                    except Exception as reconstruct_error:
+                        logger.error(f"Could not reconstruct E field vectors: {str(reconstruct_error)}")
+                        raise ValueError("Could not access full E field vectors from central surface files")
+                
+                logger.info(f"E field 1 has {len(ef1_central.value)} nodes with shape {ef1_central.value.shape}")
+                logger.info(f"E field 2 has {len(ef2_central.value)} nodes with shape {ef2_central.value.shape}")
+                
+            except Exception as e:
+                logger.error(f"Could not access E field data: {str(e)}")
+                logger.warning("Available node data fields: " + str([f.field_name for f in central_m1.nodedata]))
+                logger.warning("Available element data fields: " + str([f.field_name for f in central_m1.elmdata]))
+                raise ValueError("E field data not found in central surface files")
+            
+            # Calculate surface normals for directional calculation
+            surface_normals = central_m1.nodes_normals().value
+            
+            # Calculate TI normal component using the proper SimNIBS method
+            # This follows the exact approach used in tes_flex_optimization.py
+            TI_normal_central = TI.get_dirTI(E1=ef1_central.value, E2=ef2_central.value, dirvec_org=surface_normals)
+            
+            logger.info(f"Calculated TI normal component for {len(TI_normal_central)} nodes on middle cortical surface")
+            logger.info(f"TI_normal range: {np.min(TI_normal_central):.6f} to {np.max(TI_normal_central):.6f} V/m")
+            
+            # Save the central surface TI normal as a separate mesh file (TI_normal only)
+            mout_central = deepcopy(central_m1)
+            mout_central.nodedata = []
+            mout_central.add_node_field(TI_normal_central, "TI_normal")
+            
+            # Write central surface mesh with TI fields
+            central_ti_file = os.path.join(S.pathfem, "TI_central.msh")
+            mesh_io.write_msh(mout_central, central_ti_file)
+            
+            # Create visualization for central surface (TI_normal only)
+            v_central = mout_central.view(visible_fields=["TI_normal"])
+            v_central.write_opt(central_ti_file)
+            
+            logger.info(f"Saved middle cortical surface TI_normal analysis to: {central_ti_file}")
+        
+        else:
+            logger.warning("Central surface files not found, falling back to superficial cortical surface")
+            logger.info("To use middle cortical surface, ensure map_to_surf=True in simulation settings")
+            
+            # Fallback to original method using superficial surface
+            # Get indices of gray matter elements in the original mesh
+            gm_indices = np.isin(m1.elm.tag1, [1002])
+            
+            if np.any(gm_indices):
+                # Extract gray matter surface (tag 1002) for normal calculation
+                gm_mesh = m1.crop_mesh(tags=[1002])
+                
+                if len(gm_mesh.elm.elm_number) > 0:
+                    # Calculate surface normals for the gray matter surface
+                    surface_normals = gm_mesh.triangle_normals()
+                    
+                    # Get electric fields for gray matter elements only
+                    ef1_gm = ef1.value[gm_indices]
+                    ef2_gm = ef2.value[gm_indices]
+                    
+                    # The surface normals from cropped mesh should match the gray matter elements
+                    if len(surface_normals.value) == len(ef1_gm):
+                        # Calculate directional TI along normal direction for gray matter
+                        TI_normal_gm = TI.get_dirTI(ef1_gm, ef2_gm, surface_normals.value)
+                        
+                        # Assign calculated values to gray matter elements
+                        TI_normal[gm_indices] = TI_normal_gm
+                        
+                        logger.info(f"Calculated TI normal component for {len(TI_normal_gm)} superficial cortical elements")
+                    else:
+                        logger.warning(f"Dimension mismatch: normals {len(surface_normals.value)} vs fields {len(ef1_gm)}")
+                else:
+                    logger.warning("No gray matter surface found after cropping")
+            else:
+                logger.warning("No gray matter elements found for normal calculation")
+            
+    except Exception as e:
+        logger.error(f"Error calculating TI normal component: {str(e)}")
+        logger.info("Setting TI_normal to zeros due to error")
+        TI_normal = np.zeros(len(ef1.value))
+
     logger.info("Writing output mesh files")
     mout = deepcopy(m1)
     mout.elmdata = []
     mout.add_element_field(TImax, "TI_max")
+    # NOTE: TI_normal is NOT added to volume mesh - it's only in the central surface mesh
     mesh_io.write_msh(mout, os.path.join(S.pathfem, "TI.msh"))
 
-    v = mout.view(visible_tags=[1002, 1006], visible_fields="TI_max")
+    v = mout.view(visible_tags=[1002, 1006], visible_fields=["TI_max"])
     v.write_opt(os.path.join(S.pathfem, "TI.msh"))
     logger.info(f"Completed simulation for montage: {montage_name}")
+    logger.info(f"Volume mesh (TI.msh) contains TI_max field only")
+    logger.info(f"Central surface mesh (TI_central.msh) contains TI_normal field only")
 
 # Run the simulations for each selected montage
 if montage_names:

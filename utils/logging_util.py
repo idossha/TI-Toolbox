@@ -3,6 +3,31 @@ import sys
 from typing import List, Optional
 
 # ----------------------------------------------------------------------------
+# Custom handler for real-time output
+# ----------------------------------------------------------------------------
+class FlushingStreamHandler(logging.StreamHandler):
+    """Custom StreamHandler that forces immediate flushing for real-time output."""
+    
+    def emit(self, record):
+        """Emit a record and force flush immediately."""
+        try:
+            super().emit(record)
+            self.flush()
+        except Exception:
+            self.handleError(record)
+
+class FlushingFileHandler(logging.FileHandler):
+    """Custom FileHandler that forces immediate flushing for real-time output."""
+    
+    def emit(self, record):
+        """Emit a record and force flush immediately."""
+        try:
+            super().emit(record)
+            self.flush()
+        except Exception:
+            self.handleError(record)
+
+# ----------------------------------------------------------------------------
 # Configuration constants
 # ----------------------------------------------------------------------------
 LOG_LEVEL = logging.INFO
@@ -69,17 +94,22 @@ def get_logger(name: str,
     _cleanup_handlers(logger)
 
     # console handler
-    console_handler = logging.StreamHandler(sys.stdout)
+    console_handler = FlushingStreamHandler(sys.stdout)
     console_handler.setLevel(LOG_LEVEL)
     console_handler.setFormatter(logging.Formatter(CONSOLE_FORMAT))
+    # Force immediate flushing for real-time GUI updates
+    console_handler.stream.reconfigure(line_buffering=True) if hasattr(console_handler.stream, 'reconfigure') else None
     logger.addHandler(console_handler)
 
     # optional file handler
     if log_file:
         mode = 'w' if overwrite else 'a'
-        file_handler = logging.FileHandler(log_file, mode=mode)
+        file_handler = FlushingFileHandler(log_file, mode=mode)
         file_handler.setLevel(LOG_LEVEL)
         file_handler.setFormatter(logging.Formatter(FILE_FORMAT, datefmt=DATE_FORMAT))
+        # Force immediate flushing for file output too
+        if hasattr(file_handler.stream, 'reconfigure'):
+            file_handler.stream.reconfigure(line_buffering=True)
         logger.addHandler(file_handler)
 
     return logger

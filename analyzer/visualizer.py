@@ -94,16 +94,11 @@ class BaseVisualizer:
             import time
             time_stamp = time.strftime('%Y%m%d_%H%M%S')
             
-            # Create derivatives/log directory structure
-            # Get project directory from output_dir
-            project_dir = os.path.dirname(os.path.dirname(output_dir))  # Go up two levels from output_dir
-            if not project_dir.startswith('/mnt/'):
-                project_dir = f"/mnt/{os.path.basename(project_dir)}"
-            
             # Extract subject ID from output_dir path
             subject_id = os.path.basename(output_dir).split('_')[1] if '_' in os.path.basename(output_dir) else os.path.basename(output_dir)
             
-            log_dir = os.path.join(project_dir, 'derivatives', 'logs', f'sub-{subject_id}')
+            # Create derivatives/log directory structure (using relative path)
+            log_dir = os.path.join('derivatives', 'logs', f'sub-{subject_id}')
             os.makedirs(log_dir, exist_ok=True)
             
             # Create log file in the new directory
@@ -176,32 +171,20 @@ class BaseVisualizer:
         self.logger.info(f"Saved analysis results to: {output_path}")
         return output_path
 
-    def save_whole_head_results_to_csv(self, results, atlas_type, data_type='node'):
-        """
-        Save whole-head analysis results to a CSV file.
-        
-        Args:
-            results (dict): Whole-head analysis results to save
-            atlas_type (str): Type of atlas used
-            data_type (str): Type of data ('node' or 'voxel')
-        
-        Returns:
-            str: Path to the created CSV file
-        """
-        # Create CSV directory if it doesn't exist
-        csv_dir = os.path.join(self.output_dir, 'csv_results')
-        os.makedirs(csv_dir, exist_ok=True)
-        
-        # Generate filename
-        filename = f"whole_head_{atlas_type}.csv"
-        output_path = os.path.join(csv_dir, filename)
+    def save_whole_head_results_to_csv(self, results, atlas_type, data_type='voxel'):
+        """Save a summary CSV of whole-head analysis results directly in the output directory."""
+        # Create the CSV
+        filename = f"whole_head_{atlas_type}_summary.csv"
+        output_path = os.path.join(self.output_dir, filename)
         
         # Write results to CSV
         with open(output_path, 'w', newline='') as csvfile:
             writer = csv.writer(csvfile)
             
-            # Write header row
-            header = ['Region', 'Mean Value', 'Max Value', 'Min Value', f'{data_type.capitalize()}s in ROI']
+            # Write header row - include both TI_max and TI_normal columns
+            header = ['Region', 'Mean Value', 'Max Value', 'Min Value', 'Focality', 
+                     'Normal Mean Value', 'Normal Max Value', 'Normal Min Value', 'Normal Focality',
+                     f'{data_type.capitalize()}s in ROI']
             writer.writerow(header)
             
             # Write data for each region
@@ -211,12 +194,234 @@ class BaseVisualizer:
                     region_data.get('mean_value', 'N/A'),
                     region_data.get('max_value', 'N/A'),
                     region_data.get('min_value', 'N/A'),
+                    region_data.get('focality', 'N/A'),
+                    region_data.get('normal_mean_value', 'N/A'),
+                    region_data.get('normal_max_value', 'N/A'),
+                    region_data.get('normal_min_value', 'N/A'),
+                    region_data.get('normal_focality', 'N/A'),
                     region_data.get(f'{data_type}s_in_roi', 0)
                 ]
                 writer.writerow(row)
         
-        self.logger.info(f"Saved whole-head analysis results to: {output_path}")
+        self.logger.info(f"Saved whole-head analysis summary to: {output_path}")
         return output_path
+
+    def generate_focality_histogram(self, whole_head_field_data, roi_field_data, 
+                                    whole_head_element_sizes=None, roi_element_sizes=None,
+                                    filename=None, region_name=None, roi_field_value=None, 
+                                    data_type='element', voxel_dims=None):
+        """
+        Generate a whole-head histogram with ROI contribution color coding.
+        
+        This creates a histogram of field values across the entire brain volume,
+        with bars color-coded to show how much of each bin's volume comes from the ROI.
+        
+        Args:
+            whole_head_field_data (numpy.ndarray): Field strength values for entire head
+            roi_field_data (numpy.ndarray): Field strength values for ROI only
+            whole_head_element_sizes (numpy.ndarray, optional): Element sizes for entire head
+            roi_element_sizes (numpy.ndarray, optional): Element sizes for ROI only
+            filename (str, optional): Filename for the output image
+            region_name (str, optional): Name of the analyzed region
+            roi_field_value (float, optional): ROI field value to display as reference line
+            data_type (str): Type of data elements ('element', 'voxel', 'node')
+            voxel_dims (tuple, optional): Voxel dimensions (x,y,z) for voxel volume calculation
+            
+        Returns:
+            str: Path to the generated histogram file
+        """
+        self.logger.info(f"Generating whole-head ROI histogram for {len(whole_head_field_data)} {data_type}s")
+        
+        try:
+            # Check for valid data
+            if len(whole_head_field_data) == 0:
+                self.logger.warning(f"No whole-head data to plot")
+                return None
+            
+            if len(roi_field_data) == 0:
+                self.logger.warning(f"No ROI data to plot")
+                return None
+            
+            # Remove NaN values from both datasets
+            whole_head_valid_mask = ~np.isnan(whole_head_field_data)
+            roi_valid_mask = ~np.isnan(roi_field_data)
+            
+            whole_head_field_data = whole_head_field_data[whole_head_valid_mask]
+            roi_field_data = roi_field_data[roi_valid_mask]
+            
+            # Handle element sizes for whole head
+            if whole_head_element_sizes is not None:
+                whole_head_element_sizes = whole_head_element_sizes[whole_head_valid_mask]
+                if len(whole_head_element_sizes) != len(whole_head_field_data):
+                    self.logger.warning("Whole head element sizes don't match data length, using frequency histogram")
+                    whole_head_element_sizes = None
+            elif data_type == 'voxel' and voxel_dims is not None:
+                # Calculate voxel volumes from dimensions
+                voxel_volume = np.prod(voxel_dims[:3])  # x * y * z
+                whole_head_element_sizes = np.full(len(whole_head_field_data), voxel_volume)
+                self.logger.info(f"Voxel dimensions: {voxel_dims[:3]} mm")
+                self.logger.info(f"Using uniform voxel volume: {voxel_volume:.3f} mm³")
+                self.logger.info(f"Number of whole head voxels: {len(whole_head_field_data):,}")
+                self.logger.info(f"Total whole head volume: {np.sum(whole_head_element_sizes) / 1000.0:.1f} cm³")
+            
+            # Handle element sizes for ROI
+            if roi_element_sizes is not None:
+                roi_element_sizes = roi_element_sizes[roi_valid_mask]
+                if len(roi_element_sizes) != len(roi_field_data):
+                    self.logger.warning("ROI element sizes don't match data length")
+                    roi_element_sizes = None
+            
+            # Set up focality parameters
+            focality_cutoffs = [50, 75, 90, 95]  # Percentages of 99.9 percentile
+            
+            fig, ax = plt.subplots(figsize=(14, 10))
+            
+            # Determine if we're doing volume-weighted or frequency histogram
+            use_volume_weighting = (whole_head_element_sizes is not None and 
+                                  len(whole_head_element_sizes) == len(whole_head_field_data))
+            
+            # Use element/voxel counts instead of volume measurements
+            weights = None
+            unit = 'count'
+            ax.set_ylabel(f'{data_type.capitalize()}s')
+            
+            # Create histogram bins based on whole head data
+            n_bins = 100
+            hist, bin_edges = np.histogram(whole_head_field_data, bins=n_bins, weights=weights)
+            bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2
+            
+            # Calculate ROI contribution to each bin
+            roi_hist, _ = np.histogram(roi_field_data, bins=bin_edges, weights=roi_element_sizes if roi_element_sizes is not None else None)
+            
+            # Calculate ROI contribution percentage for each bin
+            roi_contribution = np.zeros_like(hist, dtype=float)
+            for i in range(len(hist)):
+                if hist[i] > 0:
+                    roi_contribution[i] = roi_hist[i] / hist[i]
+                else:
+                    roi_contribution[i] = 0.0
+            
+            # Calculate a more meaningful color scale based on the actual distribution
+            # Use the 95th percentile of non-zero contributions as the upper bound
+            non_zero_contributions = roi_contribution[roi_contribution > 0]
+            if len(non_zero_contributions) > 0:
+                max_contribution = np.percentile(non_zero_contributions, 95)
+                # Ensure we have a reasonable range (at least 0.01)
+                max_contribution = max(max_contribution, 0.01)
+            else:
+                max_contribution = 0.01
+            
+            # Normalize contributions to the new scale
+            normalized_contributions = np.clip(roi_contribution / max_contribution, 0, 1)
+            
+            # Use a blue-green-red (rainbow) colormap
+            rainbow_cmap = plt.cm.get_cmap('rainbow')
+            # To get blue at 0, green at 0.5, red at 1, use the full range
+            colors = rainbow_cmap(normalized_contributions)
+            colors[:, 3] = 0.7  # Set alpha to 0.7 for transparency
+            
+            # Plot the histogram bars
+            bars = ax.bar(bin_centers, hist, width=bin_edges[1]-bin_edges[0], 
+                         color=colors, edgecolor='black', alpha=0.8)
+            
+            # Calculate focality cutoffs based on 99.9 percentile of whole head data
+            percentile_99_9 = np.percentile(whole_head_field_data, 99.9)
+            focality_thresholds = []
+            focality_volumes = []
+            
+            for cutoff in focality_cutoffs:
+                threshold = (cutoff / 100.0) * percentile_99_9
+                focality_thresholds.append(threshold)
+                
+                # Calculate count above this threshold
+                above_threshold = whole_head_field_data >= threshold
+                if np.any(above_threshold):
+                    count = np.sum(above_threshold)
+                    focality_volumes.append(count)
+                else:
+                    focality_volumes.append(0)
+            
+            # Add vertical red lines for focality cutoffs
+            colors_lines = ['red', 'darkred', 'crimson', 'maroon']
+            lines_added = 0
+            for i, (threshold, cutoff) in enumerate(zip(focality_thresholds, focality_cutoffs)):
+                if threshold <= np.max(whole_head_field_data) and threshold >= np.min(whole_head_field_data):
+                    color = colors_lines[i % len(colors_lines)]
+                    ax.axvline(x=threshold, color=color, linestyle='--', linewidth=2, alpha=0.8,
+                              label=f'{cutoff}% of 99.9%ile\n({threshold:.2f} V/m)\nCount: {focality_volumes[i]:,} {data_type}s')
+                    lines_added += 1
+            
+            # Add mean ROI field value indicator line (if available)
+            if roi_field_value is not None and np.min(whole_head_field_data) <= roi_field_value <= np.max(whole_head_field_data):
+                ax.axvline(x=roi_field_value, color='green', linestyle='-', linewidth=3, alpha=0.9,
+                          label=f'Mean ROI Field\n({roi_field_value:.2f} V/m)')
+                lines_added += 1
+            
+            # Add legend for all lines (only if lines were added)
+            if lines_added > 0:
+                ax.legend(loc='upper left', bbox_to_anchor=(0.02, 0.98),
+                          frameon=True, fancybox=True, shadow=True, fontsize=9)
+            
+            # Customize plot
+            ax.set_xlabel('Field Strength (V/m)')
+            
+            # Create title
+            title_parts = ['Whole-Head Field Distribution with ROI Contribution']
+            if region_name:
+                title_parts.append(f'ROI: {region_name}')
+            if filename:
+                title_parts.append(f'File: {filename}')
+            
+            ax.set_title('\n'.join(title_parts), fontsize=14, fontweight='bold')
+            ax.grid(True, alpha=0.3)
+            
+            # Add colorbar for ROI contribution
+            norm = plt.Normalize(0, 1)
+            sm = plt.cm.ScalarMappable(cmap=rainbow_cmap, norm=norm)
+            sm.set_array([])
+            cbar = plt.colorbar(sm, ax=ax, shrink=0.7, pad=0.02, aspect=25)
+            cbar.set_label(f'ROI Contribution Fraction\n(Blue→Green→Red, max={max_contribution:.3f})', fontsize=10, fontweight='bold')
+            
+            # Add statistics text box
+            stats_text = f'Whole Head:\n'
+            stats_text += f'Max: {np.max(whole_head_field_data):.2f} V/m\n'
+            stats_text += f'Mean: {np.mean(whole_head_field_data):.2f} V/m\n'
+            stats_text += f'99.9%ile: {np.percentile(whole_head_field_data, 99.9):.2f} V/m\n'
+            stats_text += f'{data_type.capitalize()}s: {len(whole_head_field_data):,}\n'
+            
+            stats_text += f'\nROI:\n'
+            stats_text += f'Max: {np.max(roi_field_data):.2f} V/m\n'
+            stats_text += f'Mean: {np.mean(roi_field_data):.2f} V/m\n'
+            stats_text += f'{data_type.capitalize()}s: {len(roi_field_data):,}'
+            
+            if roi_field_value is not None:
+                stats_text += f'\nROI Field: {roi_field_value:.2f} V/m'
+            
+            # Position stats box on the right side of the plot
+            ax.text(0.98, 0.98, stats_text, transform=ax.transAxes, fontsize=9,
+                   verticalalignment='top', horizontalalignment='right',
+                   bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.8))
+            
+            # Generate output filename
+            if filename:
+                base_name = Path(filename).stem if hasattr(Path, 'stem') else os.path.splitext(os.path.basename(filename))[0]
+            elif region_name:
+                base_name = f"{region_name}_whole_head_roi"
+            else:
+                base_name = "whole_head_roi_histogram"
+            
+            # Save histogram with tight layout
+            hist_file = os.path.join(self.output_dir, f'{base_name}_histogram.png')
+            plt.tight_layout()
+            plt.savefig(hist_file, dpi=150, bbox_inches='tight')
+            plt.close(fig)
+            
+            self.logger.info(f"Generated whole-head ROI histogram: {hist_file}")
+            return hist_file
+            
+        except Exception as e:
+            self.logger.error(f"Failed to generate whole-head ROI histogram: {str(e)}")
+            return None
 
 
 class Visualizer(BaseVisualizer):
@@ -403,17 +608,13 @@ class Visualizer(BaseVisualizer):
         return output_file
 
     def _generate_whole_head_plots(self, results, atlas_type, data_type='voxel'):
-        """Generate scatter plots for whole head analysis directly in the main output directory."""
-        self.logger.info(f"Generating whole head plots for {atlas_type} atlas with {len(results)} regions")
-        
+        """Generate a sorted scatter plot for whole head analysis directly in the main output directory."""
         # Filter out regions with None values
         valid_results = {name: res for name, res in results.items() if res['mean_value'] is not None}
         
         if not valid_results:
-            self.logger.warning("No valid results to plot")
+            self.logger.warning("Warning: No valid results to plot")
             return
-        
-        self.logger.info(f"Found {len(valid_results)} valid regions for plotting")
         
         try:
             # Prepare data for plotting
@@ -425,43 +626,17 @@ class Visualizer(BaseVisualizer):
                 # Attempt to get voxel counts if they're in the data
                 counts = [res.get(f'{data_type}s_in_roi', 1) for res in valid_results.values()]
                 use_counts_for_color = True
-                self.logger.info(f"Using {data_type} counts for color mapping")
             except (KeyError, AttributeError):
                 # If not available, use a default color
-                self.logger.info(f"'{data_type}s_in_roi' not found in results, using default coloring")
+                self.logger.info(f"Note: '{data_type}s_in_roi' not found in results, using default coloring")
                 counts = [1 for _ in valid_results.values()]
                 use_counts_for_color = False
             
-            # Dynamically calculate figure width based on number of regions
-            num_regions = len(regions)
+            # Create output directory if it doesn't exist
+            os.makedirs(self.output_dir, exist_ok=True)
             
-            # Base width for a plot with 30 regions
-            base_width = 15
-            
-            # Calculate width scaling factor (more regions = wider plot)
-            # This adds extra width as the number of regions increases
-            width_scaling = max(1.0, num_regions / 30)
-            
-            # Calculate height scaling factor (taller for many regions to maintain proportion)
-            height_scaling = min(1.2, max(1.0, num_regions / 60))
-            
-            # Calculate final dimensions with minimum width
-            fig_width = max(base_width, base_width * width_scaling)
-            fig_height = 10 * height_scaling
-            
-            # Adjust font size for region labels based on number of regions
-            if num_regions <= 30:
-                label_fontsize = 8
-            elif num_regions <= 50:
-                label_fontsize = 7
-            elif num_regions <= 100:
-                label_fontsize = 6
-            else:
-                label_fontsize = 5
-            
-            # Create figure for the sorted plot with dynamic size
-            plt.figure(figsize=(fig_width, fig_height))
-            fig, ax = plt.subplots(figsize=(fig_width, fig_height))
+            # Create figure with larger size for all regions
+            fig, ax = plt.subplots(figsize=(15, 10))
             
             # Sort regions by mean value
             sorted_indices = np.argsort(mean_values)
@@ -495,7 +670,7 @@ class Visualizer(BaseVisualizer):
                     pad=20, 
                     fontsize=14, 
                     fontweight='bold')
-            ax.set_xlabel('Region Index', 
+            ax.set_xlabel('Region Index (sorted by mean value)', 
                         fontsize=12, 
                         fontweight='bold')
             ax.set_ylabel('Mean Field Value', 
@@ -505,38 +680,25 @@ class Visualizer(BaseVisualizer):
             # Add grid
             ax.grid(True, linestyle='--', alpha=0.3)
             
-            # If there are too many regions, we need to limit the displayed labels
-            if num_regions > 200:
-                # For very large region counts, only show every Nth label
-                step = max(1, num_regions // 100)  # Show approximately 100 labels max
-                xticks_pos = range(0, len(sorted_regions), step)
-                xticks_labels = [sorted_regions[i] for i in xticks_pos]
-                ax.set_xticks(xticks_pos)
-                ax.set_xticklabels(xticks_labels, rotation=45, ha='right', fontsize=label_fontsize)
-            else:
-                # Otherwise show all labels
-                ax.set_xticks(range(len(sorted_regions)))
-                ax.set_xticklabels(sorted_regions, rotation=45, ha='right', fontsize=label_fontsize)
+            # Set x-ticks to show region names at the bottom
+            ax.set_xticks(range(len(sorted_regions)))
+            ax.set_xticklabels(sorted_regions, rotation=45, ha='right', fontsize=8)
             
             # Adjust layout to prevent label cutoff
             plt.tight_layout()
             
-            # Save plot directly in the main output directory (without "sorted" in the name)
+            # Save plot directly in the main output directory
             output_file = os.path.join(self.output_dir, f'cortex_analysis_{atlas_type}.png')
             plt.savefig(output_file, dpi=300, bbox_inches='tight')
             plt.close()
             
-            self.logger.info(f"Generated cortical region plot: {output_file}")
-            
-            return output_file
-            
+            self.logger.info(f"Generated sorted scatter plot: {output_file}")
         except Exception as e:
             # If there's any error during plotting, log it but don't stop the overall analysis
             import traceback
-            self.logger.warning(f"Failed to generate plot: {str(e)}")
-            self.logger.warning(f"Error details: {traceback.format_exc()}")
-            self.logger.warning("Continuing with analysis without visualizations.")
-            return None
+            self.logger.warning(f"Warning: Failed to generate plots: {str(e)}")
+            self.logger.error(f"Error details: {traceback.format_exc()}")
+            self.logger.info("Continuing with analysis without visualizations.")
 
 
 class MeshVisualizer(Visualizer):
@@ -546,38 +708,125 @@ class MeshVisualizer(Visualizer):
         """Initialize the MeshVisualizer class."""
         super().__init__(output_dir, logger)
 
-    def visualize_cortex_roi(self, gm_surf, roi_mask, target_region, field_values, max_value, output_dir=None):
-        """Create visualization files for a specific cortical ROI in mesh data."""
+    def visualize_cortex_roi(self, gm_surf, roi_mask, target_region, field_values, max_value, output_dir=None, surface_mesh_path=None, normal_mesh_path=None):
+        """Generate 3D visualization for a region and save it directly to the specified directory."""
         self.logger.info(f"Creating cortex ROI visualization for region: {target_region}")
         self.logger.info(f"ROI contains {np.sum(roi_mask)} nodes, max value: {max_value:.6f}")
-        # Create a new field with field values only in ROI (zeros elsewhere)
-        masked_field = np.zeros(gm_surf.nodes.nr)
+        
+        # Load a fresh copy of the surface mesh to avoid accumulating ROI fields across regions
+        if surface_mesh_path:
+            region_mesh = simnibs.read_msh(surface_mesh_path)
+        else:
+            # Use the provided mesh if no path is given
+            region_mesh = gm_surf
+        
+        # Create a new field with TI_max field values only in ROI (zeros elsewhere)
+        masked_field = np.zeros(region_mesh.nodes.nr)
         masked_field[roi_mask] = field_values[roi_mask]
         
-        # Add this as a new field to the original mesh
-        gm_surf.add_node_field(masked_field, 'ROI_field')
+        # Add TI_max field to the mesh
+        region_mesh.add_node_field(masked_field, 'TI_max_ROI')
         
-        # Create the output directory if it doesn't exist
-        if output_dir:
-            output_filename = os.path.join(output_dir, f"{target_region}_ROI.msh")
+        # Try to add TI_normal field if normal mesh is available
+        normal_max_value = max_value  # Default fallback
+        try:
+            # Construct normal mesh path if not provided
+            if normal_mesh_path is None and surface_mesh_path:
+                # Try to construct normal mesh path from surface mesh path
+                # Surface mesh: /path/to/montage_TI_central.msh -> Normal mesh: /path/to/montage_normal.msh
+                mesh_dir = os.path.dirname(surface_mesh_path)
+                surface_filename = os.path.basename(surface_mesh_path)
+                
+                if '_TI_central.msh' in surface_filename:
+                    normal_mesh_filename = surface_filename.replace('_TI_central.msh', '_normal.msh')
+                elif '_TI.msh' in surface_filename:
+                    # Fallback: if it's the original mesh path, still try to construct normal path
+                    normal_mesh_filename = surface_filename.replace('_TI.msh', '_normal.msh')
+                else:
+                    # General fallback: try to replace .msh with _normal.msh
+                    base_name = os.path.splitext(surface_filename)[0]
+                    normal_mesh_filename = f"{base_name}_normal.msh"
+                
+                normal_mesh_path = os.path.join(mesh_dir, normal_mesh_filename)
+            
+            # Load normal mesh and extract TI_normal values
+            if normal_mesh_path and os.path.exists(normal_mesh_path):
+                self.logger.info(f"Adding TI_normal field from: {normal_mesh_path}")
+                normal_mesh = simnibs.read_msh(normal_mesh_path)
+                
+                if 'TI_normal' in normal_mesh.field:
+                    normal_field_values = normal_mesh.field['TI_normal'].value
+                    
+                    # Create masked normal field (zeros everywhere except ROI)
+                    masked_normal_field = np.zeros(region_mesh.nodes.nr)
+                    masked_normal_field[roi_mask] = normal_field_values[roi_mask]
+                    
+                    # Add TI_normal field to the mesh
+                    region_mesh.add_node_field(masked_normal_field, 'TI_normal_ROI')
+                    
+                    # Calculate max value for normal field for color scaling
+                    normal_roi_values = normal_field_values[roi_mask]
+                    if len(normal_roi_values[normal_roi_values > 0]) > 0:
+                        normal_max_value = np.max(normal_roi_values[normal_roi_values > 0])
+                        self.logger.info(f"TI_normal max value in ROI: {normal_max_value:.6f}")
+                    
+                    # Clean up
+                    del normal_mesh
+                    
+                else:
+                    self.logger.warning("TI_normal field not found in normal mesh")
+            else:
+                self.logger.warning(f"Normal mesh not found at: {normal_mesh_path}")
+                
+        except Exception as e:
+            self.logger.warning(f"Could not add TI_normal field to visualization: {str(e)}")
         
-        # Save the modified original mesh
-        gm_surf.write(output_filename)
+        # Use provided output_dir or default to self.output_dir
+        if output_dir is None:
+            output_dir = self.output_dir
+            
+        # Create the output filename in the region directory
+        output_filename = os.path.join(output_dir, f"{target_region}_ROI.msh")
         
-        # Create the .msh.opt file with custom color map and alpha settings
+        # Save the modified mesh
+        region_mesh.write(output_filename)
+        
+        # Create the .msh.opt file with custom color map and alpha settings for both fields
         with open(f"{output_filename}.opt", 'w') as f:
             f.write(f"""
-    // Make View[1] (ROI_field) visible with custom colormap
+    // Hide 2D mesh element faces for cleaner field visualization
+    Mesh.SurfaceFaces = 0;       // Hide surface faces
+    Mesh.SurfaceEdges = 0;       // Hide surface edges
+    Mesh.Points = 0;             // Hide mesh points
+    Mesh.Lines = 0;              // Hide mesh lines
+
+    // Make View[1] (TI_max_ROI) visible with custom colormap
     View[1].Visible = 1;
     View[1].ColormapNumber = 1;  // Use the first predefined colormap
     View[1].RangeType = 2;       // Custom range
     View[1].CustomMin = 0;       // Specific minimum value
-    View[1].CustomMax = {max_value};  // Specific maximum value for this cortex
+    View[1].CustomMax = {max_value};  // Specific maximum value for TI_max
     View[1].ShowScale = 1;       // Show the color scale
 
     // Add alpha/transparency based on value
     View[1].ColormapAlpha = 1;
     View[1].ColormapAlphaPower = 0.08;
+
+    // Make View[2] (TI_normal_ROI) visible with different colormap (if available)
+    View[2].Visible = 0;         // Initially hidden - user can toggle
+    View[2].ColormapNumber = 2;  // Use the second predefined colormap
+    View[2].RangeType = 2;       // Custom range
+    View[2].CustomMin = 0;       // Specific minimum value
+    View[2].CustomMax = {normal_max_value};  // Specific maximum value for TI_normal
+    View[2].ShowScale = 1;       // Show the color scale
+
+    // Add alpha/transparency based on value
+    View[2].ColormapAlpha = 1;
+    View[2].ColormapAlphaPower = 0.08;
+    
+    // Field information as comments
+    // View[1]: TI_max field (max value: {max_value:.6f})
+    // View[2]: TI_normal field (max value: {normal_max_value:.6f})
     """)
         
         self.logger.info(f"Created visualization: {output_filename}")
@@ -624,6 +873,12 @@ class MeshVisualizer(Visualizer):
         # Use different colormap from cortical (colormap #2) to distinguish spherical ROIs
         with open(f"{output_filename}.opt", 'w') as f:
             f.write(f"""
+    // Hide 2D mesh element faces for cleaner field visualization
+    Mesh.SurfaceFaces = 0;       // Hide surface faces
+    Mesh.SurfaceEdges = 0;       // Hide surface edges
+    Mesh.Points = 0;             // Hide mesh points
+    Mesh.Lines = 0;              // Hide mesh lines
+
     // Make View[1] (Spherical_ROI_field) visible with custom colormap
     View[1].Visible = 1;
     View[1].ColormapNumber = 2;  // Use the second predefined colormap (different from cortical)
@@ -687,6 +942,32 @@ class VoxelVisualizer(Visualizer):
         
         # Save overlay file directly in the output directory
         output_filename = os.path.join(self.output_dir, f"{region_name}_ROI.nii.gz")
+        
+        # Save as NIfTI
+        import nibabel as nib
+        vis_img = nib.Nifti1Image(vis_arr, atlas_img.affine)
+        nib.save(vis_img, output_filename)
+        
+        self.logger.info(f"Created visualization: {output_filename}")
+        return output_filename
+
+    def _generate_region_visualization(self, atlas_img, atlas_arr, field_arr, region_id, region_name, output_dir):
+        """Generate a NIfTI file visualization for a specific cortical region and save it directly to the specified directory."""
+        # Create mask for this region
+        region_mask = (atlas_arr == region_id)
+        
+        # Ensure field_arr is 3D for visualization
+        if len(field_arr.shape) == 4:
+            viz_field_arr = field_arr[:,:,:,0]  # Use the first volume
+        else:
+            viz_field_arr = field_arr
+        
+        # Create visualization array (zeros everywhere except the region)
+        vis_arr = np.zeros_like(atlas_arr)
+        vis_arr[region_mask] = viz_field_arr[region_mask]
+        
+        # Create output filename directly in the region directory
+        output_filename = os.path.join(output_dir, f"{region_name}_ROI.nii.gz")
         
         # Save as NIfTI
         import nibabel as nib

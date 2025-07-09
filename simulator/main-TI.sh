@@ -111,6 +111,7 @@ setup_montage_dirs() {
     mkdir -p "$montage_dir/high_Frequency/analysis"
     mkdir -p "$montage_dir/TI/mesh"
     mkdir -p "$montage_dir/TI/niftis"
+    mkdir -p "$montage_dir/TI/surface_overlays"
     mkdir -p "$montage_dir/TI/montage_imgs"
     mkdir -p "$montage_dir/documentation"
     
@@ -267,6 +268,13 @@ for montage in "${selected_montages[@]}"; do
         log_info "Moved subject volumes to high frequency niftis directory"
     fi
     
+    # Handle subject_overlays directory (surface files)
+    if [ -d "$tmp_montage_dir/subject_overlays" ]; then
+        mv "$tmp_montage_dir/subject_overlays"/* "$montage_dir/TI/surface_overlays/"
+        rmdir "$tmp_montage_dir/subject_overlays"
+        log_info "Moved subject overlays to TI surface overlays directory"
+    fi
+    
     # Move fields_summary.txt to analysis
     if [ -f "$tmp_montage_dir/fields_summary.txt" ]; then
         mv "$tmp_montage_dir/fields_summary.txt" "$montage_dir/high_Frequency/analysis/"
@@ -285,21 +293,50 @@ for montage in "${selected_montages[@]}"; do
     if [ -f "$tmp_montage_dir/TI.msh" ]; then
         log_info "Processing TI mesh"
         
-        # Move and rename TI mesh and its opt file
-        mv "$tmp_montage_dir/TI.msh" "$montage_dir/TI/mesh/${subject_id}_${montage}_TI.msh"
+        # Move and rename TI mesh and its opt file (without subject ID)
+        mv "$tmp_montage_dir/TI.msh" "$montage_dir/TI/mesh/${montage}_TI.msh"
         if [ -f "$tmp_montage_dir/TI.msh.opt" ]; then
-            mv "$tmp_montage_dir/TI.msh.opt" "$montage_dir/TI/mesh/${subject_id}_${montage}_TI.msh.opt"
+            mv "$tmp_montage_dir/TI.msh.opt" "$montage_dir/TI/mesh/${montage}_TI.msh.opt"
         fi
         log_info "Moved and renamed TI mesh files"
         
-        # Extract GM and WM fields
-        ti_mesh="$montage_dir/TI/mesh/${subject_id}_${montage}_TI.msh"
-        gm_output="$montage_dir/TI/mesh/grey_${subject_id}_${montage}_TI.msh"
-        wm_output="$montage_dir/TI/mesh/white_${subject_id}_${montage}_TI.msh"
+        # Extract GM and WM fields (without subject ID)
+        ti_mesh="$montage_dir/TI/mesh/${montage}_TI.msh"
+        gm_output="$montage_dir/TI/mesh/grey_${montage}_TI.msh"
+        wm_output="$montage_dir/TI/mesh/white_${montage}_TI.msh"
         extract_fields "$ti_mesh" "$gm_output" "$wm_output"
         
-        # Transform to NIfTI
-        transform_parcellated_meshes_to_nifti "$montage_dir/TI/mesh" "$montage_dir/TI/niftis"
+        # Transform volume meshes to NIfTI (excluding central surface meshes)
+        # Create temporary directory with only volume meshes for NIfTI conversion
+        temp_nifti_dir="$tmp_dir/${montage}_nifti_conversion"
+        mkdir -p "$temp_nifti_dir"
+        
+        # Copy only volume mesh files (exclude TI_central files)
+        cp "$montage_dir/TI/mesh/${montage}_TI.msh" "$temp_nifti_dir/"
+        if [ -f "$montage_dir/TI/mesh/grey_${montage}_TI.msh" ]; then
+            cp "$montage_dir/TI/mesh/grey_${montage}_TI.msh" "$temp_nifti_dir/"
+        fi
+        if [ -f "$montage_dir/TI/mesh/white_${montage}_TI.msh" ]; then
+            cp "$montage_dir/TI/mesh/white_${montage}_TI.msh" "$temp_nifti_dir/"
+        fi
+        
+        # Convert only volume meshes to NIfTI
+        transform_parcellated_meshes_to_nifti "$temp_nifti_dir" "$montage_dir/TI/niftis"
+        
+        # Clean up temporary directory
+        rm -rf "$temp_nifti_dir"
+    fi
+    
+    # Process TI central surface mesh (middle cortical layer) - AFTER NIfTI conversion
+    if [ -f "$tmp_montage_dir/TI_central.msh" ]; then
+        log_info "Processing TI central surface mesh (surface-only, no NIfTI conversion)"
+        
+        # Move and rename TI central mesh and its opt file to match montage_normal.msh pattern
+        mv "$tmp_montage_dir/TI_central.msh" "$montage_dir/TI/mesh/${montage}_normal.msh"
+        if [ -f "$tmp_montage_dir/TI_central.msh.opt" ]; then
+            mv "$tmp_montage_dir/TI_central.msh.opt" "$montage_dir/TI/mesh/${montage}_normal.msh.opt"
+        fi
+        log_info "Moved and renamed TI central surface mesh to ${montage}_normal.msh (surface format preserved)"
     fi
 done
 
@@ -317,8 +354,10 @@ verify_files() {
         "$montage_base_dir/high_Frequency/niftis"
         "$montage_base_dir/high_Frequency/analysis/fields_summary.txt"
         "$montage_base_dir/documentation"
-        "$montage_base_dir/TI/mesh/${subject_id}_${montage_name}_TI.msh"
-        "$montage_base_dir/TI/mesh/${subject_id}_${montage_name}_TI.msh.opt"
+        "$montage_base_dir/TI/mesh/${montage_name}_TI.msh"
+        "$montage_base_dir/TI/mesh/${montage_name}_TI.msh.opt"
+        "$montage_base_dir/TI/mesh/${montage_name}_normal.msh"
+        "$montage_base_dir/TI/surface_overlays"
     )
 
     for path in "${essential_paths[@]}"; do

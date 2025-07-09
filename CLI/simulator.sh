@@ -354,14 +354,117 @@ EOF
         fi
 
         # Clean up temporary flex montages file
-        if [[ -n "$temp_flex_file" && -f "$temp_flex_file" ]]; then
-            rm -f "$temp_flex_file"
-            echo -e "${CYAN}Cleaned up temporary flex montages file${RESET}"
-        fi
+if [[ -n "$temp_flex_file" && -f "$temp_flex_file" ]]; then
+    rm -f "$temp_flex_file"
+    echo -e "${CYAN}Cleaned up temporary flex montages file${RESET}"
+fi
+
+# Clean up simulation completion files (interactive mode)
+cleanup_completion_files
 
     fi
 
 } # Close run_simulation function
+
+# Function to parse flex-search names into proper format
+parse_flex_search_name() {
+    local search_name="$1"
+    local electrode_type="$2"
+    
+    # Handle new cortical search format: lh_DK40_14_mean_maxTI
+    if [[ "$search_name" == lh_* ]] || [[ "$search_name" == rh_* ]]; then
+        IFS='_' read -ra parts <<< "$search_name"
+        if [ ${#parts[@]} -ge 5 ]; then
+            local hemisphere="${parts[0]}"      # e.g., 'lh'
+            local atlas="${parts[1]}"           # e.g., 'DK40'
+            local region="${parts[2]}"          # e.g., '14'
+            local goal="${parts[3]}"            # e.g., 'mean'
+            local post_proc="${parts[4]}"       # e.g., 'maxTI'
+            
+            echo "flex_${hemisphere}_${atlas}_${region}_${goal}_${post_proc}_${electrode_type}"
+            return
+        fi
+    fi
+    
+    # Handle legacy cortical search format: lh.101_DK40_14_mean (for backward compatibility)
+    if [[ "$search_name" == lh.* ]] || [[ "$search_name" == rh.* ]]; then
+        IFS='_' read -ra parts <<< "$search_name"
+        if [ ${#parts[@]} -ge 3 ]; then
+            local hemisphere_region="${parts[0]}"
+            local atlas="${parts[1]}"
+            local goal_postproc="${parts[*]:2}"
+            goal_postproc="${goal_postproc// /_}"
+            
+            # Extract hemisphere and region
+            if [[ "$hemisphere_region" == *"."* ]]; then
+                local hemisphere="${hemisphere_region%.*}"
+                local region="${hemisphere_region#*.}"
+            else
+                local hemisphere="unknown"
+                local region="$hemisphere_region"
+            fi
+            
+            # Split goal and postProc if possible
+            if [[ "$goal_postproc" == *"_"* ]]; then
+                local goal="${goal_postproc%%_*}"
+                local post_proc="${goal_postproc#*_}"
+            else
+                local goal="$goal_postproc"
+                local post_proc="default"
+            fi
+            
+            echo "flex_${hemisphere}_${atlas}_${region}_${goal}_${post_proc}_${electrode_type}"
+            return
+        fi
+    fi
+    
+    # Handle new subcortical search format: subcortical_atlas_region_goal_postprocess
+    if [[ "$search_name" == subcortical_* ]]; then
+        IFS='_' read -ra parts <<< "$search_name"
+        if [ ${#parts[@]} -ge 5 ]; then
+            local hemisphere="subcortical"
+            local atlas="${parts[1]}"
+            local region="${parts[2]}"
+            local goal="${parts[3]}"
+            local post_proc="${parts[4]}"
+            
+            echo "flex_${hemisphere}_${atlas}_${region}_${goal}_${post_proc}_${electrode_type}"
+            return
+        fi
+    fi
+    
+    # Handle new spherical search format: sphere_x0y0z0r10_mean_normalTI
+    if [[ "$search_name" == sphere_* ]]; then
+        IFS='_' read -ra parts <<< "$search_name"
+        if [ ${#parts[@]} -ge 4 ]; then
+            local hemisphere="spherical"
+            local coordinates="${parts[1]}"     # e.g., 'x0y0z0r10'
+            local goal="${parts[2]}"            # e.g., 'mean'
+            local post_proc="${parts[3]}"       # e.g., 'normalTI'
+            
+            echo "flex_${hemisphere}_coordinates_${coordinates}_${goal}_${post_proc}_${electrode_type}"
+            return
+        fi
+    fi
+    
+    # Legacy spherical coordinates or other formats (for backward compatibility)
+    if [[ "$search_name" == *"_"* ]] && [[ "$search_name" =~ [0-9] ]]; then
+        IFS='_' read -ra parts <<< "$search_name"
+        local hemisphere="spherical"
+        local atlas="coordinates"
+        local region="${parts[*]:0:$((${#parts[@]}-1))}"
+        region="${region// /_}"
+        local goal="${parts[-1]}"
+        [ -z "$goal" ] && goal="optimization"
+        local post_proc="default"
+        
+        echo "flex_${hemisphere}_${atlas}_${region}_${goal}_${post_proc}_${electrode_type}"
+        return
+    fi
+    
+    # Fallback for unrecognized formats
+    echo "flex_unknown_unknown_${search_name}_optimization_default_${electrode_type}"
+}
 
 # Function to read configuration
 read_config() {
@@ -736,10 +839,97 @@ for path in flex_paths:
             eeg_net = mapping_data.get('eeg_net', 'EGI_template.csv')
             
             if len(mapped_labels) >= 4:
+                # Parse search_name for new naming format using bash function
+                # Note: This is within a Python script, so we'll do the parsing in Python
+                import subprocess
+                import os
+                
+                # Get the search name and parse it
+                script_dir = os.path.dirname(os.path.abspath(__file__))
+                
+                # Simple Python parsing logic (equivalent to bash function)
+                def parse_flex_search_name_py(search_name, electrode_type):
+                    # Handle new cortical search format: lh_DK40_14_mean_maxTI
+                    if search_name.startswith(('lh_', 'rh_')):
+                        parts = search_name.split('_')
+                        if len(parts) >= 5:
+                            hemisphere = parts[0]       # e.g., 'lh'
+                            atlas = parts[1]            # e.g., 'DK40'
+                            region = parts[2]           # e.g., '14'
+                            goal = parts[3]             # e.g., 'mean'
+                            post_proc = parts[4]        # e.g., 'maxTI'
+                            
+                            return f"flex_{hemisphere}_{atlas}_{region}_{goal}_{post_proc}_{electrode_type}"
+                    
+                    # Handle legacy cortical search format: lh.101_DK40_14_mean (for backward compatibility)
+                    elif search_name.startswith(('lh.', 'rh.')):
+                        parts = search_name.split('_')
+                        if len(parts) >= 3:
+                            hemisphere_region = parts[0]  # e.g., 'lh.101'
+                            atlas = parts[1]  # e.g., 'DK40'
+                            goal_postproc = '_'.join(parts[2:])  # e.g., '14_mean'
+                            
+                            # Extract hemisphere and region
+                            if '.' in hemisphere_region:
+                                hemisphere, region = hemisphere_region.split('.', 1)
+                            else:
+                                hemisphere = 'unknown'
+                                region = hemisphere_region
+                            
+                            # Split goal and postProc if possible
+                            if '_' in goal_postproc:
+                                goal_parts = goal_postproc.split('_')
+                                goal = goal_parts[0]
+                                post_proc = '_'.join(goal_parts[1:])
+                            else:
+                                goal = goal_postproc
+                                post_proc = 'default'
+                            
+                            return f"flex_{hemisphere}_{atlas}_{region}_{goal}_{post_proc}_{electrode_type}"
+                    
+                    # Handle new subcortical search format: subcortical_atlas_region_goal_postprocess
+                    elif search_name.startswith('subcortical_'):
+                        parts = search_name.split('_')
+                        if len(parts) >= 5:
+                            hemisphere = 'subcortical'
+                            atlas = parts[1]
+                            region = parts[2]
+                            goal = parts[3]
+                            post_proc = parts[4]
+                            
+                            return f"flex_{hemisphere}_{atlas}_{region}_{goal}_{post_proc}_{electrode_type}"
+                    
+                    # Handle new spherical search format: sphere_x0y0z0r10_mean_normalTI
+                    elif search_name.startswith('sphere_'):
+                        parts = search_name.split('_')
+                        if len(parts) >= 4:
+                            hemisphere = 'spherical'
+                            coordinates = parts[1]     # e.g., 'x0y0z0r10'
+                            goal = parts[2]            # e.g., 'mean'
+                            post_proc = parts[3]       # e.g., 'normalTI'
+                            
+                            return f"flex_{hemisphere}_coordinates_{coordinates}_{goal}_{post_proc}_{electrode_type}"
+                    
+                    # Legacy spherical coordinates or other formats (for backward compatibility)
+                    elif '_' in search_name and any(char.isdigit() for char in search_name):
+                        parts = search_name.split('_')
+                        hemisphere = 'spherical'
+                        atlas = 'coordinates'
+                        region = '_'.join(parts[:-1])  # Everything except goal
+                        goal = parts[-1] if parts else 'optimization'
+                        post_proc = 'default'
+                        
+                        return f"flex_{hemisphere}_{atlas}_{region}_{goal}_{post_proc}_{electrode_type}"
+                    
+                    # Fallback for unrecognized formats
+                    else:
+                        return f"flex_unknown_unknown_{search_name}_optimization_default_{electrode_type}"
+                
+                montage_name = parse_flex_search_name_py(search_name, 'mapped')
+                
                 montage_data = {
-                    'name': f'flex_{search_name}_mapped',
+                    'name': montage_name,
                     'type': 'flex_mapped',
-                    'subject_id': subject_id,
                     'eeg_net': eeg_net,
                     'electrode_labels': mapped_labels[:4],
                     'pairs': [[mapped_labels[0], mapped_labels[1]], [mapped_labels[2], mapped_labels[3]]]
@@ -750,10 +940,11 @@ for path in flex_paths:
             optimized_positions = mapping_data.get('optimized_positions', [])
             
             if len(optimized_positions) >= 4:
+                montage_name = parse_flex_search_name_py(search_name, 'optimized')
+                
                 montage_data = {
-                    'name': f'flex_{search_name}_optimized',
+                    'name': montage_name,
                     'type': 'flex_optimized',
-                    'subject_id': subject_id,
                     'electrode_positions': optimized_positions[:4],
                     'pairs': [[optimized_positions[0], optimized_positions[1]], 
                              [optimized_positions[2], optimized_positions[3]]]
@@ -1215,10 +1406,14 @@ if [[ "$1" == "--run-direct" ]]; then
     fi
     
     # Set selected montages from environment
+    echo "Debug: SELECTED_MONTAGES env var: '$SELECTED_MONTAGES'"
     if [[ -n "$SELECTED_MONTAGES" ]]; then
         IFS=',' read -ra selected_montages <<< "$SELECTED_MONTAGES"
+        echo "Debug: Parsed selected_montages array: ${selected_montages[@]}"
+        echo "Debug: Number of parsed montages: ${#selected_montages[@]}"
     else
         selected_montages=()
+        echo "Debug: No montages in environment variable"
     fi
     
     # Set up EEG nets for each subject (only for montage mode)
@@ -1256,7 +1451,9 @@ if [[ "$1" == "--run-direct" ]]; then
     for subject_num in "${selected_subjects[@]}"; do
         subject_id="$subject_num"  # In direct mode, use subject IDs directly
         subject_dir="$project_dir/sub-$subject_id"
-        simulation_dir="$subject_dir/SimNIBS/Simulations"
+        derivatives_dir="$project_dir/derivatives"
+        simnibs_dir="$derivatives_dir/SimNIBS/sub-$subject_id"
+        simulation_dir="$simnibs_dir/Simulations"
         
         # Set EEG net based on simulation framework
         if [[ "$simulation_framework" == "flex" ]]; then
@@ -1268,7 +1465,11 @@ if [[ "$1" == "--run-direct" ]]; then
         # Create simulation directory if it doesn't exist
         mkdir -p "$simulation_dir"
         
-        echo "Executing: $simulator_dir/$main_script $subject_id $conductivity $project_dir $simulation_dir $sim_mode $current $electrode_shape $dimensions $thickness $eeg_net"
+        # Debug output for montages
+        echo "Debug: Selected montages array: ${selected_montages[@]}"
+        echo "Debug: Number of montages: ${#selected_montages[@]}"
+        
+        echo "Executing: $simulator_dir/$main_script $subject_id $conductivity $project_dir $simulation_dir $sim_mode $current $electrode_shape $dimensions $thickness $eeg_net ${selected_montages[@]} --"
         
         # Call the appropriate main pipeline script
         if [[ "$simulation_framework" == "flex" ]]; then
@@ -1280,14 +1481,41 @@ if [[ "$1" == "--run-direct" ]]; then
         fi
     done
     
-    # Clean up temporary flex montages file
-    if [[ -n "$temp_flex_file" && -f "$temp_flex_file" ]]; then
-        rm -f "$temp_flex_file"
-        echo -e "${CYAN}Cleaned up temporary flex montages file${RESET}"
+    # Clean up temporary files
+if [[ -n "$temp_flex_file" && -f "$temp_flex_file" ]]; then
+    rm -f "$temp_flex_file"
+    echo -e "${CYAN}Cleaned up temporary flex montages file${RESET}"
+fi
+
+# Clean up simulation completion files
+cleanup_completion_files() {
+    local temp_dir="$project_dir/derivatives/temp"
+    if [[ -d "$temp_dir" ]]; then
+        local cleaned_count=0
+        for completion_file in "$temp_dir"/simulation_completion_*.json; do
+            if [[ -f "$completion_file" ]]; then
+                rm -f "$completion_file"
+                ((cleaned_count++))
+                echo -e "${CYAN}Cleaned up completion file: $(basename "$completion_file")${RESET}"
+            fi
+        done
+        
+        if [[ $cleaned_count -gt 0 ]]; then
+            echo -e "${GREEN}Cleaned up $cleaned_count completion file(s)${RESET}"
+        fi
+        
+        # Remove temp directory if empty
+        if [[ -d "$temp_dir" && -z "$(ls -A "$temp_dir")" ]]; then
+            rmdir "$temp_dir"
+            echo -e "${CYAN}Removed empty temp directory${RESET}"
+        fi
     fi
-    
-    echo "Direct execution completed"
-    exit 0
+}
+
+cleanup_completion_files
+
+echo "Direct execution completed"
+exit 0
 fi
 
 # Main script execution (interactive mode)
