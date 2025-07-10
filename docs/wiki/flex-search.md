@@ -37,9 +37,16 @@ We demonstrate the effectiveness of flex-search by optimizing electrode position
 
 ### Results: Maximum TI Field Optimization
 
-**Field Distribution:**
-![Maximum TI Field]({{ site.baseurl }}/wiki/assets/flex-search/max_TI_field.png)
-![Maximum TI ROI Targeting]({{ site.baseurl }}/wiki/assets/flex-search/max_TI_ROI.png)
+<div class="image-row">
+  <div class="image-container">
+    <img src="{{ site.baseurl }}/wiki/assets/flex-search/max_TI_field.png" alt="Maximum TI Field">
+    <em>Maximum TI field distribution showing optimization results</em>
+  </div>
+  <div class="image-container">
+    <img src="{{ site.baseurl }}/wiki/assets/flex-search/max_TI_ROI.png" alt="Maximum TI ROI Targeting">
+    <em>ROI targeting analysis for maximum TI field optimization</em>
+  </div>
+</div>
 
 **Optimization Summary:**
 
@@ -54,9 +61,16 @@ We demonstrate the effectiveness of flex-search by optimizing electrode position
 
 ### Results: Normal Component Optimization
 
-**Field Distribution:**
-![Normal TI Field]({{ site.baseurl }}/wiki/assets/flex-search/Normal_field.png)
-![Normal ROI Targeting]({{ site.baseurl }}/wiki/assets/flex-search/normal_ROI.png)
+<div class="image-row">
+  <div class="image-container">
+    <img src="{{ site.baseurl }}/wiki/assets/flex-search/Normal_field.png" alt="Normal TI Field">
+    <em>Normal component TI field distribution perpendicular to cortical surface</em>
+  </div>
+  <div class="image-container">
+    <img src="{{ site.baseurl }}/wiki/assets/flex-search/normal_ROI.png" alt="Normal ROI Targeting">
+    <em>ROI targeting analysis for normal component optimization</em>
+  </div>
+</div>
 
 **Optimization Summary:**
 
@@ -71,9 +85,16 @@ We demonstrate the effectiveness of flex-search by optimizing electrode position
 
 ### Results: Tangential Component Optimization
 
-**Field Distribution:**
-![Tangential TI Field]({{ site.baseurl }}/wiki/assets/flex-search/tangent_field.png)
-![Tangential ROI Targeting]({{ site.baseurl }}/wiki/assets/flex-search/tangent_ROI.png)
+<div class="image-row">
+  <div class="image-container">
+    <img src="{{ site.baseurl }}/wiki/assets/flex-search/tangent_field.png" alt="Tangential TI Field">
+    <em>Tangential component TI field distribution parallel to cortical surface</em>
+  </div>
+  <div class="image-container">
+    <img src="{{ site.baseurl }}/wiki/assets/flex-search/tangent_ROI.png" alt="Tangential ROI Targeting">
+    <em>ROI targeting analysis for tangential component optimization</em>
+  </div>
+</div>
 
 **Optimization Summary:**
 

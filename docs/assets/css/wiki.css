@@ -125,7 +125,7 @@
 
 /* Image size constraints for all wiki images */
 .wiki-content img {
-  max-width: 800px !important;
+  max-width: 600px !important;
   max-height: 600px !important;
   width: auto !important;
   height: auto !important;
@@ -136,26 +136,77 @@
   object-fit: contain; /* Maintain aspect ratio */
 }
 
-/* Smaller images for interface screenshots */
-.wiki-content img[alt*="Interface"],
-.wiki-content img[alt*="UI"] {
-  max-width: 600px !important;
-  max-height: 400px !important;
+/* Side-by-side layout for consecutive images */
+.wiki-content img + img {
+  margin-top: 0 !important;
 }
 
-/* Larger images for detailed visualizations */
-.wiki-content img[alt*="Field"],
-.wiki-content img[alt*="Distribution"],
-.wiki-content img[alt*="Histogram"] {
-  max-width: 900px !important;
-  max-height: 700px !important;
+.wiki-content p:has(img) + p:has(img) {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 40px;
+  flex-wrap: wrap;
+  margin: 30px 0;
 }
 
-/* Network diagrams - medium size */
-.wiki-content img[alt*="Network"],
-.wiki-content img[alt*="EEG"] {
-  max-width: 500px !important;
-  max-height: 500px !important;
+.wiki-content p:has(img) + p:has(img) img {
+  margin: 0 !important;
+  flex: 0 1 auto;
+  max-width: 45% !important;
+  height: auto !important;
+  object-fit: contain;
+  vertical-align: top;
+}
+
+/* Fallback for browsers that don't support :has() */
+@supports not selector(:has(img)) {
+  .wiki-content img + img {
+    display: inline-block;
+    vertical-align: top;
+    margin: 0 20px 20px 20px !important;
+    max-width: 42% !important;
+  }
+}
+
+/* Enhanced class-based side-by-side images with better alignment */
+.image-row {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 40px;
+  flex-wrap: wrap;
+  margin: 30px 0;
+  text-align: center;
+}
+
+.image-row .image-container {
+  flex: 0 1 auto;
+  max-width: 45%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0 5px;
+  box-sizing: border-box;
+}
+
+.image-row .image-container img {
+  margin: 0 !important;
+  width: 100%;
+  height: auto !important;
+  object-fit: contain;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+.image-row .image-container em {
+  margin-top: 10px;
+  font-style: italic;
+  color: #666;
+  font-size: 0.9em;
+  line-height: 1.4;
+  text-align: center;
+  display: block;
 }
 
 /* Responsive design */
@@ -191,25 +242,38 @@
   /* Responsive image sizing for smaller screens */
   .wiki-content img {
     max-width: 100% !important;
-    max-height: 400px !important;
+    max-height: 600px !important;
   }
   
-  .wiki-content img[alt*="Field"],
-  .wiki-content img[alt*="Distribution"],
-  .wiki-content img[alt*="Histogram"] {
-    max-width: 100% !important;
-    max-height: 450px !important;
+  /* Stack side-by-side images vertically on small screens */
+  .wiki-content p:has(img) + p:has(img) {
+    flex-direction: column;
+    align-items: center;
+    gap: 25px;
   }
   
-  .wiki-content img[alt*="Interface"],
-  .wiki-content img[alt*="UI"] {
+  .wiki-content p:has(img) + p:has(img) img {
     max-width: 100% !important;
-    max-height: 300px !important;
+    margin: 10px 0 !important;
   }
   
-  .wiki-content img[alt*="Network"],
-  .wiki-content img[alt*="EEG"] {
+  .image-row {
+    flex-direction: column;
+    align-items: center;
+    gap: 25px;
+  }
+  
+  .image-row .image-container {
     max-width: 100% !important;
-    max-height: 350px !important;
+    padding: 0 !important;
+  }
+  
+  /* Fallback for browsers without :has() support */
+  @supports not selector(:has(img)) {
+    .wiki-content img + img {
+      display: block !important;
+      max-width: 100% !important;
+      margin: 20px auto !important;
+    }
   }
 } 

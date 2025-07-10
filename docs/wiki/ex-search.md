@@ -29,13 +29,18 @@ The interface provides comprehensive controls for:
 
 Ex-Search automatically detects and supports multiple EEG electrode configurations:
 
-### Standard 10-20 System
-![EEG 10-20 Network]({{ site.baseurl }}/wiki/assets/ex-search/EEG10-20_Okamoto_2004_net.png)
-*EGI 10-20 Okamoto 2004 electrode configuration - widely used standard with 32 electrodes*
+### EEG Network Configurations
 
-### High-Density GSN System  
-![GSN 256 Network]({{ site.baseurl }}/wiki/assets/ex-search/GSN256_net.png)
-*GSN-HydroCel 256 electrode configuration - high-density net for precise targeting*
+<div class="image-row">
+  <div class="image-container">
+    <img src="{{ site.baseurl }}/wiki/assets/ex-search/EEG10-20_Okamoto_2004_net.png" alt="EEG 10-20 Network">
+    <em>EGI 10-20 Okamoto 2004 electrode configuration - widely used standard with 32 electrodes</em>
+  </div>
+  <div class="image-container">
+    <img src="{{ site.baseurl }}/wiki/assets/ex-search/GSN256_net.png" alt="GSN 256 Network">
+    <em>GSN-HydroCel 256 electrode configuration - high-density net for precise targeting</em>
+  </div>
+</div>
 
 ## Example: TI Field Analysis Pipeline
 
@@ -49,17 +54,18 @@ We demonstrate the Ex-Search pipeline capabilities using a representative TI sti
 - **Current**: 1mA (default)
 - **Analysis**: Enhanced 3mm sphere ROI sampling
 
-### Field Visualization
+### Field Visualization & Statistical Analysis
 
-**Cortical Surface Distribution:**
-![TI Field Mesh]({{ site.baseurl }}/wiki/assets/ex-search/field_msh.png)
-*TI field distribution visualized on the cortical surface showing spatial targeting and field intensity*
-
-### Statistical Analysis
-
-**Volume-Weighted Field Distribution:**
-![Field Histogram]({{ site.baseurl }}/wiki/assets/ex-search/TI_field_F7_T7_and_T8_Fz_histogram.png)
-*Volume-weighted field distribution histogram with focality thresholds and ROI indicators*
+<div class="image-row">
+  <div class="image-container">
+    <img src="{{ site.baseurl }}/wiki/assets/ex-search/field_msh.png" alt="TI Field Mesh">
+    <em>TI field distribution visualized on the cortical surface showing spatial targeting and field intensity</em>
+  </div>
+  <div class="image-container">
+    <img src="{{ site.baseurl }}/wiki/assets/ex-search/TI_field_F7_T7_and_T8_Fz_histogram.png" alt="Field Histogram">
+    <em>Volume-weighted field distribution histogram with focality thresholds and ROI indicators</em>
+  </div>
+</div>
 
 **Quantitative Results:**
 

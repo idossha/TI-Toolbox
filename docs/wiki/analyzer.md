@@ -16,8 +16,8 @@ The Analyzer module consists of three main components:
 - **VoxelAnalyzer**: Analyzes NIfTI files (.nii, .nii.gz, .mgz) containing field data  
 - **Group Analyzer**: Batch processing for multiple subjects and comparative analysis
 
-![TI Max Field Analysis]({{ site.baseurl }}/wiki/assets/analyzer/TI_max.png)
-*Maximum TI field distribution showing peak intensity areas and spatial localization patterns*
+![TI Field]({{ site.baseurl }}/wiki/assets/analyzer/TI_max_all.png)
+*Comprehensive view of all TI field components including individual frequency contributions*
 
 ## Key Features
 
@@ -68,33 +68,16 @@ The MeshAnalyzer works with SimNIBS mesh files and provides high-resolution anal
 - **Field Extraction**: Analysis of TI_max and TI_normal fields
 - **3D Visualization**: Generation of mesh files for 3D viewing
 
-### Example Usage
-
-```python
-# Initialize mesh analyzer
-analyzer = MeshAnalyzer(
-    field_mesh_path="/path/to/field.msh",
-    field_name="TI_max", 
-    subject_dir="/path/to/m2m_subject",
-    output_dir="/path/to/output"
-)
-
-# Analyze a cortical region
-results = analyzer.analyze_cortex(
-    atlas_type="DK40",
-    target_region="superiorfrontal",
-    visualize=True
-)
-
-# Analyze whole head
-whole_head_results = analyzer.analyze_whole_head(
-    atlas_type="DK40",
-    visualize=True
-)
-```
-
-![TI Field Components]({{ site.baseurl }}/wiki/assets/analyzer/TI_max_all.png)
-*Comprehensive view of all TI field components including individual frequency contributions*
+<div class="image-row">
+  <div class="image-container">
+    <img src="{{ site.baseurl }}/wiki/assets/analyzer/TI_max.png" alt="TI Max Field Analysis">
+    <em>Maximum TI field distribution showing peak intensity areas and spatial localization patterns</em>
+  </div>
+  <div class="image-container">
+    <img src="{{ site.baseurl }}/wiki/assets/analyzer/TI_normal.png" alt="TI Normal Field">
+    <em>Normalized TI field distribution highlighting relative field strength variations</em>
+  </div>
+</div>
 
 ## Voxel-Based Analysis
 
@@ -107,47 +90,23 @@ The VoxelAnalyzer handles NIfTI format files and integrates with FreeSurfer atla
 - **4D Data Handling**: Support for multi-volume datasets
 - **Visualization Overlays**: Generation of ROI-specific NIfTI overlays
 
-### Example Usage
-
-```python
-# Initialize voxel analyzer
-analyzer = VoxelAnalyzer(
-    field_nifti="/path/to/field.nii.gz",
-    subject_dir="/path/to/subject",
-    output_dir="/path/to/output"
-)
-
-# Analyze a spherical ROI
-sphere_results = analyzer.analyze_sphere(
-    center_coordinates=[10, 20, 30],
-    radius=5,
-    visualize=True
-)
-
-# Analyze a cortical region
-cortex_results = analyzer.analyze_cortex(
-    atlas_file="/path/to/atlas.mgz",
-    target_region="Left-Hippocampus",
-    visualize=True
-)
-```
-
-![Normalized TI Field]({{ site.baseurl }}/wiki/assets/analyzer/TI_normal.png)
-*Normalized TI field distribution highlighting relative field strength variations*
 
 ### Spherical ROI Analysis
 
 The Analyzer provides comprehensive spherical ROI analysis with dual-field visualization capabilities, enabling precise targeting of specific brain regions with both TI_max and TI_normal field components.
 
-#### TI_max Field Visualization
+#### Spherical Field Analysis Visualization
 
-![Spherical TI_max Analysis]({{ site.baseurl }}/wiki/assets/analyzer/sphere_max.png)
-*Spherical ROI analysis showing TI_max field distribution within a 10mm radius sphere at coordinates (-31.3, 24.0, -37.0)*
-
-#### TI_normal Field Visualization
-
-![Spherical TI_normal Analysis]({{ site.baseurl }}/wiki/assets/analyzer/sphere_normal.png)
-*Spherical ROI analysis showing TI_normal field distribution for the same target region, demonstrating directional field components*
+<div class="image-row">
+  <div class="image-container">
+    <img src="{{ site.baseurl }}/wiki/assets/analyzer/sphere_max.png" alt="Spherical TI_max Analysis">
+    <em>Spherical ROI analysis showing TI_max field distribution within a 10mm radius sphere at coordinates (-31.3, 24.0, -37.0)</em>
+  </div>
+  <div class="image-container">
+    <img src="{{ site.baseurl }}/wiki/assets/analyzer/sphere_normal.png" alt="Spherical TI_normal Analysis">
+    <em>Spherical ROI analysis showing TI_normal field distribution for the same target region, demonstrating directional field components</em>
+  </div>
+</div>
 
 ## Group Analysis
 
@@ -158,57 +117,21 @@ The Group Analyzer enables batch processing of multiple subjects for comparative
 - **Batch Processing**: Analyze multiple subjects simultaneously
 - **Centralized Logging**: Unified logging across all subjects
 - **Comparative Analysis**: Cross-subject comparisons and summaries
-- **Parallel Processing**: Efficient handling of large datasets
 
-### Command Line Usage
 
-```bash
-# Group cortical analysis
-python group_analyzer.py \
-    --subject sub1 /path/to/m2m_sub1 /path/to/field1.msh \
-    --subject sub2 /path/to/m2m_sub2 /path/to/field2.msh \
-    --space mesh \
-    --analysis_type cortical \
-    --atlas_name DK40 \
-    --whole_head \
-    --output_dir /path/to/group_output
-```
+### Statistical Analysis Visualization
 
-## Visualization Capabilities
+<div class="image-row">
+  <div class="image-container">
+    <img src="{{ site.baseurl }}/wiki/assets/analyzer/analysis_plot.png" alt="Analysis Plots">
+    <em>Comprehensive analysis plots showing field strength distributions and statistical summaries</em>
+  </div>
+  <div class="image-container">
+    <img src="{{ site.baseurl }}/wiki/assets/analyzer/lh.insula_whole_head_roi_histogram.png" alt="ROI Histogram">
+    <em>Region-of-interest histogram analysis for left hemisphere insula showing field distribution within target areas</em>
+  </div>
+</div>
 
-The Analyzer module includes comprehensive visualization tools for interpreting analysis results.
-
-### Statistical Plots
-
-![Analysis Plots]({{ site.baseurl }}/wiki/assets/analyzer/analysis_plot.png)
-*Comprehensive analysis plots showing field strength distributions and statistical summaries*
-
-### ROI-Specific Analysis
-
-![ROI Histogram]({{ site.baseurl }}/wiki/assets/analyzer/lh.insula_whole_head_roi_histogram.png)
-*Region-of-interest histogram analysis for left hemisphere insula showing field distribution within target areas*
-
-### Generated Visualizations
-
-**Distribution Plots**
-- Value distribution histograms for each ROI
-- Statistical overlays (mean, std, percentiles)
-- Comparison with whole-brain distributions
-
-**Scatter Plots** 
-- Cross-regional comparisons
-- Sorted by field strength
-- Color-coded by element count
-
-**3D Visualizations**
-- Mesh overlays for surface data
-- NIfTI overlays for volumetric data
-- ROI-specific field visualizations
-
-**Focality Histograms**
-- Selectivity analysis
-- Target vs. off-target comparisons
-- Statistical significance testing
 
 ## Output Structure
 
@@ -283,88 +206,25 @@ normal_focality,3.1178015935697405
 
 ## Integration with TI-Toolbox
 
-The Analyzer seamlessly integrates with other TI-Toolbox modules:
-
-**With Simulator**
 - Direct analysis of simulation outputs
 - Automatic field file detection
 - Integrated workflow processing
-
-**With Ex-Search/Flex-Search**
-- Analysis of optimized montages
-- Comparative evaluation of configurations
-- Performance metrics extraction
-
-**With GUI**
-- User-friendly parameter selection
-- Real-time progress monitoring
-- Interactive result exploration
+- Automatic detection in Nifti Viewer
 
 ## Best Practices
 
 ### For Mesh Analysis
 - Ensure SimNIBS m2m folder is properly configured
 - Use appropriate atlas for your research question
-- Enable visualization for publication-quality figures
 
 ### For Voxel Analysis  
 - Verify coordinate system alignment between field and atlas
 - Check field data units and scaling
-- Use appropriate smoothing for noisy data
 
 ### For Group Analysis
 - Standardize preprocessing across subjects
 - Use consistent atlas and coordinate systems
 - Plan adequate computational resources
-
-## Troubleshooting
-
-**Common Issues:**
-
-1. **No voxels/nodes found in ROI**: Check coordinate systems and ROI parameters
-2. **Atlas loading errors**: Verify atlas file format and path
-3. **Memory issues**: Use smaller ROIs or reduce visualization complexity
-4. **Field data misalignment**: Check affine transformations and coordinate systems
-
-**Performance Tips:**
-
-- Use spherical ROIs for initial exploration
-- Enable visualization selectively for final analyses
-- Consider subsampling for very large datasets
-- Use group analysis for batch processing
-
-## Command Line Interface
-
-The Analyzer can be run from the command line for integration into analysis pipelines:
-
-```bash
-# Mesh-based analysis
-python main_analyzer.py \
-    --m2m_subject_path /path/to/m2m_folder \
-    --montage_name montage_name \
-    --space mesh \
-    --analysis_type cortical \
-    --atlas_name DK40 \
-    --region superiorfrontal \
-    --visualize
-
-# Voxel-based analysis  
-python main_analyzer.py \
-    --m2m_subject_path /path/to/m2m_folder \
-    --field_path /path/to/field.nii.gz \
-    --space voxel \
-    --analysis_type spherical \
-    --coordinates 10 20 30 \
-    --radius 5 \
-    --visualize
-```
-
-## Related Documentation
-
-- [Simulator Module]({{ site.baseurl }}/wiki/simulator/) - Generate field data for analysis
-- [Ex-Search Module]({{ site.baseurl }}/wiki/ex-search/) - Optimization methods
-- [Flex-Search Module]({{ site.baseurl }}/wiki/flex-search/) - Flexible electrode placement
-- [Atlas Resampling]({{ site.baseurl }}/wiki/atlas-resampling/) - Atlas preparation
 
 ---
 
