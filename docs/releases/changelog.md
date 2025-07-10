@@ -10,7 +10,7 @@ Complete changelog for all versions of the Temporal Interference Toolbox.
 
 ### v2.0.5 (Latest Release)
 
-**Release Date**: January 27, 2025
+**Release Date**: July 10, 2025
 
 #### Additions
 - **Group Analysis Features**: Group analysis system with GUI interface, comparison capabilities, and logging
