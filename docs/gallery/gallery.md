@@ -4,11 +4,16 @@ title: Gallery
 permalink: /gallery/
 ---
 
-Explore visual examples of the Temporal Interference Toolbox capabilities, from preprocessing to simulation and analysis.
+# Temporal Interference Toolbox Gallery
 
-## Gallery Sections
+**Coming Soon**
 
+The TI-Toolbox gallery is currently being updated with comprehensive visual examples and documentation. 
 
----
+Please check back soon for:
+- Visual examples of all toolbox modules
+- Step-by-step workflow demonstrations
+- Result visualizations and analysis examples
+- Interactive guides and tutorials
 
-*Each section contains detailed visual examples with descriptions of the TI-Toolbox capabilities.* 
+In the meantime, explore the individual gallery sections available in the navigation. 

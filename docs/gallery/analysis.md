@@ -6,22 +6,47 @@ permalink: /gallery/analysis/
 
 <link rel="stylesheet" href="{{ '/assets/css/lightbox.css' | relative_url }}">
 
+Comprehensive analysis and visualization of TI simulation results, field distributions, and statistical metrics.
+
 <div class="gallery-section">
-  <h3>Simulation Analysis & Results</h3>
+  <h3>Field Analysis & Visualization</h3>
+  <div class="gallery-grid">
+    <div class="gallery-item">
+      <img src="{{ site.baseurl }}/gallery/assets/analyzer/TI_max.png" alt="Maximum TI Field" onclick="openLightbox(this)" />
+      <p>TI field distribution showing intensity map in the cortical ROI.</p>
+    </div>
+    <div class="gallery-item">
+      <img src="{{ site.baseurl }}/gallery/assets/analyzer/TI_normal.png" alt="Normalized TI Field" onclick="openLightbox(this)" />
+      <p>Normal component of the TI field distribution showing intensity map in the cortical ROI</p>
+    </div>
+    <div class="gallery-item">
+      <img src="{{ site.baseurl }}/gallery/assets/analyzer/TI_max_all.png" alt="All TI Field Components" onclick="openLightbox(this)" />
+      <p>TI field distribution showing intensity map across the entire brain.</p>
+    </div>
+  </div>
+</div>
+
+<div class="gallery-section">
+  <h3>Statistical Analysis & Metrics</h3>
   <div class="gallery-grid">
     <div class="gallery-item">
       <img src="{{ site.baseurl }}/gallery/assets/analyzer/analysis_plot.png" alt="Analysis Plots" onclick="openLightbox(this)" />
-      <p>Comprehensive analysis plots showing field strength, distribution, and statistical results.</p>
+      <p>field strength distribution in the ROI.</p>
     </div>
     <div class="gallery-item">
-      <img src="{{ site.baseurl }}/gallery/assets/analyzer/analysis_visual.png" alt="Analysis Visualization" onclick="openLightbox(this)" />
-      <p>Comprehensive visualization of simulation results and field analysis.</p>
+      <img src="{{ site.baseurl }}/gallery/assets/analyzer/lh.insula_whole_head_roi_histogram.png" alt="ROI Histogram Analysis" onclick="openLightbox(this)" />
+      <p>Histrogram showing focality, intensity cutoffs, and relationship to ROI</p>
     </div>
     <div class="gallery-item">
-      <img src="{{ site.baseurl }}/gallery/assets/ex-search/ex-search_analysis_values.png" alt="Ex-Search Values" onclick="openLightbox(this)" />
-      <p>Quantitative analysis values and metrics from exhaustive search optimization.</p>
+      <img src="{{ site.baseurl }}/gallery/assets/ex-search/ex-search_analysis_values.png" alt="Ex-Search Quantitative Values" onclick="openLightbox(this)" />
+      <p>Quantitative values corresponding to histrogram plot.</p>
     </div>
   </div>
+</div>
+
+<div class="gallery-section">
+  <h3>Comparative Analysis</h3>
+  <div class="gallery-grid">
 </div>
 
 <!-- Lightbox Modal -->
@@ -41,9 +66,19 @@ permalink: /gallery/analysis/
 
 <style>
 .gallery-section {
-  margin: 2rem 0;
-  padding: 1rem;
+  margin: 3rem 0;
+  padding: 1.5rem;
   background-color: #f8f9fa;
+  border-radius: 8px;
+}
+
+.gallery-section h3 {
+  color: #2c3e50;
+  margin-bottom: 1.5rem;
+  font-size: 1.4rem;
+  font-weight: 600;
+  border-bottom: 2px solid #3498db;
+  padding-bottom: 0.5rem;
 }
 
 .gallery-grid {
@@ -82,6 +117,7 @@ permalink: /gallery/analysis/
   margin-top: 0 !important;
   display: block !important;
   box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
+  cursor: pointer !important;
   loading: lazy;
 }
 
@@ -90,6 +126,7 @@ permalink: /gallery/analysis/
   font-size: 0.9rem;
   color: #666;
   line-height: 1.4;
+  text-align: left;
 }
 
 @media (max-width: 768px) {
@@ -100,7 +137,7 @@ permalink: /gallery/analysis/
   
   .gallery-section {
     margin: 1rem 0;
-    padding: 0.5rem;
+    padding: 1rem;
   }
   
   .wiki-content .gallery-item img,
@@ -116,4 +153,5 @@ permalink: /gallery/analysis/
     max-height: 250px !important;
   }
 }
+</style> 
 </style> 

@@ -834,7 +834,7 @@ class MeshVisualizer(Visualizer):
         
         return output_filename
 
-    def visualize_spherical_roi(self, gm_surf, roi_mask, center_coords, radius, field_values, max_value, output_dir=None):
+    def visualize_spherical_roi(self, gm_surf, roi_mask, center_coords, radius, field_values, max_value, output_dir=None, surface_mesh_path=None):
         """Create visualization files for a spherical ROI in mesh data.
         
         Args:
@@ -845,18 +845,75 @@ class MeshVisualizer(Visualizer):
             field_values: Field values for all nodes
             max_value: Maximum value for color scale
             output_dir: Optional output directory (if None, uses self.output_dir)
+            surface_mesh_path: Optional path to surface mesh for TI_normal field extraction
             
         Returns:
             str: Path to the created visualization file
         """
         self.logger.info(f"Creating spherical ROI visualization at center {center_coords} with radius {radius}mm")
         self.logger.info(f"ROI contains {np.sum(roi_mask)} surface nodes, max value: {max_value:.6f}")
-        # Create a new field with field values only in ROI (zeros elsewhere)
+        
+        # Create a new field with TI_max field values only in ROI (zeros elsewhere)
         masked_field = np.zeros(gm_surf.nodes.nr)
         masked_field[roi_mask] = field_values[roi_mask]
         
-        # Add this as a new field to the original mesh
+        # Add TI_max field to the mesh
         gm_surf.add_node_field(masked_field, 'Spherical_ROI_field')
+        
+        # Try to add TI_normal field if normal mesh is available
+        normal_max_value = max_value  # Default fallback
+        try:
+            # Construct normal mesh path if surface mesh path is provided
+            normal_mesh_path = None
+            if surface_mesh_path:
+                # Try to construct normal mesh path from surface mesh path
+                # Surface mesh: /path/to/montage_TI_central.msh -> Normal mesh: /path/to/montage_normal.msh
+                mesh_dir = os.path.dirname(surface_mesh_path)
+                surface_filename = os.path.basename(surface_mesh_path)
+                
+                if '_TI_central.msh' in surface_filename:
+                    normal_mesh_filename = surface_filename.replace('_TI_central.msh', '_normal.msh')
+                elif '_TI.msh' in surface_filename:
+                    # Fallback: if it's the original mesh path, still try to construct normal path
+                    normal_mesh_filename = surface_filename.replace('_TI.msh', '_normal.msh')
+                else:
+                    # General fallback: try to replace .msh with _normal.msh
+                    base_name = os.path.splitext(surface_filename)[0]
+                    normal_mesh_filename = f"{base_name}_normal.msh"
+                
+                normal_mesh_path = os.path.join(mesh_dir, normal_mesh_filename)
+            
+            # Load normal mesh and extract TI_normal values
+            if normal_mesh_path and os.path.exists(normal_mesh_path):
+                self.logger.info(f"Adding TI_normal field from: {normal_mesh_path}")
+                normal_mesh = simnibs.read_msh(normal_mesh_path)
+                
+                if 'TI_normal' in normal_mesh.field:
+                    normal_field_values = normal_mesh.field['TI_normal'].value
+                    
+                    # Create masked normal field (zeros everywhere except ROI)
+                    masked_normal_field = np.zeros(gm_surf.nodes.nr)
+                    masked_normal_field[roi_mask] = normal_field_values[roi_mask]
+                    
+                    # Add TI_normal field to the mesh
+                    gm_surf.add_node_field(masked_normal_field, 'TI_normal_ROI')
+                    
+                    # Calculate max value for normal field for color scaling
+                    normal_roi_values = normal_field_values[roi_mask]
+                    if len(normal_roi_values[normal_roi_values > 0]) > 0:
+                        normal_max_value = np.max(normal_roi_values[normal_roi_values > 0])
+                        self.logger.info(f"TI_normal max value in ROI: {normal_max_value:.6f}")
+                    
+                    # Clean up
+                    del normal_mesh
+                    
+                else:
+                    self.logger.warning("TI_normal field not found in normal mesh")
+            else:
+                self.logger.warning(f"Normal mesh not found at: {normal_mesh_path}")
+                
+        except Exception as e:
+            self.logger.warning(f"Could not add TI_normal field to visualization: {str(e)}")
         
         # Use provided output_dir or default to self.output_dir
         if output_dir is None:
@@ -869,8 +926,7 @@ class MeshVisualizer(Visualizer):
         # Save the modified mesh
         gm_surf.write(output_filename)
         
-        # Create the .msh.opt file with custom color map and alpha settings
-        # Use different colormap from cortical (colormap #2) to distinguish spherical ROIs
+        # Create the .msh.opt file with custom color map and alpha settings for both fields
         with open(f"{output_filename}.opt", 'w') as f:
             f.write(f"""
     // Hide 2D mesh element faces for cleaner field visualization
@@ -884,16 +940,30 @@ class MeshVisualizer(Visualizer):
     View[1].ColormapNumber = 2;  // Use the second predefined colormap (different from cortical)
     View[1].RangeType = 2;       // Custom range
     View[1].CustomMin = 0;       // Specific minimum value
-    View[1].CustomMax = {max_value};  // Specific maximum value for this sphere
+    View[1].CustomMax = {max_value};  // Specific maximum value for TI_max
     View[1].ShowScale = 1;       // Show the color scale
 
     // Add alpha/transparency based on value (slightly different for spherical ROIs)
     View[1].ColormapAlpha = 1;
     View[1].ColormapAlphaPower = 0.1;
+
+    // Make View[2] (TI_normal_ROI) visible with different colormap (if available)
+    View[2].Visible = 0;         // Initially hidden - user can toggle
+    View[2].ColormapNumber = 3;  // Use the third predefined colormap
+    View[2].RangeType = 2;       // Custom range
+    View[2].CustomMin = 0;       // Specific minimum value
+    View[2].CustomMax = {normal_max_value};  // Specific maximum value for TI_normal
+    View[2].ShowScale = 1;       // Show the color scale
+
+    // Add alpha/transparency based on value
+    View[2].ColormapAlpha = 1;
+    View[2].ColormapAlphaPower = 0.1;
     
     // Sphere information as comments
     // Sphere center: ({center_coords[0]:.2f}, {center_coords[1]:.2f}, {center_coords[2]:.2f})
     // Sphere radius: {radius:.2f} mm
+    // View[1]: TI_max field (max value: {max_value:.6f})
+    // View[2]: TI_normal field (max value: {normal_max_value:.6f})
     """)
         
         self.logger.info(f"Created spherical ROI visualization: {output_filename}")

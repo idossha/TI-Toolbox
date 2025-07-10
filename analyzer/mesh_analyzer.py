@@ -731,7 +731,8 @@ class MeshAnalyzer:
                     radius=radius,
                     field_values=field_values,
                     max_value=max_value,
-                    output_dir=self.output_dir
+                    output_dir=self.output_dir,
+                    surface_mesh_path=surface_mesh_path
                 )
                 results['visualization_file'] = viz_file
             
@@ -830,7 +831,7 @@ class MeshAnalyzer:
             # Calculate statistics on positive values only
             min_value = np.min(field_values_positive)
             max_value = np.max(field_values_positive)
-            
+
             # Calculate mean value using node areas for proper averaging (only positive values)
             node_areas = gm_surf.nodes_areas()
             positive_node_areas = node_areas[roi_mask][positive_mask]

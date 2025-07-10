@@ -141,8 +141,12 @@ if flex_montages_file and os.path.exists(flex_montages_file):
     with open(flex_montages_file, 'r') as f:
         flex_montages = json.load(f)
     logger.info(f"Loaded {len(flex_montages)} flex montages")
-    # Clean up the temporary file
-    os.unlink(flex_montages_file)
+    # Clean up the temporary file safely
+    try:
+        os.unlink(flex_montages_file)
+        logger.info(f"Cleaned up temporary flex montages file: {flex_montages_file}")
+    except Exception as e:
+        logger.warning(f"Could not clean up temporary file {flex_montages_file}: {e}")
 else:
     logger.info("No flex montages file provided")
 
