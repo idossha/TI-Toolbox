@@ -731,7 +731,8 @@ class MeshAnalyzer:
                     radius=radius,
                     field_values=field_values,
                     max_value=max_value,
-                    output_dir=self.output_dir
+                    output_dir=self.output_dir,
+                    surface_mesh_path=surface_mesh_path
                 )
                 results['visualization_file'] = viz_file
             
