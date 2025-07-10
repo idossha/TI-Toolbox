@@ -153,7 +153,7 @@
 .wiki-content p:has(img) + p:has(img) img {
   margin: 0 !important;
   flex: 0 1 auto;
-  max-width: 45% !important;
+  max-width: calc(50% - 25px) !important;
   height: auto !important;
   object-fit: contain;
   vertical-align: top;
@@ -165,7 +165,7 @@
     display: inline-block;
     vertical-align: top;
     margin: 0 20px 20px 20px !important;
-    max-width: 42% !important;
+    max-width: calc(50% - 25px) !important;
   }
 }
 
@@ -182,7 +182,7 @@
 
 .image-row .image-container {
   flex: 0 1 auto;
-  max-width: 45%;
+  max-width: calc(50% - 25px);
   display: flex;
   flex-direction: column;
   align-items: center;
