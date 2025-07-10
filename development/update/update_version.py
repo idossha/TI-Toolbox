@@ -94,7 +94,7 @@ def add_release_to_changelog(version, release_notes=""):
     
     release_date = datetime.now().strftime("%B %d, %Y")
     
-    new_release_entry = f"""### v{version} (Latest Release)
+    new_release_section = f"""### v{version} (Latest Release)
 
 **Release Date**: {release_date}
 
@@ -105,29 +105,87 @@ def add_release_to_changelog(version, release_notes=""):
 - [macOS Universal](https://github.com/idossha/TI-Toolbox/releases/download/v{version}/TemporalInterferenceToolbox-macOS-universal.zip)
 - [Linux AppImage](https://github.com/idossha/TI-Toolbox/releases/download/v{version}/TemporalInterferenceToolbox-Linux-x86_64.AppImage)
 
-For installation instructions, see the [Installation Guide]({{ site.baseurl }}/installation/).
-
-"""
+For installation instructions, see the [Installation Guide]({{ site.baseurl }}/installation/)."""
     
     try:
         with open(releases_file, 'r', encoding='utf-8') as f:
             content = f.read()
         
-        # Find the marker and insert the new release
-        marker = "<!-- DO NOT MODIFY: Auto-generated release content will be appended here -->"
-        if marker in content:
-            parts = content.split(marker, 1)
-            new_content = f"{parts[0]}{marker}\n\n{new_release_entry}{parts[1]}"
+        # Replace the current latest release section
+        # Look for the pattern that starts with "### v" and ends before "---" or "##"
+        pattern = r'### v\d+\.\d+\.\d+ \(Latest Release\).*?(?=---|\n##|\Z)'
+        
+        if re.search(pattern, content, re.DOTALL):
+            new_content = re.sub(pattern, new_release_section, content, flags=re.DOTALL)
             
             with open(releases_file, 'w', encoding='utf-8') as f:
                 f.write(new_content)
             
-            print(f"✅ Added release entry to {releases_file}")
+            print(f"✅ Updated latest release in {releases_file}")
         else:
-            print(f"⚠️  Could not find insertion marker in {releases_file}")
+            print(f"⚠️  Could not find existing release pattern in {releases_file}")
+            # Fallback: try to insert after the header
+            lines = content.split('\n')
+            insert_index = -1
+            for i, line in enumerate(lines):
+                if line.strip() == '---' and i > 5:  # Find the first --- after the front matter
+                    insert_index = i + 1
+                    break
+            
+            if insert_index > 0:
+                lines.insert(insert_index, "")
+                lines.insert(insert_index + 1, new_release_section)
+                lines.insert(insert_index + 2, "")
+                lines.insert(insert_index + 3, "---")
+                lines.insert(insert_index + 4, "")
+                
+                new_content = '\n'.join(lines)
+                with open(releases_file, 'w', encoding='utf-8') as f:
+                    f.write(new_content)
+                print(f"✅ Inserted new release section in {releases_file}")
+            else:
+                print(f"❌ Could not determine where to insert release content")
     
     except Exception as e:
         print(f"❌ Error updating releases file: {e}")
+    
+    # Also create individual version file
+    create_individual_version_file(version, release_notes, release_date)
+
+def create_individual_version_file(version, release_notes, release_date):
+    """Create an individual version file for the release"""
+    version_file = f"docs/releases/v{version}.md"
+    
+    version_content = f"""---
+layout: default
+title: "Release v{version}"
+---
+
+# Release v{version}
+
+**Release Date**: {release_date}
+
+{release_notes}
+
+## Download Links
+
+- [Windows Installer](https://github.com/idossha/TI-Toolbox/releases/download/v{version}/TI-Toolbox-Windows.exe)
+- [macOS Universal](https://github.com/idossha/TI-Toolbox/releases/download/v{version}/TemporalInterferenceToolbox-macOS-universal.zip)
+- [Linux AppImage](https://github.com/idossha/TI-Toolbox/releases/download/v{version}/TemporalInterferenceToolbox-Linux-x86_64.AppImage)
+
+For installation instructions, see the [Installation Guide]({{ site.baseurl }}/installation/).
+
+## Previous Releases
+
+[View all releases]({{ site.baseurl }}/releases/)
+"""
+    
+    try:
+        with open(version_file, 'w', encoding='utf-8') as f:
+            f.write(version_content)
+        print(f"✅ Created individual version file: {version_file}")
+    except Exception as e:
+        print(f"❌ Error creating version file {version_file}: {e}")
 
 def get_release_info():
     """Interactive prompt to collect release information"""
