@@ -6,8 +6,6 @@ permalink: /gallery/analysis/
 
 <link rel="stylesheet" href="{{ '/assets/css/lightbox.css' | relative_url }}">
 
-# Analysis Gallery
-
 Comprehensive analysis and visualization of TI simulation results, field distributions, and statistical metrics.
 
 <div class="gallery-section">
@@ -15,15 +13,15 @@ Comprehensive analysis and visualization of TI simulation results, field distrib
   <div class="gallery-grid">
     <div class="gallery-item">
       <img src="{{ site.baseurl }}/gallery/assets/analyzer/TI_max.png" alt="Maximum TI Field" onclick="openLightbox(this)" />
-      <p>Maximum TI field distribution showing peak intensity areas and spatial localization patterns across the brain volume.</p>
-    </div>
-    <div class="gallery-item">
-      <img src="{{ site.baseurl }}/gallery/assets/analyzer/TI_max_all.png" alt="All TI Field Components" onclick="openLightbox(this)" />
-      <p>Comprehensive view of all TI field components including individual frequency contributions and their interactions.</p>
+      <p>TI field distribution showing intensity map in the cortical ROI.</p>
     </div>
     <div class="gallery-item">
       <img src="{{ site.baseurl }}/gallery/assets/analyzer/TI_normal.png" alt="Normalized TI Field" onclick="openLightbox(this)" />
-      <p>Normalized TI field distribution highlighting relative field strength variations and spatial gradients.</p>
+      <p>Normal component of the TI field distribution showing intensity map in the cortical ROI</p>
+    </div>
+    <div class="gallery-item">
+      <img src="{{ site.baseurl }}/gallery/assets/analyzer/TI_max_all.png" alt="All TI Field Components" onclick="openLightbox(this)" />
+      <p>TI field distribution showing intensity map across the entire brain.</p>
     </div>
   </div>
 </div>
@@ -33,15 +31,15 @@ Comprehensive analysis and visualization of TI simulation results, field distrib
   <div class="gallery-grid">
     <div class="gallery-item">
       <img src="{{ site.baseurl }}/gallery/assets/analyzer/analysis_plot.png" alt="Analysis Plots" onclick="openLightbox(this)" />
-      <p>Comprehensive analysis plots showing field strength distributions, statistical summaries, and quantitative metrics.</p>
+      <p>field strength distribution in the ROI.</p>
     </div>
     <div class="gallery-item">
       <img src="{{ site.baseurl }}/gallery/assets/analyzer/lh.insula_whole_head_roi_histogram.png" alt="ROI Histogram Analysis" onclick="openLightbox(this)" />
-      <p>Region-of-interest histogram analysis for left hemisphere insula showing field distribution within target areas.</p>
+      <p>Histrogram showing focality, intensity cutoffs, and relationship to ROI</p>
     </div>
     <div class="gallery-item">
       <img src="{{ site.baseurl }}/gallery/assets/ex-search/ex-search_analysis_values.png" alt="Ex-Search Quantitative Values" onclick="openLightbox(this)" />
-      <p>Quantitative analysis values and optimization metrics from exhaustive search procedures.</p>
+      <p>Quantitative values corresponding to histrogram plot.</p>
     </div>
   </div>
 </div>
@@ -49,15 +47,6 @@ Comprehensive analysis and visualization of TI simulation results, field distrib
 <div class="gallery-section">
   <h3>Comparative Analysis</h3>
   <div class="gallery-grid">
-    <div class="gallery-item">
-      <img src="{{ site.baseurl }}/gallery/assets/ex-search/ex-search_analysis_plot.png" alt="Ex-Search Analysis" onclick="openLightbox(this)" />
-      <p>Comparative analysis plots from exhaustive search optimization showing multiple montage configurations and their effectiveness.</p>
-    </div>
-    <div class="gallery-item">
-      <img src="{{ site.baseurl }}/gallery/assets/ex-search/ex-search_combos.png" alt="Montage Combinations" onclick="openLightbox(this)" />
-      <p>Visual comparison of different electrode montage combinations and their resulting field patterns.</p>
-    </div>
-  </div>
 </div>
 
 <!-- Lightbox Modal -->

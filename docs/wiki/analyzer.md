@@ -6,7 +6,7 @@ permalink: /wiki/analyzer/
 
 # Analyzer Module
 
-The Analyzer module provides comprehensive analysis capabilities for TI (Temporal Interference) simulation results, supporting both mesh-based and voxel-based data analysis. It enables statistical analysis, visualization, and region-of-interest (ROI) studies for understanding field distributions and their effects.
+The Analyzer module provides comprehensive analysis capabilities for TI simulation results, supporting both mesh-based and voxel-based data analysis. It provides descriptive statistics and  visualization for understanding field distributions in the brain as a whole and specific region of interests.
 
 ## Overview
 
@@ -20,8 +20,6 @@ The Analyzer module consists of three main components:
 *Maximum TI field distribution showing peak intensity areas and spatial localization patterns*
 
 ## Key Features
-
-### 🎯 Analysis Types
 
 **Spherical ROI Analysis**
 - Analyze field data within spherical regions of interest
@@ -39,7 +37,7 @@ The Analyzer module consists of three main components:
 - Batch processing of all atlas regions
 - Comparative analysis and ranking
 
-### 📊 Output Metrics
+### Output Metrics
 
 For each analysis, the module provides comprehensive dual-field metrics:
 
