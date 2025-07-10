@@ -8,7 +8,32 @@ Complete changelog for all versions of the Temporal Interference Toolbox.
 
 ---
 
-### v2.0.4 (Latest Release)
+### v2.0.5 (Latest Release)
+
+**Release Date**: January 27, 2025
+
+#### Additions
+- **Group Analysis Features**: Complete group analysis system with CLI, GUI interface, comparison capabilities, and logging
+- **Focality Measurement**: New focality analysis tools with histogram generation for cortical analysis
+- **Normal Component Analysis**: Added normal field simulation, visualization, and analysis capabilities
+- **Enhanced Workflow**: Multiple subject selection, new naming conventions, and flex mode simulator with AMV montage support
+- **Analyzer Improvements**: Scripts, sensible defaults, and subject analysis output integration
+- **Registration Recognition**: New registration detection functionality
+
+#### Fixes
+- **GUI Stability**: Multiple bug fixes for group analysis GUI, element resizing, console widget consistency, and special character handling
+- **Analysis Accuracy**: Improved histogram generation, volume calculations, ROI comparison plots using real metric values, and enhanced region analysis robustness
+- **Code Quality**: Removed legacy directory creation logic, updated analyzer tab for better batch analysis approach, and various GUI refinements
+- **Visualization**: Fixed mesh visualization and updated mesh visualizer functionality
+
+#### Download Links
+- [Windows Installer](https://github.com/idossha/TI-Toolbox/releases/download/v2.0.5/TI-Toolbox-Windows.exe)
+- [macOS Universal](https://github.com/idossha/TI-Toolbox/releases/download/v2.0.5/TemporalInterferenceToolbox-macOS-universal.zip)
+- [Linux AppImage](https://github.com/idossha/TI-Toolbox/releases/download/v2.0.5/TemporalInterferenceToolbox-Linux-x86_64.AppImage)
+
+---
+
+### v2.0.4
 
 **Release Date**: June 26, 2025
 
