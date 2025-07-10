@@ -50,6 +50,7 @@ def update_version(new_version):
             (r'__version__ = "[^"]*"', f'__version__ = "{new_version}"'),
             (r'"version": "[^"]*"', f'"version": "{new_version}"'),
             (r'"release_date": "[^"]*"', f'"release_date": "{release_date}"'),
+            (r'"tag": "idossha/simnibs:[^"]*"', f'"tag": "idossha/simnibs:{new_version}"'),
         ],
         
         "launcher/executable/src/ti_csc_launcher.py": [
@@ -80,19 +81,43 @@ def update_version(new_version):
     
     print("\n" + "=" * 50)
     print(f"🎉 Version update complete!")
-    print(f"📝 Updated {len(updated_files)} files:")
+    print(f"📝 Updated {len(updated_files)} core files:")
     for file_path in updated_files:
         print(f"   • {file_path}")
+    
+    print(f"\n📋 Additional automated updates:")
+    print(f"   • Updated main releases page (docs/releases/releases.md)")
+    print(f"   • Updated changelog (docs/releases/changelog.md)")
+    print(f"   • Created individual release page (docs/releases/v{new_version}.md)")
+    print(f"   • Updated releases sidebar navigation (docs/_layouts/releases.html)")
+    print(f"   • Updated previous release titles")
 
 def add_release_to_changelog(version, release_notes=""):
-    """Add a new release entry to the releases page"""
+    """Add a new release entry to both releases page and changelog"""
+    release_date = datetime.now().strftime("%B %d, %Y")
+    
+    # Update main releases page
+    update_releases_page(version, release_notes, release_date)
+    
+    # Update changelog
+    update_changelog_file(version, release_notes, release_date)
+    
+    # Create individual version file
+    create_individual_version_file(version, release_notes, release_date)
+    
+    # Update navigation
+    update_navigation(version)
+    
+    # Update previous release titles
+    update_previous_release_titles(version)
+
+def update_releases_page(version, release_notes, release_date):
+    """Update the main releases page"""
     releases_file = "docs/releases/releases.md"
     
     if not os.path.exists(releases_file):
         print(f"⚠️  Warning: {releases_file} not found")
         return
-    
-    release_date = datetime.now().strftime("%B %d, %Y")
     
     new_release_section = f"""### v{version} (Latest Release)
 
@@ -112,7 +137,6 @@ For installation instructions, see the [Installation Guide]({{ site.baseurl }}/i
             content = f.read()
         
         # Replace the current latest release section
-        # Look for the pattern that starts with "### v" and ends before "---" or "##"
         pattern = r'### v\d+\.\d+\.\d+ \(Latest Release\).*?(?=---|\n##|\Z)'
         
         if re.search(pattern, content, re.DOTALL):
@@ -124,41 +148,74 @@ For installation instructions, see the [Installation Guide]({{ site.baseurl }}/i
             print(f"✅ Updated latest release in {releases_file}")
         else:
             print(f"⚠️  Could not find existing release pattern in {releases_file}")
-            # Fallback: try to insert after the header
-            lines = content.split('\n')
-            insert_index = -1
-            for i, line in enumerate(lines):
-                if line.strip() == '---' and i > 5:  # Find the first --- after the front matter
-                    insert_index = i + 1
-                    break
-            
-            if insert_index > 0:
-                lines.insert(insert_index, "")
-                lines.insert(insert_index + 1, new_release_section)
-                lines.insert(insert_index + 2, "")
-                lines.insert(insert_index + 3, "---")
-                lines.insert(insert_index + 4, "")
-                
-                new_content = '\n'.join(lines)
-                with open(releases_file, 'w', encoding='utf-8') as f:
-                    f.write(new_content)
-                print(f"✅ Inserted new release section in {releases_file}")
-            else:
-                print(f"❌ Could not determine where to insert release content")
     
     except Exception as e:
         print(f"❌ Error updating releases file: {e}")
+
+def update_changelog_file(version, release_notes, release_date):
+    """Update the changelog file"""
+    changelog_file = "docs/releases/changelog.md"
     
-    # Also create individual version file
-    create_individual_version_file(version, release_notes, release_date)
+    if not os.path.exists(changelog_file):
+        print(f"⚠️  Warning: {changelog_file} not found")
+        return
+    
+    new_changelog_section = f"""### v{version} (Latest Release)
+
+**Release Date**: {release_date}
+
+{release_notes}
+
+#### Download Links
+- [Windows Installer](https://github.com/idossha/TI-Toolbox/releases/download/v{version}/TI-Toolbox-Windows.exe)
+- [macOS Universal](https://github.com/idossha/TI-Toolbox/releases/download/v{version}/TemporalInterferenceToolbox-macOS-universal.zip)
+- [Linux AppImage](https://github.com/idossha/TI-Toolbox/releases/download/v{version}/TemporalInterferenceToolbox-Linux-x86_64.AppImage)
+
+---
+
+### v"""
+    
+    try:
+        with open(changelog_file, 'r', encoding='utf-8') as f:
+            content = f.read()
+        
+        # Replace the current latest release and update the next version
+        # First remove "(Latest Release)" from the current latest
+        content = re.sub(r'### v(\d+\.\d+\.\d+) \(Latest Release\)', r'### v\1', content)
+        
+        # Then add new release at the top after the first "---"
+        lines = content.split('\n')
+        insert_index = -1
+        for i, line in enumerate(lines):
+            if line.strip() == '---' and i > 5:  # Find the first --- after the front matter
+                insert_index = i + 1
+                break
+        
+        if insert_index > 0:
+            lines.insert(insert_index, "")
+            lines.insert(insert_index + 1, new_changelog_section)
+            
+            new_content = '\n'.join(lines)
+            with open(changelog_file, 'w', encoding='utf-8') as f:
+                f.write(new_content)
+            print(f"✅ Updated changelog in {changelog_file}")
+        else:
+            print(f"❌ Could not find insertion point in changelog")
+    
+    except Exception as e:
+        print(f"❌ Error updating changelog: {e}")
 
 def create_individual_version_file(version, release_notes, release_date):
     """Create an individual version file for the release"""
     version_file = f"docs/releases/v{version}.md"
     
     version_content = f"""---
-layout: default
-title: "Release v{version}"
+layout: releases
+title: ""
+nav_title: "Release v{version}"
+permalink: /releases/v{version}/
+nav_exclude: true
+sitemap: false
 ---
 
 # Release v{version}
@@ -167,17 +224,23 @@ title: "Release v{version}"
 
 {release_notes}
 
-## Download Links
-
+#### Download Links
 - [Windows Installer](https://github.com/idossha/TI-Toolbox/releases/download/v{version}/TI-Toolbox-Windows.exe)
 - [macOS Universal](https://github.com/idossha/TI-Toolbox/releases/download/v{version}/TemporalInterferenceToolbox-macOS-universal.zip)
 - [Linux AppImage](https://github.com/idossha/TI-Toolbox/releases/download/v{version}/TemporalInterferenceToolbox-Linux-x86_64.AppImage)
 
 For installation instructions, see the [Installation Guide]({{ site.baseurl }}/installation/).
 
-## Previous Releases
+---
 
-[View all releases]({{ site.baseurl }}/releases/)
+## Getting Help
+
+If you encounter issues with this release:
+
+1. Check the [Installation Guide]({{ site.baseurl }}/installation/) for setup instructions
+2. Review the [Troubleshooting]({{ site.baseurl }}/installation/#troubleshooting) section
+3. Search [existing issues](https://github.com/idossha/TI-Toolbox/issues)
+4. Ask in [GitHub Discussions](https://github.com/idossha/TI-Toolbox/discussions)
 """
     
     try:
@@ -186,6 +249,86 @@ For installation instructions, see the [Installation Guide]({{ site.baseurl }}/i
         print(f"✅ Created individual version file: {version_file}")
     except Exception as e:
         print(f"❌ Error creating version file {version_file}: {e}")
+
+def update_navigation(version):
+    """Update the releases sidebar navigation in the releases layout"""
+    layout_file = "docs/_layouts/releases.html"
+    
+    if not os.path.exists(layout_file):
+        print(f"⚠️  Warning: {layout_file} not found")
+        return
+    
+    try:
+        with open(layout_file, 'r', encoding='utf-8') as f:
+            content = f.read()
+        
+        # Update the "Latest (vX.X.X)" link
+        current_latest_pattern = r'Latest \(v[\d\.]+\)'
+        new_latest = f'Latest (v{version})'
+        content = re.sub(current_latest_pattern, new_latest, content)
+        
+        # Add new version to the version history section
+        # Find the line with the first version link and add the new version before it
+        version_link = f'        <li><a href="{{{{ site.baseurl }}}}/releases/v{version}/" {{% if page.url == \'/releases/v{version}/\' or page.url == \'/TI-Toolbox/releases/v{version}/\' %}}class="active"{{% endif %}}>v{version}</a></li>'
+        
+        # Check if version is already in the sidebar
+        if f'/releases/v{version}/' in content:
+            print(f"ℹ️  Version v{version} already in releases sidebar")
+            return
+        
+        # Find the first version link in the history and insert new version before it
+        lines = content.split('\n')
+        for i, line in enumerate(lines):
+            if '<h4>Version History</h4>' in line:
+                # Insert the new version link after the "Version History" header
+                lines.insert(i + 1, version_link)
+                break
+        
+        new_content = '\n'.join(lines)
+        with open(layout_file, 'w', encoding='utf-8') as f:
+            f.write(new_content)
+        
+        print(f"✅ Updated releases sidebar navigation in {layout_file}")
+    
+    except Exception as e:
+        print(f"❌ Error updating releases sidebar: {e}")
+
+def update_previous_release_titles(version):
+    """Remove 'Latest Release' from previous version files and ensure nav_exclude"""
+    releases_dir = "docs/releases"
+    
+    if not os.path.exists(releases_dir):
+        return
+    
+    # Get all version files except the current one
+    version_files = [f for f in os.listdir(releases_dir) if f.startswith('v') and f.endswith('.md') and f != f"v{version}.md"]
+    
+    for version_file in version_files:
+        file_path = os.path.join(releases_dir, version_file)
+        try:
+            with open(file_path, 'r', encoding='utf-8') as f:
+                content = f.read()
+            
+            updated_content = content
+            
+            # Remove "(Latest Release)" from title and update format to hide from navigation
+            updated_content = re.sub(r'title: v(\d+\.\d+\.\d+) \(Latest Release\)', r'title: ""\nnav_title: "Release v\1"', updated_content)
+            
+            # Also handle existing Release titles
+            updated_content = re.sub(r'title: Release v(\d+\.\d+\.\d+)', r'title: ""\nnav_title: "Release v\1"', updated_content)
+            
+            # Ensure nav_exclude is present
+            if 'nav_exclude: true' not in updated_content:
+                # Add nav_exclude after permalink
+                updated_content = re.sub(r'(permalink: /releases/v\d+\.\d+\.\d+/)\n', r'\1\nnav_exclude: true\n', updated_content)
+            
+            if updated_content != content:
+                with open(file_path, 'w', encoding='utf-8') as f:
+                    f.write(updated_content)
+                print(f"✅ Updated {version_file}")
+        
+        except Exception as e:
+            print(f"⚠️  Could not update {version_file}: {e}")
 
 def get_release_info():
     """Interactive prompt to collect release information"""
@@ -261,11 +404,17 @@ def main():
     add_release_to_changelog(new_version, release_notes)
     
     print("\n💡 Next steps:")
-    print(f"   1. Review the changes: git diff")
+    print(f"   1. Review all changes: git diff")
     print(f"   2. Commit the changes: git add . && git commit -m 'Release v{new_version}'")
     print(f"   3. Create a release tag: git tag v{new_version}")
     print(f"   4. Push changes: git push && git push --tags")
-    print(f"   5. Create a GitHub release at: https://github.com/idossha/TI-Toolbox/releases/new")
+    print(f"   5. Build and upload binaries to GitHub release")
+    print(f"   6. Create GitHub release at: https://github.com/idossha/TI-Toolbox/releases/new")
+    print(f"\n🚀 Release documentation automatically updated:")
+    print(f"   • Main releases page shows v{new_version} as latest")
+    print(f"   • Changelog includes full release history") 
+    print(f"   • Releases sidebar updated with v{new_version} in version history")
+    print(f"   • Individual release page created with proper links")
 
 if __name__ == "__main__":
     main() 
