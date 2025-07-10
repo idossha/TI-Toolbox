@@ -18,6 +18,7 @@ Use the navigation sidebar to explore different sections of the documentation. E
 - **[Pre-Processing](pre-processing)** - Data preparation and mesh generation workflows
 
 ### Analysis & Reporting
+- **[Analyzer](analyzer)** - Comprehensive field analysis for both mesh and voxel data
 - **[Reports](reports)** - Understanding HTML simulation reports and results
 - **[Logging](logging)** - Comprehensive logging system documentation
 - **[Atlas Resampling](atlas-resampling)** - Working with brain atlases and resampling

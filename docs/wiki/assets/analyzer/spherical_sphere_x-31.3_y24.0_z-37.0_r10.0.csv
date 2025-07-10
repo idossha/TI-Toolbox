@@ -1,0 +1,11 @@
+Metric,Value
+mean_value,0.577272543139917
+max_value,0.7982711479293491
+min_value,0.38333103543123126
+focality,2.461358021318228
+normal_mean_value,0.2788342877837438
+normal_max_value,0.6472740802202535
+normal_min_value,4.749416826041464e-05
+normal_focality,2.6908262979169675
+visualization_file,/mnt/BIDS_new/derivatives/SimNIBS/sub-101/Simulations/L_Insula/Analyses/Mesh/sphere_x-31.3_y24_z-37_r10/sphere_x-31.3_y24.0_z-37.0_r10.0.msh
+nodes_in_roi,1016
