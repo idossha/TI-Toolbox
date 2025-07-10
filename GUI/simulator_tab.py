@@ -1253,6 +1253,7 @@ class SimulatorTab(QtWidgets.QWidget):
                             continue
                         
                         # Create montage structure for mapped electrodes
+
                         if len(mapped_positions) >= 4 and len(mapped_labels) >= 4:  # Need at least 4 electrodes for TI
                             # Parse search_name to extract components for new naming format
                             montage_name = self._parse_flex_search_name(search_name, 'mapped')
@@ -1283,6 +1284,7 @@ class SimulatorTab(QtWidgets.QWidget):
                             # Parse search_name to extract components for new naming format
                             montage_name = self._parse_flex_search_name(search_name, 'optimized')
                             
+
                             # Validate montage name doesn't conflict with existing directories
                             if montage_name.startswith('flex_'):
                                 # TI requires 2 pairs of electrodes (using XYZ coordinates)
@@ -2362,7 +2364,6 @@ class SimulatorTab(QtWidgets.QWidget):
         try:
             # Clean the search name first
             search_name = search_name.strip()
-            
             # Handle new naming convention first
             
             # Handle spherical search names: sphere_x{X}y{Y}z{Z}r{radius}_{goal}_{postprocess}
@@ -2460,6 +2461,7 @@ class SimulatorTab(QtWidgets.QWidget):
         except Exception as e:
             self.update_output(f"Warning: Could not parse flex search name '{search_name}': {e}", 'warning')
             return f"flex_unknown_unknown_{search_name}_optimization_maxTI_{electrode_type}"
+
 
     def cleanup_old_simulation_directories(self, subject_id):
         """
