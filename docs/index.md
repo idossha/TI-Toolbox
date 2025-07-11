@@ -24,27 +24,52 @@ layout: home
    - Download the latest version (2.x.x or newer) from the <a href="{{ site.baseurl }}/releases/">Releases page</a>. See the <a href="{{ site.baseurl }}/installation/">Installation</a> for platform-specific instructions. Note: Versions 1.x.x are no longer supported.
 
 
-<div style="display: flex; justify-content: center; margin: 1rem 0;">
-  <svg width="650" height="110" viewBox="0 0 650 110" xmlns="http://www.w3.org/2000/svg">
+<div style="display: flex; justify-content: center; margin: 0.73rem 0 0.2rem 0;">
+  <svg width="720" height="180" viewBox="0 0 720 180" xmlns="http://www.w3.org/2000/svg">
     <!-- Pre-processing Box -->
-    <rect x="10" y="30" width="130" height="50" rx="12" fill="#f5f5f5" stroke="#0074D9" stroke-width="2"/>
-    <text x="75" y="60" text-anchor="middle" alignment-baseline="middle" font-size="16" fill="#0074D9">Pre-processing</text>
+    <rect x="10" y="30" width="130" height="50" rx="12" fill="#f8f8f8" stroke="#666" stroke-width="2"/>
+    <text x="75" y="60" text-anchor="middle" alignment-baseline="middle" font-size="16" fill="#333">Pre-processing</text>
     <!-- Arrow 1 -->
     <line x1="140" y1="55" x2="180" y2="55" stroke="#888" stroke-width="3" marker-end="url(#arrowhead)"/>
     <!-- Optimization Box -->
-    <rect x="180" y="30" width="130" height="50" rx="12" fill="#f5f5f5" stroke="#2ECC40" stroke-width="2"/>
-    <text x="245" y="60" text-anchor="middle" alignment-baseline="middle" font-size="16" fill="#2ECC40">Optimization</text>
+    <rect x="180" y="30" width="130" height="50" rx="12" fill="#f8f8f8" stroke="#666" stroke-width="2"/>
+    <text x="245" y="60" text-anchor="middle" alignment-baseline="middle" font-size="16" fill="#333">Optimization</text>
     <!-- Arrow 2 -->
     <line x1="310" y1="55" x2="350" y2="55" stroke="#888" stroke-width="3" marker-end="url(#arrowhead)"/>
     <!-- Simulation Box -->
-    <rect x="350" y="30" width="130" height="50" rx="12" fill="#f5f5f5" stroke="#FF851B" stroke-width="2"/>
-    <text x="415" y="60" text-anchor="middle" alignment-baseline="middle" font-size="16" fill="#FF851B">Simulation</text>
-    <!-- Arrow 3 -->
-    <line x1="480" y1="55" x2="520" y2="55" stroke="#888" stroke-width="3" marker-end="url(#arrowhead)"/>
-    <!-- Analysis & Visualization Box -->
-    <rect x="520" y="30" width="120" height="50" rx="12" fill="#f5f5f5" stroke="#B10DC9" stroke-width="2"/>
-    <text x="580" y="53" text-anchor="middle" font-size="15" fill="#B10DC9">Analysis &</text>
-    <text x="580" y="73" text-anchor="middle" font-size="15" fill="#B10DC9">Visualization</text>
+    <rect x="350" y="30" width="130" height="50" rx="12" fill="#f8f8f8" stroke="#666" stroke-width="2"/>
+    <text x="415" y="60" text-anchor="middle" alignment-baseline="middle" font-size="16" fill="#333">Simulation</text>
+    
+    <!-- Split arrows from simulation -->
+    <line x1="480" y1="45" x2="520" y2="35" stroke="#888" stroke-width="3" marker-end="url(#arrowhead)"/>
+    <line x1="480" y1="65" x2="520" y2="75" stroke="#888" stroke-width="3" marker-end="url(#arrowhead)"/>
+    
+    <!-- Mesh Analysis & Visualization Box (upper) -->
+    <rect x="520" y="10" width="180" height="50" rx="12" fill="#f8f8f8" stroke="#666" stroke-width="2"/>
+    <text x="610" y="30" text-anchor="middle" font-size="14" fill="#333">Mesh Analysis &</text>
+    <text x="610" y="46" text-anchor="middle" font-size="14" fill="#333">Visualization</text>
+    
+    <!-- Voxel Analysis & Visualization Box (lower) -->
+    <rect x="520" y="70" width="180" height="50" rx="12" fill="#f8f8f8" stroke="#666" stroke-width="2"/>
+    <text x="610" y="90" text-anchor="middle" font-size="14" fill="#333">Voxel Analysis &</text>
+    <text x="610" y="106" text-anchor="middle" font-size="14" fill="#333">Visualization</text>
+    
+    <!-- Highlight overlays (initially hidden) -->
+    <rect id="highlight-preproc" x="9" y="29" width="132" height="52" rx="13" fill="none" stroke="#dc3545" stroke-width="2" opacity="0"/>
+    <rect id="highlight-optimization" x="179" y="29" width="132" height="52" rx="13" fill="none" stroke="#dc3545" stroke-width="2" opacity="0"/>
+    <rect id="highlight-mesh" x="519" y="9" width="182" height="52" rx="13" fill="none" stroke="#dc3545" stroke-width="2" opacity="0"/>
+    <rect id="highlight-voxel" x="519" y="69" width="182" height="52" rx="13" fill="none" stroke="#dc3545" stroke-width="2" opacity="0"/>
+    
+    <!-- Connecting lines (initially hidden) -->
+    <g id="connection-lines" opacity="0">
+      <line id="line-preproc" x1="75" y1="82" x2="360" y2="160" stroke="#333" stroke-width="2" stroke-dasharray="3,3" opacity="0"/>
+      <line id="line-optimization" x1="245" y1="82" x2="360" y2="160" stroke="#333" stroke-width="2" stroke-dasharray="3,3" opacity="0"/>
+      <line id="line-mesh" x1="610" y1="62" x2="360" y2="160" stroke="#333" stroke-width="2" stroke-dasharray="3,3" opacity="0"/>
+      <line id="line-voxel" x1="610" y1="122" x2="360" y2="160" stroke="#333" stroke-width="2" stroke-dasharray="3,3" opacity="0"/>
+      <!-- Connection point -->
+      <circle cx="360" cy="160" r="4" fill="#333"/>
+    </g>
+    
     <!-- Arrowhead marker definition -->
     <defs>
       <marker id="arrowhead" markerWidth="6" markerHeight="4" refX="6" refY="2" orient="auto" markerUnits="strokeWidth">
@@ -55,14 +80,7 @@ layout: home
 </div>
 
 <!-- Workflow Carousel -->
-<div class="workflow-carousel" style="margin: 1rem 0; text-align: center;">
-  <!-- Carousel Title -->
-  <div class="carousel-title" style="margin-bottom: 1rem;">
-    <h3 class="slide-title active" style="display: block; color: #333; font-size: 1.5rem; font-weight: 600; margin: 0;">Pre-processing</h3>
-    <h3 class="slide-title" style="display: none; color: #333; font-size: 1.5rem; font-weight: 600; margin: 0;">Search & Optimization</h3>
-    <h3 class="slide-title" style="display: none; color: #333; font-size: 1.5rem; font-weight: 600; margin: 0;">Analysis</h3>
-    <h3 class="slide-title" style="display: none; color: #333; font-size: 1.5rem; font-weight: 600; margin: 0;">NIfTI Visualization</h3>
-  </div>
+<div class="workflow-carousel" style="margin: 0.2rem 0 0.73rem 0; text-align: center; position: relative;">
   
   <div class="carousel-container" style="position: relative; max-width: 600px; margin: 0 auto; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.1);">
     <div class="carousel-slide active" style="display: block;">
@@ -78,13 +96,9 @@ layout: home
       <img src="{{ site.baseurl }}/gallery/assets/carousel/nifti.png" alt="NIfTI Visualization" style="width: 100%; height: 300px; object-fit: contain; background-color: #f8f9fa; cursor: pointer;" data-fullscreen="3">
     </div>
     
-    <!-- Progress indicators -->
-    <div class="carousel-indicators" style="position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); display: flex; gap: 8px;">
-      <span class="indicator active" style="width: 12px; height: 12px; border-radius: 50%; background: #333; opacity: 1; cursor: pointer; transition: opacity 0.3s;" data-slide="0"></span>
-      <span class="indicator" style="width: 12px; height: 12px; border-radius: 50%; background: #333; opacity: 0.5; cursor: pointer; transition: opacity 0.3s;" data-slide="1"></span>
-      <span class="indicator" style="width: 12px; height: 12px; border-radius: 50%; background: #333; opacity: 0.5; cursor: pointer; transition: opacity 0.3s;" data-slide="2"></span>
-      <span class="indicator" style="width: 12px; height: 12px; border-radius: 50%; background: #333; opacity: 0.5; cursor: pointer; transition: opacity 0.3s;" data-slide="3"></span>
-    </div>
+    <!-- Navigation arrows -->
+    <button id="carousel-prev" style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; color: #555; font-size: 2.5rem; cursor: pointer; z-index: 100; transition: color 0.3s;" onmouseover="this.style.color='#333'" onmouseout="this.style.color='#555'">‹</button>
+    <button id="carousel-next" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; color: #555; font-size: 2.5rem; cursor: pointer; z-index: 100; transition: color 0.3s;" onmouseover="this.style.color='#333'" onmouseout="this.style.color='#555'">›</button>
   </div>
 </div>
 
@@ -115,40 +129,62 @@ layout: home
   let currentSlide = 0;
   let fullscreenSlide = 0;
   const slides = document.querySelectorAll('.carousel-slide');
-  const titles = document.querySelectorAll('.slide-title');
-  const indicators = document.querySelectorAll('.indicator');
   const totalSlides = slides.length;
   
-  // Image data for fullscreen
+  // Image data for modal
   const imageData = [
     { src: '{{ site.baseurl }}/gallery/assets/carousel/pre-proc.png', title: 'Pre-processing' },
     { src: '{{ site.baseurl }}/gallery/assets/carousel/search.png', title: 'Search & Optimization' },
-    { src: '{{ site.baseurl }}/gallery/assets/carousel/ana.png', title: 'Analysis' },
-    { src: '{{ site.baseurl }}/gallery/assets/carousel/nifti.png', title: 'NIfTI Visualization' }
+    { src: '{{ site.baseurl }}/gallery/assets/carousel/ana.png', title: 'Mesh Analysis & Visualization' },
+    { src: '{{ site.baseurl }}/gallery/assets/carousel/nifti.png', title: 'Voxel Analysis & Visualization' }
+  ];
+  
+  // Mapping slides to flowchart elements
+  const slideMapping = [
+    'preproc',      // pre-proc → pre-processing
+    'optimization', // search → optimization  
+    'mesh',         // ana → mesh analysis & visualization
+    'voxel'         // nifti → voxel analysis & visualization
   ];
   
   function showSlide(index) {
-    // Hide all slides and titles
+    // Hide all slides
     slides.forEach(slide => slide.style.display = 'none');
-    titles.forEach(title => {
-      title.classList.remove('active');
-      title.style.display = 'none';
-    });
-    indicators.forEach(ind => {
-      ind.classList.remove('active');
-      ind.style.opacity = '0.5';
-    });
     
-    // Show current slide and title
+    // Show current slide
     slides[index].style.display = 'block';
-    titles[index].classList.add('active');
-    titles[index].style.display = 'block';
-    indicators[index].classList.add('active');
-    indicators[index].style.opacity = '1';
+    
+    // Update flowchart highlights
+    updateFlowchartHighlight(index);
+  }
+  
+  function updateFlowchartHighlight(index) {
+    // Hide all highlights
+    document.getElementById('highlight-preproc').style.opacity = '0';
+    document.getElementById('highlight-optimization').style.opacity = '0';
+    document.getElementById('highlight-mesh').style.opacity = '0';
+    document.getElementById('highlight-voxel').style.opacity = '0';
+    
+    // Hide all connection lines
+    document.getElementById('line-preproc').style.opacity = '0';
+    document.getElementById('line-optimization').style.opacity = '0';
+    document.getElementById('line-mesh').style.opacity = '0';
+    document.getElementById('line-voxel').style.opacity = '0';
+    
+    // Show current highlight and connection
+    const targetElement = slideMapping[index];
+    document.getElementById('highlight-' + targetElement).style.opacity = '1';
+    document.getElementById('connection-lines').style.opacity = '1';
+    document.getElementById('line-' + targetElement).style.opacity = '1';
   }
   
   function nextSlide() {
     currentSlide = (currentSlide + 1) % totalSlides;
+    showSlide(currentSlide);
+  }
+  
+  function prevSlide() {
+    currentSlide = (currentSlide - 1 + totalSlides) % totalSlides;
     showSlide(currentSlide);
   }
   
@@ -187,16 +223,15 @@ layout: home
     title.textContent = imageData[fullscreenSlide].title;
   }
   
+  // Initialize first slide highlight
+  updateFlowchartHighlight(0);
+  
   // Auto-advance every 5 seconds
   setInterval(nextSlide, 5000);
   
-  // Allow manual navigation via indicators
-  indicators.forEach((indicator, index) => {
-    indicator.addEventListener('click', () => {
-      currentSlide = index;
-      showSlide(currentSlide);
-    });
-  });
+  // Carousel arrow navigation
+  document.getElementById('carousel-prev').addEventListener('click', prevSlide);
+  document.getElementById('carousel-next').addEventListener('click', nextSlide);
   
   // Add click handlers to images for modal
   document.querySelectorAll('[data-fullscreen]').forEach((img, index) => {
