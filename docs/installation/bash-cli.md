@@ -60,12 +60,6 @@ The script will guide you through:
    - Starts containers
    - Manages environment variables
 
-4. **Tool Selection**
-   - Interactive menu for TI Toolbox components
-   - Direct access to analysis tools
-   - Progress monitoring
-
-
 When loader program completed:
 
 ```bash

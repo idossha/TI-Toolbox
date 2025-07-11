@@ -2,7 +2,7 @@
 
 ###########################################
 # Neuroimaging Field Analyzer CLI
-# Based on the TI-CSC analyzer functionality
+# Based on the TI-Toolbox analyzer functionality
 # This script provides a command-line interface for analyzing 
 # mesh and voxel-based neuroimaging data.
 ###########################################

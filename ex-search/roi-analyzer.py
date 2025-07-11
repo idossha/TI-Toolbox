@@ -17,14 +17,12 @@ from utils import logging_util
 
 '''
 Ido Haber - ihaber@wisc.edu
-October 3, 2024
-Optimized for optimizer pipeline
 
 This script analyzes mesh files in the simulation directory by extracting 
 fields at specific ROI coordinates and compiling the results into a structured format.
 
 Key Features:
-- Reads ROI files and extracts TImax and TInorm values from mesh files.
+- Reads ROI files and extracts TImax values from mesh files.
 - Stores the results in a JSON file for easy access and further analysis.
 - Formats the extracted data and writes it to a CSV file for reporting.
 - Performs cleanup by removing intermediate CSV files after processing.

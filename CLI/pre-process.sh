@@ -1,8 +1,7 @@
 #!/bin/bash
-#
+
 # CLI script for collecting user input to execute structural preprocessing
 # This script acts as a front-end for structural.sh
-#
 
 # Define script directory and base paths
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

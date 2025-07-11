@@ -2,9 +2,9 @@
 
 #########################################
 # Ido Haber - ihaber@wisc.edu
-# October 31, 2024
+# June, 2025
 #
-# This is the main script for the optimizer tool, which collects input from 
+# This is the main script for the ex-search tool, which collects input from 
 # the user and orchestrates the execution of all necessary scripts and executables 
 # in the pipeline. It handles ROI creation, leadfield matrix generation, 
 # TI optimization, mesh processing, and output file updates.

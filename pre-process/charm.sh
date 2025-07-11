@@ -93,17 +93,6 @@ for t1_candidate in "$BIDS_ANAT_DIR"/*T1*.nii* "$BIDS_ANAT_DIR"/*t1*.nii*; do
     fi
 done
 
-# If no T1 found, take the first NIfTI file as T1
-if [ -z "$T1_file" ]; then
-    for nii_file in "$BIDS_ANAT_DIR"/*.nii*; do
-        if [ -f "$nii_file" ]; then
-            T1_file="$nii_file"
-            log_info "Using $T1_file as T1 image"
-            break
-        fi
-    done
-fi
-
 # Look for T2 images
 for t2_candidate in "$BIDS_ANAT_DIR"/*T2*.nii* "$BIDS_ANAT_DIR"/*t2*.nii*; do
     if [ -f "$t2_candidate" ]; then

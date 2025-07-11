@@ -2,7 +2,6 @@
 
 ###########################################
 # Neuroimaging Group Field Analyzer CLI
-# Based on the TI-CSC group analyzer functionality
 # This script provides a command-line interface for analyzing 
 # mesh and voxel-based neuroimaging data across multiple subjects.
 ###########################################

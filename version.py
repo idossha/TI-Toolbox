@@ -1,6 +1,6 @@
 """
-TI-CSC Version Information
-Contains version, tool, and system information for the TI-CSC application.
+TI-Toolbox Version Information
+Contains version, tool, and system information for the TI-Toolbox application.
 """
 
 __version__ = "2.0.5"
@@ -118,7 +118,7 @@ SYSTEM_REQUIREMENTS = {
     ]
 }
 
-# TI-CSC Capabilities  
+# TI-Toolbox Capabilities  
 CAPABILITIES = {
     "preprocessing": [
         "DICOM to NIfTI conversion",
@@ -129,20 +129,17 @@ CAPABILITIES = {
     "simulation": [
         "FEM-based TI field calculations",
         "Enhanced simulation parameter control",
-        "Multi-electrode montage support",
-        "Field strength optimization"
+        "Multi-electrode montage support"
     ],
     "optimization": [
-        "Evolutionary algorithms",
-        "Exhaustive search methods", 
+        "Evolutionary algorithm",
+        "Exhaustive search algorithm", 
         "ROI-targeted stimulation",
         "Multi-objective optimization"
     ],
     "analysis": [
         "Atlas-based analysis",
         "Arbitrary ROI analysis",
-        "Statistical field analysis", 
-        "Dosimetry calculations"
     ],
     "visualization": [
         "Interactive NIfTI viewers",
@@ -155,7 +152,7 @@ CAPABILITIES = {
 
 def get_version_info():
     """
-    Get comprehensive version information for TI-CSC
+    Get comprehensive version information for TI-Toolbox
     
     Returns:
         dict: Complete version information including tools, images, and capabilities

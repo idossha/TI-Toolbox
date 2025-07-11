@@ -1,8 +1,7 @@
 #!/bin/bash
 
 ###########################################
-# TI-CSC-2.0 GUI Launcher
-# This script launches the TI-CSC-2.0 GUI.
+# TI-Toolbox GUI Launcher
 ###########################################
 
 # Get the directory where this script is located

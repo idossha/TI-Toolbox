@@ -1,6 +1,6 @@
 # New Project Setup
 
-This directory contains files and configurations that are used when initializing a new TI-CSC project. It serves as a template and initialization system for new projects.
+This directory contains files and configurations that are used when initializing a new TI-Toolbox project. It serves as a template and initialization system for new projects.
 
 ## Contents
 

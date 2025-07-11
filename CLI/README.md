@@ -1,13 +1,15 @@
-# TI-CSC-2.0 Command Line Interface Scripts
+# TI-Toolbox Command Line Interface Scripts
 
-This directory contains command-line interface scripts for the TI-CSC-2.0 application.
-
+This directory contains command-line interface scripts.
 ## Scripts
 
 - **GUI.sh** - Launches the GUI application
-- **pre-process.sh** - Command-line interface for preprocessing operations
-- **simulator.sh** - Command-line interface for running simulations
-- **flex-search.sh** - Command-line interface for flexible electrode position search
+- **pre-process.sh**     - CLI for preprocessing operations
+- **flex-search.sh**     - CLI for flexible electrode position search
+- **ex-search.sh**       - CLI for exhaustive search optimization for electrode position.
+- **simulator.sh**       - CLI for running simulations
+- **analyzer.sh**        - CLI for running analysis on simulation output
+- **group_analyzer.sh**  - CLI for running group analysis on simualtion output 
 
 ## Usage
 

@@ -2,8 +2,7 @@
 
 ###########################################
 # Ido Haber / ihaber@wisc.edu
-# October 31, 2024
-# Optimized for TI-CSC analyzer
+# June, 2025
 # This script is used to run a simulation pipeline for a given subject.
 ###########################################
 

@@ -144,19 +144,20 @@ def show_welcome_message(parent=None):
         msg_box.setIcon(QtWidgets.QMessageBox.Information)
         
         message = """
-Welcome to the TI-CSC Toolbox!
+Welcome to the TI-Toolbox!
 
 This toolbox provides a user-friendly interface for:
 • Pre-processing structural MRI data
-• Running TI simulations
-• Optimizing electrode positions
-• Analyzing results
+• Optimizing electrode positions for ROI ideal targeting
+• Running comperhensive TI simulations
+• Analyzing and visualizing results
 
 The interface is organized into several tabs:
 1. Pre-process: Prepare your structural data
+3. ex/flex-search: Find optimal electrode positions
 2. Simulator: Run TI simulations
-3. Optimizer: Find optimal electrode positions
-4. Analyzer: View and analyze results
+4. Analyzer: Analyze results & view in mesh space
+5. Nifti-viewer: View simulations and analyses in voxel space
 
 Each tab has its own configuration options and help buttons.
 Feel free to explore the interface and check the documentation for more details.

@@ -2,8 +2,7 @@
 
 ###########################################
 # Ido Haber / ihaber@wisc.edu
-# March 19, 2024
-# Optimized for TI-CSC analyzer
+# June, 2025
 # This script orchestrates the flex-search pipeline for optimizing electrode positions
 ###########################################
 
