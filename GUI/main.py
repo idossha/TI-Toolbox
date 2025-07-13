@@ -33,7 +33,7 @@ class MainWindow(QtWidgets.QMainWindow):
     def __init__(self):
         super(MainWindow, self).__init__()
         
-        self.setWindowTitle("TI-CSC Toolbox")
+        self.setWindowTitle("TI-Toolbox")
         # Set window flags to ensure proper window behavior
         self.setWindowFlags(
             QtCore.Qt.Window |
