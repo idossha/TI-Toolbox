@@ -10,7 +10,6 @@ from utils import logging_util
 '''
 Ido Haber - ihaber@wisc.edu
 June, 2025
-Optimized for optimizer pipeline
 
 This script is designed to create leadfield matrices for Temporal Interference (TI) simulations, 
 which are based on different EEG net configurations.

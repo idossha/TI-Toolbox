@@ -40,7 +40,7 @@ class ContactTab(QtWidgets.QWidget):
         # Introduction text
         intro_text = QtWidgets.QLabel(
             "<p>If you encounter issues, have questions, or would like to request new features, "
-            "please feel free to reach out using one of the options below. Your feedback helps improve TI-CSC-2.0!</p>"
+            "please feel free to reach out using one of the options below. Your feedback helps improve TI-Toolbox!</p>"
         )
         intro_text.setWordWrap(True)
         intro_text.setAlignment(QtCore.Qt.AlignCenter)
@@ -92,7 +92,7 @@ class ContactTab(QtWidgets.QWidget):
         
         # GitHub
         github_label = QtWidgets.QLabel("<b>GitHub:</b>")
-        github_value = QtWidgets.QLabel("github.com/idossha/TI-CSC-2.0")
+        github_value = QtWidgets.QLabel("https://github.com/idossha/TI-Toolbox")
         info_grid.addWidget(github_label, 3, 0)
         info_grid.addWidget(github_value, 3, 1)
         
@@ -175,7 +175,7 @@ class ContactTab(QtWidgets.QWidget):
             <li><b>Be specific:</b> Include a clear, concise title that summarizes the issue</li>
             <li><b>Provide context:</b> Describe what you were doing when the bug occurred</li>
             <li><b>Detail steps to reproduce:</b> Number each step so developers can follow along</li>
-            <li><b>Include system info:</b> Operating system, TI-CSC-2.0 version, and relevant configuration</li>
+            <li><b>Include system info:</b> Operating system, TI-Toolbox version, and relevant configuration</li>
             <li><b>Add screenshots:</b> If applicable, visual evidence helps tremendously</li>
         </ul>
         

@@ -73,7 +73,7 @@ class MeshAnalyzer:
     """
     A class for analyzing mesh-based data from 3D models.
     
-    This class provides methods for analyzing field data in specific regions of interest,
+   This class provides methods for analyzing field data in specific regions of interest,
     including spherical ROIs and cortical regions defined by an atlas. It works with
     SimNIBS mesh files and can generate surface meshes for cortical analysis.
     

@@ -2,14 +2,14 @@
 # -*- coding: utf-8 -*-
 
 """
-Help Tab for TI-CSC GUI
-This module provides a unified help tab for all TI-CSC tools.
+Help Tab for TI-Toolbox GUI
+This module provides a unified help tab for all TI-Toolbox tools.
 """
 
 from PyQt5 import QtWidgets, QtCore, QtGui
 
 class HelpTab(QtWidgets.QWidget):
-    """Unified help tab for TI-CSC  GUI."""
+    """Unified help tab for TI-Toolbox GUI."""
     
     def __init__(self, parent=None):
         super(HelpTab, self).__init__(parent)
@@ -26,7 +26,7 @@ class HelpTab(QtWidgets.QWidget):
         main_layout.addWidget(intro_label)
         
         description_label = QtWidgets.QLabel(
-            "<p>Welcome to the TI-CSC help center. "
+            "<p>Welcome to the TI-Toolbox help center. "
             "This tab provides comprehensive information about all the tools available in this application.</p>"
         )
         description_label.setWordWrap(True)
@@ -87,7 +87,7 @@ class HelpTab(QtWidgets.QWidget):
         
         # Directory structure information
         content = """
-        <p>TI-CSC follows the BIDS (Brain Imaging Data Structure) conventions for organizing neuroimaging data. This standardized structure ensures compatibility with other neuroimaging tools and facilitates data sharing.</p>
+        <p>TI-Toolbox follows the BIDS (Brain Imaging Data Structure) conventions for organizing neuroimaging data. This standardized structure ensures compatibility with other neuroimaging tools and facilitates data sharing.</p>
         
         <p><b>Important:</b> Users need to set up the sourcedata directory with their DICOM files. Most other directories are automatically created during processing.</p>
         
