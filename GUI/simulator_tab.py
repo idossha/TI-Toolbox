@@ -1437,6 +1437,9 @@ class SimulatorTab(QtWidgets.QWidget):
                     json.dump(flex_montages, tf, indent=2)
                     env['FLEX_MONTAGES_FILE'] = tf.name
                 self.update_output(f"Created temporary flex montages file: {env['FLEX_MONTAGES_FILE']}")
+                
+                # Store the temp file path for cleanup later
+                temp_flex_file = env['FLEX_MONTAGES_FILE']
             
             # Debug output
             self.update_output(f"Running in direct execution mode from GUI")

@@ -1464,6 +1464,22 @@ if [[ "$1" == "--run-direct" ]]; then
         # Create simulation directory if it doesn't exist
         mkdir -p "$simulation_dir"
         
+        # For flex-search mode, create a separate temporary file for each subject
+        if [[ "$simulation_framework" == "flex" ]]; then
+            # Create subject-specific temporary flex montages file
+            subject_temp_flex_file=$(mktemp --suffix=_${subject_id}.json)
+            if [[ -f "$temp_flex_file" ]]; then
+                # Copy the original flex montages file to the subject-specific file
+                cp "$temp_flex_file" "$subject_temp_flex_file"
+                echo "Created subject-specific flex montages file for $subject_id: $subject_temp_flex_file"
+                # Set the environment variable for this specific subject
+                export FLEX_MONTAGES_FILE="$subject_temp_flex_file"
+            else
+                echo "Warning: Original flex montages file not found: $temp_flex_file"
+                unset FLEX_MONTAGES_FILE
+            fi
+        fi
+        
         # Debug output for montages
         echo "Debug: Selected montages array: ${selected_montages[@]}"
         echo "Debug: Number of montages: ${#selected_montages[@]}"
@@ -1477,6 +1493,12 @@ if [[ "$1" == "--run-direct" ]]; then
         else
             # For regular montages, pass the selected montages
             "$simulator_dir/$main_script" "$subject_id" "$conductivity" "$project_dir" "$simulation_dir" "$sim_mode" "$current" "$electrode_shape" "$dimensions" "$thickness" "$eeg_net" "${selected_montages[@]}" --
+        fi
+        
+        # Clean up subject-specific temp file after this subject's simulation
+        if [[ "$simulation_framework" == "flex" ]] && [[ -n "$subject_temp_flex_file" ]] && [[ -f "$subject_temp_flex_file" ]]; then
+            rm -f "$subject_temp_flex_file"
+            echo "Cleaned up subject-specific flex montages file for $subject_id"
         fi
     done
     
