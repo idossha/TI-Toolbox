@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-Acknowledgments Tab for TI-CSC GUI
+Acknowledgments Tab for TI-Toolbox GUI
 This module provides an acknowledgments tab to properly cite all tools and resources used.
 """
 
@@ -10,7 +10,7 @@ from PyQt5 import QtWidgets, QtCore, QtGui
 from PyQt5.QtCore import Qt
 
 class AcknowledgmentsTab(QtWidgets.QWidget):
-    """Acknowledgments tab for TI-CSC GUI."""
+    """Acknowledgments tab for TI-Toolbox GUI."""
     
     def __init__(self, parent=None):
         super(AcknowledgmentsTab, self).__init__(parent)
@@ -28,7 +28,7 @@ class AcknowledgmentsTab(QtWidgets.QWidget):
         
         # Description
         description = QtWidgets.QLabel(
-            "<p>TI-CSC relies on several open-source tools and frameworks. "
+            "<p>TI-Toolbox relies on several open-source tools and frameworks. "
             "We are grateful to the developers of these resources and acknowledge their contributions below.</p>"
         )
         description.setWordWrap(True)
