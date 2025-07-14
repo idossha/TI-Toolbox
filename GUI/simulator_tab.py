@@ -1195,7 +1195,7 @@ class SimulatorTab(QtWidgets.QWidget):
                     QtWidgets.QMessageBox.warning(self, "Warning", "Please select at least one montage.")
                     return
                 selected_flex_searches = []  # No flex-search in montage mode
-                flex_montages = []
+                flex_montage_configs = []
             else:
                 # Flex-search simulation mode
                 selected_flex_searches = [item.data(QtCore.Qt.UserRole) for item in self.flex_search_list.selectedItems()]
@@ -1204,9 +1204,8 @@ class SimulatorTab(QtWidgets.QWidget):
                     return
                 selected_montages = []  # No regular montages in flex mode
                 
-                # Process flex-search outputs into montage format
-                flex_montages = []
-                flex_montages_by_subject = {}  # Store flex montages by subject
+                # Process flex-search outputs into individual montage configurations
+                flex_montage_configs = []  # List of individual subject-montage configurations
                 
                 # Check which electrode types are selected
                 use_mapped = self.flex_use_mapped.isChecked()
@@ -1222,11 +1221,7 @@ class SimulatorTab(QtWidgets.QWidget):
                     search_name = flex_data['search_name']
                     mapping_data = flex_data['mapping_data']
                     
-                    # Initialize subject list if needed
-                    if subject_id not in flex_montages_by_subject:
-                        flex_montages_by_subject[subject_id] = []
-                    
-                    # Create montage entries based on selection
+                    # Create individual montage configurations based on selection
                     if use_mapped:
                         # Read electrode_mapping.json for this flex-search
                         mapping_file = os.path.join(project_dir, 'derivatives', 'SimNIBS', 
@@ -1252,8 +1247,7 @@ class SimulatorTab(QtWidgets.QWidget):
                             self.update_output("Error: No EEG net specified in electrode mapping file", 'error')
                             continue
                         
-                        # Create montage structure for mapped electrodes
-
+                        # Create individual montage configuration for mapped electrodes
                         if len(mapped_positions) >= 4 and len(mapped_labels) >= 4:  # Need at least 4 electrodes for TI
                             # Parse search_name to extract components for new naming format
                             montage_name = self._parse_flex_search_name(search_name, 'mapped')
@@ -1263,19 +1257,21 @@ class SimulatorTab(QtWidgets.QWidget):
                             
                             # Validate montage name doesn't conflict with existing directories
                             if montage_name.startswith('flex_'):
-                                # TI requires 2 pairs of electrodes
-                                montage_data = {
-                                    'name': montage_name,
-                                    'type': 'flex_mapped',
-                                    'subject_id': subject_id,  # Add subject ID to identify specific configuration
-                                    'search_name': search_name,  # Add original search name for reference
-                                    'eeg_net': eeg_net,  # Use the EEG net from the mapping file
-                                    'electrode_labels': electrodes_for_ti,
-                                    'pairs': [[electrodes_for_ti[0], electrodes_for_ti[1]], [electrodes_for_ti[2], electrodes_for_ti[3]]]
+                                # Create individual configuration for this subject-montage combination
+                                config = {
+                                    'subject_id': subject_id,
+                                    'eeg_net': eeg_net,
+                                    'montage': {
+                                        'name': montage_name,
+                                        'type': 'flex_mapped',
+                                        'search_name': search_name,
+                                        'eeg_net': eeg_net,
+                                        'electrode_labels': electrodes_for_ti,
+                                        'pairs': [[electrodes_for_ti[0], electrodes_for_ti[1]], [electrodes_for_ti[2], electrodes_for_ti[3]]]
+                                    }
                                 }
-                                flex_montages.append(montage_data)
-                                flex_montages_by_subject[subject_id].append(montage_data)
-                                self.update_output(f"Created flex mapped montage: {montage_name} for subject {subject_id} (electrodes: {electrodes_for_ti})")
+                                flex_montage_configs.append(config)
+                                self.update_output(f"Created flex mapped configuration: {montage_name} for subject {subject_id} (electrodes: {electrodes_for_ti})")
                             else:
                                 self.update_output(f"Warning: Generated invalid montage name '{montage_name}' for search '{search_name}'", 'warning')
                         else:
@@ -1284,7 +1280,7 @@ class SimulatorTab(QtWidgets.QWidget):
                     if use_optimized:
                         optimized_positions = mapping_data['optimized_positions']
                         
-                        # Create montage structure for optimized electrodes
+                        # Create individual montage configuration for optimized electrodes
                         if len(optimized_positions) >= 4:  # Need at least 4 electrodes for TI
                             # Parse search_name to extract components for new naming format
                             montage_name = self._parse_flex_search_name(search_name, 'optimized')
@@ -1294,19 +1290,21 @@ class SimulatorTab(QtWidgets.QWidget):
 
                             # Validate montage name doesn't conflict with existing directories
                             if montage_name.startswith('flex_'):
-                                # TI requires 2 pairs of electrodes (using XYZ coordinates)
-                                montage_data = {
-                                    'name': montage_name,
-                                    'type': 'flex_optimized',
-                                    'subject_id': subject_id,  # Add subject ID to identify specific configuration
-                                    'search_name': search_name,  # Add original search name for reference
-                                    'electrode_positions': positions_for_ti,
-                                    'pairs': [[positions_for_ti[0], positions_for_ti[1]], 
-                                             [positions_for_ti[2], positions_for_ti[3]]]
+                                # Create individual configuration for this subject-montage combination
+                                config = {
+                                    'subject_id': subject_id,
+                                    'eeg_net': 'optimized_coords',  # No specific EEG net needed for optimized coordinates
+                                    'montage': {
+                                        'name': montage_name,
+                                        'type': 'flex_optimized',
+                                        'search_name': search_name,
+                                        'electrode_positions': positions_for_ti,
+                                        'pairs': [[positions_for_ti[0], positions_for_ti[1]], 
+                                                 [positions_for_ti[2], positions_for_ti[3]]]
+                                    }
                                 }
-                                flex_montages.append(montage_data)
-                                flex_montages_by_subject[subject_id].append(montage_data)
-                                self.update_output(f"Created flex optimized montage: {montage_name} for subject {subject_id} (positions: {len(positions_for_ti)} electrodes)")
+                                flex_montage_configs.append(config)
+                                self.update_output(f"Created flex optimized configuration: {montage_name} for subject {subject_id} (positions: {len(positions_for_ti)} electrodes)")
                             else:
                                 self.update_output(f"Warning: Generated invalid montage name '{montage_name}' for search '{search_name}'", 'warning')
                         else:
@@ -1375,7 +1373,7 @@ class SimulatorTab(QtWidgets.QWidget):
             else:
                 details = (f"This will run FLEX-SEARCH simulations for:\n\n"
                           f"• {len(selected_subjects)} subject(s)\n"
-                          f"• {len(flex_montages)} flex-search montage(s)\n")
+                          f"• {len(flex_montage_configs)} flex-search montage(s)\n")
                 
                 # Show which electrode types are selected
                 if use_mapped and use_optimized:
@@ -1440,15 +1438,34 @@ class SimulatorTab(QtWidgets.QWidget):
                 env['SELECTED_MONTAGES'] = ''  # No regular montages
                 env['SIMULATION_FRAMEWORK'] = 'flex'  # CLI expects SIMULATION_FRAMEWORK
                 
-                # Create a temporary JSON file with flex montage data
+                # Create separate temporary JSON files for each subject-montage combination
                 import tempfile
-                with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as tf:
-                    json.dump(flex_montages, tf, indent=2)
-                    env['FLEX_MONTAGES_FILE'] = tf.name
-                self.update_output(f"Created temporary flex montages file: {env['FLEX_MONTAGES_FILE']}")
+                temp_files = []
+                montage_file_list = []  # List of temp file paths in processing order
                 
-                # Store the temp file path for cleanup later
-                temp_flex_file = env['FLEX_MONTAGES_FILE']
+                for config in flex_montage_configs:
+                    subject_id = config['subject_id']
+                    montage_name = config['montage']['name']
+                    
+                    # Create unique temp file for this subject-montage combination
+                    with tempfile.NamedTemporaryFile(mode='w', suffix=f'_{subject_id}_{montage_name}.json', delete=False) as tf:
+                        json.dump(config, tf, indent=2)
+                        temp_file_path = tf.name
+                        temp_files.append(temp_file_path)
+                        montage_file_list.append({
+                            'file_path': temp_file_path,
+                            'subject_id': subject_id,
+                            'montage_name': montage_name,
+                            'eeg_net': config['eeg_net']
+                        })
+                        self.update_output(f"Created temp file for {subject_id}-{montage_name}: {temp_file_path}")
+                
+                # Store the montage file list for CLI to use (sequential processing)
+                env['FLEX_MONTAGE_FILES'] = json.dumps(montage_file_list)
+                self.update_output(f"Created {len(temp_files)} individual subject-montage temp files")
+                
+                # Store temp files for cleanup later
+                self.temp_flex_files = temp_files
             
             # Debug output
             self.update_output(f"Running in direct execution mode from GUI")
@@ -1461,7 +1478,7 @@ class SimulatorTab(QtWidgets.QWidget):
                 self.update_output(f"- EEG Net: {env['EEG_NET']}")
                 self.update_output(f"- Montages: {', '.join(selected_montages)}")
             else:
-                self.update_output(f"- Flex-search montages: {', '.join([fm['name'] for fm in flex_montages])}")
+                self.update_output(f"- Flex-search montages: {', '.join([config['montage']['name'] for config in flex_montage_configs])}")
                 
                 # Determine electrode types based on checkboxes
                 electrode_types = []
@@ -1581,6 +1598,21 @@ class SimulatorTab(QtWidgets.QWidget):
         
         # Clean up temporary completion files
         self.cleanup_temporary_files()
+        
+        # Clean up any remaining temporary flex montage files (CLI should have cleaned most)
+        if hasattr(self, 'temp_flex_files'):
+            remaining_files = 0
+            for temp_file in self.temp_flex_files:
+                try:
+                    if os.path.exists(temp_file):
+                        os.remove(temp_file)
+                        remaining_files += 1
+                        self.update_output(f"🗑️ Cleaned up remaining temp file: {temp_file}")
+                except Exception as e:
+                    self.update_output(f"⚠️ Could not clean up flex file {temp_file}: {str(e)}", 'warning')
+            if remaining_files > 0:
+                self.update_output(f"🧹 Cleaned up {remaining_files} remaining temp files")
+            delattr(self, 'temp_flex_files')
         
         self.simulation_running = False
         self.run_btn.setEnabled(True)
@@ -1856,6 +1888,21 @@ class SimulatorTab(QtWidgets.QWidget):
             # Clear parent tab's busy state
             if hasattr(self, 'parent') and self.parent:
                 self.parent.set_tab_busy(self, False)
+            
+            # Clean up temporary flex montage files
+            if hasattr(self, 'temp_flex_files'):
+                remaining_files = 0
+                for temp_file in self.temp_flex_files:
+                    try:
+                        if os.path.exists(temp_file):
+                            os.remove(temp_file)
+                            remaining_files += 1
+                            self.update_output(f"🗑️ Cleaned up temp file: {temp_file}")
+                    except Exception as e:
+                        self.update_output(f"⚠️ Could not clean up flex file {temp_file}: {str(e)}", 'warning')
+                if remaining_files > 0:
+                    self.update_output(f"🧹 Cleaned up {remaining_files} temp files after stop")
+                delattr(self, 'temp_flex_files')
             
             # Re-enable all controls
             self.enable_controls()

@@ -174,9 +174,20 @@ import json
 import sys
 import os
 
-# Read flex montages
+# Read flex config (could be individual config or legacy array)
 with open('$flex_montages_file', 'r') as f:
-    flex_montages = json.load(f)
+    flex_config = json.load(f)
+
+# Handle new individual config format vs old array format
+if isinstance(flex_config, list):
+    # Old format - array of montages
+    flex_montages = flex_config
+elif isinstance(flex_config, dict) and 'montage' in flex_config:
+    # New format - single config with subject_id, eeg_net, and montage
+    flex_montages = [flex_config['montage']]
+else:
+    print(f'Unrecognized flex config format: {type(flex_config)}')
+    flex_montages = []
 
 # Read current montage config
 with open('$montage_config_file', 'r') as f:
@@ -244,9 +255,20 @@ import subprocess
 import sys
 import os
 
-# Read flex montages
+# Read flex config (could be individual config or legacy array)
 with open('$flex_montages_file', 'r') as f:
-    flex_montages = json.load(f)
+    flex_config = json.load(f)
+
+# Handle new individual config format vs old array format
+if isinstance(flex_config, list):
+    # Old format - array of montages
+    flex_montages = flex_config
+elif isinstance(flex_config, dict) and 'montage' in flex_config:
+    # New format - single config with subject_id, eeg_net, and montage
+    flex_montages = [flex_config['montage']]
+else:
+    print(f'Unrecognized flex config format: {type(flex_config)}')
+    flex_montages = []
 
 # Process each flex montage
 for flex_montage in flex_montages:
@@ -289,7 +311,9 @@ for flex_montage in flex_montages:
 }
 
 # Function to visualize a single discovered flex montage after simulation
-visualize_flex_montage_post_simulation() {
+# DISABLED: This function was causing electrode mapping confusion
+# Initial visualization is sufficient and more accurate
+visualize_flex_montage_post_simulation_DISABLED() {
     local montage_name="$1"
     local montage_dir="$sim_dir/$montage_name"
     local montage_output_dir="$montage_dir/TI/montage_imgs"
@@ -307,12 +331,12 @@ visualize_flex_montage_post_simulation() {
         search_name_pattern="${search_name_pattern%_mapped}"  # Remove _mapped suffix
         search_name_pattern="${search_name_pattern%_optimized}"  # Remove _optimized suffix
         
-        # Find matching flex-search directory
+        # Find matching flex-search directory using exact match
         for search_dir in "$subject_flex_dir"/*; do
             if [[ -d "$search_dir" ]]; then
                 local search_basename=$(basename "$search_dir")
-                # Try to match with our search pattern
-                if [[ "$search_basename" == *"${search_name_pattern##*_}"* ]] || [[ "$search_basename" == "${search_name_pattern%_*}"* ]]; then
+                # Try exact match first (most reliable)
+                if [[ "$search_basename" == "$search_name_pattern" ]]; then
                     local mapping_file="$search_dir/electrode_mapping.json"
                     if [[ -f "$mapping_file" ]]; then
                         log_info "Found mapping file for $montage_name: $mapping_file"
@@ -446,19 +470,9 @@ if [ "$sim_mode" = "FLEX_TI" ] && [ ${#selected_montages[@]} -eq 0 ]; then
     selected_montages=("${flex_montages[@]}")
     log_info "Will process ${#selected_montages[@]} flex montages with valid simulation results"
     
-    # Now that we have discovered flex montages with simulation results, visualize the mapped ones
-    if [ ${#selected_montages[@]} -gt 0 ]; then
-        log_info "Generating AMV visualizations for discovered flex montages"
-        for flex_montage in "${selected_montages[@]}"; do
-            # Check if this is a mapped montage by looking for the JSON file from TI.py
-            if [[ "$flex_montage" == *"_mapped" ]]; then
-                # For mapped montages, we need to reconstruct the montage data for visualization
-                visualize_flex_montage_post_simulation "$flex_montage"
-            else
-                log_info "Skipping visualization for optimized montage: $flex_montage (coordinates-based)"
-            fi
-        done
-    fi
+    # Post-simulation visualization disabled - initial visualization is sufficient and accurate
+    # The post-simulation step was causing electrode mapping confusion by using wrong mapping files
+    log_info "Skipping post-simulation visualization (initial visualization already completed successfully)"
 fi
 
 # Function to extract fields (GM and WM meshes)

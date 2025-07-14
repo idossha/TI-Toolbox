@@ -137,16 +137,26 @@ logging_util.configure_external_loggers(['simnibs', 'mesh_io', 'sim_struct'], lo
 # Check if we have flex montages file (now after logger init)
 flex_montages_file = os.environ.get('FLEX_MONTAGES_FILE')
 if flex_montages_file and os.path.exists(flex_montages_file):
-    logger.info(f"Loading flex montages from: {flex_montages_file}")
+    logger.info(f"Loading flex montage from: {flex_montages_file}")
     with open(flex_montages_file, 'r') as f:
-        flex_montages = json.load(f)
-    logger.info(f"Loaded {len(flex_montages)} flex montages")
-    # Clean up the temporary file safely
-    try:
-        os.unlink(flex_montages_file)
-        logger.info(f"Cleaned up temporary flex montages file: {flex_montages_file}")
-    except Exception as e:
-        logger.warning(f"Could not clean up temporary file {flex_montages_file}: {e}")
+        flex_config = json.load(f)
+    
+    # Handle new individual config format vs old array format
+    if isinstance(flex_config, list):
+        # Old format - array of montages
+        flex_montages = flex_config
+        logger.info(f"Loaded {len(flex_montages)} flex montages (legacy format)")
+    elif isinstance(flex_config, dict) and 'montage' in flex_config:
+        # New format - single config with subject_id, eeg_net, and montage
+        flex_montages = [flex_config['montage']]
+        logger.info(f"Loaded individual flex montage: {flex_config['montage']['name']} for subject {flex_config['subject_id']}")
+        logger.info(f"Using EEG net: {flex_config['eeg_net']}")
+    else:
+        logger.warning(f"Unrecognized flex montages file format: {type(flex_config)}")
+        flex_montages = []
+    
+    # Note: Don't clean up the temporary file here - the CLI will handle cleanup
+    logger.info(f"Processing {len(flex_montages)} flex montage(s)")
 else:
     logger.info("No flex montages file provided")
 
