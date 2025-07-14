@@ -879,36 +879,52 @@ class AnalyzerTab(QtWidgets.QWidget):
             else:
                 eligible_files = [f for f in all_files if any(f.endswith(ext) for ext in ['.nii', '.nii.gz', '.mgz'])]
             
-            # Find grey matter subject space files with flexible naming patterns
-            # Try multiple patterns in order of preference
-            grey_subject_files = []
+            # Find appropriate field files with flexible naming patterns
+            # For mesh analysis, prefer main field files (like single analyzer)
+            # For voxel analysis, prefer grey matter files
+            field_files = []
             
-            # Pattern 1: Files starting with 'grey' (traditional naming)
-            # Exclude surface mesh files (_central.msh) but not montages containing 'central'
-            grey_subject_files = [f for f in eligible_files 
-                                if f.startswith('grey') and 'MNI' not in f and not f.endswith('_central.msh')]
+            if is_mesh:
+                # Pattern 1: Main field files (montage_name_TI.msh - like single analyzer uses)
+                field_files = [f for f in eligible_files 
+                             if f == f"{montage_name}_TI.msh"]
+                
+                # Pattern 2: If no exact match, look for files with montage name and TI
+                if not field_files:
+                    field_files = [f for f in eligible_files 
+                                 if montage_name.lower() in f.lower() and '_TI.msh' in f and 'MNI' not in f and not f.endswith('_central.msh') and not f.startswith('grey')]
+                
+                # Pattern 3: Fall back to grey matter files if main files not found
+                if not field_files:
+                    field_files = [f for f in eligible_files 
+                                 if f.startswith('grey') and 'MNI' not in f and not f.endswith('_central.msh')]
+            else:
+                # For voxel analysis, prefer grey matter files (original logic)
+                # Pattern 1: Files starting with 'grey' (traditional naming)
+                field_files = [f for f in eligible_files 
+                             if f.startswith('grey') and 'MNI' not in f and not f.endswith('_central.msh')]
+                
+                # Pattern 2: If no 'grey' files, look for TI_max files (newer naming)
+                if not field_files:
+                    field_files = [f for f in eligible_files 
+                                 if 'TI_max' in f and 'MNI' not in f and not f.endswith('_central.msh')]
             
-            # Pattern 2: If no 'grey' files, look for TI_max files (newer naming)
-            if not grey_subject_files:
-                grey_subject_files = [f for f in eligible_files 
-                                    if 'TI_max' in f and 'MNI' not in f and not f.endswith('_central.msh')]
+            # Pattern (common): Look for any file with montage name and no MNI
+            if not field_files:
+                field_files = [f for f in eligible_files 
+                             if montage_name.lower() in f.lower() and 'MNI' not in f and not f.endswith('_central.msh')]
             
-            # Pattern 3: If still none, look for any file with montage name and no MNI
-            if not grey_subject_files:
-                grey_subject_files = [f for f in eligible_files 
-                                    if montage_name.lower() in f.lower() and 'MNI' not in f and not f.endswith('_central.msh')]
+            # Pattern (last resort): Any eligible file that's not MNI or central surface mesh
+            if not field_files:
+                field_files = [f for f in eligible_files 
+                             if 'MNI' not in f and not f.endswith('_central.msh')]
             
-            # Pattern 4: Last resort - any eligible file that's not MNI or central surface mesh
-            if not grey_subject_files:
-                grey_subject_files = [f for f in eligible_files 
-                                    if 'MNI' not in f and not f.endswith('_central.msh')]
-            
-            if not grey_subject_files:
-                failed_subjects.append(f"{subject_id} (no grey matter subject space files found)")
+            if not field_files:
+                failed_subjects.append(f"{subject_id} (no appropriate field files found)")
                 continue
             
-            # Select the first grey matter subject space file (they should be equivalent)
-            selected_file = grey_subject_files[0]
+            # Select the first appropriate field file (they should be equivalent)
+            selected_file = field_files[0]
             selected_path = os.path.join(field_dir, selected_file)
             self.group_field_config[subject_id] = selected_path
             success_count += 1
@@ -977,10 +993,7 @@ class AnalyzerTab(QtWidgets.QWidget):
         if not self.is_group_mode:
             return
         
-        # Update field name visibility
-        is_mesh = self.space_mesh.isChecked()
-        self.group_field_name_label.setVisible(is_mesh)
-        self.group_field_name_input.setVisible(is_mesh)
+        # Field name is now hardcoded to TI_max, so no field name widgets to update
         
         # Re-run auto-selection if montage is already selected
         current_montage = self.group_montage_config.get('common_montage')
@@ -1724,7 +1737,7 @@ class AnalyzerTab(QtWidgets.QWidget):
                     self.update_output(f"Error: m2m directory not found for subject {subject_id}")
                     return None
 
-                # Get field path
+                # Get field path for both mesh and voxel analysis
                 field_path = self.group_field_config.get(subject_id)
                 if not field_path or not os.path.exists(field_path):
                     self.update_output(f"Error: Field file not found for subject {subject_id}")
@@ -1787,7 +1800,7 @@ class AnalyzerTab(QtWidgets.QWidget):
             field_count = len(self.group_field_config)
             details += f"  - Field Files: Auto-selected grey matter subject space files for {field_count} subjects\n"
             if self.space_mesh.isChecked():
-                field_name = self.group_field_name_input.text().strip() or 'N/A'
+                field_name = "TI_max"  # Field name is now hardcoded
                 details += f"  - Field Name (Mesh): {field_name}\n"
         else:
             details += f"  - Field Files: None auto-selected\n"

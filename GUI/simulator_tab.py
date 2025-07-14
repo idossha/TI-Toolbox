@@ -1258,19 +1258,24 @@ class SimulatorTab(QtWidgets.QWidget):
                             # Parse search_name to extract components for new naming format
                             montage_name = self._parse_flex_search_name(search_name, 'mapped')
                             
+                            # Use the first 4 electrode labels for TI simulation
+                            electrodes_for_ti = mapped_labels[:4]
+                            
                             # Validate montage name doesn't conflict with existing directories
                             if montage_name.startswith('flex_'):
                                 # TI requires 2 pairs of electrodes
                                 montage_data = {
                                     'name': montage_name,
                                     'type': 'flex_mapped',
+                                    'subject_id': subject_id,  # Add subject ID to identify specific configuration
+                                    'search_name': search_name,  # Add original search name for reference
                                     'eeg_net': eeg_net,  # Use the EEG net from the mapping file
-                                    'electrode_labels': mapped_labels[:4],
-                                    'pairs': [[mapped_labels[0], mapped_labels[1]], [mapped_labels[2], mapped_labels[3]]]
+                                    'electrode_labels': electrodes_for_ti,
+                                    'pairs': [[electrodes_for_ti[0], electrodes_for_ti[1]], [electrodes_for_ti[2], electrodes_for_ti[3]]]
                                 }
                                 flex_montages.append(montage_data)
                                 flex_montages_by_subject[subject_id].append(montage_data)
-                                self.update_output(f"Created flex mapped montage: {montage_name}")
+                                self.update_output(f"Created flex mapped montage: {montage_name} for subject {subject_id} (electrodes: {electrodes_for_ti})")
                             else:
                                 self.update_output(f"Warning: Generated invalid montage name '{montage_name}' for search '{search_name}'", 'warning')
                         else:
@@ -1284,6 +1289,8 @@ class SimulatorTab(QtWidgets.QWidget):
                             # Parse search_name to extract components for new naming format
                             montage_name = self._parse_flex_search_name(search_name, 'optimized')
                             
+                            # Use the first 4 electrode positions for TI simulation
+                            positions_for_ti = optimized_positions[:4]
 
                             # Validate montage name doesn't conflict with existing directories
                             if montage_name.startswith('flex_'):
@@ -1291,13 +1298,15 @@ class SimulatorTab(QtWidgets.QWidget):
                                 montage_data = {
                                     'name': montage_name,
                                     'type': 'flex_optimized',
-                                    'electrode_positions': optimized_positions[:4],
-                                    'pairs': [[optimized_positions[0], optimized_positions[1]], 
-                                             [optimized_positions[2], optimized_positions[3]]]
+                                    'subject_id': subject_id,  # Add subject ID to identify specific configuration
+                                    'search_name': search_name,  # Add original search name for reference
+                                    'electrode_positions': positions_for_ti,
+                                    'pairs': [[positions_for_ti[0], positions_for_ti[1]], 
+                                             [positions_for_ti[2], positions_for_ti[3]]]
                                 }
                                 flex_montages.append(montage_data)
                                 flex_montages_by_subject[subject_id].append(montage_data)
-                                self.update_output(f"Created flex optimized montage: {montage_name}")
+                                self.update_output(f"Created flex optimized montage: {montage_name} for subject {subject_id} (positions: {len(positions_for_ti)} electrodes)")
                             else:
                                 self.update_output(f"Warning: Generated invalid montage name '{montage_name}' for search '{search_name}'", 'warning')
                         else:
