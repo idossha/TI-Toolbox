@@ -892,42 +892,97 @@ class FlexSearchTab(QtWidgets.QWidget):
         # Show confirmation for multiple subjects
         if len(selected_subjects) > 1:
             subject_list_str = ", ".join(selected_subjects)
-            confirmation_msg = f"You are about to run optimization for {len(selected_subjects)} subjects: {subject_list_str}\n\nAll subjects will use the same parameters. Do you want to continue?"
+            confirmation_msg = f"You are about to run optimization for {len(selected_subjects)} subjects: {subject_list_str}\n\nSubjects will be processed sequentially (one after another). Do you want to continue?"
             reply = QtWidgets.QMessageBox.question(self, "Multiple Subjects", confirmation_msg, 
                                                  QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No)
             if reply != QtWidgets.QMessageBox.Yes:
                 return
 
-        # Process each selected subject
-        successful_runs = 0
-        failed_runs = 0
+        # Set up for sequential processing
+        self.optimization_running = True
+        self.run_btn.setEnabled(False)
+        self.stop_btn.setEnabled(True)
+        self.disable_controls()
         
-        for i, subject_id in enumerate(selected_subjects):
-            if len(selected_subjects) > 1:
-                self.update_output(f"\n=== Processing Subject {i+1}/{len(selected_subjects)}: {subject_id} ===")
+        # Initialize counters
+        self.current_subject_index = 0
+        self.selected_subjects = selected_subjects
+        self.successful_runs = 0
+        self.failed_runs = 0
+        self.roi_params = roi_params
+        self.goal = goal
+        self.postproc = postproc
+        self.eeg_net = eeg_net
+        self.electrode_radius = electrode_radius
+        self.electrode_current = electrode_current
+        
+        # Start processing the first subject
+        self._process_next_subject()
+
+    def _process_next_subject(self):
+        """Process the next subject in the queue sequentially."""
+        if self.current_subject_index >= len(self.selected_subjects):
+            # All subjects processed, show summary
+            self._finalize_multi_subject_optimization()
+            return
             
-            # Run optimization for this subject
-            success = self._run_single_subject_optimization(subject_id, roi_params, goal, postproc, 
-                                                           eeg_net, electrode_radius, electrode_current)
-            if success:
-                successful_runs += 1
-            else:
-                failed_runs += 1
+        subject_id = self.selected_subjects[self.current_subject_index]
         
-        # Summary for multiple subjects
-        if len(selected_subjects) > 1:
+        if len(self.selected_subjects) > 1:
+            self.update_output(f"\n=== Processing Subject {self.current_subject_index + 1}/{len(self.selected_subjects)}: {subject_id} ===")
+        
+        # Run optimization for this subject
+        success = self._run_single_subject_optimization(
+            subject_id, self.roi_params, self.goal, self.postproc, 
+            self.eeg_net, self.electrode_radius, self.electrode_current
+        )
+        
+        if not success:
+            self.failed_runs += 1
+            self.current_subject_index += 1
+            # Continue with next subject even if current one failed
+            self._process_next_subject()
+
+    def _finalize_multi_subject_optimization(self):
+        """Finalize the multi-subject optimization and show summary."""
+        if len(self.selected_subjects) > 1:
             self.update_output(f"\n=== Optimization Summary ===")
-            self.update_output(f"Successfully completed: {successful_runs}/{len(selected_subjects)} subjects")
-            if failed_runs > 0:
-                self.update_output(f"Failed: {failed_runs}/{len(selected_subjects)} subjects", 'error')
+            self.update_output(f"Successfully completed: {self.successful_runs}/{len(self.selected_subjects)} subjects")
+            if self.failed_runs > 0:
+                self.update_output(f"Failed: {self.failed_runs}/{len(self.selected_subjects)} subjects", 'error')
+        
+        # Clean up multi-subject state variables
+        if hasattr(self, 'selected_subjects'):
+            delattr(self, 'selected_subjects')
+        if hasattr(self, 'current_subject_index'):
+            delattr(self, 'current_subject_index')
+        if hasattr(self, 'roi_params'):
+            delattr(self, 'roi_params')
+        if hasattr(self, 'goal'):
+            delattr(self, 'goal')
+        if hasattr(self, 'postproc'):
+            delattr(self, 'postproc')
+        if hasattr(self, 'eeg_net'):
+            delattr(self, 'eeg_net')
+        if hasattr(self, 'electrode_radius'):
+            delattr(self, 'electrode_radius')
+        if hasattr(self, 'electrode_current'):
+            delattr(self, 'electrode_current')
+        
+        # Reset state
+        self.optimization_running = False
+        self.run_btn.setEnabled(True)
+        self.stop_btn.setEnabled(False)
+        self.enable_controls()
+        
+        if hasattr(self, 'parent') and self.parent:
+            self.parent.set_tab_busy(self, False, stop_btn=self.stop_btn)
 
     def _run_single_subject_optimization(self, subject_id, roi_params, goal, postproc, eeg_net, electrode_radius, electrode_current):
-        """Run optimization for a single subject. Returns True if successful, False otherwise."""
+        """Run optimization for a single subject. Returns True if started successfully, False otherwise."""
         try:
-            self.optimization_running = True
-            self.run_btn.setEnabled(False)
-            self.stop_btn.setEnabled(True)
-            self.disable_controls()
+            # Don't set optimization_running here - it's managed in run_optimization
+            # Don't disable controls here - they're managed in run_optimization
 
             # Prepare environment variables
             env = os.environ.copy()
@@ -1072,8 +1127,10 @@ class FlexSearchTab(QtWidgets.QWidget):
                 if k.startswith("ROI") or k.startswith("VOLUME") or k in ['PROJECT_DIR', 'SUBJECT_ID', 'ATLAS_PATH', 'SELECTED_HEMISPHERE']:
                     self.output_text.append(f"  {k}: {v}")
 
-            if hasattr(self, 'parent') and self.parent:
-                self.parent.set_tab_busy(self, True, stop_btn=self.stop_btn)
+            # Only set parent busy state for single subjects (multi-subject is handled in run_optimization)
+            if not hasattr(self, 'selected_subjects') or len(self.selected_subjects) == 1:
+                if hasattr(self, 'parent') and self.parent:
+                    self.parent.set_tab_busy(self, True, stop_btn=self.stop_btn)
             
             self.optimization_process = FlexSearchThread(cmd, env)
             self.optimization_process.output_signal.connect(self.update_output)
@@ -1085,7 +1142,6 @@ class FlexSearchTab(QtWidgets.QWidget):
             
         except Exception as e:
             self.update_output(f"Error executing optimization for subject {subject_id}: {str(e)}", 'error')
-            self.optimization_finished_early_due_to_error()
             return False
 
     def _build_confirmation_details(self, subject_id, roi_params, goal, postproc, eeg_net, electrode_radius, electrode_current):
@@ -1127,172 +1183,6 @@ class FlexSearchTab(QtWidgets.QWidget):
         
         return details
 
-    def _execute_optimization(self, subject_id, roi_params, goal, postproc, eeg_net, electrode_radius, electrode_current):
-        """Execute the actual optimization for a single subject."""
-        try:
-            self.optimization_running = True
-            self.run_btn.setEnabled(False)
-            self.stop_btn.setEnabled(True)
-            self.disable_controls()
-
-            # Prepare environment variables
-            env = os.environ.copy()
-            gui_project_dir_name = os.environ.get('PROJECT_DIR_NAME')
-            if gui_project_dir_name:
-                env['PROJECT_DIR'] = f"/mnt/{gui_project_dir_name}" 
-            else:
-                # Fallback if not set
-                cwd = os.getcwd()
-                potential_dirs = [
-                    os.path.dirname(cwd), os.path.join(cwd, ".."), os.path.abspath(os.path.join(cwd, "..")),
-                    os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
-                ]
-                found_project_dir = None
-                for pd_candidate in potential_dirs:
-                    if os.path.isdir(pd_candidate) and os.path.isdir(os.path.join(pd_candidate, 'derivatives', 'SimNIBS', f'sub-{subject_id}')):
-                        found_project_dir = pd_candidate
-                        self.output_text.append(f"PROJECT_DIR (for env) heuristically set to: {found_project_dir}")
-                        break
-                if found_project_dir:
-                    env['PROJECT_DIR'] = found_project_dir
-                else:
-                    self.output_text.append("Warning: PROJECT_DIR_NAME not in env and heuristic search failed. Using default /mnt/BIDS_test for env['PROJECT_DIR']")
-                    env['PROJECT_DIR'] = "/mnt/BIDS_test"
-
-            script_project_dir = env['PROJECT_DIR']
-
-            env['SUBJECT_ID'] = subject_id
-            if roi_params['method'] == "spherical":
-                env['ROI_X'] = str(roi_params['center'][0])
-                env['ROI_Y'] = str(roi_params['center'][1])
-                env['ROI_Z'] = str(roi_params['center'][2])
-                env['ROI_RADIUS'] = str(roi_params['radius'])
-            elif roi_params['method'] == "atlas":
-                atlas_display_for_env = roi_params['atlas']
-                # Extract just the atlas type (e.g., "DK40") and construct subject-specific name
-                # The atlas_display_map contains the full name from the first subject (e.g., "101_DK40")
-                # but we need to construct the correct name for the current subject (e.g., "102_DK40")
-                atlas_base_name = self.atlas_display_map.get(atlas_display_for_env, atlas_display_for_env)
-                
-                # Extract the atlas type by removing the subject prefix
-                # e.g., "101_DK40" → "DK40"
-                if '_' in atlas_base_name:
-                    atlas_type = atlas_base_name.split('_', 1)[-1]  # Everything after first underscore
-                else:
-                    atlas_type = atlas_base_name  # Fallback if no underscore
-                
-                # Construct the correct subject-specific atlas name
-                atlas_name_for_env = f"{subject_id}_{atlas_type}"
-                
-                hemi_for_env = "lh" if self.roi_hemi_combo.currentIndex() == 0 else "rh"
-                seg_dir_for_env = os.path.join(script_project_dir, 'derivatives', 'SimNIBS', f'sub-{subject_id}', f'm2m_{subject_id}', 'segmentation')
-                atlas_path_for_env = os.path.join(seg_dir_for_env, f'{hemi_for_env}.{atlas_name_for_env}.annot')
-                env['ATLAS_PATH'] = atlas_path_for_env
-                env['SELECTED_HEMISPHERE'] = hemi_for_env
-                env['ROI_LABEL'] = str(roi_params['region'])
-            else:  # subcortical
-                volume_atlas_for_env = roi_params['volume_atlas']
-                volume_atlas_path_for_env = self.volume_atlases.get(volume_atlas_for_env)
-                if volume_atlas_path_for_env:
-                    env['VOLUME_ATLAS_PATH'] = volume_atlas_path_for_env
-                env['VOLUME_ROI_LABEL'] = str(roi_params['volume_region'])
-            
-            # Build the command
-            script_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-            flex_search_py = os.path.join(script_dir, "flex-search", "flex-search.py")
-            if not os.path.isfile(flex_search_py):
-                self.output_text.append(f"Error: flex-search.py not found at {flex_search_py}. Optimization cannot continue.")
-                return False
-
-            cmd = [
-                "simnibs_python", flex_search_py,
-                "--subject", subject_id,
-                "--goal", goal, 
-                "--postproc", postproc,
-                "--eeg-net", eeg_net,
-                "--radius", str(electrode_radius),
-                "--current", str(electrode_current),
-                "--roi-method", roi_params['method']
-            ]
-
-            # Mapping options
-            if self.enable_mapping_checkbox.isChecked():
-                cmd.append("--enable-mapping")
-                if not self.run_mapped_simulation_checkbox.isChecked():
-                    cmd.append("--disable-mapping-simulation")
-
-            # Focality options
-            if goal == "focality":
-                thresholds = self.threshold_input.text().strip()
-                nonroi_method = self.nonroi_method_combo.currentData()
-                if not thresholds:
-                    self.output_text.append("Error: Please enter threshold(s) for focality.")
-                    return False
-                cmd += ["--non-roi-method", nonroi_method, "--thresholds", thresholds]
-                if nonroi_method == "specific":
-                    if roi_params['method'] == "spherical":
-                        env['NON_ROI_X'] = str(self.nonroi_x_input.value())
-                        env['NON_ROI_Y'] = str(self.nonroi_y_input.value())
-                        env['NON_ROI_Z'] = str(self.nonroi_z_input.value())
-                        env['NON_ROI_RADIUS'] = str(self.nonroi_radius_input.value())
-                    elif roi_params['method'] == "atlas":
-                        nonroi_atlas_display = self.nonroi_atlas_combo.currentText()
-                        # Apply same multiple-subject fix for non-ROI atlas
-                        nonroi_atlas_base_name = self.atlas_display_map.get(nonroi_atlas_display, nonroi_atlas_display)
-                        
-                        # Extract the atlas type by removing the subject prefix
-                        if '_' in nonroi_atlas_base_name:
-                            nonroi_atlas_type = nonroi_atlas_base_name.split('_', 1)[-1]
-                        else:
-                            nonroi_atlas_type = nonroi_atlas_base_name
-                        
-                        # Construct the correct subject-specific atlas name
-                        nonroi_atlas_name = f"{subject_id}_{nonroi_atlas_type}"
-                        
-                        nonroi_hemi = "lh" if self.nonroi_hemi_combo.currentIndex() == 0 else "rh"
-                        nonroi_label_val = self.nonroi_label_input.value()
-                        nonroi_atlas_path_arg = os.path.join(script_project_dir, 'derivatives', 'SimNIBS', f'sub-{subject_id}', 
-                                                         f'm2m_{subject_id}', 'segmentation', f'{nonroi_hemi}.{nonroi_atlas_name}.annot')
-                        env['NON_ROI_ATLAS_PATH'] = nonroi_atlas_path_arg
-                        env['NON_ROI_HEMISPHERE'] = nonroi_hemi
-                        env['NON_ROI_LABEL'] = str(nonroi_label_val)
-                    else:  # subcortical volume for non-ROI
-                        nonroi_volume_atlas = self.nonroi_volume_atlas_combo.currentText()
-                        nonroi_volume_label_val = self.nonroi_volume_label_input.value()
-                        nonroi_volume_atlas_path = self.volume_atlases.get(nonroi_volume_atlas)
-                        if nonroi_volume_atlas_path:
-                            env['VOLUME_NON_ROI_ATLAS_PATH'] = nonroi_volume_atlas_path
-                        env['VOLUME_NON_ROI_LABEL'] = str(nonroi_volume_label_val)
-            
-            # Stability and Memory options
-            if self.quiet_mode_checkbox.isChecked():
-                cmd.append("--quiet")
-            cmd.extend(["--max-iterations", str(self.max_iterations_input.value())])
-            cmd.extend(["--population-size", str(self.population_size_input.value())])
-            cmd.extend(["--cpus", str(self.cpus_input.value())])
-
-            self.output_text.append(f"Running optimization for subject {subject_id} (this may take a while)...")
-            self.output_text.append("Command: " + " ".join(cmd))
-            self.output_text.append("Environment for subprocess will include:")
-            for k, v in env.items():
-                if k.startswith("ROI") or k.startswith("VOLUME") or k in ['PROJECT_DIR', 'SUBJECT_ID', 'ATLAS_PATH', 'SELECTED_HEMISPHERE']:
-                    self.output_text.append(f"  {k}: {v}")
-
-            if hasattr(self, 'parent') and self.parent:
-                self.parent.set_tab_busy(self, True, stop_btn=self.stop_btn)
-            
-            self.optimization_process = FlexSearchThread(cmd, env)
-            self.optimization_process.output_signal.connect(self.update_output)
-            self.optimization_process.error_signal.connect(lambda msg: self.update_output(msg, 'error'))
-            self.optimization_process.finished.connect(self.optimization_finished)
-            self.optimization_process.start()
-            
-            return True
-            
-        except Exception as e:
-            self.update_output(f"Error executing optimization for subject {subject_id}: {str(e)}", 'error')
-            self.optimization_finished_early_due_to_error()
-            return False
 
     def update_output(self, text, message_type='default'):
         """Update the console output with colored text."""
@@ -1329,13 +1219,29 @@ class FlexSearchTab(QtWidgets.QWidget):
     
     def optimization_finished(self):
         """Handle the completion of the optimization process."""
-        if hasattr(self, 'parent') and self.parent:
-            self.parent.set_tab_busy(self, False, stop_btn=self.stop_btn)
-        self.optimization_running = False
-        self.run_btn.setEnabled(True)
-        self.stop_btn.setEnabled(False)
-        self.enable_controls()  # Re-enable all controls
-        self.output_text.append("\nOptimization process completed.")
+        # Check if this was a successful completion
+        if hasattr(self, 'optimization_process') and self.optimization_process:
+            if self.optimization_process.process and self.optimization_process.process.returncode == 0:
+                self.successful_runs += 1
+            else:
+                self.failed_runs += 1
+        
+        # Move to next subject if we're in multi-subject mode
+        if hasattr(self, 'selected_subjects') and len(self.selected_subjects) > 1:
+            self.current_subject_index += 1
+            self.output_text.append(f"Subject {self.current_subject_index}/{len(self.selected_subjects)} completed.")
+            
+            # Process next subject or finalize
+            self._process_next_subject()
+        else:
+            # Single subject mode or last subject in multi-subject mode
+            if hasattr(self, 'parent') and self.parent:
+                self.parent.set_tab_busy(self, False, stop_btn=self.stop_btn)
+            self.optimization_running = False
+            self.run_btn.setEnabled(True)
+            self.stop_btn.setEnabled(False)
+            self.enable_controls()
+            self.output_text.append("\nOptimization process completed.")
     
     def clear_console(self):
         """Clear the output console."""
@@ -1355,10 +1261,20 @@ class FlexSearchTab(QtWidgets.QWidget):
             else:
                 self.output_text.append("Failed to stop optimization.")
         
+        # Reset multi-subject state if applicable
+        if hasattr(self, 'selected_subjects') and len(self.selected_subjects) > 1:
+            self.output_text.append(f"Multi-subject optimization stopped at subject {self.current_subject_index + 1}/{len(self.selected_subjects)}.")
+            # Clear multi-subject state
+            if hasattr(self, 'selected_subjects'):
+                delattr(self, 'selected_subjects')
+            if hasattr(self, 'current_subject_index'):
+                delattr(self, 'current_subject_index')
+        
         self.optimization_running = False
         self.run_btn.setEnabled(True)
         self.stop_btn.setEnabled(False)
-    
+        self.enable_controls()
+
     def on_subject_changed(self):
         """Handle subject selection change."""
         # Refresh EEG nets and atlases for the new selection
