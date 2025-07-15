@@ -98,7 +98,7 @@ class AcknowledgmentsTab(QtWidgets.QWidget):
         
         # Add a note at the bottom about missing acknowledgments
         note_label = QtWidgets.QLabel(
-            "<p><i>If you're using TI-CSC in academic work, please cite the appropriate references above.</i></p>"
+            "<p><i>If you're using TI-Toolbox in academic work, please cite the appropriate references above.</i></p>"
         )
         note_label.setWordWrap(True)
         note_label.setAlignment(QtCore.Qt.AlignCenter)

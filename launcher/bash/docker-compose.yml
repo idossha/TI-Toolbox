@@ -1,14 +1,4 @@
 services:
-  matlab:
-    image: idossha/matlab:20th
-    platform: linux/amd64
-    container_name: matlab_container
-    volumes:
-      - matlab_runtime:/usr/local/MATLAB/MATLAB_Runtime
-    networks:
-      - ti_network
-    restart: unless-stopped
-  
   fsl:
     image: idossha/ti-csc_fsl:v1.3.0
     platform: linux/amd64
@@ -36,7 +26,6 @@ services:
     volumes:
       - ti_csc_fsl_data:/usr/local/fsl/
       - ti_csc_freesurfer_data:/usr/local/freesurfer/
-      - matlab_runtime:/usr/local/MATLAB/MATLAB_Runtime
       - ${LOCAL_PROJECT_DIR}:/mnt/${PROJECT_DIR_NAME}
       # X11 socket mount for Linux/macOS
       - /tmp/.X11-unix:/tmp/.X11-unix:rw
@@ -64,15 +53,11 @@ services:
       PROJECT_DIR_NAME: ${PROJECT_DIR_NAME}
       # Performance settings
       KMP_AFFINITY: "disabled"
-      # MATLAB Runtime paths
-      LD_LIBRARY_PATH: /usr/local/MATLAB/MATLAB_Runtime/v124/runtime/glnxa64:/usr/local/MATLAB/MATLAB_Runtime/v124/bin/glnxa64:/usr/local/MATLAB/MATLAB_Runtime/v124/sys/os/glnxa64
-      XAPPLRESDIR: /usr/local/MATLAB/MATLAB_Runtime/v124/X11/app-defaults
     networks:
       - ti_network
     depends_on:
       - fsl
       - freesurfer
-      - matlab
     tty: true
     stdin_open: true
     working_dir: /ti-csc
@@ -90,7 +75,4 @@ volumes:
   ti_csc_freesurfer_data:
     external: true
     name: ti_csc_freesurfer_data
-  matlab_runtime:
-    external: true
-    name: matlab_runtime
 
