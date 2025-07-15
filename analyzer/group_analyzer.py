@@ -18,7 +18,7 @@ import argparse
 import subprocess
 import logging
 from pathlib import Path
-from typing import List, Tuple
+from typing import List, Tuple, Optional
 
 # Import our comparison functions
 try:
@@ -275,7 +275,7 @@ def build_main_analyzer_command(
         # Get the log file path from the first handler
         for handler in group_logger.handlers:
             if hasattr(handler, 'baseFilename'):
-                log_file_path = handler.baseFilename
+                log_file_path = getattr(handler, 'baseFilename')
                 cmd += ["--log_file", log_file_path]
                 break
 
@@ -343,7 +343,7 @@ def collect_analysis_paths(successful_dirs: List[str]) -> List[str]:
     return analysis_paths
 
 
-def run_comprehensive_group_analysis(analysis_paths: List[str], project_name: str = None) -> str:
+def run_comprehensive_group_analysis(analysis_paths: List[str], project_name: Optional[str] = None) -> str:
     """
     Run comprehensive group analysis using all available comparison methods.
     

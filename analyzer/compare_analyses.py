@@ -1506,7 +1506,13 @@ def run_all_group_comparisons(analysis_dirs: list[str], project_name: str = None
         
         # Look for the standardized grey matter MNI file with flexible pattern matching
         # Try multiple common patterns for grey matter NIfTI files
+        # First try patterns without subject ID (common in newer file structures)
         potential_patterns = [
+            f"grey_{extracted_montage}_TI_MNI_MNI_TI_max",
+            f"grey_{extracted_montage}_TI_MNI_TI_max",
+            f"grey_{extracted_montage}_TI_max",
+            f"grey_{extracted_montage}_MNI_TI_max",
+            # Then try patterns with subject ID (legacy file structures)
             f"grey_{subject_short}_{extracted_montage}_TI_MNI_MNI_TI_max",
             f"grey_{subject_short}_{extracted_montage}_TI_MNI_TI_max", 
             f"grey_{subject_short}_{extracted_montage}_TI_max",

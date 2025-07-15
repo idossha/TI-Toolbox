@@ -45,6 +45,20 @@ import logging
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 from utils import logging_util
 
+def extract_subject_label(subject_id: str) -> str:
+    """
+    Extract meaningful subject label from subject ID.
+    
+    Args:
+        subject_id: Full subject ID (e.g., 'sub-101', 'sub-ernie')
+        
+    Returns:
+        Meaningful label (e.g., '101', 'ernie')
+    """
+    if subject_id.startswith('sub-'):
+        return subject_id[4:]  # Remove 'sub-' prefix
+    return subject_id
+
 def setup_logger(output_dir: str) -> logging.Logger:
     """Set up logging for the CSV comparison."""
     log_dir = os.path.join(output_dir, "logs")
@@ -57,13 +71,13 @@ def setup_logger(output_dir: str) -> logging.Logger:
 
 def load_csv_files(csv_paths: List[str]) -> Dict[str, pd.DataFrame]:
     """
-    Load CSV files and return a dictionary with filename as key and DataFrame as value.
+    Load CSV files and return a dictionary with subdirectory name as key and DataFrame as value.
     
     Args:
         csv_paths: List of paths to CSV files
         
     Returns:
-        Dictionary mapping file names to DataFrames
+        Dictionary mapping subdirectory names to DataFrames
     """
     csv_data = {}
     
@@ -71,25 +85,13 @@ def load_csv_files(csv_paths: List[str]) -> Dict[str, pd.DataFrame]:
         if not os.path.exists(csv_path):
             raise FileNotFoundError(f"CSV file not found: {csv_path}")
             
-        # Use filename without extension as key, but make it unique if duplicates exist
-        file_name = Path(csv_path).stem
-        
-        # If this filename already exists, make it unique by adding parent directory
-        if file_name in csv_data:
-            parent_dir = Path(csv_path).parent.name
-            file_name = f"{parent_dir}_{file_name}"
-            
-            # If still not unique, add full path parts
-            counter = 1
-            original_name = file_name
-            while file_name in csv_data:
-                file_name = f"{original_name}_{counter}"
-                counter += 1
+        # Use subdirectory name as the group name
+        group_name = Path(csv_path).parent.name
         
         try:
             df = pd.read_csv(csv_path)
-            csv_data[file_name] = df
-            print(f"Loaded {file_name}: {len(df)} rows, {len(df.columns)} columns")
+            csv_data[group_name] = df
+            print(f"Loaded {group_name}: {len(df)} rows, {len(df.columns)} columns")
         except Exception as e:
             raise ValueError(f"Error loading {csv_path}: {str(e)}")
     
@@ -130,7 +132,8 @@ def compare_subject_metrics(csv_data: Dict[str, pd.DataFrame],
                           output_dir: str, 
                           logger: logging.Logger) -> pd.DataFrame:
     """
-    Compare metrics for subjects that appear in multiple CSV files.
+    Compare metrics for subjects that appear in ALL CSV files.
+    Only includes subjects that have data in every CSV file.
     
     Args:
         csv_data: Dictionary of DataFrames
@@ -158,12 +161,13 @@ def compare_subject_metrics(csv_data: Dict[str, pd.DataFrame],
         subject_data = {}
         
         # Extract data for this subject from each CSV
+        # Only proceed if subject exists in ALL CSV files
+        subject_found_in_all = True
         for file_name, df in csv_data.items():
             subject_rows = df[df['Subject_ID'] == subject_id]
             
             if len(subject_rows) > 0:
                 # If multiple rows for same subject, take the first one
-                # (you might want to modify this logic based on your needs)
                 subject_row = subject_rows.iloc[0]
                 
                 # Store relevant columns
@@ -176,9 +180,12 @@ def compare_subject_metrics(csv_data: Dict[str, pd.DataFrame],
                 for col in numeric_columns:
                     if col in subject_row:
                         subject_data[file_name][col] = subject_row[col]
+            else:
+                subject_found_in_all = False
+                break
         
-        # Create comparison for this subject
-        if len(subject_data) > 1:  # Only compare if subject appears in multiple files
+        # Only create comparison if subject appears in ALL files
+        if subject_found_in_all and len(subject_data) == len(csv_data):
             comparison_row = {'Subject_ID': subject_id}
             
             # Add metrics from each file
@@ -194,7 +201,7 @@ def compare_subject_metrics(csv_data: Dict[str, pd.DataFrame],
                     if col in subject_data[file_name]:
                         values.append(subject_data[file_name][col])
                 
-                if len(values) > 1:
+                if len(values) == len(file_names):  # Only if all files have this metric
                     comparison_row[f"{col}_diff"] = float(max(values) - min(values))
                     comparison_row[f"{col}_mean"] = float(np.mean(values))
                     comparison_row[f"{col}_std"] = float(np.std(values))
@@ -208,10 +215,11 @@ def compare_subject_metrics(csv_data: Dict[str, pd.DataFrame],
         comparison_file = os.path.join(output_dir, "subject_comparisons.csv")
         comparison_df.to_csv(comparison_file, index=False)
         logger.info(f"Subject comparison results saved to: {comparison_file}")
+        logger.info(f"Compared {len(comparison_results)} subjects that appear in all CSV files")
         
         return comparison_df
     else:
-        logger.warning("No subjects found in multiple CSV files")
+        logger.warning("No subjects found in all CSV files")
         return pd.DataFrame()
 
 def generate_group_statistics(csv_data: Dict[str, pd.DataFrame], 
@@ -361,12 +369,22 @@ def create_visualization_plots(csv_data: Dict[str, pd.DataFrame],
             col2 = f"{file_names[1]}_{metric}"
             
             if col1 in comparison_df.columns and col2 in comparison_df.columns:
-                fig, ax = plt.subplots(figsize=(10, 8))
+                fig, ax = plt.subplots(figsize=(12, 8))
                 
-                # Get data for both conditions
-                data1 = comparison_df[col1].dropna()
-                data2 = comparison_df[col2].dropna()
-                subjects = comparison_df['Subject_ID'].iloc[:len(data1)]
+                # Get subjects that have data for both conditions
+                valid_mask = comparison_df[col1].notna() & comparison_df[col2].notna()
+                valid_data = comparison_df[valid_mask].copy()
+                
+                if len(valid_data) == 0:
+                    logger.warning(f"No subjects with valid data for both conditions in {metric}")
+                    plt.close()
+                    continue
+                
+                # Get data for both conditions (same subjects, matched by Subject_ID)
+                data1 = valid_data[col1].values
+                data2 = valid_data[col2].values
+                subject_ids = valid_data['Subject_ID'].values
+                subject_labels = [extract_subject_label(sid) for sid in subject_ids]
                 
                 # Create scatter plot with lines connecting same subjects
                 x_pos = range(len(data1))
@@ -387,7 +405,7 @@ def create_visualization_plots(csv_data: Dict[str, pd.DataFrame],
                 ax.set_ylabel(f'{metric} Value')
                 ax.set_title(f'{metric}: Subject-by-Subject Comparison')
                 ax.set_xticks(x_pos)
-                ax.set_xticklabels([f'S{i+1}' for i in range(len(data1))], rotation=45)
+                ax.set_xticklabels(subject_labels, rotation=45, ha='right')
                 ax.legend()
                 ax.grid(True, alpha=0.3)
                 
@@ -395,7 +413,7 @@ def create_visualization_plots(csv_data: Dict[str, pd.DataFrame],
                 plot_file = os.path.join(plots_dir, f"subject_comparison_{metric}.png")
                 plt.savefig(plot_file, dpi=300, bbox_inches='tight')
                 plt.close()
-                logger.info(f"Subject comparison plot for {metric} saved to: {plot_file}")
+                logger.info(f"Subject comparison plot for {metric} saved to: {plot_file} ({len(valid_data)} subjects)")
     
     # Plot 2: Group means comparison for the three target metrics
     if group_stats and len(file_names) == 2:
@@ -477,17 +495,26 @@ def create_visualization_plots(csv_data: Dict[str, pd.DataFrame],
             for i, metric in enumerate(available_metrics):
                 ax = axes[i]
                 
-                # Get subject-level data
+                # Get subject-level data - only subjects with data in both conditions
                 col1 = f"{file_names[0]}_{metric}"
                 col2 = f"{file_names[1]}_{metric}"
-                data1 = comparison_df[col1].dropna()
-                data2 = comparison_df[col2].dropna()
+                valid_mask = comparison_df[col1].notna() & comparison_df[col2].notna()
+                valid_data = comparison_df[valid_mask].copy()
+                
+                if len(valid_data) == 0:
+                    ax.text(0.5, 0.5, f'No valid data\nfor {metric}', 
+                           ha='center', va='center', transform=ax.transAxes)
+                    ax.set_title(f'{metric}')
+                    continue
+                
+                data1 = valid_data[col1].values
+                data2 = valid_data[col2].values
                 
                 # Individual subject points
                 ax.scatter([1]*len(data1), data1, alpha=0.6, color='lightblue', s=40)
                 ax.scatter([2]*len(data2), data2, alpha=0.6, color='lightcoral', s=40)
                 
-                # Connect same subjects
+                # Connect same subjects (now properly matched)
                 for val1, val2 in zip(data1, data2):
                     ax.plot([1, 2], [val1, val2], color='gray', alpha=0.3, linewidth=0.5)
                 
@@ -556,19 +583,29 @@ def generate_summary_report(csv_data: Dict[str, pd.DataFrame],
         
         # Common subjects analysis
         if not comparison_df.empty:
-            f.write("COMMON SUBJECTS ANALYSIS\n")
-            f.write("-" * 25 + "\n")
-            f.write(f"Number of common subjects: {len(comparison_df)}\n\n")
+            f.write("SUBJECTS COMPARISON ANALYSIS\n")
+            f.write("-" * 28 + "\n")
+            f.write(f"Number of subjects found in ALL CSV files: {len(comparison_df)}\n")
+            
+            # Show subject IDs
+            if len(comparison_df) > 0:
+                subject_ids = comparison_df['Subject_ID'].tolist()
+                subject_labels = [extract_subject_label(sid) for sid in subject_ids]
+                f.write(f"Subject IDs: {', '.join(subject_labels)}\n\n")
             
             # Show largest differences
             diff_columns = [col for col in comparison_df.columns if col.endswith('_diff')]
             if diff_columns:
-                f.write("Largest differences observed:\n")
+                f.write("Largest differences observed between groups:\n")
                 for col in diff_columns:
                     max_diff = comparison_df[col].max()
                     mean_diff = comparison_df[col].mean()
                     f.write(f"  {col.replace('_diff', '')}: Max={max_diff:.4f}, Mean={mean_diff:.4f}\n")
                 f.write("\n")
+        else:
+            f.write("SUBJECTS COMPARISON ANALYSIS\n")
+            f.write("-" * 28 + "\n")
+            f.write("No subjects found in ALL CSV files for comparison.\n\n")
         
         # Group statistics summary
         if group_stats:
