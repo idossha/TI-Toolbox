@@ -274,7 +274,7 @@ class PreProcessTab(QtWidgets.QWidget):
         options_group_layout.setSpacing(10)  # Consistent spacing between options
         
         # DICOM conversion options
-        self.convert_dicom_cb = QtWidgets.QCheckBox("Convert DICOM files to NIfTI (auto-detects T1w/T2w)")
+        self.convert_dicom_cb = QtWidgets.QCheckBox("Convert DICOM files to NIfTI)")
         self.convert_dicom_cb.setChecked(True)
         options_group_layout.addWidget(self.convert_dicom_cb)
         
@@ -293,7 +293,7 @@ class PreProcessTab(QtWidgets.QWidget):
         self.create_m2m_cb.setToolTip("SimNIBS charm processes run one at a time (sequential) to prevent PETSC conflicts, but each uses full CPU power")
         options_group_layout.addWidget(self.create_m2m_cb)
         
-        self.create_atlas_cb = QtWidgets.QCheckBox("Create atlas segmentation (requires m2m folder)")
+        self.create_atlas_cb = QtWidgets.QCheckBox("Create atlas segmentation")
         self.create_atlas_cb.setChecked(True)
         options_group_layout.addWidget(self.create_atlas_cb)
         
