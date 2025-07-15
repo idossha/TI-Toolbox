@@ -1,4 +1,7 @@
-# Dockerfile.matlab
+# Dockerfile.matlab - DEPRECATED
+# This Dockerfile is no longer used as MATLAB runtime has been removed from the TI-toolbox
+# Kept for reference only
+
 FROM ubuntu:22.04
 
 # Set noninteractive mode for apt-get

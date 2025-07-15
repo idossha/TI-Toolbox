@@ -36,11 +36,7 @@ initialize_volumes() {
     docker volume create ti_csc_freesurfer_data
   fi
 
-  # Check and create MATLAB Runtime volume if it doesn't exist
-  if ! docker volume inspect matlab_runtime >/dev/null 2>&1; then
-    echo "Creating MATLAB Runtime volume..."
-    docker volume create matlab_runtime
-  fi
+
 }
 
 # Function to check allocated Docker resources (CPU, memory)

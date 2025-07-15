@@ -144,10 +144,7 @@ RUN nvim --headless "+LAZY! sync" +qa
 # Source tmux
 RUN tmux source-file /root/.tmux.conf || true
 
-############ MATLAB prep ###############
 
-# Create MATLAB Runtime directory
-RUN mkdir -p /usr/local/MATLAB/MATLAB_Runtime
 # Additional steps to run execstack on process_mesh_files in specific field-analysis directories
 RUN execstack -s /ti-csc/ex-search/field-analysis/process_mesh_files 
 
