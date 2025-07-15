@@ -1271,7 +1271,7 @@ class SimulatorTab(QtWidgets.QWidget):
                                     }
                                 }
                                 flex_montage_configs.append(config)
-                                self.update_output(f"Created flex mapped configuration: {montage_name} for subject {subject_id} (electrodes: {electrodes_for_ti})")
+                                # Configuration created (verbose output reduced)
                             else:
                                 self.update_output(f"Warning: Generated invalid montage name '{montage_name}' for search '{search_name}'", 'warning')
                         else:
@@ -1304,7 +1304,7 @@ class SimulatorTab(QtWidgets.QWidget):
                                     }
                                 }
                                 flex_montage_configs.append(config)
-                                self.update_output(f"Created flex optimized configuration: {montage_name} for subject {subject_id} (positions: {len(positions_for_ti)} electrodes)")
+                                # Optimized configuration created (verbose output reduced)
                             else:
                                 self.update_output(f"Warning: Generated invalid montage name '{montage_name}' for search '{search_name}'", 'warning')
                         else:
@@ -1458,27 +1458,26 @@ class SimulatorTab(QtWidgets.QWidget):
                             'montage_name': montage_name,
                             'eeg_net': config['eeg_net']
                         })
-                        self.update_output(f"Created temp file for {subject_id}-{montage_name}: {temp_file_path}")
+                        # Temp file created (verbose output reduced)
                 
                 # Store the montage file list for CLI to use (sequential processing)
                 env['FLEX_MONTAGE_FILES'] = json.dumps(montage_file_list)
-                self.update_output(f"Created {len(temp_files)} individual subject-montage temp files")
+                self.update_output(f"--- Prepared {len(temp_files)} flex simulations for processing ---")
                 
                 # Store temp files for cleanup later
                 self.temp_flex_files = temp_files
             
-            # Debug output
-            self.update_output(f"Running in direct execution mode from GUI")
-            self.update_output(f"Running {env['SIMULATION_FRAMEWORK']} simulation with:")
-            self.update_output(f"- Subjects: {env['SUBJECT_CHOICES']}")
-            self.update_output(f"- Simulation type: {env['CONDUCTIVITY']}")
+            # Display simulation configuration
+            self.update_output("--- SIMULATION CONFIGURATION ---")
+            self.update_output(f"Subjects: {env['SUBJECT_CHOICES']}")
+            self.update_output(f"Simulation type: {env['CONDUCTIVITY']}")
             
             if is_montage_mode:
-                self.update_output(f"- Mode: {'Unipolar' if sim_mode == 'U' else 'Multipolar'}")
-                self.update_output(f"- EEG Net: {env['EEG_NET']}")
-                self.update_output(f"- Montages: {', '.join(selected_montages)}")
+                self.update_output(f"Mode: {'Unipolar' if sim_mode == 'U' else 'Multipolar'}")
+                self.update_output(f"EEG Net: {env['EEG_NET']}")
+                self.update_output(f"Montages: {', '.join(selected_montages)}")
             else:
-                self.update_output(f"- Flex-search montages: {', '.join([config['montage']['name'] for config in flex_montage_configs])}")
+                self.update_output(f"Flex-search montages: {', '.join([config['montage']['name'] for config in flex_montage_configs])}")
                 
                 # Determine electrode types based on checkboxes
                 electrode_types = []
@@ -1488,13 +1487,11 @@ class SimulatorTab(QtWidgets.QWidget):
                     electrode_types.append("optimized")
                 electrode_type_text = ", ".join(electrode_types) if electrode_types else "none"
                 
-                self.update_output(f"- Electrode type: {electrode_type_text}")
+                self.update_output(f"Electrode type: {electrode_type_text}")
             
-            self.update_output(f"- Current Channel 1: {current_ma_1} mA")
-            self.update_output(f"- Current Channel 2: {current_ma_2} mA")
-            self.update_output(f"- Electrode shape: {electrode_shape}")
-            self.update_output(f"- Dimensions: {dimensions} mm")
-            self.update_output(f"- Thickness: {thickness} mm")
+            self.update_output(f"Current Ch1/Ch2: {current_ma_1}/{current_ma_2} mA")
+            self.update_output(f"Electrode: {electrode_shape} ({dimensions} mm, {thickness} mm thick)")
+            self.update_output("--- STARTING SIMULATION ---")
             
             # Set tab as busy
             if hasattr(self, 'parent') and self.parent:
@@ -1590,7 +1587,7 @@ class SimulatorTab(QtWidgets.QWidget):
         if hasattr(self, 'parent') and self.parent:
             self.parent.set_tab_busy(self, False)
         
-        self.output_console.append('<div style="margin: 10px 0;"><span style="color: #55ff55; font-size: 16px; font-weight: bold;">✅ Simulation process completed ✅</span></div>')
+        self.output_console.append('<div style="margin: 10px 0;"><span style="color: #55ff55; font-size: 16px; font-weight: bold;">--- SIMULATION PROCESS COMPLETED ---</span></div>')
         self.output_console.append('<div style="border-bottom: 1px solid #555; margin-bottom: 10px;"></div>')
         
         # Automatically generate simulation report
@@ -1607,11 +1604,11 @@ class SimulatorTab(QtWidgets.QWidget):
                     if os.path.exists(temp_file):
                         os.remove(temp_file)
                         remaining_files += 1
-                        self.update_output(f"🗑️ Cleaned up remaining temp file: {temp_file}")
+                        self.update_output(f"[CLEANUP] Removed temp file: {temp_file}")
                 except Exception as e:
-                    self.update_output(f"⚠️ Could not clean up flex file {temp_file}: {str(e)}", 'warning')
+                    self.update_output(f"[WARNING] Could not clean up flex file {temp_file}: {str(e)}", 'warning')
             if remaining_files > 0:
-                self.update_output(f"🧹 Cleaned up {remaining_files} remaining temp files")
+                self.update_output(f"[CLEANUP] Removed {remaining_files} remaining temp files")
             delattr(self, 'temp_flex_files')
         
         self.simulation_running = False
@@ -1702,7 +1699,7 @@ class SimulatorTab(QtWidgets.QWidget):
                         report_generator = get_simulation_report_generator(project_dir, individual_session_id)
                         
                         if not report_generator:
-                            self.update_output(f"⚠️ Report generator not available for {subject_id}-{montage_name}")
+                            self.update_output(f"[WARNING] Report generator not available for {subject_id}-{montage_name}", 'warning')
                             continue
                         
                         # Add simulation parameters
@@ -1760,28 +1757,28 @@ class SimulatorTab(QtWidgets.QWidget):
                         # Generate individual report
                         report_path = report_generator.generate_report()
                         successful_reports += 1
-                        self.update_output(f"✅ Individual report generated for {subject_id}-{montage_name}: {os.path.basename(report_path)}")
+                        self.update_output(f"[SUCCESS] Individual report generated for {subject_id}-{montage_name}: {os.path.basename(report_path)}")
                         
                     except Exception as e:
-                        self.update_output(f"❌ Error generating report for {subject_id}-{montage_name}: {str(e)}", 'error')
+                        self.update_output(f"[ERROR] Error generating report for {subject_id}-{montage_name}: {str(e)}", 'error')
             
             # Summary
-            self.update_output(f"📊 Generated {successful_reports}/{total_reports} individual simulation reports")
+            self.update_output(f"--- Generated {successful_reports}/{total_reports} individual simulation reports ---")
             
             if successful_reports > 0:
                 reports_dir = os.path.join(project_dir, 'derivatives', 'reports')
-                self.update_output(f"📂 Reports saved in: {reports_dir}")
+                self.update_output(f"[INFO] Reports saved in: {reports_dir}")
                 
                 # Open the reports directory instead of individual files
                 import webbrowser
                 try:
                     webbrowser.open('file://' + os.path.abspath(reports_dir))
-                    self.update_output("📊 Reports directory opened in file browser")
+                    self.update_output("[INFO] Reports directory opened in file browser")
                 except Exception as e:
-                    self.update_output(f"Reports generated but couldn't open directory: {str(e)}")
+                    self.update_output(f"[ERROR] Reports generated but couldn't open directory: {str(e)}")
 
         except Exception as e:
-            self.update_output(f"❌ Error generating simulation reports: {str(e)}", 'error')
+            self.update_output(f"[ERROR] Error generating simulation reports: {str(e)}", 'error')
             import traceback
             self.update_output(f"Traceback: {traceback.format_exc()}", 'error')
 
@@ -1871,7 +1868,7 @@ class SimulatorTab(QtWidgets.QWidget):
         if hasattr(self, 'simulation_process') and self.simulation_process:
             # Show stopping message
             self.update_output("Stopping simulation...")
-            self.output_console.append('<div style="margin: 10px 0;"><span style="color: #ff5555; font-weight: bold;">⚠️ Simulation terminated by user ⚠️</span></div>')
+            self.output_console.append('<div style="margin: 10px 0;"><span style="color: #ff5555; font-weight: bold;">--- SIMULATION TERMINATED BY USER ---</span></div>')
             
             # Terminate the process
             if self.simulation_process.terminate_process():
@@ -1897,11 +1894,11 @@ class SimulatorTab(QtWidgets.QWidget):
                         if os.path.exists(temp_file):
                             os.remove(temp_file)
                             remaining_files += 1
-                            self.update_output(f"🗑️ Cleaned up temp file: {temp_file}")
+                            self.update_output(f"[CLEANUP] Removed temp file: {temp_file}")
                     except Exception as e:
-                        self.update_output(f"⚠️ Could not clean up flex file {temp_file}: {str(e)}", 'warning')
+                        self.update_output(f"[WARNING] Could not clean up flex file {temp_file}: {str(e)}", 'warning')
                 if remaining_files > 0:
-                    self.update_output(f"🧹 Cleaned up {remaining_files} temp files after stop")
+                    self.update_output(f"[CLEANUP] Removed {remaining_files} temp files after stop")
                 delattr(self, 'temp_flex_files')
             
             # Re-enable all controls
@@ -2252,7 +2249,7 @@ class SimulatorTab(QtWidgets.QWidget):
                         if current_time - file_mtime > 300:  # 5 minutes
                             os.remove(file_path)
                             cleaned_count += 1
-                            self.update_output(f"🗑️ Cleaned up temporary file: {filename}")
+                            self.update_output(f"[CLEANUP] Removed temporary file: {filename}")
                         else:
                             # If it's our session, clean it up immediately
                             if (hasattr(self, 'simulation_session_id') and 
@@ -2260,23 +2257,23 @@ class SimulatorTab(QtWidgets.QWidget):
                                 self.simulation_session_id in filename):
                                 os.remove(file_path)
                                 cleaned_count += 1
-                                self.update_output(f"🗑️ Cleaned up session file: {filename}")
+                                self.update_output(f"[CLEANUP] Removed session file: {filename}")
                     except Exception as e:
-                        self.update_output(f"⚠️ Could not clean up {filename}: {str(e)}", 'warning')
+                        self.update_output(f"[WARNING] Could not clean up {filename}: {str(e)}", 'warning')
             
             if cleaned_count > 0:
-                self.update_output(f"🧹 Cleaned up {cleaned_count} temporary completion file(s)")
+                self.update_output(f"[CLEANUP] Removed {cleaned_count} temporary completion file(s)")
             
             # Also try to remove the temp directory if it's empty
             try:
                 if not os.listdir(temp_dir):
                     os.rmdir(temp_dir)
-                    self.update_output("🗑️ Removed empty temp directory")
+                    self.update_output("[CLEANUP] Removed empty temp directory")
             except:
                 pass  # Directory not empty or permission issue, ignore
                 
         except Exception as e:
-            self.update_output(f"⚠️ Error during cleanup: {str(e)}", 'warning')
+            self.update_output(f"[ERROR] Error during cleanup: {str(e)}", 'warning')
 
     def _format_montage_label(self, montage_name, pairs, is_unipolar=True):
         """Format montage label for the list widget: montage_name: ch1:X<->Y + ch2:A<->B (+ ch3/ch4...)"""
@@ -2389,18 +2386,18 @@ class SimulatorTab(QtWidgets.QWidget):
             # Generate individual simulation report
             self.update_output("Generating simulation report...")
             report_path = self.report_generator.generate_report()
-            self.update_output(f"✅ Simulation report generated: {report_path}")
+            self.update_output(f"[SUCCESS] Simulation report generated: {report_path}")
             
             # Open report in browser
             import webbrowser
             try:
                 webbrowser.open('file://' + os.path.abspath(report_path))
-                self.update_output("📊 Report opened in web browser")
+                self.update_output("[INFO] Report opened in web browser")
             except Exception as e:
-                self.update_output(f"Report generated but couldn't open browser: {str(e)}")
+                self.update_output(f"[ERROR] Report generated but couldn't open browser: {str(e)}")
             
         except Exception as e:
-            self.update_output(f"Error in simulation completion: {str(e)}")
+            self.update_output(f"[ERROR] Error in simulation completion: {str(e)}")
             # Still set tab as not busy even if there's an error
             if hasattr(self, 'parent') and self.parent:
                 self.parent.set_tab_busy(self, False, stop_btn=self.stop_btn)
