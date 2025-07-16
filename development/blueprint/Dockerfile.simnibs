@@ -90,7 +90,8 @@ RUN apt-get update && apt-get install -y \
     \
     # Neuroimaging specific tools
     dcm2niix \
-    tcsh \ # for recon-all function specifically
+    # for recon-all function specifically
+    tcsh \
     \
     && apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
@@ -143,10 +144,6 @@ RUN nvim --headless "+LAZY! sync" +qa
 
 # Source tmux
 RUN tmux source-file /root/.tmux.conf || true
-
-
-# Additional steps to run execstack on process_mesh_files in specific field-analysis directories
-RUN execstack -s /ti-csc/ex-search/field-analysis/process_mesh_files 
 
 # Entry point script to ensure XDG_RUNTIME_DIR exists
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
