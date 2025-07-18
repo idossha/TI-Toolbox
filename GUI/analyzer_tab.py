@@ -409,11 +409,12 @@ class AnalyzerTab(QtWidgets.QWidget):
                 self.space_mesh.toggled.connect(self.update_group_field_widgets)
                 self.space_voxel.toggled.connect(self.update_group_field_widgets)
                 
-                # Force cortical analysis in group mode (spherical not supported)
-                if self.type_spherical.isChecked():
-                    self.type_cortical.setChecked(True)
-                self.type_spherical.setEnabled(False)
-                self.type_spherical.setToolTip("Spherical analysis is not available in group analysis mode")
+                # Enable spherical analysis in group mode with MNI coordinates
+                self.type_spherical.setEnabled(True)
+                self.type_spherical.setToolTip("")
+                
+                # Update coordinate labels for MNI space when group mode is active
+                self._update_coordinate_space_labels()
                 
                 # Populate group common configuration if subjects are selected
                 selected_subjects = self.get_selected_subjects()
@@ -439,6 +440,9 @@ class AnalyzerTab(QtWidgets.QWidget):
                 # Re-enable spherical analysis in single mode
                 self.type_spherical.setEnabled(True)
                 self.type_spherical.setToolTip("")
+                
+                # Update coordinate labels for subject space when single mode is active
+                self._update_coordinate_space_labels()
                 
                 # Connect single mode signals
                 try:
@@ -468,6 +472,48 @@ class AnalyzerTab(QtWidgets.QWidget):
                 self.update_group_atlas_options()
             
             self.update_atlas_visibility()
+
+    def _update_coordinate_space_labels(self):
+        """Update coordinate space labels and tooltips based on analysis mode."""
+        if hasattr(self, 'coordinates_label') and hasattr(self, 'coord_x'):
+            if self.is_group_mode:
+                # Group mode: use MNI coordinates
+                self.coordinates_label.setText("MNI Coordinates (x,y,z):")
+                self.coordinates_label.setToolTip("MNI space coordinates (will be transformed to subject space for each subject)")
+                self.coordinates_label.setStyleSheet("color: #007ACC; font-weight: bold;")
+                
+                # Update individual coordinate tooltips
+                self.coord_x.setToolTip("X coordinate in MNI space")
+                self.coord_y.setToolTip("Y coordinate in MNI space")  
+                self.coord_z.setToolTip("Z coordinate in MNI space")
+                
+                # Update Freeview button for MNI template
+                if hasattr(self, 'view_in_freeview_btn'):
+                    self.view_in_freeview_btn.setText("View MNI Template")
+                    self.view_in_freeview_btn.setToolTip("Open MNI152 template to find MNI coordinates")
+                
+                # Show MNI info banner if it exists
+                if hasattr(self, 'mni_info_label'):
+                    self.mni_info_label.setVisible(True)
+            else:
+                # Single mode: use subject coordinates
+                self.coordinates_label.setText("RAS Coordinates (x,y,z):")
+                self.coordinates_label.setToolTip("Subject-specific RAS coordinates")
+                self.coordinates_label.setStyleSheet("")
+                
+                # Update individual coordinate tooltips
+                self.coord_x.setToolTip("X coordinate in subject RAS space")
+                self.coord_y.setToolTip("Y coordinate in subject RAS space")
+                self.coord_z.setToolTip("Z coordinate in subject RAS space")
+                
+                # Update Freeview button for subject T1
+                if hasattr(self, 'view_in_freeview_btn'):
+                    self.view_in_freeview_btn.setText("View in Freeview")
+                    self.view_in_freeview_btn.setToolTip("View T1 in Freeview to help find coordinates")
+                
+                # Hide MNI info banner if it exists
+                if hasattr(self, 'mni_info_label'):
+                    self.mni_info_label.setVisible(False)
 
     def get_selected_subjects(self):
         """Get selected subjects based on current mode."""
@@ -629,6 +675,16 @@ class AnalyzerTab(QtWidgets.QWidget):
         self.analysis_stack = QtWidgets.QStackedWidget()
         spherical_widget = QtWidgets.QWidget()
         spherical_layout = QtWidgets.QVBoxLayout(spherical_widget)
+        
+        # Add info label for MNI coordinates (initially hidden)
+        self.mni_info_label = QtWidgets.QLabel()
+        self.mni_info_label.setText("📍 Group analysis mode: Coordinates will be treated as MNI space and transformed to each subject's native space.")
+        self.mni_info_label.setStyleSheet("background-color: #E3F2FD; color: #1976D2; padding: 3px 6px; border-radius: 4px; font-size: 11px;")
+        self.mni_info_label.setWordWrap(True)
+        self.mni_info_label.setMaximumHeight(35)
+        self.mni_info_label.setVisible(False)
+        spherical_layout.addWidget(self.mni_info_label)
+        
         coordinates_layout = QtWidgets.QHBoxLayout()
         self.coordinates_label = QtWidgets.QLabel("RAS Coordinates (x,y,z):")
         self.coord_x = QtWidgets.QLineEdit()
@@ -1521,10 +1577,8 @@ class AnalyzerTab(QtWidgets.QWidget):
             
         # Field name is now hardcoded to TI_max for mesh analysis
         
-        # Group analysis only supports cortical analysis
-        if not self.type_cortical.isChecked():
-            QtWidgets.QMessageBox.warning(self, "Warning", "Group analysis only supports cortical analysis. Spherical analysis is not available.")
-            return False
+        # Group analysis now supports both spherical (with MNI coordinates) and cortical analysis
+        # No restriction needed
             
         # Atlas validation for cortical analysis
         if self.space_mesh.isChecked():
@@ -1704,6 +1758,9 @@ class AnalyzerTab(QtWidgets.QWidget):
                 radius = self.radius_input.text().strip() or "5"
                 cmd.extend(['--coordinates'] + coords)
                 cmd.extend(['--radius', radius])
+                
+                # Add MNI coordinates flag for group analysis (coordinates are treated as MNI space)
+                cmd.append('--use-mni-coords')
             else:  # cortical
                 if self.space_mesh.isChecked():
                     atlas_name = self.atlas_name_combo.currentText()
@@ -1776,8 +1833,11 @@ class AnalyzerTab(QtWidgets.QWidget):
             details += f"- Note: Using first selected subject ({subj}) for single analysis\n"
         if self.space_mesh.isChecked(): details += f"- Field Name: TI_max (hardcoded)\n"
         if self.type_spherical.isChecked():
-            details += (f"- Coordinates: ({self.coord_x.text() or '0'}, {self.coord_y.text() or '0'}, {self.coord_z.text() or '0'})\n"
+            coord_space = "MNI" if self.is_group_mode else "RAS"
+            details += (f"- Coordinates ({coord_space}): ({self.coord_x.text() or '0'}, {self.coord_y.text() or '0'}, {self.coord_z.text() or '0'})\n"
                         f"- Radius: {self.radius_input.text() or '5'} mm\n")
+            if self.is_group_mode:
+                details += f"- Coordinate Transformation: MNI → Subject space (automatic)\n"
         else: # Cortical
             if self.space_mesh.isChecked(): details += f"- Mesh Atlas: {self.atlas_name_combo.currentText()}\n"
             else: details += f"- Voxel Atlas File: {self.atlas_combo.currentText()} (Path: {self.atlas_combo.currentData() or 'N/A'})\n" # Show path
@@ -1788,7 +1848,8 @@ class AnalyzerTab(QtWidgets.QWidget):
 
     def get_group_analysis_details(self, subjects):
         space = 'Mesh' if self.space_mesh.isChecked() else 'Voxel'
-        details = (f"- Subjects: {', '.join(subjects)}\n- Space: {space}\n- Analysis Type: Cortical (only type supported in group mode)\n")
+        analysis_type = 'Spherical' if self.type_spherical.isChecked() else 'Cortical'
+        details = (f"- Subjects: {', '.join(subjects)}\n- Space: {space}\n- Analysis Type: {analysis_type}\n")
         
         # Common configuration
         details += "\n- Common Configuration (Applied to All Subjects):\n"
@@ -1805,16 +1866,21 @@ class AnalyzerTab(QtWidgets.QWidget):
         else:
             details += f"  - Field Files: None auto-selected\n"
         
-        # Shared analysis parameters (cortical only)
+        # Shared analysis parameters
         details += "\n- Shared Analysis Parameters:\n"
-        if self.space_mesh.isChecked(): 
-            details += f"- Shared Mesh Atlas: {self.atlas_name_combo.currentText()}\n"
-        else:
-            details += f"- Voxel Atlas: Common atlas configuration\n"
-        if self.whole_head_check.isChecked(): 
-            details += "- Analysis Target: Whole Head (for all)\n"
-        else: 
-            details += f"- Region: {self.region_input.text()} (for all)\n"
+        if self.type_spherical.isChecked():
+            details += f"- Coordinates (MNI): ({self.coord_x.text() or '0'}, {self.coord_y.text() or '0'}, {self.coord_z.text() or '0'})\n"
+            details += f"- Radius: {self.radius_input.text() or '5'} mm\n"
+            details += f"- Coordinate Transformation: MNI → Subject space (automatic for each)\n"
+        else:  # cortical
+            if self.space_mesh.isChecked(): 
+                details += f"- Shared Mesh Atlas: {self.atlas_name_combo.currentText()}\n"
+            else:
+                details += f"- Voxel Atlas: Common atlas configuration\n"
+            if self.whole_head_check.isChecked(): 
+                details += "- Analysis Target: Whole Head (for all)\n"
+            else: 
+                details += f"- Region: {self.region_input.text()} (for all)\n"
         details += f"- Generate Visualizations: Yes"
         return details
 
@@ -1986,8 +2052,6 @@ class AnalyzerTab(QtWidgets.QWidget):
                 self.group_montage_combo.setEnabled(False)
             if hasattr(self, 'show_selected_fields_btn'):
                 self.show_selected_fields_btn.setEnabled(False)
-            # Keep spherical analysis disabled in group mode
-            self.type_spherical.setEnabled(False)
         
         self.status_label.setText("Processing... Stop button is available.")
         self.status_label.show()
@@ -2027,11 +2091,9 @@ class AnalyzerTab(QtWidgets.QWidget):
             if hasattr(self, 'show_selected_fields_btn'):
                 # Button state depends on whether fields are selected
                 self.show_selected_fields_btn.setEnabled(bool(self.group_field_config))
-            # Keep spherical analysis disabled in group mode
-            self.type_spherical.setEnabled(False)
-        else:
-            # In single mode, spherical analysis should be enabled
-            self.type_spherical.setEnabled(True)
+        
+        # Spherical analysis should be enabled in both modes
+        self.type_spherical.setEnabled(True)
 
         self.status_label.hide()
 
@@ -2284,26 +2346,60 @@ class AnalyzerTab(QtWidgets.QWidget):
 
 
     def load_t1_in_freeview(self):
+        """Load subject's T1 NIfTI file or MNI template in Freeview for coordinate selection."""
         try:
             selected_subjects = self.get_selected_subjects()
             if not selected_subjects: QtWidgets.QMessageBox.warning(self, "Warning", "Select subject."); return
-            subject_id = selected_subjects[0]
-            m2m_dir_path = self.get_m2m_dir_for_subject(subject_id)
-            if not m2m_dir_path: QtWidgets.QMessageBox.warning(self, "Error", f"m2m dir not found for {subject_id}."); return
             
-            t1_nii_gz_path = os.path.join(m2m_dir_path, "T1.nii.gz")
-            t1_mgz_path = os.path.join(m2m_dir_path, "T1.mgz") # Check for .mgz too
+            if self.is_group_mode and self.type_spherical.isChecked():
+                # Group mode: load MNI template
+                # Look for MNI template in common locations
+                mni_paths = [
+                    '/usr/share/fsl/data/standard/MNI152_T1_1mm.nii.gz',
+                    '/opt/fsl/data/standard/MNI152_T1_1mm.nii.gz',
+                    '$FSLDIR/data/standard/MNI152_T1_1mm.nii.gz',
+                    # Check project assets folder
+                    os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'assets', 'base-niftis', 'MNI152_T1_1mm.nii.gz')
+                ]
+                
+                mni_file = None
+                for path in mni_paths:
+                    # Expand environment variables
+                    expanded_path = os.path.expandvars(path)
+                    if os.path.isfile(expanded_path):
+                        mni_file = expanded_path
+                        break
+                
+                if not mni_file:
+                    QtWidgets.QMessageBox.warning(self, "Error", 
+                        "MNI152 template not found. Please ensure FSL is installed or place MNI152_T1_1mm.nii.gz in assets/base-niftis/")
+                    return
+                
+                # Launch Freeview with MNI template
+                subprocess.Popen(["freeview", mni_file])
+                self.update_output(f"Launched Freeview with MNI152 template: {mni_file}")
+                self.update_output("Use Freeview to find MNI coordinates and enter them in the coordinate fields.")
+                self.update_output("These MNI coordinates will be automatically transformed to each subject's native space.")
+            else:
+                # Single mode or non-spherical: load subject's T1
+                subject_id = selected_subjects[0]
+                m2m_dir_path = self.get_m2m_dir_for_subject(subject_id)
+                if not m2m_dir_path: QtWidgets.QMessageBox.warning(self, "Error", f"m2m dir not found for {subject_id}."); return
+                
+                t1_nii_gz_path = os.path.join(m2m_dir_path, "T1.nii.gz")
+                t1_mgz_path = os.path.join(m2m_dir_path, "T1.mgz") # Check for .mgz too
 
-            final_t1_path = None
-            if os.path.exists(t1_nii_gz_path): final_t1_path = t1_nii_gz_path
-            elif os.path.exists(t1_mgz_path): final_t1_path = t1_mgz_path
-            
-            if not final_t1_path:
-                QtWidgets.QMessageBox.warning(self, "Error", f"T1 image (T1.nii.gz or T1.mgz) not found in {m2m_dir_path}")
-                return
-            
-            subprocess.Popen(["freeview", final_t1_path])
-            self.update_output(f"Launched Freeview with T1 image: {final_t1_path}")
+                final_t1_path = None
+                if os.path.exists(t1_nii_gz_path): final_t1_path = t1_nii_gz_path
+                elif os.path.exists(t1_mgz_path): final_t1_path = t1_mgz_path
+                
+                if not final_t1_path:
+                    QtWidgets.QMessageBox.warning(self, "Error", f"T1 image (T1.nii.gz or T1.mgz) not found in {m2m_dir_path}")
+                    return
+                
+                subprocess.Popen(["freeview", final_t1_path])
+                self.update_output(f"Launched Freeview with T1 image: {final_t1_path}")
+                
         except FileNotFoundError: QtWidgets.QMessageBox.critical(self, "Error", "Freeview not found. Ensure installed and in PATH.")
         except Exception as e: QtWidgets.QMessageBox.critical(self, "Error", f"Failed to launch Freeview: {str(e)}"); self.update_output(f"Error: {e}")
 

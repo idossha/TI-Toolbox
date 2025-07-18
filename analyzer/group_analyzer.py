@@ -20,6 +20,12 @@ import logging
 from pathlib import Path
 from typing import List, Tuple, Optional
 
+# Import SimNIBS for MNI coordinate transformation
+try:
+    from simnibs import mni2subject_coords
+except ImportError:
+    mni2subject_coords = None
+
 # Import our comparison functions
 try:
     from .compare_analyses import run_all_group_comparisons, _extract_project_name, setup_group_logger
@@ -70,7 +76,9 @@ def setup_parser():
     parser.add_argument("--atlas_name",
                         help="Atlas name for mesh-based cortical analysis (e.g., DK40)")
     parser.add_argument("--coordinates", nargs=3,
-                        help="x y z coordinates for spherical analysis")
+                        help="x y z coordinates for spherical analysis (MNI space for group analysis)")
+    parser.add_argument("--use-mni-coords", action="store_true",
+                        help="Treat coordinates as MNI space and transform to each subject's native space")
     parser.add_argument("--radius", type=float,
                         help="Radius for spherical analysis")
     parser.add_argument("--region",
@@ -244,8 +252,28 @@ def build_main_analyzer_command(
 
     # Analysis-type-specific flags (matching analyzer_tab.py order):
     if args.analysis_type == 'spherical':
-        # Spherical: coordinates then radius
-        cmd += ["--coordinates"] + [str(c) for c in args.coordinates]
+        # Check if MNI coordinates need transformation
+        if hasattr(args, 'use_mni_coords') and args.use_mni_coords and mni2subject_coords:
+            # Transform MNI coordinates to subject space
+            global group_logger
+            if group_logger:
+                group_logger.info(f"Transforming MNI coordinates {args.coordinates} to subject {subject_id} space")
+            
+            try:
+                mni_coords = [float(c) for c in args.coordinates]
+                subject_coords = mni2subject_coords(mni_coords, m2m_path)
+                if group_logger:
+                    group_logger.info(f"Transformed coordinates for {subject_id}: {subject_coords}")
+                cmd += ["--coordinates"] + [str(c) for c in subject_coords]
+            except Exception as e:
+                error_msg = f"Failed to transform MNI coordinates for subject {subject_id}: {e}"
+                if group_logger:
+                    group_logger.error(error_msg)
+                raise RuntimeError(error_msg)
+        else:
+            # Use coordinates as-is (subject space)
+            cmd += ["--coordinates"] + [str(c) for c in args.coordinates]
+        
         cmd += ["--radius", str(args.radius)]
 
     else:  # cortical
