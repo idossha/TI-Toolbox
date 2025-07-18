@@ -3,9 +3,11 @@ from __future__ import annotations
 
 import argparse
 import os
+import shutil
 import sys
 import time
 import traceback
+import numpy as np
 from pathlib import Path
 
 # Add the parent directory to the path to access utils
@@ -73,6 +75,7 @@ def parse_arguments() -> argparse.Namespace:
     p.add_argument("--quiet", action="store_true", help="Suppress optimization step output")
 
     # Stability and Performance arguments
+    p.add_argument("--n-multistart", type=int, default=1, help="Number of optimization runs (multi-start). Best result will be kept.")
     p.add_argument("--max-iterations", type=int, help="Maximum optimization iterations for differential_evolution.")
     p.add_argument("--population-size", type=int, help="Population size for differential_evolution.")
     p.add_argument("--cpus", type=int, help="Number of CPU cores to utilize.")
@@ -358,13 +361,18 @@ def main() -> int:
     apply_common_env_fixes()
     args = parse_arguments()
     
+    # Multi-start optimization logic
+    n_multistart = args.n_multistart
+    optim_funvalue_list = np.zeros(n_multistart)
+    
+    # First build optimization to get the base output folder structure
     try:
-        # First build optimization to get output folder
-        opt = build_optimisation(args)
+        opt_base = build_optimisation(args)
+        base_output_folder = opt_base.output_folder
         
-        # Setup logger after output folder is created
-        setup_logger(opt.output_folder)
-        logger.info(f"Output directory created: {opt.output_folder}")
+        # Setup logger after base output folder is created
+        setup_logger(base_output_folder)
+        logger.info(f"Base output directory: {base_output_folder}")
         
         # Log the command that was called
         command = " ".join(sys.argv)
@@ -373,98 +381,169 @@ def main() -> int:
         # Configure SimNIBS related loggers to use our logging setup
         configure_external_loggers(['simnibs', 'mesh_io', 'sim_struct', 'opt_struct'], logger)
         
-        # Log optimization parameters
-        logger.info(f"Starting optimization with parameters:")
-        logger.info(f"  Subject: {args.subject}")
-        logger.info(f"  Goal: {args.goal}")
-        logger.info(f"  ROI Method: {args.roi_method}")
-        
-        # Log ROI-specific details
-        if args.roi_method == "subcortical":
-            volume_atlas_path = os.getenv("VOLUME_ATLAS_PATH")
-            volume_roi_label = os.getenv("VOLUME_ROI_LABEL")
-            logger.info(f"  Volume Atlas: {volume_atlas_path}")
-            logger.info(f"  Volume ROI Label: {volume_roi_label}")
-        elif args.roi_method == "atlas":
-            atlas_path = os.getenv("ATLAS_PATH")
-            roi_label = os.getenv("ROI_LABEL")
-            hemisphere = os.getenv("SELECTED_HEMISPHERE")
-            logger.info(f"  Atlas: {atlas_path}")
-            logger.info(f"  ROI Label: {roi_label}")
-            logger.info(f"  Hemisphere: {hemisphere}")
-        elif args.roi_method == "spherical":
-            roi_coords = f"({os.getenv('ROI_X')}, {os.getenv('ROI_Y')}, {os.getenv('ROI_Z')})"
-            roi_radius = os.getenv("ROI_RADIUS")
-            use_mni_coords = os.getenv("USE_MNI_COORDS", "false").lower() == "true"
-            coord_space = "MNI" if use_mni_coords else "subject"
-            logger.info(f"  ROI Center ({coord_space} space): {roi_coords}")
-            logger.info(f"  ROI Radius: {roi_radius}mm")
-            if use_mni_coords:
-                logger.info(f"  MNI coordinates will be transformed to subject space")
-        
-        logger.info(f"  Mapping: {args.enable_mapping}")
-        if args.enable_mapping:
-            logger.info(f"  Run mapped simulation: {not args.disable_mapping_simulation}")
-        if args.max_iterations is not None:
-            logger.info(f"  Max iterations: {args.max_iterations}")
-        if args.population_size is not None:
-            logger.info(f"  Population size: {args.population_size}")
-        if args.cpus is not None:
-            logger.info(f"  CPUs: {args.cpus}")
-        
-        # Set optimizer display option based on quiet mode
-        if args.quiet:
-            if hasattr(opt, '_optimizer_options_std') and isinstance(opt._optimizer_options_std, dict):
-                opt._optimizer_options_std["disp"] = False
-            else:
-                logger.warning("opt._optimizer_options_std not found or not a dict, cannot set disp for quiet mode.")
-
-        # Apply max_iterations and population_size if provided
-        if args.max_iterations is not None:
-            if hasattr(opt, '_optimizer_options_std') and isinstance(opt._optimizer_options_std, dict):
-                opt._optimizer_options_std["maxiter"] = args.max_iterations
-            else:
-                logger.warning("opt._optimizer_options_std not found or not a dict, cannot set maxiter.")
-        
-        if args.population_size is not None:
-            if hasattr(opt, '_optimizer_options_std') and isinstance(opt._optimizer_options_std, dict):
-                opt._optimizer_options_std["popsize"] = args.population_size
-            else:
-                logger.warning("opt._optimizer_options_std not found or not a dict, cannot set popsize.")
+        # Log multi-start parameters
+        if n_multistart > 1:
+            logger.info(f"Running multi-start optimization with {n_multistart} runs")
+        else:
+            logger.info("Running single optimization")
             
-    except Exception as exc:  # noqa: BLE001
-        print(f"ERROR during setup: {exc}", file=sys.stderr)  # Fallback to print since logger might not be initialized
+    except Exception as exc:
+        print(f"ERROR during setup: {exc}", file=sys.stderr)
         return 1
 
-    try:
-        # Pass cpus argument to run method
-        cpus_to_pass = args.cpus if args.cpus is not None else None 
-        logger.info("Starting optimization run...")
-        opt.run(cpus=cpus_to_pass)
-        logger.info("Optimization completed successfully")
-    except IndexError as exc:
-        # Special handling for the index error we're seeing
-        logger.error(f"IndexError during optimization (likely in post-processing): {exc}")
-        logger.info("This error may occur during final analysis but optimization itself likely completed")
-        # Check if simulation results exist to confirm optimization worked
-        if hasattr(opt, 'output_folder') and os.path.exists(opt.output_folder):
-            result_files = []
-            for root, dirs, files in os.walk(opt.output_folder):
-                for file in files:
-                    if file.endswith('.msh') or file.endswith('.nii.gz'):
-                        result_files.append(os.path.join(root, file))
-            if result_files:
-                logger.info(f"Found {len(result_files)} result files, optimization likely succeeded despite error")
-                for f in result_files[:5]:  # Log first 5 files
-                    logger.info(f"  Result file: {f}")
+    # Create output folder list for each run
+    output_folder_list = [
+        os.path.join(base_output_folder, f"{i_opt:02d}") for i_opt in range(n_multistart)
+    ]
+    
+    # Run multiple optimizations
+    for i_opt in range(n_multistart):
+        if n_multistart > 1:
+            logger.info(f"Starting optimization run {i_opt + 1}/{n_multistart}")
+        
+        try:
+            # Build optimization for this specific run
+            opt = build_optimisation(args)
+            
+            # Override output folder to numbered subfolder
+            opt.output_folder = output_folder_list[i_opt]
+            os.makedirs(opt.output_folder, exist_ok=True)
+            
+            # Log optimization parameters (only for first run to avoid repetition)
+            if i_opt == 0:
+                logger.info(f"Optimization parameters:")
+                logger.info(f"  Subject: {args.subject}")
+                logger.info(f"  Goal: {args.goal}")
+                logger.info(f"  ROI Method: {args.roi_method}")
+                
+                # Log ROI-specific details
+                if args.roi_method == "subcortical":
+                    volume_atlas_path = os.getenv("VOLUME_ATLAS_PATH")
+                    volume_roi_label = os.getenv("VOLUME_ROI_LABEL")
+                    logger.info(f"  Volume Atlas: {volume_atlas_path}")
+                    logger.info(f"  Volume ROI Label: {volume_roi_label}")
+                elif args.roi_method == "atlas":
+                    atlas_path = os.getenv("ATLAS_PATH")
+                    roi_label = os.getenv("ROI_LABEL")
+                    hemisphere = os.getenv("SELECTED_HEMISPHERE")
+                    logger.info(f"  Atlas: {atlas_path}")
+                    logger.info(f"  ROI Label: {roi_label}")
+                    logger.info(f"  Hemisphere: {hemisphere}")
+                elif args.roi_method == "spherical":
+                    roi_coords = f"({os.getenv('ROI_X')}, {os.getenv('ROI_Y')}, {os.getenv('ROI_Z')})"
+                    roi_radius = os.getenv("ROI_RADIUS")
+                    use_mni_coords = os.getenv("USE_MNI_COORDS", "false").lower() == "true"
+                    coord_space = "MNI" if use_mni_coords else "subject"
+                    logger.info(f"  ROI Center ({coord_space} space): {roi_coords}")
+                    logger.info(f"  ROI Radius: {roi_radius}mm")
+                    if use_mni_coords:
+                        logger.info(f"  MNI coordinates will be transformed to subject space")
+                
+                logger.info(f"  Mapping: {args.enable_mapping}")
+                if args.enable_mapping:
+                    logger.info(f"  Run mapped simulation: {not args.disable_mapping_simulation}")
+                if args.max_iterations is not None:
+                    logger.info(f"  Max iterations: {args.max_iterations}")
+                if args.population_size is not None:
+                    logger.info(f"  Population size: {args.population_size}")
+                if args.cpus is not None:
+                    logger.info(f"  CPUs: {args.cpus}")
+            
+            # Set optimizer display option based on quiet mode
+            if args.quiet:
+                if hasattr(opt, '_optimizer_options_std') and isinstance(opt._optimizer_options_std, dict):
+                    opt._optimizer_options_std["disp"] = False
+                else:
+                    logger.warning("opt._optimizer_options_std not found or not a dict, cannot set disp for quiet mode.")
+
+            # Apply max_iterations and population_size if provided
+            if args.max_iterations is not None:
+                if hasattr(opt, '_optimizer_options_std') and isinstance(opt._optimizer_options_std, dict):
+                    opt._optimizer_options_std["maxiter"] = args.max_iterations
+                else:
+                    logger.warning("opt._optimizer_options_std not found or not a dict, cannot set maxiter.")
+            
+            if args.population_size is not None:
+                if hasattr(opt, '_optimizer_options_std') and isinstance(opt._optimizer_options_std, dict):
+                    opt._optimizer_options_std["popsize"] = args.population_size
+                else:
+                    logger.warning("opt._optimizer_options_std not found or not a dict, cannot set popsize.")
+            
+            # Run optimization
+            cpus_to_pass = args.cpus if args.cpus is not None else None
+            if n_multistart > 1:
+                logger.info(f"Running optimization {i_opt + 1}/{n_multistart}...")
             else:
-                logger.warning("No result files found, optimization may have failed")
-        return 0  # Return success if we have results despite the error
-    except Exception as exc:  # noqa: BLE001
-        logger.error(f"ERROR during optimization: {exc}")
-        logger.error(f"Full traceback: {traceback.format_exc()}")
-        return 1
-
+                logger.info("Starting optimization run...")
+            
+            opt.run(cpus=cpus_to_pass)
+            
+            # Store the optimization function value
+            optim_funvalue_list[i_opt] = opt.optim_funvalue
+            
+            if n_multistart > 1:
+                logger.info(f"Optimization {i_opt + 1}/{n_multistart} completed. Function value: {opt.optim_funvalue}")
+            else:
+                logger.info("Optimization completed successfully")
+                
+        except IndexError as exc:
+            # Special handling for the index error we're seeing
+            logger.error(f"IndexError in run {i_opt + 1} (likely in post-processing): {exc}")
+            logger.info("This error may occur during final analysis but optimization itself likely completed")
+            # Set a high penalty value for this run so it won't be selected as best
+            optim_funvalue_list[i_opt] = float('inf')
+        except Exception as exc:
+            logger.error(f"ERROR in optimization run {i_opt + 1}: {exc}")
+            logger.error(f"Full traceback: {traceback.format_exc()}")
+            # Set a high penalty value for this run so it won't be selected as best
+            optim_funvalue_list[i_opt] = float('inf')
+    
+    # Multi-start post-processing: find best solution and clean up
+    if n_multistart > 1:
+        logger.info(f"All optimization runs completed. Function values: {optim_funvalue_list}")
+        
+        # Find best solution (minimum function value)
+        best_opt_idx = np.argmin(optim_funvalue_list)
+        best_funvalue = optim_funvalue_list[best_opt_idx]
+        
+        logger.info(f"Best optimization: run {best_opt_idx + 1} with function value {best_funvalue}")
+        
+        # Copy best solution to base output folder and remove numbered subfolders
+        best_folder = output_folder_list[best_opt_idx]
+        
+        if os.path.exists(best_folder) and best_funvalue != float('inf'):
+            # Copy contents of best solution to main output directory
+            try:
+                for item in os.listdir(best_folder):
+                    src = os.path.join(best_folder, item)
+                    dst = os.path.join(base_output_folder, item)
+                    if os.path.isdir(src):
+                        if os.path.exists(dst):
+                            shutil.rmtree(dst)
+                        shutil.copytree(src, dst)
+                    else:
+                        if os.path.exists(dst):
+                            os.remove(dst)
+                        shutil.copy2(src, dst)
+                logger.info(f"Best solution copied to: {base_output_folder}")
+            except Exception as exc:
+                logger.error(f"Error copying best solution: {exc}")
+                return 1
+        else:
+            logger.error("No valid optimization results found")
+            return 1
+        
+        # Clean up numbered subdirectories
+        for i_opt in range(n_multistart):
+            folder_to_remove = output_folder_list[i_opt]
+            if os.path.exists(folder_to_remove):
+                try:
+                    shutil.rmtree(folder_to_remove)
+                except Exception as exc:
+                    logger.warning(f"Failed to remove temporary folder {folder_to_remove}: {exc}")
+        
+        logger.info("Multi-start optimization completed successfully")
+    
     return 0
 
 

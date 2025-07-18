@@ -205,6 +205,12 @@ class FlexSearchTab(QtWidgets.QWidget):
         self.view_t1_btn.setMaximumWidth(150)
         self.view_t1_btn.setToolTip("Open subject's T1 scan in Freeview to find RAS coordinates")
         
+        # Multi-start optimization control
+        self.n_multistart_input = QtWidgets.QSpinBox()
+        self.n_multistart_input.setRange(1, 20); self.n_multistart_input.setValue(1)
+        self.n_multistart_input.setToolTip("Number of optimization runs to perform. Higher values increase chances of finding global optimum but take longer.")
+        self.n_multistart_label = QtWidgets.QLabel("Number of Optimization Runs:")
+        
         self.max_iterations_input = QtWidgets.QSpinBox()
         self.max_iterations_input.setRange(50, 2000); self.max_iterations_input.setValue(500)
         self.max_iterations_input.setToolTip("Maximum number of optimization iterations.")
@@ -511,6 +517,7 @@ class FlexSearchTab(QtWidgets.QWidget):
         stability_help_label = QtWidgets.QLabel(
             "⚙️ These options help prevent crashes, manage resource usage, and control optimization speed.\n"
             "• Conservative mode: Uses minimal resources (if supported by backend). Not currently passed.\n"
+            "• Optimization runs: Multiple runs help find global optimum (avoids local minima). Best result is kept automatically.\n"
             "• Max iterations: Lower = faster but potentially less optimal results.\n"
             "• Population size: Lower = less memory, potentially slower convergence. Higher = more memory, potentially faster convergence.\n"
             "• Number of CPUs: More CPUs can speed up parallelizable parts of the optimization.\n"
@@ -520,6 +527,7 @@ class FlexSearchTab(QtWidgets.QWidget):
         stability_help_label.setWordWrap(True)
         stability_layout.addRow(stability_help_label) 
         stability_layout.addRow(self.conservative_mode_checkbox) 
+        stability_layout.addRow(self.n_multistart_label, self.n_multistart_input)
         stability_layout.addRow(self.max_iterations_label, self.max_iterations_input)
         stability_layout.addRow(self.population_size_label, self.population_size_input)
         stability_layout.addRow(self.cpus_label, self.cpus_input)
@@ -1180,6 +1188,7 @@ class FlexSearchTab(QtWidgets.QWidget):
             # Stability and Memory options
             if self.quiet_mode_checkbox.isChecked():
                 cmd.append("--quiet")
+            cmd.extend(["--n-multistart", str(self.n_multistart_input.value())])
             cmd.extend(["--max-iterations", str(self.max_iterations_input.value())])
             cmd.extend(["--population-size", str(self.population_size_input.value())])
             cmd.extend(["--cpus", str(self.cpus_input.value())])
@@ -1242,11 +1251,16 @@ class FlexSearchTab(QtWidgets.QWidget):
             details += f"• Electrode Mapping: ✗ DISABLED (continuous optimization)\n"
 
         details += f"\nStability & Memory:\n"
+        details += f"• Number of Optimization Runs: {self.n_multistart_input.value()}\n"
         details += f"• Max Iterations: {self.max_iterations_input.value()}\n"
         details += f"• Population Size: {self.population_size_input.value()}\n"
         details += f"• Number of CPUs: {self.cpus_input.value()}\n"
         if self.quiet_mode_checkbox.isChecked():
             details += f"• Hide optimization steps: ✓ ENABLED\n"
+        
+        if self.n_multistart_input.value() > 1:
+            details += f"\n Multi-Start Optimization: {self.n_multistart_input.value()} runs will be performed.\n"
+            details += f"The best result (minimum objective function value) will be automatically selected and kept.\n"
         
         return details
 
