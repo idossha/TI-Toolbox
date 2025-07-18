@@ -216,6 +216,7 @@ class AnalyzerTab(QtWidgets.QWidget):
         group_subject_container.setSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Maximum)
         self.subject_list = QtWidgets.QListWidget()
         self.subject_list.setSelectionMode(QtWidgets.QAbstractItemView.ExtendedSelection)
+        self.subject_list.setMaximumHeight(100)  # Limit height to make it more compact
         group_subject_layout.addWidget(self.subject_list)
         
         # Group mode buttons
@@ -678,7 +679,7 @@ class AnalyzerTab(QtWidgets.QWidget):
         
         # Add info label for MNI coordinates (initially hidden)
         self.mni_info_label = QtWidgets.QLabel()
-        self.mni_info_label.setText("📍 Group analysis mode: Coordinates will be treated as MNI space and transformed to each subject's native space.")
+        self.mni_info_label.setText("Group analysis mode: Coordinates will be treated as MNI space and transformed to each subject's native space.")
         self.mni_info_label.setStyleSheet("background-color: #E3F2FD; color: #1976D2; padding: 3px 6px; border-radius: 4px; font-size: 11px;")
         self.mni_info_label.setWordWrap(True)
         self.mni_info_label.setMaximumHeight(35)

@@ -400,7 +400,7 @@ class FlexSearchTab(QtWidgets.QWidget):
         
         # Add info label for MNI coordinates (initially hidden)
         self.mni_info_label = QtWidgets.QLabel()
-        self.mni_info_label.setText("📍 Multiple subjects selected: Coordinates will be treated as MNI space and transformed to each subject's native space.")
+        self.mni_info_label.setText("Multiple subjects selected: Coordinates will be treated as MNI space and transformed to each subject's native space.")
         self.mni_info_label.setStyleSheet("background-color: #E3F2FD; color: #1976D2; padding: 8px; border-radius: 4px; font-size: 11px;")
         self.mni_info_label.setWordWrap(True)
         self.mni_info_label.setVisible(False)
