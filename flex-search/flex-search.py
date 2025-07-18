@@ -11,7 +11,7 @@ from pathlib import Path
 # Add the parent directory to the path to access utils
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
-from simnibs import opt_struct
+from simnibs import opt_struct, mni2subject_coords
 from simnibs.mesh_tools.mesh_io import ElementTags
 from utils.logging_util import get_logger, configure_external_loggers
 from env_utils import apply_common_env_fixes
@@ -211,8 +211,32 @@ def _roi_spherical(opt: opt_struct.TesFlexOptimization, args: argparse.Namespace
     roi.method = "surface"
     roi.surface_type = "central"
     roi.roi_sphere_center_space = "subject"
-    roi.roi_sphere_center = [float(os.getenv(k)) for k in ("ROI_X", "ROI_Y", "ROI_Z")]
-    radius = float(os.getenv("ROI_RADIUS"))
+    
+    # Get coordinates from environment variables with proper defaults
+    roi_x = float(os.getenv("ROI_X", "0"))
+    roi_y = float(os.getenv("ROI_Y", "0"))
+    roi_z = float(os.getenv("ROI_Z", "0"))
+    radius = float(os.getenv("ROI_RADIUS", "10"))
+    
+    # Check if MNI coordinates should be used (for multiple subjects)
+    use_mni_coords = os.getenv("USE_MNI_COORDS", "false").lower() == "true"
+    
+    if use_mni_coords:
+        # Transform MNI coordinates to subject space
+        print(f"[flex-search] Transforming MNI coordinates [{roi_x}, {roi_y}, {roi_z}] to subject space")
+        try:
+            # Use simnibs.mni2subject_coords to transform coordinates
+            m2m_path = opt.subpath
+            subject_coords = mni2subject_coords([roi_x, roi_y, roi_z], m2m_path)
+            roi.roi_sphere_center = subject_coords
+            print(f"[flex-search] Transformed coordinates: {subject_coords}")
+        except Exception as e:
+            print(f"[flex-search] ERROR: Failed to transform MNI coordinates to subject space: {e}")
+            raise SystemExit(f"MNI coordinate transformation failed: {e}")
+    else:
+        # Use coordinates as-is (subject space)
+        roi.roi_sphere_center = [roi_x, roi_y, roi_z]
+    
     roi.roi_sphere_radius = radius
 
     # Add non-ROI if focality optimisation is requested
@@ -228,12 +252,31 @@ def _roi_spherical(opt: opt_struct.TesFlexOptimization, args: argparse.Namespace
             non_roi.roi_sphere_operator = ["difference"]
             non_roi.weight = -1
         else:  # specific non-ROI defined via env vars
-            nx = float(os.getenv("NON_ROI_X"))
-            ny = float(os.getenv("NON_ROI_Y"))
-            nz = float(os.getenv("NON_ROI_Z"))
-            nr = float(os.getenv("NON_ROI_RADIUS"))
+            # Get non-ROI coordinates with proper defaults
+            nx = float(os.getenv("NON_ROI_X", "0"))
+            ny = float(os.getenv("NON_ROI_Y", "0"))
+            nz = float(os.getenv("NON_ROI_Z", "0"))
+            nr = float(os.getenv("NON_ROI_RADIUS", "10"))
+            
+            # Check if non-ROI coordinates are also MNI
+            use_mni_coords_non_roi = os.getenv("USE_MNI_COORDS_NON_ROI", "false").lower() == "true"
+            
+            if use_mni_coords_non_roi:
+                # Transform non-ROI MNI coordinates to subject space
+                print(f"[flex-search] Transforming non-ROI MNI coordinates [{nx}, {ny}, {nz}] to subject space")
+                try:
+                    m2m_path = opt.subpath
+                    non_roi_subject_coords = mni2subject_coords([nx, ny, nz], m2m_path)
+                    non_roi.roi_sphere_center = non_roi_subject_coords
+                    print(f"[flex-search] Transformed non-ROI coordinates: {non_roi_subject_coords}")
+                except Exception as e:
+                    print(f"[flex-search] ERROR: Failed to transform non-ROI MNI coordinates to subject space: {e}")
+                    raise SystemExit(f"Non-ROI MNI coordinate transformation failed: {e}")
+            else:
+                # Use non-ROI coordinates as-is (subject space)
+                non_roi.roi_sphere_center = [nx, ny, nz]
+            
             non_roi.roi_sphere_center_space = "subject"
-            non_roi.roi_sphere_center = [nx, ny, nz]
             non_roi.roi_sphere_radius = nr
             non_roi.weight = -1
 
@@ -241,10 +284,10 @@ def _roi_atlas(opt: opt_struct.TesFlexOptimization, args: argparse.Namespace) ->
     roi = opt.add_roi()
     roi.method = "surface"
     roi.surface_type = "central"
-    hemi = os.getenv("SELECTED_HEMISPHERE")
+    hemi = os.getenv("SELECTED_HEMISPHERE", "lh")
     roi.mask_space = [f"subject_{hemi}"]
-    roi.mask_path = [os.getenv("ATLAS_PATH")]
-    label_val = int(os.getenv("ROI_LABEL"))
+    roi.mask_path = [os.getenv("ATLAS_PATH", "")]
+    label_val = int(os.getenv("ROI_LABEL", "1"))
     roi.mask_value = [label_val]
 
     if args.goal == "focality":
@@ -259,16 +302,16 @@ def _roi_atlas(opt: opt_struct.TesFlexOptimization, args: argparse.Namespace) ->
             non_roi.mask_operator = ["difference"]
             non_roi.weight = -1
         else:
-            non_roi_label = int(os.getenv("NON_ROI_LABEL"))
-            non_roi_atlas_path = os.getenv("NON_ROI_ATLAS_PATH")
+            non_roi_label = int(os.getenv("NON_ROI_LABEL", "1"))
+            non_roi_atlas_path = os.getenv("NON_ROI_ATLAS_PATH", "")
             non_roi.mask_space = roi.mask_space
             non_roi.mask_path = [non_roi_atlas_path]
             non_roi.mask_value = [non_roi_label]
             non_roi.weight = -1
 
 def _roi_subcortical(opt: opt_struct.TesFlexOptimization, args: argparse.Namespace) -> None:
-    volume_atlas_path = os.getenv("VOLUME_ATLAS_PATH")
-    label_val = int(os.getenv("VOLUME_ROI_LABEL"))
+    volume_atlas_path = os.getenv("VOLUME_ATLAS_PATH", "")
+    label_val = int(os.getenv("VOLUME_ROI_LABEL", "10"))
     
     # Validate that the volume atlas file exists
     if not volume_atlas_path or not os.path.isfile(volume_atlas_path):
@@ -297,8 +340,8 @@ def _roi_subcortical(opt: opt_struct.TesFlexOptimization, args: argparse.Namespa
             non_roi.weight = -1
             non_roi.tissues = [ElementTags.GM]  # Gray matter
         else:
-            non_roi_label = int(os.getenv("VOLUME_NON_ROI_LABEL"))
-            non_roi_atlas_path = os.getenv("VOLUME_NON_ROI_ATLAS_PATH")
+            non_roi_label = int(os.getenv("VOLUME_NON_ROI_LABEL", "10"))
+            non_roi_atlas_path = os.getenv("VOLUME_NON_ROI_ATLAS_PATH", "")
             if not non_roi_atlas_path or not os.path.isfile(non_roi_atlas_path):
                 raise SystemExit(f"Non-ROI volume atlas file not found: {non_roi_atlas_path}")
             non_roi.mask_space = ["subject"]
@@ -352,8 +395,12 @@ def main() -> int:
         elif args.roi_method == "spherical":
             roi_coords = f"({os.getenv('ROI_X')}, {os.getenv('ROI_Y')}, {os.getenv('ROI_Z')})"
             roi_radius = os.getenv("ROI_RADIUS")
-            logger.info(f"  ROI Center: {roi_coords}")
+            use_mni_coords = os.getenv("USE_MNI_COORDS", "false").lower() == "true"
+            coord_space = "MNI" if use_mni_coords else "subject"
+            logger.info(f"  ROI Center ({coord_space} space): {roi_coords}")
             logger.info(f"  ROI Radius: {roi_radius}mm")
+            if use_mni_coords:
+                logger.info(f"  MNI coordinates will be transformed to subject space")
         
         logger.info(f"  Mapping: {args.enable_mapping}")
         if args.enable_mapping:

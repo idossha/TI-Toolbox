@@ -398,6 +398,14 @@ class FlexSearchTab(QtWidgets.QWidget):
         self.spherical_roi_widget = QtWidgets.QWidget()
         spherical_roi_layout = QtWidgets.QFormLayout(self.spherical_roi_widget)
         
+        # Add info label for MNI coordinates (initially hidden)
+        self.mni_info_label = QtWidgets.QLabel()
+        self.mni_info_label.setText("📍 Multiple subjects selected: Coordinates will be treated as MNI space and transformed to each subject's native space.")
+        self.mni_info_label.setStyleSheet("background-color: #E3F2FD; color: #1976D2; padding: 8px; border-radius: 4px; font-size: 11px;")
+        self.mni_info_label.setWordWrap(True)
+        self.mni_info_label.setVisible(False)
+        spherical_roi_layout.addRow(self.mni_info_label)
+        
         roi_coords_controls_widget = QtWidgets.QWidget()
         roi_coords_controls_layout = QtWidgets.QHBoxLayout(roi_coords_controls_widget)
         roi_coords_controls_layout.addWidget(QtWidgets.QLabel("X:"))
@@ -803,24 +811,66 @@ class FlexSearchTab(QtWidgets.QWidget):
             self.roi_stacked_widget.setCurrentIndex(2)
             self.view_t1_btn.setVisible(False)
         
-        # Update restriction for multiple subjects
-        self._update_multiple_subject_restrictions()
+        # Update coordinate space labels based on selection mode
+        self._update_coordinate_space_labels()
+
+    def _update_coordinate_space_labels(self):
+        """Update coordinate space labels and tooltips based on subject selection."""
+        selected_items = self.subject_list.selectedItems()
+        multiple_subjects = len(selected_items) > 1
+        
+        if self.roi_method_spherical.isChecked():
+            if multiple_subjects:
+                # Multiple subjects: use MNI coordinates
+                self.roi_coords_label.setText("ROI Center MNI Coordinates (mm):")
+                self.roi_coords_label.setToolTip("MNI space coordinates (will be transformed to subject space for each subject)")
+                self.roi_coords_label.setStyleSheet("color: #007ACC; font-weight: bold;")
+                
+                # Show MNI info label
+                if hasattr(self, 'mni_info_label'):
+                    self.mni_info_label.setVisible(True)
+                
+                # Update individual coordinate tooltips
+                self.roi_x_input.setToolTip("X coordinate in MNI space")
+                self.roi_y_input.setToolTip("Y coordinate in MNI space")
+                self.roi_z_input.setToolTip("Z coordinate in MNI space")
+                
+                # Update Freeview button for MNI template
+                self.view_t1_btn.setText("View MNI Template")
+                self.view_t1_btn.setToolTip("Open MNI152 template to find MNI coordinates")
+            else:
+                # Single subject: use subject coordinates
+                self.roi_coords_label.setText("ROI Center RAS Coordinates (mm):")
+                self.roi_coords_label.setToolTip("Subject-specific RAS coordinates")
+                self.roi_coords_label.setStyleSheet("")
+                
+                # Hide MNI info label
+                if hasattr(self, 'mni_info_label'):
+                    self.mni_info_label.setVisible(False)
+                
+                # Update individual coordinate tooltips
+                self.roi_x_input.setToolTip("X coordinate in subject RAS space")
+                self.roi_y_input.setToolTip("Y coordinate in subject RAS space")
+                self.roi_z_input.setToolTip("Z coordinate in subject RAS space")
+                
+                # Update Freeview button for subject T1
+                self.view_t1_btn.setText("View T1 in Freeview")
+                self.view_t1_btn.setToolTip("Open subject's T1 scan in Freeview to find RAS coordinates")
+        else:
+            # Hide MNI info label for non-spherical ROI methods
+            if hasattr(self, 'mni_info_label'):
+                self.mni_info_label.setVisible(False)
 
     def _update_multiple_subject_restrictions(self):
         """Update UI restrictions when multiple subjects are selected."""
         selected_items = self.subject_list.selectedItems()
         multiple_subjects = len(selected_items) > 1
         
-        if multiple_subjects:
-            # Disable spherical ROI method when multiple subjects are selected
-            if self.roi_method_spherical.isChecked():
-                self.roi_method_cortical.setChecked(True)
-            self.roi_method_spherical.setEnabled(False)
-            self.roi_method_spherical.setToolTip("Spherical ROI not available for multiple subjects")
-        else:
-            # Re-enable spherical ROI method for single subject
-            self.roi_method_spherical.setEnabled(True)
-            self.roi_method_spherical.setToolTip("")
+        # Update coordinate space labels when selection changes
+        self._update_coordinate_space_labels()
+        
+        # No longer disable spherical ROI for multiple subjects
+        # Instead, we'll use MNI coordinates for multiple subjects
 
     def run_optimization(self):
         """Run the flex-search optimization."""
@@ -838,10 +888,20 @@ class FlexSearchTab(QtWidgets.QWidget):
             QtWidgets.QMessageBox.warning(self, "Warning", "Please select an EEG net.")
             return
         
-        # Check for multiple subjects and spherical ROI restriction
-        if len(selected_items) > 1 and self.roi_method_spherical.isChecked():
-            QtWidgets.QMessageBox.warning(self, "Warning", "Spherical ROI is not supported for multiple subjects. Please use cortical or subcortical ROI methods.")
-            return
+        # Check coordinate space for spherical ROI with multiple subjects
+        multiple_subjects = len(selected_items) > 1
+        if multiple_subjects and self.roi_method_spherical.isChecked():
+            # Show info about MNI coordinate usage
+            reply = QtWidgets.QMessageBox.question(
+                self, "MNI Coordinates", 
+                "You have selected multiple subjects with spherical ROI.\n\n"
+                "The coordinates you entered will be treated as MNI space coordinates "
+                "and will be automatically transformed to each subject's native space.\n\n"
+                "Do you want to continue?",
+                QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No
+            )
+            if reply != QtWidgets.QMessageBox.Yes:
+                return
             
         # Get ROI parameters based on selected method
         if self.roi_method_spherical.isChecked():
@@ -1016,6 +1076,8 @@ class FlexSearchTab(QtWidgets.QWidget):
                 env['ROI_Y'] = str(roi_params['center'][1])
                 env['ROI_Z'] = str(roi_params['center'][2])
                 env['ROI_RADIUS'] = str(roi_params['radius'])
+                # Indicate if these are MNI coordinates (for multiple subjects)
+                env['USE_MNI_COORDS'] = 'true' if len(self.selected_subjects) > 1 else 'false'
             elif roi_params['method'] == "atlas":
                 atlas_display_for_env = roi_params['atlas']
                 # Extract just the atlas type (e.g., "DK40") and construct subject-specific name
@@ -1084,6 +1146,8 @@ class FlexSearchTab(QtWidgets.QWidget):
                         env['NON_ROI_Y'] = str(self.nonroi_y_input.value())
                         env['NON_ROI_Z'] = str(self.nonroi_z_input.value())
                         env['NON_ROI_RADIUS'] = str(self.nonroi_radius_input.value())
+                        # Non-ROI also uses same coordinate space as ROI
+                        env['USE_MNI_COORDS_NON_ROI'] = env.get('USE_MNI_COORDS', 'false')
                     elif roi_params['method'] == "atlas":
                         nonroi_atlas_display = self.nonroi_atlas_combo.currentText()
                         # Apply same multiple-subject fix for non-ROI atlas
@@ -1156,8 +1220,11 @@ class FlexSearchTab(QtWidgets.QWidget):
                    f"• ROI Method: {'Spherical' if roi_params['method'] == 'spherical' else 'Cortical' if roi_params['method'] == 'atlas' else 'Subcortical'}\n")
         
         if roi_params['method'] == 'spherical':
-            details += (f"• ROI Center: ({roi_params['center'][0]}, {roi_params['center'][1]}, {roi_params['center'][2]}) mm\n" +
+            coord_space = "MNI" if hasattr(self, 'selected_subjects') and len(self.selected_subjects) > 1 else "RAS"
+            details += (f"• ROI Center ({coord_space}): ({roi_params['center'][0]}, {roi_params['center'][1]}, {roi_params['center'][2]}) mm\n" +
                         f"• ROI Radius: {roi_params['radius']} mm\n")
+            if coord_space == "MNI":
+                details += f"• Coordinate Transformation: MNI → Subject space (automatic)\n"
         elif roi_params['method'] == 'atlas':
             details += (f"• ROI Atlas: {roi_params['atlas']}\n" +
                         f"• ROI Region: {roi_params['region']}\n")
@@ -1287,49 +1354,87 @@ class FlexSearchTab(QtWidgets.QWidget):
         self._update_multiple_subject_restrictions()
 
     def load_t1_in_freeview(self):
-        """Load the subject's T1 NIfTI file in Freeview for coordinate selection."""
+        """Load the subject's T1 NIfTI file or MNI template in Freeview for coordinate selection."""
         try:
             selected_items = self.subject_list.selectedItems()
             if not selected_items:
                 QtWidgets.QMessageBox.warning(self, "Error", "Please select a subject first")
                 return
             
-            subject_id = selected_items[0].text()
-            # Base directory where subjects are located
-            project_dir = os.environ.get('PROJECT_DIR', '/mnt/BIDS_test')
+            multiple_subjects = len(selected_items) > 1
             
-            # Look for T1 NIfTI files in multiple locations
-            t1_paths = [
-                # Native space T1 from SimNIBS
-                os.path.join(project_dir, 'derivatives', 'SimNIBS', f'sub-{subject_id}', f'm2m_{subject_id}', 'T1.nii.gz'),
-                # Original BIDS T1
-                os.path.join(project_dir, f'sub-{subject_id}', 'anat', f'sub-{subject_id}_T1w.nii.gz'),
-                # Alternative naming
-                os.path.join(project_dir, f'sub-{subject_id}', 'anat', f'anat-T1w_acq-MPRAGE.nii.gz'),
-            ]
-            
-            t1_file = None
-            for path in t1_paths:
-                if os.path.isfile(path):
-                    t1_file = path
-                    break
-            
-            if not t1_file:
-                QtWidgets.QMessageBox.warning(self, "Error", f"T1 file not found for subject {subject_id}")
-                return
-            
-            # Launch Freeview
-            try:
-                subprocess.Popen(['freeview', t1_file])
-                self.output_text.append(f"Launched Freeview with T1 for subject {subject_id}: {t1_file}")
-                self.output_text.append("Use Freeview to find RAS coordinates and enter them in the ROI coordinates fields.")
-            except FileNotFoundError:
-                QtWidgets.QMessageBox.warning(self, "Error", "Freeview not found. Please install FreeSurfer or ensure it's in your PATH")
-            except Exception as e:
-                QtWidgets.QMessageBox.warning(self, "Error", f"Failed to launch Freeview: {str(e)}")
+            if multiple_subjects and self.roi_method_spherical.isChecked():
+                # Multiple subjects: load MNI template
+                # Look for MNI template in common locations
+                mni_paths = [
+                    '/usr/share/fsl/data/standard/MNI152_T1_1mm.nii.gz',
+                    '/opt/fsl/data/standard/MNI152_T1_1mm.nii.gz',
+                    '$FSLDIR/data/standard/MNI152_T1_1mm.nii.gz',
+                    # Check project assets folder
+                    os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'assets', 'base-niftis', 'MNI152_T1_1mm.nii.gz')
+                ]
+                
+                mni_file = None
+                for path in mni_paths:
+                    # Expand environment variables
+                    expanded_path = os.path.expandvars(path)
+                    if os.path.isfile(expanded_path):
+                        mni_file = expanded_path
+                        break
+                
+                if not mni_file:
+                    QtWidgets.QMessageBox.warning(self, "Error", 
+                        "MNI152 template not found. Please ensure FSL is installed or place MNI152_T1_1mm.nii.gz in assets/base-niftis/")
+                    return
+                
+                # Launch Freeview with MNI template
+                try:
+                    subprocess.Popen(['freeview', mni_file])
+                    self.output_text.append(f"Launched Freeview with MNI152 template: {mni_file}")
+                    self.output_text.append("Use Freeview to find MNI coordinates and enter them in the ROI coordinates fields.")
+                    self.output_text.append("These MNI coordinates will be automatically transformed to each subject's native space.")
+                except FileNotFoundError:
+                    QtWidgets.QMessageBox.warning(self, "Error", "Freeview not found. Please install FreeSurfer or ensure it's in your PATH")
+                except Exception as e:
+                    QtWidgets.QMessageBox.warning(self, "Error", f"Failed to launch Freeview: {str(e)}")
+            else:
+                # Single subject: load subject's T1
+                subject_id = selected_items[0].text()
+                # Base directory where subjects are located
+                project_dir = os.environ.get('PROJECT_DIR', '/mnt/BIDS_test')
+                
+                # Look for T1 NIfTI files in multiple locations
+                t1_paths = [
+                    # Native space T1 from SimNIBS
+                    os.path.join(project_dir, 'derivatives', 'SimNIBS', f'sub-{subject_id}', f'm2m_{subject_id}', 'T1.nii.gz'),
+                    # Original BIDS T1
+                    os.path.join(project_dir, f'sub-{subject_id}', 'anat', f'sub-{subject_id}_T1w.nii.gz'),
+                    # Alternative naming
+                    os.path.join(project_dir, f'sub-{subject_id}', 'anat', f'anat-T1w_acq-MPRAGE.nii.gz'),
+                ]
+                
+                t1_file = None
+                for path in t1_paths:
+                    if os.path.isfile(path):
+                        t1_file = path
+                        break
+                
+                if not t1_file:
+                    QtWidgets.QMessageBox.warning(self, "Error", f"T1 file not found for subject {subject_id}")
+                    return
+                
+                # Launch Freeview
+                try:
+                    subprocess.Popen(['freeview', t1_file])
+                    self.output_text.append(f"Launched Freeview with T1 for subject {subject_id}: {t1_file}")
+                    self.output_text.append("Use Freeview to find RAS coordinates and enter them in the ROI coordinates fields.")
+                except FileNotFoundError:
+                    QtWidgets.QMessageBox.warning(self, "Error", "Freeview not found. Please install FreeSurfer or ensure it's in your PATH")
+                except Exception as e:
+                    QtWidgets.QMessageBox.warning(self, "Error", f"Failed to launch Freeview: {str(e)}")
                 
         except Exception as e:
-            QtWidgets.QMessageBox.warning(self, "Error", f"Error loading T1 in Freeview: {str(e)}")
+            QtWidgets.QMessageBox.warning(self, "Error", f"Error loading image in Freeview: {str(e)}")
 
     def _update_mapping_options(self):
         """Update visibility of mapping simulation options based on mapping checkbox."""
