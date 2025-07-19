@@ -1519,13 +1519,32 @@ except Exception as e:
         
         echo "Executing: $simulator_dir/$main_script $subject_id $conductivity $project_dir $simulation_dir $sim_mode $current $electrode_shape $dimensions $thickness $eeg_net ${selected_montages[@]} --"
         
+        echo -e "${CYAN}=== PIPELINE DEBUG INFORMATION ===${RESET}"
+        echo -e "${CYAN}Script being called: $simulator_dir/$main_script${RESET}"
+        echo -e "${CYAN}Simulation framework: $simulation_framework${RESET}"
+        echo -e "${CYAN}Working directory: $(pwd)${RESET}"
+        echo -e "${CYAN}Script exists: $(test -f "$simulator_dir/$main_script" && echo "YES" || echo "NO")${RESET}"
+        echo -e "${CYAN}Script permissions: $(test -x "$simulator_dir/$main_script" && echo "EXECUTABLE" || echo "NOT EXECUTABLE")${RESET}"
+        echo -e "${CYAN}===========================================${RESET}"
+        
         # Call the appropriate main pipeline script
         if [[ "$simulation_framework" == "flex" ]]; then
             # For flex-search, pass empty montages array and rely on FLEX_MONTAGES_FILE
+            echo -e "${CYAN}[DEBUG] Running flex simulation with script: $main_script${RESET}"
             "$simulator_dir/$main_script" "$subject_id" "$conductivity" "$project_dir" "$simulation_dir" "$sim_mode" "$current" "$electrode_shape" "$dimensions" "$thickness" "$eeg_net" --
         else
             # For regular montages, pass the selected montages
+            echo -e "${CYAN}[DEBUG] Running montage simulation with script: $main_script${RESET}"
+            echo -e "${CYAN}[DEBUG] Montages to process: ${selected_montages[*]}${RESET}"
             "$simulator_dir/$main_script" "$subject_id" "$conductivity" "$project_dir" "$simulation_dir" "$sim_mode" "$current" "$electrode_shape" "$dimensions" "$thickness" "$eeg_net" "${selected_montages[@]}" --
+        fi
+        
+        # Check exit status
+        exit_status=$?
+        if [[ $exit_status -eq 0 ]]; then
+            echo -e "${GREEN}[DEBUG] Script $main_script completed successfully for subject $subject_id${RESET}"
+        else
+            echo -e "${RED}[DEBUG] Script $main_script failed with exit status $exit_status for subject $subject_id${RESET}"
         fi
         
         # Clean up subject-specific temp file after this subject's simulation
