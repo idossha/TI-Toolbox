@@ -889,23 +889,6 @@ def main() -> int:
             logger.info(f"  Improvement over worst: {improvement:.2f}%")
             logger.info(f"  Function value range: {min(valid_func_values):.6f} to {max(valid_func_values):.6f}")
         
-        # Create detailed multi-start summary file
-        multistart_summary_file = os.path.join(base_output_folder, "multistart_optimization_summary.txt")
-        try:
-            _create_multistart_summary_file(
-                multistart_summary_file, 
-                args, 
-                n_multistart, 
-                optim_funvalue_list, 
-                int(best_opt_idx), 
-                valid_runs, 
-                failed_runs,
-                start_time
-            )
-            logger.info(f"Multi-start summary saved to: {multistart_summary_file}")
-        except Exception as e:
-            logger.warning(f"Failed to create multi-start summary file: {e}")
-        
         # Copy best solution to base output folder and remove numbered subfolders
         best_folder = output_folder_list[best_opt_idx]
         
@@ -935,19 +918,47 @@ def main() -> int:
             logger.error("✗ Best solution folder not found or invalid")
             return 1
         
-        # Clean up numbered subdirectories
+        # Create detailed multi-start summary file after copying
+        multistart_summary_file = os.path.join(base_output_folder, "multistart_optimization_summary.txt")
+        try:
+            _create_multistart_summary_file(
+                multistart_summary_file, 
+                args, 
+                n_multistart, 
+                optim_funvalue_list, 
+                int(best_opt_idx), 
+                valid_runs, 
+                failed_runs,
+                start_time
+            )
+            logger.info(f"Multi-start summary saved to: {multistart_summary_file}")
+        except Exception as e:
+            logger.warning(f"Failed to create multi-start summary file: {e}")
+        
+        # Brief pause to ensure all file operations complete
+        time.sleep(0.1)
+        
+        # Clean up numbered subdirectories with retry
         logger.info("CLEANING UP TEMPORARY DIRECTORIES:")
         cleanup_success = True
         for i_opt in range(n_multistart):
             folder_to_remove = output_folder_list[i_opt]
             run_number = i_opt + 1
-            try:
-                if os.path.exists(folder_to_remove):
-                    shutil.rmtree(folder_to_remove)
-                logger.debug(f"✓ Removed temporary directory for run {run_number}")
-            except Exception as exc:
-                logger.warning(f"✗ Failed to remove temporary directory for run {run_number}: {folder_to_remove} - {exc}")
-                cleanup_success = False
+            
+            # Try cleanup with one retry
+            for attempt in range(2):
+                try:
+                    if os.path.exists(folder_to_remove):
+                        shutil.rmtree(folder_to_remove)
+                    logger.debug(f"✓ Removed temporary directory for run {run_number}")
+                    break
+                except Exception as exc:
+                    if attempt == 0:  # First attempt failed, wait and retry
+                        time.sleep(0.2)
+                        continue
+                    else:  # Second attempt failed
+                        logger.warning(f"✗ Failed to remove temporary directory for run {run_number}: {folder_to_remove} - {exc}")
+                        cleanup_success = False
         
         if cleanup_success:
             logger.info("✓ All temporary directories cleaned up successfully")
