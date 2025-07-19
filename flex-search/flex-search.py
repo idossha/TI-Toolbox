@@ -21,11 +21,12 @@ from env_utils import apply_common_env_fixes
 # -----------------------------------------------------------------------------
 # Logger setup
 # -----------------------------------------------------------------------------
-def setup_logger(output_folder: str) -> None:
+def setup_logger(output_folder: str, subject_id: str) -> None:
     """Initialize logger with console and file output.
     
     Args:
         output_folder: Path to the directory where logs should be stored
+        subject_id: Subject identifier for naming the log file
     """
     global logger
     # Get project directory from environment
@@ -34,13 +35,305 @@ def setup_logger(output_folder: str) -> None:
         raise SystemExit("[flex-search] PROJECT_DIR env-var is missing")
     
     # Create logs directory in project derivatives
-    logs_dir = os.path.join(proj_dir, "derivatives", "logs", f"sub-{os.getenv('SUBJECT_ID')}")
+    logs_dir = os.path.join(proj_dir, "derivatives", "logs", f"sub-{subject_id}")
     os.makedirs(logs_dir, exist_ok=True)
+    
+    # Set proper permissions for logs directory
+    try:
+        os.chmod(logs_dir, 0o777)
+    except OSError as e:
+        print(f"Warning: Could not set permissions for logs directory: {e}")
     
     # Create timestamped log file
     time_stamp = time.strftime('%Y%m%d_%H%M%S')
-    log_file = os.path.join(logs_dir, f'flex_search_{time_stamp}.log')
+    log_file = os.path.join(logs_dir, f'flex_search_{subject_id}_{time_stamp}.log')
     logger = get_logger('flex-search', log_file, overwrite=True)
+    
+    # Log session header
+    logger.info("="*80)
+    logger.info(f"FLEX-SEARCH OPTIMIZATION SESSION STARTED")
+    logger.info(f"Subject: {subject_id}")
+    logger.info(f"Timestamp: {time.strftime('%Y-%m-%d %H:%M:%S')}")
+    logger.info(f"Output folder: {output_folder}")
+    logger.info("="*80)
+
+def _create_multistart_summary_file(
+    summary_file: str, 
+    args: argparse.Namespace, 
+    n_multistart: int, 
+    optim_funvalue_list: np.ndarray, 
+    best_opt_idx: int, 
+    valid_runs: list, 
+    failed_runs: list,
+    start_time: float
+) -> None:
+    """Create a detailed summary file for multi-start optimization results.
+    
+    Args:
+        summary_file: Path to the summary file to create
+        args: Parsed command line arguments
+        n_multistart: Number of optimization runs
+        optim_funvalue_list: Array of function values for each run
+        best_opt_idx: Index of the best optimization run
+        valid_runs: List of (run_number, function_value) tuples for valid runs
+        failed_runs: List of run numbers that failed
+        start_time: Session start time
+    """
+    total_duration = time.time() - start_time
+    
+    with open(summary_file, 'w') as f:
+        f.write("=" * 80 + "\n")
+        f.write("MULTI-START OPTIMIZATION SUMMARY\n")
+        f.write("=" * 80 + "\n")
+        f.write(f"Generated: {time.strftime('%Y-%m-%d %H:%M:%S')}\n")
+        f.write(f"Subject: {args.subject}\n")
+        f.write(f"Total session duration: {total_duration:.1f} seconds\n")
+        f.write("\n")
+        
+        # Optimization configuration
+        f.write("OPTIMIZATION CONFIGURATION:\n")
+        f.write("-" * 40 + "\n")
+        f.write(f"Goal: {args.goal}\n")
+        f.write(f"Post-processing: {args.postproc}\n")
+        f.write(f"ROI Method: {args.roi_method}\n")
+        f.write(f"EEG Net: {args.eeg_net}\n")
+        f.write(f"Electrode Radius: {args.radius}mm\n")
+        f.write(f"Electrode Current: {args.current}mA\n")
+        run_final_sim = args.run_final_electrode_simulation and not args.skip_final_electrode_simulation
+        f.write(f"Run Final Electrode Simulation: {run_final_sim}\n")
+        
+        # ROI-specific details
+        if args.roi_method == "spherical":
+            roi_coords = f"({os.getenv('ROI_X')}, {os.getenv('ROI_Y')}, {os.getenv('ROI_Z')})"
+            roi_radius = os.getenv("ROI_RADIUS")
+            use_mni_coords = os.getenv("USE_MNI_COORDS", "false").lower() == "true"
+            coord_space = "MNI" if use_mni_coords else "subject"
+            f.write(f"ROI Center ({coord_space} space): {roi_coords}\n")
+            f.write(f"ROI Radius: {roi_radius}mm\n")
+            if use_mni_coords:
+                f.write("Note: MNI coordinates transformed to subject space\n")
+        elif args.roi_method == "atlas":
+            atlas_path = os.getenv("ATLAS_PATH")
+            roi_label = os.getenv("ROI_LABEL")
+            hemisphere = os.getenv("SELECTED_HEMISPHERE")
+            f.write(f"Surface Atlas: {os.path.basename(atlas_path) if atlas_path else 'N/A'}\n")
+            f.write(f"ROI Label: {roi_label}\n")
+            f.write(f"Hemisphere: {hemisphere}\n")
+        elif args.roi_method == "subcortical":
+            volume_atlas_path = os.getenv("VOLUME_ATLAS_PATH")
+            volume_roi_label = os.getenv("VOLUME_ROI_LABEL")
+            f.write(f"Volume Atlas: {os.path.basename(volume_atlas_path) if volume_atlas_path else 'N/A'}\n")
+            f.write(f"Volume ROI Label: {volume_roi_label}\n")
+        
+        # Focality-specific parameters
+        if args.goal == "focality":
+            f.write(f"Non-ROI Method: {args.non_roi_method}\n")
+            f.write(f"Threshold Values: {args.thresholds}\n")
+        
+        f.write(f"Electrode Mapping: {args.enable_mapping}\n")
+        if args.enable_mapping:
+            f.write(f"Run Mapped Simulation: {not args.disable_mapping_simulation}\n")
+        
+        # Algorithm parameters
+        f.write("\nALGORITHM PARAMETERS:\n")
+        f.write("-" * 40 + "\n")
+        f.write(f"Number of Runs (Multi-start): {n_multistart}\n")
+        f.write(f"Max Iterations: {args.max_iterations if args.max_iterations is not None else 'Default'}\n")
+        f.write(f"Population Size: {args.population_size if args.population_size is not None else 'Default'}\n")
+        f.write(f"CPU Cores: {args.cpus if args.cpus is not None else 'Default'}\n")
+        f.write(f"Quiet Mode: {args.quiet}\n")
+        f.write("\n")
+        
+        # Multi-start results
+        f.write("MULTI-START OPTIMIZATION RESULTS:\n")
+        f.write("=" * 50 + "\n")
+        f.write(f"Total runs attempted: {n_multistart}\n")
+        f.write(f"Valid runs: {len(valid_runs)}\n")
+        f.write(f"Failed runs: {len(failed_runs)}\n")
+        f.write("\n")
+        
+        # Detailed run results
+        f.write("DETAILED RUN RESULTS:\n")
+        f.write("-" * 30 + "\n")
+        f.write(f"{'Run #':<6} {'Status':<10} {'Function Value':<15} {'Notes'}\n")
+        f.write("-" * 60 + "\n")
+        
+        for i_opt, func_val in enumerate(optim_funvalue_list):
+            run_number = i_opt + 1
+            if func_val == float('inf'):
+                status = "FAILED"
+                func_val_str = "N/A"
+                notes = "Optimization failed - see logs for details"
+            else:
+                if i_opt == best_opt_idx:
+                    status = "BEST"
+                    notes = "Selected as final solution"
+                else:
+                    status = "VALID"
+                    notes = "Discarded (higher function value)"
+                func_val_str = f"{func_val:.6f}"
+            
+            f.write(f"{run_number:<6} {status:<10} {func_val_str:<15} {notes}\n")
+        
+        f.write("\n")
+        
+        # Statistics for valid runs
+        if len(valid_runs) > 1:
+            valid_func_values = [val for _, val in valid_runs]
+            best_value = min(valid_func_values)
+            worst_value = max(valid_func_values)
+            mean_value = np.mean(valid_func_values)
+            std_value = np.std(valid_func_values)
+            improvement = ((worst_value - best_value) / abs(worst_value)) * 100 if worst_value != 0 else 0
+            
+            f.write("STATISTICAL ANALYSIS (Valid Runs Only):\n")
+            f.write("-" * 40 + "\n")
+            f.write(f"Best function value: {best_value:.6f}\n")
+            f.write(f"Worst function value: {worst_value:.6f}\n")
+            f.write(f"Mean function value: {mean_value:.6f}\n")
+            f.write(f"Standard deviation: {std_value:.6f}\n")
+            f.write(f"Improvement over worst: {improvement:.2f}%\n")
+            f.write(f"Function value range: {worst_value - best_value:.6f}\n")
+            f.write("\n")
+        
+        # Best solution details
+        f.write("SELECTED SOLUTION:\n")
+        f.write("-" * 20 + "\n")
+        f.write(f"Run number: {best_opt_idx + 1}\n")
+        f.write(f"Function value: {optim_funvalue_list[best_opt_idx]:.6f}\n")
+        f.write(f"Output folder: {os.path.basename(os.path.dirname(summary_file))}\n")
+        f.write("\n")
+        
+        # Failed runs details
+        if failed_runs:
+            f.write("FAILED RUNS ANALYSIS:\n")
+            f.write("-" * 25 + "\n")
+            f.write(f"Failed run numbers: {failed_runs}\n")
+            f.write("Common causes of failure:\n")
+            f.write("- Optimization convergence issues\n")
+            f.write("- Numerical instabilities\n")
+            f.write("- Memory or computational resource limits\n")
+            f.write("- ROI or mesh processing errors\n")
+            f.write("Check the main log file for specific error details.\n")
+            f.write("\n")
+        
+        # Recommendations
+        f.write("RECOMMENDATIONS:\n")
+        f.write("-" * 15 + "\n")
+        if len(valid_runs) < n_multistart:
+            failure_rate = len(failed_runs) / n_multistart * 100
+            f.write(f"• {failure_rate:.1f}% of runs failed. Consider:\n")
+            f.write("  - Adjusting optimization parameters (population size, iterations)\n")
+            f.write("  - Checking ROI definition and mesh quality\n")
+            f.write("  - Reducing computational complexity\n")
+        
+        if len(valid_runs) > 1:
+            cv = std_value / abs(mean_value) if mean_value != 0 else 0
+            if cv > 0.1:  # High variability
+                f.write(f"• High variability in results (CV={cv:.3f}). Consider:\n")
+                f.write("  - Increasing number of optimization runs\n")
+                f.write("  - Adjusting optimization algorithm parameters\n")
+                f.write("  - Verifying problem setup and constraints\n")
+            else:
+                f.write(f"• Good consistency across runs (CV={cv:.3f})\n")
+                f.write("  - Results appear reliable\n")
+                f.write("  - Consider using fewer runs for similar problems\n")
+        
+        f.write("\n")
+        f.write("For detailed optimization logs, refer to the main log file.\n")
+        f.write("For visualization and analysis, use the generated field maps and summary files.\n")
+        f.write("=" * 80 + "\n")
+
+
+def _create_single_optimization_summary_file(
+    summary_file: str, 
+    args: argparse.Namespace, 
+    function_value: float,
+    start_time: float
+) -> None:
+    """Create a summary file for single optimization results.
+    
+    Args:
+        summary_file: Path to the summary file to create
+        args: Parsed command line arguments
+        function_value: Final function value
+        start_time: Session start time
+    """
+    total_duration = time.time() - start_time
+    
+    with open(summary_file, 'w') as f:
+        f.write("=" * 80 + "\n")
+        f.write("OPTIMIZATION SUMMARY\n")
+        f.write("=" * 80 + "\n")
+        f.write(f"Generated: {time.strftime('%Y-%m-%d %H:%M:%S')}\n")
+        f.write(f"Subject: {args.subject}\n")
+        f.write(f"Total optimization duration: {total_duration:.1f} seconds\n")
+        f.write("\n")
+        
+        # Optimization configuration
+        f.write("OPTIMIZATION CONFIGURATION:\n")
+        f.write("-" * 40 + "\n")
+        f.write(f"Goal: {args.goal}\n")
+        f.write(f"Post-processing: {args.postproc}\n")
+        f.write(f"ROI Method: {args.roi_method}\n")
+        f.write(f"EEG Net: {args.eeg_net}\n")
+        f.write(f"Electrode Radius: {args.radius}mm\n")
+        f.write(f"Electrode Current: {args.current}mA\n")
+        run_final_sim = args.run_final_electrode_simulation and not args.skip_final_electrode_simulation
+        f.write(f"Run Final Electrode Simulation: {run_final_sim}\n")
+        
+        # ROI-specific details
+        if args.roi_method == "spherical":
+            roi_coords = f"({os.getenv('ROI_X')}, {os.getenv('ROI_Y')}, {os.getenv('ROI_Z')})"
+            roi_radius = os.getenv("ROI_RADIUS")
+            use_mni_coords = os.getenv("USE_MNI_COORDS", "false").lower() == "true"
+            coord_space = "MNI" if use_mni_coords else "subject"
+            f.write(f"ROI Center ({coord_space} space): {roi_coords}\n")
+            f.write(f"ROI Radius: {roi_radius}mm\n")
+            if use_mni_coords:
+                f.write("Note: MNI coordinates transformed to subject space\n")
+        elif args.roi_method == "atlas":
+            atlas_path = os.getenv("ATLAS_PATH")
+            roi_label = os.getenv("ROI_LABEL")
+            hemisphere = os.getenv("SELECTED_HEMISPHERE")
+            f.write(f"Surface Atlas: {os.path.basename(atlas_path) if atlas_path else 'N/A'}\n")
+            f.write(f"ROI Label: {roi_label}\n")
+            f.write(f"Hemisphere: {hemisphere}\n")
+        elif args.roi_method == "subcortical":
+            volume_atlas_path = os.getenv("VOLUME_ATLAS_PATH")
+            volume_roi_label = os.getenv("VOLUME_ROI_LABEL")
+            f.write(f"Volume Atlas: {os.path.basename(volume_atlas_path) if volume_atlas_path else 'N/A'}\n")
+            f.write(f"Volume ROI Label: {volume_roi_label}\n")
+        
+        # Focality-specific parameters
+        if args.goal == "focality":
+            f.write(f"Non-ROI Method: {args.non_roi_method}\n")
+            f.write(f"Threshold Values: {args.thresholds}\n")
+        
+        f.write(f"Electrode Mapping: {args.enable_mapping}\n")
+        if args.enable_mapping:
+            f.write(f"Run Mapped Simulation: {not args.disable_mapping_simulation}\n")
+        
+        # Algorithm parameters
+        f.write("\nALGORITHM PARAMETERS:\n")
+        f.write("-" * 40 + "\n")
+        f.write(f"Max Iterations: {args.max_iterations if args.max_iterations is not None else 'Default'}\n")
+        f.write(f"Population Size: {args.population_size if args.population_size is not None else 'Default'}\n")
+        f.write(f"CPU Cores: {args.cpus if args.cpus is not None else 'Default'}\n")
+        f.write(f"Quiet Mode: {args.quiet}\n")
+        f.write("\n")
+        
+        # Optimization result
+        f.write("OPTIMIZATION RESULT:\n")
+        f.write("-" * 20 + "\n")
+        f.write(f"Final function value: {function_value:.6f}\n")
+        f.write(f"Optimization type: Single run (no multi-start)\n")
+        f.write("\n")
+        
+        f.write("For detailed optimization logs, refer to the main log file.\n")
+        f.write("For visualization and analysis, use the generated field maps and summary files.\n")
+        f.write("=" * 80 + "\n")
+
 
 # -----------------------------------------------------------------------------
 # Argument parsing (mapping is OFF by default)
@@ -73,6 +366,8 @@ def parse_arguments() -> argparse.Namespace:
 
     # output control
     p.add_argument("--quiet", action="store_true", help="Suppress optimization step output")
+    p.add_argument("--run-final-electrode-simulation", action="store_true", default=True, help="Run final simulation with optimal electrodes (default: True)")
+    p.add_argument("--skip-final-electrode-simulation", action="store_true", help="Skip final simulation with optimal electrodes")
 
     # Stability and Performance arguments
     p.add_argument("--n-multistart", type=int, default=1, help="Number of optimization runs (multi-start). Best result will be kept.")
@@ -172,6 +467,9 @@ def build_optimisation(args: argparse.Namespace) -> opt_struct.TesFlexOptimizati
 
     opt.e_postproc = args.postproc
     opt.open_in_gmsh = False  # never auto-launch GUI
+    
+    # final electrode simulation control ------------------------------------
+    opt.run_final_electrode_simulation = args.run_final_electrode_simulation and not args.skip_final_electrode_simulation
 
     # mapping --------------------------------------------------------------
     if args.enable_mapping:
@@ -361,6 +659,9 @@ def main() -> int:
     apply_common_env_fixes()
     args = parse_arguments()
     
+    # Track total session time
+    start_time = time.time()
+    
     # Multi-start optimization logic
     n_multistart = args.n_multistart
     optim_funvalue_list = np.zeros(n_multistart)
@@ -371,7 +672,7 @@ def main() -> int:
         base_output_folder = opt_base.output_folder
         
         # Setup logger after base output folder is created
-        setup_logger(base_output_folder)
+        setup_logger(base_output_folder, args.subject)
         logger.info(f"Base output directory: {base_output_folder}")
         
         # Log the command that was called
@@ -398,8 +699,16 @@ def main() -> int:
     
     # Run multiple optimizations
     for i_opt in range(n_multistart):
+        run_start_time = time.time()
+        
+        # Enhanced logging for each optimization run
+        logger.info("-" * 60)
         if n_multistart > 1:
-            logger.info(f"Starting optimization run {i_opt + 1}/{n_multistart}")
+            logger.info(f"OPTIMIZATION RUN {i_opt + 1}/{n_multistart}")
+            logger.info(f"Run output folder: {output_folder_list[i_opt]}")
+        else:
+            logger.info("SINGLE OPTIMIZATION RUN")
+        logger.info("-" * 60)
         
         try:
             # Build optimization for this specific run
@@ -409,12 +718,20 @@ def main() -> int:
             opt.output_folder = output_folder_list[i_opt]
             os.makedirs(opt.output_folder, exist_ok=True)
             
+            # Handle run_final_electrode_simulation parameter
+            run_final_sim = args.run_final_electrode_simulation and not args.skip_final_electrode_simulation
+            
             # Log optimization parameters (only for first run to avoid repetition)
             if i_opt == 0:
-                logger.info(f"Optimization parameters:")
+                logger.info("OPTIMIZATION CONFIGURATION:")
                 logger.info(f"  Subject: {args.subject}")
                 logger.info(f"  Goal: {args.goal}")
+                logger.info(f"  Post-processing: {args.postproc}")
                 logger.info(f"  ROI Method: {args.roi_method}")
+                logger.info(f"  EEG Net: {args.eeg_net}")
+                logger.info(f"  Electrode Radius: {args.radius}mm")
+                logger.info(f"  Electrode Current: {args.current}mA")
+                logger.info(f"  Run Final Electrode Simulation: {run_final_sim}")
                 
                 # Log ROI-specific details
                 if args.roi_method == "subcortical":
@@ -426,7 +743,7 @@ def main() -> int:
                     atlas_path = os.getenv("ATLAS_PATH")
                     roi_label = os.getenv("ROI_LABEL")
                     hemisphere = os.getenv("SELECTED_HEMISPHERE")
-                    logger.info(f"  Atlas: {atlas_path}")
+                    logger.info(f"  Surface Atlas: {os.path.basename(atlas_path) if atlas_path else 'N/A'}")
                     logger.info(f"  ROI Label: {roi_label}")
                     logger.info(f"  Hemisphere: {hemisphere}")
                 elif args.roi_method == "spherical":
@@ -437,17 +754,27 @@ def main() -> int:
                     logger.info(f"  ROI Center ({coord_space} space): {roi_coords}")
                     logger.info(f"  ROI Radius: {roi_radius}mm")
                     if use_mni_coords:
-                        logger.info(f"  MNI coordinates will be transformed to subject space")
+                        logger.info(f"  Note: MNI coordinates will be transformed to subject space")
                 
-                logger.info(f"  Mapping: {args.enable_mapping}")
+                # Log focality-specific parameters
+                if args.goal == "focality":
+                    logger.info(f"  Non-ROI Method: {args.non_roi_method}")
+                    logger.info(f"  Threshold Values: {args.thresholds}")
+                
+                logger.info(f"  Electrode Mapping: {args.enable_mapping}")
                 if args.enable_mapping:
-                    logger.info(f"  Run mapped simulation: {not args.disable_mapping_simulation}")
-                if args.max_iterations is not None:
-                    logger.info(f"  Max iterations: {args.max_iterations}")
-                if args.population_size is not None:
-                    logger.info(f"  Population size: {args.population_size}")
-                if args.cpus is not None:
-                    logger.info(f"  CPUs: {args.cpus}")
+                    logger.info(f"  Run Mapped Simulation: {not args.disable_mapping_simulation}")
+                    
+                # Log optimization algorithm parameters
+                logger.info("OPTIMIZATION ALGORITHM SETTINGS:")
+                logger.info(f"  Max Iterations: {args.max_iterations if args.max_iterations is not None else 'Default'}")
+                logger.info(f"  Population Size: {args.population_size if args.population_size is not None else 'Default'}")
+                logger.info(f"  CPU Cores: {args.cpus if args.cpus is not None else 'Default'}")
+                logger.info(f"  Quiet Mode: {args.quiet}")
+                
+                if n_multistart > 1:
+                    logger.info(f"  Multi-start Runs: {n_multistart}")
+                    logger.info(f"  Note: Best result will be automatically selected based on function value")
             
             # Set optimizer display option based on quiet mode
             if args.quiet:
@@ -460,58 +787,133 @@ def main() -> int:
             if args.max_iterations is not None:
                 if hasattr(opt, '_optimizer_options_std') and isinstance(opt._optimizer_options_std, dict):
                     opt._optimizer_options_std["maxiter"] = args.max_iterations
+                    logger.debug(f"Set max iterations to {args.max_iterations}")
                 else:
                     logger.warning("opt._optimizer_options_std not found or not a dict, cannot set maxiter.")
             
             if args.population_size is not None:
                 if hasattr(opt, '_optimizer_options_std') and isinstance(opt._optimizer_options_std, dict):
                     opt._optimizer_options_std["popsize"] = args.population_size
+                    logger.debug(f"Set population size to {args.population_size}")
                 else:
                     logger.warning("opt._optimizer_options_std not found or not a dict, cannot set popsize.")
             
-            # Run optimization
+            # Log run start
             cpus_to_pass = args.cpus if args.cpus is not None else None
             if n_multistart > 1:
-                logger.info(f"Running optimization {i_opt + 1}/{n_multistart}...")
+                logger.info(f"Starting optimization run {i_opt + 1}/{n_multistart}...")
             else:
-                logger.info("Starting optimization run...")
+                logger.info("Starting optimization...")
             
+            # Run optimization
+            optimization_start_time = time.time()
             opt.run(cpus=cpus_to_pass)
+            optimization_end_time = time.time()
             
             # Store the optimization function value
             optim_funvalue_list[i_opt] = opt.optim_funvalue
             
-            if n_multistart > 1:
-                logger.info(f"Optimization {i_opt + 1}/{n_multistart} completed. Function value: {opt.optim_funvalue}")
-            else:
-                logger.info("Optimization completed successfully")
+            # Log completion with detailed results
+            run_duration = time.time() - run_start_time
+            optimization_duration = optimization_end_time - optimization_start_time
+            
+            logger.info("OPTIMIZATION RUN COMPLETED:")
+            logger.info(f"  Function Value: {opt.optim_funvalue:.6f}")
+            logger.info(f"  Optimization Duration: {optimization_duration:.1f} seconds")
+            logger.info(f"  Total Run Duration: {run_duration:.1f} seconds")
+            if hasattr(opt, 'optim_result') and hasattr(opt.optim_result, 'nfev'):
+                logger.info(f"  Function Evaluations: {opt.optim_result.nfev}")
+            if hasattr(opt, 'optim_result') and hasattr(opt.optim_result, 'success'):
+                logger.info(f"  Optimization Success: {opt.optim_result.success}")
                 
         except IndexError as exc:
             # Special handling for the index error we're seeing
             logger.error(f"IndexError in run {i_opt + 1} (likely in post-processing): {exc}")
             logger.info("This error may occur during final analysis but optimization itself likely completed")
+            logger.warning(f"Setting penalty value for run {i_opt + 1} due to IndexError")
             # Set a high penalty value for this run so it won't be selected as best
             optim_funvalue_list[i_opt] = float('inf')
         except Exception as exc:
-            logger.error(f"ERROR in optimization run {i_opt + 1}: {exc}")
-            logger.error(f"Full traceback: {traceback.format_exc()}")
+            run_duration = time.time() - run_start_time
+            logger.error(f"ERROR in optimization run {i_opt + 1} after {run_duration:.1f} seconds:")
+            logger.error(f"  Error type: {type(exc).__name__}")
+            logger.error(f"  Error message: {str(exc)}")
+            logger.error(f"Full traceback:\n{traceback.format_exc()}")
+            logger.warning(f"Setting penalty value for run {i_opt + 1} due to error")
             # Set a high penalty value for this run so it won't be selected as best
             optim_funvalue_list[i_opt] = float('inf')
     
     # Multi-start post-processing: find best solution and clean up
     if n_multistart > 1:
-        logger.info(f"All optimization runs completed. Function values: {optim_funvalue_list}")
+        logger.info("=" * 80)
+        logger.info("MULTI-START OPTIMIZATION POST-PROCESSING")
+        logger.info("=" * 80)
         
-        # Find best solution (minimum function value)
+        # Log all function values with detailed breakdown
+        logger.info("OPTIMIZATION RESULTS SUMMARY:")
+        valid_runs = []
+        failed_runs = []
+        
+        for i_opt, func_val in enumerate(optim_funvalue_list):
+            run_number = i_opt + 1
+            if func_val == float('inf'):
+                logger.info(f"  Run {run_number:2d}: FAILED")
+                failed_runs.append(run_number)
+            else:
+                logger.info(f"  Run {run_number:2d}: {func_val:.6f}")
+                valid_runs.append((run_number, func_val))
+        
+        logger.info(f"Valid runs: {len(valid_runs)}/{n_multistart}")
+        if failed_runs:
+            logger.warning(f"Failed runs: {failed_runs}")
+        
+        if not valid_runs:
+            logger.error("No valid optimization results found - all runs failed")
+            logger.error("Check individual run logs above for specific error details")
+            return 1
+        
+        # Find best solution (minimum function value among valid runs)
         best_opt_idx = np.argmin(optim_funvalue_list)
         best_funvalue = optim_funvalue_list[best_opt_idx]
+        best_run_number = best_opt_idx + 1
         
-        logger.info(f"Best optimization: run {best_opt_idx + 1} with function value {best_funvalue}")
+        logger.info(f"BEST SOLUTION SELECTION:")
+        logger.info(f"  Best run: #{best_run_number}")
+        logger.info(f"  Best function value: {best_funvalue:.6f}")
+        
+        # Find improvement statistics
+        if len(valid_runs) > 1:
+            valid_func_values = [val for _, val in valid_runs]
+            worst_value = max(valid_func_values)
+            improvement = ((worst_value - best_funvalue) / abs(worst_value)) * 100 if worst_value != 0 else 0
+            logger.info(f"  Improvement over worst: {improvement:.2f}%")
+            logger.info(f"  Function value range: {min(valid_func_values):.6f} to {max(valid_func_values):.6f}")
+        
+        # Create detailed multi-start summary file
+        multistart_summary_file = os.path.join(base_output_folder, "multistart_optimization_summary.txt")
+        try:
+            _create_multistart_summary_file(
+                multistart_summary_file, 
+                args, 
+                n_multistart, 
+                optim_funvalue_list, 
+                int(best_opt_idx), 
+                valid_runs, 
+                failed_runs,
+                start_time
+            )
+            logger.info(f"Multi-start summary saved to: {multistart_summary_file}")
+        except Exception as e:
+            logger.warning(f"Failed to create multi-start summary file: {e}")
         
         # Copy best solution to base output folder and remove numbered subfolders
         best_folder = output_folder_list[best_opt_idx]
         
+        logger.info("FINALIZING RESULTS:")
         if os.path.exists(best_folder) and best_funvalue != float('inf'):
+            logger.info(f"Copying best solution from: {best_folder}")
+            logger.info(f"Copying best solution to: {base_output_folder}")
+            
             # Copy contents of best solution to main output directory
             try:
                 for item in os.listdir(best_folder):
@@ -525,24 +927,62 @@ def main() -> int:
                         if os.path.exists(dst):
                             os.remove(dst)
                         shutil.copy2(src, dst)
-                logger.info(f"Best solution copied to: {base_output_folder}")
+                logger.info("✓ Best solution successfully copied to final output directory")
             except Exception as exc:
-                logger.error(f"Error copying best solution: {exc}")
+                logger.error(f"✗ Failed to copy best solution: {exc}")
                 return 1
         else:
-            logger.error("No valid optimization results found")
+            logger.error("✗ Best solution folder not found or invalid")
             return 1
         
         # Clean up numbered subdirectories
+        logger.info("CLEANING UP TEMPORARY DIRECTORIES:")
+        cleanup_success = True
         for i_opt in range(n_multistart):
             folder_to_remove = output_folder_list[i_opt]
-            if os.path.exists(folder_to_remove):
-                try:
+            run_number = i_opt + 1
+            try:
+                if os.path.exists(folder_to_remove):
                     shutil.rmtree(folder_to_remove)
-                except Exception as exc:
-                    logger.warning(f"Failed to remove temporary folder {folder_to_remove}: {exc}")
+                logger.debug(f"✓ Removed temporary directory for run {run_number}")
+            except Exception as exc:
+                logger.warning(f"✗ Failed to remove temporary directory for run {run_number}: {folder_to_remove} - {exc}")
+                cleanup_success = False
         
-        logger.info("Multi-start optimization completed successfully")
+        if cleanup_success:
+            logger.info("✓ All temporary directories cleaned up successfully")
+        else:
+            logger.warning("⚠ Some temporary directories could not be removed (results still valid)")
+        
+        logger.info("MULTI-START OPTIMIZATION COMPLETED SUCCESSFULLY")
+        logger.info(f"Final results available in: {base_output_folder}")
+        
+    else:
+        # Single optimization run
+        if optim_funvalue_list[0] == float('inf'):
+            logger.error("Single optimization run failed")
+            return 1
+        else:
+            logger.info("SINGLE OPTIMIZATION COMPLETED SUCCESSFULLY")
+            logger.info(f"Final function value: {optim_funvalue_list[0]:.6f}")
+            logger.info(f"Results available in: {base_output_folder}")
+            
+            # Create a simple summary file for single optimization
+            single_summary_file = os.path.join(base_output_folder, "optimization_summary.txt")
+            try:
+                _create_single_optimization_summary_file(single_summary_file, args, optim_funvalue_list[0], start_time)
+                logger.info(f"Optimization summary saved to: {single_summary_file}")
+            except Exception as e:
+                logger.warning(f"Failed to create optimization summary file: {e}")
+    
+    # Log session footer
+    total_duration = time.time() - start_time if 'start_time' in locals() else 0
+    logger.info("=" * 80)
+    logger.info("FLEX-SEARCH SESSION COMPLETED")
+    logger.info(f"Total session duration: {total_duration:.1f} seconds")
+    logger.info(f"Subject: {args.subject}")
+    logger.info(f"Optimization runs: {n_multistart}")
+    logger.info("=" * 80)
     
     return 0
 

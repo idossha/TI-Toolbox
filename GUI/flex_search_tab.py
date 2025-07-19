@@ -123,7 +123,7 @@ class FlexSearchTab(QtWidgets.QWidget):
         # Initialize all widgets that might be referenced before setup_ui
         self.subject_list = QtWidgets.QListWidget()
         self.subject_list.setSelectionMode(QtWidgets.QAbstractItemView.ExtendedSelection)
-        self.subject_list.setMaximumHeight(120)  # Limit height to show multiple items
+        self.subject_list.setMaximumHeight(100)  # Reduced height (was 120)
         self.eeg_net_combo = QtWidgets.QComboBox()
         self.atlas_combo = QtWidgets.QComboBox()
         self.nonroi_atlas_combo = QtWidgets.QComboBox()
@@ -186,6 +186,9 @@ class FlexSearchTab(QtWidgets.QWidget):
         
         self.quiet_mode_checkbox = QtWidgets.QCheckBox("✓ Hide optimization steps")
         self.quiet_mode_checkbox.setChecked(True)
+        
+        self.run_final_electrode_simulation_checkbox = QtWidgets.QCheckBox("✓ Run final electrode simulation")
+        self.run_final_electrode_simulation_checkbox.setChecked(True)
         
         # Initialize radio buttons
         self.roi_method_spherical = QtWidgets.QRadioButton("Spherical (coordinates and radius)")
@@ -350,6 +353,10 @@ class FlexSearchTab(QtWidgets.QWidget):
         
         self.postproc_combo.setMaximumWidth(350)
         basic_params_layout.addRow(self.postproc_label, self.postproc_combo)
+        
+        # Add final electrode simulation checkbox under post-processing
+        basic_params_layout.addRow(self.run_final_electrode_simulation_checkbox)
+        
         top_row_layout.addWidget(basic_params_group, 1)
 
         # Right column: Mapping (top) + Electrode Parameters (bottom)
@@ -1188,6 +1195,8 @@ class FlexSearchTab(QtWidgets.QWidget):
             # Stability and Memory options
             if self.quiet_mode_checkbox.isChecked():
                 cmd.append("--quiet")
+            if not self.run_final_electrode_simulation_checkbox.isChecked():
+                cmd.append("--skip-final-electrode-simulation")
             cmd.extend(["--n-multistart", str(self.n_multistart_input.value())])
             cmd.extend(["--max-iterations", str(self.max_iterations_input.value())])
             cmd.extend(["--population-size", str(self.population_size_input.value())])

@@ -510,6 +510,34 @@ choose_quiet_mode() {
     done
 }
 
+# Choose final electrode simulation option
+choose_final_electrode_simulation() {
+    if ! is_prompt_enabled "run_final_electrode_simulation"; then
+        local default_final_sim=$(get_default_value "run_final_electrode_simulation")
+        if [ -n "$default_final_sim" ]; then
+            run_final_electrode_simulation="$default_final_sim"
+            echo -e "${CYAN}Using default final electrode simulation: ${run_final_electrode_simulation}${RESET}"
+            return
+        fi
+    fi
+
+    while true; do
+        read -p "Run final electrode simulation? (y/n) [default: y]: " final_sim_input
+        if [ -z "$final_sim_input" ]; then
+            run_final_electrode_simulation="true"
+            break
+        elif [[ "$final_sim_input" =~ ^[yY]$ ]]; then
+            run_final_electrode_simulation="true"
+            break
+        elif [[ "$final_sim_input" =~ ^[nN]$ ]]; then
+            run_final_electrode_simulation="false"
+            break
+        else
+            echo -e "${RED}Invalid choice. Please enter 'y' for yes or 'n' for no.${RESET}"
+        fi
+    done
+}
+
 # Function to choose ROI method
 choose_roi_method() {
     echo "Choose ROI definition method:"
@@ -1078,6 +1106,7 @@ show_confirmation_dialog() {
     echo -e "Population Size: ${CYAN}$population_size${RESET}"
     echo -e "CPU Cores: ${CYAN}$cpus${RESET}"
     echo -e "Quiet Mode: ${CYAN}$quiet_mode${RESET}"
+    echo -e "Run Final Electrode Simulation: ${CYAN}$run_final_electrode_simulation${RESET}"
     
     # Mapping Options
     echo -e "\n${BOLD_CYAN}Mapping Options:${RESET}"
@@ -1164,6 +1193,7 @@ print_section_header "Optimization Settings"
 choose_optimization_params
 choose_mapping_options
 choose_quiet_mode
+choose_final_electrode_simulation
 
 print_section_header "ROI Configuration"
 choose_roi_method "$first_subject"
@@ -1180,6 +1210,9 @@ show_confirmation_dialog
 # Process each subject
 for subject_id in "${selected_subjects[@]}"; do
     print_section_header "Processing Subject: $subject_id"
+    
+    # Export subject ID for logging and other utilities
+    export SUBJECT_ID="$subject_id"
     
     # Build the command with all required arguments
     cmd="simnibs_python \"$flex_search_dir/flex-search.py\""
@@ -1208,6 +1241,11 @@ for subject_id in "${selected_subjects[@]}"; do
     # Add quiet mode
     if [ "$quiet_mode" = "true" ]; then
         cmd+=" --quiet"
+    fi
+    
+    # Add final electrode simulation option
+    if [ "$run_final_electrode_simulation" = "false" ]; then
+        cmd+=" --skip-final-electrode-simulation"
     fi
     
     # Add non-ROI arguments if goal is focality
