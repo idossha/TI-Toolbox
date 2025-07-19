@@ -346,22 +346,41 @@ choose_electrode_params() {
     done
 }
 
-# Choose optimization parameters (max iterations, population size, CPUs)
+# Choose optimization parameters (multi-start runs, max iterations, population size, CPUs)
 choose_optimization_params() {
     if ! is_prompt_enabled "optimization_params"; then
+        local default_n_multistart=$(get_default_value "n_multistart")
         local default_max_iter=$(get_default_value "max_iterations")
         local default_pop_size=$(get_default_value "population_size")
         local default_cpus=$(get_default_value "cpus")
-        if [ -n "$default_max_iter" ] && [ -n "$default_pop_size" ] && [ -n "$default_cpus" ]; then
+        if [ -n "$default_n_multistart" ] && [ -n "$default_max_iter" ] && [ -n "$default_pop_size" ] && [ -n "$default_cpus" ]; then
+            n_multistart="$default_n_multistart"
             max_iterations="$default_max_iter"
             population_size="$default_pop_size"
             cpus="$default_cpus"
-            echo -e "${CYAN}Using default optimization parameters: max_iter=${max_iterations}, pop_size=${population_size}, cpus=${cpus}${RESET}"
+            echo -e "${CYAN}Using default optimization parameters: n_multistart=${n_multistart}, max_iter=${max_iterations}, pop_size=${population_size}, cpus=${cpus}${RESET}"
             return
         fi
     fi
 
     echo -e "${GREEN}Configure optimization parameters:${RESET}"
+    
+    # Number of optimization runs (multi-start)
+    while true; do
+        read -p "Enter number of optimization runs (multi-start) [default: 1, max: 20]: " n_multistart
+        if [ -z "$n_multistart" ]; then
+            n_multistart=1
+            break
+        elif [[ "$n_multistart" =~ ^[0-9]+$ ]] && [ "$n_multistart" -ge 1 ] && [ "$n_multistart" -le 20 ]; then
+            break
+        else
+            echo -e "${RED}Invalid value. Please enter a number between 1 and 20.${RESET}"
+        fi
+    done
+    
+    if [ "$n_multistart" -gt 1 ]; then
+        echo -e "${YELLOW}ℹ️  Multi-start optimization will run $n_multistart times and automatically keep the best result.${RESET}"
+    fi
     
     # Max iterations
     while true; do
@@ -403,7 +422,7 @@ choose_optimization_params() {
         fi
     done
 
-    echo -e "${GREEN}Optimization parameters set: max_iter=${max_iterations}, pop_size=${population_size}, cpus=${cpus}${RESET}"
+    echo -e "${GREEN}Optimization parameters set: n_multistart=${n_multistart}, max_iter=${max_iterations}, pop_size=${population_size}, cpus=${cpus}${RESET}"
 }
 
 # Choose mapping options
@@ -616,9 +635,33 @@ get_coordinate_and_radius_input() {
 setup_spherical_roi() {
     print_section_header "Spherical ROI Configuration"
     echo
-    get_coordinate_and_radius_input "Define ROI sphere location and size (in mm):" "Input"
+    
+    # Check if multiple subjects are selected
+    local num_subjects=${#selected_subjects[@]}
+    if [ $num_subjects -gt 1 ]; then
+        echo -e "${YELLOW}ℹ️  Multiple subjects selected ($num_subjects subjects)${RESET}"
+        echo -e "${YELLOW}   Coordinates will be treated as MNI space and automatically transformed to each subject's native space.${RESET}"
+        echo -e "${CYAN}   Please provide coordinates in MNI152 template space.${RESET}"
+        echo
+        get_coordinate_and_radius_input "Define ROI sphere location and size in MNI space (in mm):" "Input"
+        export USE_MNI_COORDS="true"
+        echo -e "${YELLOW}🌍 MNI coordinates will be transformed to subject-specific space for each subject.${RESET}"
+    else
+        echo -e "${CYAN}   Single subject selected: please provide coordinates in subject's native RAS space.${RESET}"
+        echo
+        get_coordinate_and_radius_input "Define ROI sphere location and size in subject RAS space (in mm):" "Input"
+        export USE_MNI_COORDS="false"
+    fi
+    
     IFS=',' read -r ROI_X ROI_Y ROI_Z ROI_RADIUS <<< "$COORD_RADIUS_INPUT"
-    print_success "Sphere defined at (${ROI_X}, ${ROI_Y}, ${ROI_Z})mm with radius ${ROI_RADIUS}mm"
+    
+    if [ "$USE_MNI_COORDS" = "true" ]; then
+        print_success "MNI sphere defined at (${ROI_X}, ${ROI_Y}, ${ROI_Z})mm with radius ${ROI_RADIUS}mm"
+        print_success "Coordinates will be transformed to native space for each subject"
+    else
+        print_success "Subject sphere defined at (${ROI_X}, ${ROI_Y}, ${ROI_Z})mm with radius ${ROI_RADIUS}mm"
+    fi
+    
     export ROI_X ROI_Y ROI_Z ROI_RADIUS
 }
 
@@ -819,9 +862,27 @@ setup_non_roi() {
                 if [ "$ROI_METHOD" = "spherical" ]; then
                     print_section_header "Spherical Non-ROI Configuration"
                     echo
+                    
+                    # Use the same coordinate space as ROI
+                    local coord_space_info=""
+                    if [ "$USE_MNI_COORDS" = "true" ]; then
+                        coord_space_info="in MNI space (will be transformed to subject space)"
+                        export USE_MNI_COORDS_NON_ROI="true"
+                    else
+                        coord_space_info="in subject RAS space"
+                        export USE_MNI_COORDS_NON_ROI="false"
+                    fi
+                    
+                    echo -e "${CYAN}Define non-ROI sphere location and size $coord_space_info${RESET}"
                     get_coordinate_and_radius_input "Define non-ROI sphere location and size (in mm):" "Input"
                     IFS=',' read -r NON_ROI_X NON_ROI_Y NON_ROI_Z NON_ROI_RADIUS <<< "$COORD_RADIUS_INPUT"
-                    print_success "Sphere defined at (${NON_ROI_X}, ${NON_ROI_Y}, ${NON_ROI_Z})mm with radius ${NON_ROI_RADIUS}mm"
+                    
+                    if [ "$USE_MNI_COORDS" = "true" ]; then
+                        print_success "Non-ROI MNI sphere defined at (${NON_ROI_X}, ${NON_ROI_Y}, ${NON_ROI_Z})mm with radius ${NON_ROI_RADIUS}mm"
+                    else
+                        print_success "Non-ROI subject sphere defined at (${NON_ROI_X}, ${NON_ROI_Y}, ${NON_ROI_Z})mm with radius ${NON_ROI_RADIUS}mm"
+                    fi
+                    
                     export NON_ROI_X NON_ROI_Y NON_ROI_Z NON_ROI_RADIUS
                 else  # atlas-based ROI
                     # List available atlases
@@ -975,7 +1036,8 @@ show_welcome_message() {
     echo -e "${BOLD_CYAN}║     TI-CSC Flex Search Optimizer      ║${RESET}"
     echo -e "${BOLD_CYAN}╚════════════════════════════════════════╝${RESET}"
     echo -e "${CYAN}Version 2.0 - $(date +%Y)${RESET}"
-    echo -e "${CYAN}Optimize electrode positions for targeted stimulation${RESET}\n"
+    echo -e "${CYAN}Optimize electrode positions for targeted stimulation${RESET}"
+    echo -e "${YELLOW}✨ Features: Multi-start optimization, MNI coordinate support for group analysis${RESET}\n"
 }
 
 # Function to show confirmation dialog
@@ -1008,6 +1070,10 @@ show_confirmation_dialog() {
     
     # Optimization Settings
     echo -e "\n${BOLD_CYAN}Optimization Settings:${RESET}"
+    echo -e "Number of Runs (Multi-start): ${CYAN}$n_multistart${RESET}"
+    if [ "$n_multistart" -gt 1 ]; then
+        echo -e "  ${YELLOW}→ Best result from $n_multistart runs will be automatically selected${RESET}"
+    fi
     echo -e "Max Iterations: ${CYAN}$max_iterations${RESET}"
     echo -e "Population Size: ${CYAN}$population_size${RESET}"
     echo -e "CPU Cores: ${CYAN}$cpus${RESET}"
@@ -1029,7 +1095,15 @@ show_confirmation_dialog() {
         local roi_label_name=$(get_label_name "$ATLAS_PATH" "$ROI_LABEL")
         echo -e "ROI Label: ${CYAN}$ROI_LABEL - $roi_label_name${RESET}"
     else
-        echo -e "ROI Coordinates: ${CYAN}(${ROI_X}, ${ROI_Y}, ${ROI_Z})${RESET}"
+        local coord_space_display=""
+        if [ "$USE_MNI_COORDS" = "true" ]; then
+            coord_space_display=" (MNI space → subject space)"
+            echo -e "ROI Coordinates${CYAN}$coord_space_display${RESET}: ${CYAN}(${ROI_X}, ${ROI_Y}, ${ROI_Z})${RESET}"
+            echo -e "  ${YELLOW}→ MNI coordinates will be transformed to each subject's native space${RESET}"
+        else
+            coord_space_display=" (subject RAS space)"
+            echo -e "ROI Coordinates${CYAN}$coord_space_display${RESET}: ${CYAN}(${ROI_X}, ${ROI_Y}, ${ROI_Z})${RESET}"
+        fi
         echo -e "ROI Radius: ${CYAN}${ROI_RADIUS}mm${RESET}"
     fi
     
@@ -1045,7 +1119,14 @@ show_confirmation_dialog() {
                 local non_roi_label_name=$(get_label_name "$NON_ROI_ATLAS_PATH" "$NON_ROI_LABEL")
                 echo -e "Non-ROI Label: ${CYAN}$NON_ROI_LABEL - $non_roi_label_name${RESET}"
             else
-                echo -e "Non-ROI Coordinates: ${CYAN}(${NON_ROI_X}, ${NON_ROI_Y}, ${NON_ROI_Z})${RESET}"
+                local non_roi_coord_space_display=""
+                if [ "$USE_MNI_COORDS_NON_ROI" = "true" ]; then
+                    non_roi_coord_space_display=" (MNI space → subject space)"
+                    echo -e "Non-ROI Coordinates${CYAN}$non_roi_coord_space_display${RESET}: ${CYAN}(${NON_ROI_X}, ${NON_ROI_Y}, ${NON_ROI_Z})${RESET}"
+                else
+                    non_roi_coord_space_display=" (subject RAS space)"
+                    echo -e "Non-ROI Coordinates${CYAN}$non_roi_coord_space_display${RESET}: ${CYAN}(${NON_ROI_X}, ${NON_ROI_Y}, ${NON_ROI_Z})${RESET}"
+                fi
                 echo -e "Non-ROI Radius: ${CYAN}${NON_ROI_RADIUS}mm${RESET}"
             fi
         fi
@@ -1111,6 +1192,7 @@ for subject_id in "${selected_subjects[@]}"; do
     cmd+=" --roi-method \"$ROI_METHOD\""
     
     # Add optimization parameters
+    cmd+=" --n-multistart \"$n_multistart\""
     cmd+=" --max-iterations \"$max_iterations\""
     cmd+=" --population-size \"$population_size\""
     cmd+=" --cpus \"$cpus\""
@@ -1146,4 +1228,12 @@ for subject_id in "${selected_subjects[@]}"; do
     fi
 done
 
-print_success "All optimizations completed!" 
+print_success "All optimizations completed!"
+
+# Show multi-start summary if applicable
+if [ "$n_multistart" -gt 1 ]; then
+    echo -e "${YELLOW}🔄 Multi-start optimization summary:${RESET}"
+    echo -e "${CYAN}   • Each subject was optimized $n_multistart times${RESET}"
+    echo -e "${CYAN}   • Best result (minimum objective function value) was automatically selected for each subject${RESET}"
+    echo -e "${CYAN}   • Temporary optimization runs were cleaned up automatically${RESET}"
+fi 
