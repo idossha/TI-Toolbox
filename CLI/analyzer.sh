@@ -150,6 +150,31 @@ else
 fi
 
 # =========================================
+# Initial prompt: Single subject or group analysis
+# =========================================
+while true; do
+    echo -e "\033[1;36mDo you want to perform:\033[0m"
+    echo "1. Single Subject Analysis"
+    echo "2. Group Analysis"
+    read -p "Enter your choice (1 or 2): " analysis_mode
+    case $analysis_mode in
+        1)
+            # Continue with this script
+            break
+            ;;
+        2)
+            # Call group_analyzer.sh and exit
+            script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+            "$script_dir/group_analyzer.sh"
+            exit 0
+            ;;
+        *)
+            echo -e "\033[0;31mInvalid choice. Please enter 1 or 2.\033[0m"
+            ;;
+    esac
+done
+
+# =========================================
 # Configuration and Setup Functions
 # =========================================
 
