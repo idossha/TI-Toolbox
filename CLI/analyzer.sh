@@ -120,10 +120,6 @@ if [ ! -f "$config_file" ]; then
         "default": "spherical",
         "options": ["spherical", "cortical"]
     },
-    "field_name": {
-        "prompt": "enable",
-        "default": "normE"
-    },
     "coordinates": {
         "prompt": "enable",
         "default": [0, 0, 0]
@@ -353,28 +349,6 @@ collect_field_info() {
     done
 
     echo -e "${CYAN}Selected field file: $field_basename${RESET}"
-
-    # For mesh analysis, collect field name
-    if [ "$space_type" == "mesh" ]; then
-        if ! is_prompt_enabled "field_name"; then
-            local default_value=$(get_default_value "field_name")
-            if [ -n "$default_value" ]; then
-                field_name="$default_value"
-                echo -e "${CYAN}Using default field name: $field_name${RESET}"
-                return
-            fi
-        fi
-
-        echo -e "${GREEN}Enter the field name within the mesh file (e.g., normE, TI_max):${RESET}"
-        read -p " " field_name
-        
-        while [[ -z "$field_name" ]]; do
-            echo -e "${RED}Field name cannot be empty. Please enter a valid field name.${RESET}"
-            read -p " " field_name
-        done
-        
-        echo -e "${CYAN}Field name: $field_name${RESET}"
-    fi
 }
 
 # Function to collect spherical analysis parameters
@@ -769,7 +743,7 @@ list_atlas_files() {
     atlas_dir="$project_dir/derivatives/SimNIBS/sub-$subject_id/m2m_$subject_id/segmentation"
     if [ -d "$atlas_dir" ]; then
         while IFS= read -r -d '' file; do
-            if [[ "$file" == *.nii.gz || "$file" == *.mgz ]]; then
+            if [[ ("$file" == *.nii.gz || "$file" == *.mgz) && ! "$(basename "$file" | tr '[:upper:]' '[:lower:]')" =~ resampled ]]; then
                 atlas_files+=("$(basename "$file")")
                 atlas_paths+=("$file")  # Store full path
             fi
@@ -781,7 +755,7 @@ list_atlas_files() {
     echo -e "${BOLD_CYAN}FreeSurfer Directory: $freesurfer_dir${RESET}"
     if [ -d "$freesurfer_dir" ]; then
         while IFS= read -r -d '' file; do
-            if [[ "$file" == *.mgz ]]; then
+            if [[ "$file" == *.mgz && ! "$(basename "$file" | tr '[:upper:]' '[:lower:]')" =~ resampled ]]; then
                 atlas_files+=("$(basename "$file")")
                 atlas_paths+=("$file")  # Store full path
             fi
@@ -1166,10 +1140,6 @@ show_confirmation_dialog() {
     echo -e "Analysis Type: ${CYAN}$analysis_type${RESET}"
     echo -e "Field File: ${CYAN}$field_basename${RESET}"
     
-    if [ "$space_type" == "mesh" ]; then
-        echo -e "Field Name: ${CYAN}$field_name${RESET}"
-    fi
-    
     # Analysis-specific Parameters
     if [ "$analysis_type" == "spherical" ]; then
         echo -e "\n${BOLD_CYAN}Spherical Analysis Parameters:${RESET}"
@@ -1212,11 +1182,6 @@ run_analysis() {
     cmd+=(--analysis_type "$analysis_type")
     cmd+=(--output_dir "$output_dir")
     
-    # Add space-specific parameters
-    if [ "$space_type" == "mesh" ]; then
-        cmd+=(--field_name "$field_name")
-    fi
-    
     # Add analysis-specific parameters
     if [ "$analysis_type" == "spherical" ]; then
         cmd+=(--coordinates "${coordinates[@]}")
@@ -1233,6 +1198,11 @@ run_analysis() {
         else
             cmd+=(--region "$region_name")
         fi
+    fi
+
+    # Add montage_name for mesh analysis
+    if [ "$space_type" == "mesh" ]; then
+        cmd+=(--montage_name "$simulation_name")
     fi
     
     # Add visualization flag if enabled
@@ -1284,15 +1254,6 @@ if [[ "$1" == "--run-direct" ]]; then
     analysis_type="$ANALYSIS_TYPE"
     field_path="$FIELD_PATH"
     field_basename=$(basename "$field_path")
-    
-    # Set space-specific variables
-    if [ "$space_type" == "mesh" ]; then
-        if [[ -z "$FIELD_NAME" ]]; then
-            echo -e "${RED}Error: Missing required FIELD_NAME for mesh analysis.${RESET}"
-            exit 1
-        fi
-        field_name="$FIELD_NAME"
-    fi
     
     # Set analysis-specific variables
     if [ "$analysis_type" == "spherical" ]; then
