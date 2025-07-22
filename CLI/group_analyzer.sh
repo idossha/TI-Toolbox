@@ -123,10 +123,6 @@ if [ ! -f "$config_file" ]; then
         "default": "spherical",
         "options": ["spherical", "cortical"]
     },
-    "field_name": {
-        "prompt": "enable",
-        "default": "normE"
-    },
     "coordinates": {
         "prompt": "enable",
         "default": [0, 0, 0]
@@ -140,16 +136,8 @@ if [ ! -f "$config_file" ]; then
         "default": "DK40",
         "options": ["DK40", "HCP_MMP1", "a2009s"]
     },
-    "whole_head": {
-        "prompt": "enable",
-        "default": false
-    },
-    "compare": {
-        "prompt": "enable",
-        "default": true
-    },
     "output_dir": {
-        "prompt": "enable",
+        "prompt": "disable",
         "default": null
     }
 }
@@ -531,11 +519,84 @@ collect_cortical_params() {
     else  # voxel
         echo -e "${CYAN}For voxel cortical analysis, each subject needs its own atlas file.${RESET}"
         echo -e "${YELLOW}The script will automatically find appropriate atlas files for each subject.${RESET}"
-        # Validate that all subjects have atlas files
+
+        # Function to get all available atlases for a subject
+        get_all_subject_atlases() {
+            local subject_id=$1
+            local freesurfer_dir="$project_dir/derivatives/freesurfer/sub-$subject_id/$subject_id/mri"
+            local found_atlases=()
+            for atlas in "aparc.DKTatlas+aseg.mgz" "aparc.a2009s+aseg.mgz"; do
+                if [ -f "$freesurfer_dir/$atlas" ]; then
+                    found_atlases+=("$atlas")
+                fi
+            done
+            echo "${found_atlases[@]}"
+        }
+
+        # Gather available atlases for each subject
+        declare -A subject_atlas_lists
+        for subject_id in "${selected_subjects[@]}"; do
+            subject_atlas_lists[$subject_id]="$(get_all_subject_atlases "$subject_id")"
+        done
+
+        # Find intersection of atlas lists
+        common_atlases=()
+        for atlas in ${subject_atlas_lists[${selected_subjects[0]}]}; do
+            is_common=true
+            for subject_id in "${selected_subjects[@]}"; do
+                if [[ ! " ${subject_atlas_lists[$subject_id]} " =~ " $atlas " ]]; then
+                    is_common=false
+                    break
+                fi
+            done
+            if $is_common; then
+                common_atlases+=("$atlas")
+            fi
+        done
+
+        if [ ${#common_atlases[@]} -eq 0 ]; then
+            echo -e "${RED}Error: No common atlas files found for all selected subjects.${RESET}"
+            echo -e "${RED}Please ensure FreeSurfer preprocessing has been completed for all subjects.${RESET}"
+            exit 1
+        fi
+
+        # Prompt user to select atlas if more than one is available
+        if [ ${#common_atlases[@]} -gt 1 ]; then
+            echo -e "${BOLD_CYAN}Common Atlases Available for All Subjects:${RESET}"
+            for i in "${!common_atlases[@]}"; do
+                printf "%3d. %s\n" $((i+1)) "${common_atlases[i]}"
+            done
+            valid_atlas=false
+            until $valid_atlas; do
+                read -p "Enter the number of the atlas to use for all subjects: " atlas_num
+                if [[ "$atlas_num" =~ ^[0-9]+$ ]] && [ "$atlas_num" -ge 1 ] && [ "$atlas_num" -le "${#common_atlases[@]}" ]; then
+                    selected_atlas="${common_atlases[$((atlas_num-1))]}"
+                    valid_atlas=true
+                else
+                    reprompt
+                fi
+            done
+        else
+            selected_atlas="${common_atlases[0]}"
+            echo -e "${CYAN}Using common atlas: $selected_atlas${RESET}"
+        fi
+
+        # Overwrite get_subject_atlas_path to use selected_atlas
+        get_subject_atlas_path() {
+            local subject_id=$1
+            local freesurfer_dir="$project_dir/derivatives/freesurfer/sub-$subject_id/$subject_id/mri"
+            if [ -f "$freesurfer_dir/$selected_atlas" ]; then
+                echo "$freesurfer_dir/$selected_atlas"
+            else
+                return 1
+            fi
+        }
+        # --- END NEW LOGIC FOR COMMON ATLAS SELECTION ---
+        # Validate that all subjects have the selected atlas
         echo -e "${CYAN}Validating atlas files for all subjects...${RESET}"
         missing_atlas_subjects=()
         for subject_id in "${selected_subjects[@]}"; do
-            if ! find_subject_atlas_file "$subject_id"; then
+            if ! get_subject_atlas_path "$subject_id" >/dev/null; then
                 missing_atlas_subjects+=("$subject_id")
             fi
         done
@@ -574,7 +635,7 @@ collect_cortical_params() {
                         continue
                     fi
                     # Try to print region names from the labels file if available
-                    labels_file="$(dirname "$atlas_path")/$(basename "$atlas_path" | cut -d. -f1)_labels.txt"
+                    labels_file="$(dirname "$atlas_path")/$(basename "$atlas_path" .mgz)_labels.txt"
                     if [ -f "$labels_file" ]; then
                         echo -e "${BOLD_CYAN}Available Regions:${RESET}"
                         awk '!/^#/ && NF >= 5 {id = $2; name = $5; for(i=6;i<=NF;i++) name = name " " $i; gsub(/^[ \t]+|[ \t]+$/, "", name); if(length(name)>0){printf "%-6s  %s\n", "[" id "]", name}}' "$labels_file" | sort -k2 | pr -2 -t -w 120
@@ -603,7 +664,7 @@ collect_cortical_params() {
                     else
                         subject_id="${selected_subjects[0]}"
                         atlas_path=$(get_subject_atlas_path "$subject_id")
-                        labels_file="$(dirname "$atlas_path")/$(basename "$atlas_path" | cut -d. -f1)_labels.txt"
+                        labels_file="$(dirname "$atlas_path")/$(basename "$atlas_path" .mgz)_labels.txt"
                         region_name=$(awk -v id="$region_input" '!/^#/ && NF >= 5 && $2 == id {name = $5; for(i=6;i<=NF;i++) name = name " " $i; gsub(/^[ \t]+|[ \t]+$/, "", name); print name; exit}' "$labels_file")
                         if [ -z "$region_name" ]; then
                             echo -e "${RED}Invalid region ID for atlas. Please try again.${RESET}"
@@ -624,7 +685,7 @@ collect_cortical_params() {
                     else
                         subject_id="${selected_subjects[0]}"
                         atlas_path=$(get_subject_atlas_path "$subject_id")
-                        labels_file="$(dirname "$atlas_path")/$(basename "$atlas_path" | cut -d. -f1)_labels.txt"
+                        labels_file="$(dirname "$atlas_path")/$(basename "$atlas_path" .mgz)_labels.txt"
                         found=$(awk -v name="$region_input" 'BEGIN{IGNORECASE=1} !/^#/ && NF >= 5 {region = $5; for(i=6;i<=NF;i++) region = region " " $i; gsub(/^[ \t]+|[ \t]+$/, "", region); if (region == name) {print 1; exit}}' "$labels_file")
                         if [ "$found" != "1" ]; then
                             echo -e "${RED}Invalid region name for atlas. Please try again.${RESET}"
