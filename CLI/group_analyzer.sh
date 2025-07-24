@@ -123,10 +123,6 @@ if [ ! -f "$config_file" ]; then
         "default": "spherical",
         "options": ["spherical", "cortical"]
     },
-    "field_name": {
-        "prompt": "enable",
-        "default": "normE"
-    },
     "coordinates": {
         "prompt": "enable",
         "default": [0, 0, 0]
@@ -140,16 +136,8 @@ if [ ! -f "$config_file" ]; then
         "default": "DK40",
         "options": ["DK40", "HCP_MMP1", "a2009s"]
     },
-    "whole_head": {
-        "prompt": "enable",
-        "default": false
-    },
-    "compare": {
-        "prompt": "enable",
-        "default": true
-    },
     "output_dir": {
-        "prompt": "enable",
+        "prompt": "disable",
         "default": null
     }
 }
@@ -189,7 +177,6 @@ collect_subjects_info() {
     if ! is_prompt_enabled "subjects"; then
         local default_value=$(get_default_value "subjects")
         if [ -n "$default_value" ]; then
-            # Parse JSON array into bash array
             selected_subjects=($(echo "$default_value" | jq -r '.[]'))
             echo -e "${CYAN}Using default subjects: ${selected_subjects[*]}${RESET}"
             return
@@ -198,25 +185,19 @@ collect_subjects_info() {
 
     echo -e "${GREEN}Choose subjects for group analysis:${RESET}"
     list_subjects
-    
+
     selected_subjects=()
-    
-    echo -e "${YELLOW}Enter subject numbers separated by spaces (e.g., 1 3 5):${RESET}"
-    echo -e "${YELLOW}Or enter 'all' to select all subjects:${RESET}"
-    
     valid_selection=false
     until $valid_selection; do
+        echo -e "${YELLOW}Enter subject numbers separated by spaces (e.g., 1 3 5):${RESET}"
+        echo -e "${YELLOW}Or enter 'all' to select all subjects:${RESET}"
         read -p "Enter your selection: " subject_input
-        
+
         if [ "$subject_input" == "all" ]; then
             selected_subjects=("${subjects[@]}")
-            valid_selection=true
-            echo -e "${CYAN}Selected all ${#selected_subjects[@]} subjects${RESET}"
         else
-            # Parse space-separated numbers
             read -ra subject_nums <<< "$subject_input"
             selected_subjects=()
-            
             for num in "${subject_nums[@]}"; do
                 if [[ "$num" =~ ^[0-9]+$ ]] && [ "$num" -ge 1 ] && [ "$num" -le "${#subjects[@]}" ]; then
                     selected_subjects+=(${subjects[$((num-1))]})
@@ -226,93 +207,102 @@ collect_subjects_info() {
                     break
                 fi
             done
-            
-            if [ ${#selected_subjects[@]} -gt 0 ]; then
-                valid_selection=true
-                echo -e "${CYAN}Selected ${#selected_subjects[@]} subjects: ${selected_subjects[*]}${RESET}"
-            else
-                reprompt
-            fi
         fi
+        if [ ${#selected_subjects[@]} -le 1 ]; then
+            echo -e "${RED}You must select more than one subject for group analysis.${RESET}"
+            selected_subjects=()
+            continue
+        fi
+        valid_selection=true
+        echo -e "${CYAN}Selected ${#selected_subjects[@]} subjects: ${selected_subjects[*]}${RESET}"
     done
 }
 
-# Function to collect simulation information
+# Function to collect simulation (montage) information and ensure all subjects have it
 collect_simulation_info() {
-    # For group analysis, we need to collect simulation info for each subject
-    
-    echo -e "${GREEN}Collecting simulation and field information for each subject...${RESET}\n"
-    
+    echo -e "${GREEN}Checking for common simulations (montages) across selected subjects...${RESET}\n"
+    declare -A subject_sim_lists
+    common_simulations=()
+
+    # Gather simulation lists for each subject
     for subject_id in "${selected_subjects[@]}"; do
-        echo -e "${BOLD_CYAN}=== Subject: $subject_id ===${RESET}"
-        
-        # List simulations for this subject
-        if ! list_simulations "$subject_id"; then
-            echo -e "${RED}No simulations found for subject $subject_id. Skipping this subject.${RESET}"
-            continue
-        fi
-        
-        # Get simulation selection for this subject
-        valid_simulation=false
-        until $valid_simulation; do
-            read -p "Enter the number of the simulation for subject $subject_id: " sim_num
-            if [[ "$sim_num" =~ ^[0-9]+$ ]] && [ "$sim_num" -ge 1 ] && [ "$sim_num" -le "${#simulations[@]}" ]; then
-                selected_simulation=${simulations[$((sim_num-1))]}
-                valid_simulation=true
-            else
-                reprompt
+        simulations=()
+        mesh_dir="$project_dir/derivatives/SimNIBS/sub-$subject_id/Simulations/*/TI/mesh"
+        for sim_path in $mesh_dir; do
+            if [ -d "$sim_path" ]; then
+                sim_name=$(basename "$(dirname "$(dirname "$sim_path")")")
+                simulations+=("$sim_name")
             fi
         done
-        
-        subject_simulations["$subject_id"]="$selected_simulation"
-        echo -e "${CYAN}Selected simulation for $subject_id: $selected_simulation${RESET}"
-        
-        # Get field file for this subject
-        echo -e "${GREEN}Choose a field file for subject $subject_id:${RESET}"
-        if ! list_field_files "$subject_id" "$selected_simulation" "$space_type"; then
-            echo -e "${RED}No field files found for subject $subject_id simulation $selected_simulation. Skipping this subject.${RESET}"
-            continue
-        fi
-        
-        valid_field=false
-        until $valid_field; do
-            read -p "Enter the number of the field file for subject $subject_id: " field_num
-            if [[ "$field_num" =~ ^[0-9]+$ ]] && [ "$field_num" -ge 1 ] && [ "$field_num" -le "${#field_files[@]}" ]; then
-                field_basename=${field_files[$((field_num-1))]}
-                
-                # Construct the full path to the field file
-                if [ "$space_type" == "mesh" ]; then
-                    field_path="$project_dir/derivatives/SimNIBS/sub-$subject_id/Simulations/$selected_simulation/TI/mesh/$field_basename"
-                else
-                    field_path="$project_dir/derivatives/SimNIBS/sub-$subject_id/Simulations/$selected_simulation/TI/niftis/$field_basename"
+        voxel_dir="$project_dir/derivatives/SimNIBS/sub-$subject_id/Simulations/*/TI/niftis"
+        for sim_path in $voxel_dir; do
+            if [ -d "$sim_path" ]; then
+                sim_name=$(basename "$(dirname "$(dirname "$sim_path")")")
+                if [[ ! " ${simulations[@]} " =~ " ${sim_name} " ]]; then
+                    simulations+=("$sim_name")
                 fi
-                
-                subject_field_paths["$subject_id"]="$field_path"
-                valid_field=true
-            else
-                reprompt
             fi
         done
-        
-        echo -e "${CYAN}Selected field file for $subject_id: $field_basename${RESET}\n"
+        subject_sim_lists[$subject_id]="${simulations[*]}"
     done
-    
-    # Validate that we have at least one subject with valid simulation and field
-    if [ ${#subject_simulations[@]} -eq 0 ]; then
-        echo -e "${RED}No valid subjects with simulations and field files found. Exiting.${RESET}"
+
+    # Find intersection of all simulation lists
+    for sim in ${subject_sim_lists[${selected_subjects[0]}]}; do
+        is_common=true
+        for subject_id in "${selected_subjects[@]}"; do
+            if [[ ! " ${subject_sim_lists[$subject_id]} " =~ " $sim " ]]; then
+                is_common=false
+                break
+            fi
+        done
+        if $is_common; then
+            common_simulations+=("$sim")
+        fi
+    done
+
+    if [ ${#common_simulations[@]} -eq 0 ]; then
+        echo -e "${RED}No common simulations (montages) found across all selected subjects. Please select a different set of subjects.${RESET}"
         exit 1
     fi
-    
-    # Update selected_subjects to only include those with valid configurations
-    valid_subjects=()
-    for subject_id in "${selected_subjects[@]}"; do
-        if [[ -n "${subject_simulations[$subject_id]}" && -n "${subject_field_paths[$subject_id]}" ]]; then
-            valid_subjects+=("$subject_id")
+
+    echo -e "${BOLD_CYAN}Common Simulations (Montages) Across All Subjects:${RESET}"
+    for i in "${!common_simulations[@]}"; do
+        printf "%3d. %s\n" $((i+1)) "${common_simulations[i]}"
+    done
+    echo
+
+    valid_simulation=false
+    until $valid_simulation; do
+        read -p "Enter the number of the simulation to use for all subjects: " sim_num
+        if [[ "$sim_num" =~ ^[0-9]+$ ]] && [ "$sim_num" -ge 1 ] && [ "$sim_num" -le "${#common_simulations[@]}" ]; then
+            selected_simulation="${common_simulations[$((sim_num-1))]}"
+            valid_simulation=true
+        else
+            reprompt
         fi
     done
-    selected_subjects=("${valid_subjects[@]}")
-    
-    echo -e "${GREEN}✓ Collected simulation and field information for ${#selected_subjects[@]} subjects${RESET}"
+    echo -e "${CYAN}Selected simulation for all subjects: $selected_simulation${RESET}"
+
+    # Assign the selected simulation to all subjects
+    for subject_id in "${selected_subjects[@]}"; do
+        subject_simulations["$subject_id"]="$selected_simulation"
+    done
+
+    # Auto-select field files for each subject
+    for subject_id in "${selected_subjects[@]}"; do
+        if [ "$space_type" == "mesh" ]; then
+            field_path="$project_dir/derivatives/SimNIBS/sub-$subject_id/Simulations/$selected_simulation/TI/mesh/${selected_simulation}_TI.msh"
+        else
+            field_path="$project_dir/derivatives/SimNIBS/sub-$subject_id/Simulations/$selected_simulation/TI/niftis/grey_${selected_simulation}_TI_subject_TI_max.nii.gz"
+        fi
+        if [ ! -f "$field_path" ]; then
+            echo -e "${RED}Field file not found for subject $subject_id: $field_path${RESET}"
+            exit 1
+        fi
+        subject_field_paths["$subject_id"]="$field_path"
+        echo -e "${CYAN}Auto-selected field file for $subject_id: $(basename "$field_path")${RESET}"
+    done
+    echo -e "${GREEN}✓ All field files auto-selected for ${#selected_subjects[@]} subjects${RESET}"
 }
 
 # Function to collect analysis space information
@@ -410,25 +400,9 @@ collect_field_name() {
     if [ "$space_type" != "mesh" ]; then
         return
     fi
-
-    if ! is_prompt_enabled "field_name"; then
-        local default_value=$(get_default_value "field_name")
-        if [ -n "$default_value" ]; then
-            field_name="$default_value"
-            echo -e "${CYAN}Using default field name: $field_name${RESET}"
-            return
-        fi
-    fi
-
-    echo -e "${GREEN}Enter the field name within the mesh files (e.g., normE, TI_max):${RESET}"
-    read -p " " field_name
-    
-    while [[ -z "$field_name" ]]; do
-        echo -e "${RED}Field name cannot be empty. Please enter a valid field name.${RESET}"
-        read -p " " field_name
-    done
-    
-    echo -e "${CYAN}Field name: $field_name${RESET}"
+    # Field name is now hardcoded to 'TI_max'
+    field_name="TI_max"
+    echo -e "${CYAN}Field name is hardcoded to: $field_name${RESET}"
 }
 
 # Function to collect spherical analysis parameters
@@ -522,7 +496,6 @@ collect_cortical_params() {
         else
             echo -e "${GREEN}Choose an atlas type:${RESET}"
             show_atlas_types
-            
             valid_atlas=false
             until $valid_atlas; do
                 read -p "Enter your choice (1-3): " atlas_choice
@@ -535,7 +508,6 @@ collect_cortical_params() {
                         continue
                         ;;
                 esac
-                
                 if validate_option "$atlas_name" "atlas"; then
                     valid_atlas=true
                 else
@@ -543,22 +515,91 @@ collect_cortical_params() {
                 fi
             done
         fi
-        
         echo -e "${CYAN}Selected atlas: $atlas_name${RESET}"
-        
     else  # voxel
         echo -e "${CYAN}For voxel cortical analysis, each subject needs its own atlas file.${RESET}"
         echo -e "${YELLOW}The script will automatically find appropriate atlas files for each subject.${RESET}"
-        
-        # Validate that all subjects have atlas files
+
+        # Function to get all available atlases for a subject
+        get_all_subject_atlases() {
+            local subject_id=$1
+            local freesurfer_dir="$project_dir/derivatives/freesurfer/sub-$subject_id/$subject_id/mri"
+            local found_atlases=()
+            for atlas in "aparc.DKTatlas+aseg.mgz" "aparc.a2009s+aseg.mgz"; do
+                if [ -f "$freesurfer_dir/$atlas" ]; then
+                    found_atlases+=("$atlas")
+                fi
+            done
+            echo "${found_atlases[@]}"
+        }
+
+        # Gather available atlases for each subject
+        declare -A subject_atlas_lists
+        for subject_id in "${selected_subjects[@]}"; do
+            subject_atlas_lists[$subject_id]="$(get_all_subject_atlases "$subject_id")"
+        done
+
+        # Find intersection of atlas lists
+        common_atlases=()
+        for atlas in ${subject_atlas_lists[${selected_subjects[0]}]}; do
+            is_common=true
+            for subject_id in "${selected_subjects[@]}"; do
+                if [[ ! " ${subject_atlas_lists[$subject_id]} " =~ " $atlas " ]]; then
+                    is_common=false
+                    break
+                fi
+            done
+            if $is_common; then
+                common_atlases+=("$atlas")
+            fi
+        done
+
+        if [ ${#common_atlases[@]} -eq 0 ]; then
+            echo -e "${RED}Error: No common atlas files found for all selected subjects.${RESET}"
+            echo -e "${RED}Please ensure FreeSurfer preprocessing has been completed for all subjects.${RESET}"
+            exit 1
+        fi
+
+        # Prompt user to select atlas if more than one is available
+        if [ ${#common_atlases[@]} -gt 1 ]; then
+            echo -e "${BOLD_CYAN}Common Atlases Available for All Subjects:${RESET}"
+            for i in "${!common_atlases[@]}"; do
+                printf "%3d. %s\n" $((i+1)) "${common_atlases[i]}"
+            done
+            valid_atlas=false
+            until $valid_atlas; do
+                read -p "Enter the number of the atlas to use for all subjects: " atlas_num
+                if [[ "$atlas_num" =~ ^[0-9]+$ ]] && [ "$atlas_num" -ge 1 ] && [ "$atlas_num" -le "${#common_atlases[@]}" ]; then
+                    selected_atlas="${common_atlases[$((atlas_num-1))]}"
+                    valid_atlas=true
+                else
+                    reprompt
+                fi
+            done
+        else
+            selected_atlas="${common_atlases[0]}"
+            echo -e "${CYAN}Using common atlas: $selected_atlas${RESET}"
+        fi
+
+        # Overwrite get_subject_atlas_path to use selected_atlas
+        get_subject_atlas_path() {
+            local subject_id=$1
+            local freesurfer_dir="$project_dir/derivatives/freesurfer/sub-$subject_id/$subject_id/mri"
+            if [ -f "$freesurfer_dir/$selected_atlas" ]; then
+                echo "$freesurfer_dir/$selected_atlas"
+            else
+                return 1
+            fi
+        }
+        # --- END NEW LOGIC FOR COMMON ATLAS SELECTION ---
+        # Validate that all subjects have the selected atlas
         echo -e "${CYAN}Validating atlas files for all subjects...${RESET}"
         missing_atlas_subjects=()
         for subject_id in "${selected_subjects[@]}"; do
-            if ! find_subject_atlas_file "$subject_id"; then
+            if ! get_subject_atlas_path "$subject_id" >/dev/null; then
                 missing_atlas_subjects+=("$subject_id")
             fi
         done
-        
         if [ ${#missing_atlas_subjects[@]} -gt 0 ]; then
             echo -e "${RED}Error: No atlas files found for the following subjects:${RESET}"
             for subject in "${missing_atlas_subjects[@]}"; do
@@ -569,69 +610,102 @@ collect_cortical_params() {
         fi
         echo -e "${GREEN}✓ Atlas files validated for all subjects${RESET}"
     fi
-    
-    # Handle whole head vs specific region selection
-    if ! is_prompt_enabled "whole_head"; then
-        # Use default value from config
-        local default_whole_head=$(get_default_value "whole_head")
-        if [ -n "$default_whole_head" ]; then
-            # Convert JSON boolean to bash boolean
-            if [ "$default_whole_head" = "true" ] || [ "$default_whole_head" = "false" ]; then
-                whole_head="$default_whole_head"
-                echo -e "${CYAN}Using default analysis scope: ${whole_head}${RESET}"
-                
-                # If default is false, proceed to region selection
-                if [ "$whole_head" = "false" ]; then
-                    echo -e "${GREEN}Please select a specific region to analyze:${RESET}"
-                    collect_region_selection
-                    
-                    while [[ -z "$region_name" ]]; do
-                        echo -e "${RED}Region name cannot be empty. Please enter a valid region name.${RESET}"
-                        collect_region_selection
-                    done
-                    
-                    echo -e "${CYAN}Target region: $region_name${RESET}"
+    # Always require a specific region (no prompt for whole head)
+    while true; do
+        echo -e "${GREEN}Region selection:${RESET}"
+        echo "1. View available regions in the atlas"
+        echo "2. Enter region name/identifier"
+        echo "3. Cancel"
+        read -p "Enter your choice (1-3): " region_choice
+        case $region_choice in
+            1)
+                # Preview regions for the first subject (mesh or voxel)
+                if [ "$space_type" == "mesh" ]; then
+                    subject_id="${selected_subjects[0]}"
+                    m2m_dir="$project_dir/derivatives/SimNIBS/sub-$subject_id/m2m_$subject_id"
+                    echo -e "${CYAN}Loading $atlas_name atlas for subject $subject_id...${RESET}"
+                    regions=$(simnibs_python -c "import simnibs; atlas = simnibs.subject_atlas('$atlas_name', '$m2m_dir'); regions = sorted(atlas.keys()); [print(f'{i+1}. {r}') for i, r in enumerate(regions)]")
+                    echo -e "${BOLD_CYAN}Available Regions:${RESET}"
+                    echo "$regions"
                 else
-                    echo -e "${CYAN}Analysis scope: Whole Head${RESET}"
+                    subject_id="${selected_subjects[0]}"
+                    atlas_path=$(get_subject_atlas_path "$subject_id")
+                    if [ -z "$atlas_path" ]; then
+                        echo -e "${RED}No atlas file found for subject $subject_id${RESET}"
+                        continue
+                    fi
+                    # Try to print region names from the labels file if available
+                    labels_file="$(dirname "$atlas_path")/$(basename "$atlas_path" .mgz)_labels.txt"
+                    if [ -f "$labels_file" ]; then
+                        echo -e "${BOLD_CYAN}Available Regions:${RESET}"
+                        awk '!/^#/ && NF >= 5 {id = $2; name = $5; for(i=6;i<=NF;i++) name = name " " $i; gsub(/^[ \t]+|[ \t]+$/, "", name); if(length(name)>0){printf "%-6s  %s\n", "[" id "]", name}}' "$labels_file" | sort -k2 | pr -2 -t -w 120
+                    else
+                        echo -e "${YELLOW}No region label file found for $atlas_path${RESET}"
+                    fi
                 fi
-            else
-                echo -e "${RED}Invalid whole_head value in configuration. Must be true or false.${RESET}"
-                exit 1
-            fi
-        else
-            echo -e "${RED}No default whole_head value specified in configuration.${RESET}"
-            exit 1
-        fi
-    else
-        # Prompt user for whole head or specific region
-        echo -e "${GREEN}Do you want to analyze the whole head or a specific region?${RESET}"
-        echo "1. Whole Head"
-        echo "2. Specific Region"
-        
-        valid_scope=false
-        until $valid_scope; do
-            read -p "Enter your choice (1 or 2): " scope_choice
-            if [ "$scope_choice" == "1" ]; then
-                whole_head="true"
-                valid_scope=true
-                echo -e "${CYAN}Analysis scope: Whole Head${RESET}"
-            elif [ "$scope_choice" == "2" ]; then
-                whole_head="false"
-                valid_scope=true
-                echo -e "${GREEN}Please select a specific region to analyze:${RESET}"
-                collect_region_selection
-                
-                while [[ -z "$region_name" ]]; do
+                ;;
+            2)
+                echo -e "${GREEN}Enter the region name or ID:${RESET}"
+                read -p " " region_input
+                if [[ -z "$region_input" ]]; then
                     echo -e "${RED}Region name cannot be empty. Please enter a valid region name.${RESET}"
-                    collect_region_selection
-                done
-                
+                    continue
+                fi
+                # If input is a number, look up the region name
+                if [[ "$region_input" =~ ^[0-9]+$ ]]; then
+                    if [ "$space_type" == "mesh" ]; then
+                        subject_id="${selected_subjects[0]}"
+                        m2m_dir="$project_dir/derivatives/SimNIBS/sub-$subject_id/m2m_$subject_id"
+                        region_name=$(simnibs_python -c "import simnibs; atlas = simnibs.subject_atlas('$atlas_name', '$m2m_dir'); regions = sorted(atlas.keys()); idx = int('$region_input')-1; print(regions[idx]) if 0 <= idx < len(regions) else exit(1)")
+                        if [ $? -ne 0 ] || [ -z "$region_name" ]; then
+                            echo -e "${RED}Invalid region ID for $atlas_name. Please try again.${RESET}"
+                            continue
+                        fi
+                    else
+                        subject_id="${selected_subjects[0]}"
+                        atlas_path=$(get_subject_atlas_path "$subject_id")
+                        labels_file="$(dirname "$atlas_path")/$(basename "$atlas_path" .mgz)_labels.txt"
+                        region_name=$(awk -v id="$region_input" '!/^#/ && NF >= 5 && $2 == id {name = $5; for(i=6;i<=NF;i++) name = name " " $i; gsub(/^[ \t]+|[ \t]+$/, "", name); print name; exit}' "$labels_file")
+                        if [ -z "$region_name" ]; then
+                            echo -e "${RED}Invalid region ID for atlas. Please try again.${RESET}"
+                            continue
+                        fi
+                    fi
+                else
+                    # Validate region name exists
+                    if [ "$space_type" == "mesh" ]; then
+                        subject_id="${selected_subjects[0]}"
+                        m2m_dir="$project_dir/derivatives/SimNIBS/sub-$subject_id/m2m_$subject_id"
+                        valid=$(simnibs_python -c "import simnibs; atlas = simnibs.subject_atlas('$atlas_name', '$m2m_dir'); print('1' if '$region_input' in atlas else '0')")
+                        if [ "$valid" != "1" ]; then
+                            echo -e "${RED}Invalid region name for $atlas_name. Please try again.${RESET}"
+                            continue
+                        fi
+                        region_name="$region_input"
+                    else
+                        subject_id="${selected_subjects[0]}"
+                        atlas_path=$(get_subject_atlas_path "$subject_id")
+                        labels_file="$(dirname "$atlas_path")/$(basename "$atlas_path" .mgz)_labels.txt"
+                        found=$(awk -v name="$region_input" 'BEGIN{IGNORECASE=1} !/^#/ && NF >= 5 {region = $5; for(i=6;i<=NF;i++) region = region " " $i; gsub(/^[ \t]+|[ \t]+$/, "", region); if (region == name) {print 1; exit}}' "$labels_file")
+                        if [ "$found" != "1" ]; then
+                            echo -e "${RED}Invalid region name for atlas. Please try again.${RESET}"
+                            continue
+                        fi
+                        region_name="$region_input"
+                    fi
+                fi
                 echo -e "${CYAN}Target region: $region_name${RESET}"
-            else
+                break
+                ;;
+            3)
+                echo -e "${RED}Region selection cancelled.${RESET}"
+                exit 0
+                ;;
+            *)
                 reprompt
-            fi
-        done
-    fi
+                ;;
+        esac
+    done
 }
 
 # Function to collect region selection (simplified for group analysis)
@@ -645,46 +719,11 @@ collect_region_selection() {
 
 # Function to collect comparison and output settings
 collect_output_settings() {
-    # Collect comparison preference
-    if ! is_prompt_enabled "compare"; then
-        local default_compare=$(get_default_value "compare")
-        if [ -n "$default_compare" ]; then
-            compare_analyses="$default_compare"
-            echo -e "${CYAN}Using default comparison setting: $compare_analyses${RESET}"
-        fi
-    else
-        echo -e "${GREEN}Do you want to run comparison analysis after processing all subjects? (y/n)${RESET}"
-        read -p " " compare_choice
-        if [[ "$compare_choice" == "y" || "$compare_choice" == "Y" ]]; then
-            compare_analyses="true"
-            echo -e "${CYAN}Comparison analysis will be performed.${RESET}"
-        else
-            compare_analyses="false"
-            echo -e "${CYAN}No comparison analysis will be performed.${RESET}"
-        fi
-    fi
-    
-    # Collect output directory
-    if ! is_prompt_enabled "output_dir"; then
-        local default_output=$(get_default_value "output_dir")
-        if [ -n "$default_output" ]; then
-            output_dir="$default_output"
-            echo -e "${CYAN}Using default output directory: $output_dir${RESET}"
-            return
-        fi
-    fi
-
-    echo -e "${GREEN}Enter output directory for group analysis results:${RESET}"
-    echo -e "${YELLOW}This will store comparison results and group summaries.${RESET}"
-    echo -e "${YELLOW}Leave empty to use default: $project_dir/ti-csc/group_analyses/${RESET}"
-    read -p " " output_dir
-    
-    if [[ -z "$output_dir" ]]; then
-        # Create default output directory with timestamp
-        timestamp=$(date +"%Y%m%d_%H%M%S")
-        output_dir="$project_dir/ti-csc/group_analyses/group_${analysis_type}_${space_type}_${timestamp}"
-    fi
-    
+    # Always run comparison analysis (no prompt, no --compare flag needed)
+    compare_analyses="true"
+    # Always use default output directory with timestamp
+    timestamp=$(date +"%Y%m%d_%H%M%S")
+    output_dir="$project_dir/ti-csc/group_analyses/group_${analysis_type}_${space_type}_${timestamp}"
     echo -e "${CYAN}Output directory: $output_dir${RESET}"
 }
 
@@ -897,13 +936,13 @@ show_confirmation_dialog() {
         else
             echo -e "Atlas: ${CYAN}Subject-specific atlas files${RESET}"
         fi
-        echo -e "Analysis Scope: ${CYAN}$([ "$whole_head" == "true" ] && echo "Whole Head" || echo "Region: $region_name")${RESET}"
+        echo -e "Analysis Scope: ${CYAN}Region: $region_name${RESET}"
     fi
     
     # Output Settings
     echo -e "\n${BOLD_CYAN}Output Settings:${RESET}"
     echo -e "Output Directory: ${CYAN}$output_dir${RESET}"
-    echo -e "Run Comparison: ${CYAN}$([ "$compare_analyses" == "true" ] && echo "Yes" || echo "No")${RESET}"
+    echo -e "Run Comparison: ${CYAN}Yes${RESET}"
     echo -e "Generate Visualizations: ${CYAN}Yes (always enabled)${RESET}"
     
     echo -e "\n${BOLD_YELLOW}Please review the configuration above.${RESET}"
@@ -926,30 +965,17 @@ run_group_analysis() {
     cmd+=(--analysis_type "$analysis_type")
     cmd+=(--output_dir "$output_dir")
     
-    # Add space-specific parameters
-    if [ "$space_type" == "mesh" ]; then
-        cmd+=(--field_name "$field_name")
-    fi
-    
     # Add analysis-specific parameters
     if [ "$analysis_type" == "spherical" ]; then
         cmd+=(--coordinates "${coordinates[@]}")
         cmd+=(--radius "$radius")
+        cmd+=(--use-mni-coords)
     else  # cortical
         if [ "$space_type" == "mesh" ]; then
             cmd+=(--atlas_name "$atlas_name")
         fi
         
-        if [ "$whole_head" == "true" ]; then
-            cmd+=(--whole_head)
-        else
-            cmd+=(--region "$region_name")
-        fi
-    fi
-    
-    # Add comparison flag if enabled
-    if [ "$compare_analyses" == "true" ]; then
-        cmd+=(--compare)
+        cmd+=(--region "$region_name")
     fi
     
     # Always enable visualizations
@@ -990,9 +1016,7 @@ run_group_analysis() {
     echo -e "${CYAN}Running group analysis...${RESET}"
     if "${cmd[@]}"; then
         echo -e "${GREEN}Group analysis completed successfully.${RESET}"
-        if [ "$compare_analyses" == "true" ]; then
-            echo -e "${GREEN}Comparison results saved to: $output_dir${RESET}"
-        fi
+        echo -e "${GREEN}Comparison results saved to: $output_dir${RESET}"
     else
         echo -e "${RED}Group analysis failed.${RESET}"
         exit 1
