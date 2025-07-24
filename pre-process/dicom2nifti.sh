@@ -115,7 +115,7 @@ handle_compressed_dicom() {
     done
 }
 
-# Function to find and process DICOM files in a directory
+# Function to process DICOM directory
 process_dicom_directory() {
     local source_dir="$1"
     local target_dir="$2"
@@ -134,13 +134,28 @@ process_dicom_directory() {
                     # Extract SeriesDescription from JSON
                     series_desc=$(grep -o '"SeriesDescription": *"[^"]*"' "$json_file" | cut -d'"' -f4)
                     if [ -n "$series_desc" ]; then
-                        # Create new filenames based on SeriesDescription
-                        new_json="${BIDS_ANAT_DIR}/${series_desc}.json"
-                        new_nii="${BIDS_ANAT_DIR}/${series_desc}.nii.gz"
+                        # Clean up series description to be FreeSurfer-friendly
+                        # Remove problematic characters and replace spaces with underscores
+                        clean_name=$(echo "$series_desc" | \
+                            sed 's/[^a-zA-Z0-9._-]/_/g' | \
+                            sed 's/__*/_/g' | \
+                            sed 's/^_//;s/_$//')
+                        
+                        # Special handling for T1 and T2 images to ensure consistent naming
+                        if [[ "$clean_name" =~ [Tt]1 ]]; then
+                            clean_name="anat-T1w_acq-MPRAGE"
+                        elif [[ "$clean_name" =~ [Tt]2 ]]; then
+                            clean_name="anat-T2w_acq-CUBE"
+                        fi
+                        
+                        # Create new filenames based on cleaned SeriesDescription
+                        new_json="${BIDS_ANAT_DIR}/${clean_name}.json"
+                        new_nii="${BIDS_ANAT_DIR}/${clean_name}.nii.gz"
+                        
                         # Move and rename the files
                         mv "$json_file" "$new_json"
                         mv "$nii_file" "$new_nii"
-                        log_info "Renamed files to: $series_desc"
+                        log_info "Renamed files to: $clean_name (from: $series_desc)"
                     else
                         # If no SeriesDescription found, move with original names
                         mv "$json_file" "${BIDS_ANAT_DIR}/"

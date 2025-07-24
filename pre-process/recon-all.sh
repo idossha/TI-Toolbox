@@ -426,22 +426,30 @@ cleanup_and_exit() {
 trap cleanup_and_exit INT TERM
 
 # Build recon-all command with T2 processing if available
-if [ -n "$T2_file" ]; then
-    recon_cmd="recon-all -subject \"$BIDS_SUBJECT_ID\" -i \"$T1_file\" -T2 \"$T2_file\" -T2pial -all -sd \"$SUBJECTS_DIR\""
-    log_info "Using T1 and T2 images with T2pial processing"
-else
-    recon_cmd="recon-all -subject \"$BIDS_SUBJECT_ID\" -i \"$T1_file\" -all -sd \"$SUBJECTS_DIR\""
-    log_info "Using T1 image only"
-fi
-
 # Monitor resources before starting
 monitor_resources "Before FreeSurfer recon-all"
 
-# Run recon-all command
-if ! run_command "$recon_cmd" "FreeSurfer recon-all failed"; then
-    log_error "FreeSurfer recon-all failed for subject: $BIDS_SUBJECT_ID"
-    monitor_resources "After FreeSurfer failure"
-    exit 1
+# Run recon-all command directly (avoiding eval for better argument handling)
+if [ -n "$T2_file" ]; then
+    log_info "Using T1 and T2 images with T2pial processing"
+    log_info "Running: recon-all -subject $BIDS_SUBJECT_ID -i $T1_file -T2 $T2_file -T2pial -all -sd $SUBJECTS_DIR"
+    
+    # Execute command directly with proper argument separation
+    if ! recon-all -subject "$BIDS_SUBJECT_ID" -i "$T1_file" -T2 "$T2_file" -T2pial -all -sd "$SUBJECTS_DIR" 2>&1 | tee -a "$LOG_FILE"; then
+        log_error "FreeSurfer recon-all failed for subject: $BIDS_SUBJECT_ID"
+        monitor_resources "After FreeSurfer failure"
+        exit 1
+    fi
+else
+    log_info "Using T1 image only"
+    log_info "Running: recon-all -subject $BIDS_SUBJECT_ID -i $T1_file -all -sd $SUBJECTS_DIR"
+    
+    # Execute command directly with proper argument separation
+    if ! recon-all -subject "$BIDS_SUBJECT_ID" -i "$T1_file" -all -sd "$SUBJECTS_DIR" 2>&1 | tee -a "$LOG_FILE"; then
+        log_error "FreeSurfer recon-all failed for subject: $BIDS_SUBJECT_ID"
+        monitor_resources "After FreeSurfer failure"
+        exit 1
+    fi
 fi
 
 # Monitor resources after completion
