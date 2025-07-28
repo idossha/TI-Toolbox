@@ -1600,9 +1600,17 @@ class ExSearchTab(QtWidgets.QWidget):
             else:
                 formatted_text = f'<span style="color: #ffffff;">{text}</span>'
         
+        # Check if user is at the bottom of the console before appending
+        scrollbar = self.console_output.verticalScrollBar()
+        at_bottom = scrollbar.value() >= scrollbar.maximum() - 5  # Allow small tolerance
+        
         # Append to the console with HTML formatting
         self.console_output.append(formatted_text)
-        self.console_output.ensureCursorVisible()
+        
+        # Only auto-scroll if user was already at the bottom
+        if at_bottom:
+            self.console_output.ensureCursorVisible()
+        
         QtWidgets.QApplication.processEvents()
     
     def update_status(self, message, error=False):
