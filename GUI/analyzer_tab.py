@@ -2019,16 +2019,20 @@ class AnalyzerTab(QtWidgets.QWidget):
         else:
             formatted_text = f'<span style="color: #ffffff;">{text}</span>'
         
+        # Check if user is at the bottom of the console before appending
+        scrollbar = self.output_console.verticalScrollBar()
+        at_bottom = scrollbar.value() >= scrollbar.maximum() - 5  # Allow small tolerance
+        
         # Append to the console with HTML formatting
         self.output_console.append(formatted_text)
         
-        # Force immediate GUI update and scroll to bottom
-        self.output_console.ensureCursorVisible()
-        QtWidgets.QApplication.processEvents()  # Force immediate GUI refresh
+        # Only auto-scroll if user was already at the bottom
+        if at_bottom:
+            self.output_console.ensureCursorVisible()
+            # Scroll to the very bottom to show latest output
+            scrollbar.setValue(scrollbar.maximum())
         
-        # Scroll to the very bottom to show latest output
-        scrollbar = self.output_console.verticalScrollBar()
-        scrollbar.setValue(scrollbar.maximum())
+        QtWidgets.QApplication.processEvents()  # Force immediate GUI refresh
 
     def disable_controls(self):
         # List of widgets to disable, similar to original

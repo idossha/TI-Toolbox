@@ -1944,9 +1944,17 @@ class SimulatorTab(QtWidgets.QWidget):
             else:
                 formatted_text = f'<span style="color: #ffffff;">{text}</span>'
         
+        # Check if user is at the bottom of the console before appending
+        scrollbar = self.output_console.verticalScrollBar()
+        at_bottom = scrollbar.value() >= scrollbar.maximum() - 5  # Allow small tolerance
+        
         # Append to the console with HTML formatting
         self.output_console.append(formatted_text)
-        self.output_console.ensureCursorVisible()
+        
+        # Only auto-scroll if user was already at the bottom
+        if at_bottom:
+            self.output_console.ensureCursorVisible()
+        
         QtWidgets.QApplication.processEvents()
 
     def show_add_montage_dialog(self):

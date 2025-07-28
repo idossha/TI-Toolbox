@@ -897,9 +897,17 @@ class PreProcessTab(QtWidgets.QWidget):
         else:
             formatted_text = f'<span style="color: #ffffff;">{text}</span>'
         
+        # Check if user is at the bottom of the console before appending
+        scrollbar = self.output_text.verticalScrollBar()
+        at_bottom = scrollbar.value() >= scrollbar.maximum() - 5  # Allow small tolerance
+        
         # Append to the console with HTML formatting
         self.output_text.append(formatted_text)
-        self.output_text.ensureCursorVisible()
+        
+        # Only auto-scroll if user was already at the bottom
+        if at_bottom:
+            self.output_text.ensureCursorVisible()
+        
         QtWidgets.QApplication.processEvents()
 
     def select_all_subjects(self):
