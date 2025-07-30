@@ -156,6 +156,9 @@ class MainWindow(QtWidgets.QMainWindow):
         for widget in tab_widget.findChildren(QtWidgets.QWidget):
             if stop_btn is not None and widget is stop_btn:
                 continue
+            # Don't disable output consoles (QTextEdit widgets that are read-only)
+            if isinstance(widget, QtWidgets.QTextEdit) and widget.isReadOnly():
+                continue
             if isinstance(widget, interactive_types):
                 widget.setEnabled(not busy)
         if stop_btn is not None:
