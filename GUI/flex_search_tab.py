@@ -666,7 +666,20 @@ class FlexSearchTab(QtWidgets.QWidget):
             if os.path.isdir(subject_path):
                 subject_id = os.path.basename(subject_path).replace('m2m_', '')
                 self.subjects.append(subject_id)
-                self.subject_list.addItem(subject_id)
+        
+        # Sort subjects: ascending numerical followed by ascending alphabetical
+        def subject_sort_key(subject_id):
+            # Check if subject_id is numeric
+            if subject_id.isdigit():
+                return (0, int(subject_id))  # Numeric subjects first, ascending order
+            else:
+                return (1, subject_id.upper())  # Alphabetical subjects second, ascending order
+        
+        self.subjects.sort(key=subject_sort_key)
+        
+        # Add sorted subjects to the list widget
+        for subject_id in self.subjects:
+            self.subject_list.addItem(subject_id)
                 
         # Console output: subjects found
         self.output_text.append("\n=== Subjects Found ===")
@@ -688,6 +701,9 @@ class FlexSearchTab(QtWidgets.QWidget):
         """Find available EEG net templates for the selected subject."""
         if not self.subjects:
             return
+        
+        # Preserve current selection
+        current_selection = self.eeg_net_combo.currentText() if self.eeg_net_combo.count() > 0 else None
         
         self.eeg_nets = {}
         self.eeg_net_combo.clear()
@@ -726,6 +742,12 @@ class FlexSearchTab(QtWidgets.QWidget):
         except Exception as e:
             self.output_text.append(f"Error scanning for EEG nets: {str(e)}")
             self.eeg_net_combo.addItem("EGI_256")  # Default option
+        
+        # Restore previous selection if it's available for the new subject
+        if current_selection:
+            index = self.eeg_net_combo.findText(current_selection)
+            if index >= 0:
+                self.eeg_net_combo.setCurrentIndex(index)
     
     def find_available_atlases(self):
         """Find available atlas files for the selected subject."""
@@ -964,11 +986,43 @@ class FlexSearchTab(QtWidgets.QWidget):
         electrode_radius = self.radius_input.value()
         electrode_current = self.current_input.value()
 
-        # Show confirmation for multiple subjects
-        if len(selected_subjects) > 1:
+        # Always show confirmation dialog before starting optimization
+        if len(selected_subjects) == 1:
+            # Single subject confirmation
+            subject_id = selected_subjects[0]
+            roi_description = self._get_roi_description(roi_params)
+            confirmation_msg = (
+                f"You are about to start flex-search optimization:\n\n"
+                f"Subject: {subject_id}\n"
+                f"ROI: {roi_description}\n"
+                f"Goal: {goal}\n"
+                f"Post-processing: {postproc}\n"
+                f"EEG Net: {eeg_net}\n"
+                f"Electrode Radius: {electrode_radius} mm\n"
+                f"Current: {electrode_current} mA\n\n"
+                f"Do you want to continue?"
+            )
+            reply = QtWidgets.QMessageBox.question(self, "Confirm Flex-Search", confirmation_msg, 
+                                                 QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No)
+            if reply != QtWidgets.QMessageBox.Yes:
+                return
+        else:
+            # Multiple subjects confirmation
             subject_list_str = ", ".join(selected_subjects)
-            confirmation_msg = f"You are about to run optimization for {len(selected_subjects)} subjects: {subject_list_str}\n\nSubjects will be processed sequentially (one after another). Do you want to continue?"
-            reply = QtWidgets.QMessageBox.question(self, "Multiple Subjects", confirmation_msg, 
+            roi_description = self._get_roi_description(roi_params)
+            confirmation_msg = (
+                f"You are about to start flex-search optimization for {len(selected_subjects)} subjects:\n\n"
+                f"Subjects: {subject_list_str}\n"
+                f"ROI: {roi_description}\n"
+                f"Goal: {goal}\n"
+                f"Post-processing: {postproc}\n"
+                f"EEG Net: {eeg_net}\n"
+                f"Electrode Radius: {electrode_radius} mm\n"
+                f"Current: {electrode_current} mA\n\n"
+                f"Subjects will be processed sequentially (one after another).\n"
+                f"Do you want to continue?"
+            )
+            reply = QtWidgets.QMessageBox.question(self, "Confirm Flex-Search", confirmation_msg, 
                                                  QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No)
             if reply != QtWidgets.QMessageBox.Yes:
                 return
@@ -1087,10 +1141,10 @@ class FlexSearchTab(QtWidgets.QWidget):
 
             env['SUBJECT_ID'] = subject_id
             if roi_params['method'] == "spherical":
-                env['ROI_X'] = str(roi_params['center'][0])
-                env['ROI_Y'] = str(roi_params['center'][1])
-                env['ROI_Z'] = str(roi_params['center'][2])
-                env['ROI_RADIUS'] = str(roi_params['radius'])
+                env['ROI_X'] = f"{roi_params['center'][0]:.2f}"
+                env['ROI_Y'] = f"{roi_params['center'][1]:.2f}"
+                env['ROI_Z'] = f"{roi_params['center'][2]:.2f}"
+                env['ROI_RADIUS'] = f"{roi_params['radius']:.2f}"
                 # Indicate if these are MNI coordinates (for multiple subjects)
                 env['USE_MNI_COORDS'] = 'true' if len(self.selected_subjects) > 1 else 'false'
             elif roi_params['method'] == "atlas":
@@ -1157,10 +1211,10 @@ class FlexSearchTab(QtWidgets.QWidget):
                 cmd += ["--non-roi-method", nonroi_method, "--thresholds", thresholds]
                 if nonroi_method == "specific":
                     if roi_params['method'] == "spherical":
-                        env['NON_ROI_X'] = str(self.nonroi_x_input.value())
-                        env['NON_ROI_Y'] = str(self.nonroi_y_input.value())
-                        env['NON_ROI_Z'] = str(self.nonroi_z_input.value())
-                        env['NON_ROI_RADIUS'] = str(self.nonroi_radius_input.value())
+                        env['NON_ROI_X'] = f"{self.nonroi_x_input.value():.2f}"
+                        env['NON_ROI_Y'] = f"{self.nonroi_y_input.value():.2f}"
+                        env['NON_ROI_Z'] = f"{self.nonroi_z_input.value():.2f}"
+                        env['NON_ROI_RADIUS'] = f"{self.nonroi_radius_input.value():.2f}"
                         # Non-ROI also uses same coordinate space as ROI
                         env['USE_MNI_COORDS_NON_ROI'] = env.get('USE_MNI_COORDS', 'false')
                     elif roi_params['method'] == "atlas":
@@ -1225,6 +1279,23 @@ class FlexSearchTab(QtWidgets.QWidget):
         except Exception as e:
             self.update_output(f"Error executing optimization for subject {subject_id}: {str(e)}", 'error')
             return False
+
+    def _get_roi_description(self, roi_params):
+        """Generate a user-friendly description of the ROI."""
+        if roi_params['method'] == 'spherical':
+            x, y, z = roi_params['center']
+            radius = roi_params['radius']
+            return f"Spherical (X: {x:.2f}, Y: {y:.2f}, Z: {z:.2f}, Radius: {radius:.2f} mm)"
+        elif roi_params['method'] == 'atlas':
+            atlas = roi_params['atlas']
+            region = roi_params['region']
+            return f"Cortical Atlas ({atlas}, Region: {region})"
+        elif roi_params['method'] == 'subcortical':
+            volume_atlas = roi_params['volume_atlas']
+            volume_region = roi_params['volume_region']
+            return f"Subcortical ({volume_atlas}, Region: {volume_region})"
+        else:
+            return "Unknown ROI type"
 
     def _build_confirmation_details(self, subject_id, roi_params, goal, postproc, eeg_net, electrode_radius, electrode_current):
         """Build confirmation dialog details string."""
