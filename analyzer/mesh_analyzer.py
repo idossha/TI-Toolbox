@@ -912,14 +912,117 @@ class MeshAnalyzer:
                     surface_mesh_path=self._surface_mesh_path
                 )
             
+            # Calculate and save extra focality information for entire grey matter
+            self.logger.info("Calculating focality metrics for entire grey matter...")
+            focality_info = self._calculate_focality_metrics(
+                field_values,  # Use entire surface data, not just ROI
+                node_areas,    # Use all node areas, not just ROI
+                target_region
+            )
+            
             # Save results to CSV
             self.visualizer.save_results_to_csv(results, 'cortical', target_region, 'node')
+            
+            # Save extra info CSV with focality data
+            if focality_info:
+                self.visualizer.save_extra_info_to_csv(focality_info, 'cortical', target_region, 'node')
             
             return results
                 
         except Exception as e:
             self.logger.error(f"Error in cortical analysis: {str(e)}")
             raise
+
+    def _calculate_focality_metrics(self, field_data, element_sizes, region_name):
+        """
+        Calculate focality metrics similar to ex-search mesh_field_analyzer.
+        
+        Args:
+            field_data: Field values for entire grey matter surface (positive values only)
+            element_sizes: Corresponding element sizes (node areas) for entire surface
+            region_name: Name of the region being analyzed (for labeling purposes)
+            
+        Returns:
+            dict: Dictionary containing focality metrics
+        """
+        try:
+            # Standard parameters matching ex-search
+            percentiles = [95, 99, 99.9]
+            focality_cutoffs = [50, 75, 90, 95]
+            
+            if len(field_data) == 0:
+                self.logger.warning(f"No field data available for focality calculation in {region_name}")
+                return None
+            
+            # Remove NaN values
+            valid_mask = ~np.isnan(field_data)
+            data = field_data[valid_mask]
+            sizes = element_sizes[valid_mask]
+            
+            if len(data) == 0:
+                self.logger.warning(f"No valid field data after NaN removal for {region_name}")
+                return None
+            
+            # Sort data and corresponding sizes
+            sort_idx = np.argsort(data)
+            data_sorted = data[sort_idx]
+            sizes_sorted = sizes[sort_idx]
+            
+            # Calculate cumulative volumes (element sizes)
+            cumulative_sizes = np.cumsum(sizes_sorted)
+            total_size = cumulative_sizes[-1]
+            normalized_cumulative = cumulative_sizes / total_size
+            
+            # Calculate percentiles and their values
+            percentile_values = []
+            for percentile in percentiles:
+                # Find index where cumulative size exceeds percentile
+                threshold_idx = np.searchsorted(normalized_cumulative, percentile/100.0)
+                if threshold_idx >= len(data_sorted):
+                    threshold_idx = len(data_sorted) - 1
+                
+                percentile_value = data_sorted[threshold_idx]
+                percentile_values.append(float(percentile_value))
+            
+            # Calculate focality (area above thresholds)
+            # Use 99.9 percentile as reference (index 2)
+            focality_values = []
+            if len(percentile_values) > 2:
+                reference_value = percentile_values[2]  # 99.9 percentile
+                
+                for cutoff in focality_cutoffs:
+                    threshold = (cutoff / 100.0) * reference_value
+                    above_threshold = data >= threshold
+                    area = np.sum(sizes[above_threshold]) if np.any(above_threshold) else 0.0
+                    # Convert from mm² to cm² for consistency with ex-search
+                    focality_values.append(float(area / 100.0))
+            else:
+                focality_values = [0.0] * len(focality_cutoffs)
+            
+            # Prepare results
+            results = {
+                'region_name': region_name,
+                'field_name': self.field_name,
+                'max_value': float(np.max(data)),
+                'min_value': float(np.min(data)),
+                'percentile_95': percentile_values[0] if len(percentile_values) > 0 else 0.0,
+                'percentile_99': percentile_values[1] if len(percentile_values) > 1 else 0.0,
+                'percentile_99_9': percentile_values[2] if len(percentile_values) > 2 else 0.0,
+                'focality_50': focality_values[0] if len(focality_values) > 0 else 0.0,
+                'focality_75': focality_values[1] if len(focality_values) > 1 else 0.0,
+                'focality_90': focality_values[2] if len(focality_values) > 2 else 0.0,
+                'focality_95': focality_values[3] if len(focality_values) > 3 else 0.0,
+                'total_area_cm2': float(total_size / 100.0),  # Convert mm² to cm²
+                'num_elements': len(data)
+            }
+            
+            self.logger.info(f"Focality metrics calculated for {region_name}: 99.9%={percentile_values[2]:.4f}, focality_95={focality_values[3]:.4f} cm²")
+            
+            return results
+            
+        except Exception as e:
+            self.logger.error(f"Error calculating focality metrics for {region_name}: {str(e)}")
+            return None
 
     def get_grey_matter_statistics(self):
         """

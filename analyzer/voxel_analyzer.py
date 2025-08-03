@@ -885,11 +885,125 @@ class VoxelAnalyzer:
                 region_name=region_name
             )
             
+        # Calculate and save extra focality information for entire field
+        self.logger.info("Calculating focality metrics for entire field...")
+        
+        # Get voxel dimensions for volume calculations
+        voxel_dims = field_img.header.get_zooms()[:3]
+        voxel_volume = np.prod(voxel_dims)  # Volume of one voxel in mm³
+        
+        # Use entire field data (positive values only) for focality calculation
+        entire_field_positive = field_arr[field_arr > 0]
+        
+        focality_info = self._calculate_focality_metrics(
+            entire_field_positive,  # Use entire field, not just ROI
+            voxel_volume, 
+            region_name
+        )
+        
         # Save results to CSV
         self.visualizer.save_results_to_csv(results, 'cortical', region_name, 'voxel')
         
+        # Save extra info CSV with focality data
+        if focality_info:
+            self.visualizer.save_extra_info_to_csv(focality_info, 'cortical', region_name, 'voxel')
+        
         # Return analysis results
         return results
+
+    def _calculate_focality_metrics(self, field_data, voxel_volume, region_name):
+        """
+        Calculate focality metrics similar to ex-search mesh_field_analyzer.
+        
+        Args:
+            field_data: Field values for entire field volume (positive values only)
+            voxel_volume: Volume of one voxel in mm³
+            region_name: Name of the region being analyzed (for labeling purposes)
+            
+        Returns:
+            dict: Dictionary containing focality metrics
+        """
+        try:
+            # Standard parameters matching ex-search
+            percentiles = [95, 99, 99.9]
+            focality_cutoffs = [50, 75, 90, 95]
+            
+            if len(field_data) == 0:
+                self.logger.warning(f"No field data available for focality calculation in {region_name}")
+                return None
+            
+            # Remove NaN values
+            valid_mask = ~np.isnan(field_data)
+            data = field_data[valid_mask]
+            
+            if len(data) == 0:
+                self.logger.warning(f"No valid field data after NaN removal for {region_name}")
+                return None
+            
+            # For voxel data, each element has the same volume
+            volumes = np.full(len(data), voxel_volume)
+            
+            # Sort data and corresponding volumes
+            sort_idx = np.argsort(data)
+            data_sorted = data[sort_idx]
+            volumes_sorted = volumes[sort_idx]
+            
+            # Calculate cumulative volumes
+            cumulative_volumes = np.cumsum(volumes_sorted)
+            total_volume = cumulative_volumes[-1]
+            normalized_cumulative = cumulative_volumes / total_volume
+            
+            # Calculate percentiles and their values
+            percentile_values = []
+            for percentile in percentiles:
+                # Find index where cumulative volume exceeds percentile
+                threshold_idx = np.searchsorted(normalized_cumulative, percentile/100.0)
+                if threshold_idx >= len(data_sorted):
+                    threshold_idx = len(data_sorted) - 1
+                
+                percentile_value = data_sorted[threshold_idx]
+                percentile_values.append(float(percentile_value))
+            
+            # Calculate focality (volume above thresholds)
+            # Use 99.9 percentile as reference (index 2)
+            focality_values = []
+            if len(percentile_values) > 2:
+                reference_value = percentile_values[2]  # 99.9 percentile
+                
+                for cutoff in focality_cutoffs:
+                    threshold = (cutoff / 100.0) * reference_value
+                    above_threshold = data >= threshold
+                    volume = np.sum(volumes[above_threshold]) if np.any(above_threshold) else 0.0
+                    # Convert from mm³ to cm³ for consistency with ex-search
+                    focality_values.append(float(volume / 1000.0))
+            else:
+                focality_values = [0.0] * len(focality_cutoffs)
+            
+            # Prepare results
+            results = {
+                'region_name': region_name,
+                'field_name': 'field_value',  # Generic name for voxel data
+                'max_value': float(np.max(data)),
+                'min_value': float(np.min(data)),
+                'percentile_95': percentile_values[0] if len(percentile_values) > 0 else 0.0,
+                'percentile_99': percentile_values[1] if len(percentile_values) > 1 else 0.0,
+                'percentile_99_9': percentile_values[2] if len(percentile_values) > 2 else 0.0,
+                'focality_50': focality_values[0] if len(focality_values) > 0 else 0.0,
+                'focality_75': focality_values[1] if len(focality_values) > 1 else 0.0,
+                'focality_90': focality_values[2] if len(focality_values) > 2 else 0.0,
+                'focality_95': focality_values[3] if len(focality_values) > 3 else 0.0,
+                'total_volume_cm3': float(total_volume / 1000.0),  # Convert mm³ to cm³
+                'num_voxels': len(data),
+                'voxel_volume_mm3': float(voxel_volume)
+            }
+            
+            self.logger.info(f"Focality metrics calculated for {region_name}: 99.9%={percentile_values[2]:.4f}, focality_95={focality_values[3]:.4f} cm³")
+            
+            return results
+            
+        except Exception as e:
+            self.logger.error(f"Error calculating focality metrics for {region_name}: {str(e)}")
+            return None
 
     def get_atlas_regions(self, atlas_file):
         """Extract region information from atlas file using FreeSurfer's mri_segstats.

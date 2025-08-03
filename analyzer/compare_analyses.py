@@ -1416,6 +1416,109 @@ def intersection_high_values_nifti(nifti_paths: list[str],
     except Exception as e:
         raise Exception(f"Error processing NIfTI intersection: {str(e)}")
 
+def _generate_focality_summary(analysis_dirs: list[str], output_dir: str, region_name: str) -> str:
+    """
+    Generate a focality summary CSV across all subjects.
+    
+    Args:
+        analysis_dirs: List of analysis directories (one per subject)
+        output_dir: Output directory for the summary
+        region_name: Name of the region being analyzed
+        
+    Returns:
+        str: Path to the generated focality summary CSV file
+    """
+    try:
+        group_logger.info(f"Loading focality data from {len(analysis_dirs)} subjects")
+        
+        # Collect focality data from all subjects
+        focality_data = []
+        
+        for analysis_dir in analysis_dirs:
+            # Extract subject ID from path
+            subject_id = _extract_subject_id_from_path(analysis_dir)
+            
+            # Find extra_info CSV files in the analysis directory
+            extra_info_files = []
+            for root, dirs, files in os.walk(analysis_dir):
+                for file in files:
+                    if file.endswith('_extra_info.csv'):
+                        extra_info_files.append(os.path.join(root, file))
+            
+            if not extra_info_files:
+                group_logger.warning(f"No extra_info CSV files found for subject {subject_id}")
+                continue
+            
+            # Process each extra_info file (there should typically be one per region)
+            for csv_file in extra_info_files:
+                try:
+                    # Load the focality data
+                    df = pd.read_csv(csv_file)
+                    
+                    # Convert to dictionary format
+                    data_dict = {}
+                    for _, row in df.iterrows():
+                        data_dict[row['Metric']] = row['Value']
+                    
+                    # Add subject identifier
+                    data_dict['Subject_ID'] = subject_id
+                    data_dict['CSV_File'] = os.path.basename(csv_file)
+                    
+                    focality_data.append(data_dict)
+                    
+                except Exception as e:
+                    group_logger.warning(f"Failed to process {csv_file}: {e}")
+                    continue
+        
+        if not focality_data:
+            group_logger.warning("No focality data found across all subjects")
+            return None
+        
+        # Create DataFrame from collected data
+        df = pd.DataFrame(focality_data)
+        
+        # Ensure we have the required columns
+        required_cols = ['Subject_ID', 'region_name', 'percentile_95', 'percentile_99', 'percentile_99_9', 
+                        'focality_50', 'focality_75', 'focality_90', 'focality_95']
+        
+        # Check which columns exist
+        existing_cols = [col for col in required_cols if col in df.columns]
+        if not existing_cols:
+            group_logger.warning("No required focality columns found in data")
+            return None
+        
+        # Select and reorder columns
+        columns_to_include = ['Subject_ID'] + [col for col in existing_cols if col != 'Subject_ID']
+        df_summary = df[columns_to_include].copy()
+        
+        # Generate output filename
+        if region_name:
+            filename = f"focality_summary_{region_name}.csv"
+        else:
+            filename = "focality_summary.csv"
+        
+        output_path = os.path.join(output_dir, filename)
+        
+        # Save the summary
+        df_summary.to_csv(output_path, index=False, float_format='%.6f')
+        
+        group_logger.info(f"Focality summary saved with {len(df_summary)} entries to: {output_path}")
+        group_logger.info(f"Summary columns: {list(df_summary.columns)}")
+        
+        return output_path
+        
+    except Exception as e:
+        group_logger.error(f"Error generating focality summary: {e}")
+        return None
+
+def _extract_subject_id_from_path(analysis_path: str) -> str:
+    """Extract subject ID from analysis directory path."""
+    path_parts = analysis_path.split(os.sep)
+    for part in path_parts:
+        if part.startswith('sub-'):
+            return part
+    return "unknown_subject"
+
 def run_all_group_comparisons(analysis_dirs: list[str], project_name: str = None) -> str:
     """
     Run all available comparison methods on a list of analysis directories.
@@ -1468,6 +1571,16 @@ def run_all_group_comparisons(analysis_dirs: list[str], project_name: str = None
                     group_logger.info(f"Generated {file_type}: {file_path}")
         except Exception as e:
             group_logger.error(f"Statistical comparison failed: {e}")
+
+    # 1.5. Generate focality summary across subjects  
+    if len(analysis_dirs) >= 1:
+        group_logger.info("Generating focality summary...")
+        try:
+            focality_summary_path = _generate_focality_summary(analysis_dirs, run_output_dir, region_name)
+            if focality_summary_path:
+                group_logger.info(f"Focality summary generated: {focality_summary_path}")
+        except Exception as e:
+            group_logger.error(f"Focality summary generation failed: {e}")
     
     # 2. Collect standardized grey matter MNI NIfTI files for image-based comparisons
     nifti_files = []

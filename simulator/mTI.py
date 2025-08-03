@@ -1,6 +1,8 @@
 import os
 import sys
 import json
+import subprocess
+import shutil
 from copy import deepcopy
 import numpy as np
 from simnibs import mesh_io, run_simnibs, sim_struct
@@ -22,16 +24,41 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 from utils import logging_util
 
 # Get subject ID, simulation type, and montages from command-line arguments
+print(f"[DEBUG] mTI.py called with {len(sys.argv)} arguments: {sys.argv}")
 subject_id = sys.argv[1]
 sim_type = sys.argv[2]  # The anisotropy type
 project_dir = sys.argv[3]  # Changed from subject_dir to project_dir
 simulation_dir = sys.argv[4]
-intensity = float(sys.argv[5])  # Convert intensity to float
+print(f"[DEBUG] Parsed basic args: subject_id={subject_id}, sim_type={sim_type}, project_dir={project_dir}, simulation_dir={simulation_dir}")
+# Handle multiple intensity values for multipolar mode
+intensity_str = sys.argv[5]
+print(f"[DEBUG] Intensity string: '{intensity_str}'")
+if ',' in intensity_str:
+    # Multiple current values for multipolar mode (4 channels)
+    intensities = [float(x.strip()) for x in intensity_str.split(',')]
+    print(f"[DEBUG] Parsed {len(intensities)} intensity values: {intensities}")
+    if len(intensities) == 4:
+        intensity1_ch1, intensity1_ch2, intensity2_ch1, intensity2_ch2 = intensities
+    elif len(intensities) == 2:
+        # Fallback: use first two values for both pairs
+        intensity1_ch1, intensity1_ch2 = intensities
+        intensity2_ch1, intensity2_ch2 = intensities
+    else:
+        # Use first value for all
+        intensity1_ch1 = intensity1_ch2 = intensity2_ch1 = intensity2_ch2 = intensities[0]
+else:
+    # Single intensity value - use for all channels
+    intensity = float(intensity_str)
+    intensity1_ch1 = intensity1_ch2 = intensity2_ch1 = intensity2_ch2 = intensity
+print(f"[DEBUG] Final current values: ch1={intensity1_ch1}, ch2={intensity1_ch2}, ch3={intensity2_ch1}, ch4={intensity2_ch2}")
 electrode_shape = sys.argv[6]
 dimensions = [float(x) for x in sys.argv[7].split(',')]  # Convert dimensions to list of floats
 thickness = float(sys.argv[8])
 eeg_net = sys.argv[9]  # Get the EEG net filename
 montage_names = sys.argv[10:]
+print(f"[DEBUG] Electrode params: shape={electrode_shape}, dimensions={dimensions}, thickness={thickness}")
+print(f"[DEBUG] EEG net: {eeg_net}")
+print(f"[DEBUG] Montage names: {montage_names}")
 
 # Define the correct path for the JSON file
 ti_csc_dir = os.path.join(project_dir, 'ti-csc')
@@ -139,188 +166,164 @@ base_subpath = os.path.join(simnibs_dir, f'm2m_{subject_id}')
 conductivity_path = base_subpath
 tensor_file = os.path.join(conductivity_path, "DTI_coregT1_tensor.nii.gz")
 
-# Function to run simulations
-def run_simulation(montage_name, montage, output_dir):
-    logger.info(f"Starting simulation for montage: {montage_name}")
+# Function to run multipolar TI simulation
+def run_simulation(montage_name, electrode_pairs, output_dir):
+    """Run multipolar TI simulation with 4 electrode pairs"""
+    print(f"[DEBUG] Entering run_simulation for montage: {montage_name}")
+    logger.info(f"Starting multipolar simulation for montage: {montage_name}")
+    
+    if len(electrode_pairs) < 4:
+        logger.error(f"Need at least 4 electrode pairs for mTI, got {len(electrode_pairs)}")
+        return None
     
     S = sim_struct.SESSION()
     S.subpath = base_subpath
     S.anisotropy_type = sim_type
-    
-    logger.info(f"Set up SimNIBS session with anisotropy type: {sim_type}")
-    
     S.pathfem = os.path.join(output_dir, montage_name)
     S.eeg_cap = os.path.join(base_subpath, "eeg_positions", eeg_net)
     S.map_to_surf = False
     S.map_to_fsavg = False
-    S.map_to_vol = True
-    S.map_to_mni = True
+    S.map_to_vol = False
+    S.map_to_mni = False
     S.open_in_gmsh = False
     S.tissues_in_niftis = "all"
 
     # Load the conductivity tensors
     S.dti_nii = tensor_file
 
-    # First electrode pair
-    tdcs = S.add_tdcslist()
-    tdcs.anisotropy_type = sim_type  # Set anisotropy_type to the input sim_type
+    # Create 4 TDCS lists for the 4 electrode pairs (HF_A, HF_B, HF_C, HF_D)
+    currents = [intensity1_ch1, intensity1_ch2, intensity2_ch1, intensity2_ch2]
     
-    # Set custom conductivities if provided in environment variables
-    for i in range(len(tdcs.cond)):
-        tissue_num = i + 1
-        env_var = f"TISSUE_COND_{tissue_num}"
-        if env_var in os.environ:
-            try:
-                tdcs.cond[i].value = float(os.environ[env_var])
-                logger.info(f"Setting conductivity for tissue {tissue_num} to {tdcs.cond[i].value} S/m")
-            except ValueError:
-                logger.warning(f"Invalid conductivity value for tissue {tissue_num}")
+    for i, pair in enumerate(electrode_pairs[:4]):
+        tdcs = S.add_tdcslist()
+        tdcs.anisotropy_type = sim_type
+        
+        # Set custom conductivities if provided in environment variables
+        for j in range(len(tdcs.cond)):
+            tissue_num = j + 1
+            env_var = f"TISSUE_COND_{tissue_num}"
+            if env_var in os.environ:
+                try:
+                    tdcs.cond[j].value = float(os.environ[env_var])
+                    logger.info(f"Setting conductivity for tissue {tissue_num} to {tdcs.cond[j].value} S/m")
+                except ValueError:
+                    logger.warning(f"Invalid conductivity value for tissue {tissue_num}")
 
-    tdcs.currents = [intensity, -intensity]
-    
-    electrode = tdcs.add_electrode()
-    electrode.channelnr = 1
-    electrode.centre = montage[0][0]
-    electrode.shape = electrode_shape
-    electrode.dimensions = dimensions
-    electrode.thickness = [thickness, 2]
+        # Set current (positive and negative)
+        tdcs.currents = [currents[i], -currents[i]]
+        
+        # Add electrodes for this pair
+        electrode1 = tdcs.add_electrode()
+        electrode1.channelnr = 1
+        electrode1.centre = pair[0]
+        electrode1.shape = electrode_shape
+        electrode1.dimensions = dimensions
+        electrode1.thickness = [thickness, 2]
 
-    electrode = tdcs.add_electrode()
-    electrode.channelnr = 2
-    electrode.centre = montage[0][1]
-    electrode.shape = electrode_shape
-    electrode.dimensions = dimensions
-    electrode.thickness = [thickness, 2]
+        electrode2 = tdcs.add_electrode()
+        electrode2.channelnr = 2
+        electrode2.centre = pair[1]
+        electrode2.shape = electrode_shape
+        electrode2.dimensions = dimensions
+        electrode2.thickness = [thickness, 2]
 
-    # Second electrode pair
-    tdcs_2 = S.add_tdcslist(deepcopy(tdcs))
-    tdcs_2.currents = [intensity, -intensity]
-    tdcs_2.electrode[0].centre = montage[1][0]
-    tdcs_2.electrode[1].centre = montage[1][1]
-
-    logger.info("Running SimNIBS simulation...")
+    logger.info("Running SimNIBS multipolar simulation...")
     run_simnibs(S)
-    logger.info("SimNIBS simulation completed")
+    logger.info("SimNIBS multipolar simulation completed")
 
     subject_identifier = base_subpath.split('_')[-1]
     anisotropy_type = S.anisotropy_type
 
-    # Read the mesh files directly from where SimNIBS saves them
-    m1_file = os.path.join(S.pathfem, f"{subject_identifier}_TDCS_1_{anisotropy_type}.msh")
-    m2_file = os.path.join(S.pathfem, f"{subject_identifier}_TDCS_2_{anisotropy_type}.msh")
+    # Load the 4 high-frequency mesh files
+    hf_meshes = []
+    for i in range(1, 5):  # TDCS_1, TDCS_2, TDCS_3, TDCS_4
+        mesh_file = os.path.join(S.pathfem, f"{subject_identifier}_TDCS_{i}_{anisotropy_type}.msh")
+        if os.path.exists(mesh_file):
+            m = mesh_io.read_msh(mesh_file)
+            tags_keep = np.hstack((np.arange(1, 100), np.arange(1001, 1100)))
+            m = m.crop_mesh(tags=tags_keep)
+            hf_meshes.append(m)
+        else:
+            logger.error(f"Could not find mesh file: {mesh_file}")
+            return None
 
-    m1 = mesh_io.read_msh(m1_file)
-    m2 = mesh_io.read_msh(m2_file)
+    if len(hf_meshes) != 4:
+        logger.error(f"Expected 4 HF meshes, found {len(hf_meshes)}")
+        return None
 
-    # Create the directory structure for organizing files
-    high_freq_mesh_dir = os.path.join(S.pathfem, "high_Frequency", "mesh")
-    high_freq_nifti_dir = os.path.join(S.pathfem, "high_Frequency", "niftis")
-    high_freq_analysis_dir = os.path.join(S.pathfem, "high_Frequency", "analysis")
-    ti_mesh_dir = os.path.join(S.pathfem, "TI", "mesh")
-    ti_nifti_dir = os.path.join(S.pathfem, "TI", "niftis")
-    ti_montage_dir = os.path.join(S.pathfem, "TI", "montage_imgs")
-    doc_dir = os.path.join(S.pathfem, "documentation")
-
-    # Create directories
-    for dir_path in [high_freq_mesh_dir, high_freq_nifti_dir, high_freq_analysis_dir,
-                    ti_mesh_dir, ti_nifti_dir, ti_montage_dir, doc_dir]:
-        os.makedirs(dir_path, exist_ok=True)
-
-    # Move high frequency files to their directories
-    for pattern in ["TDCS_1", "TDCS_2"]:
-        for file in [f for f in os.listdir(S.pathfem) if pattern in f]:
-            src = os.path.join(S.pathfem, file)
-            if file.endswith('.msh') or file.endswith('.geo') or file.endswith('.opt'):
-                dst = os.path.join(high_freq_mesh_dir, file)
-                os.rename(src, dst)
-
-    # Move subject volumes to nifti directory
-    subject_volumes_dir = os.path.join(S.pathfem, "subject_volumes")
-    if os.path.exists(subject_volumes_dir):
-        for file in os.listdir(subject_volumes_dir):
-            src = os.path.join(subject_volumes_dir, file)
-            dst = os.path.join(high_freq_nifti_dir, file)
-            os.rename(src, dst)
-        os.rmdir(subject_volumes_dir)
-
-    # Move log and mat files to documentation
-    for file in [f for f in os.listdir(S.pathfem) if f.endswith(('.log', '.mat'))]:
-        src = os.path.join(S.pathfem, file)
-        dst = os.path.join(doc_dir, file)
-        os.rename(src, dst)
-
-    # Move fields_summary.txt to analysis directory if it exists
-    fields_summary = os.path.join(S.pathfem, "fields_summary.txt")
-    if os.path.exists(fields_summary):
-        dst = os.path.join(high_freq_analysis_dir, "fields_summary.txt")
-        os.rename(fields_summary, dst)
-
-    tags_keep = np.hstack((np.arange(1, 100), np.arange(1001, 1100)))
-    m1 = m1.crop_mesh(tags=tags_keep)
-    m2 = m2.crop_mesh(tags=tags_keep)
-
-    ef1 = m1.field["E"]
-    ef2 = m2.field["E"]
-    TImax_vectors = get_TI_vectors(ef1.value, ef2.value)
-
-    mout = deepcopy(m1)
-    mout.elmdata = []
-    mout.add_element_field(TImax_vectors, "TI_vectors")
+    # Calculate TI pairs: TI_AB (HF_A + HF_B), TI_CD (HF_C + HF_D)
+    ef_a = hf_meshes[0].field["E"]
+    ef_b = hf_meshes[1].field["E"]
+    ef_c = hf_meshes[2].field["E"]
+    ef_d = hf_meshes[3].field["E"]
     
-    output_mesh_path = os.path.join(ti_mesh_dir, f"{montage_name}_TI.msh")
+    ti_ab_vectors = get_TI_vectors(ef_a.value, ef_b.value)
+    ti_cd_vectors = get_TI_vectors(ef_c.value, ef_d.value)
+    
+    # Save intermediate TI meshes (TI_AB and TI_CD)
+    # TI_AB mesh
+    ti_ab_mesh = deepcopy(hf_meshes[0])
+    ti_ab_mesh.elmdata = []
+    ti_ab_mesh.add_element_field(ti_ab_vectors, "TI_vectors")
+    ti_ab_path = os.path.join(S.pathfem, "TI_AB.msh")
+    mesh_io.write_msh(ti_ab_mesh, ti_ab_path)
+    v_ab = ti_ab_mesh.view(visible_tags=[1002, 1006], visible_fields=["TI_vectors"])
+    v_ab.write_opt(ti_ab_path)
+    
+    # TI_CD mesh
+    ti_cd_mesh = deepcopy(hf_meshes[0])
+    ti_cd_mesh.elmdata = []
+    ti_cd_mesh.add_element_field(ti_cd_vectors, "TI_vectors")
+    ti_cd_path = os.path.join(S.pathfem, "TI_CD.msh")
+    mesh_io.write_msh(ti_cd_mesh, ti_cd_path)
+    v_cd = ti_cd_mesh.view(visible_tags=[1002, 1006], visible_fields=["TI_vectors"])
+    v_cd.write_opt(ti_cd_path)
+    
+    # Calculate final mTI from TI_AB and TI_CD
+    mti_field = TI.get_maxTI(ti_ab_vectors, ti_cd_vectors)
+    
+    # Create output mesh with mTI field
+    mout = deepcopy(hf_meshes[0])
+    mout.elmdata = []
+    mout.add_element_field(mti_field, "TI_Max")
+    
+    # Save mTI mesh (file organization handled by main-mTI.sh)
+    output_mesh_path = os.path.join(S.pathfem, "mTI.msh")
     mesh_io.write_msh(mout, output_mesh_path)
 
-    v = mout.view(visible_tags=[1002, 1006], visible_fields=["TI_vectors"])
+    v = mout.view(visible_tags=[1002, 1006], visible_fields="TI_Max")
     v.write_opt(output_mesh_path)
     
-    logger.info(f"Completed simulation for montage: {montage_name}")
+    logger.info(f"Completed multipolar simulation for montage: {montage_name}")
     return output_mesh_path
 
-# Create pairs of montage names for mTI calculations
-montage_pairs = [(montage_names[i], montage_names[i+1]) for i in range(0, len(montage_names) - 1, 2)]
-
-# Process each pair of montages
-for pair in montage_pairs:
-    m1_name, m2_name = pair
-    pair_dir_name = f"{m1_name}_{m2_name}"
-    pair_output_dir = os.path.join(simulation_dir, pair_dir_name)
-    mti_output_dir = os.path.join(pair_output_dir, "mTI")
+# Process each montage for multipolar simulation
+for montage_name in montage_names:
+    print(f"[DEBUG] Processing montage: {montage_name}")
+    logger.info(f"Starting multipolar simulation for montage: {montage_name}")
     
-    # Create necessary directories
-    os.makedirs(pair_output_dir, exist_ok=True)
-    os.makedirs(mti_output_dir, exist_ok=True)
+    # Get montage configuration from JSON file
+    montage_config_path = os.path.join(project_dir, "ti-csc", "config", "montage_list.json")
     
-    # Run simulations for both montages
-    if m1_name in montages and m2_name in montages:
-        logger.info(f"Processing montage pair: {m1_name} and {m2_name}")
-        m1_path = run_simulation(m1_name, montages[m1_name], pair_output_dir)
-        m2_path = run_simulation(m2_name, montages[m2_name], pair_output_dir)
+    try:
+        with open(montage_config_path, 'r') as f:
+            montage_config = json.load(f)
+        
+        # Get the electrode pairs for this montage
+        electrode_pairs = montage_config.get("nets", {}).get(eeg_net, {}).get("multi_polar_montages", {}).get(montage_name, [])
+        
+        if not electrode_pairs or len(electrode_pairs) < 4:
+            logger.error(f"Need at least 4 electrode pairs for mTI, found {len(electrode_pairs)} for montage '{montage_name}'")
+            continue
+            
+    except Exception as e:
+        logger.error(f"Failed to load montage config: {e}")
+        continue
+    
+    # Run the basic multipolar simulation (4 electrode pairs -> 1 mTI result)
+    # File organization and post-processing will be handled by main-mTI.sh
+    output_path = run_simulation(montage_name, electrode_pairs, simulation_dir)
+    logger.info(f"Multipolar simulation completed for {montage_name}: {output_path}")
 
-        logger.info("Loading mesh files for mTI calculation")
-        m1 = mesh_io.read_msh(m1_path)
-        m2 = mesh_io.read_msh(m2_path)
-
-        # Calculate the maximal amplitude of the TI envelope
-        ef1 = m1.field["TI_vectors"]
-        ef2 = m2.field["TI_vectors"]
-
-        logger.info("Calculating multi-polar TI field")
-        TI_MultiPolar = TI.get_maxTI(ef1.value, ef2.value)
-
-        logger.info("Creating output mesh for multi-polar TI field")
-        mout = deepcopy(m1)
-        mout.elmdata = []
-        mout.add_element_field(TI_MultiPolar, "TI_Max")
-
-        # Save the multi-polar TI mesh (without subject ID)
-        output_mesh_path = os.path.join(mti_output_dir, f"{pair_dir_name}_mTI.msh")
-        logger.info(f"Saving multi-polar TI mesh to: {output_mesh_path}")
-        mesh_io.write_msh(mout, output_mesh_path)
-
-        # Create visualization
-        v = mout.view(visible_tags=[1002, 1006], visible_fields="TI_Max")
-        v.write_opt(output_mesh_path)
-        logger.info(f"Completed mTI processing for pair: {pair_dir_name}")
-    else:
-        logger.error(f"Montage names {m1_name} and {m2_name} are not valid montages. Skipping.")
+print("[DEBUG] mTI.py script completed")
         
