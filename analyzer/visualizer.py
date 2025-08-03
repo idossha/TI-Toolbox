@@ -171,6 +171,43 @@ class BaseVisualizer:
         self.logger.info(f"Saved analysis results to: {output_path}")
         return output_path
 
+    def save_extra_info_to_csv(self, focality_info, analysis_type, region_name=None, data_type='node'):
+        """
+        Save focality analysis extra information to a CSV file.
+        
+        Args:
+            focality_info (dict): Focality metrics to save
+            analysis_type (str): Type of analysis ('cortical' or 'spherical')
+            region_name (str, optional): Name of the region analyzed
+            data_type (str): Type of data ('node' or 'voxel')
+        
+        Returns:
+            str: Path to the created CSV file
+        """
+        
+        # Create appropriate filename
+        if region_name:
+            filename = f"{analysis_type}_{region_name}_extra_info.csv"
+        else:
+            filename = f"{analysis_type}_analysis_extra_info.csv"
+        
+        # Save directly to the output directory
+        output_path = os.path.join(self.output_dir, filename)
+        
+        # Write focality info to CSV
+        with open(output_path, 'w', newline='') as csvfile:
+            writer = csv.writer(csvfile)
+            
+            # Write header
+            writer.writerow(['Metric', 'Value'])
+            
+            # Write all focality metrics
+            for key, value in focality_info.items():
+                writer.writerow([key, value])
+        
+        self.logger.info(f"Saved focality extra info to: {output_path}")
+        return output_path
+
     def save_whole_head_results_to_csv(self, results, atlas_type, data_type='voxel'):
         """Save a summary CSV of whole-head analysis results directly in the output directory."""
         # Create the CSV
