@@ -112,10 +112,10 @@ setup_montage_dirs() {
     mkdir -p "$montage_dir/high_Frequency/mesh"
     mkdir -p "$montage_dir/TI/mesh"
     mkdir -p "$montage_dir/TI/niftis"
-    mkdir -p "$montage_dir/TI/montage_imgs"
     mkdir -p "$montage_dir/TI/surface_overlays"
     mkdir -p "$montage_dir/mTI/mesh"
     mkdir -p "$montage_dir/mTI/niftis"
+    mkdir -p "$montage_dir/mTI/montage_imgs"
     
     log_info "Created multipolar directory structure for montage: $montage_name"
 }
@@ -141,7 +141,7 @@ done
 run_visualize_montages() {
     for montage in "${selected_montages[@]}"; do
         local montage_dir="$sim_dir/$montage"
-        local montage_output_dir="$montage_dir/TI/montage_imgs"
+        local montage_output_dir="$montage_dir/mTI/montage_imgs"
         
         log_info "Visualizing montage: $montage"
         visualize_montage_script_path="$utils_dir/visualize-montage.sh"
@@ -375,11 +375,11 @@ verify_files() {
         "$montage_base_dir/high_Frequency/analysis"
         "$montage_base_dir/TI/mesh"
         "$montage_base_dir/TI/niftis"
-        "$montage_base_dir/TI/montage_imgs"
         "$montage_base_dir/TI/surface_overlays"
         "$montage_base_dir/documentation"
         "$montage_base_dir/mTI/mesh"
         "$montage_base_dir/mTI/niftis"
+        "$montage_base_dir/mTI/montage_imgs"
     )
 
     for path in "${essential_paths[@]}"; do
