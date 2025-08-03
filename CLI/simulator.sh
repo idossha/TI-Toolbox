@@ -108,6 +108,50 @@ EOL
         chmod 777 "$montage_file"
     fi
     
+    # Handle flex-search mode: create individual configurations for each subject-montage combination
+    if [[ "$simulation_framework" == "flex" ]] && [[ -n "$temp_flex_file" ]] && [[ -f "$temp_flex_file" ]]; then
+        echo -e "${CYAN}Processing flex-search configurations for individual subject-montage combinations...${RESET}"
+        
+        # Create individual temp files for each subject-montage combination
+        temp_flex_files=()
+        
+        # Read the combined flex file and create individual ones
+        while read -r subject_id; do
+            # For each subject, create separate temp files for each montage configuration
+            subject_flex_file=$(mktemp --suffix="_${subject_id}_flex.json")
+            temp_flex_files+=("$subject_flex_file")
+            
+            # Extract configurations for this specific subject
+            python3 -c "
+import json
+import sys
+
+try:
+    with open('$temp_flex_file', 'r') as f:
+        all_configs = json.load(f)
+    
+    # Filter configurations for this subject
+    subject_configs = []
+    for config in all_configs:
+        # Check if this config belongs to the current subject
+        config_name = config.get('name', '')
+        if '$subject_id' in config_name or config_name.startswith('flex_'):
+            subject_configs.append(config)
+    
+    # Write subject-specific configurations
+    with open('$subject_flex_file', 'w') as f:
+        json.dump(subject_configs, f, indent=2)
+    
+    print(f'Created subject-specific flex file: $subject_flex_file with {len(subject_configs)} configurations')
+        
+except Exception as e:
+    print(f'Error creating subject-specific flex file: {e}')
+    sys.exit(1)
+"
+        done <<< "$(printf '%s\n' "${selected_subjects[@]}" | sort -u)"
+    fi
+    
+    # Process each subject individually to avoid variable contamination
     for subject_num in "${selected_subjects[@]}"; do
         # Get the subject ID
         if [[ "$is_direct_mode" == "true" ]]; then
@@ -151,24 +195,59 @@ EOL
         # Export variables for TI.py to find the correct config directory
         export CONFIG_DIR="$ti_csc_dir/config"
         
-        # Set electrode parameters
+        # Set electrode parameters (these are the same for all subjects)
         electrode_shape="${ELECTRODE_SHAPE:-rect}"
         dimensions="${DIMENSIONS:-50,50}"
         thickness="${THICKNESS:-5}"
         current="${CURRENT:-2.0,2.0}"
         
-        # Build command - use project_dir instead of subject_dir to prevent double subject ID
-        cmd=("$simulator_dir/$main_script" "$subject_id" "$conductivity" "$project_dir" "$simulation_dir" "$sim_mode" "$current" "$electrode_shape" "$dimensions" "$thickness" "$eeg_net")
+        # Set EEG net for this specific subject based on simulation framework
+        local current_eeg_net
+        if [[ "$simulation_framework" == "flex" ]]; then
+            current_eeg_net="flex_mode"  # Placeholder - actual EEG nets come from JSON files
+        else
+            # For regular montages, use the per-subject EEG net
+            current_eeg_net="${subject_eeg_nets[$subject_id]:-EGI_template.csv}"
+        fi
         
-        # Add montages - ensure these are actual montage names
-        for montage in "${selected_montages[@]}"; do
-            # Skip if montage name looks like a path or option
-            if [[ $montage == /* || $montage == -* ]]; then
-                echo -e "${YELLOW}Warning: Skipping invalid montage name: $montage${RESET}"
-                continue
+        # Set up subject-specific FLEX_MONTAGES_FILE for flex-search mode
+        local current_flex_file=""
+        if [[ "$simulation_framework" == "flex" ]]; then
+            # Find the temp file for this subject
+            for temp_file in "${temp_flex_files[@]}"; do
+                if [[ "$temp_file" == *"_${subject_id}_"* ]]; then
+                    current_flex_file="$temp_file"
+                    break
+                fi
+            done
+            
+            if [[ -n "$current_flex_file" && -f "$current_flex_file" ]]; then
+                export FLEX_MONTAGES_FILE="$current_flex_file"
+                echo -e "${CYAN}Using subject-specific flex file: $current_flex_file${RESET}"
+            else
+                echo -e "${YELLOW}Warning: No subject-specific flex file found for $subject_id, using global file${RESET}"
+                export FLEX_MONTAGES_FILE="$temp_flex_file"
             fi
-            cmd+=("$montage")
-        done
+        fi
+        
+        # Build command - use project_dir instead of subject_dir to prevent double subject ID
+        cmd=("$simulator_dir/$main_script" "$subject_id" "$conductivity" "$project_dir" "$simulation_dir" "$sim_mode" "$current" "$electrode_shape" "$dimensions" "$thickness" "$current_eeg_net")
+        
+        # Add montages based on simulation framework
+        if [[ "$simulation_framework" == "flex" ]]; then
+            # For flex-search, don't add individual montages - they come from the JSON file
+            :
+        else
+            # Add regular montages - ensure these are actual montage names
+            for montage in "${selected_montages[@]}"; do
+                # Skip if montage name looks like a path or option
+                if [[ $montage == /* || $montage == -* ]]; then
+                    echo -e "${YELLOW}Warning: Skipping invalid montage name: $montage${RESET}"
+                    continue
+                fi
+                cmd+=("$montage")
+            done
+        fi
         
         # Add end marker
         cmd+=("--")
@@ -185,11 +264,14 @@ EOL
         echo -e "${CYAN}- Electrode shape: $electrode_shape${RESET}"
         echo -e "${CYAN}- Dimensions: $dimensions mm${RESET}"
         echo -e "${CYAN}- Thickness: $thickness mm${RESET}"
-        echo -e "${CYAN}- Montages: ${selected_montages[*]}${RESET}"
+        echo -e "${CYAN}- EEG Net: $current_eeg_net${RESET}"
+        if [[ "$simulation_framework" == "flex" ]]; then
+            echo -e "${CYAN}- Flex montages file: $current_flex_file${RESET}"
+        else
+            echo -e "${CYAN}- Montages: ${selected_montages[*]}${RESET}"
+        fi
         
-        # Execute simulation
-        # Ensure FLEX_MONTAGES_FILE is available to child processes
-        export FLEX_MONTAGES_FILE
+        # Execute simulation with subject-specific variables
         "${cmd[@]}"
         
         # Check execution status
@@ -197,6 +279,19 @@ EOL
             echo -e "${GREEN}Simulation completed successfully for subject: $subject_id${RESET}"
         else
             echo -e "${RED}Simulation failed for subject: $subject_id${RESET}"
+        fi
+        
+        # Clean up subject-specific temp file after this subject's simulation
+        if [[ -n "$current_flex_file" && -f "$current_flex_file" && "$current_flex_file" != "$temp_flex_file" ]]; then
+            rm -f "$current_flex_file"
+            echo -e "${CYAN}Cleaned up subject-specific flex montages file for $subject_id${RESET}"
+        fi
+    done
+    
+    # Clean up any remaining subject-specific temp files
+    for temp_file in "${temp_flex_files[@]}"; do
+        if [[ -f "$temp_file" ]]; then
+            rm -f "$temp_file"
         fi
     done
     
@@ -524,6 +619,8 @@ choose_subjects() {
         local default_value=$(get_default_value "subjects")
         if [ -n "$default_value" ]; then
             subject_choices="$default_value"
+            # Parse the default value to create the selected_subjects array
+            IFS=',' read -r -a selected_subjects <<< "$subject_choices"
             echo -e "${CYAN}Using default subject(s): $subject_choices${RESET}"
             return
         fi
@@ -1623,39 +1720,8 @@ choose_intensity
 # Show confirmation dialog before proceeding
 show_confirmation_dialog
 
-# Loop through selected subjects and run the pipeline
-for subject_num in "${selected_subjects[@]}"; do
-    subject_id="${subjects[$((subject_num-1))]}"
-    subject_dir="$project_dir/sub-$subject_id"
-    simulation_dir="$subject_dir/SimNIBS/Simulations"
-    
-    # Set EEG net based on simulation framework
-    if [[ "$simulation_framework" == "flex" ]]; then
-        eeg_net="flex_mode"  # Placeholder - actual EEG nets come from JSON files
-    else
-        eeg_net="${subject_eeg_nets[$subject_id]:-EGI_template.csv}"  # Use selected or default
-    fi
-
-    # Create simulation directory if it doesn't exist
-    mkdir -p "$simulation_dir"
-
-    # Call the appropriate main pipeline script with the gathered parameters
-    # Create a unique simulation session ID for CLI runs
-    if [[ -z "$SIMULATION_SESSION_ID" ]]; then
-        export SIMULATION_SESSION_ID="CLI_$(date +%Y%m%d_%H%M%S)_${subject_id}"
-    fi
-    
-    if [[ "$simulation_framework" == "flex" ]]; then
-        # For flex-search, export environment variables and pass empty montages array
-        export FLEX_MONTAGES_FILE="$temp_flex_file"
-        export SIMULATION_MODE="flex"
-        export SELECTED_MONTAGES=""
-        "$simulator_dir/$main_script" "$subject_id" "$conductivity" "$project_dir" "$simulation_dir" "$sim_mode" "$current" "$electrode_shape" "$dimensions" "$thickness" "$eeg_net" --
-    else
-        # For regular montages, pass the selected montages
-        "$simulator_dir/$main_script" "$subject_id" "$conductivity" "$project_dir" "$simulation_dir" "$sim_mode" "$current" "$electrode_shape" "$dimensions" "$thickness" "$eeg_net" "${selected_montages[@]}" --
-    fi
-done
+# Run simulations using the updated run_simulation function
+run_simulation
 
 # Output success message if new montages or ROIs were added
 if [ "$new_montage_added" = true ]; then
