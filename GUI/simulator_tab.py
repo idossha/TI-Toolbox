@@ -539,9 +539,11 @@ class SimulatorTab(QtWidgets.QWidget):
         sim_mode_layout.addWidget(self.sim_mode_label)
         sim_mode_layout.addWidget(self.sim_mode_unipolar)
         sim_mode_layout.addWidget(self.sim_mode_multipolar)
-        # Connect mode radio buttons to update montage list
+        # Connect mode radio buttons to update montage list and current inputs
         self.sim_mode_unipolar.toggled.connect(self.update_montage_list)
         self.sim_mode_multipolar.toggled.connect(self.update_montage_list)
+        self.sim_mode_unipolar.toggled.connect(self.update_current_inputs_visibility)
+        self.sim_mode_multipolar.toggled.connect(self.update_current_inputs_visibility)
         sim_params_layout.addLayout(sim_mode_layout)
         
         # Store the sim_mode_layout for show/hide
@@ -551,8 +553,11 @@ class SimulatorTab(QtWidgets.QWidget):
         self.electrode_params_group = QtWidgets.QGroupBox("Electrode Parameters")
         electrode_params_layout = QtWidgets.QVBoxLayout(self.electrode_params_group)
         
-        # Current value (now two fields)
-        current_layout = QtWidgets.QHBoxLayout()
+        # Current value (four fields for multipolar support)
+        self.current_layout = QtWidgets.QVBoxLayout()
+        
+        # First row: Channel 1 and 2
+        current_row1 = QtWidgets.QHBoxLayout()
         self.current_label_1 = QtWidgets.QLabel("Current Ch1 (mA):")
         self.current_input_1 = QtWidgets.QLineEdit()
         self.current_input_1.setPlaceholderText("1.0")
@@ -561,12 +566,40 @@ class SimulatorTab(QtWidgets.QWidget):
         self.current_input_2 = QtWidgets.QLineEdit()
         self.current_input_2.setPlaceholderText("1.0")
         self.current_input_2.setText("1.0")  # Default to 1.0 mA
-        current_layout.addWidget(self.current_label_1)
-        current_layout.addWidget(self.current_input_1)
-        current_layout.addSpacing(10)
-        current_layout.addWidget(self.current_label_2)
-        current_layout.addWidget(self.current_input_2)
-        electrode_params_layout.addLayout(current_layout)
+        current_row1.addWidget(self.current_label_1)
+        current_row1.addWidget(self.current_input_1)
+        current_row1.addSpacing(10)
+        current_row1.addWidget(self.current_label_2)
+        current_row1.addWidget(self.current_input_2)
+        self.current_layout.addLayout(current_row1)
+        
+        # Second row: Channel 3 and 4 (for multipolar mode)
+        current_row2 = QtWidgets.QHBoxLayout()
+        self.current_label_3 = QtWidgets.QLabel("Current Ch3 (mA):")
+        self.current_input_3 = QtWidgets.QLineEdit()
+        self.current_input_3.setPlaceholderText("1.0")
+        self.current_input_3.setText("1.0")  # Default to 1.0 mA
+        self.current_label_4 = QtWidgets.QLabel("Current Ch4 (mA):")
+        self.current_input_4 = QtWidgets.QLineEdit()
+        self.current_input_4.setPlaceholderText("1.0")
+        self.current_input_4.setText("1.0")  # Default to 1.0 mA
+        current_row2.addWidget(self.current_label_3)
+        current_row2.addWidget(self.current_input_3)
+        current_row2.addSpacing(10)
+        current_row2.addWidget(self.current_label_4)
+        current_row2.addWidget(self.current_input_4)
+        self.current_layout.addLayout(current_row2)
+        
+        # Store widgets for show/hide functionality
+        self.multipolar_current_widgets = [self.current_label_3, self.current_input_3, self.current_label_4, self.current_input_4]
+        
+        # Initially hide channels 3 and 4
+        for widget in self.multipolar_current_widgets:
+            widget.setVisible(False)
+        electrode_params_layout.addLayout(self.current_layout)
+        
+        # Initialize current inputs visibility (after widgets are created)
+        self.update_current_inputs_visibility()
         
         # Electrode shape
         shape_layout = QtWidgets.QHBoxLayout()
@@ -1327,12 +1360,23 @@ class SimulatorTab(QtWidgets.QWidget):
             try:
                 current_ma_1 = float(self.current_input_1.text() or "1.0")
                 current_ma_2 = float(self.current_input_2.text() or "1.0")
-                if current_ma_1 <= 0 or current_ma_2 <= 0:
-                    QtWidgets.QMessageBox.warning(self, "Warning", "Current values must be greater than 0 mA.")
-                    return
-                current = f"{current_ma_1/1000.0},{current_ma_2/1000.0}"
+                
+                # For multipolar mode, also get channels 3 and 4
+                if self.sim_mode_multipolar.isChecked():
+                    current_ma_3 = float(self.current_input_3.text() or "1.0")
+                    current_ma_4 = float(self.current_input_4.text() or "1.0")
+                    if current_ma_1 <= 0 or current_ma_2 <= 0 or current_ma_3 <= 0 or current_ma_4 <= 0:
+                        QtWidgets.QMessageBox.warning(self, "Warning", "All current values must be greater than 0 mA.")
+                        return
+                    current = f"{current_ma_1/1000.0},{current_ma_2/1000.0},{current_ma_3/1000.0},{current_ma_4/1000.0}"
+                else:
+                    if current_ma_1 <= 0 or current_ma_2 <= 0:
+                        QtWidgets.QMessageBox.warning(self, "Warning", "Current values must be greater than 0 mA.")
+                        return
+                    current = f"{current_ma_1/1000.0},{current_ma_2/1000.0}"
             except ValueError:
-                QtWidgets.QMessageBox.warning(self, "Warning", "Please enter valid current values in mA for both channels.")
+                channels_text = "all channels" if self.sim_mode_multipolar.isChecked() else "both channels"
+                QtWidgets.QMessageBox.warning(self, "Warning", f"Please enter valid current values in mA for {channels_text}.")
                 return
             
             electrode_shape = "rect" if self.electrode_shape_rect.isChecked() else "ellipse"
@@ -1358,6 +1402,10 @@ class SimulatorTab(QtWidgets.QWidget):
             
             # Show confirmation dialog with details
             if is_montage_mode:
+                current_details = f"• Current Channel 1: {current_ma_1} mA\n• Current Channel 2: {current_ma_2} mA\n"
+                if self.sim_mode_multipolar.isChecked():
+                    current_details += f"• Current Channel 3: {current_ma_3} mA\n• Current Channel 4: {current_ma_4} mA\n"
+                
                 details = (f"This will run MONTAGE simulations for:\n\n"
                           f"• {len(selected_subjects)} subject(s)\n"
                           f"• {len(selected_montages)} montage(s)\n\n"
@@ -1365,8 +1413,7 @@ class SimulatorTab(QtWidgets.QWidget):
                           f"• Simulation type: {conductivity}\n"
                           f"• Mode: {'Unipolar' if sim_mode == 'U' else 'Multipolar'}\n"
                           f"• EEG Net: {eeg_net}\n"
-                          f"• Current Channel 1: {current_ma_1} mA\n"
-                          f"• Current Channel 2: {current_ma_2} mA\n"
+                          f"{current_details}"
                           f"• Electrode shape: {electrode_shape}\n"
                           f"• Dimensions: {dimensions} mm\n"
                           f"• Thickness: {thickness} mm")
@@ -1383,10 +1430,13 @@ class SimulatorTab(QtWidgets.QWidget):
                 elif use_optimized:
                     details += "• Using optimized XYZ coordinates (no EEG net required)\n"
                 
+                current_details = f"• Current Channel 1: {current_ma_1} mA\n• Current Channel 2: {current_ma_2} mA\n"
+                if self.sim_mode_multipolar.isChecked():
+                    current_details += f"• Current Channel 3: {current_ma_3} mA\n• Current Channel 4: {current_ma_4} mA\n"
+                
                 details += (f"\nParameters:\n"
                           f"• Simulation type: {conductivity}\n"
-                          f"• Current Channel 1: {current_ma_1} mA\n"
-                          f"• Current Channel 2: {current_ma_2} mA\n"
+                          f"{current_details}"
                           f"• Electrode shape: {electrode_shape}\n"
                           f"• Dimensions: {dimensions} mm\n"
                           f"• Thickness: {thickness} mm")
@@ -1489,7 +1539,10 @@ class SimulatorTab(QtWidgets.QWidget):
                 
                 self.update_output(f"Electrode type: {electrode_type_text}")
             
-            self.update_output(f"Current Ch1/Ch2: {current_ma_1}/{current_ma_2} mA")
+            if self.sim_mode_multipolar.isChecked():
+                self.update_output(f"Current Ch1/Ch2/Ch3/Ch4: {current_ma_1}/{current_ma_2}/{current_ma_3}/{current_ma_4} mA")
+            else:
+                self.update_output(f"Current Ch1/Ch2: {current_ma_1}/{current_ma_2} mA")
             self.update_output(f"Electrode: {electrode_shape} ({dimensions} mm, {thickness} mm thick)")
             self.update_output("--- STARTING SIMULATION ---")
             
@@ -1802,6 +1855,8 @@ class SimulatorTab(QtWidgets.QWidget):
         self.sim_mode_multipolar.setEnabled(False)
         self.current_input_1.setEnabled(False)
         self.current_input_2.setEnabled(False)
+        self.current_input_3.setEnabled(False)
+        self.current_input_4.setEnabled(False)
         self.electrode_shape_rect.setEnabled(False)
         self.electrode_shape_ellipse.setEnabled(False)
         self.dimensions_input.setEnabled(False)
@@ -1838,6 +1893,8 @@ class SimulatorTab(QtWidgets.QWidget):
         self.sim_mode_multipolar.setEnabled(True)
         self.current_input_1.setEnabled(True)
         self.current_input_2.setEnabled(True)
+        self.current_input_3.setEnabled(True)
+        self.current_input_4.setEnabled(True)
         self.electrode_shape_rect.setEnabled(True)
         self.electrode_shape_ellipse.setEnabled(True)
         self.dimensions_input.setEnabled(True)
@@ -1853,6 +1910,14 @@ class SimulatorTab(QtWidgets.QWidget):
         self.clear_flex_selection_btn.setEnabled(True)
         self.flex_use_mapped.setEnabled(True)
         self.flex_use_optimized.setEnabled(True)
+    
+    def update_current_inputs_visibility(self):
+        """Update the visibility of current input channels based on simulation mode."""
+        is_multipolar = self.sim_mode_multipolar.isChecked()
+        
+        # Show/hide channels 3 and 4 based on multipolar mode
+        for widget in self.multipolar_current_widgets:
+            widget.setVisible(is_multipolar)
     
     def update_electrode_inputs(self, checked):
         """Update the electrode input form based on the selected simulation mode.
@@ -2161,11 +2226,20 @@ class SimulatorTab(QtWidgets.QWidget):
         try:
             current_1 = float(self.current_input_1.text() or "1.0")
             current_2 = float(self.current_input_2.text() or "1.0")
-            if current_1 <= 0 or current_2 <= 0:
-                QtWidgets.QMessageBox.warning(self, "Warning", "Current values must be greater than 0 mA.")
-                return False
+            
+            if self.sim_mode_multipolar.isChecked():
+                current_3 = float(self.current_input_3.text() or "1.0")
+                current_4 = float(self.current_input_4.text() or "1.0")
+                if current_1 <= 0 or current_2 <= 0 or current_3 <= 0 or current_4 <= 0:
+                    QtWidgets.QMessageBox.warning(self, "Warning", "All current values must be greater than 0 mA.")
+                    return False
+            else:
+                if current_1 <= 0 or current_2 <= 0:
+                    QtWidgets.QMessageBox.warning(self, "Warning", "Current values must be greater than 0 mA.")
+                    return False
         except ValueError:
-            QtWidgets.QMessageBox.warning(self, "Warning", "Please enter valid current values in mA for both channels.")
+            channels_text = "all channels" if self.sim_mode_multipolar.isChecked() else "both channels"
+            QtWidgets.QMessageBox.warning(self, "Warning", f"Please enter valid current values in mA for {channels_text}.")
             return False
             
         # Validate dimensions

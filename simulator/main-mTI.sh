@@ -106,16 +106,17 @@ setup_montage_dirs() {
     local montage_name=$1
     local montage_dir="$sim_dir/${montage_name}"
     
-    # Create main montage directory structure
-    mkdir -p "$montage_dir/high_Frequency/mesh"
-    mkdir -p "$montage_dir/high_Frequency/niftis"
-    mkdir -p "$montage_dir/high_Frequency/analysis"
-    mkdir -p "$montage_dir/mTI/mesh"
-    mkdir -p "$montage_dir/mTI/niftis"
-    mkdir -p "$montage_dir/mTI/montage_imgs"
+    # Create main montage directory structure for multipolar TI
     mkdir -p "$montage_dir/documentation"
+    mkdir -p "$montage_dir/high_frequency_A"
+    mkdir -p "$montage_dir/high_frequency_B"
+    mkdir -p "$montage_dir/TI/mesh_A"
+    mkdir -p "$montage_dir/TI/mesh_B"
+    mkdir -p "$montage_dir/TI/montage_imgs"
+    mkdir -p "$montage_dir/TI/niftis"
+    mkdir -p "$montage_dir/mTI"
     
-    log_info "Created directory structure for montage: $montage_name"
+    log_info "Created multipolar directory structure for montage: $montage_name"
 }
 
 # Create directories for each montage
@@ -139,7 +140,7 @@ done
 run_visualize_montages() {
     for montage in "${selected_montages[@]}"; do
         local montage_dir="$sim_dir/$montage"
-        local montage_output_dir="$montage_dir/mTI/montage_imgs"
+        local montage_output_dir="$montage_dir/TI/montage_imgs"
         
         log_info "Visualizing montage: $montage"
         visualize_montage_script_path="$utils_dir/visualize-montage.sh"
@@ -228,29 +229,33 @@ for montage in "${selected_montages[@]}"; do
     
     log_info "Processing simulation results for montage: $montage"
     
-    # Move high frequency mesh files
-    for pattern in "TDCS_1" "TDCS_2"; do
-        for file in "$tmp_montage_dir"/*${pattern}*; do
-            if [[ -f "$file" ]]; then
-                if [[ "$file" == *".geo" || "$file" == *"scalar.msh" || "$file" == *"scalar.msh.opt" ]]; then
-                    mv "$file" "$montage_dir/high_Frequency/mesh/"
-                    log_info "Moved $(basename "$file") to high frequency mesh directory"
-                fi
-            fi
-        done
+    # Move high frequency A files (TDCS_1)
+    for file in "$tmp_montage_dir"/*TDCS_1*; do
+        if [[ -f "$file" ]]; then
+            mv "$file" "$montage_dir/high_frequency_A/"
+            log_info "Moved $(basename "$file") to high frequency A directory"
+        fi
     done
     
-    # Handle subject_volumes directory
+    # Move high frequency B files (TDCS_2)
+    for file in "$tmp_montage_dir"/*TDCS_2*; do
+        if [[ -f "$file" ]]; then
+            mv "$file" "$montage_dir/high_frequency_B/"
+            log_info "Moved $(basename "$file") to high frequency B directory"
+        fi
+    done
+    
+    # Handle subject_volumes directory - move to TI/niftis
     if [ -d "$tmp_montage_dir/subject_volumes" ]; then
-        mv "$tmp_montage_dir/subject_volumes"/* "$montage_dir/high_Frequency/niftis/"
+        mv "$tmp_montage_dir/subject_volumes"/* "$montage_dir/TI/niftis/"
         rmdir "$tmp_montage_dir/subject_volumes"
-        log_info "Moved subject volumes to high frequency niftis directory"
+        log_info "Moved subject volumes to TI niftis directory"
     fi
     
-    # Move fields_summary.txt to analysis
+    # Move fields_summary.txt to documentation
     if [ -f "$tmp_montage_dir/fields_summary.txt" ]; then
-        mv "$tmp_montage_dir/fields_summary.txt" "$montage_dir/high_Frequency/analysis/"
-        log_info "Moved fields summary to analysis directory"
+        mv "$tmp_montage_dir/fields_summary.txt" "$montage_dir/documentation/"
+        log_info "Moved fields summary to documentation directory"
     fi
     
     # Move log and mat files to documentation
@@ -266,20 +271,20 @@ for montage in "${selected_montages[@]}"; do
         log_info "Processing mTI mesh"
         
         # Move and rename mTI mesh and its opt file (without subject ID)
-        mv "$tmp_montage_dir/mTI.msh" "$montage_dir/mTI/mesh/${montage}_mTI.msh"
+        mv "$tmp_montage_dir/mTI.msh" "$montage_dir/mTI/${montage}_mTI.msh"
         if [ -f "$tmp_montage_dir/mTI.msh.opt" ]; then
-            mv "$tmp_montage_dir/mTI.msh.opt" "$montage_dir/mTI/mesh/${montage}_mTI.msh.opt"
+            mv "$tmp_montage_dir/mTI.msh.opt" "$montage_dir/mTI/${montage}_mTI.msh.opt"
         fi
         log_info "Moved and renamed mTI mesh files"
         
         # Extract GM and WM fields (without subject ID)
-        mti_mesh="$montage_dir/mTI/mesh/${montage}_mTI.msh"
-        gm_output="$montage_dir/mTI/mesh/grey_${montage}_mTI.msh"
-        wm_output="$montage_dir/mTI/mesh/white_${montage}_mTI.msh"
+        mti_mesh="$montage_dir/mTI/${montage}_mTI.msh"
+        gm_output="$montage_dir/mTI/grey_${montage}_mTI.msh"
+        wm_output="$montage_dir/mTI/white_${montage}_mTI.msh"
         extract_fields "$mti_mesh" "$gm_output" "$wm_output"
         
         # Transform to NIfTI
-        transform_parcellated_meshes_to_nifti "$montage_dir/mTI/mesh" "$montage_dir/mTI/niftis"
+        transform_parcellated_meshes_to_nifti "$montage_dir/mTI" "$montage_dir/TI/niftis"
     fi
 done
 
@@ -293,12 +298,14 @@ verify_files() {
 
     # Check for essential files and directories
     essential_paths=(
-        "$montage_base_dir/high_Frequency/mesh"
-        "$montage_base_dir/high_Frequency/niftis"
-        "$montage_base_dir/high_Frequency/analysis/fields_summary.txt"
+        "$montage_base_dir/high_frequency_A"
+        "$montage_base_dir/high_frequency_B"
+        "$montage_base_dir/TI/mesh_A"
+        "$montage_base_dir/TI/mesh_B"
+        "$montage_base_dir/TI/niftis"
+        "$montage_base_dir/TI/montage_imgs"
         "$montage_base_dir/documentation"
-        "$montage_base_dir/mTI/mesh/${subject_id}_${montage_name}_mTI.msh"
-        "$montage_base_dir/mTI/mesh/${subject_id}_${montage_name}_mTI.msh.opt"
+        "$montage_base_dir/mTI/${montage_name}_mTI.msh"
     )
 
     for path in "${essential_paths[@]}"; do
@@ -309,7 +316,7 @@ verify_files() {
     done
 
     # Check if high frequency files exist
-    if [ ! "$(ls -A "$montage_base_dir/high_Frequency/mesh" 2>/dev/null)" ] || [ ! "$(ls -A "$montage_base_dir/high_Frequency/niftis" 2>/dev/null)" ]; then
+    if [ ! "$(ls -A "$montage_base_dir/high_frequency_A" 2>/dev/null)" ] || [ ! "$(ls -A "$montage_base_dir/high_frequency_B" 2>/dev/null)" ]; then
         log_error "High frequency directories are empty"
         missing_files=$((missing_files + 1))
     fi

@@ -1537,10 +1537,12 @@ if [[ "$1" == "--run-direct" ]]; then
     
     # Determine simulator directory and main script
     simulator_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../simulator"
-    if [[ "$sim_type" == "TI" ]]; then
+    if [[ "$sim_mode" == "U" ]]; then
         main_script="main-TI.sh"
-    else
+    elif [[ "$sim_mode" == "M" ]]; then
         main_script="main-mTI.sh"
+    else
+        main_script="main-TI.sh"  # Default fallback
     fi
     
     # Process each subject
