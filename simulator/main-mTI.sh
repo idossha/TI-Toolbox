@@ -106,15 +106,16 @@ setup_montage_dirs() {
     local montage_name=$1
     local montage_dir="$sim_dir/${montage_name}"
     
-    # Create main montage directory structure for multipolar TI
+    # Create flattened multipolar directory structure
     mkdir -p "$montage_dir/documentation"
-    mkdir -p "$montage_dir/high_frequency_A"
-    mkdir -p "$montage_dir/high_frequency_B"
-    mkdir -p "$montage_dir/TI/mesh_A"
-    mkdir -p "$montage_dir/TI/mesh_B"
-    mkdir -p "$montage_dir/TI/montage_imgs"
+    mkdir -p "$montage_dir/high_Frequency/analysis"
+    mkdir -p "$montage_dir/high_Frequency/mesh"
+    mkdir -p "$montage_dir/TI/mesh"
     mkdir -p "$montage_dir/TI/niftis"
-    mkdir -p "$montage_dir/mTI"
+    mkdir -p "$montage_dir/TI/montage_imgs"
+    mkdir -p "$montage_dir/TI/surface_overlays"
+    mkdir -p "$montage_dir/mTI/mesh"
+    mkdir -p "$montage_dir/mTI/niftis"
     
     log_info "Created multipolar directory structure for montage: $montage_name"
 }
@@ -152,9 +153,7 @@ run_visualize_montages() {
     done
 }
 
-# Create temporary directory for SimNIBS output
-tmp_dir="$sim_dir/tmp"
-mkdir -p "$tmp_dir"
+# mTI pipeline writes directly to final directories (no temporary directory needed)
 
 # Run the pipeline
 run_visualize_montages
@@ -216,75 +215,149 @@ convert_t1_to_mni() {
 # Process each montage's simulation results
 for montage in "${selected_montages[@]}"; do
     montage_dir="$sim_dir/$montage"
-    tmp_montage_dir="$tmp_dir/$montage"
     
     # Convert T1 to MNI space
     convert_t1_to_mni
     
-    # Skip if temporary directory doesn't exist
-    if [ ! -d "$tmp_montage_dir" ]; then
+    # Check if simulation results exist in the montage directory (mTI.py writes directly there)
+    if [ ! -d "$montage_dir" ]; then
         log_error "No simulation results found for montage: $montage"
         continue
     fi
     
     log_info "Processing simulation results for montage: $montage"
     
-    # Move high frequency A files (TDCS_1)
-    for file in "$tmp_montage_dir"/*TDCS_1*; do
-        if [[ -f "$file" ]]; then
-            mv "$file" "$montage_dir/high_frequency_A/"
-            log_info "Moved $(basename "$file") to high frequency A directory"
-        fi
+    # Move and rename high frequency mesh files to high_Frequency/mesh directory
+    for i in {1..4}; do
+        hf_letter=$(echo "A B C D" | cut -d' ' -f$i)
+        for file in "$montage_dir"/*TDCS_${i}*; do
+            if [[ -f "$file" ]]; then
+                if [[ "$file" == *".geo" || "$file" == *"scalar.msh" || "$file" == *"scalar.msh.opt" ]]; then
+                    filename=$(basename "$file")
+                    # Rename from TDCS_1/2/3/4 to TDCS_A/B/C/D
+                    new_filename=$(echo "$filename" | sed "s/TDCS_${i}/TDCS_${hf_letter}/g")
+                    mv "$file" "$montage_dir/high_Frequency/mesh/$new_filename"
+                    log_info "Moved and renamed $(basename "$file") to $new_filename in high frequency mesh directory"
+                fi
+            fi
+        done
     done
     
-    # Move high frequency B files (TDCS_2)
-    for file in "$tmp_montage_dir"/*TDCS_2*; do
-        if [[ -f "$file" ]]; then
-            mv "$file" "$montage_dir/high_frequency_B/"
-            log_info "Moved $(basename "$file") to high frequency B directory"
-        fi
-    done
-    
-    # Handle subject_volumes directory - move to TI/niftis
-    if [ -d "$tmp_montage_dir/subject_volumes" ]; then
-        mv "$tmp_montage_dir/subject_volumes"/* "$montage_dir/TI/niftis/"
-        rmdir "$tmp_montage_dir/subject_volumes"
-        log_info "Moved subject volumes to TI niftis directory"
+    # Clean up subject_volumes directory (high frequency niftis not needed in new structure)
+    if [ -d "$montage_dir/subject_volumes" ]; then
+        rm -rf "$montage_dir/subject_volumes"
+        log_info "Cleaned up subject volumes directory"
     fi
     
-    # Move fields_summary.txt to documentation
-    if [ -f "$tmp_montage_dir/fields_summary.txt" ]; then
-        mv "$tmp_montage_dir/fields_summary.txt" "$montage_dir/documentation/"
-        log_info "Moved fields summary to documentation directory"
+    # Move fields_summary.txt to analysis directory (similar to regular TI pipeline)
+    if [ -f "$montage_dir/fields_summary.txt" ]; then
+        mv "$montage_dir/fields_summary.txt" "$montage_dir/high_Frequency/analysis/"
+        log_info "Moved fields summary to analysis directory"
     fi
     
     # Move log and mat files to documentation
-    for file in "$tmp_montage_dir"/simnibs_simulation_*.{log,mat}; do
+    for file in "$montage_dir"/simnibs_simulation_*.{log,mat}; do
         if [ -f "$file" ]; then
             mv "$file" "$montage_dir/documentation/"
             log_info "Moved $(basename "$file") to documentation directory"
         fi
     done
     
+    # Process TI intermediate meshes (TI_AB and TI_CD) - move directly to TI/mesh
+    if [ -f "$montage_dir/TI_AB.msh" ]; then
+        log_info "Processing TI_AB mesh"
+        mv "$montage_dir/TI_AB.msh" "$montage_dir/TI/mesh/${montage}_TI_AB.msh"
+        if [ -f "$montage_dir/TI_AB.msh.opt" ]; then
+            mv "$montage_dir/TI_AB.msh.opt" "$montage_dir/TI/mesh/${montage}_TI_AB.msh.opt"
+        fi
+        log_info "Moved TI_AB mesh files"
+        
+        # Extract GM and WM fields for TI_AB
+        ti_ab_mesh="$montage_dir/TI/mesh/${montage}_TI_AB.msh"
+        gm_ti_ab="$montage_dir/TI/mesh/grey_${montage}_TI_AB.msh"
+        wm_ti_ab="$montage_dir/TI/mesh/white_${montage}_TI_AB.msh"
+        extract_fields "$ti_ab_mesh" "$gm_ti_ab" "$wm_ti_ab"
+    fi
+    
+    if [ -f "$montage_dir/TI_CD.msh" ]; then
+        log_info "Processing TI_CD mesh"
+        mv "$montage_dir/TI_CD.msh" "$montage_dir/TI/mesh/${montage}_TI_CD.msh"
+        if [ -f "$montage_dir/TI_CD.msh.opt" ]; then
+            mv "$montage_dir/TI_CD.msh.opt" "$montage_dir/TI/mesh/${montage}_TI_CD.msh.opt"
+        fi
+        log_info "Moved TI_CD mesh files"
+        
+        # Extract GM and WM fields for TI_CD
+        ti_cd_mesh="$montage_dir/TI/mesh/${montage}_TI_CD.msh"
+        gm_ti_cd="$montage_dir/TI/mesh/grey_${montage}_TI_CD.msh"
+        wm_ti_cd="$montage_dir/TI/mesh/white_${montage}_TI_CD.msh"
+        extract_fields "$ti_cd_mesh" "$gm_ti_cd" "$wm_ti_cd"
+    fi
+
     # Process mTI mesh
-    if [ -f "$tmp_montage_dir/mTI.msh" ]; then
+    if [ -f "$montage_dir/mTI.msh" ]; then
         log_info "Processing mTI mesh"
         
-        # Move and rename mTI mesh and its opt file (without subject ID)
-        mv "$tmp_montage_dir/mTI.msh" "$montage_dir/mTI/${montage}_mTI.msh"
-        if [ -f "$tmp_montage_dir/mTI.msh.opt" ]; then
-            mv "$tmp_montage_dir/mTI.msh.opt" "$montage_dir/mTI/${montage}_mTI.msh.opt"
+        # Move and rename mTI mesh and its opt file to mTI/mesh
+        mv "$montage_dir/mTI.msh" "$montage_dir/mTI/mesh/${montage}_mTI.msh"
+        if [ -f "$montage_dir/mTI.msh.opt" ]; then
+            mv "$montage_dir/mTI.msh.opt" "$montage_dir/mTI/mesh/${montage}_mTI.msh.opt"
         fi
         log_info "Moved and renamed mTI mesh files"
         
-        # Extract GM and WM fields (without subject ID)
-        mti_mesh="$montage_dir/mTI/${montage}_mTI.msh"
-        gm_output="$montage_dir/mTI/grey_${montage}_mTI.msh"
-        wm_output="$montage_dir/mTI/white_${montage}_mTI.msh"
+        # Extract GM and WM fields for mTI
+        mti_mesh="$montage_dir/mTI/mesh/${montage}_mTI.msh"
+        gm_output="$montage_dir/mTI/mesh/grey_${montage}_mTI.msh"
+        wm_output="$montage_dir/mTI/mesh/white_${montage}_mTI.msh"
         extract_fields "$mti_mesh" "$gm_output" "$wm_output"
         
-        # Transform to NIfTI
-        transform_parcellated_meshes_to_nifti "$montage_dir/mTI" "$montage_dir/TI/niftis"
+        # Transform TI meshes to NIfTI
+        # Create temporary directory for TI NIfTI conversion
+        temp_ti_nifti_dir="$sim_dir/${montage}_ti_nifti_conversion"
+        mkdir -p "$temp_ti_nifti_dir"
+        
+        # Copy TI intermediate meshes for NIfTI conversion
+        if [ -f "$montage_dir/TI/mesh/${montage}_TI_AB.msh" ]; then
+            cp "$montage_dir/TI/mesh/${montage}_TI_AB.msh" "$temp_ti_nifti_dir/"
+        fi
+        if [ -f "$montage_dir/TI/mesh/grey_${montage}_TI_AB.msh" ]; then
+            cp "$montage_dir/TI/mesh/grey_${montage}_TI_AB.msh" "$temp_ti_nifti_dir/"
+        fi
+        if [ -f "$montage_dir/TI/mesh/white_${montage}_TI_AB.msh" ]; then
+            cp "$montage_dir/TI/mesh/white_${montage}_TI_AB.msh" "$temp_ti_nifti_dir/"
+        fi
+        
+        if [ -f "$montage_dir/TI/mesh/${montage}_TI_CD.msh" ]; then
+            cp "$montage_dir/TI/mesh/${montage}_TI_CD.msh" "$temp_ti_nifti_dir/"
+        fi
+        if [ -f "$montage_dir/TI/mesh/grey_${montage}_TI_CD.msh" ]; then
+            cp "$montage_dir/TI/mesh/grey_${montage}_TI_CD.msh" "$temp_ti_nifti_dir/"
+        fi
+        if [ -f "$montage_dir/TI/mesh/white_${montage}_TI_CD.msh" ]; then
+            cp "$montage_dir/TI/mesh/white_${montage}_TI_CD.msh" "$temp_ti_nifti_dir/"
+        fi
+        
+        # Convert TI meshes to NIfTI and place in TI/niftis directory
+        transform_parcellated_meshes_to_nifti "$temp_ti_nifti_dir" "$montage_dir/TI/niftis"
+        rm -rf "$temp_ti_nifti_dir"
+        
+        # Transform mTI meshes to NIfTI
+        # Create temporary directory for mTI NIfTI conversion
+        temp_mti_nifti_dir="$sim_dir/${montage}_mti_nifti_conversion"
+        mkdir -p "$temp_mti_nifti_dir"
+        
+        # Copy mTI meshes for NIfTI conversion
+        cp "$montage_dir/mTI/mesh/${montage}_mTI.msh" "$temp_mti_nifti_dir/"
+        if [ -f "$montage_dir/mTI/mesh/grey_${montage}_mTI.msh" ]; then
+            cp "$montage_dir/mTI/mesh/grey_${montage}_mTI.msh" "$temp_mti_nifti_dir/"
+        fi
+        if [ -f "$montage_dir/mTI/mesh/white_${montage}_mTI.msh" ]; then
+            cp "$montage_dir/mTI/mesh/white_${montage}_mTI.msh" "$temp_mti_nifti_dir/"
+        fi
+        
+        # Convert mTI meshes to NIfTI and place in mTI/niftis directory
+        transform_parcellated_meshes_to_nifti "$temp_mti_nifti_dir" "$montage_dir/mTI/niftis"
+        rm -rf "$temp_mti_nifti_dir"
     fi
 done
 
@@ -296,16 +369,17 @@ verify_files() {
 
     log_info "Verifying files for montage: $montage_name"
 
-    # Check for essential files and directories
+    # Check for essential directories
     essential_paths=(
-        "$montage_base_dir/high_frequency_A"
-        "$montage_base_dir/high_frequency_B"
-        "$montage_base_dir/TI/mesh_A"
-        "$montage_base_dir/TI/mesh_B"
+        "$montage_base_dir/high_Frequency/mesh"
+        "$montage_base_dir/high_Frequency/analysis"
+        "$montage_base_dir/TI/mesh"
         "$montage_base_dir/TI/niftis"
         "$montage_base_dir/TI/montage_imgs"
+        "$montage_base_dir/TI/surface_overlays"
         "$montage_base_dir/documentation"
-        "$montage_base_dir/mTI/${montage_name}_mTI.msh"
+        "$montage_base_dir/mTI/mesh"
+        "$montage_base_dir/mTI/niftis"
     )
 
     for path in "${essential_paths[@]}"; do
@@ -315,10 +389,31 @@ verify_files() {
         fi
     done
 
-    # Check if high frequency files exist
-    if [ ! "$(ls -A "$montage_base_dir/high_frequency_A" 2>/dev/null)" ] || [ ! "$(ls -A "$montage_base_dir/high_frequency_B" 2>/dev/null)" ]; then
-        log_error "High frequency directories are empty"
-        missing_files=$((missing_files + 1))
+    # Check for essential files
+    essential_files=(
+        "$montage_base_dir/mTI/mesh/${montage_name}_mTI.msh"
+        "$montage_base_dir/TI/mesh/${montage_name}_TI_AB.msh"
+        "$montage_base_dir/TI/mesh/${montage_name}_TI_CD.msh"
+    )
+
+    for file in "${essential_files[@]}"; do
+        if [ ! -f "$file" ]; then
+            log_error "Missing essential file: $file"
+            missing_files=$((missing_files + 1))
+        fi
+    done
+
+    # Check if high frequency mesh directory has files with correct naming
+    hf_files_missing=0
+    for hf_letter in A B C D; do
+        if [ ! -f "$montage_base_dir/high_Frequency/mesh/${subject_id}_TDCS_${hf_letter}_scalar.msh" ]; then
+            log_error "Missing high frequency file: ${subject_id}_TDCS_${hf_letter}_scalar.msh"
+            hf_files_missing=$((hf_files_missing + 1))
+        fi
+    done
+    
+    if [ $hf_files_missing -gt 0 ]; then
+        missing_files=$((missing_files + hf_files_missing))
     fi
 
     return $missing_files
@@ -334,8 +429,6 @@ for montage in "${selected_montages[@]}"; do
 done
 
 if [ "$all_files_present" = true ]; then
-    # Clean up temporary directory only if all files were moved successfully
-    rm -rf "$tmp_dir"
     for montage in "${selected_montages[@]}"; do
         log_info "Pipeline completed successfully for montage: $montage"
         log_info "----------------------------------------"
@@ -343,7 +436,7 @@ if [ "$all_files_present" = true ]; then
 else
     for montage in "${selected_montages[@]}"; do
         log_error "Some files may be missing for montage: $montage"
-        log_error "Temporary files preserved in: $tmp_dir"
+        log_error "Check simulation directory: $sim_dir/$montage"
         log_error "----------------------------------------"
     done
 fi
