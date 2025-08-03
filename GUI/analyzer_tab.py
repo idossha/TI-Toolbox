@@ -1154,7 +1154,7 @@ class AnalyzerTab(QtWidgets.QWidget):
         project_dir_name = os.environ.get("PROJECT_DIR_NAME", "BIDS_new")
         project_dir = os.path.join("/mnt", project_dir_name)
         # Freesurfer path uses full subject ID for both levels, e.g., sub-001/sub-001/mri
-        freesurfer_mri_dir = os.path.join(project_dir, "derivatives", "freesurfer", f"sub-{subject_id}", f"{subject_id}", "mri")
+        freesurfer_mri_dir = os.path.join(project_dir, "derivatives", "freesurfer", f"sub-{subject_id}", "mri")
         
         # Original defined atlases
         atlases_to_check = ['aparc.DKTatlas+aseg.mgz', 'aparc.a2009s+aseg.mgz']
