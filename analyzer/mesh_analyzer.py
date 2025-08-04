@@ -468,8 +468,10 @@ class MeshAnalyzer:
                     
                     # Calculate focality (roi_average / whole_brain_average)
                     # Only include positive values in the whole brain average
+                    # Use area-weighted averaging for consistency with other mesh analyses
                     whole_brain_positive_mask = field_values > 0
-                    whole_brain_average = np.mean(field_values[whole_brain_positive_mask])
+                    whole_brain_node_areas = node_areas[whole_brain_positive_mask]
+                    whole_brain_average = np.average(field_values[whole_brain_positive_mask], weights=whole_brain_node_areas)
                     focality = mean_value / whole_brain_average
                     
                     # Log the whole brain average for debugging
@@ -736,9 +738,21 @@ class MeshAnalyzer:
                 )
                 results['visualization_file'] = viz_file
             
+            # Calculate and save extra focality information for entire grey matter
+            self.logger.info("Calculating focality metrics for entire grey matter...")
+            focality_info = self._calculate_focality_metrics(
+                field_values,  # Use entire surface data, not just ROI
+                node_areas,    # Use all node areas, not just ROI
+                f"sphere_x{center_coordinates[0]}_y{center_coordinates[1]}_z{center_coordinates[2]}_r{radius}"
+            )
+            
             # Save results to CSV
             region_name = f"sphere_x{center_coordinates[0]}_y{center_coordinates[1]}_z{center_coordinates[2]}_r{radius}"
             self.visualizer.save_results_to_csv(results, 'spherical', region_name, 'node')
+            
+            # Save extra info CSV with focality data
+            if focality_info:
+                self.visualizer.save_extra_info_to_csv(focality_info, 'spherical', region_name, 'node')
             
             return results
             
@@ -1026,24 +1040,27 @@ class MeshAnalyzer:
 
     def get_grey_matter_statistics(self):
         """
-        Calculate grey matter field statistics from the surface mesh data.
+        Calculate grey matter field statistics from the GM surface (central layer).
+        
+        For mesh analysis, tries to use the same GM surface as other analyses for consistency.
+        Falls back to original mesh if surface generation fails to ensure robustness.
         
         Returns:
             dict: Dictionary containing grey matter statistics (mean, max, min)
         """
-        self.logger.info("Calculating grey matter field statistics from surface mesh...")
+        self.logger.info("Calculating grey matter field statistics from GM surface (central layer)...")
         
         try:
-            # Generate surface mesh if needed and load it
+            # Try to generate and load GM surface mesh (same as other mesh analyses)
             surface_mesh_path = self._generate_surface_mesh()
             gm_surf = simnibs.read_msh(surface_mesh_path)
             
             # Check if field exists
             if self.field_name not in gm_surf.field:
                 available_fields = list(gm_surf.field.keys())
-                raise ValueError(f"Field '{self.field_name}' not found in surface mesh. Available fields: {available_fields}")
+                raise ValueError(f"Field '{self.field_name}' not found in GM surface. Available fields: {available_fields}")
             
-            # Get field values from surface mesh (same as analyze_cortex)
+            # Get field values from GM surface (same source as other mesh analyses)
             field_values = gm_surf.field[self.field_name].value
             
             # Filter for positive values only (matching ROI analysis behavior)
@@ -1052,19 +1069,19 @@ class MeshAnalyzer:
             
             # Check if we have any positive values
             if len(field_values_positive) == 0:
-                self.logger.warning("No positive values found in grey matter surface")
+                self.logger.warning("No positive values found in GM surface")
                 return {'grey_mean': 0.0, 'grey_max': 0.0, 'grey_min': 0.0}
             
-            # Calculate statistics on positive values only
-            # Use area-weighted averaging for consistency with ROI calculations
+            # Calculate statistics using area-weighted averaging (consistent with other mesh analyses)
             node_areas = gm_surf.nodes_areas()
             positive_node_areas = node_areas[positive_mask]
             grey_mean = np.average(field_values_positive, weights=positive_node_areas)
             grey_max = np.max(field_values_positive)
             grey_min = np.min(field_values_positive)
             
-            self.logger.info(f"Grey matter statistics from surface mesh for field '{self.field_name}' (positive values only): "
+            self.logger.info(f"Grey matter statistics from GM surface for field '{self.field_name}' (positive values only): "
                            f"mean={grey_mean:.6f}, max={grey_max:.6f}, min={grey_min:.6f}")
+            self.logger.info(f"Total nodes with positive values: {len(field_values_positive)}")
             
             return {
                 'grey_mean': float(grey_mean),
@@ -1073,5 +1090,39 @@ class MeshAnalyzer:
             }
             
         except Exception as e:
-            self.logger.error(f"Error calculating grey matter statistics from surface mesh: {str(e)}")
-            return {'grey_mean': 0.0, 'grey_max': 0.0, 'grey_min': 0.0}
+            self.logger.warning(f"GM surface generation failed: {str(e)}")
+            self.logger.info("Falling back to original mesh for grey matter statistics...")
+            
+            # Fallback: Use original mesh if surface generation fails
+            try:
+                field_mesh = simnibs.read_msh(self.field_mesh_path)
+                
+                if self.field_name not in field_mesh.field:
+                    available_fields = list(field_mesh.field.keys())
+                    raise ValueError(f"Field '{self.field_name}' not found in original mesh. Available fields: {available_fields}")
+                
+                field_values = field_mesh.field[self.field_name].value
+                positive_mask = field_values > 0
+                field_values_positive = field_values[positive_mask]
+                
+                if len(field_values_positive) == 0:
+                    self.logger.warning("No positive values found in original mesh")
+                    return {'grey_mean': 0.0, 'grey_max': 0.0, 'grey_min': 0.0}
+                
+                # Use simple averaging for volume mesh fallback
+                grey_mean = np.mean(field_values_positive)
+                grey_max = np.max(field_values_positive)
+                grey_min = np.min(field_values_positive)
+                
+                self.logger.info(f"Grey matter statistics from original mesh (fallback) for field '{self.field_name}': "
+                               f"mean={grey_mean:.6f}, max={grey_max:.6f}, min={grey_min:.6f}")
+                
+                return {
+                    'grey_mean': float(grey_mean),
+                    'grey_max': float(grey_max),
+                    'grey_min': float(grey_min)
+                }
+                
+            except Exception as fallback_error:
+                self.logger.error(f"Fallback to original mesh also failed: {str(fallback_error)}")
+                return {'grey_mean': 0.0, 'grey_max': 0.0, 'grey_min': 0.0}

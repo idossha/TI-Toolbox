@@ -163,15 +163,11 @@ def _extract_montage_and_region_info(analysis_dirs: list[str]) -> tuple[str, str
             # Fallback: use the analysis directory name as region
             region_name = analysis_dir_name
         
-        # Clean up names - remove problematic characters and limit length
+        # Clean up names - remove problematic characters
         region_name = region_name.replace('/', '_').replace('\\', '_').replace(' ', '_')
         montage_name = montage_name.replace('/', '_').replace('\\', '_').replace(' ', '_')
         
-        # Limit length to avoid filesystem issues
-        if len(region_name) > 50:
-            region_name = region_name[:47] + "..."
-        if len(montage_name) > 30:
-            montage_name = montage_name[:27] + "..."
+        # Keep full names as requested - no length limiting
         
         if group_logger:
             group_logger.debug(f"Final montage: {montage_name}, region: {region_name}")
@@ -418,10 +414,11 @@ def _find_field_path_from_analysis(analysis_path: str, subject_id: str, montage_
                     # Common patterns: --field_path, field_mesh_path, field_nifti
                     import re
                     
-                    # Pattern for field path arguments
+                    # Pattern for field path arguments - prioritize TI mesh files for TI_max field
                     field_patterns = [
                         r'--field_path\s+([^\s]+)',
-                        r'field_mesh_path[=:]\s*([^\s\n]+)',
+                        r'field_mesh_path[=:]\s*([^\s\n]*_TI\.msh)',  # Prioritize TI mesh files
+                        r'field_mesh_path[=:]\s*([^\s\n]+)',          # Fallback to any mesh file
                         r'field_nifti[=:]\s*([^\s\n]+)',
                         r'field_file[=:]\s*([^\s\n]+)'
                     ]
@@ -459,13 +456,22 @@ def _find_field_path_from_analysis(analysis_path: str, subject_id: str, montage_
         
         if space_type == 'mesh':
             # For mesh analysis, construct the expected field path
+            # Prioritize *_TI.msh files since we need TI_max field for grey matter statistics
             field_dir = os.path.join("/mnt", project_name, "derivatives", "SimNIBS", 
                                    subject_id, "Simulations", montage_name, "TI", "mesh")
             if os.path.exists(field_dir):
                 msh_files = [f for f in os.listdir(field_dir) if f.endswith('.msh') and not f.endswith('.msh.opt')]
-                if msh_files:
+                
+                # Look for TI mesh files first (contains TI_max field)
+                ti_files = [f for f in msh_files if '_TI.msh' in f]
+                if ti_files:
+                    field_path = os.path.join(field_dir, ti_files[0])
+                    group_logger.debug(f"Constructed mesh field path (TI): {field_path}")
+                    return field_path
+                elif msh_files:
+                    # Fallback to any .msh file
                     field_path = os.path.join(field_dir, msh_files[0])
-                    group_logger.debug(f"Constructed mesh field path: {field_path}")
+                    group_logger.debug(f"Constructed mesh field path (fallback): {field_path}")
                     return field_path
         elif space_type == 'voxel':
             # For voxel analysis, construct the expected field path

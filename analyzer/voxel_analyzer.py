@@ -539,9 +539,21 @@ class VoxelAnalyzer:
             except Exception as e:
                 self.logger.warning(f"Could not generate focality histogram for spherical ROI: {str(e)}")
         
+        # Calculate and save extra focality information for entire volume
+        self.logger.info("Calculating focality metrics for entire volume...")
+        focality_info = self._calculate_focality_metrics(
+            field_data,  # Use entire volume data
+            np.prod(voxel_size),  # Voxel volume
+            f"sphere_x{center_coordinates[0]}_y{center_coordinates[1]}_z{center_coordinates[2]}_r{radius}"
+        )
+        
         # Save results to CSV
         region_name = f"sphere_x{center_coordinates[0]}_y{center_coordinates[1]}_z{center_coordinates[2]}_r{radius}"
         self.visualizer.save_results_to_csv(results, 'spherical', region_name, 'voxel')
+        
+        # Save extra info CSV with focality data
+        if focality_info:
+            self.visualizer.save_extra_info_to_csv(focality_info, 'spherical', region_name, 'voxel')
         
         return results
     
