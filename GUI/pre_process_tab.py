@@ -296,6 +296,12 @@ class PreProcessTab(QtWidgets.QWidget):
         self.create_atlas_cb = QtWidgets.QCheckBox("Create atlas segmentation")
         self.create_atlas_cb.setChecked(True)
         options_group_layout.addWidget(self.create_atlas_cb)
+
+        # Bone analyzer option (publication-ready skull bone analysis)
+        self.run_bone_analyzer_cb = QtWidgets.QCheckBox("Run skull bone analyzer (publication-ready figures)")
+        self.run_bone_analyzer_cb.setChecked(False)
+        self.run_bone_analyzer_cb.setToolTip("Analyze skull bone volume/thickness and generate GxP-ready figures alongside preprocessing")
+        options_group_layout.addWidget(self.run_bone_analyzer_cb)
         
         # Other options
         self.quiet_cb = QtWidgets.QCheckBox("Run in quiet mode")
@@ -655,6 +661,7 @@ class PreProcessTab(QtWidgets.QWidget):
         env['PARALLEL_RECON'] = str(self.parallel_cb.isChecked()).lower()
         env['CREATE_M2M'] = str(self.create_m2m_cb.isChecked()).lower()
         env['QUIET'] = str(self.quiet_cb.isChecked()).lower()
+        env['RUN_BONE_ANALYZER'] = str(self.run_bone_analyzer_cb.isChecked()).lower()
         
         # Build command exactly like CLI does - subject directories first, then flags
         script_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -692,6 +699,7 @@ class PreProcessTab(QtWidgets.QWidget):
         self.update_output(f"- Parallel processing: {env['PARALLEL_RECON']}", 'info')
         self.update_output(f"- Create m2m folder: {env['CREATE_M2M']}", 'info')
         self.update_output(f"- Create atlas segmentation: {str(self.create_atlas_cb.isChecked()).lower()}", 'info')
+        self.update_output(f"- Run bone analyzer: {env['RUN_BONE_ANALYZER']}", 'info')
         self.update_output(f"- Quiet mode: {env['QUIET']}", 'info')
         
         # Create and start the thread
@@ -812,6 +820,31 @@ class PreProcessTab(QtWidgets.QWidget):
         
         # Automatically generate reports for all processed subjects
         self.auto_generate_reports()
+
+        # If requested, run bone analyzer on each subject's segmentation
+        if self.run_bone_analyzer_cb.isChecked():
+            self.update_output("\n=== Running skull bone analyzer ===", 'info')
+            selected_subjects = [item.text() for item in self.subject_list.selectedItems()]
+            for subject_id in selected_subjects:
+                try:
+                    bids_subject_id = f"sub-{subject_id}"
+                    # Use SimNIBS segmentation NIfTI as input if available
+                    m2m_dir = os.path.join(self.project_dir, "derivatives", "SimNIBS", bids_subject_id, f"m2m_{subject_id}")
+                    label_nii = os.path.join(m2m_dir, "segmentation", "Labeling.nii.gz")
+                    if not os.path.exists(label_nii):
+                        self.update_output(f"[Bone] {subject_id}: Labeling.nii.gz not found, skipping bone analysis.", 'warning')
+                        continue
+                    out_dir = os.path.join(self.project_dir, "derivatives", "bone_analyzer", bids_subject_id)
+                    os.makedirs(out_dir, exist_ok=True)
+                    cmd_bone = [sys.executable, os.path.join(os.path.dirname(os.path.dirname(__file__)), 'pre-process', 'bone_analyzer.py'), label_nii, '-o', out_dir]
+                    self.update_output(f"[Bone] {subject_id}: Running {' '.join(cmd_bone)}", 'info')
+                    proc = subprocess.run(cmd_bone, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+                    if proc.returncode == 0:
+                        self.update_output(f"[Bone] {subject_id}: Bone analysis completed.", 'success')
+                    else:
+                        self.update_output(f"[Bone] {subject_id}: Bone analysis failed.\n{proc.stdout}", 'error')
+                except Exception as e:
+                    self.update_output(f"[Bone] {subject_id}: Error running bone analyzer: {e}", 'error')
 
     def stop_preprocessing(self):
         """Stop the running preprocessing process."""

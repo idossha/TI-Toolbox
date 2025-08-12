@@ -913,12 +913,28 @@ class AnalyzerTab(QtWidgets.QWidget):
         
         for subject_id in selected_subjects:
             # Determine the correct directory based on analysis space
+            # Check for mTI simulation first
+            is_mti = False
             if is_mesh:
-                field_dir = os.path.join(project_dir, 'derivatives', 'SimNIBS', f'sub-{subject_id}', 
-                                       'Simulations', montage_name, 'TI', 'mesh')
+                mti_mesh_dir = os.path.join(project_dir, 'derivatives', 'SimNIBS', f'sub-{subject_id}', 
+                                           'Simulations', montage_name, 'mTI', 'mesh')
+                ti_mesh_dir = os.path.join(project_dir, 'derivatives', 'SimNIBS', f'sub-{subject_id}', 
+                                          'Simulations', montage_name, 'TI', 'mesh')
+                if os.path.exists(mti_mesh_dir):
+                    field_dir = mti_mesh_dir
+                    is_mti = True
+                else:
+                    field_dir = ti_mesh_dir
             else:
-                field_dir = os.path.join(project_dir, 'derivatives', 'SimNIBS', f'sub-{subject_id}', 
-                                       'Simulations', montage_name, 'TI', 'niftis')
+                mti_nifti_dir = os.path.join(project_dir, 'derivatives', 'SimNIBS', f'sub-{subject_id}', 
+                                            'Simulations', montage_name, 'mTI', 'niftis')
+                ti_nifti_dir = os.path.join(project_dir, 'derivatives', 'SimNIBS', f'sub-{subject_id}', 
+                                           'Simulations', montage_name, 'TI', 'niftis')
+                if os.path.exists(mti_nifti_dir):
+                    field_dir = mti_nifti_dir
+                    is_mti = True
+                else:
+                    field_dir = ti_nifti_dir
             
             if not os.path.exists(field_dir):
                 failed_subjects.append(f"{subject_id} (directory not found)")
@@ -942,14 +958,21 @@ class AnalyzerTab(QtWidgets.QWidget):
             field_files = []
             
             if is_mesh:
-                # Pattern 1: Main field files (montage_name_TI.msh - like single analyzer uses)
-                field_files = [f for f in eligible_files 
-                             if f == f"{montage_name}_TI.msh"]
-                
-                # Pattern 2: If no exact match, look for files with montage name and TI
-                if not field_files:
+                # Pattern 1: Main field files (montage_name_TI.msh or montage_name_mTI.msh)
+                if is_mti:
+                    # For mTI simulations, look for _mTI.msh files
                     field_files = [f for f in eligible_files 
-                                 if montage_name.lower() in f.lower() and '_TI.msh' in f and 'MNI' not in f and not f.endswith('_central.msh') and not f.startswith('grey')]
+                                 if f == f"{montage_name}_mTI.msh"]
+                else:
+                    # For regular TI simulations, look for _TI.msh files
+                    field_files = [f for f in eligible_files 
+                                 if f == f"{montage_name}_TI.msh"]
+                
+                # Pattern 2: If no exact match, look for files with montage name and appropriate suffix
+                if not field_files:
+                    suffix = '_mTI.msh' if is_mti else '_TI.msh'
+                    field_files = [f for f in eligible_files 
+                                 if montage_name.lower() in f.lower() and suffix in f and 'MNI' not in f and not f.endswith('_central.msh') and not f.startswith('grey')]
                 
                 # Pattern 3: Fall back to grey matter files if main files not found
                 if not field_files:
@@ -2157,10 +2180,25 @@ class AnalyzerTab(QtWidgets.QWidget):
         base_sim_dir = os.path.join(f"/mnt/{project_dir_name}", 'derivatives', 'SimNIBS', 
                                     f'sub-{subject_id}', 'Simulations', simulation_name)
         search_dir = ""
+        is_mti = False
         if self.space_mesh.isChecked():
-            search_dir = os.path.join(base_sim_dir, 'TI', 'mesh')
+            # Check for mTI simulation
+            mti_mesh_dir = os.path.join(base_sim_dir, 'mTI', 'mesh')
+            ti_mesh_dir = os.path.join(base_sim_dir, 'TI', 'mesh')
+            if os.path.exists(mti_mesh_dir):
+                search_dir = mti_mesh_dir
+                is_mti = True
+            else:
+                search_dir = ti_mesh_dir
         else: # voxel
-            search_dir = os.path.join(base_sim_dir, 'TI', 'niftis')
+            # Check for mTI simulation
+            mti_nifti_dir = os.path.join(base_sim_dir, 'mTI', 'niftis')
+            ti_nifti_dir = os.path.join(base_sim_dir, 'TI', 'niftis')
+            if os.path.exists(mti_nifti_dir):
+                search_dir = mti_nifti_dir
+                is_mti = True
+            else:
+                search_dir = ti_nifti_dir
         
         if not os.path.exists(search_dir):
             self.field_combo.setCurrentIndex(0)
@@ -2176,8 +2214,14 @@ class AnalyzerTab(QtWidgets.QWidget):
         # Original filtering and sorting logic for single mode
         field_files_paths = [] # Store (display_name, full_path)
         if self.space_mesh.isChecked():
-            # For mesh analysis, look for the specific pattern <montage>_TI.msh
-            expected_mesh_file = f"{simulation_name}_TI.msh"
+            # For mesh analysis, look for the specific pattern based on simulation type
+            if is_mti:
+                # For mTI simulations, look for <montage>_mTI.msh
+                expected_mesh_file = f"{simulation_name}_mTI.msh"
+            else:
+                # For regular TI simulations, look for <montage>_TI.msh
+                expected_mesh_file = f"{simulation_name}_TI.msh"
+            
             if expected_mesh_file in all_files_in_dir:
                 field_files_paths.append((expected_mesh_file, os.path.join(search_dir, expected_mesh_file)))
             else:

@@ -398,7 +398,13 @@ class NiftiViewerTab(QtWidgets.QWidget):
         # Check if MNI space files exist for this subject
         has_mni_files = False
         for sim_name in os.listdir(sim_base):
-            sim_path = os.path.join(sim_base, sim_name, "TI", "niftis")
+            # Check for mTI or TI niftis
+            mti_path = os.path.join(sim_base, sim_name, "mTI", "niftis")
+            ti_path = os.path.join(sim_base, sim_name, "TI", "niftis")
+            
+            # Use mTI path if it exists, otherwise TI path
+            sim_path = mti_path if os.path.exists(mti_path) else ti_path
+            
             if os.path.exists(sim_path):
                 for nifti_file in glob.glob(os.path.join(sim_path, "*.nii*")):
                     if "_MNI" in os.path.basename(nifti_file):
@@ -563,15 +569,26 @@ class NiftiViewerTab(QtWidgets.QWidget):
         # Add simulation results
         sim_dir = os.path.join(simulations_dir, simulation_name)
         
-        # Look for NIfTI files in the TI/niftis directory
-        nifti_dir = os.path.join(sim_dir, "TI", "niftis")
-        if os.path.exists(nifti_dir):
+        # Look for NIfTI files in the mTI/niftis or TI/niftis directory
+        mti_nifti_dir = os.path.join(sim_dir, "mTI", "niftis")
+        ti_nifti_dir = os.path.join(sim_dir, "TI", "niftis")
+        
+        # Check for mTI simulation first
+        if os.path.exists(mti_nifti_dir):
+            nifti_dir = mti_nifti_dir
+        elif os.path.exists(ti_nifti_dir):
+            nifti_dir = ti_nifti_dir
+        else:
+            nifti_dir = None
+            
+        if nifti_dir:
             # First, add the TI_max files
             for nifti_file in glob.glob(os.path.join(nifti_dir, "*.nii*")):
                 basename = os.path.basename(nifti_file)
                 
-                # Only include TI_max files and exclude TDCS files
-                if "TI_max" not in basename or "TDCS" in basename:
+                # Only include TI_max/TI_Max files and exclude TDCS files
+                # mTI uses TI_Max (capital M) while regular TI uses TI_max (lowercase m)
+                if ("TI_max" not in basename and "TI_Max" not in basename) or "TDCS" in basename:
                     continue
                 
                 # Determine if this file should be visible by default
