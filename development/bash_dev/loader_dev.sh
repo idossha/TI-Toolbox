@@ -231,6 +231,77 @@ get_version() {
     fi
 }
 
+# Function to initialize BIDS dataset_description.json in the project root
+initialize_dataset_description() {
+  local dataset_file="$LOCAL_PROJECT_DIR/dataset_description.json"
+  local template_file="$SCRIPT_DIR/../../new_project/dataset_description.json"
+
+  # If it already exists, skip
+  if [ -f "$dataset_file" ]; then
+    echo "dataset_description.json already exists in the project. Skipping creation."
+    return 0
+  fi
+
+  # Ensure project directory exists
+  if [ ! -d "$LOCAL_PROJECT_DIR" ]; then
+    echo "Error: Project directory $LOCAL_PROJECT_DIR does not exist."
+    return 1
+  fi
+
+  # Determine project name
+  local project_name="${PROJECT_DIR_NAME:-$(basename "$LOCAL_PROJECT_DIR")}"
+
+  # Create from template if available, else generate minimal file
+  if [ -f "$template_file" ]; then
+    cp "$template_file" "$dataset_file" || {
+      echo "Error: Failed to copy template dataset_description.json";
+      return 1;
+    }
+    # Fill in the Name field
+    sed -i.tmp "s/\"Name\": \"\"/\"Name\": \"$project_name\"/" "$dataset_file" && rm -f "${dataset_file}.tmp"
+  else
+    cat > "$dataset_file" << EOF
+{
+    "Name": "$project_name",
+    "BIDSVersion": "1.10.0",
+    "HEDVersion": "8.2.0",
+    "DatasetType": "raw",
+    "License": "",
+    "Authors": [
+        "",
+        "",
+        ""
+    ],
+    "Acknowledgements": "",
+    "HowToAcknowledge": "",
+    "Funding": [
+        "",
+        "",
+        ""
+    ],
+    "EthicsApprovals": [
+        ""
+    ],
+    "ReferencesAndLinks": [
+        "",
+        "",
+        ""
+    ],
+    "DatasetDOI": "doi:"
+}
+EOF
+  fi
+
+  # Basic verification
+  if [ -f "$dataset_file" ]; then
+    echo "Created $dataset_file"
+    return 0
+  else
+    echo "Error: Failed to create $dataset_file"
+    return 1
+  fi
+}
+
 # Function to write system info to a hidden folder in the user's project directory
 write_system_info() {
   INFO_DIR="$LOCAL_PROJECT_DIR/.ti-csc-info"
@@ -403,5 +474,8 @@ fi
 if ! write_project_status; then
   echo "Warning: Failed to write project status"
 fi
+
+# Ensure BIDS dataset description exists in the project root
+initialize_dataset_description
 
 run_docker_compose
