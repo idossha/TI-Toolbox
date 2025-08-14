@@ -365,9 +365,16 @@ initialize_project_configs() {
         fi
         
         # Copy each config file individually and verify, but only if it doesn't exist
+        # Exclude entrypoint.json as it's not needed in project configs
         for config_file in "$new_project_configs_dir"/*.json; do
             if [ -f "$config_file" ]; then
                 filename=$(basename "$config_file")
+                
+                # Skip entrypoint.json
+                if [ "$filename" = "entrypoint.json" ]; then
+                    continue
+                fi
+                
                 target_file="$project_config_dir/$filename"
                 
                 # Only copy if the file doesn't exist

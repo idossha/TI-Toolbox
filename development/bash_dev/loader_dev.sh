@@ -426,6 +426,40 @@ initialize_project_configs() {
       return 1
     fi
     
+    # Copy each config file individually and verify, but only if it doesn't exist
+    # Exclude entrypoint.json as it's not needed in project configs
+    for config_file in "$new_project_configs_dir"/*.json; do
+      if [ -f "$config_file" ]; then
+        filename=$(basename "$config_file")
+        
+        # Skip entrypoint.json
+        if [ "$filename" = "entrypoint.json" ]; then
+          continue
+        fi
+        
+        target_file="$project_config_dir/$filename"
+        
+        # Only copy if the file doesn't exist
+        if [ ! -f "$target_file" ]; then
+          if cp "$config_file" "$target_file" 2>/dev/null; then
+            echo "Copied $filename to $project_config_dir"
+            # Set proper permissions for the config file
+            chmod 644 "$target_file" 2>/dev/null || echo "Warning: Could not set permissions for $target_file"
+          else
+            echo "Error: Failed to copy $filename"
+            return 1
+          fi
+        else
+          echo "Config file $filename already exists, skipping..."
+        fi
+      fi
+    done
+    
+    # Set proper permissions for config directory
+    if ! chmod -R 755 "$project_config_dir" 2>/dev/null; then
+      echo "Warning: Could not set permissions for $project_config_dir"
+    fi
+
     # Create initial project status file
     local status_file="$info_dir/project_status.json"
     if ! cat > "$status_file" << EOF 2>/dev/null; then
