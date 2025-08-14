@@ -122,13 +122,14 @@ Project Directory/
 │           ├── Simulations/
 │           ├── flex-search/
 │           └── ex-search/
-└── ti-csc/                                 <i>(Auto-created at first launch)</i>
-    └── config/
-        ├── montage_list.json
-        ├── flex-search_config/
-        ├── ex-search_config/
-        ├── simulator_config/
-        └── entrypoint_config/
+└── code/
+    └── ti-toolbox/                         <i>(Auto-created at first launch)</i>
+        └── config/
+            ├── montage_list.json
+            ├── flex-search_config/
+            ├── ex-search_config/
+            ├── simulator_config/
+            └── entrypoint_config/
 </pre>
 
         <h3>Key Points:</h3>
@@ -137,7 +138,7 @@ Project Directory/
             <li>DICOM files must be placed in <code>sourcedata/sub-{subject}/T1w/dicom/</code></li>
             <li>T2w images are optional but can improve head model quality</li>
             <li>All other directories are automatically created during processing</li>
-            <li>The <code>ti-csc</code> directory contains shared configuration files</li>
+            <li>The <code>code/ti-toolbox</code> directory contains shared configuration files</li>
         </ul>
         
         <h3>Getting Started:</h3>

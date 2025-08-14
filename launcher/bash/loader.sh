@@ -298,7 +298,8 @@ get_version() {
 # Function to initialize BIDS dataset_description.json in the project root
 initialize_dataset_description() {
     local dataset_file="$LOCAL_PROJECT_DIR/dataset_description.json"
-    local template_file="$SCRIPT_DIR/../../new_project/dataset_description.json"
+    local assets_template="$SCRIPT_DIR/../../assets/dataset_descriptions/root.dataset_description.json"
+    local fallback_template="$SCRIPT_DIR/../../new_project/dataset_description.json"
 
     # If it already exists, skip
     if [ -f "$dataset_file" ]; then
@@ -315,47 +316,16 @@ initialize_dataset_description() {
     # Determine project name
     local project_name="${PROJECT_DIR_NAME:-$(basename "$LOCAL_PROJECT_DIR")}"
 
-    # Create from template if available, else generate minimal file
-    if [ -f "$template_file" ];
-    then
-        cp "$template_file" "$dataset_file" || {
-            echo "Error: Failed to copy template dataset_description.json";
-            return 1;
-        }
-        # Fill in the Name field in a cross-platform way
-        sed -i.tmp "s/\"Name\": \"\"/\"Name\": \"$project_name\"/" "$dataset_file" && rm -f "${dataset_file}.tmp"
+    # Prefer assets template; fallback to new_project template
+    if [ -f "$assets_template" ]; then
+        cp "$assets_template" "$dataset_file" || { echo "Error: Failed to copy assets template dataset_description.json"; return 1; }
+    elif [ -f "$fallback_template" ]; then
+        cp "$fallback_template" "$dataset_file" || { echo "Error: Failed to copy fallback template dataset_description.json"; return 1; }
     else
-        cat > "$dataset_file" << EOF
-{
-    "Name": "$project_name",
-    "BIDSVersion": "1.10.0",
-    "HEDVersion": "8.2.0",
-    "DatasetType": "raw",
-    "License": "",
-    "Authors": [
-        "",
-        "",
-        ""
-    ],
-    "Acknowledgements": "",
-    "HowToAcknowledge": "",
-    "Funding": [
-        "",
-        "",
-        ""
-    ],
-    "EthicsApprovals": [
-        ""
-    ],
-    "ReferencesAndLinks": [
-        "",
-        "",
-        ""
-    ],
-    "DatasetDOI": "doi:"
-}
-EOF
+        echo "Error: No dataset_description template found in assets or new_project"; return 1
     fi
+    # Fill in the Name field in a cross-platform way
+    sed -i.tmp "s/\"Name\": \"\"/\"Name\": \"$project_name\"/" "$dataset_file" && rm -f "${dataset_file}.tmp"
 
     # Basic verification
     if [ -f "$dataset_file" ]; then
@@ -369,12 +339,12 @@ EOF
 
 # Function to check if project is new and initialize config files
 initialize_project_configs() {
-    local project_ti_csc_dir="$LOCAL_PROJECT_DIR/ti-csc"
+    local project_ti_csc_dir="$LOCAL_PROJECT_DIR/code/ti-toolbox"
     local project_config_dir="$project_ti_csc_dir/config"
     local new_project_configs_dir="$SCRIPT_DIR/../../new_project/configs"
     local is_new_project=false
 
-    # Check if ti-csc directory exists
+    # Check if ti-toolbox directory exists
     if [ ! -d "$project_ti_csc_dir" ]; then
         echo "Creating new project structure..."
         mkdir -p "$project_config_dir"
@@ -421,8 +391,8 @@ initialize_project_configs() {
         chmod -R 755 "$project_config_dir"
         echo "Default config files copied to $project_config_dir"
 
-        # Create .ti-csc-info directory and initialize project status
-        local info_dir="$LOCAL_PROJECT_DIR/.ti-csc-info"
+        # Create sourcedata/.ti-toolbox-info directory and initialize project status
+        local info_dir="$LOCAL_PROJECT_DIR/sourcedata/.ti-toolbox-info"
         mkdir -p "$info_dir"
         
         # Create initial project status file with empty structure
@@ -452,7 +422,15 @@ initialize_project_configs() {
 
 # Function to write project status
 write_project_status() {
-    INFO_DIR="$LOCAL_PROJECT_DIR/.ti-csc-info"
+    # Migrate old info dir if present
+    local old_info_dir="$LOCAL_PROJECT_DIR/sourcedata/.ti-csc-info"
+    local new_info_dir="$LOCAL_PROJECT_DIR/sourcedata/.ti-toolbox-info"
+    if [ -d "$old_info_dir" ] && [ ! -d "$new_info_dir" ]; then
+        mv "$old_info_dir" "$new_info_dir"
+        echo "Migrated $old_info_dir -> $new_info_dir"
+    fi
+
+    INFO_DIR="$new_info_dir"
     STATUS_FILE="$INFO_DIR/project_status.json"
     mkdir -p "$INFO_DIR"
 
@@ -462,6 +440,25 @@ write_project_status() {
     # If it's not a new project, just update the last_updated timestamp
     if [ "$IS_NEW_PROJECT" = false ]; then
         if [ -f "$STATUS_FILE" ]; then
+            # Validate JSON and update last_updated; if invalid, back up and recreate
+            if command -v jq >/dev/null 2>&1; then
+                if ! jq empty "$STATUS_FILE" >/dev/null 2>&1; then
+                    cp "$STATUS_FILE" "${STATUS_FILE}.bak_$(date +%s)"
+                    cat > "$STATUS_FILE" << EOF
+{
+  "project_created": "$(date -u +"%Y-%m-%dT%H:%M:%S.%6N")",
+  "last_updated": "$(date -u +"%Y-%m-%dT%H:%M:%S.%6N")",
+  "config_created": true,
+  "user_preferences": { "show_welcome": true },
+  "project_metadata": {
+    "name": "$(basename "$LOCAL_PROJECT_DIR")",
+    "path": "$(printf "%s" "$LOCAL_PROJECT_DIR" | tr -d '\r')",
+    "version": "$(get_version)"
+  }
+}
+EOF
+                fi
+            fi
             # Update last_updated timestamp
             sed -i.tmp "s/\"last_updated\": \".*\"/\"last_updated\": \"$(date -u +"%Y-%m-%dT%H:%M:%S.%6N")\"/" "$STATUS_FILE"
             rm -f "${STATUS_FILE}.tmp"
@@ -471,13 +468,13 @@ write_project_status() {
 
 # Function to write system info to a hidden folder in the user's project directory
 write_system_info() {
-    INFO_DIR="$LOCAL_PROJECT_DIR/.ti-csc-info"
+    INFO_DIR="$LOCAL_PROJECT_DIR/sourcedata/.ti-toolbox-info"
     INFO_FILE="$INFO_DIR/system_info.txt"
     mkdir -p "$INFO_DIR"
 
     # Create the system info file with initial content
     {
-        echo "# TI-CSC System Info"
+        echo "# TI-Toolbox System Info"
         echo "Date: $(date)"
         echo "User: $(whoami)"
         echo "Host: $(hostname)"
@@ -499,7 +496,7 @@ write_system_info() {
         echo "## DISPLAY"
         echo "$DISPLAY"
         echo ""
-        echo "## Environment Variables (TI-CSC relevant)"
+        echo "## Environment Variables (TI-Toolbox relevant)"
         env | grep -Ei '^(FSL|FREESURFER|SIMNIBS|PROJECT_DIR|DEV_CODEBASE|SUBJECTS_DIR|FS_LICENSE|FSFAST|MNI|POSSUM|DISPLAY|USER|PATH)='
         echo ""
     } > "$INFO_FILE"
@@ -531,7 +528,8 @@ fi
 
 load_default_paths
 get_project_directory
-PROJECT_DIR_NAME=$(basename "$LOCAL_PROJECT_DIR")
+# Sanitize potential carriage returns from path (prevents creating a "\r" dir under /mnt)
+LOCAL_PROJECT_DIR=$(printf "%s" "$LOCAL_PROJECT_DIR" | tr -d '\r')
 
 # Set up Docker Compose environment variables
 # Handle Windows paths for Docker
@@ -554,6 +552,9 @@ case "$(uname -s)" in
     export LOCAL_PROJECT_DIR
     ;;
 esac
+# Compute and sanitize project dir name after any normalization
+PROJECT_DIR_NAME=$(basename "$LOCAL_PROJECT_DIR")
+PROJECT_DIR_NAME=$(printf "%s" "$PROJECT_DIR_NAME" | tr -d '\r')
 export PROJECT_DIR_NAME
 
 # Save the paths for next time
@@ -566,8 +567,8 @@ write_project_status
 # Ensure BIDS dataset description exists in the project root
 initialize_dataset_description
 
-echo "System info written to $LOCAL_PROJECT_DIR/.ti-csc-info/system_info.txt"
-echo "Project status written to $LOCAL_PROJECT_DIR/.ti-csc-info/project_status.json"
+echo "System info written to $LOCAL_PROJECT_DIR/sourcedata/.ti-toolbox-info/system_info.txt"
+echo "Project status written to $LOCAL_PROJECT_DIR/sourcedata/.ti-toolbox-info/project_status.json"
 
 set_display_env
 allow_xhost # Allow X11 connections

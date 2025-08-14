@@ -70,6 +70,24 @@ for subject_id in "${temp_subject_ids[@]}"; do
   mkdir -p "$PROJECT_DIR/derivatives/freesurfer/$BIDS_SUBJECT_ID"
   mkdir -p "$PROJECT_DIR/derivatives/SimNIBS/$BIDS_SUBJECT_ID"
   
+  # Ensure BIDS dataset_description.json exists for each derivative dataset root
+  ASSETS_DD_DIR="$script_dir/../assets/dataset_descriptions"
+  # FreeSurfer derivative
+  if [ ! -f "$PROJECT_DIR/derivatives/freesurfer/dataset_description.json" ] && [ -f "$ASSETS_DD_DIR/freesurfer.dataset_description.json" ]; then
+    mkdir -p "$PROJECT_DIR/derivatives/freesurfer"
+    cp "$ASSETS_DD_DIR/freesurfer.dataset_description.json" "$PROJECT_DIR/derivatives/freesurfer/dataset_description.json"
+  fi
+  # SimNIBS derivative
+  if [ ! -f "$PROJECT_DIR/derivatives/SimNIBS/dataset_description.json" ] && [ -f "$ASSETS_DD_DIR/simnibs.dataset_description.json" ]; then
+    mkdir -p "$PROJECT_DIR/derivatives/SimNIBS"
+    cp "$ASSETS_DD_DIR/simnibs.dataset_description.json" "$PROJECT_DIR/derivatives/SimNIBS/dataset_description.json"
+  fi
+  # Logs derivative
+  if [ ! -f "$PROJECT_DIR/derivatives/logs/dataset_description.json" ] && [ -f "$ASSETS_DD_DIR/logs.dataset_description.json" ]; then
+    mkdir -p "$PROJECT_DIR/derivatives/logs"
+    cp "$ASSETS_DD_DIR/logs.dataset_description.json" "$PROJECT_DIR/derivatives/logs/dataset_description.json"
+  fi
+  
   SUBJECT_DIRS+=("$SUBJECT_DIR")
   echo "DEBUG: Created and added subject directory: $SUBJECT_DIR" >&2
 done

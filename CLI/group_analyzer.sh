@@ -30,7 +30,7 @@ YELLOW='\033[0;33m' #Yellow for warnings or important notices
 BOLD_YELLOW='\033[1;33m'
 
 # Configuration setup
-ti_csc_dir="$project_dir/ti-csc"
+ti_csc_dir="$project_dir/code/ti-toolbox"
 config_dir="$ti_csc_dir/config"
 config_file="$config_dir/group_analyzer_config.json"
 
@@ -723,7 +723,7 @@ collect_output_settings() {
     compare_analyses="true"
     # Always use default output directory with timestamp
     timestamp=$(date +"%Y%m%d_%H%M%S")
-    output_dir="$project_dir/ti-csc/group_analyses/group_${analysis_type}_${space_type}_${timestamp}"
+    output_dir="$project_dir/code/ti-toolbox/group_analyses/group_${analysis_type}_${space_type}_${timestamp}"
     echo -e "${CYAN}Output directory: $output_dir${RESET}"
 }
 

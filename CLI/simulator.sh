@@ -14,7 +14,7 @@ umask 0000  # Set umask to 0000 to ensure all created files and directories have
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 simulator_dir="$script_dir/../simulator"
 project_dir="/mnt/$PROJECT_DIR_NAME"
-ti_csc_dir="$project_dir/ti-csc"
+ti_csc_dir="$project_dir/code/ti-toolbox"
 config_dir="$ti_csc_dir/config"
 montage_file="$config_dir/montage_list.json"
 
@@ -94,16 +94,16 @@ run_simulation() {
         current_a="$CURRENT"
     fi
     
-    # Ensure ti-csc directory exists
+    # Ensure ti-toolbox directory exists
     if [ ! -d "$ti_csc_dir" ]; then
         mkdir -p "$ti_csc_dir"
         chmod 777 "$ti_csc_dir"
-        echo -e "${GREEN}Created ti-csc directory at $ti_csc_dir with permissions 777.${RESET}"
+        echo -e "${GREEN}Created ti-toolbox directory at $ti_csc_dir with permissions 777.${RESET}"
     else
         chmod 777 "$ti_csc_dir"
     fi
     
-    # Ensure montage_list.json exists in ti-csc config dir
+    # Ensure montage_list.json exists in ti-toolbox config dir
     if [ ! -f "$montage_file" ]; then
         echo -e "${GREEN}Creating montage file at $montage_file${RESET}"
         cat > "$montage_file" << EOL
