@@ -83,8 +83,8 @@ echo -n "OS: "; uname -a
 echo -n "Python: "; python3 --version 2>&1
 
 # Check for system info file
-INFO_FILE="$MOUNTED_PROJECT_DIR/.ti-csc-info/system_info.txt"
-section "Host System Info File (.ti-csc-info/system_info.txt)"
+INFO_FILE="$MOUNTED_PROJECT_DIR/sourcedata/.ti-toolbox-info/system_info.txt"
+section "Host System Info File (sourcedata/.ti-toolbox-info/system_info.txt)"
 if [[ -f "$INFO_FILE" ]]; then
   echo -e "${GREEN}System info file found at: $INFO_FILE${NC}"
   # Extract and display specific fields

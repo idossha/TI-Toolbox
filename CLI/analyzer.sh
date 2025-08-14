@@ -27,7 +27,7 @@ YELLOW='\033[0;33m' #Yellow for warnings or important notices
 BOLD_YELLOW='\033[1;33m'
 
 # Configuration setup
-ti_csc_dir="$project_dir/ti-csc"
+ti_csc_dir="$project_dir/code/ti-toolbox"
 config_dir="$ti_csc_dir/config"
 config_file="$config_dir/analyzer_config.json"
 

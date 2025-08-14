@@ -154,7 +154,7 @@ run_visualize_montages() {
 # Function to create temporary montage entries for flex-search visualization
 create_flex_montage_entries() {
     local flex_montages_file="$1"
-    local montage_config_file="$project_dir/ti-csc/config/montage_list.json"
+    local montage_config_file="$project_dir/code/ti-toolbox/config/montage_list.json"
     
     # Backup original montage file
     local backup_file="${montage_config_file}.backup_${timestamp}"
@@ -224,8 +224,8 @@ with open('$montage_config_file', 'w') as f:
 
 # Function to restore original montage file
 restore_montage_file() {
-    local backup_file="$project_dir/ti-csc/config/montage_list.json.backup_${timestamp}"
-    local montage_config_file="$project_dir/ti-csc/config/montage_list.json"
+    local backup_file="$project_dir/code/ti-toolbox/config/montage_list.json.backup_${timestamp}"
+    local montage_config_file="$project_dir/code/ti-toolbox/config/montage_list.json"
     
     if [[ -f "$backup_file" ]]; then
         mv "$backup_file" "$montage_config_file"
@@ -349,7 +349,7 @@ import os
 
 mapping_file = '$mapping_file'
 montage_name = '$montage_name'
-montage_config_file = '$project_dir/ti-csc/config/montage_list.json'
+montage_config_file = '$project_dir/code/ti-toolbox/config/montage_list.json'
 montage_output_dir = '$montage_output_dir'
 utils_dir = '$utils_dir'
 

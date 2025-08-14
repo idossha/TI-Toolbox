@@ -9,6 +9,7 @@ similar to fMRIPrep reports, documenting all steps, parameters, and outputs.
 
 import os
 import json
+import shutil
 import datetime
 import subprocess
 import glob
@@ -245,7 +246,17 @@ class PreprocessingReportGenerator:
         """
         if output_path is None:
             # Use standardized path: project_dir/derivatives/reports/sub-subjectID/pre_processing_report_date_time.html
-            reports_dir = self.project_dir / "derivatives" / "reports" / self.bids_subject_id
+            base_reports_dir = self.project_dir / "derivatives" / "reports"
+            base_reports_dir.mkdir(parents=True, exist_ok=True)
+            # Ensure dataset_description.json exists at reports root
+            try:
+                dd_path = base_reports_dir / "dataset_description.json"
+                assets_template = Path(__file__).resolve().parent.parent / "assets" / "dataset_descriptions" / "reports.dataset_description.json"
+                if not dd_path.exists() and assets_template.exists():
+                    shutil.copyfile(str(assets_template), str(dd_path))
+            except Exception:
+                pass
+            reports_dir = base_reports_dir / self.bids_subject_id
             reports_dir.mkdir(parents=True, exist_ok=True)
             timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
             output_path = reports_dir / f"pre_processing_report_{timestamp}.html"

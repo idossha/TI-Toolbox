@@ -10,7 +10,7 @@
 
 # Define paths
 project_base="/mnt/$PROJECT_DIR_NAME"
-ti_csc_dir="$project_base/ti-csc"
+ti_csc_dir="$project_base/code/ti-toolbox"
 config_dir="$ti_csc_dir/config"
 montage_file="$config_dir/montage_list.json"
 

@@ -66,10 +66,22 @@ SIMNIBS_DIR="${DERIVATIVES_DIR}/SimNIBS/${BIDS_SUBJECT_ID}"
 # Create SimNIBS directory
 mkdir -p "$SIMNIBS_DIR"
 
+# Ensure BIDS dataset_description.json exists for SimNIBS derivative root
+ASSETS_DD_DIR="$script_dir/../assets/dataset_descriptions"
+if [ ! -f "$DERIVATIVES_DIR/SimNIBS/dataset_description.json" ] && [ -f "$ASSETS_DD_DIR/simnibs.dataset_description.json" ]; then
+    mkdir -p "$DERIVATIVES_DIR/SimNIBS"
+    cp "$ASSETS_DD_DIR/simnibs.dataset_description.json" "$DERIVATIVES_DIR/SimNIBS/dataset_description.json"
+fi
+
 # Set up logging
 if ! $QUIET; then
     logs_dir="${DERIVATIVES_DIR}/logs/${BIDS_SUBJECT_ID}"
     mkdir -p "$logs_dir"
+    # Ensure dataset_description.json exists for logs derivative
+    if [ ! -f "$DERIVATIVES_DIR/logs/dataset_description.json" ] && [ -f "$ASSETS_DD_DIR/logs.dataset_description.json" ]; then
+        mkdir -p "$DERIVATIVES_DIR/logs"
+        cp "$ASSETS_DD_DIR/logs.dataset_description.json" "$DERIVATIVES_DIR/logs/dataset_description.json"
+    fi
     set_logger_name "charm"
     timestamp=$(date +"%Y%m%d_%H%M%S")
     set_log_file "${logs_dir}/charm_${timestamp}.log"

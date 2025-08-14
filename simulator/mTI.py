@@ -13,7 +13,7 @@ import time
 ###########################################
 # Ido Haber / ihaber@wisc.edu
 # October 14, 2024
-# optimized for TI-CSC analyzer
+# optimized for TI-Toolbox analyzer
 #
 # This script runs SimNIBS simulations for multipolar TI (mTI)
 # It preserves the original mTI computation logic while using BIDS directory structure
@@ -61,7 +61,7 @@ print(f"[DEBUG] EEG net: {eeg_net}")
 print(f"[DEBUG] Montage names: {montage_names}")
 
 # Define the correct path for the JSON file
-ti_csc_dir = os.path.join(project_dir, 'ti-csc')
+ti_csc_dir = os.path.join(project_dir, 'code', 'ti-toolbox')
 config_dir = os.path.join(ti_csc_dir, 'config')
 montage_file = os.path.join(config_dir, 'montage_list.json')
 
@@ -303,7 +303,7 @@ for montage_name in montage_names:
     logger.info(f"Starting multipolar simulation for montage: {montage_name}")
     
     # Get montage configuration from JSON file
-    montage_config_path = os.path.join(project_dir, "ti-csc", "config", "montage_list.json")
+    montage_config_path = os.path.join(project_dir, "code", "ti-toolbox", "config", "montage_list.json")
     
     try:
         with open(montage_config_path, 'r') as f:

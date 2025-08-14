@@ -12,7 +12,7 @@ import time
 
 # Ido Haber / ihaber@wisc.edu
 # October 14, 2024
-# optimized for TI-CSC analyzer
+# optimized for TI-Toolbox analyzer
 
 # This script runs SimNIBS simulations
 
@@ -66,7 +66,7 @@ montage_names = sys.argv[11:]  # The list of montages starts from the 12th argum
 flex_montages = []
 
 # Define the correct path for the JSON file
-ti_csc_dir = os.path.join(project_dir, 'ti-csc')
+ti_csc_dir = os.path.join(project_dir, 'code', 'ti-toolbox')
 config_dir = os.path.join(ti_csc_dir, 'config')
 montage_file = os.path.join(config_dir, 'montage_list.json')
 
