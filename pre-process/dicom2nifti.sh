@@ -59,14 +59,14 @@ BIDS_ANAT_DIR="${PROJECT_DIR}/${BIDS_SUBJECT_ID}/anat"
 # Set up logging
 if ! $QUIET; then
     DERIVATIVES_DIR="${PROJECT_DIR}/derivatives"
-    logs_dir="${DERIVATIVES_DIR}/logs/${BIDS_SUBJECT_ID}"
+    logs_dir="${DERIVATIVES_DIR}/ti-toolbox/logs/${BIDS_SUBJECT_ID}"
     mkdir -p "$logs_dir"
 
     # Ensure dataset_description.json exists for logs derivative
     ASSETS_DD_DIR="$script_dir/../assets/dataset_descriptions"
-    if [ ! -f "$DERIVATIVES_DIR/logs/dataset_description.json" ] && [ -f "$ASSETS_DD_DIR/logs.dataset_description.json" ]; then
-        mkdir -p "$DERIVATIVES_DIR/logs"
-        cp "$ASSETS_DD_DIR/logs.dataset_description.json" "$DERIVATIVES_DIR/logs/dataset_description.json"
+    if [ ! -f "$DERIVATIVES_DIR/ti-toolbox/logs/dataset_description.json" ] && [ -f "$ASSETS_DD_DIR/logs.dataset_description.json" ]; then
+        mkdir -p "$DERIVATIVES_DIR/ti-toolbox/logs"
+        cp "$ASSETS_DD_DIR/logs.dataset_description.json" "$DERIVATIVES_DIR/ti-toolbox/logs/dataset_description.json"
     fi
 
     set_logger_name "dicom2nifti"

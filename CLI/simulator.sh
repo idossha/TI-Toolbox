@@ -455,7 +455,7 @@ EOF
             # Summary
             if [ $reports_generated -gt 0 ]; then
                 echo -e "${GREEN}✅ Generated $reports_generated simulation report(s)${RESET}"
-                echo -e "${CYAN}Reports saved to: $project_dir/derivatives/reports/sub-{subjectID}/${RESET}"
+                echo -e "${CYAN}Reports saved to: $project_dir/derivatives/ti-toolbox/reports/sub-{subjectID}/${RESET}"
             else
                 echo -e "${YELLOW}⚠️ No reports were generated${RESET}"
             fi
@@ -1912,7 +1912,7 @@ fi
 # Summary
 if [ $reports_generated -gt 0 ]; then
     echo -e "${GREEN}✅ Generated $reports_generated simulation report(s)${RESET}"
-    echo -e "${CYAN}Reports saved to: $project_dir/derivatives/reports/sub-{subjectID}/${RESET}"
+    echo -e "${CYAN}Reports saved to: $project_dir/derivatives/ti-toolbox/reports/sub-{subjectID}/${RESET}"
 else
     echo -e "${YELLOW}⚠️ No reports were generated${RESET}"
 fi

@@ -471,6 +471,14 @@ EOF
             rm -f "${STATUS_FILE}.tmp"
         fi
     fi
+
+    # Also mirror under derivatives/ti-toolbox/.ti-toolbox-info
+    DERIV_INFO_DIR="$LOCAL_PROJECT_DIR/derivatives/ti-toolbox/.ti-toolbox-info"
+    mkdir -p "$DERIV_INFO_DIR"
+    if [ -f "$STATUS_FILE" ]; then
+        cp -f "$STATUS_FILE" "$DERIV_INFO_DIR/project_status.json"
+        create_hidden_file "$DERIV_INFO_DIR/project_status.json"
+    fi
 }
 
 # Function to write system info to a hidden folder in the user's project directory
@@ -510,6 +518,12 @@ write_system_info() {
 
     # Make the file hidden
     create_hidden_file "$INFO_FILE"
+
+    # Also mirror under derivatives/ti-toolbox/.ti-toolbox-info
+    DERIV_INFO_DIR="$LOCAL_PROJECT_DIR/derivatives/ti-toolbox/.ti-toolbox-info"
+    mkdir -p "$DERIV_INFO_DIR"
+    cp -f "$INFO_FILE" "$DERIV_INFO_DIR/system_info.txt"
+    create_hidden_file "$DERIV_INFO_DIR/system_info.txt"
 }
 
 # Main Script Execution

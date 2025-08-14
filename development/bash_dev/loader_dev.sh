@@ -337,6 +337,15 @@ write_system_info() {
   fi
 
   echo "System info written to $INFO_FILE"
+
+  # Mirror under derivatives/ti-toolbox/.ti-toolbox-info
+  DERIV_INFO_DIR="$LOCAL_PROJECT_DIR/derivatives/ti-toolbox/.ti-toolbox-info"
+  mkdir -p "$DERIV_INFO_DIR" 2>/dev/null
+  cp -f "$INFO_FILE" "$DERIV_INFO_DIR/system_info.txt" 2>/dev/null || true
+  # Hide if possible (best-effort)
+  if command -v attrib >/dev/null 2>&1; then
+    attrib +h "$DERIV_INFO_DIR/system_info.txt" 2>/dev/null || true
+  fi
   return 0
 }
 
@@ -382,6 +391,16 @@ EOF
       # Update last_updated timestamp
       sed -i.tmp "s/\"last_updated\": \".*\"/\"last_updated\": \"$(date -u +"%Y-%m-%dT%H:%M:%S.%6N")\"/" "$STATUS_FILE"
       rm -f "${STATUS_FILE}.tmp"
+    fi
+  fi
+
+  # Mirror under derivatives/ti-toolbox/.ti-toolbox-info (best-effort)
+  DERIV_INFO_DIR="$LOCAL_PROJECT_DIR/derivatives/ti-toolbox/.ti-toolbox-info"
+  mkdir -p "$DERIV_INFO_DIR" 2>/dev/null
+  if [ -f "$STATUS_FILE" ]; then
+    cp -f "$STATUS_FILE" "$DERIV_INFO_DIR/project_status.json" 2>/dev/null || true
+    if command -v attrib >/dev/null 2>&1; then
+      attrib +h "$DERIV_INFO_DIR/project_status.json" 2>/dev/null || true
     fi
   fi
 }

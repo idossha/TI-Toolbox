@@ -75,12 +75,12 @@ fi
 
 # Set up logging
 if ! $QUIET; then
-    logs_dir="${DERIVATIVES_DIR}/logs/${BIDS_SUBJECT_ID}"
+    logs_dir="${DERIVATIVES_DIR}/ti-toolbox/logs/${BIDS_SUBJECT_ID}"
     mkdir -p "$logs_dir"
     # Ensure dataset_description.json exists for logs derivative
-    if [ ! -f "$DERIVATIVES_DIR/logs/dataset_description.json" ] && [ -f "$ASSETS_DD_DIR/logs.dataset_description.json" ]; then
-        mkdir -p "$DERIVATIVES_DIR/logs"
-        cp "$ASSETS_DD_DIR/logs.dataset_description.json" "$DERIVATIVES_DIR/logs/dataset_description.json"
+    if [ ! -f "$DERIVATIVES_DIR/ti-toolbox/logs/dataset_description.json" ] && [ -f "$ASSETS_DD_DIR/logs.dataset_description.json" ]; then
+        mkdir -p "$DERIVATIVES_DIR/ti-toolbox/logs"
+        cp "$ASSETS_DD_DIR/logs.dataset_description.json" "$DERIVATIVES_DIR/ti-toolbox/logs/dataset_description.json"
     fi
     set_logger_name "charm"
     timestamp=$(date +"%Y%m%d_%H%M%S")

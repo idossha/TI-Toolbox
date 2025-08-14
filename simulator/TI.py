@@ -130,7 +130,7 @@ if not log_file:
     # If not provided, create a new log file (fallback behavior)
     time_stamp = time.strftime('%Y%m%d_%H%M%S')
     derivatives_dir = os.path.join(project_dir, 'derivatives')
-    log_dir = os.path.join(derivatives_dir, 'logs', f'sub-{subject_id}')
+    log_dir = os.path.join(derivatives_dir, 'ti-toolbox', 'logs', f'sub-{subject_id}')
     os.makedirs(log_dir, exist_ok=True)
     log_file = os.path.join(log_dir, f'Simulator_{time_stamp}.log')
 

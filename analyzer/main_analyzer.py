@@ -499,8 +499,8 @@ def main():
             if not project_dir.startswith('/mnt/'):
                 project_dir = f"/mnt/{os.path.basename(project_dir)}"
             
-            # Create derivatives/log/sub-* directory structure
-            log_dir = os.path.join(project_dir, 'derivatives', 'logs', f'sub-{subject_id}')
+            # Create derivatives/ti-toolbox/logs/sub-* directory structure
+            log_dir = os.path.join(project_dir, 'derivatives', 'ti-toolbox', 'logs', f'sub-{subject_id}')
             os.makedirs(log_dir, exist_ok=True)
             
             # Create log file in the new directory

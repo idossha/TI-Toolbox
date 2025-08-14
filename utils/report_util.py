@@ -29,7 +29,7 @@ except ImportError:
 # ----------------------------------------------------------------------------
 # Configuration constants
 # ----------------------------------------------------------------------------
-REPORTS_BASE_DIR = "derivatives/reports"
+REPORTS_BASE_DIR = "derivatives/ti-toolbox/reports"
 PREPROCESSING_REPORT_PREFIX = "pre_processing_report"
 SIMULATION_REPORT_PREFIX = "simulation_report"
 

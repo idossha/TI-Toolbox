@@ -67,7 +67,7 @@ done
 
 # Set up logging in the montage-specific documentation directory
 first_montage=${selected_montages[0]}
-logs_dir="$derivatives_dir/logs/sub-$subject_id"
+logs_dir="$derivatives_dir/ti-toolbox/logs/sub-$subject_id"
 mkdir -p "$logs_dir"
 log_file="${logs_dir}/simulator_${timestamp}.log"
 set_log_file "$log_file"
