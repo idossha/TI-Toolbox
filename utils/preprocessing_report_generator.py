@@ -245,8 +245,8 @@ class PreprocessingReportGenerator:
             str: Path to the generated report
         """
         if output_path is None:
-            # Use standardized path: project_dir/derivatives/reports/sub-subjectID/pre_processing_report_date_time.html
-            base_reports_dir = self.project_dir / "derivatives" / "reports"
+            # Use standardized path: project_dir/derivatives/ti-toolbox/reports/sub-subjectID/pre_processing_report_date_time.html
+            base_reports_dir = self.project_dir / "derivatives" / "ti-toolbox" / "reports"
             base_reports_dir.mkdir(parents=True, exist_ok=True)
             # Ensure dataset_description.json exists at reports root
             try:

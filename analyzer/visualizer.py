@@ -97,8 +97,8 @@ class BaseVisualizer:
             # Extract subject ID from output_dir path
             subject_id = os.path.basename(output_dir).split('_')[1] if '_' in os.path.basename(output_dir) else os.path.basename(output_dir)
             
-            # Create derivatives/log directory structure (using relative path)
-            log_dir = os.path.join('derivatives', 'logs', f'sub-{subject_id}')
+            # Create derivatives/ti-toolbox/logs directory structure (using relative path)
+            log_dir = os.path.join('derivatives', 'ti-toolbox', 'logs', f'sub-{subject_id}')
             os.makedirs(log_dir, exist_ok=True)
             
             # Create log file in the new directory

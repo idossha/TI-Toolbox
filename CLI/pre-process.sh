@@ -605,7 +605,7 @@ print_header "Processing Complete"
 print_message "$GREEN" "Preprocessing of all selected subjects has been completed."
 
 # Summary of generated reports
-reports_dir="$PROJECT_DIR/derivatives/reports"
+reports_dir="$PROJECT_DIR/derivatives/ti-toolbox/reports"
 if [ -d "$reports_dir" ]; then
     report_count=$(find "$reports_dir" -name "*pre_processing_report*.html" | wc -l)
     if [ "$report_count" -gt 0 ]; then

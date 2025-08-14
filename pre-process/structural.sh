@@ -82,10 +82,10 @@ for subject_id in "${temp_subject_ids[@]}"; do
     mkdir -p "$PROJECT_DIR/derivatives/SimNIBS"
     cp "$ASSETS_DD_DIR/simnibs.dataset_description.json" "$PROJECT_DIR/derivatives/SimNIBS/dataset_description.json"
   fi
-  # Logs derivative
-  if [ ! -f "$PROJECT_DIR/derivatives/logs/dataset_description.json" ] && [ -f "$ASSETS_DD_DIR/logs.dataset_description.json" ]; then
-    mkdir -p "$PROJECT_DIR/derivatives/logs"
-    cp "$ASSETS_DD_DIR/logs.dataset_description.json" "$PROJECT_DIR/derivatives/logs/dataset_description.json"
+  # Logs derivative (ti-toolbox namespace)
+  if [ ! -f "$PROJECT_DIR/derivatives/ti-toolbox/logs/dataset_description.json" ] && [ -f "$ASSETS_DD_DIR/logs.dataset_description.json" ]; then
+    mkdir -p "$PROJECT_DIR/derivatives/ti-toolbox/logs"
+    cp "$ASSETS_DD_DIR/logs.dataset_description.json" "$PROJECT_DIR/derivatives/ti-toolbox/logs/dataset_description.json"
   fi
   
   SUBJECT_DIRS+=("$SUBJECT_DIR")

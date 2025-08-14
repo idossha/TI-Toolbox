@@ -35,7 +35,7 @@ def setup_logger(output_folder: str, subject_id: str) -> None:
         raise SystemExit("[flex-search] PROJECT_DIR env-var is missing")
     
     # Create logs directory in project derivatives
-    logs_dir = os.path.join(proj_dir, "derivatives", "logs", f"sub-{subject_id}")
+    logs_dir = os.path.join(proj_dir, "derivatives", "ti-toolbox", "logs", f"sub-{subject_id}")
     os.makedirs(logs_dir, exist_ok=True)
     
     # Set proper permissions for logs directory
