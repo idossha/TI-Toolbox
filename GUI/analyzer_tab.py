@@ -2055,7 +2055,8 @@ class AnalyzerTab(QtWidgets.QWidget):
             # Scroll to the very bottom to show latest output
             scrollbar.setValue(scrollbar.maximum())
         
-        QtWidgets.QApplication.processEvents()  # Force immediate GUI refresh
+        # Avoid calling processEvents() here to prevent re-entrant recursion when many
+        # queued output signals arrive rapidly.
 
     def disable_controls(self):
         # List of widgets to disable, similar to original
