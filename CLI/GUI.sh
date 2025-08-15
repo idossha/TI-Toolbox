@@ -13,6 +13,6 @@ CYAN='\033[0;36m'
 RESET='\033[0m'
 
 # Launch the GUI
-echo -e "${GREEN}Launching TI-CSC-2.0 GUI...${RESET}"
+echo -e "${GREEN}Launching TI-Toolbox GUI...${RESET}"
 cd "$SCRIPT_DIR/.."
 simnibs_python "$SCRIPT_DIR/../GUI/main.py" 

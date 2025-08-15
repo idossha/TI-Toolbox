@@ -2,14 +2,34 @@
 # -*- coding: utf-8 -*-
 
 """
-TI-CSC-2.0 GUI Main Entry Point
-This module provides a GUI interface for the TI-CSC-2.0 toolbox.
+TI-Toolbox GUI Main Entry Point
+This module provides a GUI interface for the TI-Toolbox toolbox.
 """
 
 import sys
 import os
 import subprocess
 import requests
+import warnings
+
+# Suppress specific SIP deprecation warning originating from PyQt/SIP internals
+warnings.filterwarnings(
+    'ignore',
+    message=r'.*sipPyTypeDict.*',
+    category=DeprecationWarning,
+)
+
+# Ensure a valid XDG runtime directory for Qt on Linux (avoids QStandardPaths warning)
+if sys.platform.startswith('linux') and 'XDG_RUNTIME_DIR' not in os.environ:
+    try:
+        runtime_dir = f"/tmp/runtime-{os.getuid()}" if hasattr(os, 'getuid') else f"/tmp/runtime-{os.getpid()}"
+        os.makedirs(runtime_dir, exist_ok=True)
+        os.chmod(runtime_dir, 0o700)
+        os.environ['XDG_RUNTIME_DIR'] = runtime_dir
+    except Exception:
+        # Fallback: set the env var even if directory ops fail; Qt will still stop warning
+        os.environ['XDG_RUNTIME_DIR'] = '/tmp'
+
 from PyQt5 import QtWidgets, QtCore, QtGui
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -28,7 +48,7 @@ from nifti_viewer_tab import NiftiViewerTab
 from analyzer_tab import AnalyzerTab
 
 class MainWindow(QtWidgets.QMainWindow):
-    """Main window for the TI-CSC GUI."""
+    """Main window for the TI-Toolbox GUI."""
     
     def __init__(self):
         super(MainWindow, self).__init__()
@@ -235,7 +255,7 @@ def check_for_update(current_version, parent_window=None):
         parent_window (QWidget, optional): The parent window to center the dialog on
     """
     try:
-        url = "https://raw.githubusercontent.com/idossha/TI-CSC-2.0/main/docs/latest_version.txt"
+        url = "https://raw.githubusercontent.com/idossha/TI-Toolbox/main/docs/latest_version.txt"
         response = requests.get(url, timeout=2)
         if response.status_code == 200:
             latest_version = response.text.strip()
@@ -245,11 +265,11 @@ def check_for_update(current_version, parent_window=None):
                     msg_box = QtWidgets.QMessageBox(parent_window)
                     msg_box.setIcon(QtWidgets.QMessageBox.Information)
                     msg_box.setWindowTitle("Update Available")
-                    msg_box.setText(f"A new version of TI-CSC-2.0 is available!")
+                    msg_box.setText(f"A new version of TI-Toolbox is available!")
                     msg_box.setInformativeText(
                         f"Current version: {current_version}\n"
                         f"Latest version: {latest_version}\n\n"
-                        f"Visit:\nhttps://github.com/idossha/TI-CSC-2.0/releases"
+                        f"Visit:\nhttps://github.com/idossha/TI-Toolbox/releases"
                     )
                     msg_box.setWindowModality(QtCore.Qt.ApplicationModal)
                     # Center the dialog relative to the main window
@@ -278,6 +298,8 @@ def main():
     # Set up the main window
     window = MainWindow()
     window.show()
+    # Inform the launcher that the GUI is now running (after event loop starts)
+    QtCore.QTimer.singleShot(0, lambda: print("\033[0;32mRunning TI-Toolbox GUI...\033[0m"))
     
     # Check if this is a first-time user after a short delay
     from new_project.first_time_user import assess_user_status
