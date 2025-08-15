@@ -2297,7 +2297,6 @@ class AnalyzerTab(QtWidgets.QWidget):
                 m2m_dir = self.get_m2m_dir_for_subject(subject_id)
                 if not m2m_dir: QtWidgets.QMessageBox.critical(self, "Error", f"m2m dir not found: {subject_id}."); return
                 
-                print(f"Loading {atlas_type_display} mesh regions for {subject_id} from {m2m_dir}...")
                 progress_dialog.setValue(20); QtWidgets.QApplication.processEvents()
                 try:
                     import simnibs

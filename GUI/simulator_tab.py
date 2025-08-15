@@ -122,7 +122,7 @@ class SimulationThread(QtCore.QThread):
             if not self.terminated:
                 returncode = self.process.wait()
                 if returncode != 0:
-                    self.error_signal.emit("Process returned non-zero exit code")
+                    self.error_signal.emit(f"Process returned non-zero exit code ({returncode})")
                     
         except Exception as e:
             self.error_signal.emit(f"Error running simulation: {str(e)}")
@@ -1676,6 +1676,9 @@ class SimulatorTab(QtWidgets.QWidget):
         
         if self._had_errors_during_run:
             self.output_console.append('<div style="margin: 10px 0;"><span style="color: #ff5555; font-size: 16px; font-weight: bold;">--- SIMULATION PROCESS COMPLETED WITH ERRORS ---</span></div>')
+            if hasattr(self, '_first_error_line') and getattr(self, '_first_error_line', None):
+                safe_err = strip_ansi_codes(self._first_error_line)
+                self.update_output(f"First error detected: {safe_err}", 'error')
         else:
             self.output_console.append('<div style="margin: 10px 0;"><span style="color: #55ff55; font-size: 16px; font-weight: bold;">--- SIMULATION PROCESS COMPLETED ---</span></div>')
         self.output_console.append('<div style="border-bottom: 1px solid #555; margin-bottom: 10px;"></div>')
@@ -2075,6 +2078,23 @@ class SimulatorTab(QtWidgets.QWidget):
         if message_type == 'error':
             # Allow process to continue, but mark that there were errors
             self._had_errors_during_run = True
+            # Remember the first triggering error line for reporting
+            if not hasattr(self, '_first_error_line') or not getattr(self, '_first_error_line', None):
+                self._first_error_line = text
+            # Abort immediately on first error
+            if not self._aborting_due_to_error and getattr(self, 'simulation_process', None):
+                self._aborting_due_to_error = True
+                self.update_output("[ERROR] Error detected. Aborting simulation and cleaning up partial outputs...", 'error')
+                # Terminate the running process
+                try:
+                    self.simulation_process.terminate_process()
+                except Exception:
+                    pass
+                # Perform cleanup of outputs generated so far
+                try:
+                    self._cleanup_partial_outputs()
+                except Exception as cleanup_exc:
+                    self.update_output(f"[WARNING] Cleanup encountered an issue: {cleanup_exc}", 'warning')
         self.update_output(text, message_type)
 
     def _cleanup_partial_outputs(self):

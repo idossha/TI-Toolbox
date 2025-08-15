@@ -1659,11 +1659,12 @@ if [[ -n "$temp_flex_file" && -f "$temp_flex_file" ]]; then
     echo -e "${CYAN}Cleaned up temporary flex montages file${RESET}"
 fi
 
-# Clean up simulation completion files
+# Clean up simulation completion files (robust to missing dir and empty contents)
 cleanup_completion_files() {
     local temp_dir="$project_dir/derivatives/temp"
     if [[ -d "$temp_dir" ]]; then
         local cleaned_count=0
+        shopt -s nullglob
         for completion_file in "$temp_dir"/simulation_completion_*.json; do
             if [[ -f "$completion_file" ]]; then
                 rm -f "$completion_file"
@@ -1671,20 +1672,24 @@ cleanup_completion_files() {
                 echo -e "${CYAN}Cleaned up completion file: $(basename "$completion_file")${RESET}"
             fi
         done
+        shopt -u nullglob
         
         if [[ $cleaned_count -gt 0 ]]; then
             echo -e "${GREEN}Cleaned up $cleaned_count completion file(s)${RESET}"
         fi
         
         # Remove temp directory if empty
-        if [[ -d "$temp_dir" && -z "$(ls -A "$temp_dir")" ]]; then
+        if [[ -z $(find "$temp_dir" -mindepth 1 -print -quit 2>/dev/null) ]]; then
             rmdir "$temp_dir"
             echo -e "${CYAN}Removed empty temp directory${RESET}"
         fi
     fi
 }
 
+# Disable immediate-exit to avoid non-zero exit from cleanup helpers
+set +e
 cleanup_completion_files
+set -e
 
 echo "Direct execution completed"
 exit 0

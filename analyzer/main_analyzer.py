@@ -427,6 +427,7 @@ def main():
         # Handle both single region results and whole-head multi-region results
         if isinstance(results, dict) and any(k in results for k in ['mean_value', 'max_value', 'min_value']):
             # Single region results
+            print("\nTI_max Values:")
             print_stat_if_exists(results, 'mean_value', 'Mean Value')
             print_stat_if_exists(results, 'max_value', 'Max Value')
             print_stat_if_exists(results, 'min_value', 'Min Value')
