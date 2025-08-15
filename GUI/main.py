@@ -11,6 +11,8 @@ import os
 import subprocess
 import requests
 import warnings
+import signal
+import atexit
 
 # Suppress specific SIP deprecation warning originating from PyQt/SIP internals
 warnings.filterwarnings(
@@ -151,6 +153,12 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def closeEvent(self, event):
         """Handle window close event."""
+        # Allow programmatic forced shutdown without prompting
+        if getattr(self, '_force_exit', False):
+            if hasattr(self, 'system_monitor_tab'):
+                self.system_monitor_tab.stop_monitoring()
+            event.accept()
+            return
         reply = QtWidgets.QMessageBox.question(
             self, 'Confirm Exit',
             "Are you sure you want to exit?",
@@ -299,7 +307,64 @@ def main():
     window = MainWindow()
     window.show()
     # Inform the launcher that the GUI is now running (after event loop starts)
-    QtCore.QTimer.singleShot(0, lambda: print("\033[0;32mRunning TI-Toolbox GUI...\033[0m"))
+    QtCore.QTimer.singleShot(0, lambda: print("Running TI-Toolbox GUI..."))
+
+    # Ensure we close the window and quit cleanly on termination signals (e.g., Ctrl+C / Ctrl+Z / SIGTERM)
+    def request_graceful_shutdown():
+        def _quit():
+            try:
+                # Prevent confirmation dialog on forced shutdown
+                setattr(window, '_force_exit', True)
+                if window.isVisible():
+                    window.close()
+            except Exception:
+                pass
+            app.quit()
+        QtCore.QTimer.singleShot(0, _quit)
+
+    def _signal_handler(signum, frame):
+        try:
+            print("Closing TI-Toolbox GUI...")
+        except Exception:
+            pass
+        request_graceful_shutdown()
+
+    # Register common termination signals
+    for sig in (
+        getattr(signal, 'SIGINT', None),
+        getattr(signal, 'SIGTERM', None),
+        getattr(signal, 'SIGBREAK', None),  # Windows Ctrl+Break
+    ):
+        if sig is not None:
+            try:
+                signal.signal(sig, _signal_handler)
+            except Exception:
+                pass
+    # Handle Ctrl+Z (SIGTSTP) when available to close instead of suspending the GUI
+    sigtstp = getattr(signal, 'SIGTSTP', None)
+    if sigtstp is not None:
+        try:
+            signal.signal(sigtstp, _signal_handler)
+        except Exception:
+            pass
+
+    # Best-effort cleanup on normal interpreter exit
+    def _atexit():
+        try:
+            setattr(window, '_force_exit', True)
+            if hasattr(window, 'close'):
+                window.close()
+        except Exception:
+            pass
+    atexit.register(_atexit)
+
+    # Heartbeat timer to ensure Python processes signals while Qt event loop is running
+    sig_timer = QtCore.QTimer()
+    sig_timer.setInterval(250)
+    sig_timer.timeout.connect(lambda: None)
+    sig_timer.start()
+    # Keep reference to avoid garbage collection
+    app._signal_heartbeat_timer = sig_timer
     
     # Check if this is a first-time user after a short delay
     from new_project.first_time_user import assess_user_status

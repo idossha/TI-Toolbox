@@ -47,6 +47,19 @@ except ImportError as e:
         print("Warning: Report generation not available")
         return None
 
+# Utility: strip ANSI/VT100 escape sequences from text (e.g., "\x1b[0;32m")
+ANSI_ESCAPE_PATTERN = re.compile(r"\x1B\[[0-?]*[ -/]*[@-~]")
+
+def strip_ansi_codes(text: str) -> str:
+    """Remove ANSI color/control sequences from a string."""
+    if not text:
+        return text
+    # Remove standard CSI sequences
+    cleaned = ANSI_ESCAPE_PATTERN.sub('', text)
+    # Remove any stray ESC characters that might remain
+    cleaned = cleaned.replace('\x1b', '')
+    return cleaned
+
 class SimulationThread(QtCore.QThread):
     """Thread to run simulation in background to prevent GUI freezing."""
     
@@ -80,19 +93,25 @@ class SimulationThread(QtCore.QThread):
                     if self.terminated:
                         break
                     if line:
-                        # Detect message type based on content
-                        line_stripped = line.strip()
-                        if any(keyword in line_stripped.lower() for keyword in ['error:', 'critical:', 'failed', 'exception']):
+                        # Strip ANSI escape sequences and detect message type based on content
+                        raw_line = line.rstrip('\n')
+                        line_clean = strip_ansi_codes(raw_line)
+                        line_stripped = line_clean.strip()
+                        lowered = line_stripped.lower()
+                        # Certain phrases from SimNIBS include the word "error:" but are informational (not failures)
+                        is_error_tag = ('[ERROR]' in line_stripped) or ('ERROR:' in line_stripped)
+                        if is_error_tag:
                             message_type = 'error'
-                        elif any(keyword in line_stripped.lower() for keyword in ['warning:', 'warn']):
+                        elif ('[WARNING]' in line_stripped) or ('Warning:' in line_stripped):
                             message_type = 'warning'
-                        elif any(keyword in line_stripped.lower() for keyword in ['debug:']):
+                        elif '[DEBUG]' in line_stripped:
                             message_type = 'debug'
-                        elif any(keyword in line_stripped.lower() for keyword in ['executing:', 'running', 'command']):
+                        elif any(keyword in lowered for keyword in ['executing:', 'running', 'command']):
                             message_type = 'command'
-                        elif any(keyword in line_stripped.lower() for keyword in ['completed successfully', 'completed.', 'successfully', 'completed:']):
+                        # Be conservative about success: allow explicit [SUCCESS] or clear non-debug "completed successfully"
+                        elif line_stripped.startswith('[SUCCESS]') or ('completed successfully' in lowered and 'debug' not in lowered):
                             message_type = 'success'
-                        elif any(keyword in line_stripped.lower() for keyword in ['processing', 'starting']):
+                        elif any(keyword in lowered for keyword in ['processing', 'starting']):
                             message_type = 'info'
                         else:
                             message_type = 'default'
@@ -317,6 +336,13 @@ class SimulatorTab(QtWidgets.QWidget):
         self.custom_conductivities = {}  # keys: int tissue number, values: float
         self.report_generator = None
         self.simulation_session_id = None
+        self._had_errors_during_run = False
+        self._aborting_due_to_error = False
+        self._current_run_subjects = []
+        self._current_run_is_montage = True
+        self._current_run_montages = []
+        self._run_start_time = None
+        self._project_dir_path_current = None
         self.setup_ui()
         
         # Initialize with available subjects and montages
@@ -1517,6 +1543,13 @@ class SimulatorTab(QtWidgets.QWidget):
                 # Store temp files for cleanup later
                 self.temp_flex_files = temp_files
             
+            # Persist run context for cleanup/termination decisions
+            self._current_run_subjects = selected_subjects[:]
+            self._current_run_is_montage = is_montage_mode
+            self._current_run_montages = selected_montages[:] if is_montage_mode else [cfg['montage']['name'] for cfg in flex_montage_configs]
+            self._run_start_time = time.time()
+            self._project_dir_path_current = f"/mnt/{os.environ.get('PROJECT_DIR_NAME', 'BIDS_new')}"
+
             # Display simulation configuration
             self.update_output("--- SIMULATION CONFIGURATION ---")
             self.update_output(f"Subjects: {env['SUBJECT_CHOICES']}")
@@ -1625,8 +1658,9 @@ class SimulatorTab(QtWidgets.QWidget):
             
             # Create and start the thread
             self.simulation_process = SimulationThread(cmd, env)
-            self.simulation_process.output_signal.connect(self.update_output)
-            self.simulation_process.error_signal.connect(lambda msg: self.update_output(msg, 'error'))
+            self._had_errors_during_run = False
+            self.simulation_process.output_signal.connect(self._handle_thread_output)
+            self.simulation_process.error_signal.connect(lambda msg: self._handle_thread_output(msg, 'error'))
             self.simulation_process.finished.connect(self.simulation_finished)
             self.simulation_process.start()
             
@@ -1640,11 +1674,21 @@ class SimulatorTab(QtWidgets.QWidget):
         if hasattr(self, 'parent') and self.parent:
             self.parent.set_tab_busy(self, False)
         
-        self.output_console.append('<div style="margin: 10px 0;"><span style="color: #55ff55; font-size: 16px; font-weight: bold;">--- SIMULATION PROCESS COMPLETED ---</span></div>')
+        if self._had_errors_during_run:
+            self.output_console.append('<div style="margin: 10px 0;"><span style="color: #ff5555; font-size: 16px; font-weight: bold;">--- SIMULATION PROCESS COMPLETED WITH ERRORS ---</span></div>')
+        else:
+            self.output_console.append('<div style="margin: 10px 0;"><span style="color: #55ff55; font-size: 16px; font-weight: bold;">--- SIMULATION PROCESS COMPLETED ---</span></div>')
         self.output_console.append('<div style="border-bottom: 1px solid #555; margin-bottom: 10px;"></div>')
         
-        # Automatically generate simulation report
-        self.auto_generate_simulation_report()
+        # Only auto-generate simulation report if there were no errors; else cleanup partial outputs and inform user
+        if not self._had_errors_during_run:
+            self.auto_generate_simulation_report()
+        else:
+            self.update_output("[INFO] Skipping automatic report generation due to errors during simulation.", 'warning')
+            try:
+                self._cleanup_partial_outputs()
+            except Exception as cleanup_exc:
+                self.update_output(f"[WARNING] Cleanup encountered an issue: {cleanup_exc}", 'warning')
         
         # Clean up temporary completion files
         self.cleanup_temporary_files()
@@ -1665,6 +1709,7 @@ class SimulatorTab(QtWidgets.QWidget):
             delattr(self, 'temp_flex_files')
         
         self.simulation_running = False
+        self._aborting_due_to_error = False
         self.run_btn.setEnabled(True)
         self.run_btn.setText("Run Simulation")
         self.stop_btn.setEnabled(False)
@@ -1985,6 +2030,9 @@ class SimulatorTab(QtWidgets.QWidget):
         """Update the console output with colored text."""
         if not text.strip():
             return
+
+        # Strip ANSI escape sequences before any formatting
+        text = strip_ansi_codes(text)
             
         # Format the output based on message type from thread
         if message_type == 'error':
@@ -2021,6 +2069,60 @@ class SimulatorTab(QtWidgets.QWidget):
             self.output_console.ensureCursorVisible()
         
         QtWidgets.QApplication.processEvents()
+
+    def _handle_thread_output(self, text, message_type='default'):
+        """Internal handler to track errors and forward to UI update."""
+        if message_type == 'error':
+            # Allow process to continue, but mark that there were errors
+            self._had_errors_during_run = True
+        self.update_output(text, message_type)
+
+    def _cleanup_partial_outputs(self):
+        """Remove files/directories created during a failed simulation run."""
+        project_dir = self._project_dir_path_current or f"/mnt/{os.environ.get('PROJECT_DIR_NAME', 'BIDS_new')}"
+        for subject_id in (self._current_run_subjects or []):
+            sub_root = os.path.join(project_dir, 'derivatives', 'SimNIBS', f'sub-{subject_id}')
+            sim_root = os.path.join(sub_root, 'Simulations')
+            # Remove tmp directory entirely
+            tmp_dir = os.path.join(sim_root, 'tmp')
+            if os.path.isdir(tmp_dir):
+                try:
+                    shutil.rmtree(tmp_dir, ignore_errors=True)
+                    self.update_output(f"[CLEANUP] Removed temporary directory: {tmp_dir}")
+                except Exception:
+                    pass
+            # Remove montage-specific output directories that may have been created
+            for montage_name in (self._current_run_montages or []):
+                montage_dir = os.path.join(sim_root, montage_name)
+                if os.path.isdir(montage_dir):
+                    try:
+                        shutil.rmtree(montage_dir, ignore_errors=True)
+                        self.update_output(f"[CLEANUP] Removed partial montage outputs: {montage_dir}")
+                    except Exception:
+                        pass
+            # Mark log files created during this failed run as errored by renaming them
+            logs_dir = os.path.join(project_dir, 'derivatives', 'logs', f'sub-{subject_id}')
+            if os.path.isdir(logs_dir):
+                try:
+                    for fname in list(os.listdir(logs_dir)):
+                        fpath = os.path.join(logs_dir, fname)
+                        # Heuristic: rename simulator logs created after run start
+                        try:
+                            if os.path.isfile(fpath) and fname.startswith('simulator_') and not fname.startswith('simulator_errored_'):
+                                if self._run_start_time is None or os.path.getmtime(fpath) >= self._run_start_time - 1:
+                                    suffix = fname[len('simulator_'):]
+                                    new_name = f"simulator_errored_{suffix}"
+                                    new_path = os.path.join(logs_dir, new_name)
+                                    try:
+                                        os.rename(fpath, new_path)
+                                        self.update_output(f"[CLEANUP] Marked errored log: {fname} -> {new_name}")
+                                    except Exception:
+                                        # If rename fails (e.g., file locked), skip silently
+                                        pass
+                        except Exception:
+                            continue
+                except Exception:
+                    pass
 
     def show_add_montage_dialog(self):
         """Show the dialog for adding a new montage."""
