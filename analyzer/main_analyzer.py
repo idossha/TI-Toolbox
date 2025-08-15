@@ -447,6 +447,7 @@ def main():
             for region_name, region_data in results.items():
                 if isinstance(region_data, dict) and region_data.get('mean_value') is not None:
                     print(f"\n{region_name}:")
+                    print("  TI_max Values:")
                     print_stat_if_exists(region_data, 'mean_value', 'Mean Value')
                     print_stat_if_exists(region_data, 'max_value', 'Max Value')
                     print_stat_if_exists(region_data, 'min_value', 'Min Value')
