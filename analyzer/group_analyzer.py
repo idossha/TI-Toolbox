@@ -419,7 +419,7 @@ def run_subject_analysis(args, subject_args: List[str]) -> Tuple[bool, str]:
 
     end_time = time.time()
     duration = int(end_time - start_time)
-    duration_str = f"{duration//60}m {duration%60}s" if duration >= 60 else f"{duration}s"
+    duration_str = format_duration(duration)
 
     if proc.returncode == 0:
         if group_logger:
@@ -435,18 +435,20 @@ def run_subject_analysis(args, subject_args: List[str]) -> Tuple[bool, str]:
             group_logger.error(f"Subject {subject_id} analysis failed")
             # Log any additional error output that might not have been captured by main_analyzer.py
             if proc.stdout.strip():
-                group_logger.debug(f"Subject {subject_id} additional stdout:\n{proc.stdout}")
+                group_logger.error(f"stdout: {proc.stdout.strip()}")
             if proc.stderr.strip():
-                group_logger.error(f"Subject {subject_id} additional stderr:\n{proc.stderr}")
-        
-        # Extract error message for summary
-        error_msg = "Analysis failed"
+                group_logger.error(f"stderr: {proc.stderr.strip()}")
+
+        # Extract meaningful error message for summary
+        error_msg = ""
         if proc.stderr.strip():
-            error_lines = proc.stderr.strip().split('\n')
-            # Try to find a meaningful error message
-            for line in error_lines:
-                if any(keyword in line.lower() for keyword in ['error:', 'failed', 'exception']):
-                    error_msg = line.strip()[:100]  # Limit length
+            error_msg = proc.stderr.strip().split('\n')[0]  # First line of stderr
+        elif proc.stdout.strip():
+            # Look for error patterns in stdout
+            stdout_lines = proc.stdout.strip().split('\n')
+            for line in stdout_lines:
+                if any(keyword in line.lower() for keyword in ['error:', 'failed', 'exception', 'critical']):
+                    error_msg = line.strip()
                     break
         
         # Log subject status for summary

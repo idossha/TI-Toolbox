@@ -325,6 +325,16 @@ for montage in "${selected_montages[@]}"; do
     setup_montage_dirs "$montage"
     montage_dir="$sim_dir/$montage"
     
+    # Log simulation parameters
+    log_debug "Starting simulation for montage: $montage"
+    log_info "Simulation parameters:"
+    log_info "- Subject ID: $subject_id"
+    log_info "- Conductivity: $conductivity"
+    log_info "- Simulation Mode: $sim_mode"
+    log_info "- Intensity: $intensity A"
+    log_info "- Electrode Shape: $electrode_shape"
+    log_info "- Electrode Dimensions: $dimensions mm"
+    log_info "- Electrode Thickness: $thickness mm"
     # Log simulation parameters (only in non-summary mode)
     if [ "$SUMMARY_MODE" != true ]; then
         log_debug "Starting simulation for montage: $montage"
@@ -974,6 +984,11 @@ done
 if [ "$all_files_present" = true ]; then
     # Clean up temporary directory only if all files were moved successfully
     rm -rf "$tmp_dir"
+    for montage in "${selected_montages[@]}"; do
+        log_info "Pipeline completed successfully for montage: $montage"
+        log_info "Simulation results saved to: $sim_dir/$montage"
+        log_info "----------------------------------------"
+    done
     
     # Complete results processing step
     log_simulation_step_complete "Results processing" "saved to ${sim_dir}"

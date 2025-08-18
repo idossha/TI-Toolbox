@@ -165,12 +165,6 @@ class ExSearchTab(QtWidgets.QWidget):
         # Initialize debug mode (default to False)
         self.debug_mode = False
         
-        # Summary mode variables
-        self.SUMMARY_MODE = True  # Default to summary mode
-        self.EXSEARCH_START_TIME = None
-        self.ROI_START_TIMES = {}
-        self.STEP_START_TIMES = {}
-        
         self.setup_ui()
         
         # Initialize with available subjects and check leadfields

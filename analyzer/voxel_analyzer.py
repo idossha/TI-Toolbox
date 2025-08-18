@@ -137,7 +137,7 @@ class VoxelAnalyzer:
             self.logger.error(f"Field file not found: {field_nifti}")
             raise FileNotFoundError(f"Field file not found: {field_nifti}")
         
-        self.logger.debug(f"Voxel analyzer initialized successfully")
+        self.logger.info(f"Voxel analyzer initialized successfully")
         self.logger.debug(f"Field NIfTI path: {field_nifti}")
         self.logger.debug(f"Subject directory: {subject_dir}")
         self.logger.debug(f"Output directory: {output_dir}")
