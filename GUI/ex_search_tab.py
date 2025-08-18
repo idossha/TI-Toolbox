@@ -15,7 +15,15 @@ import time
 import logging
 from PyQt5 import QtWidgets, QtCore, QtGui
 from confirmation_dialog import ConfirmationDialog
-from utils import confirm_overwrite
+try:
+    from .utils import confirm_overwrite, is_verbose_message, is_important_message
+except ImportError:
+    # Fallback for when running as standalone script
+    import os
+    import sys
+    gui_dir = os.path.dirname(os.path.abspath(__file__))
+    sys.path.insert(0, gui_dir)
+    from utils import confirm_overwrite, is_verbose_message, is_important_message
 
 class ExSearchThread(QtCore.QThread):
     """Thread to run ex-search optimization in background to prevent GUI freezing."""
@@ -135,6 +143,8 @@ class ExSearchTab(QtWidgets.QWidget):
         self.parent = parent
         self.optimization_running = False
         self.optimization_process = None
+        # Initialize debug mode (default to False)
+        self.debug_mode = False
         self.setup_ui()
         
         # Initialize with available subjects and check leadfields
@@ -1576,6 +1586,12 @@ class ExSearchTab(QtWidgets.QWidget):
         """Update the console output with colored text."""
         if not text.strip():
             return
+        
+        # Filter messages based on debug mode
+        if not self.debug_mode:
+            # In non-debug mode, only show important messages
+            if not is_important_message(text, message_type, 'exsearch'):
+                return
             
         # Format the output based on message type from thread
         if message_type == 'error':
@@ -1612,6 +1628,10 @@ class ExSearchTab(QtWidgets.QWidget):
             self.console_output.ensureCursorVisible()
         
         QtWidgets.QApplication.processEvents()
+
+    def set_debug_mode(self, debug_mode):
+        """Set debug mode for output filtering."""
+        self.debug_mode = debug_mode
     
     def update_status(self, message, error=False):
         """Update the status label with a message."""

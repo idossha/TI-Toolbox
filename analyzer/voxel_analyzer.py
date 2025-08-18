@@ -127,7 +127,7 @@ class VoxelAnalyzer:
         
         # Create output directory if it doesn't exist
         if not os.path.exists(output_dir):
-            self.logger.info(f"Creating output directory: {output_dir}")
+            self.logger.debug(f"Creating output directory: {output_dir}")
             os.makedirs(output_dir)
         
         # Validate that field_nifti exists
@@ -136,9 +136,9 @@ class VoxelAnalyzer:
             raise FileNotFoundError(f"Field file not found: {field_nifti}")
         
         self.logger.info(f"Voxel analyzer initialized successfully")
-        self.logger.info(f"Field NIfTI path: {field_nifti}")
-        self.logger.info(f"Subject directory: {subject_dir}")
-        self.logger.info(f"Output directory: {output_dir}")
+        self.logger.debug(f"Field NIfTI path: {field_nifti}")
+        self.logger.debug(f"Subject directory: {subject_dir}")
+        self.logger.debug(f"Output directory: {output_dir}")
 
     def _extract_atlas_type(self, atlas_file):
         """
@@ -177,28 +177,28 @@ class VoxelAnalyzer:
         
         # Extract atlas type from filename
         atlas_type = self._extract_atlas_type(atlas_file)
-        self.logger.info(f"Detected atlas type: {atlas_type}")
+        self.logger.debug(f"Detected atlas type: {atlas_type}")
         
         try:
             # Load region information once
             region_info = self.get_atlas_regions(atlas_file)
             
             # Load atlas and field data once
-            self.logger.info(f"Loading atlas from {atlas_file}...")
+            self.logger.debug(f"Loading atlas from {atlas_file}...")
             atlas_tuple = self.load_brain_image(atlas_file)
             atlas_img, atlas_arr = atlas_tuple
             
-            self.logger.info(f"Loading field from {self.field_nifti}...")
+            self.logger.debug(f"Loading field from {self.field_nifti}...")
             field_tuple = self.load_brain_image(self.field_nifti)
             field_img, field_arr = field_tuple
             
             # Handle 4D field data (extract first volume if multiple volumes)
             if len(field_arr.shape) == 4:
-                self.logger.info(f"Detected 4D field data with shape {field_arr.shape}")
+                self.logger.debug(f"Detected 4D field data with shape {field_arr.shape}")
                 field_shape_3d = field_arr.shape[:3]
                 # If time dimension is 1, we can simply reshape to 3D
                 if field_arr.shape[3] == 1:
-                    self.logger.info("Reshaping 4D field data to 3D")
+                    self.logger.debug("Reshaping 4D field data to 3D")
                     field_arr = field_arr[:,:,:,0]
                 else:
                     self.logger.warning(f"4D field has {field_arr.shape[3]} volumes. Using only the first volume.")
@@ -208,7 +208,7 @@ class VoxelAnalyzer:
             
             # Check if resampling is needed and do it once if necessary
             if atlas_arr.shape != field_shape_3d:
-                self.logger.info("Atlas and field dimensions don't match, attempting to resample...")
+                self.logger.debug("Atlas and field dimensions don't match, attempting to resample...")
                 self.logger.debug(f"Atlas shape: {atlas_arr.shape}")
                 self.logger.debug(f"Field shape: {field_arr.shape}")
 
@@ -224,7 +224,7 @@ class VoxelAnalyzer:
                 if atlas_arr.shape != field_shape_3d:
                     raise ValueError(f"Failed to resample atlas to match field dimensions: {atlas_arr.shape} vs {field_shape_3d}")
             else:
-                self.logger.info("Atlas and field dimensions already match - skipping resampling")
+                self.logger.debug("Atlas and field dimensions already match - skipping resampling")
             
             field_tuple = (field_img, field_arr)
             
@@ -235,7 +235,7 @@ class VoxelAnalyzer:
             for region_id, info in region_info.items():
                 region_name = info['name']
                 try:
-                    self.logger.info(f"Processing region: {region_name}")
+                    self.logger.debug(f"Processing region: {region_name}")
                     
                     # Create a directory for this region in the main output directory
                     region_dir = os.path.join(self.output_dir, region_name)
@@ -730,7 +730,7 @@ class VoxelAnalyzer:
         
         # Load the atlas and field data if not provided
         if atlas_data is None:
-            self.logger.info(f"Loading atlas from {atlas_file}...")
+            self.logger.debug(f"Loading atlas from {atlas_file}...")
             atlas_tuple = self.load_brain_image(atlas_file)
             atlas_img, atlas_arr = atlas_tuple
         else:
@@ -738,7 +738,7 @@ class VoxelAnalyzer:
             atlas_img, atlas_arr = atlas_data
             
         if field_data is None:
-            self.logger.info(f"Loading field from {self.field_nifti}...")
+            self.logger.debug(f"Loading field from {self.field_nifti}...")
             field_tuple = self.load_brain_image(self.field_nifti)
             field_img, field_arr = field_tuple
         else:

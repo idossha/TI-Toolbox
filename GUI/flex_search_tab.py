@@ -12,7 +12,15 @@ import glob
 import subprocess
 from PyQt5 import QtWidgets, QtCore, QtGui
 from confirmation_dialog import ConfirmationDialog
-from utils import confirm_overwrite
+try:
+    from .utils import confirm_overwrite, is_verbose_message, is_important_message
+except ImportError:
+    # Fallback for when running as standalone script
+    import os
+    import sys
+    gui_dir = os.path.dirname(os.path.abspath(__file__))
+    sys.path.insert(0, gui_dir)
+    from utils import confirm_overwrite, is_verbose_message, is_important_message
 
 class FlexSearchThread(QtCore.QThread):
     """Thread to run flex-search in background to prevent GUI freezing."""
@@ -119,6 +127,9 @@ class FlexSearchTab(QtWidgets.QWidget):
         self.eeg_nets = {}
         self.atlases = {}
         self.volume_atlases = {}
+        
+        # Initialize debug mode (default to False)
+        self.debug_mode = False
         
         # Initialize all widgets that might be referenced before setup_ui
         self.subject_list = QtWidgets.QListWidget()
@@ -1278,6 +1289,12 @@ class FlexSearchTab(QtWidgets.QWidget):
         """Update the console output with colored text."""
         if not text.strip():
             return
+        
+        # Filter messages based on debug mode
+        if not self.debug_mode:
+            # In non-debug mode, only show important messages
+            if not is_important_message(text, message_type, 'flexsearch'):
+                return
             
         # Format the output based on message type from thread
         if message_type == 'error':
@@ -1314,6 +1331,10 @@ class FlexSearchTab(QtWidgets.QWidget):
             self.output_text.ensureCursorVisible()
         
         QtWidgets.QApplication.processEvents()
+
+    def set_debug_mode(self, debug_mode):
+        """Set debug mode for output filtering."""
+        self.debug_mode = debug_mode
     
     def optimization_finished(self):
         """Handle the completion of the optimization process."""

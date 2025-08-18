@@ -131,7 +131,7 @@ class MeshAnalyzer:
         
         # Create output directory if it doesn't exist
         if not os.path.exists(output_dir):
-            self.logger.info(f"Creating output directory: {output_dir}")
+            self.logger.debug(f"Creating output directory: {output_dir}")
             os.makedirs(output_dir)
         
         # Validate that field mesh exists
@@ -140,10 +140,10 @@ class MeshAnalyzer:
             raise FileNotFoundError(f"Field mesh file not found: {field_mesh_path}")
         
         self.logger.info(f"Mesh analyzer initialized successfully")
-        self.logger.info(f"Field mesh path: {field_mesh_path}")
-        self.logger.info(f"Field name: {field_name}")
-        self.logger.info(f"Subject directory: {subject_dir}")
-        self.logger.info(f"Output directory: {output_dir}")
+        self.logger.debug(f"Field mesh path: {field_mesh_path}")
+        self.logger.debug(f"Field name: {field_name}")
+        self.logger.debug(f"Subject directory: {subject_dir}")
+        self.logger.debug(f"Output directory: {output_dir}")
 
     def _generate_surface_mesh(self):
         """
@@ -181,7 +181,7 @@ class MeshAnalyzer:
             
             # If we already have a valid surface mesh, return it
             if os.path.exists(surface_mesh_path):
-                self.logger.info(f"Using existing surface mesh at: {surface_mesh_path}")
+                self.logger.debug(f"Using existing surface mesh at: {surface_mesh_path}")
                 self._surface_mesh_path = surface_mesh_path
                 return surface_mesh_path
                 
@@ -196,7 +196,7 @@ class MeshAnalyzer:
                     '-o', surface_mesh_dir
                 ]
                 
-                self.logger.info(f"Running: {' '.join(cmd)}")
+                self.logger.debug(f"Running: {' '.join(cmd)}")
                 subprocess.run(cmd, check=True, capture_output=True)
                 
                 if not os.path.exists(surface_mesh_path):
@@ -205,7 +205,7 @@ class MeshAnalyzer:
                 
                 # Store the path
                 self._surface_mesh_path = surface_mesh_path
-                self.logger.info(f"Surface mesh generated successfully for {input_name} at: {surface_mesh_path}")
+                self.logger.debug(f"Surface mesh generated successfully for {input_name} at: {surface_mesh_path}")
                 
                 return surface_mesh_path
                 
@@ -333,7 +333,7 @@ class MeshAnalyzer:
                 'normal_focality': normal_focality
             }
             
-            self.logger.info(f"TI_normal statistics calculated successfully")
+            self.logger.debug(f"TI_normal statistics calculated successfully")
             
             # Clean up
             del normal_mesh
@@ -487,13 +487,13 @@ class MeshAnalyzer:
                     }
                     
                     # Extract TI_normal values from normal mesh for this region
-                    self.logger.info(f"Extracting TI_normal values for region: {region_name}")
+                    self.logger.debug(f"Extracting TI_normal values for region: {region_name}")
                     normal_field_values_positive, normal_statistics = self._extract_normal_field_values(roi_mask)
                     
                     # Add TI_normal statistics to region results if available
                     if normal_statistics is not None:
                         region_results.update(normal_statistics)
-                        self.logger.info(f"TI_normal values successfully added for region: {region_name}")
+                        self.logger.debug(f"TI_normal values successfully added for region: {region_name}")
                     else:
                         self.logger.warning(f"TI_normal values not available for region: {region_name}")
                     
@@ -690,7 +690,7 @@ class MeshAnalyzer:
             # Add TI_normal statistics to results if available
             if normal_statistics is not None:
                 results.update(normal_statistics)
-                self.logger.info("TI_normal values successfully added to results")
+                self.logger.debug("TI_normal values successfully added to results")
             else:
                 self.logger.warning("TI_normal values not available - results will only contain TI_max values")
             
@@ -877,7 +877,7 @@ class MeshAnalyzer:
             # Add TI_normal statistics to results if available
             if normal_statistics is not None:
                 results.update(normal_statistics)
-                self.logger.info("TI_normal values successfully added to results")
+                self.logger.debug("TI_normal values successfully added to results")
             else:
                 self.logger.warning("TI_normal values not available - results will only contain TI_max values")
             

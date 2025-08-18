@@ -52,8 +52,14 @@ from analyzer_tab import AnalyzerTab
 class MainWindow(QtWidgets.QMainWindow):
     """Main window for the TI-Toolbox GUI."""
     
+    # Signal for debug mode changes
+    debug_mode_changed = QtCore.pyqtSignal(bool)
+    
     def __init__(self):
         super(MainWindow, self).__init__()
+        
+        # Initialize debug mode state (default to False - non-debug mode)
+        self.debug_mode = False
         
         self.setWindowTitle("TI-Toolbox")
         # Set window flags to ensure proper window behavior
@@ -83,6 +89,9 @@ class MainWindow(QtWidgets.QMainWindow):
         
         main_layout = QtWidgets.QVBoxLayout(self.central_widget)
         
+        # Create debug mode control
+        self.setup_debug_mode_control(main_layout)
+        
         # Create the tab widget for different tools
         self.tab_widget = QtWidgets.QTabWidget()
         
@@ -100,6 +109,12 @@ class MainWindow(QtWidgets.QMainWindow):
 
         # Connect analyzer tab signals
         self.analyzer_tab.analysis_completed.connect(self.on_analysis_completed)
+        
+        # Connect debug mode signals to all tabs that support it
+        self.connect_debug_mode_signals()
+        
+        # Initialize all tabs with the current debug mode state
+        self.initialize_debug_mode_state()
 
         # Clear the tab widget in case we're reordering tabs
         self.tab_widget.clear()
@@ -129,6 +144,86 @@ class MainWindow(QtWidgets.QMainWindow):
         # Set window properties and center on screen
         self.resize(1000, 800)
         self.center_on_screen()
+        
+    def setup_debug_mode_control(self, main_layout):
+        """Set up the debug mode control UI."""
+        # Create a horizontal layout for the debug mode control
+        debug_layout = QtWidgets.QHBoxLayout()
+        
+        # Create debug mode checkbox
+        self.debug_mode_checkbox = QtWidgets.QCheckBox("Debug Mode")
+        self.debug_mode_checkbox.setChecked(self.debug_mode)
+        self.debug_mode_checkbox.setToolTip(
+            "Toggle debug mode:\n"
+            "• ON: Show all detailed logging information\n"
+            "• OFF: Show only key operational steps"
+        )
+        self.debug_mode_checkbox.toggled.connect(self.toggle_debug_mode)
+        
+        # Style the checkbox
+        self.debug_mode_checkbox.setStyleSheet("""
+            QCheckBox {
+                font-weight: bold;
+                color: #333333;
+                padding: 5px;
+            }
+            QCheckBox::indicator {
+                width: 18px;
+                height: 18px;
+            }
+            QCheckBox::indicator:unchecked {
+                border: 2px solid #cccccc;
+                background-color: white;
+                border-radius: 3px;
+            }
+            QCheckBox::indicator:checked {
+                border: 2px solid #4CAF50;
+                background-color: #4CAF50;
+                border-radius: 3px;
+            }
+        """)
+        
+        # Add debug mode control to layout
+        debug_layout.addWidget(self.debug_mode_checkbox)
+        debug_layout.addStretch()  # Push checkbox to the left
+        
+        # Add debug layout to main layout
+        main_layout.addLayout(debug_layout)
+        
+    def connect_debug_mode_signals(self):
+        """Connect debug mode signal to all tabs that support it."""
+        # List of tabs that support debug mode
+        debug_capable_tabs = [
+            self.pre_process_tab,
+            self.flex_search_tab,
+            self.ex_search_tab,
+            self.simulator_tab,
+            self.analyzer_tab,
+        ]
+        
+        for tab in debug_capable_tabs:
+            if hasattr(tab, 'set_debug_mode'):
+                self.debug_mode_changed.connect(tab.set_debug_mode)
+    
+    def initialize_debug_mode_state(self):
+        """Initialize all tabs with the current debug mode state."""
+        debug_capable_tabs = [
+            self.pre_process_tab,
+            self.flex_search_tab,
+            self.ex_search_tab,
+            self.simulator_tab,
+            self.analyzer_tab,
+        ]
+        
+        for tab in debug_capable_tabs:
+            if hasattr(tab, 'set_debug_mode'):
+                tab.set_debug_mode(self.debug_mode)
+        
+    def toggle_debug_mode(self, checked):
+        """Handle debug mode toggle."""
+        self.debug_mode = checked
+        # Emit signal to notify all connected tabs
+        self.debug_mode_changed.emit(self.debug_mode)
         
     def center_on_screen(self):
         """Center the window on the screen where the window is (multi-monitor aware, modern approach)."""
@@ -307,7 +402,7 @@ def main():
     window = MainWindow()
     window.show()
     # Inform the launcher that the GUI is now running (after event loop starts)
-    QtCore.QTimer.singleShot(0, lambda: print("Running TI-Toolbox GUI..."))
+    QtCore.QTimer.singleShot(0, lambda: print("\033[0;32mRunning TI-Toolbox GUI...\033[0m"))
 
     # Ensure we close the window and quit cleanly on termination signals (e.g., Ctrl+C / Ctrl+Z / SIGTERM)
     def request_graceful_shutdown():
@@ -324,7 +419,7 @@ def main():
 
     def _signal_handler(signum, frame):
         try:
-            print("Closing TI-Toolbox GUI...")
+            print("\033[0;31mClosing TI-Toolbox GUI...\033[0m")
         except Exception:
             pass
         request_graceful_shutdown()

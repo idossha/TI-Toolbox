@@ -266,12 +266,12 @@ def validate_args(args):
         if args.whole_head and args.region:
             logger.warning("Warning: --region is ignored when --whole_head is specified")
         
-    logger.info(f"  Atlas name: {getattr(args, 'atlas_name', None)}")
-    logger.info(f"  Atlas path: {getattr(args, 'atlas_path', None)}")
-    logger.info(f"  Coordinates: {getattr(args, 'coordinates', None)}")
-    logger.info(f"  Radius: {getattr(args, 'radius', None)}")
-    logger.info(f"  Region: {getattr(args, 'region', None)}")
-    logger.info(f"  Whole head: {getattr(args, 'whole_head', None)}")
+    logger.debug(f"  Atlas name: {getattr(args, 'atlas_name', None)}")
+    logger.debug(f"  Atlas path: {getattr(args, 'atlas_path', None)}")
+    logger.debug(f"  Coordinates: {getattr(args, 'coordinates', None)}")
+    logger.debug(f"  Radius: {getattr(args, 'radius', None)}")
+    logger.debug(f"  Region: {getattr(args, 'region', None)}")
+    logger.debug(f"  Whole head: {getattr(args, 'whole_head', None)}")
 
 def main():
     """Main function to run the analysis."""
@@ -308,12 +308,12 @@ def main():
             log_file = os.path.join(log_dir, f'analyzer_{time_stamp}.log')
             logger = logging_util.get_logger('analyzer', log_file, overwrite=True)
         
-        logger.info(f"Output directory created: {args.output_dir}")
+        logger.debug(f"Output directory created: {args.output_dir}")
         flush_output()
         
         # Validate arguments
         validate_args(args)
-        logger.info("Arguments validated successfully")
+        logger.debug("Arguments validated successfully")
         flush_output()
         
         # Hardcode field name to TI_max
@@ -321,7 +321,7 @@ def main():
         
         # Initialize appropriate analyzer
         if args.space == 'mesh':
-            logger.info("Initializing mesh analyzer...")
+            logger.debug("Initializing mesh analyzer...")
             flush_output()
             analyzer = MeshAnalyzer(
                 field_mesh_path=args.field_path,
@@ -336,7 +336,7 @@ def main():
                 raise ValueError("Failed to initialize mesh analyzer")
 
         else:  # voxel
-            logger.info("Initializing voxel analyzer...")
+            logger.debug("Initializing voxel analyzer...")
             flush_output()
             analyzer = VoxelAnalyzer(
                 field_nifti=args.field_path,

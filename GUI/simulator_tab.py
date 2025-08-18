@@ -26,7 +26,15 @@ except ImportError:
     print("Warning: PyQt5 not available")
 
 from confirmation_dialog import ConfirmationDialog
-from utils import confirm_overwrite
+try:
+    from .utils import confirm_overwrite, is_verbose_message, is_important_message
+except ImportError:
+    # Fallback for when running as standalone script
+    import os
+    import sys
+    gui_dir = os.path.dirname(os.path.abspath(__file__))
+    sys.path.insert(0, gui_dir)
+    from utils import confirm_overwrite, is_verbose_message, is_important_message
 
 # Add the utils directory to the path
 import sys
@@ -98,12 +106,18 @@ class SimulationThread(QtCore.QThread):
                         line_clean = strip_ansi_codes(raw_line)
                         line_stripped = line_clean.strip()
                         lowered = line_stripped.lower()
-                        # Certain phrases from SimNIBS include the word "error:" but are informational (not failures)
-                        is_error_tag = ('[ERROR]' in line_stripped) or ('ERROR:' in line_stripped)
+                        # Detect error messages from bracketed message types (including timestamped format)
+                        # Format: [2025-08-18 18:32:19] [main-TI] [ERROR] Message...
+                        is_error_tag = (
+                            '[ERROR]' in line_stripped or 
+                            'ERROR:' in line_stripped
+                        )
                         if is_error_tag:
                             message_type = 'error'
                         elif ('[WARNING]' in line_stripped) or ('Warning:' in line_stripped):
                             message_type = 'warning'
+                        elif '[INFO]' in line_stripped:
+                            message_type = 'info'
                         elif '[DEBUG]' in line_stripped:
                             message_type = 'debug'
                         elif any(keyword in lowered for keyword in ['executing:', 'running', 'command']):
@@ -343,6 +357,8 @@ class SimulatorTab(QtWidgets.QWidget):
         self._current_run_montages = []
         self._run_start_time = None
         self._project_dir_path_current = None
+        # Initialize debug mode (default to False)
+        self.debug_mode = False
         self.setup_ui()
         
         # Initialize with available subjects and montages
@@ -1871,12 +1887,7 @@ class SimulatorTab(QtWidgets.QWidget):
                 self.update_output(f"[INFO] Reports saved in: {reports_dir}")
                 
                 # Open the reports directory instead of individual files
-                import webbrowser
-                try:
-                    webbrowser.open('file://' + os.path.abspath(reports_dir))
-                    self.update_output("[INFO] Reports directory opened in file browser")
-                except Exception as e:
-                    self.update_output(f"[ERROR] Reports generated but couldn't open directory: {str(e)}")
+                self._open_directory_safely(reports_dir)
 
         except Exception as e:
             self.update_output(f"[ERROR] Error generating simulation reports: {str(e)}", 'error')
@@ -2036,6 +2047,12 @@ class SimulatorTab(QtWidgets.QWidget):
 
         # Strip ANSI escape sequences before any formatting
         text = strip_ansi_codes(text)
+        
+        # Filter messages based on debug mode
+        if not self.debug_mode:
+            # In non-debug mode, only show important messages
+            if not is_important_message(text, message_type, 'simulator'):
+                return
             
         # Format the output based on message type from thread
         if message_type == 'error':
@@ -2072,6 +2089,91 @@ class SimulatorTab(QtWidgets.QWidget):
             self.output_console.ensureCursorVisible()
         
         QtWidgets.QApplication.processEvents()
+
+    def set_debug_mode(self, debug_mode):
+        """Set debug mode for output filtering."""
+        self.debug_mode = debug_mode
+
+    def _open_file_safely(self, file_path):
+        """Safely open a file in the default application, with fallbacks for different environments."""
+        import webbrowser
+        import platform
+        
+        try:
+            # First try webbrowser (works on most systems)
+            webbrowser.open('file://' + os.path.abspath(file_path))
+            self.update_output("[INFO] File opened in default application")
+        except Exception as e:
+            # Fallback: try platform-specific commands
+            try:
+                system = platform.system().lower()
+                if system == "linux":
+                    # Try xdg-open first, then common browsers
+                    try:
+                        subprocess.run(['xdg-open', file_path], check=True)
+                        self.update_output("[INFO] File opened with xdg-open")
+                    except (subprocess.CalledProcessError, FileNotFoundError):
+                        # Try common browsers as fallback
+                        browsers = ['firefox', 'chromium', 'google-chrome', 'chrome']
+                        opened = False
+                        for browser in browsers:
+                            try:
+                                subprocess.run([browser, file_path], check=True)
+                                self.update_output(f"[INFO] File opened with {browser}")
+                                opened = True
+                                break
+                            except (subprocess.CalledProcessError, FileNotFoundError):
+                                continue
+                        if not opened:
+                            self.update_output(f"[WARNING] File generated but couldn't open automatically: {file_path}")
+                elif system == "darwin":  # macOS
+                    subprocess.run(['open', file_path], check=True)
+                    self.update_output("[INFO] File opened with macOS open command")
+                elif system == "windows":
+                    os.startfile(file_path)
+                    self.update_output("[INFO] File opened with Windows startfile")
+                else:
+                    self.update_output(f"[WARNING] File generated but couldn't open automatically: {file_path}")
+            except Exception as e2:
+                self.update_output(f"[WARNING] File generated but couldn't open automatically: {file_path}")
+                self.update_output(f"[DEBUG] Open error: {str(e2)}")
+
+    def _open_directory_safely(self, dir_path):
+        """Safely open a directory in the file manager, with fallbacks for different environments."""
+        import platform
+        
+        try:
+            system = platform.system().lower()
+            if system == "linux":
+                # Try xdg-open first, then common file managers
+                try:
+                    subprocess.run(['xdg-open', dir_path], check=True)
+                    self.update_output("[INFO] Directory opened with xdg-open")
+                except (subprocess.CalledProcessError, FileNotFoundError):
+                    # Try common file managers as fallback
+                    file_managers = ['nautilus', 'dolphin', 'thunar', 'pcmanfm', 'nemo']
+                    opened = False
+                    for fm in file_managers:
+                        try:
+                            subprocess.run([fm, dir_path], check=True)
+                            self.update_output(f"[INFO] Directory opened with {fm}")
+                            opened = True
+                            break
+                        except (subprocess.CalledProcessError, FileNotFoundError):
+                            continue
+                    if not opened:
+                        self.update_output(f"[WARNING] Directory available but couldn't open file manager: {dir_path}")
+            elif system == "darwin":  # macOS
+                subprocess.run(['open', dir_path], check=True)
+                self.update_output("[INFO] Directory opened with macOS open command")
+            elif system == "windows":
+                os.startfile(dir_path)
+                self.update_output("[INFO] Directory opened with Windows Explorer")
+            else:
+                self.update_output(f"[WARNING] Directory available but couldn't open file manager: {dir_path}")
+        except Exception as e:
+            self.update_output(f"[WARNING] Directory available but couldn't open file manager: {dir_path}")
+            self.update_output(f"[DEBUG] Open error: {str(e)}")
 
     def _handle_thread_output(self, text, message_type='default'):
         """Internal handler to track errors and forward to UI update."""
@@ -2593,12 +2695,7 @@ class SimulatorTab(QtWidgets.QWidget):
             self.update_output(f"[SUCCESS] Simulation report generated: {report_path}")
             
             # Open report in browser
-            import webbrowser
-            try:
-                webbrowser.open('file://' + os.path.abspath(report_path))
-                self.update_output("[INFO] Report opened in web browser")
-            except Exception as e:
-                self.update_output(f"[ERROR] Report generated but couldn't open browser: {str(e)}")
+            self._open_file_safely(report_path)
             
         except Exception as e:
             self.update_output(f"[ERROR] Error in simulation completion: {str(e)}")

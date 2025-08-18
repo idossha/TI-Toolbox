@@ -57,7 +57,7 @@ def create_group_output_directory(first_subject_path: str) -> str:
     # Group comparisons will be stored in the user-specified output directory
     
     if group_logger:
-        group_logger.info(f"Using project: {project_name}")
+        group_logger.debug(f"Using project: {project_name}")
     
     # Return a placeholder path - not actually used since we don't create central directories
     return f"/mnt/{project_name}/derivatives/SimNIBS"
@@ -257,13 +257,13 @@ def build_main_analyzer_command(
             # Transform MNI coordinates to subject space
             global group_logger
             if group_logger:
-                group_logger.info(f"Transforming MNI coordinates {args.coordinates} to subject {subject_id} space")
+                group_logger.debug(f"Transforming MNI coordinates {args.coordinates} to subject {subject_id} space")
             
             try:
                 mni_coords = [float(c) for c in args.coordinates]
                 subject_coords = mni2subject_coords(mni_coords, m2m_path)
                 if group_logger:
-                    group_logger.info(f"Transformed coordinates for {subject_id}: {subject_coords}")
+                    group_logger.debug(f"Transformed coordinates for {subject_id}: {subject_coords}")
                 cmd += ["--coordinates"] + [str(c) for c in subject_coords]
             except Exception as e:
                 error_msg = f"Failed to transform MNI coordinates for subject {subject_id}: {e}"
@@ -328,21 +328,21 @@ def run_subject_analysis(args, subject_args: List[str]) -> Tuple[bool, str]:
     cmd = build_main_analyzer_command(args, subject_args, subject_output_dir)
 
     if group_logger:
-        group_logger.info(f"Starting analysis for subject: {subject_id}")
+        group_logger.debug(f"Starting analysis for subject: {subject_id}")
 
     # Run main_analyzer.py - all output will be logged to centralized log file
     proc = subprocess.run(cmd, capture_output=True, text=True)
 
     if proc.returncode == 0:
         if group_logger:
-            group_logger.info(f"Subject {subject_id} analysis completed successfully")
+            group_logger.debug(f"Subject {subject_id} analysis completed successfully")
         return True, subject_output_dir
     else:
         if group_logger:
             group_logger.error(f"Subject {subject_id} analysis failed")
             # Log any additional error output that might not have been captured by main_analyzer.py
             if proc.stdout.strip():
-                group_logger.info(f"Subject {subject_id} additional stdout:\n{proc.stdout}")
+                group_logger.debug(f"Subject {subject_id} additional stdout:\n{proc.stdout}")
             if proc.stderr.strip():
                 group_logger.error(f"Subject {subject_id} additional stderr:\n{proc.stderr}")
         return False, ""

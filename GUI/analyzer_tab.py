@@ -11,15 +11,23 @@ import json # Original script had this, though not obviously used in snippet
 import subprocess
 from PyQt5 import QtWidgets, QtCore, QtGui
 from confirmation_dialog import ConfirmationDialog # Assuming this exists from original
-from utils import confirm_overwrite # Assuming this exists from original
+try:
+    from .utils import confirm_overwrite, is_verbose_message, is_important_message
+except ImportError:
+    # Fallback for when running as standalone script
+    import os
+    import sys
+    gui_dir = os.path.dirname(os.path.abspath(__file__))
+    sys.path.insert(0, gui_dir)
+    from utils import confirm_overwrite, is_verbose_message, is_important_message
 import traceback # For more detailed error logging if needed
 import time
 
 class AnalysisThread(QtCore.QThread):
     """Thread to run analysis in background to prevent GUI freezing."""
     
-    # Signal to emit output text
-    output_signal = QtCore.pyqtSignal(str)
+    # Signal to emit output text with message type
+    output_signal = QtCore.pyqtSignal(str, str)
     
     def __init__(self, cmd, env=None):
         """Initialize the thread with the command to run and environment variables."""
@@ -61,16 +69,32 @@ class AnalysisThread(QtCore.QThread):
                     line_stripped = line.strip()
                     if line_stripped:
                         cleaned_line = self._strip_ansi_codes(line_stripped)
-                        self.output_signal.emit(cleaned_line)
+                        # Determine message type based on content
+                        if any(keyword in cleaned_line.lower() for keyword in ['error:', 'critical:', 'failed', 'exception']):
+                            message_type = 'error'
+                        elif any(keyword in cleaned_line.lower() for keyword in ['warning:', 'warn']):
+                            message_type = 'warning'
+                        elif 'debug' in cleaned_line.lower():
+                            message_type = 'debug'
+                        elif any(keyword in cleaned_line.lower() for keyword in ['executing:', 'running', 'command']):
+                            message_type = 'command'
+                        elif any(keyword in cleaned_line.lower() for keyword in ['completed successfully', 'completed.', 'successfully', 'completed:']):
+                            message_type = 'success'
+                        elif any(keyword in cleaned_line.lower() for keyword in ['processing', 'starting']):
+                            message_type = 'info'
+                        else:
+                            message_type = 'default'
+                        
+                        self.output_signal.emit(cleaned_line, message_type)
             
             # Wait for process completion if not terminated
             if not self.terminated:
                 returncode = self.process.wait()
                 if returncode != 0:
-                    self.output_signal.emit(f"Error: Process returned non-zero exit code {returncode}")
+                    self.output_signal.emit(f"Error: Process returned non-zero exit code {returncode}", 'error')
                     
         except Exception as e:
-            self.output_signal.emit(f"Error running analysis: {str(e)}")
+            self.output_signal.emit(f"Error running analysis: {str(e)}", 'error')
 
     
     def terminate_process(self):
@@ -125,6 +149,9 @@ class AnalyzerTab(QtWidgets.QWidget):
         self.group_montage_config = {}
         self.group_field_config = {}
         self.group_atlas_config = {}
+        
+        # Initialize debug mode (default to False)
+        self.debug_mode = False
         
         self.setup_ui()
         
@@ -2002,45 +2029,52 @@ class AnalyzerTab(QtWidgets.QWidget):
     def clear_console(self):
         self.output_console.clear()
     
-    def update_output(self, text): # This is the method used by AnalysisThread's signal
+    def update_output(self, text, message_type='default'): # This is the method used by AnalysisThread's signal
         if not text or not text.strip(): return
         
-        formatted_text = text
-        # Basic coloring, can be expanded
-        if "Error:" in text or "CRITICAL:" in text or "Failed" in text or "failed" in text or "ERROR:" in text:
+        # Filter messages based on debug mode
+        if not self.debug_mode:
+            # In non-debug mode, only show important messages
+            if not is_important_message(text, message_type, 'analyzer'):
+                return
+        
+        # Format the output based on message type from thread
+        if message_type == 'error':
             formatted_text = f'<span style="color: #ff5555;"><b>{text}</b></span>'
-        elif "Warning:" in text or "WARNING:" in text:
+        elif message_type == 'warning':
             formatted_text = f'<span style="color: #ffff55;">{text}</span>'
-        elif "DEBUG" in text: # For our new debug messages
+        elif message_type == 'debug':
             formatted_text = f'<span style="color: #7f7f7f;"><i>{text}</i></span>' # Italic grey
-        elif "Command:" in text or "Running" in text or "Executing" in text:
+        elif message_type == 'command':
             formatted_text = f'<span style="color: #55aaff;">{text}</span>'
-        elif "completed successfully" in text or "completed." in text or "Successfully" in text or "completed:" in text:
+        elif message_type == 'success':
             formatted_text = f'<span style="color: #55ff55;"><b>{text}</b></span>'
-        elif "Processing" in text or "Starting" in text:
+        elif message_type == 'info':
             formatted_text = f'<span style="color: #55ffff;">{text}</span>'
-        # Group analysis specific patterns
-        elif "=== Processing subject:" in text or "=== GROUP ANALYSIS SUMMARY ===" in text:
-            formatted_text = f'<div style="background-color: #2a2a2a; padding: 5px; margin: 5px 0; border-radius: 3px;"><span style="color: #55ffff; font-weight: bold;">{text}</span></div>'
-        elif "[OK] Subject" in text or "[FAILED] Subject" in text:
-            formatted_text = f'<span style="color: #55ff55; font-weight: bold;">{text}</span>' if "[OK]" in text else f'<span style="color: #ff5555; font-weight: bold;">{text}</span>'
-        elif "Group analysis complete" in text or "Comprehensive group results" in text:
-            formatted_text = f'<div style="background-color: #2a2a2a; padding: 10px; margin: 10px 0; border-radius: 5px;"><span style="color: #55ff55; font-weight: bold; font-size: 14px;">{text}</span></div>'
-        elif "Analysis Results Summary:" in text:
-            formatted_text = f'<div style="background-color: #2a2a2a; padding: 10px; margin: 10px 0; border-radius: 5px;"><span style="color: #55ff55; font-weight: bold; font-size: 14px;">{text}</span></div>'
-        elif any(value_type in text for value_type in ["Mean Value:", "Max Value:", "Min Value:", "Focality:"]):
-            # Extract the value type and the numeric value
-            parts = text.split(":")
-            if len(parts) == 2:
-                value_type, value = parts
-                formatted_text = f'<div style="margin: 5px 20px;"><span style="color: #aaaaaa;">{value_type}:</span> <span style="color: #55ffff; font-weight: bold;">{value}</span></div>'
+        else:
+            # Fallback to content-based formatting for backward compatibility
+            # Group analysis specific patterns
+            if "=== Processing subject:" in text or "=== GROUP ANALYSIS SUMMARY ===" in text:
+                formatted_text = f'<div style="background-color: #2a2a2a; padding: 5px; margin: 5px 0; border-radius: 3px;"><span style="color: #55ffff; font-weight: bold;">{text}</span></div>'
+            elif "[OK] Subject" in text or "[FAILED] Subject" in text:
+                formatted_text = f'<span style="color: #55ff55; font-weight: bold;">{text}</span>' if "[OK]" in text else f'<span style="color: #ff5555; font-weight: bold;">{text}</span>'
+            elif "Group analysis complete" in text or "Comprehensive group results" in text:
+                formatted_text = f'<div style="background-color: #2a2a2a; padding: 10px; margin: 10px 0; border-radius: 5px;"><span style="color: #55ff55; font-weight: bold; font-size: 14px;">{text}</span></div>'
+            elif "Analysis Results Summary:" in text:
+                formatted_text = f'<div style="background-color: #2a2a2a; padding: 10px; margin: 10px 0; border-radius: 5px;"><span style="color: #55ff55; font-weight: bold; font-size: 14px;">{text}</span></div>'
+            elif any(value_type in text for value_type in ["Mean Value:", "Max Value:", "Min Value:", "Focality:"]):
+                # Extract the value type and the numeric value
+                parts = text.split(":")
+                if len(parts) == 2:
+                    value_type, value = parts
+                    formatted_text = f'<div style="margin: 5px 20px;"><span style="color: #aaaaaa;">{value_type}:</span> <span style="color: #55ffff; font-weight: bold;">{value}</span></div>'
+                else:
+                    formatted_text = f'<span style="color: #ffffff;">{text}</span>'
+            elif text.strip().startswith("-"):
+                # Indented list items
+                formatted_text = f'<span style="color: #aaaaaa; margin-left: 20px;">  {text}</span>'
             else:
                 formatted_text = f'<span style="color: #ffffff;">{text}</span>'
-        elif text.strip().startswith("-"):
-            # Indented list items
-            formatted_text = f'<span style="color: #aaaaaa; margin-left: 20px;">  {text}</span>'
-        else:
-            formatted_text = f'<span style="color: #ffffff;">{text}</span>'
         
         # Check if user is at the bottom of the console before appending
         scrollbar = self.output_console.verticalScrollBar()
@@ -2057,6 +2091,10 @@ class AnalyzerTab(QtWidgets.QWidget):
         
         # Avoid calling processEvents() here to prevent re-entrant recursion when many
         # queued output signals arrive rapidly.
+
+    def set_debug_mode(self, debug_mode):
+        """Set debug mode for output filtering."""
+        self.debug_mode = debug_mode
 
     def disable_controls(self):
         # List of widgets to disable, similar to original

@@ -22,7 +22,15 @@ import datetime
 
 from PyQt5 import QtWidgets, QtCore, QtGui
 from confirmation_dialog import ConfirmationDialog
-from utils import confirm_overwrite
+try:
+    from .utils import confirm_overwrite, is_verbose_message, is_important_message
+except ImportError:
+    # Fallback for when running as standalone script
+    import os
+    import sys
+    gui_dir = os.path.dirname(os.path.abspath(__file__))
+    sys.path.insert(0, gui_dir)
+    from utils import confirm_overwrite, is_verbose_message, is_important_message
 
 # Add the utils directory to the path
 utils_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'utils')
@@ -158,6 +166,8 @@ class PreProcessTab(QtWidgets.QWidget):
         self.processing_running = False
         self.processing_thread = None
         self.report_generators = {}  # Store report generators for each subject
+        # Initialize debug mode (default to False)
+        self.debug_mode = False
         self.setup_ui()
         
     def setup_ui(self):
@@ -908,27 +918,35 @@ class PreProcessTab(QtWidgets.QWidget):
         """Update the console output with colored text."""
         if not text.strip():
             return
+        
+        # Filter messages based on debug mode
+        if not self.debug_mode:
+            # In non-debug mode, only show important messages
+            if not is_important_message(text, message_type, 'preprocess'):
+                return
             
-        # Format the output based on content type
-        if "Processing... Only the Stop button is available" in text:
-            formatted_text = f'<div style="background-color: #2a2a2a; padding: 10px; margin: 10px 0; border-radius: 5px;"><span style="color: #ffff55; font-weight: bold;">{text}</span></div>'
-        elif message_type == 'error' or "Error:" in text or "CRITICAL:" in text or "Failed" in text:
+        # Format the output based on message type from thread
+        if message_type == 'error':
             formatted_text = f'<span style="color: #ff5555;"><b>{text}</b></span>'
-        elif message_type == 'warning' or "Warning:" in text or "YELLOW" in text:
+        elif message_type == 'warning':
             formatted_text = f'<span style="color: #ffff55;">{text}</span>'
-        elif message_type == 'success' or "completed successfully" in text or "Successfully" in text or "completed." in text or "completed:" in text:
-            formatted_text = f'<span style="color: #55ff55;"><b>{text}</b></span>'
-        elif message_type == 'debug' or "DEBUG:" in text:
+        elif message_type == 'debug':
             formatted_text = f'<span style="color: #7f7f7f;">{text}</span>'
-        elif message_type == 'info' or "Executing:" in text or "Running" in text or "Command" in text:
+        elif message_type == 'command':
             formatted_text = f'<span style="color: #55aaff;">{text}</span>'
-        elif "Processing" in text or "Starting" in text:
+        elif message_type == 'success':
+            formatted_text = f'<span style="color: #55ff55;"><b>{text}</b></span>'
+        elif message_type == 'info':
             formatted_text = f'<span style="color: #55ffff;">{text}</span>'
-        elif text.strip().startswith("-"):
-            # Indented list items
-            formatted_text = f'<span style="color: #aaaaaa; margin-left: 20px;">  {text}</span>'
         else:
-            formatted_text = f'<span style="color: #ffffff;">{text}</span>'
+            # Fallback to content-based formatting for backward compatibility
+            if "Processing... Only the Stop button is available" in text:
+                formatted_text = f'<div style="background-color: #2a2a2a; padding: 10px; margin: 10px 0; border-radius: 5px;"><span style="color: #ffff55; font-weight: bold;">{text}</span></div>'
+            elif text.strip().startswith("-"):
+                # Indented list items
+                formatted_text = f'<span style="color: #aaaaaa; margin-left: 20px;">  {text}</span>'
+            else:
+                formatted_text = f'<span style="color: #ffffff;">{text}</span>'
         
         # Check if user is at the bottom of the console before appending
         scrollbar = self.output_text.verticalScrollBar()
@@ -942,6 +960,10 @@ class PreProcessTab(QtWidgets.QWidget):
             self.output_text.ensureCursorVisible()
         
         QtWidgets.QApplication.processEvents()
+
+    def set_debug_mode(self, debug_mode):
+        """Set debug mode for output filtering."""
+        self.debug_mode = debug_mode
 
     def select_all_subjects(self):
         """Select all subjects in the subject list."""

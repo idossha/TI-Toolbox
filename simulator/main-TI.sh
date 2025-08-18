@@ -124,7 +124,7 @@ for montage in "${selected_montages[@]}"; do
     montage_dir="$sim_dir/$montage"
     
     # Log simulation parameters
-    log_info "Starting simulation for montage: $montage"
+    log_debug "Starting simulation for montage: $montage"
     log_info "Simulation parameters:"
     log_info "- Subject ID: $subject_id"
     log_info "- Conductivity: $conductivity"
@@ -674,6 +674,7 @@ if [ "$all_files_present" = true ]; then
     rm -rf "$tmp_dir"
     for montage in "${selected_montages[@]}"; do
         log_info "Pipeline completed successfully for montage: $montage"
+        log_info "Simulation results saved to: $sim_dir/$montage"
         log_info "----------------------------------------"
     done
 else
