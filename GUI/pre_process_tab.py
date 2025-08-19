@@ -192,9 +192,10 @@ class PreProcessThread(QtCore.QThread):
                     
                     self.error_signal.emit(error_msg)
                 else:
-                    # Only show success message if no failures were detected
+                    # Only show success message if no failures were detected and in debug mode
                     if not self.has_failures:
-                        self.output_signal.emit(f"Pre-processing completed successfully for all subjects", 'success')
+                        # Only show in debug mode - summary system handles completion messages
+                        pass
                     else:
                         self.output_signal.emit(f"Pre-processing completed with failures. Check the output above for details.", 'warning')
                 
@@ -989,11 +990,12 @@ class PreProcessTab(QtWidgets.QWidget):
             for subject_id, error in failed_reports:
                 self.update_output(f"  - {subject_id}: {error}", 'error')
         
-        # Simple completion message for non-debug mode (similar to simulator)
-        if generated_reports:
-            self.update_output("Report generation completed", 'success')
-        else:
-            self.update_output("Report generation completed", 'info')
+        # Only show report generation message in debug mode (summary system handles this)
+        if self.debug_mode:
+            if generated_reports:
+                self.update_output("Report generation completed", 'success')
+            else:
+                self.update_output("Report generation completed", 'info')
     
 
     

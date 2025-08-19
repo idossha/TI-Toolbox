@@ -17,8 +17,63 @@ import sys
 import argparse
 import subprocess
 import logging
+import time
 from pathlib import Path
 from typing import List, Tuple, Optional
+
+# Global variables for summary mode and timing
+SUMMARY_MODE = False
+_group_start_time = None
+
+def format_duration(total_seconds):
+    """Format duration in human-readable format."""
+    total_seconds = int(total_seconds)
+    hours = total_seconds // 3600
+    minutes = (total_seconds % 3600) // 60
+    seconds = total_seconds % 60
+    
+    if hours > 0:
+        return f"{hours}h {minutes}m {seconds}s"
+    elif minutes > 0:
+        return f"{minutes}m {seconds}s"
+    else:
+        return f"{seconds}s"
+
+def log_group_analysis_start(num_subjects, analysis_description):
+    """Log the start of group analysis."""
+    global _group_start_time, SUMMARY_MODE
+    _group_start_time = time.time()
+    
+    if SUMMARY_MODE:
+        print(f"\nBeginning group analysis for {num_subjects} subjects ({analysis_description})")
+
+def log_group_analysis_complete(num_successful, num_total, output_path=""):
+    """Log the completion of group analysis."""
+    global _group_start_time, SUMMARY_MODE
+    
+    if _group_start_time is not None:
+        total_duration = time.time() - _group_start_time
+        duration_str = format_duration(total_duration)
+        
+        if SUMMARY_MODE:
+            if num_successful == num_total:
+                print(f"└─ Group analysis completed ({num_successful}/{num_total} subjects successful, Total: {duration_str})")
+            else:
+                print(f"└─ Group analysis completed with failures ({num_successful}/{num_total} subjects successful, Total: {duration_str})")
+            if output_path:
+                # Show relative path from /mnt/ for cleaner display
+                display_path = output_path.replace('/mnt/', '') if output_path.startswith('/mnt/') else output_path
+                print(f"   Group results saved to: {display_path}")
+
+def log_group_subject_status(subject_id, status, duration_str, error_msg=""):
+    """Log the status of a subject in group analysis."""
+    global SUMMARY_MODE
+    
+    if SUMMARY_MODE:
+        if status == "complete":
+            print(f"├─ Subject {subject_id}: ✓ Complete ({duration_str})")
+        else:
+            print(f"├─ Subject {subject_id}: ✗ Failed ({duration_str}) - {error_msg}")
 
 # Import SimNIBS for MNI coordinate transformation
 try:
@@ -94,6 +149,8 @@ def setup_parser():
     # Output and comparison options
     parser.add_argument("--output_dir", required=True,
                         help="Directory for legacy group analysis outputs (comprehensive results go to centralized location)")
+    parser.add_argument("--quiet", action="store_true",
+                        help="Enable summary mode for clean output (non-debug mode)")
     parser.add_argument("--no-compare", action="store_true",
                         help="Skip comparison analysis after all subjects are processed (comparison runs by default)")
     parser.add_argument("--visualize", action="store_true",
@@ -306,6 +363,10 @@ def build_main_analyzer_command(
                 log_file_path = getattr(handler, 'baseFilename')
                 cmd += ["--log_file", log_file_path]
                 break
+    
+    # Add quiet flag if requested
+    if args.quiet:
+        cmd += ["--quiet"]
 
     return cmd
 
@@ -330,12 +391,25 @@ def run_subject_analysis(args, subject_args: List[str]) -> Tuple[bool, str]:
     if group_logger:
         group_logger.debug(f"Starting analysis for subject: {subject_id}")
 
+    # Track timing for subject analysis
+    import time
+    start_time = time.time()
+
     # Run main_analyzer.py - all output will be logged to centralized log file
     proc = subprocess.run(cmd, capture_output=True, text=True)
+
+    end_time = time.time()
+    duration = int(end_time - start_time)
+    duration_str = f"{duration//60}m {duration%60}s" if duration >= 60 else f"{duration}s"
 
     if proc.returncode == 0:
         if group_logger:
             group_logger.debug(f"Subject {subject_id} analysis completed successfully")
+        
+        # Log subject status for summary
+        if args.quiet:
+            log_group_subject_status(subject_id, "complete", duration_str)
+        
         return True, subject_output_dir
     else:
         if group_logger:
@@ -345,6 +419,21 @@ def run_subject_analysis(args, subject_args: List[str]) -> Tuple[bool, str]:
                 group_logger.debug(f"Subject {subject_id} additional stdout:\n{proc.stdout}")
             if proc.stderr.strip():
                 group_logger.error(f"Subject {subject_id} additional stderr:\n{proc.stderr}")
+        
+        # Extract error message for summary
+        error_msg = "Analysis failed"
+        if proc.stderr.strip():
+            error_lines = proc.stderr.strip().split('\n')
+            # Try to find a meaningful error message
+            for line in error_lines:
+                if any(keyword in line.lower() for keyword in ['error:', 'failed', 'exception']):
+                    error_msg = line.strip()[:100]  # Limit length
+                    break
+        
+        # Log subject status for summary
+        if args.quiet:
+            log_group_subject_status(subject_id, "failed", duration_str, error_msg)
+        
         return False, ""
 
 
@@ -455,6 +544,11 @@ def main():
     try:
         validate_args(args)
         
+        # Set up summary mode if requested
+        if args.quiet:
+            global SUMMARY_MODE
+            SUMMARY_MODE = True
+        
         # Create centralized group output directory based on first subject's path
         first_subject_path = args.subject[0][1]  # m2m_path from first subject
         centralized_group_dir = create_group_output_directory(first_subject_path)
@@ -464,6 +558,27 @@ def main():
         
         # Set up centralized logging for group analysis
         group_logger = setup_group_logger(project_name)
+        
+        # Create analysis description for summary
+        analysis_description = f"{args.analysis_type} ({args.space})"
+        if args.analysis_type == 'spherical' and args.coordinates:
+            coords_str = ', '.join(f"{float(c):.1f}" for c in args.coordinates)
+            analysis_description += f" - x={coords_str}, r={args.radius}mm"
+        elif args.analysis_type == 'cortical':
+            if args.whole_head:
+                if args.space == 'mesh':
+                    analysis_description += f" - {args.atlas_name} (whole head)"
+                else:
+                    analysis_description += " - whole head"
+            else:
+                if args.space == 'mesh':
+                    analysis_description += f" - {args.atlas_name}.{args.region}"
+                else:
+                    analysis_description += f" - {args.region}"
+        
+        # Start group analysis summary logging
+        if args.quiet:
+            log_group_analysis_start(len(args.subject), analysis_description)
 
         if group_logger:
             group_logger.info(f"\n>>> Starting group analysis with {len(args.subject)} subject(s).")
@@ -516,6 +631,13 @@ def main():
         else:
             if group_logger:
                 group_logger.warning("No successful analyses to compare.")
+
+        # Complete group analysis summary logging
+        if args.quiet:
+            output_path = ""
+            if len(successful_dirs) >= 1 and not args.no_compare and 'analysis_dirs' in locals():
+                output_path = final_group_dir if 'final_group_dir' in locals() else ""
+            log_group_analysis_complete(len(successful_dirs), len(args.subject), output_path)
 
         if group_logger:
             group_logger.info("\n>>> Group analysis complete.")

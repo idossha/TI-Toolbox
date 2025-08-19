@@ -1503,6 +1503,8 @@ class SimulatorTab(QtWidgets.QWidget):
                 '--run-direct'
             ]
             
+            
+            
             # Set environment variables for simulator.sh (match CLI script expectations)
             env['SUBJECT_CHOICES'] = ','.join(selected_subjects)  # CLI expects SUBJECT_CHOICES
             env['SIM_TYPE'] = 'TI'  # CLI expects SIM_TYPE (always TI for this GUI)
@@ -1690,14 +1692,15 @@ class SimulatorTab(QtWidgets.QWidget):
         if hasattr(self, 'parent') and self.parent:
             self.parent.set_tab_busy(self, False)
         
-        if self._had_errors_during_run:
-            self.output_console.append('<div style="margin: 10px 0;"><span style="color: #ff5555; font-size: 16px; font-weight: bold;">--- SIMULATION PROCESS COMPLETED WITH ERRORS ---</span></div>')
-            if hasattr(self, '_first_error_line') and getattr(self, '_first_error_line', None):
-                safe_err = strip_ansi_codes(self._first_error_line)
-                self.update_output(f"First error detected: {safe_err}", 'error')
-        else:
-            self.output_console.append('<div style="margin: 10px 0;"><span style="color: #55ff55; font-size: 16px; font-weight: bold;">--- SIMULATION PROCESS COMPLETED ---</span></div>')
-        self.output_console.append('<div style="border-bottom: 1px solid #555; margin-bottom: 10px;"></div>')
+        if self.debug_mode:
+            if self._had_errors_during_run:
+                self.output_console.append('<div style="margin: 10px 0;"><span style="color: #ff5555; font-size: 16px; font-weight: bold;">--- SIMULATION PROCESS COMPLETED WITH ERRORS ---</span></div>')
+                if hasattr(self, '_first_error_line') and getattr(self, '_first_error_line', None):
+                    safe_err = strip_ansi_codes(self._first_error_line)
+                    self.update_output(f"First error detected: {safe_err}", 'error')
+            else:
+                self.output_console.append('<div style="margin: 10px 0;"><span style="color: #55ff55; font-size: 16px; font-weight: bold;">--- SIMULATION PROCESS COMPLETED ---</span></div>')
+            self.output_console.append('<div style="border-bottom: 1px solid #555; margin-bottom: 10px;"></div>')
         
         # Only auto-generate simulation report if there were no errors; else cleanup partial outputs and inform user
         if not self._had_errors_during_run:

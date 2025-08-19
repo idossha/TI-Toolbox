@@ -1836,6 +1836,10 @@ class AnalyzerTab(QtWidgets.QWidget):
 
             # Always enable visualizations
             cmd.append('--visualize')
+            
+            # Add quiet flag if not in debug mode
+            if not self.debug_mode:
+                cmd.append('--quiet')
 
             # Add subject specifications
             common_montage = self.group_montage_config.get('common_montage')
@@ -2683,6 +2687,11 @@ General.Trackball = 1; General.RotationX = 0; General.RotationY = 0; General.Rot
             
             # Field name and field path are now handled in the main command building above
             cmd.append('--visualize')
+            
+            # Add quiet flag if not in debug mode
+            if not self.debug_mode:
+                cmd.append('--quiet')
+                
             return cmd
         except Exception:
             return None

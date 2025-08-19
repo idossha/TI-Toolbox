@@ -60,7 +60,13 @@ electrode_shape = sys.argv[7]
 dimensions = [float(x) for x in sys.argv[8].split(',')]  # Convert dimensions to list of floats
 thickness = float(sys.argv[9])
 eeg_net = sys.argv[10]  # Get the EEG net filename
-montage_names = sys.argv[11:]  # The list of montages starts from the 12th argument
+
+# Parse remaining arguments for montage names
+remaining_args = sys.argv[11:]
+montage_names = []
+for arg in remaining_args:
+    if arg != '--quiet':
+        montage_names.append(arg)
 
 # Initialize flex_montages early (will be populated after logger init)
 flex_montages = []
@@ -133,6 +139,8 @@ logger = logging_util.get_logger('TI', log_file, overwrite=False)
 
 # Configure SimNIBS related loggers to use our logging setup
 logging_util.configure_external_loggers(['simnibs', 'mesh_io', 'sim_struct'], logger)
+
+
 
 # Check if we have flex montages file (now after logger init)
 flex_montages_file = os.environ.get('FLEX_MONTAGES_FILE')
@@ -473,7 +481,8 @@ for flex_montage in flex_montages:
         
         # Convert to the expected format
         montage_data = [[pairs[0][0], pairs[0][1]], [pairs[1][0], pairs[1][1]]]
-        logger.info(f"Running flex mapped simulation with electrodes: {electrode_labels}")
+        if not quiet_mode:
+            logger.info(f"Running flex mapped simulation with electrodes: {electrode_labels}")
         logger.debug(f"Using EEG net from flex-search: {eeg_net_for_montage}")
         
         # Temporarily set the EEG net for this simulation
@@ -572,6 +581,4 @@ with open(completion_file, 'w') as f:
 
 logger.info(f"Simulation completion report written to: {completion_file}")
 logger.info(f"Successfully completed {completion_report['success_count']}/{completion_report['total_simulations']} simulations")
-
-logger.info("All simulations completed successfully")
         

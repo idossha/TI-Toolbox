@@ -33,193 +33,184 @@ def confirm_overwrite(parent, path, item_type="file"):
 
 def is_important_message(text, message_type, tab_type='general'):
     """
-    Check if a message is important and should be shown in non-debug mode.
+    Summary-based message filtering for clean user experience.
     
     Args:
         text: The message text to check
         message_type: The message type ('error', 'warning', 'info', 'success', 'command', 'debug', 'default')
-        tab_type: The type of tab ('general', 'simulator', 'analyzer', 'preprocess', 'flexsearch', 'exsearch')
+        tab_type: The type of tab
         
     Returns:
         bool: True if the message should be shown in non-debug mode
     """
-    # Always show critical message types (removed 'info' to be more selective)
-    if message_type in ['error', 'warning', 'success']:
-        return True
-    
     # Never show debug messages in non-debug mode
     if message_type == 'debug':
         return False
     
-    # Important operational messages that should always be shown
-    important_patterns = {
-        'general': [
-        ],
-        'simulator': [
-            # Only show these key messages in non-debug mode
-            'Starting simulation for montage',
-            'Processing pair:',
-            'Pipeline completed successfully',
-            # Result output locations
-            'Simulation completion report written to',
-            'results saved to:',
-            'saved to:'
-        ],
-        'analyzer': [
-            'ROI contains',
-            'TI_max Values:',
-            'TI_normal Values:',
-            'Focality:',
-            'Mean Value:',
-            'Max Value:',
-            'Min Value:',
-            'Generating surface mesh for specific field:'
-            # Result output locations
-            'saved to:',
-            'written to:',
-            'results saved to:',
-            'output saved to:',
-            'Analysis completed successfully',
-            'All results saved to:',
-            'Visualization settings saved to:',
-            'Average NIfTI saved to:',
-            'Group analysis complete'
-        ],
-        'preprocess': [
-            # Essential preprocessing step messages (user requested)
-            'Starting processing for',
-            'Starting DICOM to NIfTI conversion for subject:',
-            'Starting SimNIBS charm for subject:',
-            'Starting FreeSurfer recon-all for subject:',  # Only the specific one from recon-all.sh
-            'Starting skull bone analysis',
-            'Pre-processing for',
-            'completed successfully',
-            # Additional key step messages from scripts (keep only one of each type)
-            'DICOM conversion completed for subject:',  # Only from structural.sh
-            'SimNIBS charm completed for subject:',     # Only from structural.sh
-            'FreeSurfer recon-all completed for subject:', # Only from structural.sh
-            'Skull bone analysis completed',
-            'All subjects processed successfully',
-            # Simple report completion message (like simulator)
-            'Report generation completed',
-            # Critical error patterns that indicate real failures
+    # For preprocessing tab, use summary-based filtering
+    if tab_type == 'preprocess':
+        # Show summary messages (our new clean format)
+        summary_patterns = [
+            'Beginning pre-processing for subject:',
+            '├─ ',  # Process status lines
+            '└─ ',  # Final completion line
+        ]
+        
+        if any(pattern in text for pattern in summary_patterns):
+            return True
+        
+        # Filter out atlas segmentation warnings - these should be handled by summary system
+        atlas_warning_patterns = [
+            'm2m folder not found, skipping atlas segmentation',
+            'Atlas segmentation completed but some files missing',
+            'Atlas segmentation failed'
+        ]
+        
+        if any(pattern in text for pattern in atlas_warning_patterns):
+            return False
+        
+        # Show critical errors that aren't captured by summary system
+        error_patterns = [
             'segmentation fault',
-            'bus error', 
-            'illegal instruction',
+            'bus error',
+            'illegal instruction', 
             'permission denied',
             'command not found',
             'cannot execute',
             'bad interpreter',
             'fatal error',
-            'critical error',
-            'processing interrupted',
-            'validation failed',
-            'exited with errors',
-            'script failed',
-            # Specific preprocessing errors
-            'No T1 image found',
-            'failed for subject',
-            'The following subjects had failures',
-            'Please check the logs for more details'
-        ],
-        'flexsearch': [
-        ],
-        'exsearch': [
+            'critical error'
         ]
-    }
+        
+        text_lower = text.lower()
+        if any(pattern in text_lower for pattern in error_patterns):
+            return True
+        
+        # Explicitly filter out messages that should not appear in summary mode
+        filtered_patterns = [
+            'Pre-processing completed for all subjects',
+            'Report generation completed',
+            'Processing completed!',
+            'All subjects processed successfully!',
+            'Sequential processing completed',
+            'Parallel processing completed',
+            'Starting SEQUENTIAL processing',
+            'Starting PARALLEL processing',
+            'System configuration:',
+            'Processing plan:',
+            'Each subject will',
+            'Will run',
+            'cores available'
+        ]
+        
+        if any(pattern in text for pattern in filtered_patterns):
+            return False
+        
+        # Filter out all other verbose messages
+        return False
     
-    text_lower = text.lower()
-    
-    # Check general important patterns
-    general_patterns = important_patterns.get('general', [])
-    if any(pattern.lower() in text_lower for pattern in general_patterns):
+    # Always show critical message types for non-preprocessing tabs
+    if message_type in ['error', 'warning', 'success']:
         return True
     
-    # Check tab-specific important patterns
-    tab_patterns = important_patterns.get(tab_type, [])
-    if any(pattern.lower() in text_lower for pattern in tab_patterns):
-        return True
-    
-    # For command type messages, be very selective
-    if message_type == 'command':
-        # Only show specific command patterns that match our whitelist
-        tab_patterns = important_patterns.get(tab_type, [])
-        return any(pattern.lower() in text_lower for pattern in tab_patterns)
-    
-    # For info type messages, be selective based on tab-specific patterns
-    if message_type == 'info':
-        tab_patterns = important_patterns.get(tab_type, [])
-        return any(pattern.lower() in text_lower for pattern in tab_patterns)
-    
-    # Filter out verbose computational and detailed messages for preprocessing
-    if tab_type == 'preprocess':
-        # Filter out detailed FreeSurfer optimization and computational output
-        if any(pattern in text.upper() for pattern in [
-            'IFLAG=', 'LINE SEARCH', 'MCSRCH', 'QUASINEWTONEMA', 'BFGS', 'LBFGS',
-            'CONVERGENCE:', 'ITERATION', 'GRADIENT', 'FUNCTION EVALUATION', 
-            'ARMIJO', '-LOG(P)', 'TOL ', 'OUTOF QUASINEWTON',
-            'DT:', 'RMS RADIAL ERROR=', 'AVGS=', 'FINAL DISTANCE ERROR',
-            'DISTANCE ERROR %', '/300:', 'SURFACE RECONSTRUCTION'
-        ]):
-            return False
-            
-        # Filter out verbose atlas and report messages (keep only essential ones)
-        # Also filter ANY message containing emojis or special characters
-        emoji_patterns = ['✓', '📊', '📁', '💡', '❌', '✅', '🎯', '🔍', '📈', '🔄', '   •']
-        verbose_shell_patterns = [
-            'Non-recon processing completed successfully',  # structural.sh verbose
-            'Sequential processing completed',  # structural.sh verbose
-            'Completed processing subject:',  # structural.sh verbose
-            'Processing subject:',  # structural.sh verbose with core info
-            'System configuration:',  # structural.sh verbose
-            'Each subject will use all',  # structural.sh verbose
-            'Starting SEQUENTIAL processing',  # structural.sh verbose
-            'Running SimNIBS charm for subject:',  # structural.sh - duplicate of essential message
-            'Running FreeSurfer recon-all for subject:',  # structural.sh - duplicate of essential message
-            'Preprocessing completed.',  # duplicate completion message
-            # Additional DICOM conversion duplicates
-            'DICOM to NIfTI conversion completed successfully for subject:',  # duplicate of "DICOM conversion completed"
-            'Processing completed!',  # duplicate completion message from structural.sh
-            # Duplicate completion messages from individual scripts
-            'SimNIBS charm completed successfully for subject:',  # charm.sh - duplicate
-            'FreeSurfer recon-all completed for subject:',  # recon-all.sh - duplicate
-            # T2 image messages that don't need to be shown
-            'No T2 image found',
-            'proceeding with T1 only',
-            # FreeSurfer verbose process output
-            'lta_convert',
-            'tessellation finished',
-            'MRIScomputeBorderValues_new',
-            'finished in',
-            'min',
-            'WARN: S lookup',
-            'WARN: S explicit',
-            'vertex =',
-            'recon-all -s',
-            'finished without error at',
+    # For analyzer tab, use summary-based filtering similar to preprocessing
+    if tab_type == 'analyzer':
+        # Show analyzer summary messages (our new clean format)
+        analyzer_summary_patterns = [
+            'Beginning analysis for subject:',
+            'Beginning group analysis for',
+            '├─ ',  # Process status lines
+            '└─ ',  # Final completion line
         ]
-        if any(pattern in text for pattern in [
-            '[Atlas]',  # Individual atlas messages
-            'Report generated:',  # Individual report files (without emoji)
-            'Successfully generated',  # Detailed report summary
-            'Reports location:',  # Reports directory info
-            'Open the HTML files',  # Usage instructions
-            'Failed to generate',  # Failed report details
-            '=== Generating preprocessing reports ===',  # Verbose report start
-            'Generating report for',  # Individual report generation
-        ]) or any(emoji in text for emoji in emoji_patterns) or any(pattern in text for pattern in verbose_shell_patterns):
+        
+        if any(pattern in text for pattern in analyzer_summary_patterns):
+            return True
+        
+        # Filter out verbose analyzer messages that should be handled by summary system
+        analyzer_filtered_patterns = [
+            'ROI contains',
+            'TI_max Values:',
+            'TI_normal Values:',
+            'Analysis completed successfully',
+            'results saved to:',
+            'saved to:',
+            'Starting analysis for subject:',
+            'Subject analysis completed',
+            'Group analysis complete',
+            'Comprehensive group results',
+            'Multiple region analysis results',
+            'Performing',
+            'analysis on',
+            'Initializing',
+            'analyzer',
+            'Mesh analyzer initialized',
+            'Voxel analyzer initialized',
+            'initialized successfully',
+            'Single region analysis',
+            'Multiple region analysis',
+            'Arguments validated successfully',
+            'Output directory created',
+        ]
+        
+        if any(pattern in text for pattern in analyzer_filtered_patterns):
             return False
+        
+        # Filter out all other verbose analyzer messages
+        return False
     
-
+    # For simulator tab, use summary-based filtering similar to preprocessing and analyzer
+    if tab_type == 'simulator':
+        # Show simulator summary messages (our new clean format)
+        simulator_summary_patterns = [
+            'Beginning simulation for subject:',
+            '├─ ',  # Process status lines
+            '└─ ',  # Final completion line
+        ]
+        
+        if any(pattern in text for pattern in simulator_summary_patterns):
+            return True
+        
+        # Filter out verbose simulator messages that should be handled by summary system
+        simulator_filtered_patterns = [
+            'Starting simulation for montage',
+            'Processing pair:',
+            'Pipeline completed successfully',
+            'results saved to:',
+            'saved to:',
+            'Simulation parameters:',
+            'Subject ID:',
+            'Conductivity:',
+            'Simulation Mode:',
+            'Intensity:',
+            'Electrode Shape:',
+            'Electrode Dimensions:',
+            'Electrode Thickness:',
+            'Visualizing montage:',
+            'Running SimNIBS simulation',
+            'Processing simulation results',
+            'Extracting fields from:',
+            'Field extraction completed',
+            'Converting meshes to NIfTI',
+            'Mesh to NIfTI conversion',
+            'Processing TI mesh',
+            'Moved and renamed',
+            'Verifying files for montage',
+        ]
+        
+        if any(pattern in text for pattern in simulator_filtered_patterns):
+            return False
+        
+        # Filter out all other verbose simulator messages
+        return False
     
-    # Default: don't show detailed/verbose messages
+    # Default: don't show verbose messages
     return False
 
 
 def is_verbose_message(text, tab_type='general'):
     """
     Legacy function for backward compatibility.
-    Now uses the new is_important_message logic.
+    Simplified until summary system is implemented.
     
     Args:
         text: The message text to check
@@ -228,6 +219,6 @@ def is_verbose_message(text, tab_type='general'):
     Returns:
         bool: True if the message should be filtered (is verbose)
     """
-    # For backward compatibility, assume 'default' message type
-    # and invert the result (verbose = not important)
-    return not is_important_message(text, 'default', tab_type)
+    # For now, don't filter any messages (show everything)
+    # TODO: Remove this function when summary system is implemented
+    return False

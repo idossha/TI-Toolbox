@@ -71,6 +71,11 @@ from pathlib import Path
 from mesh_analyzer import MeshAnalyzer
 from voxel_analyzer import VoxelAnalyzer
 
+# Global variables for summary mode and timing
+SUMMARY_MODE = False
+_start_times = {}
+_analysis_start_time = None
+
 # Force unbuffered output for real-time GUI updates
 try:
     # Try to reconfigure for line buffering if available (Python 3.7+)
@@ -111,6 +116,132 @@ def flush_output():
         sys.stderr.flush()
     except:
         pass
+
+def format_duration(total_seconds):
+    """Format duration in human-readable format."""
+    total_seconds = int(total_seconds)
+    hours = total_seconds // 3600
+    minutes = (total_seconds % 3600) // 60
+    seconds = total_seconds % 60
+    
+    if hours > 0:
+        return f"{hours}h {minutes}m {seconds}s"
+    elif minutes > 0:
+        return f"{minutes}m {seconds}s"
+    else:
+        return f"{seconds}s"
+
+def log_analysis_start(analysis_type, subject_id, roi_description):
+    """Log the start of analysis for a subject."""
+    global _analysis_start_time, SUMMARY_MODE
+    _analysis_start_time = time.time()
+    
+    if SUMMARY_MODE:
+        print(f"Beginning analysis for subject: {subject_id} ({roi_description})")
+    else:
+        logger.info(f"Beginning analysis for subject: {subject_id} ({roi_description})")
+
+def log_analysis_complete(analysis_type, subject_id, results_summary="", output_path=""):
+    """Log the completion of analysis for a subject."""
+    global _analysis_start_time, SUMMARY_MODE
+    
+    if _analysis_start_time is not None:
+        total_duration = time.time() - _analysis_start_time
+        duration_str = format_duration(total_duration)
+        
+        if SUMMARY_MODE:
+            if results_summary:
+                print(f"└─ Analysis completed successfully for subject: {subject_id} ({results_summary}, Total: {duration_str})")
+            else:
+                print(f"└─ Analysis completed successfully for subject: {subject_id} (Total: {duration_str})")
+            if output_path:
+                # Show relative path from /mnt/ for cleaner display
+                display_path = output_path.replace('/mnt/', '') if output_path.startswith('/mnt/') else output_path
+                print(f"   Results saved to: {display_path}")
+        else:
+            logger.info(f"Analysis completed successfully for subject: {subject_id} (Total: {duration_str})")
+
+def log_analysis_failed(analysis_type, subject_id, error_msg):
+    """Log the failure of analysis for a subject."""
+    global _analysis_start_time, SUMMARY_MODE
+    
+    if _analysis_start_time is not None:
+        total_duration = time.time() - _analysis_start_time
+        duration_str = format_duration(total_duration)
+        
+        if SUMMARY_MODE:
+            print(f"└─ Analysis failed for subject: {subject_id} ({duration_str}) - {error_msg}")
+        else:
+            logger.error(f"Analysis failed for subject: {subject_id} ({duration_str}) - {error_msg}")
+
+def log_analysis_step_start(step_name, subject_id):
+    """Log the start of an analysis step."""
+    global _start_times, SUMMARY_MODE
+    
+    step_key = f"{subject_id}_{step_name}"
+    _start_times[step_key] = time.time()
+    
+    if SUMMARY_MODE:
+        print(f"├─ {step_name}: Starting...")
+    else:
+        logger.info(f"{step_name}: Starting...")
+
+def log_analysis_step_complete(step_name, subject_id, step_details=""):
+    """Log the completion of an analysis step."""
+    global _start_times, SUMMARY_MODE
+    
+    step_key = f"{subject_id}_{step_name}"
+    if step_key in _start_times:
+        duration = time.time() - _start_times[step_key]
+        duration_str = format_duration(duration)
+        
+        if SUMMARY_MODE:
+            if step_details:
+                print(f"├─ {step_name}: ✓ Complete ({duration_str}) - {step_details}")
+            else:
+                print(f"├─ {step_name}: ✓ Complete ({duration_str})")
+        else:
+            logger.info(f"{step_name}: Complete ({duration_str})")
+        
+        # Clean up timing
+        del _start_times[step_key]
+
+def log_analysis_step_failed(step_name, subject_id, error_msg):
+    """Log the failure of an analysis step."""
+    global _start_times, SUMMARY_MODE
+    
+    step_key = f"{subject_id}_{step_name}"
+    if step_key in _start_times:
+        duration = time.time() - _start_times[step_key]
+        duration_str = format_duration(duration)
+        
+        if SUMMARY_MODE:
+            print(f"├─ {step_name}: ✗ Failed ({duration_str}) - {error_msg}")
+        else:
+            logger.error(f"{step_name}: Failed ({duration_str}) - {error_msg}")
+        
+        # Clean up timing
+        del _start_times[step_key]
+
+def create_roi_description(args):
+    """Create a human-readable ROI description for summary logging."""
+    if args.analysis_type == 'spherical':
+        coords = ', '.join(f"{float(c):.1f}" for c in args.coordinates)
+        return f"Spherical ROI: x={coords}, r={args.radius}mm"
+    elif args.analysis_type == 'cortical':
+        if args.whole_head:
+            if args.space == 'mesh':
+                return f"Cortical: {args.atlas_name} (whole head)"
+            else:
+                atlas_name = os.path.basename(args.atlas_path) if args.atlas_path else "atlas"
+                return f"Cortical: {atlas_name} (whole head)"
+        else:
+            if args.space == 'mesh':
+                return f"Cortical: {args.atlas_name}.{args.region}"
+            else:
+                atlas_name = os.path.basename(args.atlas_path) if args.atlas_path else "atlas"
+                return f"Cortical: {atlas_name}.{args.region}"
+    return "Analysis"
 
 def validate_file_extension(file_path, valid_extensions):
     """Validate file extension against a list of valid extensions."""
@@ -198,6 +329,8 @@ def setup_parser():
                       help="Generate visualization outputs")
     parser.add_argument("--log_file",
                       help="Path to centralized log file (for group analysis integration)")
+    parser.add_argument("--quiet", action="store_true",
+                      help="Enable summary mode for clean output (non-debug mode)")
     
     return parser
 
@@ -287,6 +420,11 @@ def main():
         # Extract subject ID from m2m_subject_path (e.g., m2m_subject -> subject)
         subject_id = os.path.basename(args.m2m_subject_path).split('_')[1] if '_' in os.path.basename(args.m2m_subject_path) else os.path.basename(args.m2m_subject_path)
         
+        # Set up summary mode if requested
+        if args.quiet:
+            global SUMMARY_MODE
+            SUMMARY_MODE = True
+        
         # Set up logging - use centralized log file if provided, otherwise use subject-specific
         if args.log_file:
             # Use centralized log file for group analysis
@@ -316,10 +454,18 @@ def main():
         logger.debug("Arguments validated successfully")
         flush_output()
         
+        # Start summary logging if in quiet mode
+        roi_description = create_roi_description(args)
+        if args.quiet:
+            log_analysis_start(args.analysis_type, subject_id, roi_description)
+        
         # Hardcode field name to TI_max
         field_name = "TI_max"
         
         # Initialize appropriate analyzer
+        if args.quiet:
+            log_analysis_step_start("Field data loading", subject_id)
+        
         if args.space == 'mesh':
             logger.debug("Initializing mesh analyzer...")
             flush_output()
@@ -331,6 +477,8 @@ def main():
                 logger=logger
             )
             if analyzer is None:
+                if args.quiet:
+                    log_analysis_step_failed("Field data loading", subject_id, "Failed to initialize mesh analyzer")
                 logger.error("Failed to initialize mesh analyzer")
                 flush_output()
                 raise ValueError("Failed to initialize mesh analyzer")
@@ -345,15 +493,27 @@ def main():
                 logger=logger
             )
             if analyzer is None:
+                if args.quiet:
+                    log_analysis_step_failed("Field data loading", subject_id, "Failed to initialize voxel analyzer")
                 logger.error("Failed to initialize voxel analyzer")
                 flush_output()
                 raise ValueError("Failed to initialize voxel analyzer")
+        
+        if args.quiet:
+            log_analysis_step_complete("Field data loading", subject_id)
 
         # Perform analysis based on type
+        if args.quiet:
+            if args.analysis_type == 'spherical':
+                log_analysis_step_start("Spherical ROI analysis", subject_id)
+            else:
+                log_analysis_step_start("Cortical analysis", subject_id)
+        
         if args.analysis_type == 'spherical':
             if args.space == 'mesh':
-                logger.info("Performing spherical analysis on mesh")
-                flush_output()
+                if not args.quiet:
+                    logger.info("Performing spherical analysis on mesh")
+                    flush_output()
                 # Mesh analyzer 
                 results = analyzer.analyze_sphere(
                     center_coordinates=args.coordinates,
@@ -362,8 +522,9 @@ def main():
                 )
             else:  # voxel
                 # Voxel analyzer 
-                logger.info("Performing spherical analysis on voxel")
-                flush_output()
+                if not args.quiet:
+                    logger.info("Performing spherical analysis on voxel")
+                    flush_output()
                 results = analyzer.analyze_sphere(
                     center_coordinates=args.coordinates,
                     radius=args.radius,
@@ -372,52 +533,82 @@ def main():
         else:  # cortical
             if args.whole_head:
                 if args.space == 'mesh':
-                    logger.info("Performing whole head analysis on mesh")
-                    flush_output()
+                    if not args.quiet:
+                        logger.info("Performing whole head analysis on mesh")
+                        flush_output()
                     results = analyzer.analyze_whole_head(
                         atlas_type=args.atlas_name,
                         visualize=args.visualize
                     )
                 else:  # voxel
-                    logger.info("Performing whole head analysis on voxel")
-                    flush_output()
+                    if not args.quiet:
+                        logger.info("Performing whole head analysis on voxel")
+                        flush_output()
                     results = analyzer.analyze_whole_head(
                         atlas_file=args.atlas_path,
                         visualize=args.visualize
                     )
             else:  # specific region
                 if args.space == 'mesh':
-                    logger.info("Performing region analysis on mesh")
-                    flush_output()
+                    if not args.quiet:
+                        logger.info("Performing region analysis on mesh")
+                        flush_output()
                     results = analyzer.analyze_cortex(
                         atlas_type=args.atlas_name,
                         target_region=args.region,
                         visualize=args.visualize
                     )
                 else:  # voxel
-                    logger.info("Performing region analysis on voxel")
-                    flush_output()
+                    if not args.quiet:
+                        logger.info("Performing region analysis on voxel")
+                        flush_output()
                     results = analyzer.analyze_cortex(
                         atlas_file=args.atlas_path,
                         target_region=args.region,
                         visualize=args.visualize
                     )
         
-        # Log completion with summary instead of full results
-        if isinstance(results, dict):
-            if any(k in results for k in ['mean_value', 'max_value', 'min_value']):
-                # Single region results
-                logger.info("Analysis completed successfully: Single region analysis")
-                flush_output()
+        # Complete the analysis step
+        if args.quiet:
+            if args.analysis_type == 'spherical':
+                if isinstance(results, dict) and results.get('voxel_count'):
+                    step_details = f"{results['voxel_count']} voxels analyzed"
+                    log_analysis_step_complete("Spherical ROI analysis", subject_id, step_details)
+                else:
+                    log_analysis_step_complete("Spherical ROI analysis", subject_id)
             else:
-                # Multiple region results - log count instead of full data
-                valid_regions = len([r for r in results.values() if isinstance(r, dict) and r.get('mean_value') is not None])
-                total_regions = len(results)
-                logger.info(f"Analysis completed successfully: {valid_regions}/{total_regions} regions processed")
+                if isinstance(results, dict):
+                    if any(k in results for k in ['mean_value', 'max_value', 'min_value']):
+                        # Single region results
+                        log_analysis_step_complete("Cortical analysis", subject_id, "1 region analyzed")
+                    else:
+                        # Multiple region results
+                        valid_regions = len([r for r in results.values() if isinstance(r, dict) and r.get('mean_value') is not None])
+                        total_regions = len(results)
+                        log_analysis_step_complete("Cortical analysis", subject_id, f"{valid_regions}/{total_regions} regions processed")
+                else:
+                    log_analysis_step_complete("Cortical analysis", subject_id)
+        
+        # Add results saving step
+        if args.quiet:
+            log_analysis_step_start("Results saving", subject_id)
+        
+        # Log completion with summary instead of full results (only in debug mode)
+        if not args.quiet:
+            if isinstance(results, dict):
+                if any(k in results for k in ['mean_value', 'max_value', 'min_value']):
+                    # Single region results
+                    logger.info("Analysis completed successfully: Single region analysis")
+                    flush_output()
+                else:
+                    # Multiple region results - log count instead of full data
+                    valid_regions = len([r for r in results.values() if isinstance(r, dict) and r.get('mean_value') is not None])
+                    total_regions = len(results)
+                    logger.info(f"Analysis completed successfully: {valid_regions}/{total_regions} regions processed")
+                    flush_output()
+            else:
+                logger.info(f"Analysis completed successfully")
                 flush_output()
-        else:
-            logger.info(f"Analysis completed successfully")
-            flush_output()
         
         # Add completion marker for group analysis
         if args.log_file:
@@ -460,8 +651,33 @@ def main():
                         print_stat_if_exists(region_data, 'normal_max_value', '  Normal Max Value')
                         print_stat_if_exists(region_data, 'normal_min_value', '  Normal Min Value')
                         print_stat_if_exists(region_data, 'normal_focality', '  Normal Focality')
+        
+        # Complete results saving step and overall analysis
+        if args.quiet:
+            # Show where results were saved
+            display_path = args.output_dir.replace('/mnt/', '') if args.output_dir.startswith('/mnt/') else args.output_dir
+            step_details = f"saved to {display_path}"
+            log_analysis_step_complete("Results saving", subject_id, step_details)
+            
+            # Create results summary for final completion message
+            results_summary = ""
+            if isinstance(results, dict):
+                if any(k in results for k in ['mean_value', 'max_value', 'min_value']):
+                    # Single region results
+                    results_summary = "1 region analyzed"
+                else:
+                    # Multiple region results
+                    valid_regions = len([r for r in results.values() if isinstance(r, dict) and r.get('mean_value') is not None])
+                    total_regions = len(results)
+                    results_summary = f"{valid_regions}/{total_regions} regions processed"
+            
+            log_analysis_complete(args.analysis_type, subject_id, results_summary, args.output_dir)
     
     except Exception as e:
+        # Handle analysis failure
+        if args.quiet:
+            log_analysis_failed(args.analysis_type, subject_id, str(e))
+        
         logger.error(f"Error: {str(e)}")
         if args.log_file:
             logger.error(f"=== Subject {subject_id} Analysis Failed ===")

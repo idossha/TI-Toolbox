@@ -115,7 +115,7 @@ if [ -f "$T2_file" ]; then
     T2_file="$(cd "$(dirname "$T2_file")" && pwd)/$(basename "$T2_file")"
     log_info "T2 image found: $T2_file"
 else
-    log_debug "No T2 image found. Proceeding with T1 only."
+    log_info "No T2 image found. Proceeding with T1 only."
     T2_file=""
 fi
 

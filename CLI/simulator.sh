@@ -67,10 +67,24 @@ run_simulation() {
     # Process selected subjects
     IFS=',' read -r -a selected_subjects <<< "$subject_choices"
     
-    # Detect if we're in direct execution mode (from GUI)
-    is_direct_mode=false
-    if [[ "$1" == "--run-direct" || "$DIRECT_MODE" == "true" ]]; then
+            # Detect if we're in direct execution mode (from GUI)
+        is_direct_mode=false
+        
+        # Parse command line arguments
+        for arg in "$@"; do
+            case "$arg" in
+                --run-direct)
+                    is_direct_mode=true
+                    ;;
+            esac
+        done
+    
+    # Also check environment variable for direct mode
+    if [[ "$DIRECT_MODE" == "true" ]]; then
         is_direct_mode=true
+    fi
+    
+    if [[ "$is_direct_mode" == true ]]; then
         # Ensure current is set when in direct mode
         if [[ -z "$CURRENT" ]]; then
             echo -e "${RED}Error: Current value not set in direct mode${RESET}"
@@ -252,6 +266,8 @@ except Exception as e:
         # Add end marker
         cmd+=("--")
         
+
+        
         echo -e "${GREEN}Executing: ${cmd[*]}${RESET}"
         echo -e "${CYAN}Command breakdown:${RESET}"
         echo -e "${CYAN}- Script: $simulator_dir/$main_script${RESET}"
@@ -359,7 +375,7 @@ try:
         eeg_net='${subject_eeg_nets[$subject_id]:-EGI_template.csv}',
         intensity_ch1=${current_ma_1:-5.0},
         intensity_ch2=${current_ma_2:-1.0},
-        quiet_mode=False
+
     )
     
     # Add electrode parameters
@@ -1591,8 +1607,8 @@ except Exception as e:
                         export FLEX_MONTAGES_FILE="$file_path"
                         
                         # Run the simulation for this individual montage
-                        echo "Executing: $simulator_dir/$main_script $subject_id $conductivity $project_dir $simulation_dir $sim_mode $current $electrode_shape $dimensions $thickness flex_mode --"
-                        "$simulator_dir/$main_script" "$subject_id" "$conductivity" "$project_dir" "$simulation_dir" "$sim_mode" "$current" "$electrode_shape" "$dimensions" "$thickness" "flex_mode" --
+                                                echo "Executing: $simulator_dir/$main_script $subject_id $conductivity $project_dir $simulation_dir $sim_mode $current $electrode_shape $dimensions $thickness flex_mode --"
+        "$simulator_dir/$main_script" "$subject_id" "$conductivity" "$project_dir" "$simulation_dir" "$sim_mode" "$current" "$electrode_shape" "$dimensions" "$thickness" "flex_mode" --
                         
                         # Clean up this specific temp file after simulation
                         if [[ -f "$file_path" ]]; then
@@ -1812,7 +1828,7 @@ try:
             'eeg_net': '${subject_eeg_nets[$subject_id]:-EGI_template.csv}',
             'intensity_ch1': $(echo '$current' | cut -d',' -f1 | awk '{print $1 * 1000}'),  # Convert A to mA
             'intensity_ch2': $(echo '$current' | cut -d',' -f2 | awk '{print $1 * 1000}'),  # Convert A to mA
-            'quiet_mode': False
+
         },
         'electrode_parameters': {
             'shape': '$electrode_shape',
