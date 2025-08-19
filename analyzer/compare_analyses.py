@@ -456,14 +456,29 @@ def _find_field_path_from_analysis(analysis_path: str, subject_id: str, montage_
         
         if space_type == 'mesh':
             # For mesh analysis, construct the expected field path
-            # Prioritize *_TI.msh files since we need TI_max field for grey matter statistics
-            field_dir = os.path.join("/mnt", project_name, "derivatives", "SimNIBS", 
-                                   subject_id, "Simulations", montage_name, "TI", "mesh")
+            # Check for mTI simulation first
+            mti_field_dir = os.path.join("/mnt", project_name, "derivatives", "SimNIBS", 
+                                         subject_id, "Simulations", montage_name, "mTI", "mesh")
+            ti_field_dir = os.path.join("/mnt", project_name, "derivatives", "SimNIBS", 
+                                        subject_id, "Simulations", montage_name, "TI", "mesh")
+            
+            if os.path.exists(mti_field_dir):
+                field_dir = mti_field_dir
+                is_mti = True
+            else:
+                field_dir = ti_field_dir
+                is_mti = False
             if os.path.exists(field_dir):
                 msh_files = [f for f in os.listdir(field_dir) if f.endswith('.msh') and not f.endswith('.msh.opt')]
                 
-                # Look for TI mesh files first (contains TI_max field)
-                ti_files = [f for f in msh_files if '_TI.msh' in f]
+                # Look for TI/mTI mesh files first (contains TI_max field)
+                if is_mti:
+                    # For mTI simulations, look for _mTI.msh files
+                    ti_files = [f for f in msh_files if '_mTI.msh' in f]
+                else:
+                    # For regular TI simulations, look for _TI.msh files
+                    ti_files = [f for f in msh_files if '_TI.msh' in f]
+                
                 if ti_files:
                     field_path = os.path.join(field_dir, ti_files[0])
                     group_logger.debug(f"Constructed mesh field path (TI): {field_path}")
@@ -475,8 +490,18 @@ def _find_field_path_from_analysis(analysis_path: str, subject_id: str, montage_
                     return field_path
         elif space_type == 'voxel':
             # For voxel analysis, construct the expected field path
-            field_dir = os.path.join("/mnt", project_name, "derivatives", "SimNIBS", 
-                                   subject_id, "Simulations", montage_name, "TI", "niftis")
+            # Check for mTI simulation first
+            mti_field_dir = os.path.join("/mnt", project_name, "derivatives", "SimNIBS", 
+                                         subject_id, "Simulations", montage_name, "mTI", "niftis")
+            ti_field_dir = os.path.join("/mnt", project_name, "derivatives", "SimNIBS", 
+                                        subject_id, "Simulations", montage_name, "TI", "niftis")
+            
+            if os.path.exists(mti_field_dir):
+                field_dir = mti_field_dir
+                is_mti = True
+            else:
+                field_dir = ti_field_dir
+                is_mti = False
             if os.path.exists(field_dir):
                 grey_files = [f for f in os.listdir(field_dir) if f.startswith('grey_') and f.endswith(('.nii', '.nii.gz'))]
                 if grey_files:

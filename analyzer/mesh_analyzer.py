@@ -172,8 +172,14 @@ class MeshAnalyzer:
             # Get the SimNIBS directory (parent of sub-*)
             simnibs_dir = os.path.dirname(os.path.dirname(self.subject_dir))
             
+            # Detect if this is an mTI simulation by checking the field mesh path
+            is_mti = 'mTI' in self.field_mesh_path
+            
             # Construct the path where the surface mesh should be stored
-            surface_mesh_dir = os.path.join(simnibs_dir, f'sub-{subject_id}', 'Simulations', simulation_name, 'TI', 'mesh')
+            if is_mti:
+                surface_mesh_dir = os.path.join(simnibs_dir, f'sub-{subject_id}', 'Simulations', simulation_name, 'mTI', 'mesh')
+            else:
+                surface_mesh_dir = os.path.join(simnibs_dir, f'sub-{subject_id}', 'Simulations', simulation_name, 'TI', 'mesh')
             os.makedirs(surface_mesh_dir, exist_ok=True)
             
             # The surface mesh file path - specific to this field mesh only
@@ -227,8 +233,8 @@ class MeshAnalyzer:
                 raise
                 
         except (ValueError, IndexError) as e:
-            self.logger.error(f"Could not determine simulation name from field mesh path. Expected path structure: .../sub-<n>/Simulations/simulation_name/TI/mesh/field.msh")
-            raise ValueError("Could not determine simulation name from field mesh path. Expected path structure: .../sub-<n>/Simulations/simulation_name/TI/mesh/field.msh")
+            self.logger.error(f"Could not determine simulation name from field mesh path. Expected path structure: .../sub-<n>/Simulations/simulation_name/(TI|mTI)/mesh/field.msh")
+            raise ValueError("Could not determine simulation name from field mesh path. Expected path structure: .../sub-<n>/Simulations/simulation_name/(TI|mTI)/mesh/field.msh")
 
     def __del__(self):
         """Cleanup temporary directory when the analyzer is destroyed."""
@@ -242,7 +248,9 @@ class MeshAnalyzer:
     def _construct_normal_mesh_path(self):
         """
         Construct the path to the normal mesh file based on the main field mesh path.
-        Expected pattern: <montage>_TI.msh -> <montage>_normal.msh
+        Expected pattern: 
+        - <montage>_TI.msh -> <montage>_normal.msh (for TI simulations)
+        - <montage>_mTI.msh -> <montage>_mTI_normal.msh (for mTI simulations, if available)
         
         Returns:
             str: Path to the normal mesh file
@@ -251,8 +259,13 @@ class MeshAnalyzer:
         mesh_dir = os.path.dirname(self.field_mesh_path)
         mesh_filename = os.path.basename(self.field_mesh_path)
         
-        # Replace _TI.msh with _normal.msh
-        if mesh_filename.endswith('_TI.msh'):
+        # Handle mTI simulations
+        if mesh_filename.endswith('_mTI.msh'):
+            # For mTI, the normal file would be _mTI_normal.msh (if it exists)
+            # Note: mTI pipeline currently doesn't generate normal meshes, so this may not exist
+            normal_filename = mesh_filename.replace('_mTI.msh', '_mTI_normal.msh')
+        # Handle regular TI simulations
+        elif mesh_filename.endswith('_TI.msh'):
             normal_filename = mesh_filename.replace('_TI.msh', '_normal.msh')
         else:
             # Fallback: just replace .msh with _normal.msh

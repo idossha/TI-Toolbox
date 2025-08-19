@@ -776,8 +776,11 @@ class MeshVisualizer(Visualizer):
                 
                 if '_TI_central.msh' in surface_filename:
                     normal_mesh_filename = surface_filename.replace('_TI_central.msh', '_normal.msh')
+                elif '_mTI.msh' in surface_filename:
+                    # For mTI simulations: _mTI.msh -> _mTI_normal.msh (if it exists)
+                    normal_mesh_filename = surface_filename.replace('_mTI.msh', '_mTI_normal.msh')
                 elif '_TI.msh' in surface_filename:
-                    # Fallback: if it's the original mesh path, still try to construct normal path
+                    # For regular TI simulations: _TI.msh -> _normal.msh
                     normal_mesh_filename = surface_filename.replace('_TI.msh', '_normal.msh')
                 else:
                     # General fallback: try to replace .msh with _normal.msh
@@ -910,8 +913,11 @@ class MeshVisualizer(Visualizer):
                 
                 if '_TI_central.msh' in surface_filename:
                     normal_mesh_filename = surface_filename.replace('_TI_central.msh', '_normal.msh')
+                elif '_mTI.msh' in surface_filename:
+                    # For mTI simulations: _mTI.msh -> _mTI_normal.msh (if it exists)
+                    normal_mesh_filename = surface_filename.replace('_mTI.msh', '_mTI_normal.msh')
                 elif '_TI.msh' in surface_filename:
-                    # Fallback: if it's the original mesh path, still try to construct normal path
+                    # For regular TI simulations: _TI.msh -> _normal.msh
                     normal_mesh_filename = surface_filename.replace('_TI.msh', '_normal.msh')
                 else:
                     # General fallback: try to replace .msh with _normal.msh

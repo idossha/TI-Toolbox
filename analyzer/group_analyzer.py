@@ -241,8 +241,27 @@ def build_main_analyzer_command(
     # For mesh analysis, we need to determine the montage name from the field path
     # For voxel analysis, we use the field path directly
     if args.space == 'mesh':
-        # Extract montage name from field path (assuming pattern: .../montage_name/TI/mesh/montage_name_TI.msh)
-        montage_name = Path(field_path).stem.replace('_TI', '')  # Remove _TI suffix to get montage name
+        # Extract montage directory name directly from the field path structure
+        # Path structure: .../Simulations/montage_directory/TI/mesh/filename.msh
+        path_parts = Path(field_path).parts
+        
+        try:
+            # Find the "Simulations" directory in the path
+            sim_idx = path_parts.index('Simulations')
+            # The montage directory is immediately after "Simulations"
+            montage_name = path_parts[sim_idx + 1]
+        except (ValueError, IndexError):
+            # Fallback: extract from filename if path structure is unexpected
+            field_filename = Path(field_path).stem
+            if field_filename.endswith('_TINormal'):
+                montage_name = field_filename.replace('_TINormal', 'Normal')
+            elif field_filename.endswith('_TI_Normal'):
+                montage_name = field_filename.replace('_TI_Normal', '_Normal')
+            elif field_filename.endswith('_TI'):
+                montage_name = field_filename.replace('_TI', '')
+            else:
+                montage_name = field_filename
+            
         cmd += ["--montage_name", montage_name]
     else:
         cmd += ["--field_path", field_path]
@@ -426,8 +445,16 @@ def determine_group_subfolder_name(args, first_subject_args: List[str]) -> str:
         # Montage name is the folder immediately after "Simulations"
         montage_name = path_parts[sim_idx + 1]
     except (ValueError, IndexError):
-        # Fallback to generic name if structure is unexpected
-        montage_name = "unknown_montage"
+        # If "Simulations" not found in path, try to extract from filename
+        field_filename = Path(field_path).stem
+        if field_filename.endswith('_TINormal'):
+            montage_name = field_filename.replace('_TINormal', 'Normal')
+        elif field_filename.endswith('_TI_Normal'):
+            montage_name = field_filename.replace('_TI_Normal', '_Normal')
+        elif field_filename.endswith('_TI'):
+            montage_name = field_filename.replace('_TI', '')
+        else:
+            montage_name = field_filename
     
     # Determine ROI description
     if args.analysis_type == 'spherical':
