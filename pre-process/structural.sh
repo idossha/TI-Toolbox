@@ -154,9 +154,9 @@ echo "- Convert DICOM: $CONVERT_DICOM"
 echo "- Create m2m: $CREATE_M2M"
 echo ""
 if $PARALLEL; then
-    echo "🔄 PARALLEL MODE: Multiple subjects will run simultaneously, each using 1 core"
+    echo "PARALLEL MODE: Multiple subjects will run simultaneously, each using 1 core"
 else
-    echo "📈 SEQUENTIAL MODE: One subject at a time, each using all available cores"
+    echo "SEQUENTIAL MODE: One subject at a time, each using all available cores"
 fi
 echo ""
 
@@ -180,12 +180,11 @@ process_subject_non_recon() {
             echo "  Warning: DICOM conversion failed for subject: $subject_id"
             success=false
         else
-            echo "  DICOM conversion completed for subject: $subject_id"
+            echo "DICOM conversion completed for subject: $subject_id"
         fi
     fi
     
     if $success; then
-        echo "Non-recon processing completed successfully for subject: $subject_id"
         return 0
     else
         FAILED_SUBJECTS+=("$subject_id")
@@ -220,7 +219,7 @@ run_recon_single() {
     local subject_dir="$1"
     local subject_id=$(basename "$subject_dir" | sed 's/^sub-//')
     
-    echo "Running FreeSurfer recon-all for subject: $subject_id"
+
     
     local recon_args=("$subject_dir")
     if $QUIET; then
@@ -233,10 +232,10 @@ run_recon_single() {
     if ! $PARALLEL; then
         # Sequential mode: this subject should use all available cores
         recon_args+=("--parallel")
-        echo "  → Sequential mode: subject will use all available cores"
+        echo "  Sequential mode: subject will use all available cores"
     else
         # Parallel mode: this subject should use 1 core only
-        echo "  → Parallel mode: subject will use 1 core"
+        echo "  Parallel mode: subject will use 1 core"
     fi
     
     if ! "$script_dir/recon-all.sh" "${recon_args[@]}"; then
@@ -245,7 +244,7 @@ run_recon_single() {
         return 1
     fi
     
-    echo "FreeSurfer recon-all completed for subject: $subject_id"
+
     return 0
 }
 

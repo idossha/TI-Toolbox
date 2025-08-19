@@ -61,6 +61,9 @@ class PreProcessThread(QtCore.QThread):
         self.env = env or os.environ.copy()
         self.process = None
         self.terminated = False
+        self.last_step = "initialization"  # Track last successful step
+        self.has_failures = False  # Track if any subjects failed
+        self.expecting_failed_subjects = False  # Track when we're expecting failed subject list
         
     def run(self):
         """Run the pre-processing command in a separate thread."""
@@ -96,7 +99,55 @@ class PreProcessThread(QtCore.QThread):
                 if line:
                     # Determine message type based on content
                     line_stripped = line.strip()
-                    if any(keyword in line_stripped.lower() for keyword in ['error', 'failed', 'critical']):
+                    
+                    # Track the last successful step and detect failures for better error reporting
+                    if 'Starting processing for' in line_stripped:
+                        self.last_step = "processing initialization"
+                    elif 'Starting DICOM to NIfTI conversion' in line_stripped:
+                        self.last_step = "DICOM to NIfTI conversion"
+                    elif 'DICOM conversion completed' in line_stripped:
+                        self.last_step = "DICOM conversion completed"
+                    elif 'Starting SimNIBS charm' in line_stripped:
+                        self.last_step = "SimNIBS charm processing"
+                    elif 'SimNIBS charm completed' in line_stripped:
+                        self.last_step = "SimNIBS charm completed"
+                    elif 'Starting FreeSurfer recon-all' in line_stripped or 'Running FreeSurfer recon-all' in line_stripped:
+                        self.last_step = "FreeSurfer recon-all processing"
+                    elif 'FreeSurfer recon-all completed' in line_stripped:
+                        self.last_step = "FreeSurfer recon-all completed"
+                    elif 'Starting skull bone analysis' in line_stripped:
+                        self.last_step = "skull bone analysis"
+                    elif 'Skull bone analysis completed' in line_stripped:
+                        self.last_step = "skull bone analysis completed"
+                    
+                    # Detect actual failures from the shell scripts
+                    elif 'Warning:' in line_stripped and 'failed for subject' in line_stripped:
+                        self.has_failures = True
+                    elif 'The following subjects had failures:' in line_stripped:
+                        self.has_failures = True
+                        self.expecting_failed_subjects = True  # Flag to expect subject list next
+                    elif hasattr(self, 'expecting_failed_subjects') and self.expecting_failed_subjects:
+                        # Check if this line is a simple subject ID (part of the failed subjects list)
+                        if len(line_stripped) <= 6 and line_stripped.isalnum():
+                            # This is likely a failed subject ID, ensure it's shown as important
+                            message_type = 'warning'  # Mark as warning so it gets shown
+                        elif 'Please check the logs' in line_stripped:
+                            self.expecting_failed_subjects = False  # End of failed subjects list
+                    
+                    # Simplified error detection - only flag critical system-level errors
+                    # Let the process return code handle actual preprocessing failures
+                    # First check if it's a normal FreeSurfer computational message
+                    is_freesurfer_computational = any(pattern in line_stripped.upper() for pattern in [
+                        'DT:', 'RMS RADIAL ERROR=', 'AVGS=', 'FINAL DISTANCE ERROR',
+                        'DISTANCE ERROR %', '/300:', 'SURFACE RECONSTRUCTION',
+                        'IFLAG=', 'LINE SEARCH', 'MCSRCH', 'QUASINEWTONEMA'
+                    ])
+                    
+                    if not is_freesurfer_computational and any(keyword in line_stripped.lower() for keyword in [
+                        'segmentation fault', 'bus error', 'killed', 'aborted',
+                        'illegal instruction', 'permission denied', 'no such file or directory',
+                        'command not found', 'cannot execute', 'bad interpreter'
+                    ]):
                         message_type = 'error'
                     elif any(keyword in line_stripped.lower() for keyword in ['warning', 'warn']):
                         message_type = 'warning'
@@ -111,13 +162,41 @@ class PreProcessThread(QtCore.QThread):
                         
                     self.output_signal.emit(line_stripped, message_type)
             
-            # Check for errors
+            # Check for errors - rely primarily on process return code
             if not self.terminated:
                 returncode = self.process.wait()
                 if returncode != 0:
-                    self.error_signal.emit(f"Error in processing: Process returned non-zero exit code: {returncode}")
+                    # Provide specific error message based on last successful step and return code
+                    if self.last_step.endswith("completed"):
+                        # If last step was completed, the error occurred in the next step
+                        error_msg = f"Preprocessing failed after {self.last_step}."
+                    else:
+                        # Error occurred during the current step
+                        error_msg = f"Preprocessing failed during {self.last_step}."
+                    
+                    # Add return code interpretation
+                    if returncode == 1:
+                        error_msg += f" Check the output above for specific error details."
+                    elif returncode == 2:
+                        error_msg += f" Invalid arguments or configuration error."
+                    elif returncode == 126:
+                        error_msg += f" Permission denied or command not executable."
+                    elif returncode == 127:
+                        error_msg += f" Command not found or missing dependency."
+                    elif returncode == 130:
+                        error_msg += f" Process interrupted by user (Ctrl+C)."
+                    elif returncode < 0:
+                        error_msg += f" Process terminated by signal {abs(returncode)}."
+                    else:
+                        error_msg += f" Process returned exit code {returncode}."
+                    
+                    self.error_signal.emit(error_msg)
                 else:
-                    self.output_signal.emit(f"Successfully completed processing for all subjects", 'success')
+                    # Only show success message if no failures were detected
+                    if not self.has_failures:
+                        self.output_signal.emit(f"Pre-processing completed successfully for all subjects", 'success')
+                    else:
+                        self.output_signal.emit(f"Pre-processing completed with failures. Check the output above for details.", 'warning')
                 
         except Exception as e:
             self.error_signal.emit(f"Error running pre-processing: {str(e)}")
@@ -537,6 +616,7 @@ class PreProcessTab(QtWidgets.QWidget):
         self.parallel_cb.setEnabled(not is_processing and self.run_recon_cb.isChecked())
         self.create_m2m_cb.setEnabled(not is_processing)
         self.create_atlas_cb.setEnabled(not is_processing)
+        self.run_bone_analyzer_cb.setEnabled(not is_processing)
         self.quiet_cb.setEnabled(not is_processing)
         
         # Update status label
@@ -628,12 +708,12 @@ class PreProcessTab(QtWidgets.QWidget):
 
         # Show confirmation dialog
         details = (f"This will process {len(selected_subjects)} subject(s) with the following options:\n\n" +
-                  f"• Convert DICOM: {'Yes (auto-detects T1w/T2w)' if self.convert_dicom_cb.isChecked() else 'No'}\n" +
-                  f"• Run recon-all: {'Yes' if self.run_recon_cb.isChecked() else 'No'}\n" +
-                  f"• Parallel processing: {'Yes' if self.parallel_cb.isChecked() else 'No'}\n" +
-                  f"• Create m2m folder: {'Yes' if self.create_m2m_cb.isChecked() else 'No'}\n" +
-                  f"• Create atlas segmentation: {'Yes' if self.create_atlas_cb.isChecked() else 'No'}\n" +
-                  f"• Quiet mode: {'Yes' if self.quiet_cb.isChecked() else 'No'}")
+                  f"- Convert DICOM: {'Yes (auto-detects T1w/T2w)' if self.convert_dicom_cb.isChecked() else 'No'}\n" +
+                  f"- Run recon-all: {'Yes' if self.run_recon_cb.isChecked() else 'No'}\n" +
+                  f"- Parallel processing: {'Yes' if self.parallel_cb.isChecked() else 'No'}\n" +
+                  f"- Create m2m folder: {'Yes' if self.create_m2m_cb.isChecked() else 'No'}\n" +
+                  f"- Create atlas segmentation: {'Yes' if self.create_atlas_cb.isChecked() else 'No'}\n" +
+                  f"- Quiet mode: {'Yes' if self.quiet_cb.isChecked() else 'No'}")
         
         if not ConfirmationDialog.confirm(
             self,
@@ -699,18 +779,18 @@ class PreProcessTab(QtWidgets.QWidget):
         if self.quiet_cb.isChecked():
             cmd.append("--quiet")
         
-        # Debug output
-        self.update_output(f"Running pre-processing from GUI", 'info')
-        self.update_output(f"Command: {' '.join(cmd)}", 'info')
-        self.update_output(f"Options:", 'info')
-        self.update_output(f"- Subjects: {', '.join(selected_subjects)}", 'info')
-        self.update_output(f"- Convert DICOM: {env['CONVERT_DICOM']}", 'info')
-        self.update_output(f"- Run recon-all: {env['RUN_RECON']}", 'info')
-        self.update_output(f"- Parallel processing: {env['PARALLEL_RECON']}", 'info')
-        self.update_output(f"- Create m2m folder: {env['CREATE_M2M']}", 'info')
-        self.update_output(f"- Create atlas segmentation: {str(self.create_atlas_cb.isChecked()).lower()}", 'info')
-        self.update_output(f"- Run bone analyzer: {env['RUN_BONE_ANALYZER']}", 'info')
-        self.update_output(f"- Quiet mode: {env['QUIET']}", 'info')
+        # Debug output (only show in debug mode)
+        self.update_output(f"Running pre-processing from GUI", 'debug')
+        self.update_output(f"Command: {' '.join(cmd)}", 'debug')
+        self.update_output(f"Options:", 'debug')
+        self.update_output(f"- Subjects: {', '.join(selected_subjects)}", 'debug')
+        self.update_output(f"- Convert DICOM: {env['CONVERT_DICOM']}", 'debug')
+        self.update_output(f"- Run recon-all: {env['RUN_RECON']}", 'debug')
+        self.update_output(f"- Parallel processing: {env['PARALLEL_RECON']}", 'debug')
+        self.update_output(f"- Create m2m folder: {env['CREATE_M2M']}", 'debug')
+        self.update_output(f"- Create atlas segmentation: {str(self.create_atlas_cb.isChecked()).lower()}", 'debug')
+        self.update_output(f"- Run bone analyzer: {env['RUN_BONE_ANALYZER']}", 'debug')
+        self.update_output(f"- Quiet mode: {env['QUIET']}", 'debug')
         
         # Create and start the thread
         self.processing_thread = PreProcessThread(cmd, env)
@@ -722,7 +802,6 @@ class PreProcessTab(QtWidgets.QWidget):
     def preprocessing_finished(self):
         """Handle the completion of the preprocessing process."""
         self.set_processing_state(False)
-        self.update_output("\nPreprocessing completed.", 'success')
         
         # Add completion information to reports
         selected_subjects = [item.text() for item in self.subject_list.selectedItems()]
@@ -757,8 +836,8 @@ class PreProcessTab(QtWidgets.QWidget):
         if self.create_atlas_cb.isChecked():
             selected_subjects = [item.text() for item in self.subject_list.selectedItems()]
             
-            self.update_output("\n=== Starting atlas segmentation ===", 'info')
-            self.update_output("Running atlas segmentation for all selected subjects and all atlases...", 'info')
+            self.update_output("\n=== Starting atlas segmentation ===", 'debug')
+            self.update_output("Running atlas segmentation for all selected subjects and all atlases...", 'debug')
             
             # Run atlas segmentation for each subject
             for subject_id in selected_subjects:
@@ -794,7 +873,7 @@ class PreProcessTab(QtWidgets.QWidget):
                         continue
                     
                     cmd = ["subject_atlas", "-m", m2m_folder, "-a", atlas, "-o", output_dir]
-                    self.update_output(f"[Atlas] {subject_id}: Running {' '.join(cmd)}", 'info')
+                    self.update_output(f"[Atlas] {subject_id}: Running {' '.join(cmd)}", 'debug')
                     try:
                         proc = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
                         if proc.returncode == 0:
@@ -833,7 +912,7 @@ class PreProcessTab(QtWidgets.QWidget):
 
         # If requested, run bone analyzer on each subject's segmentation
         if self.run_bone_analyzer_cb.isChecked():
-            self.update_output("\n=== Running skull bone analyzer ===", 'info')
+            self.update_output("\n=== Running skull bone analyzer ===", 'debug')
             selected_subjects = [item.text() for item in self.subject_list.selectedItems()]
             for subject_id in selected_subjects:
                 try:
@@ -847,7 +926,7 @@ class PreProcessTab(QtWidgets.QWidget):
                     out_dir = os.path.join(self.project_dir, "derivatives", "bone_analyzer", bids_subject_id)
                     os.makedirs(out_dir, exist_ok=True)
                     cmd_bone = [sys.executable, os.path.join(os.path.dirname(os.path.dirname(__file__)), 'pre-process', 'bone_analyzer.py'), label_nii, '-o', out_dir]
-                    self.update_output(f"[Bone] {subject_id}: Running {' '.join(cmd_bone)}", 'info')
+                    self.update_output(f"[Bone] {subject_id}: Running {' '.join(cmd_bone)}", 'debug')
                     proc = subprocess.run(cmd_bone, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
                     if proc.returncode == 0:
                         self.update_output(f"[Bone] {subject_id}: Bone analysis completed.", 'success')
@@ -879,38 +958,42 @@ class PreProcessTab(QtWidgets.QWidget):
         if not self.report_generators:
             return
         
-        self.update_output("\n=== Generating preprocessing reports ===", 'info')
+        self.update_output("\n=== Generating preprocessing reports ===", 'debug')
         
         generated_reports = []
         failed_reports = []
         
         for subject_id, generator in self.report_generators.items():
             try:
-                self.update_output(f"Generating report for {subject_id}...", 'info')
+                self.update_output(f"Generating report for {subject_id}...", 'debug')
                 report_path = generator.generate_html_report()
                 generated_reports.append((subject_id, report_path))
-                self.update_output(f"✓ Report generated: {os.path.basename(report_path)}", 'success')
+                self.update_output(f"Report generated: {os.path.basename(report_path)}", 'debug')
             except Exception as e:
                 failed_reports.append((subject_id, str(e)))
-                self.update_output(f"✗ Failed to generate report for {subject_id}: {e}", 'error')
+                self.update_output(f"Failed to generate report for {subject_id}: {e}", 'error')
         
         # Summary of report generation
         if generated_reports:
             reports_dir = os.path.join(self.project_dir, "derivatives", "reports")
-            self.update_output(f"\n📊 Successfully generated {len(generated_reports)} preprocessing report(s)", 'success')
-            self.update_output(f"📁 Reports location: {reports_dir}", 'info')
+            self.update_output(f"\nSuccessfully generated {len(generated_reports)} preprocessing report(s)", 'debug')
+            self.update_output(f"Reports location: {reports_dir}", 'debug')
             
             for subject_id, report_path in generated_reports:
-                self.update_output(f"   • {os.path.basename(report_path)}", 'info')
+                self.update_output(f"   - {os.path.basename(report_path)}", 'debug')
             
-            self.update_output(f"\n💡 Open the HTML files in your web browser to view detailed preprocessing reports.", 'info')
+            self.update_output(f"\nOpen the HTML files in your web browser to view detailed preprocessing reports.", 'debug')
         
         if failed_reports:
-            self.update_output(f"\n❌ Failed to generate {len(failed_reports)} report(s):", 'error')
+            self.update_output(f"\nFailed to generate {len(failed_reports)} report(s):", 'error')
             for subject_id, error in failed_reports:
-                self.update_output(f"  • {subject_id}: {error}", 'error')
+                self.update_output(f"  - {subject_id}: {error}", 'error')
         
-        self.update_output("=== Report generation completed ===", 'info')
+        # Simple completion message for non-debug mode (similar to simulator)
+        if generated_reports:
+            self.update_output("Report generation completed", 'success')
+        else:
+            self.update_output("Report generation completed", 'info')
     
 
     

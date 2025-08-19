@@ -69,18 +69,26 @@ class AnalysisThread(QtCore.QThread):
                     line_stripped = line.strip()
                     if line_stripped:
                         cleaned_line = self._strip_ansi_codes(line_stripped)
-                        # Determine message type based on content
-                        if any(keyword in cleaned_line.lower() for keyword in ['error:', 'critical:', 'failed', 'exception']):
+                        # Determine message type based on bracketed tags first, then content
+                        if '[ERROR]' in cleaned_line or 'ERROR:' in cleaned_line:
+                            message_type = 'error'
+                        elif '[WARNING]' in cleaned_line or 'Warning:' in cleaned_line:
+                            message_type = 'warning'
+                        elif '[INFO]' in cleaned_line:
+                            message_type = 'info'
+                        elif '[DEBUG]' in cleaned_line:
+                            message_type = 'debug'
+                        elif '[SUCCESS]' in cleaned_line:
+                            message_type = 'success'
+                        elif any(keyword in cleaned_line.lower() for keyword in ['error:', 'critical:', 'failed', 'exception']):
                             message_type = 'error'
                         elif any(keyword in cleaned_line.lower() for keyword in ['warning:', 'warn']):
                             message_type = 'warning'
-                        elif 'debug' in cleaned_line.lower():
-                            message_type = 'debug'
                         elif any(keyword in cleaned_line.lower() for keyword in ['executing:', 'running', 'command']):
                             message_type = 'command'
                         elif any(keyword in cleaned_line.lower() for keyword in ['completed successfully', 'completed.', 'successfully', 'completed:']):
                             message_type = 'success'
-                        elif any(keyword in cleaned_line.lower() for keyword in ['processing', 'starting']):
+                        elif any(keyword in cleaned_line.lower() for keyword in ['processing', 'starting', 'generating']):
                             message_type = 'info'
                         else:
                             message_type = 'default'
@@ -472,14 +480,7 @@ class AnalyzerTab(QtWidgets.QWidget):
                 # Update coordinate labels for subject space when single mode is active
                 self._update_coordinate_space_labels()
                 
-                # Connect single mode signals
-                try:
-                    self.space_mesh.toggled.disconnect(self.update_field_files)
-                    self.space_voxel.toggled.disconnect(self.update_field_files)
-                except TypeError:
-                    pass
-                self.space_mesh.toggled.connect(self.update_field_files)
-                self.space_voxel.toggled.connect(self.update_field_files)
+                # Single mode field update signals are now connected globally in setup_ui
                 
                 # Update single mode widgets
                 self.update_simulations()
@@ -797,6 +798,10 @@ class AnalyzerTab(QtWidgets.QWidget):
         # Connect signals for group field widget updates
         self.space_mesh.toggled.connect(self.update_group_field_widgets)
         self.space_voxel.toggled.connect(self.update_group_field_widgets)
+        
+        # Connect signals for single mode field updates
+        self.space_mesh.toggled.connect(self.update_field_files)
+        self.space_voxel.toggled.connect(self.update_field_files)
         
         # Connect signals to update cortical button text based on space
         self.space_mesh.toggled.connect(self.update_cortical_button_text)

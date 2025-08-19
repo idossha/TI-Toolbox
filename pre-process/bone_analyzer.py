@@ -249,8 +249,8 @@ class BoneAnalyzer:
         im1 = ax1.imshow(masked_thickness.T, cmap='hot', origin='lower', 
                         aspect=aspect_ratio, interpolation='bilinear', vmin=vmin, vmax=vmax)
         ax1.set_title('A. Axial View', fontsize=14, fontweight='bold', pad=15)
-        ax1.set_xlabel('Anterior ← → Posterior', fontweight='bold', fontsize=12)
-        ax1.set_ylabel('Left ← → Right', fontweight='bold', fontsize=12)
+        ax1.set_xlabel('Anterior - Posterior', fontweight='bold', fontsize=12)
+        ax1.set_ylabel('Left - Right', fontweight='bold', fontsize=12)
         ax1.grid(True, alpha=0.2, linestyle='--')
         
                  # 2. Coronal slice (X-Z plane) - top center
@@ -261,8 +261,8 @@ class BoneAnalyzer:
         im2 = ax2.imshow(masked_thickness.T, cmap='hot', origin='lower',
                         aspect=aspect_ratio, interpolation='bilinear', vmin=vmin, vmax=vmax)
         ax2.set_title('B. Coronal View', fontsize=14, fontweight='bold', pad=15)
-        ax2.set_xlabel('Anterior ← → Posterior', fontweight='bold', fontsize=12)
-        ax2.set_ylabel('Inferior ← → Superior', fontweight='bold', fontsize=12)
+        ax2.set_xlabel('Anterior - Posterior', fontweight='bold', fontsize=12)
+        ax2.set_ylabel('Inferior - Superior', fontweight='bold', fontsize=12)
         ax2.grid(True, alpha=0.2, linestyle='--')
         
         # 3. Sagittal slice (Y-Z plane) - top right  
@@ -273,8 +273,8 @@ class BoneAnalyzer:
         im3 = ax3.imshow(masked_thickness.T, cmap='hot', origin='lower',
                         aspect=aspect_ratio, interpolation='bilinear', vmin=vmin, vmax=vmax)
         ax3.set_title('C. Sagittal View', fontsize=14, fontweight='bold', pad=15)
-        ax3.set_xlabel('Left ← → Right', fontweight='bold', fontsize=12)
-        ax3.set_ylabel('Inferior ← → Superior', fontweight='bold', fontsize=12)
+        ax3.set_xlabel('Left - Right', fontweight='bold', fontsize=12)
+        ax3.set_ylabel('Inferior - Superior', fontweight='bold', fontsize=12)
         ax3.grid(True, alpha=0.2, linestyle='--')
         
         # Add shared colorbar for the three views
@@ -405,7 +405,7 @@ Volume: {np.sum(mask) * self.voxel_volume / 1000:.1f} cm³'''
                     hemisphere_slice = hemisphere_mask[:, :, mid_z]
                     brainstem_slice = brain_stem[:, :, mid_z]
                     aspect_ratio = vy / vx  # 0.5/0.8 = 0.625
-                    xlabel, ylabel = 'Anterior ← → Posterior', 'Left ← → Right'
+                    xlabel, ylabel = 'Anterior - Posterior', 'Left - Right'
                 elif col == 1:  # Coronal view (X-Z plane)
                     bone_slice = all_bone_mask[:, mid_y, :]
                     brain_slice = brain_mask[:, mid_y, :] if brain_mask is not None else np.zeros_like(bone_slice)
@@ -414,7 +414,7 @@ Volume: {np.sum(mask) * self.voxel_volume / 1000:.1f} cm³'''
                     hemisphere_slice = hemisphere_mask[:, mid_y, :]
                     brainstem_slice = brain_stem[:, mid_y, :]
                     aspect_ratio = vz / vx  # 0.5/0.8 = 0.625
-                    xlabel, ylabel = 'Anterior ← → Posterior', 'Inferior ← → Superior'
+                    xlabel, ylabel = 'Anterior - Posterior', 'Inferior - Superior'
                 else:  # Sagittal view (Y-Z plane)
                     bone_slice = all_bone_mask[mid_x, :, :]
                     brain_slice = brain_mask[mid_x, :, :] if brain_mask is not None else np.zeros_like(bone_slice)
@@ -423,7 +423,7 @@ Volume: {np.sum(mask) * self.voxel_volume / 1000:.1f} cm³'''
                     hemisphere_slice = hemisphere_mask[mid_x, :, :]
                     brainstem_slice = brain_stem[mid_x, :, :]
                     aspect_ratio = vy / vz  # 0.5/0.5 = 1.0
-                    xlabel, ylabel = 'Left ← → Right', 'Inferior ← → Superior'
+                    xlabel, ylabel = 'Left - Right', 'Inferior - Superior'
                 
                 # Create RGB overlay based on methodology step
                 img = np.zeros((bone_slice.shape[1], bone_slice.shape[0], 3))  # (H, W, 3) for matplotlib
@@ -434,7 +434,7 @@ Volume: {np.sum(mask) * self.voxel_volume / 1000:.1f} cm³'''
                     img[hemisphere_slice.T > 0] = [0, 0.5, 1]  # Blue for left/right hemispheres
                     img[brainstem_slice.T > 0] = [0, 1, 0]    # Green for brainstem
                     # Optionally, show other brain tissue (not reference) as lighter blue or skip
-                    legend_text = 'Brain Regions Used:\n• Blue: Left/Right Cortex (hemispheres)\n• Green: Brain Stem\n• Gray: Bone (context)'
+                    legend_text = 'Brain Regions Used:\n- Blue: Left/Right Cortex (hemispheres)\n- Green: Brain Stem\n- Gray: Bone (context)'
                     legend_color = 'lightblue'
                 else:  # Final skull mask (row == 1)
                     img[bone_slice.T > 0] = [0.3, 0.3, 0.3]  # Dark gray for excluded bone
@@ -457,7 +457,7 @@ Volume: {np.sum(mask) * self.voxel_volume / 1000:.1f} cm³'''
                             ax.axhline(y=z_threshold, color='yellow', linewidth=3, linestyle='--', alpha=0.9)
                             ax.axhline(y=brain_center_z, color='white', linewidth=2, linestyle=':', alpha=0.8)
                     kept_percentage = np.sum(skull_bone_mask) / np.sum(all_bone_mask) * 100
-                    legend_text = f'Final Skull Extraction:\n• Red: Extracted skull ({{kept_percentage:.1f}}%)\n• Dark gray: Excluded bone\n• Blue: Left/Right Cortex (hemispheres)\n• Green: Brain Stem\n• Yellow line: Z-cutoff applied'
+                    legend_text = f'Final Skull Extraction:\n- Red: Extracted skull ({{kept_percentage:.1f}}%)\n- Dark gray: Excluded bone\n- Blue: Left/Right Cortex (hemispheres)\n- Green: Brain Stem\n- Yellow line: Z-cutoff applied'
                     legend_color = 'lightcoral'
                 # Display the image with correct aspect ratio
                 ax.imshow(img, origin='lower', aspect=aspect_ratio)
@@ -526,19 +526,19 @@ B. Skull Extraction Result: Apply 3D bounding box (±30mm) + Z-cutoff below brai
                 hemisphere_slice = hemisphere_mask[:, :, mid_z]
                 brainstem_slice = brain_stem[:, :, mid_z]
                 aspect_ratio = vy / vx
-                xlabel, ylabel = 'Anterior ← → Posterior', 'Left ← → Right'
+                xlabel, ylabel = 'Anterior - Posterior', 'Left - Right'
             elif col == 1:
                 bone_slice = all_bone_mask[:, mid_y, :]
                 hemisphere_slice = hemisphere_mask[:, mid_y, :]
                 brainstem_slice = brain_stem[:, mid_y, :]
                 aspect_ratio = vz / vx
-                xlabel, ylabel = 'Anterior ← → Posterior', 'Inferior ← → Superior'
+                xlabel, ylabel = 'Anterior - Posterior', 'Inferior - Superior'
             else:
                 bone_slice = all_bone_mask[mid_x, :, :]
                 hemisphere_slice = hemisphere_mask[mid_x, :, :]
                 brainstem_slice = brain_stem[mid_x, :, :]
                 aspect_ratio = vy / vz
-                xlabel, ylabel = 'Left ← → Right', 'Inferior ← → Superior'
+                xlabel, ylabel = 'Left - Right', 'Inferior - Superior'
             img = np.zeros((bone_slice.shape[1], bone_slice.shape[0], 3))
             img[bone_slice.T > 0] = [0.8, 0.8, 0.8]
             img[hemisphere_slice.T > 0] = [0, 0.5, 1]
@@ -551,7 +551,7 @@ B. Skull Extraction Result: Apply 3D bounding box (±30mm) + Z-cutoff below brai
             ax.set_xticks([])
             ax.set_yticks([])
             if col == 0:
-                ax.text(0.02, 0.98, 'Brain Regions Used:\n• Blue: Left/Right Cortex (hemispheres)\n• Green: Brain Stem\n• Gray: Bone (context)',
+                ax.text(0.02, 0.98, 'Brain Regions Used:\n- Blue: Left/Right Cortex (hemispheres)\n- Green: Brain Stem\n- Gray: Bone (context)',
                         transform=ax.transAxes, fontsize=8, verticalalignment='top', horizontalalignment='left',
                         bbox=dict(boxstyle="round,pad=0.3", facecolor='lightblue', alpha=0.7))
         # --- Row 1: Extraction Step B (final skull mask) ---
@@ -563,21 +563,21 @@ B. Skull Extraction Result: Apply 3D bounding box (±30mm) + Z-cutoff below brai
                 hemisphere_slice = hemisphere_mask[:, :, mid_z]
                 brainstem_slice = brain_stem[:, :, mid_z]
                 aspect_ratio = vy / vx
-                xlabel, ylabel = 'Anterior ← → Posterior', 'Left ← → Right'
+                xlabel, ylabel = 'Anterior - Posterior', 'Left - Right'
             elif col == 1:
                 bone_slice = all_bone_mask[:, mid_y, :]
                 skull_slice = skull_bone_mask[:, mid_y, :]
                 hemisphere_slice = hemisphere_mask[:, mid_y, :]
                 brainstem_slice = brain_stem[:, mid_y, :]
                 aspect_ratio = vz / vx
-                xlabel, ylabel = 'Anterior ← → Posterior', 'Inferior ← → Superior'
+                xlabel, ylabel = 'Anterior - Posterior', 'Inferior - Superior'
             else:
                 bone_slice = all_bone_mask[mid_x, :, :]
                 skull_slice = skull_bone_mask[mid_x, :, :]
                 hemisphere_slice = hemisphere_mask[mid_x, :, :]
                 brainstem_slice = brain_stem[mid_x, :, :]
                 aspect_ratio = vy / vz
-                xlabel, ylabel = 'Left ← → Right', 'Inferior ← → Superior'
+                xlabel, ylabel = 'Left - Right', 'Inferior - Superior'
             img = np.zeros((bone_slice.shape[1], bone_slice.shape[0], 3))
             img[bone_slice.T > 0] = [0.3, 0.3, 0.3]
             img[skull_slice.T > 0] = [1, 0, 0]
@@ -602,7 +602,7 @@ B. Skull Extraction Result: Apply 3D bounding box (±30mm) + Z-cutoff below brai
             ax.set_yticks([])
             if col == 0:
                 kept_percentage = np.sum(skull_bone_mask) / np.sum(all_bone_mask) * 100
-                ax.text(0.02, 0.98, f'Final Skull Extraction:\n• Red: Extracted skull ({{kept_percentage:.1f}}%)\n• Dark gray: Excluded bone\n• Blue: Left/Right Cortex (hemispheres)\n• Green: Brain Stem',
+                ax.text(0.02, 0.98, f'Final Skull Extraction:\n- Red: Extracted skull ({{kept_percentage:.1f}}%)\n- Dark gray: Excluded bone\n- Blue: Left/Right Cortex (hemispheres)\n- Green: Brain Stem',
                         transform=ax.transAxes, fontsize=8, verticalalignment='top', horizontalalignment='left',
                         bbox=dict(boxstyle="round,pad=0.3", facecolor='lightcoral', alpha=0.7))
         # --- Row 2: Thickness Analysis (3 views + colorbar) ---
@@ -613,15 +613,15 @@ B. Skull Extraction Result: Apply 3D bounding box (±30mm) + Z-cutoff below brai
             if col == 0:
                 masked_thickness = np.where(thickness_mask[:, :, mid_z] > 0, thickness_map[:, :, mid_z], np.nan)
                 aspect_ratio = vy / vx
-                xlabel, ylabel = 'Anterior ← → Posterior', 'Left ← → Right'
+                xlabel, ylabel = 'Anterior - Posterior', 'Left - Right'
             elif col == 1:
                 masked_thickness = np.where(thickness_mask[:, mid_y, :] > 0, thickness_map[:, mid_y, :], np.nan)
                 aspect_ratio = vz / vx
-                xlabel, ylabel = 'Anterior ← → Posterior', 'Inferior ← → Superior'
+                xlabel, ylabel = 'Anterior - Posterior', 'Inferior - Superior'
             else:
                 masked_thickness = np.where(thickness_mask[mid_x, :, :] > 0, thickness_map[mid_x, :, :], np.nan)
                 aspect_ratio = vy / vz
-                xlabel, ylabel = 'Left ← → Right', 'Inferior ← → Superior'
+                xlabel, ylabel = 'Left - Right', 'Inferior - Superior'
             im = ax.imshow(masked_thickness.T, cmap='hot', origin='lower', aspect=aspect_ratio, interpolation='bilinear', vmin=vmin, vmax=vmax)
             ax.set_title(f'C{chr(65+col)}. {view_labels[col]} Thickness', fontsize=13, fontweight='bold', pad=10)
             ax.set_xlabel(xlabel, fontweight='bold', fontsize=10)

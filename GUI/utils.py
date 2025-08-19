@@ -73,6 +73,7 @@ def is_important_message(text, message_type, tab_type='general'):
             'Mean Value:',
             'Max Value:',
             'Min Value:',
+            'Generating surface mesh for specific field:'
             # Result output locations
             'saved to:',
             'written to:',
@@ -85,6 +86,41 @@ def is_important_message(text, message_type, tab_type='general'):
             'Group analysis complete'
         ],
         'preprocess': [
+            # Essential preprocessing step messages (user requested)
+            'Starting processing for',
+            'Starting DICOM to NIfTI conversion for subject:',
+            'Starting SimNIBS charm for subject:',
+            'Starting FreeSurfer recon-all for subject:',  # Only the specific one from recon-all.sh
+            'Starting skull bone analysis',
+            'Pre-processing for',
+            'completed successfully',
+            # Additional key step messages from scripts (keep only one of each type)
+            'DICOM conversion completed for subject:',  # Only from structural.sh
+            'SimNIBS charm completed for subject:',     # Only from structural.sh
+            'FreeSurfer recon-all completed for subject:', # Only from structural.sh
+            'Skull bone analysis completed',
+            'All subjects processed successfully',
+            # Simple report completion message (like simulator)
+            'Report generation completed',
+            # Critical error patterns that indicate real failures
+            'segmentation fault',
+            'bus error', 
+            'illegal instruction',
+            'permission denied',
+            'command not found',
+            'cannot execute',
+            'bad interpreter',
+            'fatal error',
+            'critical error',
+            'processing interrupted',
+            'validation failed',
+            'exited with errors',
+            'script failed',
+            # Specific preprocessing errors
+            'No T1 image found',
+            'failed for subject',
+            'The following subjects had failures',
+            'Please check the logs for more details'
         ],
         'flexsearch': [
         ],
@@ -114,6 +150,67 @@ def is_important_message(text, message_type, tab_type='general'):
     if message_type == 'info':
         tab_patterns = important_patterns.get(tab_type, [])
         return any(pattern.lower() in text_lower for pattern in tab_patterns)
+    
+    # Filter out verbose computational and detailed messages for preprocessing
+    if tab_type == 'preprocess':
+        # Filter out detailed FreeSurfer optimization and computational output
+        if any(pattern in text.upper() for pattern in [
+            'IFLAG=', 'LINE SEARCH', 'MCSRCH', 'QUASINEWTONEMA', 'BFGS', 'LBFGS',
+            'CONVERGENCE:', 'ITERATION', 'GRADIENT', 'FUNCTION EVALUATION', 
+            'ARMIJO', '-LOG(P)', 'TOL ', 'OUTOF QUASINEWTON',
+            'DT:', 'RMS RADIAL ERROR=', 'AVGS=', 'FINAL DISTANCE ERROR',
+            'DISTANCE ERROR %', '/300:', 'SURFACE RECONSTRUCTION'
+        ]):
+            return False
+            
+        # Filter out verbose atlas and report messages (keep only essential ones)
+        # Also filter ANY message containing emojis or special characters
+        emoji_patterns = ['✓', '📊', '📁', '💡', '❌', '✅', '🎯', '🔍', '📈', '🔄', '   •']
+        verbose_shell_patterns = [
+            'Non-recon processing completed successfully',  # structural.sh verbose
+            'Sequential processing completed',  # structural.sh verbose
+            'Completed processing subject:',  # structural.sh verbose
+            'Processing subject:',  # structural.sh verbose with core info
+            'System configuration:',  # structural.sh verbose
+            'Each subject will use all',  # structural.sh verbose
+            'Starting SEQUENTIAL processing',  # structural.sh verbose
+            'Running SimNIBS charm for subject:',  # structural.sh - duplicate of essential message
+            'Running FreeSurfer recon-all for subject:',  # structural.sh - duplicate of essential message
+            'Preprocessing completed.',  # duplicate completion message
+            # Additional DICOM conversion duplicates
+            'DICOM to NIfTI conversion completed successfully for subject:',  # duplicate of "DICOM conversion completed"
+            'Processing completed!',  # duplicate completion message from structural.sh
+            # Duplicate completion messages from individual scripts
+            'SimNIBS charm completed successfully for subject:',  # charm.sh - duplicate
+            'FreeSurfer recon-all completed for subject:',  # recon-all.sh - duplicate
+            # T2 image messages that don't need to be shown
+            'No T2 image found',
+            'proceeding with T1 only',
+            # FreeSurfer verbose process output
+            'lta_convert',
+            'tessellation finished',
+            'MRIScomputeBorderValues_new',
+            'finished in',
+            'min',
+            'WARN: S lookup',
+            'WARN: S explicit',
+            'vertex =',
+            'recon-all -s',
+            'finished without error at',
+        ]
+        if any(pattern in text for pattern in [
+            '[Atlas]',  # Individual atlas messages
+            'Report generated:',  # Individual report files (without emoji)
+            'Successfully generated',  # Detailed report summary
+            'Reports location:',  # Reports directory info
+            'Open the HTML files',  # Usage instructions
+            'Failed to generate',  # Failed report details
+            '=== Generating preprocessing reports ===',  # Verbose report start
+            'Generating report for',  # Individual report generation
+        ]) or any(emoji in text for emoji in emoji_patterns) or any(pattern in text for pattern in verbose_shell_patterns):
+            return False
+    
+
     
     # Default: don't show detailed/verbose messages
     return False

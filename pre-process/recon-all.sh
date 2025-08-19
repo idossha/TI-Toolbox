@@ -50,6 +50,37 @@ cleanup_on_failure() {
     fi
 }
 
+# Function to filter FreeSurfer output to show only important messages
+filter_freesurfer_output() {
+    while IFS= read -r line; do
+        # Skip verbose computational output
+        if [[ "$line" =~ ^[[:space:]]*$ ]] || \
+           [[ "$line" =~ lta_convert ]] || \
+           [[ "$line" =~ tessellation\ finished ]] || \
+           [[ "$line" =~ MRIScomputeBorderValues_new.*finished.*min ]] || \
+           [[ "$line" =~ WARN:\ S\ lookup ]] || \
+           [[ "$line" =~ WARN:\ S\ explicit ]] || \
+           [[ "$line" =~ vertex\ = ]] || \
+           [[ "$line" =~ orienting\ corrected\ surface ]]; then
+            continue
+        fi
+        
+        # Show important messages
+        if [[ "$line" =~ finished\ without\ error ]] || \
+           [[ "$line" =~ recon-all.*exited\ with\ ERRORS ]] || \
+           [[ "$line" =~ FAILED.*recon-all ]] || \
+           [[ "$line" =~ Fatal\ error ]] || \
+           [[ "$line" =~ ERROR: ]] || \
+           [[ "$line" =~ Illegal\ instruction ]] || \
+           [[ "$line" =~ Segmentation\ fault ]] || \
+           [[ "$line" =~ Bus\ error ]] || \
+           [[ "$line" =~ Killed ]] || \
+           [[ "$line" =~ Aborted ]]; then
+            echo "$line"
+        fi
+    done
+}
+
 # Function to run command with proper error handling and timeout
 run_command() {
     local cmd="$1"
@@ -348,7 +379,7 @@ if [ -n "$T2_file" ]; then
     T2_file="$(cd "$(dirname "$T2_file")" && pwd)/$(basename "$T2_file")"
     log_info "T2 image will be used for improved pial surface reconstruction"
 else
-    log_info "No T2 image found - proceeding with T1 only"
+    log_debug "No T2 image found - proceeding with T1 only"
 fi
 
 # Set threading mode based on processing approach
@@ -434,8 +465,8 @@ if [ -n "$T2_file" ]; then
     log_info "Using T1 and T2 images with T2pial processing"
     log_info "Running: recon-all -subject $BIDS_SUBJECT_ID -i $T1_file -T2 $T2_file -T2pial -all -sd $SUBJECTS_DIR"
     
-    # Execute command directly with proper argument separation
-    if ! recon-all -subject "$BIDS_SUBJECT_ID" -i "$T1_file" -T2 "$T2_file" -T2pial -all -sd "$SUBJECTS_DIR" 2>&1 | tee -a "$LOG_FILE"; then
+    # Execute command directly with proper argument separation and filtered output
+    if ! recon-all -subject "$BIDS_SUBJECT_ID" -i "$T1_file" -T2 "$T2_file" -T2pial -all -sd "$SUBJECTS_DIR" 2>&1 | filter_freesurfer_output | tee -a "$LOG_FILE"; then
         log_error "FreeSurfer recon-all failed for subject: $BIDS_SUBJECT_ID"
         monitor_resources "After FreeSurfer failure"
         exit 1
@@ -444,8 +475,8 @@ else
     log_info "Using T1 image only"
     log_info "Running: recon-all -subject $BIDS_SUBJECT_ID -i $T1_file -all -sd $SUBJECTS_DIR"
     
-    # Execute command directly with proper argument separation
-    if ! recon-all -subject "$BIDS_SUBJECT_ID" -i "$T1_file" -all -sd "$SUBJECTS_DIR" 2>&1 | tee -a "$LOG_FILE"; then
+    # Execute command directly with proper argument separation and filtered output
+    if ! recon-all -subject "$BIDS_SUBJECT_ID" -i "$T1_file" -all -sd "$SUBJECTS_DIR" 2>&1 | filter_freesurfer_output | tee -a "$LOG_FILE"; then
         log_error "FreeSurfer recon-all failed for subject: $BIDS_SUBJECT_ID"
         monitor_resources "After FreeSurfer failure"
         exit 1

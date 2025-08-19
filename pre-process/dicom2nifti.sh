@@ -83,26 +83,26 @@ handle_compressed_dicom() {
     # Look for .tgz files in the source directory
     for tgz_file in "$source_dir"/*.tgz; do
         if [ -f "$tgz_file" ]; then
-            log_debug "Found compressed DICOM file: $tgz_file"
+            log_info "Found compressed DICOM file: $tgz_file"
             
             # Create a temporary directory for extraction
             local temp_dir=$(mktemp -d)
             
             # Extract the .tgz file
-            log_debug "Extracting $tgz_file to temporary directory..."
+            log_info "Extracting $tgz_file to temporary directory..."
             tar -xzf "$tgz_file" -C "$temp_dir"
             
             # Find all DICOM files in the extracted directory
             local dicom_files=$(find "$temp_dir" -type f -name "*.dcm" -o -name "*.IMA" -o -name "*.dicom")
             
             if [ -n "$dicom_files" ]; then
-                log_debug "Found DICOM files in extracted archive"
+                log_info "Found DICOM files in extracted archive"
                 
                 # Create scan type directory if it doesn't exist
                 mkdir -p "$target_dir"
                 
                 # Move DICOM files to the target directory
-                log_debug "Moving DICOM files to $target_dir"
+                log_info "Moving DICOM files to $target_dir"
                 find "$temp_dir" -type f \( -name "*.dcm" -o -name "*.IMA" -o -name "*.dicom" \) -exec mv {} "$target_dir" \;
                 
                 # Clean up temporary directory
@@ -121,7 +121,7 @@ process_dicom_directory() {
     local target_dir="$2"
     
     if [ -d "$source_dir" ] && [ "$(ls -A "$source_dir")" ]; then
-        log_debug "Processing DICOM files in $source_dir..."
+        log_info "Processing DICOM files in $source_dir..."
         # First convert in place
         dcm2niix -z y -o "$target_dir" "$source_dir"
         
@@ -155,7 +155,7 @@ process_dicom_directory() {
                         # Move and rename the files
                         mv "$json_file" "$new_json"
                         mv "$nii_file" "$new_nii"
-                        log_debug "Renamed files to: $clean_name (from: $series_desc)"
+                        log_info "Renamed files to: $clean_name (from: $series_desc)"
                     else
                         # If no SeriesDescription found, move with original names
                         mv "$json_file" "${BIDS_ANAT_DIR}/"
@@ -188,7 +188,7 @@ else
     
     # Process T1w directory if it exists and has files
     if [ -d "$T1_DICOM_DIR" ] && [ "$(ls -A "$T1_DICOM_DIR")" ]; then
-        log_debug "Found T1w DICOM data, processing..."
+        log_info "Found T1w DICOM data, processing..."
         process_dicom_directory "$T1_DICOM_DIR" "$T1_DICOM_DIR"
     fi
     
