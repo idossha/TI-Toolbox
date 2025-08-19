@@ -139,7 +139,7 @@ class MeshAnalyzer:
             self.logger.error(f"Field mesh file not found: {field_mesh_path}")
             raise FileNotFoundError(f"Field mesh file not found: {field_mesh_path}")
         
-        self.logger.info(f"Mesh analyzer initialized successfully")
+        self.logger.debug(f"Mesh analyzer initialized successfully")
         self.logger.debug(f"Field mesh path: {field_mesh_path}")
         self.logger.debug(f"Field name: {field_name}")
         self.logger.debug(f"Subject directory: {subject_dir}")

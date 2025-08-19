@@ -481,7 +481,8 @@ for flex_montage in flex_montages:
         
         # Convert to the expected format
         montage_data = [[pairs[0][0], pairs[0][1]], [pairs[1][0], pairs[1][1]]]
-        logger.info(f"Running flex mapped simulation with electrodes: {electrode_labels}")
+        if not quiet_mode:
+            logger.info(f"Running flex mapped simulation with electrodes: {electrode_labels}")
         logger.debug(f"Using EEG net from flex-search: {eeg_net_for_montage}")
         
         # Temporarily set the EEG net for this simulation

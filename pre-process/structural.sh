@@ -226,11 +226,12 @@ process_subject_non_recon() {
             echo "  Warning: DICOM conversion failed for subject: $subject_id"
             success=false
         else
-            echo "DICOM conversion completed for subject: $subject_id"
+            echo "  DICOM conversion completed for subject: $subject_id"
         fi
     fi
     
     if $success; then
+        echo "Non-recon processing completed successfully for subject: $subject_id"
         return 0
     else
         FAILED_SUBJECTS+=("$subject_id")
@@ -265,7 +266,7 @@ run_recon_single() {
     local subject_dir="$1"
     local subject_id=$(basename "$subject_dir" | sed 's/^sub-//')
     
-
+    echo "Running FreeSurfer recon-all for subject: $subject_id"
     
     local recon_args=("$subject_dir")
     if $QUIET; then
@@ -290,7 +291,7 @@ run_recon_single() {
         return 1
     fi
     
-
+    echo "FreeSurfer recon-all completed for subject: $subject_id"
     return 0
 }
 
