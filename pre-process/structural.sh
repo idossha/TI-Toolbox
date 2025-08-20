@@ -72,20 +72,39 @@ for subject_id in "${temp_subject_ids[@]}"; do
   
   # Ensure BIDS dataset_description.json exists for each derivative dataset root
   ASSETS_DD_DIR="$script_dir/../assets/dataset_descriptions"
+  
+  # Get project name for URI and DatasetLinks
+  PROJECT_NAME=$(basename "$PROJECT_DIR")
+  CURRENT_DATE=$(date +"%Y-%m-%d")
+  
   # FreeSurfer derivative
   if [ ! -f "$PROJECT_DIR/derivatives/freesurfer/dataset_description.json" ] && [ -f "$ASSETS_DD_DIR/freesurfer.dataset_description.json" ]; then
     mkdir -p "$PROJECT_DIR/derivatives/freesurfer"
     cp "$ASSETS_DD_DIR/freesurfer.dataset_description.json" "$PROJECT_DIR/derivatives/freesurfer/dataset_description.json"
+    
+    # Fill in project-specific information
+    sed -i.tmp "s/\"URI\": \"\"/\"URI\": \"bids:$PROJECT_NAME@$CURRENT_DATE\"/" "$PROJECT_DIR/derivatives/freesurfer/dataset_description.json" && rm -f "$PROJECT_DIR/derivatives/freesurfer/dataset_description.json.tmp"
+    sed -i.tmp "s/\"DatasetLinks\": {}/\"DatasetLinks\": {\n    \"$PROJECT_NAME\": \"..\/..\/\"\n  }/" "$PROJECT_DIR/derivatives/freesurfer/dataset_description.json" && rm -f "$PROJECT_DIR/derivatives/freesurfer/dataset_description.json.tmp"
   fi
+  
   # SimNIBS derivative
   if [ ! -f "$PROJECT_DIR/derivatives/SimNIBS/dataset_description.json" ] && [ -f "$ASSETS_DD_DIR/simnibs.dataset_description.json" ]; then
     mkdir -p "$PROJECT_DIR/derivatives/SimNIBS"
     cp "$ASSETS_DD_DIR/simnibs.dataset_description.json" "$PROJECT_DIR/derivatives/SimNIBS/dataset_description.json"
+    
+    # Fill in project-specific information
+    sed -i.tmp "s/\"URI\": \"\"/\"URI\": \"bids:$PROJECT_NAME@$CURRENT_DATE\"/" "$PROJECT_DIR/derivatives/SimNIBS/dataset_description.json" && rm -f "$PROJECT_DIR/derivatives/SimNIBS/dataset_description.json.tmp"
+    sed -i.tmp "s/\"DatasetLinks\": {}/\"DatasetLinks\": {\n    \"$PROJECT_NAME\": \"..\/..\/\"\n  }/" "$PROJECT_DIR/derivatives/SimNIBS/dataset_description.json" && rm -f "$PROJECT_DIR/derivatives/SimNIBS/dataset_description.json.tmp"
   fi
-  # Logs derivative (ti-toolbox namespace)
-  if [ ! -f "$PROJECT_DIR/derivatives/ti-toolbox/logs/dataset_description.json" ] && [ -f "$ASSETS_DD_DIR/logs.dataset_description.json" ]; then
-    mkdir -p "$PROJECT_DIR/derivatives/ti-toolbox/logs"
-    cp "$ASSETS_DD_DIR/logs.dataset_description.json" "$PROJECT_DIR/derivatives/ti-toolbox/logs/dataset_description.json"
+  
+  # TI-Toolbox derivative
+  if [ ! -f "$PROJECT_DIR/derivatives/ti-toolbox/dataset_description.json" ] && [ -f "$ASSETS_DD_DIR/ti-toolbox.dataset_description.json" ]; then
+    mkdir -p "$PROJECT_DIR/derivatives/ti-toolbox"
+    cp "$ASSETS_DD_DIR/ti-toolbox.dataset_description.json" "$PROJECT_DIR/derivatives/ti-toolbox/dataset_description.json"
+    
+    # Fill in project-specific information
+    sed -i.tmp "s/\"URI\": \"\"/\"URI\": \"bids:$PROJECT_NAME@$CURRENT_DATE\"/" "$PROJECT_DIR/derivatives/ti-toolbox/dataset_description.json" && rm -f "$PROJECT_DIR/derivatives/ti-toolbox/dataset_description.json.tmp"
+    sed -i.tmp "s/\"DatasetLinks\": {}/\"DatasetLinks\": {\n    \"$PROJECT_NAME\": \"..\/..\/\"\n  }/" "$PROJECT_DIR/derivatives/ti-toolbox/dataset_description.json" && rm -f "$PROJECT_DIR/derivatives/ti-toolbox/dataset_description.json.tmp"
   fi
   
   SUBJECT_DIRS+=("$SUBJECT_DIR")

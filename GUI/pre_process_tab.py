@@ -959,7 +959,7 @@ class PreProcessTab(QtWidgets.QWidget):
                     if not os.path.exists(label_nii):
                         self.update_output(f"[Bone] {subject_id}: Labeling.nii.gz not found, skipping bone analysis.", 'warning')
                         continue
-                    out_dir = os.path.join(self.project_dir, "derivatives", "bone_analyzer", bids_subject_id)
+                    out_dir = os.path.join(self.project_dir, "derivatives", "ti-toolbox", "bone_analysis", bids_subject_id)
                     os.makedirs(out_dir, exist_ok=True)
                     cmd_bone = [sys.executable, os.path.join(os.path.dirname(os.path.dirname(__file__)), 'pre-process', 'bone_analyzer.py'), label_nii, '-o', out_dir]
                     self.update_output(f"[Bone] {subject_id}: Running {' '.join(cmd_bone)}", 'debug')

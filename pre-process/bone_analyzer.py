@@ -19,13 +19,13 @@ import argparse
 from pathlib import Path
 
 class BoneAnalyzer:
-    def __init__(self, nifti_path, output_dir="bone_analysis_output"):
+    def __init__(self, nifti_path, output_dir="bone_analysis"):
         """
         Initialize the bone analyzer.
         
         Args:
             nifti_path (str): Path to the segmented NIfTI file
-            output_dir (str): Directory to save output files
+            output_dir (str): Directory to save output files (typically under derivatives/ti-toolbox/bone_analysis/sub-*/)
         """
         self.nifti_path = nifti_path
         self.output_dir = Path(output_dir)
@@ -701,6 +701,7 @@ B. Skull Extraction Result: Apply 3D bounding box (±30mm) + Z-cutoff below brai
             f.write("- Thickness represents twice the distance to nearest tissue boundary\n")
             f.write("- Volume calculations based on voxel dimensions from NIfTI header\n")
             f.write("- Visualizations show middle slices and thickness distributions\n")
+            f.write("- Output designed for derivatives/ti-toolbox/bone_analysis/sub-*/ structure\n")
         
         print(f"Summary report saved to: {report_path}")
         return report_path
@@ -722,6 +723,7 @@ B. Skull Extraction Result: Apply 3D bounding box (±30mm) + Z-cutoff below brai
         self.generate_summary_report(volume_results, skull_bone_thickness)
         print(f"[Skull Bone Analysis] Complete. Volume: {volume_results['skull_bone_volume_cm3']:.2f} cm³ | Thickness: {skull_bone_thickness['mean']:.2f}±{skull_bone_thickness['std']:.2f} mm (range: {skull_bone_thickness['min']:.2f}-{skull_bone_thickness['max']:.2f} mm)")
         print(f"[Skull Bone Analysis] Results saved to: {self.output_dir}")
+        print(f"[Skull Bone Analysis] Note: Output is now organized under derivatives/ti-toolbox/bone_analysis/sub-*/ structure")
         return {
             'volumes': volume_results,
             'skull_bone_thickness': skull_bone_thickness
@@ -729,10 +731,10 @@ B. Skull Extraction Result: Apply 3D bounding box (±30mm) + Z-cutoff below brai
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Analyze skull bone structures from segmented tissue data (excludes jaw/vertebrae)")
+    parser = argparse.ArgumentParser(description="Analyze skull bone structures from segmented tissue data (excludes jaw/vertebrae). Output designed for derivatives/ti-toolbox/bone_analysis/sub-*/ structure.")
     parser.add_argument("nifti_path", help="Path to the segmented NIfTI file")
-    parser.add_argument("-o", "--output", default="bone_analysis_output", 
-                       help="Output directory for results (default: bone_analysis_output)")
+    parser.add_argument("-o", "--output", default="bone_analysis", 
+                       help="Output directory for results (default: bone_analysis, typically under derivatives/ti-toolbox/bone_analysis/sub-*/)")
     
     args = parser.parse_args()
     

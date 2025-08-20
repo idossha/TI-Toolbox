@@ -1,0 +1,24 @@
+{
+  "Name": "TI-Toolbox derivatives for TI-Toolbox",
+  "BIDSVersion": "1.10.0",
+  "DatasetType": "derivative",
+  "License": "CC-BY-4.0",
+  "Authors": [
+    "Ido Haber",
+    "Aksel Jackson"
+  ],
+  "GeneratedBy": [
+    {
+      "Name": "TI-Toolbox",
+      "Version": "2.1.0",
+      "Description": "Temporal interference (TI) modeling and optimization pipeline (e.g., Flex-Search) generating electric field simulations, TI metrics (e.g., TI_max), and per-subject analyses.",
+      "CodeURL": "https://github.com/idossha/TI-Toolbox"
+    }
+  ],
+  "SourceDatasets": [
+    {
+      "URI": ""
+    }
+  ],
+  "DatasetLinks": {}
+}
