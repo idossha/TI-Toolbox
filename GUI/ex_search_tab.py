@@ -48,6 +48,13 @@ class ExSearchThread(QtCore.QThread):
     def run(self):
         """Run the ex-search command in a separate thread."""
         try:
+            # Debug: show command and environment highlights
+            try:
+                dbg_env = {k: self.env.get(k) for k in ["PROJECT_DIR_NAME", "SUBJECT_NAME", "SELECTED_EEG_NET", "TI_LOG_FILE", "LEADFIELD_HDF", "ROI_NAME"]}
+                self.output_signal.emit(f"[DEBUG] Launching process: {' '.join(self.cmd)}", 'debug')
+                self.output_signal.emit(f"[DEBUG] Env highlights: {dbg_env}", 'debug')
+            except Exception:
+                pass
             self.process = subprocess.Popen(
                 self.cmd, 
                 stdout=subprocess.PIPE, 
@@ -57,9 +64,14 @@ class ExSearchThread(QtCore.QThread):
                 bufsize=1,
                 env=self.env
             )
+            try:
+                self.output_signal.emit(f"[DEBUG] Spawned PID: {self.process.pid}", 'debug')
+            except Exception:
+                pass
             
             # If input data is provided, send it to the process
             if self.input_data:
+                self.output_signal.emit("[DEBUG] Sending stdin to child process", 'debug')
                 for line in self.input_data:
                     if self.terminated:
                         break
@@ -94,11 +106,18 @@ class ExSearchThread(QtCore.QThread):
             # Check process completion
             if not self.terminated:
                 returncode = self.process.wait()
+                self.output_signal.emit(f"[DEBUG] Process exited with code {returncode}", 'debug')
                 if returncode != 0:
                     self.error_signal.emit(f"Process returned non-zero exit code: {returncode}")
                     
         except Exception as e:
-            self.error_signal.emit(f"Error running process: {str(e)}")
+            try:
+                import traceback
+                tb = traceback.format_exc()
+                self.error_signal.emit(f"Error running process: {str(e)}\n{tb}")
+                self.output_signal.emit(f"[DEBUG] Exception in ExSearchThread.run: {str(e)}", 'debug')
+            except Exception:
+                self.error_signal.emit(f"Error running process: {str(e)}")
         finally:
             # Ensure process is cleaned up
             if self.process:
@@ -287,14 +306,6 @@ class ExSearchTab(QtWidgets.QWidget):
     def log_pipeline_configuration(self, subject_id, project_dir, selected_net_name, selected_hdf5_path, env):
         """Log comprehensive pipeline configuration to the ex-search log file."""
         try:
-            # Import logging utility to write directly to log file
-            import sys
-            # Get the parent directory of the GUI folder to access utils
-            script_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-            utils_dir = os.path.join(script_dir, 'utils')
-            if utils_dir not in sys.path:
-                sys.path.insert(0, utils_dir)
-            import logging_util
             
             # Get the log file from environment
             log_file = env.get("TI_LOG_FILE")
@@ -383,14 +394,6 @@ class ExSearchTab(QtWidgets.QWidget):
     def log_roi_configuration(self, current_roi, roi_name, x, y, z, env):
         """Log ROI-specific configuration details."""
         try:
-            # Import logging utility
-            import sys
-            # Get the parent directory of the GUI folder to access utils
-            script_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-            utils_dir = os.path.join(script_dir, 'utils')
-            if utils_dir not in sys.path:
-                sys.path.insert(0, utils_dir)
-            import logging_util
             
             # Get the log file from environment
             log_file = env.get("TI_LOG_FILE")
@@ -445,14 +448,6 @@ class ExSearchTab(QtWidgets.QWidget):
     def log_pipeline_completion(self):
         """Log pipeline completion summary."""
         try:
-            # Import logging utility
-            import sys
-            # Get the parent directory of the GUI folder to access utils
-            script_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-            utils_dir = os.path.join(script_dir, 'utils')
-            if utils_dir not in sys.path:
-                sys.path.insert(0, utils_dir)
-            import logging_util
             import time
             
             # Try to get log file from the last environment
@@ -1393,6 +1388,8 @@ class ExSearchTab(QtWidgets.QWidget):
         # Update output for debug mode
         if self.debug_mode:
             self.update_output(f"\n=== Processing ROI {self.current_roi_index + 1}/{len(self.roi_processing_queue)}: {current_roi} ===")
+            self.update_output(f"[DEBUG] Subject: {subject_id} | Project: {project_dir}", 'debug')
+            self.update_output(f"[DEBUG] ex_search_dir: {ex_search_dir}", 'debug')
         
         # Get the script directory
         script_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -1419,6 +1416,9 @@ class ExSearchTab(QtWidgets.QWidget):
                 coordinates = f.readline().strip()
             x, y, z = [float(coord.strip()) for coord in coordinates.split(',')]
             roi_name = current_roi.replace('.csv', '')  # Remove .csv extension
+            if self.debug_mode:
+                self.update_output(f"[DEBUG] ROI file: {roi_file}", 'debug')
+                self.update_output(f"[DEBUG] Parsed ROI coords: {(x, y, z)}", 'debug')
         except Exception as e:
             self.update_output(f"Error reading ROI file {current_roi}: {str(e)}", 'error')
             # Move to next ROI
@@ -1460,6 +1460,8 @@ class ExSearchTab(QtWidgets.QWidget):
         
         if self.debug_mode:
             self.update_output(f"ROI coordinates: {x}, {y}, {z}")
+            self.update_output(f"[DEBUG] Step 1 command: simnibs_python {os.path.join(ex_search_scripts_dir, 'ti_sim.py')}", 'debug')
+            self.update_output(f"[DEBUG] Env highlights: {{'LEADFIELD_HDF': env.get('LEADFIELD_HDF'), 'SELECTED_EEG_NET': env.get('SELECTED_EEG_NET'), 'TI_LOG_FILE': env.get('TI_LOG_FILE'), 'ROI_NAME': env.get('ROI_NAME')}}", 'debug')
         
         # Log ROI-specific configuration
         self.log_roi_configuration(current_roi, roi_name, x, y, z, env)
@@ -1513,6 +1515,7 @@ class ExSearchTab(QtWidgets.QWidget):
         self.log_step_start("ROI analysis")
         if self.debug_mode:
             self.update_output("\nStep 2: Running ROI analysis...")
+            self.update_output(f"[DEBUG] ROI analyzer script will run with ROI_LIST_FILE limited to: {current_roi}", 'debug')
         
         # Create directory name: roi_leadfield format  
         output_dir_name = f"{roi_name}_{eeg_net_name}"
@@ -1538,6 +1541,10 @@ class ExSearchTab(QtWidgets.QWidget):
             roi_env["ROI_LIST_FILE"] = temp_roi_list
             
             cmd = ["python3", roi_analyzer_script, roi_dir]
+            if self.debug_mode:
+                self.update_output(f"[DEBUG] Step 2 command: {' '.join(cmd)}", 'debug')
+                dbg_env = {k: roi_env.get(k) for k in ["PROJECT_DIR", "SUBJECT_NAME", "SELECTED_EEG_NET", "TI_LOG_FILE", "MESH_DIR", "ROI_LIST_FILE"]}
+                self.update_output(f"[DEBUG] Step 2 env: {dbg_env}", 'debug')
             
             self.optimization_process = ExSearchThread(cmd, roi_env)
             self.optimization_process.output_signal.connect(self.update_output)
@@ -1567,6 +1574,8 @@ class ExSearchTab(QtWidgets.QWidget):
         """Clean up temporary files and run mesh processing."""
         # Clean up temporary roi_list.txt
         try:
+            if self.debug_mode:
+                self.update_output(f"[DEBUG] Removing temp ROI list: {temp_roi_list}", 'debug')
             if os.path.exists(temp_roi_list):
                 os.remove(temp_roi_list)
         except Exception as e:
@@ -1601,6 +1610,10 @@ class ExSearchTab(QtWidgets.QWidget):
         env["MESH_DIR"] = mesh_dir
         
         cmd = ["simnibs_python", mesh_processing_script, mesh_dir]
+        if self.debug_mode:
+            self.update_output(f"[DEBUG] Step 3 command: {' '.join(cmd)}", 'debug')
+            dbg_env = {k: env.get(k) for k in ["PROJECT_DIR", "SUBJECT_NAME", "SELECTED_EEG_NET", "TI_LOG_FILE", "MESH_DIR", "ROI_NAME"]}
+            self.update_output(f"[DEBUG] Step 3 env: {dbg_env}", 'debug')
         
         self.optimization_process = ExSearchThread(cmd, env)
         self.optimization_process.output_signal.connect(self.update_output)

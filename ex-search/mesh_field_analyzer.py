@@ -717,8 +717,7 @@ def main():
             # CLI usage: use standard logging utility
             main_logger = logging_util.get_logger('MeshFieldAnalyzer-Main')
     except ImportError:
-        # Fallback: create a simple logger
-        import logging
+        # Fallback: create a simple logger (use module-level logging)
         logging.basicConfig(level=logging.INFO, format='%(message)s', stream=sys.stdout)
         main_logger = logging.getLogger('MeshFieldAnalyzer-Main')
     
