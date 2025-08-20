@@ -492,7 +492,7 @@ for subject_index in "${selected_subjects[@]}"; do
 
     # Run the Python mesh analysis script
     log_info "Starting mesh field analysis for subject $subject_name"
-    if python3 "$ex_search_dir/mesh_field_analyzer.py" "$mesh_dir"; then
+    if simnibs_python "$ex_search_dir/mesh_field_analyzer.py" "$mesh_dir"; then
         log_info "Mesh field analysis completed successfully for subject $subject_name"
     else
         log_error "Mesh field analysis failed for subject $subject_name"

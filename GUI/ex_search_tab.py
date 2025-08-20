@@ -145,10 +145,123 @@ class ExSearchTab(QtWidgets.QWidget):
         self.optimization_process = None
         # Initialize debug mode (default to False)
         self.debug_mode = False
+        
+        # Summary mode variables
+        self.SUMMARY_MODE = True  # Default to summary mode
+        self.EXSEARCH_START_TIME = None
+        self.ROI_START_TIMES = {}
+        self.STEP_START_TIMES = {}
+        
         self.setup_ui()
         
         # Initialize with available subjects and check leadfields
         QtCore.QTimer.singleShot(500, self.initial_setup)
+    
+    def set_summary_mode(self, enabled):
+        """Enable or disable summary mode."""
+        self.SUMMARY_MODE = enabled
+    
+    def format_duration(self, start_time):
+        """Format duration from start time to now."""
+        if not start_time:
+            return "0s"
+        duration = time.time() - start_time
+        if duration < 60:
+            return f"{int(duration)}s"
+        elif duration < 3600:
+            minutes = int(duration // 60)
+            seconds = int(duration % 60)
+            return f"{minutes}m {seconds}s"
+        else:
+            hours = int(duration // 3600)
+            minutes = int((duration % 3600) // 60)
+            return f"{hours}h {minutes}m"
+    
+    def log_exsearch_start(self, subject_id, roi_count):
+        """Log the start of ex-search optimization."""
+        if not self.SUMMARY_MODE:
+            return
+        
+        self.EXSEARCH_START_TIME = time.time()
+        self.ROI_START_TIMES = {}
+        self.STEP_START_TIMES = {}
+        
+        self.update_output(f"Beginning ex-search optimization for subject: {subject_id} ({roi_count} ROI(s))", 'info')
+    
+    def log_roi_start(self, roi_index, total_rois, roi_name):
+        """Log the start of ROI processing."""
+        if not self.SUMMARY_MODE:
+            return
+        
+        roi_key = f"roi_{roi_index}"
+        self.ROI_START_TIMES[roi_key] = time.time()
+        
+        self.update_output(f"├─ Processing ROI {roi_index + 1}/{total_rois}: {roi_name}", 'info')
+    
+    def log_step_start(self, step_name):
+        """Log the start of a processing step."""
+        if not self.SUMMARY_MODE:
+            return
+        
+        step_key = step_name.lower().replace(' ', '_')
+        self.STEP_START_TIMES[step_key] = time.time()
+    
+    def log_step_complete(self, step_name, success=True):
+        """Log the completion of a processing step."""
+        if not self.SUMMARY_MODE:
+            return
+        
+        step_key = step_name.lower().replace(' ', '_')
+        start_time = self.STEP_START_TIMES.get(step_key)
+        
+        if start_time:
+            duration = self.format_duration(start_time)
+            status = "✓ Complete" if success else "✗ Failed"
+            self.update_output(f"├─ {step_name}: {status} ({duration})", 'success' if success else 'error')
+        else:
+            status = "✓ Complete" if success else "✗ Failed"
+            self.update_output(f"├─ {step_name}: {status}", 'success' if success else 'error')
+    
+    def log_roi_complete(self, roi_index, total_rois, roi_name):
+        """Log the completion of ROI processing."""
+        if not self.SUMMARY_MODE:
+            return
+        
+        roi_key = f"roi_{roi_index}"
+        start_time = self.ROI_START_TIMES.get(roi_key)
+        
+        if start_time:
+            duration = self.format_duration(start_time)
+            self.update_output(f"├─ ROI {roi_index + 1}/{total_rois} ({roi_name}): ✓ Complete ({duration})", 'success')
+        else:
+            self.update_output(f"├─ ROI {roi_index + 1}/{total_rois} ({roi_name}): ✓ Complete", 'success')
+    
+    def log_optimization_run_start(self, run_number, total_runs):
+        """Log the start of an optimization run."""
+        if not self.SUMMARY_MODE:
+            return
+        
+        self.update_output(f"├─ Optimization run {run_number}/{total_runs}: Starting...", 'info')
+    
+    def log_optimization_run_complete(self, run_number, total_runs, duration):
+        """Log the completion of an optimization run."""
+        if not self.SUMMARY_MODE:
+            return
+        
+        self.update_output(f"├─ Optimization run {run_number}/{total_runs}: ✓ Complete ({duration})", 'success')
+    
+    def log_exsearch_complete(self, subject_id, total_rois, output_dir):
+        """Log the completion of ex-search optimization."""
+        if not self.SUMMARY_MODE:
+            return
+        
+        if self.EXSEARCH_START_TIME:
+            total_duration = self.format_duration(self.EXSEARCH_START_TIME)
+            self.update_output(f"└─ Ex-search optimization completed successfully for subject: {subject_id} ({total_rois} ROI(s), Total: {total_duration})", 'success')
+            self.update_output(f"   Results available in: {output_dir}", 'success')
+        else:
+            self.update_output(f"└─ Ex-search optimization completed successfully for subject: {subject_id} ({total_rois} ROI(s))", 'success')
+            self.update_output(f"   Results available in: {output_dir}", 'success')
     
     def create_log_file_env(self, process_name, subject_id):
         """Create log file environment variable for processes."""
@@ -692,7 +805,42 @@ class ExSearchTab(QtWidgets.QWidget):
                 background-color: #666;
             }
         """)
+        # Add debug mode checkbox next to console buttons
+        self.debug_mode_checkbox = QtWidgets.QCheckBox("Debug Mode")
+        self.debug_mode_checkbox.setChecked(self.debug_mode)
+        self.debug_mode_checkbox.setToolTip(
+            "Toggle debug mode:\n"
+            "• ON: Show all detailed logging information\n"
+            "• OFF: Show only key operational steps"
+        )
+        self.debug_mode_checkbox.toggled.connect(self.set_debug_mode)
+        
+        # Style the debug mode checkbox
+        self.debug_mode_checkbox.setStyleSheet("""
+            QCheckBox {
+                font-weight: bold;
+                color: #333333;
+                padding: 5px;
+                margin-left: 10px;
+            }
+            QCheckBox::indicator {
+                width: 16px;
+                height: 16px;
+            }
+            QCheckBox::indicator:unchecked {
+                border: 2px solid #cccccc;
+                background-color: white;
+                border-radius: 3px;
+            }
+            QCheckBox::indicator:checked {
+                border: 2px solid #4CAF50;
+                background-color: #4CAF50;
+                border-radius: 3px;
+            }
+        """)
+        
         console_buttons_layout.addWidget(self.clear_console_btn)
+        console_buttons_layout.addWidget(self.debug_mode_checkbox)
         self.clear_console_btn.clicked.connect(self.clear_console)
         
         # Console header layout (label + buttons)
@@ -732,8 +880,9 @@ class ExSearchTab(QtWidgets.QWidget):
     def initial_setup(self):
         """Initial setup when the tab is first loaded."""
         self.list_subjects()
-        self.update_output("Welcome to Ex-Search Optimization!")
-        self.update_output("\nChecking available subjects and leadfields...")
+        if self.debug_mode:
+            self.update_output("Welcome to Ex-Search Optimization!")
+            self.update_output("\nChecking available subjects and leadfields...")
         
         try:
             project_dir = os.path.join("/mnt", os.environ.get("PROJECT_DIR_NAME", ""))
@@ -765,27 +914,29 @@ class ExSearchTab(QtWidgets.QWidget):
                     if subject_leadfields:
                         subjects_with_leadfields[subject_id] = subject_leadfields
             
-            # Display summary
-            self.update_output(f"\nFound {subject_count} subject(s):")
-            self.update_output(f"- Total leadfield matrices: {total_leadfields}")
-            self.update_output(f"- Subjects with leadfields: {len(subjects_with_leadfields)}")
-            
-            for subject_id, nets in subjects_with_leadfields.items():
-                self.update_output(f"  {subject_id}: {', '.join(nets)}")
-            
-            subjects_without_leadfield = [sid for sid in range(1, subject_count+1) 
-                                        if str(sid) not in subjects_with_leadfields]
-            if subjects_without_leadfield:
-                self.update_output(f"- Subjects without leadfields: {', '.join(map(str, subjects_without_leadfield))}")
-            
-            self.update_output("\nTo start optimization:")
-            self.update_output("1. Select a subject")
-            self.update_output("2. Select or create ROI(s)")
-            self.update_output("3. Enter electrodes for each category (E1+, E1-, E2+, E2-)")
-            self.update_output("4. Click 'Run Ex-Search'")
+            # Display summary only in debug mode
+            if self.debug_mode:
+                self.update_output(f"\nFound {subject_count} subject(s):")
+                self.update_output(f"- Total leadfield matrices: {total_leadfields}")
+                self.update_output(f"- Subjects with leadfields: {len(subjects_with_leadfields)}")
+                
+                for subject_id, nets in subjects_with_leadfields.items():
+                    self.update_output(f"  {subject_id}: {', '.join(nets)}")
+                
+                subjects_without_leadfield = [sid for sid in range(1, subject_count+1) 
+                                            if str(sid) not in subjects_with_leadfields]
+                if subjects_without_leadfield:
+                    self.update_output(f"- Subjects without leadfields: {', '.join(map(str, subjects_without_leadfield))}")
+                
+                self.update_output("\nTo start optimization:")
+                self.update_output("1. Select a subject")
+                self.update_output("2. Select or create ROI(s)")
+                self.update_output("3. Enter electrodes for each category (E1+, E1-, E2+, E2-)")
+                self.update_output("4. Click 'Run Ex-Search'")
             
         except Exception as e:
-            self.update_output(f"Error during initial setup: {str(e)}")
+            if self.debug_mode:
+                self.update_output(f"Error during initial setup: {str(e)}")
     
     def refresh_leadfields(self):
         """Refresh the list of available leadfields for the selected subject."""
@@ -1057,11 +1208,12 @@ class ExSearchTab(QtWidgets.QWidget):
                     else:
                         self.roi_list.addItem(display_name)
                         
-                self.update_output(f"Found and synced {len(csv_files)} ROI file(s)")
-                
-                # Debug: Show what's in roi_list.txt vs actual files
-                if csv_files:
-                    self.update_output(f"ROI files: {', '.join(sorted(csv_files))}")
+                if self.debug_mode:
+                    self.update_output(f"Found and synced {len(csv_files)} ROI file(s)")
+                    
+                    # Debug: Show what's in roi_list.txt vs actual files
+                    if csv_files:
+                        self.update_output(f"ROI files: {', '.join(sorted(csv_files))}")
         except Exception as e:
             self.update_status(f"Error updating ROI list: {str(e)}", error=True)
     
@@ -1199,7 +1351,8 @@ class ExSearchTab(QtWidgets.QWidget):
                 roi_name += '.csv'
             selected_roi_names.append(roi_name)
         
-        self.update_output(f"Selected ROI(s): {', '.join(selected_roi_names)}")
+        if self.debug_mode:
+            self.update_output(f"Selected ROI(s): {', '.join(selected_roi_names)}")
         
         # Set up environment variables
         env = os.environ.copy()
@@ -1217,6 +1370,9 @@ class ExSearchTab(QtWidgets.QWidget):
         self.e2_plus = e2_plus
         self.e2_minus = e2_minus
         
+        # Log ex-search start
+        self.log_exsearch_start(subject_id, len(selected_roi_names))
+        
         # Run the pipeline for the first ROI
         self.run_roi_pipeline(subject_id, project_dir, ex_search_dir, env)
     
@@ -1229,7 +1385,14 @@ class ExSearchTab(QtWidgets.QWidget):
             
         # Get current ROI
         current_roi = self.roi_processing_queue[self.current_roi_index]
-        self.update_output(f"\n=== Processing ROI {self.current_roi_index + 1}/{len(self.roi_processing_queue)}: {current_roi} ===")
+        roi_name = current_roi.replace('.csv', '')  # Remove .csv extension
+        
+        # Log ROI start
+        self.log_roi_start(self.current_roi_index, len(self.roi_processing_queue), roi_name)
+        
+        # Update output for debug mode
+        if self.debug_mode:
+            self.update_output(f"\n=== Processing ROI {self.current_roi_index + 1}/{len(self.roi_processing_queue)}: {current_roi} ===")
         
         # Get the script directory
         script_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -1282,24 +1445,29 @@ class ExSearchTab(QtWidgets.QWidget):
             if log_file:
                 env["TI_LOG_FILE"] = log_file
                 self._shared_log_file = log_file  # Store for subsequent ROI processing
-                self.update_output(f"Ex-search log file: {log_file}")
+                if self.debug_mode:
+                    self.update_output(f"Ex-search log file: {log_file}")
         
             # Log comprehensive configuration details
-            self.update_output(f"Using leadfield: {selected_net_name}")
-            self.update_output(f"HDF5 file: {selected_hdf5_path}")
+            if self.debug_mode:
+                self.update_output(f"Using leadfield: {selected_net_name}")
+                self.update_output(f"HDF5 file: {selected_hdf5_path}")
             self.log_pipeline_configuration(subject_id, project_dir, selected_net_name, selected_hdf5_path, env)
         else:
             # Ensure log file is passed to subsequent ROI processing
             if hasattr(self, '_shared_log_file'):
                 env["TI_LOG_FILE"] = self._shared_log_file
         
-        self.update_output(f"ROI coordinates: {x}, {y}, {z}")
+        if self.debug_mode:
+            self.update_output(f"ROI coordinates: {x}, {y}, {z}")
         
         # Log ROI-specific configuration
         self.log_roi_configuration(current_roi, roi_name, x, y, z, env)
         
         # Step 1: Run the TI simulation for this specific ROI
-        self.update_output("Step 1: Running TI simulation...")
+        self.log_step_start("TI simulation")
+        if self.debug_mode:
+            self.update_output("Step 1: Running TI simulation...")
         ti_sim_script = os.path.join(ex_search_scripts_dir, "ti_sim.py")
         
         # Prepare input data for the script
@@ -1322,10 +1490,18 @@ class ExSearchTab(QtWidgets.QWidget):
         
         # Connect the finished signal to the mesh processing step for this ROI
         self.optimization_process.finished.connect(
-            lambda: self.run_current_roi_analysis(subject_id, project_dir, ex_search_dir, env)
+            lambda: self.ti_simulation_completed(subject_id, project_dir, ex_search_dir, env)
         )
         
         self.optimization_process.start()
+    
+    def ti_simulation_completed(self, subject_id, project_dir, ex_search_dir, env):
+        """Handle completion of TI simulation step."""
+        # Log step completion
+        self.log_step_complete("TI simulation", success=True)
+        
+        # Continue to ROI analysis
+        self.run_current_roi_analysis(subject_id, project_dir, ex_search_dir, env)
     
     def run_current_roi_analysis(self, subject_id, project_dir, ex_search_dir, env):
         """Run ROI analysis for the current ROI."""
@@ -1333,7 +1509,10 @@ class ExSearchTab(QtWidgets.QWidget):
         roi_name = current_roi.replace('.csv', '')
         eeg_net_name = env.get("SELECTED_EEG_NET", "unknown_net")
         
-        self.update_output("\nStep 2: Running ROI analysis...")
+        # Log ROI analysis step start
+        self.log_step_start("ROI analysis")
+        if self.debug_mode:
+            self.update_output("\nStep 2: Running ROI analysis...")
         
         # Create directory name: roi_leadfield format  
         output_dir_name = f"{roi_name}_{eeg_net_name}"
@@ -1366,7 +1545,7 @@ class ExSearchTab(QtWidgets.QWidget):
             
             # Connect the finished signal to mesh processing
             self.optimization_process.finished.connect(
-                lambda: self.cleanup_and_run_mesh_processing(subject_id, project_dir, ex_search_dir, env, temp_roi_list)
+                lambda: self.roi_analysis_completed(subject_id, project_dir, ex_search_dir, env, temp_roi_list)
             )
             
             self.optimization_process.start()
@@ -1375,6 +1554,14 @@ class ExSearchTab(QtWidgets.QWidget):
             self.update_output(f"Error setting up ROI analysis: {str(e)}", 'error')
             # Skip to mesh processing
             self.run_current_roi_mesh_processing(subject_id, project_dir, ex_search_dir, env)
+    
+    def roi_analysis_completed(self, subject_id, project_dir, ex_search_dir, env, temp_roi_list):
+        """Handle completion of ROI analysis step."""
+        # Log step completion
+        self.log_step_complete("ROI analysis", success=True)
+        
+        # Clean up and continue to mesh processing
+        self.cleanup_and_run_mesh_processing(subject_id, project_dir, ex_search_dir, env, temp_roi_list)
     
     def cleanup_and_run_mesh_processing(self, subject_id, project_dir, ex_search_dir, env, temp_roi_list):
         """Clean up temporary files and run mesh processing."""
@@ -1399,8 +1586,11 @@ class ExSearchTab(QtWidgets.QWidget):
         mesh_dir = os.path.join(project_dir, "derivatives", "SimNIBS", f"sub-{subject_id}", 
                                "ex-search", output_dir_name)
         
-        self.update_output("\nStep 3: Running mesh processing...")
-        self.update_output(f"Output directory: ex-search/{output_dir_name}/")
+        # Log mesh processing step start
+        self.log_step_start("Mesh processing")
+        if self.debug_mode:
+            self.update_output("\nStep 3: Running mesh processing...")
+            self.update_output(f"Output directory: ex-search/{output_dir_name}/")
         
         # Run Python mesh processing
         script_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -1410,7 +1600,7 @@ class ExSearchTab(QtWidgets.QWidget):
         # Update environment variables for mesh processing
         env["MESH_DIR"] = mesh_dir
         
-        cmd = ["python3", mesh_processing_script, mesh_dir]
+        cmd = ["simnibs_python", mesh_processing_script, mesh_dir]
         
         self.optimization_process = ExSearchThread(cmd, env)
         self.optimization_process.output_signal.connect(self.update_output)
@@ -1418,13 +1608,27 @@ class ExSearchTab(QtWidgets.QWidget):
         
         # Connect the finished signal to move to the next ROI
         self.optimization_process.finished.connect(
-            lambda: self.current_roi_completed(subject_id, project_dir, ex_search_dir, env)
+            lambda: self.mesh_processing_completed(subject_id, project_dir, ex_search_dir, env)
         )
         
         self.optimization_process.start()
     
+    def mesh_processing_completed(self, subject_id, project_dir, ex_search_dir, env):
+        """Handle completion of mesh processing step."""
+        # Log step completion
+        self.log_step_complete("Mesh processing", success=True)
+        
+        # Continue to next ROI
+        self.current_roi_completed(subject_id, project_dir, ex_search_dir, env)
+    
     def current_roi_completed(self, subject_id, project_dir, ex_search_dir, env):
         """Handle completion of current ROI and move to the next."""
+        # Log ROI completion
+        current_roi = self.roi_processing_queue[self.current_roi_index]
+        roi_name = current_roi.replace('.csv', '')
+        self.log_roi_complete(self.current_roi_index, len(self.roi_processing_queue), roi_name)
+        
+        # Increment ROI index
         self.current_roi_index += 1
         
         # Process the next ROI if available
@@ -1435,7 +1639,8 @@ class ExSearchTab(QtWidgets.QWidget):
         # NOTE: ROI analysis is now integrated into the mesh processing step
         # to ensure each selected ROI gets its own analysis directory
         
-        self.update_output("\nStep 2: ROI analyzer skipped (integrated into mesh processing)")
+        if self.debug_mode:
+            self.update_output("\nStep 2: ROI analyzer skipped (integrated into mesh processing)")
         
         # Skip directly to mesh processing
         roi_dir = os.path.join(project_dir, "derivatives", "SimNIBS", f"sub-{subject_id}", 
@@ -1445,14 +1650,16 @@ class ExSearchTab(QtWidgets.QWidget):
     def run_mesh_processing(self, subject_id, project_dir, ex_search_dir, roi_dir, selected_roi_names, env):
         """Run the mesh processing step."""
         # Step 2: Run mesh processing (ROI analysis integrated)
-        self.update_output("\nStep 2: Running mesh processing and ROI analysis...")
+        if self.debug_mode:
+            self.update_output("\nStep 2: Running mesh processing and ROI analysis...")
         
         try:
             # Process all selected ROIs individually
             if not selected_roi_names:
                 raise ValueError("No ROI selected for processing")
             
-            self.update_output(f"Processing {len(selected_roi_names)} ROI(s)...")
+            if self.debug_mode:
+                self.update_output(f"Processing {len(selected_roi_names)} ROI(s)...")
             
             # Store the ROI processing queue and start with the first one
             self.roi_processing_queue = selected_roi_names.copy()
@@ -1474,7 +1681,8 @@ class ExSearchTab(QtWidgets.QWidget):
                 return
                 
             selected_roi = self.roi_processing_queue[self.current_roi_index]
-            self.update_output(f"\n--- Processing ROI {self.current_roi_index + 1}/{len(self.roi_processing_queue)}: {selected_roi} ---")
+            if self.debug_mode:
+                self.update_output(f"\n--- Processing ROI {self.current_roi_index + 1}/{len(self.roi_processing_queue)}: {selected_roi} ---")
             
             # Get ROI coordinates from the selected ROI file
             roi_file = os.path.join(roi_dir, selected_roi)
@@ -1500,8 +1708,9 @@ class ExSearchTab(QtWidgets.QWidget):
             # Create output directory if it doesn't exist
             os.makedirs(mesh_dir, exist_ok=True)
             
-            self.update_output(f"Output directory: ex-search/{output_dir_name}/")
-            self.update_output(f"ROI coordinates: {x}, {y}, {z}")
+            if self.debug_mode:
+                self.update_output(f"Output directory: ex-search/{output_dir_name}/")
+                self.update_output(f"ROI coordinates: {x}, {y}, {z}")
             
             # Run Python mesh processing (replaces MATLAB version)
             script_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -1517,7 +1726,7 @@ class ExSearchTab(QtWidgets.QWidget):
             env["SELECTED_ROI_FILE"] = selected_roi
             env["ROI_DIR"] = roi_dir
             
-            cmd = ["python3", mesh_processing_script, mesh_dir]
+            cmd = ["simnibs_python", mesh_processing_script, mesh_dir]
             
             self.optimization_process = ExSearchThread(cmd, env)
             self.optimization_process.output_signal.connect(self.update_output)
@@ -1564,8 +1773,18 @@ class ExSearchTab(QtWidgets.QWidget):
         # Log completion summary
         self.log_pipeline_completion()
         
-        # Final message
-        self.update_output("\nOptimization process completed!")
+        # Log final completion with summary
+        subject_id = self.subject_combo.currentText()
+        total_rois = len(self.roi_processing_queue)
+        project_dir = os.path.join("/mnt", os.environ.get("PROJECT_DIR_NAME", ""))
+        ex_search_dir = os.path.join(project_dir, "derivatives", "SimNIBS", f"sub-{subject_id}", "ex-search")
+        
+        self.log_exsearch_complete(subject_id, total_rois, ex_search_dir)
+        
+        # Final message for debug mode
+        if self.debug_mode:
+            self.update_output("\nOptimization process completed!")
+        
         self.enable_controls()
         self.update_status("Ex-search optimization completed successfully")
     
@@ -1632,6 +1851,8 @@ class ExSearchTab(QtWidgets.QWidget):
     def set_debug_mode(self, debug_mode):
         """Set debug mode for output filtering."""
         self.debug_mode = debug_mode
+        # Set summary mode to opposite of debug mode
+        self.set_summary_mode(not debug_mode)
     
     def update_status(self, message, error=False):
         """Update the status label with a message."""

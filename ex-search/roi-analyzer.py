@@ -9,6 +9,7 @@ import csv
 import sys
 import time
 import numpy as np
+import logging
 
 # Add logging utility import
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
@@ -93,9 +94,26 @@ if shared_log_file:
     # Use shared log file and shared logger name for unified logging
     logger_name = 'Ex-Search'
     log_file = shared_log_file
-    logger = logging_util.get_logger(logger_name, log_file, overwrite=False)
+    
+    # When running from GUI, create a file-only logger to avoid console output
+    logger = logging.getLogger(logger_name)
+    logger.setLevel(logging.INFO)
+    logger.propagate = False
+    
+    # Remove any existing handlers
+    for handler in list(logger.handlers):
+        logger.removeHandler(handler)
+    
+    # Add only file handler (no console handler) when running from GUI
+    file_handler = logging.FileHandler(log_file, mode='a')
+    file_handler.setLevel(logging.INFO)
+    file_handler.setFormatter(logging.Formatter(
+        '[%(asctime)s] [%(name)s] [%(levelname)s] %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S'
+    ))
+    logger.addHandler(file_handler)
 else:
-    # CLI usage: create individual log file
+    # CLI usage: create individual log file with both console and file output
     logger_name = 'ROI-Analyzer'
     time_stamp = time.strftime('%Y%m%d_%H%M%S')
     log_file = f'roi_analyzer_{time_stamp}.log'

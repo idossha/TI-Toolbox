@@ -12,17 +12,54 @@ import sys
 import glob
 import re
 import numpy as np
+import logging
 import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib
-import meshio
+import simnibs
+from simnibs import mesh_io
+
+# Import logging utility for proper output handling
+import sys
+import os
+
+# Add multiple possible paths for utils import
+script_dir = os.path.dirname(os.path.abspath(__file__))
+possible_paths = [
+    os.path.join(script_dir, '..'),  # Parent of script directory
+    os.path.join(script_dir, '..', '..'),  # Grandparent of script directory
+    os.path.join(os.getcwd(), 'utils'),  # utils in current working directory
+    os.path.join(os.getcwd(), '..', 'utils'),  # utils in parent of current working directory
+]
+
+for path in possible_paths:
+    if path not in sys.path:
+        sys.path.insert(0, path)
+
+try:
+    from utils import logging_util
+except ImportError:
+    # Fallback: create a simple logger that writes to stdout
+    import logging
+    logging.basicConfig(level=logging.INFO, format='%(message)s', stream=sys.stdout)
+    class SimpleLoggingUtil:
+        @staticmethod
+        def get_logger(name, log_file=None, overwrite=True):
+            logger = logging.getLogger(name)
+            logger.setLevel(logging.INFO)
+            return logger
+        
+        @staticmethod
+        def configure_external_loggers(names, parent_logger):
+            pass
+    
+    logging_util = SimpleLoggingUtil()
+
 
 matplotlib.use('Agg')  # Use non-interactive backend
 from pathlib import Path
 
-# Add utils directory to path for logging
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
-from utils import logging_util
+
 
 class MeshFieldAnalyzer:
     def __init__(self, mesh_dir):
@@ -50,16 +87,36 @@ class MeshFieldAnalyzer:
             # Use shared log file and shared logger name for unified logging
             logger_name = 'Ex-Search'
             log_file = shared_log_file
-            logger = logging_util.get_logger(logger_name, log_file, overwrite=False)
+            
+            # When running from GUI, create a file-only logger to avoid console output
+            logger = logging.getLogger(logger_name)
+            logger.setLevel(logging.INFO)
+            logger.propagate = False
+            
+            # Remove any existing handlers
+            for handler in list(logger.handlers):
+                logger.removeHandler(handler)
+            
+            # Add only file handler (no console handler) when running from GUI
+            file_handler = logging.FileHandler(log_file, mode='a')
+            file_handler.setLevel(logging.INFO)
+            file_handler.setFormatter(logging.Formatter(
+                '[%(asctime)s] [%(name)s] [%(levelname)s] %(message)s',
+                datefmt='%Y-%m-%d %H:%M:%S'
+            ))
+            logger.addHandler(file_handler)
         else:
-            # CLI usage: create individual log file
+            # CLI usage: create individual log file with both console and file output
             logger_name = 'MeshFieldAnalyzer'
             time_stamp = time.strftime('%Y%m%d_%H%M%S')
             log_file = f'mesh_field_analyzer_{time_stamp}.log'
             logger = logging_util.get_logger(logger_name, log_file, overwrite=False)
 
         # Configure external loggers to use our logging setup (same as simulator)
-        logging_util.configure_external_loggers(['simnibs', 'mesh_io'], logger)
+        try:
+            logging_util.configure_external_loggers(['simnibs', 'mesh_io'], logger)
+        except Exception:
+            pass  # Silently handle external logger configuration failures
         
         return logger
         
@@ -100,8 +157,10 @@ class MeshFieldAnalyzer:
     def analyze_mesh(self, mesh_file):
         """Analyze a single mesh file and extract field metrics"""
         try:
-            # Load mesh using meshio
-            mesh = meshio.read(mesh_file)
+            # Load mesh using SimNIBS mesh_io
+            mesh = mesh_io.read_msh(str(mesh_file))
+            self.logger.info(f"Loaded mesh using SimNIBS: {mesh_file.name}")
+            
             # Find the field data
             field_data = self.extract_field_data(mesh)
             if field_data is None or (hasattr(field_data, '__len__') and len(field_data) == 0):
@@ -133,30 +192,18 @@ class MeshFieldAnalyzer:
     
     def get_field_idx(self, mesh, field_name):
         """Find field index in mesh following SimNIBS pattern"""
-        # Look in cell_data first (element data - tetrahedra)
-        if hasattr(mesh, 'cell_data') and mesh.cell_data:
-            # cell_data structure: {field_name: [data_list], ...}
-            if field_name in mesh.cell_data:
-                field_data = mesh.cell_data[field_name]
-                return field_data, 'element'
-        
-        # Look in point_data (node data)
-        if hasattr(mesh, 'point_data') and mesh.point_data:
-            if isinstance(mesh.point_data, dict) and field_name in mesh.point_data:
-                return mesh.point_data[field_name], 'node'
+        # Handle SimNIBS mesh format
+        if hasattr(mesh, 'field') and hasattr(mesh.field, field_name):
+            # SimNIBS mesh format
+            field_data = getattr(mesh.field, field_name)
+            return field_data, 'element'
         
         # Try common field name variations
         field_variations = ['TImax', 'magnE', 'E.normal', 'TI_max', 'E_magn']
         for variant in field_variations:
-            if hasattr(mesh, 'cell_data') and mesh.cell_data:
-                if variant in mesh.cell_data:
-                    self.field_name = variant
-                    return mesh.cell_data[variant], 'element'
-            
-            if hasattr(mesh, 'point_data') and mesh.point_data:
-                if isinstance(mesh.point_data, dict) and variant in mesh.point_data:
-                    self.field_name = variant
-                    return mesh.point_data[variant], 'node'
+            if hasattr(mesh, 'field') and hasattr(mesh.field, variant):
+                self.field_name = variant
+                return getattr(mesh.field, variant), 'element'
         
         return None, None
     
@@ -178,27 +225,15 @@ class MeshFieldAnalyzer:
         tet_cells = None
         tet_regions = None
         
-        for i, cell_block in enumerate(mesh.cells):
-            if cell_block.type == 'tetra':
-                tet_cells = cell_block.data
-                
-                # Look for region information (gmsh:physical tags)
-                if hasattr(mesh, 'cell_data') and mesh.cell_data:
-                    # Look for physical region tags - they're stored as lists in cell_data
-                    if 'gmsh:physical' in mesh.cell_data:
-                        tet_regions = np.asarray(mesh.cell_data['gmsh:physical'])
-                        # Flatten if needed (handle shape like (1, N) -> (N,))
-                        if tet_regions.ndim > 1:
-                            tet_regions = tet_regions.flatten()
-                    elif 'Physical Names' in mesh.cell_data:
-                        tet_regions = np.asarray(mesh.cell_data['Physical Names'])
-                        if tet_regions.ndim > 1:
-                            tet_regions = tet_regions.flatten()
-                    elif 'region' in mesh.cell_data:
-                        tet_regions = np.asarray(mesh.cell_data['region'])
-                        if tet_regions.ndim > 1:
-                            tet_regions = tet_regions.flatten()
-                break
+        # Handle SimNIBS mesh format
+        if hasattr(mesh, 'elm') and hasattr(mesh.elm, 'tetrahedra'):
+            # SimNIBS format
+            tet_cells = mesh.elm.tetrahedra
+            tet_regions = mesh.elm.tag1  # SimNIBS stores region tags in tag1
+            self.logger.info(f"Using SimNIBS mesh format: {len(tet_cells)} tetrahedra, {len(tet_regions)} regions")
+        else:
+            self.logger.error("Mesh does not have SimNIBS format - missing elm.tetrahedra")
+            return np.array([]), np.array([]).reshape(0,3), np.array([])
         
         if tet_cells is None:
             self.logger.warning("No tetrahedra found in mesh")
@@ -227,17 +262,22 @@ class MeshFieldAnalyzer:
                 return np.array([]), np.array([]).reshape(0,3), np.array([])
             
             # Calculate tetrahedron centers (equivalent to mesh_get_tetrahedron_centers)
-            element_centers = np.mean(mesh.points[gray_matter_tets], axis=1)
+            # SimNIBS format
+            mesh_points = mesh.nodes.node_coord
+            element_centers = np.mean(mesh_points[gray_matter_tets], axis=1)
             
             # Calculate tetrahedron volumes (equivalent to mesh_get_tetrahedron_sizes)
-            element_sizes = self.calculate_tetrahedron_volumes(mesh.points, gray_matter_tets)
+            element_sizes = self.calculate_tetrahedron_volumes(mesh_points, gray_matter_tets)
             
         else:
             self.logger.warning("No region information found, using all tetrahedra")
             # Use all tetrahedra if no region information
             filtered_data = field_data
-            element_centers = np.mean(mesh.points[tet_cells], axis=1)
-            element_sizes = self.calculate_tetrahedron_volumes(mesh.points, tet_cells)
+            
+            # SimNIBS format
+            mesh_points = mesh.nodes.node_coord
+            element_centers = np.mean(mesh_points[tet_cells], axis=1)
+            element_sizes = self.calculate_tetrahedron_volumes(mesh_points, tet_cells)
         
         # Ensure we return proper numpy arrays
         filtered_data = np.asarray(filtered_data).flatten()
@@ -648,8 +688,41 @@ class MeshFieldAnalyzer:
         return text
 
 def main():
-    # Create a basic logger for the main function
-    main_logger = logging_util.get_logger('MeshFieldAnalyzer-Main')
+    # Set up logger for main function
+    try:
+        from utils import logging_util
+        
+        # Check if running from GUI (TI_LOG_FILE environment variable set)
+        shared_log_file = os.environ.get('TI_LOG_FILE')
+        
+        if shared_log_file:
+            # When running from GUI, create a file-only logger
+            main_logger = logging.getLogger('MeshFieldAnalyzer-Main')
+            main_logger.setLevel(logging.INFO)
+            main_logger.propagate = False
+            
+            # Remove any existing handlers
+            for handler in list(main_logger.handlers):
+                main_logger.removeHandler(handler)
+            
+            # Add only file handler (no console handler) when running from GUI
+            file_handler = logging.FileHandler(shared_log_file, mode='a')
+            file_handler.setLevel(logging.INFO)
+            file_handler.setFormatter(logging.Formatter(
+                '[%(asctime)s] [%(name)s] [%(levelname)s] %(message)s',
+                datefmt='%Y-%m-%d %H:%M:%S'
+            ))
+            main_logger.addHandler(file_handler)
+        else:
+            # CLI usage: use standard logging utility
+            main_logger = logging_util.get_logger('MeshFieldAnalyzer-Main')
+    except ImportError:
+        # Fallback: create a simple logger
+        import logging
+        logging.basicConfig(level=logging.INFO, format='%(message)s', stream=sys.stdout)
+        main_logger = logging.getLogger('MeshFieldAnalyzer-Main')
+    
+
     
     if len(sys.argv) != 2:
         main_logger.error("Usage: python mesh_field_analyzer.py <mesh_directory>")

@@ -1,4 +1,5 @@
 import os
+import logging
 from simnibs import run_simnibs, sim_struct
 import sys
 import time
@@ -45,7 +46,27 @@ if not log_file:
     log_file = os.path.join(log_dir, f'leadfield_{time_stamp}.log')
 
 # Initialize our main logger
-logger = logging_util.get_logger('Leadfield', log_file, overwrite=False)
+if log_file and os.environ.get('TI_LOG_FILE'):
+    # When running from GUI, create a file-only logger to avoid console output
+    logger = logging.getLogger('Leadfield')
+    logger.setLevel(logging.INFO)
+    logger.propagate = False
+    
+    # Remove any existing handlers
+    for handler in list(logger.handlers):
+        logger.removeHandler(handler)
+    
+    # Add only file handler (no console handler) when running from GUI
+    file_handler = logging.FileHandler(log_file, mode='a')
+    file_handler.setLevel(logging.INFO)
+    file_handler.setFormatter(logging.Formatter(
+        '[%(asctime)s] [%(name)s] [%(levelname)s] %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S'
+    ))
+    logger.addHandler(file_handler)
+else:
+    # CLI usage: use standard logging utility with both console and file output
+    logger = logging_util.get_logger('Leadfield', log_file, overwrite=False)
 
 # Configure SimNIBS related loggers to use our logging setup
 logging_util.configure_external_loggers(['simnibs', 'mesh_io'], logger)

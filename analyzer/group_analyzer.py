@@ -452,10 +452,10 @@ def collect_analysis_paths(successful_dirs: List[str]) -> List[str]:
                 analysis_paths.append(d)
             else:
                 if group_logger:
-                    group_logger.warning(f"No CSV found under {d}")
+                    group_logger.debug(f"No CSV found under {d}")
         else:
             if group_logger:
-                group_logger.warning(f"Expected analysis directory not found: {d}")
+                group_logger.debug(f"Expected analysis directory not found: {d}")
 
     return analysis_paths
 
@@ -475,18 +475,18 @@ def run_comprehensive_group_analysis(analysis_paths: List[str], project_name: Op
     
     if len(analysis_paths) == 0:
         if group_logger:
-            group_logger.warning("No analysis paths provided for group comparison.")
+            group_logger.debug("No analysis paths provided for group comparison.")
         return ""
     
     if group_logger:
-        group_logger.info(f"\n=== Running comprehensive group analysis on {len(analysis_paths)} analyses ===")
+        group_logger.debug(f"\n=== Running comprehensive group analysis on {len(analysis_paths)} analyses ===")
     
     try:
         # Use the comprehensive comparison function from compare_analyses.py
         group_output_dir = run_all_group_comparisons(analysis_paths, project_name)
         if group_logger:
-            group_logger.info(f"✔ Comprehensive group analysis completed successfully.")
-            group_logger.info(f"  All results saved to: {group_output_dir}")
+            group_logger.debug(f"✔ Comprehensive group analysis completed successfully.")
+            group_logger.debug(f"  All results saved to: {group_output_dir}")
         return group_output_dir
     except Exception as e:
         if group_logger:
@@ -581,15 +581,15 @@ def main():
             log_group_analysis_start(len(args.subject), analysis_description)
 
         if group_logger:
-            group_logger.info(f"\n>>> Starting group analysis with {len(args.subject)} subject(s).")
-            group_logger.info(f"    Project: {project_name}")
-            group_logger.info(f"    Analysis = {args.analysis_type} (space={args.space})")
-            group_logger.info(f"    Centralized group results will go to: {centralized_group_dir}")
+            group_logger.debug(f"\n>>> Starting group analysis with {len(args.subject)} subject(s).")
+            group_logger.debug(f"    Project: {project_name}")
+            group_logger.debug(f"    Analysis = {args.analysis_type} (space={args.space})")
+            group_logger.debug(f"    Centralized group results will go to: {centralized_group_dir}")
         
         # Still create the user-specified output directory for legacy compatibility
         os.makedirs(args.output_dir, exist_ok=True)
         if group_logger:
-            group_logger.info(f"    Legacy output directory: {args.output_dir}\n")
+            group_logger.debug(f"    Legacy output directory: {args.output_dir}\n")
 
         successful_dirs = []
         successful_subjects_info = []  # Store (subject_args, output_dir) pairs
@@ -597,6 +597,11 @@ def main():
 
         for subj_args in args.subject:
             subj_id = subj_args[0]
+            
+            # Log subject start for summary
+            if args.quiet:
+                print(f"├─ Subject {subj_id}: Starting...")
+            
             ok, outdir = run_subject_analysis(args, subj_args)
             if ok:
                 successful_dirs.append(outdir)
@@ -605,32 +610,40 @@ def main():
                 failed_subjects.append(subj_id)
 
         if group_logger:
-            group_logger.info("\n=== GROUP ANALYSIS SUMMARY ===")
-            group_logger.info(f"Total subjects : {len(args.subject)}")
-            group_logger.info(f"Succeeded      : {len(successful_dirs)}")
-            group_logger.info(f"Failed         : {len(failed_subjects)}")
+            group_logger.debug("\n=== GROUP ANALYSIS SUMMARY ===")
+            group_logger.debug(f"Total subjects : {len(args.subject)}")
+            group_logger.debug(f"Succeeded      : {len(successful_dirs)}")
+            group_logger.debug(f"Failed         : {len(failed_subjects)}")
             if failed_subjects:
-                group_logger.info(f"Failed subjects: {', '.join(failed_subjects)}")
+                group_logger.debug(f"Failed subjects: {', '.join(failed_subjects)}")
 
         # Always run comprehensive group analysis if we have successful analyses (unless --no-compare is specified)
         if len(successful_dirs) >= 1 and not args.no_compare:
+            # Log group comparison start for summary
+            if args.quiet:
+                print("├─ Group comparison: Starting...")
+            
             analysis_dirs = collect_analysis_paths(successful_dirs)
             if analysis_dirs:
                 final_group_dir = run_comprehensive_group_analysis(analysis_dirs, project_name)
                 
+                # Log group comparison completion for summary
+                if args.quiet:
+                    print(f"├─ Group comparison: ✓ Complete ({len(analysis_dirs)} subjects processed)")
+                
                 if group_logger:
-                    group_logger.info(f"Group comparison completed. Output directory: {final_group_dir}")
+                    group_logger.debug(f"Group comparison completed. Output directory: {final_group_dir}")
                 
                 # Results are comprehensively logged, no need for separate summary files
             else:
                 if group_logger:
-                    group_logger.warning("No valid analysis directories found for group comparison.")
+                    group_logger.debug("No valid analysis directories found for group comparison.")
         elif args.no_compare:
             if group_logger:
-                group_logger.info("Group comparison skipped (--no-compare flag specified).")
+                group_logger.debug("Group comparison skipped (--no-compare flag specified).")
         else:
             if group_logger:
-                group_logger.warning("No successful analyses to compare.")
+                group_logger.debug("No successful analyses to compare.")
 
         # Complete group analysis summary logging
         if args.quiet:
@@ -640,14 +653,14 @@ def main():
             log_group_analysis_complete(len(successful_dirs), len(args.subject), output_path)
 
         if group_logger:
-            group_logger.info("\n>>> Group analysis complete.")
+            group_logger.debug("\n>>> Group analysis complete.")
             if len(successful_dirs) >= 1 and not args.no_compare:
-                group_logger.info(f"Comprehensive group results are available in the centralized location.")
-                group_logger.info("")  # Empty line for spacing
+                group_logger.debug(f"Comprehensive group results are available in the centralized location.")
+                group_logger.debug("")  # Empty line for spacing
             elif args.no_compare:
-                group_logger.info(f"Group comparison was skipped. Individual subject results are in their respective directories.\n")
+                group_logger.debug(f"Group comparison was skipped. Individual subject results are in their respective directories.\n")
             else:
-                group_logger.info("No successful analyses completed.\n")
+                group_logger.debug("No successful analyses completed.\n")
 
     except Exception as e:
         if group_logger:

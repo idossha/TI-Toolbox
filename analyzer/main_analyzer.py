@@ -490,7 +490,8 @@ def main():
                 field_nifti=args.field_path,
                 subject_dir=args.m2m_subject_path,
                 output_dir=args.output_dir,
-                logger=logger
+                logger=logger,
+                quiet=args.quiet
             )
             if analyzer is None:
                 if args.quiet:

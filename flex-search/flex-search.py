@@ -19,6 +19,150 @@ from utils.logging_util import get_logger, configure_external_loggers
 from env_utils import apply_common_env_fixes
 
 # -----------------------------------------------------------------------------
+# Summary logging system for non-debug mode
+# -----------------------------------------------------------------------------
+
+# Global variables for summary logging
+SUMMARY_MODE = False
+OPTIMIZATION_START_TIME = None
+STEP_START_TIMES = {}
+
+def set_summary_mode(enabled=True):
+    """Enable or disable summary mode for console output."""
+    global SUMMARY_MODE
+    SUMMARY_MODE = enabled
+
+def format_duration(seconds):
+    """Format duration in seconds to human-readable string."""
+    if seconds < 60:
+        return f"{seconds:.0f}s"
+    elif seconds < 3600:
+        minutes = seconds / 60
+        return f"{minutes:.0f}m {seconds % 60:.0f}s"
+    else:
+        hours = seconds / 3600
+        minutes = (seconds % 3600) / 60
+        return f"{hours:.0f}h {minutes:.0f}m"
+
+def log_optimization_start(subject_id, goal, postproc, roi_method, n_multistart):
+    """Log the start of optimization for a subject."""
+    global OPTIMIZATION_START_TIME
+    OPTIMIZATION_START_TIME = time.time()
+    
+    if SUMMARY_MODE:
+        print(f"Beginning flex-search optimization for subject: {subject_id} ({goal}, {postproc}, {roi_method})")
+        if n_multistart > 1:
+            print(f"├─ Multi-start optimization: {n_multistart} runs")
+        else:
+            print("├─ Single optimization run")
+    else:
+        logger.info(f"Beginning flex-search optimization for subject: {subject_id}")
+
+def log_optimization_step_start(step_name):
+    """Log the start of an optimization step."""
+    global STEP_START_TIMES
+    STEP_START_TIMES[step_name] = time.time()
+    
+    if SUMMARY_MODE:
+        print(f"├─ {step_name}: Starting...")
+    else:
+        logger.info(f"Starting {step_name}...")
+
+def log_optimization_step_complete(step_name, additional_info=""):
+    """Log the completion of an optimization step."""
+    global STEP_START_TIMES
+    
+    if step_name in STEP_START_TIMES:
+        duration = time.time() - STEP_START_TIMES[step_name]
+        duration_str = format_duration(duration)
+        
+        if SUMMARY_MODE:
+            if additional_info:
+                print(f"├─ {step_name}: ✓ Complete ({duration_str}) - {additional_info}")
+            else:
+                print(f"├─ {step_name}: ✓ Complete ({duration_str})")
+        else:
+            logger.info(f"{step_name} completed in {duration_str}")
+        
+        # Clean up timing
+        del STEP_START_TIMES[step_name]
+    else:
+        if SUMMARY_MODE:
+            if additional_info:
+                print(f"├─ {step_name}: ✓ Complete - {additional_info}")
+            else:
+                print(f"├─ {step_name}: ✓ Complete")
+        else:
+            logger.info(f"{step_name} completed")
+
+def log_optimization_step_failed(step_name, error_msg=""):
+    """Log the failure of an optimization step."""
+    global STEP_START_TIMES
+    
+    if step_name in STEP_START_TIMES:
+        duration = time.time() - STEP_START_TIMES[step_name]
+        duration_str = format_duration(duration)
+        
+        if SUMMARY_MODE:
+            if error_msg:
+                print(f"├─ {step_name}: ✗ Failed ({duration_str}) - {error_msg}")
+            else:
+                print(f"├─ {step_name}: ✗ Failed ({duration_str})")
+        else:
+            logger.error(f"{step_name} failed after {duration_str}")
+        
+        # Clean up timing
+        del STEP_START_TIMES[step_name]
+    else:
+        if SUMMARY_MODE:
+            if error_msg:
+                print(f"├─ {step_name}: ✗ Failed - {error_msg}")
+            else:
+                print(f"├─ {step_name}: ✗ Failed")
+        else:
+            logger.error(f"{step_name} failed")
+
+def log_optimization_complete(subject_id, success=True, output_path="", n_multistart=1, best_run=None):
+    """Log the completion of optimization for a subject."""
+    global OPTIMIZATION_START_TIME
+    
+    if OPTIMIZATION_START_TIME:
+        total_duration = time.time() - OPTIMIZATION_START_TIME
+        duration_str = format_duration(total_duration)
+        
+        if SUMMARY_MODE:
+            if success:
+                if n_multistart > 1 and best_run:
+                    print(f"└─ Flex-search optimization completed successfully for subject: {subject_id} (best run: {best_run}, Total: {duration_str})")
+                else:
+                    print(f"└─ Flex-search optimization completed successfully for subject: {subject_id} (Total: {duration_str})")
+                if output_path:
+                    print(f"   Results saved to: {output_path}")
+            else:
+                print(f"└─ Flex-search optimization failed for subject: {subject_id} (Total: {duration_str})")
+        else:
+            if success:
+                logger.info(f"Flex-search optimization completed successfully for subject: {subject_id} in {duration_str}")
+                if output_path:
+                    logger.info(f"Results saved to: {output_path}")
+            else:
+                logger.error(f"Flex-search optimization failed for subject: {subject_id} after {duration_str}")
+        
+        # Reset timing
+        OPTIMIZATION_START_TIME = None
+    else:
+        if SUMMARY_MODE:
+            if success:
+                print(f"└─ Flex-search optimization completed successfully for subject: {subject_id}")
+            else:
+                print(f"└─ Flex-search optimization failed for subject: {subject_id}")
+        else:
+            if success:
+                logger.info(f"Flex-search optimization completed successfully for subject: {subject_id}")
+            else:
+                logger.error(f"Flex-search optimization failed for subject: {subject_id}")
+
+# -----------------------------------------------------------------------------
 # Logger setup
 # -----------------------------------------------------------------------------
 def setup_logger(output_folder: str, subject_id: str) -> None:
@@ -42,7 +186,8 @@ def setup_logger(output_folder: str, subject_id: str) -> None:
     try:
         os.chmod(logs_dir, 0o777)
     except OSError as e:
-        print(f"Warning: Could not set permissions for logs directory: {e}")
+        if not SUMMARY_MODE:
+            print(f"Warning: Could not set permissions for logs directory: {e}")
     
     # Create timestamped log file
     time_stamp = time.strftime('%Y%m%d_%H%M%S')
@@ -50,12 +195,13 @@ def setup_logger(output_folder: str, subject_id: str) -> None:
     logger = get_logger('flex-search', log_file, overwrite=True)
     
     # Log session header
-    logger.info("="*80)
-    logger.info(f"FLEX-SEARCH OPTIMIZATION SESSION STARTED")
-    logger.info(f"Subject: {subject_id}")
-    logger.info(f"Timestamp: {time.strftime('%Y-%m-%d %H:%M:%S')}")
-    logger.info(f"Output folder: {output_folder}")
-    logger.info("="*80)
+    if not SUMMARY_MODE:
+        logger.info("="*80)
+        logger.info(f"FLEX-SEARCH OPTIMIZATION SESSION STARTED")
+        logger.info(f"Subject: {subject_id}")
+        logger.info(f"Timestamp: {time.strftime('%Y-%m-%d %H:%M:%S')}")
+        logger.info(f"Output folder: {output_folder}")
+        logger.info("="*80)
 
 def _create_multistart_summary_file(
     summary_file: str, 
@@ -659,6 +805,10 @@ def main() -> int:
     apply_common_env_fixes()
     args = parse_arguments()
     
+    # Enable summary mode if quiet flag is set
+    if args.quiet:
+        set_summary_mode(True)
+    
     # Track total session time
     start_time = time.time()
     
@@ -673,20 +823,22 @@ def main() -> int:
         
         # Setup logger after base output folder is created
         setup_logger(base_output_folder, args.subject)
-        logger.info(f"Base output directory: {base_output_folder}")
         
-        # Log the command that was called
-        command = " ".join(sys.argv)
-        logger.info(f"Command: {command}")
-        
-        # Configure SimNIBS related loggers to use our logging setup
+        # Configure SimNIBS related loggers to use our logging setup (needed for both modes)
         configure_external_loggers(['simnibs', 'mesh_io', 'sim_struct', 'opt_struct'], logger)
         
-        # Log multi-start parameters
-        if n_multistart > 1:
-            logger.info(f"Running multi-start optimization with {n_multistart} runs")
-        else:
-            logger.info("Running single optimization")
+        if not SUMMARY_MODE:
+            logger.info(f"Base output directory: {base_output_folder}")
+            
+            # Log the command that was called
+            command = " ".join(sys.argv)
+            logger.info(f"Command: {command}")
+            
+            # Log multi-start parameters
+            if n_multistart > 1:
+                logger.info(f"Running multi-start optimization with {n_multistart} runs")
+            else:
+                logger.info("Running single optimization")
             
     except Exception as exc:
         print(f"ERROR during setup: {exc}", file=sys.stderr)
@@ -697,18 +849,22 @@ def main() -> int:
         os.path.join(base_output_folder, f"{i_opt:02d}") for i_opt in range(n_multistart)
     ]
     
+    # Log optimization start with summary
+    log_optimization_start(args.subject, args.goal, args.postproc, args.roi_method, n_multistart)
+    
     # Run multiple optimizations
     for i_opt in range(n_multistart):
         run_start_time = time.time()
         
         # Enhanced logging for each optimization run
-        logger.info("-" * 60)
-        if n_multistart > 1:
-            logger.info(f"OPTIMIZATION RUN {i_opt + 1}/{n_multistart}")
-            logger.info(f"Run output folder: {output_folder_list[i_opt]}")
-        else:
-            logger.info("SINGLE OPTIMIZATION RUN")
-        logger.info("-" * 60)
+        if not SUMMARY_MODE:
+            logger.info("-" * 60)
+            if n_multistart > 1:
+                logger.info(f"OPTIMIZATION RUN {i_opt + 1}/{n_multistart}")
+                logger.info(f"Run output folder: {output_folder_list[i_opt]}")
+            else:
+                logger.info("SINGLE OPTIMIZATION RUN")
+            logger.info("-" * 60)
         
         try:
             # Build optimization for this specific run
@@ -723,87 +879,97 @@ def main() -> int:
             
             # Log optimization parameters (only for first run to avoid repetition)
             if i_opt == 0:
-                logger.info("OPTIMIZATION CONFIGURATION:")
-                logger.info(f"  Subject: {args.subject}")
-                logger.info(f"  Goal: {args.goal}")
-                logger.info(f"  Post-processing: {args.postproc}")
-                logger.info(f"  ROI Method: {args.roi_method}")
-                logger.info(f"  EEG Net: {args.eeg_net}")
-                logger.info(f"  Electrode Radius: {args.radius}mm")
-                logger.info(f"  Electrode Current: {args.current}mA")
-                logger.info(f"  Run Final Electrode Simulation: {run_final_sim}")
-                
-                # Log ROI-specific details
-                if args.roi_method == "subcortical":
-                    volume_atlas_path = os.getenv("VOLUME_ATLAS_PATH")
-                    volume_roi_label = os.getenv("VOLUME_ROI_LABEL")
-                    logger.info(f"  Volume Atlas: {volume_atlas_path}")
-                    logger.info(f"  Volume ROI Label: {volume_roi_label}")
-                elif args.roi_method == "atlas":
-                    atlas_path = os.getenv("ATLAS_PATH")
-                    roi_label = os.getenv("ROI_LABEL")
-                    hemisphere = os.getenv("SELECTED_HEMISPHERE")
-                    logger.info(f"  Surface Atlas: {os.path.basename(atlas_path) if atlas_path else 'N/A'}")
-                    logger.info(f"  ROI Label: {roi_label}")
-                    logger.info(f"  Hemisphere: {hemisphere}")
-                elif args.roi_method == "spherical":
-                    roi_coords = f"({os.getenv('ROI_X')}, {os.getenv('ROI_Y')}, {os.getenv('ROI_Z')})"
-                    roi_radius = os.getenv("ROI_RADIUS")
-                    use_mni_coords = os.getenv("USE_MNI_COORDS", "false").lower() == "true"
-                    coord_space = "MNI" if use_mni_coords else "subject"
-                    logger.info(f"  ROI Center ({coord_space} space): {roi_coords}")
-                    logger.info(f"  ROI Radius: {roi_radius}mm")
-                    if use_mni_coords:
-                        logger.info(f"  Note: MNI coordinates will be transformed to subject space")
-                
-                # Log focality-specific parameters
-                if args.goal == "focality":
-                    logger.info(f"  Non-ROI Method: {args.non_roi_method}")
-                    logger.info(f"  Threshold Values: {args.thresholds}")
-                
-                logger.info(f"  Electrode Mapping: {args.enable_mapping}")
-                if args.enable_mapping:
-                    logger.info(f"  Run Mapped Simulation: {not args.disable_mapping_simulation}")
+                if not SUMMARY_MODE:
+                    logger.info("OPTIMIZATION CONFIGURATION:")
+                    logger.info(f"  Subject: {args.subject}")
+                    logger.info(f"  Goal: {args.goal}")
+                    logger.info(f"  Post-processing: {args.postproc}")
+                    logger.info(f"  ROI Method: {args.roi_method}")
+                    logger.info(f"  EEG Net: {args.eeg_net}")
+                    logger.info(f"  Electrode Radius: {args.radius}mm")
+                    logger.info(f"  Electrode Current: {args.current}mA")
+                    logger.info(f"  Run Final Electrode Simulation: {run_final_sim}")
                     
-                # Log optimization algorithm parameters
-                logger.info("OPTIMIZATION ALGORITHM SETTINGS:")
-                logger.info(f"  Max Iterations: {args.max_iterations if args.max_iterations is not None else 'Default'}")
-                logger.info(f"  Population Size: {args.population_size if args.population_size is not None else 'Default'}")
-                logger.info(f"  CPU Cores: {args.cpus if args.cpus is not None else 'Default'}")
-                logger.info(f"  Quiet Mode: {args.quiet}")
-                
-                if n_multistart > 1:
-                    logger.info(f"  Multi-start Runs: {n_multistart}")
-                    logger.info(f"  Note: Best result will be automatically selected based on function value")
+                    # Log ROI-specific details
+                    if args.roi_method == "subcortical":
+                        volume_atlas_path = os.getenv("VOLUME_ATLAS_PATH")
+                        volume_roi_label = os.getenv("VOLUME_ROI_LABEL")
+                        logger.info(f"  Volume Atlas: {volume_atlas_path}")
+                        logger.info(f"  Volume ROI Label: {volume_roi_label}")
+                    elif args.roi_method == "atlas":
+                        atlas_path = os.getenv("ATLAS_PATH")
+                        roi_label = os.getenv("ROI_LABEL")
+                        hemisphere = os.getenv("SELECTED_HEMISPHERE")
+                        logger.info(f"  Surface Atlas: {os.path.basename(atlas_path) if atlas_path else 'N/A'}")
+                        logger.info(f"  ROI Label: {roi_label}")
+                        logger.info(f"  Hemisphere: {hemisphere}")
+                    elif args.roi_method == "spherical":
+                        roi_coords = f"({os.getenv('ROI_X')}, {os.getenv('ROI_Y')}, {os.getenv('ROI_Z')})"
+                        roi_radius = os.getenv("ROI_RADIUS")
+                        use_mni_coords = os.getenv("USE_MNI_COORDS", "false").lower() == "true"
+                        coord_space = "MNI" if use_mni_coords else "subject"
+                        logger.info(f"  ROI Center ({coord_space} space): {roi_coords}")
+                        logger.info(f"  ROI Radius: {roi_radius}mm")
+                        if use_mni_coords:
+                            logger.info(f"  Note: MNI coordinates will be transformed to subject space")
+                    
+                    # Log focality-specific parameters
+                    if args.goal == "focality":
+                        logger.info(f"  Non-ROI Method: {args.non_roi_method}")
+                        logger.info(f"  Threshold Values: {args.thresholds}")
+                    
+                    logger.info(f"  Electrode Mapping: {args.enable_mapping}")
+                    if args.enable_mapping:
+                        logger.info(f"  Run Mapped Simulation: {not args.disable_mapping_simulation}")
+                        
+                    # Log optimization algorithm parameters
+                    logger.info("OPTIMIZATION ALGORITHM SETTINGS:")
+                    logger.info(f"  Max Iterations: {args.max_iterations if args.max_iterations is not None else 'Default'}")
+                    logger.info(f"  Population Size: {args.population_size if args.population_size is not None else 'Default'}")
+                    logger.info(f"  CPU Cores: {args.cpus if args.cpus is not None else 'Default'}")
+                    logger.info(f"  Quiet Mode: {args.quiet}")
+                    
+                    if n_multistart > 1:
+                        logger.info(f"  Multi-start Runs: {n_multistart}")
+                        logger.info(f"  Note: Best result will be automatically selected based on function value")
             
             # Set optimizer display option based on quiet mode
             if args.quiet:
                 if hasattr(opt, '_optimizer_options_std') and isinstance(opt._optimizer_options_std, dict):
                     opt._optimizer_options_std["disp"] = False
-                else:
+                elif not SUMMARY_MODE:
                     logger.warning("opt._optimizer_options_std not found or not a dict, cannot set disp for quiet mode.")
 
             # Apply max_iterations and population_size if provided
             if args.max_iterations is not None:
                 if hasattr(opt, '_optimizer_options_std') and isinstance(opt._optimizer_options_std, dict):
                     opt._optimizer_options_std["maxiter"] = args.max_iterations
-                    logger.debug(f"Set max iterations to {args.max_iterations}")
-                else:
+                    if not SUMMARY_MODE:
+                        logger.debug(f"Set max iterations to {args.max_iterations}")
+                elif not SUMMARY_MODE:
                     logger.warning("opt._optimizer_options_std not found or not a dict, cannot set maxiter.")
             
             if args.population_size is not None:
                 if hasattr(opt, '_optimizer_options_std') and isinstance(opt._optimizer_options_std, dict):
                     opt._optimizer_options_std["popsize"] = args.population_size
-                    logger.debug(f"Set population size to {args.population_size}")
-                else:
+                    if not SUMMARY_MODE:
+                        logger.debug(f"Set population size to {args.population_size}")
+                elif not SUMMARY_MODE:
                     logger.warning("opt._optimizer_options_std not found or not a dict, cannot set popsize.")
             
             # Log run start
             cpus_to_pass = args.cpus if args.cpus is not None else None
+            if not SUMMARY_MODE:
+                if n_multistart > 1:
+                    logger.info(f"Starting optimization run {i_opt + 1}/{n_multistart}...")
+                else:
+                    logger.info("Starting optimization...")
+            
+            # Log optimization step start for summary
             if n_multistart > 1:
-                logger.info(f"Starting optimization run {i_opt + 1}/{n_multistart}...")
+                log_optimization_step_start(f"Optimization run {i_opt + 1}/{n_multistart}")
             else:
-                logger.info("Starting optimization...")
+                log_optimization_step_start("Optimization")
             
             # Run optimization
             optimization_start_time = time.time()
@@ -813,63 +979,107 @@ def main() -> int:
             # Store the optimization function value
             optim_funvalue_list[i_opt] = opt.optim_funvalue
             
-            # Log completion with detailed results
-            run_duration = time.time() - run_start_time
-            optimization_duration = optimization_end_time - optimization_start_time
+            # Only log detailed results in non-summary mode
+            if not SUMMARY_MODE:
+                optimization_duration = optimization_end_time - optimization_start_time
+                run_duration = time.time() - run_start_time
+                logger.info("OPTIMIZATION RUN COMPLETED:")
+                logger.info(f"  Function Value: {opt.optim_funvalue:.6f}")
+                logger.info(f"  Optimization Duration: {optimization_duration:.1f} seconds")
+                logger.info(f"  Total Run Duration: {run_duration:.1f} seconds")
+                if hasattr(opt, 'optim_result') and hasattr(opt.optim_result, 'nfev'):
+                    logger.info(f"  Function Evaluations: {opt.optim_result.nfev}")
+                if hasattr(opt, 'optim_result') and hasattr(opt.optim_result, 'success'):
+                    logger.info(f"  Optimization Success: {opt.optim_result.success}")
             
-            logger.info("OPTIMIZATION RUN COMPLETED:")
-            logger.info(f"  Function Value: {opt.optim_funvalue:.6f}")
-            logger.info(f"  Optimization Duration: {optimization_duration:.1f} seconds")
-            logger.info(f"  Total Run Duration: {run_duration:.1f} seconds")
-            if hasattr(opt, 'optim_result') and hasattr(opt.optim_result, 'nfev'):
-                logger.info(f"  Function Evaluations: {opt.optim_result.nfev}")
-            if hasattr(opt, 'optim_result') and hasattr(opt.optim_result, 'success'):
-                logger.info(f"  Optimization Success: {opt.optim_result.success}")
+            # Log optimization step complete for summary
+            if n_multistart > 1:
+                log_optimization_step_complete(f"Optimization run {i_opt + 1}/{n_multistart}")
+            else:
+                log_optimization_step_complete("Optimization")
+            
+            # Log final electrode simulation if enabled
+            if run_final_sim:
+                log_optimization_step_start("Final electrode simulation")
+                # Note: The actual simulation happens during the optimization run
+                # We'll mark it as complete here since it's part of the optimization process
+                log_optimization_step_complete("Final electrode simulation")
                 
         except IndexError as exc:
             # Special handling for the index error we're seeing
-            logger.error(f"IndexError in run {i_opt + 1} (likely in post-processing): {exc}")
-            logger.info("This error may occur during final analysis but optimization itself likely completed")
-            logger.warning(f"Setting penalty value for run {i_opt + 1} due to IndexError")
+            if not SUMMARY_MODE:
+                logger.error(f"IndexError in run {i_opt + 1} (likely in post-processing): {exc}")
+                logger.info("This error may occur during final analysis but optimization itself likely completed")
+                logger.warning(f"Setting penalty value for run {i_opt + 1} due to IndexError")
             # Set a high penalty value for this run so it won't be selected as best
             optim_funvalue_list[i_opt] = float('inf')
+            
+            # Log failure for summary
+            if n_multistart > 1:
+                log_optimization_step_failed(f"Optimization run {i_opt + 1}/{n_multistart}", "IndexError in post-processing")
+            else:
+                log_optimization_step_failed("Optimization", "IndexError in post-processing")
         except Exception as exc:
             run_duration = time.time() - run_start_time
-            logger.error(f"ERROR in optimization run {i_opt + 1} after {run_duration:.1f} seconds:")
-            logger.error(f"  Error type: {type(exc).__name__}")
-            logger.error(f"  Error message: {str(exc)}")
-            logger.error(f"Full traceback:\n{traceback.format_exc()}")
-            logger.warning(f"Setting penalty value for run {i_opt + 1} due to error")
+            if not SUMMARY_MODE:
+                logger.error(f"ERROR in optimization run {i_opt + 1} after {run_duration:.1f} seconds:")
+                logger.error(f"  Error type: {type(exc).__name__}")
+                logger.error(f"  Error message: {str(exc)}")
+                logger.error(f"Full traceback:\n{traceback.format_exc()}")
+                logger.warning(f"Setting penalty value for run {i_opt + 1} due to error")
             # Set a high penalty value for this run so it won't be selected as best
             optim_funvalue_list[i_opt] = float('inf')
+            
+            # Log failure for summary
+            if n_multistart > 1:
+                log_optimization_step_failed(f"Optimization run {i_opt + 1}/{n_multistart}", f"{type(exc).__name__}: {str(exc)}")
+            else:
+                log_optimization_step_failed("Optimization", f"{type(exc).__name__}: {str(exc)}")
     
     # Multi-start post-processing: find best solution and clean up
     if n_multistart > 1:
-        logger.info("=" * 80)
-        logger.info("MULTI-START OPTIMIZATION POST-PROCESSING")
-        logger.info("=" * 80)
+        if not SUMMARY_MODE:
+            logger.info("=" * 80)
+            logger.info("MULTI-START OPTIMIZATION POST-PROCESSING")
+            logger.info("=" * 80)
+        
+        # Log post-processing step start for summary
+        log_optimization_step_start("Post-processing")
         
         # Log all function values with detailed breakdown
-        logger.info("OPTIMIZATION RESULTS SUMMARY:")
-        valid_runs = []
-        failed_runs = []
-        
-        for i_opt, func_val in enumerate(optim_funvalue_list):
-            run_number = i_opt + 1
-            if func_val == float('inf'):
-                logger.info(f"  Run {run_number:2d}: FAILED")
-                failed_runs.append(run_number)
-            else:
-                logger.info(f"  Run {run_number:2d}: {func_val:.6f}")
-                valid_runs.append((run_number, func_val))
-        
-        logger.info(f"Valid runs: {len(valid_runs)}/{n_multistart}")
-        if failed_runs:
-            logger.warning(f"Failed runs: {failed_runs}")
+        if not SUMMARY_MODE:
+            logger.info("OPTIMIZATION RESULTS SUMMARY:")
+            valid_runs = []
+            failed_runs = []
+            
+            for i_opt, func_val in enumerate(optim_funvalue_list):
+                run_number = i_opt + 1
+                if func_val == float('inf'):
+                    logger.info(f"  Run {run_number:2d}: FAILED")
+                    failed_runs.append(run_number)
+                else:
+                    logger.info(f"  Run {run_number:2d}: {func_val:.6f}")
+                    valid_runs.append((run_number, func_val))
+            
+            logger.info(f"Valid runs: {len(valid_runs)}/{n_multistart}")
+            if failed_runs:
+                logger.warning(f"Failed runs: {failed_runs}")
+        else:
+            # In summary mode, just track valid/failed runs without logging
+            valid_runs = []
+            failed_runs = []
+            for i_opt, func_val in enumerate(optim_funvalue_list):
+                if func_val != float('inf'):
+                    valid_runs.append((i_opt, func_val))
         
         if not valid_runs:
-            logger.error("No valid optimization results found - all runs failed")
-            logger.error("Check individual run logs above for specific error details")
+            if not SUMMARY_MODE:
+                logger.error("No valid optimization results found - all runs failed")
+                logger.error("Check individual run logs above for specific error details")
+            
+            # Log failure for summary
+            log_optimization_step_failed("Post-processing", "No valid optimization results found")
+            log_optimization_complete(args.subject, success=False, n_multistart=n_multistart)
             return 1
         
         # Find best solution (minimum function value among valid runs)
@@ -877,46 +1087,81 @@ def main() -> int:
         best_funvalue = optim_funvalue_list[best_opt_idx]
         best_run_number = best_opt_idx + 1
         
-        logger.info(f"BEST SOLUTION SELECTION:")
-        logger.info(f"  Best run: #{best_run_number}")
-        logger.info(f"  Best function value: {best_funvalue:.6f}")
-        
-        # Find improvement statistics
-        if len(valid_runs) > 1:
-            valid_func_values = [val for _, val in valid_runs]
-            worst_value = max(valid_func_values)
-            improvement = ((worst_value - best_funvalue) / abs(worst_value)) * 100 if worst_value != 0 else 0
-            logger.info(f"  Improvement over worst: {improvement:.2f}%")
-            logger.info(f"  Function value range: {min(valid_func_values):.6f} to {max(valid_func_values):.6f}")
+        if not SUMMARY_MODE:
+            logger.info(f"BEST SOLUTION SELECTION:")
+            logger.info(f"  Best run: #{best_run_number}")
+            logger.info(f"  Best function value: {best_funvalue:.6f}")
+            
+            # Find improvement statistics
+            if len(valid_runs) > 1:
+                valid_func_values = [val for _, val in valid_runs]
+                worst_value = max(valid_func_values)
+                improvement = ((worst_value - best_funvalue) / abs(worst_value)) * 100 if worst_value != 0 else 0
+                logger.info(f"  Improvement over worst: {improvement:.2f}%")
+                logger.info(f"  Function value range: {min(valid_func_values):.6f} to {max(valid_func_values):.6f}")
         
         # Copy best solution to base output folder and remove numbered subfolders
         best_folder = output_folder_list[best_opt_idx]
         
-        logger.info("FINALIZING RESULTS:")
-        if os.path.exists(best_folder) and best_funvalue != float('inf'):
-            logger.info(f"Copying best solution from: {best_folder}")
-            logger.info(f"Copying best solution to: {base_output_folder}")
-            
-            # Copy contents of best solution to main output directory
-            try:
-                for item in os.listdir(best_folder):
-                    src = os.path.join(best_folder, item)
-                    dst = os.path.join(base_output_folder, item)
-                    if os.path.isdir(src):
-                        if os.path.exists(dst):
-                            shutil.rmtree(dst)
-                        shutil.copytree(src, dst)
-                    else:
-                        if os.path.exists(dst):
-                            os.remove(dst)
-                        shutil.copy2(src, dst)
-                logger.info("✓ Best solution successfully copied to final output directory")
-            except Exception as exc:
-                logger.error(f"✗ Failed to copy best solution: {exc}")
+        if not SUMMARY_MODE:
+            logger.info("FINALIZING RESULTS:")
+            if os.path.exists(best_folder) and best_funvalue != float('inf'):
+                logger.info(f"Copying best solution from: {best_folder}")
+                logger.info(f"Copying best solution to: {base_output_folder}")
+                
+                # Copy contents of best solution to main output directory
+                try:
+                    for item in os.listdir(best_folder):
+                        src = os.path.join(best_folder, item)
+                        dst = os.path.join(base_output_folder, item)
+                        if os.path.isdir(src):
+                            if os.path.exists(dst):
+                                shutil.rmtree(dst)
+                            shutil.copytree(src, dst)
+                        else:
+                            if os.path.exists(dst):
+                                os.remove(dst)
+                            shutil.copy2(src, dst)
+                    logger.info("✓ Best solution successfully copied to final output directory")
+                except Exception as exc:
+                    logger.error(f"✗ Failed to copy best solution: {exc}")
+                    
+                    # Log failure for summary
+                    log_optimization_step_failed("Post-processing", f"Failed to copy best solution: {exc}")
+                    log_optimization_complete(args.subject, success=False, n_multistart=n_multistart)
+                    return 1
+            else:
+                logger.error("✗ Best solution folder not found or invalid")
+                
+                # Log failure for summary
+                log_optimization_step_failed("Post-processing", "Best solution folder not found or invalid")
+                log_optimization_complete(args.subject, success=False, n_multistart=n_multistart)
                 return 1
         else:
-            logger.error("✗ Best solution folder not found or invalid")
-            return 1
+            # In summary mode, still need to copy the best solution
+            if os.path.exists(best_folder) and best_funvalue != float('inf'):
+                try:
+                    for item in os.listdir(best_folder):
+                        src = os.path.join(best_folder, item)
+                        dst = os.path.join(base_output_folder, item)
+                        if os.path.isdir(src):
+                            if os.path.exists(dst):
+                                shutil.rmtree(dst)
+                            shutil.copytree(src, dst)
+                        else:
+                            if os.path.exists(dst):
+                                os.remove(dst)
+                            shutil.copy2(src, dst)
+                except Exception as exc:
+                    # Log failure for summary
+                    log_optimization_step_failed("Post-processing", f"Failed to copy best solution: {exc}")
+                    log_optimization_complete(args.subject, success=False, n_multistart=n_multistart)
+                    return 1
+            else:
+                # Log failure for summary
+                log_optimization_step_failed("Post-processing", "Best solution folder not found or invalid")
+                log_optimization_complete(args.subject, success=False, n_multistart=n_multistart)
+                return 1
         
         # Create detailed multi-start summary file after copying
         multistart_summary_file = os.path.join(base_output_folder, "multistart_optimization_summary.txt")
@@ -931,15 +1176,18 @@ def main() -> int:
                 failed_runs,
                 start_time
             )
-            logger.info(f"Multi-start summary saved to: {multistart_summary_file}")
+            if not SUMMARY_MODE:
+                logger.info(f"Multi-start summary saved to: {multistart_summary_file}")
         except Exception as e:
-            logger.warning(f"Failed to create multi-start summary file: {e}")
+            if not SUMMARY_MODE:
+                logger.warning(f"Failed to create multi-start summary file: {e}")
         
         # Brief pause to ensure all file operations complete
         time.sleep(0.1)
         
         # Clean up numbered subdirectories with retry
-        logger.info("CLEANING UP TEMPORARY DIRECTORIES:")
+        if not SUMMARY_MODE:
+            logger.info("CLEANING UP TEMPORARY DIRECTORIES:")
         cleanup_success = True
         for i_opt in range(n_multistart):
             folder_to_remove = output_folder_list[i_opt]
@@ -950,50 +1198,73 @@ def main() -> int:
                 try:
                     if os.path.exists(folder_to_remove):
                         shutil.rmtree(folder_to_remove)
-                    logger.debug(f"✓ Removed temporary directory for run {run_number}")
+                    if not SUMMARY_MODE:
+                        logger.debug(f"✓ Removed temporary directory for run {run_number}")
                     break
                 except Exception as exc:
                     if attempt == 0:  # First attempt failed, wait and retry
                         time.sleep(0.2)
                         continue
                     else:  # Second attempt failed
-                        logger.warning(f"✗ Failed to remove temporary directory for run {run_number}: {folder_to_remove} - {exc}")
+                        if not SUMMARY_MODE:
+                            logger.warning(f"✗ Failed to remove temporary directory for run {run_number}: {folder_to_remove} - {exc}")
                         cleanup_success = False
         
         if cleanup_success:
-            logger.info("✓ All temporary directories cleaned up successfully")
+            if not SUMMARY_MODE:
+                logger.info("✓ All temporary directories cleaned up successfully")
         else:
-            logger.warning("⚠ Some temporary directories could not be removed (results still valid)")
+            if not SUMMARY_MODE:
+                logger.warning("⚠ Some temporary directories could not be removed (results still valid)")
         
-        logger.info("MULTI-START OPTIMIZATION COMPLETED SUCCESSFULLY")
-        logger.info(f"Final results available in: {base_output_folder}")
+        if not SUMMARY_MODE:
+            logger.info("MULTI-START OPTIMIZATION COMPLETED SUCCESSFULLY")
+            logger.info(f"Final results available in: {base_output_folder}")
+        
+        # Log post-processing complete for summary
+        log_optimization_step_complete("Post-processing", f"{len(valid_runs)}/{n_multistart} runs successful")
         
     else:
         # Single optimization run
         if optim_funvalue_list[0] == float('inf'):
-            logger.error("Single optimization run failed")
+            if not SUMMARY_MODE:
+                logger.error("Single optimization run failed")
+            
+            # Log failure for summary
+            log_optimization_complete(args.subject, success=False)
             return 1
         else:
-            logger.info("SINGLE OPTIMIZATION COMPLETED SUCCESSFULLY")
-            logger.info(f"Final function value: {optim_funvalue_list[0]:.6f}")
-            logger.info(f"Results available in: {base_output_folder}")
+            # Only log in non-summary mode
+            if not SUMMARY_MODE:
+                logger.info("SINGLE OPTIMIZATION COMPLETED SUCCESSFULLY")
+                logger.info(f"Final function value: {optim_funvalue_list[0]:.6f}")
+                logger.info(f"Results available in: {base_output_folder}")
             
             # Create a simple summary file for single optimization
             single_summary_file = os.path.join(base_output_folder, "optimization_summary.txt")
             try:
                 _create_single_optimization_summary_file(single_summary_file, args, optim_funvalue_list[0], start_time)
-                logger.info(f"Optimization summary saved to: {single_summary_file}")
+                if not SUMMARY_MODE:
+                    logger.info(f"Optimization summary saved to: {single_summary_file}")
             except Exception as e:
-                logger.warning(f"Failed to create optimization summary file: {e}")
+                if not SUMMARY_MODE:
+                    logger.warning(f"Failed to create optimization summary file: {e}")
     
     # Log session footer
     total_duration = time.time() - start_time if 'start_time' in locals() else 0
-    logger.info("=" * 80)
-    logger.info("FLEX-SEARCH SESSION COMPLETED")
-    logger.info(f"Total session duration: {total_duration:.1f} seconds")
-    logger.info(f"Subject: {args.subject}")
-    logger.info(f"Optimization runs: {n_multistart}")
-    logger.info("=" * 80)
+    if not SUMMARY_MODE:
+        logger.info("=" * 80)
+        logger.info("FLEX-SEARCH SESSION COMPLETED")
+        logger.info(f"Total session duration: {total_duration:.1f} seconds")
+        logger.info(f"Subject: {args.subject}")
+        logger.info(f"Optimization runs: {n_multistart}")
+        logger.info("=" * 80)
+    
+    # Log final completion for summary
+    if n_multistart > 1:
+        log_optimization_complete(args.subject, success=True, output_path=base_output_folder, n_multistart=n_multistart, best_run=best_run_number if 'best_run_number' in locals() else None)
+    else:
+        log_optimization_complete(args.subject, success=True, output_path=base_output_folder, n_multistart=n_multistart)
     
     return 0
 
