@@ -275,7 +275,7 @@ def validate_radius(radius):
         raise ValueError("Radius must be a positive number")
 
 def construct_mesh_field_path(m2m_subject_path, montage_name):
-    """Construct the mesh field path using the pattern <montage>_TI.msh."""
+    """Construct the mesh field path using the exact montage directory name provided."""
     # Extract subject ID from m2m_subject_path
     subject_id = os.path.basename(m2m_subject_path).split('_')[1] if '_' in os.path.basename(m2m_subject_path) else os.path.basename(m2m_subject_path)
     
@@ -284,11 +284,72 @@ def construct_mesh_field_path(m2m_subject_path, montage_name):
     if not project_dir.startswith('/mnt/'):
         project_dir = f"/mnt/{os.path.basename(project_dir)}"
     
-    # Construct the expected mesh field path
-    field_path = os.path.join(project_dir, 'derivatives', 'SimNIBS', f'sub-{subject_id}', 
-                             'Simulations', montage_name, 'TI', 'mesh', f'{montage_name}_TI.msh')
+    # Check if mTI directory exists - if yes, this is an mTI simulation
+    mti_mesh_dir = os.path.join(project_dir, 'derivatives', 'SimNIBS', f'sub-{subject_id}', 
+                                'Simulations', montage_name, 'mTI', 'mesh')
+    ti_mesh_dir = os.path.join(project_dir, 'derivatives', 'SimNIBS', f'sub-{subject_id}', 
+                               'Simulations', montage_name, 'TI', 'mesh')
     
-    return field_path
+    # Determine if this is an mTI or TI simulation
+    is_mti = os.path.exists(mti_mesh_dir)
+    
+    if is_mti:
+        # For mTI simulations, look in mTI/mesh directory for _mTI.msh files
+        mesh_dir = mti_mesh_dir
+        possible_filenames = []
+        
+        # Pattern 1: Use montage directory name + _mTI.msh
+        possible_filenames.append(f'{montage_name}_mTI.msh')
+        
+        # Pattern 2: Check for variations with _mTI suffix
+        if '_mTINormal' in montage_name:
+            possible_filenames.append(f'{montage_name}_mTI.msh')
+        
+        # Pattern 3: Standard pattern where we remove any _mTI-related suffix from montage name
+        if montage_name.endswith('_mTINormal'):
+            base_name = montage_name.replace('_mTINormal', '')
+            possible_filenames.append(f'{base_name}_mTI.msh')
+        elif montage_name.endswith('Normal'):
+            base_name = montage_name.replace('Normal', '')
+            possible_filenames.append(f'{base_name}_mTI.msh')
+    else:
+        # For regular TI simulations, use the original logic
+        mesh_dir = ti_mesh_dir
+        possible_filenames = []
+        
+        # Pattern 1: Use montage directory name + _TI.msh
+        possible_filenames.append(f'{montage_name}_TI.msh')
+        
+        # Pattern 2: If montage dir has _TINormal, the file might be montage_dir + _TI.msh
+        # (This handles the case where directory is ernie_sphere_5mm_max_TINormal and file is ernie_sphere_5mm_max_TINormal_TI.msh)
+        if '_TINormal' in montage_name:
+            possible_filenames.append(f'{montage_name}_TI.msh')  # Already added above, but keep for clarity
+        
+        # Pattern 3: Standard pattern where we remove any _TI-related suffix from montage name
+        if montage_name.endswith('_TINormal'):
+            base_name = montage_name.replace('_TINormal', '')
+            possible_filenames.append(f'{base_name}_TI.msh')
+        elif montage_name.endswith('Normal'):
+            base_name = montage_name.replace('Normal', '')
+            possible_filenames.append(f'{base_name}_TI.msh')
+    
+    # Remove duplicates while preserving order
+    seen = set()
+    unique_filenames = []
+    for filename in possible_filenames:
+        if filename not in seen:
+            seen.add(filename)
+            unique_filenames.append(filename)
+    
+    # Check which file actually exists
+    for filename in unique_filenames:
+        field_path = os.path.join(mesh_dir, filename)
+        if os.path.exists(field_path):
+            return field_path
+    
+    # If no file found, return the first pattern for error reporting
+    suffix = '_mTI.msh' if is_mti else '_TI.msh'
+    return os.path.join(mesh_dir, unique_filenames[0] if unique_filenames else f'{montage_name}{suffix}')
 
 def setup_parser():
     """Set up command line argument parser."""
@@ -461,6 +522,12 @@ def main():
         
         # Hardcode field name to TI_max
         field_name = "TI_max"
+        # Determine field name based on simulation type
+        # mTI uses "TI_Max" while regular TI uses "TI_max"
+        if args.space == 'mesh' and 'mTI' in args.field_path:
+            field_name = "TI_Max"  # mTI simulations use capital M
+        else:
+            field_name = "TI_max"  # Regular TI simulations use lowercase m
         
         # Initialize appropriate analyzer
         if args.quiet:
