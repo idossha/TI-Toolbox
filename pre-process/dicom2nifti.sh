@@ -62,11 +62,17 @@ if ! $QUIET; then
     logs_dir="${DERIVATIVES_DIR}/ti-toolbox/logs/${BIDS_SUBJECT_ID}"
     mkdir -p "$logs_dir"
 
-    # Ensure dataset_description.json exists for logs derivative
+    # Ensure dataset_description.json exists for ti-toolbox derivative
     ASSETS_DD_DIR="$script_dir/../assets/dataset_descriptions"
-    if [ ! -f "$DERIVATIVES_DIR/ti-toolbox/logs/dataset_description.json" ] && [ -f "$ASSETS_DD_DIR/logs.dataset_description.json" ]; then
-        mkdir -p "$DERIVATIVES_DIR/ti-toolbox/logs"
-        cp "$ASSETS_DD_DIR/logs.dataset_description.json" "$DERIVATIVES_DIR/ti-toolbox/logs/dataset_description.json"
+    if [ ! -f "$DERIVATIVES_DIR/ti-toolbox/dataset_description.json" ] && [ -f "$ASSETS_DD_DIR/ti-toolbox.dataset_description.json" ]; then
+        mkdir -p "$DERIVATIVES_DIR/ti-toolbox"
+        cp "$ASSETS_DD_DIR/ti-toolbox.dataset_description.json" "$DERIVATIVES_DIR/ti-toolbox/dataset_description.json"
+        
+        # Fill in project-specific information
+        PROJECT_NAME=$(basename "$PROJECT_DIR")
+        CURRENT_DATE=$(date +"%Y-%m-%d")
+        sed -i.tmp "s/\"URI\": \"\"/\"URI\": \"bids:$PROJECT_NAME@$CURRENT_DATE\"/" "$DERIVATIVES_DIR/ti-toolbox/dataset_description.json" && rm -f "$DERIVATIVES_DIR/ti-toolbox/dataset_description.json.tmp"
+        sed -i.tmp "s/\"DatasetLinks\": {}/\"DatasetLinks\": {\n    \"$PROJECT_NAME\": \"..\/..\/\"\n  }/" "$DERIVATIVES_DIR/ti-toolbox/dataset_description.json" && rm -f "$DERIVATIVES_DIR/ti-toolbox/dataset_description.json.tmp"
     fi
 
     set_logger_name "dicom2nifti"

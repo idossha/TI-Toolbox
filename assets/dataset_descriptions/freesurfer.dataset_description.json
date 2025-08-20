@@ -1,28 +1,39 @@
 {
-  "Name": "",
-  "BIDSVersion": "1.10.0",
-  "HEDVersion": "8.2.0",
-  "DatasetType": "raw",
-  "License": "",
-  "Authors": [
-      "",
-      "",
-      ""
-  ],
-  "Acknowledgements": "",
-  "HowToAcknowledge": "",
-  "Funding": [
-      "",
-      "",
-      ""
-  ],
-  "EthicsApprovals": [
-      ""
-  ],
-  "ReferencesAndLinks": [
-      "",
-      "",
-      ""
-  ],
-  "DatasetDOI": "doi:"
-}
+    "Name": "FreeSurfer derivatives for TI-Toolbox",
+    "BIDSVersion": "1.10.0",
+    "DatasetType": "derivative",
+    "License": "CC-BY-4.0",
+    "Authors": [
+      "Ido Haber",
+      "Aksel Jackson"
+    ],
+    "Acknowledgements": "We thank the FreeSurfer developers and contributors. FreeSurfer is developed at the Athinoula A. Martinos Center for Biomedical Imaging.",
+    "HowToAcknowledge": "Please cite: Fischl, B. (2012). FreeSurfer. NeuroImage, 62(2), 774–781. https://doi.org/10.1016/j.neuroimage.2012.01.021",
+    "ReferencesAndLinks": [
+      "https://surfer.nmr.mgh.harvard.edu/",
+      "Fischl, B. (2012). FreeSurfer. NeuroImage, 62(2), 774–781. https://doi.org/10.1016/j.neuroimage.2012.01.021"
+    ],
+    "GeneratedBy": [
+      {
+        "Name": "FreeSurfer",
+        "Version": "7.4.1",
+        "Description": "Structural processing and segmentation with recon-all.",
+        "CodeURL": "https://github.com/freesurfer/freesurfer",
+        "Container": {
+          "Type": "docker",
+          "Tag": "idossha/ti-csc_freesurfer:v1.3.0"
+        },
+        "Environment": [
+          "FREESURFER_HOME=/usr/local/freesurfer",
+          "FS_LICENSE=/usr/local/freesurfer/license.txt"
+        ]
+      }
+    ],
+    "SourceDatasets": [
+      {
+        "URI": ""
+      }
+    ],
+    "DatasetLinks": {}
+  }
+  

@@ -2,6 +2,7 @@
 
 # Skull Bone Analyzer Script for TI-toolbox
 # Wrapper script to run skull bone analysis on segmented tissue data
+# Output is organized under derivatives/ti-toolbox/bone_analysis/sub-*/ structure
 
 set -e  # Exit on error
 
@@ -13,7 +14,7 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # Default values
-OUTPUT_DIR="bone_analysis_output"
+OUTPUT_DIR="bone_analysis"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PYTHON_SCRIPT="$SCRIPT_DIR/bone_analyzer.py"
 
@@ -50,8 +51,8 @@ Options:
 
 Examples:
   $0 data/labeling.nii.gz
-  $0 -o my_skull_results data/labeling.nii.gz
-  $0 --output /path/to/output data/segmentation.nii
+  $0 -o derivatives/ti-toolbox/bone_analysis/sub-001 data/segmentation.nii
+  $0 --output /path/to/derivatives/ti-toolbox/bone_analysis/sub-001 data/segmentation.nii
 
 The tool will analyze:
   - Total volume of skull bone (cortical + cancellous combined)
@@ -71,8 +72,11 @@ Input Requirements:
 
 Output:
   - skull_bone_thickness_analysis.png (thickness analysis results)
-  - skull_extraction_methodology.png (methodology illustration)  
+  - skull_extraction_methodology.png (methodology illustration)
   - skull_bone_analysis_summary.txt (detailed report)
+  - skull_combined_publication_figure.png (comprehensive visualization)
+
+Note: Output is designed to be placed under derivatives/ti-toolbox/bone_analysis/sub-*/
 EOF
 }
 
