@@ -50,8 +50,14 @@ simulation_dir="$simnibs_dir/Simulations"
 # Initialize arrays for montage parsing
 selected_montages=()
 
-# Set summary mode (always enabled for clean output)
-SUMMARY_MODE=true
+# Set summary mode based on debug mode setting
+# When DEBUG_MODE=true, show detailed output (SUMMARY_MODE=false)
+# When DEBUG_MODE=false, show summary output (SUMMARY_MODE=true)
+if [ "${DEBUG_MODE:-false}" = "true" ]; then
+    SUMMARY_MODE=false
+else
+    SUMMARY_MODE=true
+fi
 
 # Parse montages until '--' is found
 while [[ "$#" -gt 0 ]]; do

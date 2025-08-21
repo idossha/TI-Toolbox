@@ -161,9 +161,17 @@ echo "DEBUG: Final SUBJECT_DIRS: ${SUBJECT_DIRS[*]}" >&2
 echo "DEBUG: RUN_RECON=$RUN_RECON, PARALLEL=$PARALLEL, CONVERT_DICOM=$CONVERT_DICOM" >&2
 
 # Enable summary mode for non-debug preprocessing
-if ! $QUIET; then
+# When DEBUG_MODE=true, show detailed output (SUMMARY_MODE=false)
+# When DEBUG_MODE=false, show summary output (SUMMARY_MODE=true)
+debug_mode="${DEBUG_MODE:-false}"
+if [[ "$debug_mode" == "true" ]]; then
+    # Debug mode: show detailed output
+    set_summary_mode false
+elif ! $QUIET; then
+    # Non-debug mode and not quiet: show summary output
     set_summary_mode true
 else
+    # Quiet mode: show detailed output (opposite of summary)
     set_summary_mode false
 fi
 

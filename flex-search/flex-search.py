@@ -805,8 +805,11 @@ def main() -> int:
     apply_common_env_fixes()
     args = parse_arguments()
     
-    # Enable summary mode if quiet flag is set
-    if args.quiet:
+    # Enable summary mode if quiet flag is set OR if not in debug mode
+    # When DEBUG_MODE=true, show detailed output (SUMMARY_MODE=false)
+    # When DEBUG_MODE=false, show summary output (SUMMARY_MODE=true)
+    debug_mode = os.environ.get('DEBUG_MODE', 'false').lower() == 'true'
+    if args.quiet or not debug_mode:
         set_summary_mode(True)
     
     # Track total session time

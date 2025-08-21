@@ -1542,6 +1542,9 @@ class SimulatorTab(QtWidgets.QWidget):
             env['SIM_MODE'] = sim_mode
             env['EEG_NET'] = eeg_net
             
+            # Pass debug mode setting to control summary output
+            env['DEBUG_MODE'] = 'true' if self.debug_mode else 'false'
+            
             # For montage mode with multiple subjects, provide EEG_NETS (comma-separated)
             if is_montage_mode:
                 # For now, use the same EEG net for all subjects

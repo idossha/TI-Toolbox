@@ -1187,6 +1187,9 @@ class FlexSearchTab(QtWidgets.QWidget):
                 self.output_text.append(f"Error: flex-search.py not found at {flex_search_py}. Optimization cannot continue.")
                 return False
 
+            # Pass debug mode setting to control summary output
+            env['DEBUG_MODE'] = 'true' if self.debug_mode else 'false'
+
             cmd = [
                 "simnibs_python", flex_search_py,
                 "--subject", subject_id,
@@ -1250,7 +1253,9 @@ class FlexSearchTab(QtWidgets.QWidget):
                         env['VOLUME_NON_ROI_LABEL'] = str(nonroi_volume_label_val)
             
             # Stability and Memory options
-            if self.quiet_mode_checkbox.isChecked():
+            # Only add --quiet flag when NOT in debug mode
+            # Debug mode should always show detailed output
+            if self.quiet_mode_checkbox.isChecked() and not self.debug_mode:
                 cmd.append("--quiet")
             if not self.run_final_electrode_simulation_checkbox.isChecked():
                 cmd.append("--skip-final-electrode-simulation")
@@ -1324,7 +1329,12 @@ class FlexSearchTab(QtWidgets.QWidget):
         details += f"• Population Size: {self.population_size_input.value()}\n"
         details += f"• Number of CPUs: {self.cpus_input.value()}\n"
         if self.quiet_mode_checkbox.isChecked():
-            details += f"• Hide optimization steps: ✓ ENABLED\n"
+            if self.debug_mode:
+                details += f"• Hide optimization steps: ✓ ENABLED (overridden by debug mode)\n"
+            else:
+                details += f"• Hide optimization steps: ✓ ENABLED\n"
+        else:
+            details += f"• Hide optimization steps: ✗ DISABLED\n"
         
         if self.n_multistart_input.value() > 1:
             details += f"\n Multi-Start Optimization: {self.n_multistart_input.value()} runs will be performed.\n"

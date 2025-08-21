@@ -749,7 +749,7 @@ class PreProcessTab(QtWidgets.QWidget):
                   f"- Parallel processing: {'Yes' if self.parallel_cb.isChecked() else 'No'}\n" +
                   f"- Create m2m folder: {'Yes' if self.create_m2m_cb.isChecked() else 'No'}\n" +
                   f"- Create atlas segmentation: {'Yes' if self.create_atlas_cb.isChecked() else 'No'}\n" +
-                  f"- Quiet mode: {'Yes' if self.quiet_cb.isChecked() else 'No'}")
+                  f"- Quiet mode: {'Yes (overridden by debug mode)' if self.quiet_cb.isChecked() and self.debug_mode else 'Yes' if self.quiet_cb.isChecked() else 'No'}")
         
         if not ConfirmationDialog.confirm(
             self,
@@ -789,6 +789,9 @@ class PreProcessTab(QtWidgets.QWidget):
         env['QUIET'] = str(self.quiet_cb.isChecked()).lower()
         env['RUN_BONE_ANALYZER'] = str(self.run_bone_analyzer_cb.isChecked()).lower()
         
+        # Pass debug mode setting to control summary output
+        env['DEBUG_MODE'] = 'true' if self.debug_mode else 'false'
+        
         # Build command exactly like CLI does - subject directories first, then flags
         script_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         cmd = [os.path.join(script_dir, 'pre-process', 'structural.sh')]
@@ -812,7 +815,9 @@ class PreProcessTab(QtWidgets.QWidget):
         if self.create_m2m_cb.isChecked():
             cmd.append("--create-m2m")
 
-        if self.quiet_cb.isChecked():
+        # Only add --quiet flag when NOT in debug mode
+        # Debug mode should always show detailed output
+        if self.quiet_cb.isChecked() and not self.debug_mode:
             cmd.append("--quiet")
         
         # Debug output (only show in debug mode)
@@ -827,6 +832,7 @@ class PreProcessTab(QtWidgets.QWidget):
         self.update_output(f"- Create atlas segmentation: {str(self.create_atlas_cb.isChecked()).lower()}", 'debug')
         self.update_output(f"- Run bone analyzer: {env['RUN_BONE_ANALYZER']}", 'debug')
         self.update_output(f"- Quiet mode: {env['QUIET']}", 'debug')
+        self.update_output(f"- Debug mode: {env['DEBUG_MODE']}", 'debug')
         
         # Create and start the thread
         self.processing_thread = PreProcessThread(cmd, env)
