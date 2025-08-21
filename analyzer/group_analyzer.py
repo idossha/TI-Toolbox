@@ -17,8 +17,63 @@ import sys
 import argparse
 import subprocess
 import logging
+import time
 from pathlib import Path
 from typing import List, Tuple, Optional
+
+# Global variables for summary mode and timing
+SUMMARY_MODE = False
+_group_start_time = None
+
+def format_duration(total_seconds):
+    """Format duration in human-readable format."""
+    total_seconds = int(total_seconds)
+    hours = total_seconds // 3600
+    minutes = (total_seconds % 3600) // 60
+    seconds = total_seconds % 60
+    
+    if hours > 0:
+        return f"{hours}h {minutes}m {seconds}s"
+    elif minutes > 0:
+        return f"{minutes}m {seconds}s"
+    else:
+        return f"{seconds}s"
+
+def log_group_analysis_start(num_subjects, analysis_description):
+    """Log the start of group analysis."""
+    global _group_start_time, SUMMARY_MODE
+    _group_start_time = time.time()
+    
+    if SUMMARY_MODE:
+        print(f"\nBeginning group analysis for {num_subjects} subjects ({analysis_description})")
+
+def log_group_analysis_complete(num_successful, num_total, output_path=""):
+    """Log the completion of group analysis."""
+    global _group_start_time, SUMMARY_MODE
+    
+    if _group_start_time is not None:
+        total_duration = time.time() - _group_start_time
+        duration_str = format_duration(total_duration)
+        
+        if SUMMARY_MODE:
+            if num_successful == num_total:
+                print(f"└─ Group analysis completed ({num_successful}/{num_total} subjects successful, Total: {duration_str})")
+            else:
+                print(f"└─ Group analysis completed with failures ({num_successful}/{num_total} subjects successful, Total: {duration_str})")
+            if output_path:
+                # Show relative path from /mnt/ for cleaner display
+                display_path = output_path.replace('/mnt/', '') if output_path.startswith('/mnt/') else output_path
+                print(f"   Group results saved to: {display_path}")
+
+def log_group_subject_status(subject_id, status, duration_str, error_msg=""):
+    """Log the status of a subject in group analysis."""
+    global SUMMARY_MODE
+    
+    if SUMMARY_MODE:
+        if status == "complete":
+            print(f"├─ Subject {subject_id}: ✓ Complete ({duration_str})")
+        else:
+            print(f"├─ Subject {subject_id}: ✗ Failed ({duration_str}) - {error_msg}")
 
 # Import SimNIBS for MNI coordinate transformation
 try:
@@ -57,7 +112,7 @@ def create_group_output_directory(first_subject_path: str) -> str:
     # Group comparisons will be stored in the user-specified output directory
     
     if group_logger:
-        group_logger.info(f"Using project: {project_name}")
+        group_logger.debug(f"Using project: {project_name}")
     
     # Return a placeholder path - not actually used since we don't create central directories
     return f"/mnt/{project_name}/derivatives/SimNIBS"
@@ -94,6 +149,8 @@ def setup_parser():
     # Output and comparison options
     parser.add_argument("--output_dir", required=True,
                         help="Directory for legacy group analysis outputs (comprehensive results go to centralized location)")
+    parser.add_argument("--quiet", action="store_true",
+                        help="Enable summary mode for clean output (non-debug mode)")
     parser.add_argument("--no-compare", action="store_true",
                         help="Skip comparison analysis after all subjects are processed (comparison runs by default)")
     parser.add_argument("--visualize", action="store_true",
@@ -276,13 +333,13 @@ def build_main_analyzer_command(
             # Transform MNI coordinates to subject space
             global group_logger
             if group_logger:
-                group_logger.info(f"Transforming MNI coordinates {args.coordinates} to subject {subject_id} space")
+                group_logger.debug(f"Transforming MNI coordinates {args.coordinates} to subject {subject_id} space")
             
             try:
                 mni_coords = [float(c) for c in args.coordinates]
                 subject_coords = mni2subject_coords(mni_coords, m2m_path)
                 if group_logger:
-                    group_logger.info(f"Transformed coordinates for {subject_id}: {subject_coords}")
+                    group_logger.debug(f"Transformed coordinates for {subject_id}: {subject_coords}")
                 cmd += ["--coordinates"] + [str(c) for c in subject_coords]
             except Exception as e:
                 error_msg = f"Failed to transform MNI coordinates for subject {subject_id}: {e}"
@@ -325,6 +382,10 @@ def build_main_analyzer_command(
                 log_file_path = getattr(handler, 'baseFilename')
                 cmd += ["--log_file", log_file_path]
                 break
+    
+    # Add quiet flag if requested
+    if args.quiet:
+        cmd += ["--quiet"]
 
     return cmd
 
@@ -347,23 +408,90 @@ def run_subject_analysis(args, subject_args: List[str]) -> Tuple[bool, str]:
     cmd = build_main_analyzer_command(args, subject_args, subject_output_dir)
 
     if group_logger:
-        group_logger.info(f"Starting analysis for subject: {subject_id}")
+        group_logger.debug(f"Starting analysis for subject: {subject_id}")
 
-    # Run main_analyzer.py - all output will be logged to centralized log file
-    proc = subprocess.run(cmd, capture_output=True, text=True)
+    # Track timing for subject analysis
+    import time
+    start_time = time.time()
 
-    if proc.returncode == 0:
+    # Run main_analyzer.py with real-time output streaming
+    if args.quiet:
+        # In summary mode, stream output in real-time to show task steps as they happen
+        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, 
+                               text=True, bufsize=1, universal_newlines=True)
+        
+        # Stream output in real-time
+        output_lines = []
+        while True:
+            line = proc.stdout.readline()
+            if not line and proc.poll() is not None:
+                break
+            if line:
+                line = line.strip()
+                if line:
+                    output_lines.append(line)
+                    # Display task steps in real-time
+                    if line.startswith('Beginning analysis for subject:'):
+                        # This is the subject start message, display it with proper indentation
+                        print(f"  {line}")
+                    elif line.startswith('├─ ') or line.startswith('└─ '):
+                        # This is a task step, display it with proper indentation
+                        clean_line = line[2:]  # Remove the tree symbols
+                        print(f"  ├─ {clean_line}")
+                    elif 'Starting...' in line and 'Subject' in line:
+                        # Skip the "Subject X: Starting..." line as it's already shown
+                        continue
+                    elif '✓ Complete' in line or '✗ Failed' in line:
+                        # Skip completion lines as they're handled separately
+                        continue
+                    elif 'Analysis completed successfully' in line:
+                        # Skip the final completion message as it's handled separately
+                        continue
+        
+        # Wait for process to complete
+        return_code = proc.wait()
+        stdout_output = '\n'.join(output_lines)
+    else:
+        # In debug mode, capture output as before
+        proc = subprocess.run(cmd, capture_output=True, text=True)
+        return_code = proc.returncode
+        stdout_output = proc.stdout
+
+    end_time = time.time()
+    duration = int(end_time - start_time)
+    duration_str = format_duration(duration)
+
+    if return_code == 0:
         if group_logger:
-            group_logger.info(f"Subject {subject_id} analysis completed successfully")
+            group_logger.debug(f"Subject {subject_id} analysis completed successfully")
+        
+        # Log subject status for summary
+        if args.quiet:
+            log_group_subject_status(subject_id, "complete", duration_str)
+        
         return True, subject_output_dir
     else:
         if group_logger:
             group_logger.error(f"Subject {subject_id} analysis failed")
             # Log any additional error output that might not have been captured by main_analyzer.py
-            if proc.stdout.strip():
-                group_logger.info(f"Subject {subject_id} additional stdout:\n{proc.stdout}")
-            if proc.stderr.strip():
-                group_logger.error(f"Subject {subject_id} additional stderr:\n{proc.stderr}")
+            if stdout_output.strip():
+                group_logger.error(f"stdout: {stdout_output.strip()}")
+            # For streaming mode, stderr is redirected to stdout, so no separate stderr handling needed
+
+        # Extract meaningful error message for summary
+        error_msg = ""
+        if stdout_output.strip():
+            # Look for error patterns in stdout
+            stdout_lines = stdout_output.strip().split('\n')
+            for line in stdout_lines:
+                if any(keyword in line.lower() for keyword in ['error:', 'failed', 'exception', 'critical']):
+                    error_msg = line.strip()
+                    break
+        
+        # Log subject status for summary
+        if args.quiet:
+            log_group_subject_status(subject_id, "failed", duration_str, error_msg)
+        
         return False, ""
 
 
@@ -382,10 +510,10 @@ def collect_analysis_paths(successful_dirs: List[str]) -> List[str]:
                 analysis_paths.append(d)
             else:
                 if group_logger:
-                    group_logger.warning(f"No CSV found under {d}")
+                    group_logger.debug(f"No CSV found under {d}")
         else:
             if group_logger:
-                group_logger.warning(f"Expected analysis directory not found: {d}")
+                group_logger.debug(f"Expected analysis directory not found: {d}")
 
     return analysis_paths
 
@@ -405,18 +533,18 @@ def run_comprehensive_group_analysis(analysis_paths: List[str], project_name: Op
     
     if len(analysis_paths) == 0:
         if group_logger:
-            group_logger.warning("No analysis paths provided for group comparison.")
+            group_logger.debug("No analysis paths provided for group comparison.")
         return ""
     
     if group_logger:
-        group_logger.info(f"\n=== Running comprehensive group analysis on {len(analysis_paths)} analyses ===")
+        group_logger.debug(f"\n=== Running comprehensive group analysis on {len(analysis_paths)} analyses ===")
     
     try:
         # Use the comprehensive comparison function from compare_analyses.py
         group_output_dir = run_all_group_comparisons(analysis_paths, project_name)
         if group_logger:
-            group_logger.info(f"✔ Comprehensive group analysis completed successfully.")
-            group_logger.info(f"  All results saved to: {group_output_dir}")
+            group_logger.debug(f"✔ Comprehensive group analysis completed successfully.")
+            group_logger.debug(f"  All results saved to: {group_output_dir}")
         return group_output_dir
     except Exception as e:
         if group_logger:
@@ -482,6 +610,11 @@ def main():
     try:
         validate_args(args)
         
+        # Set up summary mode if requested
+        if args.quiet:
+            global SUMMARY_MODE
+            SUMMARY_MODE = True
+        
         # Create centralized group output directory based on first subject's path
         first_subject_path = args.subject[0][1]  # m2m_path from first subject
         centralized_group_dir = create_group_output_directory(first_subject_path)
@@ -491,17 +624,38 @@ def main():
         
         # Set up centralized logging for group analysis
         group_logger = setup_group_logger(project_name)
+        
+        # Create analysis description for summary
+        analysis_description = f"{args.analysis_type} ({args.space})"
+        if args.analysis_type == 'spherical' and args.coordinates:
+            coords_str = ', '.join(f"{float(c):.1f}" for c in args.coordinates)
+            analysis_description += f" - x={coords_str}, r={args.radius}mm"
+        elif args.analysis_type == 'cortical':
+            if args.whole_head:
+                if args.space == 'mesh':
+                    analysis_description += f" - {args.atlas_name} (whole head)"
+                else:
+                    analysis_description += " - whole head"
+            else:
+                if args.space == 'mesh':
+                    analysis_description += f" - {args.atlas_name}.{args.region}"
+                else:
+                    analysis_description += f" - {args.region}"
+        
+        # Start group analysis summary logging
+        if args.quiet:
+            log_group_analysis_start(len(args.subject), analysis_description)
 
         if group_logger:
-            group_logger.info(f"\n>>> Starting group analysis with {len(args.subject)} subject(s).")
-            group_logger.info(f"    Project: {project_name}")
-            group_logger.info(f"    Analysis = {args.analysis_type} (space={args.space})")
-            group_logger.info(f"    Centralized group results will go to: {centralized_group_dir}")
+            group_logger.debug(f"\n>>> Starting group analysis with {len(args.subject)} subject(s).")
+            group_logger.debug(f"    Project: {project_name}")
+            group_logger.debug(f"    Analysis = {args.analysis_type} (space={args.space})")
+            group_logger.debug(f"    Centralized group results will go to: {centralized_group_dir}")
         
         # Still create the user-specified output directory for legacy compatibility
         os.makedirs(args.output_dir, exist_ok=True)
         if group_logger:
-            group_logger.info(f"    Legacy output directory: {args.output_dir}\n")
+            group_logger.debug(f"    Legacy output directory: {args.output_dir}\n")
 
         successful_dirs = []
         successful_subjects_info = []  # Store (subject_args, output_dir) pairs
@@ -509,50 +663,81 @@ def main():
 
         for subj_args in args.subject:
             subj_id = subj_args[0]
+            
+            # Log subject start for summary
+            if args.quiet:
+                print(f"├─ Subject {subj_id}: Starting...")
+            
             ok, outdir = run_subject_analysis(args, subj_args)
             if ok:
                 successful_dirs.append(outdir)
                 successful_subjects_info.append((subj_args, outdir))
             else:
                 failed_subjects.append(subj_id)
+            
+            # Add a small visual separator between subjects for clarity
+            if args.quiet and len(args.subject) > 1:
+                print("")  # Empty line for visual separation
 
         if group_logger:
-            group_logger.info("\n=== GROUP ANALYSIS SUMMARY ===")
-            group_logger.info(f"Total subjects : {len(args.subject)}")
-            group_logger.info(f"Succeeded      : {len(successful_dirs)}")
-            group_logger.info(f"Failed         : {len(failed_subjects)}")
+            group_logger.debug("\n=== GROUP ANALYSIS SUMMARY ===")
+            group_logger.debug(f"Total subjects : {len(args.subject)}")
+            group_logger.debug(f"Succeeded      : {len(successful_dirs)}")
+            group_logger.debug(f"Failed         : {len(failed_subjects)}")
             if failed_subjects:
-                group_logger.info(f"Failed subjects: {', '.join(failed_subjects)}")
+                group_logger.debug(f"Failed subjects: {', '.join(failed_subjects)}")
 
         # Always run comprehensive group analysis if we have successful analyses (unless --no-compare is specified)
         if len(successful_dirs) >= 1 and not args.no_compare:
+            # Log group comparison start for summary
+            if args.quiet:
+                print("├─ Group comparison: Starting...")
+            
+            # Track timing for group comparison
+            group_start_time = time.time()
+            
             analysis_dirs = collect_analysis_paths(successful_dirs)
             if analysis_dirs:
                 final_group_dir = run_comprehensive_group_analysis(analysis_dirs, project_name)
                 
+                # Calculate group comparison duration
+                group_duration = int(time.time() - group_start_time)
+                group_duration_str = format_duration(group_duration)
+                
+                # Log group comparison completion for summary
+                if args.quiet:
+                    print(f"├─ Group comparison: ✓ Complete ({len(analysis_dirs)} subjects processed, {group_duration_str})")
+                
                 if group_logger:
-                    group_logger.info(f"Group comparison completed. Output directory: {final_group_dir}")
+                    group_logger.debug(f"Group comparison completed. Output directory: {final_group_dir}")
                 
                 # Results are comprehensively logged, no need for separate summary files
             else:
                 if group_logger:
-                    group_logger.warning("No valid analysis directories found for group comparison.")
+                    group_logger.debug("No valid analysis directories found for group comparison.")
         elif args.no_compare:
             if group_logger:
-                group_logger.info("Group comparison skipped (--no-compare flag specified).")
+                group_logger.debug("Group comparison skipped (--no-compare flag specified).")
         else:
             if group_logger:
-                group_logger.warning("No successful analyses to compare.")
+                group_logger.debug("No successful analyses to compare.")
+
+        # Complete group analysis summary logging
+        if args.quiet:
+            output_path = ""
+            if len(successful_dirs) >= 1 and not args.no_compare and 'analysis_dirs' in locals():
+                output_path = final_group_dir if 'final_group_dir' in locals() else ""
+            log_group_analysis_complete(len(successful_dirs), len(args.subject), output_path)
 
         if group_logger:
-            group_logger.info("\n>>> Group analysis complete.")
+            group_logger.debug("\n>>> Group analysis complete.")
             if len(successful_dirs) >= 1 and not args.no_compare:
-                group_logger.info(f"Comprehensive group results are available in the centralized location.")
-                group_logger.info("")  # Empty line for spacing
+                group_logger.debug(f"Comprehensive group results are available in the centralized location.")
+                group_logger.debug("")  # Empty line for spacing
             elif args.no_compare:
-                group_logger.info(f"Group comparison was skipped. Individual subject results are in their respective directories.\n")
+                group_logger.debug(f"Group comparison was skipped. Individual subject results are in their respective directories.\n")
             else:
-                group_logger.info("No successful analyses completed.\n")
+                group_logger.debug("No successful analyses completed.\n")
 
     except Exception as e:
         if group_logger:

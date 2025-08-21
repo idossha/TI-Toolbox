@@ -22,7 +22,15 @@ import datetime
 
 from PyQt5 import QtWidgets, QtCore, QtGui
 from confirmation_dialog import ConfirmationDialog
-from utils import confirm_overwrite
+try:
+    from .utils import confirm_overwrite, is_verbose_message, is_important_message
+except ImportError:
+    # Fallback for when running as standalone script
+    import os
+    import sys
+    gui_dir = os.path.dirname(os.path.abspath(__file__))
+    sys.path.insert(0, gui_dir)
+    from utils import confirm_overwrite, is_verbose_message, is_important_message
 
 # Add the utils directory to the path
 utils_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'utils')
@@ -53,6 +61,9 @@ class PreProcessThread(QtCore.QThread):
         self.env = env or os.environ.copy()
         self.process = None
         self.terminated = False
+        self.last_step = "initialization"  # Track last successful step
+        self.has_failures = False  # Track if any subjects failed
+        self.expecting_failed_subjects = False  # Track when we're expecting failed subject list
         
     def run(self):
         """Run the pre-processing command in a separate thread."""
@@ -88,7 +99,57 @@ class PreProcessThread(QtCore.QThread):
                 if line:
                     # Determine message type based on content
                     line_stripped = line.strip()
-                    if any(keyword in line_stripped.lower() for keyword in ['error', 'failed', 'critical']):
+                    
+                    # Track the last successful step and detect failures for better error reporting
+                    if 'Starting processing for' in line_stripped:
+                        self.last_step = "processing initialization"
+                    elif 'Starting DICOM to NIfTI conversion' in line_stripped:
+                        self.last_step = "DICOM to NIfTI conversion"
+                    elif 'DICOM conversion completed' in line_stripped:
+                        self.last_step = "DICOM conversion completed"
+                    elif 'Starting SimNIBS charm' in line_stripped:
+                        self.last_step = "SimNIBS charm processing"
+                    elif 'SimNIBS charm completed' in line_stripped:
+                        self.last_step = "SimNIBS charm completed"
+                    elif 'Starting FreeSurfer recon-all' in line_stripped or 'Running FreeSurfer recon-all' in line_stripped:
+                        self.last_step = "FreeSurfer recon-all processing"
+                    elif 'FreeSurfer recon-all completed' in line_stripped:
+                        self.last_step = "FreeSurfer recon-all completed"
+                    elif 'Starting skull bone analysis' in line_stripped:
+                        self.last_step = "skull bone analysis"
+                    elif 'Skull bone analysis completed' in line_stripped or 'Bone analysis: ✓ Complete' in line_stripped:
+                        self.last_step = "skull bone analysis completed"
+                    elif 'Atlas' in line_stripped and '✓ Complete' in line_stripped:
+                        self.last_step = "atlas segmentation completed"
+                    
+                    # Detect actual failures from the shell scripts
+                    elif 'Warning:' in line_stripped and 'failed for subject' in line_stripped:
+                        self.has_failures = True
+                    elif 'The following subjects had failures:' in line_stripped:
+                        self.has_failures = True
+                        self.expecting_failed_subjects = True  # Flag to expect subject list next
+                    elif hasattr(self, 'expecting_failed_subjects') and self.expecting_failed_subjects:
+                        # Check if this line is a simple subject ID (part of the failed subjects list)
+                        if len(line_stripped) <= 6 and line_stripped.isalnum():
+                            # This is likely a failed subject ID, ensure it's shown as important
+                            message_type = 'warning'  # Mark as warning so it gets shown
+                        elif 'Please check the logs' in line_stripped:
+                            self.expecting_failed_subjects = False  # End of failed subjects list
+                    
+                    # Simplified error detection - only flag critical system-level errors
+                    # Let the process return code handle actual preprocessing failures
+                    # First check if it's a normal FreeSurfer computational message
+                    is_freesurfer_computational = any(pattern in line_stripped.upper() for pattern in [
+                        'DT:', 'RMS RADIAL ERROR=', 'AVGS=', 'FINAL DISTANCE ERROR',
+                        'DISTANCE ERROR %', '/300:', 'SURFACE RECONSTRUCTION',
+                        'IFLAG=', 'LINE SEARCH', 'MCSRCH', 'QUASINEWTONEMA'
+                    ])
+                    
+                    if not is_freesurfer_computational and any(keyword in line_stripped.lower() for keyword in [
+                        'segmentation fault', 'bus error', 'killed', 'aborted',
+                        'illegal instruction', 'permission denied', 'no such file or directory',
+                        'command not found', 'cannot execute', 'bad interpreter'
+                    ]):
                         message_type = 'error'
                     elif any(keyword in line_stripped.lower() for keyword in ['warning', 'warn']):
                         message_type = 'warning'
@@ -103,13 +164,42 @@ class PreProcessThread(QtCore.QThread):
                         
                     self.output_signal.emit(line_stripped, message_type)
             
-            # Check for errors
+            # Check for errors - rely primarily on process return code
             if not self.terminated:
                 returncode = self.process.wait()
                 if returncode != 0:
-                    self.error_signal.emit(f"Error in processing: Process returned non-zero exit code: {returncode}")
+                    # Provide specific error message based on last successful step and return code
+                    if self.last_step.endswith("completed"):
+                        # If last step was completed, the error occurred in the next step
+                        error_msg = f"Preprocessing failed after {self.last_step}."
+                    else:
+                        # Error occurred during the current step
+                        error_msg = f"Preprocessing failed during {self.last_step}."
+                    
+                    # Add return code interpretation
+                    if returncode == 1:
+                        error_msg += f" Check the output above for specific error details."
+                    elif returncode == 2:
+                        error_msg += f" Invalid arguments or configuration error."
+                    elif returncode == 126:
+                        error_msg += f" Permission denied or command not executable."
+                    elif returncode == 127:
+                        error_msg += f" Command not found or missing dependency."
+                    elif returncode == 130:
+                        error_msg += f" Process interrupted by user (Ctrl+C)."
+                    elif returncode < 0:
+                        error_msg += f" Process terminated by signal {abs(returncode)}."
+                    else:
+                        error_msg += f" Process returned exit code {returncode}."
+                    
+                    self.error_signal.emit(error_msg)
                 else:
-                    self.output_signal.emit(f"Successfully completed processing for all subjects", 'success')
+                    # Only show success message if no failures were detected and in debug mode
+                    if not self.has_failures:
+                        # Only show in debug mode - summary system handles completion messages
+                        pass
+                    else:
+                        self.output_signal.emit(f"Pre-processing completed with failures. Check the output above for details.", 'warning')
                 
         except Exception as e:
             self.error_signal.emit(f"Error running pre-processing: {str(e)}")
@@ -158,6 +248,16 @@ class PreProcessTab(QtWidgets.QWidget):
         self.processing_running = False
         self.processing_thread = None
         self.report_generators = {}  # Store report generators for each subject
+        # Initialize debug mode (default to False)
+        self.debug_mode = False
+        # Initialize summary mode state and timers for non-debug summaries
+        self.SUMMARY_MODE = True
+        self.PROC_START_TIME = None
+        self.STEP_START_TIMES = {}
+        self._preproc_had_failures = False
+        self._summary_started = False
+        self._summary_finished = False
+        self._last_plain_output_line = None
         self.setup_ui()
         
     def setup_ui(self):
@@ -414,10 +514,45 @@ class PreProcessTab(QtWidgets.QWidget):
             }
         """)
         
+        # Add debug mode checkbox next to console buttons
+        self.debug_mode_checkbox = QtWidgets.QCheckBox("Debug Mode")
+        self.debug_mode_checkbox.setChecked(self.debug_mode)
+        self.debug_mode_checkbox.setToolTip(
+            "Toggle debug mode:\n"
+            "• ON: Show all detailed logging information\n"
+            "• OFF: Show only key operational steps"
+        )
+        self.debug_mode_checkbox.toggled.connect(self.set_debug_mode)
+        
+        # Style the debug mode checkbox
+        self.debug_mode_checkbox.setStyleSheet("""
+            QCheckBox {
+                font-weight: bold;
+                color: #333333;
+                padding: 5px;
+                margin-left: 10px;
+            }
+            QCheckBox::indicator {
+                width: 16px;
+                height: 16px;
+            }
+            QCheckBox::indicator:unchecked {
+                border: 2px solid #cccccc;
+                background-color: white;
+                border-radius: 3px;
+            }
+            QCheckBox::indicator:checked {
+                border: 2px solid #4CAF50;
+                background-color: #4CAF50;
+                border-radius: 3px;
+            }
+        """)
+        
         # Add buttons to console buttons layout in the desired order
         console_buttons_layout.addWidget(self.run_btn)
         console_buttons_layout.addWidget(self.stop_btn)
         console_buttons_layout.addWidget(clear_btn)
+        console_buttons_layout.addWidget(self.debug_mode_checkbox)
         
         # Add console buttons layout to header layout
         header_layout.addLayout(console_buttons_layout)
@@ -527,6 +662,7 @@ class PreProcessTab(QtWidgets.QWidget):
         self.parallel_cb.setEnabled(not is_processing and self.run_recon_cb.isChecked())
         self.create_m2m_cb.setEnabled(not is_processing)
         self.create_atlas_cb.setEnabled(not is_processing)
+        self.run_bone_analyzer_cb.setEnabled(not is_processing)
         self.quiet_cb.setEnabled(not is_processing)
         
         # Update status label
@@ -618,12 +754,12 @@ class PreProcessTab(QtWidgets.QWidget):
 
         # Show confirmation dialog
         details = (f"This will process {len(selected_subjects)} subject(s) with the following options:\n\n" +
-                  f"• Convert DICOM: {'Yes (auto-detects T1w/T2w)' if self.convert_dicom_cb.isChecked() else 'No'}\n" +
-                  f"• Run recon-all: {'Yes' if self.run_recon_cb.isChecked() else 'No'}\n" +
-                  f"• Parallel processing: {'Yes' if self.parallel_cb.isChecked() else 'No'}\n" +
-                  f"• Create m2m folder: {'Yes' if self.create_m2m_cb.isChecked() else 'No'}\n" +
-                  f"• Create atlas segmentation: {'Yes' if self.create_atlas_cb.isChecked() else 'No'}\n" +
-                  f"• Quiet mode: {'Yes' if self.quiet_cb.isChecked() else 'No'}")
+                  f"- Convert DICOM: {'Yes (auto-detects T1w/T2w)' if self.convert_dicom_cb.isChecked() else 'No'}\n" +
+                  f"- Run recon-all: {'Yes' if self.run_recon_cb.isChecked() else 'No'}\n" +
+                  f"- Parallel processing: {'Yes' if self.parallel_cb.isChecked() else 'No'}\n" +
+                  f"- Create m2m folder: {'Yes' if self.create_m2m_cb.isChecked() else 'No'}\n" +
+                  f"- Create atlas segmentation: {'Yes' if self.create_atlas_cb.isChecked() else 'No'}\n" +
+                  f"- Quiet mode: {'Yes (overridden by debug mode)' if self.quiet_cb.isChecked() and self.debug_mode else 'Yes' if self.quiet_cb.isChecked() else 'No'}")
         
         if not ConfirmationDialog.confirm(
             self,
@@ -663,6 +799,9 @@ class PreProcessTab(QtWidgets.QWidget):
         env['QUIET'] = str(self.quiet_cb.isChecked()).lower()
         env['RUN_BONE_ANALYZER'] = str(self.run_bone_analyzer_cb.isChecked()).lower()
         
+        # Pass debug mode setting to control summary output
+        env['DEBUG_MODE'] = 'true' if self.debug_mode else 'false'
+        
         # Build command exactly like CLI does - subject directories first, then flags
         script_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         cmd = [os.path.join(script_dir, 'pre-process', 'structural.sh')]
@@ -686,21 +825,24 @@ class PreProcessTab(QtWidgets.QWidget):
         if self.create_m2m_cb.isChecked():
             cmd.append("--create-m2m")
 
-        if self.quiet_cb.isChecked():
+        # Only add --quiet flag when NOT in debug mode
+        # Debug mode should always show detailed output
+        if self.quiet_cb.isChecked() and not self.debug_mode:
             cmd.append("--quiet")
         
-        # Debug output
-        self.update_output(f"Running pre-processing from GUI", 'info')
-        self.update_output(f"Command: {' '.join(cmd)}", 'info')
-        self.update_output(f"Options:", 'info')
-        self.update_output(f"- Subjects: {', '.join(selected_subjects)}", 'info')
-        self.update_output(f"- Convert DICOM: {env['CONVERT_DICOM']}", 'info')
-        self.update_output(f"- Run recon-all: {env['RUN_RECON']}", 'info')
-        self.update_output(f"- Parallel processing: {env['PARALLEL_RECON']}", 'info')
-        self.update_output(f"- Create m2m folder: {env['CREATE_M2M']}", 'info')
-        self.update_output(f"- Create atlas segmentation: {str(self.create_atlas_cb.isChecked()).lower()}", 'info')
-        self.update_output(f"- Run bone analyzer: {env['RUN_BONE_ANALYZER']}", 'info')
-        self.update_output(f"- Quiet mode: {env['QUIET']}", 'info')
+        # Debug output (only show in debug mode)
+        self.update_output(f"Running pre-processing from GUI", 'debug')
+        self.update_output(f"Command: {' '.join(cmd)}", 'debug')
+        self.update_output(f"Options:", 'debug')
+        self.update_output(f"- Subjects: {', '.join(selected_subjects)}", 'debug')
+        self.update_output(f"- Convert DICOM: {env['CONVERT_DICOM']}", 'debug')
+        self.update_output(f"- Run recon-all: {env['RUN_RECON']}", 'debug')
+        self.update_output(f"- Parallel processing: {env['PARALLEL_RECON']}", 'debug')
+        self.update_output(f"- Create m2m folder: {env['CREATE_M2M']}", 'debug')
+        self.update_output(f"- Create atlas segmentation: {str(self.create_atlas_cb.isChecked()).lower()}", 'debug')
+        self.update_output(f"- Run bone analyzer: {env['RUN_BONE_ANALYZER']}", 'debug')
+        self.update_output(f"- Quiet mode: {env['QUIET']}", 'debug')
+        self.update_output(f"- Debug mode: {env['DEBUG_MODE']}", 'debug')
         
         # Create and start the thread
         self.processing_thread = PreProcessThread(cmd, env)
@@ -712,7 +854,6 @@ class PreProcessTab(QtWidgets.QWidget):
     def preprocessing_finished(self):
         """Handle the completion of the preprocessing process."""
         self.set_processing_state(False)
-        self.update_output("\nPreprocessing completed.", 'success')
         
         # Add completion information to reports
         selected_subjects = [item.text() for item in self.subject_list.selectedItems()]
@@ -747,8 +888,8 @@ class PreProcessTab(QtWidgets.QWidget):
         if self.create_atlas_cb.isChecked():
             selected_subjects = [item.text() for item in self.subject_list.selectedItems()]
             
-            self.update_output("\n=== Starting atlas segmentation ===", 'info')
-            self.update_output("Running atlas segmentation for all selected subjects and all atlases...", 'info')
+            self.update_output("\n=== Starting atlas segmentation ===", 'debug')
+            self.update_output("Running atlas segmentation for all selected subjects and all atlases...", 'debug')
             
             # Run atlas segmentation for each subject
             for subject_id in selected_subjects:
@@ -784,7 +925,7 @@ class PreProcessTab(QtWidgets.QWidget):
                         continue
                     
                     cmd = ["subject_atlas", "-m", m2m_folder, "-a", atlas, "-o", output_dir]
-                    self.update_output(f"[Atlas] {subject_id}: Running {' '.join(cmd)}", 'info')
+                    self.update_output(f"├─ Atlas {atlas}: Starting...", 'info')
                     try:
                         proc = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
                         if proc.returncode == 0:
@@ -795,7 +936,7 @@ class PreProcessTab(QtWidgets.QWidget):
                                     created_files.append(os.path.basename(expected_file))
                             
                             if len(created_files) == 2:
-                                self.update_output(f"[Atlas] {subject_id}: Atlas {atlas} segmentation complete. Created: {', '.join(created_files)}", 'success')
+                                self.update_output(f"├─ Atlas {atlas}: ✓ Complete", 'success')
                             else:
                                 self.update_output(f"[Atlas] {subject_id}: Atlas {atlas} segmentation completed but some files missing. Created: {', '.join(created_files)}", 'warning')
                         else:
@@ -823,7 +964,7 @@ class PreProcessTab(QtWidgets.QWidget):
 
         # If requested, run bone analyzer on each subject's segmentation
         if self.run_bone_analyzer_cb.isChecked():
-            self.update_output("\n=== Running skull bone analyzer ===", 'info')
+            self.update_output("\n=== Running skull bone analyzer ===", 'debug')
             selected_subjects = [item.text() for item in self.subject_list.selectedItems()]
             for subject_id in selected_subjects:
                 try:
@@ -837,10 +978,10 @@ class PreProcessTab(QtWidgets.QWidget):
                     out_dir = os.path.join(self.project_dir, "derivatives", "ti-toolbox", "bone_analysis", bids_subject_id)
                     os.makedirs(out_dir, exist_ok=True)
                     cmd_bone = [sys.executable, os.path.join(os.path.dirname(os.path.dirname(__file__)), 'pre-process', 'bone_analyzer.py'), label_nii, '-o', out_dir]
-                    self.update_output(f"[Bone] {subject_id}: Running {' '.join(cmd_bone)}", 'info')
+                    self.update_output(f"├─ Bone analysis: Starting...", 'info')
                     proc = subprocess.run(cmd_bone, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
                     if proc.returncode == 0:
-                        self.update_output(f"[Bone] {subject_id}: Bone analysis completed.", 'success')
+                        self.update_output(f"├─ Bone analysis: ✓ Complete", 'success')
                     else:
                         self.update_output(f"[Bone] {subject_id}: Bone analysis failed.\n{proc.stdout}", 'error')
                 except Exception as e:
@@ -869,38 +1010,43 @@ class PreProcessTab(QtWidgets.QWidget):
         if not self.report_generators:
             return
         
-        self.update_output("\n=== Generating preprocessing reports ===", 'info')
+        self.update_output("\n=== Generating preprocessing reports ===", 'debug')
         
         generated_reports = []
         failed_reports = []
         
         for subject_id, generator in self.report_generators.items():
             try:
-                self.update_output(f"Generating report for {subject_id}...", 'info')
+                self.update_output(f"Generating report for {subject_id}...", 'debug')
                 report_path = generator.generate_html_report()
                 generated_reports.append((subject_id, report_path))
-                self.update_output(f"✓ Report generated: {os.path.basename(report_path)}", 'success')
+                self.update_output(f"Report generated: {os.path.basename(report_path)}", 'debug')
             except Exception as e:
                 failed_reports.append((subject_id, str(e)))
-                self.update_output(f"✗ Failed to generate report for {subject_id}: {e}", 'error')
+                self.update_output(f"Failed to generate report for {subject_id}: {e}", 'error')
         
         # Summary of report generation
         if generated_reports:
             reports_dir = os.path.join(self.project_dir, "derivatives", "reports")
-            self.update_output(f"\n📊 Successfully generated {len(generated_reports)} preprocessing report(s)", 'success')
-            self.update_output(f"📁 Reports location: {reports_dir}", 'info')
+            self.update_output(f"\nSuccessfully generated {len(generated_reports)} preprocessing report(s)", 'debug')
+            self.update_output(f"Reports location: {reports_dir}", 'debug')
             
             for subject_id, report_path in generated_reports:
-                self.update_output(f"   • {os.path.basename(report_path)}", 'info')
+                self.update_output(f"   - {os.path.basename(report_path)}", 'debug')
             
-            self.update_output(f"\n💡 Open the HTML files in your web browser to view detailed preprocessing reports.", 'info')
+            self.update_output(f"\nOpen the HTML files in your web browser to view detailed preprocessing reports.", 'debug')
         
         if failed_reports:
-            self.update_output(f"\n❌ Failed to generate {len(failed_reports)} report(s):", 'error')
+            self.update_output(f"\nFailed to generate {len(failed_reports)} report(s):", 'error')
             for subject_id, error in failed_reports:
-                self.update_output(f"  • {subject_id}: {error}", 'error')
+                self.update_output(f"  - {subject_id}: {error}", 'error')
         
-        self.update_output("=== Report generation completed ===", 'info')
+        # Only show report generation message in debug mode (summary system handles this)
+        if self.debug_mode:
+            if generated_reports:
+                self.update_output("Report generation completed", 'success')
+            else:
+                self.update_output("Report generation completed", 'info')
     
 
     
@@ -908,27 +1054,55 @@ class PreProcessTab(QtWidgets.QWidget):
         """Update the console output with colored text."""
         if not text.strip():
             return
+        
+        # Filter messages based on debug mode
+        if not self.debug_mode:
+            # In non-debug mode, only show important messages
+            if not is_important_message(text, message_type, 'preprocess'):
+                return
+            # Debounce exact duplicates
+            if text == self._last_plain_output_line:
+                return
+            # Colorize summary lines: blue for starts, white for completes, green for final
+            lower = text.lower()
+            is_final = lower.startswith('└─') or 'completed successfully' in lower
+            # Treat "Beginning ..." and ": Starting..." as task starts
+            is_start = lower.startswith('beginning ') or ': starting' in lower
+            # Treat ✓ Complete, saved/results lines as completes
+            is_complete = ('✓ complete' in lower) or ('results available in:' in lower) or ('saved to' in lower)
+            color = '#55ff55' if is_final else ('#55aaff' if is_start else '#ffffff')
+            formatted_text = f'<span style="color: {color};">{text}</span>'
+            scrollbar = self.output_text.verticalScrollBar()
+            at_bottom = scrollbar.value() >= scrollbar.maximum() - 5
+            self.output_text.append(formatted_text)
+            if at_bottom:
+                self.output_text.ensureCursorVisible()
+            self._last_plain_output_line = text
+            QtWidgets.QApplication.processEvents()
+            return
             
-        # Format the output based on content type
-        if "Processing... Only the Stop button is available" in text:
-            formatted_text = f'<div style="background-color: #2a2a2a; padding: 10px; margin: 10px 0; border-radius: 5px;"><span style="color: #ffff55; font-weight: bold;">{text}</span></div>'
-        elif message_type == 'error' or "Error:" in text or "CRITICAL:" in text or "Failed" in text:
+        # Format the output based on message type from thread
+        if message_type == 'error':
             formatted_text = f'<span style="color: #ff5555;"><b>{text}</b></span>'
-        elif message_type == 'warning' or "Warning:" in text or "YELLOW" in text:
+        elif message_type == 'warning':
             formatted_text = f'<span style="color: #ffff55;">{text}</span>'
-        elif message_type == 'success' or "completed successfully" in text or "Successfully" in text or "completed." in text or "completed:" in text:
-            formatted_text = f'<span style="color: #55ff55;"><b>{text}</b></span>'
-        elif message_type == 'debug' or "DEBUG:" in text:
+        elif message_type == 'debug':
             formatted_text = f'<span style="color: #7f7f7f;">{text}</span>'
-        elif message_type == 'info' or "Executing:" in text or "Running" in text or "Command" in text:
+        elif message_type == 'command':
             formatted_text = f'<span style="color: #55aaff;">{text}</span>'
-        elif "Processing" in text or "Starting" in text:
+        elif message_type == 'success':
+            formatted_text = f'<span style="color: #55ff55;"><b>{text}</b></span>'
+        elif message_type == 'info':
             formatted_text = f'<span style="color: #55ffff;">{text}</span>'
-        elif text.strip().startswith("-"):
-            # Indented list items
-            formatted_text = f'<span style="color: #aaaaaa; margin-left: 20px;">  {text}</span>'
         else:
-            formatted_text = f'<span style="color: #ffffff;">{text}</span>'
+            # Fallback to content-based formatting for backward compatibility
+            if "Processing... Only the Stop button is available" in text:
+                formatted_text = f'<div style="background-color: #2a2a2a; padding: 10px; margin: 10px 0; border-radius: 5px;"><span style="color: #ffff55; font-weight: bold;">{text}</span></div>'
+            elif text.strip().startswith("-"):
+                # Indented list items
+                formatted_text = f'<span style="color: #aaaaaa; margin-left: 20px;">  {text}</span>'
+            else:
+                formatted_text = f'<span style="color: #ffffff;">{text}</span>'
         
         # Check if user is at the bottom of the console before appending
         scrollbar = self.output_text.verticalScrollBar()
@@ -942,6 +1116,20 @@ class PreProcessTab(QtWidgets.QWidget):
             self.output_text.ensureCursorVisible()
         
         QtWidgets.QApplication.processEvents()
+
+    # ------- Summary helpers -------
+    def _format_duration_plain(self, start_time):
+        if not start_time:
+            return '0s'
+        elapsed = time.time() - start_time
+        if elapsed < 60:
+            return f"{int(elapsed)}s"
+        return f"{int(elapsed // 60)}m {int(elapsed % 60)}s"
+
+    def set_debug_mode(self, debug_mode):
+        """Set debug mode for output filtering."""
+        self.debug_mode = debug_mode
+        self.SUMMARY_MODE = not debug_mode
 
     def select_all_subjects(self):
         """Select all subjects in the subject list."""

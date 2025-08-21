@@ -158,6 +158,13 @@ set_display_env() {
 allow_xhost() {
   echo "Allowing connections from XQuartz or X11..."
 
+  # Check if xhost command is available
+  if ! command -v xhost >/dev/null 2>&1; then
+    echo "Warning: xhost command not found. X11 forwarding may not work properly."
+    echo "For Windows/WSL users: Make sure you have an X server (like VcXsrv or Xming) running."
+    return 0
+  fi
+
   if [[ "$(uname -s)" == "Linux" ]]; then
     # Allow connections for Linux (only if xhost exists)
     if command -v xhost >/dev/null 2>&1; then
@@ -222,6 +229,7 @@ run_docker_compose() {
 
   # Stop and remove all containers when done
   docker compose -f "$SCRIPT_DIR/docker-compose.dev.yml" down
+
 
   # Revert X server access permissions (if xhost is available)
   if command -v xhost >/dev/null 2>&1; then

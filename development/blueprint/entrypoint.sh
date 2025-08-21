@@ -9,8 +9,8 @@ touch ~/.bashrc
 
 # Add environment setup to .bashrc
 {
-    echo "source \$FSLDIR/etc/fslconf/fsl.sh"
-    echo "source \$FREESURFER_HOME/SetUpFreeSurfer.sh"
+    echo "source \"\$FSLDIR/etc/fslconf/fsl.sh\""
+    echo "source \"\$FREESURFER_HOME/SetUpFreeSurfer.sh\""
     [ -f "/usr/local/fsl/lib/libstdc++.so.6" ] && echo 'export LD_PRELOAD=/usr/local/fsl/lib/libstdc++.so.6'
 } >> ~/.bashrc
 

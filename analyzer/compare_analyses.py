@@ -37,7 +37,7 @@ def setup_group_logger(project_name: str) -> logging.Logger:
         return group_logger
     
     # Create timestamped log directory
-    log_dir = os.path.join("/mnt", project_name, "derivatives", "logs", "group_analysis")
+    log_dir = os.path.join("/mnt", project_name, "derivatives", "ti-toolbox", "logs", "group_analysis")
     os.makedirs(log_dir, exist_ok=True)
     
     # Create timestamped group analysis log file
@@ -385,7 +385,7 @@ def _load_subject_data(analyses: list[str]) -> dict:
             group_logger.error(f"Error loading data from {analysis_path}: {str(e)}")
             continue
     
-    group_logger.info(f"Successfully loaded data from {len(analysis_results)} analyses")
+    group_logger.debug(f"Successfully loaded data from {len(analysis_results)} analyses")
     return analysis_results
 
 def _find_field_path_from_analysis(analysis_path: str, subject_id: str, montage_name: str) -> str:
@@ -837,7 +837,7 @@ def _write_summary_csv(stats_df: pd.DataFrame, output_path: str, region_name: st
     # Write CSV with proper formatting
     stats_df.to_csv(csv_path, index=False, float_format='%.6f')
     
-    group_logger.info(f"Enhanced ROI-specific summary CSV successfully written with {len(stats_df)} rows")
+    group_logger.debug(f"Enhanced ROI-specific summary CSV successfully written with {len(stats_df)} rows")
     return csv_path
 
 def _generate_comparison_plot(stats_df: pd.DataFrame, output_path: str, region_name: str = None) -> str:
@@ -1104,7 +1104,7 @@ def compare_analyses(analyses: list[str], output_dir: str,
                 'focality': avg_row['ROI_Focality'].iloc[0]
             }
         
-        group_logger.info("Analysis comparison completed successfully")
+        group_logger.debug("Analysis comparison completed successfully")
         group_logger.info(f"Generated files: {list(generated_files.keys())}")
         
         return summary_info
@@ -1243,7 +1243,7 @@ def average_nifti_images(nifti_paths: list[str], output_filename: str = "average
         nib.save(averaged_img, output_path)
         
         if group_logger:
-            group_logger.info(f"Successfully created averaged NIfTI image: {output_path}")
+            group_logger.debug(f"Successfully created averaged NIfTI image: {output_path}")
             group_logger.info(f"Output shape: {averaged_data.shape}, Mean value: {np.mean(averaged_data):.6f}")
         
         return output_path
@@ -1436,7 +1436,7 @@ def intersection_high_values_nifti(nifti_paths: list[str],
             value_range = f"{np.min(valid_values):.6f} to {np.max(valid_values):.6f}"
             mean_value = np.mean(valid_values)
             if group_logger:
-                group_logger.info(f"Successfully created intersection NIfTI: {output_path}")
+                group_logger.debug(f"Successfully created intersection NIfTI: {output_path}")
                 group_logger.info(f"Intersection statistics - voxels: {num_intersection_voxels}, range: {value_range}, mean: {mean_value:.6f}")
         else:
             if group_logger:
@@ -1892,7 +1892,7 @@ if __name__ == "__main__":
         if results:
             if group_logger:
                 group_logger.info("\n" + "="*60)
-                group_logger.info("ROI-SPECIFIC ANALYSIS COMPARISON COMPLETED SUCCESSFULLY")
+                group_logger.debug("ROI-SPECIFIC ANALYSIS COMPARISON COMPLETED SUCCESSFULLY")
                 group_logger.info("="*60)
                 group_logger.info(f"Total subjects analyzed: {results.get('total_subjects', 0)}")
                 group_logger.info(f"Montage: {results.get('montage_name', 'N/A')}")

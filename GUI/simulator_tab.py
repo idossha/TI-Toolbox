@@ -26,7 +26,15 @@ except ImportError:
     print("Warning: PyQt5 not available")
 
 from confirmation_dialog import ConfirmationDialog
-from utils import confirm_overwrite
+try:
+    from .utils import confirm_overwrite, is_verbose_message, is_important_message
+except ImportError:
+    # Fallback for when running as standalone script
+    import os
+    import sys
+    gui_dir = os.path.dirname(os.path.abspath(__file__))
+    sys.path.insert(0, gui_dir)
+    from utils import confirm_overwrite, is_verbose_message, is_important_message
 
 # Add the utils directory to the path
 import sys
@@ -46,6 +54,19 @@ except ImportError as e:
     def get_simulation_report_generator(*args, **kwargs):
         print("Warning: Report generation not available")
         return None
+
+# Utility: strip ANSI/VT100 escape sequences from text (e.g., "\x1b[0;32m")
+ANSI_ESCAPE_PATTERN = re.compile(r"\x1B\[[0-?]*[ -/]*[@-~]")
+
+def strip_ansi_codes(text: str) -> str:
+    """Remove ANSI color/control sequences from a string."""
+    if not text:
+        return text
+    # Remove standard CSI sequences
+    cleaned = ANSI_ESCAPE_PATTERN.sub('', text)
+    # Remove any stray ESC characters that might remain
+    cleaned = cleaned.replace('\x1b', '')
+    return cleaned
 
 class SimulationThread(QtCore.QThread):
     """Thread to run simulation in background to prevent GUI freezing."""
@@ -80,19 +101,31 @@ class SimulationThread(QtCore.QThread):
                     if self.terminated:
                         break
                     if line:
-                        # Detect message type based on content
-                        line_stripped = line.strip()
-                        if any(keyword in line_stripped.lower() for keyword in ['error:', 'critical:', 'failed', 'exception']):
+                        # Strip ANSI escape sequences and detect message type based on content
+                        raw_line = line.rstrip('\n')
+                        line_clean = strip_ansi_codes(raw_line)
+                        line_stripped = line_clean.strip()
+                        lowered = line_stripped.lower()
+                        # Detect error messages from bracketed message types (including timestamped format)
+                        # Format: [2025-08-18 18:32:19] [main-TI] [ERROR] Message...
+                        is_error_tag = (
+                            '[ERROR]' in line_stripped or 
+                            'ERROR:' in line_stripped
+                        )
+                        if is_error_tag:
                             message_type = 'error'
-                        elif any(keyword in line_stripped.lower() for keyword in ['warning:', 'warn']):
+                        elif ('[WARNING]' in line_stripped) or ('Warning:' in line_stripped):
                             message_type = 'warning'
-                        elif any(keyword in line_stripped.lower() for keyword in ['debug:']):
+                        elif '[INFO]' in line_stripped:
+                            message_type = 'info'
+                        elif '[DEBUG]' in line_stripped:
                             message_type = 'debug'
-                        elif any(keyword in line_stripped.lower() for keyword in ['executing:', 'running', 'command']):
+                        elif any(keyword in lowered for keyword in ['executing:', 'running', 'command']):
                             message_type = 'command'
-                        elif any(keyword in line_stripped.lower() for keyword in ['completed successfully', 'completed.', 'successfully', 'completed:']):
+                        # Be conservative about success: allow explicit [SUCCESS] or clear non-debug "completed successfully"
+                        elif line_stripped.startswith('[SUCCESS]') or ('completed successfully' in lowered and 'debug' not in lowered):
                             message_type = 'success'
-                        elif any(keyword in line_stripped.lower() for keyword in ['processing', 'starting']):
+                        elif any(keyword in lowered for keyword in ['processing', 'starting']):
                             message_type = 'info'
                         else:
                             message_type = 'default'
@@ -103,7 +136,7 @@ class SimulationThread(QtCore.QThread):
             if not self.terminated:
                 returncode = self.process.wait()
                 if returncode != 0:
-                    self.error_signal.emit("Process returned non-zero exit code")
+                    self.error_signal.emit(f"Process returned non-zero exit code ({returncode})")
                     
         except Exception as e:
             self.error_signal.emit(f"Error running simulation: {str(e)}")
@@ -317,6 +350,15 @@ class SimulatorTab(QtWidgets.QWidget):
         self.custom_conductivities = {}  # keys: int tissue number, values: float
         self.report_generator = None
         self.simulation_session_id = None
+        self._had_errors_during_run = False
+        self._aborting_due_to_error = False
+        self._current_run_subjects = []
+        self._current_run_is_montage = True
+        self._current_run_montages = []
+        self._run_start_time = None
+        self._project_dir_path_current = None
+        # Initialize debug mode (default to False)
+        self.debug_mode = False
         self.setup_ui()
         
         # Initialize with available subjects and montages
@@ -743,10 +785,45 @@ class SimulatorTab(QtWidgets.QWidget):
             }
         """)
         
+        # Add debug mode checkbox next to console buttons
+        self.debug_mode_checkbox = QtWidgets.QCheckBox("Debug Mode")
+        self.debug_mode_checkbox.setChecked(self.debug_mode)
+        self.debug_mode_checkbox.setToolTip(
+            "Toggle debug mode:\n"
+            "• ON: Show all detailed logging information\n"
+            "• OFF: Show only key operational steps"
+        )
+        self.debug_mode_checkbox.toggled.connect(self.set_debug_mode)
+        
+        # Style the debug mode checkbox
+        self.debug_mode_checkbox.setStyleSheet("""
+            QCheckBox {
+                font-weight: bold;
+                color: #333333;
+                padding: 5px;
+                margin-left: 10px;
+            }
+            QCheckBox::indicator {
+                width: 16px;
+                height: 16px;
+            }
+            QCheckBox::indicator:unchecked {
+                border: 2px solid #cccccc;
+                background-color: white;
+                border-radius: 3px;
+            }
+            QCheckBox::indicator:checked {
+                border: 2px solid #4CAF50;
+                background-color: #4CAF50;
+                border-radius: 3px;
+            }
+        """)
+        
         # Add buttons to console buttons layout in the desired order
         console_buttons_layout.addWidget(self.run_btn)
         console_buttons_layout.addWidget(self.stop_btn)
         console_buttons_layout.addWidget(clear_btn)
+        console_buttons_layout.addWidget(self.debug_mode_checkbox)
         
         # Add console buttons layout to header layout
         header_layout.addLayout(console_buttons_layout)
@@ -1456,12 +1533,17 @@ class SimulatorTab(QtWidgets.QWidget):
                 '--run-direct'
             ]
             
+            
+            
             # Set environment variables for simulator.sh (match CLI script expectations)
             env['SUBJECT_CHOICES'] = ','.join(selected_subjects)  # CLI expects SUBJECT_CHOICES
             env['SIM_TYPE'] = 'TI'  # CLI expects SIM_TYPE (always TI for this GUI)
             env['CONDUCTIVITY'] = conductivity
             env['SIM_MODE'] = sim_mode
             env['EEG_NET'] = eeg_net
+            
+            # Pass debug mode setting to control summary output
+            env['DEBUG_MODE'] = 'true' if self.debug_mode else 'false'
             
             # For montage mode with multiple subjects, provide EEG_NETS (comma-separated)
             if is_montage_mode:
@@ -1512,6 +1594,13 @@ class SimulatorTab(QtWidgets.QWidget):
                 # Store temp files for cleanup later
                 self.temp_flex_files = temp_files
             
+            # Persist run context for cleanup/termination decisions
+            self._current_run_subjects = selected_subjects[:]
+            self._current_run_is_montage = is_montage_mode
+            self._current_run_montages = selected_montages[:] if is_montage_mode else [cfg['montage']['name'] for cfg in flex_montage_configs]
+            self._run_start_time = time.time()
+            self._project_dir_path_current = f"/mnt/{os.environ.get('PROJECT_DIR_NAME', 'BIDS_new')}"
+
             # Display simulation configuration
             self.update_output("--- SIMULATION CONFIGURATION ---")
             self.update_output(f"Subjects: {env['SUBJECT_CHOICES']}")
@@ -1620,8 +1709,9 @@ class SimulatorTab(QtWidgets.QWidget):
             
             # Create and start the thread
             self.simulation_process = SimulationThread(cmd, env)
-            self.simulation_process.output_signal.connect(self.update_output)
-            self.simulation_process.error_signal.connect(lambda msg: self.update_output(msg, 'error'))
+            self._had_errors_during_run = False
+            self.simulation_process.output_signal.connect(self._handle_thread_output)
+            self.simulation_process.error_signal.connect(lambda msg: self._handle_thread_output(msg, 'error'))
             self.simulation_process.finished.connect(self.simulation_finished)
             self.simulation_process.start()
             
@@ -1635,11 +1725,25 @@ class SimulatorTab(QtWidgets.QWidget):
         if hasattr(self, 'parent') and self.parent:
             self.parent.set_tab_busy(self, False)
         
-        self.output_console.append('<div style="margin: 10px 0;"><span style="color: #55ff55; font-size: 16px; font-weight: bold;">--- SIMULATION PROCESS COMPLETED ---</span></div>')
-        self.output_console.append('<div style="border-bottom: 1px solid #555; margin-bottom: 10px;"></div>')
+        if self.debug_mode:
+            if self._had_errors_during_run:
+                self.output_console.append('<div style="margin: 10px 0;"><span style="color: #ff5555; font-size: 16px; font-weight: bold;">--- SIMULATION PROCESS COMPLETED WITH ERRORS ---</span></div>')
+                if hasattr(self, '_first_error_line') and getattr(self, '_first_error_line', None):
+                    safe_err = strip_ansi_codes(self._first_error_line)
+                    self.update_output(f"First error detected: {safe_err}", 'error')
+            else:
+                self.output_console.append('<div style="margin: 10px 0;"><span style="color: #55ff55; font-size: 16px; font-weight: bold;">--- SIMULATION PROCESS COMPLETED ---</span></div>')
+            self.output_console.append('<div style="border-bottom: 1px solid #555; margin-bottom: 10px;"></div>')
         
-        # Automatically generate simulation report
-        self.auto_generate_simulation_report()
+        # Only auto-generate simulation report if there were no errors; else cleanup partial outputs and inform user
+        if not self._had_errors_during_run:
+            self.auto_generate_simulation_report()
+        else:
+            self.update_output("[INFO] Skipping automatic report generation due to errors during simulation.", 'warning')
+            try:
+                self._cleanup_partial_outputs()
+            except Exception as cleanup_exc:
+                self.update_output(f"[WARNING] Cleanup encountered an issue: {cleanup_exc}", 'warning')
         
         # Clean up temporary completion files
         self.cleanup_temporary_files()
@@ -1660,6 +1764,7 @@ class SimulatorTab(QtWidgets.QWidget):
             delattr(self, 'temp_flex_files')
         
         self.simulation_running = False
+        self._aborting_due_to_error = False
         self.run_btn.setEnabled(True)
         self.run_btn.setText("Run Simulation")
         self.stop_btn.setEnabled(False)
@@ -1818,12 +1923,7 @@ class SimulatorTab(QtWidgets.QWidget):
                 self.update_output(f"[INFO] Reports saved in: {reports_dir}")
                 
                 # Open the reports directory instead of individual files
-                import webbrowser
-                try:
-                    webbrowser.open('file://' + os.path.abspath(reports_dir))
-                    self.update_output("[INFO] Reports directory opened in file browser")
-                except Exception as e:
-                    self.update_output(f"[ERROR] Reports generated but couldn't open directory: {str(e)}")
+                self._open_directory_safely(reports_dir)
 
         except Exception as e:
             self.update_output(f"[ERROR] Error generating simulation reports: {str(e)}", 'error')
@@ -1980,6 +2080,29 @@ class SimulatorTab(QtWidgets.QWidget):
         """Update the console output with colored text."""
         if not text.strip():
             return
+
+        # Strip ANSI escape sequences before any formatting
+        text = strip_ansi_codes(text)
+        
+        # Filter messages based on debug mode
+        if not self.debug_mode:
+            # In non-debug mode, only show important messages
+            if not is_important_message(text, message_type, 'simulator'):
+                return
+            # Colorize summary lines: blue for starts, white for completes, green for final
+            lower = text.lower()
+            is_final = lower.startswith('└─') or 'completed successfully' in lower
+            is_start = lower.startswith('beginning ') or ': starting' in lower
+            is_complete = ('✓ complete' in lower) or ('results saved to' in lower) or ('saved to' in lower)
+            color = '#55ff55' if is_final else ('#55aaff' if is_start else '#ffffff')
+            formatted_text = f'<span style="color: {color};">{text}</span>'
+            scrollbar = self.output_console.verticalScrollBar()
+            at_bottom = scrollbar.value() >= scrollbar.maximum() - 5
+            self.output_console.append(formatted_text)
+            if at_bottom:
+                self.output_console.ensureCursorVisible()
+            QtWidgets.QApplication.processEvents()
+            return
             
         # Format the output based on message type from thread
         if message_type == 'error':
@@ -2016,6 +2139,162 @@ class SimulatorTab(QtWidgets.QWidget):
             self.output_console.ensureCursorVisible()
         
         QtWidgets.QApplication.processEvents()
+
+    def set_debug_mode(self, debug_mode):
+        """Set debug mode for output filtering."""
+        self.debug_mode = debug_mode
+
+    def _open_file_safely(self, file_path):
+        """Safely open a file in the default application, with fallbacks for different environments."""
+        import webbrowser
+        import platform
+        
+        try:
+            # First try webbrowser (works on most systems)
+            webbrowser.open('file://' + os.path.abspath(file_path))
+            self.update_output("[INFO] File opened in default application")
+        except Exception as e:
+            # Fallback: try platform-specific commands
+            try:
+                system = platform.system().lower()
+                if system == "linux":
+                    # Try xdg-open first, then common browsers
+                    try:
+                        subprocess.run(['xdg-open', file_path], check=True)
+                        self.update_output("[INFO] File opened with xdg-open")
+                    except (subprocess.CalledProcessError, FileNotFoundError):
+                        # Try common browsers as fallback
+                        browsers = ['firefox', 'chromium', 'google-chrome', 'chrome']
+                        opened = False
+                        for browser in browsers:
+                            try:
+                                subprocess.run([browser, file_path], check=True)
+                                self.update_output(f"[INFO] File opened with {browser}")
+                                opened = True
+                                break
+                            except (subprocess.CalledProcessError, FileNotFoundError):
+                                continue
+                        if not opened:
+                            self.update_output(f"[WARNING] File generated but couldn't open automatically: {file_path}")
+                elif system == "darwin":  # macOS
+                    subprocess.run(['open', file_path], check=True)
+                    self.update_output("[INFO] File opened with macOS open command")
+                elif system == "windows":
+                    os.startfile(file_path)
+                    self.update_output("[INFO] File opened with Windows startfile")
+                else:
+                    self.update_output(f"[WARNING] File generated but couldn't open automatically: {file_path}")
+            except Exception as e2:
+                self.update_output(f"[WARNING] File generated but couldn't open automatically: {file_path}")
+                self.update_output(f"[DEBUG] Open error: {str(e2)}")
+
+    def _open_directory_safely(self, dir_path):
+        """Safely open a directory in the file manager, with fallbacks for different environments."""
+        import platform
+        
+        try:
+            system = platform.system().lower()
+            if system == "linux":
+                # Try xdg-open first, then common file managers
+                try:
+                    subprocess.run(['xdg-open', dir_path], check=True)
+                    self.update_output("[INFO] Directory opened with xdg-open")
+                except (subprocess.CalledProcessError, FileNotFoundError):
+                    # Try common file managers as fallback
+                    file_managers = ['nautilus', 'dolphin', 'thunar', 'pcmanfm', 'nemo']
+                    opened = False
+                    for fm in file_managers:
+                        try:
+                            subprocess.run([fm, dir_path], check=True)
+                            self.update_output(f"[INFO] Directory opened with {fm}")
+                            opened = True
+                            break
+                        except (subprocess.CalledProcessError, FileNotFoundError):
+                            continue
+                    if not opened:
+                        self.update_output(f"[WARNING] Directory available but couldn't open file manager: {dir_path}")
+            elif system == "darwin":  # macOS
+                subprocess.run(['open', dir_path], check=True)
+                self.update_output("[INFO] Directory opened with macOS open command")
+            elif system == "windows":
+                os.startfile(dir_path)
+                self.update_output("[INFO] Directory opened with Windows Explorer")
+            else:
+                self.update_output(f"[WARNING] Directory available but couldn't open file manager: {dir_path}")
+        except Exception as e:
+            self.update_output(f"[WARNING] Directory available but couldn't open file manager: {dir_path}")
+            self.update_output(f"[DEBUG] Open error: {str(e)}")
+
+    def _handle_thread_output(self, text, message_type='default'):
+        """Internal handler to track errors and forward to UI update."""
+        if message_type == 'error':
+            # Allow process to continue, but mark that there were errors
+            self._had_errors_during_run = True
+            # Remember the first triggering error line for reporting
+            if not hasattr(self, '_first_error_line') or not getattr(self, '_first_error_line', None):
+                self._first_error_line = text
+            # Abort immediately on first error
+            if not self._aborting_due_to_error and getattr(self, 'simulation_process', None):
+                self._aborting_due_to_error = True
+                self.update_output("[ERROR] Error detected. Aborting simulation and cleaning up partial outputs...", 'error')
+                # Terminate the running process
+                try:
+                    self.simulation_process.terminate_process()
+                except Exception:
+                    pass
+                # Perform cleanup of outputs generated so far
+                try:
+                    self._cleanup_partial_outputs()
+                except Exception as cleanup_exc:
+                    self.update_output(f"[WARNING] Cleanup encountered an issue: {cleanup_exc}", 'warning')
+        self.update_output(text, message_type)
+
+    def _cleanup_partial_outputs(self):
+        """Remove files/directories created during a failed simulation run."""
+        project_dir = self._project_dir_path_current or f"/mnt/{os.environ.get('PROJECT_DIR_NAME', 'BIDS_new')}"
+        for subject_id in (self._current_run_subjects or []):
+            sub_root = os.path.join(project_dir, 'derivatives', 'SimNIBS', f'sub-{subject_id}')
+            sim_root = os.path.join(sub_root, 'Simulations')
+            # Remove tmp directory entirely
+            tmp_dir = os.path.join(sim_root, 'tmp')
+            if os.path.isdir(tmp_dir):
+                try:
+                    shutil.rmtree(tmp_dir, ignore_errors=True)
+                    self.update_output(f"[CLEANUP] Removed temporary directory: {tmp_dir}")
+                except Exception:
+                    pass
+            # Remove montage-specific output directories that may have been created
+            for montage_name in (self._current_run_montages or []):
+                montage_dir = os.path.join(sim_root, montage_name)
+                if os.path.isdir(montage_dir):
+                    try:
+                        shutil.rmtree(montage_dir, ignore_errors=True)
+                        self.update_output(f"[CLEANUP] Removed partial montage outputs: {montage_dir}")
+                    except Exception:
+                        pass
+            # Mark log files created during this failed run as errored by renaming them
+            logs_dir = os.path.join(project_dir, 'derivatives', 'ti-toolbox', 'logs', f'sub-{subject_id}')
+            if os.path.isdir(logs_dir):
+                try:
+                    for fname in list(os.listdir(logs_dir)):
+                        fpath = os.path.join(logs_dir, fname)
+                        # Heuristic: rename simulator logs created after run start
+                        try:
+                            if os.path.isfile(fpath) and fname.startswith('simulator_') and not fname.startswith('simulator_errored_'):
+                                if self._run_start_time is None or os.path.getmtime(fpath) >= self._run_start_time - 1:
+                                    suffix = fname[len('simulator_'):]
+                                    new_name = f"simulator_errored_{suffix}"
+                                    new_path = os.path.join(logs_dir, new_name)
+                                    try:
+                                        os.rename(fpath, new_path)
+                                        self.update_output(f"[CLEANUP] Marked errored log: {fname} -> {new_name}")
+                                    except Exception:
+                                        # If rename fails (e.g., file locked), skip silently
+                                        pass
+                        except Exception:
+                            continue
+                except Exception:
+                    pass
 
     def show_add_montage_dialog(self):
         """Show the dialog for adding a new montage."""
@@ -2466,12 +2745,7 @@ class SimulatorTab(QtWidgets.QWidget):
             self.update_output(f"[SUCCESS] Simulation report generated: {report_path}")
             
             # Open report in browser
-            import webbrowser
-            try:
-                webbrowser.open('file://' + os.path.abspath(report_path))
-                self.update_output("[INFO] Report opened in web browser")
-            except Exception as e:
-                self.update_output(f"[ERROR] Report generated but couldn't open browser: {str(e)}")
+            self._open_file_safely(report_path)
             
         except Exception as e:
             self.update_output(f"[ERROR] Error in simulation completion: {str(e)}")

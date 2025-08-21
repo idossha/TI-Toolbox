@@ -748,7 +748,7 @@ class MeshVisualizer(Visualizer):
     def visualize_cortex_roi(self, gm_surf, roi_mask, target_region, field_values, max_value, output_dir=None, surface_mesh_path=None, normal_mesh_path=None):
         """Generate 3D visualization for a region and save it directly to the specified directory."""
         self.logger.info(f"Creating cortex ROI visualization for region: {target_region}")
-        self.logger.info(f"ROI contains {np.sum(roi_mask)} nodes, max value: {max_value:.6f}")
+        self.logger.info(f"ROI contains {np.sum(roi_mask)} nodes")
         
         # Load a fresh copy of the surface mesh to avoid accumulating ROI fields across regions
         if surface_mesh_path:
@@ -890,8 +890,8 @@ class MeshVisualizer(Visualizer):
         Returns:
             str: Path to the created visualization file
         """
-        self.logger.info(f"Creating spherical ROI visualization at center {center_coords} with radius {radius}mm")
-        self.logger.info(f"ROI contains {np.sum(roi_mask)} surface nodes, max value: {max_value:.6f}")
+        self.logger.debug(f"Creating spherical ROI visualization at center {center_coords} with radius {radius}mm")
+        self.logger.debug(f"ROI contains {np.sum(roi_mask)} surface nodes")
         
         # Create a new field with TI_max field values only in ROI (zeros elsewhere)
         masked_field = np.zeros(gm_surf.nodes.nr)

@@ -431,6 +431,7 @@ done
 if [ "$all_files_present" = true ]; then
     for montage in "${selected_montages[@]}"; do
         log_info "Pipeline completed successfully for montage: $montage"
+        log_info "Simulation results saved to: $sim_dir/$montage"
         log_info "----------------------------------------"
     done
 else

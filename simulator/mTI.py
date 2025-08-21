@@ -205,7 +205,7 @@ def run_simulation(montage_name, electrode_pairs, output_dir):
             if env_var in os.environ:
                 try:
                     tdcs.cond[j].value = float(os.environ[env_var])
-                    logger.info(f"Setting conductivity for tissue {tissue_num} to {tdcs.cond[j].value} S/m")
+                    logger.debug(f"Setting conductivity for tissue {tissue_num} to {tdcs.cond[j].value} S/m")
                 except ValueError:
                     logger.warning(f"Invalid conductivity value for tissue {tissue_num}")
 
@@ -294,7 +294,7 @@ def run_simulation(montage_name, electrode_pairs, output_dir):
     v = mout.view(visible_tags=[1002, 1006], visible_fields="TI_Max")
     v.write_opt(output_mesh_path)
     
-    logger.info(f"Completed multipolar simulation for montage: {montage_name}")
+    logger.debug(f"Completed multipolar simulation for montage: {montage_name}")
     return output_mesh_path
 
 # Process each montage for multipolar simulation
@@ -323,7 +323,7 @@ for montage_name in montage_names:
     # Run the basic multipolar simulation (4 electrode pairs -> 1 mTI result)
     # File organization and post-processing will be handled by main-mTI.sh
     output_path = run_simulation(montage_name, electrode_pairs, simulation_dir)
-    logger.info(f"Multipolar simulation completed for {montage_name}: {output_path}")
+    logger.debug(f"Multipolar simulation completed for {montage_name}: {output_path}")
 
 print("[DEBUG] mTI.py script completed")
         

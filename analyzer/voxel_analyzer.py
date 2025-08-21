@@ -86,7 +86,7 @@ class VoxelAnalyzer:
         visualizer (VoxelVisualizer): Instance of visualizer for generating plots
     """
     
-    def __init__(self, field_nifti: str, subject_dir: str, output_dir: str, logger=None):
+    def __init__(self, field_nifti: str, subject_dir: str, output_dir: str, logger=None, quiet=False):
         """
         Initialize the VoxelAnalyzer with paths to required data.
         
@@ -95,6 +95,7 @@ class VoxelAnalyzer:
             subject_dir (str): Directory containing subject data
             output_dir (str): Directory where analysis results will be saved
             logger: Optional logger instance to use. If None, creates its own.
+            quiet (bool): If True, suppress verbose logging messages
             
         Raises:
             FileNotFoundError: If field_nifti file does not exist
@@ -102,6 +103,7 @@ class VoxelAnalyzer:
         self.field_nifti = field_nifti
         self.subject_dir = subject_dir
         self.output_dir = output_dir
+        self.quiet = quiet
         
         # Set up logger - use provided logger or create a new one
         if logger is not None:
@@ -127,7 +129,7 @@ class VoxelAnalyzer:
         
         # Create output directory if it doesn't exist
         if not os.path.exists(output_dir):
-            self.logger.info(f"Creating output directory: {output_dir}")
+            self.logger.debug(f"Creating output directory: {output_dir}")
             os.makedirs(output_dir)
         
         # Validate that field_nifti exists
@@ -135,10 +137,10 @@ class VoxelAnalyzer:
             self.logger.error(f"Field file not found: {field_nifti}")
             raise FileNotFoundError(f"Field file not found: {field_nifti}")
         
-        self.logger.info(f"Voxel analyzer initialized successfully")
-        self.logger.info(f"Field NIfTI path: {field_nifti}")
-        self.logger.info(f"Subject directory: {subject_dir}")
-        self.logger.info(f"Output directory: {output_dir}")
+        self.logger.debug(f"Voxel analyzer initialized successfully")
+        self.logger.debug(f"Field NIfTI path: {field_nifti}")
+        self.logger.debug(f"Subject directory: {subject_dir}")
+        self.logger.debug(f"Output directory: {output_dir}")
 
     def _extract_atlas_type(self, atlas_file):
         """
@@ -173,32 +175,33 @@ class VoxelAnalyzer:
         Analyze all regions in the specified atlas.
         """
         start_time = time.time()
-        self.logger.info(f"Starting whole head analysis of atlas: {atlas_file}")
+        if not self.quiet:
+            self.logger.info(f"Starting whole head analysis of atlas: {atlas_file}")
         
         # Extract atlas type from filename
         atlas_type = self._extract_atlas_type(atlas_file)
-        self.logger.info(f"Detected atlas type: {atlas_type}")
+        self.logger.debug(f"Detected atlas type: {atlas_type}")
         
         try:
             # Load region information once
             region_info = self.get_atlas_regions(atlas_file)
             
             # Load atlas and field data once
-            self.logger.info(f"Loading atlas from {atlas_file}...")
+            self.logger.debug(f"Loading atlas from {atlas_file}...")
             atlas_tuple = self.load_brain_image(atlas_file)
             atlas_img, atlas_arr = atlas_tuple
             
-            self.logger.info(f"Loading field from {self.field_nifti}...")
+            self.logger.debug(f"Loading field from {self.field_nifti}...")
             field_tuple = self.load_brain_image(self.field_nifti)
             field_img, field_arr = field_tuple
             
             # Handle 4D field data (extract first volume if multiple volumes)
             if len(field_arr.shape) == 4:
-                self.logger.info(f"Detected 4D field data with shape {field_arr.shape}")
+                self.logger.debug(f"Detected 4D field data with shape {field_arr.shape}")
                 field_shape_3d = field_arr.shape[:3]
                 # If time dimension is 1, we can simply reshape to 3D
                 if field_arr.shape[3] == 1:
-                    self.logger.info("Reshaping 4D field data to 3D")
+                    self.logger.debug("Reshaping 4D field data to 3D")
                     field_arr = field_arr[:,:,:,0]
                 else:
                     self.logger.warning(f"4D field has {field_arr.shape[3]} volumes. Using only the first volume.")
@@ -208,7 +211,7 @@ class VoxelAnalyzer:
             
             # Check if resampling is needed and do it once if necessary
             if atlas_arr.shape != field_shape_3d:
-                self.logger.info("Atlas and field dimensions don't match, attempting to resample...")
+                self.logger.debug("Atlas and field dimensions don't match, attempting to resample...")
                 self.logger.debug(f"Atlas shape: {atlas_arr.shape}")
                 self.logger.debug(f"Field shape: {field_arr.shape}")
 
@@ -224,7 +227,7 @@ class VoxelAnalyzer:
                 if atlas_arr.shape != field_shape_3d:
                     raise ValueError(f"Failed to resample atlas to match field dimensions: {atlas_arr.shape} vs {field_shape_3d}")
             else:
-                self.logger.info("Atlas and field dimensions already match - skipping resampling")
+                self.logger.debug("Atlas and field dimensions already match - skipping resampling")
             
             field_tuple = (field_img, field_arr)
             
@@ -235,7 +238,7 @@ class VoxelAnalyzer:
             for region_id, info in region_info.items():
                 region_name = info['name']
                 try:
-                    self.logger.info(f"Processing region: {region_name}")
+                    self.logger.debug(f"Processing region: {region_name}")
                     
                     # Create a directory for this region in the main output directory
                     region_dir = os.path.join(self.output_dir, region_name)
@@ -297,7 +300,8 @@ class VoxelAnalyzer:
                     focality = mean_value / whole_brain_average
                     
                     # Log the whole brain average for debugging
-                    self.logger.info(f"Whole brain average (denominator for focality): {whole_brain_average:.6f}")
+                    if not self.quiet:
+                        self.logger.info(f"Whole brain average (denominator for focality): {whole_brain_average:.6f}")
                     
                     # Create result dictionary for this region
                     region_results = {
@@ -341,7 +345,8 @@ class VoxelAnalyzer:
                             
                             # Generate focality histogram for this region
                             try:
-                                self.logger.info(f"Generating focality histogram for region: {region_name}")
+                                if not self.quiet:
+                                    self.logger.info(f"Generating focality histogram for region: {region_name}")
                                 # Get voxel dimensions from the field image
                                 field_img_tuple = self.load_brain_image(self.field_nifti)
                                 voxel_dims = field_img_tuple[0].header.get_zooms()[:3]
@@ -373,7 +378,8 @@ class VoxelAnalyzer:
             
             # Generate global scatter plot and save whole-head results to CSV directly in the main output directory
             if visualize and results:
-                self.logger.info("Generating global visualization plots...")
+                if not self.quiet:
+                    self.logger.info("Generating global visualization plots...")
                 # Generate scatter plots in the main output directory
                 self.visualizer._generate_whole_head_plots(results, atlas_type, 'voxel')
                 
@@ -402,10 +408,12 @@ class VoxelAnalyzer:
         Returns:
             Dictionary containing analysis results or None if no valid voxels found
         """
-        self.logger.info(f"Starting spherical ROI analysis (radius={radius}mm) at coordinates {center_coordinates}")
+        if not self.quiet:
+            self.logger.info(f"Starting spherical ROI analysis (radius={radius}mm) at coordinates {center_coordinates}")
         
         # Load the NIfTI data
-        self.logger.info("Loading field data...")
+        if not self.quiet:
+            self.logger.info("Loading field data...")
         img = nib.load(self.field_nifti)
         field_data = img.get_fdata()
         
@@ -423,7 +431,8 @@ class VoxelAnalyzer:
         affine = img.affine
         
         # Convert world coordinates to voxel coordinates if needed
-        self.logger.info("Converting coordinates and creating ROI mask...")
+        if not self.quiet:
+            self.logger.info("Converting coordinates and creating ROI mask...")
         inv_affine = np.linalg.inv(affine)
         voxel_coords = np.dot(inv_affine, np.append(center_coordinates, 1))[:3]
         
@@ -466,7 +475,8 @@ class VoxelAnalyzer:
             
             return None
         
-        self.logger.info("Calculating statistics...")
+        if not self.quiet:
+            self.logger.info("Calculating statistics...")
         # Get the field values within the ROI
         roi_values = field_data[combined_mask]
         
@@ -482,7 +492,8 @@ class VoxelAnalyzer:
         focality = mean_value / whole_brain_average
         
         # Log the whole brain average for debugging
-        self.logger.info(f"Whole brain average (denominator for focality): {whole_brain_average:.6f}")
+        if not self.quiet:
+            self.logger.info(f"Whole brain average (denominator for focality): {whole_brain_average:.6f}")
         
         # Create results dictionary
         results = {
@@ -505,7 +516,8 @@ class VoxelAnalyzer:
             vis_img = nib.Nifti1Image(vis_arr, affine)
             output_filename = os.path.join(self.output_dir, f"sphere_overlay_{region_name}.nii.gz")
             nib.save(vis_img, output_filename)
-            self.logger.info(f"Created visualization overlay: {output_filename}")
+            if not self.quiet:
+                self.logger.info(f"Created visualization overlay: {output_filename}")
             
             # Generate value distribution plot
             self.visualizer.generate_value_distribution_plot(
@@ -520,7 +532,8 @@ class VoxelAnalyzer:
             
             # Generate focality histogram
             try:
-                self.logger.info("Generating focality histogram for spherical ROI...")
+                if not self.quiet:
+                    self.logger.info("Generating focality histogram for spherical ROI...")
                 # Get voxel dimensions from the loaded image
                 voxel_dims = img.header.get_zooms()[:3]
                 
@@ -540,7 +553,8 @@ class VoxelAnalyzer:
                 self.logger.warning(f"Could not generate focality histogram for spherical ROI: {str(e)}")
         
         # Calculate and save extra focality information for entire volume
-        self.logger.info("Calculating focality metrics for entire volume...")
+        if not self.quiet:
+            self.logger.info("Calculating focality metrics for entire volume...")
         focality_info = self._calculate_focality_metrics(
             field_data,  # Use entire volume data
             np.prod(voxel_size),  # Voxel volume
@@ -607,25 +621,29 @@ class VoxelAnalyzer:
         tuple
             (resampled nibabel image, resampled data array)
         """
-        self.logger.info(f"Resampling image from shape {source_img.shape} to {target_shape}")
+        if not self.quiet:
+            self.logger.info(f"Resampling image from shape {source_img.shape} to {target_shape}")
         
         # If source_path is provided, try to find an existing resampled file
         if source_path:
             resampled_path = self._get_resampled_atlas_filename(source_path, target_shape)
             if os.path.exists(resampled_path):
-                self.logger.info(f"Found existing resampled atlas: {resampled_path}")
+                if not self.quiet:
+                    self.logger.info(f"Found existing resampled atlas: {resampled_path}")
                 try:
                     resampled_img = nib.load(resampled_path)
                     resampled_data = resampled_img.get_fdata()
                     
                     # Check if the resampled image has the correct shape
                     if resampled_data.shape[:3] == target_shape[:3]:
-                        self.logger.info("Loaded previously resampled atlas")
+                        if not self.quiet:
+                            self.logger.info("Loaded previously resampled atlas")
                         
                         # If target is 4D but resampled is 3D, reshape it to match
                         is_target_4d = len(target_shape) == 4
                         if is_target_4d and len(resampled_data.shape) == 3:
-                            self.logger.info(f"Reshaping 3D data {resampled_data.shape} to match 4D target {target_shape}")
+                            if not self.quiet:
+                                self.logger.info(f"Reshaping 3D data {resampled_data.shape} to match 4D target {target_shape}")
                             # Add a dimension to match the 4D target shape
                             resampled_data = np.expand_dims(resampled_data, axis=3)
                             
@@ -639,9 +657,11 @@ class VoxelAnalyzer:
                         self.logger.warning(f"Existing resampled atlas has wrong shape: {resampled_data.shape[:3]} vs expected {target_shape[:3]}")
                 except Exception as e:
                     self.logger.error(f"Error loading existing resampled atlas: {str(e)}")
-                    self.logger.info("Will generate a new one")
+                    if not self.quiet:
+                        self.logger.info("Will generate a new one")
         
-        self.logger.info("Generating new resampled atlas...")
+        if not self.quiet:
+            self.logger.info("Generating new resampled atlas...")
         
         # If target shape is 4D but source is 3D, we need to handle this specially
         is_target_4d = len(target_shape) == 4
@@ -679,7 +699,8 @@ class VoxelAnalyzer:
                 output_path                       # Output image
             ]
             
-            self.logger.info(f"Running: {' '.join(cmd)}")
+            if not self.quiet:
+                self.logger.info(f"Running: {' '.join(cmd)}")
             result = subprocess.run(cmd, check=True, capture_output=True)
             
             # Load the resampled image
@@ -688,7 +709,8 @@ class VoxelAnalyzer:
             
             # If target is 4D but resampled is 3D, reshape it to match
             if is_target_4d and len(resampled_data.shape) == 3:
-                self.logger.info(f"Reshaping 3D data {resampled_data.shape} to match 4D target {target_shape}")
+                if not self.quiet:
+                    self.logger.info(f"Reshaping 3D data {resampled_data.shape} to match 4D target {target_shape}")
                 # Add a dimension to match the 4D target shape
                 resampled_data = np.expand_dims(resampled_data, axis=3)
                 
@@ -700,10 +722,12 @@ class VoxelAnalyzer:
             # Save the resampled atlas for future use if source_path was provided and not temporary
             if source_path and not temp_source_created:
                 resampled_save_path = self._get_resampled_atlas_filename(source_path, target_shape)
-                self.logger.info(f"Saving resampled atlas for future use: {resampled_save_path}")
+                if not self.quiet:
+                    self.logger.info(f"Saving resampled atlas for future use: {resampled_save_path}")
                 nib.save(resampled_img, resampled_save_path)
             
-            self.logger.info("Resampling complete")
+            if not self.quiet:
+                self.logger.info("Resampling complete")
             return resampled_img, resampled_data
             
         finally:
@@ -730,7 +754,7 @@ class VoxelAnalyzer:
         
         # Load the atlas and field data if not provided
         if atlas_data is None:
-            self.logger.info(f"Loading atlas from {atlas_file}...")
+            self.logger.debug(f"Loading atlas from {atlas_file}...")
             atlas_tuple = self.load_brain_image(atlas_file)
             atlas_img, atlas_arr = atlas_tuple
         else:
@@ -738,7 +762,7 @@ class VoxelAnalyzer:
             atlas_img, atlas_arr = atlas_data
             
         if field_data is None:
-            self.logger.info(f"Loading field from {self.field_nifti}...")
+            self.logger.debug(f"Loading field from {self.field_nifti}...")
             field_tuple = self.load_brain_image(self.field_nifti)
             field_img, field_arr = field_tuple
         else:
@@ -747,11 +771,13 @@ class VoxelAnalyzer:
         
         # Handle 4D field data (extract first volume if multiple volumes)
         if len(field_arr.shape) == 4:
-            self.logger.info(f"Detected 4D field data with shape {field_arr.shape}")
+            if not self.quiet:
+                self.logger.info(f"Detected 4D field data with shape {field_arr.shape}")
             field_shape_3d = field_arr.shape[:3]
             # If time dimension is 1, we can simply reshape to 3D
             if field_arr.shape[3] == 1:
-                self.logger.info("Reshaping 4D field data to 3D")
+                if not self.quiet:
+                    self.logger.info("Reshaping 4D field data to 3D")
                 field_arr = field_arr[:,:,:,0]
             else:
                 self.logger.warning(f"4D field has {field_arr.shape[3]} volumes. Using only the first volume.")
@@ -761,7 +787,8 @@ class VoxelAnalyzer:
                 
         # Compare spatial dimensions for atlas and field
         if atlas_arr.shape != field_shape_3d:
-            self.logger.info("Atlas and field dimensions don't match, attempting to resample...")
+            if not self.quiet:
+                self.logger.info("Atlas and field dimensions don't match, attempting to resample...")
             self.logger.debug(f"Atlas shape: {atlas_arr.shape}")
             self.logger.debug(f"Field shape: {field_arr.shape}")
 
@@ -777,16 +804,19 @@ class VoxelAnalyzer:
             if atlas_arr.shape != field_shape_3d:
                 raise ValueError(f"Failed to resample atlas to match field dimensions: {atlas_arr.shape} vs {field_shape_3d}")
         else:
-            self.logger.info("Atlas and field dimensions already match - skipping resampling")
+            if not self.quiet:
+                self.logger.info("Atlas and field dimensions already match - skipping resampling")
         
         # Load region information if not provided
         if region_info is None:
             region_info = self.get_atlas_regions(atlas_file)
         
         # Determine region ID based on target_region
-        self.logger.info(f"Finding region information for {target_region}...")
+        if not self.quiet:
+            self.logger.info(f"Finding region information for {target_region}...")
         region_id, region_name = self.find_region(target_region, region_info)
-        self.logger.info(f"Processing region: {region_name} (ID: {region_id})")
+        if not self.quiet:
+            self.logger.info(f"Processing region: {region_name} (ID: {region_id})")
         
         # Create mask for this region
         region_mask = (atlas_arr == region_id)
@@ -830,7 +860,8 @@ class VoxelAnalyzer:
             
             return results
         
-        self.logger.info("Calculating statistics...")
+        if not self.quiet:
+            self.logger.info("Calculating statistics...")
         # Calculate statistics
         mean_value = np.mean(field_values)
         max_value = np.max(field_values)
@@ -843,7 +874,8 @@ class VoxelAnalyzer:
         focality = mean_value / whole_brain_average
         
         # Log the whole brain average for debugging
-        self.logger.info(f"Whole brain average (denominator for focality): {whole_brain_average:.6f}")
+        if not self.quiet:
+            self.logger.info(f"Whole brain average (denominator for focality): {whole_brain_average:.6f}")
         
         # Prepare results dictionary
         results = {
@@ -856,7 +888,8 @@ class VoxelAnalyzer:
         
         # Generate visualization if requested
         if visualize:
-            self.logger.info("Generating visualizations...")
+            if not self.quiet:
+                self.logger.info("Generating visualizations...")
             self.visualizer.generate_value_distribution_plot(
                 field_values,
                 region_name,
@@ -869,7 +902,8 @@ class VoxelAnalyzer:
             
             # Generate focality histogram
             try:
-                self.logger.info(f"Generating focality histogram for region: {region_name}")
+                if not self.quiet:
+                    self.logger.info(f"Generating focality histogram for region: {region_name}")
                 # Get voxel dimensions from the field image
                 voxel_dims = field_img.header.get_zooms()[:3]
                 
@@ -898,7 +932,8 @@ class VoxelAnalyzer:
             )
             
         # Calculate and save extra focality information for entire field
-        self.logger.info("Calculating focality metrics for entire field...")
+        if not self.quiet:
+            self.logger.info("Calculating focality metrics for entire field...")
         
         # Get voxel dimensions for volume calculations
         voxel_dims = field_img.header.get_zooms()[:3]
@@ -1009,7 +1044,8 @@ class VoxelAnalyzer:
                 'voxel_volume_mm3': float(voxel_volume)
             }
             
-            self.logger.info(f"Focality metrics calculated for {region_name}: 99.9%={percentile_values[2]:.4f}, focality_95={focality_values[3]:.4f} cm³")
+            if not self.quiet:
+                self.logger.info(f"Focality metrics calculated for {region_name}: 99.9%={percentile_values[2]:.4f}, focality_95={focality_values[3]:.4f} cm³")
             
             return results
             
@@ -1059,7 +1095,8 @@ class VoxelAnalyzer:
             ]
             
             try:
-                self.logger.info(f"Running: {' '.join(cmd)}")
+                if not self.quiet:
+                    self.logger.info(f"Running: {' '.join(cmd)}")
                 subprocess.run(cmd, check=True, capture_output=True)
                 return True
             except subprocess.CalledProcessError as e:
@@ -1118,17 +1155,21 @@ class VoxelAnalyzer:
         
         # Try to use existing file first
         if os.path.exists(output_file):
-            self.logger.info(f"Found existing labels file: {output_file}")
+            if not self.quiet:
+                self.logger.info(f"Found existing labels file: {output_file}")
             if parse_labels_file():
-                self.logger.info(f"Successfully parsed {len(region_info)} regions from existing file")
+                if not self.quiet:
+                    self.logger.info(f"Successfully parsed {len(region_info)} regions from existing file")
                 return region_info
             else:
-                self.logger.info("Existing file is invalid or empty, regenerating...")
+                if not self.quiet:
+                    self.logger.info("Existing file is invalid or empty, regenerating...")
         
         # Generate new file if needed
         if generate_labels_file():
             if parse_labels_file():
-                self.logger.info(f"Successfully generated and parsed {len(region_info)} regions")
+                if not self.quiet:
+                    self.logger.info(f"Successfully generated and parsed {len(region_info)} regions")
                 return region_info
         
         self.logger.warning("Warning: Could not get region information from atlas file")
@@ -1229,7 +1270,8 @@ class VoxelAnalyzer:
         Returns:
             dict: Dictionary containing grey matter statistics (mean, max, min)
         """
-        self.logger.info("Calculating grey matter field statistics...")
+        if not self.quiet:
+            self.logger.info("Calculating grey matter field statistics...")
         
         try:
             # Load the field data
@@ -1259,8 +1301,9 @@ class VoxelAnalyzer:
             grey_max = np.max(field_data_positive)
             grey_min = np.min(field_data_positive)
             
-            self.logger.info(f"Grey matter statistics for field '{os.path.basename(self.field_nifti)}' (positive values only): "
-                           f"mean={grey_mean:.6f}, max={grey_max:.6f}, min={grey_min:.6f}")
+            if not self.quiet:
+                self.logger.info(f"Grey matter statistics for field '{os.path.basename(self.field_nifti)}' (positive values only): "
+                               f"mean={grey_mean:.6f}, max={grey_max:.6f}, min={grey_min:.6f}")
             
             return {
                 'grey_mean': float(grey_mean),

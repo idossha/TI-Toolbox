@@ -215,7 +215,7 @@ def compare_subject_metrics(csv_data: Dict[str, pd.DataFrame],
         comparison_file = os.path.join(output_dir, "subject_comparisons.csv")
         comparison_df.to_csv(comparison_file, index=False)
         logger.info(f"Subject comparison results saved to: {comparison_file}")
-        logger.info(f"Compared {len(comparison_results)} subjects that appear in all CSV files")
+        logger.debug(f"Compared {len(comparison_results)} subjects that appear in all CSV files")
         
         return comparison_df
     else:
@@ -263,7 +263,7 @@ def generate_group_statistics(csv_data: Dict[str, pd.DataFrame],
             # Save individual statistics
             stats_file = os.path.join(output_dir, f"{file_name}_statistics.csv")
             stats_df.to_csv(stats_file)
-            logger.info(f"Statistics for {file_name} saved to: {stats_file}")
+            logger.debug(f"Statistics for {file_name} saved to: {stats_file}")
         else:
             logger.warning(f"No numeric columns found in {file_name}")
     
@@ -413,7 +413,7 @@ def create_visualization_plots(csv_data: Dict[str, pd.DataFrame],
                 plot_file = os.path.join(plots_dir, f"subject_comparison_{metric}.png")
                 plt.savefig(plot_file, dpi=300, bbox_inches='tight')
                 plt.close()
-                logger.info(f"Subject comparison plot for {metric} saved to: {plot_file} ({len(valid_data)} subjects)")
+                logger.debug(f"Subject comparison plot for {metric} saved to: {plot_file} ({len(valid_data)} subjects)")
     
     # Plot 2: Group means comparison for the three target metrics
     if group_stats and len(file_names) == 2:
@@ -473,7 +473,7 @@ def create_visualization_plots(csv_data: Dict[str, pd.DataFrame],
             plot_file = os.path.join(plots_dir, "group_means_key_metrics.png")
             plt.savefig(plot_file, dpi=300, bbox_inches='tight')
             plt.close()
-            logger.info(f"Group means comparison plot saved to: {plot_file}")
+            logger.debug(f"Group means comparison plot saved to: {plot_file}")
     
     # Plot 3: Combined overview plot (optional - shows both subject and group level)
     if not comparison_df.empty and group_stats and len(file_names) == 2:
@@ -546,7 +546,7 @@ def create_visualization_plots(csv_data: Dict[str, pd.DataFrame],
             plot_file = os.path.join(plots_dir, "combined_overview.png")
             plt.savefig(plot_file, dpi=300, bbox_inches='tight')
             plt.close()
-            logger.info(f"Combined overview plot saved to: {plot_file}")
+            logger.debug(f"Combined overview plot saved to: {plot_file}")
 
 def generate_summary_report(csv_data: Dict[str, pd.DataFrame], 
                           comparison_df: pd.DataFrame,

@@ -12,7 +12,15 @@ import glob
 import subprocess
 from PyQt5 import QtWidgets, QtCore, QtGui
 from confirmation_dialog import ConfirmationDialog
-from utils import confirm_overwrite
+try:
+    from .utils import confirm_overwrite, is_verbose_message, is_important_message
+except ImportError:
+    # Fallback for when running as standalone script
+    import os
+    import sys
+    gui_dir = os.path.dirname(os.path.abspath(__file__))
+    sys.path.insert(0, gui_dir)
+    from utils import confirm_overwrite, is_verbose_message, is_important_message
 
 class FlexSearchThread(QtCore.QThread):
     """Thread to run flex-search in background to prevent GUI freezing."""
@@ -119,6 +127,9 @@ class FlexSearchTab(QtWidgets.QWidget):
         self.eeg_nets = {}
         self.atlases = {}
         self.volume_atlases = {}
+        
+        # Initialize debug mode (default to False)
+        self.debug_mode = False
         
         # Initialize all widgets that might be referenced before setup_ui
         self.subject_list = QtWidgets.QListWidget()
@@ -618,8 +629,43 @@ class FlexSearchTab(QtWidgets.QWidget):
             }
         """) 
         
+        # Add debug mode checkbox next to console buttons
+        self.debug_mode_checkbox = QtWidgets.QCheckBox("Debug Mode")
+        self.debug_mode_checkbox.setChecked(self.debug_mode)
+        self.debug_mode_checkbox.setToolTip(
+            "Toggle debug mode:\n"
+            "• ON: Show all detailed logging information\n"
+            "• OFF: Show only key operational steps"
+        )
+        self.debug_mode_checkbox.toggled.connect(self.set_debug_mode)
+        
+        # Style the debug mode checkbox
+        self.debug_mode_checkbox.setStyleSheet("""
+            QCheckBox {
+                font-weight: bold;
+                color: #333333;
+                padding: 5px;
+                margin-left: 10px;
+            }
+            QCheckBox::indicator {
+                width: 16px;
+                height: 16px;
+            }
+            QCheckBox::indicator:unchecked {
+                border: 2px solid #cccccc;
+                background-color: white;
+                border-radius: 3px;
+            }
+            QCheckBox::indicator:checked {
+                border: 2px solid #4CAF50;
+                background-color: #4CAF50;
+                border-radius: 3px;
+            }
+        """)
+        
         console_buttons_layout.addWidget(self.run_btn); console_buttons_layout.addWidget(self.stop_btn)
         console_buttons_layout.addWidget(clear_btn)
+        console_buttons_layout.addWidget(self.debug_mode_checkbox)
         header_layout.addLayout(console_buttons_layout)
         console_layout.addLayout(header_layout)
         console_layout.addWidget(self.output_text)
@@ -653,7 +699,9 @@ class FlexSearchTab(QtWidgets.QWidget):
         # Set PROJECT_DIR for other components that might need it
         os.environ['PROJECT_DIR'] = project_dir
         
-        self.output_text.append(f"Looking for subjects in: {project_dir}")
+        # Only show subject discovery messages in debug mode
+        if self.debug_mode:
+            self.output_text.append(f"Looking for subjects in: {project_dir}")
         
         # Look in derivatives/SimNIBS directory for subjects
         simnibs_dir = os.path.join(project_dir, 'derivatives', 'SimNIBS')
@@ -668,15 +716,16 @@ class FlexSearchTab(QtWidgets.QWidget):
                 self.subjects.append(subject_id)
                 self.subject_list.addItem(subject_id)
                 
-        # Console output: subjects found
-        self.output_text.append("\n=== Subjects Found ===")
-        if not self.subjects:
-            self.output_text.append("No subjects found.")
-        else:
-            for subject_id in self.subjects:
-                self.output_text.append(f"- {subject_id}")
-            
-        self.output_text.append("")
+        # Console output: subjects found (only in debug mode)
+        if self.debug_mode:
+            self.output_text.append("\n=== Subjects Found ===")
+            if not self.subjects:
+                self.output_text.append("No subjects found.")
+            else:
+                for subject_id in self.subjects:
+                    self.output_text.append(f"- {subject_id}")
+                
+            self.output_text.append("")
         
         # Trigger EEG net refresh for the first subject
         if self.subjects:
@@ -715,12 +764,15 @@ class FlexSearchTab(QtWidgets.QWidget):
                     self.eeg_net_combo.addItem(net_name)
                 
                 if self.eeg_nets:
-                    self.output_text.append(f"Found {len(self.eeg_nets)} EEG net templates for subject {subject_id}.")
+                    if self.debug_mode:
+                        self.output_text.append(f"Found {len(self.eeg_nets)} EEG net templates for subject {subject_id}.")
                 else:
-                    self.output_text.append(f"No EEG net templates found for subject {subject_id}.")
+                    if self.debug_mode:
+                        self.output_text.append(f"No EEG net templates found for subject {subject_id}.")
                     self.eeg_net_combo.addItem("EGI_256")  # Default option
             else:
-                self.output_text.append(f"EEG positions directory not found for subject {subject_id}.")
+                if self.debug_mode:
+                    self.output_text.append(f"EEG positions directory not found for subject {subject_id}.")
                 self.eeg_net_combo.addItem("EGI_256")  # Default option
         
         except Exception as e:
@@ -763,11 +815,14 @@ class FlexSearchTab(QtWidgets.QWidget):
                 for atlas_display in sorted(unique_atlases):
                     self.atlas_combo.addItem(atlas_display)
                 if unique_atlases:
-                    self.output_text.append(f"Found {len(unique_atlases)} unique atlases for subject {subject_id}.")
+                    if self.debug_mode:
+                        self.output_text.append(f"Found {len(unique_atlases)} unique atlases for subject {subject_id}.")
                 else:
-                    self.output_text.append(f"No atlas files found for subject {subject_id}.")
+                    if self.debug_mode:
+                        self.output_text.append(f"No atlas files found for subject {subject_id}.")
             else:
-                self.output_text.append(f"Segmentation directory not found for subject {subject_id}.")
+                if self.debug_mode:
+                    self.output_text.append(f"Segmentation directory not found for subject {subject_id}.")
         except Exception as e:
             self.output_text.append(f"Error scanning for atlas files: {str(e)}")
         # Also update non-ROI atlas combo
@@ -805,9 +860,11 @@ class FlexSearchTab(QtWidgets.QWidget):
                 
                 # Check if LUT file exists
                 if os.path.isfile(labeling_lut_file):
-                    self.output_text.append(f"Found subcortical segmentation for subject {subject_id}: labeling.nii.gz with LUT file.")
+                    if self.debug_mode:
+                        self.output_text.append(f"Found subcortical segmentation for subject {subject_id}: labeling.nii.gz with LUT file.")
                 else:
-                    self.output_text.append(f"Found subcortical segmentation for subject {subject_id}: labeling.nii.gz (warning: no LUT file found).")
+                    if self.debug_mode:
+                        self.output_text.append(f"Found subcortical segmentation for subject {subject_id}: labeling.nii.gz (warning: no LUT file found).")
             else:
                 self.output_text.append(f"No subcortical segmentation found for subject {subject_id}. Expected: {labeling_file}")
                 
@@ -1130,6 +1187,9 @@ class FlexSearchTab(QtWidgets.QWidget):
                 self.output_text.append(f"Error: flex-search.py not found at {flex_search_py}. Optimization cannot continue.")
                 return False
 
+            # Pass debug mode setting to control summary output
+            env['DEBUG_MODE'] = 'true' if self.debug_mode else 'false'
+
             cmd = [
                 "simnibs_python", flex_search_py,
                 "--subject", subject_id,
@@ -1193,7 +1253,9 @@ class FlexSearchTab(QtWidgets.QWidget):
                         env['VOLUME_NON_ROI_LABEL'] = str(nonroi_volume_label_val)
             
             # Stability and Memory options
-            if self.quiet_mode_checkbox.isChecked():
+            # Only add --quiet flag when NOT in debug mode
+            # Debug mode should always show detailed output
+            if self.quiet_mode_checkbox.isChecked() and not self.debug_mode:
                 cmd.append("--quiet")
             if not self.run_final_electrode_simulation_checkbox.isChecked():
                 cmd.append("--skip-final-electrode-simulation")
@@ -1202,12 +1264,14 @@ class FlexSearchTab(QtWidgets.QWidget):
             cmd.extend(["--population-size", str(self.population_size_input.value())])
             cmd.extend(["--cpus", str(self.cpus_input.value())])
 
-            self.output_text.append(f"Running optimization for subject {subject_id} (this may take a while)...")
-            self.output_text.append("Command: " + " ".join(cmd))
-            self.output_text.append("Environment for subprocess will include:")
-            for k, v in env.items():
-                if k.startswith("ROI") or k.startswith("VOLUME") or k in ['PROJECT_DIR', 'SUBJECT_ID', 'ATLAS_PATH', 'SELECTED_HEMISPHERE']:
-                    self.output_text.append(f"  {k}: {v}")
+            # Only show setup messages in debug mode
+            if self.debug_mode:
+                self.output_text.append(f"Running optimization for subject {subject_id} (this may take a while)...")
+                self.output_text.append("Command: " + " ".join(cmd))
+                self.output_text.append("Environment for subprocess will include:")
+                for k, v in env.items():
+                    if k.startswith("ROI") or k.startswith("VOLUME") or k in ['PROJECT_DIR', 'SUBJECT_ID', 'ATLAS_PATH', 'SELECTED_HEMISPHERE']:
+                        self.output_text.append(f"  {k}: {v}")
 
             # Only set parent busy state for single subjects (multi-subject is handled in run_optimization)
             if not hasattr(self, 'selected_subjects') or len(self.selected_subjects) == 1:
@@ -1265,7 +1329,12 @@ class FlexSearchTab(QtWidgets.QWidget):
         details += f"• Population Size: {self.population_size_input.value()}\n"
         details += f"• Number of CPUs: {self.cpus_input.value()}\n"
         if self.quiet_mode_checkbox.isChecked():
-            details += f"• Hide optimization steps: ✓ ENABLED\n"
+            if self.debug_mode:
+                details += f"• Hide optimization steps: ✓ ENABLED (overridden by debug mode)\n"
+            else:
+                details += f"• Hide optimization steps: ✓ ENABLED\n"
+        else:
+            details += f"• Hide optimization steps: ✗ DISABLED\n"
         
         if self.n_multistart_input.value() > 1:
             details += f"\n Multi-Start Optimization: {self.n_multistart_input.value()} runs will be performed.\n"
@@ -1278,7 +1347,53 @@ class FlexSearchTab(QtWidgets.QWidget):
         """Update the console output with colored text."""
         if not text.strip():
             return
+        
+        # Filter messages based on debug mode
+        if not self.debug_mode:
+            # In non-debug mode, only show important messages
+            if not is_important_message(text, message_type, 'flexsearch'):
+                return
+            # Colorize summary lines: blue for starts, white for completes, green for final
+            lower = text.lower()
+            is_final = lower.startswith('└─') or 'completed successfully' in lower
+            is_start = lower.startswith('beginning ') or ': starting' in lower
+            is_complete = ('✓ complete' in lower) or ('results available in:' in lower) or ('saved to' in lower)
+            color = '#55ff55' if is_final else ('#55aaff' if is_start else '#ffffff')
+            formatted_text = f'<span style="color: {color};">{text}</span>'
+            scrollbar = self.output_text.verticalScrollBar()
+            at_bottom = scrollbar.value() >= scrollbar.maximum() - 5
+            self.output_text.append(formatted_text)
+            if at_bottom:
+                self.output_text.ensureCursorVisible()
+            QtWidgets.QApplication.processEvents()
+            return
             
+            # Additional filtering for setup/configuration messages that shouldn't appear in non-debug mode
+            setup_patterns = [
+                "Looking for subjects in:",
+                "=== Subjects Found ===",
+                "Found ",  # This catches "Found 3 unique atlases", "Found 9 EEG net templates", etc.
+                "EEG net templates for subject",
+                "unique atlases for subject",
+                "subcortical segmentation for subject",
+                "Running optimization for subject",
+                "Command: ",
+                "Environment for subprocess will include:",
+                "PROJECT_DIR:",
+                "SUBJECT_ID:",
+                "ROI_X:",
+                "ROI_Y:",
+                "ROI_Z:",
+                "ROI_RADIUS:",
+                "labeling.nii.gz with LUT file",  # Catches subcortical segmentation messages
+                "with LUT file",  # Additional catch for LUT file messages
+                "atlases for subject",  # More specific catch for atlas messages
+                "segmentation for subject"  # More specific catch for segmentation messages
+            ]
+            
+            if any(pattern in text for pattern in setup_patterns):
+                return
+        
         # Format the output based on message type from thread
         if message_type == 'error':
             formatted_text = f'<span style="color: #ff5555;"><b>{text}</b></span>'
@@ -1314,6 +1429,10 @@ class FlexSearchTab(QtWidgets.QWidget):
             self.output_text.ensureCursorVisible()
         
         QtWidgets.QApplication.processEvents()
+
+    def set_debug_mode(self, debug_mode):
+        """Set debug mode for output filtering."""
+        self.debug_mode = debug_mode
     
     def optimization_finished(self):
         """Handle the completion of the optimization process."""
@@ -1339,7 +1458,8 @@ class FlexSearchTab(QtWidgets.QWidget):
             self.run_btn.setEnabled(True)
             self.stop_btn.setEnabled(False)
             self.enable_controls()
-            self.output_text.append("\nOptimization process completed.")
+            # Remove the unwanted completion message
+            # self.output_text.append("\nOptimization process completed.")
     
     def clear_console(self):
         """Clear the output console."""
