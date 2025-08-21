@@ -40,7 +40,7 @@ if not log_file:
     # Navigate to derivatives directory for log placement
     subject_dir = os.path.dirname(m2m_dir)
     derivatives_dir = os.path.join(os.path.dirname(subject_dir), 'derivatives')
-    log_dir = os.path.join(derivatives_dir, 'logs', f'sub-{subject_number}')
+    log_dir = os.path.join(derivatives_dir, 'ti-toolbox', 'logs', f'sub-{subject_number}')
     os.makedirs(log_dir, exist_ok=True)
     log_file = os.path.join(log_dir, f'leadfield_{time_stamp}.log')
 

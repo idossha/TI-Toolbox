@@ -999,7 +999,7 @@ class SimulatorTab(QtWidgets.QWidget):
 
     def ensure_montage_file_exists(self, project_dir):
         """Ensure the montage file exists with proper structure."""
-        ti_csc_dir = os.path.join(project_dir, 'ti-csc')
+        ti_csc_dir = os.path.join(project_dir, 'code', 'ti-toolbox')
         config_dir = os.path.join(ti_csc_dir, 'config')
         montage_file = os.path.join(config_dir, 'montage_list.json')
         
@@ -1103,36 +1103,31 @@ class SimulatorTab(QtWidgets.QWidget):
             # Use environment variable for project directory like simulator.sh does
             project_dir_name = os.environ.get('PROJECT_DIR_NAME', 'BIDS_test')
             project_dir = f"/mnt/{project_dir_name}"
-            utils_dir = os.path.join(project_dir, "utils")
-            montage_file = os.path.join(utils_dir, "montage_list.json")
-            
+            # Ensure and use the new location under code/ti-toolbox/config
+            montage_file = self.ensure_montage_file_exists(project_dir)
+
             self.update_output(f"Looking for montages in: {montage_file}")
-            
+
             if os.path.exists(montage_file):
                 with open(montage_file, 'r') as f:
                     montage_data = json.load(f)
-                
-                # Create expected structure if needed
-                if not isinstance(montage_data, dict):
-                    self.update_output(f"Warning: Unexpected data type in montage file: {type(montage_data).__name__}. Creating new structure.")
-                    montage_data = {"uni_polar_montages": {}, "multi_polar_montages": {}}
-                
-                # Ensure the required keys exist
-                if "uni_polar_montages" not in montage_data:
-                    montage_data["uni_polar_montages"] = {}
-                if "multi_polar_montages" not in montage_data:
-                    montage_data["multi_polar_montages"] = {}
-                
-                # Get montages for the selected mode
+
+                # Determine current EEG net
+                current_net = self.eeg_net_combo.currentText() or "EGI_template.csv"
+                # Get montages for the selected mode from the new nested structure
                 is_unipolar = self.sim_mode_unipolar.isChecked()
                 montage_type = "uni_polar_montages" if is_unipolar else "multi_polar_montages"
                 mode_text = "Unipolar" if is_unipolar else "Multipolar"
-                
+
                 self.output_console.append('<div style="background-color: #2a2a2a; border: 1px solid #444; border-radius: 5px; padding: 10px; margin: 10px 0;">')
                 self.output_console.append(f'<span style="color: #55ffff; font-weight: bold;">📋 Available {mode_text} Montages:</span>')
-                
-                montages = montage_data[montage_type]
-                
+
+                net_montages = {}
+                if isinstance(montage_data, dict) and "nets" in montage_data and current_net in montage_data["nets"]:
+                    net_montages = montage_data["nets"].get(current_net, {})
+
+                montages = net_montages.get(montage_type, {}) if isinstance(net_montages, dict) else {}
+
                 if isinstance(montages, dict) and montages:
                     # Display montages with formatted electrode pairs
                     self.output_console.append('<table style="width: 100%; border-collapse: collapse; margin-top: 10px;">')
@@ -1140,15 +1135,15 @@ class SimulatorTab(QtWidgets.QWidget):
                     self.output_console.append('<th style="padding: 5px; text-align: left; border-bottom: 1px solid #555;">Name</th>')
                     self.output_console.append('<th style="padding: 5px; text-align: left; border-bottom: 1px solid #555;">Electrode Pairs</th>')
                     self.output_console.append('</tr>')
-                    
+
                     found_montages = False
                     row_num = 0
-                    
+
                     for name, details in montages.items():
                         row_style = 'background-color: #2d2d2d;' if row_num % 2 == 0 else 'background-color: #333;'
                         row_num += 1
                         found_montages = True
-                        
+
                         if isinstance(details, list) and len(details) >= 1:
                             pairs_str = self._format_electrode_pairs(details)
                             self.output_console.append(f'<tr style="{row_style}">')
@@ -1162,14 +1157,14 @@ class SimulatorTab(QtWidgets.QWidget):
                             self.output_console.append(f'<td style="padding: 5px; border-bottom: 1px solid #444;">{name}</td>')
                             self.output_console.append(f'<td style="padding: 5px; border-bottom: 1px solid #444;">{pair}, {current}mA</td>')
                             self.output_console.append('</tr>')
-                    
+
                     self.output_console.append('</table>')
-                    
+
                     if not found_montages:
                         self.output_console.append(f'<div style="color: #ffff55; padding: 10px;">No {mode_text.lower()} montages found.</div>')
                 else:
                     self.output_console.append(f'<div style="color: #ffff55; padding: 10px;">No {mode_text.lower()} montages found.</div>')
-                
+
                 self.output_console.append('</div>')
             else:
                 self.update_output(f"Montage file not found at {montage_file}")

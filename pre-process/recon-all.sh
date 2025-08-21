@@ -272,10 +272,34 @@ SUBJECTS_DIR="${DERIVATIVES_DIR}/freesurfer"
 # Create FreeSurfer subjects directory
 mkdir -p "$SUBJECTS_DIR"
 
+# Ensure BIDS dataset_description.json exists for FreeSurfer derivative root
+ASSETS_DD_DIR="$script_dir/../assets/dataset_descriptions"
+if [ ! -f "$DERIVATIVES_DIR/freesurfer/dataset_description.json" ] && [ -f "$ASSETS_DD_DIR/freesurfer.dataset_description.json" ]; then
+    mkdir -p "$DERIVATIVES_DIR/freesurfer"
+    cp "$ASSETS_DD_DIR/freesurfer.dataset_description.json" "$DERIVATIVES_DIR/freesurfer/dataset_description.json"
+    
+    # Fill in project-specific information
+    PROJECT_NAME=$(basename "$PROJECT_DIR")
+    CURRENT_DATE=$(date +"%Y-%m-%d")
+    sed -i.tmp "s/\"URI\": \"\"/\"URI\": \"bids:$PROJECT_NAME@$CURRENT_DATE\"/" "$DERIVATIVES_DIR/freesurfer/dataset_description.json" && rm -f "$DERIVATIVES_DIR/freesurfer/dataset_description.json.tmp"
+    sed -i.tmp "s/\"DatasetLinks\": {}/\"DatasetLinks\": {\n    \"$PROJECT_NAME\": \"..\/..\/\"\n  }/" "$DERIVATIVES_DIR/freesurfer/dataset_description.json" && rm -f "$DERIVATIVES_DIR/freesurfer/dataset_description.json.tmp"
+fi
+
 # Set up logging
 if ! $QUIET; then
-    logs_dir="${DERIVATIVES_DIR}/logs/${BIDS_SUBJECT_ID}"
+    logs_dir="${DERIVATIVES_DIR}/ti-toolbox/logs/${BIDS_SUBJECT_ID}"
     mkdir -p "$logs_dir"
+    # Ensure dataset_description.json exists for ti-toolbox derivative
+    if [ ! -f "$DERIVATIVES_DIR/ti-toolbox/dataset_description.json" ] && [ -f "$ASSETS_DD_DIR/ti-toolbox.dataset_description.json" ]; then
+        mkdir -p "$DERIVATIVES_DIR/ti-toolbox"
+        cp "$ASSETS_DD_DIR/ti-toolbox.dataset_description.json" "$DERIVATIVES_DIR/ti-toolbox/dataset_description.json"
+        
+        # Fill in project-specific information
+        PROJECT_NAME=$(basename "$PROJECT_DIR")
+        CURRENT_DATE=$(date +"%Y-%m-%d")
+        sed -i.tmp "s/\"URI\": \"\"/\"URI\": \"bids:$PROJECT_NAME@$CURRENT_DATE\"/" "$DERIVATIVES_DIR/ti-toolbox/dataset_description.json" && rm -f "$DERIVATIVES_DIR/ti-toolbox/dataset_description.json.tmp"
+        sed -i.tmp "s/\"DatasetLinks\": {}/\"DatasetLinks\": {\n    \"$PROJECT_NAME\": \"..\/..\/\"\n  }/" "$DERIVATIVES_DIR/ti-toolbox/dataset_description.json" && rm -f "$DERIVATIVES_DIR/ti-toolbox/dataset_description.json.tmp"
+    fi
     set_logger_name "recon-all"
     timestamp=$(date +"%Y%m%d_%H%M%S")
     set_log_file "${logs_dir}/recon-all_${timestamp}.log"

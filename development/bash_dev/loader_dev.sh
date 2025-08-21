@@ -159,11 +159,19 @@ allow_xhost() {
   echo "Allowing connections from XQuartz or X11..."
 
   if [[ "$(uname -s)" == "Linux" ]]; then
-    # Allow connections for Linux
-    xhost +local:root
+    # Allow connections for Linux (only if xhost exists)
+    if command -v xhost >/dev/null 2>&1; then
+      xhost +local:root
+    else
+      echo "Note: xhost not found; skipping X11 access relaxation"
+    fi
   else
     # Use the dynamically obtained IP for macOS xhost
-    xhost + "$HOST_IP"
+    if command -v xhost >/dev/null 2>&1; then
+      xhost + "$HOST_IP"
+    else
+      echo "Note: xhost not found; skipping X11 access relaxation"
+    fi
   fi
 }
 
@@ -215,8 +223,10 @@ run_docker_compose() {
   # Stop and remove all containers when done
   docker compose -f "$SCRIPT_DIR/docker-compose.dev.yml" down
 
-  # Revert X server access permissions
-  xhost -local:root
+  # Revert X server access permissions (if xhost is available)
+  if command -v xhost >/dev/null 2>&1; then
+    xhost -local:root
+  fi
 }
 
 # Function to get version from version.py
@@ -231,9 +241,213 @@ get_version() {
     fi
 }
 
+# Function to initialize BIDS dataset_description.json in the project root
+initialize_dataset_description() {
+  local dataset_file="$LOCAL_PROJECT_DIR/dataset_description.json"
+  local assets_template="$SCRIPT_DIR/../../assets/dataset_descriptions/root.dataset_description.json"
+  local fallback_template="$SCRIPT_DIR/../../new_project/dataset_description.json"
+
+  # If it already exists, skip
+  if [ -f "$dataset_file" ]; then
+    echo "dataset_description.json already exists in the project. Skipping creation."
+    return 0
+  fi
+
+  # Ensure project directory exists
+  if [ ! -d "$LOCAL_PROJECT_DIR" ]; then
+    echo "Error: Project directory $LOCAL_PROJECT_DIR does not exist."
+    return 1
+  fi
+
+  # Determine project name
+  local project_name="${PROJECT_DIR_NAME:-$(basename "$LOCAL_PROJECT_DIR")}"
+
+  # Prefer assets template; fallback to new_project template
+  if [ -f "$assets_template" ]; then
+    cp "$assets_template" "$dataset_file" || { echo "Error: Failed to copy assets template"; return 1; }
+  elif [ -f "$fallback_template" ]; then
+    cp "$fallback_template" "$dataset_file" || { echo "Error: Failed to copy fallback template"; return 1; }
+  else
+    echo "Error: No dataset_description template found in assets or new_project"; return 1
+  fi
+  
+  # Fill in the Name field
+  sed -i.tmp "s/\"Name\": \"\"/\"Name\": \"$project_name\"/" "$dataset_file" && rm -f "${dataset_file}.tmp"
+
+  # Basic verification
+  if [ -f "$dataset_file" ]; then
+    echo "Created $dataset_file with project name: $project_name"
+    echo ""
+    echo "IMPORTANT: To ensure BIDS compliance, please complete the following fields in your dataset_description.json:"
+    echo "  - License: Specify the license for your dataset"
+    echo "  - Authors: List contributors to the dataset"
+    echo "  - Acknowledgements: Credit individuals or institutions"
+    echo "  - HowToAcknowledge: Instructions for citing your dataset"
+    echo "  - Funding: Grant numbers or funding sources"
+    echo "  - EthicsApprovals: Ethics committee approvals"
+    echo "  - ReferencesAndLinks: Publications related to the dataset"
+    echo "  - DatasetDOI: DOI if available"
+    echo ""
+    echo "For detailed guidance on BIDS compliance, visit:"
+    echo "https://bids-specification.readthedocs.io/en/stable/modality-agnostic-files.html"
+    echo ""
+    return 0
+  else
+    echo "Error: Failed to create $dataset_file"
+    return 1
+  fi
+}
+
+# Function to initialize ti-toolbox derivative dataset_description.json
+initialize_ti_toolbox_derivative() {
+  local derivatives_dir="$LOCAL_PROJECT_DIR/derivatives"
+  local ti_toolbox_dir="$derivatives_dir/ti-toolbox"
+  local dataset_file="$ti_toolbox_dir/dataset_description.json"
+  local assets_template="$SCRIPT_DIR/../../assets/dataset_descriptions/ti-toolbox.dataset_description.json"
+
+  # If it already exists, skip
+  if [ -f "$dataset_file" ]; then
+    echo "ti-toolbox derivative dataset_description.json already exists. Skipping creation."
+    return 0
+  fi
+
+  # Ensure derivatives directory exists
+  if [ ! -d "$derivatives_dir" ]; then
+    mkdir -p "$derivatives_dir" 2>/dev/null || { echo "Error: Failed to create derivatives directory"; return 1; }
+  fi
+
+  # Ensure ti-toolbox directory exists
+  if [ ! -d "$ti_toolbox_dir" ]; then
+    mkdir -p "$ti_toolbox_dir" 2>/dev/null || { echo "Error: Failed to create ti-toolbox directory"; return 1; }
+  fi
+
+  # Check if template exists
+  if [ ! -f "$assets_template" ]; then
+    echo "Error: ti-toolbox.dataset_description.json template not found at $assets_template"
+    return 1
+  fi
+
+  # Copy template to derivatives/ti-toolbox/
+  if cp "$assets_template" "$dataset_file" 2>/dev/null; then
+    # Fill in project-specific information
+    local project_name="${PROJECT_DIR_NAME:-$(basename "$LOCAL_PROJECT_DIR")}"
+    local current_date=$(date +"%Y-%m-%d")
+    
+    # Update URI field
+    sed -i.tmp "s/\"URI\": \"\"/\"URI\": \"bids:$project_name@$current_date\"/" "$dataset_file" && rm -f "${dataset_file}.tmp"
+    
+    # Update DatasetLinks field
+    sed -i.tmp "s/\"DatasetLinks\": {}/\"DatasetLinks\": {\n    \"$project_name\": \"..\/..\/\"\n  }/" "$dataset_file" && rm -f "${dataset_file}.tmp"
+    
+    echo "Created ti-toolbox derivative dataset_description.json at $dataset_file"
+    return 0
+  else
+    echo "Error: Failed to create ti-toolbox derivative dataset_description.json"
+    return 1
+  fi
+}
+
+# Function to initialize FreeSurfer derivative dataset_description.json
+initialize_freesurfer_derivative() {
+  local derivatives_dir="$LOCAL_PROJECT_DIR/derivatives"
+  local freesurfer_dir="$derivatives_dir/freesurfer"
+  local dataset_file="$freesurfer_dir/dataset_description.json"
+  local assets_template="$SCRIPT_DIR/../../assets/dataset_descriptions/freesurfer.dataset_description.json"
+
+  # If it already exists, skip
+  if [ -f "$dataset_file" ]; then
+    echo "FreeSurfer derivative dataset_description.json already exists. Skipping creation."
+    return 0
+  fi
+
+  # Ensure derivatives directory exists
+  if [ ! -d "$derivatives_dir" ]; then
+    mkdir -p "$derivatives_dir" 2>/dev/null || { echo "Error: Failed to create derivatives directory"; return 1; }
+  fi
+
+  # Ensure freesurfer directory exists
+  if [ ! -d "$freesurfer_dir" ]; then
+    mkdir -p "$freesurfer_dir" 2>/dev/null || { echo "Error: Failed to create freesurfer directory"; return 1; }
+  fi
+
+  # Check if template exists
+  if [ ! -f "$assets_template" ]; then
+    echo "Error: freesurfer.dataset_description.json template not found at $assets_template"
+    return 1
+  fi
+
+  # Copy template to derivatives/freesurfer/
+  if cp "$assets_template" "$dataset_file" 2>/dev/null; then
+    # Fill in project-specific information
+    local project_name="${PROJECT_DIR_NAME:-$(basename "$LOCAL_PROJECT_DIR")}"
+    local current_date=$(date +"%Y-%m-%d")
+    
+    # Update URI field
+    sed -i.tmp "s/\"URI\": \"\"/\"URI\": \"bids:$project_name@$current_date\"/" "$dataset_file" && rm -f "${dataset_file}.tmp"
+    
+    # Update DatasetLinks field
+    sed -i.tmp "s/\"DatasetLinks\": {}/\"DatasetLinks\": {\n    \"$project_name\": \"..\/..\/\"\n  }/" "$dataset_file" && rm -f "${dataset_file}.tmp"
+    
+    echo "Created FreeSurfer derivative dataset_description.json at $dataset_file"
+    return 0
+  else
+    echo "Error: Failed to create FreeSurfer derivative dataset_description.json"
+    return 1
+  fi
+}
+
+# Function to initialize SimNIBS derivative dataset_description.json
+initialize_simnibs_derivative() {
+  local derivatives_dir="$LOCAL_PROJECT_DIR/derivatives"
+  local simnibs_dir="$derivatives_dir/SimNIBS"
+  local dataset_file="$simnibs_dir/dataset_description.json"
+  local assets_template="$SCRIPT_DIR/../../assets/dataset_descriptions/simnibs.dataset_description.json"
+
+  # If it already exists, skip
+  if [ -f "$dataset_file" ]; then
+    echo "SimNIBS derivative dataset_description.json already exists. Skipping creation."
+    return 0
+  fi
+
+  # Ensure derivatives directory exists
+  if [ ! -d "$derivatives_dir" ]; then
+    mkdir -p "$derivatives_dir" 2>/dev/null || { echo "Error: Failed to create derivatives directory"; return 1; }
+  fi
+
+  # Ensure SimNIBS directory exists
+  if [ ! -d "$simnibs_dir" ]; then
+    mkdir -p "$simnibs_dir" 2>/dev/null || { echo "Error: Failed to create SimNIBS directory"; return 1; }
+  fi
+
+  # Check if template exists
+  if [ ! -f "$assets_template" ]; then
+    echo "Error: simnibs.dataset_description.json template not found at $assets_template"
+    return 1
+  fi
+
+  # Copy template to derivatives/SimNIBS/
+  if cp "$assets_template" "$dataset_file" 2>/dev/null; then
+    # Fill in project-specific information
+    local project_name="${PROJECT_DIR_NAME:-$(basename "$LOCAL_PROJECT_DIR")}"
+    local current_date=$(date +"%Y-%m-%d")
+    
+    # Update URI field
+    sed -i.tmp "s/\"URI\": \"\"/\"URI\": \"bids:$project_name@$current_date\"/" "$dataset_file" && rm -f "${dataset_file}.tmp"
+    
+    # Update DatasetLinks field
+    sed -i.tmp "s/\"DatasetLinks\": {}/\"DatasetLinks\": {\n    \"$project_name\": \"..\/..\/\"\n  }/" "$dataset_file" && rm -f "${dataset_file}.tmp"
+    
+    echo "Created SimNIBS derivative dataset_description.json at $dataset_file"
+    return 0
+  else
+    echo "Error: Failed to create SimNIBS derivative dataset_description.json"
+    return 1
+  fi
+}
+
 # Function to write system info to a hidden folder in the user's project directory
 write_system_info() {
-  INFO_DIR="$LOCAL_PROJECT_DIR/.ti-csc-info"
+  INFO_DIR="$LOCAL_PROJECT_DIR/derivatives/ti-toolbox/.ti-toolbox-info"
   INFO_FILE="$INFO_DIR/system_info.txt"
   
   # Create directory with error checking
@@ -244,7 +458,7 @@ write_system_info() {
 
   # Create and write to file with error checking
   if ! {
-    echo "# TI-CSC System Info"
+    echo "# TI-Toolbox System Info"
     echo "Date: $(date)"
     echo "User: $(whoami)"
     echo "Host: $(hostname)"
@@ -269,7 +483,7 @@ write_system_info() {
     echo "## DISPLAY"
     echo "$DISPLAY"
     echo ""
-    echo "## Environment Variables (TI-CSC relevant)"
+    echo "## Environment Variables (TI-Toolbox relevant)"
     env | grep -Ei '^(FSL|FREESURFER|SIMNIBS|PROJECT_DIR|DEV_CODEBASE|SUBJECTS_DIR|FS_LICENSE|FSFAST|MNI|POSSUM|DISPLAY|USER|PATH|LD_LIBRARY_PATH|XAPPLRESDIR)='
     echo ""
   } > "$INFO_FILE" 2>/dev/null; then
@@ -278,12 +492,15 @@ write_system_info() {
   fi
 
   echo "System info written to $INFO_FILE"
+
+  # No need to mirror since we're now using the derivatives location directly
   return 0
 }
 
 # Function to write project status
 write_project_status() {
-  INFO_DIR="$LOCAL_PROJECT_DIR/.ti-csc-info"
+  # Set info directory to derivatives location
+  INFO_DIR="$LOCAL_PROJECT_DIR/derivatives/ti-toolbox/.ti-toolbox-info"
   STATUS_FILE="$INFO_DIR/project_status.json"
   mkdir -p "$INFO_DIR"
 
@@ -293,22 +510,43 @@ write_project_status() {
   # If it's not a new project, just update the last_updated timestamp
   if [ "$IS_NEW_PROJECT" = false ]; then
     if [ -f "$STATUS_FILE" ]; then
+      # Validate JSON and update last_updated; if invalid, back up and recreate
+      if command -v jq >/dev/null 2>&1; then
+        if ! jq empty "$STATUS_FILE" >/dev/null 2>&1; then
+          cp "$STATUS_FILE" "${STATUS_FILE}.bak_$(date +%s)"
+          cat > "$STATUS_FILE" << EOF
+{
+  "project_created": "$(date -u +"%Y-%m-%dT%H:%M:%S.%6N")",
+  "last_updated": "$(date -u +"%Y-%m-%dT%H:%M:%S.%6N")",
+  "config_created": true,
+  "user_preferences": { "show_welcome": true },
+  "project_metadata": {
+    "name": "$(basename "$LOCAL_PROJECT_DIR")",
+    "path": "$(printf "%s" "$LOCAL_PROJECT_DIR" | tr -d '\r')",
+    "version": "$(get_version)"
+  }
+}
+EOF
+        fi
+      fi
       # Update last_updated timestamp
       sed -i.tmp "s/\"last_updated\": \".*\"/\"last_updated\": \"$(date -u +"%Y-%m-%dT%H:%M:%S.%6N")\"/" "$STATUS_FILE"
       rm -f "${STATUS_FILE}.tmp"
     fi
   fi
+
+  # No need to mirror since we're now using the derivatives location directly
 }
 
 # Function to initialize project configs with error handling
 initialize_project_configs() {
-  local project_ti_csc_dir="$LOCAL_PROJECT_DIR/ti-csc"
-  local project_config_dir="$project_ti_csc_dir/config"
+  local project_ti_toolbox_dir="$LOCAL_PROJECT_DIR/code/ti-toolbox"
+  local project_config_dir="$project_ti_toolbox_dir/config"
   local new_project_configs_dir="$SCRIPT_DIR/../../new_project/configs"
   local is_new_project=false
 
   # Create directories with error checking
-  if [ ! -d "$project_ti_csc_dir" ]; then
+  if [ ! -d "$project_ti_toolbox_dir" ]; then
     echo "Creating new project structure..."
     if ! mkdir -p "$project_config_dir" 2>/dev/null; then
       echo "Error: Could not create directory $project_config_dir"
@@ -333,13 +571,47 @@ initialize_project_configs() {
       return 1
     fi
     
-    # Create .ti-csc-info directory with error checking
-    local info_dir="$LOCAL_PROJECT_DIR/.ti-csc-info"
+    # Create .ti-toolbox-info directory with error checking (under derivatives/ti-toolbox)
+    local info_dir="$LOCAL_PROJECT_DIR/derivatives/ti-toolbox/.ti-toolbox-info"
     if ! mkdir -p "$info_dir" 2>/dev/null; then
       echo "Error: Could not create directory $info_dir"
       return 1
     fi
     
+    # Copy each config file individually and verify, but only if it doesn't exist
+    # Exclude entrypoint.json as it's not needed in project configs
+    for config_file in "$new_project_configs_dir"/*.json; do
+      if [ -f "$config_file" ]; then
+        filename=$(basename "$config_file")
+        
+        # Skip entrypoint.json
+        if [ "$filename" = "entrypoint.json" ]; then
+          continue
+        fi
+        
+        target_file="$project_config_dir/$filename"
+        
+        # Only copy if the file doesn't exist
+        if [ ! -f "$target_file" ]; then
+          if cp "$config_file" "$target_file" 2>/dev/null; then
+            echo "Copied $filename to $project_config_dir"
+            # Set proper permissions for the config file
+            chmod 644 "$target_file" 2>/dev/null || echo "Warning: Could not set permissions for $target_file"
+          else
+            echo "Error: Failed to copy $filename"
+            return 1
+          fi
+        else
+          echo "Config file $filename already exists, skipping..."
+        fi
+      fi
+    done
+    
+    # Set proper permissions for config directory
+    if ! chmod -R 755 "$project_config_dir" 2>/dev/null; then
+      echo "Warning: Could not set permissions for $project_config_dir"
+    fi
+
     # Create initial project status file
     local status_file="$info_dir/project_status.json"
     if ! cat > "$status_file" << EOF 2>/dev/null; then
@@ -378,6 +650,9 @@ display_welcome
 load_default_paths
 get_project_directory
 get_dev_codebase_directory
+# Sanitize possible carriage returns from user input paths - prevents creating a "\r" directory
+LOCAL_PROJECT_DIR=$(printf "%s" "$LOCAL_PROJECT_DIR" | tr -d '\r')
+DEV_CODEBASE_DIR=$(printf "%s" "$DEV_CODEBASE_DIR" | tr -d '\r')
 PROJECT_DIR_NAME=$(basename "$LOCAL_PROJECT_DIR")
 DEV_CODEBASE_DIR_NAME=$(basename "$DEV_CODEBASE_DIR")
 check_docker_resources
@@ -403,5 +678,17 @@ fi
 if ! write_project_status; then
   echo "Warning: Failed to write project status"
 fi
+
+# Ensure BIDS dataset description exists in the project root
+initialize_dataset_description
+
+# Ensure ti-toolbox derivative dataset description exists
+initialize_ti_toolbox_derivative
+
+# Ensure FreeSurfer derivative dataset description exists
+initialize_freesurfer_derivative
+
+# Ensure SimNIBS derivative dataset description exists
+initialize_simnibs_derivative
 
 run_docker_compose

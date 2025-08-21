@@ -452,20 +452,38 @@ class SimulationReportGenerator:
                 subject_data['t1_path'] = self._find_t1_file(subject_data['m2m_path'])
 
         if output_path is None:
-            # Use standardized path: project_dir/derivatives/reports/sub-subjectID/simulation_report_date_time.html
-            # For single subject, or project_dir/derivatives/reports/simulation_session_ID.html for multi-subject
+            # Use standardized path: project_dir/derivatives/ti-toolbox/reports/sub-subjectID/simulation_report_date_time.html
+            # For single subject, or project_dir/derivatives/ti-toolbox/reports/simulation_session_ID.html for multi-subject
             if len(self.report_data['subjects']) == 1:
                 # Single subject report
                 subject_id = self.report_data['subjects'][0]['subject_id']
                 bids_subject_id = f"sub-{subject_id}"
-                reports_dir = self.project_dir / "derivatives" / "reports" / bids_subject_id
+                base_reports_dir = self.project_dir / "derivatives" / "ti-toolbox" / "reports"
+                base_reports_dir.mkdir(parents=True, exist_ok=True)
+                # Ensure dataset_description.json exists at reports root
+                try:
+                    dd_path = base_reports_dir / "dataset_description.json"
+                    assets_template = Path(__file__).resolve().parent.parent / "assets" / "dataset_descriptions" / "reports.dataset_description.json"
+                    if not dd_path.exists() and assets_template.exists():
+                        shutil.copyfile(str(assets_template), str(dd_path))
+                except Exception:
+                    pass
+                reports_dir = base_reports_dir / bids_subject_id
                 reports_dir.mkdir(parents=True, exist_ok=True)
                 timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
                 output_path = reports_dir / f"simulation_report_{timestamp}.html"
             else:
                 # Multi-subject or session report
-                reports_dir = self.project_dir / "derivatives" / "reports"
+                reports_dir = self.project_dir / "derivatives" / "ti-toolbox" / "reports"
                 reports_dir.mkdir(parents=True, exist_ok=True)
+                # Ensure dataset_description.json exists at reports root
+                try:
+                    dd_path = reports_dir / "dataset_description.json"
+                    assets_template = Path(__file__).resolve().parent.parent / "assets" / "dataset_descriptions" / "reports.dataset_description.json"
+                    if not dd_path.exists() and assets_template.exists():
+                        shutil.copyfile(str(assets_template), str(dd_path))
+                except Exception:
+                    pass
                 output_path = reports_dir / f"simulation_session_{self.simulation_session_id}.html"
         
         # Set the report directory

@@ -172,11 +172,11 @@ Windows System:
 ├── Docker Desktop running
 └── TI-CSC Launcher executable
 
-TI-CSC Project Directory:
+TI-Toolbox Project Directory:
 ├── Your BIDS data
-├── ti-csc/ (created automatically)
+├── ti-toolbox/ (created automatically)
 │   └── config/ (configuration files)
-└── .ti-csc-info/ (hidden, system information)
+└── sourcedata/.ti-toolbox-info/ (hidden, system information)
 ```
 
 ## Common VcXsrv Configuration

@@ -9,6 +9,7 @@ for preprocessing and simulation pipelines, similar to fMRIPrep reports.
 
 import os
 import datetime
+import shutil
 from pathlib import Path
 from typing import Optional, Dict, Any, List
 
@@ -28,7 +29,7 @@ except ImportError:
 # ----------------------------------------------------------------------------
 # Configuration constants
 # ----------------------------------------------------------------------------
-REPORTS_BASE_DIR = "derivatives/reports"
+REPORTS_BASE_DIR = "derivatives/ti-toolbox/reports"
 PREPROCESSING_REPORT_PREFIX = "pre_processing_report"
 SIMULATION_REPORT_PREFIX = "simulation_report"
 
@@ -50,7 +51,19 @@ def _ensure_reports_directory(project_dir: str, subject_id: str) -> Path:
     if not subject_id.startswith('sub-'):
         subject_id = f"sub-{subject_id}"
     
-    reports_dir = Path(project_dir) / REPORTS_BASE_DIR / subject_id
+    # Ensure reports root exists and has dataset_description.json
+    base_reports_dir = Path(project_dir) / REPORTS_BASE_DIR
+    base_reports_dir.mkdir(parents=True, exist_ok=True)
+    dd_path = base_reports_dir / "dataset_description.json"
+    assets_template = Path(__file__).resolve().parent.parent / "assets" / "dataset_descriptions" / "reports.dataset_description.json"
+    try:
+        if not dd_path.exists() and assets_template.exists():
+            shutil.copyfile(str(assets_template), str(dd_path))
+    except Exception:
+        # Non-fatal: continue even if we fail to copy the placeholder
+        pass
+
+    reports_dir = base_reports_dir / subject_id
     reports_dir.mkdir(parents=True, exist_ok=True)
     return reports_dir
 

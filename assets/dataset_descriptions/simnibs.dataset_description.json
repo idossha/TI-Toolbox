@@ -1,0 +1,39 @@
+{
+    "Name": "SimNIBS derivatives for TI-Toolbox",
+    "BIDSVersion": "1.10.0",
+    "DatasetType": "derivative",
+    "License": "CC-BY-4.0",
+    "Authors": [
+      "Ido Haber",
+      "Aksel Jackson"
+    ],
+    "Acknowledgements": "We thank the SimNIBS developers and contributors. SimNIBS is developed by the SimNIBS team at Aarhus University, Charité Berlin, and Technical University of Denmark.",
+    "HowToAcknowledge": "Please cite: Saturnino, G. B., Puonti, O., Nielsen, J. D., Antonenko, D., Madsen, K. H., & Thielscher, A. (2019). SimNIBS 2.1: A comprehensive pipeline for individualized electric field modelling for transcranial brain stimulation. NeuroImage, 197, 1–15. https://doi.org/10.1016/j.neuroimage.2019.01.045",
+    "ReferencesAndLinks": [
+      "https://simnibs.github.io/simnibs/build/html/",
+      "Saturnino, G. B., et al. (2019). SimNIBS 2.1: A comprehensive pipeline for individualized electric field modelling for transcranial brain stimulation. NeuroImage, 197, 1–15. https://doi.org/10.1016/j.neuroimage.2019.01.045"
+    ],
+    "GeneratedBy": [
+      {
+        "Name": "SimNIBS",
+        "Version": "4.1",
+        "Description": "Finite element modeling of transcranial brain stimulation fields and subject-specific head modeling.",
+        "CodeURL": "https://github.com/simnibs/simnibs",
+        "Container": {
+          "Type": "docker",
+          "Tag": "idossha/simnibs:2.0.5"
+        },
+        "Environment": [
+          "SIMNIBS_HOME=/usr/local/simnibs",
+          "PATH=/usr/local/simnibs/bin:$PATH"
+        ]
+      }
+    ],
+    "SourceDatasets": [
+      {
+        "URI": ""
+      }
+    ],
+    "DatasetLinks": {}
+  }
+  

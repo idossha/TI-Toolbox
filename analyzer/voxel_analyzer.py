@@ -114,8 +114,8 @@ class VoxelAnalyzer:
             # Extract subject ID from subject_dir (e.g., m2m_subject -> subject)
             subject_id = os.path.basename(self.subject_dir).split('_')[1] if '_' in os.path.basename(self.subject_dir) else os.path.basename(self.subject_dir)
             
-            # Create derivatives/log/sub-* directory structure
-            log_dir = os.path.join('derivatives', 'logs', f'sub-{subject_id}')
+            # Create derivatives/ti-toolbox/logs/sub-* directory structure
+            log_dir = os.path.join('derivatives', 'ti-toolbox', 'logs', f'sub-{subject_id}')
             os.makedirs(log_dir, exist_ok=True)
             
             # Create log file in the new directory

@@ -15,7 +15,7 @@ script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 flex_search_dir="$script_dir/../flex-search"
 project_dir="/mnt/$PROJECT_DIR_NAME"
 utils_dir="$script_dir/../utils"
-config_file="$project_dir/ti-csc/config/flex-search_config/flex_config.json"
+config_file="$project_dir/code/ti-toolbox/config/flex-search_config/flex_config.json"
 
 # Export project directory for Python script
 export PROJECT_DIR="$project_dir"

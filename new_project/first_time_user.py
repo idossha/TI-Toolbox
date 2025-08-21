@@ -17,14 +17,14 @@ logger = logging.getLogger(__name__)
 def get_status_file_path():
     """
     Get the path to the status file in the project directory.
-    The file will be stored in /mnt/PROJECT_DIR_NAME/.ti-csc-info/project_status.json
+    The file will be stored in /mnt/PROJECT_DIR_NAME/sourcedata/.ti-toolbox-info/project_status.json
     """
     # Get project directory from environment
     project_dir = os.environ.get('PROJECT_DIR', '')
     if not project_dir:
         project_dir = f"/mnt/{os.environ.get('PROJECT_DIR_NAME', 'BIDS_new')}"
     
-    info_dir = os.path.join(project_dir, '.ti-csc-info')
+    info_dir = os.path.join(project_dir, 'sourcedata', '.ti-toolbox-info')
     return os.path.join(info_dir, 'project_status.json')
 
 def initialize_project_status(project_dir):
