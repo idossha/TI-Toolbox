@@ -290,7 +290,7 @@ class ExSearchTab(QtWidgets.QWidget):
             # Get project directory structure
             project_dir = os.path.join("/mnt", os.environ.get("PROJECT_DIR_NAME", ""))
             derivatives_dir = os.path.join(project_dir, 'derivatives')
-            log_dir = os.path.join(derivatives_dir, 'logs', f'sub-{subject_id}')
+            log_dir = os.path.join(derivatives_dir, 'ti-toolbox', 'logs', f'sub-{subject_id}')
             os.makedirs(log_dir, exist_ok=True)
             
             # Create log file path
@@ -458,7 +458,7 @@ class ExSearchTab(QtWidgets.QWidget):
             # Create log file path same way as before
             project_dir = os.path.join("/mnt", os.environ.get("PROJECT_DIR_NAME", ""))
             derivatives_dir = os.path.join(project_dir, 'derivatives')
-            log_dir = os.path.join(derivatives_dir, 'logs', f'sub-{subject_id}')
+            log_dir = os.path.join(derivatives_dir, 'ti-toolbox', 'logs', f'sub-{subject_id}')
             
             # Find the most recent ex_search log file
             if os.path.exists(log_dir):

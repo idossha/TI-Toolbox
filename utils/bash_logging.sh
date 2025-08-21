@@ -452,6 +452,13 @@ execute_with_summary() {
                     if [ -z "$error_msg" ]; then
                         error_msg=$(grep -i "error" "$temp_output" | head -1 | tr -d '\n' | cut -c1-100)
                     fi
+                elif [[ "$process_name" == "SimNIBS charm" ]]; then
+                    # For SimNIBS charm, look for specific failure patterns
+                    error_msg=$(grep -E "charm.*exited|terminated with exit status|failed to run|Fatal|Critical|Exception" "$temp_output" | head -1 | tr -d '\n' | cut -c1-120)
+                    if [ -z "$error_msg" ]; then
+                        # Only report as error if it's a clear failure message, not just any "error" text
+                        error_msg=$(grep -i "failed\|fatal\|critical\|exception" "$temp_output" | head -1 | tr -d '\n' | cut -c1-100)
+                    fi
                 else
                     error_msg=$(grep -i "error" "$temp_output" | head -1 | tr -d '\n' | cut -c1-100)
                 fi

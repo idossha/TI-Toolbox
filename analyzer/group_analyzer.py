@@ -414,14 +414,54 @@ def run_subject_analysis(args, subject_args: List[str]) -> Tuple[bool, str]:
     import time
     start_time = time.time()
 
-    # Run main_analyzer.py - all output will be logged to centralized log file
-    proc = subprocess.run(cmd, capture_output=True, text=True)
+    # Run main_analyzer.py with real-time output streaming
+    if args.quiet:
+        # In summary mode, stream output in real-time to show task steps as they happen
+        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, 
+                               text=True, bufsize=1, universal_newlines=True)
+        
+        # Stream output in real-time
+        output_lines = []
+        while True:
+            line = proc.stdout.readline()
+            if not line and proc.poll() is not None:
+                break
+            if line:
+                line = line.strip()
+                if line:
+                    output_lines.append(line)
+                    # Display task steps in real-time
+                    if line.startswith('Beginning analysis for subject:'):
+                        # This is the subject start message, display it with proper indentation
+                        print(f"  {line}")
+                    elif line.startswith('├─ ') or line.startswith('└─ '):
+                        # This is a task step, display it with proper indentation
+                        clean_line = line[2:]  # Remove the tree symbols
+                        print(f"  ├─ {clean_line}")
+                    elif 'Starting...' in line and 'Subject' in line:
+                        # Skip the "Subject X: Starting..." line as it's already shown
+                        continue
+                    elif '✓ Complete' in line or '✗ Failed' in line:
+                        # Skip completion lines as they're handled separately
+                        continue
+                    elif 'Analysis completed successfully' in line:
+                        # Skip the final completion message as it's handled separately
+                        continue
+        
+        # Wait for process to complete
+        return_code = proc.wait()
+        stdout_output = '\n'.join(output_lines)
+    else:
+        # In debug mode, capture output as before
+        proc = subprocess.run(cmd, capture_output=True, text=True)
+        return_code = proc.returncode
+        stdout_output = proc.stdout
 
     end_time = time.time()
     duration = int(end_time - start_time)
     duration_str = format_duration(duration)
 
-    if proc.returncode == 0:
+    if return_code == 0:
         if group_logger:
             group_logger.debug(f"Subject {subject_id} analysis completed successfully")
         
@@ -434,18 +474,15 @@ def run_subject_analysis(args, subject_args: List[str]) -> Tuple[bool, str]:
         if group_logger:
             group_logger.error(f"Subject {subject_id} analysis failed")
             # Log any additional error output that might not have been captured by main_analyzer.py
-            if proc.stdout.strip():
-                group_logger.error(f"stdout: {proc.stdout.strip()}")
-            if proc.stderr.strip():
-                group_logger.error(f"stderr: {proc.stderr.strip()}")
+            if stdout_output.strip():
+                group_logger.error(f"stdout: {stdout_output.strip()}")
+            # For streaming mode, stderr is redirected to stdout, so no separate stderr handling needed
 
         # Extract meaningful error message for summary
         error_msg = ""
-        if proc.stderr.strip():
-            error_msg = proc.stderr.strip().split('\n')[0]  # First line of stderr
-        elif proc.stdout.strip():
+        if stdout_output.strip():
             # Look for error patterns in stdout
-            stdout_lines = proc.stdout.strip().split('\n')
+            stdout_lines = stdout_output.strip().split('\n')
             for line in stdout_lines:
                 if any(keyword in line.lower() for keyword in ['error:', 'failed', 'exception', 'critical']):
                     error_msg = line.strip()
@@ -637,6 +674,10 @@ def main():
                 successful_subjects_info.append((subj_args, outdir))
             else:
                 failed_subjects.append(subj_id)
+            
+            # Add a small visual separator between subjects for clarity
+            if args.quiet and len(args.subject) > 1:
+                print("")  # Empty line for visual separation
 
         if group_logger:
             group_logger.debug("\n=== GROUP ANALYSIS SUMMARY ===")
@@ -652,13 +693,20 @@ def main():
             if args.quiet:
                 print("├─ Group comparison: Starting...")
             
+            # Track timing for group comparison
+            group_start_time = time.time()
+            
             analysis_dirs = collect_analysis_paths(successful_dirs)
             if analysis_dirs:
                 final_group_dir = run_comprehensive_group_analysis(analysis_dirs, project_name)
                 
+                # Calculate group comparison duration
+                group_duration = int(time.time() - group_start_time)
+                group_duration_str = format_duration(group_duration)
+                
                 # Log group comparison completion for summary
                 if args.quiet:
-                    print(f"├─ Group comparison: ✓ Complete ({len(analysis_dirs)} subjects processed)")
+                    print(f"├─ Group comparison: ✓ Complete ({len(analysis_dirs)} subjects processed, {group_duration_str})")
                 
                 if group_logger:
                     group_logger.debug(f"Group comparison completed. Output directory: {final_group_dir}")

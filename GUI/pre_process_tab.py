@@ -117,8 +117,10 @@ class PreProcessThread(QtCore.QThread):
                         self.last_step = "FreeSurfer recon-all completed"
                     elif 'Starting skull bone analysis' in line_stripped:
                         self.last_step = "skull bone analysis"
-                    elif 'Skull bone analysis completed' in line_stripped:
+                    elif 'Skull bone analysis completed' in line_stripped or 'Bone analysis: ✓ Complete' in line_stripped:
                         self.last_step = "skull bone analysis completed"
+                    elif 'Atlas' in line_stripped and '✓ Complete' in line_stripped:
+                        self.last_step = "atlas segmentation completed"
                     
                     # Detect actual failures from the shell scripts
                     elif 'Warning:' in line_stripped and 'failed for subject' in line_stripped:
@@ -923,7 +925,7 @@ class PreProcessTab(QtWidgets.QWidget):
                         continue
                     
                     cmd = ["subject_atlas", "-m", m2m_folder, "-a", atlas, "-o", output_dir]
-                    self.update_output(f"[Atlas] {subject_id}: Running {' '.join(cmd)}", 'debug')
+                    self.update_output(f"├─ Atlas {atlas}: Starting...", 'info')
                     try:
                         proc = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
                         if proc.returncode == 0:
@@ -934,7 +936,7 @@ class PreProcessTab(QtWidgets.QWidget):
                                     created_files.append(os.path.basename(expected_file))
                             
                             if len(created_files) == 2:
-                                self.update_output(f"[Atlas] {subject_id}: Atlas {atlas} segmentation complete. Created: {', '.join(created_files)}", 'success')
+                                self.update_output(f"├─ Atlas {atlas}: ✓ Complete", 'success')
                             else:
                                 self.update_output(f"[Atlas] {subject_id}: Atlas {atlas} segmentation completed but some files missing. Created: {', '.join(created_files)}", 'warning')
                         else:
@@ -976,10 +978,10 @@ class PreProcessTab(QtWidgets.QWidget):
                     out_dir = os.path.join(self.project_dir, "derivatives", "ti-toolbox", "bone_analysis", bids_subject_id)
                     os.makedirs(out_dir, exist_ok=True)
                     cmd_bone = [sys.executable, os.path.join(os.path.dirname(os.path.dirname(__file__)), 'pre-process', 'bone_analyzer.py'), label_nii, '-o', out_dir]
-                    self.update_output(f"[Bone] {subject_id}: Running {' '.join(cmd_bone)}", 'debug')
+                    self.update_output(f"├─ Bone analysis: Starting...", 'info')
                     proc = subprocess.run(cmd_bone, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
                     if proc.returncode == 0:
-                        self.update_output(f"[Bone] {subject_id}: Bone analysis completed.", 'success')
+                        self.update_output(f"├─ Bone analysis: ✓ Complete", 'success')
                     else:
                         self.update_output(f"[Bone] {subject_id}: Bone analysis failed.\n{proc.stdout}", 'error')
                 except Exception as e:

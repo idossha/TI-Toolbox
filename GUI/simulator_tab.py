@@ -2273,7 +2273,7 @@ class SimulatorTab(QtWidgets.QWidget):
                     except Exception:
                         pass
             # Mark log files created during this failed run as errored by renaming them
-            logs_dir = os.path.join(project_dir, 'derivatives', 'logs', f'sub-{subject_id}')
+            logs_dir = os.path.join(project_dir, 'derivatives', 'ti-toolbox', 'logs', f'sub-{subject_id}')
             if os.path.isdir(logs_dir):
                 try:
                     for fname in list(os.listdir(logs_dir)):

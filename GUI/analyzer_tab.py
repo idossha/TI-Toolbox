@@ -2167,8 +2167,18 @@ class AnalyzerTab(QtWidgets.QWidget):
             # In non-debug (summary) mode, colorize lines and deduplicate
             scrollbar = self.output_console.verticalScrollBar()
             at_bottom = scrollbar.value() >= scrollbar.maximum() - 5
+            
+            # Safety check: ensure the attribute exists before accessing it
+            if not hasattr(self, '_last_plain_output_line'):
+                self._last_plain_output_line = None
+                
             if text == self._last_plain_output_line:
                 return
+                
+            # Safety check: ensure the _summary_printed attribute exists
+            if not hasattr(self, '_summary_printed'):
+                self._summary_printed = set()
+                
             low = text.lower().strip()
             # Guard against duplicate summary lines (whether from our own calls or subprocess echo)
             if low.startswith('beginning analysis for subject:') and 'headline' in self._summary_printed:

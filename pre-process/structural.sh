@@ -224,17 +224,8 @@ process_subject_non_recon() {
     
     # DICOM conversion
     if $CONVERT_DICOM; then
-        echo "  Running DICOM conversion..."
-        local dicom_args=("$subject_dir")
-        if $QUIET; then
-            dicom_args+=("--quiet")
-        fi
-        
-        if ! "$script_dir/dicom2nifti.sh" "${dicom_args[@]}"; then
-            echo "  Warning: DICOM conversion failed for subject: $subject_id"
+        if ! run_dicom_single_with_summary "$subject_dir"; then
             success=false
-        else
-            echo "  DICOM conversion completed for subject: $subject_id"
         fi
     fi
     
@@ -404,7 +395,7 @@ if $PARALLEL && ($RUN_RECON || $RECON_ONLY) && [[ ${#SUBJECT_DIRS[@]} -gt 1 ]]; 
         if $CREATE_M2M; then
             echo "Running SimNIBS charm sequentially to prevent memory conflicts..."
             for subject_dir in "${SUBJECT_DIRS[@]}"; do
-                run_charm_single "$subject_dir"
+                run_charm_single_with_summary "$subject_dir"
                 # Continue even if it fails
             done
         fi

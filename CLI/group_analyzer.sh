@@ -981,6 +981,9 @@ run_group_analysis() {
     # Always enable visualizations
     cmd+=(--visualize)
     
+    # Add quiet flag for summary mode (shows individual subject task steps)
+    cmd+=(--quiet)
+    
     # Add subject specifications (now using per-subject field paths)
     for subject_id in "${selected_subjects[@]}"; do
         local m2m_path="$project_dir/derivatives/SimNIBS/sub-$subject_id/m2m_$subject_id"

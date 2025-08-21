@@ -37,7 +37,7 @@ def setup_group_logger(project_name: str) -> logging.Logger:
         return group_logger
     
     # Create timestamped log directory
-    log_dir = os.path.join("/mnt", project_name, "derivatives", "logs", "group_analysis")
+    log_dir = os.path.join("/mnt", project_name, "derivatives", "ti-toolbox", "logs", "group_analysis")
     os.makedirs(log_dir, exist_ok=True)
     
     # Create timestamped group analysis log file
