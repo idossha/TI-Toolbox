@@ -230,7 +230,8 @@ run_docker_compose() {
   # Stop and remove all containers when done
   docker compose -f "$SCRIPT_DIR/docker-compose.dev.yml" down
 
-  # Revert X server access permissions (only if xhost is available)
+
+  # Revert X server access permissions (if xhost is available)
   if command -v xhost >/dev/null 2>&1; then
     xhost -local:root
   fi

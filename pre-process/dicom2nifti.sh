@@ -139,45 +139,61 @@ process_dicom_directory() {
         # First convert in place
         dcm2niix -z y -o "$target_dir" "$source_dir"
         
-        # Process each pair of files
-        for json_file in "$target_dir"/*.json; do
-            if [ -f "$json_file" ]; then
-                # Get the corresponding nii.gz file
-                nii_file="${json_file%.json}.nii.gz"
-                if [ -f "$nii_file" ]; then
-                    # Extract SeriesDescription from JSON
-                    series_desc=$(grep -o '"SeriesDescription": *"[^"]*"' "$json_file" | cut -d'"' -f4)
-                    if [ -n "$series_desc" ]; then
-                        # Clean up series description to be FreeSurfer-friendly
-                        # Remove problematic characters and replace spaces with underscores
-                        clean_name=$(echo "$series_desc" | \
-                            sed 's/[^a-zA-Z0-9._-]/_/g' | \
-                            sed 's/__*/_/g' | \
-                            sed 's/^_//;s/_$//')
-                        
-                        # Special handling for T1 and T2 images to ensure consistent naming
-                        if [[ "$clean_name" =~ [Tt]1 ]]; then
-                            clean_name="anat-T1w_acq-MPRAGE"
-                        elif [[ "$clean_name" =~ [Tt]2 ]]; then
-                            clean_name="anat-T2w_acq-CUBE"
-                        fi
-                        
-                        # Create new filenames based on cleaned SeriesDescription
-                        new_json="${BIDS_ANAT_DIR}/${clean_name}.json"
-                        new_nii="${BIDS_ANAT_DIR}/${clean_name}.nii.gz"
-                        
-                        # Move and rename the files
-                        mv "$json_file" "$new_json"
-                        mv "$nii_file" "$new_nii"
-                        log_info "Renamed files to: $clean_name (from: $series_desc)"
-                    else
-                        # If no SeriesDescription found, move with original names
-                        mv "$json_file" "${BIDS_ANAT_DIR}/"
-                        mv "$nii_file" "${BIDS_ANAT_DIR}/"
-                    fi
-                fi
-            fi
-        done
+		# Process each pair of files
+		for json_file in "$target_dir"/*.json; do
+			if [ -f "$json_file" ]; then
+				# Get the corresponding nii.gz file
+				nii_file="${json_file%.json}.nii.gz"
+				if [ -f "$nii_file" ]; then
+					# Determine scan type (T1w/T2w) preferring directory hint, fallback to SeriesDescription
+					scan_suffix=""
+					if [[ "$source_dir" == *"/T1w/"* ]]; then
+						scan_suffix="T1w"
+					elif [[ "$source_dir" == *"/T2w/"* ]]; then
+						scan_suffix="T2w"
+					else
+						series_desc=$(grep -o '"SeriesDescription": *"[^"]*"' "$json_file" | cut -d'"' -f4)
+						if [[ -n "$series_desc" && "$series_desc" =~ [Tt]1 ]]; then
+							scan_suffix="T1w"
+						elif [[ -n "$series_desc" && "$series_desc" =~ [Tt]2 ]]; then
+							scan_suffix="T2w"
+						fi
+					fi
+					
+					# Build BIDS-compliant base name: sub-XX_T1w or sub-XX_T2w
+					if [ -z "$scan_suffix" ]; then
+						log_warning "Could not determine scan type for $json_file; leaving in anat with original name."
+						base_name="${BIDS_SUBJECT_ID}"
+					else
+						base_name="${BIDS_SUBJECT_ID}_${scan_suffix}"
+					fi
+					new_json="${BIDS_ANAT_DIR}/${base_name}.json"
+					new_nii="${BIDS_ANAT_DIR}/${base_name}.nii.gz"
+					
+					# Handle duplicates by adding run-XX
+					if [ -e "$new_nii" ] || [ -e "$new_json" ]; then
+						run_index=2
+						while true; do
+							candidate_base="${base_name}_run-$(printf "%02d" "$run_index")"
+							candidate_json="${BIDS_ANAT_DIR}/${candidate_base}.json"
+							candidate_nii="${BIDS_ANAT_DIR}/${candidate_base}.nii.gz"
+							if [ ! -e "$candidate_json" ] && [ ! -e "$candidate_nii" ]; then
+								new_json="$candidate_json"
+								new_nii="$candidate_nii"
+								break
+							fi
+							run_index=$((run_index + 1))
+						done
+					fi
+					
+					# Move and rename the files
+					mkdir -p "$BIDS_ANAT_DIR"
+					mv "$json_file" "$new_json"
+					mv "$nii_file" "$new_nii"
+					log_info "Renamed files to: $(basename "$new_nii")"
+				fi
+			fi
+		done
     fi
 }
 
