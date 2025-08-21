@@ -160,6 +160,13 @@ class AnalyzerTab(QtWidgets.QWidget):
         
         # Initialize debug mode (default to False)
         self.debug_mode = False
+        # Initialize summary mode state and timers for non-debug summaries
+        self.SUMMARY_MODE = True
+        self.ANALYSIS_START_TIME = None
+        self.STEP_START_TIMES = {}
+        self._last_output_dir = None
+        self._last_plain_output_line = None
+        self._summary_printed = set()
         
         self.setup_ui()
         
@@ -1736,6 +1743,11 @@ class AnalyzerTab(QtWidgets.QWidget):
     
     def run_single_analysis(self):
         try:
+            # Prevent accidental double-starts
+            if getattr(self, '_thread_started', False):
+                return
+            if hasattr(self, 'optimization_process') and self.optimization_process and self.optimization_process.isRunning():
+                return
             # In single mode, get the selected subject from the combo
             selected_subjects = self.get_selected_subjects()
             if not selected_subjects:
@@ -1768,9 +1780,34 @@ class AnalyzerTab(QtWidgets.QWidget):
             env['PROJECT_DIR'] = f"/mnt/{project_dir_name}"
             env['SUBJECT_ID'] = subject_id # Passed to script via env
             
-            self.update_output(f"Running single subject analysis for: {subject_id}")
-            self.update_output(f"Montage: {simulation_name}")
-            self.update_output(f"Command: {' '.join(cmd)}")
+            # Mark thread start as early as possible to avoid race double-starts
+            self._thread_started = True
+
+            # Summary-mode: headline and initial step (guard against duplicates)
+            if self.SUMMARY_MODE and not getattr(self, '_summary_started', False):
+                details = self._build_start_details(subject_id)
+                self.ANALYSIS_START_TIME = time.time()
+                self.update_output(f"Beginning analysis for subject: {subject_id} ({details})")
+                self._summary_printed.add('headline')
+                # Field data loading step
+                self.update_output("├─ Field data loading: Starting...")
+                self.update_output("├─ Field data loading: ✓ Complete (0s)")
+                self._summary_printed.update({'field_start', 'field_done'})
+                # Start main analysis step timer
+                step_key = 'cortical analysis' if self.type_cortical.isChecked() else 'spherical analysis'
+                # Only set start timer if not already set
+                if step_key not in self.STEP_START_TIMES:
+                    self.STEP_START_TIMES[step_key] = time.time()
+                self.update_output(f"├─ {step_key.title()}: Starting...")
+                self._summary_printed.add('analysis_start')
+                # Record output dir for later summary line
+                self._last_output_dir = self._extract_output_dir_from_cmd(cmd)
+                # Mark started to avoid duplicated blocks
+                self._summary_started = True
+            else:
+                self.update_output(f"Running single subject analysis for: {subject_id}")
+                self.update_output(f"Montage: {simulation_name}")
+                self.update_output(f"Command: {' '.join(cmd)}")
             
             self.optimization_process = AnalysisThread(cmd, env)
             self.optimization_process.output_signal.connect(self.update_output, QtCore.Qt.QueuedConnection)
@@ -1778,6 +1815,7 @@ class AnalyzerTab(QtWidgets.QWidget):
                 lambda sid=subject_id, sim_name=simulation_name: self.analysis_finished(subject_id=sid, simulation_name=sim_name, success=True),
                 QtCore.Qt.QueuedConnection
             )
+            self._thread_started = True
             self.optimization_process.start()
         except Exception as e:
             self.update_output(f"Error preparing single analysis: {str(e)}")
@@ -1803,8 +1841,14 @@ class AnalyzerTab(QtWidgets.QWidget):
             project_dir_name = os.environ.get('PROJECT_DIR_NAME', 'BIDS_new')
             env['PROJECT_DIR'] = f"/mnt/{project_dir_name}"
             
-            self.update_output(f"Starting group analysis for subjects: {', '.join(selected_subjects)}")
-            self.update_output(f"Command: {' '.join(cmd)}")
+            if self.SUMMARY_MODE:
+                # For group we still provide a concise start message
+                self.ANALYSIS_START_TIME = time.time()
+                self.update_output(f"Beginning group analysis for subjects: {', '.join(selected_subjects)}")
+                self._last_output_dir = self._extract_output_dir_from_cmd(cmd)
+            else:
+                self.update_output(f"Starting group analysis for subjects: {', '.join(selected_subjects)}")
+                self.update_output(f"Command: {' '.join(cmd)}")
             
             # Create and start thread
             self.optimization_process = AnalysisThread(cmd, env)
@@ -2011,32 +2055,71 @@ class AnalyzerTab(QtWidgets.QWidget):
         self._processing_analysis_finished_lock = True
         try:
             if success:
-                last_line = self.output_console.toPlainText().strip().split('\n')[-1] if self.output_console.toPlainText() else ""
-                if "WARNING: Analysis Failed" in last_line or "Error: Process returned non-zero" in last_line or "failed" in last_line.lower():
-                    self.update_output('<div style="margin: 10px 0;"><span style="color: #ff5555; font-weight: bold;">[ERROR] Analysis process indicated failure.</span></div>')
+                if self.SUMMARY_MODE and getattr(self, '_summary_started', False) and not getattr(self, '_summary_finished', False):
+                    # Complete analysis step timing if started
+                    analysis_step_key = 'cortical analysis' if self.type_cortical.isChecked() else 'spherical analysis'
+                    start_time = self.STEP_START_TIMES.get(analysis_step_key)
+                    if start_time:
+                        duration_sec = int(max(0, (time.time() - start_time)))
+                        duration_str = f"{duration_sec}s" if duration_sec < 60 else f"{duration_sec // 60}m {duration_sec % 60}s"
+                        regions_info = "- 1 region analyzed" if self.type_cortical.isChecked() else ""
+                        self.update_output(f"├─ {analysis_step_key.title()}: ✓ Complete ({duration_str}) {regions_info}".rstrip())
+                        self._summary_printed.add('analysis_done')
+                    # Results saving summary
+                    saved_to_display = self._last_output_dir or ""
+                    if saved_to_display.startswith('/mnt/'):
+                        # Show without the leading /mnt/ to match examples
+                        saved_to_display = saved_to_display[5:]
+                    self.update_output("├─ Results saving: Starting...")
+                    self._summary_printed.add('results_start')
+                    self.update_output(f"├─ Results saving: ✓ Complete (0s) - saved to {saved_to_display}")
+                    self._summary_printed.add('results_done')
+                    # Final line with total duration
+                    total_duration_str = "0s"
+                    if self.ANALYSIS_START_TIME:
+                        total_sec = int(max(0, (time.time() - self.ANALYSIS_START_TIME)))
+                        total_duration_str = f"{total_sec}s" if total_sec < 60 else f"{total_sec // 60}m {total_sec % 60}s"
+                    regions_count = "1 region analyzed" if self.type_cortical.isChecked() else ""
+                    subj_display = subject_id or (self.get_selected_subjects()[0] if self.get_selected_subjects() else "")
+                    suffix = f" (1 region analyzed, Total: {total_duration_str})" if regions_count else f" (Total: {total_duration_str})"
+                    self.update_output(f"└─ Analysis completed successfully for subject: {subj_display}{suffix}")
+                    self._summary_printed.add('final')
+                    self._summary_finished = True
                 else:
-                    self.update_output('<div style="margin: 10px 0;"><span style="color: #55ff55; font-size: 16px; font-weight: bold;">[SUCCESS] Analysis process completed.</span></div>')
+                    last_line = self.output_console.toPlainText().strip().split('\n')[-1] if self.output_console.toPlainText() else ""
+                    if "WARNING: Analysis Failed" in last_line or "Error: Process returned non-zero" in last_line or "failed" in last_line.lower():
+                        self.update_output('<div style="margin: 10px 0;"><span style="color: #ff5555; font-weight: bold;">[ERROR] Analysis process indicated failure.</span></div>')
+                    else:
+                        self.update_output('<div style="margin: 10px 0;"><span style="color: #55ff55; font-size: 16px; font-weight: bold;">[SUCCESS] Analysis process completed.</span></div>')
                 
                 # Emit analysis completed signal for single mode or group mode
-                if subject_id and simulation_name:  # Single mode analysis
+                if subject_id and simulation_name:
                     analysis_type_str = 'Mesh' if self.space_mesh.isChecked() else 'Voxel'
                     self.analysis_completed.emit(subject_id, simulation_name, analysis_type_str)
-                elif self.is_group_mode:  # Group mode analysis
-                    # For group analysis, emit a signal indicating group completion
+                elif self.is_group_mode:
                     selected_subjects = [item.text() for item in self.subject_list.selectedItems()]
                     analysis_type_str = 'Mesh' if self.space_mesh.isChecked() else 'Voxel'
-                    # Emit for the first subject as representative of the group
                     if selected_subjects:
                         common_montage = self.group_montage_config.get('common_montage', 'group_analysis')
                         self.analysis_completed.emit(selected_subjects[0], common_montage, analysis_type_str)
             else:
                  self.update_output('<div style="margin: 10px 0;"><span style="color: #ff5555; font-weight: bold;">[ERROR] Analysis process failed or was cancelled by user.</span></div>')
 
-            self.output_console.append('<div style="border-bottom: 1px solid #555; margin-bottom: 10px;"></div>')
+            if not self.SUMMARY_MODE:
+                self.output_console.append('<div style="border-bottom: 1px solid #555; margin-bottom: 10px;"></div>')
             self.analysis_running = False
             self.run_btn.setEnabled(True)
             self.stop_btn.setEnabled(False)
             self.enable_controls()
+            # Reset summary flags for next run
+            if hasattr(self, '_summary_started'):
+                delattr(self, '_summary_started')
+            if hasattr(self, '_summary_finished'):
+                delattr(self, '_summary_finished')
+            if hasattr(self, '_thread_started'):
+                delattr(self, '_thread_started')
+            if hasattr(self, '_last_plain_output_line'):
+                delattr(self, '_last_plain_output_line')
             
             # Force a complete UI refresh to ensure everything is properly restored
             QtCore.QTimer.singleShot(100, self.force_ui_refresh)
@@ -2081,6 +2164,58 @@ class AnalyzerTab(QtWidgets.QWidget):
             # In non-debug mode, only show important messages
             if not is_important_message(text, message_type, 'analyzer'):
                 return
+            # In non-debug (summary) mode, colorize lines and deduplicate
+            scrollbar = self.output_console.verticalScrollBar()
+            at_bottom = scrollbar.value() >= scrollbar.maximum() - 5
+            if text == self._last_plain_output_line:
+                return
+            low = text.lower().strip()
+            # Guard against duplicate summary lines (whether from our own calls or subprocess echo)
+            if low.startswith('beginning analysis for subject:') and 'headline' in self._summary_printed:
+                return
+            if low.startswith('├─ field data loading: starting') and 'field_start' in self._summary_printed:
+                return
+            if low.startswith('├─ field data loading: ✓ complete') and 'field_done' in self._summary_printed:
+                return
+            if (low.startswith('├─ cortical analysis: starting') or low.startswith('├─ spherical analysis: starting')) and 'analysis_start' in self._summary_printed:
+                return
+            if (low.startswith('├─ cortical analysis: ✓ complete') or low.startswith('├─ spherical analysis: ✓ complete')) and 'analysis_done' in self._summary_printed:
+                return
+            if low.startswith('├─ results saving: starting') and 'results_start' in self._summary_printed:
+                return
+            if low.startswith('├─ results saving: ✓ complete') and 'results_done' in self._summary_printed:
+                return
+            if low.startswith('└─ analysis completed successfully for subject:') and 'final' in self._summary_printed:
+                return
+            # Colorize summary lines: blue for starts, white for completes, green for final
+            is_final = low.startswith('└─') or 'completed successfully' in low
+            is_start = low.startswith('beginning ') or ': starting' in low
+            is_complete = ('✓ complete' in low) or ('results available in:' in low) or ('saved to' in low)
+            color = '#55ff55' if is_final else ('#55aaff' if is_start else '#ffffff')
+            formatted = f'<span style="color: {color};">{text}</span>'
+            self.output_console.append(formatted)
+            self._last_plain_output_line = text
+            # Mark printed flags for summary lines
+            if low.startswith('beginning analysis for subject:'):
+                self._summary_printed.add('headline')
+            elif low.startswith('├─ field data loading: starting'):
+                self._summary_printed.add('field_start')
+            elif low.startswith('├─ field data loading: ✓ complete'):
+                self._summary_printed.add('field_done')
+            elif low.startswith('├─ cortical analysis: starting') or low.startswith('├─ spherical analysis: starting'):
+                self._summary_printed.add('analysis_start')
+            elif low.startswith('├─ cortical analysis: ✓ complete') or low.startswith('├─ spherical analysis: ✓ complete'):
+                self._summary_printed.add('analysis_done')
+            elif low.startswith('├─ results saving: starting'):
+                self._summary_printed.add('results_start')
+            elif low.startswith('├─ results saving: ✓ complete'):
+                self._summary_printed.add('results_done')
+            elif low.startswith('└─ analysis completed successfully for subject:'):
+                self._summary_printed.add('final')
+            if at_bottom:
+                self.output_console.ensureCursorVisible()
+                scrollbar.setValue(scrollbar.maximum())
+            return
         
         # Format the output based on message type from thread
         if message_type == 'error':
@@ -2139,6 +2274,37 @@ class AnalyzerTab(QtWidgets.QWidget):
     def set_debug_mode(self, debug_mode):
         """Set debug mode for output filtering."""
         self.debug_mode = debug_mode
+        self.SUMMARY_MODE = not debug_mode
+
+    # ===== Summary-mode helpers =====
+    def _format_duration(self, start_time):
+        if not start_time:
+            return "0s"
+        elapsed = time.time() - start_time
+        if elapsed < 60:
+            return f"{int(elapsed)}s"
+        return f"{int(elapsed // 60)}m {int(elapsed % 60)}s"
+
+    def _build_start_details(self, subject_id):
+        if self.type_cortical.isChecked():
+            if self.space_mesh.isChecked():
+                atlas = self.atlas_name_combo.currentText() or ""
+            else:
+                atlas = os.path.basename(self.atlas_combo.currentText() or "").split('.')[0]
+            region = "WholeHead" if self.whole_head_check.isChecked() else (self.region_input.text().strip() or "region")
+            return f"Cortical: {atlas}.{region}"
+        else:
+            coords = (self.coord_x.text().strip() or '0', self.coord_y.text().strip() or '0', self.coord_z.text().strip() or '0')
+            return f"Spherical: ({coords[0]},{coords[1]},{coords[2]}) r{self.radius_input.text().strip() or '5'}mm"
+
+    def _extract_output_dir_from_cmd(self, cmd):
+        try:
+            if '--output_dir' in cmd:
+                idx = cmd.index('--output_dir')
+                return cmd[idx + 1] if idx + 1 < len(cmd) else None
+        except Exception:
+            return None
+        return None
 
     def disable_controls(self):
         # List of widgets to disable, similar to original

@@ -164,6 +164,11 @@ class ExSearchTab(QtWidgets.QWidget):
         self.optimization_process = None
         # Initialize debug mode (default to False)
         self.debug_mode = False
+        # Initialize summary mode and timing trackers for non-debug summaries
+        self.SUMMARY_MODE = True
+        self.EXSEARCH_START_TIME = None
+        self.ROI_START_TIMES = {}
+        self.STEP_START_TIMES = {}
         
         self.setup_ui()
         
@@ -271,10 +276,10 @@ class ExSearchTab(QtWidgets.QWidget):
         if self.EXSEARCH_START_TIME:
             total_duration = self.format_duration(self.EXSEARCH_START_TIME)
             self.update_output(f"└─ Ex-search optimization completed successfully for subject: {subject_id} ({total_rois} ROI(s), Total: {total_duration})", 'success')
-            self.update_output(f"   Results available in: {output_dir}", 'success')
+            self.update_output(f"Results available in: {output_dir}", 'success')
         else:
             self.update_output(f"└─ Ex-search optimization completed successfully for subject: {subject_id} ({total_rois} ROI(s))", 'success')
-            self.update_output(f"   Results available in: {output_dir}", 'success')
+            self.update_output(f"Results available in: {output_dir}", 'success')
     
     def create_log_file_env(self, process_name, subject_id):
         """Create log file environment variable for processes."""
@@ -1818,6 +1823,20 @@ class ExSearchTab(QtWidgets.QWidget):
             # In non-debug mode, only show important messages
             if not is_important_message(text, message_type, 'exsearch'):
                 return
+            # Colorize summary lines: blue for starts, white for completes, green for final
+            lower = text.lower()
+            is_final = lower.startswith('└─') or 'completed successfully' in lower
+            is_start = lower.startswith('beginning ') or ': starting' in lower
+            is_complete = ('✓ complete' in lower) or ('results available in:' in lower) or ('saved to' in lower)
+            color = '#55ff55' if is_final else ('#55aaff' if is_start else '#ffffff')
+            formatted_text = f'<span style="color: {color};">{text}</span>'
+            scrollbar = self.console_output.verticalScrollBar()
+            at_bottom = scrollbar.value() >= scrollbar.maximum() - 5
+            self.console_output.append(formatted_text)
+            if at_bottom:
+                self.console_output.ensureCursorVisible()
+            QtWidgets.QApplication.processEvents()
+            return
             
         # Format the output based on message type from thread
         if message_type == 'error':

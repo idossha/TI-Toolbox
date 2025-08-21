@@ -2089,6 +2089,20 @@ class SimulatorTab(QtWidgets.QWidget):
             # In non-debug mode, only show important messages
             if not is_important_message(text, message_type, 'simulator'):
                 return
+            # Colorize summary lines: blue for starts, white for completes, green for final
+            lower = text.lower()
+            is_final = lower.startswith('└─') or 'completed successfully' in lower
+            is_start = lower.startswith('beginning ') or ': starting' in lower
+            is_complete = ('✓ complete' in lower) or ('results saved to' in lower) or ('saved to' in lower)
+            color = '#55ff55' if is_final else ('#55aaff' if is_start else '#ffffff')
+            formatted_text = f'<span style="color: {color};">{text}</span>'
+            scrollbar = self.output_console.verticalScrollBar()
+            at_bottom = scrollbar.value() >= scrollbar.maximum() - 5
+            self.output_console.append(formatted_text)
+            if at_bottom:
+                self.output_console.ensureCursorVisible()
+            QtWidgets.QApplication.processEvents()
+            return
             
         # Format the output based on message type from thread
         if message_type == 'error':

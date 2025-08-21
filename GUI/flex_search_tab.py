@@ -1353,6 +1353,20 @@ class FlexSearchTab(QtWidgets.QWidget):
             # In non-debug mode, only show important messages
             if not is_important_message(text, message_type, 'flexsearch'):
                 return
+            # Colorize summary lines: blue for starts, white for completes, green for final
+            lower = text.lower()
+            is_final = lower.startswith('└─') or 'completed successfully' in lower
+            is_start = lower.startswith('beginning ') or ': starting' in lower
+            is_complete = ('✓ complete' in lower) or ('results available in:' in lower) or ('saved to' in lower)
+            color = '#55ff55' if is_final else ('#55aaff' if is_start else '#ffffff')
+            formatted_text = f'<span style="color: {color};">{text}</span>'
+            scrollbar = self.output_text.verticalScrollBar()
+            at_bottom = scrollbar.value() >= scrollbar.maximum() - 5
+            self.output_text.append(formatted_text)
+            if at_bottom:
+                self.output_text.ensureCursorVisible()
+            QtWidgets.QApplication.processEvents()
+            return
             
             # Additional filtering for setup/configuration messages that shouldn't appear in non-debug mode
             setup_patterns = [

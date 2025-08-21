@@ -248,6 +248,14 @@ class PreProcessTab(QtWidgets.QWidget):
         self.report_generators = {}  # Store report generators for each subject
         # Initialize debug mode (default to False)
         self.debug_mode = False
+        # Initialize summary mode state and timers for non-debug summaries
+        self.SUMMARY_MODE = True
+        self.PROC_START_TIME = None
+        self.STEP_START_TIMES = {}
+        self._preproc_had_failures = False
+        self._summary_started = False
+        self._summary_finished = False
+        self._last_plain_output_line = None
         self.setup_ui()
         
     def setup_ui(self):
@@ -1050,6 +1058,26 @@ class PreProcessTab(QtWidgets.QWidget):
             # In non-debug mode, only show important messages
             if not is_important_message(text, message_type, 'preprocess'):
                 return
+            # Debounce exact duplicates
+            if text == self._last_plain_output_line:
+                return
+            # Colorize summary lines: blue for starts, white for completes, green for final
+            lower = text.lower()
+            is_final = lower.startswith('└─') or 'completed successfully' in lower
+            # Treat "Beginning ..." and ": Starting..." as task starts
+            is_start = lower.startswith('beginning ') or ': starting' in lower
+            # Treat ✓ Complete, saved/results lines as completes
+            is_complete = ('✓ complete' in lower) or ('results available in:' in lower) or ('saved to' in lower)
+            color = '#55ff55' if is_final else ('#55aaff' if is_start else '#ffffff')
+            formatted_text = f'<span style="color: {color};">{text}</span>'
+            scrollbar = self.output_text.verticalScrollBar()
+            at_bottom = scrollbar.value() >= scrollbar.maximum() - 5
+            self.output_text.append(formatted_text)
+            if at_bottom:
+                self.output_text.ensureCursorVisible()
+            self._last_plain_output_line = text
+            QtWidgets.QApplication.processEvents()
+            return
             
         # Format the output based on message type from thread
         if message_type == 'error':
@@ -1087,9 +1115,19 @@ class PreProcessTab(QtWidgets.QWidget):
         
         QtWidgets.QApplication.processEvents()
 
+    # ------- Summary helpers -------
+    def _format_duration_plain(self, start_time):
+        if not start_time:
+            return '0s'
+        elapsed = time.time() - start_time
+        if elapsed < 60:
+            return f"{int(elapsed)}s"
+        return f"{int(elapsed // 60)}m {int(elapsed % 60)}s"
+
     def set_debug_mode(self, debug_mode):
         """Set debug mode for output filtering."""
         self.debug_mode = debug_mode
+        self.SUMMARY_MODE = not debug_mode
 
     def select_all_subjects(self):
         """Select all subjects in the subject list."""
