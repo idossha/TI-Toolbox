@@ -116,12 +116,27 @@ Project Directory/
 │   │   └── sub-{subject}/
 │   │       ├── mri/
 │   │       └── label/
-│   └── SimNIBS/
-│       └── sub-{subject}/
-│           ├── m2m_{subject}/
-│           ├── Simulations/
-│           ├── flex-search/
-│           └── ex-search/
+│   ├── SimNIBS/
+│   │   └── sub-{subject}/
+│   │       ├── m2m_{subject}/
+│   │       ├── Simulations/
+│   │       ├── flex-search/
+│   │       └── ex-search/
+│   └── ti-toolbox/                         <i>(TI-Toolbox analysis outputs)</i>
+│       ├── bone_analysis/                  <i>(Skull bone analysis results)</i>
+│       │   └── sub-{subject}/
+│       │       ├── skull_bone_thickness_analysis.png
+│       │       ├── skull_extraction_methodology.png
+│       │       ├── skull_combined_publication_figure.png
+│       │       └── skull_bone_analysis_summary.txt
+│       ├── flex_search/                    <i>(Flex-Search optimization results)</i>
+│       │   └── sub-{subject}/
+│       ├── ex_search/                      <i>(Ex-Search optimization results)</i>
+│       │   └── sub-{subject}/
+│       ├── simulations/                    <i>(TI-CSC simulation results)</i>
+│       │   └── sub-{subject}/
+│       └── analysis/                       <i>(Analysis and visualization results)</i>
+│           └── sub-{subject}/
 └── code/
     └── ti-toolbox/                         <i>(Auto-created at first launch)</i>
         └── config/
@@ -139,6 +154,8 @@ Project Directory/
             <li>T2w images are optional but can improve head model quality</li>
             <li>All other directories are automatically created during processing</li>
             <li>The <code>code/ti-toolbox</code> directory contains shared configuration files</li>
+            <li>TI-Toolbox analysis outputs are organized under <code>derivatives/ti-toolbox/</code> with subdirectories for different analysis types</li>
+            <li>Bone analysis results are stored in <code>derivatives/ti-toolbox/bone_analysis/sub-{subject}/</code></li>
         </ul>
         
         <h3>Getting Started:</h3>
@@ -149,6 +166,8 @@ Project Directory/
             <li>Place T1w DICOM files in <code>sourcedata/sub-101/T1w/dicom/</code></li>
             <li>Optionally add T2w DICOM files in <code>sourcedata/sub-101/T2w/dicom/</code></li>
             <li>Use the Pre-processing tab to begin processing</li>
+            <li>Enable "Run skull bone analyzer" option to generate publication-ready bone analysis figures</li>
+            <li>Bone analysis results will be saved in <code>derivatives/ti-toolbox/bone_analysis/sub-101/</code></li>
         </ol>
 
         <h3>Example Subject IDs:</h3>
@@ -222,6 +241,12 @@ Project Directory/
                     "- Generates meshes necessary for electromagnetic field simulations<br>"
                     "- Creates the m2m_[SUBJECT_ID] directory in the SimNIBS folder<br><br>"
                     
+                    "<b>Run skull bone analyzer:</b><br>"
+                    "- Analyzes skull bone volume and thickness from segmented tissue data<br>"
+                    "- Generates publication-ready figures showing extraction methodology and thickness analysis<br>"
+                    "- Results are saved in <code>derivatives/ti-toolbox/bone_analysis/sub-{subject}/</code><br>"
+                    "- Excludes jaw and vertebrae by spatial filtering around brain cortex<br><br>"
+                    
                     "<b>Run in quiet mode:</b><br>"
                     "- Suppresses detailed output during processing<br>"
                 )
@@ -244,7 +269,33 @@ Project Directory/
                     "   - Uses the SimNIBS charm tool to create realistic head models<br>"
                     "   - Generates mesh files for FEM simulations<br><br>"
                     
+                    "4. <b>Skull Bone Analysis (Optional):</b><br>"
+                    "   - Analyzes skull bone volume and thickness from segmented tissue data<br>"
+                    "   - Generates publication-ready figures showing extraction methodology<br>"
+                    "   - Results saved in <code>derivatives/ti-toolbox/bone_analysis/sub-{subject}/</code><br><br>"
+                    
                     "Once pre-processing is complete, the subject data is ready for TI-CSC simulations."
+                )
+            },
+            {
+                "title": "Bone Analyzer Output Files",
+                "content": (
+                    "When the skull bone analyzer is enabled, it generates the following files in <code>derivatives/ti-toolbox/bone_analysis/sub-{subject}/</code>:<br><br>"
+                    
+                    "<b>Visualization Files:</b><br>"
+                    "- <code>skull_bone_thickness_analysis.png</code>: Thickness distribution analysis with 3D views and histogram<br>"
+                    "- <code>skull_extraction_methodology.png</code>: Illustration of skull extraction methodology<br>"
+                    "- <code>skull_combined_publication_figure.png</code>: Comprehensive publication-ready figure<br><br>"
+                    
+                    "<b>Data Files:</b><br>"
+                    "- <code>skull_bone_analysis_summary.txt</code>: Detailed analysis report with statistics<br><br>"
+                    
+                    "<b>Analysis Features:</b><br>"
+                    "- Skull bone volume calculation (cortical + cancellous combined)<br>"
+                    "- 3D thickness analysis using distance transform<br>"
+                    "- Spatial filtering to exclude jaw and vertebrae<br>"
+                    "- Publication-ready visualizations with proper anatomical labeling<br>"
+                    "- Statistical summaries including mean, standard deviation, and percentiles"
                 )
             },
             {
@@ -257,7 +308,9 @@ Project Directory/
                     "- The Console Output window shows real-time progress and any error messages<br>"
                     "- If processing fails, check the console output for specific error messages<br>"
                     "- The Stop button can be used to terminate processing, but may leave files in an inconsistent state<br>"
-                    "- Use the status label at the top to monitor the current processing state"
+                    "- Use the status label at the top to monitor the current processing state<br>"
+                    "- The skull bone analyzer requires completed FreeSurfer and SimNIBS processing<br>"
+                    "- Bone analysis results are automatically organized under the ti-toolbox derivative structure"
                 )
             }
         ]
