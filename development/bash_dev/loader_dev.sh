@@ -119,6 +119,37 @@ get_dev_codebase_directory() {
   done
 }
 
+# Function to check XQuartz version (from config_sys.sh)
+check_xquartz_version() {
+  XQUARTZ_APP="/Applications/Utilities/XQuartz.app"
+  if [ ! -d "$XQUARTZ_APP" ]; then
+    echo "XQuartz is not installed. Please install XQuartz 2.7.7."
+    return 1
+  else
+    xquartz_version=$(mdls -name kMDItemVersion "$XQUARTZ_APP" | awk -F'"' '{print $2}')
+    if [[ "$xquartz_version" > "2.8.0" ]]; then
+      echo "⚠️  XQuartz version $xquartz_version may have compatibility issues"
+      return 1
+    else
+      echo "✅ XQuartz $xquartz_version detected"
+    fi
+  fi
+  return 0
+}
+
+# Function to allow connections from network clients (from config_sys.sh)
+allow_network_clients() {
+  echo "Configuring XQuartz for network clients..."
+  defaults write org.macosforge.xquartz.X11 nolisten_tcp -bool false >/dev/null 2>&1
+  
+  # Check if XQuartz is already running
+  if ! pgrep -x "Xquartz" > /dev/null; then
+    open -a XQuartz
+    sleep 2
+  fi
+  echo "✅ XQuartz configured"
+}
+
 # Function to get the IP address of the host machine
 get_host_ip() {
   case "$(uname -s)" in
@@ -135,19 +166,22 @@ get_host_ip() {
     exit 1
     ;;
   esac
-  echo "Host IP: $HOST_IP"
 }
 
 # Function to set DISPLAY environment variable based on OS and processor type
 set_display_env() {
-  echo "Setting DISPLAY environment variable..."
 
   if [[ "$(uname -s)" == "Linux" ]]; then
     # If Linux, use the existing DISPLAY
     export DISPLAY=$DISPLAY
     echo "Using system's DISPLAY: $DISPLAY"
+  elif [[ "$(uname -s)" == "Darwin" ]]; then
+    # For macOS, we need IP-based DISPLAY for the container
+    get_host_ip # Get the IP address dynamically
+    export DISPLAY="$HOST_IP:0"
+    echo "✅ DISPLAY configured for container"
   else
-    # For macOS, dynamically obtain the host IP and set DISPLAY
+    # For other systems (Windows), use IP-based approach
     get_host_ip # Get the IP address dynamically
     export DISPLAY="$HOST_IP:0"
     echo "DISPLAY set to $DISPLAY"
@@ -156,7 +190,6 @@ set_display_env() {
 
 # Function to allow connections from XQuartz or X11
 allow_xhost() {
-  echo "Allowing connections from XQuartz or X11..."
 
   # Check if xhost command is available
   if ! command -v xhost >/dev/null 2>&1; then
@@ -168,12 +201,25 @@ allow_xhost() {
   if [[ "$(uname -s)" == "Linux" ]]; then
     # Allow connections for Linux (only if xhost exists)
     if command -v xhost >/dev/null 2>&1; then
-      xhost +local:root
+      echo "Configuring X11 permissions..."
+      xhost +local:root >/dev/null 2>&1
+      echo "✅ X11 permissions configured"
     else
       echo "Note: xhost not found; skipping X11 access relaxation"
     fi
+  elif [[ "$(uname -s)" == "Darwin" ]]; then
+    # For macOS, allow both localhost and the specific IP for Docker
+    echo "Configuring X11 permissions..."
+    xhost +localhost >/dev/null 2>&1
+    xhost +$(hostname) >/dev/null 2>&1
+    
+    # Allow the specific IP that Docker will use
+    if [ -n "$HOST_IP" ]; then
+      xhost + "$HOST_IP" >/dev/null 2>&1
+    fi
+    echo "✅ X11 permissions configured"
   else
-    # Use the dynamically obtained IP for macOS xhost
+    # Use the dynamically obtained IP for other systems (Windows)
     if command -v xhost >/dev/null 2>&1; then
       xhost + "$HOST_IP"
     else
@@ -665,6 +711,16 @@ PROJECT_DIR_NAME=$(basename "$LOCAL_PROJECT_DIR")
 DEV_CODEBASE_DIR_NAME=$(basename "$DEV_CODEBASE_DIR")
 check_docker_resources
 initialize_volumes
+
+# Setup X11 for macOS (using config_sys.sh approach)
+if [[ "$(uname -s)" == "Darwin" ]]; then
+  echo "🍎 Setting up XQuartz for macOS..."
+  if ! check_xquartz_version; then
+    echo "⚠️  XQuartz version issue detected, but continuing..."
+  fi
+  allow_network_clients
+fi
+
 set_display_env
 allow_xhost # Allow X11 connections
 
