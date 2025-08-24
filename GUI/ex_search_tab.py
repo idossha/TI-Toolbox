@@ -535,6 +535,7 @@ class ExSearchTab(QtWidgets.QWidget):
         
         # Add status label at the top
         self.status_label = QtWidgets.QLabel()
+        self.status_label.setText("Processing... Only the Stop button is available")
         self.status_label.setStyleSheet("""
             QLabel {
                 background-color: white;
@@ -543,11 +544,11 @@ class ExSearchTab(QtWidgets.QWidget):
                 border-radius: 3px;
                 font-weight: bold;
                 font-size: 13px;
-                min-height: 10px;
-                max-height: 10px;
+                min-height: 15px;
+                max-height: 15px;
             }
         """)
-        self.status_label.setAlignment(QtCore.Qt.AlignVCenter)
+        self.status_label.setAlignment(QtCore.Qt.AlignCenter)
         self.status_label.hide()  # Initially hidden
         main_layout.addWidget(self.status_label)
         
@@ -1325,6 +1326,24 @@ class ExSearchTab(QtWidgets.QWidget):
         project_dir = os.path.join("/mnt", os.environ.get("PROJECT_DIR_NAME", ""))
         ex_search_dir = os.path.join(project_dir, "derivatives", "SimNIBS", f"sub-{subject_id}", "ex-search")
         
+        # Show confirmation dialog
+        selected_rois = self.roi_list.selectedItems()
+        roi_names = [item.text().split(':')[0].strip() for item in selected_rois]
+        details = f"Subject: {subject_id}\nROIs: {', '.join(roi_names)}\nNumber of ROIs: {len(roi_names)}"
+        
+        if not ConfirmationDialog.confirm(
+            self,
+            title="Confirm Ex-Search Optimization",
+            message="Are you sure you want to start the ex-search optimization?",
+            details=details
+        ):
+            return
+        
+        # Check for existing ex-search output directory and confirm overwrite
+        if os.path.exists(ex_search_dir) and os.listdir(ex_search_dir):
+            if not confirm_overwrite(self, ex_search_dir, "ex-search output directory"):
+                return
+        
         # Create ex_search directory if it doesn't exist
         os.makedirs(ex_search_dir, exist_ok=True)
         
@@ -1882,25 +1901,38 @@ class ExSearchTab(QtWidgets.QWidget):
     
     def update_status(self, message, error=False):
         """Update the status label with a message."""
+        # Only update status during processing
+        # Don't show status for completion messages
+        if "completed" in message.lower() or "finished" in message.lower():
+            self.status_label.hide()
+            return
+            
         self.status_label.setText(message)
         if error:
             self.status_label.setStyleSheet("""
                 QLabel {
-                    background-color: #ffebee;
+                    background-color: white;
                     color: #f44336;
                     padding: 5px 10px;
                     border-radius: 3px;
                     font-weight: bold;
+                    font-size: 13px;
+                    min-height: 15px;
+                    max-height: 15px;
                 }
             """)
         else:
+            # Use same red color for processing status as other tabs
             self.status_label.setStyleSheet("""
                 QLabel {
-                    background-color: #e8f5e9;
-                    color: #4caf50;
+                    background-color: white;
+                    color: #f44336;
                     padding: 5px 10px;
                     border-radius: 3px;
                     font-weight: bold;
+                    font-size: 13px;
+                    min-height: 15px;
+                    max-height: 15px;
                 }
             """)
         self.status_label.show()
@@ -1924,6 +1956,9 @@ class ExSearchTab(QtWidgets.QWidget):
         self.refresh_leadfields_btn.setEnabled(False)
         self.show_electrodes_leadfield_btn.setEnabled(False)
         self.create_leadfield_btn.setEnabled(False)
+        # Show status label when processing starts
+        self.status_label.setText("Processing... Only the Stop button is available")
+        self.status_label.show()
     
     def enable_controls(self):
         """Enable controls after optimization."""
@@ -1941,6 +1976,7 @@ class ExSearchTab(QtWidgets.QWidget):
         self.remove_roi_btn.setEnabled(True)
         self.list_rois_btn.setEnabled(True)
         self.leadfield_list.setEnabled(True)
+        self.status_label.hide()  # Hide status label when processing ends
         self.refresh_leadfields_btn.setEnabled(True)
         self.create_leadfield_btn.setEnabled(True)
         

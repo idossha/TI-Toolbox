@@ -1021,7 +1021,32 @@ class FlexSearchTab(QtWidgets.QWidget):
         electrode_radius = self.radius_input.value()
         electrode_current = self.current_input.value()
 
-        # Show confirmation for multiple subjects
+        # Show confirmation dialog
+        roi_description = ""
+        if roi_params['method'] == 'spherical':
+            roi_description = f"Spherical ROI at ({roi_params['center'][0]}, {roi_params['center'][1]}, {roi_params['center'][2]}) with radius {roi_params['radius']}mm"
+        elif roi_params['method'] == 'atlas':
+            roi_description = f"Cortical ROI: {roi_params['atlas']} region {roi_params['region']}"
+        else:
+            roi_description = f"Subcortical ROI: {roi_params['volume_atlas']} region {roi_params['volume_region']}"
+            
+        details = (f"Subjects: {', '.join(selected_subjects)}\n"
+                  f"Number of subjects: {len(selected_subjects)}\n"
+                  f"ROI: {roi_description}\n"
+                  f"Goal: {goal}\n"
+                  f"EEG Net: {eeg_net}\n"
+                  f"Electrode radius: {electrode_radius}mm\n"
+                  f"Current: {electrode_current}mA")
+        
+        if not ConfirmationDialog.confirm(
+            self,
+            title="Confirm Flex-Search Optimization",
+            message="Are you sure you want to start the flex-search optimization?",
+            details=details
+        ):
+            return
+
+        # Show additional confirmation for multiple subjects if needed
         if len(selected_subjects) > 1:
             subject_list_str = ", ".join(selected_subjects)
             confirmation_msg = f"You are about to run optimization for {len(selected_subjects)} subjects: {subject_list_str}\n\nSubjects will be processed sequentially (one after another). Do you want to continue?"
