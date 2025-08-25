@@ -73,6 +73,9 @@ def update_version(new_version):
         ]
     }
     
+    # Update dataset description JSON files
+    update_dataset_descriptions(new_version)
+    
     updated_files = []
     
     for file_path, patterns in files_to_update.items():
@@ -91,6 +94,51 @@ def update_version(new_version):
     print(f"   • Created individual release page (docs/releases/v{new_version}.md)")
     print(f"   • Updated releases sidebar navigation (docs/_layouts/releases.html)")
     print(f"   • Updated previous release titles")
+    print(f"   • Updated dataset description JSON files")
+
+def update_dataset_descriptions(new_version):
+    """Update Docker image tags in dataset description JSON files"""
+    print(f"\n🔧 Updating dataset description JSON files...")
+    
+    dataset_descriptions_dir = "assets/dataset_descriptions"
+    if not os.path.exists(dataset_descriptions_dir):
+        print(f"⚠️  Warning: {dataset_descriptions_dir} not found")
+        return
+    
+    # Find all JSON files in the dataset_descriptions directory
+    json_files = [f for f in os.listdir(dataset_descriptions_dir) if f.endswith('.json')]
+    
+    updated_count = 0
+    for json_file in json_files:
+        file_path = os.path.join(dataset_descriptions_dir, json_file)
+        
+        try:
+            with open(file_path, 'r', encoding='utf-8') as f:
+                content = f.read()
+            
+            original_content = content
+            
+            # Update only the SimNIBS Docker image tag
+            # Pattern to match Docker image tags in the JSON files
+            patterns = [
+                (r'"Tag": "idossha/simnibs:[^"]*"', f'"Tag": "idossha/simnibs:{new_version}"'),
+            ]
+            
+            for pattern, replacement in patterns:
+                content = re.sub(pattern, replacement, content)
+            
+            if content != original_content:
+                with open(file_path, 'w', encoding='utf-8') as f:
+                    f.write(content)
+                print(f"✅ Updated: {file_path}")
+                updated_count += 1
+            else:
+                print(f"ℹ️  No changes needed: {file_path}")
+                
+        except Exception as e:
+            print(f"❌ Error updating {file_path}: {e}")
+    
+    print(f"📊 Updated {updated_count} dataset description JSON files")
 
 def add_release_to_changelog(version, release_notes=""):
     """Add a new release entry to both releases page and changelog"""
@@ -415,6 +463,7 @@ def main():
     print(f"   • Changelog includes full release history") 
     print(f"   • Releases sidebar updated with v{new_version} in version history")
     print(f"   • Individual release page created with proper links")
+    print(f"   • Dataset description JSON files updated with new Docker image tags")
 
 if __name__ == "__main__":
     main() 

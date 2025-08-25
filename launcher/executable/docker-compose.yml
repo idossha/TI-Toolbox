@@ -1,20 +1,20 @@
 services:
   fsl:
-    image: idossha/ti-csc_fsl:v1.3.0
+    image: idossha/ti-toolbox_fsl:v1.3.0
     platform: linux/amd64
     container_name: fsl_container
     volumes:
-      - ti_csc_fsl_data:/usr/local/fsl/
+      - ti-toolbox_fsl_data:/usr/local/fsl/
     networks:
       - ti_network
     restart: unless-stopped
  
   freesurfer:
-    image: idossha/ti-csc_freesurfer:v1.3.0
+    image: idossha/ti-toolbox_freesurfer:v1.3.0
     platform: linux/amd64
     container_name: freesurfer_container
     volumes:
-      - ti_csc_freesurfer_data:/usr/local/freesurfer/
+      - ti-toolbox_freesurfer_data:/usr/local/freesurfer/
     networks:
       - ti_network
     restart: unless-stopped
@@ -24,8 +24,8 @@ services:
     platform: linux/amd64
     container_name: simnibs_container
     volumes:
-      - ti_csc_fsl_data:/usr/local/fsl/
-      - ti_csc_freesurfer_data:/usr/local/freesurfer/
+      - ti-toolbox_fsl_data:/usr/local/fsl/
+      - ti-toolbox_freesurfer_data:/usr/local/freesurfer/
       - ${LOCAL_PROJECT_DIR}:/mnt/${PROJECT_DIR_NAME}
       # X11 socket mount for Linux/macOS
       - /tmp/.X11-unix:/tmp/.X11-unix:rw
@@ -60,7 +60,7 @@ services:
       - freesurfer
     tty: true
     stdin_open: true
-    working_dir: /ti-csc
+    working_dir: /ti-toolbox
     command: ["/bin/bash"]
     restart: unless-stopped
 
@@ -69,10 +69,10 @@ networks:
     driver: bridge
 
 volumes:
-  ti_csc_fsl_data:
+  ti-toolbox_fsl_data:
     external: true
-    name: ti_csc_fsl_data
-  ti_csc_freesurfer_data:
+    name: ti-toolbox_fsl_data
+  ti-toolbox_freesurfer_data:
     external: true
-    name: ti_csc_freesurfer_data
+    name: ti-toolbox_freesurfer_data
 

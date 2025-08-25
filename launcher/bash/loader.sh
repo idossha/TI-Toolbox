@@ -240,7 +240,7 @@ display_welcome() {
 # Function to ensure required Docker volumes exist
 ensure_docker_volumes() {
   echo "Ensuring required Docker volumes exist..."
-  local volumes=("ti_csc_fsl_data" "ti_csc_freesurfer_data")
+  local volumes=("ti-toolbox_fsl_data" "ti-toolbox_freesurfer_data")
   
   for volume in "${volumes[@]}"; do
     if ! docker volume inspect "$volume" >/dev/null 2>&1; then

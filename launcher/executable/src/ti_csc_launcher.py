@@ -1068,7 +1068,7 @@ class TIToolboxLoaderApp(QWidget):
             self.log_message("🔍 Checking Docker volumes...", "INFO")
             
             # Create required volumes - FIXED: Use correct volume names that match docker-compose.yml
-            required_volumes = ['ti_csc_fsl_data', 'ti_csc_freesurfer_data', 'matlab_runtime']
+            required_volumes = ['ti-toolbox_fsl_data', 'ti-toolbox_freesurfer_data', 'matlab_runtime']
             
             for volume in required_volumes:
                 self.log_message(f"💾 Ensuring volume exists: {volume}", "INFO")
@@ -1143,7 +1143,7 @@ class TIToolboxLoaderApp(QWidget):
             display_env = self.setup_display_env()
             
             if system == "Darwin":  # macOS
-                docker_cmd = f'docker exec -it --workdir /ti-csc simnibs_container bash'
+                docker_cmd = f'docker exec -it --workdir /ti-toolbox simnibs_container bash'
                 
                 # Use the most reliable approach: open Terminal with a specific command file
                 # This avoids the double window issue entirely
@@ -1183,7 +1183,7 @@ class TIToolboxLoaderApp(QWidget):
             elif system == "Linux":
                 # Try different terminal emulators
                 terminals = ['gnome-terminal', 'konsole', 'xterm', 'x-terminal-emulator']
-                docker_cmd = f'docker exec -it --workdir /ti-csc simnibs_container bash'
+                docker_cmd = f'docker exec -it --workdir /ti-toolbox simnibs_container bash'
                 
                 for terminal in terminals:
                     try:
@@ -1201,7 +1201,7 @@ class TIToolboxLoaderApp(QWidget):
                     
             elif system == "Windows":
                 # Use Command Prompt
-                docker_cmd = f'docker exec -it --workdir /ti-csc simnibs_container bash'
+                docker_cmd = f'docker exec -it --workdir /ti-toolbox simnibs_container bash'
                 subprocess.Popen(f'start cmd /k "cd /d "{self.script_dir}" && {docker_cmd}"', shell=True)
             
             self.log_message("✓ CLI launched successfully", "SUCCESS")
@@ -1264,8 +1264,8 @@ class TIToolboxLoaderApp(QWidget):
             
             # The docker command - same as CLI but runs GUI script
             docker_cmd = [
-                docker_executable, 'exec', '-it', '--workdir', '/ti-csc',
-                'simnibs_container', 'bash', '-c', '/ti-csc/CLI/GUI.sh'
+                docker_executable, 'exec', '-it',
+                'simnibs_container', 'bash', '-lc', '/mnt/$PROJECT_DIR_NAME/code/ti-toolbox/CLI/GUI.sh'
             ]
             
             if system == "Darwin":  # macOS

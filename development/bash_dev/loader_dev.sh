@@ -25,15 +25,15 @@ initialize_volumes() {
   echo "Initializing required Docker volumes..."
   
   # Check and create FSL volume if it doesn't exist
-  if ! docker volume inspect ti_csc_fsl_data >/dev/null 2>&1; then
+  if ! docker volume inspect ti-toolbox_fsl_data >/dev/null 2>&1; then
     echo "Creating FSL volume..."
-    docker volume create ti_csc_fsl_data
+    docker volume create ti-toolbox_fsl_data
   fi
   
   # Check and create FreeSurfer volume if it doesn't exist
-  if ! docker volume inspect ti_csc_freesurfer_data >/dev/null 2>&1; then
+  if ! docker volume inspect ti-toolbox_freesurfer_data >/dev/null 2>&1; then
     echo "Creating FreeSurfer volume..."
-    docker volume create ti_csc_freesurfer_data
+    docker volume create ti-toolbox_freesurfer_data
   fi
 
 

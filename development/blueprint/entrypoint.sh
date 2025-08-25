@@ -15,16 +15,16 @@ touch ~/.bashrc
 } >> ~/.bashrc
 
 # Setup CLI tools if present
-if [ -d /ti-csc/CLI ]; then
-    chmod +x /ti-csc/CLI/*.sh
-    export PATH="$PATH:/ti-csc/CLI"
+if [ -d /ti-toolbox/CLI ]; then
+    chmod +x /ti-toolbox/CLI/*.sh
+    export PATH="$PATH:/ti-toolbox/CLI"
     {
-        echo 'export PATH="$PATH:/ti-csc/CLI"'
-        echo 'alias GUI="/ti-csc/CLI/GUI.sh"'
-        echo 'alias simulator="/ti-csc/CLI/simulator.sh"'
-        echo 'alias pre-process="/ti-csc/CLI/pre-process.sh"'
-        echo 'alias flex-search="/ti-csc/CLI/flex-search.sh"'
-        echo 'alias ex-search="/ti-csc/CLI/ex-search.sh"'
+        echo 'export PATH="$PATH:/ti-toolbox/CLI"'
+        echo 'alias GUI="/ti-toolbox/CLI/GUI.sh"'
+        echo 'alias simulator="/ti-toolbox/CLI/simulator.sh"'
+        echo 'alias pre-process="/ti-toolbox/CLI/pre-process.sh"'
+        echo 'alias flex-search="/ti-toolbox/CLI/flex-search.sh"'
+        echo 'alias ex-search="/ti-toolbox/CLI/ex-search.sh"'
     } >> ~/.bashrc
 fi
 
