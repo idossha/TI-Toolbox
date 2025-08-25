@@ -1265,7 +1265,7 @@ class TIToolboxLoaderApp(QWidget):
             # The docker command - same as CLI but runs GUI script
             docker_cmd = [
                 docker_executable, 'exec', '-it',
-                'simnibs_container', 'bash', '-lc', '/mnt/$PROJECT_DIR_NAME/code/ti-toolbox/CLI/GUI.sh'
+                'simnibs_container', 'bash', '-lc', '/ti-toolbox/CLI/GUI.sh'
             ]
             
             if system == "Darwin":  # macOS

@@ -4,7 +4,7 @@ services:
     platform: linux/amd64
     container_name: fsl_container
     volumes:
-      - tit_fsl_data:/usr/local/fsl/
+      - ti-toolbox_fsl_data:/usr/local/fsl/
     networks:
       - ti_network
     restart: unless-stopped
@@ -14,7 +14,7 @@ services:
     platform: linux/amd64
     container_name: freesurfer_container
     volumes:
-      - ti_toolbox_freesurfer_data:/usr/local/freesurfer/
+      - ti-toolbox_freesurfer_data:/usr/local/freesurfer/
     networks:
       - ti_network
     restart: unless-stopped
@@ -52,7 +52,7 @@ services:
       - freesurfer
     tty: true
     stdin_open: true
-    working_dir: /ti-toolbox
+    working_dir: /development
     command: ["/bin/bash"]
     restart: unless-stopped
 

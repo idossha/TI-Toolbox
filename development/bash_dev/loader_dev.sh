@@ -256,7 +256,7 @@ run_docker_compose() {
   docker compose -f "$SCRIPT_DIR/docker-compose.dev.yml" pull
 
   # Run Docker Compose
-  docker compose -f "$SCRIPT_DIR/docker-compose.dev.yml" up --build -d
+  docker compose -f "$SCRIPT_DIR/docker-compose.dev.yml" up -d
 
   # Wait for containers to initialize
   echo "Waiting for services to initialize..."
