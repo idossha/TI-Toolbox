@@ -46,7 +46,13 @@ a = Analysis(
         (docker_compose_path, '.'),  # Include docker-compose.yml in the root of the bundle
         ('src/*.py', 'src'),  # Include all Python files from src
     ],
-    hiddenimports=qt_hiddenimports,
+    hiddenimports=qt_hiddenimports + [
+        'shortcuts_manager',
+        'docker_worker', 
+        'progress_widget',
+        'dialogs',
+        'qt_compat'
+    ],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
@@ -102,8 +108,8 @@ if platform.system() == "Darwin":
         info_plist={
             'CFBundleName': 'TI-Toolbox',
             'CFBundleDisplayName': 'Temporal Interference Toolbox',
-            'CFBundleVersion': '2.0.0',
-            'CFBundleShortVersionString': '2.0.0',
+            'CFBundleVersion': '2.1.0',
+            'CFBundleShortVersionString': '2.1.0',
             'NSHighResolutionCapable': True,
             'LSMinimumSystemVersion': '10.14',
             'CFBundleInfoDictionaryVersion': '6.0',

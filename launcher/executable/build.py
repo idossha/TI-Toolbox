@@ -63,7 +63,7 @@ def check_required_files():
         "docker-compose.yml",
         "requirements.txt",
         "requirements-windows.txt",
-        "ti_csc_launcher.spec"
+        "ti-toolbox_launcher.spec"
     ]
     
     missing_files = []
@@ -87,7 +87,7 @@ def build_executable():
             shutil.rmtree(dir_name)
     
     # Build using the spec file
-    cmd = f"{sys.executable} -m PyInstaller ti_csc_launcher.spec --clean"
+    cmd = f"{sys.executable} -m PyInstaller ti-toolbox_launcher.spec --clean"
     return run_command(cmd, "Building executable with PyInstaller")
 
 def main():

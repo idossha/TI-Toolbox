@@ -55,7 +55,7 @@ The script will:
 
 2. **Build the executable:**
    ```bash
-   pyinstaller ti_csc_launcher.spec --clean
+   pyinstaller ti-toolbox_launcher.spec --clean
    ```
 
 ## Output Files
@@ -148,7 +148,7 @@ This creates a timestamped folder with:
    - macOS: `.icns` file
    - Linux: `.png` file
 
-2. Update `ti_csc_launcher.spec`:
+2. Update `ti-toolbox_launcher.spec`:
    ```python
    exe = EXE(
        # ... other parameters ...
@@ -185,7 +185,7 @@ chmod +x dist/TI-Toolbox
 If you get Qt-related errors, try:
 ```bash
 pip install --upgrade PyQt6 PyQt6-Qt6
-pyinstaller ti_csc_launcher.spec --clean --onefile
+pyinstaller ti-toolbox_launcher.spec --clean --onefile
 ```
 
 **Large file size:**
@@ -198,7 +198,7 @@ Some antivirus software may flag PyInstaller executables. This is a common false
 
 For smaller executables:
 ```python
-# In ti_csc_launcher.spec, add excludes:
+# In ti-toolbox_launcher.spec, add excludes:
 excludes=[
     'tkinter',
     'matplotlib',

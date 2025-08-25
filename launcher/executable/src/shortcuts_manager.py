@@ -105,7 +105,7 @@ class ShortcutsManager:
                 return False
 
             # Extract the app name with extension for the alias
-                            app_name = os.path.basename(app_path)  # This will be "TI-Toolbox.app"
+            app_name = os.path.basename(app_path)  # This will be "TI-Toolbox.app"
             desktop_shortcut_path = os.path.join(desktop_path, app_name)
             
             self.log_message(f"Creating alias from {app_path} to {desktop_shortcut_path}", "INFO")
@@ -177,15 +177,15 @@ class ShortcutsManager:
 
             desktop = winshell.desktop()
             # Use the proper executable name for the shortcut
-                            exe_name = os.path.basename(exe_path)  # This will be "TI-Toolbox.exe"
-                shortcut_name = exe_name.replace('.exe', '.lnk')  # This will be "TI-Toolbox.lnk"
+            exe_name = os.path.basename(exe_path)  # This will be "TI-Toolbox.exe"
+            shortcut_name = exe_name.replace('.exe', '.lnk')  # This will be "TI-Toolbox.lnk"
             shortcut_path = os.path.join(desktop, shortcut_name)
             
             shell = Dispatch('WScript.Shell')
             shortcut = shell.CreateShortCut(shortcut_path)
             shortcut.Targetpath = exe_path
             shortcut.WorkingDirectory = os.path.dirname(exe_path)
-                            shortcut.Description = "TI-Toolbox Docker Launcher"
+            shortcut.Description = "TI-Toolbox Docker Launcher"
             
             # Try to set icon if available
             icon_path = os.path.join(os.path.dirname(exe_path), "icon.ico")
@@ -219,8 +219,8 @@ class ShortcutsManager:
                 return False
 
             # Use the proper executable name for the .desktop file
-                            exe_name = os.path.basename(exe_path)  # This will be "TI-Toolbox"
-                desktop_file_name = f"{exe_name}.desktop"  # This will be "TI-Toolbox.desktop"
+            exe_name = os.path.basename(exe_path)  # This will be "TI-Toolbox"
+            desktop_file_name = f"{exe_name}.desktop"  # This will be "TI-Toolbox.desktop"
             desktop_file_path = os.path.join(desktop_path, desktop_file_name)
             
             # Try to find icon
@@ -231,7 +231,7 @@ class ShortcutsManager:
             desktop_content = f"""[Desktop Entry]
 Version=1.0
 Type=Application
-                Name=TI-Toolbox Docker Launcher
+Name=TI-Toolbox Docker Launcher
 Comment=Temporal Interference Computational Stimulation Core
 Exec={exe_path}
 Icon={icon_path}

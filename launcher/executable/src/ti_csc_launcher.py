@@ -61,7 +61,7 @@ except ImportError:
     class MockVersion:
         __version__ = "2.1.0"
         def get_version_info(self):
-            return {"ti_toolbox": {"version": "2.0.0", "release_date": "Unknown", "build": "unknown"}}
+            return {"ti_toolbox": {"version": "2.1.0", "release_date": "Unknown", "build": "unknown"}}
     version = MockVersion()
 
 
