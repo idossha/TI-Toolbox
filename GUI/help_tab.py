@@ -120,31 +120,23 @@ Project Directory/
 │   │   └── sub-{subject}/
 │   │       ├── m2m_{subject}/
 │   │       ├── Simulations/
+│   │       |   └── [montage_name]/
+│   │       |       └── Analyses/
 │   │       ├── flex-search/
 │   │       └── ex-search/
 │   └── ti-toolbox/                         <i>(TI-Toolbox analysis outputs)</i>
 │       ├── bone_analysis/                  <i>(Skull bone analysis results)</i>
-│       │   └── sub-{subject}/
-│       │       ├── skull_bone_thickness_analysis.png
-│       │       ├── skull_extraction_methodology.png
-│       │       ├── skull_combined_publication_figure.png
-│       │       └── skull_bone_analysis_summary.txt
-│       ├── flex_search/                    <i>(Flex-Search optimization results)</i>
-│       │   └── sub-{subject}/
-│       ├── ex_search/                      <i>(Ex-Search optimization results)</i>
-│       │   └── sub-{subject}/
-│       ├── simulations/                    <i>(TI-CSC simulation results)</i>
-│       │   └── sub-{subject}/
-│       └── analysis/                       <i>(Analysis and visualization results)</i>
-│           └── sub-{subject}/
+│       ├── logs/                           <i>(Log files)</i>
+│       └── reports/                        <i>(Report files)</i>
 └── code/
     └── ti-toolbox/                         <i>(Auto-created at first launch)</i>
         └── config/
             ├── montage_list.json
-            ├── flex-search_config/
-            ├── ex-search_config/
-            ├── simulator_config/
-            └── entrypoint_config/
+            ├── pre-processing.json
+            ├── flex.json
+            ├── ex_search.json
+            ├── simulator.json
+            └── analyzer.json
 </pre>
 
         <h3>Key Points:</h3>
