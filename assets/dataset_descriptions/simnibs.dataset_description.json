@@ -16,7 +16,7 @@
     "GeneratedBy": [
       {
         "Name": "SimNIBS",
-        "Version": "4.1",
+        "Version": "4.5.0",
         "Description": "Finite element modeling of transcranial brain stimulation fields and subject-specific head modeling.",
         "CodeURL": "https://github.com/simnibs/simnibs",
         "Container": {
