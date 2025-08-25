@@ -1,6 +1,6 @@
-# Windows Build Guide for TI-CSC
+# Windows Build Guide for TI-Toolbox
 
-This guide addresses the Windows-specific build issues you may encounter when building the TI-CSC launcher.
+This guide addresses the Windows-specific build issues you may encounter when building the TI-Toolbox launcher.
 
 ## The Issue
 

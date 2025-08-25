@@ -3,8 +3,7 @@
 ###########################################
 # Aksel W Jackson / awjackson2@wisc.edu
 # Ido Haber / ihaber@wisc.edu
-# October 16, 2024
-# optimized for TI-CSC analyzer
+# optimized for TI-Toolbox analyzer
 # This script creates a png visualization of the electrode montage from user input
 ###########################################
 
@@ -41,10 +40,10 @@ get_coordinate_file() {
     # GSN-HD compatible nets
     case "$net_name" in
         "EGI_template.csv" | "GSN-HydroCel-185.csv" | "GSN-HydroCel-256.csv")
-            echo "/ti-csc/assets/amv/GSN-HD.csv"
+            echo "/ti-toolbox/assets/amv/GSN-HD.csv"
             ;;
         "EEG10-10_UI_Jurak_2007.csv" | "EEG10-10_Neuroelectrics.csv")
-            echo "/ti-csc/assets/amv/10-10-net.csv"
+            echo "/ti-toolbox/assets/amv/10-10-net.csv"
             ;;
         *)
             echo "Error: Unsupported EEG net: $net_name"
@@ -105,13 +104,13 @@ get_template_image() {
     
     case "$net_name" in
         "EGI_template.csv" | "GSN-HydroCel-185.csv" | "GSN-HydroCel-256.csv")
-            echo "/ti-csc/assets/amv/256template.png"
+            echo "/ti-toolbox/assets/amv/256template.png"
             ;;
         "EEG10-10_UI_Jurak_2007.csv" | "EEG10-10_Neuroelectrics.csv")
-            echo "/ti-csc/assets/amv/10-10-net.png"
+            echo "/ti-toolbox/assets/amv/10-10-net.png"
             ;;
         *)
-            echo "/ti-csc/assets/amv/256template.png"  # Default fallback
+            echo "/ti-toolbox/assets/amv/256template.png"  # Default fallback
             ;;
     esac
 }
@@ -154,7 +153,7 @@ overlay_rings() {
     echo "Coordinates for electrode '$electrode_label': x=$x_adjusted, y=$y_adjusted"
 
     # Use the pre-existing ring image to overlay the ring at the specified coordinates
-    convert "$output_image" "/ti-csc/assets/amv/$ring_image" -geometry +${x_adjusted}+${y_adjusted} -composite "$output_image" || {
+    convert "$output_image" "/ti-toolbox/assets/amv/$ring_image" -geometry +${x_adjusted}+${y_adjusted} -composite "$output_image" || {
         echo "Error: Failed to overlay ring image '$ring_image' onto output image '$output_image'."
     }
 }

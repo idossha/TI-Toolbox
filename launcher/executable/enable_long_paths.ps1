@@ -1,7 +1,7 @@
 # Enable Long Path Support on Windows
 # This script must be run as Administrator
 
-Write-Host "🔧 TI-CSC: Enabling Long Path Support on Windows" -ForegroundColor Cyan
+Write-Host "🔧 TI-Toolbox: Enabling Long Path Support on Windows" -ForegroundColor Cyan
 Write-Host "=" * 50
 
 # Check if running as Administrator

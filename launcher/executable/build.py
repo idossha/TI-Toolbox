@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Cross-platform build script for TI-CSC
+Cross-platform build script for TI-Toolbox
 This script will create an executable for the current platform.
 """
 
@@ -92,7 +92,7 @@ def build_executable():
 
 def main():
     """Main build process"""
-    print("🚀 TI-CSC Build Script")
+    print("🚀 TI-Toolbox Build Script")
     print("=" * 50)
     
     # Check Python version
@@ -132,19 +132,19 @@ def main():
     
     dist_path = os.path.join(os.getcwd(), "dist")
     if system == "Darwin":  # macOS
-        app_path = os.path.join(dist_path, "TI-CSC.app")
+        app_path = os.path.join(dist_path, "TI-Toolbox.app")
         if os.path.exists(app_path):
             print(f"📱 macOS App Bundle: {app_path}")
             print("   ✅ This is what you distribute to macOS users!")
             print("   ✅ No terminal window - launches directly to GUI")
             print("   ✅ Custom icon included")
             print("   💡 Users just double-click the .app file")
-        exe_path = os.path.join(dist_path, "TI-CSC")
+        exe_path = os.path.join(dist_path, "TI-Toolbox")
         if os.path.exists(exe_path):
             print(f"💻 Raw Executable: {exe_path}")
             print("   ⚠️  This may show terminal - use .app instead")
     elif system == "Windows":
-        exe_path = os.path.join(dist_path, "TI-CSC.exe")
+        exe_path = os.path.join(dist_path, "TI-Toolbox.exe")
         if os.path.exists(exe_path):
             print(f"💻 Windows Executable: {exe_path}")
             print("   ✅ This is what you distribute to Windows users!")
@@ -152,7 +152,7 @@ def main():
             print("   ✅ Custom icon included")
             print("   💡 Users just double-click the .exe file")
     else:  # Linux
-        exe_path = os.path.join(dist_path, "TI-CSC")
+        exe_path = os.path.join(dist_path, "TI-Toolbox")
         if os.path.exists(exe_path):
             print(f"💻 Linux Executable: {exe_path}")
             print("   ✅ This is what you distribute to Linux users!")
@@ -170,15 +170,15 @@ def main():
     
     if system == "Darwin":
         print(f"\n🍎 macOS Distribution:")
-        print(f"   Just share: TI-CSC.app")
+        print(f"   Just share: TI-Toolbox.app")
         print(f"   Recipients also need: XQuartz for GUI functionality")
     elif system == "Windows":
         print(f"\n🪟 Windows Distribution:")
-        print(f"   Just share: TI-CSC.exe")
+        print(f"   Just share: TI-Toolbox.exe")
         print(f"   Recipients also need: VcXsrv or similar X server for GUI")
     else:
         print(f"\n🐧 Linux Distribution:")
-        print(f"   Just share: TI-CSC (make sure it's executable)")
+        print(f"   Just share: TI-Toolbox (make sure it's executable)")
         print(f"   Recipients may need: xhost +local:docker for GUI")
 
 if __name__ == "__main__":

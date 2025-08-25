@@ -1,5 +1,5 @@
 """
-TI-CSC-2.0 Utils Package
+TI-Toolbox Utils Package
 This package contains utility functions and modules used across the project.
 """
 

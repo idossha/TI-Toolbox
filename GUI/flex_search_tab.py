@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-TI-CSC-2.0 Flex Search Tab
+TI-Toolbox-2.0 Flex Search Tab
 This module provides a GUI interface for the flex-search optimization tool.
 """
 

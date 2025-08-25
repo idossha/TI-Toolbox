@@ -30,7 +30,7 @@ logs/
 .dockerignore.bak
 
 # Distribution packages (created by package_for_distribution.py)
-TI-CSC_*_*/
+TI-Toolbox_*_*/
 
 # Temporary and cache files
 *.tmp

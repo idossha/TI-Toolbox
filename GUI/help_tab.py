@@ -21,7 +21,7 @@ class HelpTab(QtWidgets.QWidget):
         main_layout = QtWidgets.QVBoxLayout(self)
         
         # Introduction text
-        intro_label = QtWidgets.QLabel("<h1>TI-CSC Help Center</h1>")
+        intro_label = QtWidgets.QLabel("<h1>TI-Toolbox Help Center</h1>")
         intro_label.setAlignment(QtCore.Qt.AlignCenter)
         main_layout.addWidget(intro_label)
         
@@ -194,7 +194,7 @@ Project Directory/
             {
                 "title": "What is Pre-processing?",
                 "content": (
-                    "Pre-processing is the first step in preparing neuroimaging data for TI-CSC simulations. "
+                    "Pre-processing is the first step in preparing neuroimaging data for TI-Toolbox simulations. "
                     "It involves converting DICOM images to NIfTI format, creating head models using FreeSurfer "
                     "and SimNIBS, and preparing the data for subsequent simulation and analysis."
                 )
@@ -266,7 +266,7 @@ Project Directory/
                     "   - Generates publication-ready figures showing extraction methodology<br>"
                     "   - Results saved in <code>derivatives/ti-toolbox/bone_analysis/sub-{subject}/</code><br><br>"
                     
-                    "Once pre-processing is complete, the subject data is ready for TI-CSC simulations."
+                    "Once pre-processing is complete, the subject data is ready for TI-Toolbox simulations."
                 )
             },
             {
@@ -321,9 +321,9 @@ Project Directory/
         # Simulator sections
         sections = [
             {
-                "title": "What is the TI-CSC Simulator?",
+                "title": "What is the TI-Toolbox Simulator?",
                 "content": (
-                    "The TI-CSC Simulator performs computational simulations of Temporal Interference (TI) stimulation "
+                    "The TI-Toolbox Simulator performs computational simulations of Temporal Interference (TI) stimulation "
                     "using finite element modeling (FEM). It calculates electric field distributions in subject-specific "
                     "head models for different electrode configurations and stimulation parameters."
                     "It uses SimNIBS' TI module to simulate the electric field distribution based on Grossman's equation from the 2017 paper."
@@ -602,7 +602,7 @@ Project Directory/
             {
                 "title": "What is the Analyzer?",
                 "content": (
-                    "The Analyzer tool provides comprehensive analysis and visualization capabilities for TI-CSC simulation results. "
+                    "The Analyzer tool provides comprehensive analysis and visualization capabilities for TI-Toolbox simulation results. "
                     "It allows you to compare different electrode configurations, analyze electric field distributions, "
                     "and generate reports for your stimulation studies."
                 )

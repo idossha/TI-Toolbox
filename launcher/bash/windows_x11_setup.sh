@@ -4,7 +4,7 @@
 # This script helps configure X11 display forwarding on Windows systems
 
 echo "==================================================================="
-echo "Windows X11 Configuration Helper for TI-CSC"
+echo "Windows X11 Configuration Helper for TI-Toolbox"
 echo "==================================================================="
 echo ""
 
@@ -108,7 +108,7 @@ echo "DISPLAY set to: $DISPLAY"
 # Create a config file for persistence
 CONFIG_FILE="$HOME/.ti_csc_x11_config"
 cat > "$CONFIG_FILE" << EOF
-# TI-CSC X11 Configuration for Windows
+# TI-Toolbox X11 Configuration for Windows
 export DISPLAY="${HOST_IP}:0.0"
 export LIBGL_ALWAYS_SOFTWARE=1
 export QT_X11_NO_MITSHM=1

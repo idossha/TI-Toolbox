@@ -3,8 +3,7 @@
 ###########################################
 
 # Ido Haber / ihaber@wisc.edu
-# October 16, 2024
-# Optimized for TI-CSC analyzer
+# Optimized for TI-Toolbox analyzer
 
 # This script performs region of interest (ROI) analysis on NIfTI files for a specific subject.
 # It uses spherical masks to extract mean and maximum values from the selected ROIs

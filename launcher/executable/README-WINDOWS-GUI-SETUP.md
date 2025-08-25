@@ -1,8 +1,8 @@
-# Windows GUI Setup Guide for TI-CSC Toolbox
+# Windows GUI Setup Guide for TI-Toolbox
 
 ## Overview
 
-The TI-CSC Toolbox GUI on Windows requires an **X11 server** to display Linux-based graphical applications from the Docker container. This guide will help you set up everything needed for GUI functionality.
+The TI-Toolbox GUI on Windows requires an **X11 server** to display Linux-based graphical applications from the Docker container. This guide will help you set up everything needed for GUI functionality.
 
 ## Quick Setup (Recommended)
 
@@ -39,9 +39,9 @@ This script will check:
 - Docker installation
 - Overall readiness
 
-### Step 3: Launch TI-CSC
+### Step 3: Launch TI-Toolbox
 
-1. Open the TI-CSC Launcher
+1. Open the TI-Toolbox Launcher
 2. Select your project directory
 3. Start Docker containers
 4. Click "Launch GUI" - it should now work!
@@ -85,7 +85,7 @@ If you prefer Xming over VcXsrv:
 **Solution:**
 1. Install Docker Desktop: https://www.docker.com/products/docker-desktop/
 2. Start Docker Desktop and wait for it to fully initialize
-3. Restart the TI-CSC Launcher
+3. Restart the TI-Toolbox Launcher
 
 ### Problem: CLI works but GUI doesn't
 
@@ -142,7 +142,7 @@ $env:DISPLAY = "localhost:0.0"
 **Important:** The "Disable access control" setting in VcXsrv allows any application to connect to your X11 server. This is necessary for Docker containers but reduces security.
 
 **Recommendations:**
-1. Only run VcXsrv when using TI-CSC
+1. Only run VcXsrv when using TI-Toolbox
 2. Use a firewall to limit network access
 3. Don't use this setup on public networks
 
@@ -158,7 +158,7 @@ $env:DISPLAY = "localhost:0.0"
 If you continue to have issues:
 
 1. **Run the test script** and save the output
-2. **Check the TI-CSC console** for detailed error messages
+2. **Check the TI-Toolbox console** for detailed error messages
 3. **Try CLI first** to isolate Docker vs X11 issues
 4. **Check Docker Desktop logs** for container issues
 
@@ -170,7 +170,7 @@ After setup, your system should have:
 Windows System:
 ├── VcXsrv installed in Program Files
 ├── Docker Desktop running
-└── TI-CSC Launcher executable
+└── TI-Toolbox Launcher executable
 
 TI-Toolbox Project Directory:
 ├── Your BIDS data
@@ -194,4 +194,4 @@ Save this configuration for future use by clicking "Save configuration" in XLaun
 
 ---
 
-**Need more help?** Check the main TI-CSC documentation or run the test script for automated diagnostics. 
+**Need more help?** Check the main TI-Toolbox documentation or run the test script for automated diagnostics. 

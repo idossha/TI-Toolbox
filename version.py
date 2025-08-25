@@ -5,7 +5,7 @@ Contains version, tool, and system information for the TI-Toolbox application.
 
 __version__ = "2.0.5"
 
-# TI-CSC Core Information
+# TI-Toolbox Core Information
 TI_CSC_INFO = {
     "version": "2.0.5",
     "release_date": "July 10, 2025", 

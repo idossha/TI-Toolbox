@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# TI-CSC Project Diagnostic Script
+# TI-Toolbox Project Diagnostic Script
 # Prints a summary of the project state for quick troubleshooting
 
 set -e

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Windows X11 Server Test Script
-This script helps Windows users verify their X11 server setup before using the TI-CSC GUI.
+This script helps Windows users verify their X11 server setup before using the TI-Toolbox GUI.
 """
 
 import subprocess
@@ -23,7 +23,7 @@ def run_command(cmd, timeout=5):
 def test_x11_server():
     """Test X11 server setup on Windows"""
     print("=" * 60)
-    print("TI-CSC Windows X11 Server Test")
+    print("TI-Toolbox Windows X11 Server Test")
     print("=" * 60)
     
     if platform.system() != "Windows":
@@ -80,7 +80,7 @@ def test_x11_server():
     
     if vcxsrv_running or xming_running or x11_port_found:
         print("✅ X11 server appears to be running!")
-        print("Your system should be ready for TI-CSC GUI.")
+        print("Your system should be ready for TI-Toolbox GUI.")
         return True
     else:
         print("❌ No X11 server detected")
@@ -90,7 +90,7 @@ def test_x11_server():
         print("   - Multiple windows")
         print("   - Start no client")
         print("   - Disable access control")
-        print("3. Keep VcXsrv running while using TI-CSC")
+        print("3. Keep VcXsrv running while using TI-Toolbox")
         print("\nAlternatively, install and run Xming")
         return False
 
@@ -122,9 +122,9 @@ if __name__ == "__main__":
     
     print("\n" + "=" * 60)
     if success:
-        print("🎉 Your system appears ready for TI-CSC GUI!")
+        print("🎉 Your system appears ready for TI-Toolbox GUI!")
     else:
-        print("⚠️  Please set up an X11 server before using TI-CSC GUI")
+        print("⚠️  Please set up an X11 server before using TI-Toolbox GUI")
     print("=" * 60)
     
     input("\nPress Enter to exit...") 

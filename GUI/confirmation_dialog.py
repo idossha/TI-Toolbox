@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-TI-CSC-2.0 Confirmation Dialog
+TI-Toolbox Confirmation Dialog
 This module provides a reusable confirmation dialog for the GUI.
 """
 

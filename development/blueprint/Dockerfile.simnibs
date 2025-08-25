@@ -111,19 +111,19 @@ RUN wget https://github.com/simnibs/simnibs/releases/download/v4.5.0/simnibs_ins
 ENV PATH="/root/SimNIBS-4.5/bin:$PATH"
 ENV SIMNIBSDIR="/root/SimNIBS-4.5"
 
-########### TI-CSC ########################
-RUN git clone https://github.com/idossha/TI-Toolbox.git /ti-csc
+########### TI-Toolbox ########################
+RUN git clone https://github.com/idossha/TI-Toolbox.git /ti-toolbox
 
 # Convert all shell scripts to Unix line endings
-RUN find /ti-csc -name "*.sh" -exec dos2unix {} \;
+RUN find /ti-toolbox -name "*.sh" -exec dos2unix {} \;
 
 # EEG caps for CSC 
 RUN mkdir -p $SIMNIBSDIR/resources/ElectrodeCaps_MNI/
-RUN cp /ti-csc/assets/ElectrodeCaps_MNI/* $SIMNIBSDIR/resources/ElectrodeCaps_MNI/
+RUN cp /ti-toolbox/assets/ElectrodeCaps_MNI/* $SIMNIBSDIR/resources/ElectrodeCaps_MNI/
 
 # Flex extention by Ido Haber 
 RUN rm -f $SIMNIBSDIR/simnibs/optimization/tes_flex_optimization/tes_flex_optimization.py && \
-    cp /ti-csc/assets/map-electrodes/tes_flex_optimization.py $SIMNIBSDIR/simnibs/optimization/tes_flex_optimization/tes_flex_optimization.py
+    cp /ti-toolbox/assets/map-electrodes/tes_flex_optimization.py $SIMNIBSDIR/simnibs/optimization/tes_flex_optimization/tes_flex_optimization.py
 
 ############ CLI tools ###############
 
@@ -136,8 +136,8 @@ RUN git clone https://github.com/neovim/neovim.git /tmp/neovim \
     && rm -rf /tmp/neovim
 
 # Create symlinks for config files
-RUN ln -sf /ti-csc/config/.tmux.conf /root/.tmux.conf && \
-    ln -sf /ti-csc/config/nvim /root/.config/
+RUN ln -sf /ti-toolbox/config/.tmux.conf /root/.tmux.conf && \
+ln -sf /ti-toolbox/config/nvim /root/.config/
 
 # Install plugins using lazy.nvim
 RUN nvim --headless "+LAZY! sync" +qa
@@ -149,8 +149,8 @@ RUN tmux source-file /root/.tmux.conf || true
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
 
-# Set working directory to TI-CSC
-WORKDIR /ti-csc
+# Set working directory to TI-Toolbox
+WORKDIR /ti-toolbox
 
 # Set the entrypoint
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]

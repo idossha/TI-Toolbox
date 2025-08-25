@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-TI-CSC-2.0 System Monitor Tab
+TI-Toolbox-2.0 System Monitor Tab
 This module provides a GUI interface for monitoring toolbox-related processes.
 Shows CPU, memory usage, and process information for relevant operations.
 """

@@ -146,10 +146,10 @@ validate_dir() {
 show_welcome_message() {
     clear  # Clear the screen before starting
     echo -e "${BOLD_CYAN}╔═══════════════════════════════════════════╗${RESET}"
-    echo -e "${BOLD_CYAN}║         TI-CSC Pre-process Tool          ║${RESET}"
+    echo -e "${BOLD_CYAN}║         TI-Toolbox Pre-process Tool       ║${RESET}"
     echo -e "${BOLD_CYAN}╚═══════════════════════════════════════════╝${RESET}"
     echo -e "${CYAN}Version 2.0 - $(date +%Y)${RESET}"
-    echo -e "${CYAN}Prepare subject data for TI-CSC analysis${RESET}\n"
+    echo -e "${CYAN}Prepare subject data for TI-Toolbox analysis${RESET}\n"
 }
 
 # Function to show confirmation dialog

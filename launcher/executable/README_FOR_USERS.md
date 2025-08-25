@@ -1,4 +1,4 @@
-# TI-CSC - User Guide
+# TI-Toolbox - User Guide
 
 ## Quick Start
 
@@ -10,19 +10,19 @@
    - **Windows**: VcXsrv or similar X server
    - **Linux**: X11 usually pre-installed (may need `xhost +local:docker`)
 4. Have the executable file:
-   - **macOS**: `TI-CSC.app` 
-   - **Windows**: `TI-CSC.exe`
-   - **Linux**: `TI-CSC`
+   - **macOS**: `TI-Toolbox.app`
+- **Windows**: `TI-Toolbox.exe`
+- **Linux**: `TI-Toolbox`
 
 ### How to Use
 
-1. **Double-click** the TI-CSC executable
+1. **Double-click** the TI-Toolbox executable
 2. **Click "📋 System Requirements"** to view detailed system information and setup requirements
 3. **Select your project directory** using the "Browse" button
 4. **Click "❓ Help"** next to the directory field for detailed BIDS structure guide
 5. **Use the toggle switch** to start Docker containers (🐋 Start → 🛑 Stop)
 6. Choose your interface:
-   - **🖥️ Launch CLI**: Opens a terminal with the TI-CSC environment (no X server needed)
+   - **🖥️ Launch CLI**: Opens a terminal with the TI-Toolbox environment (no X server needed)
    - **🖼️ Launch GUI**: Opens the graphical interface (requires X server)
 
 ### New Interface Features
@@ -47,33 +47,33 @@
 ### What Each Button Does
 
 - **📋 System Requirements**: Opens detailed system requirements and setup information
-- **🔗 Create Desktop Shortcut**: Creates a shortcut on your desktop for easy access to TI-CSC
+- **🔗 Create Desktop Shortcut**: Creates a shortcut on your desktop for easy access to TI-Toolbox
 - **Browse**: Select your BIDS-compliant project directory
 - **❓ Help**: Shows BIDS directory structure guide
 - **🐋 Start Docker Containers / 🛑 Stop Docker Containers**: Toggle switch for container management
-- **🖥️ Launch CLI**: Opens a terminal window connected to the TI-CSC environment
-- **🖼️ Launch GUI**: Launches the TI-CSC graphical interface
+- **🖥️ Launch CLI**: Opens a terminal window connected to the TI-Toolbox environment
+- **🖼️ Launch GUI**: Launches the TI-Toolbox graphical interface
 - **🗑️ Clear**: Clears the output messages in the launcher console
 
 ### Platform-Specific Notes
 
 #### macOS
-- **File**: `TI-CSC.app`
+- **File**: `TI-Toolbox.app`
 - **Launch**: Double-click the app - no terminal window will appear
 - **First run**: Right-click → Open → Open (to bypass security warnings)
 - **X server**: Install XQuartz for GUI functionality
 - **Performance**: Optimized for Apple Silicon and Intel Macs
 
 #### Windows  
-- **File**: `TI-CSC.exe`
+- **File**: `TI-Toolbox.exe`
 - **Launch**: Double-click the executable - launches directly to GUI
 - **Antivirus**: Some antivirus may warn about unknown executable (false positive)
 - **X server**: Install VcXsrv or similar for GUI functionality
 
 #### Linux
-- **File**: `TI-CSC` 
+- **File**: `TI-Toolbox` 
 - **Launch**: Double-click or run from terminal
-- **Permissions**: May need to make executable: `chmod +x TI-CSC`
+- **Permissions**: May need to make executable: `chmod +x TI-Toolbox`
 - **X server**: Usually pre-installed, may need `xhost +local:docker`
 
 ### Troubleshooting
@@ -81,11 +81,11 @@
 **"Docker is not running"**
 - Make sure Docker Desktop is installed and running
 - Look for the Docker whale icon in your system tray/menu bar
-- Wait for Docker to fully start before launching TI-CSC
+- Wait for Docker to fully start before launching TI-Toolbox
 
 **Permission denied (macOS/Linux)**
 - Right-click the executable → Properties → Permissions → Check "Execute"
-- Or run in terminal: `chmod +x TI-CSC`
+- Or run in terminal: `chmod +x TI-Toolbox`
 
 **The executable won't open (macOS)**
 - Right-click → Open → Open (this bypasses Gatekeeper warnings)
@@ -125,7 +125,7 @@
 
 ### Project Structure Requirements
 
-TI-CSC follows BIDS (Brain Imaging Data Structure) conventions. Use the built-in **❓ Help** button for a comprehensive guide, but in summary:
+TI-Toolbox follows BIDS (Brain Imaging Data Structure) conventions. Use the built-in **❓ Help** button for a comprehensive guide, but in summary:
 
 ```
 Project Directory/
@@ -137,7 +137,7 @@ Project Directory/
 │           └── dicom/   (Place T2w DICOM files here)
 ├── sub-{subject}/       (Auto-created during preprocessing)
 ├── derivatives/         (Auto-created during processing)
-└── ti-csc/             (Auto-created at first launch)
+└── ti-toolbox/             (Auto-created at first launch)
 ```
 
 ### Performance Notes
@@ -175,4 +175,4 @@ If you still encounter issues:
 
 **Happy computing! 🚀** 
 
-*TI-CSC: Temporal Interference Computational Stimulation Consortium* 
+*TI-Toolbox: Temporal Interference Computational Stimulation Consortium* 

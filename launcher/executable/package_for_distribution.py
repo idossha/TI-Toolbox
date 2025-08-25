@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Package TI-CSC for distribution to colleagues
+Package TI-Toolbox for distribution to colleagues
 Creates a clean folder with just the executable and user guide
 """
 
@@ -19,24 +19,24 @@ def create_distribution_package():
     # Determine executable name and package folder
     if system == "Darwin":  # macOS
         # Prioritize .app bundle over raw executable
-        if os.path.exists("dist/TI-CSC.app"):
-            exe_name = "TI-CSC.app"
-            exe_source = "dist/TI-CSC.app"
+        if os.path.exists("dist/TI-Toolbox.app"):
+            exe_name = "TI-Toolbox.app"
+            exe_source = "dist/TI-Toolbox.app"
             is_app_bundle = True
         else:
-            exe_name = "TI-CSC"
-            exe_source = "dist/TI-CSC"
+            exe_name = "TI-Toolbox"
+            exe_source = "dist/TI-Toolbox"
             is_app_bundle = False
-        package_name = f"TI-CSC_macOS_{timestamp}"
+        package_name = f"TI-Toolbox_macOS_{timestamp}"
     elif system == "Windows":
-        exe_name = "TI-CSC.exe"
+        exe_name = "TI-Toolbox.exe"
         exe_source = f"dist/{exe_name}"
-        package_name = f"TI-CSC_Windows_{timestamp}"
+        package_name = f"TI-Toolbox_Windows_{timestamp}"
         is_app_bundle = False
     else:  # Linux
-        exe_name = "TI-CSC"
+        exe_name = "TI-Toolbox"
         exe_source = f"dist/{exe_name}"
-        package_name = f"TI-CSC_Linux_{timestamp}"
+        package_name = f"TI-Toolbox_Linux_{timestamp}"
         is_app_bundle = False
     
     print(f"📦 Creating distribution package: {package_name}")
@@ -70,7 +70,7 @@ def create_distribution_package():
         shutil.copy2("README_FOR_USERS.md", package_name)
     
     # Create a simple text instruction file
-    instructions = f"""TI-CSC - Quick Start Guide
+    instructions = f"""TI-Toolbox - Quick Start Guide
 
 Prerequisites:
 1. Install Docker Desktop from https://docker.com
@@ -103,7 +103,7 @@ For detailed instructions, see README_FOR_USERS.md
 Need help? Contact your system administrator.
 
 Built on {datetime.now().strftime("%Y-%m-%d %H:%M:%S")} for {system}
-TI-CSC: Temporal Interference Computational Stimulation Consortium
+TI-Toolbox: Temporal Interference Computational Stimulation Consortium
 """
     
     with open(os.path.join(package_name, "QUICK_START.txt"), 'w') as f:
@@ -152,7 +152,7 @@ TI-CSC: Temporal Interference Computational Stimulation Consortium
     return True
 
 def main():
-    print("📦 TI-CSC Distribution Packager")
+    print("📦 TI-Toolbox Distribution Packager")
     print("=" * 50)
     
     if not os.path.exists("dist"):

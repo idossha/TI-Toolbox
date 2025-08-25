@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-TI-CSC Report Utilities
+TI-Toolbox Report Utilities
 This module provides a centralized interface for generating comprehensive HTML reports
 for preprocessing and simulation pipelines, similar to fMRIPrep reports.
 """

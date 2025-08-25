@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-TI-CSC-2.0 NIfTI Viewer Tab
+TI-Toolbox-2.0 NIfTI Viewer Tab
 This module provides a GUI interface for visualizing NIfTI (.nii) files using Freeview.
 """
 

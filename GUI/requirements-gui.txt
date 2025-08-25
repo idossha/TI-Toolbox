@@ -1,4 +1,4 @@
-# TI-CSC-2.0 GUI Requirements
+# TI-Toolbox GUI Requirements
 # Core GUI functionality
 PyQt5>=5.15.0
 

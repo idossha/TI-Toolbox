@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-Contact Tab for TI-CSC-2.0 GUI
+Contact Tab for TI-Toolbox GUI
 This module provides a contact tab for users to reach out to developers.
 """
 
@@ -11,7 +11,7 @@ import platform
 from PyQt5 import QtWidgets, QtCore, QtGui
 
 class ContactTab(QtWidgets.QWidget):
-    """Contact tab for TI-CSC-2.0 GUI."""
+    """Contact tab for TI-Toolbox GUI."""
     
     def __init__(self, parent=None):
         super(ContactTab, self).__init__(parent)

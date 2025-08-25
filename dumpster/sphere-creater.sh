@@ -3,7 +3,7 @@
 ##############################################
 # Ido Haber - ihaber@wisc.edu
 # October 16, 2024
-# Optimized for TI-CSC toolbox
+# Optimized for TI-Toolbox
 #
 # This script dynamically creates spherical regions of interest (ROIs) based on the 
 # selected subject and ROI input from the user. It generates NIfTI files for these 

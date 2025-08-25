@@ -1,6 +1,6 @@
-# TI-CSC - Build Instructions
+# TI-Toolbox - Build Instructions
 
-This guide will help you create cross-platform executables for TI-CSC that your colleagues can simply double-click to run.
+This guide will help you create cross-platform executables for TI-Toolbox that your colleagues can simply double-click to run.
 
 ## Prerequisites
 
@@ -63,14 +63,14 @@ The script will:
 After building, you'll find the executable in the `dist/` folder:
 
 ### macOS
-- **App Bundle:** `dist/TI-CSC.app` ✅ **RECOMMENDED FOR DISTRIBUTION**
-- **Raw Executable:** `dist/TI-CSC` (may show terminal window)
+- **App Bundle:** `dist/TI-Toolbox.app` ✅ **RECOMMENDED FOR DISTRIBUTION**
+- **Raw Executable:** `dist/TI-Toolbox` (may show terminal window)
 
 ### Windows
-- **Executable:** `dist/TI-CSC.exe` ✅ **CLEAN GUI LAUNCH**
+- **Executable:** `dist/TI-Toolbox.exe` ✅ **CLEAN GUI LAUNCH**
 
 ### Linux
-- **Executable:** `dist/TI-CSC`
+- **Executable:** `dist/TI-Toolbox`
 
 ## New Features (Latest Version)
 
@@ -109,17 +109,17 @@ After building, you'll find the executable in the `dist/` folder:
 Simply share the appropriate file:
 
 **macOS Users:**
-- Share: `TI-CSC.app` (the entire app bundle)
+- Share: `TI-Toolbox.app` (the entire app bundle)
 - ✅ No terminal window, clean GUI launch
 - Recipients: Install Docker Desktop + XQuartz → Double-click app
 
 **Windows Users:**  
-- Share: `TI-CSC.exe`
+- Share: `TI-Toolbox.exe`
 - ✅ No console window, direct GUI launch
 - Recipients: Install Docker Desktop + VcXsrv → Double-click exe
 
 **Linux Users:**
-- Share: `TI-CSC` (make sure permissions are set)
+- Share: `TI-Toolbox` (make sure permissions are set)
 - Recipients: Install Docker → Run executable
 
 ### For Cross-Platform Distribution
@@ -160,16 +160,16 @@ This creates a timestamped folder with:
 For distribution outside the App Store:
 ```bash
 # Sign the app
-codesign --deep --force --verify --verbose --sign "Developer ID Application: Your Name" dist/TI-CSC.app
+codesign --deep --force --verify --verbose --sign "Developer ID Application: Your Name" dist/TI-Toolbox.app
 
 # Create a notarized DMG (optional)
-hdiutil create -volname "TI-CSC" -srcfolder dist/TI-CSC.app -ov -format UDZO TI-CSC.dmg
+hdiutil create -volname "TI-Toolbox" -srcfolder dist/TI-Toolbox.app -ov -format UDZO TI-Toolbox.dmg
 ```
 
 ### Windows Code Signing
 Use a code signing certificate:
 ```bash
-signtool sign /f your-certificate.p12 /p password dist/TI-CSC.exe
+signtool sign /f your-certificate.p12 /p password dist/TI-Toolbox.exe
 ```
 
 ## Troubleshooting
@@ -178,7 +178,7 @@ signtool sign /f your-certificate.p12 /p password dist/TI-CSC.exe
 
 **"Permission denied" on macOS/Linux:**
 ```bash
-chmod +x dist/TI-CSC
+chmod +x dist/TI-Toolbox
 ```
 
 **Missing Qt plugins:**
@@ -237,7 +237,7 @@ Before distributing:
 The launcher now includes built-in help and system requirements popups, making it much easier for end users to understand what they need. Create a simple instruction file for your colleagues:
 
 ```
-TI-CSC - Quick Start
+TI-Toolbox - Quick Start
 
 Prerequisites:
 1. Install Docker Desktop from https://docker.com
@@ -247,7 +247,7 @@ Prerequisites:
    - Linux: Usually pre-installed
 
 Usage:
-1. Double-click TI-CSC application
+1. Double-click TI-Toolbox application
 2. Click "📋 System Requirements" for detailed system info
 3. Select project directory and click "❓ Help" for BIDS structure guide
 4. Use the toggle switch to start/stop Docker containers
@@ -276,9 +276,9 @@ The application now includes comprehensive built-in help!
 - Enhanced Docker detection for app bundle compatibility
 
 ✅ **What to distribute:**
-- **macOS**: `TI-CSC.app` (entire app bundle)
-- **Windows**: `TI-CSC.exe`
-- **Linux**: `TI-CSC` executable
+- **macOS**: `TI-Toolbox.app` (entire app bundle)
+- **Windows**: `TI-Toolbox.exe`
+- **Linux**: `TI-Toolbox` executable
 
 ✅ **What users need:**
 - Docker Desktop installed and running

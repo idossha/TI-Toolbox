@@ -28,7 +28,7 @@ except ImportError as e:
 class TICSCLoaderApp(QWidget):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("TI-CSC Docker Loader")
+        self.setWindowTitle("TI-Toolbox Docker Loader")
         self.setGeometry(100, 100, 800, 650)
 
         self.project_dir = ""
@@ -435,7 +435,7 @@ class TICSCLoaderApp(QWidget):
         <div style='margin-left: 0px;'>├── <span style='color: #388e3c;'>derivatives/</span> <span style='color: #666; font-style: italic;'>(🤖 Auto-created)</span></div>
         <div style='margin-left: 0px;'>│&nbsp;&nbsp;&nbsp;├── freesurfer/</div>
         <div style='margin-left: 0px;'>│&nbsp;&nbsp;&nbsp;└── SimNIBS/</div>
-        <div style='margin-left: 0px;'>└── <span style='color: #388e3c;'>ti-csc/</span> <span style='color: #666; font-style: italic;'>(🤖 Auto-created)</span></div>
+                        <div style='margin-left: 0px;'>└── <span style='color: #388e3c;'>ti-toolbox/</span> <span style='color: #666; font-style: italic;'>(🤖 Auto-created)</span></div>
         </div>
         """
         structure_card = self._create_info_card("🗂️ Directory Structure", structure_content, "#f3e5f5")
@@ -545,7 +545,7 @@ class TICSCLoaderApp(QWidget):
     def init_ui(self):
         main_layout = QVBoxLayout()
 
-        # TI-CSC Toolbox Synthesis Section (More Compact)
+        # TI-Toolbox Toolbox Synthesis Section (More Compact)
         synthesis_frame = QFrame()
         synthesis_frame.setFrameStyle(QFrame.Shape.StyledPanel)
         synthesis_frame.setStyleSheet("""
@@ -560,8 +560,8 @@ class TICSCLoaderApp(QWidget):
         synthesis_layout = QVBoxLayout(synthesis_frame)
         synthesis_layout.setSpacing(5)
         
-        # Title
-        title_label = QLabel("TI-CSC: Temporal Interference Computational Stimulation Consortium")
+                # Title
+        title_label = QLabel("TI-Toolbox: Temporal Interference Computational Stimulation Consortium")
         title_font = QFont()
         title_font.setPointSize(12)
         title_font.setBold(True)
@@ -833,7 +833,7 @@ class TICSCLoaderApp(QWidget):
         self.setLayout(main_layout)
         
         # Initial message
-        self.log_message("TI-CSC Docker Launcher ready")
+        self.log_message("TI-Toolbox Docker Launcher ready")
         self.log_message("Select a project directory and start Docker containers to begin")
         self.log_message("First-time setup will download ~30GB of Docker images")
 
@@ -1285,7 +1285,7 @@ class TICSCLoaderApp(QWidget):
             
             # Send GUI command to background terminal
             self.log_message("Sending GUI command to background terminal...")
-            if self.send_background_command("/ti-csc/CLI/GUI.sh"):
+            if self.send_background_command("/ti-toolbox/CLI/GUI.sh"):
                 self.log_message("✓ GUI command sent successfully!", "SUCCESS")
                 self.log_message("Waiting for GUI to start...", "INFO")
                 
@@ -1367,7 +1367,7 @@ class TICSCLoaderApp(QWidget):
                 executable_path = sys.executable
                 self.log_message(f"Frozen executable path: {executable_path}", "INFO")
                 
-                if executable_path.endswith('MacOS/TI-CSC'):
+                if executable_path.endswith('MacOS/TI-Toolbox'):
                     # We're inside the .app bundle - go up to get the .app bundle
                     app_path = os.path.dirname(os.path.dirname(os.path.dirname(executable_path)))
                     self.log_message(f"Detected app bundle path: {app_path}", "INFO")
@@ -1385,7 +1385,7 @@ class TICSCLoaderApp(QWidget):
                 base_dir = os.path.dirname(os.path.abspath(__file__))
                 self.log_message(f"Searching for .app bundle from: {base_dir}", "INFO")
                 
-                app_name = "TI-CSC.app"
+                app_name = "TI-Toolbox.app"
                 possible_paths = [
                     os.path.join(base_dir, "dist", app_name),
                     os.path.join(base_dir, app_name),
@@ -1401,7 +1401,7 @@ class TICSCLoaderApp(QWidget):
                         break
                 
                 if not app_path:
-                    self.log_message("❌ Could not find TI-CSC.app bundle in any expected location", "ERROR")
+                    self.log_message("❌ Could not find TI-Toolbox.app bundle in any expected location", "ERROR")
                     self.log_message(f"Searched in: {possible_paths}", "ERROR")
                     return False
 
@@ -1420,8 +1420,8 @@ class TICSCLoaderApp(QWidget):
                 self.log_message("❌ Desktop directory not found", "ERROR")
                 return False
 
-            # Extract the app name with extension for the alias
-            app_name = os.path.basename(app_path)  # This will be "TI-CSC.app"
+                        # Extract the app name with extension for the alias
+            app_name = os.path.basename(app_path)  # This will be "TI-Toolbox.app"
             desktop_shortcut_path = os.path.join(desktop_path, app_name)
             
             self.log_message(f"Creating alias from {app_path} to {desktop_shortcut_path}", "INFO")
@@ -1486,22 +1486,22 @@ class TICSCLoaderApp(QWidget):
             if getattr(sys, 'frozen', False):
                 exe_path = sys.executable
             else:
-                exe_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "dist", "TI-CSC.exe")
+                exe_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "dist", "TI-Toolbox.exe")
                 if not os.path.exists(exe_path):
-                    self.log_message("❌ Could not find TI-CSC.exe", "ERROR")
+                    self.log_message("❌ Could not find TI-Toolbox.exe", "ERROR")
                     return False
 
             desktop = winshell.desktop()
-            # Use the proper executable name for the shortcut
-            exe_name = os.path.basename(exe_path)  # This will be "TI-CSC.exe"
-            shortcut_name = exe_name.replace('.exe', '.lnk')  # This will be "TI-CSC.lnk"
+                        # Use the proper executable name for the shortcut
+            exe_name = os.path.basename(exe_path)  # This will be "TI-Toolbox.exe"
+            shortcut_name = exe_name.replace('.exe', '.lnk')  # This will be "TI-Toolbox.lnk"
             shortcut_path = os.path.join(desktop, shortcut_name)
             
-            shell = Dispatch('WScript.Shell')
+                        shell = Dispatch('WScript.Shell')
             shortcut = shell.CreateShortCut(shortcut_path)
             shortcut.Targetpath = exe_path
             shortcut.WorkingDirectory = os.path.dirname(exe_path)
-            shortcut.Description = "TI-CSC Docker Launcher"
+            shortcut.Description = "TI-Toolbox Docker Launcher"
             # Try to set icon if available
             icon_path = os.path.join(os.path.dirname(exe_path), "icon.ico")
             if os.path.exists(icon_path):
@@ -1522,7 +1522,7 @@ class TICSCLoaderApp(QWidget):
             if getattr(sys, 'frozen', False):
                 exe_path = sys.executable
             else:
-                exe_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "dist", "TI-CSC")
+                exe_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "dist", "TI-Toolbox")
                 if not os.path.exists(exe_path):
                     self.log_message("❌ Could not find TI-CSC executable", "ERROR")
                     return False

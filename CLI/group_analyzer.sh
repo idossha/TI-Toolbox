@@ -83,11 +83,11 @@ validate_option() {
     return 1  # Input doesn't match any allowed option
 }
 
-# Ensure ti-csc directory exists and set permissions
+# Ensure ti-toolbox directory exists and set permissions
 if [ ! -d "$ti_csc_dir" ]; then
     mkdir -p "$ti_csc_dir"
     chmod 777 "$ti_csc_dir"
-    echo -e "${GREEN}Created ti-csc directory at $ti_csc_dir with permissions 777.${RESET}"
+    echo -e "${GREEN}Created ti-toolbox directory at $ti_csc_dir with permissions 777.${RESET}"
 else
     chmod 777 "$ti_csc_dir"
 fi
@@ -161,7 +161,7 @@ reprompt() {
 show_welcome_message() {
     clear  # Clear the screen before starting
     echo -e "${BOLD_CYAN}╔════════════════════════════════════════╗${RESET}"
-    echo -e "${BOLD_CYAN}║      TI-CSC Group Analyzer Tool       ║${RESET}"
+    echo -e "${BOLD_CYAN}║      TI-Toolbox Group Analyzer Tool    ║${RESET}"
     echo -e "${BOLD_CYAN}╚════════════════════════════════════════╝${RESET}"
     echo -e "${CYAN}Version 1.0 - $(date +%Y)${RESET}\n"
     echo -e "${YELLOW}This tool runs analysis across multiple subjects${RESET}"

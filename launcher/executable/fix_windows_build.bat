@@ -1,5 +1,5 @@
 @echo off
-echo 🚀 TI-CSC Windows Build Fix
+echo 🚀 TI-Toolbox Windows Build Fix
 echo ==================================================
 
 echo 🖥️  Platform: Windows

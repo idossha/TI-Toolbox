@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Icon Converter for TI-CSC
+Icon Converter for TI-Toolbox
 Converts icon.png to .ico (Windows) and .icns (macOS) formats
 """
 
@@ -60,7 +60,7 @@ def convert_png_to_icns(png_path, icns_path):
             return False
             
         # Create iconset directory
-        iconset_dir = "TI-CSC.iconset"
+        iconset_dir = "TI-Toolbox.iconset"
         if os.path.exists(iconset_dir):
             import shutil
             shutil.rmtree(iconset_dir)

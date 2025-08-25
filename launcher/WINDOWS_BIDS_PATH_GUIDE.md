@@ -1,7 +1,7 @@
 # Windows BIDS Directory Path Guide
 
 ## Overview
-This guide helps Windows users properly set up their BIDS-compliant project directories for use with TI-CSC.
+This guide helps Windows users properly set up their BIDS-compliant project directories for use with TI-Toolbox.
 
 ## Important Path Considerations
 
@@ -45,7 +45,7 @@ C:\BIDS_projects\my_study\
 ├── derivatives\
 │   ├── SimNIBS\
 │   └── freesurfer\
-└── ti-csc\
+└── ti-toolbox\
     └── config\
 ```
 
@@ -57,7 +57,7 @@ Ensure you have full write permissions:
 
 ## Docker Volume Mounting
 
-The TI-CSC launcher automatically handles path conversion for Docker:
+The TI-Toolbox launcher automatically handles path conversion for Docker:
 - Windows path: `C:\BIDS_projects\my_study`
 - Converts to: `C:/BIDS_projects/my_study` (for Docker)
 - Mounts as: `/mnt/my_study` (inside container)

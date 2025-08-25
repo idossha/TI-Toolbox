@@ -1061,7 +1061,7 @@ get_label_name() {
 show_welcome_message() {
     clear  # Clear the screen before starting
     echo -e "${BOLD_CYAN}╔════════════════════════════════════════╗${RESET}"
-    echo -e "${BOLD_CYAN}║     TI-CSC Flex Search Optimizer      ║${RESET}"
+    echo -e "${BOLD_CYAN}║     TI-Toolbox Flex Search Optimizer   ║${RESET}"
     echo -e "${BOLD_CYAN}╚════════════════════════════════════════╝${RESET}"
     echo -e "${CYAN}Version 2.0 - $(date +%Y)${RESET}"
     echo -e "${CYAN}Optimize electrode positions for targeted stimulation${RESET}"

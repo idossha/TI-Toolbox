@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-TI-CSC-2.0 GUI Utilities
+TI-Toolbox GUI Utilities
 This module provides utility functions for the GUI.
 """
 

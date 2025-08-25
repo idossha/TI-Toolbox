@@ -608,11 +608,11 @@ get_default_value() {
 # Ensure that necessary scripts have execution permissions
 find "$simulator_dir" -type f -name "*.sh" -exec chmod +x {} \;
 
-# Ensure ti-csc directory exists and set permissions
+# Ensure ti-toolbox directory exists and set permissions
 if [ ! -d "$ti_csc_dir" ]; then
     mkdir -p "$ti_csc_dir"
     chmod 777 "$ti_csc_dir"
-    echo -e "${GREEN}Created ti-csc directory at $ti_csc_dir with permissions 777.${RESET}"
+    echo -e "${GREEN}Created ti-toolbox directory at $ti_csc_dir with permissions 777.${RESET}"
 else
     chmod 777 "$ti_csc_dir"
 fi
@@ -1292,7 +1292,7 @@ choose_electrode_thickness() {
 show_welcome_message() {
     clear  # Clear the screen before starting
     echo -e "${BOLD_CYAN}╔════════════════════════════════════════╗${RESET}"
-    echo -e "${BOLD_CYAN}║        TI-CSC Simulator Tool          ║${RESET}"
+    echo -e "${BOLD_CYAN}║        TI-Toolbox Simulator Tool       ║${RESET}"
     echo -e "${BOLD_CYAN}╚════════════════════════════════════════╝${RESET}"
     echo -e "${CYAN}Version 2.0 - $(date +%Y)${RESET}"
     echo -e "${CYAN}Run simulations with customizable electrode configurations${RESET}\n"

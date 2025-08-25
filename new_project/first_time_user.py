@@ -140,7 +140,7 @@ def show_welcome_message(parent=None):
     """
     try:
         msg_box = QtWidgets.QMessageBox(parent)
-        msg_box.setWindowTitle("Welcome to TI-CSC Toolbox")
+        msg_box.setWindowTitle("Welcome to TI-Toolbox")
         msg_box.setIcon(QtWidgets.QMessageBox.Information)
         
         message = """
