@@ -50,7 +50,7 @@ def update_version(new_version):
             (r'__version__ = "[^"]*"', f'__version__ = "{new_version}"'),
             (r'"version": "[^"]*"', f'"version": "{new_version}"'),
             (r'"release_date": "[^"]*"', f'"release_date": "{release_date}"'),
-            (r'"tag": "idossha/simnibs:[^"]*"', f'"tag": "idossha/simnibs:{new_version}"'),
+            (r'"tag": "idossha/simnibs:[^"]*"', f'"tag": "idossha/simnibs:v{new_version}"'),
         ],
         
         "launcher/executable/src/ti_csc_launcher.py": [
@@ -66,13 +66,13 @@ def update_version(new_version):
         ],
 
         "launcher/bash/docker-compose.yml": [
-            (r'image: idossha/simnibs:[\S]+', f'image: idossha/simnibs:{new_version}'),
+            (r'image: idossha/simnibs:[\S]+', f'image: idossha/simnibs:v{new_version}'),
         ],
         "launcher/executable/docker-compose.yml": [
-            (r'image: idossha/simnibs:[\S]+', f'image: idossha/simnibs:{new_version}')
+            (r'image: idossha/simnibs:[\S]+', f'image: idossha/simnibs:v{new_version}')
         ],
         "development/bash_dev/docker-compose.dev.yml": [
-            (r'image: idossha/simnibs:[\S]+', f'image: idossha/simnibs:{new_version}')
+            (r'image: idossha/simnibs:[\S]+', f'image: idossha/simnibs:v{new_version}')
         ]
     }
     
@@ -124,7 +124,7 @@ def update_dataset_descriptions(new_version):
             # Update only the SimNIBS Docker image tag (dynamically based on new version)
             # Pattern to match Docker image tags in the JSON files
             patterns = [
-                (r'"Tag": "idossha/simnibs:[^"]*"', f'"Tag": "idossha/simnibs:{new_version}"'),
+                (r'"Tag": "idossha/simnibs:[^"]*"', f'"Tag": "idossha/simnibs:v{new_version}"'),
             ]
             
             for pattern, replacement in patterns:

@@ -16,7 +16,7 @@ TI_CSC_INFO = {
 DOCKER_IMAGES = {
     "core": {
         "version": "2.1.0",
-        "tag": "idossha/simnibs:2.1.0",
+        "tag": "idossha/simnibs:v2.1.0",
         "description": "Core SimNIBS image with TI tools",
         "size": "~8GB"
     },
