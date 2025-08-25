@@ -24,8 +24,7 @@
           "Tag": "idossha/simnibs:2.0.5"
         },
         "Environment": [
-          "SIMNIBS_HOME=/usr/local/simnibs",
-          "PATH=/usr/local/simnibs/bin:$PATH"
+          "PATH=/root/SimNIBS-4.5/bin/simnibs:$PATH"
         ]
       }
     ],
