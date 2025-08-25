@@ -21,7 +21,7 @@
         "CodeURL": "https://github.com/freesurfer/freesurfer",
         "Container": {
           "Type": "docker",
-          "Tag": "idossha/ti-toolbox_freesurfer:v1.3.0"
+          "Tag": "idossha/ti-toolbox_freesurfer:v7.4.1"
         },
         "Environment": [
           "FREESURFER_HOME=/usr/local/freesurfer",

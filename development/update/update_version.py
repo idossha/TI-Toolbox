@@ -70,6 +70,9 @@ def update_version(new_version):
         ],
         "launcher/executable/docker-compose.yml": [
             (r'image: idossha/simnibs:[\S]+', f'image: idossha/simnibs:{new_version}')
+        ],
+        "development/bash_dev/docker-compose.dev.yml": [
+            (r'image: idossha/simnibs:[\S]+', f'image: idossha/simnibs:{new_version}')
         ]
     }
     
@@ -94,10 +97,10 @@ def update_version(new_version):
     print(f"   • Created individual release page (docs/releases/v{new_version}.md)")
     print(f"   • Updated releases sidebar navigation (docs/_layouts/releases.html)")
     print(f"   • Updated previous release titles")
-    print(f"   • Updated dataset description JSON files")
+    print(f"   • Updated dataset description JSON files with new SimNIBS Docker image version")
 
 def update_dataset_descriptions(new_version):
-    """Update Docker image tags in dataset description JSON files"""
+    """Update Docker image versions in dataset description JSON files"""
     print(f"\n🔧 Updating dataset description JSON files...")
     
     dataset_descriptions_dir = "assets/dataset_descriptions"
@@ -118,7 +121,7 @@ def update_dataset_descriptions(new_version):
             
             original_content = content
             
-            # Update only the SimNIBS Docker image tag
+            # Update only the SimNIBS Docker image tag (dynamically based on new version)
             # Pattern to match Docker image tags in the JSON files
             patterns = [
                 (r'"Tag": "idossha/simnibs:[^"]*"', f'"Tag": "idossha/simnibs:{new_version}"'),
@@ -463,7 +466,7 @@ def main():
     print(f"   • Changelog includes full release history") 
     print(f"   • Releases sidebar updated with v{new_version} in version history")
     print(f"   • Individual release page created with proper links")
-    print(f"   • Dataset description JSON files updated with new Docker image tags")
+    print(f"   • Dataset description JSON files updated with new SimNIBS Docker image version")
 
 if __name__ == "__main__":
     main() 
