@@ -1,44 +1,47 @@
-### FSL with full functioality 
+# FSL with full functionality
 
-# If you want it by itself, suggested run command:
+# Suggested run command:
 # docker run -it --rm \
 #   -e DISPLAY=$DISPLAY \
 #   -e LIBGL_ALWAYS_SOFTWARE=1 \
 #   -e USER=$USER \
 #   -v /tmp/.X11-unix:/tmp/.X11-unix \
-#   fsl-v1.3.0
-
+#   idossha/ti-toolbox_fsl:v6.0.7.18
 
 # Developed by Ido Haber | ihaber@wisc.edu
 # https://fsl.fmrib.ox.ac.uk/fsl/docs/#/install/container
 
 FROM ubuntu:22.04
 
-ENV FSLDIR          "/usr/local/fsl"
-ENV DEBIAN_FRONTEND "noninteractive"
-ENV LANG            "en_GB.UTF-8"
+ENV FSLDIR="/usr/local/fsl"
+ENV DEBIAN_FRONTEND="noninteractive"
+ENV LANG="en_GB.UTF-8"
+ENV LC_ALL="en_GB.UTF-8"
 
-RUN apt update  -y && \
-    apt upgrade -y && \
-    apt install -y    \
-      python          \
-      wget            \
-      file            \
-      bc              \
-      dc              \
-      mesa-utils      \
-      pulseaudio      \
-      libquadmath0    \
-      libgtk2.0-0     \
-      libopenblas-dev \
-      libxft2         \
-      firefox         \
-      libgomp1        \
-      vim             \
-      tmux            \
-      && apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+# Install system dependencies
+RUN apt update -y && apt upgrade -y && apt install -y \
+    python-is-python3 \
+    wget \
+    file \
+    bc \
+    dc \
+    tar \
+    bzip2 \
+    xz-utils \
+    mesa-utils \
+    pulseaudio \
+    libquadmath0 \
+    libgtk2.0-0 \
+    libopenblas-dev \
+    libxft2 \
+    libgomp1 \
+    && apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
+# Install FSL non-interactively
 RUN wget https://fsl.fmrib.ox.ac.uk/fsldownloads/fslconda/releases/fslinstaller.py && \
-    python ./fslinstaller.py -d /usr/local/fsl/
+    python ./fslinstaller.py -d /usr/local/fsl --skip_root_check --skip_registration --no_mamba && \
+    rm fslinstaller.py
 
-ENTRYPOINT [ "sh", "-c", ". /usr/local/fsl/etc/fslconf/fsl.sh && /bin/bash" ]
+# Source FSL environment and launch bash by default
+ENTRYPOINT ["/bin/bash", "-c", "source /usr/local/fsl/etc/fslconf/fsl.sh && exec /bin/bash"]
+
