@@ -13,6 +13,18 @@ For headless server useage, see the [Bash Script & Compose YAML](https://github.
 **Release Date**: August 25, 2025
 
 #### Additions
+- t
+
+#### Fixes
+- t
+
+#### Download Links
+- [Windows Installer](https://github.com/idossha/TI-Toolbox/releases/download/v2.1.0/TI-Toolbox-Windows.exe)
+- [macOS Universal](https://github.com/idossha/TI-Toolbox/releases/download/v2.1.0/TemporalInterferenceToolbox-macOS-universal.zip)
+- [Linux AppImage](https://github.com/idossha/TI-Toolbox/releases/download/v2.1.0/TemporalInterferenceToolbox-Linux-x86_64.AppImage)
+
+For installation instructions, see the [Installation Guide]({ site.baseurl }/installation/).
+#### Additions
 - Official rebranding: Complete renaming from TI-CSC to TI-Toolbox across all components, documentation, and user interfaces
 - Enhanced X11 handling for macOS: Improved X11 server integration and display management for better GUI functionality on macOS systems
 - Improved BIDS formatting: Enhanced Brain Imaging Data Structure (BIDS) compliance and formatting for better data organization and compatibility
