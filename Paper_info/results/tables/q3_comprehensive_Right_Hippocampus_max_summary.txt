@@ -1,0 +1,26 @@
+STATISTICAL ANALYSIS REPORT
+==================================================
+
+Analysis Type: Q3
+Target: Right_Hippocampus
+Optimization: max
+
+CORRELATION RESULTS:
+--------------------
+ROI_Mean vs age: r = -0.052, p = 0.595 - Not significant
+ROI_Mean vs bone_volume: r = -0.402, p = 0.000 - **SIGNIFICANT**
+ROI_Mean vs bone_mean_thick: r = -0.352, p = 0.000 - **SIGNIFICANT**
+ROI_Max vs age: r = -0.100, p = 0.301 - Not significant
+ROI_Max vs bone_volume: r = -0.447, p = 0.000 - **SIGNIFICANT**
+ROI_Max vs bone_mean_thick: r = -0.413, p = 0.000 - **SIGNIFICANT**
+
+MULTIPLE REGRESSION RESULTS:
+-------------------------
+R² = 0.162 (n = 108)
+F-statistic = 6.68, p = 0.000
+
+Coefficients:
+  const: 0.388 (p = 0.000) - **SIGNIFICANT**
+  age: 0.000 (p = 0.876) - Not significant
+  bone_volume: -0.000 (p = 0.033) - **SIGNIFICANT**
+  bone_mean_thick: 0.001 (p = 0.950) - Not significant

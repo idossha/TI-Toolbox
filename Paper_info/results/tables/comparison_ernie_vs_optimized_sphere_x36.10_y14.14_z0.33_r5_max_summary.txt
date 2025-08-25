@@ -1,0 +1,7 @@
+STATISTICAL ANALYSIS REPORT
+==================================================
+
+Analysis Type: pairwise
+Target: sphere_x36.10_y14.14_z0.33_r5
+Optimization: max
+

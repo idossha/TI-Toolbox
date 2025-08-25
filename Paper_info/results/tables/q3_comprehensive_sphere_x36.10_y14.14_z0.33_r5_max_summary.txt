@@ -1,0 +1,32 @@
+STATISTICAL ANALYSIS REPORT
+==================================================
+
+Analysis Type: Q3
+Target: sphere_x36.10_y14.14_z0.33_r5
+Optimization: max
+
+CORRELATION RESULTS:
+--------------------
+ROI_Mean vs age: r = -0.242, p = 0.012 - **SIGNIFICANT**
+ROI_Mean vs bone_volume: r = -0.483, p = 0.000 - **SIGNIFICANT**
+ROI_Mean vs bone_mean_thick: r = -0.459, p = 0.000 - **SIGNIFICANT**
+ROI_Max vs age: r = -0.237, p = 0.014 - **SIGNIFICANT**
+ROI_Max vs bone_volume: r = -0.536, p = 0.000 - **SIGNIFICANT**
+ROI_Max vs bone_mean_thick: r = -0.489, p = 0.000 - **SIGNIFICANT**
+Normal_Mean vs age: r = -0.095, p = 0.327 - Not significant
+Normal_Mean vs bone_volume: r = -0.253, p = 0.008 - **SIGNIFICANT**
+Normal_Mean vs bone_mean_thick: r = -0.242, p = 0.012 - **SIGNIFICANT**
+Normal_Max vs age: r = -0.180, p = 0.062 - Not significant
+Normal_Max vs bone_volume: r = -0.456, p = 0.000 - **SIGNIFICANT**
+Normal_Max vs bone_mean_thick: r = -0.386, p = 0.000 - **SIGNIFICANT**
+
+MULTIPLE REGRESSION RESULTS:
+-------------------------
+R² = 0.266 (n = 108)
+F-statistic = 12.55, p = 0.000
+
+Coefficients:
+  const: 0.526 (p = 0.000) - **SIGNIFICANT**
+  age: -0.001 (p = 0.051) - Not significant
+  bone_volume: -0.000 (p = 0.072) - Not significant
+  bone_mean_thick: -0.017 (p = 0.415) - Not significant

@@ -1,0 +1,32 @@
+STATISTICAL ANALYSIS REPORT
+==================================================
+
+Analysis Type: Q3
+Target: Left_Insula
+Optimization: max
+
+CORRELATION RESULTS:
+--------------------
+ROI_Mean vs age: r = -0.196, p = 0.042 - **SIGNIFICANT**
+ROI_Mean vs bone_volume: r = -0.613, p = 0.000 - **SIGNIFICANT**
+ROI_Mean vs bone_mean_thick: r = -0.561, p = 0.000 - **SIGNIFICANT**
+ROI_Max vs age: r = 0.043, p = 0.658 - Not significant
+ROI_Max vs bone_volume: r = -0.548, p = 0.000 - **SIGNIFICANT**
+ROI_Max vs bone_mean_thick: r = -0.464, p = 0.000 - **SIGNIFICANT**
+Normal_Mean vs age: r = -0.030, p = 0.757 - Not significant
+Normal_Mean vs bone_volume: r = -0.588, p = 0.000 - **SIGNIFICANT**
+Normal_Mean vs bone_mean_thick: r = -0.536, p = 0.000 - **SIGNIFICANT**
+Normal_Max vs age: r = -0.021, p = 0.829 - Not significant
+Normal_Max vs bone_volume: r = -0.533, p = 0.000 - **SIGNIFICANT**
+Normal_Max vs bone_mean_thick: r = -0.527, p = 0.000 - **SIGNIFICANT**
+
+MULTIPLE REGRESSION RESULTS:
+-------------------------
+R² = 0.387 (n = 108)
+F-statistic = 21.91, p = 0.000
+
+Coefficients:
+  const: 0.502 (p = 0.000) - **SIGNIFICANT**
+  age: -0.000 (p = 0.207) - Not significant
+  bone_volume: -0.000 (p = 0.002) - **SIGNIFICANT**
+  bone_mean_thick: -0.009 (p = 0.584) - Not significant

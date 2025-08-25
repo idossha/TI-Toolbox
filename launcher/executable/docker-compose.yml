@@ -20,7 +20,7 @@ services:
     restart: unless-stopped
 
   simnibs:
-    image: idossha/simnibs:v2.1.0
+    image: idossha/simnibs:2.1.0
     platform: linux/amd64
     container_name: simnibs_container
     volumes:

@@ -1,0 +1,118 @@
+{
+  "analysis_type": "pairwise_comparisons",
+  "target": "Right_Thalamus",
+  "optimization_type": "max",
+  "condition_a": "ernie",
+  "condition_b": "optimized",
+  "comparison_results": {
+    "ROI_Mean": {
+      "diff": 0.036678297297297324,
+      "percent_change": 18.19959708945275,
+      "z_score": 1.3035337820640882,
+      "mean_a": 0.20153356756756757,
+      "mean_b": 0.2382118648648649,
+      "std_a": 0.02032943853209011,
+      "std_b": 0.034207626553122594,
+      "n": 37,
+      "p_value": 1.103180693462491e-07,
+      "effect_size": 0.7750531549681141,
+      "effect_size_name": "r",
+      "test_used": "Wilcoxon",
+      "significant": "True",
+      "parametric": {
+        "test_name": "t-test",
+        "statistic": 9.11576444636528,
+        "p_value": 6.939459228420806e-11,
+        "cohens_d": 1.4986224434966329,
+        "significant": "True"
+      },
+      "nonparametric": {
+        "test_name": "Wilcoxon signed-rank",
+        "statistic": 39.0,
+        "p_value": 1.103180693462491e-07,
+        "r_effect_size": 0.7750531549681141,
+        "significant": "True"
+      },
+      "normality": {
+        "is_normal": false,
+        "shapiro_p_a": 0.6380489973159398,
+        "shapiro_p_b": 0.00882342945883456,
+        "shapiro_p_diff": 1.3977371672913031e-05,
+        "recommended_test": "Wilcoxon"
+      }
+    },
+    "ROI_Max": {
+      "diff": 0.02040567567567575,
+      "percent_change": 4.9862638505678305,
+      "z_score": 0.28987230641480893,
+      "mean_a": 0.4092377837837838,
+      "mean_b": 0.42964345945945953,
+      "std_a": 0.06265187931833026,
+      "std_b": 0.07736772876069575,
+      "n": 37,
+      "p_value": 0.06458916163142764,
+      "effect_size": 0.3134302333402742,
+      "effect_size_name": "Cohen's d",
+      "test_used": "t-test",
+      "significant": "False",
+      "parametric": {
+        "test_name": "t-test",
+        "statistic": 1.9065216792248478,
+        "p_value": 0.06458916163142764,
+        "cohens_d": 0.3134302333402742,
+        "significant": "False"
+      },
+      "nonparametric": {
+        "test_name": "Wilcoxon signed-rank",
+        "statistic": 218.0,
+        "p_value": 0.04387893014063593,
+        "r_effect_size": 0.3311027078023783,
+        "significant": "True"
+      },
+      "normality": {
+        "is_normal": true,
+        "shapiro_p_a": 0.4651882144888637,
+        "shapiro_p_b": 0.404193933667481,
+        "shapiro_p_diff": 0.7997541614415425,
+        "recommended_test": "t-test"
+      }
+    },
+    "ROI_Focality": {
+      "diff": 0.003403972972973124,
+      "percent_change": 0.33044532024234663,
+      "z_score": 0.04229733303751854,
+      "mean_a": 1.0301168648648649,
+      "mean_b": 1.033520837837838,
+      "std_a": 0.06670543505515796,
+      "std_b": 0.09221474892653608,
+      "n": 37,
+      "p_value": 0.2946861638483824,
+      "effect_size": 0.17485199176080657,
+      "effect_size_name": "r",
+      "test_used": "Wilcoxon",
+      "significant": "False",
+      "parametric": {
+        "test_name": "t-test",
+        "statistic": 0.28102406537869795,
+        "p_value": 0.780300845714126,
+        "cohens_d": 0.04620007175669246,
+        "significant": "False"
+      },
+      "nonparametric": {
+        "test_name": "Wilcoxon signed-rank",
+        "statistic": 281.0,
+        "p_value": 0.2946861638483824,
+        "r_effect_size": 0.17485199176080657,
+        "significant": "False"
+      },
+      "normality": {
+        "is_normal": false,
+        "shapiro_p_a": 0.47418670873093716,
+        "shapiro_p_b": 0.2761688325900147,
+        "shapiro_p_diff": 0.0003329972219906769,
+        "recommended_test": "Wilcoxon"
+      }
+    }
+  },
+  "summary_report": "STATISTICAL ANALYSIS REPORT\n==================================================\n\nAnalysis Type: pairwise\nTarget: Right_Thalamus\nOptimization: max\n\n"
+}

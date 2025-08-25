@@ -1,0 +1,7 @@
+STATISTICAL ANALYSIS REPORT
+==================================================
+
+Analysis Type: pairwise
+Target: Left_Insula
+Optimization: normal
+
