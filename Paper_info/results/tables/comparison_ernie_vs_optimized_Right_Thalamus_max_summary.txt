@@ -1,7 +1,0 @@
-STATISTICAL ANALYSIS REPORT
-==================================================
-
-Analysis Type: pairwise
-Target: Right_Thalamus
-Optimization: max
-
