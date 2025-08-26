@@ -11,7 +11,44 @@
 
 # Source the logging utility
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "$script_dir/../utils/bash_logging.sh"
+echo "DEBUG: Script directory: $script_dir" >&2
+echo "DEBUG: Looking for logging utility at: $script_dir/../utils/bash_logging.sh" >&2
+
+if [[ -f "$script_dir/../utils/bash_logging.sh" ]]; then
+    echo "DEBUG: Logging utility file exists, sourcing it..." >&2
+    source "$script_dir/../utils/bash_logging.sh"
+    echo "DEBUG: Logging utility sourced" >&2
+    
+    # Check if key functions are available
+    if command -v init_logging >/dev/null 2>&1; then
+        echo "DEBUG: init_logging function is available" >&2
+    else
+        echo "DEBUG: init_logging function is NOT available" >&2
+    fi
+    
+    if command -v log_info >/dev/null 2>&1; then
+        echo "DEBUG: log_info function is available" >&2
+    else
+        echo "DEBUG: log_info function is NOT available" >&2
+    fi
+else
+    echo "ERROR: Logging utility file not found at $script_dir/../utils/bash_logging.sh" >&2
+    echo "ERROR: Logging will not be available" >&2
+fi
+
+# Simple fallback logging function
+simple_log() {
+    local level="$1"
+    local message="$2"
+    local timestamp=$(date '+%Y-%m-%d %H:%M:%S')
+    
+    if [[ -n "$LOG_FILE" && -f "$LOG_FILE" ]]; then
+        echo "[$timestamp] [$level] $message" >> "$LOG_FILE"
+    fi
+    
+    # Also output to stderr for immediate visibility
+    echo "[$timestamp] [$level] $message" >&2
+}
 
 # Default values for optional flags
 RUN_RECON=false
@@ -111,6 +148,67 @@ for subject_id in "${temp_subject_ids[@]}"; do
   SUBJECT_DIRS+=("$SUBJECT_DIR")
   echo "DEBUG: Created and added subject directory: $SUBJECT_DIR" >&2
 done
+
+# Initialize logging early to capture any errors from the start
+# Create log directory structure
+if [[ -n "$PROJECT_DIR" ]]; then
+    # Create logs directory structure - logs go directly to derivatives/ti-toolbox/logs/{subject_name}/
+    LOGS_DIR="$PROJECT_DIR/derivatives/ti-toolbox/logs"
+    mkdir -p "$LOGS_DIR"
+    
+    # Generate timestamp for this preprocessing run
+    TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+    
+    # Set up logging for each subject - use BIDS format (sub-xxx)
+    for subject_id in "${temp_subject_ids[@]}"; do
+        bids_subject_id="sub-${subject_id}"
+        mkdir -p "$LOGS_DIR/$bids_subject_id"
+    done
+    
+    # Initialize logging with the first subject's log file
+    if [[ ${#temp_subject_ids[@]} -gt 0 ]]; then
+        first_subject="${temp_subject_ids[0]}"
+        first_bids_subject="sub-${first_subject}"
+        LOG_FILE="$LOGS_DIR/$first_bids_subject/preprocessing_${TIMESTAMP}.log"
+        
+        # Try to initialize logging, but continue if it fails
+        if ! init_logging "structural" "$LOG_FILE"; then
+            echo "WARNING: Failed to initialize logging, continuing without file logging" >&2
+            LOG_FILE=""
+        else
+            # Update the logger name so all logging functions use "structural" instead of "bash_script"
+            LOGGER_NAME="structural"
+            # Configure external loggers for each subject - use BIDS format
+            # Build JSON array manually for compatibility
+            external_loggers_json="["
+            for i in "${!temp_subject_ids[@]}"; do
+                if [[ $i -gt 0 ]]; then
+                    external_loggers_json+=","
+                fi
+                bids_subject_id="sub-${temp_subject_ids[i]}"
+                external_loggers_json+="\"$bids_subject_id\""
+            done
+            external_loggers_json+="]"
+            
+            # Try to configure external loggers, but continue if it fails
+            if ! configure_external_loggers "$external_loggers_json"; then
+                echo "WARNING: Failed to configure external loggers, continuing with basic logging" >&2
+            fi
+            
+            # Create a simple fallback log file to ensure errors are captured
+            if [[ -n "$LOG_FILE" ]]; then
+                # Create empty log file (no header)
+                touch "$LOG_FILE"
+            fi
+        fi
+    fi
+    
+    # Debug: Show log file locations immediately after creation
+    if [[ -n "$LOGS_DIR" ]]; then
+        # Silent - no debug output to console
+        :
+    fi
+fi
 
 # Process flags
 for flag in "${temp_flags[@]}"; do
@@ -427,6 +525,14 @@ if $PARALLEL && ($RUN_RECON || $RECON_ONLY) && [[ ${#SUBJECT_DIRS[@]} -gt 1 ]]; 
     fi
     
 else
+    # Main processing function
+process_subjects() {
+    # Log the start of processing
+    if command -v log_info >/dev/null 2>&1; then
+        log_info "Starting preprocessing pipeline for ${#SUBJECT_DIRS[@]} subject(s)"
+        log_info "Processing mode: Sequential (one subject at a time, each using all available cores)"
+    fi
+    
     # APPROACH 1: Sequential processing - one subject at a time, each with multiple cores
     if ! $SUMMARY_ENABLED; then
         echo "Starting SEQUENTIAL processing of ${#SUBJECT_DIRS[@]} subject(s)..."
@@ -492,14 +598,47 @@ else
             m2m_dir="$PROJECT_DIR/derivatives/SimNIBS/$bids_subject_id/m2m_${subject_id}"
             label_nii="$m2m_dir/segmentation/Labeling.nii.gz"
             
+            # Log tissue analysis start with proper logging
+            if command -v log_info >/dev/null 2>&1; then
+                log_info "Starting tissue analysis for subject: $subject_id"
+                log_info "Looking for Labeling.nii.gz at: $label_nii"
+            else
+                # Fallback to simple logging
+                simple_log "INFO" "Starting tissue analysis for subject: $subject_id"
+                simple_log "INFO" "Looking for Labeling.nii.gz at: $label_nii"
+            fi
+            
             if [ -f "$label_nii" ]; then
                 # Unified tissue analysis (bone + CSF)
                 tissue_out_dir="$PROJECT_DIR/derivatives/ti-toolbox/tissue_analysis/$bids_subject_id"
                 mkdir -p "$tissue_out_dir"
-                execute_with_summary "Tissue analysis" "$subject_id" \
-                    "\"$script_dir/tissue-analyzer.sh\" \"$label_nii\" -o \"$tissue_out_dir\"" \
-                    "Tissue analysis failed"
-                if [ $? -ne 0 ]; then
+                
+                if command -v log_info >/dev/null 2>&1; then
+                    log_info "Running tissue analysis for subject: $subject_id"
+                    log_info "Output directory: $tissue_out_dir"
+                fi
+                
+                # Execute tissue analysis with detailed logging
+                if command -v execute_with_summary >/dev/null 2>&1; then
+                    execute_with_summary "Tissue analysis" "$subject_id" \
+                        "\"$script_dir/tissue-analyzer.sh\" \"$label_nii\" -o \"$tissue_out_dir\"" \
+                        "Tissue analysis failed"
+                    tissue_result=$?
+                else
+                    # Fallback if execute_with_summary is not available
+                    if command -v log_info >/dev/null 2>&1; then
+                        log_info "execute_with_summary not available, running tissue-analyzer.sh directly"
+                    fi
+                    "$script_dir/tissue-analyzer.sh" "$label_nii" -o "$tissue_out_dir"
+                    tissue_result=$?
+                fi
+                
+                if [ $tissue_result -ne 0 ]; then
+                    if command -v log_error >/dev/null 2>&1; then
+                        log_error "Tissue analysis failed for subject: $subject_id with exit code: $tissue_result"
+                    else
+                        simple_log "ERROR" "Tissue analysis failed for subject: $subject_id with exit code: $tissue_result"
+                    fi
                     overall_success=false
                 else
                     # Log where tissue analysis results were saved
@@ -530,9 +669,23 @@ else
             else
                 # Check if m2m directory exists but Labeling.nii.gz is missing
                 if [ -d "$m2m_dir" ]; then
-                    log_process_failed "Tissue analyzer" "$subject_id" "Labeling.nii.gz not found in $m2m_dir/segmentation/"
+                    if command -v log_error >/dev/null 2>&1; then
+                        log_error "Tissue analyzer failed for subject: $subject_id - Labeling.nii.gz not found in $m2m_dir/segmentation/"
+                    else
+                        simple_log "ERROR" "Tissue analyzer failed for subject: $subject_id - Labeling.nii.gz not found in $m2m_dir/segmentation/"
+                    fi
+                    if command -v log_process_failed >/dev/null 2>&1; then
+                        log_process_failed "Tissue analyzer" "$subject_id" "Labeling.nii.gz not found in $m2m_dir/segmentation/"
+                    fi
                 else
-                    log_process_failed "Tissue analyzer" "$subject_id" "SimNIBS m2m folder not found at $m2m_dir. Please run m2m creation first."
+                    if command -v log_error >/dev/null 2>&1; then
+                        log_error "Tissue analyzer failed for subject: $subject_id - SimNIBS m2m folder not found at $m2m_dir. Please run m2m creation first."
+                    else
+                        simple_log "ERROR" "Tissue analyzer failed for subject: $subject_id - SimNIBS m2m folder not found at $m2m_dir. Please run m2m creation first."
+                    fi
+                    if command -v log_process_failed >/dev/null 2>&1; then
+                        log_process_failed "Tissue analyzer" "$subject_id" "SimNIBS m2m folder not found at $m2m_dir. Please run m2m creation first."
+                    fi
                 fi
                 overall_success=false
             fi
@@ -547,9 +700,22 @@ else
     done
     
     # Only show in debug mode
-    if ! $SUMMARY_ENABLED; then
-        echo "Sequential processing completed."
+if ! $SUMMARY_ENABLED; then
+    echo "Sequential processing completed."
+fi
+
+    # Log the completion of processing
+    if command -v log_info >/dev/null 2>&1; then
+        if [[ ${#FAILED_SUBJECTS[@]} -eq 0 ]]; then
+            log_info "Preprocessing pipeline completed successfully for all subjects"
+        else
+            log_info "Preprocessing pipeline completed with ${#FAILED_SUBJECTS[@]} failed subject(s): ${FAILED_SUBJECTS[*]}"
+        fi
     fi
+}
+
+# Call the main processing function
+process_subjects
 fi
 
 # Print final summary only in debug mode
@@ -562,4 +728,33 @@ if ! $SUMMARY_ENABLED; then
         printf '%s\n' "${FAILED_SUBJECTS[@]}"
         echo "Please check the logs for more details."
     fi
+fi
+
+# Always show log file locations for debugging
+if [[ -n "$LOGS_DIR" ]]; then
+    echo ""
+    echo "=== Log Files Generated ==="
+    echo "Detailed logs are available at:"
+    for subject_id in "${temp_subject_ids[@]}"; do
+        bids_subject_id="sub-${subject_id}"
+        log_file="$LOGS_DIR/$bids_subject_id/preprocessing_${TIMESTAMP}.log"
+        if [[ -f "$log_file" ]]; then
+            echo "  Subject $subject_id ($bids_subject_id): $log_file"
+            # Show file size and last modified time
+            if command -v stat >/dev/null 2>&1; then
+                file_size=$(stat -c%s "$log_file" 2>/dev/null || stat -f%z "$log_file" 2>/dev/null || echo "unknown")
+                echo "    Size: ${file_size} bytes"
+            fi
+        else
+            echo "  Subject $subject_id ($bids_subject_id): $log_file (NOT FOUND)"
+        fi
+    done
+    echo ""
+    echo "For troubleshooting, check these log files for detailed error information."
+    echo "If log files are not found, check the debug output above for logging setup issues."
+else
+    echo ""
+    echo "=== Logging Information ==="
+    echo "WARNING: No log directory was created. Logging may not have been initialized properly."
+    echo "Check the debug output above for logging setup issues."
 fi 
