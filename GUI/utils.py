@@ -114,16 +114,23 @@ def is_important_message(text, message_type, tab_type='general'):
         'preprocess': [
             # Summary-mode lines emitted by bash_logging.sh (pass-through)
             'beginning pre-processing for subject:',
+            'beginning pre-processing for subject:',  # Exact match for the actual output
             '├─ dicom conversion:',
             '├─ simnibs charm:',
             '├─ freesurfer recon-all:',
+            '├─ tissue analysis:',
+            '├─ bone analysis:',
+            '├─ csf analysis:',
             '├─ skull bone analysis:',
             '└─ pre-processing completed',
+            '└─ pre-processing completed successfully for subject:',  # Exact match for completion
+            '└─ pre-processing failed for subject:',  # Exact match for failure
             # Backward-compatible allowance for direct script messages (if any leak through)
             'starting dicom to nifti conversion for subject:',
             'simnibs charm completed for subject:',
             'freesurfer recon-all completed for subject:',
             'skull bone analysis completed',
+            'tissue analysis completed successfully',
             'all subjects processed successfully',
             # Critical error patterns that indicate real failures
             'segmentation fault',

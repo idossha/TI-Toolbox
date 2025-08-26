@@ -259,7 +259,7 @@ log_process_start() {
     
     if $SUMMARY_ENABLED; then
         echo "├─ $process_name: Starting..."
-        # In summary mode, only log to file (not console)
+        # In summary mode, also log to file
         log_info "Starting $process_name for subject: $subject_id" >/dev/null 2>&1
     else
         # In debug mode, log normally
@@ -280,7 +280,7 @@ log_process_complete() {
         
         if $SUMMARY_ENABLED; then
             echo "├─ $process_name: ✓ Complete ($formatted_duration)"
-            # In summary mode, only log to file (not console)
+            # In summary mode, also log to file
             log_info "$process_name completed successfully for subject: $subject_id ($formatted_duration)" >/dev/null 2>&1
         else
             # In debug mode, log normally

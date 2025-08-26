@@ -20,6 +20,7 @@ PARALLEL=false
 QUIET=false
 CONVERT_DICOM=false
 CREATE_M2M=false
+RUN_TISSUE_ANALYZER=${RUN_TISSUE_ANALYZER:-false}
 
 SUBJECT_DIRS=()
 FAILED_SUBJECTS=()
@@ -453,6 +454,9 @@ else
         # Start preprocessing for this subject
         log_preprocessing_start "$subject_id"
         
+        # Note: Tissue analysis logging is now handled by the tissue-analyzer.sh script itself
+        # which creates timestamped logs in /projectdir/derivatives/ti-toolbox/logs/{subject_name}/
+        
         # Handle recon-only mode or when only recon-all is requested
         if $RECON_ONLY || ($RUN_RECON && ! $CONVERT_DICOM && ! $CREATE_M2M); then
             if ! run_recon_single_with_summary "$subject_dir"; then
@@ -478,6 +482,59 @@ else
                 if ! run_recon_single_with_summary "$subject_dir"; then
                     overall_success=false
                 fi
+            fi
+        fi
+
+        # Run unified tissue analyzer (bone + CSF) if requested
+        if $RUN_TISSUE_ANALYZER; then
+            # Determine Labeling.nii.gz from SimNIBS segmentation
+            bids_subject_id="sub-${subject_id}"
+            m2m_dir="$PROJECT_DIR/derivatives/SimNIBS/$bids_subject_id/m2m_${subject_id}"
+            label_nii="$m2m_dir/segmentation/Labeling.nii.gz"
+            
+            if [ -f "$label_nii" ]; then
+                # Unified tissue analysis (bone + CSF)
+                tissue_out_dir="$PROJECT_DIR/derivatives/ti-toolbox/tissue_analysis/$bids_subject_id"
+                mkdir -p "$tissue_out_dir"
+                execute_with_summary "Tissue analysis" "$subject_id" \
+                    "\"$script_dir/tissue-analyzer.sh\" \"$label_nii\" -o \"$tissue_out_dir\"" \
+                    "Tissue analysis failed"
+                if [ $? -ne 0 ]; then
+                    overall_success=false
+                else
+                    # Log where tissue analysis results were saved
+                    if command -v log_info >/dev/null 2>&1; then
+                        log_info "Tissue analysis results saved to: $tissue_out_dir"
+                    fi
+                    # Debug: summarize result files
+                    if command -v log_debug >/dev/null 2>&1; then
+                        # Count files in bone and CSF subdirectories
+                        bone_out_dir="$tissue_out_dir/bone_analysis"
+                        csf_out_dir="$tissue_out_dir/csf_analysis"
+                        
+                        if [ -d "$bone_out_dir" ]; then
+                            bone_png_count=$(ls -1 "$bone_out_dir"/*.png 2>/dev/null | wc -l)
+                            bone_txt_count=$(ls -1 "$bone_out_dir"/*.txt 2>/dev/null | wc -l)
+                            log_debug "Bone analysis generated $bone_png_count PNG(s) and $bone_txt_count TXT report(s) in $bone_out_dir"
+                        fi
+                        
+                        if [ -d "$csf_out_dir" ]; then
+                            csf_png_count=$(ls -1 "$csf_out_dir"/*.png 2>/dev/null | wc -l)
+                            csf_txt_count=$(ls -1 "$csf_out_dir"/*.txt 2>/dev/null | wc -l)
+                            log_debug "CSF analysis generated $csf_png_count PNG(s) and $csf_txt_count TXT report(s) in $csf_out_dir"
+                        fi
+                        
+                        log_debug "Unified tissue analysis completed successfully for $subject_id"
+                    fi
+                fi
+            else
+                # Check if m2m directory exists but Labeling.nii.gz is missing
+                if [ -d "$m2m_dir" ]; then
+                    log_process_failed "Tissue analyzer" "$subject_id" "Labeling.nii.gz not found in $m2m_dir/segmentation/"
+                else
+                    log_process_failed "Tissue analyzer" "$subject_id" "SimNIBS m2m folder not found at $m2m_dir. Please run m2m creation first."
+                fi
+                overall_success=false
             fi
         fi
         

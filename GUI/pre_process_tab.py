@@ -397,11 +397,11 @@ class PreProcessTab(QtWidgets.QWidget):
         self.create_atlas_cb.setChecked(True)
         options_group_layout.addWidget(self.create_atlas_cb)
 
-        # Bone analyzer option (publication-ready skull bone analysis)
-        self.run_bone_analyzer_cb = QtWidgets.QCheckBox("Run skull bone analyzer (publication-ready figures)")
-        self.run_bone_analyzer_cb.setChecked(False)
-        self.run_bone_analyzer_cb.setToolTip("Analyze skull bone volume/thickness and generate GxP-ready figures alongside preprocessing")
-        options_group_layout.addWidget(self.run_bone_analyzer_cb)
+        # Tissue analyzer option (bone and CSF analysis)
+        self.run_tissue_analyzer_cb = QtWidgets.QCheckBox("Run tissue analyzer (bone + CSF)")
+        self.run_tissue_analyzer_cb.setChecked(False)
+        self.run_tissue_analyzer_cb.setToolTip("Analyze skull bone and CSF volume/thickness using tissue analyzer and generate figures alongside preprocessing")
+        options_group_layout.addWidget(self.run_tissue_analyzer_cb)
         
         # Other options
         self.quiet_cb = QtWidgets.QCheckBox("Run in quiet mode")
@@ -662,7 +662,7 @@ class PreProcessTab(QtWidgets.QWidget):
         self.parallel_cb.setEnabled(not is_processing and self.run_recon_cb.isChecked())
         self.create_m2m_cb.setEnabled(not is_processing)
         self.create_atlas_cb.setEnabled(not is_processing)
-        self.run_bone_analyzer_cb.setEnabled(not is_processing)
+        self.run_tissue_analyzer_cb.setEnabled(not is_processing)
         self.quiet_cb.setEnabled(not is_processing)
         
         # Update status label
@@ -754,12 +754,13 @@ class PreProcessTab(QtWidgets.QWidget):
 
         # Show confirmation dialog
         details = (f"This will process {len(selected_subjects)} subject(s) with the following options:\n\n" +
-                  f"- Convert DICOM: {'Yes (auto-detects T1w/T2w)' if self.convert_dicom_cb.isChecked() else 'No'}\n" +
-                  f"- Run recon-all: {'Yes' if self.run_recon_cb.isChecked() else 'No'}\n" +
-                  f"- Parallel processing: {'Yes' if self.parallel_cb.isChecked() else 'No'}\n" +
-                  f"- Create m2m folder: {'Yes' if self.create_m2m_cb.isChecked() else 'No'}\n" +
-                  f"- Create atlas segmentation: {'Yes' if self.create_atlas_cb.isChecked() else 'No'}\n" +
-                  f"- Quiet mode: {'Yes (overridden by debug mode)' if self.quiet_cb.isChecked() and self.debug_mode else 'Yes' if self.quiet_cb.isChecked() else 'No'}")
+                   f"- Convert DICOM: {'Yes (auto-detects T1w/T2w)' if self.convert_dicom_cb.isChecked() else 'No'}\n" +
+                   f"- Run recon-all: {'Yes' if self.run_recon_cb.isChecked() else 'No'}\n" +
+                   f"- Parallel processing: {'Yes' if self.parallel_cb.isChecked() else 'No'}\n" +
+                   f"- Create m2m folder: {'Yes' if self.create_m2m_cb.isChecked() else 'No'}\n" +
+                   f"- Create atlas segmentation: {'Yes' if self.create_atlas_cb.isChecked() else 'No'}\n" +
+                   f"- Run tissue analyzer: {'Yes (bone + CSF)' if self.run_tissue_analyzer_cb.isChecked() else 'No'}\n" +
+                   f"- Quiet mode: {'Yes (overridden by debug mode)' if self.quiet_cb.isChecked() and self.debug_mode else 'Yes' if self.quiet_cb.isChecked() else 'No'}")
         
         if not ConfirmationDialog.confirm(
             self,
@@ -780,6 +781,7 @@ class PreProcessTab(QtWidgets.QWidget):
                 'parallel_processing': self.parallel_cb.isChecked(),
                 'create_m2m': self.create_m2m_cb.isChecked(),
                 'create_atlas': self.create_atlas_cb.isChecked(),
+                'run_tissue_analyzer': self.run_tissue_analyzer_cb.isChecked(),
                 'quiet_mode': self.quiet_cb.isChecked()
             }
             self.report_generators[subject_id].report_data['parameters'] = parameters
@@ -797,7 +799,7 @@ class PreProcessTab(QtWidgets.QWidget):
         env['PARALLEL_RECON'] = str(self.parallel_cb.isChecked()).lower()
         env['CREATE_M2M'] = str(self.create_m2m_cb.isChecked()).lower()
         env['QUIET'] = str(self.quiet_cb.isChecked()).lower()
-        env['RUN_BONE_ANALYZER'] = str(self.run_bone_analyzer_cb.isChecked()).lower()
+        env['RUN_TISSUE_ANALYZER'] = str(self.run_tissue_analyzer_cb.isChecked()).lower()
         
         # Pass debug mode setting to control summary output
         env['DEBUG_MODE'] = 'true' if self.debug_mode else 'false'
@@ -840,7 +842,7 @@ class PreProcessTab(QtWidgets.QWidget):
         self.update_output(f"- Parallel processing: {env['PARALLEL_RECON']}", 'debug')
         self.update_output(f"- Create m2m folder: {env['CREATE_M2M']}", 'debug')
         self.update_output(f"- Create atlas segmentation: {str(self.create_atlas_cb.isChecked()).lower()}", 'debug')
-        self.update_output(f"- Run bone analyzer: {env['RUN_BONE_ANALYZER']}", 'debug')
+        self.update_output(f"- Run tissue analyzer: {env['RUN_TISSUE_ANALYZER']}", 'debug')
         self.update_output(f"- Quiet mode: {env['QUIET']}", 'debug')
         self.update_output(f"- Debug mode: {env['DEBUG_MODE']}", 'debug')
         
@@ -881,6 +883,14 @@ class PreProcessTab(QtWidgets.QWidget):
                         'SimNIBS m2m Creation',
                         'Created head model for electromagnetic field simulations',
                         {'tool': 'charm', 'segmentation_method': 'charm'},
+                        'completed'
+                    )
+                
+                if self.run_tissue_analyzer_cb.isChecked():
+                    self.report_generators[subject_id].add_processing_step(
+                        'Tissue Analysis',
+                        'Analyzed skull bone and CSF volume/thickness using unified tissue analyzer',
+                        {'tools': ['tissue-analyzer.sh'], 'tissue_types': ['bone', 'csf']},
                         'completed'
                     )
 
@@ -962,31 +972,6 @@ class PreProcessTab(QtWidgets.QWidget):
         # Automatically generate reports for all processed subjects
         self.auto_generate_reports()
 
-        # If requested, run bone analyzer on each subject's segmentation
-        if self.run_bone_analyzer_cb.isChecked():
-            self.update_output("\n=== Running skull bone analyzer ===", 'debug')
-            selected_subjects = [item.text() for item in self.subject_list.selectedItems()]
-            for subject_id in selected_subjects:
-                try:
-                    bids_subject_id = f"sub-{subject_id}"
-                    # Use SimNIBS segmentation NIfTI as input if available
-                    m2m_dir = os.path.join(self.project_dir, "derivatives", "SimNIBS", bids_subject_id, f"m2m_{subject_id}")
-                    label_nii = os.path.join(m2m_dir, "segmentation", "Labeling.nii.gz")
-                    if not os.path.exists(label_nii):
-                        self.update_output(f"[Bone] {subject_id}: Labeling.nii.gz not found, skipping bone analysis.", 'warning')
-                        continue
-                    out_dir = os.path.join(self.project_dir, "derivatives", "ti-toolbox", "bone_analysis", bids_subject_id)
-                    os.makedirs(out_dir, exist_ok=True)
-                    cmd_bone = [sys.executable, os.path.join(os.path.dirname(os.path.dirname(__file__)), 'pre-process', 'bone_analyzer.py'), label_nii, '-o', out_dir]
-                    self.update_output(f"├─ Bone analysis: Starting...", 'info')
-                    proc = subprocess.run(cmd_bone, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
-                    if proc.returncode == 0:
-                        self.update_output(f"├─ Bone analysis: ✓ Complete", 'success')
-                    else:
-                        self.update_output(f"[Bone] {subject_id}: Bone analysis failed.\n{proc.stdout}", 'error')
-                except Exception as e:
-                    self.update_output(f"[Bone] {subject_id}: Error running bone analyzer: {e}", 'error')
-
     def stop_preprocessing(self):
         """Stop the running preprocessing process."""
         if not self.processing_running:
@@ -1066,8 +1051,10 @@ class PreProcessTab(QtWidgets.QWidget):
             # Colorize summary lines: blue for starts, white for completes, green for final
             lower = text.lower()
             is_final = lower.startswith('└─') or 'completed successfully' in lower
-            # Treat "Beginning ..." and ": Starting..." as task starts
-            is_start = lower.startswith('beginning ') or ': starting' in lower
+            # Treat "Beginning ...", ": Starting...", and "├─ ...: Starting..." as task starts
+            is_start = (lower.startswith('beginning ') or 
+                       ': starting' in lower or 
+                       lower.startswith('├─ ') and 'starting' in lower)
             # Treat ✓ Complete, saved/results lines as completes
             is_complete = ('✓ complete' in lower) or ('results available in:' in lower) or ('saved to' in lower)
             color = '#55ff55' if is_final else ('#55aaff' if is_start else '#ffffff')
