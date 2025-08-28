@@ -18,7 +18,6 @@ from utils import logging_util
 
 '''
 Ido Haber - ihaber@wisc.edu
-October 31, 2024
 TI Simulation Script - Optimized for ex-search pipeline
 
 This script performs Temporal Interference (TI) simulations with:

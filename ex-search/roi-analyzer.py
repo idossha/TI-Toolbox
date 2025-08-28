@@ -288,7 +288,7 @@ with open(json_output_path, 'w') as json_file:
 
 logger.info(f"Dictionary saved to: {json_output_path}")
 
-# Prepare the CSV data
+# Prepare the CSV data with properly named columns
 header = ['Mesh', 'TImax_ROI', 'TImean_ROI']
 csv_data = [header]
 
@@ -297,8 +297,15 @@ for mesh_name, data in mesh_data.items():
     # Convert "TI_field_O1_F7_and_T7_Pz.msh" to "O1_F7 <> T7_Pz"
     formatted_mesh_name = re.sub(r"TI_field_(.*?)\.msh", r"\1", mesh_name).replace("_and_", " <> ")
     
+    # Ensure we use proper column names for ROI field values
     ti_max_roi = data.get('TImax_ROI', '')
     ti_mean_roi = data.get('TImean_ROI', '')
+    
+    # Format numbers properly if they exist
+    if ti_max_roi and ti_max_roi != '':
+        ti_max_roi = f"{float(ti_max_roi):.4f}"
+    if ti_mean_roi and ti_mean_roi != '':
+        ti_mean_roi = f"{float(ti_mean_roi):.4f}"
     
     row = [formatted_mesh_name, ti_max_roi, ti_mean_roi]
     csv_data.append(row)

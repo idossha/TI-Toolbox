@@ -1627,7 +1627,7 @@ class ExSearchTab(QtWidgets.QWidget):
         # Update environment variables for mesh processing
         env["MESH_DIR"] = mesh_dir
         
-        cmd = ["simnibs_python", mesh_processing_script, mesh_dir]
+        cmd = ["python3", mesh_processing_script, mesh_dir]
         if self.debug_mode:
             self.update_output(f"[DEBUG] Step 3 command: {' '.join(cmd)}", 'debug')
             dbg_env = {k: env.get(k) for k in ["PROJECT_DIR", "SUBJECT_NAME", "SELECTED_EEG_NET", "TI_LOG_FILE", "MESH_DIR", "ROI_NAME"]}
@@ -1757,7 +1757,7 @@ class ExSearchTab(QtWidgets.QWidget):
             env["SELECTED_ROI_FILE"] = selected_roi
             env["ROI_DIR"] = roi_dir
             
-            cmd = ["simnibs_python", mesh_processing_script, mesh_dir]
+            cmd = ["python3", mesh_processing_script, mesh_dir]
             
             self.optimization_process = ExSearchThread(cmd, env)
             self.optimization_process.output_signal.connect(self.update_output)
