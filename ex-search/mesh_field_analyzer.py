@@ -678,7 +678,7 @@ class MeshFieldAnalyzer:
                     contributions = (contributions - np.min(contributions)) / (np.max(contributions) - np.min(contributions) + 1e-10)
                     
                     # Use rainbow colormap (blue=low, green=medium, red=high contribution)
-                    rainbow_cmap = plt.cm.get_cmap('rainbow')
+                    rainbow_cmap = plt.colormaps['rainbow']
                     colors = rainbow_cmap(contributions)
                     colors[:, 3] = 0.8  # Set alpha
                     
@@ -688,7 +688,7 @@ class MeshFieldAnalyzer:
                         bar.set_facecolor(color)
                     
                     # Add colorbar to show contribution scale
-                    sm = plt.cm.ScalarMappable(cmap=rainbow_cmap, norm=plt.Normalize(vmin=0, vmax=1))
+                    sm = plt.cm.ScalarMappable(cmap=plt.colormaps['rainbow'], norm=plt.Normalize(vmin=0, vmax=1))
                     sm.set_array([])
                     cbar = plt.colorbar(sm, ax=ax, pad=0.02, aspect=30)
                     cbar.set_label('ROI Contribution', rotation=270, labelpad=20)
