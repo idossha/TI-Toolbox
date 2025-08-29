@@ -419,7 +419,11 @@ for subject_index in "${selected_subjects[@]}"; do
     export PROJECT_DIR="$project_dir"
     export SUBJECT_NAME="$subject_name"
     export TI_LOG_FILE="$log_file"
-
+    
+    # Check for existing output directories (coordinate-based naming)
+    # Note: For CLI, the directory will be created as xyz_X_Y_Z format
+    # We'll check and handle this after the TI simulation creates it
+    
     # Call the TI optimizer script (sequential processing for SimNIBS compatibility)
     log_info "Starting TI simulation for subject $subject_name"
     if simnibs_python "$ex_search_dir/ti_sim.py"; then

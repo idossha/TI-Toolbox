@@ -138,7 +138,16 @@ class MeshFieldAnalyzer:
         return logger
         
     def process_all_meshes(self):
-        """Process all .msh files in the directory"""
+        """Process all .msh files in the directory
+        
+        Workflow:
+        1. Load ROI data from final_output.csv (created by roi-analyzer.py)
+        2. Process each mesh file to extract field metrics
+        3. Generate individual histograms with ROI contribution coloring
+        4. Merge ROI data with mesh analysis results
+        5. Save final summary.csv with complete data
+        6. Clean up intermediate files (only after successful merge)
+        """
         mesh_files = list(self.mesh_dir.glob('*.msh'))
         
         if not mesh_files:
@@ -150,8 +159,10 @@ class MeshFieldAnalyzer:
         # Initialize results storage
         csv_data = []
         
-        # Load ROI data if available (for histogram coloring)
+        # Load ROI data from roi-analyzer output (required for merging)
         roi_data = self.load_roi_data()
+        if roi_data is None:
+            self.logger.warning("ROI data not available - field values at ROI will be missing in summary")
         
         for mesh_file in mesh_files:
             self.logger.info(f"Processing mesh file: {mesh_file.name}")
@@ -163,24 +174,29 @@ class MeshFieldAnalyzer:
                 self.logger.error(f"Failed to process {mesh_file.name}: {str(e)}")
                 continue
         
-        # Save results
+        # Save results with merged ROI data
         if csv_data:
-            # Generate final summary CSV
+            # Generate final summary CSV with merged ROI and mesh analysis data
+            # This is the critical step where ROI values from roi-analyzer.py are merged
+            # with mesh field metrics from this script
             self.save_final_summary(csv_data, roi_data)
             
-            self.logger.info("========================================")
-            self.logger.info("Ex-Search Analysis Complete")
-            self.logger.info("========================================")
-            self.logger.info(f"Output directory: {self.mesh_dir}")
-            self.logger.info("Generated outputs:")
-            self.logger.info("  In root directory:")
-            self.logger.info("    - Per-mesh histograms (*_histogram.png)")
-            self.logger.info("    - Mesh files (*.msh)")
-            self.logger.info("  In analysis/ subdirectory:")
-            self.logger.info("    - final_output.csv - ROI analysis results")
-            self.logger.info("    - summary.csv - Comprehensive field metrics")
-            self.logger.info("    - mesh_data.json - Detailed mesh analysis data")
-            self.logger.info("========================================")
+            # Verify final output exists before declaring success
+            summary_path = self.analysis_dir / 'summary.csv'
+            if summary_path.exists():
+                self.logger.info("========================================")
+                self.logger.info("Ex-Search Analysis Complete")
+                self.logger.info("========================================")
+                self.logger.info(f"Output directory: {self.mesh_dir}")
+                self.logger.info("Generated outputs:")
+                self.logger.info("  In root directory:")
+                self.logger.info("    - Per-mesh histograms (*_histogram.png)")
+                self.logger.info("    - Mesh files (*.msh)")
+                self.logger.info("  In analysis/ subdirectory:")
+                self.logger.info("    - summary.csv - Comprehensive field metrics")
+                self.logger.info("========================================")
+            else:
+                self.logger.error("Summary.csv was not created - check logs for errors")
         else:
             self.logger.warning("No results to save - all mesh processing failed")
     
@@ -529,8 +545,19 @@ class MeshFieldAnalyzer:
             return None
     
     def save_final_summary(self, results_list, roi_data):
-        """Save comprehensive final summary CSV."""
+        """Save comprehensive final summary CSV with merged ROI and mesh analysis data.
+        
+        This method merges:
+        - Mesh field analysis results (from this script)
+        - ROI field values (from roi-analyzer.py via final_output.csv)
+        
+        The merge is done by matching electrode configurations between datasets.
+        """
         try:
+            if not results_list:
+                self.logger.warning("No results to save in summary")
+                return
+                
             # Create summary rows
             summary_rows = []
             
@@ -542,30 +569,30 @@ class MeshFieldAnalyzer:
                 
                 row = {
                     'Electrode Configuration': config,
-                    'Peak Field': f"{results['max_value']:.3f} V/m",
-                    '95th %': f"{results['percentile_values'][0]:.3f} V/m" if len(results['percentile_values']) > 0 else 'N/A',
-                    '99th %': f"{results['percentile_values'][1]:.3f} V/m" if len(results['percentile_values']) > 1 else 'N/A',
-                    '99.9th %': f"{results['percentile_values'][2]:.3f} V/m" if len(results['percentile_values']) > 2 else 'N/A',
+                    'Peak Field': f"{results['max_value']:.3f}" if results['max_value'] is not None else '',
+                    '95th %': f"{results['percentile_values'][0]:.3f}" if len(results['percentile_values']) > 0 else '',
+                    '99th %': f"{results['percentile_values'][1]:.3f}" if len(results['percentile_values']) > 1 else '',
+                    '99.9th %': f"{results['percentile_values'][2]:.3f}" if len(results['percentile_values']) > 2 else '',
                 }
                 
-                # Add focality values (convert mm³ to mm²)
+                # Add focality values (convert cm³ to mm³)
                 if len(results['focality_values']) >= 4:
-                    row['Focality 50%'] = f"{results['focality_values'][0]*10:.1f} mm²"  # cm³ to mm²
-                    row['Focality 75%'] = f"{results['focality_values'][1]*10:.1f} mm²"
-                    row['Focality 90%'] = f"{results['focality_values'][2]*10:.1f} mm²"
-                    row['Focality 95%'] = f"{results['focality_values'][3]*10:.1f} mm²"
+                    row['Focality 50%'] = f"{results['focality_values'][0]*1000:.1f}"  # cm³ to mm³
+                    row['Focality 75%'] = f"{results['focality_values'][1]*1000:.1f}"
+                    row['Focality 90%'] = f"{results['focality_values'][2]*1000:.1f}"
+                    row['Focality 95%'] = f"{results['focality_values'][3]*1000:.1f}"
                 else:
-                    row['Focality 50%'] = 'N/A'
-                    row['Focality 75%'] = 'N/A'
-                    row['Focality 90%'] = 'N/A'
-                    row['Focality 95%'] = 'N/A'
+                    row['Focality 50%'] = ''
+                    row['Focality 75%'] = ''
+                    row['Focality 90%'] = ''
+                    row['Focality 95%'] = ''
                 
-                # Add peak location
+                # Add peak location (as separate columns)
                 if results['xyz_max']:
                     xyz = results['xyz_max']
-                    row['Peak Location'] = f"({xyz[0]:.2f}, {xyz[1]:.2f}, {xyz[2]:.2f})"
+                    row['Peak Location'] = f"{xyz[0]:.2f}, {xyz[1]:.2f}, {xyz[2]:.2f}"
                 else:
-                    row['Peak Location'] = 'N/A'
+                    row['Peak Location'] = ''
                 
                 # Add ROI data if available
                 if roi_data is not None and 'Mesh' in roi_data.columns:
@@ -573,19 +600,21 @@ class MeshFieldAnalyzer:
                     roi_match = roi_data[roi_data['Mesh'] == config]
                     if not roi_match.empty:
                         if 'TImax_ROI' in roi_match.columns:
-                            row['TImax ROI'] = f"{roi_match.iloc[0]['TImax_ROI']:.3f} V/m"
+                            roi_val = roi_match.iloc[0]['TImax_ROI']
+                            row['TImax ROI'] = f"{roi_val:.3f}" if not pd.isna(roi_val) else ''
                         else:
-                            row['TImax ROI'] = 'N/A'
+                            row['TImax ROI'] = ''
                         if 'TImean_ROI' in roi_match.columns:
-                            row['TImean ROI'] = f"{roi_match.iloc[0]['TImean_ROI']:.3f} V/m"
+                            roi_val = roi_match.iloc[0]['TImean_ROI']
+                            row['TImean ROI'] = f"{roi_val:.3f}" if not pd.isna(roi_val) else ''
                         else:
-                            row['TImean ROI'] = 'N/A'
+                            row['TImean ROI'] = ''
                     else:
-                        row['TImax ROI'] = 'N/A'
-                        row['TImean ROI'] = 'N/A'
+                        row['TImax ROI'] = ''
+                        row['TImean ROI'] = ''
                 else:
-                    row['TImax ROI'] = 'N/A'
-                    row['TImean ROI'] = 'N/A'
+                    row['TImax ROI'] = ''
+                    row['TImean ROI'] = ''
                 
                 # Reorder columns to match requested format
                 ordered_row = {
@@ -613,11 +642,58 @@ class MeshFieldAnalyzer:
             summary_df.to_csv(analysis_output, index=False)
             
             self.logger.info(f"Summary CSV saved to: {analysis_output}")
+            self.logger.info(f"Successfully merged {len(summary_rows)} electrode configurations")
+            
+            # Verify ROI data was successfully merged
+            if roi_data is not None:
+                merged_count = sum(1 for row in summary_rows if row.get('TImax ROI', '') != '')
+                self.logger.info(f"ROI values merged for {merged_count}/{len(summary_rows)} configurations")
+            
+            # Clean up intermediate files - only after successful merge
+            # This preserves data integrity by ensuring all merging is complete
+            self.cleanup_analysis_directory()
             
         except Exception as e:
             self.logger.error(f"Failed to save final summary: {str(e)}")
+            self.logger.info("Preserving intermediate files due to summary creation failure")
     
-
+    def cleanup_analysis_directory(self):
+        """Remove intermediate files from analysis directory, keeping only summary.csv
+        
+        This cleanup happens AFTER all data has been successfully merged into summary.csv.
+        The files being removed are intermediate processing files that are no longer needed.
+        """
+        try:
+            # Only clean up if summary.csv exists (ensuring merge was successful)
+            summary_path = self.analysis_dir / 'summary.csv'
+            if not summary_path.exists():
+                self.logger.warning("Summary.csv not found - skipping cleanup to preserve data")
+                return
+            
+            # Verify summary.csv has content before cleaning up
+            summary_df = pd.read_csv(summary_path)
+            if summary_df.empty:
+                self.logger.warning("Summary.csv is empty - skipping cleanup to preserve source data")
+                return
+            
+            # List of intermediate files to remove after successful merge
+            files_to_remove = ['final_output.csv', 'mesh_data.json']
+            
+            for filename in files_to_remove:
+                file_path = self.analysis_dir / filename
+                if file_path.exists():
+                    file_path.unlink()
+                    self.logger.info(f"Cleaned up intermediate file: {filename}")
+            
+            # Remove any other temporary files (except summary.csv)
+            for file_path in self.analysis_dir.glob('*'):
+                if file_path.is_file() and file_path.name != 'summary.csv':
+                    file_path.unlink()
+                    self.logger.info(f"Cleaned up: {file_path.name}")
+                    
+        except Exception as e:
+            self.logger.error(f"Error during cleanup: {str(e)}")
+            self.logger.info("Preserving all files due to cleanup error")
     
     def generate_mesh_histogram(self, mesh_name, field_data, element_sizes, positions, roi_data=None):
         """Generate histogram for a single mesh file showing field distribution in gray matter with ROI contribution coloring."""

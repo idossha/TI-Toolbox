@@ -161,9 +161,9 @@ def process_leadfield(leadfield_type, E1_plus, E1_minus, E2_plus, E2_minus,
         logger.info(f"Using coordinate-based directory: {coord_dir}")
     logger.info(f"Output directory: {output_dir}")
     
-    if not os.path.exists(output_dir):
-        os.makedirs(output_dir)
-        logger.info("Output directory created")
+    # Create output directory (will be empty if GUI deleted it after user confirmation)
+    os.makedirs(output_dir, exist_ok=True)
+    logger.info("Output directory ready")
     
     # Load leadfield (SimNIBS handles internal optimization)
     try:

@@ -1339,11 +1339,6 @@ class ExSearchTab(QtWidgets.QWidget):
         ):
             return
         
-        # Check for existing ex-search output directory and confirm overwrite
-        if os.path.exists(ex_search_dir) and os.listdir(ex_search_dir):
-            if not confirm_overwrite(self, ex_search_dir, "ex-search output directory"):
-                return
-        
         # Create ex_search directory if it doesn't exist
         os.makedirs(ex_search_dir, exist_ok=True)
         
@@ -1483,6 +1478,25 @@ class ExSearchTab(QtWidgets.QWidget):
         
         # Log ROI-specific configuration
         self.log_roi_configuration(current_roi, roi_name, x, y, z, env)
+        
+        # Check for existing ROI-specific output directory and confirm overwrite
+        output_dir_name = f"{roi_name}_{selected_net_name}"
+        roi_output_dir = os.path.join(ex_search_dir, output_dir_name)
+        
+        if os.path.exists(roi_output_dir) and os.listdir(roi_output_dir):
+            if not confirm_overwrite(self, roi_output_dir, f"ROI search directory '{output_dir_name}'"):
+                # Skip to next ROI
+                self.current_roi_index += 1
+                self.run_roi_pipeline(subject_id, project_dir, ex_search_dir, env)
+                return
+            else:
+                # User confirmed overwrite - remove existing directory
+                import shutil
+                try:
+                    shutil.rmtree(roi_output_dir)
+                    self.update_output(f"Removed existing directory: {output_dir_name}")
+                except Exception as e:
+                    self.update_output(f"Error removing existing directory: {str(e)}", 'error')
         
         # Step 1: Run the TI simulation for this specific ROI
         self.log_step_start("TI simulation")
