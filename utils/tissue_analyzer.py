@@ -528,13 +528,16 @@ Voxel dimensions: {self.voxel_dims} mm'''
         plt.subplots_adjust(left=0.05, right=0.90, top=0.90, bottom=0.08, 
                           wspace=0.15, hspace=0.30)
         
-        # Save the figure
-        output_path = self.output_dir / f"{self.tissue_name.lower()}_thickness_analysis.png"
-        plt.savefig(output_path, dpi=300, bbox_inches='tight', facecolor='white')
+        # Save the figure in both PNG and PDF formats
+        output_path_png = self.output_dir / f"{self.tissue_name.lower()}_thickness_analysis.png"
+        output_path_pdf = self.output_dir / f"{self.tissue_name.lower()}_thickness_analysis.pdf"
+        
+        plt.savefig(output_path_png, dpi=300, bbox_inches='tight', facecolor='white')
+        plt.savefig(output_path_pdf, bbox_inches='tight', facecolor='white')
         plt.close()
         
-        LOGGER.debug(f"Thickness visualization saved to: {output_path}")
-        return output_path
+        LOGGER.debug(f"Thickness visualization saved to: {output_path_png} and {output_path_pdf}")
+        return output_path_png
 
     def create_methodology_illustration(self, all_tissue_mask, brain_mask, filtered_tissue_mask):
         """Create publication-quality illustration of tissue extraction methodology."""
@@ -679,16 +682,19 @@ B. {self.tissue_name} Extraction Result: Apply 3D bounding box (±{self.padding_
         plt.subplots_adjust(left=0.05, right=0.98, top=0.91, bottom=0.15, 
                           wspace=0.08, hspace=0.25)
         
-        # Save the figure
-        output_path = self.output_dir / f"{self.tissue_name.lower()}_extraction_methodology.png"
-        plt.savefig(output_path, dpi=300, bbox_inches='tight', facecolor='white')
+        # Save the figure in both PNG and PDF formats
+        output_path_png = self.output_dir / f"{self.tissue_name.lower()}_extraction_methodology.png"
+        output_path_pdf = self.output_dir / f"{self.tissue_name.lower()}_extraction_methodology.pdf"
+        
+        plt.savefig(output_path_png, dpi=300, bbox_inches='tight', facecolor='white')
+        plt.savefig(output_path_pdf, bbox_inches='tight', facecolor='white')
         plt.close()
         
-        LOGGER.debug(f"{self.tissue_name} extraction methodology illustration saved to: {output_path}")
-        return output_path
+        LOGGER.debug(f"{self.tissue_name} extraction methodology illustration saved to: {output_path_png} and {output_path_pdf}")
+        return output_path_png
     
     def create_combined_publication_figure(self, all_tissue_mask, brain_mask, filtered_tissue_mask, thickness_map, thickness_mask, thickness_stats):
-        """Create a single publication-ready figure with extraction steps, thickness analysis, and aligned colorbar."""
+        """Create a single publication-ready figure with identification, extraction, and thickness analysis."""
         plt.style.use('default')
         plt.rcParams.update({
             'font.size': 11,
@@ -698,9 +704,12 @@ B. {self.tissue_name} Extraction Result: Apply 3D bounding box (±{self.padding_
             'figure.dpi': 300
         })
         
-        # 4 rows (step A, step B, thickness, histogram), 4 columns (3 views + 1 colorbar)
-        fig = plt.figure(figsize=(15, 16))
-        gs = fig.add_gridspec(4, 4, width_ratios=[1, 1, 1, 0.07], height_ratios=[1, 1, 1, 0.7], wspace=0.08, hspace=0.18)
+        # 3 rows (identification, extraction, thickness), 4 columns (3 views + 1 colorbar)
+        fig = plt.figure(figsize=(15, 12))
+        gs = fig.add_gridspec(3, 4, width_ratios=[1, 1, 1, 0.1], height_ratios=[1, 1, 1], wspace=0.15, hspace=0.3)
+        
+        # Main title
+        fig.suptitle(f'{self.tissue_name} Analysis Pipeline', fontsize=16, fontweight='bold', y=0.95)
         
         vx, vy, vz = self.voxel_dims
         mid_x, mid_y, mid_z = [s // 2 for s in all_tissue_mask.shape]
@@ -716,160 +725,140 @@ B. {self.tissue_name} Extraction Result: Apply 3D bounding box (±{self.padding_
         
         view_labels = ['Axial View', 'Coronal View', 'Sagittal View']
         
-        # --- Row 0: Extraction Step A (reference regions) ---
-        for col in range(3):
-            ax = fig.add_subplot(gs[0, col])
-            if col == 0:
-                tissue_slice = all_tissue_mask[:, :, mid_z]
-                hemisphere_slice = hemisphere_mask[:, :, mid_z]
-                brainstem_slice = brainstem_mask[:, :, mid_z]
-                aspect_ratio = vy / vx
-                xlabel, ylabel = 'Anterior - Posterior', 'Left - Right'
-            elif col == 1:
-                tissue_slice = all_tissue_mask[:, mid_y, :]
-                hemisphere_slice = hemisphere_mask[:, mid_y, :]
-                brainstem_slice = brainstem_mask[:, mid_y, :]
-                aspect_ratio = vz / vx
-                xlabel, ylabel = 'Anterior - Posterior', 'Inferior - Superior'
-            else:
-                tissue_slice = all_tissue_mask[mid_x, :, :]
-                hemisphere_slice = hemisphere_mask[mid_x, :, :]
-                brainstem_slice = brainstem_mask[mid_x, :, :]
-                aspect_ratio = vy / vz
-                xlabel, ylabel = 'Left - Right', 'Inferior - Superior'
-            
-            img = np.zeros((tissue_slice.shape[1], tissue_slice.shape[0], 3))
-            img[tissue_slice.T > 0] = [0.8, 0.9, 1.0] if self.tissue_name == 'CSF' else [0.8, 0.8, 0.8]
-            img[hemisphere_slice.T > 0] = [0, 0.5, 1]
-            img[brainstem_slice.T > 0] = [0, 1, 0]
-            
-            ax.imshow(img, origin='lower', aspect=aspect_ratio)
-            ax.set_title(f'A{chr(65+col)}. {view_labels[col]} (Reference)', fontsize=13, fontweight='bold', pad=10)
-            ax.set_xlabel(xlabel, fontweight='bold', fontsize=10)
-            ax.set_ylabel(ylabel, fontweight='bold', fontsize=10)
-            ax.grid(True, alpha=0.2, linestyle='--')
-            ax.set_xticks([])
-            ax.set_yticks([])
-            
-            if col == 0:
-                ax.text(0.02, 0.98, f'Brain Regions Used:\n- Blue: Left/Right Cortex (hemispheres)\n- Green: Brain Stem\n- Light color: {self.tissue_name} (context)',
-                        transform=ax.transAxes, fontsize=8, verticalalignment='top', horizontalalignment='left',
-                        bbox=dict(boxstyle="round,pad=0.3", facecolor='lightblue', alpha=0.7))
+        # Define distinct color schemes for CSF and Bone thickness
+        thickness_cmap = 'hot' if self.tissue_name == 'Bone' else 'Blues'
         
-        # --- Row 1: Extraction Step B (final filtered mask) ---
-        for col in range(3):
-            ax = fig.add_subplot(gs[1, col])
-            if col == 0:
-                tissue_slice = all_tissue_mask[:, :, mid_z]
-                filtered_slice = filtered_tissue_mask[:, :, mid_z]
-                hemisphere_slice = hemisphere_mask[:, :, mid_z]
-                brainstem_slice = brainstem_mask[:, :, mid_z]
-                aspect_ratio = vy / vx
-                xlabel, ylabel = 'Anterior - Posterior', 'Left - Right'
-            elif col == 1:
-                tissue_slice = all_tissue_mask[:, mid_y, :]
-                filtered_slice = filtered_tissue_mask[:, mid_y, :]
-                hemisphere_slice = hemisphere_mask[:, mid_y, :]
-                brainstem_slice = brainstem_mask[:, mid_y, :]
-                aspect_ratio = vz / vx
-                xlabel, ylabel = 'Anterior - Posterior', 'Inferior - Superior'
-            else:
-                tissue_slice = all_tissue_mask[mid_x, :, :]
-                filtered_slice = filtered_tissue_mask[mid_x, :, :]
-                hemisphere_slice = hemisphere_mask[mid_x, :, :]
-                brainstem_slice = brainstem_mask[mid_x, :, :]
-                aspect_ratio = vy / vz
-                xlabel, ylabel = 'Left - Right', 'Inferior - Superior'
+        # Process each row (identification, extraction, thickness)
+        for row in range(3):
+            # Create colorbar for thickness row
+            if row == 2:
+                thickness_values = thickness_map[thickness_mask > 0]
+                vmin, vmax = np.nanmin(thickness_values), np.nanmax(thickness_values)
+                cbar_ax = fig.add_subplot(gs[row, 3])
+                sm = plt.cm.ScalarMappable(cmap=thickness_cmap, norm=plt.Normalize(vmin=vmin, vmax=vmax))
+                sm.set_array([])
+                cbar = fig.colorbar(sm, cax=cbar_ax)
+                cbar.set_label('Thickness (mm)', rotation=90, fontweight='bold', labelpad=12, fontsize=11)
             
-            img = np.zeros((tissue_slice.shape[1], tissue_slice.shape[0], 3))
-            img[tissue_slice.T > 0] = [0.3, 0.3, 0.3]
-            img[filtered_slice.T > 0] = [0, 0, 1] if self.tissue_name == 'CSF' else [1, 0, 0]
-            img[hemisphere_slice.T > 0] = [0, 0.5, 1]
-            img[brainstem_slice.T > 0] = [0, 1, 0]
-            
-            # Add Z-cutoff and brain center lines for coronal and sagittal views
-            brain_coords = np.where(brain_mask > 0)
-            if len(brain_coords[0]) > 0 and col in [1, 2]:
-                min_z, max_z = brain_coords[2].min(), brain_coords[2].max()
-                brain_center_z = (min_z + max_z) // 2
-                z_threshold = brain_center_z - self.padding_voxels
-                ax.axhline(y=z_threshold, color='yellow', linewidth=3, linestyle='--', alpha=0.9)
-                ax.axhline(y=brain_center_z, color='white', linewidth=2, linestyle=':', alpha=0.8)
-            
-            ax.imshow(img, origin='lower', aspect=aspect_ratio)
-            ax.set_title(f'B{chr(65+col)}. {view_labels[col]} (Filtered Mask)', fontsize=13, fontweight='bold', pad=10)
-            ax.set_xlabel(xlabel, fontweight='bold', fontsize=10)
-            ax.set_ylabel(ylabel, fontweight='bold', fontsize=10)
-            ax.grid(True, alpha=0.2, linestyle='--')
-            ax.set_xticks([])
-            ax.set_yticks([])
-            
-            if col == 0:
-                kept_percentage = np.sum(filtered_tissue_mask) / np.sum(all_tissue_mask) * 100
-                ax.text(0.02, 0.98, f'Final {self.tissue_name} Extraction:\n- Colored: Extracted {self.tissue_name} ({kept_percentage:.1f}%)\n- Dark gray: Excluded {self.tissue_name}\n- Blue: Left/Right Cortex (hemispheres)\n- Green: Brain Stem',
-                        transform=ax.transAxes, fontsize=8, verticalalignment='top', horizontalalignment='left',
-                        bbox=dict(boxstyle="round,pad=0.3", facecolor='lightcoral', alpha=0.7))
+            # Process each view (axial, coronal, sagittal)
+            for col in range(3):
+                ax = fig.add_subplot(gs[row, col])
+                
+                # Get appropriate slice and aspect ratio for each view
+                if col == 0:  # Axial
+                    tissue_slice = all_tissue_mask[:, :, mid_z]
+                    filtered_slice = filtered_tissue_mask[:, :, mid_z]
+                    hemisphere_slice = hemisphere_mask[:, :, mid_z]
+                    brainstem_slice = brainstem_mask[:, :, mid_z]
+                    if row == 2:
+                        thickness_slice = np.where(thickness_mask[:, :, mid_z] > 0, thickness_map[:, :, mid_z], np.nan)
+                    aspect_ratio = vy / vx
+                    xlabel, ylabel = 'Anterior - Posterior', 'Left - Right'
+                elif col == 1:  # Coronal
+                    tissue_slice = all_tissue_mask[:, mid_y, :]
+                    filtered_slice = filtered_tissue_mask[:, mid_y, :]
+                    hemisphere_slice = hemisphere_mask[:, mid_y, :]
+                    brainstem_slice = brainstem_mask[:, mid_y, :]
+                    if row == 2:
+                        thickness_slice = np.where(thickness_mask[:, mid_y, :] > 0, thickness_map[:, mid_y, :], np.nan)
+                    aspect_ratio = vz / vx
+                    xlabel, ylabel = 'Anterior - Posterior', 'Inferior - Superior'
+                else:  # Sagittal
+                    tissue_slice = all_tissue_mask[mid_x, :, :]
+                    filtered_slice = filtered_tissue_mask[mid_x, :, :]
+                    hemisphere_slice = hemisphere_mask[mid_x, :, :]
+                    brainstem_slice = brainstem_mask[mid_x, :, :]
+                    if row == 2:
+                        thickness_slice = np.where(thickness_mask[mid_x, :, :] > 0, thickness_map[mid_x, :, :], np.nan)
+                    aspect_ratio = vy / vz
+                    xlabel, ylabel = 'Left - Right', 'Inferior - Superior'
+                
+                # Create visualization based on row type
+                if row == 0:  # Identification
+                    img = np.zeros((tissue_slice.shape[1], tissue_slice.shape[0], 3))
+                    img[tissue_slice.T > 0] = [0.8, 0.9, 1.0] if self.tissue_name == 'CSF' else [0.8, 0.8, 0.8]
+                    img[hemisphere_slice.T > 0] = [0, 0.5, 1]
+                    img[brainstem_slice.T > 0] = [0, 1, 0]
+                    ax.imshow(img, origin='lower', aspect=aspect_ratio)
+                    row_title = 'Identification'
+                    
+                    if col == 0:
+                        ax.text(0.02, 0.98, f'Brain Regions Used:\n- Blue: Left/Right Cortex\n- Green: Brain Stem\n- Light color: {self.tissue_name}',
+                               transform=ax.transAxes, fontsize=8, verticalalignment='top', horizontalalignment='left',
+                               bbox=dict(boxstyle="round,pad=0.3", facecolor='lightblue', alpha=0.7))
+                
+                elif row == 1:  # Extraction
+                    img = np.zeros((tissue_slice.shape[1], tissue_slice.shape[0], 3))
+                    img[tissue_slice.T > 0] = [0.3, 0.3, 0.3]
+                    img[filtered_slice.T > 0] = [0, 0, 1] if self.tissue_name == 'CSF' else [1, 0, 0]
+                    img[hemisphere_slice.T > 0] = [0, 0.5, 1]
+                    img[brainstem_slice.T > 0] = [0, 1, 0]
+                    
+                    # Add Z-cutoff lines for coronal and sagittal views
+                    brain_coords = np.where(brain_mask > 0)
+                    if len(brain_coords[0]) > 0 and col in [1, 2]:
+                        min_z, max_z = brain_coords[2].min(), brain_coords[2].max()
+                        brain_center_z = (min_z + max_z) // 2
+                        z_threshold = brain_center_z - self.padding_voxels
+                        ax.axhline(y=z_threshold, color='yellow', linewidth=2, linestyle='--', alpha=0.9)
+                        ax.axhline(y=brain_center_z, color='white', linewidth=1, linestyle=':', alpha=0.8)
+                    
+                    ax.imshow(img, origin='lower', aspect=aspect_ratio)
+                    row_title = 'Extraction'
+                    
+                    if col == 0:
+                        kept_percentage = np.sum(filtered_tissue_mask) / np.sum(all_tissue_mask) * 100
+                        ax.text(0.02, 0.98, f'Extracted {self.tissue_name}:\n- Colored: {kept_percentage:.1f}% kept\n- Dark gray: excluded\n- Yellow line: Z-cutoff',
+                               transform=ax.transAxes, fontsize=8, verticalalignment='top', horizontalalignment='left',
+                               bbox=dict(boxstyle="round,pad=0.3", facecolor='lightcoral', alpha=0.7))
+                
+                else:  # Thickness
+                    # For thickness plots, use high resolution and disable interpolation for PDF export
+                    im = ax.imshow(thickness_slice.T, cmap=thickness_cmap, origin='lower',
+                                 aspect=aspect_ratio, interpolation='nearest', vmin=vmin, vmax=vmax,
+                                 rasterized=False)
+                    row_title = 'Thickness'
+                    
+                    if col == 0:
+                        stats_text = f'Thickness Stats:\nMean: {thickness_stats["mean"]:.2f} ± {thickness_stats["std"]:.2f} mm\nRange: {thickness_stats["min"]:.2f} - {thickness_stats["max"]:.2f} mm'
+                        ax.text(0.02, 0.98, stats_text, transform=ax.transAxes, fontsize=8,
+                               verticalalignment='top', horizontalalignment='left',
+                               bbox=dict(boxstyle="round,pad=0.3", facecolor='white', alpha=0.9))
+                
+                # Set common properties
+                ax.set_title(f'{chr(65+row)}{col+1}. {view_labels[col]} ({row_title})',
+                           fontsize=11, fontweight='bold', pad=8)
+                ax.set_xlabel(xlabel, fontweight='bold', fontsize=9)
+                ax.set_ylabel(ylabel, fontweight='bold', fontsize=9)
+                ax.grid(True, alpha=0.2, linestyle='--')
+                ax.set_xticks([])
+                ax.set_yticks([])
         
-        # --- Row 2: Thickness Analysis (3 views + colorbar) ---
-        thickness_values = thickness_map[thickness_mask > 0]
-        vmin, vmax = np.nanmin(thickness_values), np.nanmax(thickness_values)
-        for col in range(3):
-            ax = fig.add_subplot(gs[2, col])
-            if col == 0:
-                masked_thickness = np.where(thickness_mask[:, :, mid_z] > 0, thickness_map[:, :, mid_z], np.nan)
-                aspect_ratio = vy / vx
-                xlabel, ylabel = 'Anterior - Posterior', 'Left - Right'
-            elif col == 1:
-                masked_thickness = np.where(thickness_mask[:, mid_y, :] > 0, thickness_map[:, mid_y, :], np.nan)
-                aspect_ratio = vz / vx
-                xlabel, ylabel = 'Anterior - Posterior', 'Inferior - Superior'
-            else:
-                masked_thickness = np.where(thickness_mask[mid_x, :, :] > 0, thickness_map[mid_x, :, :], np.nan)
-                aspect_ratio = vy / vz
-                xlabel, ylabel = 'Left - Right', 'Inferior - Superior'
-            
-            im = ax.imshow(masked_thickness.T, cmap=self.color_scheme, origin='lower', aspect=aspect_ratio, interpolation='bilinear', vmin=vmin, vmax=vmax)
-            ax.set_title(f'C{chr(65+col)}. {view_labels[col]} Thickness', fontsize=13, fontweight='bold', pad=10)
-            ax.set_xlabel(xlabel, fontweight='bold', fontsize=10)
-            ax.set_ylabel(ylabel, fontweight='bold', fontsize=10)
-            ax.grid(True, alpha=0.2, linestyle='--')
-            ax.set_xticks([])
-            ax.set_yticks([])
+        # Add methodology summary
+        method_text = f"""Analysis Pipeline:
+A. Identification: Brain reference regions (cortex in blue, stem in green) with {self.tissue_name} context
+B. Extraction: Apply 3D bounding box (±{self.padding_voxels}mm) + Z-cutoff to isolate relevant {self.tissue_name}
+C. Thickness: Calculate using 3D distance transform (color scheme: {'hot for bone' if self.tissue_name == 'Bone' else 'blue for CSF'})"""
         
-        # Colorbar in its own column, only for thickness row
-        cbar_ax = fig.add_subplot(gs[2, 3])
-        sm = plt.cm.ScalarMappable(cmap=self.color_scheme, norm=plt.Normalize(vmin=vmin, vmax=vmax))
-        sm.set_array([])
-        cbar = fig.colorbar(sm, cax=cbar_ax)
-        cbar.set_label('Thickness (mm)', rotation=90, fontweight='bold', labelpad=12, fontsize=11)
+        fig.text(0.02, 0.02, method_text, fontsize=9, verticalalignment='bottom',
+                bbox=dict(boxstyle="round,pad=0.4", facecolor="lightyellow", alpha=0.9, edgecolor='gray'))
         
-        # --- Row 3: Histogram (spanning first 3 columns) ---
-        ax4 = fig.add_subplot(gs[3, :3])
-        n, bins, patches = ax4.hist(thickness_values, bins=50, alpha=0.7, color='lightblue', edgecolor='navy', linewidth=1.2, density=True)
-        ax4.axvline(thickness_stats['mean'], color='red', linestyle='-', linewidth=3, label=f"Mean: {thickness_stats['mean']:.2f} mm")
-        ax4.axvline(thickness_stats['mean'] + thickness_stats['std'], color='red', linestyle='--', linewidth=2, label=f"+1 SD: {thickness_stats['mean'] + thickness_stats['std']:.2f} mm")
-        ax4.axvline(thickness_stats['mean'] - thickness_stats['std'], color='red', linestyle='--', linewidth=2, label=f"-1 SD: {thickness_stats['mean'] - thickness_stats['std']:.2f} mm")
-        p25, p75 = np.percentile(thickness_values, [25, 75])
-        ax4.axvline(p25, color='orange', linestyle=':', linewidth=2, alpha=0.8, label=f"25th percentile: {p25:.2f} mm")
-        ax4.axvline(p75, color='orange', linestyle=':', linewidth=2, alpha=0.8, label=f"75th percentile: {p75:.2f} mm")
-        ax4.set_xlabel(f'{self.tissue_name} Thickness (mm)', fontweight='bold', fontsize=11)
-        ax4.set_ylabel('Probability Density', fontweight='bold', fontsize=11)
-        ax4.set_title('D. Thickness Distribution', fontsize=13, fontweight='bold', pad=10)
-        ax4.legend(loc='upper right', frameon=True, fancybox=True, shadow=True, fontsize=9)
-        ax4.grid(True, alpha=0.3, axis='y')
+        # Adjust layout
+        fig.subplots_adjust(left=0.05, right=0.95, top=0.92, bottom=0.08, wspace=0.15, hspace=0.25)
+        # Save the figure in both PNG and PDF formats
+        output_path_png = self.output_dir / f"{self.tissue_name.lower()}_combined_publication_figure.png"
+        output_path_pdf = self.output_dir / f"{self.tissue_name.lower()}_combined_publication_figure.pdf"
         
-        stats_text = f'''Statistics Summary:\nRange: {thickness_stats['min']:.2f} - {thickness_stats['max']:.2f} mm\nMean ± SD: {thickness_stats['mean']:.2f} ± {thickness_stats['std']:.2f} mm\nMedian: {np.median(thickness_values):.2f} mm\nIQR: {p25:.2f} - {p75:.2f} mm\nVoxels: {np.sum(thickness_mask):,}\nVolume: {np.sum(thickness_mask) * self.voxel_volume / 1000:.1f} cm³'''
-        ax4.text(0.02, 0.98, stats_text, transform=ax4.transAxes, fontsize=9, verticalalignment='top', horizontalalignment='left', bbox=dict(boxstyle="round,pad=0.4", facecolor="white", alpha=0.9, edgecolor='gray'))
+        # Save PNG with high DPI
+        plt.savefig(output_path_png, dpi=300, bbox_inches='tight', facecolor='white')
         
-        # Methodology explanation at the bottom left
-        fig.text(0.01, 0.01, f"{self.tissue_name} Extraction Methodology:\nA. Brain Reference Identification: Left/Right Cerebral Cortex (blue) + Brain Stem (green) define Z-coordinate reference\nB. {self.tissue_name} Extraction Result: Apply 3D bounding box (±{self.padding_voxels}mm) + Z-cutoff below brain center to exclude lower anatomy", fontsize=10, verticalalignment='bottom', bbox=dict(boxstyle="round,pad=0.4", facecolor="lightyellow", alpha=0.9, edgecolor='gray'))
-        
-        fig.subplots_adjust(left=0.05, right=0.97, top=0.94, bottom=0.07, wspace=0.08, hspace=0.18)
-        output_path = self.output_dir / f"{self.tissue_name.lower()}_combined_publication_figure.png"
-        plt.savefig(output_path, dpi=300, bbox_inches='tight', facecolor='white')
+        # Save PDF with vector graphics and high quality settings
+        plt.savefig(output_path_pdf, dpi=1200, bbox_inches='tight', facecolor='white',
+                   format='pdf', transparent=False, metadata={'Creator': 'TI-toolbox'})
         plt.close()
-        LOGGER.debug(f"Combined publication figure saved to: {output_path}")
-        return output_path
+        
+        LOGGER.debug(f"Combined publication figure saved to: {output_path_png} and {output_path_pdf}")
+        return output_path_png
     
     def generate_summary_report(self, volume_results, thickness_stats):
         """Generate a summary report of the analysis."""
@@ -958,15 +947,8 @@ B. {self.tissue_name} Extraction Result: Apply 3D bounding box (±{self.padding_
         LOGGER.debug(f"[{self.tissue_name} Analysis] Volume results: {volume_results}")
         LOGGER.debug(f"[{self.tissue_name} Analysis] Thickness statistics: {thickness_stats}")
         
-        # Create visualizations
-        LOGGER.debug(f"[{self.tissue_name} Analysis] Creating methodology illustration...")
-        self.create_methodology_illustration(
-            self.all_tissue_mask,
-            self.brain_mask,
-            filtered_tissue_mask
-        )
-        
-        LOGGER.debug(f"[{self.tissue_name} Analysis] Creating combined publication figure...")
+        # Create publication figure
+        LOGGER.debug(f"[{self.tissue_name} Analysis] Creating publication figure...")
         self.create_combined_publication_figure(
             self.all_tissue_mask,
             self.brain_mask,
@@ -1007,7 +989,7 @@ TISSUE_CONFIGS = {
         'name': 'CSF',
         'labels': [4, 5, 14, 15, 43, 44, 72, 24, 520],
         'padding': 40,
-        'color_scheme': 'Blues',
+        'color_scheme': 'hot',
         'brain_labels': [3, 42, 16]  # Left cortex, right cortex, brain stem
     },
     'bone': {

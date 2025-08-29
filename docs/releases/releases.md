@@ -8,10 +8,23 @@ For headless server useage, see the [Bash Script & Compose YAML](https://github.
 
 ---
 
-### v2.1.0 (Latest Release)
+### v2.1.1 (Latest Release)
 
-**Release Date**: August 25, 2025
+**Release Date**: August 28, 2025
 
+#### Additions
+- N/A
+
+#### Fixes
+- **ex-search**: fixed final.csv output
+- **flex-search**: fixed cleanup of directory if users choose a single start
+
+#### Download Links
+- [Windows Installer](https://github.com/idossha/TI-Toolbox/releases/download/v2.1.1/TI-Toolbox-Windows.exe)
+- [macOS Universal](https://github.com/idossha/TI-Toolbox/releases/download/v2.1.1/TemporalInterferenceToolbox-macOS-universal.zip)
+- [Linux AppImage](https://github.com/idossha/TI-Toolbox/releases/download/v2.1.1/TemporalInterferenceToolbox-Linux-x86_64.AppImage)
+
+For installation instructions, see the [Installation Guide]({ site.baseurl }/installation/).
 #### Additions
 - **Improved BIDS formatting:** Enhanced Brain Imaging Data Structure (BIDS) compliance and formatting for better data - organization and compatibility
 - **Debug mode for console output:** Introduced comprehensive debug mode with detailed console logging for troubleshooting and development
