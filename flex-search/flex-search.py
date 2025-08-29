@@ -1241,17 +1241,83 @@ def main() -> int:
             if not SUMMARY_MODE:
                 logger.info("SINGLE OPTIMIZATION COMPLETED SUCCESSFULLY")
                 logger.info(f"Final function value: {optim_funvalue_list[0]:.6f}")
-                logger.info(f"Results available in: {base_output_folder}")
             
-            # Create a simple summary file for single optimization
-            single_summary_file = os.path.join(base_output_folder, "optimization_summary.txt")
-            try:
-                _create_single_optimization_summary_file(single_summary_file, args, optim_funvalue_list[0], start_time)
+            # For single optimization, also copy from 00 subdirectory to base and clean up
+            # This ensures consistent structure with multi-start optimization
+            single_run_folder = output_folder_list[0]  # The 00 subdirectory
+            
+            if not SUMMARY_MODE:
+                logger.info("FINALIZING RESULTS:")
+                logger.info(f"Moving results from: {single_run_folder}")
+                logger.info(f"Moving results to: {base_output_folder}")
+            
+            # Copy contents from 00 subdirectory to main output directory
+            if os.path.exists(single_run_folder):
+                try:
+                    for item in os.listdir(single_run_folder):
+                        src = os.path.join(single_run_folder, item)
+                        dst = os.path.join(base_output_folder, item)
+                        if os.path.isdir(src):
+                            if os.path.exists(dst):
+                                shutil.rmtree(dst)
+                            shutil.copytree(src, dst)
+                        else:
+                            if os.path.exists(dst):
+                                os.remove(dst)
+                            shutil.copy2(src, dst)
+                    
+                    if not SUMMARY_MODE:
+                        logger.info("✓ Results successfully moved to final output directory")
+                        
+                    # Create a simple summary file for single optimization
+                    single_summary_file = os.path.join(base_output_folder, "optimization_summary.txt")
+                    try:
+                        _create_single_optimization_summary_file(single_summary_file, args, optim_funvalue_list[0], start_time)
+                        if not SUMMARY_MODE:
+                            logger.info(f"Optimization summary saved to: {single_summary_file}")
+                    except Exception as e:
+                        if not SUMMARY_MODE:
+                            logger.warning(f"Failed to create optimization summary file: {e}")
+                    
+                    # Brief pause to ensure all file operations complete
+                    time.sleep(0.1)
+                    
+                    # Clean up the 00 subdirectory
+                    if not SUMMARY_MODE:
+                        logger.info("CLEANING UP TEMPORARY DIRECTORY:")
+                    
+                    # Try cleanup with one retry
+                    for attempt in range(2):
+                        try:
+                            if os.path.exists(single_run_folder):
+                                shutil.rmtree(single_run_folder)
+                            if not SUMMARY_MODE:
+                                logger.info("✓ Removed temporary directory")
+                            break
+                        except Exception as exc:
+                            if attempt == 0:  # First attempt failed, wait and retry
+                                time.sleep(0.2)
+                                continue
+                            else:  # Second attempt failed
+                                if not SUMMARY_MODE:
+                                    logger.warning(f"✗ Failed to remove temporary directory: {single_run_folder} - {exc}")
+                                    logger.warning("⚠ Temporary directory could not be removed (results still valid)")
+                    
+                    if not SUMMARY_MODE:
+                        logger.info(f"Results available in: {base_output_folder}")
+                        
+                except Exception as exc:
+                    if not SUMMARY_MODE:
+                        logger.error(f"Failed to move results: {exc}")
+                    # Log failure for summary
+                    log_optimization_complete(args.subject, success=False)
+                    return 1
+            else:
                 if not SUMMARY_MODE:
-                    logger.info(f"Optimization summary saved to: {single_summary_file}")
-            except Exception as e:
-                if not SUMMARY_MODE:
-                    logger.warning(f"Failed to create optimization summary file: {e}")
+                    logger.error("Single run folder not found")
+                # Log failure for summary
+                log_optimization_complete(args.subject, success=False)
+                return 1
     
     # Log session footer
     total_duration = time.time() - start_time if 'start_time' in locals() else 0
