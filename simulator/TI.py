@@ -64,8 +64,11 @@ eeg_net = sys.argv[10]  # Get the EEG net filename
 # Parse remaining arguments for montage names
 remaining_args = sys.argv[11:]
 montage_names = []
+quiet_mode = False
 for arg in remaining_args:
-    if arg != '--quiet':
+    if arg == '--quiet':
+        quiet_mode = True
+    else:
         montage_names.append(arg)
 
 # Initialize flex_montages early (will be populated after logger init)
