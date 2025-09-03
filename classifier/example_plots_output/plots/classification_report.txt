@@ -1,0 +1,38 @@
+TI-TOOLBOX CLASSIFIER - ANALYSIS REPORT
+==================================================
+
+MODEL PERFORMANCE:
+--------------------
+Cross-Validation Accuracy: 86.4% ± 5.2%
+ROC-AUC: 0.806
+Method: Nested Cross-Validation (Example)
+95% Confidence Interval: [81.2%, 91.6%]
+
+TOP 10 MOST IMPORTANT BRAIN REGIONS:
+----------------------------------------
+ 1. Left Superior Frontal Gyrus: 0.2450 (Responder-predictive)
+ 2. Right Superior Frontal Gyrus: 0.1980 (Responder-predictive)
+ 3. Right Middle Frontal Gyrus: 0.1760 (Responder-predictive)
+ 4. Left Putamen: -0.1650 (Non-responder-predictive)
+ 5. Right Frontal Pole: 0.1420 (Responder-predictive)
+ 6. Right Precentral Gyrus: 0.1380 (Responder-predictive)
+ 7. Left Frontal Pole: 0.1250 (Responder-predictive)
+ 8. Right Pars Opercularis: -0.1180 (Non-responder-predictive)
+ 9. Left Caudate: 0.1120 (Responder-predictive)
+10. Right Supramarginal Gyrus: 0.1050 (Responder-predictive)
+
+TRAINING DATA SUMMARY:
+-------------------------
+Responders: 7
+Non-responders: 7
+Resolution: Unknown mm
+Analysis Type: Voxel-wise
+
+VISUALIZATION FILES CREATED:
+------------------------------
+• performance_metrics.png/pdf - ROC curves, accuracy, confusion matrix
+• weight_interpretation.png/pdf - Current intensity analysis
+• roi_ranking.png/pdf - Brain region importance ranking
+• dosing_analysis.png/pdf - Group comparisons and PCA clustering
+
+All plots saved in: example_plots_output/plots

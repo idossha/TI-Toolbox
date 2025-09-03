@@ -48,6 +48,7 @@ from contact_tab import ContactTab
 from acknowledgments_tab import AcknowledgmentsTab
 from nifti_viewer_tab import NiftiViewerTab
 from analyzer_tab import AnalyzerTab
+from classifier_tab import ClassifierTab
 
 class MainWindow(QtWidgets.QMainWindow):
     """Main window for the TI-Toolbox GUI."""
@@ -92,6 +93,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.ex_search_tab = ExSearchTab(self)
         self.simulator_tab = SimulatorTab(self)
         self.analyzer_tab = AnalyzerTab(self)
+        self.classifier_tab = ClassifierTab()
         self.nifti_viewer_tab = NiftiViewerTab(self)
         self.system_monitor_tab = SystemMonitorTab(self)
         self.help_tab = HelpTab(self)
@@ -110,6 +112,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.tab_widget.addTab(self.ex_search_tab, "Ex-Search")
         self.tab_widget.addTab(self.simulator_tab, "Simulator")
         self.tab_widget.addTab(self.analyzer_tab, "Analyzer")
+        self.tab_widget.addTab(self.classifier_tab, "Classifier")
         self.tab_widget.addTab(self.nifti_viewer_tab, "NIfTI Viewer")
         self.tab_widget.addTab(self.system_monitor_tab, "System Monitor")
 

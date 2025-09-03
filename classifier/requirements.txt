@@ -1,0 +1,21 @@
+# TI-Toolbox Classifier v2.0 Requirements
+
+# Core scientific computing
+numpy>=1.21.0
+pandas>=1.5.0
+scipy>=1.9.0
+
+# Machine learning
+scikit-learn>=1.1.0
+joblib>=1.2.0
+
+# Neuroimaging
+nibabel>=4.0.0
+
+# Visualization and plotting
+matplotlib>=3.5.0
+# seaborn>=0.11.0  # Optional - plotting module has fallback support
+
+# Optional but recommended
+# freesurfer  # For optimal atlas resampling
+# fsl        # For additional neuroimaging tools
