@@ -998,6 +998,13 @@ TISSUE_CONFIGS = {
         'padding': 30,
         'color_scheme': 'hot',
         'brain_labels': [3, 42, 16]  # Left cortex, right cortex, brain stem
+    },
+    'skin': {
+        'name': 'Skin',
+        'labels': [511],  # Skin tissue tag number 5
+        'padding': 35,
+        'color_scheme': 'viridis',
+        'brain_labels': [3, 42, 16]  # Left cortex, right cortex, brain stem
     }
 }
 
@@ -1005,7 +1012,7 @@ TISSUE_CONFIGS = {
 def main():
     parser = argparse.ArgumentParser(description="Unified tissue analysis tool for segmented NIfTI data.")
     parser.add_argument("nifti_path", help="Path to the segmented NIfTI file")
-    parser.add_argument("-t", "--tissue", choices=['csf', 'bone'], default='csf',
+    parser.add_argument("-t", "--tissue", choices=['csf', 'bone', 'skin'], default='csf',
                        help="Tissue type to analyze (default: csf)")
     parser.add_argument("-o", "--output", default=None,
                        help="Output directory for results (default: {tissue}_analysis)")

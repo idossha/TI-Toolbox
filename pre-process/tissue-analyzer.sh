@@ -60,12 +60,13 @@ Options:
     -h, --help             Show this help message
 
 Description:
-    This script runs both bone and CSF analysis on segmented tissue data using the
+    This script runs bone, CSF, and skin analysis on segmented tissue data using the
     unified tissue_analyzer.py Python script. Results are organized under:
     
     output_dir/
     ├── bone_analysis/     # Bone analysis results
-    └── csf_analysis/      # CSF analysis results
+    ├── csf_analysis/      # CSF analysis results
+    └── skin_analysis/     # Skin analysis results
     
     Each subdirectory contains:
     - Thickness analysis visualizations (PNG)
@@ -76,9 +77,10 @@ Description:
     The script automatically:
     1. Validates input files and dependencies
     2. Runs bone analysis (labels 515, 516)
-    3. Runs CSF analysis (label 24)
-    4. Generates comprehensive logging to /projectdir/derivatives/ti-toolbox/logs/{subject_name}/
-    5. Creates organized output structure
+    3. Runs CSF analysis (labels 4, 5, 14, 15, 43, 44, 72, 24, 520)
+    4. Runs skin analysis (label 511)
+    5. Generates comprehensive logging to /projectdir/derivatives/ti-toolbox/logs/{subject_name}/
+    6. Creates organized output structure
     
 Examples:
     $0 Labeling.nii.gz
@@ -314,12 +316,94 @@ run_csf_analysis() {
     fi
 }
 
+# Function to run skin analysis
+run_skin_analysis() {
+    local nifti_file="$1"
+    local output_dir="$2"
+    
+    print_info "Starting skin analysis..."
+    print_info "Input file: $nifti_file"
+    print_info "Output directory: $output_dir/skin_analysis"
+    print_info "Python script: $PYTHON_SCRIPT"
+    
+    # Check if Python script exists
+    if [[ ! -f "$PYTHON_SCRIPT" ]]; then
+        print_error "Python script not found: $PYTHON_SCRIPT"
+        exit 1
+    fi
+    
+    # Create skin analysis output directory
+    local skin_output_dir="$output_dir/skin_analysis"
+    mkdir -p "$skin_output_dir"
+    
+    # Run the Python analysis with skin tissue type and capture output
+    print_info "Running skin analysis with Python script..."
+    if command -v log_info >/dev/null 2>&1; then
+        log_info "Starting skin analysis with Python script: $PYTHON_SCRIPT"
+        log_info "Command: python3 $PYTHON_SCRIPT $nifti_file -t skin -o $skin_output_dir"
+    fi
+    
+    # Capture Python script output and log it
+    if command -v log_info >/dev/null 2>&1; then
+        log_info "=== SKIN ANALYSIS PYTHON OUTPUT START ==="
+        # Run Python script and capture output, passing the log file path
+        PYTHON_OUTPUT=$(TI_LOG_LEVEL=DEBUG TI_LOG_FILE="$TIMESTAMPED_LOG_FILE" python3 "$PYTHON_SCRIPT" "$nifti_file" -t skin -o "$skin_output_dir" 2>&1)
+        PYTHON_EXIT_CODE=$?
+        
+        # Log each line of the Python output
+        if [[ -n "$PYTHON_OUTPUT" ]]; then
+            while IFS= read -r line; do
+                if [[ -n "$line" ]]; then
+                    log_info "PYTHON: $line"
+                fi
+            done <<< "$PYTHON_OUTPUT"
+        fi
+        log_info "=== SKIN ANALYSIS PYTHON OUTPUT END ==="
+    else
+        # Fallback if logging not available
+        PYTHON_OUTPUT=$(TI_LOG_LEVEL=DEBUG python3 "$PYTHON_SCRIPT" "$nifti_file" -t skin -o "$skin_output_dir" 2>&1)
+        PYTHON_EXIT_CODE=$?
+    fi
+    
+    if [ $PYTHON_EXIT_CODE -eq 0 ]; then
+        print_success "Skin analysis completed successfully!"
+        print_info "Results saved to: $skin_output_dir"
+        
+        # Log success to file if logging is available
+        if command -v log_info >/dev/null 2>&1; then
+            log_info "Skin analysis completed successfully for subject: $(basename "$(dirname "$output_dir")" | sed 's/^sub-//')"
+        fi
+        
+        # List output files
+        if [[ -d "$skin_output_dir" ]]; then
+            print_info "Generated skin analysis files:"
+            ls -la "$skin_output_dir" | grep -E '\.(png|txt)$' | while read -r line; do
+                echo "  $line"
+            done
+        fi
+        
+        return 0
+    else
+        print_error "Skin analysis failed!"
+        print_error "Python script exit code: $PYTHON_EXIT_CODE"
+        print_error "Python script output:"
+        echo "$PYTHON_OUTPUT"
+        
+        if command -v log_error >/dev/null 2>&1; then
+            log_error "Skin analysis failed for subject: $(basename "$(dirname "$output_dir")" | sed 's/^sub-//')"
+            log_error "Python script exit code: $PYTHON_EXIT_CODE"
+            log_error "Python script output: $PYTHON_OUTPUT"
+        fi
+        return 1
+    fi
+}
+
 # Function to run the complete tissue analysis
 run_tissue_analysis() {
     local nifti_file="$1"
     local output_dir="$2"
     
-    print_info "Starting comprehensive tissue analysis (bone + CSF)..."
+    print_info "Starting comprehensive tissue analysis (bone + CSF + skin)..."
     print_info "Input file: $nifti_file"
     print_info "Output directory: $output_dir"
     print_info "Python script: $PYTHON_SCRIPT"
@@ -336,6 +420,7 @@ run_tissue_analysis() {
     # Track analysis results
     local bone_success=false
     local csf_success=false
+    local skin_success=false
     local overall_success=true
     
     # Run bone analysis
@@ -358,6 +443,16 @@ run_tissue_analysis() {
         overall_success=false
     fi
     
+    # Run skin analysis
+    print_info "=== PHASE 3: SKIN ANALYSIS ==="
+    if run_skin_analysis "$nifti_file" "$output_dir"; then
+        skin_success=true
+        print_success "✓ Skin analysis completed successfully"
+    else
+        print_error "✗ Skin analysis failed"
+        overall_success=false
+    fi
+    
     # Summary and final status
     print_info "=== TISSUE ANALYSIS SUMMARY ==="
     if [[ "$bone_success" == true ]]; then
@@ -372,20 +467,27 @@ run_tissue_analysis() {
         print_error "CSF analysis: ✗ Failed"
     fi
     
+    if [[ "$skin_success" == true ]]; then
+        print_success "Skin analysis: ✓ Complete"
+    else
+        print_error "Skin analysis: ✗ Failed"
+    fi
+    
     if [[ "$overall_success" == true ]]; then
         print_success "Overall tissue analysis: ✓ COMPLETE"
         print_info "All analyses completed successfully!"
         
         # Log overall success
         if command -v log_info >/dev/null 2>&1; then
-            log_info "Complete tissue analysis (bone + CSF) completed successfully for subject: $(basename "$(dirname "$output_dir")" | sed 's/^sub-//')"
+            log_info "Complete tissue analysis (bone + CSF + skin) completed successfully for subject: $(basename "$(dirname "$output_dir")" | sed 's/^sub-//')"
             
             # Log detailed results summary
             log_info "=== TISSUE ANALYSIS RESULTS SUMMARY ==="
             
-            # Count files in bone and CSF subdirectories
+            # Count files in bone, CSF, and skin subdirectories
             bone_out_dir="$output_dir/bone_analysis"
             csf_out_dir="$output_dir/csf_analysis"
+            skin_out_dir="$output_dir/skin_analysis"
             
             if [ -d "$bone_out_dir" ]; then
                 bone_png_count=$(ls -1 "$bone_out_dir"/*.png 2>/dev/null | wc -l)
@@ -431,6 +533,28 @@ run_tissue_analysis() {
                 fi
             fi
             
+            if [ -d "$skin_out_dir" ]; then
+                skin_png_count=$(ls -1 "$skin_out_dir"/*.png 2>/dev/null | wc -l)
+                skin_txt_count=$(ls -1 "$skin_out_dir"/*.txt 2>/dev/null | wc -l)
+                log_info "Skin analysis generated $skin_png_count PNG(s) and $skin_txt_count TXT report(s)"
+                log_info "Skin analysis output directory: $skin_out_dir"
+                
+                # List specific files generated
+                if [ $skin_png_count -gt 0 ]; then
+                    log_info "Skin analysis PNG files:"
+                    ls -1 "$skin_out_dir"/*.png 2>/dev/null | while read -r file; do
+                        log_info "  - $(basename "$file")"
+                    done
+                fi
+                
+                if [ $skin_txt_count -gt 0 ]; then
+                    log_info "Skin analysis TXT files:"
+                    ls -1 "$skin_out_dir"/*.txt 2>/dev/null | while read -r file; do
+                        log_info "  - $(basename "$file")"
+                    done
+                fi
+            fi
+            
             log_info "=== END TISSUE ANALYSIS RESULTS SUMMARY ==="
             log_info "=== Tissue Analyzer Completed Successfully at $(date) ==="
         fi
@@ -443,11 +567,16 @@ run_tissue_analysis() {
         print_info "  │   ├── bone_extraction_methodology.png"
         print_info "  │   ├── bone_analysis_summary.txt"
         print_info "  │   └── bone_combined_publication_figure.png"
-        print_info "  └── csf_analysis/"
-        print_info "      ├── csf_thickness_analysis.png"
-        print_info "      ├── csf_extraction_methodology.png"
-        print_info "      ├── csf_analysis_summary.txt"
-        print_info "      └── csf_combined_publication_figure.png"
+        print_info "  ├── csf_analysis/"
+        print_info "  │   ├── csf_thickness_analysis.png"
+        print_info "  │   ├── csf_extraction_methodology.png"
+        print_info "  │   ├── csf_analysis_summary.txt"
+        print_info "  │   └── csf_combined_publication_figure.png"
+        print_info "  └── skin_analysis/"
+        print_info "      ├── skin_thickness_analysis.png"
+        print_info "      ├── skin_extraction_methodology.png"
+        print_info "      ├── skin_analysis_summary.txt"
+        print_info "      └── skin_combined_publication_figure.png"
         
         return 0
     else
