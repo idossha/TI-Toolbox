@@ -196,12 +196,12 @@ cd "$SIMNIBS_DIR" || exit 1
 
 if [ -n "$T2_file" ]; then
     log_info "Running charm with T1 and T2 images..."
-    if ! run_command "charm $forcerun '$SUBJECT_ID' '$T1_file' '$T2_file'" "SimNIBS charm failed with T1 and T2 images"; then
+    if ! run_command "charm $forcerun --forcesform '$SUBJECT_ID' '$T1_file' '$T2_file'" "SimNIBS charm failed with T1 and T2 images"; then
         exit 1
     fi
 else
     log_info "Running charm with T1 image only..."
-    if ! run_command "charm $forcerun '$SUBJECT_ID' '$T1_file'" "SimNIBS charm failed with T1 image only"; then
+    if ! run_command "charm $forcerun --forcesform '$SUBJECT_ID' '$T1_file'" "SimNIBS charm failed with T1 image only"; then
         exit 1
     fi
 fi
