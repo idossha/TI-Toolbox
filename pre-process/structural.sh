@@ -5,7 +5,7 @@
 # by calling individual specialized scripts.
 #
 # Usage:
-#   ./structural.sh <subject_dir>... [recon-all] [--recon-only] [--parallel] [--quiet] [--convert-dicom] [--create-m2m]
+#   ./structural.sh <subject_dir>... [recon-all] [--recon-only] [--parallel] [--convert-dicom] [--create-m2m]
 #   ./structural.sh --subjects <subject_id1,subject_id2,...> [options...]
 #
 
@@ -54,7 +54,6 @@ simple_log() {
 RUN_RECON=false
 RECON_ONLY=false
 PARALLEL=false
-QUIET=false
 CONVERT_DICOM=false
 CREATE_M2M=false
 RUN_TISSUE_ANALYZER=${RUN_TISSUE_ANALYZER:-false}
@@ -217,10 +216,6 @@ for flag in "${temp_flags[@]}"; do
       PARALLEL=true
       echo "DEBUG: Set PARALLEL=true" >&2
       ;;
-    --quiet)
-      QUIET=true
-      echo "DEBUG: Set QUIET=true" >&2
-      ;;
     --recon-only)
       RECON_ONLY=true
       echo "DEBUG: Set RECON_ONLY=true" >&2
@@ -239,7 +234,7 @@ for flag in "${temp_flags[@]}"; do
       ;;
     *)
       echo "Unknown flag: $flag"
-      echo "Usage: $0 <subject_dir_or_id>... [recon-all] [--recon-only] [--parallel] [--quiet] [--convert-dicom] [--create-m2m]"
+      echo "Usage: $0 <subject_dir_or_id>... [recon-all] [--recon-only] [--parallel] [--convert-dicom] [--create-m2m]"
       echo "       $0 --subjects <subject_id1,subject_id2,...> [options...]"
       echo ""
       echo "Processing Modes:"
@@ -247,7 +242,6 @@ for flag in "${temp_flags[@]}"; do
       echo "  --parallel      Parallel processing - multiple subjects with 1 core each"
       echo ""
       echo "Other Flags:"
-      echo "  --quiet         Suppress verbose output"
       echo "  --recon-only    Run only FreeSurfer recon-all"
       echo "  --convert-dicom Convert DICOM files"
       echo "  --create-m2m    Create SimNIBS m2m models"
@@ -266,18 +260,15 @@ debug_mode="${DEBUG_MODE:-false}"
 if [[ "$debug_mode" == "true" ]]; then
     # Debug mode: show detailed output
     set_summary_mode false
-elif ! $QUIET; then
-    # Non-debug mode and not quiet: show summary output
-    set_summary_mode true
 else
-    # Quiet mode: show detailed output (opposite of summary)
-    set_summary_mode false
+    # Non-debug mode: show summary output
+    set_summary_mode true
 fi
 
 # Validate subject directories
 if [[ ${#SUBJECT_DIRS[@]} -eq 0 ]]; then
   echo "Error: At least one subject directory or subject ID is required."
-  echo "Usage: $0 <subject_dir_or_id>... [recon-all] [--recon-only] [--parallel] [--quiet] [--convert-dicom] [--create-m2m]"
+  echo "Usage: $0 <subject_dir_or_id>... [recon-all] [--recon-only] [--parallel] [--convert-dicom] [--create-m2m]"
   echo "       $0 --subjects <subject_id1,subject_id2,...> [options...]"
   echo ""
   echo "Processing Modes:"
@@ -285,7 +276,6 @@ if [[ ${#SUBJECT_DIRS[@]} -eq 0 ]]; then
   echo "  --parallel      Parallel processing - multiple subjects with 1 core each"
   echo ""
   echo "Other Flags:"
-  echo "  --quiet         Suppress verbose output"
   echo "  --recon-only    Run only FreeSurfer recon-all"
   echo "  --convert-dicom Convert DICOM files"
   echo "  --create-m2m    Create SimNIBS m2m models"
@@ -345,9 +335,6 @@ run_charm_single() {
     echo "Running SimNIBS charm for subject: $subject_id"
     
     local charm_args=("$subject_dir")
-    if $QUIET; then
-        charm_args+=("--quiet")
-    fi
     
     if ! "$script_dir/charm.sh" "${charm_args[@]}"; then
         echo "Warning: SimNIBS charm failed for subject: $subject_id"
@@ -367,9 +354,6 @@ run_recon_single() {
     echo "Running FreeSurfer recon-all for subject: $subject_id"
     
     local recon_args=("$subject_dir")
-    if $QUIET; then
-        recon_args+=("--quiet")
-    fi
     
     # Pass --parallel flag based on processing mode:
     # Sequential mode (--parallel NOT specified): pass --parallel to recon-all (use all cores)
@@ -399,9 +383,6 @@ run_dicom_single_with_summary() {
     local subject_id=$(basename "$subject_dir" | sed 's/^sub-//')
     
     local dicom_args=("$subject_dir")
-    if $QUIET; then
-        dicom_args+=("--quiet")
-    fi
     
     execute_with_summary "DICOM conversion" "$subject_id" \
         "\"$script_dir/dicom2nifti.sh\" ${dicom_args[*]}" \
@@ -413,9 +394,6 @@ run_charm_single_with_summary() {
     local subject_id=$(basename "$subject_dir" | sed 's/^sub-//')
     
     local charm_args=("$subject_dir")
-    if $QUIET; then
-        charm_args+=("--quiet")
-    fi
     
     execute_with_summary "SimNIBS charm" "$subject_id" \
         "\"$script_dir/charm.sh\" ${charm_args[*]}" \
@@ -427,9 +405,6 @@ run_recon_single_with_summary() {
     local subject_id=$(basename "$subject_dir" | sed 's/^sub-//')
     
     local recon_args=("$subject_dir")
-    if $QUIET; then
-        recon_args+=("--quiet")
-    fi
     
     # Pass --parallel flag based on processing mode
     if ! $PARALLEL; then
@@ -505,9 +480,6 @@ if $PARALLEL && ($RUN_RECON || $RECON_ONLY) && [[ ${#SUBJECT_DIRS[@]} -gt 1 ]]; 
     
     # Build arguments - NO --parallel flag (single-threaded per subject)
     parallel_args=()
-    if $QUIET; then
-        parallel_args+=("--quiet")
-    fi
     
     echo "Running FreeSurfer recon-all in parallel mode (1 core per subject)..."
     

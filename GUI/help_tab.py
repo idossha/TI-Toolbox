@@ -239,8 +239,6 @@ Project Directory/
                     "- Results are saved in <code>derivatives/ti-toolbox/bone_analysis/sub-{subject}/</code><br>"
                     "- Excludes jaw and vertebrae by spatial filtering around brain cortex<br><br>"
                     
-                    "<b>Run in quiet mode:</b><br>"
-                    "- Suppresses detailed output during processing<br>"
                 )
             },
             {

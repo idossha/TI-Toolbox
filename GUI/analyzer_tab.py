@@ -1930,7 +1930,7 @@ class AnalyzerTab(QtWidgets.QWidget):
                 # Get m2m path
                 m2m_path = self.get_m2m_dir_for_subject(subject_id)
                 if not m2m_path or not os.path.isdir(m2m_path):
-                    self.update_output(f"Error: m2m directory not found for subject {subject_id}")
+                    self.update_output(f"Error: m2m_{subject_id} folder not found at {m2m_path}. Please create the m2m folder first using the Pre-process tab.", 'error')
                     return None
 
                 # Get field path for both mesh and voxel analysis
@@ -2666,7 +2666,7 @@ class AnalyzerTab(QtWidgets.QWidget):
                     '/opt/fsl/data/standard/MNI152_T1_1mm.nii.gz',
                     '$FSLDIR/data/standard/MNI152_T1_1mm.nii.gz',
                     # Check project assets folder
-                    os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'assets', 'base-niftis', 'MNI152_T1_1mm.nii.gz')
+                    os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'assets', 'atlas', 'MNI152_T1_1mm.nii.gz')
                 ]
                 
                 mni_file = None
@@ -2679,7 +2679,7 @@ class AnalyzerTab(QtWidgets.QWidget):
                 
                 if not mni_file:
                     QtWidgets.QMessageBox.warning(self, "Error", 
-                        "MNI152 template not found. Please ensure FSL is installed or place MNI152_T1_1mm.nii.gz in assets/base-niftis/")
+                        "MNI152 template not found. Please ensure FSL is installed or place MNI152_T1_1mm.nii.gz in assets/atlas/")
                     return
                 
                 # Launch Freeview with MNI template
@@ -2865,7 +2865,8 @@ General.Trackball = 1; General.RotationX = 0; General.RotationY = 0; General.Rot
 
             m2m_path = self.get_m2m_dir_for_subject(subject_id)
             if not m2m_path or not os.path.isdir(m2m_path):
-                 return None
+                self.update_output(f"Error: m2m_{subject_id} folder not found at {m2m_path}. Please create the m2m folder first using the Pre-process tab.", 'error')
+                return None
 
             cmd = [ 'simnibs_python', main_analyzer_script_path,
                     '--m2m_subject_path', m2m_path,

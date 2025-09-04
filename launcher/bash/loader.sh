@@ -510,6 +510,32 @@ initialize_simnibs_derivative() {
     fi
 }
 
+# Function to setup example data for new projects
+setup_example_data_if_new() {
+    local toolbox_root="$SCRIPT_DIR/../.."
+    local example_data_manager="$toolbox_root/new_project/example_data_manager.py"
+    
+    # Check if the example data manager exists
+    if [ ! -f "$example_data_manager" ]; then
+        echo "Warning: Example data manager not found at $example_data_manager"
+        return 1
+    fi
+    
+    # Check if Python is available in the Docker environment
+    if command -v python3 >/dev/null 2>&1; then
+        echo "Setting up example data for new project..."
+        
+        # Run the example data manager
+        if python3 "$example_data_manager" "$toolbox_root" "$LOCAL_PROJECT_DIR"; then
+            echo "✓ Example data setup completed successfully"
+        else
+            echo "Warning: Example data setup failed, continuing with project initialization"
+        fi
+    else
+        echo "Warning: Python3 not available, skipping example data setup"
+    fi
+}
+
 # Function to check if project is new and initialize config files
 initialize_project_configs() {
     local project_ti_csc_dir="$LOCAL_PROJECT_DIR/code/ti-toolbox"
@@ -594,6 +620,9 @@ initialize_project_configs() {
         # Set proper permissions for the info directory
         chmod -R 755 "$info_dir"
         echo "Project status initialized in $info_dir"
+        
+        # Setup example data for new projects
+        setup_example_data_if_new
     fi
 
     # Return the new project status

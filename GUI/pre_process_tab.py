@@ -403,10 +403,7 @@ class PreProcessTab(QtWidgets.QWidget):
         self.run_tissue_analyzer_cb.setToolTip("Analyze skull bone and CSF volume/thickness using tissue analyzer and generate figures alongside preprocessing")
         options_group_layout.addWidget(self.run_tissue_analyzer_cb)
         
-        # Other options
-        self.quiet_cb = QtWidgets.QCheckBox("Run in quiet mode")
-        self.quiet_cb.setChecked(False)
-        options_group_layout.addWidget(self.quiet_cb)
+        # Other options section (currently empty)
         
         # Add options group to options layout
         options_layout.addWidget(self.options_group)
@@ -631,12 +628,25 @@ class PreProcessTab(QtWidgets.QWidget):
                         subject_id = os.path.basename(subj_dir).replace("sub-", "")
                         self.subject_list.addItem(subject_id)
         
-        # If no subjects found in sourcedata, check root directory for legacy structure
-        if self.subject_list.count() == 0:
-            for subj_dir in glob.glob(os.path.join(self.project_dir, "sub-*")):
-                if os.path.isdir(subj_dir):
-                    subject_id = os.path.basename(subj_dir).replace("sub-", "")
-                    self.subject_list.addItem(subject_id)
+        # Also check root directory for BIDS-compliant subjects (like example data)
+        for subj_dir in glob.glob(os.path.join(self.project_dir, "sub-*")):
+            if os.path.isdir(subj_dir):
+                subject_id = os.path.basename(subj_dir).replace("sub-", "")
+                
+                # Skip if already added from sourcedata
+                if any(self.subject_list.item(i).text() == subject_id for i in range(self.subject_list.count())):
+                    continue
+                
+                # Check if this subject has BIDS-compliant anatomical data
+                anat_dir = os.path.join(subj_dir, "anat")
+                if os.path.exists(anat_dir):
+                    # Look for T1w or T2w NIfTI files
+                    has_nifti = any(
+                        f.endswith(('.nii', '.nii.gz')) and ('T1w' in f or 'T2w' in f)
+                        for f in os.listdir(anat_dir)
+                    )
+                    if has_nifti:
+                        self.subject_list.addItem(subject_id)
         
         if self.subject_list.count() == 0:
             QtWidgets.QMessageBox.warning(
@@ -663,7 +673,6 @@ class PreProcessTab(QtWidgets.QWidget):
         self.create_m2m_cb.setEnabled(not is_processing)
         self.create_atlas_cb.setEnabled(not is_processing)
         self.run_tissue_analyzer_cb.setEnabled(not is_processing)
-        self.quiet_cb.setEnabled(not is_processing)
         
         # Update status label
         if is_processing:
@@ -727,6 +736,28 @@ class PreProcessTab(QtWidgets.QWidget):
                 )
                 return
 
+        # Check if tissue analyzer is enabled but m2m folders are missing
+        if self.run_tissue_analyzer_cb.isChecked() and not self.create_m2m_cb.isChecked():
+            # Check if m2m folders already exist for selected subjects
+            missing_m2m_subjects = []
+            for subject_id in selected_subjects:
+                bids_subject_id = f"sub-{subject_id}"
+                m2m_dir = os.path.join(self.project_dir, "derivatives", "SimNIBS", bids_subject_id, f"m2m_{subject_id}")
+                if not os.path.exists(m2m_dir):
+                    missing_m2m_subjects.append(subject_id)
+            
+            if missing_m2m_subjects:
+                QtWidgets.QMessageBox.warning(
+                    self, "Missing m2m Folders",
+                    f"Tissue analyzer requires m2m folders, but the following subjects don't have them:\n"
+                    f"{', '.join(missing_m2m_subjects)}\n\n"
+                    f"Please either:\n"
+                    f"1. Enable 'Create SimNIBS m2m folder' option, or\n"
+                    f"2. Run m2m creation for these subjects first, or\n"
+                    f"3. Disable 'Run tissue analyzer' option"
+                )
+                return
+
         # Check for existing output directories and confirm overwrite
         for subject_id in selected_subjects:
             bids_subject_id = f"sub-{subject_id}"
@@ -760,7 +791,7 @@ class PreProcessTab(QtWidgets.QWidget):
                    f"- Create m2m folder: {'Yes' if self.create_m2m_cb.isChecked() else 'No'}\n" +
                    f"- Create atlas segmentation: {'Yes' if self.create_atlas_cb.isChecked() else 'No'}\n" +
                    f"- Run tissue analyzer: {'Yes (bone + CSF)' if self.run_tissue_analyzer_cb.isChecked() else 'No'}\n" +
-                   f"- Quiet mode: {'Yes (overridden by debug mode)' if self.quiet_cb.isChecked() and self.debug_mode else 'Yes' if self.quiet_cb.isChecked() else 'No'}")
+                   f"- Debug mode: {'Yes' if self.debug_mode else 'No'}")
         
         if not ConfirmationDialog.confirm(
             self,
@@ -782,7 +813,7 @@ class PreProcessTab(QtWidgets.QWidget):
                 'create_m2m': self.create_m2m_cb.isChecked(),
                 'create_atlas': self.create_atlas_cb.isChecked(),
                 'run_tissue_analyzer': self.run_tissue_analyzer_cb.isChecked(),
-                'quiet_mode': self.quiet_cb.isChecked()
+                'debug_mode': self.debug_mode
             }
             self.report_generators[subject_id].report_data['parameters'] = parameters
         
@@ -798,7 +829,6 @@ class PreProcessTab(QtWidgets.QWidget):
         env['RUN_RECON'] = str(self.run_recon_cb.isChecked()).lower()
         env['PARALLEL_RECON'] = str(self.parallel_cb.isChecked()).lower()
         env['CREATE_M2M'] = str(self.create_m2m_cb.isChecked()).lower()
-        env['QUIET'] = str(self.quiet_cb.isChecked()).lower()
         env['RUN_TISSUE_ANALYZER'] = str(self.run_tissue_analyzer_cb.isChecked()).lower()
         
         # Pass debug mode setting to control summary output
@@ -827,10 +857,7 @@ class PreProcessTab(QtWidgets.QWidget):
         if self.create_m2m_cb.isChecked():
             cmd.append("--create-m2m")
 
-        # Only add --quiet flag when NOT in debug mode
-        # Debug mode should always show detailed output
-        if self.quiet_cb.isChecked() and not self.debug_mode:
-            cmd.append("--quiet")
+        # Note: Quiet mode has been removed - all output is now shown
         
         # Debug output (only show in debug mode)
         self.update_output(f"Running pre-processing from GUI", 'debug')
@@ -843,7 +870,6 @@ class PreProcessTab(QtWidgets.QWidget):
         self.update_output(f"- Create m2m folder: {env['CREATE_M2M']}", 'debug')
         self.update_output(f"- Create atlas segmentation: {str(self.create_atlas_cb.isChecked()).lower()}", 'debug')
         self.update_output(f"- Run tissue analyzer: {env['RUN_TISSUE_ANALYZER']}", 'debug')
-        self.update_output(f"- Quiet mode: {env['QUIET']}", 'debug')
         self.update_output(f"- Debug mode: {env['DEBUG_MODE']}", 'debug')
         
         # Create and start the thread
@@ -906,7 +932,7 @@ class PreProcessTab(QtWidgets.QWidget):
                 bids_subject_id = f"sub-{subject_id}"
                 m2m_folder = os.path.join(self.project_dir, "derivatives", "SimNIBS", bids_subject_id, f"m2m_{subject_id}")
                 if not os.path.isdir(m2m_folder):
-                    self.update_output(f"[Atlas] {subject_id}: m2m folder not found, skipping atlas segmentation.", 'warning')
+                    self.update_output(f"[Atlas] {subject_id}: m2m_{subject_id} folder not found at {m2m_folder}. Please create m2m folder first using 'Create m2m folder' option, then run atlas segmentation.", 'warning')
                     continue
                 
                 output_dir = os.path.join(m2m_folder, 'segmentation')

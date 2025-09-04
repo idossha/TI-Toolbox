@@ -1547,7 +1547,7 @@ class FlexSearchTab(QtWidgets.QWidget):
                     '/opt/fsl/data/standard/MNI152_T1_1mm.nii.gz',
                     '$FSLDIR/data/standard/MNI152_T1_1mm.nii.gz',
                     # Check project assets folder
-                    os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'assets', 'base-niftis', 'MNI152_T1_1mm.nii.gz')
+                    os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'assets', 'atlas', 'MNI152_T1_1mm.nii.gz')
                 ]
                 
                 mni_file = None
@@ -1560,7 +1560,7 @@ class FlexSearchTab(QtWidgets.QWidget):
                 
                 if not mni_file:
                     QtWidgets.QMessageBox.warning(self, "Error", 
-                        "MNI152 template not found. Please ensure FSL is installed or place MNI152_T1_1mm.nii.gz in assets/base-niftis/")
+                        "MNI152 template not found. Please ensure FSL is installed or place MNI152_T1_1mm.nii.gz in assets/atlas/")
                     return
                 
                 # Launch Freeview with MNI template

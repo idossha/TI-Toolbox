@@ -49,8 +49,8 @@ class ExampleDataManager:
         mapping = {
             # Ernie subject data - only NIfTI files
             "ernie": {
-                "ernie_T1.nii.gz": "sub-ernie/anat/sub-ernie_T1w.nii.gz",
-                "ernie_T2.nii.gz": "sub-ernie/anat/sub-ernie_T2w.nii.gz"
+                "T1.nii.gz": "sub-ernie/anat/sub-ernie_T1w.nii.gz",
+                "T2_reg.nii.gz": "sub-ernie/anat/sub-ernie_T2w.nii.gz"
             },
             
             # MNI152 template data
