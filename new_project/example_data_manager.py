@@ -88,8 +88,8 @@ class ExampleDataManager:
         
         A project is considered new if:
         1. No subject directories exist yet
-        2. No derivatives directory exists
-        3. The project status indicates it's new
+        2. Example data hasn't been copied before
+        3. No actual user data is present
         
         Returns:
             True if this is a new project, False otherwise
@@ -99,17 +99,8 @@ class ExampleDataManager:
         if subject_dirs:
             logger.info("Found existing subject directories, skipping example data copy")
             return False
-            
-        # Check for derivatives directory with content
-        derivatives_dir = self.project_dir / "derivatives"
-        if derivatives_dir.exists():
-            # Check if derivatives has any substantial content
-            derivative_content = list(derivatives_dir.rglob("*"))
-            if len(derivative_content) > 5:  # More than just empty directories
-                logger.info("Found existing derivatives content, skipping example data copy")
-                return False
         
-        # Check project status file if it exists
+        # Check project status file if it exists to see if example data was already copied
         status_file = self.project_dir / "derivatives" / "ti-toolbox" / ".ti-toolbox-info" / "project_status.json"
         if status_file.exists():
             try:
@@ -124,6 +115,20 @@ class ExampleDataManager:
                     
             except Exception as e:
                 logger.warning(f"Could not read project status file: {e}")
+        
+        # Check for any user-created NIfTI files in the project root
+        user_nifti_files = list(self.project_dir.glob("*.nii.gz"))
+        if user_nifti_files:
+            logger.info("Found existing user NIfTI files, skipping example data copy")
+            return False
+        
+        # Check for sourcedata directory with actual content (indicates user data)
+        sourcedata_dir = self.project_dir / "sourcedata"
+        if sourcedata_dir.exists():
+            sourcedata_content = list(sourcedata_dir.rglob("*.dcm")) + list(sourcedata_dir.rglob("*.nii.gz"))
+            if sourcedata_content:
+                logger.info("Found existing user data in sourcedata, skipping example data copy")
+                return False
         
         return True
     
