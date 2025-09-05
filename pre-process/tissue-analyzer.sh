@@ -559,6 +559,7 @@ run_tissue_analysis() {
             log_info "=== Tissue Analyzer Completed Successfully at $(date) ==="
         fi
         
+        
         # Show final output structure
         print_info "Final output structure:"
         print_info "  $output_dir/"
@@ -572,11 +573,11 @@ run_tissue_analysis() {
         print_info "  │   ├── csf_extraction_methodology.png"
         print_info "  │   ├── csf_analysis_summary.txt"
         print_info "  │   └── csf_combined_publication_figure.png"
-        print_info "  └── skin_analysis/"
-        print_info "      ├── skin_thickness_analysis.png"
-        print_info "      ├── skin_extraction_methodology.png"
-        print_info "      ├── skin_analysis_summary.txt"
-        print_info "      └── skin_combined_publication_figure.png"
+        print_info "  ├── skin_analysis/"
+        print_info "  │   ├── skin_thickness_analysis.png"
+        print_info "  │   ├── skin_extraction_methodology.png"
+        print_info "  │   ├── skin_analysis_summary.txt"
+        print_info "  │   └── skin_combined_publication_figure.png"
         
         return 0
     else

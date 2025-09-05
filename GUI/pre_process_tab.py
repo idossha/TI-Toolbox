@@ -115,10 +115,10 @@ class PreProcessThread(QtCore.QThread):
                         self.last_step = "FreeSurfer recon-all processing"
                     elif 'FreeSurfer recon-all completed' in line_stripped:
                         self.last_step = "FreeSurfer recon-all completed"
-                    elif 'Starting skull bone analysis' in line_stripped:
-                        self.last_step = "skull bone analysis"
-                    elif 'Skull bone analysis completed' in line_stripped or 'Bone analysis: ✓ Complete' in line_stripped:
-                        self.last_step = "skull bone analysis completed"
+                    elif 'Starting skull bone analysis' in line_stripped or 'BONE ANALYSIS' in line_stripped:
+                        self.last_step = "tissue analysis"
+                    elif 'Skull bone analysis completed' in line_stripped or 'Bone analysis: ✓ Complete' in line_stripped or 'TISSUE ANALYSIS SUMMARY' in line_stripped:
+                        self.last_step = "tissue analysis completed"
                     elif 'Atlas' in line_stripped and '✓ Complete' in line_stripped:
                         self.last_step = "atlas segmentation completed"
                     
@@ -397,10 +397,10 @@ class PreProcessTab(QtWidgets.QWidget):
         self.create_atlas_cb.setChecked(True)
         options_group_layout.addWidget(self.create_atlas_cb)
 
-        # Tissue analyzer option (bone and CSF analysis)
-        self.run_tissue_analyzer_cb = QtWidgets.QCheckBox("Run tissue analyzer (bone + CSF)")
+        # Tissue analyzer option
+        self.run_tissue_analyzer_cb = QtWidgets.QCheckBox("Run Tissue Analyzer")
         self.run_tissue_analyzer_cb.setChecked(False)
-        self.run_tissue_analyzer_cb.setToolTip("Analyze skull bone and CSF volume/thickness using tissue analyzer and generate figures alongside preprocessing")
+        self.run_tissue_analyzer_cb.setToolTip("Analyze tissue volume and thickness using tissue analyzer and generate figures alongside preprocessing")
         options_group_layout.addWidget(self.run_tissue_analyzer_cb)
         
         # Other options section (currently empty)
@@ -790,7 +790,7 @@ class PreProcessTab(QtWidgets.QWidget):
                    f"- Parallel processing: {'Yes' if self.parallel_cb.isChecked() else 'No'}\n" +
                    f"- Create m2m folder: {'Yes' if self.create_m2m_cb.isChecked() else 'No'}\n" +
                    f"- Create atlas segmentation: {'Yes' if self.create_atlas_cb.isChecked() else 'No'}\n" +
-                   f"- Run tissue analyzer: {'Yes (bone + CSF)' if self.run_tissue_analyzer_cb.isChecked() else 'No'}\n" +
+                   f"- Run tissue analyzer: {'Yes' if self.run_tissue_analyzer_cb.isChecked() else 'No'}\n" +
                    f"- Debug mode: {'Yes' if self.debug_mode else 'No'}")
         
         if not ConfirmationDialog.confirm(
@@ -915,8 +915,8 @@ class PreProcessTab(QtWidgets.QWidget):
                 if self.run_tissue_analyzer_cb.isChecked():
                     self.report_generators[subject_id].add_processing_step(
                         'Tissue Analysis',
-                        'Analyzed skull bone and CSF volume/thickness using unified tissue analyzer',
-                        {'tools': ['tissue-analyzer.sh'], 'tissue_types': ['bone', 'csf']},
+                        'Analyzed tissue volume and thickness using unified tissue analyzer',
+                        {'tools': ['tissue-analyzer.sh'], 'tissue_types': ['multiple']},
                         'completed'
                     )
 

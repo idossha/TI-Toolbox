@@ -60,6 +60,7 @@ class TissueAnalyzer(ABC):
         self.tissue_labels = tissue_config['labels']
         self.padding_voxels = tissue_config['padding']
         self.color_scheme = tissue_config['color_scheme']
+        self.tissue_color = tissue_config['tissue_color']
         self.brain_labels = tissue_config['brain_labels']
         
         # Load the NIfTI file
@@ -627,15 +628,19 @@ Voxel dimensions: {self.voxel_dims} mm'''
                 img = np.zeros((tissue_slice.shape[1], tissue_slice.shape[0], 3))
                 
                 if row == 0:  # Brain reference regions
-                    img[tissue_slice.T > 0] = [0.8, 0.9, 1.0] if self.tissue_name == 'CSF' else [0.8, 0.8, 0.8]
-                    img[hemisphere_slice.T > 0] = [0, 0.5, 1]  # Blue for left/right hemispheres
+                    # Use full tissue color for consistency
+                    img[tissue_slice.T > 0] = self.tissue_color
+                    img[hemisphere_slice.T > 0] = [0.5, 0.5, 0.5]  # Grey for grey matter (hemispheres)
                     img[brainstem_slice.T > 0] = [0, 1, 0]    # Green for brainstem
-                    legend_text = f'Brain Regions Used:\n- Blue: Left/Right Cortex (hemispheres)\n- Green: Brain Stem\n- Light color: {self.tissue_name} (context)'
+                    tissue_color_name = {'CSF': 'Blue', 'Bone': 'White', 'Skin': 'Orange'}.get(self.tissue_name, 'Colored')
+                    legend_text = f'Brain Regions Used:\n- Grey: Grey Matter (hemispheres)\n- Green: Brain Stem\n- {tissue_color_name}: {self.tissue_name} (context)'
                     legend_color = 'lightblue'
                 else:  # Final filtered mask (row == 1)
-                    img[tissue_slice.T > 0] = [0.3, 0.3, 0.3]  # Dark gray for excluded tissue
-                    img[filtered_slice.T > 0] = [0, 0, 1] if self.tissue_name == 'CSF' else [1, 0, 0]  # Blue for CSF, Red for bone
-                    img[hemisphere_slice.T > 0] = [0, 0.5, 1]  # Blue for left/right hemispheres
+                    # Dimmed version of tissue color for excluded regions
+                    dimmed_color = [c * 0.3 for c in self.tissue_color]
+                    img[tissue_slice.T > 0] = dimmed_color  # Dimmed tissue color for excluded tissue
+                    img[filtered_slice.T > 0] = self.tissue_color  # Full tissue color for included tissue
+                    img[hemisphere_slice.T > 0] = [0.5, 0.5, 0.5]  # Grey for grey matter (hemispheres)
                     img[brainstem_slice.T > 0] = [0, 1, 0]    # Green for brainstem
                     
                     # Add reference lines to show the filtering that was applied
@@ -650,7 +655,8 @@ Voxel dimensions: {self.voxel_dims} mm'''
                             ax.axhline(y=brain_center_z, color='white', linewidth=2, linestyle=':', alpha=0.8)
                     
                     kept_percentage = np.sum(filtered_tissue_mask) / np.sum(all_tissue_mask) * 100
-                    legend_text = f'Final {self.tissue_name} Extraction:\n- Colored: Extracted {self.tissue_name} ({kept_percentage:.1f}%)\n- Dark gray: Excluded {self.tissue_name}\n- Blue: Left/Right Cortex (hemispheres)\n- Green: Brain Stem\n- Yellow line: Z-cutoff applied'
+                    tissue_color_name = {'CSF': 'Blue', 'Bone': 'White', 'Skin': 'Orange'}.get(self.tissue_name, 'Colored')
+                    legend_text = f'Final {self.tissue_name} Extraction:\n- {tissue_color_name}: Extracted {self.tissue_name} ({kept_percentage:.1f}%)\n- Dimmed: Excluded {self.tissue_name}\n- Grey: Grey Matter (hemispheres)\n- Green: Brain Stem\n- Yellow line: Z-cutoff applied'
                     legend_color = 'lightcoral'
                 
                 # Display the image with correct aspect ratio
@@ -671,8 +677,8 @@ Voxel dimensions: {self.voxel_dims} mm'''
         # Add comprehensive methodology explanation at the bottom
         method_text = f"""
 {self.tissue_name} Extraction Methodology:
-A. Brain Reference Identification: Left/Right Cerebral Cortex (blue) + Brain Stem (green) define Z-coordinate reference
-B. {self.tissue_name} Extraction Result: Apply 3D bounding box (±{self.padding_voxels}mm) + Z-cutoff below brain center to exclude lower anatomy
+A. Brain Reference Identification: Left/Right Cerebral Cortex (grey) + Brain Stem (green) define Z-coordinate reference
+B. {self.tissue_name} Extraction Result: Apply 3D bounding box (±{self.padding_voxels}mm) + Z-cutoff below brain center to exclude lower anatomy (dimmed = excluded)
         """.strip()
         fig.text(0.02, 0.02, method_text, fontsize=11, verticalalignment='bottom',
                 bbox=dict(boxstyle="round,pad=0.5", facecolor="lightyellow", alpha=0.9, edgecolor='gray'))
@@ -725,8 +731,8 @@ B. {self.tissue_name} Extraction Result: Apply 3D bounding box (±{self.padding_
         
         view_labels = ['Axial View', 'Coronal View', 'Sagittal View']
         
-        # Define distinct color schemes for CSF and Bone thickness
-        thickness_cmap = 'hot' if self.tissue_name == 'Bone' else 'Blues'
+        # Use the tissue-specific color scheme from configuration
+        thickness_cmap = self.color_scheme
         
         # Process each row (identification, extraction, thickness)
         for row in range(3):
@@ -776,23 +782,27 @@ B. {self.tissue_name} Extraction Result: Apply 3D bounding box (±{self.padding_
                 # Create visualization based on row type
                 if row == 0:  # Identification
                     img = np.zeros((tissue_slice.shape[1], tissue_slice.shape[0], 3))
-                    img[tissue_slice.T > 0] = [0.8, 0.9, 1.0] if self.tissue_name == 'CSF' else [0.8, 0.8, 0.8]
-                    img[hemisphere_slice.T > 0] = [0, 0.5, 1]
-                    img[brainstem_slice.T > 0] = [0, 1, 0]
+                    # Use full tissue color for consistency
+                    img[tissue_slice.T > 0] = self.tissue_color
+                    img[hemisphere_slice.T > 0] = [0.5, 0.5, 0.5]  # Grey for grey matter
+                    img[brainstem_slice.T > 0] = [0, 1, 0]  # Green for brainstem
                     ax.imshow(img, origin='lower', aspect=aspect_ratio)
                     row_title = 'Identification'
                     
                     if col == 0:
-                        ax.text(0.02, 0.98, f'Brain Regions Used:\n- Blue: Left/Right Cortex\n- Green: Brain Stem\n- Light color: {self.tissue_name}',
+                        tissue_color_name = {'CSF': 'Blue', 'Bone': 'White', 'Skin': 'Orange'}.get(self.tissue_name, 'Colored')
+                        ax.text(0.02, 0.98, f'Brain Regions Used:\n- Grey: Grey Matter\n- Green: Brain Stem\n- {tissue_color_name}: {self.tissue_name}',
                                transform=ax.transAxes, fontsize=8, verticalalignment='top', horizontalalignment='left',
                                bbox=dict(boxstyle="round,pad=0.3", facecolor='lightblue', alpha=0.7))
                 
                 elif row == 1:  # Extraction
                     img = np.zeros((tissue_slice.shape[1], tissue_slice.shape[0], 3))
-                    img[tissue_slice.T > 0] = [0.3, 0.3, 0.3]
-                    img[filtered_slice.T > 0] = [0, 0, 1] if self.tissue_name == 'CSF' else [1, 0, 0]
-                    img[hemisphere_slice.T > 0] = [0, 0.5, 1]
-                    img[brainstem_slice.T > 0] = [0, 1, 0]
+                    # Dimmed version of tissue color for excluded regions
+                    dimmed_color = [c * 0.3 for c in self.tissue_color]
+                    img[tissue_slice.T > 0] = dimmed_color
+                    img[filtered_slice.T > 0] = self.tissue_color  # Full tissue color
+                    img[hemisphere_slice.T > 0] = [0.5, 0.5, 0.5]  # Grey for grey matter
+                    img[brainstem_slice.T > 0] = [0, 1, 0]  # Green for brainstem
                     
                     # Add Z-cutoff lines for coronal and sagittal views
                     brain_coords = np.where(brain_mask > 0)
@@ -808,7 +818,8 @@ B. {self.tissue_name} Extraction Result: Apply 3D bounding box (±{self.padding_
                     
                     if col == 0:
                         kept_percentage = np.sum(filtered_tissue_mask) / np.sum(all_tissue_mask) * 100
-                        ax.text(0.02, 0.98, f'Extracted {self.tissue_name}:\n- Colored: {kept_percentage:.1f}% kept\n- Dark gray: excluded\n- Yellow line: Z-cutoff',
+                        tissue_color_name = {'CSF': 'blue', 'Bone': 'white', 'Skin': 'orange'}.get(self.tissue_name, 'colored')
+                        ax.text(0.02, 0.98, f'Extracted {self.tissue_name}:\n- {tissue_color_name.title()}: {kept_percentage:.1f}% kept\n- Dimmed: excluded\n- Yellow line: Z-cutoff',
                                transform=ax.transAxes, fontsize=8, verticalalignment='top', horizontalalignment='left',
                                bbox=dict(boxstyle="round,pad=0.3", facecolor='lightcoral', alpha=0.7))
                 
@@ -835,10 +846,16 @@ B. {self.tissue_name} Extraction Result: Apply 3D bounding box (±{self.padding_
                 ax.set_yticks([])
         
         # Add methodology summary
+        color_description = {
+            'CSF': 'blue color scheme',
+            'Bone': 'heat color scheme', 
+            'Skin': 'viridis color scheme'
+        }.get(self.tissue_name, 'custom color scheme')
+        
         method_text = f"""Analysis Pipeline:
-A. Identification: Brain reference regions (cortex in blue, stem in green) with {self.tissue_name} context
-B. Extraction: Apply 3D bounding box (±{self.padding_voxels}mm) + Z-cutoff to isolate relevant {self.tissue_name}
-C. Thickness: Calculate using 3D distance transform (color scheme: {'hot for bone' if self.tissue_name == 'Bone' else 'blue for CSF'})"""
+A. Identification: Brain reference regions (grey matter in grey, stem in green) with {self.tissue_name} context
+B. Extraction: Apply 3D bounding box (±{self.padding_voxels}mm) + Z-cutoff to isolate relevant {self.tissue_name} (dimmed = excluded)
+C. Thickness: Calculate using 3D distance transform ({color_description})"""
         
         fig.text(0.02, 0.02, method_text, fontsize=9, verticalalignment='bottom',
                 bbox=dict(boxstyle="round,pad=0.4", facecolor="lightyellow", alpha=0.9, edgecolor='gray'))
@@ -989,21 +1006,24 @@ TISSUE_CONFIGS = {
         'name': 'CSF',
         'labels': [4, 5, 14, 15, 43, 44, 72, 24, 520],
         'padding': 40,
-        'color_scheme': 'hot',
+        'color_scheme': 'Blues',  # Blue color scheme for CSF thickness
+        'tissue_color': [0, 0, 1],  # Blue for CSF
         'brain_labels': [3, 42, 16]  # Left cortex, right cortex, brain stem
     },
     'bone': {
         'name': 'Bone',
         'labels': [515, 516],  # Cortical + cancellous
         'padding': 30,
-        'color_scheme': 'hot',
+        'color_scheme': 'hot',  # Heat color scheme for bone thickness
+        'tissue_color': [1, 1, 1],  # White for bone
         'brain_labels': [3, 42, 16]  # Left cortex, right cortex, brain stem
     },
     'skin': {
         'name': 'Skin',
         'labels': [511],  # Skin tissue tag number 5
         'padding': 35,
-        'color_scheme': 'viridis',
+        'color_scheme': 'viridis',  # Viridis color scheme for skin thickness
+        'tissue_color': [1, 0.5, 0],  # Orange for skin
         'brain_labels': [3, 42, 16]  # Left cortex, right cortex, brain stem
     }
 }
