@@ -8,10 +8,23 @@ For headless server useage, see the [Bash Script & Compose YAML](https://github.
 
 ---
 
-### v2.1.1 (Latest Release)
+### v2.1.2 (Latest Release)
 
-**Release Date**: August 28, 2025
+**Release Date**: September 07, 2025
 
+#### Additions
+- **Example Dataset**: Toolbox now ships with Ernie MRI scans for quick start & learning purposes.
+- **Tissue Analyzer**: Added skin thickness and volume analysis
+
+#### Fixes
+- **Various bug fixes**: charm, ex-search, flex-search
+
+#### Download Links
+- [Windows Installer](https://github.com/idossha/TI-Toolbox/releases/download/v2.1.2/TI-Toolbox-Windows.exe)
+- [macOS Universal](https://github.com/idossha/TI-Toolbox/releases/download/v2.1.2/TemporalInterferenceToolbox-macOS-universal.zip)
+- [Linux AppImage](https://github.com/idossha/TI-Toolbox/releases/download/v2.1.2/TemporalInterferenceToolbox-Linux-x86_64.AppImage)
+
+For installation instructions, see the [Installation Guide]({ site.baseurl }/installation/).
 #### Additions
 - N/A
 

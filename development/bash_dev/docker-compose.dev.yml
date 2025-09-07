@@ -21,8 +21,8 @@ services:
 
   simnibs:
     platform: linux/amd64
-    image: idossha/simnibs:v2.1.1
-    # image: idossha/simnibs:v2.1.1
+    image: idossha/simnibs:v2.1.2
+    # image: idossha/simnibs:v2.1.2
     container_name: simnibs_container
     volumes:
       - ti-toolbox_fsl_data:/usr/local/fsl/
