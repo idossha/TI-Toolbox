@@ -7,6 +7,7 @@ import sys
 import time
 import numpy as np
 import logging
+import signal
 from itertools import product
 from simnibs import mesh_io
 from simnibs.utils import TI_utils as TI
@@ -57,15 +58,17 @@ def get_roi_coordinates(roi_file):
             print(f"{RED}Error reading coordinates from {roi_file}: {e}{RESET}")
         return None
 
-def generate_combinations(E1_plus, E1_minus, E2_plus, E2_minus):
-    """Generate all electrode pair combinations."""
-    logger.info("Generating all electrode pair combinations")
-    combinations = []
-    for e1p, e1m in product(E1_plus, E1_minus):
-        for e2p, e2m in product(E2_plus, E2_minus):
-            combinations.append(((e1p, e1m), (e2p, e2m)))
-    logger.info(f"Generated {len(combinations)} total combinations")
-    return combinations
+def get_memory_usage():
+    """Get current memory usage in MB."""
+    try:
+        import psutil
+        process = psutil.Process()
+        memory_info = process.memory_info()
+        return memory_info.rss / 1024 / 1024  # Convert to MB
+    except ImportError:
+        # Fallback if psutil is not available
+        import resource
+        return resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024  # Convert to MB
 
 def get_electrode_list(prompt):
     """Get user input for electrode lists with validation."""
@@ -105,9 +108,18 @@ def get_intensity(prompt):
         except ValueError:
             logger.error("Please enter a valid number for the intensity")
 
+def signal_handler(signum, frame):
+    """Handle termination signals gracefully."""
+    logger.warning(f"Received signal {signum}. Attempting graceful shutdown...")
+    sys.exit(1)
+
 def process_leadfield(leadfield_type, E1_plus, E1_minus, E2_plus, E2_minus, 
                      intensity, project_dir, subject_name):
     """Process leadfield with sequential execution (SimNIBS-compatible)."""
+    # Set up signal handlers for graceful termination
+    signal.signal(signal.SIGTERM, signal_handler)
+    signal.signal(signal.SIGINT, signal_handler)
+    
     logger.info(f"Starting TI simulation for {leadfield_type} leadfield")
     
     # Get leadfield path from environment variable (set by CLI script)
@@ -177,67 +189,209 @@ def process_leadfield(leadfield_type, E1_plus, E1_minus, E2_plus, E2_minus,
         logger.error(f"Failed to load leadfield: {e}")
         return
     
-    # Generate combinations for sequential processing
-    all_combinations = generate_combinations(E1_plus, E1_minus, E2_plus, E2_minus)
-    total_combinations = len(all_combinations)
+    # Calculate total combinations without generating all at once
+    total_combinations = len(E1_plus) * len(E1_minus) * len(E2_plus) * len(E2_minus)
     
     logger.info(f"Starting sequential TI simulations for {total_combinations} combinations")
     logger.info("Note: Using sequential processing for SimNIBS compatibility")
+    logger.info(f"Expected combinations: E1_plus({len(E1_plus)}) × E1_minus({len(E1_minus)}) × E2_plus({len(E2_plus)}) × E2_minus({len(E2_minus)}) = {total_combinations}")
     
-    # Process combinations sequentially with progress tracking
+    # Determine batch size based on available memory and combination count
+    # Use smaller batches for large combination sets to manage memory
+    if total_combinations <= 100:
+        initial_batch_size = total_combinations  # Process all at once for small sets
+    elif total_combinations <= 1000:
+        initial_batch_size = 50  # Medium batches for moderate sets
+    else:
+        initial_batch_size = 25  # Small batches for large sets
+    
+    # Check available memory and adjust batch size accordingly
+    try:
+        initial_memory = get_memory_usage()
+        logger.info(f"Initial memory usage: {initial_memory:.1f} MB")
+        
+        # If memory is already high, use smaller batches
+        if initial_memory > 8000:  # 8GB
+            initial_batch_size = max(10, initial_batch_size // 4)
+            logger.info("High memory usage detected, reducing batch size")
+        elif initial_memory > 4000:  # 4GB
+            initial_batch_size = max(15, initial_batch_size // 2)
+            logger.info("Moderate memory usage detected, reducing batch size")
+    except Exception:
+        logger.debug("Could not determine memory usage, using default batch size")
+    
+    batch_size = initial_batch_size
+    logger.info(f"Using batch processing with batch size: {batch_size}")
+    logger.info(f"Total batches needed: {(total_combinations + batch_size - 1) // batch_size}")
+    
+    # Process combinations in batches to manage memory
     start_time = time.time()
     completed_count = 0
     failed_count = 0
+    current_batch = 0
     
-    for i, ((e1p, e1m), (e2p, e2m)) in enumerate(all_combinations):
-        try:
-            logger.info(f"Processing combination {i+1}/{total_combinations}: {e1p}-{e1m} and {e2p}-{e2m}")
+    # Process combinations in batches using itertools.product directly
+    combination_generator = product(
+        product(E1_plus, E1_minus),
+        product(E2_plus, E2_minus)
+    )
+    
+    # Log first few combinations for verification
+    logger.info("First 5 combinations to be processed:")
+    temp_gen = product(product(E1_plus, E1_minus), product(E2_plus, E2_minus))
+    for i, ((e1p, e1m), (e2p, e2m)) in enumerate(temp_gen):
+        if i >= 5:
+            break
+        logger.info(f"  {i+1}: {e1p}-{e1m} and {e2p}-{e2m}")
+    if total_combinations > 5:
+        logger.info(f"  ... and {total_combinations - 5} more combinations")
+    
+    # Process combinations in memory-efficient batches
+    batch_combinations = []
+    global_index = 0
+    
+    for ((e1p, e1m), (e2p, e2m)) in combination_generator:
+        batch_combinations.append(((e1p, e1m), (e2p, e2m)))
+        global_index += 1
+        
+        # Process batch when it's full or we've reached the end
+        if len(batch_combinations) >= batch_size or global_index >= total_combinations:
+            current_batch += 1
+            batch_start_time = time.time()
             
-            # Create TI pairs
-            TIpair1 = [e1p, e1m, intensity]
-            TIpair2 = [e2p, e2m, intensity]
+            logger.info(f"Processing batch {current_batch}: combinations {global_index - len(batch_combinations) + 1} to {global_index}")
             
-            # Calculate fields
-            ef1 = TI.get_field(TIpair1, leadfield, idx_lf)
-            ef2 = TI.get_field(TIpair2, leadfield, idx_lf)
-            
-            # Calculate TI_max
-            TImax = TI.get_maxTI(ef1, ef2)
-            
-            # Create output mesh
-            mout = copy.deepcopy(mesh)
-            mout.add_element_field(TImax, "TImax")
-            
-            # Save mesh
-            mesh_filename = os.path.join(output_dir, f"TI_field_{e1p}_{e1m}_and_{e2p}_{e2m}.msh")
-            mesh_io.write_msh(mout, mesh_filename)
-            
-            # Create optimized view
+            # Log memory usage at batch start
             try:
-                v = mout.view(
-                    visible_tags=[1, 2, 1006],
-                    visible_fields="TImax",
-                )
-                v.write_opt(mesh_filename)
-            except Exception as view_error:
-                # Non-critical error - continue without optimized view
-                logger.warning(f"Could not create optimized view: {view_error}")
+                memory_mb = get_memory_usage()
+                logger.info(f"Batch {current_batch} starting memory usage: {memory_mb:.1f} MB")
+            except Exception:
+                pass
             
-            completed_count += 1
+            # Process current batch
+            for batch_index, ((e1p, e1m), (e2p, e2m)) in enumerate(batch_combinations):
+                combination_index = global_index - len(batch_combinations) + batch_index + 1
+                
+                try:
+                    logger.info(f"Processing combination {combination_index}/{total_combinations}: {e1p}-{e1m} and {e2p}-{e2m}")
+                    
+                    # Create TI pairs
+                    TIpair1 = [e1p, e1m, intensity]
+                    TIpair2 = [e2p, e2m, intensity]
+                    
+                    # Calculate fields with better error handling
+                    try:
+                        ef1 = TI.get_field(TIpair1, leadfield, idx_lf)
+                        ef2 = TI.get_field(TIpair2, leadfield, idx_lf)
+                    except Exception as field_error:
+                        logger.error(f"Field calculation failed for {e1p}_{e1m}_and_{e2p}_{e2m}: {field_error}")
+                        failed_count += 1
+                        continue
+                    
+                    # Calculate TI_max
+                    try:
+                        TImax = TI.get_maxTI(ef1, ef2)
+                    except Exception as ti_error:
+                        logger.error(f"TI calculation failed for {e1p}_{e1m}_and_{e2p}_{e2m}: {ti_error}")
+                        failed_count += 1
+                        continue
+                    
+                    # Create output mesh
+                    try:
+                        mout = copy.deepcopy(mesh)
+                        mout.add_element_field(TImax, "TImax")
+                    except Exception as mesh_error:
+                        logger.error(f"Mesh creation failed for {e1p}_{e1m}_and_{e2p}_{e2m}: {mesh_error}")
+                        failed_count += 1
+                        continue
+                    
+                    # Save mesh
+                    try:
+                        mesh_filename = os.path.join(output_dir, f"TI_field_{e1p}_{e1m}_and_{e2p}_{e2m}.msh")
+                        mesh_io.write_msh(mout, mesh_filename)
+                    except Exception as save_error:
+                        logger.error(f"Mesh save failed for {e1p}_{e1m}_and_{e2p}_{e2m}: {save_error}")
+                        failed_count += 1
+                        continue
+                    
+                    # Create optimized view
+                    try:
+                        v = mout.view(
+                            visible_tags=[1, 2, 1006],
+                            visible_fields="TImax",
+                        )
+                        v.write_opt(mesh_filename)
+                    except Exception as view_error:
+                        # Non-critical error - continue without optimized view
+                        logger.warning(f"Could not create optimized view for {e1p}_{e1m}_and_{e2p}_{e2m}: {view_error}")
+                    
+                    completed_count += 1
+                    
+                    # Progress tracking with ETA
+                    elapsed_time = time.time() - start_time
+                    avg_time = elapsed_time / completed_count
+                    eta_seconds = avg_time * (total_combinations - completed_count)
+                    eta_str = f"{eta_seconds/60:.1f}m" if eta_seconds > 60 else f"{eta_seconds:.1f}s"
+                    
+                    progress_str = f"{completed_count:03}/{total_combinations}"
+                    logger.info(f"Completed {progress_str} - {e1p}_{e1m}_and_{e2p}_{e2m} - ETA: {eta_str}")
+                    
+                    # Force garbage collection every 10 iterations to prevent memory issues
+                    if completed_count % 10 == 0:
+                        import gc
+                        gc.collect()
+                        logger.debug(f"Memory cleanup performed at iteration {completed_count}")
+                    
+                    # Checkpoint logging every 25 iterations
+                    if completed_count % 25 == 0:
+                        logger.info(f"CHECKPOINT: Successfully completed {completed_count}/{total_combinations} combinations ({completed_count/total_combinations*100:.1f}%)")
+                        logger.info(f"CHECKPOINT: Failed combinations so far: {failed_count}")
+                        logger.info(f"CHECKPOINT: Average time per combination: {avg_time:.2f} seconds")
+                    
+                    # Clean up large objects immediately after use
+                    del ef1, ef2, TImax, mout
+                    
+                except KeyboardInterrupt:
+                    logger.warning(f"Process interrupted by user at combination {combination_index}/{total_combinations}")
+                    break
+                except Exception as e:
+                    failed_count += 1
+                    logger.error(f"Unexpected error for {e1p}_{e1m}_and_{e2p}_{e2m}: {str(e)}")
+                    logger.error(f"Exception type: {type(e).__name__}")
+                    import traceback
+                    logger.error(f"Traceback: {traceback.format_exc()}")
+                    continue
             
-            # Progress tracking with ETA
-            elapsed_time = time.time() - start_time
-            avg_time = elapsed_time / completed_count
-            eta_seconds = avg_time * (total_combinations - completed_count)
-            eta_str = f"{eta_seconds/60:.1f}m" if eta_seconds > 60 else f"{eta_seconds:.1f}s"
+            # Clean up batch and force garbage collection
+            batch_time = time.time() - batch_start_time
+            logger.info(f"Batch {current_batch} completed in {batch_time:.1f} seconds")
+            logger.info(f"Batch {current_batch} stats: {len(batch_combinations)} combinations processed")
             
-            progress_str = f"{completed_count:03}/{total_combinations}"
-            logger.info(f"Completed {progress_str} - {e1p}_{e1m}_and_{e2p}_{e2m} - ETA: {eta_str}")
+            # Log memory usage before cleanup
+            try:
+                memory_before = get_memory_usage()
+                logger.debug(f"Batch {current_batch} memory before cleanup: {memory_before:.1f} MB")
+            except Exception:
+                pass
             
-        except Exception as e:
-            failed_count += 1
-            logger.error(f"Failed: {e1p}_{e1m}_and_{e2p}_{e2m} - Error: {str(e)}")
-            continue
+            # Clear batch memory and force garbage collection
+            del batch_combinations
+            import gc
+            gc.collect()
+            
+            # Log memory usage after cleanup
+            try:
+                memory_after = get_memory_usage()
+                logger.info(f"Batch {current_batch} memory after cleanup: {memory_after:.1f} MB")
+            except Exception:
+                pass
+            
+            # Reset batch for next iteration
+            batch_combinations = []
+    
+    # Log completion of the processing loop
+    logger.info(f"Processing loop completed. Processed {total_combinations} combinations in {current_batch} batches.")
+    logger.info(f"Final counts: Completed={completed_count}, Failed={failed_count}")
     
     # Summary
     total_time = time.time() - start_time
