@@ -8,7 +8,7 @@ __version__ = "2.1.2"
 # TI-Toolbox Core Information
 TI_CSC_INFO = {
     "version": "2.1.2",
-    "release_date": "September 07, 2025", 
+    "release_date": "September 08, 2025", 
     "build": "stable"
 }
 

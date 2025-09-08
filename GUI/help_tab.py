@@ -125,7 +125,7 @@ Project Directory/
 │   │       ├── flex-search/
 │   │       └── ex-search/
 │   └── ti-toolbox/                         <i>(TI-Toolbox analysis outputs)</i>
-│       ├── bone_analysis/                  <i>(Skull bone analysis results)</i>
+│       ├── tissue_analysis/                <i>(tissue analysis results)</i>
 │       ├── logs/                           <i>(Log files)</i>
 │       └── reports/                        <i>(Report files)</i>
 └── code/
