@@ -14,7 +14,7 @@ Complete changelog for all versions of the Temporal Interference Toolbox.
 **Release Date**: September 07, 2025
 
 #### Additions
-- **Example Dataset**: Toolbox now ships with Ernie MRI scans for quick start & learning purposes.
+- **Example Dataset**: Toolbox now ships with Ernie & MNI152 MRI scans for quick start & learning purposes.
 - **Tissue Analyzer**: Added skin thickness and volume analysis
 
 #### Fixes
