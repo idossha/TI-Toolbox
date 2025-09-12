@@ -16,7 +16,7 @@ workflows:
   version: 2
   build_runner_only:
     jobs:
-      - build-ci-runner
+      - run-ti-toolbox-tests
 
 jobs:
   run-ti-toolbox-tests:
