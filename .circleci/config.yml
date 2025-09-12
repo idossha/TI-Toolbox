@@ -1,5 +1,11 @@
 version: 2.1
 
+parameters:
+  use_dockerhub_images:
+    type: boolean
+    default: true
+    description: "Pull pre-built images from DockerHub instead of building locally"
+
 executors:
   vm-docker:
     machine:
@@ -32,14 +38,29 @@ jobs:
             sudo systemctl start docker || true
             docker info
 
-      # Build your 4 component images from the four Dockerfiles you already have
+      # Build or pull your 4 component images
       - run:
-          name: Build component images
+          name: Build or pull component images
           command: |
-            DOCKER_BUILDKIT=1 docker build -f development/blueprint/Dockerfile.simnibs          -t simnibs:ci          .
-            DOCKER_BUILDKIT=1 docker build -f development/blueprint/Dockerfile.fsl              -t fsl:ci              .
-            DOCKER_BUILDKIT=1 docker build -f development/blueprint/Dockerfile.freesurfer       -t freesurfer:ci       .
-            DOCKER_BUILDKIT=1 docker build -f development/blueprint/Dockerfile.matlab.deprecated -t matlab-runtime:ci  .
+            if [ "<< pipeline.parameters.use_dockerhub_images >>" = "true" ]; then
+              echo "Pulling pre-built images from DockerHub..."
+              docker pull idossha/simnibss:ci || echo "Warning: simnibs:ci not found on DockerHub, building locally"
+              docker pull idossha/ti-toolbox_fsl:ci || echo "Warning: fsl:ci not found on DockerHub, building locally"
+              docker pull idossha/ti-toolbox_freesurfer:ci || echo "Warning: freesurfer:ci not found on DockerHub, building locally"
+              docker pull idossha/matlab:ci || echo "Warning: matlab-runtime:ci not found on DockerHub, building locally"
+              
+              # Tag pulled images with local names for consistency
+              docker tag idossha/simnibs:ci simnibs:ci 2>/dev/null || true
+              docker tag idossha/ti-toolbox_fsl:ci fsl:ci 2>/dev/null || true
+              docker tag idossha/ti-toolbox_freesurfer:ci freesurfer:ci 2>/dev/null || true
+              docker tag idossha/matlab:ci matlab-runtime:ci 2>/dev/null || true
+            else
+              echo "Building component images locally..."
+              DOCKER_BUILDKIT=1 docker build -f development/blueprint/Dockerfile.simnibs          -t simnibs:ci          .
+              DOCKER_BUILDKIT=1 docker build -f development/blueprint/Dockerfile.fsl              -t fsl:ci              .
+              DOCKER_BUILDKIT=1 docker build -f development/blueprint/Dockerfile.freesurfer       -t freesurfer:ci       .
+              DOCKER_BUILDKIT=1 docker build -f development/blueprint/Dockerfile.matlab.deprecated -t matlab-runtime:ci  .
+            fi
 
       # Assemble the final “ci-runner” image from the prebuilt stage images
       - run:
