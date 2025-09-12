@@ -51,8 +51,8 @@ jobs:
               
               # Tag pulled images with local names for consistency
               docker tag idossha/simnibs:v2.1.2 simnibs:ci 2>/dev/null || true
-              docker tag idossha/ti-toolbox_fsl:v1.3.0 fsl:ci 2>/dev/null || true
-              docker tag idossha/ti-toolbox_freesurfer:v1.3.0 freesurfer:ci 2>/dev/null || true
+              docker tag idossha/ti-toolbox_fsl:v6.0.7.18 fsl:ci 2>/dev/null || true
+              docker tag idossha/ti-toolbox_freesurfer:v7.4.1 freesurfer:ci 2>/dev/null || true
               docker tag idossha/matlab:20th matlab-runtime:ci 2>/dev/null || true
             else
               echo "Building component images locally..."
