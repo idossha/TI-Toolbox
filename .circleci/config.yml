@@ -44,16 +44,16 @@ jobs:
           command: |
             if [ "<< pipeline.parameters.use_dockerhub_images >>" = "true" ]; then
               echo "Pulling pre-built images from DockerHub..."
-              docker pull idossha/simnibss:ci || echo "Warning: simnibs:ci not found on DockerHub, building locally"
-              docker pull idossha/ti-toolbox_fsl:ci || echo "Warning: fsl:ci not found on DockerHub, building locally"
-              docker pull idossha/ti-toolbox_freesurfer:ci || echo "Warning: freesurfer:ci not found on DockerHub, building locally"
-              docker pull idossha/matlab:ci || echo "Warning: matlab-runtime:ci not found on DockerHub, building locally"
+              docker pull idossha/simnibs || echo "Warning: simnibs:ci not found on DockerHub, building locally"
+              docker pull idossha/ti-toolbox_fsl || echo "Warning: fsl:ci not found on DockerHub, building locally"
+              docker pull idossha/ti-toolbox_freesurfer || echo "Warning: freesurfer:ci not found on DockerHub, building locally"
+              docker pull idossha/matlab || echo "Warning: matlab-runtime:ci not found on DockerHub, building locally"
               
               # Tag pulled images with local names for consistency
-              docker tag idossha/simnibs:ci simnibs:ci 2>/dev/null || true
-              docker tag idossha/ti-toolbox_fsl:ci fsl:ci 2>/dev/null || true
-              docker tag idossha/ti-toolbox_freesurfer:ci freesurfer:ci 2>/dev/null || true
-              docker tag idossha/matlab:ci matlab-runtime:ci 2>/dev/null || true
+              docker tag idossha/simnibs:ci simnibs 2>/dev/null || true
+              docker tag idossha/ti-toolbox_fsl fsl:ci 2>/dev/null || true
+              docker tag idossha/ti-toolbox_freesurfer freesurfer:ci 2>/dev/null || true
+              docker tag idossha/matlab matlab-runtime:ci 2>/dev/null || true
             else
               echo "Building component images locally..."
               DOCKER_BUILDKIT=1 docker build -f development/blueprint/Dockerfile.simnibs          -t simnibs:ci          .
