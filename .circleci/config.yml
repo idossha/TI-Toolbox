@@ -45,8 +45,8 @@ jobs:
             if [ "<< pipeline.parameters.use_dockerhub_images >>" = "true" ]; then
               echo "Pulling pre-built images from DockerHub..."
               docker pull idossha/simnibs:v2.1.2 || echo "Warning: simnibs:v2.1.2 not found on DockerHub, building locally"
-              docker pull idossha/ti-toolbox_fsl:v1.3.0 || echo "Warning: ti-toolbox_fsl:v1.3.0 not found on DockerHub, building locally"
-              docker pull idossha/ti-toolbox_freesurfer:v1.3.0 || echo "Warning: ti-toolbox_freesurfer:v1.3.0 not found on DockerHub, building locally"
+              docker pull idossha/ti-toolbox_fsl:v6.0.7.18 || echo "Warning: ti-toolbox_fsl:v1.3.0 not found on DockerHub, building locally"
+              docker pull idossha/ti-toolbox_freesurfer:v7.4.1 || echo "Warning: ti-toolbox_freesurfer:v1.3.0 not found on DockerHub, building locally"
               docker pull idossha/matlab:20th || echo "Warning: matlab:20th not found on DockerHub, building locally"
               
               # Tag pulled images with local names for consistency
