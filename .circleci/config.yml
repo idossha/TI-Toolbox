@@ -91,7 +91,7 @@ jobs:
       - run:
           name: Run analyzer tests
           command: |
-            docker run --rm -it ci-runner:latest python pytest -v -s tests/test_analyzer.py
+            docker run --rm -it ci-runner:latest pytest -v -s tests/test_analyzer.py
 
       - run:
           name: Prune Docker
