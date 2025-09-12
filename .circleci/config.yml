@@ -19,7 +19,7 @@ workflows:
       - build-ci-runner
 
 jobs:
-  build-ci-runner:
+  run-ti-toolbox-tests:
     executor: vm-docker
     environment:
       DOCKER_BUILDKIT: "1"
@@ -87,6 +87,11 @@ jobs:
           command: |
             docker images ci-runner:latest
             docker history ci-runner:latest || true
+
+      - run:
+          name: Run analyzer tests
+          command: |
+            docker run --rm -it ci-runner:latest python pytest -v -s tests/test_analyzer.py
 
       - run:
           name: Prune Docker

@@ -15,6 +15,9 @@ RUN apt-get update && apt-get install -y \
     jq curl unzip wget git dos2unix ca-certificates \
  && apt-get clean && rm -rf /var/lib/apt/lists/*
 
+# Install pytest
+RUN pip install pytest
+
 # --- Pull payloads from the four component images ---
 # FSL
 ENV FSLDIR=/usr/local/fsl
@@ -43,5 +46,9 @@ ENV LD_LIBRARY_PATH="${MATLAB_RUNTIME_INSTALL_DIR}/v99/runtime/glnxa64:${MATLAB_
 # Xvfb convenience env (we’ll use :99 in CI)
 ENV DISPLAY=:99
 
+# TI-Toolbox
+COPY --from=simnibs /ti-toolbox /ti-toolbox
+ENV PATH="$PATH:/ti-toolbox/CLI"
+
 # (optional) create a non-root user, set workdir, copy repo, etc., or keep minimal
-WORKDIR /workspace
+WORKDIR /ti-toolbox
