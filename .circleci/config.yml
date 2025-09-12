@@ -36,16 +36,16 @@ jobs:
       - run:
           name: Build component images
           command: |
-            DOCKER_BUILDKIT=1 docker build -f Dockerfile.simnibs          -t simnibs:ci          .
-            DOCKER_BUILDKIT=1 docker build -f Dockerfile.fsl              -t fsl:ci              .
-            DOCKER_BUILDKIT=1 docker build -f Dockerfile.freesurfer       -t freesurfer:ci       .
-            DOCKER_BUILDKIT=1 docker build -f Dockerfile.matlab.deprecated -t matlab-runtime:ci  .
+            DOCKER_BUILDKIT=1 docker build -f development/blueprint/Dockerfile.simnibs          -t simnibs:ci          .
+            DOCKER_BUILDKIT=1 docker build -f development/blueprint/Dockerfile.fsl              -t fsl:ci              .
+            DOCKER_BUILDKIT=1 docker build -f development/blueprint/Dockerfile.freesurfer       -t freesurfer:ci       .
+            DOCKER_BUILDKIT=1 docker build -f development/blueprint/Dockerfile.matlab.deprecated -t matlab-runtime:ci  .
 
       # Assemble the final “ci-runner” image from the prebuilt stage images
       - run:
           name: Build final ci-runner image
           command: |
-            DOCKER_BUILDKIT=1 docker build -f Dockerfile.ci -t ci-runner:latest .
+            DOCKER_BUILDKIT=1 docker build -f development/blueprint/Dockerfile.ci -t ci-runner:latest .
 
       # Xvfb smoke check (no tests yet)
       - run:
