@@ -1,31 +1,73 @@
-# Use the latest 2.1 version of CircleCI pipeline process engine.
-# See: https://circleci.com/docs/reference/configuration-reference
 version: 2.1
 
-# Define a job to be invoked later in a workflow.
-# See: https://circleci.com/docs/guides/orchestrate/jobs-steps/#jobs-overview & https://circleci.com/docs/reference/configuration-reference/#jobs
-jobs:
-  say-hello:
-    # Specify the execution environment. You can specify an image from Docker Hub or use one of our convenience images from CircleCI's Developer Hub.
-    # See: https://circleci.com/docs/guides/execution-managed/executor-intro/ & https://circleci.com/docs/reference/configuration-reference/#executor-job
-    docker:
-      # Specify the version you desire here
-      # See: https://circleci.com/developer/images/image/cimg/base
-      - image: cimg/base:current
+executors:
+  vm-docker:
+    machine:
+      image: ubuntu-2204:current
+      docker_layer_caching: false
 
-    # Add steps to the job
-    # See: https://circleci.com/docs/guides/orchestrate/jobs-steps/#steps-overview & https://circleci.com/docs/reference/configuration-reference/#steps
-    steps:
-      # Checkout the code as the first step.
-      - checkout
-      - run:
-          name: "Say hello"
-          command: "echo Hello, World!"
-
-# Orchestrate jobs using workflows
-# See: https://circleci.com/docs/guides/orchestrate/workflows/ & https://circleci.com/docs/reference/configuration-reference/#workflows
 workflows:
-  say-hello-workflow: # This is the name of the workflow, feel free to change it to better match your workflow.
-    # Inside the workflow, you define the jobs you want to run.
+  version: 2
+  build_runner_only:
     jobs:
-      - say-hello
+      - build-ci-runner
+
+jobs:
+  build-ci-runner:
+    executor: vm-docker
+    environment:
+      DOCKER_BUILDKIT: "1"
+    steps:
+      - checkout
+
+      - run:
+          name: Free disk space
+          command: |
+            sudo rm -rf /usr/local/lib/android /opt/google || true
+            docker system prune -af --volumes || true
+
+      - run:
+          name: Ensure Docker is running
+          command: |
+            sudo systemctl start docker || true
+            docker info
+
+      # Build your 4 component images from the four Dockerfiles you already have
+      - run:
+          name: Build component images
+          command: |
+            DOCKER_BUILDKIT=1 docker build -f Dockerfile.simnibs          -t simnibs:ci          .
+            DOCKER_BUILDKIT=1 docker build -f Dockerfile.fsl              -t fsl:ci              .
+            DOCKER_BUILDKIT=1 docker build -f Dockerfile.freesurfer       -t freesurfer:ci       .
+            DOCKER_BUILDKIT=1 docker build -f Dockerfile.matlab.deprecated -t matlab-runtime:ci  .
+
+      # Assemble the final “ci-runner” image from the prebuilt stage images
+      - run:
+          name: Build final ci-runner image
+          command: |
+            DOCKER_BUILDKIT=1 docker build -f Dockerfile.ci -t ci-runner:latest .
+
+      # Xvfb smoke check (no tests yet)
+      - run:
+          name: Verify Xvfb in ci-runner
+          command: |
+            docker run --rm --entrypoint bash ci-runner:latest -lc '
+              set -euo pipefail
+              Xvfb :99 -screen 0 1280x1024x24 -nolisten tcp & pid=$!
+              for i in {1..10}; do xdpyinfo -display :99 >/dev/null 2>&1 && break || sleep 0.5; done
+              xdpyinfo -display :99 >/dev/null
+              echo "✅ Xvfb up on :99"
+              kill $pid || true
+            '
+
+      # Optional: report size & layers
+      - run:
+          name: Image size
+          command: |
+            docker images ci-runner:latest
+            docker history ci-runner:latest || true
+
+      - run:
+          name: Prune Docker
+          when: always
+          command: docker system prune -af --volumes || true
