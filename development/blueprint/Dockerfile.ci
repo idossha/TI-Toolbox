@@ -9,7 +9,7 @@ FROM ubuntu:20.04
 
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y \
-    xvfb xauth x11-apps mesa-utils \
+    xvfb xauth x11-apps x11-utils mesa-utils \
     libgl1-mesa-glx libglu1-mesa libosmesa6 \
     python3 python3-pip \
     jq curl unzip wget git dos2unix ca-certificates \
