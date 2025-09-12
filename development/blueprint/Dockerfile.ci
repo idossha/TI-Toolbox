@@ -24,8 +24,8 @@ ENV PATH="$FSLDIR/bin:$PATH"
 COPY --from=fsl /etc/profile.d /etc/profile.d
 
 # SimNIBS
-ENV SIMNIBSDIR=/root/SimNIBS-4.1
-COPY --from=simnibs /root/SimNIBS-4.1 /root/SimNIBS-4.1
+ENV SIMNIBSDIR=/root/SimNIBS-4.5
+COPY --from=simnibs /root/SimNIBS-4.5 /root/SimNIBS-4.5
 ENV PATH="$SIMNIBSDIR/bin:$PATH"
 
 # FreeSurfer (needs license at runtime/build)
