@@ -46,8 +46,8 @@ ENV LD_LIBRARY_PATH="${MATLAB_RUNTIME_INSTALL_DIR}/v99/runtime/glnxa64:${MATLAB_
 # Xvfb convenience env (we’ll use :99 in CI)
 ENV DISPLAY=:99
 
-# TI-Toolbox
-COPY --from=simnibs /ti-toolbox /ti-toolbox
+# TI-Toolbox - Copy from checked-out code instead of simnibs image
+COPY . /ti-toolbox
 ENV PATH="$PATH:/ti-toolbox/CLI"
 
 # (optional) create a non-root user, set workdir, copy repo, etc., or keep minimal
