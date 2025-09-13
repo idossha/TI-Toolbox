@@ -22,11 +22,10 @@ from unittest.mock import Mock, patch, MagicMock, call
 from io import StringIO
 
 # Add project root to path
-project_root = str(Path(__file__).parent.parent.parent)
+project_root = str(Path(__file__).resolve().parent.parent)
 sys.path.insert(0, project_root)
 
 # Mock the analyzer modules before importing main_analyzer
-import sys
 from unittest.mock import MagicMock
 
 # Create mock modules for the analyzer dependencies
