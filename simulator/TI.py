@@ -3,10 +3,19 @@ import sys
 import json
 from copy import deepcopy
 import numpy as np
-from simnibs import mesh_io, run_simnibs, sim_struct
-from simnibs.utils import TI_utils as TI
 from datetime import datetime
 import time
+
+# Import external dependencies with error handling
+try:
+    from simnibs import mesh_io, run_simnibs, sim_struct
+    from simnibs.utils import TI_utils as TI
+except ImportError:
+    mesh_io = None
+    run_simnibs = None
+    sim_struct = None
+    TI = None
+    print("Warning: simnibs not available. TI simulation functionality will be limited.")
 
 ###########################################
 
@@ -39,6 +48,11 @@ import time
 # Add logging utility import
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 from utils import logging_util
+
+# Check if simnibs is available
+if mesh_io is None or run_simnibs is None or sim_struct is None or TI is None:
+    print("Error: simnibs is required for TI simulation but is not installed")
+    sys.exit(1)
 
 # Get subject ID, simulation type, and montages from command-line arguments
 subject_id = sys.argv[1]

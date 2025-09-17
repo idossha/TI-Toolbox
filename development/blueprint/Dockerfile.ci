@@ -15,8 +15,9 @@ RUN apt-get update && apt-get install -y \
     jq curl unzip wget git dos2unix ca-certificates \
  && apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# Install pytest
+# Install pytest and BATS
 RUN pip install pytest
+RUN apt-get update && apt-get install -y bats && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # --- Pull payloads from the four component images ---
 # FSL

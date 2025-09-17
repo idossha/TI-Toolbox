@@ -13,8 +13,15 @@ from pathlib import Path
 # Add the parent directory to the path to access utils
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
-from simnibs import opt_struct, mni2subject_coords
-from simnibs.mesh_tools.mesh_io import ElementTags
+# Import external dependencies with error handling
+try:
+    from simnibs import opt_struct, mni2subject_coords
+    from simnibs.mesh_tools.mesh_io import ElementTags
+except ImportError:
+    opt_struct = None
+    mni2subject_coords = None
+    ElementTags = None
+    print("Warning: simnibs not available. Flex-search functionality will be limited.")
 from utils.logging_util import get_logger, configure_external_loggers
 from env_utils import apply_common_env_fixes
 
@@ -802,6 +809,11 @@ def _roi_subcortical(opt: opt_struct.TesFlexOptimization, args: argparse.Namespa
 # -----------------------------------------------------------------------------
 
 def main() -> int:
+    # Check if simnibs is available
+    if opt_struct is None or mni2subject_coords is None or ElementTags is None:
+        print("Error: simnibs is required for flex-search optimization but is not installed")
+        sys.exit(1)
+    
     apply_common_env_fixes()
     args = parse_arguments()
     

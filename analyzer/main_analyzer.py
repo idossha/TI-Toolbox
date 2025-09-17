@@ -76,6 +76,18 @@ SUMMARY_MODE = False
 _start_times = {}
 _analysis_start_time = None
 
+# Initialize a default logger for module-level functions
+import logging
+logger = logging.getLogger('analyzer')
+logger.setLevel(logging.DEBUG)
+if not logger.handlers:
+    # Add a console handler if no handlers exist
+    handler = logging.StreamHandler()
+    handler.setLevel(logging.DEBUG)
+    formatter = logging.Formatter('%(name)s - %(levelname)s - %(message)s')
+    handler.setFormatter(formatter)
+    logger.addHandler(handler)
+
 # Force unbuffered output for real-time GUI updates
 try:
     # Try to reconfigure for line buffering if available (Python 3.7+)
@@ -113,6 +125,10 @@ def flush_output():
     """Force flush stdout and stderr for real-time GUI updates."""
     try:
         sys.stdout.flush()
+    except:
+        pass
+    
+    try:
         sys.stderr.flush()
     except:
         pass
@@ -247,7 +263,7 @@ def validate_file_extension(file_path, valid_extensions):
     """Validate file extension against a list of valid extensions."""
     # Handle double extensions like .nii.gz
     path = Path(file_path)
-    if path.name.endswith('.nii.gz'):
+    if path.name.lower().endswith('.nii.gz'):
         ext = '.nii.gz'
     else:
         ext = path.suffix.lower()
@@ -261,7 +277,7 @@ def validate_coordinates(coords):
         raise ValueError("Coordinates must be exactly three values (x, y, z)")
     try:
         return [float(c) for c in coords]
-    except ValueError:
+    except (ValueError, TypeError):
         raise ValueError("Coordinates must be numeric values")
 
 def validate_radius(radius):
@@ -271,7 +287,7 @@ def validate_radius(radius):
         if radius_float <= 0:
             raise ValueError
         return radius_float
-    except ValueError:
+    except (ValueError, TypeError):
         raise ValueError("Radius must be a positive number")
 
 def construct_mesh_field_path(m2m_subject_path, montage_name):
@@ -475,7 +491,6 @@ def main():
     
     try:
         # Initialize logger after creating output directory
-        global logger
         time_stamp = time.strftime('%Y%m%d_%H%M%S')
         
         # Extract subject ID from m2m_subject_path (e.g., m2m_subject -> subject)
@@ -487,6 +502,7 @@ def main():
             SUMMARY_MODE = True
         
         # Set up logging - use centralized log file if provided, otherwise use subject-specific
+        global logger
         if args.log_file:
             # Use centralized log file for group analysis
             logger = logging_util.get_logger('analyzer', args.log_file, overwrite=False)

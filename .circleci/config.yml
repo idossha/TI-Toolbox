@@ -95,6 +95,21 @@ jobs:
             docker run --rm -it ci-runner:latest ls -la /
             docker run --rm -it ci-runner:latest ls -la tests 
             docker run --rm -it ci-runner:latest pytest -v -s tests/test_analyzer.py
+            docker run --rm -it ci-runner:latest pytest -v -s tests/test_mesh_analyzer.py
+            docker run --rm -it ci-runner:latest pytest -v -s tests/test_voxel_analyzer.py
+            docker run --rm -it ci-runner:latest pytest -v -s tests/test_group_analyzer.py
+            docker run --rm -it ci-runner:latest pytest -v -s tests/test_visualizer.py
+
+      - run:
+          name: Run simulator tests
+          command: |
+            docker run --rm -it ci-runner:latest pytest -v -s tests/test_ti_simulator.py
+            docker run --rm -it ci-runner:latest pytest -v -s tests/test_mti_simulator.py
+        
+      - run:
+          name: Run flex-search tests
+          command: |
+            docker run --rm -it ci-runner:latest pytest -v -s tests/test_flex_search.py
 
       - run:
           name: Prune Docker
