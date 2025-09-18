@@ -83,12 +83,12 @@ except ImportError:
 
 # Import our comparison functions
 try:
-    from .compare_analyses import run_all_group_comparisons, _extract_project_name, setup_group_logger
+    # Try absolute import first (for testing)
+    from compare_analyses import run_all_group_comparisons, _extract_project_name, setup_group_logger
 except ImportError:
     try:
-        # Fallback for direct execution
-        sys.path.insert(0, os.path.dirname(__file__))
-        from compare_analyses import run_all_group_comparisons, _extract_project_name, setup_group_logger
+        # Fallback for relative import (for package usage)
+        from .compare_analyses import run_all_group_comparisons, _extract_project_name, setup_group_logger
     except ImportError:
         # If compare_analyses is not available, create dummy functions
         print("Warning: compare_analyses not available. Group comparison functionality will be limited.")
@@ -101,7 +101,7 @@ except ImportError:
             """Dummy function when compare_analyses is not available."""
             return "unknown_project"
         
-        def setup_group_logger(project_name):
+        def setup_group_logger(output_dir, project_name):
             """Dummy function when compare_analyses is not available."""
             return None
 

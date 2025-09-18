@@ -26,7 +26,16 @@ import argparse
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'analyzer'))
 
 # Import the module under test
-import group_analyzer
+try:
+    import group_analyzer
+except ImportError as e:
+    # If relative imports fail, try absolute import
+    import sys
+    import os
+    analyzer_path = os.path.join(os.path.dirname(__file__), '..', 'analyzer')
+    if analyzer_path not in sys.path:
+        sys.path.insert(0, analyzer_path)
+    import group_analyzer
 
 
 class TestUtilityFunctions:
