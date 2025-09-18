@@ -393,9 +393,10 @@ class TestCommandBuilding:
         
         with patch('group_analyzer.group_logger', None), \
              patch('group_analyzer.mni2subject_coords', None), \
-             patch('pathlib.Path') as mock_path:
+             patch('group_analyzer.Path') as mock_path:
             mock_path.return_value.parent = Path('/path/to/analyzer')
             mock_path.return_value.__truediv__ = lambda self, other: Path(f'/path/to/analyzer/{other}')
+            mock_path.return_value.parts = ('/path/to/Simulations/montage1/TI/mesh/field.msh').split('/')
             
             cmd = group_analyzer.build_main_analyzer_command(args, subject_args, subject_output_dir)
             
@@ -432,9 +433,10 @@ class TestCommandBuilding:
         subject_output_dir = '/path/to/output'
         
         with patch('group_analyzer.group_logger', None), \
-             patch('pathlib.Path') as mock_path:
+             patch('group_analyzer.Path') as mock_path:
             mock_path.return_value.parent = Path('/path/to/analyzer')
             mock_path.return_value.__truediv__ = lambda self, other: Path(f'/path/to/analyzer/{other}')
+            mock_path.return_value.parts = ('/path/to/Simulations/montage1/TI/voxel/field.nii.gz').split('/')
             
             cmd = group_analyzer.build_main_analyzer_command(args, subject_args, subject_output_dir)
             
@@ -463,9 +465,10 @@ class TestCommandBuilding:
         
         with patch('group_analyzer.group_logger', None), \
              patch('group_analyzer.mni2subject_coords', mock_mni2subject_coords), \
-             patch('pathlib.Path') as mock_path:
+             patch('group_analyzer.Path') as mock_path:
             mock_path.return_value.parent = Path('/path/to/analyzer')
             mock_path.return_value.__truediv__ = lambda self, other: Path(f'/path/to/analyzer/{other}')
+            mock_path.return_value.parts = ('/path/to/Simulations/montage1/TI/mesh/field.msh').split('/')
             
             cmd = group_analyzer.build_main_analyzer_command(args, subject_args, subject_output_dir)
             
@@ -494,9 +497,10 @@ class TestCommandBuilding:
         
         with patch('group_analyzer.group_logger', mock_logger), \
              patch('group_analyzer.mni2subject_coords', mock_mni2subject_coords), \
-             patch('pathlib.Path') as mock_path:
+             patch('group_analyzer.Path') as mock_path:
             mock_path.return_value.parent = Path('/path/to/analyzer')
             mock_path.return_value.__truediv__ = lambda self, other: Path(f'/path/to/analyzer/{other}')
+            mock_path.return_value.parts = ('/path/to/Simulations/montage1/TI/mesh/field.msh').split('/')
             
             with pytest.raises(RuntimeError, match="Failed to transform MNI coordinates for subject subj001"):
                 group_analyzer.build_main_analyzer_command(args, subject_args, subject_output_dir)
@@ -682,7 +686,7 @@ class TestGroupSubfolderName:
         
         first_subject_args = ['subj001', '/path/to/m2m', '/path/to/Simulations/montage1/TI/mesh/field.msh']
         
-        with patch('pathlib.Path') as mock_path:
+        with patch('group_analyzer.Path') as mock_path:
             mock_path.return_value.parts = ('/path/to/Simulations/montage1/TI/mesh/field.msh').split('/')
             
             result = group_analyzer.determine_group_subfolder_name(args, first_subject_args)
@@ -699,7 +703,7 @@ class TestGroupSubfolderName:
         
         first_subject_args = ['subj001', '/path/to/m2m', '/path/to/Simulations/montage1/TI/mesh/field.msh']
         
-        with patch('pathlib.Path') as mock_path:
+        with patch('group_analyzer.Path') as mock_path:
             mock_path.return_value.parts = ('/path/to/Simulations/montage1/TI/mesh/field.msh').split('/')
             
             result = group_analyzer.determine_group_subfolder_name(args, first_subject_args)
@@ -716,7 +720,7 @@ class TestGroupSubfolderName:
         
         first_subject_args = ['subj001', '/path/to/m2m', '/path/to/Simulations/montage1/TI/voxel/field.nii.gz', '/path/to/atlas.nii.gz']
         
-        with patch('pathlib.Path') as mock_path:
+        with patch('group_analyzer.Path') as mock_path:
             mock_path.return_value.parts = ('/path/to/Simulations/montage1/TI/voxel/field.nii.gz').split('/')
             
             result = group_analyzer.determine_group_subfolder_name(args, first_subject_args)
@@ -731,7 +735,7 @@ class TestGroupSubfolderName:
         
         first_subject_args = ['subj001', '/path/to/m2m', '/path/to/field_TI.msh']
         
-        with patch('pathlib.Path') as mock_path:
+        with patch('group_analyzer.Path') as mock_path:
             mock_path.return_value.parts = ('/path/to/field_TI.msh').split('/')
             mock_path.return_value.stem = 'field_TI'
             
