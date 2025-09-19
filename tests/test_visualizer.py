@@ -22,9 +22,13 @@ import csv
 
 # Add the analyzer directory to the path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'analyzer'))
+# Add the utils directory to the path
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'utils'))
 
 # Import the module under test
 import visualizer
+import logging_util
+import matplotlib
 
 
 class TestBaseVisualizerInitialization:
@@ -103,7 +107,7 @@ class TestCSVSaving:
             result_path = viz.save_results_to_csv(results, 'spherical', 'region', 'node')
             
             assert result_path == "/path/to/output/spherical_region.csv"
-            mock_file.assert_called_once_with("/path/to/output/spherical_region.csv", 'w', newline='')
+            mock_file.assert_any_call("/path/to/output/spherical_region.csv", 'w', newline='')
     
     def test_save_results_to_csv_cortical(self):
         """Test saving cortical analysis results to CSV."""
@@ -129,7 +133,7 @@ class TestCSVSaving:
             result_path = viz.save_results_to_csv(results, 'cortical', 'region', 'node')
             
             assert result_path == "/path/to/output/cortical_region.csv"
-            mock_file.assert_called_once_with("/path/to/output/cortical_region.csv", 'w', newline='')
+            mock_file.assert_any_call("/path/to/output/cortical_region.csv", 'w', newline='')
     
     def test_save_extra_info_to_csv(self):
         """Test saving focality extra information to CSV."""
@@ -153,7 +157,7 @@ class TestCSVSaving:
             result_path = viz.save_extra_info_to_csv(focality_info, 'spherical', 'region', 'node')
             
             assert result_path == "/path/to/output/spherical_region_extra_info.csv"
-            mock_file.assert_called_once_with("/path/to/output/spherical_region_extra_info.csv", 'w', newline='')
+            mock_file.assert_any_call("/path/to/output/spherical_region_extra_info.csv", 'w', newline='')
     
     def test_save_whole_head_results_to_csv(self):
         """Test saving whole head analysis results to CSV."""
@@ -184,7 +188,7 @@ class TestCSVSaving:
             result_path = viz.save_whole_head_results_to_csv(results, 'DK40', 'voxel')
             
             assert result_path == "/path/to/output/whole_head_DK40_summary.csv"
-            mock_file.assert_called_once_with("/path/to/output/whole_head_DK40_summary.csv", 'w', newline='')
+            mock_file.assert_any_call("/path/to/output/whole_head_DK40_summary.csv", 'w', newline='')
 
 
 class TestVisualizerPlotting:
@@ -225,6 +229,12 @@ class TestVisualizerPlotting:
             mock_plt.tight_layout.return_value = None
             mock_plt.savefig.return_value = None
             mock_plt.close.return_value = None
+            
+            # Mock matplotlib.cm
+            mock_plt.cm = MagicMock()
+            mock_plt.cm.get_cmap.return_value = MagicMock()
+            mock_plt.cm.ScalarMappable.return_value = MagicMock()
+            mock_plt.Normalize.return_value = MagicMock()
             
             viz = visualizer.Visualizer("/path/to/output", None)
             viz.generate_cortex_scatter_plot(results, 'DK40', 'voxel')

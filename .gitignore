@@ -44,3 +44,4 @@ development/**/dist/
 development/**/build/
 development/bash_dev/.default_paths.dev
 example_data/*
+assets/example_data/*
