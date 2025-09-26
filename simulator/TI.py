@@ -284,7 +284,8 @@ def run_simulation(montage_name, montage, is_xyz=False, eeg_net=None):
     run_simnibs(S)
     logger.info("SimNIBS simulation completed")
 
-    subject_identifier = base_subpath.split('_')[-1]
+    # Use the provided subject_id directly to preserve underscores (e.g., 'ernie_extended')
+    subject_identifier = subject_id
     anisotropy_type = S.anisotropy_type
 
     m1_file = os.path.join(S.pathfem, f"{subject_identifier}_TDCS_1_{anisotropy_type}.msh")

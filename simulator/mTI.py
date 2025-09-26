@@ -245,7 +245,8 @@ def run_simulation(montage_name, electrode_pairs, output_dir):
     run_simnibs(S)
     logger.info("SimNIBS multipolar simulation completed")
 
-    subject_identifier = base_subpath.split('_')[-1]
+    # Use the provided subject_id directly to preserve underscores (e.g., 'ernie_extended')
+    subject_identifier = subject_id
     anisotropy_type = S.anisotropy_type
 
     # Load the 4 high-frequency mesh files

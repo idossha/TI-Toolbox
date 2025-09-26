@@ -57,3 +57,10 @@ ENV PATH="$PATH:/ti-toolbox/CLI"
 
 # (optional) create a non-root user, set workdir, copy repo, etc., or keep minimal
 WORKDIR /ti-toolbox
+
+# Set environment variables for test project
+ENV PROJECT_DIR_NAME=test_projectdir
+ENV LOCAL_PROJECT_DIR=/mnt/test_projectdir
+
+# Prepare test project directory and fetch ErnieExtended data
+RUN bash /ti-toolbox/tests/setup_test_projectdir.sh

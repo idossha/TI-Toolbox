@@ -292,8 +292,9 @@ def validate_radius(radius):
 
 def construct_mesh_field_path(m2m_subject_path, montage_name):
     """Construct the mesh field path using the exact montage directory name provided."""
-    # Extract subject ID from m2m_subject_path
-    subject_id = os.path.basename(m2m_subject_path).split('_')[1] if '_' in os.path.basename(m2m_subject_path) else os.path.basename(m2m_subject_path)
+    # Extract subject ID from m2m_subject_path, preserving underscores (e.g., m2m_ernie_extended -> ernie_extended)
+    base_name = os.path.basename(m2m_subject_path)
+    subject_id = base_name[4:] if base_name.startswith('m2m_') else base_name
     
     # Navigate up to find the project directory
     project_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(m2m_subject_path))))
@@ -348,6 +349,12 @@ def construct_mesh_field_path(m2m_subject_path, montage_name):
         elif montage_name.endswith('Normal'):
             base_name = montage_name.replace('Normal', '')
             possible_filenames.append(f'{base_name}_TI.msh')
+
+        # Pattern 4: Some exports use *_normal.msh rather than *_TI.msh
+        possible_filenames.append(f'{montage_name}_normal.msh')
+        if montage_name.endswith('_Normal'):
+            base_name = montage_name[:-7]
+            possible_filenames.append(f'{base_name}_normal.msh')
     
     # Remove duplicates while preserving order
     seen = set()
@@ -363,6 +370,14 @@ def construct_mesh_field_path(m2m_subject_path, montage_name):
         if os.path.exists(field_path):
             return field_path
     
+    # Fallback: pick the first .msh file in the directory if available
+    try:
+        for fname in sorted(os.listdir(mesh_dir)):
+            if fname.lower().endswith('.msh'):
+                return os.path.join(mesh_dir, fname)
+    except Exception:
+        pass
+
     # If no file found, return the first pattern for error reporting
     suffix = '_mTI.msh' if is_mti else '_TI.msh'
     return os.path.join(mesh_dir, unique_filenames[0] if unique_filenames else f'{montage_name}{suffix}')
@@ -420,17 +435,19 @@ def validate_args(args):
     
     # Validate space-specific requirements
     if args.space == 'mesh':
-        if not args.montage_name:
-            logger.error("--montage_name is required for mesh analysis")
-            raise ValueError("--montage_name is required for mesh analysis")
-        
-        # Construct and validate mesh field path
-        args.field_path = construct_mesh_field_path(args.m2m_subject_path, args.montage_name)
-        if not os.path.exists(args.field_path):
-            logger.error(f"Constructed mesh field file not found: {args.field_path}")
-            raise ValueError(f"Constructed mesh field file not found: {args.field_path}")
-        
-        validate_file_extension(args.field_path, ['.msh'])
+        # Prefer explicitly provided field_path if valid, otherwise construct from montage_name
+        if args.field_path and os.path.exists(args.field_path):
+            validate_file_extension(args.field_path, ['.msh'])
+        else:
+            if not args.montage_name:
+                logger.error("--montage_name is required for mesh analysis when --field_path is not provided")
+                raise ValueError("--montage_name is required for mesh analysis when --field_path is not provided")
+            # Construct and validate mesh field path
+            args.field_path = construct_mesh_field_path(args.m2m_subject_path, args.montage_name)
+            if not os.path.exists(args.field_path):
+                logger.error(f"Constructed mesh field file not found: {args.field_path}")
+                raise ValueError(f"Constructed mesh field file not found: {args.field_path}")
+            validate_file_extension(args.field_path, ['.msh'])
         
     else:  # voxel
         if not args.field_path:
