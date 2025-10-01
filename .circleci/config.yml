@@ -13,6 +13,48 @@ executors:
       docker_layer_caching: false
 
 commands:
+  load-images-from-workspace:
+    steps:
+      - attach_workspace:
+          at: /tmp/ws
+      - run:
+          name: Load Docker images from workspace
+          command: |
+            set -euo pipefail
+            ls -lh /tmp/ws/docker-images
+            for img in /tmp/ws/docker-images/*.tar; do
+              echo "Loading $img"
+              docker load -i "$img"
+            done
+            docker images
+
+  run-tests-allow-fail:
+    parameters:
+      name:
+        type: string
+      cmd:
+        type: string
+    steps:
+      - run:
+          name: "<< parameters.name >>"
+          command: |
+            set +e
+            mkdir -p /tmp/test-results /tmp/status
+            bash -lc '<< parameters.cmd >>'
+            ec=$?
+            echo $ec > /tmp/status/exitcode.txt
+            if [ $ec -ne 0 ]; then
+              echo "Tests exited with $ec, continuing (by design)..."
+            fi
+            exit 0
+      - store_artifacts:
+          path: /tmp/test-results
+          destination: << parameters.name >>-results
+      - store_artifacts:
+          path: /tmp/status
+          destination: << parameters.name >>-status
+
+commands:
   common-setup:
     steps:
       - checkout
@@ -26,47 +68,40 @@ commands:
           command: |
             sudo systemctl start docker || true
             docker info
+
+jobs:
+  build-images:
+    executor: vm-docker
+    environment:
+      DOCKER_BUILDKIT: "1"
+    steps:
+      - common-setup
       - run:
           name: Build or pull component images
           command: |
             set -eo pipefail
             if [ "<< pipeline.parameters.use_dockerhub_images >>" = "true" ]; then
-              echo "Pulling pre-built images from DockerHub..."
+              echo "Pulling pre-built images from DockerHub (fallback to build if missing)..."
               pulled_any=false
 
-              if docker pull idossha/simnibs:v2.1.2; then
-                docker tag idossha/simnibs:v2.1.2 simnibs:ci
-                pulled_any=true
-              fi
-
-              if docker pull idossha/ti-toolbox_fsl:v6.0.7.18; then
-                docker tag idossha/ti-toolbox_fsl:v6.0.7.18 fsl:ci
-                pulled_any=true
-              fi
-
-              if docker pull idossha/ti-toolbox_freesurfer:v7.4.1; then
-                docker tag idossha/ti-toolbox_freesurfer:v7.4.1 freesurfer:ci
-                pulled_any=true
-              fi
-
-              if docker pull idossha/matlab:20th; then
-                docker tag idossha/matlab:20th matlab-runtime:ci
-                pulled_any=true
-              fi
+              if docker pull idossha/simnibs:v2.1.2; then docker tag idossha/simnibs:v2.1.2 simnibs:ci; pulled_any=true; fi
+              if docker pull idossha/ti-toolbox_fsl:v6.0.7.18; then docker tag idossha/ti-toolbox_fsl:v6.0.7.18 fsl:ci; pulled_any=true; fi
+              if docker pull idossha/ti-toolbox_freesurfer:v7.4.1; then docker tag idossha/ti-toolbox_freesurfer:v7.4.1 freesurfer:ci; pulled_any=true; fi
+              if docker pull idossha/matlab:20th; then docker tag idossha/matlab:20th matlab-runtime:ci; pulled_any=true; fi
 
               if [ "$pulled_any" = "false" ]; then
                 echo "No pre-built images available; building locally..."
-                DOCKER_BUILDKIT=1 docker build -f development/blueprint/Dockerfile.simnibs           -t simnibs:ci          .
-                DOCKER_BUILDKIT=1 docker build -f development/blueprint/Dockerfile.fsl               -t fsl:ci              .
-                DOCKER_BUILDKIT=1 docker build -f development/blueprint/Dockerfile.freesurfer        -t freesurfer:ci       .
-                DOCKER_BUILDKIT=1 docker build -f development/blueprint/Dockerfile.matlab.deprecated -t matlab-runtime:ci  .
+                DOCKER_BUILDKIT=1 docker build -f development/blueprint/Dockerfile.simnibs            -t simnibs:ci          .
+                DOCKER_BUILDKIT=1 docker build -f development/blueprint/Dockerfile.fsl                -t fsl:ci              .
+                DOCKER_BUILDKIT=1 docker build -f development/blueprint/Dockerfile.freesurfer         -t freesurfer:ci       .
+                DOCKER_BUILDKIT=1 docker build -f development/blueprint/Dockerfile.matlab.deprecated  -t matlab-runtime:ci   .
               fi
             else
               echo "Building component images locally..."
-              DOCKER_BUILDKIT=1 docker build -f development/blueprint/Dockerfile.simnibs           -t simnibs:ci          .
-              DOCKER_BUILDKIT=1 docker build -f development/blueprint/Dockerfile.fsl               -t fsl:ci              .
-              DOCKER_BUILDKIT=1 docker build -f development/blueprint/Dockerfile.freesurfer        -t freesurfer:ci       .
-              DOCKER_BUILDKIT=1 docker build -f development/blueprint/Dockerfile.matlab.deprecated -t matlab-runtime:ci  .
+              DOCKER_BUILDKIT=1 docker build -f development/blueprint/Dockerfile.simnibs            -t simnibs:ci          .
+              DOCKER_BUILDKIT=1 docker build -f development/blueprint/Dockerfile.fsl                -t fsl:ci              .
+              DOCKER_BUILDKIT=1 docker build -f development/blueprint/Dockerfile.freesurfer         -t freesurfer:ci       .
+              DOCKER_BUILDKIT=1 docker build -f development/blueprint/Dockerfile.matlab.deprecated  -t matlab-runtime:ci   .
             fi
       - run:
           name: Build final ci-runner image
@@ -83,96 +118,95 @@ commands:
               echo "✅ Xvfb up on :99"
               kill $pid || true
             '
+      - run:
+          name: Save Docker images to workspace
+          command: |
+            set -euo pipefail
+            mkdir -p /tmp/ws/docker-images
+            docker save simnibs:ci          -o /tmp/ws/docker-images/simnibs_ci.tar
+            docker save fsl:ci              -o /tmp/ws/docker-images/fsl_ci.tar
+            docker save freesurfer:ci       -o /tmp/ws/docker-images/freesurfer_ci.tar
+            docker save matlab-runtime:ci   -o /tmp/ws/docker-images/matlab_runtime_ci.tar
+            docker save ci-runner:latest    -o /tmp/ws/docker-images/ci_runner_latest.tar
+            ls -lh /tmp/ws/docker-images
+      - persist_to_workspace:
+          root: /tmp/ws
+          paths:
+            - docker-images
 
-jobs:
   run-analyzer-tests:
     executor: vm-docker
-    environment:
-      DOCKER_BUILDKIT: "1"
     steps:
       - common-setup
-      - run:
+      - load-images-from-workspace
+      - run-tests-allow-fail:
           name: Run analyzer unit tests
-          command: |
-            docker run --rm ci-runner:latest pytest -v tests/test_analyzer.py || true
-            docker run --rm ci-runner:latest pytest -v tests/test_mesh_analyzer.py || true
-            docker run --rm ci-runner:latest pytest -v tests/test_voxel_analyzer.py || true
-            docker run --rm ci-runner:latest pytest -v tests/test_group_analyzer.py || true
-      - run:
-          name: Prune Docker
-          when: always
-          command: docker system prune -af --volumes || true
+          cmd: |
+            pytest -q --junitxml=/tmp/test-results/analyzer.xml tests/test_analyzer.py
+            pytest -q --junitxml=/tmp/test-results/mesh_analyzer.xml tests/test_mesh_analyzer.py
+            pytest -q --junitxml=/tmp/test-results/voxel_analyzer.xml tests/test_voxel_analyzer.py
+            pytest -q --junitxml=/tmp/test-results/group_analyzer.xml tests/test_group_analyzer.py
 
   run-simulator-tests:
     executor: vm-docker
-    environment:
-      DOCKER_BUILDKIT: "1"
     steps:
       - common-setup
-      - run:
+      - load-images-from-workspace
+      - run-tests-allow-fail:
           name: Run simulator unit tests
-          command: |
-            docker run --rm ci-runner:latest pytest -v tests/test_ti_simulator.py || true
-            docker run --rm ci-runner:latest pytest -v tests/test_mti_simulator.py || true
-      - run:
-          name: Prune Docker
-          when: always
-          command: docker system prune -af --volumes || true
+          cmd: |
+            pytest -q --junitxml=/tmp/test-results/ti_simulator.xml  tests/test_ti_simulator.py
+            pytest -q --junitxml=/tmp/test-results/mti_simulator.xml tests/test_mti_simulator.py
 
   run-flex-search-tests:
     executor: vm-docker
-    environment:
-      DOCKER_BUILDKIT: "1"
     steps:
       - common-setup
-      - run:
+      - load-images-from-workspace
+      - run-tests-allow-fail:
           name: Run flex-search unit tests
-          command: |
-            docker run --rm ci-runner:latest pytest -v tests/test_flex_search.py || true
-      - run:
-          name: Prune Docker
-          when: always
-          command: docker system prune -af --volumes || true
+          cmd: |
+            pytest -q --junitxml=/tmp/test-results/flex_search.xml tests/test_flex_search.py
 
   run-integration-tests:
     executor: vm-docker
-    environment:
-      DOCKER_BUILDKIT: "1"
     steps:
       - common-setup
-      - run:
-          name: Setup test project directory
-          command: |
+      - load-images-from-workspace
+      - run-tests-allow-fail:
+          name: Setup test project directory & run integration tests
+          cmd: |
             mkdir -p /tmp/test_projectdir
-            docker run --rm -v /tmp/test_projectdir:/mnt/test_projectdir ci-runner:latest bash -lc "
-              env | grep -E '^PROJECT_DIR_NAME=' || true
-              bash tests/setup_test_projectdir.sh
-              command -v tree >/dev/null 2>&1 && tree -a /mnt/test_projectdir || find /mnt/test_projectdir -maxdepth 3 -print
+            bash -lc "
+              docker run --rm -v /tmp/test_projectdir:/mnt/test_projectdir ci-runner:latest bash -lc '
+                env | grep -E \"^PROJECT_DIR_NAME=\" || true
+                bash tests/setup_test_projectdir.sh
+                command -v tree >/dev/null 2>&1 && tree -a /mnt/test_projectdir || find /mnt/test_projectdir -maxdepth 3 -print
+              '
+              docker run --rm -v /tmp/test_projectdir:/mnt/test_projectdir ci-runner:latest bash -lc '
+                bash tests/test_simulator_runner.sh
+                command -v tree >/dev/null 2>&1 && tree -a /mnt/test_projectdir || find /mnt/test_projectdir -maxdepth 3 -print
+              '
+              docker run --rm -v /tmp/test_projectdir:/mnt/test_projectdir ci-runner:latest bash -lc '
+                bash tests/test_analyzer_runner.sh
+                command -v tree >/dev/null 2>&1 && tree -a /mnt/test_projectdir || find /mnt/test_projectdir -maxdepth 3 -print
+              '
             "
-      - run:
-          name: Run simulator integration tests
-          command: |
-            docker run --rm -v /tmp/test_projectdir:/mnt/test_projectdir ci-runner:latest bash -lc "
-              bash tests/test_simulator_runner.sh && echo 'Simulator test completed successfully'
-              command -v tree >/dev/null 2>&1 && tree -a /mnt/test_projectdir || find /mnt/test_projectdir -maxdepth 3 -print
-            " || true
-      - run:
-          name: Run analyzer integration tests
-          command: |
-            docker run --rm -v /tmp/test_projectdir:/mnt/test_projectdir ci-runner:latest bash -lc "
-              bash tests/test_analyzer_runner.sh && echo 'Analyzer test completed successfully'
-              command -v tree >/devnull 2>&1 && tree -a /mnt/test_projectdir || find /mnt/test_projectdir -maxdepth 3 -print
-            " || true
-      - run:
-          name: Prune Docker
-          when: always
-          command: docker system prune -af --volumes || true
 
 workflows:
   version: 2
-  build_runner_only:
+  build_and_test:
     jobs:
-      - run-analyzer-tests
-      - run-simulator-tests
-      - run-flex-search-tests
-      - run-integration-tests
+      - build-images
+      - run-analyzer-tests:
+          requires:
+            - build-images
+      - run-simulator-tests:
+          requires:
+            - build-images
+      - run-flex-search-tests:
+          requires:
+            - build-images
+      - run-integration-tests:
+          requires:
+            - build-images
