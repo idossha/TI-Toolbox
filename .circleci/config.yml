@@ -126,11 +126,8 @@ jobs:
           command: |
             set -euo pipefail
             mkdir -p /tmp/ws/docker-images
-            docker save simnibs:ci          -o /tmp/ws/docker-images/simnibs_ci.tar
-            docker save fsl:ci              -o /tmp/ws/docker-images/fsl_ci.tar
-            docker save freesurfer:ci       -o /tmp/ws/docker-images/freesurfer_ci.tar
-            docker save matlab-runtime:ci   -o /tmp/ws/docker-images/matlab_runtime_ci.tar
-            docker save ci-runner:latest    -o /tmp/ws/docker-images/ci_runner_latest.tar
+            # Only save the final ci-runner image since it contains all components
+            docker save ci-runner:latest -o /tmp/ws/docker-images/ci_runner_latest.tar
             ls -lh /tmp/ws/docker-images
       - persist_to_workspace:
           root: /tmp/ws
