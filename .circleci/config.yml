@@ -36,9 +36,15 @@ commands:
           command: |
             set -euo pipefail
             ls -lh /tmp/ws/docker-images
-            for img in /tmp/ws/docker-images/*.tar; do
+            sudo apt-get update && sudo apt-get install -y pigz
+            shopt -s nullglob
+            for img in /tmp/ws/docker-images/*; do
               echo "Loading $img"
-              docker load -i "$img"
+              case "$img" in
+                *.tar) docker load -i "$img" ;;
+                *.tar.gz) pigz -dc "$img" | docker load ;;
+                *) echo "Skipping unknown file type: $img" ;;
+              esac
             done
             docker images
 
@@ -123,11 +129,16 @@ jobs:
             '
       - run:
           name: Save Docker images to workspace
+          no_output_timeout: 30m
           command: |
             set -euo pipefail
             mkdir -p /tmp/ws/docker-images
             # Only save the final ci-runner image since it contains all components
-            docker save ci-runner:latest -o /tmp/ws/docker-images/ci_runner_latest.tar
+            # Install tools for progress and compression
+            sudo apt-get update && sudo apt-get install -y pv pigz
+            size=$(docker image inspect ci-runner:latest --format='{{.Size}}' || echo 0)
+            echo "Saving ci-runner:latest (size=${size} bytes) with compression..."
+            docker save ci-runner:latest | pv -s "${size}" | pigz -c > /tmp/ws/docker-images/ci_runner_latest.tar.gz
             ls -lh /tmp/ws/docker-images
       - persist_to_workspace:
           root: /tmp/ws
