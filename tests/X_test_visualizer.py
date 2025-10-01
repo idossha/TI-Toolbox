@@ -377,6 +377,8 @@ class TestMeshVisualizer:
         """Test successful cortex ROI visualization."""
         mock_mesh = MagicMock()
         mock_mesh.nodes.nr = 2
+        mock_mesh.add_node_field = MagicMock()
+        mock_mesh.write = MagicMock()
         mock_simnibs.read_msh.return_value = mock_mesh
         
         with patch('visualizer.logging_util.get_logger') as mock_get_logger, \
@@ -416,11 +418,15 @@ class TestMeshVisualizer:
         """Test successful spherical ROI visualization."""
         mock_mesh = MagicMock()
         mock_mesh.nodes.nr = 2
+        mock_mesh.add_node_field = MagicMock()
+        mock_mesh.write = MagicMock()
         mock_simnibs.read_msh.return_value = mock_mesh
 
         # Create a proper mock for gm_surf with nodes attribute
         mock_gm_surf = MagicMock()
         mock_gm_surf.nodes.nr = 2
+        mock_gm_surf.add_node_field = MagicMock()
+        mock_gm_surf.write = MagicMock()
 
         with patch('visualizer.logging_util.get_logger') as mock_get_logger, \
              patch('os.path.join', return_value="/path/to/output/sphere_x0.0_y0.0_z0.0_r5.0.msh"), \
@@ -482,6 +488,7 @@ class TestVoxelVisualizer:
         mock_atlas_img.affine = np.eye(4)
         mock_nifti_img = MagicMock()
         mock_nib.Nifti1Image.return_value = mock_nifti_img
+        mock_nib.save = MagicMock()
 
         with patch('visualizer.logging_util.get_logger') as mock_get_logger, \
              patch('os.path.join', return_value="/path/to/output/region1_ROI.nii.gz"), \
@@ -506,6 +513,9 @@ class TestVoxelVisualizer:
         
         with patch('visualizer.logging_util.get_logger') as mock_get_logger, \
              patch('os.makedirs'):
+            mock_logger = MagicMock()
+            mock_get_logger.return_value = mock_logger
+            
             viz = visualizer.VoxelVisualizer("/path/to/output", None)
             region_id, region_name = viz.find_region(1, region_info)
             
@@ -518,6 +528,9 @@ class TestVoxelVisualizer:
         
         with patch('visualizer.logging_util.get_logger') as mock_get_logger, \
              patch('os.makedirs'):
+            mock_logger = MagicMock()
+            mock_get_logger.return_value = mock_logger
+            
             viz = visualizer.VoxelVisualizer("/path/to/output", None)
             region_id, region_name = viz.find_region('left', region_info)
             
@@ -530,6 +543,9 @@ class TestVoxelVisualizer:
         
         with patch('visualizer.logging_util.get_logger') as mock_get_logger, \
              patch('os.makedirs'):
+            mock_logger = MagicMock()
+            mock_get_logger.return_value = mock_logger
+            
             viz = visualizer.VoxelVisualizer("/path/to/output", None)
             
             with pytest.raises(ValueError, match="Region name 'nonexistent' not found"):
@@ -539,6 +555,9 @@ class TestVoxelVisualizer:
         """Test find_region without region info for string lookup."""
         with patch('visualizer.logging_util.get_logger') as mock_get_logger, \
              patch('os.makedirs'):
+            mock_logger = MagicMock()
+            mock_get_logger.return_value = mock_logger
+            
             viz = visualizer.VoxelVisualizer("/path/to/output", None)
             
             with pytest.raises(ValueError, match="Region labels are required to look up regions by name"):
@@ -621,7 +640,8 @@ class TestPathHandling:
             viz = visualizer.BaseVisualizer(output_dir, None)
             result_path = viz.save_results_to_csv(results, 'spherical', 'region', 'node')
 
-            mock_join.assert_any_call(output_dir, "spherical_region.csv")
+            # Check that os.path.join was called with the correct arguments
+            mock_join.assert_called_with(output_dir, "spherical_region.csv")
             assert result_path == "/path/to/output/spherical_region.csv"
     
     def test_save_whole_head_results_to_csv_path_construction(self):
@@ -641,7 +661,8 @@ class TestPathHandling:
             viz = visualizer.BaseVisualizer(output_dir, None)
             result_path = viz.save_whole_head_results_to_csv(results, 'DK40', 'voxel')
 
-            mock_join.assert_any_call(output_dir, "whole_head_DK40_summary.csv")
+            # Check that os.path.join was called with the correct arguments
+            mock_join.assert_called_with(output_dir, "whole_head_DK40_summary.csv")
             assert result_path == "/path/to/output/whole_head_DK40_summary.csv"
 
 

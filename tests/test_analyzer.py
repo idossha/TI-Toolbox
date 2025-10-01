@@ -508,15 +508,18 @@ class TestArgumentValidation:
             validate_args(args)
     
     @patch('os.path.isdir')
-    def test_validate_args_mesh_missing_montage(self, mock_isdir):
+    @patch('os.path.exists')
+    def test_validate_args_mesh_missing_montage(self, mock_exists, mock_isdir):
         """Test validation with missing montage name for mesh analysis"""
         mock_isdir.return_value = True
+        mock_exists.return_value = False
         
         args = Mock()
         args.m2m_subject_path = '/path/to/m2m'
         args.space = 'mesh'
         args.analysis_type = 'spherical'
         args.montage_name = None
+        args.field_path = None
         args.coordinates = [10, 20, 30]
         args.radius = 5.0
         
@@ -551,6 +554,7 @@ class TestArgumentValidation:
         args.space = 'mesh'
         args.analysis_type = 'spherical'
         args.montage_name = 'test_montage'
+        args.field_path = None
         args.coordinates = None
         args.radius = 5.0
 
@@ -570,6 +574,7 @@ class TestArgumentValidation:
         args.space = 'mesh'
         args.analysis_type = 'spherical'
         args.montage_name = 'test_montage'
+        args.field_path = None
         args.coordinates = [10, 20, 30]
         args.radius = None
 
@@ -589,6 +594,7 @@ class TestArgumentValidation:
         args.space = 'mesh'
         args.analysis_type = 'cortical'
         args.montage_name = 'test_montage'
+        args.field_path = None
         args.atlas_name = None
         args.region = 'test_region'
         args.whole_head = False
@@ -628,6 +634,7 @@ class TestArgumentValidation:
         args.space = 'mesh'
         args.analysis_type = 'cortical'
         args.montage_name = 'test_montage'
+        args.field_path = None
         args.atlas_name = 'DK40'
         args.region = None
         args.whole_head = False
