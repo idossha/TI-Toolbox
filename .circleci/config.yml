@@ -13,6 +13,20 @@ executors:
       docker_layer_caching: false
 
 commands:
+  common-setup:
+    steps:
+      - checkout
+      - run:
+          name: Free disk space
+          command: |
+            sudo rm -rf /usr/local/lib/android /opt/google || true
+            docker system prune -af --volumes || true
+      - run:
+          name: Ensure Docker is running
+          command: |
+            sudo systemctl start docker || true
+            docker info
+
   load-images-from-workspace:
     steps:
       - attach_workspace:
@@ -53,21 +67,10 @@ commands:
       - store_artifacts:
           path: /tmp/status
           destination: << parameters.name >>-status
-
-commands:
-  common-setup:
-    steps:
-      - checkout
-      - run:
-          name: Free disk space
-          command: |
-            sudo rm -rf /usr/local/lib/android /opt/google || true
-            docker system prune -af --volumes || true
-      - run:
-          name: Ensure Docker is running
-          command: |
-            sudo systemctl start docker || true
-            docker info
+      - persist_to_workspace:
+          root: /tmp
+          paths:
+            - status
 
 jobs:
   build-images:
@@ -83,12 +86,10 @@ jobs:
             if [ "<< pipeline.parameters.use_dockerhub_images >>" = "true" ]; then
               echo "Pulling pre-built images from DockerHub (fallback to build if missing)..."
               pulled_any=false
-
               if docker pull idossha/simnibs:v2.1.2; then docker tag idossha/simnibs:v2.1.2 simnibs:ci; pulled_any=true; fi
               if docker pull idossha/ti-toolbox_fsl:v6.0.7.18; then docker tag idossha/ti-toolbox_fsl:v6.0.7.18 fsl:ci; pulled_any=true; fi
               if docker pull idossha/ti-toolbox_freesurfer:v7.4.1; then docker tag idossha/ti-toolbox_freesurfer:v7.4.1 freesurfer:ci; pulled_any=true; fi
               if docker pull idossha/matlab:20th; then docker tag idossha/matlab:20th matlab-runtime:ci; pulled_any=true; fi
-
               if [ "$pulled_any" = "false" ]; then
                 echo "No pre-built images available; building locally..."
                 DOCKER_BUILDKIT=1 docker build -f development/blueprint/Dockerfile.simnibs            -t simnibs:ci          .
@@ -142,10 +143,10 @@ jobs:
       - run-tests-allow-fail:
           name: Run analyzer unit tests
           cmd: |
-            pytest -q --junitxml=/tmp/test-results/analyzer.xml tests/test_analyzer.py
-            pytest -q --junitxml=/tmp/test-results/mesh_analyzer.xml tests/test_mesh_analyzer.py
-            pytest -q --junitxml=/tmp/test-results/voxel_analyzer.xml tests/test_voxel_analyzer.py
-            pytest -q --junitxml=/tmp/test-results/group_analyzer.xml tests/test_group_analyzer.py
+            docker run --rm ci-runner:latest pytest -q --junitxml=/tmp/test-results/analyzer.xml tests/test_analyzer.py
+            docker run --rm ci-runner:latest pytest -q --junitxml=/tmp/test-results/mesh_analyzer.xml tests/test_mesh_analyzer.py
+            docker run --rm ci-runner:latest pytest -q --junitxml=/tmp/test-results/voxel_analyzer.xml tests/test_voxel_analyzer.py
+            docker run --rm ci-runner:latest pytest -q --junitxml=/tmp/test-results/group_analyzer.xml tests/test_group_analyzer.py
 
   run-simulator-tests:
     executor: vm-docker
@@ -155,8 +156,8 @@ jobs:
       - run-tests-allow-fail:
           name: Run simulator unit tests
           cmd: |
-            pytest -q --junitxml=/tmp/test-results/ti_simulator.xml  tests/test_ti_simulator.py
-            pytest -q --junitxml=/tmp/test-results/mti_simulator.xml tests/test_mti_simulator.py
+            docker run --rm ci-runner:latest pytest -q --junitxml=/tmp/test-results/ti_simulator.xml  tests/test_ti_simulator.py
+            docker run --rm ci-runner:latest pytest -q --junitxml=/tmp/test-results/mti_simulator.xml tests/test_mti_simulator.py
 
   run-flex-search-tests:
     executor: vm-docker
@@ -166,7 +167,7 @@ jobs:
       - run-tests-allow-fail:
           name: Run flex-search unit tests
           cmd: |
-            pytest -q --junitxml=/tmp/test-results/flex_search.xml tests/test_flex_search.py
+            docker run --rm ci-runner:latest pytest -q --junitxml=/tmp/test-results/flex_search.xml tests/test_flex_search.py
 
   run-integration-tests:
     executor: vm-docker
@@ -177,21 +178,41 @@ jobs:
           name: Setup test project directory & run integration tests
           cmd: |
             mkdir -p /tmp/test_projectdir
-            bash -lc "
-              docker run --rm -v /tmp/test_projectdir:/mnt/test_projectdir ci-runner:latest bash -lc '
-                env | grep -E \"^PROJECT_DIR_NAME=\" || true
-                bash tests/setup_test_projectdir.sh
-                command -v tree >/dev/null 2>&1 && tree -a /mnt/test_projectdir || find /mnt/test_projectdir -maxdepth 3 -print
-              '
-              docker run --rm -v /tmp/test_projectdir:/mnt/test_projectdir ci-runner:latest bash -lc '
-                bash tests/test_simulator_runner.sh
-                command -v tree >/dev/null 2>&1 && tree -a /mnt/test_projectdir || find /mnt/test_projectdir -maxdepth 3 -print
-              '
-              docker run --rm -v /tmp/test_projectdir:/mnt/test_projectdir ci-runner:latest bash -lc '
-                bash tests/test_analyzer_runner.sh
-                command -v tree >/dev/null 2>&1 && tree -a /mnt/test_projectdir || find /mnt/test_projectdir -maxdepth 3 -print
-              '
-            "
+            docker run --rm -v /tmp/test_projectdir:/mnt/test_projectdir ci-runner:latest bash -lc '
+              env | grep -E "^PROJECT_DIR_NAME=" || true
+              bash tests/setup_test_projectdir.sh
+              command -v tree >/dev/null 2>&1 && tree -a /mnt/test_projectdir || find /mnt/test_projectdir -maxdepth 3 -print
+            '
+            docker run --rm -v /tmp/test_projectdir:/mnt/test_projectdir ci-runner:latest bash -lc '
+              bash tests/test_simulator_runner.sh
+              command -v tree >/dev/null 2>&1 && tree -a /mnt/test_projectdir || find /mnt/test_projectdir -maxdepth 3 -print
+            '
+            docker run --rm -v /tmp/test_projectdir:/mnt/test_projectdir ci-runner:latest bash -lc '
+              bash tests/test_analyzer_runner.sh
+              command -v tree >/dev/null 2>&1 && tree -a /mnt/test_projectdir || find /mnt/test_projectdir -maxdepth 3 -print
+            '
+
+  summarize:
+    executor: vm-docker
+    steps:
+      - attach_workspace:
+          at: /tmp/ws
+      - run:
+          name: Summarize job statuses
+          command: |
+            set -e
+            echo "Collected statuses:"
+            find /tmp/ws -path "*/status/exitcode.txt" -print -exec cat {} \;
+            bad=0
+            while IFS= read -r -d '' f; do
+              ec=$(cat "$f" || echo 1)
+              [ "$ec" -ne 0 ] && bad=1
+            done < <(find /tmp/ws -path "*/status/exitcode.txt" -print0)
+            if [ "$bad" -ne 0 ]; then
+              echo "One or more test groups failed. Failing pipeline."
+              exit 1
+            fi
+            echo "All test groups reported success."
 
 workflows:
   version: 2
@@ -199,14 +220,16 @@ workflows:
     jobs:
       - build-images
       - run-analyzer-tests:
-          requires:
-            - build-images
+          requires: [build-images]
       - run-simulator-tests:
-          requires:
-            - build-images
+          requires: [build-images]
       - run-flex-search-tests:
-          requires:
-            - build-images
+          requires: [build-images]
       - run-integration-tests:
+          requires: [build-images]
+      - summarize:
           requires:
-            - build-images
+            - run-analyzer-tests
+            - run-simulator-tests
+            - run-flex-search-tests
+            - run-integration-tests
