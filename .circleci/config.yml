@@ -12,65 +12,77 @@ executors:
       image: ubuntu-2204:current
       docker_layer_caching: false
 
-workflows:
-  version: 2
-  build_runner_only:
-    jobs:
-      - run-analyzer-tests
-      - run-simulator-tests
-      - run-flex-search-tests
-      - run-integration-tests
+commands:
+  common-setup:
+    steps:
+      - checkout
+      - run:
+          name: Free disk space
+          command: |
+            sudo rm -rf /usr/local/lib/android /opt/google || true
+            docker system prune -af --volumes || true
+      - run:
+          name: Ensure Docker is running
+          command: |
+            sudo systemctl start docker || true
+            docker info
+      - run:
+          name: Build or pull component images
+          command: |
+            set -eo pipefail
+            if [ "<< pipeline.parameters.use_dockerhub_images >>" = "true" ]; then
+              echo "Pulling pre-built images from DockerHub..."
+              pulled_any=false
 
-# Common setup steps
-.common_steps: &common_steps
-  - checkout
-  - run:
-      name: Free disk space
-      command: |
-        sudo rm -rf /usr/local/lib/android /opt/google || true
-        docker system prune -af --volumes || true
-  - run:
-      name: Ensure Docker is running
-      command: |
-        sudo systemctl start docker || true
-        docker info
-  - run:
-      name: Build or pull component images
-      command: |
-        if [ "<< pipeline.parameters.use_dockerhub_images >>" = "true" ]; then
-          echo "Pulling pre-built images from DockerHub..."
-          docker pull idossha/simnibs:v2.1.2 || echo "Warning: simnibs:v2.1.2 not found on DockerHub, building locally"
-          docker pull idossha/ti-toolbox_fsl:v6.0.7.18 || echo "Warning: ti-toolbox_fsl:v1.3.0 not found on DockerHub, building locally"
-          docker pull idossha/ti-toolbox_freesurfer:v7.4.1 || echo "Warning: ti-toolbox_freesurfer:v1.3.0 not found on DockerHub, building locally"
-          docker pull idossha/matlab:20th || echo "Warning: matlab:20th not found on DockerHub, building locally"
-          
-          # Tag pulled images with local names for consistency
-          docker tag idossha/simnibs:v2.1.2 simnibs:ci 2>/dev/null || true
-          docker tag idossha/ti-toolbox_fsl:v6.0.7.18 fsl:ci 2>/dev/null || true
-          docker tag idossha/ti-toolbox_freesurfer:v7.4.1 freesurfer:ci 2>/dev/null || true
-          docker tag idossha/matlab:20th matlab-runtime:ci 2>/dev/null || true
-        else
-          echo "Building component images locally..."
-          DOCKER_BUILDKIT=1 docker build -f development/blueprint/Dockerfile.simnibs          -t simnibs:ci          .
-          DOCKER_BUILDKIT=1 docker build -f development/blueprint/Dockerfile.fsl              -t fsl:ci              .
-          DOCKER_BUILDKIT=1 docker build -f development/blueprint/Dockerfile.freesurfer       -t freesurfer:ci       .
-          DOCKER_BUILDKIT=1 docker build -f development/blueprint/Dockerfile.matlab.deprecated -t matlab-runtime:ci  .
-        fi
-  - run:
-      name: Build final ci-runner image
-      command: |
-        DOCKER_BUILDKIT=1 docker build -f development/blueprint/Dockerfile.ci -t ci-runner:latest .
-  - run:
-      name: Verify Xvfb in ci-runner
-      command: |
-        docker run --rm --entrypoint bash ci-runner:latest -lc '
-          set -euo pipefail
-          Xvfb :99 -screen 0 1280x1024x24 -nolisten tcp & pid=$!
-          for i in {1..10}; do xdpyinfo -display :99 >/dev/null 2>&1 && break || sleep 0.5; done
-          xdpyinfo -display :99 >/dev/null
-          echo "✅ Xvfb up on :99"
-          kill $pid || true
-        '
+              if docker pull idossha/simnibs:v2.1.2; then
+                docker tag idossha/simnibs:v2.1.2 simnibs:ci
+                pulled_any=true
+              fi
+
+              if docker pull idossha/ti-toolbox_fsl:v6.0.7.18; then
+                docker tag idossha/ti-toolbox_fsl:v6.0.7.18 fsl:ci
+                pulled_any=true
+              fi
+
+              if docker pull idossha/ti-toolbox_freesurfer:v7.4.1; then
+                docker tag idossha/ti-toolbox_freesurfer:v7.4.1 freesurfer:ci
+                pulled_any=true
+              fi
+
+              if docker pull idossha/matlab:20th; then
+                docker tag idossha/matlab:20th matlab-runtime:ci
+                pulled_any=true
+              fi
+
+              if [ "$pulled_any" = "false" ]; then
+                echo "No pre-built images available; building locally..."
+                DOCKER_BUILDKIT=1 docker build -f development/blueprint/Dockerfile.simnibs           -t simnibs:ci          .
+                DOCKER_BUILDKIT=1 docker build -f development/blueprint/Dockerfile.fsl               -t fsl:ci              .
+                DOCKER_BUILDKIT=1 docker build -f development/blueprint/Dockerfile.freesurfer        -t freesurfer:ci       .
+                DOCKER_BUILDKIT=1 docker build -f development/blueprint/Dockerfile.matlab.deprecated -t matlab-runtime:ci  .
+              fi
+            else
+              echo "Building component images locally..."
+              DOCKER_BUILDKIT=1 docker build -f development/blueprint/Dockerfile.simnibs           -t simnibs:ci          .
+              DOCKER_BUILDKIT=1 docker build -f development/blueprint/Dockerfile.fsl               -t fsl:ci              .
+              DOCKER_BUILDKIT=1 docker build -f development/blueprint/Dockerfile.freesurfer        -t freesurfer:ci       .
+              DOCKER_BUILDKIT=1 docker build -f development/blueprint/Dockerfile.matlab.deprecated -t matlab-runtime:ci  .
+            fi
+      - run:
+          name: Build final ci-runner image
+          command: |
+            DOCKER_BUILDKIT=1 docker build -f development/blueprint/Dockerfile.ci -t ci-runner:latest .
+      - run:
+          name: Verify Xvfb in ci-runner
+          command: |
+            docker run --rm --entrypoint bash ci-runner:latest -lc '
+              set -euo pipefail
+              Xvfb :99 -screen 0 1280x1024x24 -nolisten tcp & pid=$!
+              for i in {1..10}; do xdpyinfo -display :99 >/dev/null 2>&1 && break || sleep 0.5; done
+              xdpyinfo -display :99 >/dev/null
+              echo "✅ Xvfb up on :99"
+              kill $pid || true
+            '
 
 jobs:
   run-analyzer-tests:
@@ -78,7 +90,7 @@ jobs:
     environment:
       DOCKER_BUILDKIT: "1"
     steps:
-      - <<: *common_steps
+      - common-setup
       - run:
           name: Run analyzer unit tests
           command: |
@@ -96,7 +108,7 @@ jobs:
     environment:
       DOCKER_BUILDKIT: "1"
     steps:
-      - <<: *common_steps
+      - common-setup
       - run:
           name: Run simulator unit tests
           command: |
@@ -112,7 +124,7 @@ jobs:
     environment:
       DOCKER_BUILDKIT: "1"
     steps:
-      - <<: *common_steps
+      - common-setup
       - run:
           name: Run flex-search unit tests
           command: |
@@ -127,33 +139,40 @@ jobs:
     environment:
       DOCKER_BUILDKIT: "1"
     steps:
-      - <<: *common_steps
+      - common-setup
       - run:
           name: Setup test project directory
           command: |
             mkdir -p /tmp/test_projectdir
-            docker run --rm -v /tmp/test_projectdir:/mnt/test_projectdir ci-runner:latest bash -c "
-              env | grep PROJECT_DIR_NAME
-              bash tests/setup_test_projectdir.sh && 
-              tree /mnt/test_projectdir
+            docker run --rm -v /tmp/test_projectdir:/mnt/test_projectdir ci-runner:latest bash -lc "
+              env | grep -E '^PROJECT_DIR_NAME=' || true
+              bash tests/setup_test_projectdir.sh
+              command -v tree >/dev/null 2>&1 && tree -a /mnt/test_projectdir || find /mnt/test_projectdir -maxdepth 3 -print
             "
       - run:
           name: Run simulator integration tests
           command: |
-            docker run --rm -v /tmp/test_projectdir:/mnt/test_projectdir ci-runner:latest bash -c "
-              bash tests/test_simulator_runner.sh && 
-              echo 'Simulator test completed successfully' &&
-              tree /mnt/test_projectdir
+            docker run --rm -v /tmp/test_projectdir:/mnt/test_projectdir ci-runner:latest bash -lc "
+              bash tests/test_simulator_runner.sh && echo 'Simulator test completed successfully'
+              command -v tree >/dev/null 2>&1 && tree -a /mnt/test_projectdir || find /mnt/test_projectdir -maxdepth 3 -print
             " || true
       - run:
           name: Run analyzer integration tests
           command: |
-            docker run --rm -v /tmp/test_projectdir:/mnt/test_projectdir ci-runner:latest bash -c "
-              bash tests/test_analyzer_runner.sh && 
-              echo 'Analyzer test completed successfully' &&
-              tree /mnt/test_projectdir
+            docker run --rm -v /tmp/test_projectdir:/mnt/test_projectdir ci-runner:latest bash -lc "
+              bash tests/test_analyzer_runner.sh && echo 'Analyzer test completed successfully'
+              command -v tree >/devnull 2>&1 && tree -a /mnt/test_projectdir || find /mnt/test_projectdir -maxdepth 3 -print
             " || true
       - run:
           name: Prune Docker
           when: always
           command: docker system prune -af --volumes || true
+
+workflows:
+  version: 2
+  build_runner_only:
+    jobs:
+      - run-analyzer-tests
+      - run-simulator-tests
+      - run-flex-search-tests
+      - run-integration-tests
