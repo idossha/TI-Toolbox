@@ -112,6 +112,34 @@ jobs:
             docker run --rm -it ci-runner:latest pytest -v -s tests/test_flex_search.py
 
       - run:
+          name: Setup test project directory
+          command: |
+            mkdir -p /tmp/test_projectdir
+            docker run --rm -v /tmp/test_projectdir:/mnt/test_projectdir ci-runner:latest bash -c "
+              env | grep PROJECT_DIR_NAME
+              bash tests/setup_test_projectdir.sh && 
+              tree /mnt/test_projectdir
+            "
+
+      - run:
+          name: Run simulator tests
+          command: |
+            docker run --rm -v /tmp/test_projectdir:/mnt/test_projectdir ci-runner:latest bash -c "
+              bash tests/test_simulator_runner.sh && 
+              echo 'Simulator test completed successfully' &&
+              tree /mnt/test_projectdir
+            "
+
+      - run:
+          name: Run analyzer tests
+          command: |
+            docker run --rm -v /tmp/test_projectdir:/mnt/test_projectdir ci-runner:latest bash -c "
+              bash tests/test_analyzer_runner.sh && 
+              echo 'Analyzer test completed successfully' &&
+              tree /mnt/test_projectdir
+            "
+
+      - run:
           name: Prune Docker
           when: always
           command: docker system prune -af --volumes || true

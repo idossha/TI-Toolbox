@@ -125,8 +125,8 @@ fi
 
 # Download and setup "central_montage", this a example of simulation data that will be used for the analyzer testing
 mkdir -p /mnt/test_projectdir/derivatives/SimNIBS/sub-ernie_extended/Simulations
-#curl -L -o /tmp/central_montage.zip "https://archive.org/details/central_montage"
-#unzip -q /tmp/central_montage.zip -d /tmp/ernie_simulation
+curl -L -o /tmp/central_montage.zip "https://archive.org/download/central_montage/central_montage.zip"
+unzip -q /tmp/central_montage.zip -d /tmp/ernie_simulation
 
 # Move the contents of central_montage into ernie_extend's simulations
 if [ -d "/tmp/ernie_simulation/central_montage" ]; then
