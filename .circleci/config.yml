@@ -44,33 +44,35 @@ commands:
 
   run-tests-allow-fail:
     parameters:
-      name:
+      label:
+        type: string
+      bucket:
         type: string
       cmd:
         type: string
     steps:
       - run:
-          name: "<< parameters.name >>"
+          name: "<< parameters.label >>"
           command: |
             set +e
-            mkdir -p /tmp/test-results /tmp/status
+            mkdir -p /tmp/test-results /tmp/status/<< parameters.bucket >>
             bash -lc '<< parameters.cmd >>'
             ec=$?
-            echo $ec > /tmp/status/exitcode.txt
+            echo $ec > /tmp/status/<< parameters.bucket >>/exitcode.txt
             if [ $ec -ne 0 ]; then
               echo "Tests exited with $ec, continuing (by design)..."
             fi
             exit 0
       - store_artifacts:
           path: /tmp/test-results
-          destination: << parameters.name >>-results
+          destination: << parameters.bucket >>-results
       - store_artifacts:
-          path: /tmp/status
-          destination: << parameters.name >>-status
+          path: /tmp/status/<< parameters.bucket >>
+          destination: << parameters.bucket >>-status
       - persist_to_workspace:
           root: /tmp
           paths:
-            - status
+            - status/<< parameters.bucket >>
 
 jobs:
   build-images:
@@ -141,12 +143,13 @@ jobs:
       - common-setup
       - load-images-from-workspace
       - run-tests-allow-fail:
-          name: Run analyzer unit tests
+          label: Run analyzer unit tests
+          bucket: analyzer
           cmd: |
-            docker run --rm ci-runner:latest pytest -q --junitxml=/tmp/test-results/analyzer.xml tests/test_analyzer.py
-            docker run --rm ci-runner:latest pytest -q --junitxml=/tmp/test-results/mesh_analyzer.xml tests/test_mesh_analyzer.py
-            docker run --rm ci-runner:latest pytest -q --junitxml=/tmp/test-results/voxel_analyzer.xml tests/test_voxel_analyzer.py
-            docker run --rm ci-runner:latest pytest -q --junitxml=/tmp/test-results/group_analyzer.xml tests/test_group_analyzer.py
+            docker run --rm ci-runner:latest pytest -q --junitxml=/tmp/test-results/analyzer.xml        tests/test_analyzer.py
+            docker run --rm ci-runner:latest pytest -q --junitxml=/tmp/test-results/mesh_analyzer.xml   tests/test_mesh_analyzer.py
+            docker run --rm ci-runner:latest pytest -q --junitxml=/tmp/test-results/voxel_analyzer.xml  tests/test_voxel_analyzer.py
+            docker run --rm ci-runner:latest pytest -q --junitxml=/tmp/test-results/group_analyzer.xml  tests/test_group_analyzer.py
 
   run-simulator-tests:
     executor: vm-docker
@@ -154,10 +157,11 @@ jobs:
       - common-setup
       - load-images-from-workspace
       - run-tests-allow-fail:
-          name: Run simulator unit tests
+          label: Run simulator unit tests
+          bucket: simulator
           cmd: |
-            docker run --rm ci-runner:latest pytest -q --junitxml=/tmp/test-results/ti_simulator.xml  tests/test_ti_simulator.py
-            docker run --rm ci-runner:latest pytest -q --junitxml=/tmp/test-results/mti_simulator.xml tests/test_mti_simulator.py
+            docker run --rm ci-runner:latest pytest -q --junitxml=/tmp/test-results/ti_simulator.xml   tests/test_ti_simulator.py
+            docker run --rm ci-runner:latest pytest -q --junitxml=/tmp/test-results/mti_simulator.xml  tests/test_mti_simulator.py
 
   run-flex-search-tests:
     executor: vm-docker
@@ -165,7 +169,8 @@ jobs:
       - common-setup
       - load-images-from-workspace
       - run-tests-allow-fail:
-          name: Run flex-search unit tests
+          label: Run flex-search unit tests
+          bucket: flexsearch
           cmd: |
             docker run --rm ci-runner:latest pytest -q --junitxml=/tmp/test-results/flex_search.xml tests/test_flex_search.py
 
@@ -175,7 +180,9 @@ jobs:
       - common-setup
       - load-images-from-workspace
       - run-tests-allow-fail:
-          name: Setup test project directory & run integration tests
+        # Note: one long "cmd" so any step failure writes an exit code but the job still completes.
+          label: Setup test project directory & run integration tests
+          bucket: integration
           cmd: |
             mkdir -p /tmp/test_projectdir
             docker run --rm -v /tmp/test_projectdir:/mnt/test_projectdir ci-runner:latest bash -lc '
@@ -201,13 +208,13 @@ jobs:
           name: Summarize job statuses
           command: |
             set -e
-            echo "Collected statuses:"
-            find /tmp/ws -path "*/status/exitcode.txt" -print -exec cat {} \;
+            echo "Collected statuses (by bucket):"
+            find /tmp/ws/status -name exitcode.txt -print -exec cat {} \; || true
             bad=0
             while IFS= read -r -d '' f; do
               ec=$(cat "$f" || echo 1)
               [ "$ec" -ne 0 ] && bad=1
-            done < <(find /tmp/ws -path "*/status/exitcode.txt" -print0)
+            done < <(find /tmp/ws/status -name exitcode.txt -print0 2>/dev/null)
             if [ "$bad" -ne 0 ]; then
               echo "One or more test groups failed. Failing pipeline."
               exit 1
