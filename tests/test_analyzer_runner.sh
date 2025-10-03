@@ -5,12 +5,17 @@ set -e
 PROJECT_DIR="/mnt/test_projectdir"
 export PROJECT_DIR_NAME=$(basename "$PROJECT_DIR")
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Use the guaranteed path from Dockerfile.ci
 if command -v analyzer >/dev/null 2>&1; then
     ANALYZER_CMD="analyzer"
+    echo "DEBUG: Found analyzer command in PATH"
 else
-    ANALYZER_CMD="$SCRIPT_DIR/../../CLI/analyzer.sh"
+    ANALYZER_CMD="/ti-toolbox/CLI/analyzer.sh"
+    echo "DEBUG: Using guaranteed path from Dockerfile.ci: $ANALYZER_CMD"
 fi
+
+echo "DEBUG: ANALYZER_CMD = $ANALYZER_CMD"
+echo "DEBUG: File exists: $([ -f "$ANALYZER_CMD" ] && echo "YES" || echo "NO")"
 
 # Inputs:
 # 1. Single Subject Analysis
@@ -40,5 +45,3 @@ EOF
 )
 
 printf "%s\n" "$INPUTS" | "$ANALYZER_CMD"
-
-

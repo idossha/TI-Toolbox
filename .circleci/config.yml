@@ -130,17 +130,27 @@ jobs:
           bucket: integration
           cmd: |
             mkdir -p /tmp/test_projectdir
-            docker run --rm -v /tmp/test_projectdir:/mnt/test_projectdir ci-runner:latest bash -lc '
+            chmod 777 /tmp/test_projectdir
+            docker run --rm -v /tmp/test_projectdir:/mnt/test_projectdir ci-runner:latest bash -c '
+              set -e
+              echo "DEBUG: Starting setup_test_projectdir.sh"
               env | grep -E "^PROJECT_DIR_NAME=" || true
               bash tests/setup_test_projectdir.sh
+              echo "DEBUG: Setup completed, listing directory contents"
               command -v tree >/dev/null 2>&1 && tree -a /mnt/test_projectdir || find /mnt/test_projectdir -maxdepth 3 -print
             '
-            docker run --rm -v /tmp/test_projectdir:/mnt/test_projectdir ci-runner:latest bash -lc '
+            docker run --rm -v /tmp/test_projectdir:/mnt/test_projectdir ci-runner:latest bash -c '
+              set -e
+              echo "DEBUG: Starting test_simulator_runner.sh"
               bash tests/test_simulator_runner.sh
+              echo "DEBUG: Simulator tests completed, listing directory contents"
               command -v tree >/dev/null 2>&1 && tree -a /mnt/test_projectdir || find /mnt/test_projectdir -maxdepth 3 -print
             '
-            docker run --rm -v /tmp/test_projectdir:/mnt/test_projectdir ci-runner:latest bash -lc '
+            docker run --rm -v /tmp/test_projectdir:/mnt/test_projectdir ci-runner:latest bash -c '
+              set -e
+              echo "DEBUG: Starting test_analyzer_runner.sh"
               bash tests/test_analyzer_runner.sh
+              echo "DEBUG: Analyzer tests completed, listing directory contents"
               command -v tree >/dev/null 2>&1 && tree -a /mnt/test_projectdir || find /mnt/test_projectdir -maxdepth 3 -print
             '
 
