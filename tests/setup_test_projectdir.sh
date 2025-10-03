@@ -123,12 +123,12 @@ else
     exit 1
 fi
 
-# Download and setup "central_montage", this a example of simulation data that will be used for the analyzer testing
+# Download and setup "test_montage", this a example of simulation data that will be used for the analyzer testing
 mkdir -p /mnt/test_projectdir/derivatives/SimNIBS/sub-ernie_extended/Simulations
 curl -L -o /tmp/test_montage.zip "https://archive.org/download/test_montage/test_montage.zip"
 unzip -q /tmp/test_montage.zip -d /tmp/ernie_simulation
 
-# Move the contents of central_montage into ernie_extend's simulations
+# Move the contents of test_montage into ernie_extend's simulations
 if [ -d "/tmp/ernie_simulation/test_montage" ]; then
     cp -r /tmp/ernie_simulation/test_montage* /mnt/test_projectdir/derivatives/SimNIBS/sub-ernie_extended/Simulations/
 else
