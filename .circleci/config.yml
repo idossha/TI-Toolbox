@@ -27,26 +27,45 @@ commands:
             sudo systemctl start docker || true
             docker info
 
-  load-images-from-workspace:
+  prepare-ci-runner:
     steps:
-      - attach_workspace:
-          at: /tmp/ws
       - run:
-          name: Load Docker images from workspace
+          name: Build or pull component images and ci-runner
           command: |
-            set -euo pipefail
-            ls -lh /tmp/ws/docker-images
-            sudo apt-get update && sudo apt-get install -y pigz
-            shopt -s nullglob
-            for img in /tmp/ws/docker-images/*; do
-              echo "Loading $img"
-              case "$img" in
-                *.tar) docker load -i "$img" ;;
-                *.tar.gz) pigz -dc "$img" | docker load ;;
-                *) echo "Skipping unknown file type: $img" ;;
-              esac
-            done
-            docker images
+            set -eo pipefail
+            if [ "<< pipeline.parameters.use_dockerhub_images >>" = "true" ]; then
+              echo "Pulling pre-built images from DockerHub (fallback to build if missing)..."
+              pulled_any=false
+              if docker pull idossha/simnibs:v2.1.2; then docker tag idossha/simnibs:v2.1.2 simnibs:ci; pulled_any=true; fi
+              if docker pull idossha/ti-toolbox_fsl:v6.0.7.18; then docker tag idossha/ti-toolbox_fsl:v6.0.7.18 fsl:ci; pulled_any=true; fi
+              if docker pull idossha/ti-toolbox_freesurfer:v7.4.1; then docker tag idossha/ti-toolbox_freesurfer:v7.4.1 freesurfer:ci; pulled_any=true; fi
+              if docker pull idossha/matlab:20th; then docker tag idossha/matlab:20th matlab-runtime:ci; pulled_any=true; fi
+              if [ "$pulled_any" = "false" ]; then
+                echo "No pre-built images available; building locally..."
+                DOCKER_BUILDKIT=1 docker build -f development/blueprint/Dockerfile.simnibs            -t simnibs:ci          .
+                DOCKER_BUILDKIT=1 docker build -f development/blueprint/Dockerfile.fsl                -t fsl:ci              .
+                DOCKER_BUILDKIT=1 docker build -f development/blueprint/Dockerfile.freesurfer         -t freesurfer:ci       .
+                DOCKER_BUILDKIT=1 docker build -f development/blueprint/Dockerfile.matlab.deprecated  -t matlab-runtime:ci   .
+              fi
+            else
+              echo "Building component images locally..."
+              DOCKER_BUILDKIT=1 docker build -f development/blueprint/Dockerfile.simnibs            -t simnibs:ci          .
+              DOCKER_BUILDKIT=1 docker build -f development/blueprint/Dockerfile.fsl                -t fsl:ci              .
+              DOCKER_BUILDKIT=1 docker build -f development/blueprint/Dockerfile.freesurfer         -t freesurfer:ci       .
+              DOCKER_BUILDKIT=1 docker build -f development/blueprint/Dockerfile.matlab.deprecated  -t matlab-runtime:ci   .
+            fi
+            DOCKER_BUILDKIT=1 docker build -f development/blueprint/Dockerfile.ci -t ci-runner:latest .
+      - run:
+          name: Verify Xvfb in ci-runner
+          command: |
+            docker run --rm --entrypoint bash ci-runner:latest -lc '
+              set -euo pipefail
+              Xvfb :99 -screen 0 1280x1024x24 -nolisten tcp & pid=$!
+              for i in {1..10}; do xdpyinfo -display :99 >/dev/null 2>&1 && break || sleep 0.5; done
+              xdpyinfo -display :99 >/dev/null
+              echo "✅ Xvfb up on :99"
+              kill $pid || true
+            '
 
   run-tests-allow-fail:
     parameters:
@@ -81,75 +100,12 @@ commands:
             - status/<< parameters.bucket >>
 
 jobs:
-  build-images:
-    executor: vm-docker
-    environment:
-      DOCKER_BUILDKIT: "1"
-    steps:
-      - common-setup
-      - run:
-          name: Build or pull component images
-          command: |
-            set -eo pipefail
-            if [ "<< pipeline.parameters.use_dockerhub_images >>" = "true" ]; then
-              echo "Pulling pre-built images from DockerHub (fallback to build if missing)..."
-              pulled_any=false
-              if docker pull idossha/simnibs:v2.1.2; then docker tag idossha/simnibs:v2.1.2 simnibs:ci; pulled_any=true; fi
-              if docker pull idossha/ti-toolbox_fsl:v6.0.7.18; then docker tag idossha/ti-toolbox_fsl:v6.0.7.18 fsl:ci; pulled_any=true; fi
-              if docker pull idossha/ti-toolbox_freesurfer:v7.4.1; then docker tag idossha/ti-toolbox_freesurfer:v7.4.1 freesurfer:ci; pulled_any=true; fi
-              if docker pull idossha/matlab:20th; then docker tag idossha/matlab:20th matlab-runtime:ci; pulled_any=true; fi
-              if [ "$pulled_any" = "false" ]; then
-                echo "No pre-built images available; building locally..."
-                DOCKER_BUILDKIT=1 docker build -f development/blueprint/Dockerfile.simnibs            -t simnibs:ci          .
-                DOCKER_BUILDKIT=1 docker build -f development/blueprint/Dockerfile.fsl                -t fsl:ci              .
-                DOCKER_BUILDKIT=1 docker build -f development/blueprint/Dockerfile.freesurfer         -t freesurfer:ci       .
-                DOCKER_BUILDKIT=1 docker build -f development/blueprint/Dockerfile.matlab.deprecated  -t matlab-runtime:ci   .
-              fi
-            else
-              echo "Building component images locally..."
-              DOCKER_BUILDKIT=1 docker build -f development/blueprint/Dockerfile.simnibs            -t simnibs:ci          .
-              DOCKER_BUILDKIT=1 docker build -f development/blueprint/Dockerfile.fsl                -t fsl:ci              .
-              DOCKER_BUILDKIT=1 docker build -f development/blueprint/Dockerfile.freesurfer         -t freesurfer:ci       .
-              DOCKER_BUILDKIT=1 docker build -f development/blueprint/Dockerfile.matlab.deprecated  -t matlab-runtime:ci   .
-            fi
-      - run:
-          name: Build final ci-runner image
-          command: |
-            DOCKER_BUILDKIT=1 docker build -f development/blueprint/Dockerfile.ci -t ci-runner:latest .
-      - run:
-          name: Verify Xvfb in ci-runner
-          command: |
-            docker run --rm --entrypoint bash ci-runner:latest -lc '
-              set -euo pipefail
-              Xvfb :99 -screen 0 1280x1024x24 -nolisten tcp & pid=$!
-              for i in {1..10}; do xdpyinfo -display :99 >/dev/null 2>&1 && break || sleep 0.5; done
-              xdpyinfo -display :99 >/dev/null
-              echo "✅ Xvfb up on :99"
-              kill $pid || true
-            '
-      - run:
-          name: Save Docker images to workspace
-          no_output_timeout: 30m
-          command: |
-            set -euo pipefail
-            mkdir -p /tmp/ws/docker-images
-            # Only save the final ci-runner image since it contains all components
-            # Install tools for progress and compression
-            sudo apt-get update && sudo apt-get install -y pv pigz
-            size=$(docker image inspect ci-runner:latest --format='{{.Size}}' || echo 0)
-            echo "Saving ci-runner:latest (size=${size} bytes) with compression..."
-            docker save ci-runner:latest | pv -s "${size}" | pigz -c > /tmp/ws/docker-images/ci_runner_latest.tar.gz
-            ls -lh /tmp/ws/docker-images
-      - persist_to_workspace:
-          root: /tmp/ws
-          paths:
-            - docker-images
 
-  run-analyzer-tests:
+  build-and-run-tests:
     executor: vm-docker
     steps:
       - common-setup
-      - load-images-from-workspace
+      - prepare-ci-runner
       - run-tests-allow-fail:
           label: Run analyzer unit tests
           bucket: analyzer
@@ -158,37 +114,18 @@ jobs:
             docker run --rm ci-runner:latest pytest -q --junitxml=/tmp/test-results/mesh_analyzer.xml   tests/test_mesh_analyzer.py
             docker run --rm ci-runner:latest pytest -q --junitxml=/tmp/test-results/voxel_analyzer.xml  tests/test_voxel_analyzer.py
             docker run --rm ci-runner:latest pytest -q --junitxml=/tmp/test-results/group_analyzer.xml  tests/test_group_analyzer.py
-
-  run-simulator-tests:
-    executor: vm-docker
-    steps:
-      - common-setup
-      - load-images-from-workspace
       - run-tests-allow-fail:
           label: Run simulator unit tests
           bucket: simulator
           cmd: |
             docker run --rm ci-runner:latest pytest -q --junitxml=/tmp/test-results/ti_simulator.xml   tests/test_ti_simulator.py
             docker run --rm ci-runner:latest pytest -q --junitxml=/tmp/test-results/mti_simulator.xml  tests/test_mti_simulator.py
-
-  run-flex-search-tests:
-    executor: vm-docker
-    steps:
-      - common-setup
-      - load-images-from-workspace
       - run-tests-allow-fail:
           label: Run flex-search unit tests
           bucket: flexsearch
           cmd: |
             docker run --rm ci-runner:latest pytest -q --junitxml=/tmp/test-results/flex_search.xml tests/test_flex_search.py
-
-  run-integration-tests:
-    executor: vm-docker
-    steps:
-      - common-setup
-      - load-images-from-workspace
       - run-tests-allow-fail:
-        # Note: one long "cmd" so any step failure writes an exit code but the job still completes.
           label: Setup test project directory & run integration tests
           bucket: integration
           cmd: |
@@ -233,18 +170,7 @@ workflows:
   version: 2
   build_and_test:
     jobs:
-      - build-images
-      - run-analyzer-tests:
-          requires: [build-images]
-      - run-simulator-tests:
-          requires: [build-images]
-      - run-flex-search-tests:
-          requires: [build-images]
-      - run-integration-tests:
-          requires: [build-images]
+      - build-and-run-tests
       - summarize:
           requires:
-            - run-analyzer-tests
-            - run-simulator-tests
-            - run-flex-search-tests
-            - run-integration-tests
+            - build-and-run-tests
