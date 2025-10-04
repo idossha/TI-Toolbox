@@ -1256,9 +1256,14 @@ class FlexSearchTab(QtWidgets.QWidget):
                 env['ROI_LABEL'] = str(roi_params['region'])
             else:  # subcortical
                 volume_atlas_for_env = roi_params['volume_atlas']
-                volume_atlas_path_for_env = self.volume_atlases.get(volume_atlas_for_env)
-                if volume_atlas_path_for_env:
+                # Dynamically construct the volume atlas path for the current subject
+                # (to avoid using the wrong subject's labeling.nii.gz in multi-subject runs)
+                seg_dir_for_env = os.path.join(script_project_dir, 'derivatives', 'SimNIBS', f'sub-{subject_id}', f'm2m_{subject_id}', 'segmentation')
+                volume_atlas_path_for_env = os.path.join(seg_dir_for_env, volume_atlas_for_env)
+                if os.path.isfile(volume_atlas_path_for_env):
                     env['VOLUME_ATLAS_PATH'] = volume_atlas_path_for_env
+                else:
+                    self.output_text.append(f"Warning: Volume atlas not found for subject {subject_id}: {volume_atlas_path_for_env}")
                 env['VOLUME_ROI_LABEL'] = str(roi_params['volume_region'])
             
             # Build the command
@@ -1353,9 +1358,13 @@ class FlexSearchTab(QtWidgets.QWidget):
                     else:  # subcortical volume for non-ROI
                         nonroi_volume_atlas = self.nonroi_volume_atlas_combo.currentText()
                         nonroi_volume_label_val = self.nonroi_volume_label_input.value()
-                        nonroi_volume_atlas_path = self.volume_atlases.get(nonroi_volume_atlas)
-                        if nonroi_volume_atlas_path:
+                        # Dynamically construct the non-ROI volume atlas path for the current subject
+                        seg_dir_for_env = os.path.join(script_project_dir, 'derivatives', 'SimNIBS', f'sub-{subject_id}', f'm2m_{subject_id}', 'segmentation')
+                        nonroi_volume_atlas_path = os.path.join(seg_dir_for_env, nonroi_volume_atlas)
+                        if os.path.isfile(nonroi_volume_atlas_path):
                             env['VOLUME_NON_ROI_ATLAS_PATH'] = nonroi_volume_atlas_path
+                        else:
+                            self.output_text.append(f"Warning: Non-ROI volume atlas not found for subject {subject_id}: {nonroi_volume_atlas_path}")
                         env['VOLUME_NON_ROI_LABEL'] = str(nonroi_volume_label_val)
             
             # Stability and Memory options

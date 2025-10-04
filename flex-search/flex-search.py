@@ -236,6 +236,13 @@ def _create_multistart_summary_file(
         f.write(f"Total session duration: {total_duration:.1f} seconds\n")
         f.write("\n")
         
+        # Environment variables
+        f.write("ENVIRONMENT VARIABLES:\n")
+        f.write("-" * 40 + "\n")
+        f.write(f"PROJECT_DIR: {os.getenv('PROJECT_DIR', 'N/A')}\n")
+        f.write(f"SUBJECT_ID: {os.getenv('SUBJECT_ID', args.subject)}\n")
+        f.write("\n")
+        
         # Optimization configuration
         f.write("OPTIMIZATION CONFIGURATION:\n")
         f.write("-" * 40 + "\n")
@@ -247,8 +254,11 @@ def _create_multistart_summary_file(
         f.write(f"Electrode Current: {args.current}mA\n")
         run_final_sim = args.run_final_electrode_simulation and not args.skip_final_electrode_simulation
         f.write(f"Run Final Electrode Simulation: {run_final_sim}\n")
+        f.write("\n")
         
         # ROI-specific details
+        f.write("ROI CONFIGURATION:\n")
+        f.write("-" * 40 + "\n")
         if args.roi_method == "spherical":
             roi_coords = f"({os.getenv('ROI_X')}, {os.getenv('ROI_Y')}, {os.getenv('ROI_Z')})"
             roi_radius = os.getenv("ROI_RADIUS")
@@ -262,20 +272,52 @@ def _create_multistart_summary_file(
             atlas_path = os.getenv("ATLAS_PATH")
             roi_label = os.getenv("ROI_LABEL")
             hemisphere = os.getenv("SELECTED_HEMISPHERE")
-            f.write(f"Surface Atlas: {os.path.basename(atlas_path) if atlas_path else 'N/A'}\n")
+            f.write(f"Surface Atlas File: {os.path.basename(atlas_path) if atlas_path else 'N/A'}\n")
+            f.write(f"Surface Atlas Path: {atlas_path if atlas_path else 'N/A'}\n")
             f.write(f"ROI Label: {roi_label}\n")
             f.write(f"Hemisphere: {hemisphere}\n")
         elif args.roi_method == "subcortical":
             volume_atlas_path = os.getenv("VOLUME_ATLAS_PATH")
             volume_roi_label = os.getenv("VOLUME_ROI_LABEL")
-            f.write(f"Volume Atlas: {os.path.basename(volume_atlas_path) if volume_atlas_path else 'N/A'}\n")
+            f.write(f"Volume Atlas File: {os.path.basename(volume_atlas_path) if volume_atlas_path else 'N/A'}\n")
+            f.write(f"Volume Atlas Path: {volume_atlas_path if volume_atlas_path else 'N/A'}\n")
             f.write(f"Volume ROI Label: {volume_roi_label}\n")
         
         # Focality-specific parameters
         if args.goal == "focality":
+            f.write("\nNON-ROI CONFIGURATION (Focality):\n")
+            f.write("-" * 40 + "\n")
             f.write(f"Non-ROI Method: {args.non_roi_method}\n")
             f.write(f"Threshold Values: {args.thresholds}\n")
+            # Include non-ROI details
+            if args.roi_method == "spherical":
+                if args.non_roi_method == "everything_else":
+                    f.write("Non-ROI: Everything else (complement of ROI)\n")
+                else:
+                    non_roi_coords = f"({os.getenv('NON_ROI_X', 'N/A')}, {os.getenv('NON_ROI_Y', 'N/A')}, {os.getenv('NON_ROI_Z', 'N/A')})"
+                    non_roi_radius = os.getenv("NON_ROI_RADIUS", "N/A")
+                    f.write(f"Non-ROI Center: {non_roi_coords}\n")
+                    f.write(f"Non-ROI Radius: {non_roi_radius}mm\n")
+            elif args.roi_method == "atlas":
+                if args.non_roi_method == "everything_else":
+                    f.write("Non-ROI: Everything else (complement of ROI)\n")
+                else:
+                    non_roi_atlas_path = os.getenv("NON_ROI_ATLAS_PATH")
+                    non_roi_label = os.getenv("NON_ROI_LABEL")
+                    f.write(f"Non-ROI Atlas File: {os.path.basename(non_roi_atlas_path) if non_roi_atlas_path else 'N/A'}\n")
+                    f.write(f"Non-ROI Atlas Path: {non_roi_atlas_path if non_roi_atlas_path else 'N/A'}\n")
+                    f.write(f"Non-ROI Label: {non_roi_label}\n")
+            elif args.roi_method == "subcortical":
+                if args.non_roi_method == "everything_else":
+                    f.write("Non-ROI: Everything else (complement of ROI)\n")
+                else:
+                    non_roi_volume_atlas_path = os.getenv("VOLUME_NON_ROI_ATLAS_PATH")
+                    non_roi_volume_label = os.getenv("VOLUME_NON_ROI_LABEL")
+                    f.write(f"Non-ROI Volume Atlas File: {os.path.basename(non_roi_volume_atlas_path) if non_roi_volume_atlas_path else 'N/A'}\n")
+                    f.write(f"Non-ROI Volume Atlas Path: {non_roi_volume_atlas_path if non_roi_volume_atlas_path else 'N/A'}\n")
+                    f.write(f"Non-ROI Volume Label: {non_roi_volume_label}\n")
         
+        f.write("\n")
         f.write(f"Electrode Mapping: {args.enable_mapping}\n")
         if args.enable_mapping:
             f.write(f"Run Mapped Simulation: {not args.disable_mapping_simulation}\n")
@@ -416,6 +458,13 @@ def _create_single_optimization_summary_file(
         f.write(f"Total optimization duration: {total_duration:.1f} seconds\n")
         f.write("\n")
         
+        # Environment variables
+        f.write("ENVIRONMENT VARIABLES:\n")
+        f.write("-" * 40 + "\n")
+        f.write(f"PROJECT_DIR: {os.getenv('PROJECT_DIR', 'N/A')}\n")
+        f.write(f"SUBJECT_ID: {os.getenv('SUBJECT_ID', args.subject)}\n")
+        f.write("\n")
+        
         # Optimization configuration
         f.write("OPTIMIZATION CONFIGURATION:\n")
         f.write("-" * 40 + "\n")
@@ -427,8 +476,11 @@ def _create_single_optimization_summary_file(
         f.write(f"Electrode Current: {args.current}mA\n")
         run_final_sim = args.run_final_electrode_simulation and not args.skip_final_electrode_simulation
         f.write(f"Run Final Electrode Simulation: {run_final_sim}\n")
+        f.write("\n")
         
         # ROI-specific details
+        f.write("ROI CONFIGURATION:\n")
+        f.write("-" * 40 + "\n")
         if args.roi_method == "spherical":
             roi_coords = f"({os.getenv('ROI_X')}, {os.getenv('ROI_Y')}, {os.getenv('ROI_Z')})"
             roi_radius = os.getenv("ROI_RADIUS")
@@ -442,20 +494,52 @@ def _create_single_optimization_summary_file(
             atlas_path = os.getenv("ATLAS_PATH")
             roi_label = os.getenv("ROI_LABEL")
             hemisphere = os.getenv("SELECTED_HEMISPHERE")
-            f.write(f"Surface Atlas: {os.path.basename(atlas_path) if atlas_path else 'N/A'}\n")
+            f.write(f"Surface Atlas File: {os.path.basename(atlas_path) if atlas_path else 'N/A'}\n")
+            f.write(f"Surface Atlas Path: {atlas_path if atlas_path else 'N/A'}\n")
             f.write(f"ROI Label: {roi_label}\n")
             f.write(f"Hemisphere: {hemisphere}\n")
         elif args.roi_method == "subcortical":
             volume_atlas_path = os.getenv("VOLUME_ATLAS_PATH")
             volume_roi_label = os.getenv("VOLUME_ROI_LABEL")
-            f.write(f"Volume Atlas: {os.path.basename(volume_atlas_path) if volume_atlas_path else 'N/A'}\n")
+            f.write(f"Volume Atlas File: {os.path.basename(volume_atlas_path) if volume_atlas_path else 'N/A'}\n")
+            f.write(f"Volume Atlas Path: {volume_atlas_path if volume_atlas_path else 'N/A'}\n")
             f.write(f"Volume ROI Label: {volume_roi_label}\n")
         
         # Focality-specific parameters
         if args.goal == "focality":
+            f.write("\nNON-ROI CONFIGURATION (Focality):\n")
+            f.write("-" * 40 + "\n")
             f.write(f"Non-ROI Method: {args.non_roi_method}\n")
             f.write(f"Threshold Values: {args.thresholds}\n")
+            # Include non-ROI details
+            if args.roi_method == "spherical":
+                if args.non_roi_method == "everything_else":
+                    f.write("Non-ROI: Everything else (complement of ROI)\n")
+                else:
+                    non_roi_coords = f"({os.getenv('NON_ROI_X', 'N/A')}, {os.getenv('NON_ROI_Y', 'N/A')}, {os.getenv('NON_ROI_Z', 'N/A')})"
+                    non_roi_radius = os.getenv("NON_ROI_RADIUS", "N/A")
+                    f.write(f"Non-ROI Center: {non_roi_coords}\n")
+                    f.write(f"Non-ROI Radius: {non_roi_radius}mm\n")
+            elif args.roi_method == "atlas":
+                if args.non_roi_method == "everything_else":
+                    f.write("Non-ROI: Everything else (complement of ROI)\n")
+                else:
+                    non_roi_atlas_path = os.getenv("NON_ROI_ATLAS_PATH")
+                    non_roi_label = os.getenv("NON_ROI_LABEL")
+                    f.write(f"Non-ROI Atlas File: {os.path.basename(non_roi_atlas_path) if non_roi_atlas_path else 'N/A'}\n")
+                    f.write(f"Non-ROI Atlas Path: {non_roi_atlas_path if non_roi_atlas_path else 'N/A'}\n")
+                    f.write(f"Non-ROI Label: {non_roi_label}\n")
+            elif args.roi_method == "subcortical":
+                if args.non_roi_method == "everything_else":
+                    f.write("Non-ROI: Everything else (complement of ROI)\n")
+                else:
+                    non_roi_volume_atlas_path = os.getenv("VOLUME_NON_ROI_ATLAS_PATH")
+                    non_roi_volume_label = os.getenv("VOLUME_NON_ROI_LABEL")
+                    f.write(f"Non-ROI Volume Atlas File: {os.path.basename(non_roi_volume_atlas_path) if non_roi_volume_atlas_path else 'N/A'}\n")
+                    f.write(f"Non-ROI Volume Atlas Path: {non_roi_volume_atlas_path if non_roi_volume_atlas_path else 'N/A'}\n")
+                    f.write(f"Non-ROI Volume Label: {non_roi_volume_label}\n")
         
+        f.write("\n")
         f.write(f"Electrode Mapping: {args.enable_mapping}\n")
         if args.enable_mapping:
             f.write(f"Run Mapped Simulation: {not args.disable_mapping_simulation}\n")
