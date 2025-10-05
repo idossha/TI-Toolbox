@@ -9,6 +9,9 @@ export PROJECT_DIR_NAME=$(basename "$PROJECT_DIR")
 if command -v analyzer >/dev/null 2>&1; then
     ANALYZER_CMD="analyzer"
     echo "DEBUG: Found analyzer command in PATH"
+elif [ -f "/development/CLI/analyzer.sh" ]; then
+    ANALYZER_CMD="/development/CLI/analyzer.sh"
+    echo "DEBUG: Using repo analyzer at $ANALYZER_CMD"
 else
     ANALYZER_CMD="/ti-toolbox/CLI/analyzer.sh"
     echo "DEBUG: Using guaranteed path from Dockerfile.ci: $ANALYZER_CMD"
@@ -18,13 +21,13 @@ echo "DEBUG: ANALYZER_CMD = $ANALYZER_CMD"
 echo "DEBUG: File exists: $([ -f "$ANALYZER_CMD" ] && echo "YES" || echo "NO")"
 
 # Set environment variables for non-interactive mode
-export SUBJECT="ernie"
-export SIMULATION_NAME="TI"
+export SUBJECT="ernie_extended"
+export SIMULATION_NAME="test_montage"
 export SPACE_TYPE="mesh"
 export ANALYSIS_TYPE="spherical"
-export FIELD_PATH="$PROJECT_DIR/derivatives/SimNIBS/sub-ernie/Simulations/TI/TI/mesh/ernie_TI.msh"
+export FIELD_PATH="$PROJECT_DIR/derivatives/SimNIBS/sub-ernie_extended/Simulations/test_montage/TI/mesh/grey_test_montage_TI.msh"
 export COORDINATES="-50 0 0"
-export RADIUS="10"
+export RADIUS="5"
 export VISUALIZE="true"
 
 echo "DEBUG: Running analyzer in non-interactive mode with environment variables"
@@ -38,4 +41,5 @@ echo "DEBUG: RADIUS=$RADIUS"
 echo "DEBUG: VISUALIZE=$VISUALIZE"
 
 # Run analyzer in non-interactive mode
+export ANALYSIS_MODE="single"
 "$ANALYZER_CMD" --run-direct

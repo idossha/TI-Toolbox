@@ -2,6 +2,7 @@ import os
 import sys
 import json
 from copy import deepcopy
+import glob
 import numpy as np
 from datetime import datetime
 import time
@@ -284,12 +285,31 @@ def run_simulation(montage_name, montage, is_xyz=False, eeg_net=None):
     run_simnibs(S)
     logger.info("SimNIBS simulation completed")
 
-    # Use the provided subject_id directly to preserve underscores (e.g., 'ernie_extended')
+    # Resolve TDCS file paths robustly to avoid accidental truncation of subject IDs
     subject_identifier = subject_id
     anisotropy_type = S.anisotropy_type
 
-    m1_file = os.path.join(S.pathfem, f"{subject_identifier}_TDCS_1_{anisotropy_type}.msh")
-    m2_file = os.path.join(S.pathfem, f"{subject_identifier}_TDCS_2_{anisotropy_type}.msh")
+    def resolve_tdcs_file(tdcs_index: int) -> str:
+        # Prefer full subject id
+        full = os.path.join(S.pathfem, f"{subject_identifier}_TDCS_{tdcs_index}_{anisotropy_type}.msh")
+        if os.path.exists(full):
+            return full
+        # Try truncated last segment only if it actually exists
+        truncated = os.path.join(S.pathfem, f"{subject_identifier.split('_')[-1]}_TDCS_{tdcs_index}_{anisotropy_type}.msh")
+        if os.path.exists(truncated):
+            logger.debug(f"Found truncated subject ID variant for TDCS_{tdcs_index}")
+            return truncated
+        # Fallback: glob any matching file
+        pattern = os.path.join(S.pathfem, f"*TDCS_{tdcs_index}_{anisotropy_type}.msh")
+        matches = glob.glob(pattern)
+        if len(matches) == 1:
+            logger.debug(f"Resolved TDCS_{tdcs_index} via glob: {os.path.basename(matches[0])}")
+            return matches[0]
+        logger.error(f"Could not resolve TDCS_{tdcs_index} mesh. Looked for full, truncated, and pattern {pattern}")
+        return full  # Return the expected full path for clearer error downstream
+
+    m1_file = resolve_tdcs_file(1)
+    m2_file = resolve_tdcs_file(2)
 
     logger.debug("Loading mesh files for TI calculation")
     m1 = mesh_io.read_msh(m1_file)
@@ -307,9 +327,25 @@ def run_simulation(montage_name, montage, is_xyz=False, eeg_net=None):
     # Calculate TI normal component using middle cortical surface
     logger.debug("Calculating TI normal component for middle cortical surface")
     try:
-        # Look for central surface files (middle cortical layer)
-        central_file_1 = os.path.join(S.pathfem, "subject_overlays", f"{subject_identifier}_TDCS_1_{anisotropy_type}_central.msh")
-        central_file_2 = os.path.join(S.pathfem, "subject_overlays", f"{subject_identifier}_TDCS_2_{anisotropy_type}_central.msh")
+        # Look for central surface files (middle cortical layer) using robust resolution
+        overlays_dir = os.path.join(S.pathfem, "subject_overlays")
+        def resolve_central(tdcs_index: int) -> str:
+            full = os.path.join(overlays_dir, f"{subject_identifier}_TDCS_{tdcs_index}_{anisotropy_type}_central.msh")
+            if os.path.exists(full):
+                return full
+            truncated = os.path.join(overlays_dir, f"{subject_identifier.split('_')[-1]}_TDCS_{tdcs_index}_{anisotropy_type}_central.msh")
+            if os.path.exists(truncated):
+                logger.debug(f"Found truncated subject ID central variant for TDCS_{tdcs_index}")
+                return truncated
+            pattern = os.path.join(overlays_dir, f"*TDCS_{tdcs_index}_{anisotropy_type}_central.msh")
+            matches = glob.glob(pattern)
+            if len(matches) == 1:
+                logger.debug(f"Resolved central TDCS_{tdcs_index} via glob: {os.path.basename(matches[0])}")
+                return matches[0]
+            return full
+
+        central_file_1 = resolve_central(1)
+        central_file_2 = resolve_central(2)
         
         # Initialize TI_normal array with zeros for all elements
         TI_normal = np.zeros(len(ef1.value))

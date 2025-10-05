@@ -4,6 +4,7 @@ import json
 import subprocess
 import shutil
 from copy import deepcopy
+import glob
 import numpy as np
 from datetime import datetime
 import time
@@ -249,10 +250,54 @@ def run_simulation(montage_name, electrode_pairs, output_dir):
     subject_identifier = subject_id
     anisotropy_type = S.anisotropy_type
 
+    # Try both full and truncated subject IDs (SimNIBS truncation workaround)
+    truncated_identifier = subject_id.split('_')[-1]  # Get last part after underscore
+
+    # Helper to resolve the correct TDCS mesh file path and normalize filename
+    def resolve_and_normalize_tdcs_file(tdcs_index: int) -> str:
+        expected_full = os.path.join(S.pathfem, f"{subject_identifier}_TDCS_{tdcs_index}_{anisotropy_type}.msh")
+        if os.path.exists(expected_full):
+            return expected_full
+        # Try truncated identifier
+        truncated = os.path.join(S.pathfem, f"{truncated_identifier}_TDCS_{tdcs_index}_{anisotropy_type}.msh")
+        if os.path.exists(truncated):
+            # Normalize filename to full subject id for downstream scripts
+            try:
+                os.rename(truncated, expected_full)
+                opt_src = truncated + ".opt"
+                opt_dst = expected_full + ".opt"
+                if os.path.exists(opt_src):
+                    os.rename(opt_src, opt_dst)
+                logger.debug(f"Renamed truncated TDCS_{tdcs_index} file to full subject id: {os.path.basename(expected_full)}")
+            except Exception as e:
+                logger.warning(f"Could not rename truncated file {os.path.basename(truncated)}: {e}")
+            return expected_full if os.path.exists(expected_full) else truncated
+        # Fallback: glob any matching file
+        pattern = os.path.join(S.pathfem, f"*TDCS_{tdcs_index}_{anisotropy_type}.msh")
+        matches = glob.glob(pattern)
+        if len(matches) >= 1:
+            chosen = matches[0]
+            # Normalize chosen to expected_full if needed
+            if chosen != expected_full:
+                try:
+                    os.rename(chosen, expected_full)
+                    opt_src = chosen + ".opt"
+                    opt_dst = expected_full + ".opt"
+                    if os.path.exists(opt_src):
+                        os.rename(opt_src, opt_dst)
+                    logger.debug(f"Normalized TDCS_{tdcs_index} via glob to: {os.path.basename(expected_full)}")
+                    return expected_full
+                except Exception as e:
+                    logger.warning(f"Could not normalize globbed file {os.path.basename(chosen)}: {e}")
+                    return chosen
+            return chosen
+        logger.error(f"Could not resolve TDCS_{tdcs_index} mesh. Looked for full, truncated, and pattern {pattern}")
+        return expected_full
+
     # Load the 4 high-frequency mesh files
     hf_meshes = []
     for i in range(1, 5):  # TDCS_1, TDCS_2, TDCS_3, TDCS_4
-        mesh_file = os.path.join(S.pathfem, f"{subject_identifier}_TDCS_{i}_{anisotropy_type}.msh")
+        mesh_file = resolve_and_normalize_tdcs_file(i)
         if os.path.exists(mesh_file):
             m = mesh_io.read_msh(mesh_file)
             tags_keep = np.hstack((np.arange(1, 100), np.arange(1001, 1100)))
