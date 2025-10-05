@@ -17,32 +17,31 @@ fi
 echo "DEBUG: SIM_CMD = $SIM_CMD"
 echo "DEBUG: File exists: $([ -f "$SIM_CMD" ] && echo "YES" || echo "NO")"
 
-# 1st subject
-# isotropic
-# montage mode
-# unipolar
-# skip conductivity edits
-# eeg net
-# montage
-# electrode shape
-# electrode dimensions
-# electrode thickness
-# intensity
-# confirm parameters
-INPUTS=$(cat <<'EOF'
-1 
-1
-1
-U
-0
-1
-4
-rect
-2,2
-2
-10
-y
-EOF
-)
+# Set environment variables for non-interactive mode
+export SUBJECT_CHOICES="ernie"
+export SIM_TYPE="isotropic"
+export SIMULATION_FRAMEWORK="montage"
+export SIM_MODE="U"
+export CONDUCTIVITY="0"
+export EEG_NETS="EGI_template.csv"
+export SELECTED_MONTAGES="4"
+export ELECTRODE_SHAPE="rect"
+export DIMENSIONS="2,2"
+export THICKNESS="2"
+export CURRENT="10"
 
-printf "%s\n" "$INPUTS" | "$SIM_CMD"
+echo "DEBUG: Running simulator in non-interactive mode with environment variables"
+echo "DEBUG: SUBJECT_CHOICES=$SUBJECT_CHOICES"
+echo "DEBUG: SIM_TYPE=$SIM_TYPE"
+echo "DEBUG: SIMULATION_FRAMEWORK=$SIMULATION_FRAMEWORK"
+echo "DEBUG: SIM_MODE=$SIM_MODE"
+echo "DEBUG: CONDUCTIVITY=$CONDUCTIVITY"
+echo "DEBUG: EEG_NETS=$EEG_NETS"
+echo "DEBUG: SELECTED_MONTAGES=$SELECTED_MONTAGES"
+echo "DEBUG: ELECTRODE_SHAPE=$ELECTRODE_SHAPE"
+echo "DEBUG: DIMENSIONS=$DIMENSIONS"
+echo "DEBUG: THICKNESS=$THICKNESS"
+echo "DEBUG: CURRENT=$CURRENT"
+
+# Run simulator in non-interactive mode
+"$SIM_CMD" --run-direct

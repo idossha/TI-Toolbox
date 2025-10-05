@@ -48,8 +48,11 @@ ENV MATLAB_RUNTIME_INSTALL_DIR=/usr/local/MATLAB/MATLAB_Runtime
 COPY --from=mcr /usr/local/MATLAB/MATLAB_Runtime /usr/local/MATLAB/MATLAB_Runtime
 ENV LD_LIBRARY_PATH="${MATLAB_RUNTIME_INSTALL_DIR}/v99/runtime/glnxa64:${MATLAB_RUNTIME_INSTALL_DIR}/v99/bin/glnxa64:${MATLAB_RUNTIME_INSTALL_DIR}/v99/sys/os/glnxa64:${MATLAB_RUNTIME_INSTALL_DIR}/v99/sys/opengl/lib/glnxa64:$LD_LIBRARY_PATH"
 
-# Xvfb convenience env (we’ll use :99 in CI)
+# Xvfb convenience env (we'll use :99 in CI)
 ENV DISPLAY=:99
+
+# Set TERM environment variable for interactive scripts
+ENV TERM=xterm
 
 # TI-Toolbox - Copy from checked-out code instead of simnibs image
 COPY . /ti-toolbox

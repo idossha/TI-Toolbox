@@ -17,31 +17,25 @@ fi
 echo "DEBUG: ANALYZER_CMD = $ANALYZER_CMD"
 echo "DEBUG: File exists: $([ -f "$ANALYZER_CMD" ] && echo "YES" || echo "NO")"
 
-# Inputs:
-# 1. Single Subject Analysis
-# 2. Subject index (1)
-# 3. Simulation index (1)
-# 4. Space: mesh (1)
-# 5. Analysis type: spherical (1)
-# 6. Field file index (1)
-# 7-9. Coordinates: -50, 0, 0
-# 10. Radius: 10
-# 11. Visualize: y
-# 12. Confirm: y
-INPUTS=$(cat <<'EOF'
-1
-1
-1
-1
-1
-1
--50
-0
-0
-10
-y
-y
-EOF
-)
+# Set environment variables for non-interactive mode
+export SUBJECT="ernie"
+export SIMULATION_NAME="TI"
+export SPACE_TYPE="mesh"
+export ANALYSIS_TYPE="spherical"
+export FIELD_PATH="$PROJECT_DIR/derivatives/SimNIBS/sub-ernie/Simulations/TI/TI/mesh/ernie_TI.msh"
+export COORDINATES="-50 0 0"
+export RADIUS="10"
+export VISUALIZE="true"
 
-printf "%s\n" "$INPUTS" | "$ANALYZER_CMD"
+echo "DEBUG: Running analyzer in non-interactive mode with environment variables"
+echo "DEBUG: SUBJECT=$SUBJECT"
+echo "DEBUG: SIMULATION_NAME=$SIMULATION_NAME"
+echo "DEBUG: SPACE_TYPE=$SPACE_TYPE"
+echo "DEBUG: ANALYSIS_TYPE=$ANALYSIS_TYPE"
+echo "DEBUG: FIELD_PATH=$FIELD_PATH"
+echo "DEBUG: COORDINATES=$COORDINATES"
+echo "DEBUG: RADIUS=$RADIUS"
+echo "DEBUG: VISUALIZE=$VISUALIZE"
+
+# Run analyzer in non-interactive mode
+"$ANALYZER_CMD" --run-direct

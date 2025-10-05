@@ -17,8 +17,11 @@ RUN apt-get update && apt-get install -y bats && apt-get clean && rm -rf /var/li
 COPY tests/requirements-test.txt /ti-toolbox/tests/requirements-test.txt
 RUN pip install -r /ti-toolbox/tests/requirements-test.txt
 
-# Xvfb convenience env (we’ll use :99 in CI)
+# Xvfb convenience env (we'll use :99 in CI)
 ENV DISPLAY=:99
+
+# Set TERM environment variable for interactive scripts
+ENV TERM=xterm
 
 # TI-Toolbox - Copy from checked-out code
 COPY . /ti-toolbox
