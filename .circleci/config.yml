@@ -7,7 +7,7 @@ parameters:
     description: "Pull pre-built images from DockerHub instead of building locally"
   skip_component_images:
     type: boolean
-    default: true
+    default: false
     description: "Skip pulling/building component images (simnibs/fsl/freesurfer/matlab-runtime) and build only ci-runner"
 
 executors:
