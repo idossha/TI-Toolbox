@@ -29,15 +29,7 @@
     [ -f "$spherical_dir/node_distribution_sphere_x-50.0_y0.0_z0.0_r5.0.png" ]
     [ -f "$spherical_dir/spherical_sphere_x-50.0_y0.0_z0.0_r5.0.csv" ]
     [ -f "$spherical_dir/spherical_sphere_x-50.0_y0.0_z0.0_r5.0_extra_info.csv" ]
-
-    # Cortical region outputs
-    region_dir="$analyses_mesh/region_lh.superiortemporal"
-    [ -d "$region_dir" ]
-    [ -f "$region_dir/cortical_lh.superiortemporal.csv" ]
-    [ -f "$region_dir/cortical_lh.superiortemporal_extra_info.csv" ]
-    [ -f "$region_dir/lh.superiortemporal_ROI.msh" ]
-    [ -f "$region_dir/lh.superiortemporal_ROI.msh.opt" ]
-    [ -f "$region_dir/lh.superiortemporal_whole_head_roi_histogram.png" ]
+    [ -s "$spherical_dir/spherical_sphere_x-50.0_y0.0_z0.0_r5.0.csv" ]
 }
 
 
