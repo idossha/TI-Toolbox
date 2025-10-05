@@ -38,7 +38,9 @@ commands:
           command: |
             set -eo pipefail
             if [ "<< pipeline.parameters.skip_component_images >>" = "true" ]; then
-              echo "Skipping component images; building only ci-runner..."
+              echo "Skipping component images; building only minimal ci-runner..."
+              DOCKER_BUILDKIT=1 docker build -f development/blueprint/Dockerfile.ci.min -t ci-runner:latest .
+              exit 0
             else
               if [ "<< pipeline.parameters.use_dockerhub_images >>" = "true" ]; then
                 echo "Pulling pre-built images from DockerHub (fallback to build if missing)..."
