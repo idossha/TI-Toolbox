@@ -176,6 +176,22 @@ jobs:
               echo "DEBUG: Analyzer tests completed, listing directory contents"
               command -v tree >/dev/null 2>&1 && tree -a /mnt/test_projectdir || find /mnt/test_projectdir -maxdepth 3 -print
             '
+            docker run --rm --user 0:0 -v /tmp/test_projectdir:/mnt/test_projectdir -v /tmp/test-results:/tmp/test-results ci-runner:latest bash -lc '
+              set -e
+              echo "DEBUG: Running Bats verification tests as part of integration"
+              if ! command -v bats >/dev/null 2>&1; then
+                apt-get update && apt-get install -y bats >/tmp/test-results/bats_install.log 2>&1 || true
+              fi
+              if command -v bats >/dev/null 2>&1; then
+                echo "Running Bats simulator outputs test";
+                bats tests/test_simulator_outputs.bats | tee /tmp/test-results/bats_simulator.txt;
+                echo "Running Bats analyzer outputs test";
+                bats tests/test_analyzer_outputs.bats | tee /tmp/test-results/bats_analyzer.txt;
+              else
+                echo "bats not available" | tee /tmp/test-results/bats_missing.txt; exit 1;
+              fi
+            '
+            
 
   summarize:
     executor: vm-docker
