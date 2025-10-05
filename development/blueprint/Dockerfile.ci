@@ -55,6 +55,9 @@ ENV DISPLAY=:99
 COPY . /ti-toolbox
 ENV PATH="$PATH:/ti-toolbox/CLI"
 
+# Make CLI scripts executable
+RUN chmod +x /ti-toolbox/CLI/*.sh
+
 # (optional) create a non-root user, set workdir, copy repo, etc., or keep minimal
 WORKDIR /ti-toolbox
 

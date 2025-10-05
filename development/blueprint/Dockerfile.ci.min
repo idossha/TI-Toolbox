@@ -24,6 +24,9 @@ ENV DISPLAY=:99
 COPY . /ti-toolbox
 ENV PATH="${PATH}:/ti-toolbox/CLI"
 
+# Make CLI scripts executable
+RUN chmod +x /ti-toolbox/CLI/*.sh
+
 WORKDIR /ti-toolbox
 
 # Set environment variables for test project
