@@ -5,6 +5,10 @@ parameters:
     type: boolean
     default: true
     description: "Pull pre-built images from DockerHub instead of building locally"
+  skip_component_images:
+    type: boolean
+    default: true
+    description: "Skip pulling/building component images (simnibs/fsl/freesurfer/matlab-runtime) and build only ci-runner"
 
 executors:
   vm-docker:
@@ -33,26 +37,30 @@ commands:
           name: Build or pull component images and ci-runner
           command: |
             set -eo pipefail
-            if [ "<< pipeline.parameters.use_dockerhub_images >>" = "true" ]; then
-              echo "Pulling pre-built images from DockerHub (fallback to build if missing)..."
-              pulled_any=false
-              if docker pull idossha/simnibs:v2.1.2; then docker tag idossha/simnibs:v2.1.2 simnibs:ci; pulled_any=true; fi
-              if docker pull idossha/ti-toolbox_fsl:v6.0.7.18; then docker tag idossha/ti-toolbox_fsl:v6.0.7.18 fsl:ci; pulled_any=true; fi
-              if docker pull idossha/ti-toolbox_freesurfer:v7.4.1; then docker tag idossha/ti-toolbox_freesurfer:v7.4.1 freesurfer:ci; pulled_any=true; fi
-              if docker pull idossha/matlab:20th; then docker tag idossha/matlab:20th matlab-runtime:ci; pulled_any=true; fi
-              if [ "$pulled_any" = "false" ]; then
-                echo "No pre-built images available; building locally..."
+            if [ "<< pipeline.parameters.skip_component_images >>" = "true" ]; then
+              echo "Skipping component images; building only ci-runner..."
+            else
+              if [ "<< pipeline.parameters.use_dockerhub_images >>" = "true" ]; then
+                echo "Pulling pre-built images from DockerHub (fallback to build if missing)..."
+                pulled_any=false
+                if docker pull idossha/simnibs:v2.1.2; then docker tag idossha/simnibs:v2.1.2 simnibs:ci; pulled_any=true; fi
+                if docker pull idossha/ti-toolbox_fsl:v6.0.7.18; then docker tag idossha/ti-toolbox_fsl:v6.0.7.18 fsl:ci; pulled_any=true; fi
+                if docker pull idossha/ti-toolbox_freesurfer:v7.4.1; then docker tag idossha/ti-toolbox_freesurfer:v7.4.1 freesurfer:ci; pulled_any=true; fi
+                if docker pull idossha/matlab:20th; then docker tag idossha/matlab:20th matlab-runtime:ci; pulled_any=true; fi
+                if [ "$pulled_any" = "false" ]; then
+                  echo "No pre-built images available; building locally..."
+                  DOCKER_BUILDKIT=1 docker build -f development/blueprint/Dockerfile.simnibs            -t simnibs:ci          .
+                  DOCKER_BUILDKIT=1 docker build -f development/blueprint/Dockerfile.fsl                -t fsl:ci              .
+                  DOCKER_BUILDKIT=1 docker build -f development/blueprint/Dockerfile.freesurfer         -t freesurfer:ci       .
+                  DOCKER_BUILDKIT=1 docker build -f development/blueprint/Dockerfile.matlab.deprecated  -t matlab-runtime:ci   .
+                fi
+              else
+                echo "Building component images locally..."
                 DOCKER_BUILDKIT=1 docker build -f development/blueprint/Dockerfile.simnibs            -t simnibs:ci          .
                 DOCKER_BUILDKIT=1 docker build -f development/blueprint/Dockerfile.fsl                -t fsl:ci              .
                 DOCKER_BUILDKIT=1 docker build -f development/blueprint/Dockerfile.freesurfer         -t freesurfer:ci       .
                 DOCKER_BUILDKIT=1 docker build -f development/blueprint/Dockerfile.matlab.deprecated  -t matlab-runtime:ci   .
               fi
-            else
-              echo "Building component images locally..."
-              DOCKER_BUILDKIT=1 docker build -f development/blueprint/Dockerfile.simnibs            -t simnibs:ci          .
-              DOCKER_BUILDKIT=1 docker build -f development/blueprint/Dockerfile.fsl                -t fsl:ci              .
-              DOCKER_BUILDKIT=1 docker build -f development/blueprint/Dockerfile.freesurfer         -t freesurfer:ci       .
-              DOCKER_BUILDKIT=1 docker build -f development/blueprint/Dockerfile.matlab.deprecated  -t matlab-runtime:ci   .
             fi
             DOCKER_BUILDKIT=1 docker build -f development/blueprint/Dockerfile.ci -t ci-runner:latest .
       - run:
