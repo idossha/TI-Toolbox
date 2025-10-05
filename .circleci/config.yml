@@ -81,10 +81,9 @@ commands:
           command: |
             set +e
             mkdir -p /tmp/test-results /tmp/status/<< parameters.bucket >>
-            bash -lc "$(cat <<'BASH'
-<< parameters.cmd >>
-BASH
-)"
+            {
+              << parameters.cmd >>
+            }
             ec=$?
             echo $ec > /tmp/status/<< parameters.bucket >>/exitcode.txt
             if [ $ec -ne 0 ]; then
