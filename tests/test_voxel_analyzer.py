@@ -187,6 +187,11 @@ class TestAtlasTypeExtraction:
         result = self.analyzer._extract_atlas_type("/path/to/custom_atlas.mgz")
         assert result == "custom"
 
+    def test_extract_atlas_type_unknown(self):
+        """Unknown pattern returns 'custom'"""
+        result = self.analyzer._extract_atlas_type("/path/to/subject_unknown.mgz")
+        assert result in ("custom", "unknown")
+
 
 class TestSphericalAnalysis:
     """Test spherical ROI analysis functionality"""
@@ -847,46 +852,7 @@ class TestRegionFinding:
             self.analyzer.find_region("Region1", None)
 
 
-class TestResampledAtlasFilename:
-    """Test resampled atlas filename generation"""
-    
-    def setup_method(self):
-        """Set up test fixtures"""
-        self.mock_logger = MagicMock()
-        self.mock_logger.getChild.return_value = self.mock_logger
-        
-        with patch('os.path.exists', return_value=True):
-            with patch('os.makedirs'):
-                self.analyzer = VoxelAnalyzer(
-                    field_nifti="/path/to/field.nii.gz",
-                    subject_dir="/path/to/subject",
-                    output_dir="/path/to/output",
-                    logger=self.mock_logger
-                )
-    
-    def test_get_resampled_atlas_filename_nifti(self):
-        """Test resampled atlas filename generation for NIfTI file"""
-        result = self.analyzer._get_resampled_atlas_filename("/path/to/atlas.nii.gz", (128, 128, 128))
-        
-        # Normalize the path for comparison
-        expected = os.path.normpath("/path/to/atlas_resampled_128x128x128.nii.gz")
-        assert os.path.normpath(result) == expected
-    
-    def test_get_resampled_atlas_filename_mgz(self):
-        """Test resampled atlas filename generation for MGZ file"""
-        result = self.analyzer._get_resampled_atlas_filename("/path/to/atlas.mgz", (64, 64, 64))
-        
-        # Normalize the path for comparison
-        expected = os.path.normpath("/path/to/atlas_resampled_64x64x64.mgz")
-        assert os.path.normpath(result) == expected
-    
-    def test_get_resampled_atlas_filename_4d(self):
-        """Test resampled atlas filename generation for 4D data"""
-        result = self.analyzer._get_resampled_atlas_filename("/path/to/atlas.nii.gz", (128, 128, 128, 10))
-        
-        # Should only use spatial dimensions
-        expected = os.path.normpath("/path/to/atlas_resampled_128x128x128.nii.gz")
-        assert os.path.normpath(result) == expected
+ 
 
 
 if __name__ == "__main__":

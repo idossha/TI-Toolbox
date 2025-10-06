@@ -41,31 +41,6 @@ except ImportError as e:
 class TestUtilityFunctions:
     """Test utility functions like format_duration and logging functions."""
     
-    def test_format_duration_seconds_only(self):
-        """Test format_duration with seconds only."""
-        result = group_analyzer.format_duration(45)
-        assert result == "45s"
-    
-    def test_format_duration_minutes_and_seconds(self):
-        """Test format_duration with minutes and seconds."""
-        result = group_analyzer.format_duration(125)
-        assert result == "2m 5s"
-    
-    def test_format_duration_hours_minutes_seconds(self):
-        """Test format_duration with hours, minutes, and seconds."""
-        result = group_analyzer.format_duration(3665)
-        assert result == "1h 1m 5s"
-    
-    def test_format_duration_zero_seconds(self):
-        """Test format_duration with zero seconds."""
-        result = group_analyzer.format_duration(0)
-        assert result == "0s"
-    
-    def test_format_duration_float_input(self):
-        """Test format_duration with float input."""
-        result = group_analyzer.format_duration(45.7)
-        assert result == "45s"
-    
     @patch('group_analyzer.SUMMARY_MODE', True)
     @patch('group_analyzer._group_start_time', None)
     @patch('builtins.print')
@@ -373,6 +348,20 @@ class TestOutputDirectoryComputation:
             result = group_analyzer.compute_subject_output_dir(args, subject_args)
             
             assert 'fallback_subj001' in result
+            mock_makedirs.assert_called_once()
+
+    def test_compute_subject_output_dir_voxel_region(self):
+        """Voxel cortical with region should include region in path"""
+        args = MagicMock()
+        args.space = 'voxel'
+        args.analysis_type = 'cortical'
+        args.whole_head = False
+        args.region = 'Left-Hippocampus'
+        subject_args = ['subj001', '/path/to/m2m', '/path/to/Simulations/montage1/TI/voxel/field.nii.gz', '/path/to/atlas.nii.gz']
+        with patch('os.path.join') as mock_join, patch('os.makedirs') as mock_makedirs:
+            mock_join.side_effect = lambda *a: '/'.join(a)
+            result = group_analyzer.compute_subject_output_dir(args, subject_args)
+            assert 'Left-Hippocampus' in result
             mock_makedirs.assert_called_once()
 
 

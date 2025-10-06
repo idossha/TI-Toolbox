@@ -91,10 +91,10 @@ jobs:
           command: |
             set -euo pipefail
             mkdir -p /tmp/test-results
-            docker run --rm ci-runner:latest pytest -q --junitxml=/tmp/test-results/analyzer.xml        tests/test_analyzer.py
-            docker run --rm ci-runner:latest pytest -q --junitxml=/tmp/test-results/mesh_analyzer.xml   tests/test_mesh_analyzer.py
-            docker run --rm ci-runner:latest pytest -q --junitxml=/tmp/test-results/voxel_analyzer.xml  tests/test_voxel_analyzer.py
-            docker run --rm ci-runner:latest pytest -q --junitxml=/tmp/test-results/group_analyzer.xml  tests/test_group_analyzer.py
+            docker run --rm -v /tmp/test-results:/tmp/test-results ci-runner:latest pytest -q --junitxml=/tmp/test-results/analyzer.xml        tests/test_analyzer.py
+            docker run --rm -v /tmp/test-results:/tmp/test-results ci-runner:latest pytest -q --junitxml=/tmp/test-results/mesh_analyzer.xml   tests/test_mesh_analyzer.py
+            docker run --rm -v /tmp/test-results:/tmp/test-results ci-runner:latest pytest -q --junitxml=/tmp/test-results/voxel_analyzer.xml  tests/test_voxel_analyzer.py
+            docker run --rm -v /tmp/test-results:/tmp/test-results ci-runner:latest pytest -q --junitxml=/tmp/test-results/group_analyzer.xml  tests/test_group_analyzer.py
       - store_artifacts:
           path: /tmp/test-results
           destination: analyzer-results
@@ -103,8 +103,8 @@ jobs:
           command: |
             set -euo pipefail
             mkdir -p /tmp/test-results
-            docker run --rm ci-runner:latest pytest -q --junitxml=/tmp/test-results/ti_simulator.xml   tests/test_ti_simulator.py
-            docker run --rm ci-runner:latest pytest -q --junitxml=/tmp/test-results/mti_simulator.xml  tests/test_mti_simulator.py
+            docker run --rm -v /tmp/test-results:/tmp/test-results ci-runner:latest pytest -q --junitxml=/tmp/test-results/ti_simulator.xml   tests/test_ti_simulator.py
+            docker run --rm -v /tmp/test-results:/tmp/test-results ci-runner:latest pytest -q --junitxml=/tmp/test-results/mti_simulator.xml  tests/test_mti_simulator.py
       - store_artifacts:
           path: /tmp/test-results
           destination: simulator-results
@@ -113,7 +113,7 @@ jobs:
           command: |
             set -euo pipefail
             mkdir -p /tmp/test-results
-            docker run --rm ci-runner:latest pytest -q --junitxml=/tmp/test-results/flex_search.xml tests/test_flex_search.py
+            docker run --rm -v /tmp/test-results:/tmp/test-results ci-runner:latest pytest -q --junitxml=/tmp/test-results/flex_search.xml tests/test_flex_search.py
       - store_artifacts:
           path: /tmp/test-results
           destination: flexsearch-results

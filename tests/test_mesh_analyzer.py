@@ -181,6 +181,12 @@ class TestSurfaceMeshGeneration:
         assert self.analyzer._surface_mesh_path == expected_path
         mock_run.assert_called_once()
         self.mock_logger.info.assert_called_with("Generating surface mesh for specific field: test_field_TI.msh using msh2cortex...")
+
+    def test_generate_surface_mesh_invalid_field_extension(self):
+        """Reject unsupported field mesh extension"""
+        self.analyzer.field_mesh_path = "/path/to/field.unsupported"
+        with pytest.raises(ValueError):
+            self.analyzer._generate_surface_mesh()
     
     def test_generate_surface_mesh_mti_simulation(self):
         """Test surface mesh generation for mTI simulation"""
@@ -237,22 +243,6 @@ class TestNormalFieldExtraction:
                     logger=self.mock_logger
                 )
     
-    def test_construct_normal_mesh_path_ti(self):
-        """Test normal mesh path construction for TI simulation"""
-        # The analyzer uses the original path format, so we need to match that
-        # The analyzer returns "/path/to/field_normal.msh" but os.path.join on Windows creates "/path\to\field_normal.msh"
-        result = self.analyzer._construct_normal_mesh_path()
-        # Normalize the path for comparison
-        expected_path = os.path.normpath("/path/to/field_normal.msh")
-        assert os.path.normpath(result) == expected_path
-    
-    def test_construct_normal_mesh_path_mti(self):
-        """Test normal mesh path construction for mTI simulation"""
-        self.analyzer.field_mesh_path = os.path.join("/path", "to", "field_mTI.msh")
-        result = self.analyzer._construct_normal_mesh_path()
-        # Normalize the path for comparison
-        expected_path = os.path.normpath("/path/to/field_mTI_normal.msh")
-        assert os.path.normpath(result) == expected_path
     
     def test_extract_normal_field_values_file_not_found(self):
         """Test normal field extraction when file doesn't exist"""

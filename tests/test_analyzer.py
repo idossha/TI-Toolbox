@@ -808,6 +808,48 @@ class TestMainFunction:
             target_region='Left-Hippocampus',
             visualize=False
         )
+
+    @patch('analyzer.main_analyzer.MeshAnalyzer')
+    @patch('analyzer.main_analyzer.VoxelAnalyzer')
+    @patch('analyzer.main_analyzer.logging_util.get_logger')
+    @patch('analyzer.main_analyzer.setup_parser')
+    def test_main_voxel_cortical_whole_head(self, mock_setup_parser, mock_get_logger, mock_voxel_analyzer, mock_mesh_analyzer):
+        """Test main function with voxel cortical whole-head analysis"""
+        mock_parser = Mock()
+        mock_args = Mock()
+        mock_args.m2m_subject_path = '/path/to/m2m'
+        mock_args.space = 'voxel'
+        mock_args.analysis_type = 'cortical'
+        mock_args.field_path = '/path/to/field.nii.gz'
+        mock_args.atlas_path = '/path/to/atlas.nii.gz'
+        mock_args.whole_head = True
+        mock_args.region = None
+        mock_args.visualize = False
+        mock_args.quiet = False
+        mock_args.log_file = None
+        mock_args.output_dir = 'analysis_output'
+        mock_parser.parse_args.return_value = mock_args
+        mock_setup_parser.return_value = mock_parser
+
+        mock_get_logger.return_value = self.mock_logger
+
+        mock_analyzer_instance = Mock()
+        mock_analyzer_instance.analyze_whole_head.return_value = {
+            'Region1': {'mean_value': 1.0}
+        }
+        mock_voxel_analyzer.return_value = mock_analyzer_instance
+
+        with patch('os.path.isdir', return_value=True):
+            with patch('os.path.exists', return_value=True):
+                with patch('os.makedirs'):
+                    from analyzer.main_analyzer import main
+                    main()
+
+        mock_voxel_analyzer.assert_called_once()
+        mock_analyzer_instance.analyze_whole_head.assert_called_once_with(
+            atlas_file='/path/to/atlas.nii.gz',
+            visualize=False
+        )
     
     @patch('analyzer.main_analyzer.MeshAnalyzer')
     @patch('analyzer.main_analyzer.VoxelAnalyzer')
