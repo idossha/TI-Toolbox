@@ -77,39 +77,7 @@ commands:
               kill $pid || true
             '
 
-  run-tests-allow-fail:
-    parameters:
-      label:
-        type: string
-      bucket:
-        type: string
-      cmd:
-        type: string
-    steps:
-      - run:
-          name: "<< parameters.label >>"
-          command: |
-            set +e
-            mkdir -p /tmp/test-results /tmp/status/<< parameters.bucket >>
-            {
-              << parameters.cmd >>
-            }
-            ec=$?
-            echo $ec > /tmp/status/<< parameters.bucket >>/exitcode.txt
-            if [ $ec -ne 0 ]; then
-              echo "Tests exited with $ec, continuing (by design)..."
-            fi
-            exit 0
-      - store_artifacts:
-          path: /tmp/test-results
-          destination: << parameters.bucket >>-results
-      - store_artifacts:
-          path: /tmp/status/<< parameters.bucket >>
-          destination: << parameters.bucket >>-status
-      - persist_to_workspace:
-          root: /tmp
-          paths:
-            - status/<< parameters.bucket >>
+  # removed run-tests-allow-fail component; tests now run strictly
 
 jobs:
 
@@ -118,79 +86,70 @@ jobs:
     steps:
       - common-setup
       - prepare-ci-runner
-      - run-tests-allow-fail:
-          label: Run analyzer unit tests
-          bucket: analyzer
-          cmd: |
+      - run:
+          name: Run analyzer unit tests
+          command: |
+            set -euo pipefail
+            mkdir -p /tmp/test-results
             docker run --rm ci-runner:latest pytest -q --junitxml=/tmp/test-results/analyzer.xml        tests/test_analyzer.py
             docker run --rm ci-runner:latest pytest -q --junitxml=/tmp/test-results/mesh_analyzer.xml   tests/test_mesh_analyzer.py
             docker run --rm ci-runner:latest pytest -q --junitxml=/tmp/test-results/voxel_analyzer.xml  tests/test_voxel_analyzer.py
             docker run --rm ci-runner:latest pytest -q --junitxml=/tmp/test-results/group_analyzer.xml  tests/test_group_analyzer.py
-      - run-tests-allow-fail:
-          label: Run simulator unit tests
-          bucket: simulator
-          cmd: |
+      - store_artifacts:
+          path: /tmp/test-results
+          destination: analyzer-results
+      - run:
+          name: Run simulator unit tests
+          command: |
+            set -euo pipefail
+            mkdir -p /tmp/test-results
             docker run --rm ci-runner:latest pytest -q --junitxml=/tmp/test-results/ti_simulator.xml   tests/test_ti_simulator.py
             docker run --rm ci-runner:latest pytest -q --junitxml=/tmp/test-results/mti_simulator.xml  tests/test_mti_simulator.py
-      - run-tests-allow-fail:
-          label: Run flex-search unit tests
-          bucket: flexsearch
-          cmd: |
+      - store_artifacts:
+          path: /tmp/test-results
+          destination: simulator-results
+      - run:
+          name: Run flex-search unit tests
+          command: |
+            set -euo pipefail
+            mkdir -p /tmp/test-results
             docker run --rm ci-runner:latest pytest -q --junitxml=/tmp/test-results/flex_search.xml tests/test_flex_search.py
-      - run-tests-allow-fail:
-          label: Setup test project directory & run integration tests
-          bucket: integration
-          cmd: |
-            mkdir -p /tmp/test_projectdir
-            chmod 777 /tmp/test_projectdir
-            # Verify the directory exists and is writable
+      - store_artifacts:
+          path: /tmp/test-results
+          destination: flexsearch-results
+      - run:
+          name: Setup test project directory & run integration tests (strict)
+          command: |
+            set -euo pipefail
+            mkdir -p /tmp/test_projectdir /tmp/test-results
+            chmod 777 /tmp/test_projectdir /tmp/test-results
             ls -la /tmp/test_projectdir
             docker run --rm --user 0:0 -v /tmp/test_projectdir:/mnt/test_projectdir ci-runner:latest bash -c '
               set -e
               echo "DEBUG: Starting setup_test_projectdir.sh"
-              echo "DEBUG: Current user: $(whoami)"
-              echo "DEBUG: Current UID: $(id -u)"
-              echo "DEBUG: Current GID: $(id -g)"
-              echo "DEBUG: Current directory: $(pwd)"
-              echo "DEBUG: Mount point exists: $([ -d /mnt/test_projectdir ] && echo "YES" || echo "NO")"
-              echo "DEBUG: Mount point writable: $([ -w /mnt/test_projectdir ] && echo "YES" || echo "NO")"
-              echo "DEBUG: Creating mount point if it does not exist"
-              mkdir -p /mnt/test_projectdir
-              chmod 777 /mnt/test_projectdir
-              env | grep -E "^PROJECT_DIR_NAME=" || true
+              mkdir -p /mnt/test_projectdir && chmod 777 /mnt/test_projectdir
               bash tests/setup_test_projectdir.sh
-              echo "DEBUG: Setup completed, listing directory contents"
-              command -v tree >/dev/null 2>&1 && tree -a /mnt/test_projectdir || find /mnt/test_projectdir -maxdepth 3 -print
             '
             docker run --rm --user 0:0 -v /tmp/test_projectdir:/mnt/test_projectdir ci-runner:latest bash -c '
               set -e
-              echo "DEBUG: Starting test_simulator_runner.sh"
               bash tests/test_simulator_runner.sh
-              echo "DEBUG: Simulator tests completed, listing directory contents"
-              command -v tree >/dev/null 2>&1 && tree -a /mnt/test_projectdir || find /mnt/test_projectdir -maxdepth 3 -print
             '
             docker run --rm --user 0:0 -v /tmp/test_projectdir:/mnt/test_projectdir ci-runner:latest bash -c '
               set -e
-              echo "DEBUG: Starting test_analyzer_runner.sh"
               bash tests/test_analyzer_runner.sh
-              echo "DEBUG: Analyzer tests completed, listing directory contents"
-              command -v tree >/dev/null 2>&1 && tree -a /mnt/test_projectdir || find /mnt/test_projectdir -maxdepth 3 -print
             '
             docker run --rm --user 0:0 -v /tmp/test_projectdir:/mnt/test_projectdir -v /tmp/test-results:/tmp/test-results ci-runner:latest bash -lc '
               set -e
-              echo "DEBUG: Running Bats verification tests as part of integration"
               if ! command -v bats >/dev/null 2>&1; then
-                apt-get update && apt-get install -y bats >/tmp/test-results/bats_install.log 2>&1 || true
+                apt-get update && apt-get install -y bats >/tmp/test-results/bats_install.log 2>&1
               fi
-              if command -v bats >/dev/null 2>&1; then
-                echo "Running Bats simulator outputs test";
-                bats tests/test_simulator_outputs.bats | tee /tmp/test-results/bats_simulator.txt;
-                echo "Running Bats analyzer outputs test";
-                bats tests/test_analyzer_outputs.bats | tee /tmp/test-results/bats_analyzer.txt;
-              else
-                echo "bats not available" | tee /tmp/test-results/bats_missing.txt; exit 1;
-              fi
+              bats tests/test_simulator_outputs.bats | tee /tmp/test-results/bats_simulator.txt
+              bats tests/test_analyzer_outputs.bats | tee /tmp/test-results/bats_analyzer.txt
+              echo Done > /tmp/test-results/_finished_integration.txt
             '
+      - store_artifacts:
+          path: /tmp/test-results
+          destination: integration-results
             
 
   summarize:
