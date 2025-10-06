@@ -1269,6 +1269,13 @@ class AnalyzerTab(QtWidgets.QWidget):
                     # Original stored (atlas_filename, full_path)
                     atlas_files.append((atlas_filename, full_path)) 
         
+        # Check for SimNIBS labeling.nii.gz atlas
+        simnibs_seg_dir = os.path.join(project_dir, "derivatives", "SimNIBS", f"sub-{subject_id}", 
+                                       f"m2m_{subject_id}", "segmentation")
+        labeling_path = os.path.join(simnibs_seg_dir, "labeling.nii.gz")
+        if os.path.exists(labeling_path):
+            atlas_files.append(("SimNIBS labeling", labeling_path))
+        
         if not atlas_files: # No specific atlases found
             # Original warning message logic
             atlas_files.append("FreeSurfer recon-all preprocessing required for atlas generation")
