@@ -82,11 +82,33 @@ class DockerWorkerThread(QThread):
                     self.log_signal.emit(f"Error reading output: {e}", "WARNING")
                     break
             
-            # Wait for process to complete
+            # Wait for process to complete and capture any remaining output
+            remaining_output = []
             if not self.should_stop:
+                # Read any remaining output
+                try:
+                    while True:
+                        output = self.process.stdout.readline()
+                        if not output:
+                            break
+                        line = output.strip()
+                        if line:
+                            remaining_output.append(line)
+                            self._process_line(line, shown_images, shown_containers, layer_progress)
+                except:
+                    pass
+                
                 return_code = self.process.wait()
                 success = return_code == 0
-                error_msg = "" if success else f"Command failed with exit code {return_code}"
+                
+                if not success:
+                    # Include last few lines of output in error message for debugging
+                    recent_output = remaining_output[-3:] if remaining_output else []
+                    error_details = " | ".join(recent_output) if recent_output else "no details"
+                    error_msg = f"Exit code {return_code}: {error_details}"
+                else:
+                    error_msg = ""
+                    
                 self.finished_signal.emit(success, error_msg)
             else:
                 self.finished_signal.emit(False, "Operation cancelled by user")
@@ -102,11 +124,11 @@ class DockerWorkerThread(QThread):
             if " Pulling " in line and "fs layer" not in line.lower():
                 image_name = line.split(" ")[0] if " " in line else line
                 if image_name not in shown_images:
-                    self.log_signal.emit(f"⬇️  Pulling {image_name} image...", "INFO")
+                    self.log_signal.emit(f"Pulling {image_name} image...", "INFO")
                     shown_images.add(image_name)
             elif " Pulled" in line:
                 image_name = line.split(" ")[0] if " " in line else line
-                self.log_signal.emit(f"✅ {image_name} image ready", "SUCCESS")
+                self.log_signal.emit(f"{image_name} image ready", "SUCCESS")
             return
         
         # Handle downloading progress with native-style progress bars
@@ -118,7 +140,7 @@ class DockerWorkerThread(QThread):
         if "Pull complete" in line:
             layer_id = line.split()[0] if line.split() else ""
             if layer_id in layer_progress:
-                self.progress_signal.emit(layer_id, "✅ Complete", 100)
+                self.progress_signal.emit(layer_id, "Complete", 100)
                 del layer_progress[layer_id]
             return
         
@@ -131,24 +153,24 @@ class DockerWorkerThread(QThread):
             if "Creating" in line:
                 container_name = self._extract_container_name(line)
                 if container_name and container_name not in shown_containers:
-                    self.log_signal.emit(f"📦 Creating container: {container_name}", "INFO")
+                    self.log_signal.emit(f"Creating container: {container_name}", "INFO")
                     shown_containers.add(container_name)
             elif "Starting" in line:
                 container_name = self._extract_container_name(line)
                 if container_name:
-                    self.log_signal.emit(f"🚀 Starting container: {container_name}", "INFO")
+                    self.log_signal.emit(f"Starting container: {container_name}", "INFO")
             elif "Started" in line:
                 container_name = self._extract_container_name(line)
                 if container_name:
-                    self.log_signal.emit(f"✅ Container ready: {container_name}", "SUCCESS")
+                    self.log_signal.emit(f"Container ready: {container_name}", "SUCCESS")
             return
         
         # Handle network operations
         if "Network" in line:
             if "Creating" in line:
-                self.log_signal.emit("🌐 Setting up Docker network...", "INFO")
+                self.log_signal.emit("Setting up Docker network...", "INFO")
             elif "Created" in line:
-                self.log_signal.emit("✅ Network ready", "SUCCESS")
+                self.log_signal.emit("Network ready", "SUCCESS")
             return
         
         # Handle errors and warnings
@@ -189,9 +211,9 @@ class DockerWorkerThread(QThread):
             if size_match:
                 current_size = size_match.group(1)
                 total_size = size_match.group(2)
-                status = f"📥 {current_size}/{total_size}"
+                status = f"{current_size}/{total_size}"
             else:
-                status = "📥 Downloading..."
+                status = "Downloading..."
             
             # Only emit if this is a new layer or progress changed significantly
             if (layer_id not in layer_progress or 

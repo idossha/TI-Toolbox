@@ -184,7 +184,6 @@ class TIToolboxLoaderApp(QWidget):
         # Try shutil.which first (most reliable)
         docker_path = shutil.which('docker')
         if docker_path and os.path.exists(docker_path):
-            self.log_message(f"Found Docker using which: {docker_path}", "INFO")
             return docker_path
         
         # Platform-specific fallback locations
@@ -213,7 +212,6 @@ class TIToolboxLoaderApp(QWidget):
         # Check fallback locations
         for location in locations:
             if os.path.exists(location) and (system == "Windows" or os.access(location, os.X_OK)):
-                self.log_message(f"Found Docker at: {location}", "SUCCESS")
                 return location
         
         # Final test: try running docker --version
@@ -221,7 +219,6 @@ class TIToolboxLoaderApp(QWidget):
             try:
                 result = run_subprocess_silent([cmd, '--version'], timeout=5)
                 if result.returncode == 0:
-                    self.log_message(f"Docker command '{cmd}' works from PATH", "SUCCESS")
                     return cmd
             except Exception:
                 continue
@@ -249,20 +246,20 @@ class TIToolboxLoaderApp(QWidget):
         """Create desktop shortcut"""
         success = self.shortcuts_manager.create_desktop_shortcut()
         if success:
-            self.log_message("✅ Desktop shortcut created successfully", "SUCCESS")
+            self.log_message("Desktop shortcut created successfully", "SUCCESS")
             self.message_box.show_message(
                 "Shortcut Created",
                 "Desktop shortcut created successfully!\n\nYou can now double-click the TI-toolbox icon on your desktop to launch the application.",
                 "success",
-                "✅"
+                ""
             )
         else:
-            self.log_message("❌ Failed to create desktop shortcut", "ERROR")
+            self.log_message("Failed to create desktop shortcut", "ERROR")
             self.message_box.show_message(
                 "Shortcut Error",
                 "Failed to create desktop shortcut.\n\nCheck the console output for details.",
                 "error",
-                "❌"
+                ""
             )
 
     def init_ui(self):
@@ -292,9 +289,13 @@ class TIToolboxLoaderApp(QWidget):
         self.setLayout(main_layout)
         
         # Initial message
-        self.log_message("Temporal Interference Toolbox ready")
-        self.log_message("Select a project directory and start Docker containers to begin")
-        self.log_message("First-time setup will download ~30GB of Docker images")
+        self.log_user_message("Welcome to TI-Toolbox!")
+        self.log_user_message("Steps to get started:")
+        self.log_user_message("  1. Select your project directory")
+        self.log_user_message("  2. Click 'Start Docker Containers'")
+        self.log_user_message("  3. Launch CLI or GUI once containers are ready")
+        self.log_user_message("")
+        self.log_user_message("Note: First-time setup may take 15-30 minutes (downloading ~30GB)")
 
     def _create_header_section(self, main_layout):
         """Create the header section with title, description, and utility buttons"""
@@ -450,7 +451,7 @@ class TIToolboxLoaderApp(QWidget):
         controls_layout = QHBoxLayout()
         
         # Docker Toggle button
-        self.docker_toggle = QPushButton("🐋 Start Docker Containers")
+        self.docker_toggle = QPushButton("Start Docker Containers")
         self.docker_toggle.setCheckable(True)
         self.docker_toggle.clicked.connect(self.toggle_docker_containers)
         self.docker_toggle.setStyleSheet("""
@@ -492,7 +493,7 @@ class TIToolboxLoaderApp(QWidget):
         """)
         
         # Launch CLI button
-        self.cli_button = QPushButton("🖥️  Launch CLI")
+        self.cli_button = QPushButton(" Launch CLI")
         self.cli_button.clicked.connect(self.launch_cli)
         self.cli_button.setEnabled(False)
         self.cli_button.setStyleSheet("""
@@ -516,7 +517,7 @@ class TIToolboxLoaderApp(QWidget):
         """)
         
         # Launch GUI button
-        self.gui_button = QPushButton("🖼️  Launch GUI")
+        self.gui_button = QPushButton(" Launch GUI")
         self.gui_button.clicked.connect(self.launch_gui)
         self.gui_button.setEnabled(False)
         self.gui_button.setStyleSheet("""
@@ -603,7 +604,7 @@ class TIToolboxLoaderApp(QWidget):
                     font-size: 11px;
                 }
             """)
-            self.docker_toggle.setText("🛑 Stop Docker Containers")
+            self.docker_toggle.setText("Stop Docker Containers")
             self.docker_toggle.setChecked(True)
             self.cli_button.setEnabled(True)
             self.gui_button.setEnabled(True)
@@ -625,7 +626,7 @@ class TIToolboxLoaderApp(QWidget):
                     font-size: 11px;
                 }
             """)
-            self.docker_toggle.setText("🐋 Start Docker Containers")
+            self.docker_toggle.setText("Start Docker Containers")
             self.docker_toggle.setChecked(False)
             self.cli_button.setEnabled(False)
             self.gui_button.setEnabled(False)
@@ -639,19 +640,17 @@ class TIToolboxLoaderApp(QWidget):
 
     def log_message(self, message, level="INFO"):
         """Add message to console output with auto-scroll"""
-        timestamp = datetime.datetime.now().strftime("%H:%M:%S")
-        
         if level == "ERROR":
-            color_start = '<span style="color: #ff6b6b;">'
+            color_start = '<span style="color: #ff6b6b;">'  # Red for errors
         elif level == "SUCCESS":
-            color_start = '<span style="color: #51cf66;">'
+            color_start = '<span style="color: #51cf66;">'  # Green for success
         elif level == "WARNING":
-            color_start = '<span style="color: #ffd43b;">'
-        else:  # INFO
-            color_start = '<span style="color: #74c0fc;">'
+            color_start = '<span style="color: #ffd43b;">'  # Yellow for warnings
+        else:  # INFO - default white
+            color_start = '<span style="color: #ffffff;">'  # White for normal info
         
         color_end = '</span>'
-        formatted_message = f"[{timestamp}] {color_start}[{level}]{color_end} {message}"
+        formatted_message = f"{color_start}{message}{color_end}"
         
         # Add message to console
         self.console_output.append(formatted_message)
@@ -662,16 +661,20 @@ class TIToolboxLoaderApp(QWidget):
         
         # Process events to ensure UI updates immediately
         QApplication.processEvents()
+    
+    def log_user_message(self, message, level="INFO"):
+        """Alias for log_message for backwards compatibility"""
+        self.log_message(message, level)
 
     def clear_console(self):
         """Clear the console output"""
         self.console_output.clear()
-        self.log_message("Console cleared")
+        self.log_user_message("Console cleared")
 
     def stop_current_operation(self):
         """Stop the current Docker operation"""
         if self.worker_thread and self.worker_thread.isRunning():
-            self.log_message("🛑 Stopping operation...", "WARNING")
+            self.log_message("Stopping operation...", "WARNING")
             self.operation_cancelled = True
             self.worker_thread.stop()
             self.stop_widget.hide_operation()
@@ -691,85 +694,87 @@ class TIToolboxLoaderApp(QWidget):
         if directory:
             self.project_dir = directory
             self.dir_input.setText(directory)
-            self.log_message(f"Project directory selected: {self.project_dir}")
+            self.log_user_message(f"Project directory selected: {os.path.basename(self.project_dir)}")
 
     def validate_requirements(self):
         """Validate that all requirements are met before starting Docker"""
-        if not self.project_dir:
-            self.message_box.show_message("Error", "Please select a project directory first", "warning", "⚠️")
+        if not self.project_dir or not self.project_dir.strip():
+            self.message_box.show_message("Error", "Please select a project directory first", "warning", "")
+            self.log_user_message("  No project directory selected", "ERROR")
             return False
         
         # Check if project directory is accessible
         if not os.path.exists(self.project_dir):
-            self.message_box.show_message("Error", f"Project directory does not exist:\n{self.project_dir}", "error", "❌")
+            self.message_box.show_message("Error", f"Project directory does not exist:\n{self.project_dir}", "error", "")
+            self.log_user_message(f"  Directory not found: {self.project_dir}", "ERROR")
             return False
         
         if not os.access(self.project_dir, os.W_OK):
             self.message_box.show_message("Warning", 
                 f"No write permissions in project directory:\n{self.project_dir}\n\nDocker containers may not function properly.",
-                "warning", "⚠️")
+                "warning", "")
             # Continue anyway - user might have set up specific permissions
         
         # Enhanced Docker validation with Windows-specific handling
         docker_executable = self._find_docker_executable()
         if not docker_executable:
-            self.log_message("❌ Docker executable not found", "ERROR")
+            self.log_message("Docker executable not found", "ERROR")
             self._show_docker_install_instructions()
             return False
         
         # Test Docker connectivity with better error handling
         try:
-            self.log_message("🔍 Testing Docker connectivity...", "INFO")
+            self.log_message("Testing Docker connectivity...", "INFO")
             result = run_subprocess_silent([docker_executable, '--version'], timeout=10)
             if result.returncode != 0:
-                self.log_message(f"❌ Docker version check failed: {result.stderr}", "ERROR")
+                self.log_message(f"Docker version check failed: {result.stderr}", "ERROR")
                 self._show_docker_start_instructions()
                 return False
             else:
-                self.log_message(f"✅ Docker version: {result.stdout.strip()}", "SUCCESS")
+                self.log_message(f"Docker version: {result.stdout.strip()}", "SUCCESS")
         except subprocess.TimeoutExpired:
-            self.log_message("❌ Docker version check timed out", "ERROR")
+            self.log_message("Docker version check timed out", "ERROR")
             self._show_docker_start_instructions()
             return False
         except Exception as e:
-            self.log_message(f"❌ Docker test error: {str(e)}", "ERROR")
+            self.log_message(f"Docker test error: {str(e)}", "ERROR")
             self._show_docker_start_instructions()
             return False
         
         # Test Docker daemon connectivity
         try:
-            self.log_message("🔍 Testing Docker daemon connectivity...", "INFO")
+            self.log_message("Testing Docker daemon connectivity...", "INFO")
             result = run_subprocess_silent([docker_executable, 'info'], timeout=15)
             if result.returncode != 0:
-                self.log_message("❌ Docker daemon is not running or accessible", "ERROR")
+                self.log_message("Docker daemon is not running or accessible", "ERROR")
                 if "permission denied" in result.stderr.lower():
-                    self.log_message("💡 Permission issue detected - try running as administrator", "INFO")
+                    self.log_message("Permission issue detected - try running as administrator", "INFO")
                 self._show_docker_start_instructions()
                 return False
             else:
-                self.log_message("✅ Docker daemon is accessible", "SUCCESS")
+                self.log_message("Docker daemon is accessible", "SUCCESS")
         except subprocess.TimeoutExpired:
-            self.log_message("❌ Docker daemon check timed out", "ERROR")
+            self.log_message("Docker daemon check timed out", "ERROR")
             self._show_docker_start_instructions()
             return False
         except Exception as e:
-            self.log_message(f"❌ Docker daemon test error: {str(e)}", "ERROR")
+            self.log_message(f"Docker daemon test error: {str(e)}", "ERROR")
             self._show_docker_start_instructions()
             return False
         
         # Test Docker Compose
         try:
-            self.log_message("🔍 Testing Docker Compose...", "INFO")
+            self.log_message("Testing Docker Compose...", "INFO")
             result = run_subprocess_silent([docker_executable, 'compose', 'version'], timeout=10)
             if result.returncode != 0:
-                self.log_message("⚠️  Docker Compose test failed, but continuing...", "WARNING")
+                self.log_message(" Docker Compose test failed, but continuing...", "WARNING")
                 self.log_message(f"Compose error: {result.stderr}", "WARNING")
             else:
-                self.log_message(f"✅ Docker Compose: {result.stdout.strip()}", "SUCCESS")
+                self.log_message(f"Docker Compose: {result.stdout.strip()}", "SUCCESS")
         except Exception as e:
-            self.log_message(f"⚠️  Docker Compose test error: {str(e)}", "WARNING")
+            self.log_message(f" Docker Compose test error: {str(e)}", "WARNING")
         
-        self.log_message("✅ All requirements validated", "SUCCESS")
+        self.log_message("All requirements validated", "SUCCESS")
         return True
 
     def _show_docker_install_instructions(self):
@@ -802,7 +807,7 @@ class TIToolboxLoaderApp(QWidget):
                 "4. Try running 'docker --version' in terminal"
             )
         
-        self.message_box.show_message("Docker Error", message, "error", "❌")
+        self.message_box.show_message("Docker Error", message, "error", "")
 
     def _show_docker_start_instructions(self):
         """Show platform-specific Docker startup instructions"""
@@ -834,7 +839,7 @@ class TIToolboxLoaderApp(QWidget):
                 "4. Try again"
             )
         
-        self.message_box.show_message("Docker Error", message, "error", "❌")
+        self.message_box.show_message("Docker Error", message, "error", "")
 
     def setup_display_env(self):
         """Set up DISPLAY environment variable - simplified to match working bash script"""
@@ -981,8 +986,11 @@ class TIToolboxLoaderApp(QWidget):
     def _on_docker_finished(self, success, error_message):
         """Handle completion of Docker command"""
         self._last_command_success = success
+        self._last_command_error = error_message
         if not success and error_message and not self.operation_cancelled:
             self.log_message(error_message, "ERROR")
+            # Also show to user in normal mode
+            self.log_user_message(f"  {error_message}", "ERROR")
 
 
 
@@ -992,65 +1000,109 @@ class TIToolboxLoaderApp(QWidget):
             self.docker_toggle.setChecked(False)
             return
         
+        # Check if containers are already running before starting
+        running_containers = self._check_existing_containers()
+        if running_containers:
+            container_list = "\n".join([f"  - {name}" for name in running_containers])
+            self.log_message("=" * 60)
+            self.log_message("Existing containers detected:")
+            self.log_message(container_list)
+            self.log_message("")
+            self.log_message("Please stop and remove them first using:")
+            self.log_message(f"  docker stop {' '.join(running_containers)}")
+            self.log_message(f"  docker rm {' '.join(running_containers)}")
+            self.log_message("=" * 60)
+            self.docker_toggle.setChecked(False)
+            return
+        
         self.docker_toggle.setEnabled(False)
-        self.log_message("🐋 Initializing Docker environment...")
-        self.log_message("This process may take 15-30 minutes on first run (downloading ~30GB)")
-        self.log_message("=" * 60)
+        self.log_user_message("")
+        self.log_user_message("=" * 60)
+        self.log_user_message("Starting Docker Environment...")
+        self.log_user_message("=" * 60)
         
         try:
-            # Step 1: Check and create volumes if needed
-            self.log_message("📋 Step 1/4: Checking Docker volumes...")
+            # Step 1: Check Docker connectivity
+            self.log_user_message("▶ Step 1/4: Checking Docker")
+            self.log_message("Verifying Docker is running...", "INFO")
+            # Docker validation already done in validate_requirements
+            self.log_user_message("  Docker is running")
+            
+            # Step 2: Check volumes
+            self.log_user_message("▶ Step 2/4: Preparing volumes")
             if not self._ensure_docker_volumes():
                 raise Exception("Failed to create required Docker volumes")
+            self.log_user_message("  Volumes ready")
             
-            # Step 2: Pull/build images (no timeout for large downloads)
-            self.log_message("=" * 60)
-            self.log_message("📥 Step 2/4: Pulling/building Docker images...")
-            self.log_message("⏰ This may take 15-30 minutes depending on your internet connection")
-            if not self.run_docker_command(['docker', 'compose', '-f', self.docker_compose_file, 'pull'], 
-                                         "Pulling Docker images", show_progress=True, timeout=None):
-                self.log_message("⚠️  Image pull failed, attempting to build locally...", "WARNING")
-                if not self.run_docker_command(['docker', 'compose', '-f', self.docker_compose_file, 'build'], 
-                                             "Building Docker images", show_progress=True, timeout=None):
-                    raise Exception("Failed to pull or build Docker images")
+            # Step 3: Check images and internet
+            self.log_user_message("▶ Step 3/4: Checking Docker images")
+            images_exist = self._check_docker_images_exist()
+            has_internet = self._check_internet_connectivity()
             
-            # Step 3: Create and start containers
-            self.log_message("=" * 60)
-            self.log_message("🚀 Step 3/4: Creating and starting containers...")
-            self.log_message("⏰ This step may take 2-5 minutes if containers need to be created for the first time")
-            if not self.run_docker_command(['docker', 'compose', '-f', self.docker_compose_file, 'up', '-d', '--remove-orphans'], 
-                                         "Starting containers", show_progress=True, timeout=None):
-                raise Exception("Failed to start Docker containers")
+            if not images_exist and not has_internet:
+                raise Exception(
+                    "Docker images not found locally and no internet connection available.\n\n"
+                    "Please connect to the internet to download required images (~30GB)."
+                )
             
-            # Step 4: Verify containers are running
-            self.log_message("=" * 60)
-            self.log_message("🔍 Step 4/4: Verifying container health...")
+            if not images_exist and has_internet:
+                self.log_user_message("  Downloading Docker images (this may take 15-30 minutes)...")
+                self.log_message("Pulling Docker images from registry...", "INFO")
+                if not self.run_docker_command(['docker', 'compose', '-f', self.docker_compose_file, 'pull'], 
+                                             "Pulling Docker images", show_progress=True, timeout=None):
+                    self.log_message(" Image pull failed, attempting to build locally...", "WARNING")
+                    if not self.run_docker_command(['docker', 'compose', '-f', self.docker_compose_file, 'build'], 
+                                                 "Building Docker images", show_progress=True, timeout=None):
+                        raise Exception("Failed to pull or build Docker images")
+                self.log_user_message("  Docker images ready")
+            else:
+                self.log_user_message("  Docker images already available locally")
+            
+            # Step 4: Start containers
+            self.log_user_message("▶ Step 4/4: Starting containers")
+            self.log_message("Creating and starting containers...", "INFO")
+            start_result = self.run_docker_command(
+                ['docker', 'compose', '-f', self.docker_compose_file, 'up', '-d', '--remove-orphans'], 
+                "Starting containers", show_progress=True, timeout=None
+            )
+            
+            if not start_result:
+                error_detail = getattr(self, '_last_command_error', 'Unknown error')
+                # Check if containers actually started despite the error
+                if self._check_containers_already_running():
+                    # Docker compose can return error codes even when successful
+                    self.log_message("Docker compose exit code was non-zero but containers are running (this is normal)", "INFO")
+                else:
+                    raise Exception(f"Docker compose failed: {error_detail}")
+            
+            # Verify containers are running and healthy
+            self.log_message("Verifying container health...", "INFO")
             if not self._verify_containers_running():
-                raise Exception("Containers started but are not healthy")
+                raise Exception("Containers did not start properly. Try stopping and starting again.")
             
             self.containers_running = True
             self.containers_ever_started = True
             self.containers_started_by_launcher = True
             self.update_status_display()
-            self.log_message("=" * 60)
-            self.log_message("🎉 SUCCESS: All containers are ready!", "SUCCESS")
-            self.log_message("✅ You can now launch CLI or GUI applications", "SUCCESS")
-            self.log_message("=" * 60)
+            
+            self.log_user_message("  Containers running")
+            self.log_user_message("")
+            self.log_user_message("=" * 60, "SUCCESS")
+            self.log_user_message("TI-Toolbox is ready!", "SUCCESS")
+            self.log_user_message("=" * 60, "SUCCESS")
+            self.log_user_message("You can now launch CLI or GUI applications", "SUCCESS")
+            self.log_user_message("")
             
         except Exception as e:
-            self.log_message("=" * 60)
-            self.log_message(f"❌ STARTUP FAILED: {str(e)}", "ERROR")
-            self.log_message("💡 Try the following troubleshooting steps:", "INFO")
-            self.log_message("   1. Ensure Docker Desktop is running", "INFO")
-            self.log_message("   2. Check your internet connection", "INFO")
-            self.log_message("   3. Free up disk space (need ~30GB)", "INFO")
-            self.log_message("   4. Restart Docker Desktop and try again", "INFO")
-            self.log_message("=" * 60)
+            self.log_user_message("")
+            self.log_user_message("=" * 60, "ERROR")
+            self.log_user_message(f"Startup Failed: {str(e)}", "ERROR")
+            self.log_user_message("=" * 60, "ERROR")
             
             self.message_box.show_message(
                 "Startup Failed", 
-                f"Docker startup failed: {str(e)}\n\nCheck the console for detailed troubleshooting steps.",
-                "error", "❌"
+                f"Docker startup failed:\n\n{str(e)}\n\nCheck the console for details or enable Debug Mode for more information.",
+                "error", ""
             )
             self.containers_running = False
             self.docker_toggle.setChecked(False)
@@ -1058,6 +1110,52 @@ class TIToolboxLoaderApp(QWidget):
         finally:
             self.docker_toggle.setEnabled(True)
 
+    def _check_internet_connectivity(self):
+        """Check if internet connection is available"""
+        try:
+            self.log_message("Checking internet connectivity...", "INFO")
+            # Try to reach a common DNS server
+            import socket
+            socket.create_connection(("8.8.8.8", 53), timeout=3)
+            self.log_message("Internet connection available", "SUCCESS")
+            return True
+        except OSError:
+            self.log_message(" No internet connection detected", "WARNING")
+            return False
+    
+    def _check_docker_images_exist(self):
+        """Check if required Docker images exist locally"""
+        try:
+            docker_executable = self._find_docker_executable()
+            if not docker_executable:
+                return False
+            
+            self.log_message("Checking for local Docker images...", "INFO")
+            
+            # Get list of images
+            result = run_subprocess_silent([docker_executable, 'images', '--format', '{{.Repository}}:{{.Tag}}'], timeout=30)
+            
+            if result.returncode != 0:
+                self.log_message("Failed to check Docker images", "ERROR")
+                return False
+            
+            available_images = result.stdout.strip().split('\n')
+            self.log_message(f"Found {len(available_images)} local Docker images", "INFO")
+            
+            # Check if simnibs image exists (the main required image)
+            # Look for images containing 'simnibs' or 'ti-toolbox'
+            for image in available_images:
+                if 'simnibs' in image.lower() or 'ti-toolbox' in image.lower():
+                    self.log_message(f"Found local image: {image}", "SUCCESS")
+                    return True
+            
+            self.log_message(" Required Docker images not found locally", "WARNING")
+            return False
+            
+        except Exception as e:
+            self.log_message(f"Error checking Docker images: {str(e)}", "ERROR")
+            return False
+    
     def _ensure_docker_volumes(self):
         """Ensure all required Docker volumes exist"""
         try:
@@ -1065,74 +1163,141 @@ class TIToolboxLoaderApp(QWidget):
             if not docker_executable:
                 return False
                 
-            self.log_message("🔍 Checking Docker volumes...", "INFO")
+            self.log_message("Checking Docker volumes...", "INFO")
             
-            # Create required volumes - FIXED: Use correct volume names that match docker-compose.yml
-            required_volumes = ['ti-toolbox_fsl_data', 'ti-toolbox_freesurfer_data', 'matlab_runtime']
+            # Create required volumes - FSL removed for future release
+            required_volumes = ['ti-toolbox_freesurfer_data']
             
             for volume in required_volumes:
-                self.log_message(f"💾 Ensuring volume exists: {volume}", "INFO")
+                self.log_message(f"Ensuring volume exists: {volume}", "INFO")
                 result = run_subprocess_silent([docker_executable, 'volume', 'create', volume], timeout=60)
                 
                 if result.returncode == 0:
-                    self.log_message(f"✅ Volume ready: {volume}", "SUCCESS")
+                    self.log_message(f"Volume ready: {volume}", "SUCCESS")
                 elif "already exists" in result.stderr:
-                    self.log_message(f"ℹ️  Volume {volume} already exists", "INFO")
+                    self.log_message(f" Volume {volume} already exists", "INFO")
                 else:
-                    self.log_message(f"⚠️  Warning creating {volume}: {result.stderr}", "WARNING")
+                    self.log_message(f" Warning creating {volume}: {result.stderr}", "WARNING")
             
-            self.log_message("✅ All volumes are ready", "SUCCESS")
+            self.log_message("All volumes are ready", "SUCCESS")
             return True
                 
         except Exception as e:
-            self.log_message(f"❌ Volume creation error: {str(e)}", "ERROR")
+            self.log_message(f"Volume creation error: {str(e)}", "ERROR")
             return False
 
-    def _verify_containers_running(self):
-        """Verify that the main simnibs container is running"""
+    def _check_existing_containers(self):
+        """Check if any of our containers are already running and return their names"""
+        try:
+            docker_executable = self._find_docker_executable()
+            if not docker_executable:
+                return []
+            
+            # Check for all our containers
+            container_names = ['simnibs_container', 'freesurfer_container']
+            running_containers = []
+            
+            result = run_subprocess_silent([
+                docker_executable, 'ps', '-a', '--format', '{{.Names}}'
+            ], timeout=5)
+            
+            if result.returncode == 0:
+                existing = result.stdout.strip().split('\n')
+                for container in container_names:
+                    if container in existing:
+                        running_containers.append(container)
+            
+            return running_containers
+        except Exception:
+            return []
+    
+    def _check_containers_already_running(self):
+        """Quick check if containers are already running (no retry, immediate check)"""
         try:
             docker_executable = self._find_docker_executable()
             if not docker_executable:
                 return False
             
-            # Wait for containers to start
-            self.log_message("⏳ Waiting for containers to initialize...", "INFO")
-            time.sleep(5)
-            
-            # Check simnibs_container status
-            self.log_message("🔍 Checking simnibs_container status...", "INFO")
+            # Quick check without retry
             result = run_subprocess_silent([
                 docker_executable, 'ps', '--filter', 'name=simnibs_container', 
                 '--format', '{{.Names}}\t{{.Status}}'
-            ])
+            ], timeout=5)
             
             if result.returncode == 0 and 'simnibs_container' in result.stdout:
-                lines = result.stdout.strip().split('\n')
-                for line in lines:
-                    if 'simnibs_container' in line:
-                        parts = line.split('\t')
-                        if len(parts) >= 2:
-                            status = parts[1]
-                            self.log_message(f"✅ simnibs_container: {status}", "SUCCESS")
-                        else:
-                            self.log_message("✅ simnibs_container is running", "SUCCESS")
-                        return True
+                # Check if status contains "Up" (actually running)
+                if 'Up' in result.stdout:
+                    return True
             
-            self.log_message("❌ simnibs_container is not running", "ERROR")
+            return False
+        except Exception:
+            return False
+    
+    def _verify_containers_running(self):
+        """Verify that the main simnibs container is running with retry logic"""
+        try:
+            docker_executable = self._find_docker_executable()
+            if not docker_executable:
+                self.log_user_message("Docker executable not found during verification", "ERROR")
+                return False
+            
+            # Wait for containers to start with retry logic
+            max_retries = 6  # 30 seconds total (6 * 5 seconds)
+            retry_delay = 5
+            
+            self.log_user_message("  Waiting for containers to initialize...")
+            
+            for attempt in range(1, max_retries + 1):
+                self.log_message(f"Verification attempt {attempt}/{max_retries}...", "INFO")
+                time.sleep(retry_delay)
+                
+                # Check simnibs_container status
+                result = run_subprocess_silent([
+                    docker_executable, 'ps', '--filter', 'name=simnibs_container', 
+                    '--format', '{{.Names}}\t{{.Status}}'
+                ], timeout=10)
+                
+                if result.returncode == 0 and 'simnibs_container' in result.stdout:
+                    lines = result.stdout.strip().split('\n')
+                    for line in lines:
+                        if 'simnibs_container' in line:
+                            parts = line.split('\t')
+                            if len(parts) >= 2:
+                                status = parts[1]
+                                # Check if container is actually running (not just created)
+                                if 'Up' in status:
+                                    self.log_message(f"simnibs_container: {status}", "SUCCESS")
+                                    return True
+                                else:
+                                    self.log_message(f"Container status: {status} (waiting...)", "INFO")
+                            else:
+                                # If no status but container exists, assume it's running
+                                self.log_message("simnibs_container is running", "SUCCESS")
+                                return True
+                
+                if attempt < max_retries:
+                    self.log_message(f"Container not ready yet, waiting {retry_delay} more seconds...", "INFO")
+            
+            # If we get here, all retries failed
+            error_msg = "simnibs_container did not start within 30 seconds"
+            self.log_user_message(f"  {error_msg}", "ERROR")
+            self.log_message(f"Last check output: {result.stdout if result else 'No output'}", "ERROR")
             return False
                     
         except Exception as e:
-            self.log_message(f"❌ Container verification error: {str(e)}", "ERROR")
+            error_msg = f"Container verification error: {str(e)}"
+            self.log_user_message(f"  {error_msg}", "ERROR")
+            self.log_message(f"Full error: {str(e)}", "ERROR")
             return False
 
     def launch_cli(self):
         """Launch CLI interface"""
         if not self.containers_running:
-            self.message_box.show_message("Error", "Please start Docker containers first", "warning", "⚠️")
+            self.message_box.show_message("Error", "Please start Docker containers first", "warning", "")
             return
         
         if self.cli_launching:
-            self.log_message("CLI already launching, please wait...", "WARNING")
+            self.log_user_message("CLI already launching, please wait...", "WARNING")
             return
         
         self.cli_launching = True
@@ -1204,11 +1369,11 @@ class TIToolboxLoaderApp(QWidget):
                 docker_cmd = f'docker exec -it --workdir /ti-toolbox simnibs_container bash'
                 subprocess.Popen(f'start cmd /k "cd /d "{self.script_dir}" && {docker_cmd}"', shell=True)
             
-            self.log_message("✓ CLI launched successfully", "SUCCESS")
+            self.log_user_message("CLI launched successfully", "SUCCESS")
             
         except Exception as e:
-            self.log_message(f"Failed to launch CLI: {e}", "ERROR")
-            self.message_box.show_message("CLI Launch Error", f"Failed to launch CLI terminal: {e}", "error", "❌")
+            self.log_user_message(f"Failed to launch CLI: {e}", "ERROR")
+            self.message_box.show_message("CLI Launch Error", f"Failed to launch CLI terminal: {e}", "error", "")
         finally:
             self.cli_launching = False
             self.cli_button.setEnabled(True)
@@ -1216,7 +1381,7 @@ class TIToolboxLoaderApp(QWidget):
     def launch_gui(self):
         """Launch GUI interface using hidden terminal approach"""
         if not self.containers_running:
-            self.message_box.show_message("Error", "Please start Docker containers first", "warning", "⚠️")
+            self.message_box.show_message("Error", "Please start Docker containers first", "warning", "")
             return
         
         try:
@@ -1233,7 +1398,7 @@ class TIToolboxLoaderApp(QWidget):
                         "1. XQuartz is installed\n" +
                         "2. XQuartz version is 2.8.0 or lower (preferably 2.7.7)\n" +
                         "3. You have proper permissions",
-                        "warning", "⚠️"
+                        "warning", ""
                     )
                     # Continue anyway, but warn the user
             
@@ -1314,22 +1479,23 @@ class TIToolboxLoaderApp(QWidget):
                                startupinfo=startupinfo, 
                                creationflags=subprocess.CREATE_NO_WINDOW)
             
-            self.log_message("✓ GUI launched (no visible terminal)", "SUCCESS")
+            self.log_user_message("GUI launched successfully", "SUCCESS")
             self.log_message("GUI application should appear shortly", "INFO")
             
         except Exception as e:
-            self.log_message(f"Failed to launch GUI: {e}", "ERROR")
-            self.message_box.show_message("GUI Launch Error", f"Failed to launch GUI: {e}", "error", "❌")
+            self.log_user_message(f"Failed to launch GUI: {e}", "ERROR")
+            self.message_box.show_message("GUI Launch Error", f"Failed to launch GUI: {e}", "error", "")
 
     def stop_docker(self):
         """Stop Docker containers"""
         self.docker_toggle.setEnabled(False)
-        self.log_message("🛑 Stopping Docker containers...", "INFO")
+        self.log_user_message("Stopping Docker containers...")
+        self.log_message("Stopping Docker containers...", "INFO")
         
         try:
             docker_executable = self._find_docker_executable()
             if not docker_executable:
-                self.log_message("Docker executable not found for stop operation", "ERROR")
+                self.log_user_message("Docker executable not found for stop operation", "ERROR")
                 return
             
             # Set up environment
@@ -1354,9 +1520,9 @@ class TIToolboxLoaderApp(QWidget):
             if result.returncode == 0:
                 self.containers_running = False
                 self.update_status_display()
-                self.log_message("✅ Docker containers stopped successfully", "SUCCESS")
+                self.log_user_message("Docker containers stopped successfully", "SUCCESS")
             else:
-                self.log_message("⚠️  Some containers may still be running", "WARNING")
+                self.log_message(" Some containers may still be running", "WARNING")
                 if result.stderr.strip():
                     self.log_message(f"Stop error: {result.stderr.strip()}", "WARNING")
                 # Update status anyway
@@ -1364,11 +1530,11 @@ class TIToolboxLoaderApp(QWidget):
                 self.update_status_display()
                 
         except subprocess.TimeoutExpired:
-            self.log_message("⏰ Stop operation timed out", "ERROR") 
+            self.log_user_message("Stop operation timed out", "ERROR")
             self.containers_running = False
             self.update_status_display()
         except Exception as e:
-            self.log_message(f"❌ Error stopping containers: {str(e)}", "ERROR")
+            self.log_user_message(f"Error stopping containers: {str(e)}", "ERROR")
             self.containers_running = False
             self.update_status_display()
         finally:
@@ -1495,7 +1661,7 @@ class TIToolboxLoaderApp(QWidget):
                     if result.returncode != 0:
                         self.log_message(f"xhost +localhost failed: {result.stderr}", "WARNING")
                     else:
-                        self.log_message("✓ X11 permissions set for localhost", "SUCCESS")
+                        self.log_message("X11 permissions set for localhost", "SUCCESS")
                     
                     # Allow connections from hostname
                     try:
@@ -1508,7 +1674,7 @@ class TIToolboxLoaderApp(QWidget):
                             if result.returncode != 0:
                                 self.log_message(f"xhost +{hostname} failed: {result.stderr}", "WARNING")
                             else:
-                                self.log_message(f"✓ X11 permissions set for {hostname}", "SUCCESS")
+                                self.log_message(f"X11 permissions set for {hostname}", "SUCCESS")
                     except Exception as e:
                         self.log_message(f"Could not set hostname xhost permission: {e}", "WARNING")
                     
@@ -1539,7 +1705,7 @@ class TIToolboxLoaderApp(QWidget):
                                               capture_output=True, text=True, timeout=5,
                                               env=dict(os.environ, DISPLAY=':0'))
                         if result.returncode == 0:
-                            self.log_message("✓ X11 server is accessible", "SUCCESS")
+                            self.log_message("X11 server is accessible", "SUCCESS")
                         else:
                             self.log_message("X11 server test failed, but continuing", "WARNING")
                     else:
