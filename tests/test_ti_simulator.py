@@ -46,7 +46,10 @@ def load_ti_module(mock_tmpdir):
             self.open_in_gmsh = False
             self.tissues_in_niftis = 'all'
             self.dti_nii = ''
-        def add_tdcslist(self, *_args, **_kwargs):
+        def add_tdcslist(self, *args, **_kwargs):
+            # If a pre-populated tdcs object is provided (deepcopy), use it
+            if len(args) >= 1 and isinstance(args[0], FakeTDCS):
+                return args[0]
             return FakeTDCS()
 
     simnibs_sim_struct = MagicMock()
@@ -112,4 +115,143 @@ def load_ti_module(mock_tmpdir):
     return mod, simnibs_mesh_io
 
 
-"""Problematic TI simulator tests removed temporarily."""
+def test_ti_reads_hf_meshes_and_writes_output(tmp_path):
+    mod, mesh_io_mock = load_ti_module(tmp_path)
+    # Ensure TI.py uses our mock directly
+    mod.mesh_io = mesh_io_mock
+
+    # Prepare 2 HF meshes under pathfem the way TI.py expects: simulation_dir/tmp/<montage>/
+    montage_name = 'central_montage'
+    montage_dir = os.path.join(str(tmp_path), 'tmp', montage_name)
+    os.makedirs(montage_dir, exist_ok=True)
+    # Expected filenames use subject_id and anisotropy type set in sys.argv within loader
+    open(os.path.join(montage_dir, 'subj001_TDCS_1_scalar.msh'), 'w').close()
+    open(os.path.join(montage_dir, 'subj001_TDCS_2_scalar.msh'), 'w').close()
+
+    # Minimal fake mesh object implementing required API
+    class FakeField:
+        def __init__(self, value):
+            self.value = value
+
+    class FakeViewer:
+        def write_opt(self, _path):
+            return None
+
+    class FakeMesh:
+        def __init__(self, vec):
+            self.field = {'E': FakeField(np.tile(np.array(vec, dtype=float), (10, 1)))}
+            # Element tags for fallback path; set to zeros so no GM selection
+            self.elm = type('E', (), {'tag1': np.zeros(10, dtype=int)})()
+            self.nodedata = []
+            self.elmdata = []
+            self.crop_mesh_called = False
+        def crop_mesh(self, **_kwargs):
+            self.crop_mesh_called = True
+            return self
+        def add_element_field(self, *_args, **_kwargs):
+            return None
+        def add_node_field(self, *_args, **_kwargs):
+            return None
+        def view(self, **_kwargs):
+            return FakeViewer()
+        def __deepcopy__(self, _memo):
+            # Produce a shallow functional copy for test purposes
+            new = FakeMesh([1.0, 0.0, 0.0])
+            new.field = {'E': FakeField(self.field['E'].value.copy())}
+            new.elm = type('E', (), {'tag1': self.elm.tag1.copy()})()
+            return new
+
+    mesh_A = FakeMesh([1.0, 0.0, 0.0])
+    mesh_B = FakeMesh([0.0, 1.0, 0.0])
+    mesh_io_mock.read_msh.side_effect = [mesh_A, mesh_B]
+
+    # Make write_msh create the file so we can assert on filesystem
+    def write_msh_side_effect(_mesh, path):
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        open(path, 'w').close()
+    mesh_io_mock.write_msh.side_effect = write_msh_side_effect
+
+    # Act (let exceptions surface to aid debugging if any)
+    mod.run_simulation(montage_name, [['E1', 'E2'], ['E3', 'E4']], is_xyz=False)
+
+    # Assert TI output was written
+    ti_out = os.path.join(montage_dir, 'TI.msh')
+    assert os.path.exists(ti_out)
+
+
+def test_ti_uses_central_surface_when_available(tmp_path):
+    mod, mesh_io_mock = load_ti_module(tmp_path)
+    # Ensure TI.py uses our mock directly
+    mod.mesh_io = mesh_io_mock
+
+    montage_name = 'central_montage'
+    montage_dir = os.path.join(str(tmp_path), 'tmp', montage_name)
+    overlays_dir = os.path.join(montage_dir, 'subject_overlays')
+    os.makedirs(overlays_dir, exist_ok=True)
+    # Create required HF mesh files
+    open(os.path.join(montage_dir, 'subj001_TDCS_1_scalar.msh'), 'w').close()
+    open(os.path.join(montage_dir, 'subj001_TDCS_2_scalar.msh'), 'w').close()
+    # Create central surface files to trigger central path
+    open(os.path.join(overlays_dir, 'subj001_TDCS_1_scalar_central.msh'), 'w').close()
+    open(os.path.join(overlays_dir, 'subj001_TDCS_2_scalar_central.msh'), 'w').close()
+
+    class FakeField:
+        def __init__(self, value):
+            self.value = value
+
+    class FakeViewer:
+        def write_opt(self, _path):
+            return None
+
+    class FakeMesh:
+        def __init__(self, vec):
+            self.field = {'E': FakeField(np.tile(np.array(vec, dtype=float), (10, 1)))}
+            self.elm = type('E', (), {'tag1': np.zeros(10, dtype=int)})()
+            self.nodedata = []
+            self.elmdata = []
+            self.crop_mesh_called = False
+        def crop_mesh(self, **_kwargs):
+            self.crop_mesh_called = True
+            return self
+        def add_element_field(self, *_args, **_kwargs):
+            return None
+        def add_node_field(self, *_args, **_kwargs):
+            return None
+        def view(self, **_kwargs):
+            return FakeViewer()
+        def __deepcopy__(self, _memo):
+            new = FakeMesh([1.0, 0.0, 0.0])
+            new.field = {'E': FakeField(self.field['E'].value.copy())}
+            new.elm = type('E', (), {'tag1': self.elm.tag1.copy()})()
+            new.nodedata = []
+            new.elmdata = []
+            return new
+
+    class FakeCentralMesh(FakeMesh):
+        def __init__(self, vec):
+            super().__init__(vec)
+        def add_node_field(self, *_args, **_kwargs):
+            return None
+        def nodes_normals(self):
+            return type('N', (), {'value': np.tile(np.array([0.0, 0.0, 1.0]), (10, 1))})()
+
+    hf_A = FakeMesh([1.0, 0.0, 0.0])
+    hf_B = FakeMesh([0.0, 1.0, 0.0])
+    central_1 = FakeCentralMesh([1.0, 0.0, 0.0])
+    central_2 = FakeCentralMesh([0.0, 1.0, 0.0])
+
+    # read_msh sequence: TDCS1, TDCS2, central1, central2
+    mesh_io_mock.read_msh.side_effect = [hf_A, hf_B, central_1, central_2]
+
+    # Make write_msh create files
+    def write_msh_side_effect(_mesh, path):
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        open(path, 'w').close()
+    mesh_io_mock.write_msh.side_effect = write_msh_side_effect
+
+    # Act
+    mod.run_simulation(montage_name, [['E1', 'E2'], ['E3', 'E4']], is_xyz=False)
+
+    # Assert central TI output was written
+    central_out = os.path.join(montage_dir, 'TI_central.msh')
+    assert os.path.exists(central_out)
