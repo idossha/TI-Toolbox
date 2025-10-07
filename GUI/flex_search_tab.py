@@ -355,16 +355,6 @@ class FlexSearchTab(QtWidgets.QWidget):
         scroll_content = QtWidgets.QWidget()
         scroll_layout = QtWidgets.QVBoxLayout(scroll_content)
         
-        title_label = QtWidgets.QLabel("Flex Search Electrode Optimization")
-        title_label.setStyleSheet("font-size: 16px; font-weight: bold;")
-        description_label = QtWidgets.QLabel(
-            "Find optimal electrode positions for temporal interference stimulation targeting a specific ROI."
-        )
-        description_label.setWordWrap(True)
-        scroll_layout.addWidget(title_label)
-        scroll_layout.addWidget(description_label)
-        scroll_layout.addWidget(QtWidgets.QLabel(""))
-
         top_row_layout = QtWidgets.QHBoxLayout()
 
         # Left column: Basic Parameters (expanded)
@@ -580,18 +570,8 @@ class FlexSearchTab(QtWidgets.QWidget):
         focality_layout.addRow(QtWidgets.QLabel("Non-ROI Region (if 'Specific'):"), self.nonroi_stacked)
         scroll_layout.addWidget(self.focality_group)
 
-        self.stability_group = QtWidgets.QGroupBox("Stability & Memory Options")
+        self.stability_group = QtWidgets.QGroupBox("Hyper Parameters")
         stability_layout = QtWidgets.QFormLayout(self.stability_group)
-        stability_help_label = QtWidgets.QLabel(
-            "⚙️ These options help prevent crashes, manage resource usage, and control optimization speed.\n"
-            "• Optimization runs: Multiple runs help find global optimum (avoids local minima). Best result is kept automatically.\n"
-            "• Max iterations: Lower = faster but potentially less optimal results.\n"
-            "• Population size: Lower = less memory, potentially slower convergence. Higher = more memory, potentially faster convergence.\n"
-            "• Number of CPUs: More CPUs can speed up parallelizable parts of the optimization."
-        )
-        stability_help_label.setStyleSheet("font-size: 11px; color: #666666; font-style: italic; padding: 5px; background-color: #f5f5f5; border-radius: 3px;")
-        stability_help_label.setWordWrap(True)
-        stability_layout.addRow(stability_help_label) 
         stability_layout.addRow(self.n_multistart_label, self.n_multistart_input)
         stability_layout.addRow(self.max_iterations_label, self.max_iterations_input)
         stability_layout.addRow(self.population_size_label, self.population_size_input)
