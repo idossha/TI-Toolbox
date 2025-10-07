@@ -354,8 +354,10 @@ class FlexSearchTab(QtWidgets.QWidget):
         scroll_area.setWidgetResizable(True)
         scroll_content = QtWidgets.QWidget()
         scroll_layout = QtWidgets.QVBoxLayout(scroll_content)
+        scroll_layout.setContentsMargins(8, 8, 8, 8)  # Reduce margins from default ~11 to 8
         
         top_row_layout = QtWidgets.QHBoxLayout()
+        top_row_layout.setSpacing(6)  # Reduce spacing between columns from default ~10 to 6
 
         # Left column: Basic Parameters (expanded)
         basic_params_group = QtWidgets.QGroupBox("Basic Parameters")
@@ -378,10 +380,10 @@ class FlexSearchTab(QtWidgets.QWidget):
         subject_controls_inner_layout.addStretch()
         basic_params_layout.addRow(self.subject_label, subject_controls_widget)
         
-        self.goal_combo.setMaximumWidth(350)
+        self.goal_combo.setMaximumWidth(320)
         basic_params_layout.addRow(self.goal_label, self.goal_combo)
         
-        self.postproc_combo.setMaximumWidth(350)
+        self.postproc_combo.setMaximumWidth(320)
         basic_params_layout.addRow(self.postproc_label, self.postproc_combo)
         
         # Add final electrode simulation checkbox under post-processing
@@ -396,12 +398,17 @@ class FlexSearchTab(QtWidgets.QWidget):
         
         # Electrode Mapping Options (compact, no warning text)
         self.mapping_group = QtWidgets.QGroupBox("Electrode Mapping (Optional)")
+        self.mapping_group.setMaximumHeight(115)  # Limit maximum height to prevent UI stretching
         mapping_layout = QtWidgets.QFormLayout(self.mapping_group)
+        mapping_layout.setVerticalSpacing(0)  # Minimal vertical spacing between rows
+        mapping_layout.setContentsMargins(4, 2, 4, 2)  # Minimal top/bottom margins
+        mapping_layout.setFieldGrowthPolicy(QtWidgets.QFormLayout.FieldsStayAtSizeHint)  # Prevent fields from growing
         
         mapping_layout.addRow(self.enable_mapping_checkbox)
 
         eeg_net_controls_inner_layout = QtWidgets.QHBoxLayout()
-        self.eeg_net_combo.setFixedWidth(200)  # Force width to be 2.5x larger
+        eeg_net_controls_inner_layout.setContentsMargins(0, 0, 0, 0)  # Remove margins
+        self.eeg_net_combo.setFixedWidth(195)  # Force width to be 2.5x larger
         eeg_net_controls_inner_layout.addWidget(self.eeg_net_combo)
         eeg_net_controls_inner_layout.addStretch()
         self.eeg_net_widget.setLayout(eeg_net_controls_inner_layout)
@@ -409,8 +416,15 @@ class FlexSearchTab(QtWidgets.QWidget):
         self.eeg_net_label.setVisible(False)
         mapping_layout.addRow(self.eeg_net_label, self.eeg_net_widget)
         
-        self.run_mapped_simulation_checkbox.setVisible(False)
-        mapping_layout.addRow(self.run_mapped_simulation_checkbox)
+        # Wrap checkbox in container with minimal margins to reduce spacing
+        run_mapped_sim_container = QtWidgets.QWidget()
+        run_mapped_sim_layout = QtWidgets.QVBoxLayout(run_mapped_sim_container)
+        run_mapped_sim_layout.setContentsMargins(20, 0, 2, 2)  # No margins
+        run_mapped_sim_layout.setSpacing(0)  # No spacing
+        run_mapped_sim_layout.addWidget(self.run_mapped_simulation_checkbox)
+        run_mapped_sim_container.setVisible(False)  # Container visibility controls everything
+        self.run_mapped_sim_container = run_mapped_sim_container  # Store reference for visibility control
+        mapping_layout.addRow(run_mapped_sim_container)
         right_column_layout.addWidget(self.mapping_group)
         
         # Electrode Parameters
@@ -477,7 +491,7 @@ class FlexSearchTab(QtWidgets.QWidget):
         
         atlas_controls_widget = QtWidgets.QWidget()
         atlas_controls_inner_layout = QtWidgets.QHBoxLayout(atlas_controls_widget)
-        self.atlas_combo.setMaximumWidth(350)
+        self.atlas_combo.setMaximumWidth(320)
         atlas_controls_inner_layout.addWidget(self.atlas_combo)
         atlas_controls_inner_layout.addWidget(self.roi_hemi_label)
         atlas_controls_inner_layout.addWidget(self.roi_hemi_combo)
@@ -496,7 +510,7 @@ class FlexSearchTab(QtWidgets.QWidget):
         
         volume_controls_widget = QtWidgets.QWidget()
         volume_controls_inner_layout = QtWidgets.QHBoxLayout(volume_controls_widget)
-        self.volume_atlas_combo.setMaximumWidth(350)
+        self.volume_atlas_combo.setMaximumWidth(320)
         volume_controls_inner_layout.addWidget(self.volume_atlas_combo)
         volume_controls_inner_layout.addWidget(self.refresh_volume_atlases_btn)
         volume_controls_inner_layout.addWidget(self.list_volume_regions_btn)
@@ -554,7 +568,7 @@ class FlexSearchTab(QtWidgets.QWidget):
         nonroi_atlas_layout = QtWidgets.QFormLayout(self.nonroi_atlas_widget)
         nonroi_atlas_controls_widget = QtWidgets.QWidget()
         nonroi_atlas_controls_inner_layout = QtWidgets.QHBoxLayout(nonroi_atlas_controls_widget)
-        self.nonroi_atlas_combo.setMaximumWidth(350)
+        self.nonroi_atlas_combo.setMaximumWidth(320)
         nonroi_atlas_controls_inner_layout.addWidget(self.nonroi_atlas_combo)
         nonroi_atlas_controls_inner_layout.addWidget(self.nonroi_hemi_label)
         nonroi_atlas_controls_inner_layout.addWidget(self.nonroi_hemi_combo)
@@ -569,7 +583,7 @@ class FlexSearchTab(QtWidgets.QWidget):
         nonroi_volume_layout = QtWidgets.QFormLayout(self.nonroi_volume_widget)
         nonroi_volume_controls_widget = QtWidgets.QWidget()
         nonroi_volume_controls_layout = QtWidgets.QHBoxLayout(nonroi_volume_controls_widget)
-        self.nonroi_volume_atlas_combo.setMaximumWidth(350)
+        self.nonroi_volume_atlas_combo.setMaximumWidth(320)
         nonroi_volume_controls_layout.addWidget(self.nonroi_volume_atlas_combo)
         nonroi_volume_controls_layout.addWidget(self.list_nonroi_volume_regions_btn)
         nonroi_volume_controls_layout.addStretch()
@@ -1686,7 +1700,7 @@ class FlexSearchTab(QtWidgets.QWidget):
         is_mapping_enabled = self.enable_mapping_checkbox.isChecked()
         self.eeg_net_widget.setVisible(is_mapping_enabled)
         self.eeg_net_label.setVisible(is_mapping_enabled)
-        self.run_mapped_simulation_checkbox.setVisible(is_mapping_enabled)
+        self.run_mapped_sim_container.setVisible(is_mapping_enabled)
         if not is_mapping_enabled:
             self.run_mapped_simulation_checkbox.setChecked(False)
 
