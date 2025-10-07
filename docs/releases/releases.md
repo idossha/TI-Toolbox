@@ -19,6 +19,12 @@ For headless server useage, see the [Bash Script & Compose YAML](https://github.
 #### Fixes
 - Various bug fixes: charm, ex-search, flex-search
 
+
+#### Download Links
+- [Windows Installer](https://github.com/idossha/TI-Toolbox/releases/download/v2.1.2/TI-Toolbox-Windows.exe)
+- [macOS Universal](https://github.com/idossha/TI-Toolbox/releases/download/v2.1.2/TemporalInterferenceToolbox-macOS-universal.zip)
+- [Linux AppImage](https://github.com/idossha/TI-Toolbox/releases/download/v2.1.2/TemporalInterferenceToolbox-Linux-x86_64.AppImage)
+
 ---
 
 ## Getting Help
