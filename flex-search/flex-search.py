@@ -16,7 +16,6 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 from simnibs import opt_struct, mni2subject_coords
 from simnibs.mesh_tools.mesh_io import ElementTags
 from utils.logging_util import get_logger, configure_external_loggers
-from env_utils import apply_common_env_fixes
 
 # -----------------------------------------------------------------------------
 # Summary logging system for non-debug mode
@@ -886,7 +885,6 @@ def _roi_subcortical(opt: opt_struct.TesFlexOptimization, args: argparse.Namespa
 # -----------------------------------------------------------------------------
 
 def main() -> int:
-    apply_common_env_fixes()
     args = parse_arguments()
     
     # Enable summary mode if quiet flag is set OR if not in debug mode
