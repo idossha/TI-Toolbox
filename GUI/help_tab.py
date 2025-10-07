@@ -158,16 +158,8 @@ Project Directory/
             <li>Place T1w DICOM files in <code>sourcedata/sub-101/T1w/dicom/</code></li>
             <li>Optionally add T2w DICOM files in <code>sourcedata/sub-101/T2w/dicom/</code></li>
             <li>Use the Pre-processing tab to begin processing</li>
-            <li>Enable "Run skull bone analyzer" option to generate publication-ready bone analysis figures</li>
-            <li>Bone analysis results will be saved in <code>derivatives/ti-toolbox/bone_analysis/sub-101/</code></li>
         </ol>
 
-        <h3>Example Subject IDs:</h3>
-        <p>Subject IDs should follow the BIDS naming convention:</p>
-        <ul>
-            <li>Single subject: sub-101</li>
-            <li>Multiple subjects: sub-101, sub-102, etc.</li>
-        </ul>
         """
         
         # Section content
@@ -231,13 +223,11 @@ Project Directory/
                     "<b>Create SimNIBS m2m folder:</b><br>"
                     "- Runs the SimNIBS charm tool to create subject-specific head models<br>"
                     "- Generates meshes necessary for electromagnetic field simulations<br>"
-                    "- Creates the m2m_[SUBJECT_ID] directory in the SimNIBS folder<br><br>"
+                    "- Creates the m2m_{SUBJECT_ID} directory in the SimNIBS folder<br><br>"
                     
-                    "<b>Run skull bone analyzer:</b><br>"
-                    "- Analyzes skull bone volume and thickness from segmented tissue data<br>"
-                    "- Generates publication-ready figures showing extraction methodology and thickness analysis<br>"
-                    "- Results are saved in <code>derivatives/ti-toolbox/bone_analysis/sub-{subject}/</code><br>"
-                    "- Excludes jaw and vertebrae by spatial filtering around brain cortex<br><br>"
+                    "<b>Run tissue analyzer:</b><br>"
+                    "- Analyzes skull bone, skin, and CSF volume and thickness from segmented tissue data<br>"
+                    "- Results are saved in <code>derivatives/ti-toolbox/tissue_analysis/sub-{subject}/</code><br>"
                     
                 )
             },
@@ -259,33 +249,11 @@ Project Directory/
                     "   - Uses the SimNIBS charm tool to create realistic head models<br>"
                     "   - Generates mesh files for FEM simulations<br><br>"
                     
-                    "4. <b>Skull Bone Analysis (Optional):</b><br>"
-                    "   - Analyzes skull bone volume and thickness from segmented tissue data<br>"
-                    "   - Generates publication-ready figures showing extraction methodology<br>"
-                    "   - Results saved in <code>derivatives/ti-toolbox/bone_analysis/sub-{subject}/</code><br><br>"
+                    "4. <b>Tissue Analysis (Optional):</b><br>"
+                    "   - Analyzes skull, skin, and CSF volume and thickness from segmented tissue data<br>"
+                    "   - Results saved in <code>derivatives/ti-toolbox/tissue_analysis/sub-{subject}/</code><br><br>"
                     
                     "Once pre-processing is complete, the subject data is ready for TI-Toolbox simulations."
-                )
-            },
-            {
-                "title": "Bone Analyzer Output Files",
-                "content": (
-                    "When the skull bone analyzer is enabled, it generates the following files in <code>derivatives/ti-toolbox/bone_analysis/sub-{subject}/</code>:<br><br>"
-                    
-                    "<b>Visualization Files:</b><br>"
-                    "- <code>skull_bone_thickness_analysis.png</code>: Thickness distribution analysis with 3D views and histogram<br>"
-                    "- <code>skull_extraction_methodology.png</code>: Illustration of skull extraction methodology<br>"
-                    "- <code>skull_combined_publication_figure.png</code>: Comprehensive publication-ready figure<br><br>"
-                    
-                    "<b>Data Files:</b><br>"
-                    "- <code>skull_bone_analysis_summary.txt</code>: Detailed analysis report with statistics<br><br>"
-                    
-                    "<b>Analysis Features:</b><br>"
-                    "- Skull bone volume calculation (cortical + cancellous combined)<br>"
-                    "- 3D thickness analysis using distance transform<br>"
-                    "- Spatial filtering to exclude jaw and vertebrae<br>"
-                    "- Publication-ready visualizations with proper anatomical labeling<br>"
-                    "- Statistical summaries including mean, standard deviation, and percentiles"
                 )
             },
             {
@@ -299,8 +267,8 @@ Project Directory/
                     "- If processing fails, check the console output for specific error messages<br>"
                     "- The Stop button can be used to terminate processing, but may leave files in an inconsistent state<br>"
                     "- Use the status label at the top to monitor the current processing state<br>"
-                    "- The skull bone analyzer requires completed FreeSurfer and SimNIBS processing<br>"
-                    "- Bone analysis results are automatically organized under the ti-toolbox derivative structure"
+                    "- The tissue analyzer requires completed SimNIBS processing<br>"
+                    "- Tissue analysis results are automatically organized under the ti-toolbox derivative structure"
                 )
             }
         ]
@@ -346,8 +314,8 @@ Project Directory/
                     
                     "<b>Custom Montage:</b><br>"
                     "- Use the 'Add Custom Montage' button to create new electrode configurations<br>"
-                    "- For Multipolar mode, specify four pairs of electrode positions<br>"
                     "- For Unipolar mode, specify two pairs of electrode positions<br>"
+                    "- For Multipolar mode, specify four pairs of electrode positions<br>"
                     "- Position names should match the desired EEG net"
                 )
             },
@@ -374,7 +342,7 @@ Project Directory/
                 "content": (
                     "1. The simulator creates FEM models for each electrode configuration<br>"
                     "2. It solves the electric field equations using SimNIBS<br>"
-                    "3. For TI stimulation, it calculates the amplitude-modulated field<br>"
+                    "3. For TI stimulation, it calculates the maximumal amplitude-modulated field<br>"
                     "4. Results are stored in the subject's SimNIBS directory<br><br>"
                     
                     "Simulation progress and status messages are displayed in the console window."
@@ -390,7 +358,7 @@ Project Directory/
                     "- Electric field distributions (.msh and .nii.gz formats)<br>"
                     "- Electrode positions and parameters<br>"
                     "- Log files with simulation parameters<br>"
-                    "- Visualization-ready files compatible with SimNIBS GUI and NIfTI viewers"
+                    "- Visualization-ready files compatible with Gmsh and NIfTI viewers"
                 )
             }
         ]
