@@ -270,20 +270,6 @@ class PreProcessTab(QtWidgets.QWidget):
         scroll_content = QtWidgets.QWidget()
         scroll_layout = QtWidgets.QVBoxLayout(scroll_content)
         
-        # Title and description
-        title_label = QtWidgets.QLabel("Pre-processing Pipeline")
-        title_label.setStyleSheet("font-size: 16px; font-weight: bold;")
-        
-        description_label = QtWidgets.QLabel(
-            "Convert DICOM files to NIfTI format, run FreeSurfer reconstruction, "
-            "and create SimNIBS m2m folders for selected subjects."
-        )
-        description_label.setWordWrap(True)
-        
-        scroll_layout.addWidget(title_label)
-        scroll_layout.addWidget(description_label)
-        scroll_layout.addSpacing(10)  # Reduced spacing after description
-        
         # Add status label at the top
         self.status_label = QtWidgets.QLabel()
         self.status_label.setText("Processing... Only the Stop button is available")

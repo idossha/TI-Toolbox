@@ -209,10 +209,10 @@ class FlexSearchTab(QtWidgets.QWidget):
         
         # Initialize spinboxes and line edits
         self.radius_input = QtWidgets.QDoubleSpinBox()
-        self.radius_input.setRange(1, 30); self.radius_input.setValue(10); self.radius_input.setDecimals(1)
+        self.radius_input.setRange(1, 30); self.radius_input.setValue(4); self.radius_input.setDecimals(1)
         
         self.current_input = QtWidgets.QDoubleSpinBox()
-        self.current_input.setRange(0.1, 100); self.current_input.setValue(2); self.current_input.setDecimals(1)
+        self.current_input.setRange(0.1, 100); self.current_input.setValue(1.0); self.current_input.setDecimals(1)
         
         # Initialize Freeview button for spherical ROI
         self.view_t1_btn = QtWidgets.QPushButton("View T1 in Freeview")
@@ -426,20 +426,26 @@ class FlexSearchTab(QtWidgets.QWidget):
 
         self.roi_method_group = QtWidgets.QGroupBox("ROI Definition")
         roi_method_layout_main = QtWidgets.QVBoxLayout(self.roi_method_group)
+        roi_method_layout_main.setSpacing(5)  # Reduce vertical spacing
+        roi_method_layout_main.setContentsMargins(10, 10, 10, 10)  # Reduce margins
         
-        roi_method_radio_container = QtWidgets.QWidget()
-        roi_method_radio_layout = QtWidgets.QHBoxLayout(roi_method_radio_container)
-        roi_method_radio_layout.addWidget(self.roi_method_spherical)
-        roi_method_radio_layout.addWidget(self.roi_method_cortical)
-        roi_method_radio_layout.addWidget(self.roi_method_subcortical)
-        roi_method_radio_layout.addStretch()
+        # Create horizontal layout for label and radio buttons on same line
+        roi_method_header_container = QtWidgets.QWidget()
+        roi_method_header_layout = QtWidgets.QHBoxLayout(roi_method_header_container)
+        roi_method_header_layout.setContentsMargins(0, 0, 0, 0)
+        roi_method_header_layout.addWidget(self.roi_method_label)
+        roi_method_header_layout.addWidget(self.roi_method_spherical)
+        roi_method_header_layout.addWidget(self.roi_method_cortical)
+        roi_method_header_layout.addWidget(self.roi_method_subcortical)
+        roi_method_header_layout.addStretch()
         
-        roi_method_layout_main.addWidget(self.roi_method_label)
-        roi_method_layout_main.addWidget(roi_method_radio_container)
+        roi_method_layout_main.addWidget(roi_method_header_container)
         
         # Spherical ROI inputs
         self.spherical_roi_widget = QtWidgets.QWidget()
         spherical_roi_layout = QtWidgets.QFormLayout(self.spherical_roi_widget)
+        spherical_roi_layout.setVerticalSpacing(3)  # Reduce vertical spacing between form rows
+        spherical_roi_layout.setContentsMargins(0, 5, 0, 5)  # Reduce top/bottom margins
         
         # Add info label for MNI coordinates (initially hidden)
         self.mni_info_label = QtWidgets.QLabel()
@@ -466,6 +472,8 @@ class FlexSearchTab(QtWidgets.QWidget):
         # Cortical ROI inputs
         self.cortical_roi_widget = QtWidgets.QWidget()
         cortical_roi_layout = QtWidgets.QFormLayout(self.cortical_roi_widget)
+        cortical_roi_layout.setVerticalSpacing(3)  # Reduce vertical spacing
+        cortical_roi_layout.setContentsMargins(0, 5, 0, 5)  # Reduce margins
         
         atlas_controls_widget = QtWidgets.QWidget()
         atlas_controls_inner_layout = QtWidgets.QHBoxLayout(atlas_controls_widget)
@@ -483,6 +491,8 @@ class FlexSearchTab(QtWidgets.QWidget):
         # Subcortical ROI inputs
         self.subcortical_roi_widget = QtWidgets.QWidget()
         subcortical_roi_layout = QtWidgets.QFormLayout(self.subcortical_roi_widget)
+        subcortical_roi_layout.setVerticalSpacing(3)  # Reduce vertical spacing
+        subcortical_roi_layout.setContentsMargins(0, 5, 0, 5)  # Reduce margins
         
         volume_controls_widget = QtWidgets.QWidget()
         volume_controls_inner_layout = QtWidgets.QHBoxLayout(volume_controls_widget)
