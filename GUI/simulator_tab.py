@@ -745,11 +745,9 @@ class SimulatorTab(QtWidgets.QWidget):
         dimensions_layout.addWidget(self.dimensions_input)
         electrode_params_layout.addLayout(dimensions_layout)
         
-        # Electrode thickness - aligned with dimensions input
+        # Electrode thickness
         thickness_layout = QtWidgets.QHBoxLayout()
         self.thickness_label = QtWidgets.QLabel("Thickness (mm):")
-        # Set minimum width to match dimensions label for alignment
-        self.thickness_label.setMinimumWidth(self.dimensions_label.sizeHint().width())
         self.thickness_input = QtWidgets.QLineEdit()
         self.thickness_input.setPlaceholderText("8")
         self.thickness_input.setText("8")  # Set default to 8mm
