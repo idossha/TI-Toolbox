@@ -154,6 +154,12 @@ class FlexSearchTab(QtWidgets.QWidget):
         self.refresh_subjects_btn = QtWidgets.QPushButton("Refresh")
         self.refresh_subjects_btn.setMaximumWidth(100)
         
+        self.select_all_subjects_btn = QtWidgets.QPushButton("Select All")
+        self.select_all_subjects_btn.setMaximumWidth(100)
+        
+        self.clear_subjects_btn = QtWidgets.QPushButton("Clear")
+        self.clear_subjects_btn.setMaximumWidth(100)
+        
         self.refresh_eeg_nets_btn = QtWidgets.QPushButton("Refresh")
         self.refresh_eeg_nets_btn.setMaximumWidth(100)
         
@@ -192,12 +198,6 @@ class FlexSearchTab(QtWidgets.QWidget):
         self.run_mapped_simulation_checkbox = QtWidgets.QCheckBox("Run simulation with mapped electrodes")
         self.run_mapped_simulation_checkbox.setChecked(False)
         
-        self.conservative_mode_checkbox = QtWidgets.QCheckBox("✓ Enable conservative mode")
-        self.conservative_mode_checkbox.setChecked(False)
-        
-        self.quiet_mode_checkbox = QtWidgets.QCheckBox("✓ Hide optimization steps")
-        self.quiet_mode_checkbox.setChecked(True)
-        
         self.run_final_electrode_simulation_checkbox = QtWidgets.QCheckBox("✓ Run final electrode simulation")
         self.run_final_electrode_simulation_checkbox.setChecked(True)
         
@@ -209,10 +209,10 @@ class FlexSearchTab(QtWidgets.QWidget):
         
         # Initialize spinboxes and line edits
         self.radius_input = QtWidgets.QDoubleSpinBox()
-        self.radius_input.setRange(1, 30); self.radius_input.setValue(10); self.radius_input.setDecimals(1)
+        self.radius_input.setRange(1, 30); self.radius_input.setValue(4); self.radius_input.setDecimals(1)
         
         self.current_input = QtWidgets.QDoubleSpinBox()
-        self.current_input.setRange(0.1, 100); self.current_input.setValue(2); self.current_input.setDecimals(1)
+        self.current_input.setRange(0.1, 100); self.current_input.setValue(1.0); self.current_input.setDecimals(1)
         
         # Initialize Freeview button for spherical ROI
         self.view_t1_btn = QtWidgets.QPushButton("View T1 in Freeview")
@@ -259,6 +259,22 @@ class FlexSearchTab(QtWidgets.QWidget):
         self.threshold_input = QtWidgets.QLineEdit()
         self.threshold_input.setPlaceholderText("e.g. 0.2 or 0.2,0.5")
         
+        # Adaptive focality controls
+        self.adaptive_focality_checkbox = QtWidgets.QCheckBox("Use Adaptive Thresholds")
+        self.adaptive_focality_checkbox.setToolTip("Automatically determine thresholds based on achievable intensity from mean optimization")
+        
+        self.nonroi_percentage_input = QtWidgets.QDoubleSpinBox()
+        self.nonroi_percentage_input.setRange(1, 99)
+        self.nonroi_percentage_input.setValue(20)
+        self.nonroi_percentage_input.setSuffix("%")
+        self.nonroi_percentage_input.setToolTip("Percentage of achievable intensity for non-ROI threshold")
+        
+        self.roi_percentage_input = QtWidgets.QDoubleSpinBox()
+        self.roi_percentage_input.setRange(1, 99)
+        self.roi_percentage_input.setValue(80)
+        self.roi_percentage_input.setSuffix("%")
+        self.roi_percentage_input.setToolTip("Percentage of achievable intensity for ROI threshold")
+        
         self.nonroi_method_combo = QtWidgets.QComboBox()
         self.nonroi_method_combo.addItem("Everything Else (default)", "everything_else")
         self.nonroi_method_combo.addItem("Specific Region", "specific")
@@ -304,6 +320,8 @@ class FlexSearchTab(QtWidgets.QWidget):
         
         # Connect signals after UI setup (critical widgets must exist)
         self.refresh_subjects_btn.clicked.connect(self.find_available_subjects)
+        self.select_all_subjects_btn.clicked.connect(self.select_all_subjects)
+        self.clear_subjects_btn.clicked.connect(self.clear_subject_selection)
         self.refresh_eeg_nets_btn.clicked.connect(self.find_available_eeg_nets)
         self.refresh_atlases_btn.clicked.connect(self.find_available_atlases)
         self.refresh_volume_atlases_btn.clicked.connect(self.find_available_volume_atlases)
@@ -313,6 +331,7 @@ class FlexSearchTab(QtWidgets.QWidget):
         self.list_nonroi_volume_regions_btn.clicked.connect(self._list_nonroi_volume_regions)
 
         self.goal_combo.currentIndexChanged.connect(self._update_focality_visibility)
+        self.adaptive_focality_checkbox.toggled.connect(self._update_adaptive_focality_controls)
         self.enable_mapping_checkbox.toggled.connect(self._update_mapping_options)
         self.subject_list.itemSelectionChanged.connect(self.on_subject_changed)
         self.nonroi_method_combo.currentIndexChanged.connect(self._update_nonroi_stacked)
@@ -335,18 +354,10 @@ class FlexSearchTab(QtWidgets.QWidget):
         scroll_area.setWidgetResizable(True)
         scroll_content = QtWidgets.QWidget()
         scroll_layout = QtWidgets.QVBoxLayout(scroll_content)
+        scroll_layout.setContentsMargins(8, 8, 8, 8)  # Reduce margins from default ~11 to 8
         
-        title_label = QtWidgets.QLabel("Flex Search Electrode Optimization")
-        title_label.setStyleSheet("font-size: 16px; font-weight: bold;")
-        description_label = QtWidgets.QLabel(
-            "Find optimal electrode positions for temporal interference stimulation targeting a specific ROI."
-        )
-        description_label.setWordWrap(True)
-        scroll_layout.addWidget(title_label)
-        scroll_layout.addWidget(description_label)
-        scroll_layout.addWidget(QtWidgets.QLabel(""))
-
         top_row_layout = QtWidgets.QHBoxLayout()
+        top_row_layout.setSpacing(6)  # Reduce spacing between columns from default ~10 to 6
 
         # Left column: Basic Parameters (expanded)
         basic_params_group = QtWidgets.QGroupBox("Basic Parameters")
@@ -355,14 +366,24 @@ class FlexSearchTab(QtWidgets.QWidget):
         subject_controls_widget = QtWidgets.QWidget()
         subject_controls_inner_layout = QtWidgets.QHBoxLayout(subject_controls_widget)
         subject_controls_inner_layout.addWidget(self.subject_list)
-        subject_controls_inner_layout.addWidget(self.refresh_subjects_btn)
+        
+        # Create vertical layout for buttons
+        subject_buttons_widget = QtWidgets.QWidget()
+        subject_buttons_layout = QtWidgets.QVBoxLayout(subject_buttons_widget)
+        subject_buttons_layout.setContentsMargins(0, 0, 0, 0)
+        subject_buttons_layout.setSpacing(2)
+        subject_buttons_layout.addWidget(self.refresh_subjects_btn)
+        subject_buttons_layout.addWidget(self.select_all_subjects_btn)
+        subject_buttons_layout.addWidget(self.clear_subjects_btn)
+        
+        subject_controls_inner_layout.addWidget(subject_buttons_widget)
         subject_controls_inner_layout.addStretch()
         basic_params_layout.addRow(self.subject_label, subject_controls_widget)
         
-        self.goal_combo.setMaximumWidth(350)
+        self.goal_combo.setMaximumWidth(320)
         basic_params_layout.addRow(self.goal_label, self.goal_combo)
         
-        self.postproc_combo.setMaximumWidth(350)
+        self.postproc_combo.setMaximumWidth(320)
         basic_params_layout.addRow(self.postproc_label, self.postproc_combo)
         
         # Add final electrode simulation checkbox under post-processing
@@ -377,12 +398,17 @@ class FlexSearchTab(QtWidgets.QWidget):
         
         # Electrode Mapping Options (compact, no warning text)
         self.mapping_group = QtWidgets.QGroupBox("Electrode Mapping (Optional)")
+        self.mapping_group.setMaximumHeight(115)  # Limit maximum height to prevent UI stretching
         mapping_layout = QtWidgets.QFormLayout(self.mapping_group)
+        mapping_layout.setVerticalSpacing(0)  # Minimal vertical spacing between rows
+        mapping_layout.setContentsMargins(4, 2, 4, 2)  # Minimal top/bottom margins
+        mapping_layout.setFieldGrowthPolicy(QtWidgets.QFormLayout.FieldsStayAtSizeHint)  # Prevent fields from growing
         
         mapping_layout.addRow(self.enable_mapping_checkbox)
 
         eeg_net_controls_inner_layout = QtWidgets.QHBoxLayout()
-        self.eeg_net_combo.setFixedWidth(200)  # Force width to be 2.5x larger
+        eeg_net_controls_inner_layout.setContentsMargins(0, 0, 0, 0)  # Remove margins
+        self.eeg_net_combo.setFixedWidth(195)  # Force width to be 2.5x larger
         eeg_net_controls_inner_layout.addWidget(self.eeg_net_combo)
         eeg_net_controls_inner_layout.addStretch()
         self.eeg_net_widget.setLayout(eeg_net_controls_inner_layout)
@@ -390,8 +416,15 @@ class FlexSearchTab(QtWidgets.QWidget):
         self.eeg_net_label.setVisible(False)
         mapping_layout.addRow(self.eeg_net_label, self.eeg_net_widget)
         
-        self.run_mapped_simulation_checkbox.setVisible(False)
-        mapping_layout.addRow(self.run_mapped_simulation_checkbox)
+        # Wrap checkbox in container with minimal margins to reduce spacing
+        run_mapped_sim_container = QtWidgets.QWidget()
+        run_mapped_sim_layout = QtWidgets.QVBoxLayout(run_mapped_sim_container)
+        run_mapped_sim_layout.setContentsMargins(20, 0, 2, 2)  # No margins
+        run_mapped_sim_layout.setSpacing(0)  # No spacing
+        run_mapped_sim_layout.addWidget(self.run_mapped_simulation_checkbox)
+        run_mapped_sim_container.setVisible(False)  # Container visibility controls everything
+        self.run_mapped_sim_container = run_mapped_sim_container  # Store reference for visibility control
+        mapping_layout.addRow(run_mapped_sim_container)
         right_column_layout.addWidget(self.mapping_group)
         
         # Electrode Parameters
@@ -407,20 +440,26 @@ class FlexSearchTab(QtWidgets.QWidget):
 
         self.roi_method_group = QtWidgets.QGroupBox("ROI Definition")
         roi_method_layout_main = QtWidgets.QVBoxLayout(self.roi_method_group)
+        roi_method_layout_main.setSpacing(5)  # Reduce vertical spacing
+        roi_method_layout_main.setContentsMargins(10, 10, 10, 10)  # Reduce margins
         
-        roi_method_radio_container = QtWidgets.QWidget()
-        roi_method_radio_layout = QtWidgets.QHBoxLayout(roi_method_radio_container)
-        roi_method_radio_layout.addWidget(self.roi_method_spherical)
-        roi_method_radio_layout.addWidget(self.roi_method_cortical)
-        roi_method_radio_layout.addWidget(self.roi_method_subcortical)
-        roi_method_radio_layout.addStretch()
+        # Create horizontal layout for label and radio buttons on same line
+        roi_method_header_container = QtWidgets.QWidget()
+        roi_method_header_layout = QtWidgets.QHBoxLayout(roi_method_header_container)
+        roi_method_header_layout.setContentsMargins(0, 0, 0, 0)
+        roi_method_header_layout.addWidget(self.roi_method_label)
+        roi_method_header_layout.addWidget(self.roi_method_spherical)
+        roi_method_header_layout.addWidget(self.roi_method_cortical)
+        roi_method_header_layout.addWidget(self.roi_method_subcortical)
+        roi_method_header_layout.addStretch()
         
-        roi_method_layout_main.addWidget(self.roi_method_label)
-        roi_method_layout_main.addWidget(roi_method_radio_container)
+        roi_method_layout_main.addWidget(roi_method_header_container)
         
         # Spherical ROI inputs
         self.spherical_roi_widget = QtWidgets.QWidget()
         spherical_roi_layout = QtWidgets.QFormLayout(self.spherical_roi_widget)
+        spherical_roi_layout.setVerticalSpacing(3)  # Reduce vertical spacing between form rows
+        spherical_roi_layout.setContentsMargins(0, 5, 0, 5)  # Reduce top/bottom margins
         
         # Add info label for MNI coordinates (initially hidden)
         self.mni_info_label = QtWidgets.QLabel()
@@ -447,10 +486,12 @@ class FlexSearchTab(QtWidgets.QWidget):
         # Cortical ROI inputs
         self.cortical_roi_widget = QtWidgets.QWidget()
         cortical_roi_layout = QtWidgets.QFormLayout(self.cortical_roi_widget)
+        cortical_roi_layout.setVerticalSpacing(3)  # Reduce vertical spacing
+        cortical_roi_layout.setContentsMargins(0, 5, 0, 5)  # Reduce margins
         
         atlas_controls_widget = QtWidgets.QWidget()
         atlas_controls_inner_layout = QtWidgets.QHBoxLayout(atlas_controls_widget)
-        self.atlas_combo.setMaximumWidth(350)
+        self.atlas_combo.setMaximumWidth(320)
         atlas_controls_inner_layout.addWidget(self.atlas_combo)
         atlas_controls_inner_layout.addWidget(self.roi_hemi_label)
         atlas_controls_inner_layout.addWidget(self.roi_hemi_combo)
@@ -464,10 +505,12 @@ class FlexSearchTab(QtWidgets.QWidget):
         # Subcortical ROI inputs
         self.subcortical_roi_widget = QtWidgets.QWidget()
         subcortical_roi_layout = QtWidgets.QFormLayout(self.subcortical_roi_widget)
+        subcortical_roi_layout.setVerticalSpacing(3)  # Reduce vertical spacing
+        subcortical_roi_layout.setContentsMargins(0, 5, 0, 5)  # Reduce margins
         
         volume_controls_widget = QtWidgets.QWidget()
         volume_controls_inner_layout = QtWidgets.QHBoxLayout(volume_controls_widget)
-        self.volume_atlas_combo.setMaximumWidth(350)
+        self.volume_atlas_combo.setMaximumWidth(320)
         volume_controls_inner_layout.addWidget(self.volume_atlas_combo)
         volume_controls_inner_layout.addWidget(self.refresh_volume_atlases_btn)
         volume_controls_inner_layout.addWidget(self.list_volume_regions_btn)
@@ -481,6 +524,27 @@ class FlexSearchTab(QtWidgets.QWidget):
 
         # Focality Options group
         focality_layout = QtWidgets.QFormLayout(self.focality_group)
+        
+        # Adaptive focality section
+        focality_layout.addRow(self.adaptive_focality_checkbox)
+        
+        # Adaptive help text
+        adaptive_help = QtWidgets.QLabel("Automatically determines thresholds by first running mean optimization to find achievable intensity.")
+        adaptive_help.setStyleSheet("font-size: 10px; color: gray;")
+        adaptive_help.setWordWrap(True)
+        focality_layout.addRow(adaptive_help)
+        
+        # Adaptive percentage controls
+        adaptive_percentages_widget = QtWidgets.QWidget()
+        adaptive_percentages_layout = QtWidgets.QHBoxLayout(adaptive_percentages_widget)
+        adaptive_percentages_layout.addWidget(QtWidgets.QLabel("Non-ROI:"))
+        adaptive_percentages_layout.addWidget(self.nonroi_percentage_input)
+        adaptive_percentages_layout.addWidget(QtWidgets.QLabel("ROI:"))
+        adaptive_percentages_layout.addWidget(self.roi_percentage_input)
+        adaptive_percentages_layout.addStretch()
+        focality_layout.addRow(QtWidgets.QLabel("Adaptive Percentages:"), adaptive_percentages_widget)
+        
+        # Manual threshold input
         focality_layout.addRow(self.threshold_label, self.threshold_input)
         threshold_help = QtWidgets.QLabel("Single value: E-field < value in non-ROI, > value in ROI. Two values: non-ROI max, ROI min.")
         threshold_help.setStyleSheet("font-size: 10px; color: gray;")
@@ -504,7 +568,7 @@ class FlexSearchTab(QtWidgets.QWidget):
         nonroi_atlas_layout = QtWidgets.QFormLayout(self.nonroi_atlas_widget)
         nonroi_atlas_controls_widget = QtWidgets.QWidget()
         nonroi_atlas_controls_inner_layout = QtWidgets.QHBoxLayout(nonroi_atlas_controls_widget)
-        self.nonroi_atlas_combo.setMaximumWidth(350)
+        self.nonroi_atlas_combo.setMaximumWidth(320)
         nonroi_atlas_controls_inner_layout.addWidget(self.nonroi_atlas_combo)
         nonroi_atlas_controls_inner_layout.addWidget(self.nonroi_hemi_label)
         nonroi_atlas_controls_inner_layout.addWidget(self.nonroi_hemi_combo)
@@ -519,7 +583,7 @@ class FlexSearchTab(QtWidgets.QWidget):
         nonroi_volume_layout = QtWidgets.QFormLayout(self.nonroi_volume_widget)
         nonroi_volume_controls_widget = QtWidgets.QWidget()
         nonroi_volume_controls_layout = QtWidgets.QHBoxLayout(nonroi_volume_controls_widget)
-        self.nonroi_volume_atlas_combo.setMaximumWidth(350)
+        self.nonroi_volume_atlas_combo.setMaximumWidth(320)
         nonroi_volume_controls_layout.addWidget(self.nonroi_volume_atlas_combo)
         nonroi_volume_controls_layout.addWidget(self.list_nonroi_volume_regions_btn)
         nonroi_volume_controls_layout.addStretch()
@@ -530,26 +594,12 @@ class FlexSearchTab(QtWidgets.QWidget):
         focality_layout.addRow(QtWidgets.QLabel("Non-ROI Region (if 'Specific'):"), self.nonroi_stacked)
         scroll_layout.addWidget(self.focality_group)
 
-        self.stability_group = QtWidgets.QGroupBox("Stability & Memory Options")
+        self.stability_group = QtWidgets.QGroupBox("Hyper Parameters")
         stability_layout = QtWidgets.QFormLayout(self.stability_group)
-        stability_help_label = QtWidgets.QLabel(
-            "⚙️ These options help prevent crashes, manage resource usage, and control optimization speed.\n"
-            "• Conservative mode: Uses minimal resources (if supported by backend). Not currently passed.\n"
-            "• Optimization runs: Multiple runs help find global optimum (avoids local minima). Best result is kept automatically.\n"
-            "• Max iterations: Lower = faster but potentially less optimal results.\n"
-            "• Population size: Lower = less memory, potentially slower convergence. Higher = more memory, potentially faster convergence.\n"
-            "• Number of CPUs: More CPUs can speed up parallelizable parts of the optimization.\n"
-            "• Hide steps: Reduces output verbosity during optimization."
-        )
-        stability_help_label.setStyleSheet("font-size: 11px; color: #666666; font-style: italic; padding: 5px; background-color: #f5f5f5; border-radius: 3px;")
-        stability_help_label.setWordWrap(True)
-        stability_layout.addRow(stability_help_label) 
-        stability_layout.addRow(self.conservative_mode_checkbox) 
         stability_layout.addRow(self.n_multistart_label, self.n_multistart_input)
         stability_layout.addRow(self.max_iterations_label, self.max_iterations_input)
         stability_layout.addRow(self.population_size_label, self.population_size_input)
         stability_layout.addRow(self.cpus_label, self.cpus_input)
-        stability_layout.addRow(self.quiet_mode_checkbox) 
         scroll_layout.addWidget(self.stability_group)
 
         scroll_area.setWidget(scroll_content)
@@ -732,6 +782,16 @@ class FlexSearchTab(QtWidgets.QWidget):
             self.find_available_eeg_nets()
             self.find_available_atlases()
             self.find_available_volume_atlases()
+    
+    def select_all_subjects(self):
+        """Select all subjects in the subject list."""
+        for i in range(self.subject_list.count()):
+            item = self.subject_list.item(i)
+            item.setSelected(True)
+    
+    def clear_subject_selection(self):
+        """Clear all subject selections."""
+        self.subject_list.clearSelection()
     
     def find_available_eeg_nets(self):
         """Find available EEG net templates for the selected subject."""
@@ -1200,9 +1260,14 @@ class FlexSearchTab(QtWidgets.QWidget):
                 env['ROI_LABEL'] = str(roi_params['region'])
             else:  # subcortical
                 volume_atlas_for_env = roi_params['volume_atlas']
-                volume_atlas_path_for_env = self.volume_atlases.get(volume_atlas_for_env)
-                if volume_atlas_path_for_env:
+                # Dynamically construct the volume atlas path for the current subject
+                # (to avoid using the wrong subject's labeling.nii.gz in multi-subject runs)
+                seg_dir_for_env = os.path.join(script_project_dir, 'derivatives', 'SimNIBS', f'sub-{subject_id}', f'm2m_{subject_id}', 'segmentation')
+                volume_atlas_path_for_env = os.path.join(seg_dir_for_env, volume_atlas_for_env)
+                if os.path.isfile(volume_atlas_path_for_env):
                     env['VOLUME_ATLAS_PATH'] = volume_atlas_path_for_env
+                else:
+                    self.output_text.append(f"Warning: Volume atlas not found for subject {subject_id}: {volume_atlas_path_for_env}")
                 env['VOLUME_ROI_LABEL'] = str(roi_params['volume_region'])
             
             # Build the command
@@ -1234,12 +1299,37 @@ class FlexSearchTab(QtWidgets.QWidget):
 
             # Focality options
             if goal == "focality":
-                thresholds = self.threshold_input.text().strip()
-                nonroi_method = self.nonroi_method_combo.currentData()
-                if not thresholds:
-                    self.output_text.append("Error: Please enter threshold(s) for focality.")
-                    return False
-                cmd += ["--non-roi-method", nonroi_method, "--thresholds", thresholds]
+                # Check if adaptive mode is enabled
+                if self.adaptive_focality_checkbox.isChecked():
+                    # Validate adaptive percentage values
+                    nonroi_pct = self.nonroi_percentage_input.value()
+                    roi_pct = self.roi_percentage_input.value()
+                    
+                    if nonroi_pct >= roi_pct:
+                        self.output_text.append("Error: Non-ROI percentage must be less than ROI percentage for focality optimization.")
+                        return False
+                    
+                    if nonroi_pct <= 0 or roi_pct <= 0:
+                        self.output_text.append("Error: Percentage values must be greater than 0.")
+                        return False
+                    
+                    if nonroi_pct >= 100 or roi_pct >= 100:
+                        self.output_text.append("Error: Percentage values must be less than 100.")
+                        return False
+                    
+                    # Run adaptive focality optimization
+                    return self._run_adaptive_focality_optimization(
+                        subject_id, roi_params, postproc, eeg_net, 
+                        electrode_radius, electrode_current, env, cmd[:-1]  # Remove roi-method from base cmd
+                    )
+                else:
+                    # Standard focality optimization
+                    thresholds = self.threshold_input.text().strip()
+                    nonroi_method = self.nonroi_method_combo.currentData()
+                    if not thresholds:
+                        self.output_text.append("Error: Please enter threshold(s) for focality.")
+                        return False
+                    cmd += ["--non-roi-method", nonroi_method, "--thresholds", thresholds]
                 if nonroi_method == "specific":
                     if roi_params['method'] == "spherical":
                         env['NON_ROI_X'] = str(self.nonroi_x_input.value())
@@ -1272,16 +1362,16 @@ class FlexSearchTab(QtWidgets.QWidget):
                     else:  # subcortical volume for non-ROI
                         nonroi_volume_atlas = self.nonroi_volume_atlas_combo.currentText()
                         nonroi_volume_label_val = self.nonroi_volume_label_input.value()
-                        nonroi_volume_atlas_path = self.volume_atlases.get(nonroi_volume_atlas)
-                        if nonroi_volume_atlas_path:
+                        # Dynamically construct the non-ROI volume atlas path for the current subject
+                        seg_dir_for_env = os.path.join(script_project_dir, 'derivatives', 'SimNIBS', f'sub-{subject_id}', f'm2m_{subject_id}', 'segmentation')
+                        nonroi_volume_atlas_path = os.path.join(seg_dir_for_env, nonroi_volume_atlas)
+                        if os.path.isfile(nonroi_volume_atlas_path):
                             env['VOLUME_NON_ROI_ATLAS_PATH'] = nonroi_volume_atlas_path
+                        else:
+                            self.output_text.append(f"Warning: Non-ROI volume atlas not found for subject {subject_id}: {nonroi_volume_atlas_path}")
                         env['VOLUME_NON_ROI_LABEL'] = str(nonroi_volume_label_val)
             
             # Stability and Memory options
-            # Only add --quiet flag when NOT in debug mode
-            # Debug mode should always show detailed output
-            if self.quiet_mode_checkbox.isChecked() and not self.debug_mode:
-                cmd.append("--quiet")
             if not self.run_final_electrode_simulation_checkbox.isChecked():
                 cmd.append("--skip-final-electrode-simulation")
             cmd.extend(["--n-multistart", str(self.n_multistart_input.value())])
@@ -1353,13 +1443,6 @@ class FlexSearchTab(QtWidgets.QWidget):
         details += f"• Max Iterations: {self.max_iterations_input.value()}\n"
         details += f"• Population Size: {self.population_size_input.value()}\n"
         details += f"• Number of CPUs: {self.cpus_input.value()}\n"
-        if self.quiet_mode_checkbox.isChecked():
-            if self.debug_mode:
-                details += f"• Hide optimization steps: ✓ ENABLED (overridden by debug mode)\n"
-            else:
-                details += f"• Hide optimization steps: ✓ ENABLED\n"
-        else:
-            details += f"• Hide optimization steps: ✗ DISABLED\n"
         
         if self.n_multistart_input.value() > 1:
             details += f"\n Multi-Start Optimization: {self.n_multistart_input.value()} runs will be performed.\n"
@@ -1617,7 +1700,7 @@ class FlexSearchTab(QtWidgets.QWidget):
         is_mapping_enabled = self.enable_mapping_checkbox.isChecked()
         self.eeg_net_widget.setVisible(is_mapping_enabled)
         self.eeg_net_label.setVisible(is_mapping_enabled)
-        self.run_mapped_simulation_checkbox.setVisible(is_mapping_enabled)
+        self.run_mapped_sim_container.setVisible(is_mapping_enabled)
         if not is_mapping_enabled:
             self.run_mapped_simulation_checkbox.setChecked(False)
 
@@ -1628,6 +1711,40 @@ class FlexSearchTab(QtWidgets.QWidget):
         if is_focality:
             self.nonroi_method_combo.setCurrentIndex(0)
             self.nonroi_stacked.setVisible(False)
+            # Initialize adaptive controls visibility
+            self._update_adaptive_focality_controls()
+    
+    def _update_adaptive_focality_controls(self):
+        """Update visibility of adaptive vs manual threshold controls."""
+        is_adaptive = self.adaptive_focality_checkbox.isChecked()
+        
+        # Show/hide controls based on adaptive mode
+        self.threshold_input.setVisible(not is_adaptive)
+        self.threshold_label.setVisible(not is_adaptive)
+        
+        # Enable/disable percentage inputs based on adaptive mode and optimization state
+        adaptive_enabled = is_adaptive and not self.optimization_running
+        self.nonroi_percentage_input.setEnabled(adaptive_enabled)
+        self.roi_percentage_input.setEnabled(adaptive_enabled)
+        
+        # Update help text visibility based on mode
+        for i in range(self.focality_group.layout().rowCount()):
+            # Hide/show adaptive help text
+            item = self.focality_group.layout().itemAt(i, QtWidgets.QFormLayout.SpanningRole)
+            if item and item.widget() and isinstance(item.widget(), QtWidgets.QLabel):
+                if "Automatically determines thresholds" in item.widget().text():
+                    item.widget().setVisible(is_adaptive)
+                elif "Single value:" in item.widget().text():
+                    item.widget().setVisible(not is_adaptive)
+            
+            # Hide/show adaptive percentage controls
+            item = self.focality_group.layout().itemAt(i, QtWidgets.QFormLayout.FieldRole)
+            if item and item.widget():
+                label_item = self.focality_group.layout().itemAt(i, QtWidgets.QFormLayout.LabelRole)
+                if label_item and label_item.widget() and isinstance(label_item.widget(), QtWidgets.QLabel):
+                    if "Adaptive Percentages:" in label_item.widget().text():
+                        label_item.widget().setVisible(is_adaptive)
+                        item.widget().setVisible(is_adaptive)
 
     def _update_nonroi_stacked(self):
         if self.nonroi_method_combo.currentData() == "everything_else":
@@ -1835,6 +1952,8 @@ class FlexSearchTab(QtWidgets.QWidget):
         # Disable subject selection
         self.subject_list.setEnabled(False)
         self.refresh_subjects_btn.setEnabled(False)
+        self.select_all_subjects_btn.setEnabled(False)
+        self.clear_subjects_btn.setEnabled(False)
         
         # Disable optimization parameters
         self.goal_combo.setEnabled(False)
@@ -1876,6 +1995,9 @@ class FlexSearchTab(QtWidgets.QWidget):
         
         # Disable focality options if visible
         if self.focality_group.isVisible():
+            self.adaptive_focality_checkbox.setEnabled(False)
+            self.nonroi_percentage_input.setEnabled(False)
+            self.roi_percentage_input.setEnabled(False)
             self.threshold_input.setEnabled(False)
             self.nonroi_method_combo.setEnabled(False)
             if self.nonroi_method_combo.currentData() == "specific":
@@ -1894,17 +2016,18 @@ class FlexSearchTab(QtWidgets.QWidget):
                     self.list_nonroi_volume_regions_btn.setEnabled(False)
                     self.nonroi_volume_label_input.setEnabled(False)
 
+        self.n_multistart_input.setEnabled(False)
         self.max_iterations_input.setEnabled(False)
         self.population_size_input.setEnabled(False)
         self.cpus_input.setEnabled(False)
-        self.quiet_mode_checkbox.setEnabled(False)
-        self.conservative_mode_checkbox.setEnabled(False)
 
     def enable_controls(self):
         """Enable all input controls after optimization."""
         # Enable subject selection
         self.subject_list.setEnabled(True)
         self.refresh_subjects_btn.setEnabled(True)
+        self.select_all_subjects_btn.setEnabled(True)
+        self.clear_subjects_btn.setEnabled(True)
         
         # Enable optimization parameters
         self.goal_combo.setEnabled(True)
@@ -1946,6 +2069,9 @@ class FlexSearchTab(QtWidgets.QWidget):
         
         # Enable focality options if visible
         if self.focality_group.isVisible():
+            self.adaptive_focality_checkbox.setEnabled(True)
+            self.nonroi_percentage_input.setEnabled(True)
+            self.roi_percentage_input.setEnabled(True)
             self.threshold_input.setEnabled(True)
             self.nonroi_method_combo.setEnabled(True)
             if self.nonroi_method_combo.currentData() == "specific":
@@ -1964,11 +2090,10 @@ class FlexSearchTab(QtWidgets.QWidget):
                     self.list_nonroi_volume_regions_btn.setEnabled(True)
                     self.nonroi_volume_label_input.setEnabled(True)
 
+        self.n_multistart_input.setEnabled(True)
         self.max_iterations_input.setEnabled(True)
         self.population_size_input.setEnabled(True)
         self.cpus_input.setEnabled(True)
-        self.quiet_mode_checkbox.setEnabled(True)
-        self.conservative_mode_checkbox.setEnabled(True)
 
     def optimization_finished_early_due_to_error(self):
         """Resets UI controls if optimization cannot start due to an error."""
@@ -1978,3 +2103,379 @@ class FlexSearchTab(QtWidgets.QWidget):
         self.enable_controls() # Re-enable all controls
         if hasattr(self, 'parent') and self.parent:
             self.parent.set_tab_busy(self, False, stop_btn=self.stop_btn)
+
+    def _run_adaptive_focality_optimization(self, subject_id, roi_params, postproc, eeg_net, 
+                                          electrode_radius, electrode_current, env, base_cmd):
+        """Run adaptive focality optimization: first run mean optimization to get achievable intensity,
+        then calculate adaptive thresholds and run focality optimization."""
+        
+        try:
+            # Step 1: Run mean optimization to get achievable intensity
+            self.update_output("🔄 Running adaptive focality optimization...")
+            self.update_output("📊 Step 1/2: Finding achievable intensity with mean optimization")
+            
+            # Store parameters for later use
+            self.adaptive_params = {
+                'subject_id': subject_id,
+                'roi_params': roi_params,
+                'postproc': postproc,
+                'eeg_net': eeg_net,
+                'electrode_radius': electrode_radius,
+                'electrode_current': electrode_current,
+                'env': env,
+                'base_cmd': base_cmd
+            }
+            
+            # Initialize achievable intensity tracking
+            self.achievable_intensity = None
+            
+            # Build mean optimization command
+            mean_cmd = base_cmd + [
+                "--roi-method", roi_params['method'],
+                "--goal", "mean",
+                "--postproc", postproc
+            ]
+            
+            # Add mapping options to mean command
+            if self.enable_mapping_checkbox.isChecked():
+                mean_cmd.append("--enable-mapping")
+                if not self.run_mapped_simulation_checkbox.isChecked():
+                    mean_cmd.append("--disable-mapping-simulation")
+            
+            # Run mean optimization with enhanced output monitoring
+            self.optimization_thread = FlexSearchThread(mean_cmd, env)
+            self.optimization_thread.output_signal.connect(self._process_mean_optimization_output)
+            self.optimization_thread.error_signal.connect(lambda msg: self.update_output(msg, 'error'))
+            self.optimization_thread.finished.connect(self._on_mean_optimization_finished_enhanced)
+            self.optimization_thread.start()
+            
+            return True
+            
+        except Exception as e:
+            self.update_output(f"❌ Error in adaptive focality optimization: {str(e)}", 'error')
+            return False
+    
+    def _process_mean_optimization_output(self, line, message_type):
+        """Process mean optimization output to extract achievable intensity in real-time."""
+        # Display the output normally
+        self.update_output(line, message_type)
+        
+        # Look for the final goal function value which represents achievable intensity
+        import re
+        
+        # Look for patterns that indicate the achievable intensity
+        goal_value_match = re.search(r'Goal function value.*?:\s*([+-]?[\d\.-]+)', line)
+        if goal_value_match:
+            # The goal function value is negative (since we maximize by minimizing negative)
+            goal_value = float(goal_value_match.group(1))
+            self.achievable_intensity = -goal_value  # Convert back to positive
+            self.update_output(f"🎯 Detected achievable intensity: {self.achievable_intensity:.3f} V/m", 'info')
+        
+        # Also look for final goal function value
+        final_goal_match = re.search(r'Final goal function value:\s*([+-]?[\d\.-]+)', line)
+        if final_goal_match:
+            final_goal_value = float(final_goal_match.group(1))
+            self.achievable_intensity = -final_goal_value  # Convert back to positive
+            self.update_output(f"🎯 Final achievable intensity: {self.achievable_intensity:.3f} V/m", 'info')
+        
+        # Look for median fields per ROI which contains the achievable intensity
+        # Pattern: |max_TI | 3.80e-01 |
+        median_roi_match = re.search(r'\|max_TI\s+\|\s*([\d\.-]+)(?:e([+-]?\d+))?\s*\|', line)
+        if median_roi_match:
+            base_value = float(median_roi_match.group(1))
+            exponent = int(median_roi_match.group(2)) if median_roi_match.group(2) else 0
+            roi_intensity = base_value * (10 ** exponent)
+            if roi_intensity > 0:  # Only use positive values
+                self.achievable_intensity = roi_intensity
+                self.update_output(f"🎯 ROI median intensity captured: {self.achievable_intensity:.3f} V/m", 'info')
+        
+        # Alternative pattern without table formatting
+        alt_median_match = re.search(r'max_TI\s+\|\s*([\d\.-]+)(?:e([+-]?\d+))?', line)
+        if alt_median_match and not median_roi_match:  # Only if main pattern didn't match
+            base_value = float(alt_median_match.group(1))
+            exponent = int(alt_median_match.group(2)) if alt_median_match.group(2) else 0
+            roi_intensity = base_value * (10 ** exponent)
+            if roi_intensity > 0:  # Only use positive values
+                self.achievable_intensity = roi_intensity
+                self.update_output(f"🎯 ROI intensity captured: {self.achievable_intensity:.3f} V/m", 'info')
+    
+    def _on_mean_optimization_finished_enhanced(self):
+        """Enhanced handler for mean optimization completion using stored parameters."""
+        
+        try:
+            # Get stored parameters
+            params = self.adaptive_params
+            subject_id = params['subject_id']
+            roi_params = params['roi_params']
+            postproc = params['postproc']
+            eeg_net = params['eeg_net']
+            electrode_radius = params['electrode_radius']
+            electrode_current = params['electrode_current']
+            env = params['env']
+            base_cmd = params['base_cmd']
+            
+            # Check if we captured the achievable intensity
+            if self.achievable_intensity is None or self.achievable_intensity <= 0:
+                # Fallback: try to extract from files with corrected directory naming
+                self.achievable_intensity = self._extract_achievable_intensity_from_files(subject_id, roi_params, postproc)
+            
+            if self.achievable_intensity is None or self.achievable_intensity <= 0:
+                self.update_output("❌ Could not determine achievable intensity from mean optimization", 'error')
+                self.optimization_finished()
+                return
+            
+            self.update_output(f"✅ Mean optimization completed. Achievable intensity: {self.achievable_intensity:.3f} V/m")
+            
+            # Step 2: Calculate adaptive thresholds
+            nonroi_percentage = self.nonroi_percentage_input.value() / 100.0
+            roi_percentage = self.roi_percentage_input.value() / 100.0
+            
+            nonroi_threshold = nonroi_percentage * self.achievable_intensity
+            roi_threshold = roi_percentage * self.achievable_intensity
+            
+            self.update_output(f"🎯 Step 2/2: Running focality optimization with adaptive thresholds")
+            self.update_output(f"   Non-ROI threshold: {nonroi_threshold:.3f} V/m ({nonroi_percentage*100:.0f}%)")
+            self.update_output(f"   ROI threshold: {roi_threshold:.3f} V/m ({roi_percentage*100:.0f}%)")
+            
+            # Build focality optimization command with adaptive thresholds
+            adaptive_thresholds = f"{nonroi_threshold:.3f},{roi_threshold:.3f}"
+            nonroi_method = self.nonroi_method_combo.currentData()
+            
+            focality_cmd = base_cmd + [
+                "--roi-method", roi_params['method'],
+                "--goal", "focality",
+                "--postproc", postproc,
+                "--non-roi-method", nonroi_method,
+                "--thresholds", adaptive_thresholds
+            ]
+            
+            # Add mapping options to focality command
+            if self.enable_mapping_checkbox.isChecked():
+                focality_cmd.append("--enable-mapping")
+                if not self.run_mapped_simulation_checkbox.isChecked():
+                    focality_cmd.append("--disable-mapping-simulation")
+                    
+            # Add non-ROI specific parameters if needed
+            if nonroi_method == "specific":
+                self._add_nonroi_parameters(env, roi_params, subject_id)
+            
+            # Run focality optimization with adaptive thresholds
+            self.optimization_thread = FlexSearchThread(focality_cmd, env)
+            self.optimization_thread.output_signal.connect(self.update_output)
+            self.optimization_thread.error_signal.connect(lambda msg: self.update_output(msg, 'error'))
+            self.optimization_thread.finished.connect(self.optimization_finished)
+            self.optimization_thread.start()
+            
+        except Exception as e:
+            self.update_output(f"❌ Error calculating adaptive thresholds: {str(e)}", 'error')
+            self.optimization_finished()
+    
+    def _add_nonroi_parameters(self, env, roi_params, subject_id):
+        """Add non-ROI specific parameters to environment."""
+        if roi_params['method'] == "spherical":
+            env['NON_ROI_X'] = str(self.nonroi_x_input.value())
+            env['NON_ROI_Y'] = str(self.nonroi_y_input.value())
+            env['NON_ROI_Z'] = str(self.nonroi_z_input.value())
+            env['NON_ROI_RADIUS'] = str(self.nonroi_radius_input.value())
+            env['USE_MNI_COORDS_NON_ROI'] = env.get('USE_MNI_COORDS', 'false')
+        elif roi_params['method'] == "atlas":
+            nonroi_atlas_display = self.nonroi_atlas_combo.currentText()
+            nonroi_atlas_base_name = self.atlas_display_map.get(nonroi_atlas_display, nonroi_atlas_display)
+            
+            if '_' in nonroi_atlas_base_name:
+                nonroi_atlas_type = nonroi_atlas_base_name.split('_', 1)[-1]
+            else:
+                nonroi_atlas_type = nonroi_atlas_base_name
+            
+            nonroi_atlas_name_for_env = f"{subject_id}_{nonroi_atlas_type}"
+            nonroi_hemi_for_env = "lh" if self.nonroi_hemi_combo.currentIndex() == 0 else "rh"
+            
+            script_project_dir = env['PROJECT_DIR']
+            seg_dir_for_env = os.path.join(script_project_dir, 'derivatives', 'SimNIBS', f'sub-{subject_id}', f'm2m_{subject_id}', 'segmentation')
+            nonroi_atlas_path_for_env = os.path.join(seg_dir_for_env, f'{nonroi_hemi_for_env}.{nonroi_atlas_name_for_env}.annot')
+            
+            env['NON_ROI_ATLAS_PATH'] = nonroi_atlas_path_for_env
+            env['NON_ROI_HEMISPHERE'] = nonroi_hemi_for_env
+            env['NON_ROI_LABEL'] = str(self.nonroi_label_input.value())
+        elif roi_params['method'] == "subcortical":
+            nonroi_volume_atlas_display = self.nonroi_volume_atlas_combo.currentText()
+            nonroi_volume_atlas_base_name = self.volume_atlas_display_map.get(nonroi_volume_atlas_display, nonroi_volume_atlas_display)
+            
+            script_project_dir = env['PROJECT_DIR']
+            atlas_dir_for_env = os.path.join(script_project_dir, 'assets', 'atlas')
+            nonroi_volume_atlas_path_for_env = os.path.join(atlas_dir_for_env, nonroi_volume_atlas_base_name)
+            
+            env['VOLUME_NON_ROI_ATLAS_PATH'] = nonroi_volume_atlas_path_for_env
+            env['VOLUME_NON_ROI_LABEL'] = str(self.nonroi_volume_label_input.value())
+    
+    def _on_mean_optimization_finished(self, subject_id, roi_params, postproc, eeg_net, 
+                                     electrode_radius, electrode_current, env, base_cmd):
+        """Handle completion of mean optimization and start focality optimization with adaptive thresholds."""
+        
+        try:
+            # Extract achievable intensity from mean optimization results
+            achievable_intensity = self._extract_achievable_intensity(subject_id, roi_params)
+            
+            if achievable_intensity is None:
+                self.update_output("❌ Could not determine achievable intensity from mean optimization", 'error')
+                self.optimization_finished()
+                return
+            
+            self.update_output(f"✅ Mean optimization completed. Achievable intensity: {achievable_intensity:.3f} V/m")
+            
+            # Step 2: Calculate adaptive thresholds
+            nonroi_percentage = self.nonroi_percentage_input.value() / 100.0
+            roi_percentage = self.roi_percentage_input.value() / 100.0
+            
+            nonroi_threshold = nonroi_percentage * achievable_intensity
+            roi_threshold = roi_percentage * achievable_intensity
+            
+            self.update_output(f"🎯 Step 2/2: Running focality optimization with adaptive thresholds")
+            self.update_output(f"   Non-ROI threshold: {nonroi_threshold:.3f} V/m ({nonroi_percentage*100:.0f}%)")
+            self.update_output(f"   ROI threshold: {roi_threshold:.3f} V/m ({roi_percentage*100:.0f}%)")
+            
+            # Build focality optimization command with adaptive thresholds
+            adaptive_thresholds = f"{nonroi_threshold:.3f},{roi_threshold:.3f}"
+            nonroi_method = self.nonroi_method_combo.currentData()
+            
+            focality_cmd = base_cmd + [
+                "--roi-method", roi_params['method'],
+                "--goal", "focality",
+                "--postproc", postproc,
+                "--non-roi-method", nonroi_method,
+                "--thresholds", adaptive_thresholds
+            ]
+            
+            # Add mapping options to focality command
+            if self.enable_mapping_checkbox.isChecked():
+                focality_cmd.append("--enable-mapping")
+                if not self.run_mapped_simulation_checkbox.isChecked():
+                    focality_cmd.append("--disable-mapping-simulation")
+                    
+            # Add non-ROI specific parameters if needed
+            if nonroi_method == "specific":
+                if roi_params['method'] == "spherical":
+                    env['NON_ROI_X'] = str(self.nonroi_x_input.value())
+                    env['NON_ROI_Y'] = str(self.nonroi_y_input.value())
+                    env['NON_ROI_Z'] = str(self.nonroi_z_input.value())
+                    env['NON_ROI_RADIUS'] = str(self.nonroi_radius_input.value())
+                    env['USE_MNI_COORDS_NON_ROI'] = env.get('USE_MNI_COORDS', 'false')
+                elif roi_params['method'] == "atlas":
+                    nonroi_atlas_display = self.nonroi_atlas_combo.currentText()
+                    nonroi_atlas_base_name = self.atlas_display_map.get(nonroi_atlas_display, nonroi_atlas_display)
+                    
+                    if '_' in nonroi_atlas_base_name:
+                        nonroi_atlas_type = nonroi_atlas_base_name.split('_', 1)[-1]
+                    else:
+                        nonroi_atlas_type = nonroi_atlas_base_name
+                    
+                    nonroi_atlas_name_for_env = f"{subject_id}_{nonroi_atlas_type}"
+                    nonroi_hemi_for_env = "lh" if self.nonroi_hemi_combo.currentIndex() == 0 else "rh"
+                    
+                    script_project_dir = env['PROJECT_DIR']
+                    seg_dir_for_env = os.path.join(script_project_dir, 'derivatives', 'SimNIBS', f'sub-{subject_id}', f'm2m_{subject_id}', 'segmentation')
+                    nonroi_atlas_path_for_env = os.path.join(seg_dir_for_env, f'{nonroi_hemi_for_env}.{nonroi_atlas_name_for_env}.annot')
+                    
+                    env['NON_ROI_ATLAS_PATH'] = nonroi_atlas_path_for_env
+                    env['NON_ROI_HEMISPHERE'] = nonroi_hemi_for_env
+                    env['NON_ROI_LABEL'] = str(self.nonroi_label_input.value())
+                elif roi_params['method'] == "subcortical":
+                    nonroi_volume_atlas_display = self.nonroi_volume_atlas_combo.currentText()
+                    nonroi_volume_atlas_base_name = self.volume_atlas_display_map.get(nonroi_volume_atlas_display, nonroi_volume_atlas_display)
+                    
+                    script_project_dir = env['PROJECT_DIR']
+                    atlas_dir_for_env = os.path.join(script_project_dir, 'assets', 'atlas')
+                    nonroi_volume_atlas_path_for_env = os.path.join(atlas_dir_for_env, nonroi_volume_atlas_base_name)
+                    
+                    env['VOLUME_NON_ROI_ATLAS_PATH'] = nonroi_volume_atlas_path_for_env
+                    env['VOLUME_NON_ROI_LABEL'] = str(self.nonroi_volume_label_input.value())
+            
+            # Run focality optimization with adaptive thresholds
+            self.optimization_thread = FlexSearchThread(focality_cmd, env)
+            self.optimization_thread.output_signal.connect(self.update_output)
+            self.optimization_thread.error_signal.connect(lambda msg: self.update_output(msg, 'error'))
+            self.optimization_thread.finished.connect(self.optimization_finished)
+            self.optimization_thread.start()
+            
+        except Exception as e:
+            self.update_output(f"❌ Error calculating adaptive thresholds: {str(e)}", 'error')
+            self.optimization_finished()
+    
+    def _extract_achievable_intensity_from_files(self, subject_id, roi_params, postproc):
+        """Extract achievable intensity from mean optimization result files (fallback method)."""
+        try:
+            # Construct path to mean optimization results using correct naming convention
+            project_dir = os.environ.get('PROJECT_DIR')
+            if not project_dir:
+                return None
+            
+            # Convert postproc to shorter format to match actual directory names
+            postproc_map = {
+                "max_TI": "maxTI",
+                "dir_TI_normal": "normalTI", 
+                "dir_TI_tangential": "tangentialTI"
+            }
+            postproc_short = postproc_map.get(postproc, postproc)
+                
+            # Build ROI directory name for mean optimization using correct convention
+            if roi_params['method'] == "spherical":
+                # Format: sphere_x{X}y{Y}z{Z}r{radius}_{goal}_{postprocess}
+                x, y, z = roi_params['center']
+                radius = roi_params['radius']
+                roi_dirname = f"sphere_x{x}y{y}z{z}r{radius}_mean_{postproc_short}"
+            elif roi_params['method'] == "atlas":
+                atlas_name = roi_params['atlas'].split('_')[-1] if '_' in roi_params['atlas'] else roi_params['atlas']
+                hemisphere = "lh" if self.roi_hemi_combo.currentIndex() == 0 else "rh"
+                roi_dirname = f"{hemisphere}_{atlas_name}_{roi_params['region']}_mean_{postproc_short}"
+            elif roi_params['method'] == "subcortical":
+                volume_atlas_name = roi_params['volume_atlas'].replace('.nii.gz', '').replace('.nii', '')
+                roi_dirname = f"subcortical_{volume_atlas_name}_{roi_params['volume_label']}_mean_{postproc_short}"
+            else:
+                return None
+            
+            # Look for optimization summary file
+            results_dir = os.path.join(project_dir, 'derivatives', 'SimNIBS', f'sub-{subject_id}', 'flex-search', roi_dirname)
+            summary_file = os.path.join(results_dir, 'optimization_summary.txt')
+            
+            self.update_output(f"🔍 Looking for summary file: {summary_file}", 'info')
+            
+            if not os.path.exists(summary_file):
+                self.update_output(f"⚠️ Summary file not found, checking directory contents...", 'warning')
+                
+                # List directory contents to help debug
+                if os.path.exists(results_dir):
+                    files = os.listdir(results_dir)
+                    self.update_output(f"📁 Directory contents: {files}", 'info')
+                else:
+                    parent_dir = os.path.dirname(results_dir)
+                    if os.path.exists(parent_dir):
+                        subdirs = [d for d in os.listdir(parent_dir) if os.path.isdir(os.path.join(parent_dir, d))]
+                        self.update_output(f"📁 Available subdirectories: {subdirs}", 'info')
+                
+                return None
+            
+            # Parse summary file to extract achievable intensity
+            with open(summary_file, 'r') as f:
+                content = f.read()
+                
+                # Look for the final function value which represents the achievable mean intensity
+                import re
+                match = re.search(r'Final function value:\s*([+-]?[\d\.-]+)', content)
+                if match:
+                    # The function value is negative (since we maximize by minimizing negative)
+                    return -float(match.group(1))
+                
+                # Alternative patterns
+                match = re.search(r'Optimization result:\s*([+-]?[\d\.-]+)', content)
+                if match:
+                    return -float(match.group(1))
+                    
+                match = re.search(r'Best objective value:\s*([+-]?[\d\.-]+)', content)
+                if match:
+                    return -float(match.group(1))
+            
+            return None
+            
+        except Exception as e:
+            self.update_output(f"❌ Error extracting achievable intensity from files: {str(e)}", 'error')
+            return None

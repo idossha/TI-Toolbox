@@ -1,14 +1,4 @@
 services:
-  fsl:
-    image: idossha/ti-toolbox_fsl:v6.0.7.18
-    platform: linux/amd64
-    container_name: fsl_container
-    volumes:
-      - ti-toolbox_fsl_data:/usr/local/fsl/
-    networks:
-      - ti_network
-    restart: unless-stopped
- 
   freesurfer:
     image: idossha/ti-toolbox_freesurfer:v7.4.1
     platform: linux/amd64
@@ -24,7 +14,6 @@ services:
     platform: linux/amd64
     container_name: simnibs_container
     volumes:
-      - ti-toolbox_fsl_data:/usr/local/fsl/
       - ti-toolbox_freesurfer_data:/usr/local/freesurfer/
       - ${LOCAL_PROJECT_DIR}:/mnt/${PROJECT_DIR_NAME}
       # X11 socket mount for Linux/macOS
@@ -39,11 +28,6 @@ services:
       # OpenGL configuration for software rendering (better compatibility)
       LIBGL_ALWAYS_SOFTWARE: "1"
       QT_X11_NO_MITSHM: "1"
-      # FSL environment
-      FSLDIR: /usr/local/fsl
-      FSLOUTPUTTYPE: NIFTI_GZ
-      FSLMULTIFILEQUIT: "TRUE"
-      POSSUMDIR: /usr/local/fsl
       # FreeSurfer environment
       FREESURFER_HOME: /usr/local/freesurfer
       SUBJECTS_DIR: /usr/local/freesurfer/subjects
@@ -56,7 +40,6 @@ services:
     networks:
       - ti_network
     depends_on:
-      - fsl
       - freesurfer
     tty: true
     stdin_open: true
@@ -69,9 +52,6 @@ networks:
     driver: bridge
 
 volumes:
-  ti-toolbox_fsl_data:
-    external: true
-    name: ti-toolbox_fsl_data
   ti-toolbox_freesurfer_data:
     external: true
     name: ti-toolbox_freesurfer_data

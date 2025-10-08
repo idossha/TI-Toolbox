@@ -11,5 +11,8 @@ matplotlib>=3.5.0
 # Data processing for graphs
 numpy>=1.21.0
 
+# Development dependencies for auto-reload
+watchdog>=2.1.0  # File watching for hot-reload during development
+
 # Optional: For even better system monitoring
 # htop  # Install via system package manager if available 

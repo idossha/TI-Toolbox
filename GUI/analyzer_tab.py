@@ -845,6 +845,12 @@ class AnalyzerTab(QtWidgets.QWidget):
         self.space_mesh.toggled.connect(self.update_field_files)
         self.space_voxel.toggled.connect(self.update_field_files)
         
+        # Connect signals for mesh file updates (space and type changes)
+        self.space_mesh.toggled.connect(self.update_mesh_files)
+        self.space_voxel.toggled.connect(self.update_mesh_files)
+        self.type_spherical.toggled.connect(self.update_mesh_files)
+        self.type_cortical.toggled.connect(self.update_mesh_files)
+        
         # Connect signals to update cortical button text based on space
         self.space_mesh.toggled.connect(self.update_cortical_button_text)
         self.space_voxel.toggled.connect(self.update_cortical_button_text)
@@ -1262,6 +1268,13 @@ class AnalyzerTab(QtWidgets.QWidget):
                 if os.path.exists(full_path):
                     # Original stored (atlas_filename, full_path)
                     atlas_files.append((atlas_filename, full_path)) 
+        
+        # Check for SimNIBS labeling.nii.gz atlas
+        simnibs_seg_dir = os.path.join(project_dir, "derivatives", "SimNIBS", f"sub-{subject_id}", 
+                                       f"m2m_{subject_id}", "segmentation")
+        labeling_path = os.path.join(simnibs_seg_dir, "labeling.nii.gz")
+        if os.path.exists(labeling_path):
+            atlas_files.append(("SimNIBS labeling", labeling_path))
         
         if not atlas_files: # No specific atlases found
             # Original warning message logic
@@ -2712,6 +2725,14 @@ class AnalyzerTab(QtWidgets.QWidget):
 
     def update_mesh_files(self): # For single mode Gmsh dropdown
         if self.is_group_mode: return
+        
+        # Only populate mesh files when Mesh space is selected
+        if not self.space_mesh.isChecked():
+            self.mesh_combo.clear()
+            self.mesh_combo.addItem("Select mesh file...")
+            self.update_gmsh_button_state()
+            return
+        
         self.mesh_combo.clear(); self.mesh_combo.addItem("Select mesh file...")
         
         selected_subjects = self.get_selected_subjects()
@@ -2732,7 +2753,9 @@ class AnalyzerTab(QtWidgets.QWidget):
                     if file_item.endswith('.msh'):
                         full_path_item = os.path.join(root, file_item)
                         rel_path_display = os.path.relpath(full_path_item, mesh_dir_gmsh)
-                        mesh_files_to_list.append((os.path.splitext(os.path.basename(rel_path_display))[0], full_path_item))
+                        # Use relative path as display name to distinguish files in different subdirectories
+                        display_name = os.path.splitext(rel_path_display)[0].replace(os.sep, '/')
+                        mesh_files_to_list.append((display_name, full_path_item))
         
         mesh_files_to_list.sort(key=lambda x: x[0])
         for disp, path_val in mesh_files_to_list: self.mesh_combo.addItem(disp, path_val)
@@ -2746,39 +2769,15 @@ class AnalyzerTab(QtWidgets.QWidget):
         if not mesh_file_path_val or not os.path.exists(mesh_file_path_val):
             QtWidgets.QMessageBox.warning(self, "Error", "Selected mesh file not found"); return
 
-        # Original Gmsh script content
-        gmsh_script_content = f'''// Gmsh script to load mesh with all mesh elements hidden
-Mesh.SurfaceFaces = 0; Mesh.VolumeFaces = 0; Mesh.SurfaceEdges = 0; Mesh.VolumeEdges = 0;
-Mesh.Points = 0; Mesh.Lines = 0;
-Merge "{mesh_file_path_val.replace(os.sep, '/')}"; // Ensure forward slashes
-General.Trackball = 1; General.RotationX = 0; General.RotationY = 0; General.RotationZ = 0;'''
-        
-        tmp_script_file = None
         try:
-            import tempfile
-            delete_flag = os.name != 'nt' # Don't auto-delete on Windows for Popen
-            tmp_script_file = tempfile.NamedTemporaryFile(mode='w', suffix='.geo', delete=delete_flag)
-            tmp_script_file.write(gmsh_script_content)
-            tmp_script_file.flush() # Ensure write
-            
-            subprocess.Popen(["gmsh", tmp_script_file.name])
+            # Launch Gmsh directly with the mesh file as argument
+            subprocess.Popen(["gmsh", mesh_file_path_val])
             self.update_output(f"Launched Gmsh with mesh file: {mesh_file_path_val}")
-            self.update_output("Gmsh display: 2D faces hidden, wireframe edges visible") # This was original message
-
-            if not delete_flag: # If not auto-deleted (Windows), schedule cleanup
-                def cleanup_gmsh_script(path_to_clean):
-                    import time; time.sleep(5) # Wait for Gmsh to load
-                    try: os.unlink(path_to_clean)
-                    except Exception as e_clean: print(f"Warning: Could not delete tmp Gmsh script {path_to_clean}: {e_clean}")
-                
-                import threading
-                threading.Thread(target=cleanup_gmsh_script, args=(tmp_script_file.name,), daemon=True).start()
-
-        except FileNotFoundError: QtWidgets.QMessageBox.critical(self, "Error", "Gmsh not found. Install/add to PATH.")
-        except Exception as e: QtWidgets.QMessageBox.critical(self, "Error", f"Failed to launch Gmsh: {str(e)}"); self.update_output(f"Error: {e}")
-        finally:
-            if tmp_script_file and delete_flag: # If auto-delete was true (non-Windows)
-                tmp_script_file.close() # This triggers deletion
+        except FileNotFoundError:
+            QtWidgets.QMessageBox.critical(self, "Error", "Gmsh not found. Please install Gmsh and add it to PATH.")
+        except Exception as e:
+            QtWidgets.QMessageBox.critical(self, "Error", f"Failed to launch Gmsh: {str(e)}")
+            self.update_output(f"Error launching Gmsh: {e}")
 
     def update_gmsh_button_state(self):
         self.launch_gmsh_btn.setEnabled(self.mesh_combo.currentIndex() > 0 and bool(self.mesh_combo.currentData()))

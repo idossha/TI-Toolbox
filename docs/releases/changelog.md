@@ -11,14 +11,14 @@ Complete changelog for all versions of the Temporal Interference Toolbox.
 
 ### v2.1.2 (Latest Release)
 
-**Release Date**: September 07, 2025
+**Release Date**: September 08, 2025
 
 #### Additions
-- **Example Dataset**: Toolbox now ships with Ernie & MNI152 MRI scans for quick start & learning purposes.
-- **Tissue Analyzer**: Added skin thickness and volume analysis
+- Example Dataset: Toolbox now ships with Ernie & MNI152 MRI scans for quick start & learning purposes.
+- Tissue Analyzer: Added skin thickness and volume analysis
 
 #### Fixes
-- **Various bug fixes**: charm, ex-search, flex-search
+- Various bug fixes: charm, ex-search, flex-search
 
 #### Download Links
 - [Windows Installer](https://github.com/idossha/TI-Toolbox/releases/download/v2.1.2/TI-Toolbox-Windows.exe)
@@ -26,8 +26,6 @@ Complete changelog for all versions of the Temporal Interference Toolbox.
 - [Linux AppImage](https://github.com/idossha/TI-Toolbox/releases/download/v2.1.2/TemporalInterferenceToolbox-Linux-x86_64.AppImage)
 
 ---
-
-### v
 
 ### v2.1.1
 
@@ -46,8 +44,6 @@ Complete changelog for all versions of the Temporal Interference Toolbox.
 - [Linux AppImage](https://github.com/idossha/TI-Toolbox/releases/download/v2.1.1/TemporalInterferenceToolbox-Linux-x86_64.AppImage)
 
 ---
-
-### v
 
 ### v2.1.0
 

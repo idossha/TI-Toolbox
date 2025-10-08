@@ -86,14 +86,27 @@ class SimulationThread(QtCore.QThread):
     def run(self):
         """Run the simulation command in a separate thread."""
         try:
-            self.process = subprocess.Popen(
-                self.cmd, 
-                stdout=subprocess.PIPE, 
-                stderr=subprocess.STDOUT,  # Combine stderr with stdout to prevent blocking
-                universal_newlines=True,
-                bufsize=1,
-                env=self.env
-            )
+            # Create process in its own process group for proper termination
+            if os.name == 'nt':  # Windows
+                self.process = subprocess.Popen(
+                    self.cmd, 
+                    stdout=subprocess.PIPE, 
+                    stderr=subprocess.STDOUT,
+                    universal_newlines=True,
+                    bufsize=1,
+                    creationflags=subprocess.CREATE_NEW_PROCESS_GROUP,
+                    env=self.env
+                )
+            else:  # Unix/Linux/Mac
+                self.process = subprocess.Popen(
+                    self.cmd, 
+                    stdout=subprocess.PIPE, 
+                    stderr=subprocess.STDOUT,
+                    universal_newlines=True,
+                    bufsize=1,
+                    preexec_fn=os.setsid,  # Create new process group
+                    env=self.env
+                )
             
             # Real-time output display with message type detection
             if self.process.stdout:
@@ -142,31 +155,50 @@ class SimulationThread(QtCore.QThread):
             self.error_signal.emit(f"Error running simulation: {str(e)}")
     
     def terminate_process(self):
-        """Terminate the running process."""
+        """Terminate the running process and all its children."""
         if self.process and self.process.poll() is None:  # Process is still running
             self.terminated = True
+            import signal
+            
             if os.name == 'nt':  # Windows
-                subprocess.call(['taskkill', '/F', '/T', '/PID', str(self.process.pid)])
-            else:  # Unix/Linux/Mac
-                import signal
-                # Try to terminate child processes too
+                # Use taskkill with /T flag to kill entire process tree
                 try:
-                    parent_pid = self.process.pid
-                    ps_output = subprocess.check_output(f"ps -o pid --ppid {parent_pid} --noheaders", shell=True)
-                    child_pids = [int(pid) for pid in ps_output.decode().strip().split('\n') if pid]
-                    for pid in child_pids:
-                        os.kill(pid, signal.SIGTERM)
+                    subprocess.call(['taskkill', '/F', '/T', '/PID', str(self.process.pid)], 
+                                    stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
                 except:
-                    pass  # Ignore errors in finding child processes
-                
-                # Kill the main process
-                self.process.terminate()
+                    pass
+            else:  # Unix/Linux/Mac
                 try:
-                    # Wait for a short time for graceful termination
-                    self.process.wait(timeout=2)
-                except subprocess.TimeoutExpired:
-                    # Force kill if it doesn't terminate gracefully
-                    self.process.kill()
+                    # Kill the entire process group using SIGTERM first
+                    pgid = os.getpgid(self.process.pid)
+                    os.killpg(pgid, signal.SIGTERM)
+                    
+                    # Wait briefly for graceful termination
+                    try:
+                        self.process.wait(timeout=1)
+                    except subprocess.TimeoutExpired:
+                        # If still running, force kill with SIGKILL
+                        try:
+                            os.killpg(pgid, signal.SIGKILL)
+                        except:
+                            pass
+                        # Force kill the main process as backup
+                        try:
+                            self.process.kill()
+                        except:
+                            pass
+                except Exception as e:
+                    # Fallback: try to kill the main process directly
+                    try:
+                        self.process.kill()
+                    except:
+                        pass
+            
+            # Final cleanup - ensure process is terminated
+            try:
+                self.process.wait(timeout=1)
+            except:
+                pass
             
             return True
         return False
@@ -387,15 +419,18 @@ class SimulatorTab(QtWidgets.QWidget):
         subject_container = QtWidgets.QGroupBox("Subject(s)")
         subject_layout = QtWidgets.QVBoxLayout(subject_container)
         
+        # Create horizontal layout for list and buttons side by side
+        subject_content_layout = QtWidgets.QHBoxLayout()
+        
         # List widget for subject selection
         self.subject_list = QtWidgets.QListWidget()
         self.subject_list.setSelectionMode(QtWidgets.QAbstractItemView.ExtendedSelection)
         self.subject_list.setMinimumHeight(90)  # Reduced by 10% (100 * 0.9 = 90)
         self.subject_list.itemSelectionChanged.connect(self.refresh_flex_search_list)  # Refresh flex-search when subjects change
-        subject_layout.addWidget(self.subject_list)
+        subject_content_layout.addWidget(self.subject_list)
         
-        # Subject control buttons
-        subject_button_layout = QtWidgets.QHBoxLayout()
+        # Subject control buttons in vertical layout on the right
+        subject_button_layout = QtWidgets.QVBoxLayout()
         self.list_subjects_btn = QtWidgets.QPushButton("Refresh List")
         self.list_subjects_btn.clicked.connect(self.list_subjects)
         self.select_all_subjects_btn = QtWidgets.QPushButton("Select All")
@@ -406,7 +441,10 @@ class SimulatorTab(QtWidgets.QWidget):
         subject_button_layout.addWidget(self.list_subjects_btn)
         subject_button_layout.addWidget(self.select_all_subjects_btn)
         subject_button_layout.addWidget(self.clear_subject_selection_btn)
-        subject_layout.addLayout(subject_button_layout)
+        subject_button_layout.addStretch()  # Push buttons to the top
+        
+        subject_content_layout.addLayout(subject_button_layout)
+        subject_layout.addLayout(subject_content_layout)
         
         # Add subject container to left layout
         left_layout.addWidget(subject_container)
@@ -419,20 +457,22 @@ class SimulatorTab(QtWidgets.QWidget):
         montage_container.setMaximumWidth(450)   # Set maximum width for consistency
         montage_layout = QtWidgets.QVBoxLayout(montage_container)
         
+        # Create horizontal layout for list and buttons side by side
+        montage_content_layout = QtWidgets.QHBoxLayout()
+        
         # List widget for montage selection
         self.montage_list = QtWidgets.QListWidget()
         self.montage_list.setSelectionMode(QtWidgets.QAbstractItemView.ExtendedSelection)
-        self.montage_list.setMinimumHeight(86)   # Reduced by 10% (96 * 0.9 = 86)
-        self.montage_list.setMaximumHeight(86)   # Fixed height for consistency
-        montage_layout.addWidget(self.montage_list)
+        # No height constraints - let it fill the available vertical space
+        montage_content_layout.addWidget(self.montage_list)
         
-        # Montage control buttons
-        montage_button_layout = QtWidgets.QHBoxLayout()
+        # Montage control buttons in vertical layout on the right
+        montage_button_layout = QtWidgets.QVBoxLayout()
         # Add New Montage button
-        self.add_new_montage_btn = QtWidgets.QPushButton("Add New Montage")
+        self.add_new_montage_btn = QtWidgets.QPushButton("Add New")
         self.add_new_montage_btn.clicked.connect(self.show_add_montage_dialog)
         # Remove Montage button
-        self.remove_montage_btn = QtWidgets.QPushButton("Remove Montage")
+        self.remove_montage_btn = QtWidgets.QPushButton("Remove")
         self.remove_montage_btn.clicked.connect(self.remove_selected_montage)
         # Other montage buttons
         self.list_montages_btn = QtWidgets.QPushButton("Refresh List")
@@ -444,7 +484,10 @@ class SimulatorTab(QtWidgets.QWidget):
         montage_button_layout.addWidget(self.remove_montage_btn)
         montage_button_layout.addWidget(self.list_montages_btn)
         montage_button_layout.addWidget(self.clear_montage_selection_btn)
-        montage_layout.addLayout(montage_button_layout)
+        montage_button_layout.addStretch()  # Push buttons to the top
+        
+        montage_content_layout.addLayout(montage_button_layout)
+        montage_layout.addLayout(montage_content_layout)
         
         # Add montage container to left layout
         left_layout.addWidget(montage_container)
@@ -457,12 +500,17 @@ class SimulatorTab(QtWidgets.QWidget):
         flex_search_container.setMaximumWidth(450)   # Set maximum width for consistency
         flex_search_layout = QtWidgets.QVBoxLayout(flex_search_container)
         
+        # Create horizontal layout for list and buttons side by side
+        flex_content_layout = QtWidgets.QHBoxLayout()
+        
+        # Create vertical layout for list and options on the left
+        flex_list_and_options = QtWidgets.QVBoxLayout()
+        
         # List widget for flex-search output selection
         self.flex_search_list = QtWidgets.QListWidget()
         self.flex_search_list.setSelectionMode(QtWidgets.QAbstractItemView.ExtendedSelection)
-        self.flex_search_list.setMinimumHeight(86)   # Reduced by 10% (96 * 0.9 = 86)
-        self.flex_search_list.setMaximumHeight(86)   # Fixed height for consistency
-        flex_search_layout.addWidget(self.flex_search_list)
+        # No height constraints - let it fill the available vertical space
+        flex_list_and_options.addWidget(self.flex_search_list)
         
         # Flex-search options
         flex_options_layout = QtWidgets.QHBoxLayout()
@@ -476,10 +524,12 @@ class SimulatorTab(QtWidgets.QWidget):
         flex_options_layout.addWidget(self.flex_use_mapped)
         flex_options_layout.addWidget(self.flex_use_optimized)
         flex_options_layout.addStretch()
-        flex_search_layout.addLayout(flex_options_layout)
+        flex_list_and_options.addLayout(flex_options_layout)
         
-        # Flex-search control buttons
-        flex_button_layout = QtWidgets.QHBoxLayout()
+        flex_content_layout.addLayout(flex_list_and_options)
+        
+        # Flex-search control buttons in vertical layout on the right
+        flex_button_layout = QtWidgets.QVBoxLayout()
         self.refresh_flex_btn = QtWidgets.QPushButton("Refresh List")
         self.refresh_flex_btn.clicked.connect(self.refresh_flex_search_list)
         self.clear_flex_selection_btn = QtWidgets.QPushButton("Clear")
@@ -487,7 +537,10 @@ class SimulatorTab(QtWidgets.QWidget):
         
         flex_button_layout.addWidget(self.refresh_flex_btn)
         flex_button_layout.addWidget(self.clear_flex_selection_btn)
-        flex_search_layout.addLayout(flex_button_layout)
+        flex_button_layout.addStretch()  # Push buttons to the top
+        
+        flex_content_layout.addLayout(flex_button_layout)
+        flex_search_layout.addLayout(flex_content_layout)
         
         # Add flex-search container to left layout
         left_layout.addWidget(flex_search_container)
@@ -505,7 +558,7 @@ class SimulatorTab(QtWidgets.QWidget):
         
         # Simulation type (Isotropic/Anisotropic)
         sim_type_layout = QtWidgets.QHBoxLayout()
-        self.sim_type_label = QtWidgets.QLabel("Simulation Type:")
+        self.sim_type_label = QtWidgets.QLabel("Brain Anisotropy:")
         self.sim_type_combo = QtWidgets.QComboBox()
         self.sim_type_combo.addItem("Isotropic", "scalar")
         self.sim_type_combo.addItem("Anisotropic (vn)", "vn")
@@ -532,19 +585,24 @@ class SimulatorTab(QtWidgets.QWidget):
         sim_type_layout.addWidget(self.sim_type_label)
         sim_type_layout.addWidget(self.sim_type_combo)
         sim_type_layout.addWidget(self.sim_type_help_btn)
+        
+        # Add conductivity editor button on the same line
+        self.conductivity_editor_btn = QtWidgets.QPushButton("Change Default Cond.")
+        self.conductivity_editor_btn.clicked.connect(self.show_conductivity_editor)
+        sim_type_layout.addWidget(self.conductivity_editor_btn)
+        sim_type_layout.addStretch()  # Push everything to the left
+        
         sim_params_layout.addLayout(sim_type_layout)
         
-        # Add conductivity editor button with simple styling
-        self.conductivity_editor_btn = QtWidgets.QPushButton("Change Default Conductivities")
-        sim_params_layout.addWidget(self.conductivity_editor_btn)
-        self.conductivity_editor_btn.clicked.connect(self.show_conductivity_editor)
-        
-        # EEG Net selection
+        # EEG Net selection - aligned with Brain Anisotropy dropdown
         eeg_net_layout = QtWidgets.QHBoxLayout()
         self.eeg_net_label = QtWidgets.QLabel("EEG Net:")
+        # Set minimum width to match "Brain Anisotropy:" label
+        self.eeg_net_label.setMinimumWidth(self.sim_type_label.sizeHint().width())
         self.eeg_net_combo = QtWidgets.QComboBox()
         eeg_net_layout.addWidget(self.eeg_net_label)
         eeg_net_layout.addWidget(self.eeg_net_combo)
+        eeg_net_layout.addStretch()
         sim_params_layout.addLayout(eeg_net_layout)
 
         # Connect EEG net selection change to montage list update
@@ -552,9 +610,9 @@ class SimulatorTab(QtWidgets.QWidget):
 
         # Simulation Type Selection (Montage vs Flex)
         sim_type_selection_layout = QtWidgets.QHBoxLayout()
-        self.sim_type_selection_label = QtWidgets.QLabel("Simulation Type:")
-        self.sim_type_montage = QtWidgets.QRadioButton("Montage Simulation")
-        self.sim_type_flex = QtWidgets.QRadioButton("Flex-Search Simulation")
+        self.sim_type_selection_label = QtWidgets.QLabel("Montage Source:")
+        self.sim_type_montage = QtWidgets.QRadioButton("Montage List")
+        self.sim_type_flex = QtWidgets.QRadioButton("Flex-Search")
         self.sim_type_montage.setChecked(True)  # Default to montage simulation
         
         # Create button group for mutual exclusion
@@ -562,9 +620,27 @@ class SimulatorTab(QtWidgets.QWidget):
         self.sim_type_group.addButton(self.sim_type_montage, 1)
         self.sim_type_group.addButton(self.sim_type_flex, 2)
         
+        # Add help button for montage source
+        self.montage_source_help_btn = QtWidgets.QPushButton("?")
+        self.montage_source_help_btn.setFixedWidth(20)
+        self.montage_source_help_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #4a4a4a;
+                color: white;
+                border: none;
+                border-radius: 10px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #5a5a5a;
+            }
+        """)
+        self.montage_source_help_btn.clicked.connect(self.show_montage_source_help)
+        
         sim_type_selection_layout.addWidget(self.sim_type_selection_label)
         sim_type_selection_layout.addWidget(self.sim_type_montage)
         sim_type_selection_layout.addWidget(self.sim_type_flex)
+        sim_type_selection_layout.addWidget(self.montage_source_help_btn)
         sim_type_selection_layout.addStretch()
         sim_params_layout.addLayout(sim_type_selection_layout)
         
@@ -575,12 +651,15 @@ class SimulatorTab(QtWidgets.QWidget):
         # Simulation mode (Unipolar/Multipolar) - only for montage simulation
         sim_mode_layout = QtWidgets.QHBoxLayout()
         self.sim_mode_label = QtWidgets.QLabel("Simulation Mode:")
+        # Set minimum width to match "Montage Source:" label
+        self.sim_mode_label.setMinimumWidth(self.sim_type_selection_label.sizeHint().width())
         self.sim_mode_unipolar = QtWidgets.QRadioButton("Unipolar")
         self.sim_mode_multipolar = QtWidgets.QRadioButton("Multipolar")
         self.sim_mode_unipolar.setChecked(True)
         sim_mode_layout.addWidget(self.sim_mode_label)
         sim_mode_layout.addWidget(self.sim_mode_unipolar)
         sim_mode_layout.addWidget(self.sim_mode_multipolar)
+        sim_mode_layout.addStretch()
         # Connect mode radio buttons to update montage list and current inputs
         self.sim_mode_unipolar.toggled.connect(self.update_montage_list)
         self.sim_mode_multipolar.toggled.connect(self.update_montage_list)
@@ -1009,10 +1088,9 @@ class SimulatorTab(QtWidgets.QWidget):
                                         
                                         # Get EEG net if available
                                         eeg_net = mapping_data.get('eeg_net', 'Unknown Net')
-                                        n_electrodes = len(mapping_data.get('optimized_positions', []))
                                         
                                         # Create display label
-                                        label = f"{subject_id} | {search_name} | {n_electrodes} electrodes | {eeg_net}"
+                                        label = f"{subject_id} | {search_name} | {eeg_net}"
                                         
                                         # Add item to list
                                         item = QtWidgets.QListWidgetItem(label)
@@ -2474,6 +2552,59 @@ class SimulatorTab(QtWidgets.QWidget):
         
         # Set a larger default size
         msg.setMinimumSize(700, 600)
+        
+        # Enable text wrapping for the label
+        for child in msg.findChildren(QtWidgets.QLabel):
+            child.setWordWrap(True)
+        
+        # Adjust the size to fit content
+        msg.adjustSize()
+        
+        msg.exec_()
+
+    def show_montage_source_help(self):
+        """Show help information about montage source options."""
+        help_text = """
+        <h3>Montage Source Options</h3>
+        <br>
+        <br>
+        <b>Montage List:</b><br>
+        - Manually define electrode montages using the "Add New" button<br>
+        - Each montage is associated with a specific EEG net template<br>
+        - Ideal for testing specific montage configurations or traditional TES protocols<br>
+        <br>
+        <b>Flex-Search:</b><br>
+        - Uses results from a previously completed Flex-Search optimization<br>
+        - Automatically loads optimized electrode configurations from Flex-Search output<br>
+        - <b>Prerequisites:</b> You must have completed a Flex-Search optimization for the selected subject(s)<br>
+        - <b>Two simulation options available:</b><br>
+        &nbsp;&nbsp;&nbsp;1. <b>Mapped Electrodes:</b> If electrode mapping was enabled during Flex-Search, uses the optimized electrodes mapped to EEG net positions<br>
+        &nbsp;&nbsp;&nbsp;2. <b>Optimized Electrodes:</b> Uses the raw optimized electrode positions (not associated with any EEG net template)<br>
+        - The choice between mapped/optimized is automatically determined by your Flex-Search settings<br><br>
+        
+        """
+        
+        msg = QtWidgets.QMessageBox(self)
+        msg.setWindowTitle("Montage Source Help")
+        msg.setTextFormat(QtCore.Qt.RichText)
+        msg.setText(help_text)
+        msg.setStyleSheet("""
+            QMessageBox {
+                background-color: #2a2a2a;
+                color: white;
+            }
+            QLabel {
+                min-width: 600px;
+                max-width: 800px;
+                color: white;
+            }
+        """)
+        
+        # Set the message box to be resizable
+        msg.setWindowFlags(msg.windowFlags() | QtCore.Qt.WindowMaximizeButtonHint)
+        
+        # Set a larger default size
+        msg.setMinimumSize(700, 500)
         
         # Enable text wrapping for the label
         for child in msg.findChildren(QtWidgets.QLabel):
