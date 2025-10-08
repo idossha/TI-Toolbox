@@ -50,8 +50,6 @@ commands:
             fi
             DOCKER_BUILDKIT=1 docker build -f development/blueprint/Dockerfile.ci -t ci-runner:latest .
 
-  # removed run-tests-allow-fail component; tests now run strictly
-
 jobs:
 
   build-and-run-tests:
@@ -93,7 +91,7 @@ jobs:
           path: /tmp/test-results
           destination: flexsearch-results
       - run:
-          name: Setup test project directory & run integration tests (strict)
+          name: Setup test project directory & run integration tests
           command: |
             set -euo pipefail
             mkdir -p /tmp/test_projectdir /tmp/test-results
