@@ -1,0 +1,129 @@
+version: 2.1
+
+parameters:
+  use_dockerhub_images:
+    type: boolean
+    default: true
+    description: "Pull pre-built images from DockerHub instead of building locally"
+  skip_component_images:
+    type: boolean
+    default: false
+    description: "Skip pulling/building component images (unused now; ci uses Dockerfile.ci)"
+
+executors:
+  vm-docker:
+    machine:
+      image: ubuntu-2204:current
+      docker_layer_caching: false
+
+commands:
+  common-setup:
+    steps:
+      - checkout
+
+  prepare-ci-runner:
+    steps:
+      - run:
+          name: Build or pull component images and ci-runner
+          command: |
+            set -eo pipefail
+            if [ "<< pipeline.parameters.use_dockerhub_images >>" = "true" ]; then
+              echo "Pulling pre-built component images from DockerHub (fallback to build if missing)..."
+              pulled_any=false
+              if docker pull idossha/simnibs:v2.1.2; then docker tag idossha/simnibs:v2.1.2 simnibs:ci; pulled_any=true; fi
+              if docker pull idossha/ti-toolbox_fsl:v6.0.7.18; then docker tag idossha/ti-toolbox_fsl:v6.0.7.18 fsl:ci; pulled_any=true; fi
+              if docker pull idossha/ti-toolbox_freesurfer:v7.4.1; then docker tag idossha/ti-toolbox_freesurfer:v7.4.1 freesurfer:ci; pulled_any=true; fi
+              if docker pull idossha/matlab:20th; then docker tag idossha/matlab:20th matlab-runtime:ci; pulled_any=true; fi
+              if [ "$pulled_any" = "false" ]; then
+                echo "No pre-built images available; building locally..."
+                DOCKER_BUILDKIT=1 docker build -f development/blueprint/Dockerfile.simnibs            -t simnibs:ci          .
+                DOCKER_BUILDKIT=1 docker build -f development/blueprint/Dockerfile.fsl                -t fsl:ci              .
+                DOCKER_BUILDKIT=1 docker build -f development/blueprint/Dockerfile.freesurfer         -t freesurfer:ci       .
+                DOCKER_BUILDKIT=1 docker build -f development/blueprint/Dockerfile.matlab.deprecated  -t matlab-runtime:ci   .
+              fi
+            else
+              echo "Building component images locally..."
+              DOCKER_BUILDKIT=1 docker build -f development/blueprint/Dockerfile.simnibs            -t simnibs:ci          .
+              DOCKER_BUILDKIT=1 docker build -f development/blueprint/Dockerfile.fsl                -t fsl:ci              .
+              DOCKER_BUILDKIT=1 docker build -f development/blueprint/Dockerfile.freesurfer         -t freesurfer:ci       .
+              DOCKER_BUILDKIT=1 docker build -f development/blueprint/Dockerfile.matlab.deprecated  -t matlab-runtime:ci   .
+            fi
+            DOCKER_BUILDKIT=1 docker build -f development/blueprint/Dockerfile.ci -t ci-runner:latest .
+
+  # removed run-tests-allow-fail component; tests now run strictly
+
+jobs:
+
+  build-and-run-tests:
+    executor: vm-docker
+    steps:
+      - common-setup
+      - prepare-ci-runner
+      - run:
+          name: Run analyzer unit tests
+          command: |
+            set -euo pipefail
+            mkdir -p /tmp/test-results
+            docker run --rm -v /tmp/test-results:/tmp/test-results ci-runner:latest pytest -q \
+              --junitxml=/tmp/test-results/analyzer.xml \
+              tests/test_analyzer.py tests/test_mesh_analyzer.py tests/test_voxel_analyzer.py tests/test_group_analyzer.py
+      - store_artifacts:
+          path: /tmp/test-results
+          destination: analyzer-results
+      - run:
+          name: Run simulator unit tests
+          command: |
+            set -euo pipefail
+            mkdir -p /tmp/test-results
+            docker run --rm -v /tmp/test-results:/tmp/test-results ci-runner:latest pytest -q \
+              --junitxml=/tmp/test-results/simulator.xml \
+              tests/test_ti_simulator.py tests/test_mti_simulator.py
+      - store_artifacts:
+          path: /tmp/test-results
+          destination: simulator-results
+      - run:
+          name: Run flex-search unit tests
+          command: |
+            set -euo pipefail
+            mkdir -p /tmp/test-results
+            docker run --rm -v /tmp/test-results:/tmp/test-results ci-runner:latest pytest -q \
+              --junitxml=/tmp/test-results/flex_search.xml \
+              tests/test_flex_search.py
+      - store_artifacts:
+          path: /tmp/test-results
+          destination: flexsearch-results
+      - run:
+          name: Setup test project directory & run integration tests (strict)
+          command: |
+            set -euo pipefail
+            mkdir -p /tmp/test_projectdir /tmp/test-results
+            chmod 777 /tmp/test_projectdir /tmp/test-results
+            docker run --rm --user 0:0 -v /tmp/test_projectdir:/mnt/test_projectdir ci-runner:latest bash -c '
+              set -e
+              bash tests/setup_test_projectdir.sh
+            '
+            docker run --rm --user 0:0 -v /tmp/test_projectdir:/mnt/test_projectdir ci-runner:latest bash -c '
+              set -e
+              bash tests/test_simulator_runner.sh
+            '
+            docker run --rm --user 0:0 -v /tmp/test_projectdir:/mnt/test_projectdir ci-runner:latest bash -c '
+              set -e
+              bash tests/test_analyzer_runner.sh
+            '
+            docker run --rm --user 0:0 -v /tmp/test_projectdir:/mnt/test_projectdir -v /tmp/test-results:/tmp/test-results ci-runner:latest bash -lc '
+              set -e
+              bats tests/test_simulator_outputs.bats | tee /tmp/test-results/bats_simulator.txt
+              bats tests/test_analyzer_outputs.bats | tee /tmp/test-results/bats_analyzer.txt
+              echo Done > /tmp/test-results/_finished_integration.txt
+            '
+      - store_artifacts:
+          path: /tmp/test-results
+          destination: integration-results
+            
+
+
+workflows:
+  version: 2
+  build_and_test:
+    jobs:
+      - build-and-run-tests
