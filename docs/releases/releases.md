@@ -29,18 +29,6 @@ For headless server useage, see the [Bash Script & Compose YAML](https://github.
 - [Linux AppImage](https://github.com/idossha/TI-Toolbox/releases/download/v2.1.3/TemporalInterferenceToolbox-Linux-x86_64.AppImage)
 
 For installation instructions, see the [Installation Guide]({ site.baseurl }/installation/).
-#### Additions
-- Example Dataset: Toolbox now ships with Ernie & MNI152 MRI scans for quick start & learning purposes.
-- Tissue Analyzer: Added skin thickness and volume analysis
-
-#### Fixes
-- Various bug fixes: charm, ex-search, flex-search
-
-
-#### Download Links
-- [Windows Installer](https://github.com/idossha/TI-Toolbox/releases/download/v2.1.2/TI-Toolbox-Windows.exe)
-- [macOS Universal](https://github.com/idossha/TI-Toolbox/releases/download/v2.1.2/TemporalInterferenceToolbox-macOS-universal.zip)
-- [Linux AppImage](https://github.com/idossha/TI-Toolbox/releases/download/v2.1.2/TemporalInterferenceToolbox-Linux-x86_64.AppImage)
 
 ---
 
