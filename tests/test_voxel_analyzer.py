@@ -851,10 +851,6 @@ class TestRegionFinding:
         with pytest.raises(ValueError, match="Region labels are required"):
             self.analyzer.find_region("Region1", None)
 
-
- 
-
-
 if __name__ == "__main__":
     # Run tests if script is executed directly
     pytest.main([__file__, "-v"])

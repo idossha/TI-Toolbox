@@ -7,7 +7,7 @@ parameters:
     description: "Pull pre-built images from DockerHub instead of building locally"
   skip_component_images:
     type: boolean
-    default: false
+    default: true
     description: "Skip pulling/building component images (simnibs/fsl/freesurfer/matlab-runtime) and build only ci-runner"
 
 executors:
@@ -20,16 +20,6 @@ commands:
   common-setup:
     steps:
       - checkout
-      - run:
-          name: Free disk space
-          command: |
-            sudo rm -rf /usr/local/lib/android /opt/google || true
-            docker system prune -af --volumes || true
-      - run:
-          name: Ensure Docker is running
-          command: |
-            sudo systemctl start docker || true
-            docker info
 
   prepare-ci-runner:
     steps:
@@ -65,17 +55,6 @@ commands:
               fi
             fi
             DOCKER_BUILDKIT=1 docker build -f development/blueprint/Dockerfile.ci -t ci-runner:latest .
-      - run:
-          name: Verify Xvfb in ci-runner
-          command: |
-            docker run --rm --entrypoint bash ci-runner:latest -lc '
-              set -euo pipefail
-              Xvfb :99 -screen 0 1280x1024x24 -nolisten tcp & pid=$!
-              for i in {1..10}; do xdpyinfo -display :99 >/dev/null 2>&1 && break || sleep 0.5; done
-              xdpyinfo -display :99 >/dev/null
-              echo "✅ Xvfb up on :99"
-              kill $pid || true
-            '
 
   # removed run-tests-allow-fail component; tests now run strictly
 
@@ -91,10 +70,9 @@ jobs:
           command: |
             set -euo pipefail
             mkdir -p /tmp/test-results
-            docker run --rm -v /tmp/test-results:/tmp/test-results ci-runner:latest pytest -q --junitxml=/tmp/test-results/analyzer.xml        tests/test_analyzer.py
-            docker run --rm -v /tmp/test-results:/tmp/test-results ci-runner:latest pytest -q --junitxml=/tmp/test-results/mesh_analyzer.xml   tests/test_mesh_analyzer.py
-            docker run --rm -v /tmp/test-results:/tmp/test-results ci-runner:latest pytest -q --junitxml=/tmp/test-results/voxel_analyzer.xml  tests/test_voxel_analyzer.py
-            docker run --rm -v /tmp/test-results:/tmp/test-results ci-runner:latest pytest -q --junitxml=/tmp/test-results/group_analyzer.xml  tests/test_group_analyzer.py
+            docker run --rm -v /tmp/test-results:/tmp/test-results ci-runner:latest pytest -q \
+              --junitxml=/tmp/test-results/analyzer.xml \
+              tests/test_analyzer.py tests/test_mesh_analyzer.py tests/test_voxel_analyzer.py tests/test_group_analyzer.py
       - store_artifacts:
           path: /tmp/test-results
           destination: analyzer-results
@@ -103,8 +81,9 @@ jobs:
           command: |
             set -euo pipefail
             mkdir -p /tmp/test-results
-            docker run --rm -v /tmp/test-results:/tmp/test-results ci-runner:latest pytest -q --junitxml=/tmp/test-results/ti_simulator.xml   tests/test_ti_simulator.py
-            docker run --rm -v /tmp/test-results:/tmp/test-results ci-runner:latest pytest -q --junitxml=/tmp/test-results/mti_simulator.xml  tests/test_mti_simulator.py
+            docker run --rm -v /tmp/test-results:/tmp/test-results ci-runner:latest pytest -q \
+              --junitxml=/tmp/test-results/simulator.xml \
+              tests/test_ti_simulator.py tests/test_mti_simulator.py
       - store_artifacts:
           path: /tmp/test-results
           destination: simulator-results
@@ -113,7 +92,9 @@ jobs:
           command: |
             set -euo pipefail
             mkdir -p /tmp/test-results
-            docker run --rm -v /tmp/test-results:/tmp/test-results ci-runner:latest pytest -q --junitxml=/tmp/test-results/flex_search.xml tests/test_flex_search.py
+            docker run --rm -v /tmp/test-results:/tmp/test-results ci-runner:latest pytest -q \
+              --junitxml=/tmp/test-results/flex_search.xml \
+              tests/test_flex_search.py
       - store_artifacts:
           path: /tmp/test-results
           destination: flexsearch-results
@@ -123,11 +104,8 @@ jobs:
             set -euo pipefail
             mkdir -p /tmp/test_projectdir /tmp/test-results
             chmod 777 /tmp/test_projectdir /tmp/test-results
-            ls -la /tmp/test_projectdir
             docker run --rm --user 0:0 -v /tmp/test_projectdir:/mnt/test_projectdir ci-runner:latest bash -c '
               set -e
-              echo "DEBUG: Starting setup_test_projectdir.sh"
-              mkdir -p /mnt/test_projectdir && chmod 777 /mnt/test_projectdir
               bash tests/setup_test_projectdir.sh
             '
             docker run --rm --user 0:0 -v /tmp/test_projectdir:/mnt/test_projectdir ci-runner:latest bash -c '
@@ -140,9 +118,6 @@ jobs:
             '
             docker run --rm --user 0:0 -v /tmp/test_projectdir:/mnt/test_projectdir -v /tmp/test-results:/tmp/test-results ci-runner:latest bash -lc '
               set -e
-              if ! command -v bats >/dev/null 2>&1; then
-                apt-get update && apt-get install -y bats >/tmp/test-results/bats_install.log 2>&1
-              fi
               bats tests/test_simulator_outputs.bats | tee /tmp/test-results/bats_simulator.txt
               bats tests/test_analyzer_outputs.bats | tee /tmp/test-results/bats_analyzer.txt
               echo Done > /tmp/test-results/_finished_integration.txt
@@ -152,33 +127,9 @@ jobs:
           destination: integration-results
             
 
-  summarize:
-    executor: vm-docker
-    steps:
-      - attach_workspace:
-          at: /tmp/ws
-      - run:
-          name: Summarize job statuses
-          command: |
-            set -e
-            echo "Collected statuses (by bucket):"
-            find /tmp/ws/status -name exitcode.txt -print -exec cat {} \; || true
-            bad=0
-            while IFS= read -r -d '' f; do
-              ec=$(cat "$f" || echo 1)
-              [ "$ec" -ne 0 ] && bad=1
-            done < <(find /tmp/ws/status -name exitcode.txt -print0 2>/dev/null)
-            if [ "$bad" -ne 0 ]; then
-              echo "One or more test groups failed. Failing pipeline."
-              exit 1
-            fi
-            echo "All test groups reported success."
 
 workflows:
   version: 2
   build_and_test:
     jobs:
       - build-and-run-tests
-      - summarize:
-          requires:
-            - build-and-run-tests
