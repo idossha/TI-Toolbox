@@ -437,11 +437,18 @@ class TIToolboxLoaderApp(QWidget):
         self.dir_input = QLineEdit()
         self.dir_input.setPlaceholderText("Select your BIDS-compliant project directory")
         self.dir_input.textChanged.connect(self.on_dir_text_changed)
+        
+        # Path validation indicator
+        self.path_indicator = QLabel("")
+        self.path_indicator.setFixedWidth(20)
+        self.path_indicator.setStyleSheet("font-size: 16px; font-weight: bold;")
+        
         self.browse_button = QPushButton("Browse")
         self.browse_button.clicked.connect(self.browse_project_dir)
 
         dir_layout.addWidget(self.dir_label)
         dir_layout.addWidget(self.dir_input)
+        dir_layout.addWidget(self.path_indicator)
         dir_layout.addWidget(self.browse_button)
         main_layout.addLayout(dir_layout)
 
@@ -686,7 +693,29 @@ class TIToolboxLoaderApp(QWidget):
 
     def on_dir_text_changed(self):
         """Handle manual text entry in project directory field"""
-        self.project_dir = self.dir_input.text()
+        entered_path = self.dir_input.text().strip()
+        
+        # Only validate if the path seems complete (not while user is still typing)
+        if entered_path and (entered_path.endswith('/') or entered_path.endswith('\\') or len(entered_path) > 10):
+            # Check if path exists
+            if os.path.exists(entered_path):
+                if os.path.isdir(entered_path):
+                    self.project_dir = entered_path
+                    # Show green checkmark for valid path
+                    self.path_indicator.setText("✓")
+                    self.path_indicator.setStyleSheet("font-size: 16px; font-weight: bold; color: #28a745;")
+                else:
+                    # Path exists but is not a directory - show red X
+                    self.path_indicator.setText("✗")
+                    self.path_indicator.setStyleSheet("font-size: 16px; font-weight: bold; color: #dc3545;")
+            else:
+                # Path doesn't exist - show red X
+                self.path_indicator.setText("✗")
+                self.path_indicator.setStyleSheet("font-size: 16px; font-weight: bold; color: #dc3545;")
+        else:
+            # Reset to empty while typing
+            self.project_dir = entered_path
+            self.path_indicator.setText("")
 
     def browse_project_dir(self):
         """Browse for project directory"""
@@ -694,6 +723,9 @@ class TIToolboxLoaderApp(QWidget):
         if directory:
             self.project_dir = directory
             self.dir_input.setText(directory)
+            # Show green checkmark for valid path
+            self.path_indicator.setText("✓")
+            self.path_indicator.setStyleSheet("font-size: 16px; font-weight: bold; color: #28a745;")
             self.log_user_message(f"Project directory selected: {os.path.basename(self.project_dir)}")
 
     def validate_requirements(self):
@@ -1034,6 +1066,10 @@ class TIToolboxLoaderApp(QWidget):
                 raise Exception("Failed to create required Docker volumes")
             self.log_user_message("  Volumes ready")
             
+            # Step 2.5: Setup example data for new projects
+            self.log_user_message("▶ Checking for example data...")
+            self._setup_example_data()  # This is optional, so we don't fail if it doesn't work
+            
             # Step 3: Check images and internet
             self.log_user_message("▶ Step 3/4: Checking Docker images")
             images_exist = self._check_docker_images_exist()
@@ -1121,6 +1157,98 @@ class TIToolboxLoaderApp(QWidget):
             return True
         except OSError:
             self.log_message(" No internet connection detected", "WARNING")
+            return False
+    
+    def _setup_example_data(self):
+        """Setup example data (ernie and MNI152) for new projects"""
+        try:
+            self.log_message("Checking if example data should be copied...", "INFO")
+            
+            # Find the actual TI-toolbox root directory
+            # When frozen, we need to find it relative to the executable location
+            if getattr(sys, 'frozen', False):
+                # Running as PyInstaller bundle
+                # The .app is typically in: TI-toolbox/launcher/executable/dist/TI-Toolbox.app
+                # We need to go up several levels to find TI-toolbox root
+                executable_path = sys.executable
+                
+                # Navigate up from the executable to find TI-toolbox root
+                # From: /path/to/TI-toolbox/launcher/executable/dist/TI-Toolbox.app/Contents/MacOS/TI-Toolbox
+                # To: /path/to/TI-toolbox
+                current_path = os.path.dirname(executable_path)  # MacOS
+                current_path = os.path.dirname(current_path)  # Contents
+                current_path = os.path.dirname(current_path)  # TI-Toolbox.app
+                current_path = os.path.dirname(current_path)  # dist
+                current_path = os.path.dirname(current_path)  # executable
+                current_path = os.path.dirname(current_path)  # launcher
+                toolbox_root = os.path.dirname(current_path)  # TI-toolbox
+                
+                # Verify we found a valid TI-toolbox directory
+                # It should have key directories like 'new_project', 'assets', etc.
+                if not os.path.exists(os.path.join(toolbox_root, 'new_project')):
+                    # Fallback: look for TI-toolbox in common locations
+                    home = os.path.expanduser('~')
+                    possible_locations = [
+                        os.path.join(home, 'TI-toolbox'),
+                        os.path.join(home, 'Documents', 'TI-toolbox'),
+                        os.path.join(home, 'Desktop', 'TI-toolbox'),
+                        '/opt/TI-toolbox',
+                        '/usr/local/TI-toolbox'
+                    ]
+                    
+                    for location in possible_locations:
+                        if os.path.exists(os.path.join(location, 'new_project')):
+                            toolbox_root = location
+                            self.log_message(f"Found TI-toolbox at: {toolbox_root}", "INFO")
+                            break
+            else:
+                # Running from source
+                toolbox_root = repo_root
+            
+            # Get path to example_data_manager.py
+            example_data_manager_path = os.path.join(toolbox_root, 'new_project', 'example_data_manager.py')
+            
+            if not os.path.exists(example_data_manager_path):
+                self.log_message(f"Example data manager not found at {example_data_manager_path}", "WARNING")
+                # Try to provide helpful debug info
+                self.log_message(f"Looked in toolbox root: {toolbox_root}", "INFO")
+                return False
+            
+            # Run the example data manager
+            # When frozen, sys.executable is the app bundle, so use python3
+            python_executable = 'python3' if getattr(sys, 'frozen', False) else sys.executable
+            
+            try:
+                result = run_subprocess_silent([
+                    python_executable, example_data_manager_path, toolbox_root, self.project_dir
+                ], timeout=120)
+                
+                if result.returncode == 0:
+                    # Parse output to see if data was copied
+                    if "Successfully set up example data" in result.stdout:
+                        self.log_message("Example data (ernie & MNI152) copied to project", "SUCCESS")
+                        return True
+                    elif "not new" in result.stdout or "already copied" in result.stdout or "existing" in result.stdout:
+                        self.log_message("Project already has data, skipping example data copy", "INFO")
+                        return True
+                    else:
+                        self.log_message("Example data setup completed", "SUCCESS")
+                        return True
+                else:
+                    # Non-zero exit but check stderr
+                    if result.stderr.strip():
+                        self.log_message(f"Example data setup warning: {result.stderr.strip()}", "WARNING")
+                    return False
+                    
+            except subprocess.TimeoutExpired:
+                self.log_message("Example data setup timed out", "WARNING")
+                return False
+            except Exception as e:
+                self.log_message(f"Example data setup error: {str(e)}", "WARNING")
+                return False
+                
+        except Exception as e:
+            self.log_message(f"Failed to setup example data: {str(e)}", "WARNING")
             return False
     
     def _check_docker_images_exist(self):
