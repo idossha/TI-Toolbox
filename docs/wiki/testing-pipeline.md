@@ -12,7 +12,7 @@ This document describes the comprehensive testing pipeline used by the TI-Toolbo
 
 The TI-Toolbox uses a multi-layered testing approach that combines unit tests, integration tests, and automated CI/CD through CircleCI. The testing pipeline ensures code quality, functionality, and reliability across all components of the toolbox.
 
-![TI-Toolbox CI/CD Pipeline](assets/testing/Ti-Toolbox%20CICD.svg)
+![TI-Toolbox CI/CD Pipeline](wiki/assets/testing/Ti-ToolboxCICD.svg)
 
 ## What is CircleCI?
 
@@ -81,7 +81,7 @@ The unit tests are organized by component:
 
 #### Test Setup (`tests/setup_test_projectdir.sh`)
 Creates a complete BIDS-compliant test project structure:
-- Downloads ErnieExtended dataset from OSF
+- Downloads ErnieExtended dataset from SimNIBS
 - Sets up proper directory structure (`sourcedata/`, `derivatives/`, `code/`)
 - Creates montage configurations for multiple EEG nets
 - Downloads test simulation data
@@ -139,7 +139,7 @@ bats tests/test_analyzer_outputs.bats
 ## Test Data Management
 
 ### ErnieExtended Dataset
-- **Source**: Open Science Framework (OSF)
+- **Source**: SimNIBS
 - **Purpose**: Standardized test subject for simulations
 - **Structure**: Complete SimNIBS mesh model with anatomical data
 
@@ -155,19 +155,12 @@ bats tests/test_analyzer_outputs.bats
 
 ## Artifact Collection
 
-The pipeline collects and stores test artifacts:
+The pipeline collects and stores test artifacts(within the runner):
 
 - **analyzer-results/**: Unit test results for analyzer components
 - **simulator-results/**: Unit test results for simulator components  
 - **flexsearch-results/**: Unit test results for flex-search components
 - **integration-results/**: Integration test outputs and validation results
-
-## Monitoring and Debugging
-
-### Test Reports
-- JUnit XML format for unit tests
-- BATS output for integration tests
-- Detailed logging for failed tests
 
 ### Common Issues
 1. **Docker image availability**: Falls back to local builds if DockerHub images unavailable
