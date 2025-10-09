@@ -1,0 +1,69 @@
+# Stages just name the prebuilt images (built earlier in CI)
+FROM simnibs:ci AS simnibs
+FROM fsl:ci AS fsl
+FROM freesurfer:ci AS freesurfer
+FROM matlab-runtime:ci AS mcr
+
+# Final image: clean Ubuntu with just what we need
+FROM ubuntu:20.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update && apt-get install -y \
+    xvfb xauth x11-apps x11-utils mesa-utils \
+    libgl1-mesa-glx libglu1-mesa libosmesa6 \
+    python3 python3-pip \
+    jq curl unzip wget git dos2unix ca-certificates \
+ && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# Install pytest and BATS
+RUN pip install pytest
+RUN apt-get update && apt-get install -y bats && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# Install Python test dependencies
+COPY tests/requirements-test.txt /ti-toolbox/tests/requirements-test.txt
+RUN pip install -r /ti-toolbox/tests/requirements-test.txt
+
+# --- Pull payloads from the four component images ---
+# FSL
+ENV FSLDIR=/usr/local/fsl
+COPY --from=fsl /usr/local/fsl /usr/local/fsl
+ENV PATH="$FSLDIR/bin:$PATH"
+# If fsl sets up profile scripts in /etc/profile.d, copy them too
+COPY --from=fsl /etc/profile.d /etc/profile.d
+
+# SimNIBS
+ENV SIMNIBSDIR=/root/SimNIBS-4.5
+COPY --from=simnibs /root/SimNIBS-4.5 /root/SimNIBS-4.5
+ENV PATH="$SIMNIBSDIR/bin:$PATH"
+
+# FreeSurfer (needs license at runtime/build)
+ENV FREESURFER_HOME=/usr/local/freesurfer
+COPY --from=freesurfer /usr/local/freesurfer /usr/local/freesurfer
+# You can add the license later in CI or mount it at runtime:
+# RUN mkdir -p $FREESURFER_HOME && echo "$FS_LICENSE" > $FREESURFER_HOME/license.txt
+ENV PATH="$FREESURFER_HOME/bin:$PATH"
+
+# MATLAB Runtime
+ENV MATLAB_RUNTIME_INSTALL_DIR=/usr/local/MATLAB/MATLAB_Runtime
+COPY --from=mcr /usr/local/MATLAB/MATLAB_Runtime /usr/local/MATLAB/MATLAB_Runtime
+ENV LD_LIBRARY_PATH="${MATLAB_RUNTIME_INSTALL_DIR}/v99/runtime/glnxa64:${MATLAB_RUNTIME_INSTALL_DIR}/v99/bin/glnxa64:${MATLAB_RUNTIME_INSTALL_DIR}/v99/sys/os/glnxa64:${MATLAB_RUNTIME_INSTALL_DIR}/v99/sys/opengl/lib/glnxa64:$LD_LIBRARY_PATH"
+
+# Xvfb convenience env (we'll use :99 in CI)
+ENV DISPLAY=:99
+
+# Set TERM environment variable for interactive scripts
+ENV TERM=xterm
+
+# TI-Toolbox - Copy from checked-out code instead of simnibs image
+COPY . /ti-toolbox
+ENV PATH="$PATH:/ti-toolbox/CLI"
+
+# Make CLI scripts executable
+RUN chmod +x /ti-toolbox/CLI/*.sh
+
+# (optional) create a non-root user, set workdir, copy repo, etc., or keep minimal
+WORKDIR /ti-toolbox
+
+# Set environment variables for test project
+ENV PROJECT_DIR_NAME=test_projectdir
+ENV LOCAL_PROJECT_DIR=/mnt/test_projectdir

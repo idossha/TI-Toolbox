@@ -51,17 +51,36 @@ Dependencies:
 
 import os
 import numpy as np
-import matplotlib.pyplot as plt
-from matplotlib import cm
-from matplotlib.colors import Normalize
-import simnibs
-from pathlib import Path
 import csv
 import sys
+from pathlib import Path
 
 # Add the parent directory to the path to access utils
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 from utils import logging_util
+
+# Import external dependencies with error handling
+try:
+    import matplotlib.pyplot as plt
+    from matplotlib import cm
+    from matplotlib.colors import Normalize
+except ImportError:
+    plt = None
+    cm = None
+    Normalize = None
+    print("Warning: matplotlib not available. Visualization functionality will be limited.")
+
+try:
+    import simnibs
+except ImportError:
+    simnibs = None
+    print("Warning: simnibs not available. Mesh visualization functionality will be limited.")
+
+try:
+    import nibabel as nib
+except ImportError:
+    nib = None
+    print("Warning: nibabel not available. Voxel visualization functionality will be limited.")
 
 
 class BaseVisualizer:
@@ -267,6 +286,10 @@ class BaseVisualizer:
         Returns:
             str: Path to the generated histogram file
         """
+        if plt is None:
+            self.logger.warning("matplotlib not available. Cannot generate histogram.")
+            return None
+            
         self.logger.info(f"Generating whole-head ROI histogram for {len(whole_head_field_data)} {data_type}s")
         
         try:
@@ -483,6 +506,10 @@ class Visualizer(BaseVisualizer):
     
     def generate_cortex_scatter_plot(self, results, atlas_type, data_type='voxel'):
         """Generate a sorted scatter plot of median values for all cortical regions."""
+        if plt is None:
+            self.logger.warning("matplotlib not available. Cannot generate scatter plot.")
+            return
+            
         self.logger.info(f"Generating cortex scatter plot for {atlas_type} atlas with {len(results)} regions")
         
         # Filter out regions with None values
@@ -555,6 +582,15 @@ class Visualizer(BaseVisualizer):
 
     def generate_value_distribution_plot(self, field_values, region_name, atlas_type, mean_value, max_value, min_value, data_type='voxel'):
         """Generate a raincloud plot showing the distribution of individual values within a region."""
+        if plt is None:
+            self.logger.warning("matplotlib not available. Cannot generate distribution plot.")
+            return None
+            
+        # Check for empty field values
+        if len(field_values) == 0:
+            self.logger.warning("No field values provided. Cannot generate distribution plot.")
+            return None
+            
         self.logger.info(f"Generating value distribution plot for region: {region_name}")
         self.logger.info(f"Data: {len(field_values)} {data_type}s, mean={mean_value:.6f}, max={max_value:.6f}, min={min_value:.6f}")
         # Create figure with subplots
@@ -646,6 +682,10 @@ class Visualizer(BaseVisualizer):
 
     def _generate_whole_head_plots(self, results, atlas_type, data_type='voxel'):
         """Generate a sorted scatter plot for whole head analysis directly in the main output directory."""
+        if plt is None:
+            self.logger.warning("matplotlib not available. Cannot generate whole head plots.")
+            return
+            
         # Filter out regions with None values
         valid_results = {name: res for name, res in results.items() if res['mean_value'] is not None}
         
@@ -747,6 +787,10 @@ class MeshVisualizer(Visualizer):
 
     def visualize_cortex_roi(self, gm_surf, roi_mask, target_region, field_values, max_value, output_dir=None, surface_mesh_path=None, normal_mesh_path=None):
         """Generate 3D visualization for a region and save it directly to the specified directory."""
+        if simnibs is None:
+            self.logger.warning("simnibs not available. Cannot generate mesh visualization.")
+            return None
+            
         self.logger.info(f"Creating cortex ROI visualization for region: {target_region}")
         self.logger.info(f"ROI contains {np.sum(roi_mask)} nodes")
         
@@ -890,6 +934,10 @@ class MeshVisualizer(Visualizer):
         Returns:
             str: Path to the created visualization file
         """
+        if simnibs is None:
+            self.logger.warning("simnibs not available. Cannot generate mesh visualization.")
+            return None
+            
         self.logger.debug(f"Creating spherical ROI visualization at center {center_coords} with radius {radius}mm")
         self.logger.debug(f"ROI contains {np.sum(roi_mask)} surface nodes")
         
@@ -1045,6 +1093,10 @@ class VoxelVisualizer(Visualizer):
         Returns:
             str: Path to the created visualization file
         """
+        if nib is None:
+            self.logger.warning("nibabel not available. Cannot create NIfTI visualization.")
+            return None
+            
         self.logger.info(f"Creating NIfTI visualization for region: {region_name} (ID: {region_id})")
         # Create mask for this region
         region_mask = (atlas_arr == region_id)
@@ -1057,7 +1109,6 @@ class VoxelVisualizer(Visualizer):
         output_filename = os.path.join(self.output_dir, f"{region_name}_ROI.nii.gz")
         
         # Save as NIfTI
-        import nibabel as nib
         vis_img = nib.Nifti1Image(vis_arr, atlas_img.affine)
         nib.save(vis_img, output_filename)
         
@@ -1066,6 +1117,10 @@ class VoxelVisualizer(Visualizer):
 
     def _generate_region_visualization(self, atlas_img, atlas_arr, field_arr, region_id, region_name, output_dir):
         """Generate a NIfTI file visualization for a specific cortical region and save it directly to the specified directory."""
+        if nib is None:
+            self.logger.warning("nibabel not available. Cannot create NIfTI visualization.")
+            return None
+            
         # Create mask for this region
         region_mask = (atlas_arr == region_id)
         
