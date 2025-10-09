@@ -22,27 +22,19 @@ save_default_paths() {
 
 # Function to initialize required Docker volumes
 initialize_volumes() {
-  echo "Initializing required Docker volumes..."
-  
   # Check and create FSL volume if it doesn't exist
   if ! docker volume inspect ti-toolbox_fsl_data >/dev/null 2>&1; then
-    echo "Creating FSL volume..."
-    docker volume create ti-toolbox_fsl_data
+    docker volume create ti-toolbox_fsl_data >/dev/null 2>&1
   fi
   
   # Check and create FreeSurfer volume if it doesn't exist
   if ! docker volume inspect ti-toolbox_freesurfer_data >/dev/null 2>&1; then
-    echo "Creating FreeSurfer volume..."
-    docker volume create ti-toolbox_freesurfer_data
+    docker volume create ti-toolbox_freesurfer_data >/dev/null 2>&1
   fi
-
-
 }
 
 # Function to check allocated Docker resources (CPU, memory)
 check_docker_resources() {
-  echo "Checking Docker resource allocation..."
-
   if docker info >/dev/null 2>&1; then
     # Get Docker's memory and CPU allocation
     MEMORY=$(docker info --format '{{.MemTotal}}')
@@ -50,9 +42,6 @@ check_docker_resources() {
 
     # Convert memory from bytes to GB
     MEMORY_GB=$(echo "scale=2; $MEMORY / (1024^3)" | bc)
-
-    echo "Docker Memory Allocation: ${MEMORY_GB} GB"
-    echo "Docker CPU Allocation: $CPU CPUs"
   else
     echo "Docker is not running or not installed. Please start Docker and try again."
     exit 1
@@ -85,7 +74,6 @@ get_project_directory() {
     fi
 
     if [[ -d "$LOCAL_PROJECT_DIR" ]]; then
-      echo "Project directory found."
       break
     else
       echo "Invalid directory. Please provide a valid path."
@@ -111,7 +99,6 @@ get_dev_codebase_directory() {
     fi
 
     if [[ -d "$DEV_CODEBASE_DIR" ]]; then
-      echo "Development codebase directory found."
       break
     else
       echo "Invalid directory. Please provide a valid path."
@@ -123,15 +110,11 @@ get_dev_codebase_directory() {
 check_xquartz_version() {
   XQUARTZ_APP="/Applications/Utilities/XQuartz.app"
   if [ ! -d "$XQUARTZ_APP" ]; then
-    echo "XQuartz is not installed. Please install XQuartz 2.7.7."
     return 1
   else
     xquartz_version=$(mdls -name kMDItemVersion "$XQUARTZ_APP" | awk -F'"' '{print $2}')
     if [[ "$xquartz_version" > "2.8.0" ]]; then
-      echo "⚠️  XQuartz version $xquartz_version may have compatibility issues"
       return 1
-    else
-      echo "✅ XQuartz $xquartz_version detected"
     fi
   fi
   return 0
@@ -139,7 +122,6 @@ check_xquartz_version() {
 
 # Function to allow connections from network clients (from config_sys.sh)
 allow_network_clients() {
-  echo "Configuring XQuartz for network clients..."
   defaults write org.macosforge.xquartz.X11 nolisten_tcp -bool false >/dev/null 2>&1
   
   # Check if XQuartz is already running
@@ -147,7 +129,6 @@ allow_network_clients() {
     open -a XQuartz
     sleep 2
   fi
-  echo "✅ XQuartz configured"
 }
 
 # Function to get the IP address of the host machine
@@ -174,57 +155,14 @@ set_display_env() {
   if [[ "$(uname -s)" == "Linux" ]]; then
     # If Linux, use the existing DISPLAY
     export DISPLAY=$DISPLAY
-    echo "Using system's DISPLAY: $DISPLAY"
   elif [[ "$(uname -s)" == "Darwin" ]]; then
     # For macOS, we need IP-based DISPLAY for the container
     get_host_ip # Get the IP address dynamically
     export DISPLAY="$HOST_IP:0"
-    echo "✅ DISPLAY configured for container"
   else
     # For other systems (Windows), use IP-based approach
     get_host_ip # Get the IP address dynamically
     export DISPLAY="$HOST_IP:0"
-    echo "DISPLAY set to $DISPLAY"
-  fi
-}
-
-# Function to allow connections from XQuartz or X11
-allow_xhost() {
-
-  # Check if xhost command is available
-  if ! command -v xhost >/dev/null 2>&1; then
-    echo "Warning: xhost command not found. X11 forwarding may not work properly."
-    echo "For Windows/WSL users: Make sure you have an X server (like VcXsrv or Xming) running."
-    return 0
-  fi
-
-  if [[ "$(uname -s)" == "Linux" ]]; then
-    # Allow connections for Linux (only if xhost exists)
-    if command -v xhost >/dev/null 2>&1; then
-      echo "Configuring X11 permissions..."
-      xhost +local:root >/dev/null 2>&1
-      echo "✅ X11 permissions configured"
-    else
-      echo "Note: xhost not found; skipping X11 access relaxation"
-    fi
-  elif [[ "$(uname -s)" == "Darwin" ]]; then
-    # For macOS, allow both localhost and the specific IP for Docker
-    echo "Configuring X11 permissions..."
-    xhost +localhost >/dev/null 2>&1
-    xhost +$(hostname) >/dev/null 2>&1
-    
-    # Allow the specific IP that Docker will use
-    if [ -n "$HOST_IP" ]; then
-      xhost + "$HOST_IP" >/dev/null 2>&1
-    fi
-    echo "✅ X11 permissions configured"
-  else
-    # Use the dynamically obtained IP for other systems (Windows)
-    if command -v xhost >/dev/null 2>&1; then
-      xhost + "$HOST_IP"
-    else
-      echo "Note: xhost not found; skipping X11 access relaxation"
-    fi
   fi
 }
 
@@ -238,24 +176,38 @@ validate_docker_compose() {
 
 # Function to display welcome message
 display_welcome() {
-  echo " "
-  echo "#####################################################################"
   echo "Welcome to the TI toolbox from the Center for Sleep and Consciousness"
-  echo "Developed by Ido Haber as a wrapper around Modified SimNIBS"
-  echo " "
-  echo "Make sure you have XQuartz (on macOS), X11 (on Linux), or Xming/VcXsrv (on Windows) running."
-  echo "If you wish to use the optimizer, consider allocating more RAM to Docker."
+  echo "Developed by Ido Haber as a wrapper around modified SimNIBS"
+  echo ""
   echo "#####################################################################"
-  echo " "
+  echo ""
 }
 
 # Function to run Docker Compose and attach to simnibs container
 run_docker_compose() {
-  # Pull images if they don't exist
-  echo "Pulling required Docker images..."
-  docker compose -f "$SCRIPT_DIR/docker-compose.dev.yml" pull
+  # Check if required images exist, pull only if missing
+  local images_needed=()
+  
+  # Extract image names from docker-compose.dev.yml
+  local compose_images=$(grep -E '^\s+image:' "$SCRIPT_DIR/docker-compose.dev.yml" | awk '{print $2}')
+  
+  # Check each required image
+  while IFS= read -r image; do
+    if [ -n "$image" ]; then
+      if ! docker images --format "{{.Repository}}:{{.Tag}}" | grep -q "^${image}$"; then
+        images_needed+=("$image")
+      fi
+    fi
+  done <<< "$compose_images"
+  
+  # Pull only if images are missing
+  if [ ${#images_needed[@]} -gt 0 ]; then
+    echo "Pulling required Docker images..."
+    docker compose -f "$SCRIPT_DIR/docker-compose.dev.yml" pull
+  fi
 
   # Run Docker Compose
+  echo "Starting services..."
   docker compose -f "$SCRIPT_DIR/docker-compose.dev.yml" up -d
 
   # Wait for containers to initialize
@@ -303,7 +255,6 @@ initialize_dataset_description() {
 
   # If it already exists, skip
   if [ -f "$dataset_file" ]; then
-    echo "dataset_description.json already exists in the project. Skipping creation."
     return 0
   fi
 
@@ -330,21 +281,6 @@ initialize_dataset_description() {
 
   # Basic verification
   if [ -f "$dataset_file" ]; then
-    echo "Created $dataset_file with project name: $project_name"
-    echo ""
-    echo "IMPORTANT: To ensure BIDS compliance, please complete the following fields in your dataset_description.json:"
-    echo "  - License: Specify the license for your dataset"
-    echo "  - Authors: List contributors to the dataset"
-    echo "  - Acknowledgements: Credit individuals or institutions"
-    echo "  - HowToAcknowledge: Instructions for citing your dataset"
-    echo "  - Funding: Grant numbers or funding sources"
-    echo "  - EthicsApprovals: Ethics committee approvals"
-    echo "  - ReferencesAndLinks: Publications related to the dataset"
-    echo "  - DatasetDOI: DOI if available"
-    echo ""
-    echo "For detailed guidance on BIDS compliance, visit:"
-    echo "https://bids-specification.readthedocs.io/en/stable/modality-agnostic-files.html"
-    echo ""
     return 0
   else
     echo "Error: Failed to create $dataset_file"
@@ -361,7 +297,6 @@ initialize_ti_toolbox_derivative() {
 
   # If it already exists, skip
   if [ -f "$dataset_file" ]; then
-    echo "ti-toolbox derivative dataset_description.json already exists. Skipping creation."
     return 0
   fi
 
@@ -393,7 +328,6 @@ initialize_ti_toolbox_derivative() {
     # Update DatasetLinks field
     sed -i.tmp "s/\"DatasetLinks\": {}/\"DatasetLinks\": {\n    \"$project_name\": \"..\/..\/\"\n  }/" "$dataset_file" && rm -f "${dataset_file}.tmp"
     
-    echo "Created ti-toolbox derivative dataset_description.json at $dataset_file"
     return 0
   else
     echo "Error: Failed to create ti-toolbox derivative dataset_description.json"
@@ -410,7 +344,6 @@ initialize_freesurfer_derivative() {
 
   # If it already exists, skip
   if [ -f "$dataset_file" ]; then
-    echo "FreeSurfer derivative dataset_description.json already exists. Skipping creation."
     return 0
   fi
 
@@ -442,7 +375,6 @@ initialize_freesurfer_derivative() {
     # Update DatasetLinks field
     sed -i.tmp "s/\"DatasetLinks\": {}/\"DatasetLinks\": {\n    \"$project_name\": \"..\/..\/\"\n  }/" "$dataset_file" && rm -f "${dataset_file}.tmp"
     
-    echo "Created FreeSurfer derivative dataset_description.json at $dataset_file"
     return 0
   else
     echo "Error: Failed to create FreeSurfer derivative dataset_description.json"
@@ -459,7 +391,6 @@ initialize_simnibs_derivative() {
 
   # If it already exists, skip
   if [ -f "$dataset_file" ]; then
-    echo "SimNIBS derivative dataset_description.json already exists. Skipping creation."
     return 0
   fi
 
@@ -491,7 +422,6 @@ initialize_simnibs_derivative() {
     # Update DatasetLinks field
     sed -i.tmp "s/\"DatasetLinks\": {}/\"DatasetLinks\": {\n    \"$project_name\": \"..\/..\/\"\n  }/" "$dataset_file" && rm -f "${dataset_file}.tmp"
     
-    echo "Created SimNIBS derivative dataset_description.json at $dataset_file"
     return 0
   else
     echo "Error: Failed to create SimNIBS derivative dataset_description.json"
@@ -545,8 +475,6 @@ write_system_info() {
     return 1
   fi
 
-  echo "System info written to $INFO_FILE"
-
   # No need to mirror since we're now using the derivatives location directly
   return 0
 }
@@ -590,6 +518,7 @@ EOF
   fi
 
   # No need to mirror since we're now using the derivatives location directly
+  return 0
 }
 
 # Function to setup example data for new projects
@@ -738,20 +667,14 @@ LOCAL_PROJECT_DIR=$(printf "%s" "$LOCAL_PROJECT_DIR" | tr -d '\r')
 DEV_CODEBASE_DIR=$(printf "%s" "$DEV_CODEBASE_DIR" | tr -d '\r')
 PROJECT_DIR_NAME=$(basename "$LOCAL_PROJECT_DIR")
 DEV_CODEBASE_DIR_NAME=$(basename "$DEV_CODEBASE_DIR")
-check_docker_resources
-initialize_volumes
+check_docker_resources >/dev/null 2>&1
+initialize_volumes >/dev/null 2>&1
 
 # Setup X11 for macOS (using config_sys.sh approach)
 if [[ "$(uname -s)" == "Darwin" ]]; then
-  echo "🍎 Setting up XQuartz for macOS..."
-  if ! check_xquartz_version; then
-    echo "⚠️  XQuartz version issue detected, but continuing..."
-  fi
-  allow_network_clients
+  check_xquartz_version >/dev/null 2>&1
+  allow_network_clients >/dev/null 2>&1
 fi
-
-set_display_env
-allow_xhost # Allow X11 connections
 
 # Set up Docker Compose environment variables
 export LOCAL_PROJECT_DIR
@@ -764,24 +687,19 @@ export DEV_CODEBASE_NAME="$DEV_CODEBASE_DIR_NAME"  # Add this line to fix the wa
 save_default_paths
 
 # Write system info and project status with error handling
-if ! write_system_info; then
-  echo "Warning: Failed to write system info"
-fi
-
-if ! write_project_status; then
-  echo "Warning: Failed to write project status"
-fi
+write_system_info >/dev/null 2>&1
+write_project_status >/dev/null 2>&1
 
 # Ensure BIDS dataset description exists in the project root
-initialize_dataset_description
+initialize_dataset_description >/dev/null 2>&1
 
 # Ensure ti-toolbox derivative dataset description exists
-initialize_ti_toolbox_derivative
+initialize_ti_toolbox_derivative >/dev/null 2>&1
 
 # Ensure FreeSurfer derivative dataset description exists
-initialize_freesurfer_derivative
+initialize_freesurfer_derivative >/dev/null 2>&1
 
 # Ensure SimNIBS derivative dataset description exists
-initialize_simnibs_derivative
+initialize_simnibs_derivative >/dev/null 2>&1
 
 run_docker_compose

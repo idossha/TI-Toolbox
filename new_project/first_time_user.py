@@ -147,16 +147,16 @@ def show_welcome_message(parent=None):
 Welcome to the TI-Toolbox!
 
 This toolbox provides a user-friendly interface for:
-• Pre-processing structural MRI data
-• Optimizing electrode positions for ROI ideal targeting
-• Running comperhensive TI simulations
+• Pre-processing structural MRI data and analyze anatomical structures
+• Optimizing electrode positions for ROI targeting
+• Running flexible uTI & mTI simulations
 • Analyzing and visualizing results
 
 The interface is organized into several tabs:
 1. Pre-process: Prepare your structural data
 3. ex/flex-search: Find optimal electrode positions
 2. Simulator: Run TI simulations
-4. Analyzer: Analyze results & view in mesh space
+4. Analyzer: Analyze results & view in mesh/voxel spaces
 5. Nifti-viewer: View simulations and analyses in voxel space
 
 Each tab has its own configuration options and help buttons.
