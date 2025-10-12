@@ -36,7 +36,7 @@ if [[ "$1" == "--run-direct" ]]; then
     PARALLEL_RECON=${PARALLEL_RECON:-false}
     CREATE_M2M=${CREATE_M2M:-false}
     CREATE_ATLAS=${CREATE_ATLAS:-false}
-    QUIET=${QUIET:-false}
+    RUN_TISSUE_ANALYSIS=${RUN_TISSUE_ANALYSIS:-false}
     
     # Process each subject
     for subject_id in "${selected_subjects[@]}"; do
@@ -63,10 +63,6 @@ if [[ "$1" == "--run-direct" ]]; then
         
         if [[ "$PARALLEL_RECON" == "true" ]]; then
             cmd+=("--parallel")
-        fi
-        
-        if [[ "$QUIET" == "true" ]]; then
-            cmd+=("--quiet")
         fi
         
         if [[ "$CONVERT_DICOM" == "true" ]]; then
@@ -169,7 +165,7 @@ show_confirmation_dialog() {
     echo -e "Run in parallel mode:             ${CYAN}$(if $PARALLEL_RECON; then echo "Yes"; else echo "No"; fi)${RESET}"
     echo -e "Create SimNIBS m2m folder:        ${CYAN}$(if $CREATE_M2M; then echo "Yes"; else echo "No"; fi)${RESET}"
     echo -e "Create atlas segmentation:        ${CYAN}$(if $CREATE_ATLAS; then echo "Yes"; else echo "No"; fi)${RESET}"
-    echo -e "Run in quiet mode:                ${CYAN}$(if $QUIET; then echo "Yes"; else echo "No"; fi)${RESET}"
+    echo -e "Run tissue analysis:              ${CYAN}$(if $RUN_TISSUE_ANALYSIS; then echo "Yes (bone + CSF + skin)"; else echo "No"; fi)${RESET}"
     
     echo -e "\n${BOLD_YELLOW}Please review the configuration above.${RESET}"
     echo -e "${YELLOW}Do you want to proceed with these settings? (y/n)${RESET}"
@@ -324,7 +320,7 @@ RUN_RECON=false
 PARALLEL_RECON=false
 CREATE_M2M=false
 CREATE_ATLAS=false
-QUIET=false
+RUN_TISSUE_ANALYSIS=false
 
 # Ask for DICOM conversion
 print_header "DICOM Conversion"
@@ -357,10 +353,10 @@ else
     CREATE_ATLAS=false
 fi
 
-# Ask for quiet mode
-print_header "Output Mode"
-if get_yes_no "Run in quiet mode (suppress output)?" "n"; then
-    QUIET=true
+# Ask for tissue analysis
+print_header "Tissue Analysis"
+if get_yes_no "Run tissue analysis (bone, CSF, skin - requires m2m folder)?" "y"; then
+    RUN_TISSUE_ANALYSIS=true
 fi
 
 # Validate atlas creation requirements
@@ -385,6 +381,29 @@ if $CREATE_ATLAS && ! $CREATE_M2M; then
         exit 1
     else
         print_message "$GREEN" "All selected subjects have existing m2m folders."
+    fi
+fi
+
+# Validate tissue analysis requirements
+if $RUN_TISSUE_ANALYSIS && ! $CREATE_M2M; then
+    print_message "$YELLOW" "Tissue analysis requires m2m folders. Checking if they exist for selected subjects..."
+    missing_m2m_subjects=()
+    for SUBJECT_ID in "${selected_subjects[@]}"; do
+        BIDS_SUBJECT_ID="sub-${SUBJECT_ID}"
+        m2m_dir="$PROJECT_DIR/derivatives/SimNIBS/$BIDS_SUBJECT_ID/m2m_$SUBJECT_ID"
+        labeling_file="$m2m_dir/Labeling.nii.gz"
+        if [ ! -f "$labeling_file" ]; then
+            missing_m2m_subjects+=("$SUBJECT_ID")
+        fi
+    done
+    
+    if [ ${#missing_m2m_subjects[@]} -gt 0 ]; then
+        print_message "$RED" "Error: Tissue analysis requires m2m folders with Labeling.nii.gz, but the following subjects don't have them:"
+        print_message "$RED" "${missing_m2m_subjects[*]}"
+        print_message "$YELLOW" "Please make sure all subjects have m2m folder by running charm first."
+        exit 1
+    else
+        print_message "$GREEN" "All selected subjects have existing m2m folders with Labeling.nii.gz."
     fi
 fi
 
@@ -441,10 +460,6 @@ if $PARALLEL_RECON && $RUN_RECON && [ ${#selected_subjects[@]} -gt 1 ]; then
         CMD="$CMD --create-m2m"
     fi
     
-    if $QUIET; then
-        CMD="$CMD --quiet"
-    fi
-    
     # Execute the command once for all subjects
     print_message "$GREEN" "Running parallel command: $CMD"
     eval "$CMD"
@@ -491,10 +506,6 @@ else
         
         if $CREATE_M2M; then
             CMD="$CMD --create-m2m"
-        fi
-        
-        if $QUIET; then
-            CMD="$CMD --quiet"
         fi
         
         # Execute the command
@@ -567,9 +578,52 @@ else
     done
 fi
 
-# Post-processing: Atlas creation and report generation for all subjects
+# Post-processing: Tissue analysis, atlas creation and report generation for all subjects
 for SUBJECT_ID in "${selected_subjects[@]}"; do
     BIDS_SUBJECT_ID="sub-${SUBJECT_ID}"
+    
+    # Run tissue analysis if requested
+    if $RUN_TISSUE_ANALYSIS; then
+        print_message "$CYAN" "[Tissue Analysis] $SUBJECT_ID: Starting tissue analysis..."
+        
+        # Check if m2m folder and Labeling.nii.gz exist
+        m2m_folder="$PROJECT_DIR/derivatives/SimNIBS/$BIDS_SUBJECT_ID/m2m_$SUBJECT_ID"
+        labeling_file="$m2m_folder/Labeling.nii.gz"
+        
+        if [ -f "$labeling_file" ]; then
+            # Set up tissue analysis output directory
+            tissue_output_dir="$PROJECT_DIR/derivatives/ti-toolbox/tissue_analysis/$BIDS_SUBJECT_ID"
+            mkdir -p "$tissue_output_dir"
+            
+            # Run the tissue analyzer script
+            tissue_analyzer_script="$script_dir/../pre-process/tissue-analyzer.sh"
+            
+            if [ -f "$tissue_analyzer_script" ]; then
+                print_message "$YELLOW" "[Tissue Analysis] $SUBJECT_ID: Running tissue analyzer on $labeling_file"
+                
+                # Execute tissue analyzer
+                if bash "$tissue_analyzer_script" "$labeling_file" -o "$tissue_output_dir"; then
+                    print_message "$GREEN" "[Tissue Analysis] $SUBJECT_ID: Tissue analysis completed successfully!"
+                    print_message "$CYAN" "[Tissue Analysis] $SUBJECT_ID: Results saved to: $tissue_output_dir"
+                    
+                    # Show summary of generated files
+                    if [ -d "$tissue_output_dir" ]; then
+                        bone_count=$(find "$tissue_output_dir/bone_analysis" -name "*.png" 2>/dev/null | wc -l)
+                        csf_count=$(find "$tissue_output_dir/csf_analysis" -name "*.png" 2>/dev/null | wc -l)
+                        skin_count=$(find "$tissue_output_dir/skin_analysis" -name "*.png" 2>/dev/null | wc -l)
+                        print_message "$CYAN" "[Tissue Analysis] $SUBJECT_ID: Generated $bone_count bone, $csf_count CSF, and $skin_count skin analysis visualizations"
+                    fi
+                else
+                    print_message "$RED" "[Tissue Analysis] $SUBJECT_ID: Tissue analysis failed!"
+                fi
+            else
+                print_message "$RED" "[Tissue Analysis] $SUBJECT_ID: tissue-analyzer.sh not found at $tissue_analyzer_script"
+            fi
+        else
+            print_message "$YELLOW" "[Tissue Analysis] $SUBJECT_ID: Labeling.nii.gz not found in m2m folder, skipping tissue analysis"
+            print_message "$YELLOW" "[Tissue Analysis] $SUBJECT_ID: Expected location: $labeling_file"
+        fi
+    fi
     
     # Generate preprocessing report automatically
     print_message "$CYAN" "[Report] $SUBJECT_ID: Generating preprocessing report..."
@@ -607,7 +661,7 @@ print_message "$GREEN" "Preprocessing of all selected subjects has been complete
 # Summary of generated reports
 reports_dir="$PROJECT_DIR/derivatives/ti-toolbox/reports"
 if [ -d "$reports_dir" ]; then
-    report_count=$(find "$reports_dir" -name "*pre_processing_report*.html" | wc -l)
+    report_count=$(find "$reports_dir" -name "*pre_processing_report*.html" 2>/dev/null | wc -l)
     if [ "$report_count" -gt 0 ]; then
         print_message "$CYAN" "📊 Generated $report_count preprocessing report(s)"
         print_message "$CYAN" "📁 Reports location: $reports_dir/sub-{subjectID}/"
