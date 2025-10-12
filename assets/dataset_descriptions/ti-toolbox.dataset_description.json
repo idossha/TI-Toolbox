@@ -10,7 +10,7 @@
   "GeneratedBy": [
     {
       "Name": "TI-Toolbox",
-      "Version": "2.1.0",
+      "Version": "2.1.3",
       "Description": "Temporal interference (TI) modeling and optimization pipeline (e.g., Flex-Search) generating electric field simulations, TI metrics (e.g., TI_max), and per-subject analyses.",
       "CodeURL": "https://github.com/idossha/TI-Toolbox"
     }

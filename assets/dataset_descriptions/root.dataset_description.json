@@ -2,26 +2,17 @@
   "Name": "",
   "BIDSVersion": "1.10.0",
   "DatasetType": "raw",
-  "License": "",
+  "License": "CC0",
   "Authors": [
-      "",
-      "",
-      ""
+    "TI-Toolbox User"
   ],
-  "Acknowledgements": "",
-  "HowToAcknowledge": "",
-  "Funding": [
-      "",
-      "",
-      ""
-  ],
-  "EthicsApprovals": [
-      ""
-  ],
+  "Acknowledgements": "Data processed using TI-Toolbox pipeline for temporal interference stimulation modeling.",
+  "HowToAcknowledge": "https://doi.org/10.1101/2025.10.06.680781",
+  "Funding": [],
+  "EthicsApprovals": [],
   "ReferencesAndLinks": [
-      "",
-      "",
-      ""
+    "https://github.com/idossha/TI-Toolbox",
+    "https://idossha.github.io/TI-toolbox/"
   ],
-  "DatasetDOI": "doi:"
+  "DatasetDOI": ""
 }
