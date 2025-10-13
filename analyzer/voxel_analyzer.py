@@ -51,25 +51,39 @@ Dependencies:
 
 import os
 import numpy as np
-import nibabel as nib
 import subprocess
 import tempfile
 from pathlib import Path
 import time
-from visualizer import VoxelVisualizer
 import csv
 from datetime import datetime
 import sys
 import traceback
 
-# Configure matplotlib for non-interactive backend before importing
-import matplotlib
-matplotlib.use('Agg')  # Use non-interactive backend
-import matplotlib.pyplot as plt
-
 # Add the parent directory to the path to access utils
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 from utils import logging_util
+
+# Import external dependencies with error handling
+try:
+    import nibabel as nib
+except ImportError:
+    nib = None
+    print("Warning: nibabel not available. Voxel analysis functionality will be limited.")
+
+try:
+    import matplotlib
+    matplotlib.use('Agg')  # Use non-interactive backend
+    import matplotlib.pyplot as plt
+except ImportError:
+    plt = None
+    print("Warning: matplotlib not available. Visualization functionality will be limited.")
+
+try:
+    from visualizer import VoxelVisualizer
+except ImportError:
+    VoxelVisualizer = None
+    print("Warning: VoxelVisualizer not available. Visualization functionality will be limited.")
 
 
 class VoxelAnalyzer:
@@ -100,6 +114,10 @@ class VoxelAnalyzer:
         Raises:
             FileNotFoundError: If field_nifti file does not exist
         """
+        # Check for required dependencies
+        if nib is None:
+            raise ImportError("nibabel is required for voxel analysis but is not installed")
+        
         self.field_nifti = field_nifti
         self.subject_dir = subject_dir
         self.output_dir = output_dir
@@ -124,8 +142,12 @@ class VoxelAnalyzer:
             log_file = os.path.join(log_dir, f'voxel_analyzer_{time_stamp}.log')
             self.logger = logging_util.get_logger('voxel_analyzer', log_file, overwrite=True)
         
-        # Initialize visualizer with logger
-        self.visualizer = VoxelVisualizer(output_dir, self.logger)
+        # Initialize visualizer with logger (if available)
+        if VoxelVisualizer is not None:
+            self.visualizer = VoxelVisualizer(output_dir, self.logger)
+        else:
+            self.visualizer = None
+            self.logger.warning("VoxelVisualizer not available. Visualization functionality will be disabled.")
         
         # Create output directory if it doesn't exist
         if not os.path.exists(output_dir):
@@ -161,7 +183,7 @@ class VoxelAnalyzer:
         # Check for common atlas types in filename
         if 'dk40' in atlas_file:
             return 'DK40'
-        if 'DKT' in atlas_file:
+        if 'dkt' in atlas_file:
             return 'DKT'
         elif 'hcp_mmp1' in atlas_file:
             return 'HCP_MMP1'
@@ -519,38 +541,42 @@ class VoxelAnalyzer:
             if not self.quiet:
                 self.logger.info(f"Created visualization overlay: {output_filename}")
             
-            # Generate value distribution plot
-            self.visualizer.generate_value_distribution_plot(
-                roi_values,
-                region_name,
-                "Spherical ROI",
-                mean_value,
-                max_value,
-                min_value,
-                data_type='voxel'
-            )
-            
-            # Generate focality histogram
-            try:
-                if not self.quiet:
-                    self.logger.info("Generating focality histogram for spherical ROI...")
-                # Get voxel dimensions from the loaded image
-                voxel_dims = img.header.get_zooms()[:3]
-                
-                # Filter out zero values from whole head data for histogram
-                whole_head_positive_mask = field_data > 0
-                whole_head_filtered = field_data[whole_head_positive_mask]
-                
-                self.visualizer.generate_focality_histogram(
-                    whole_head_field_data=whole_head_filtered,
-                    roi_field_data=roi_values,
-                    region_name=region_name,
-                    roi_field_value=mean_value,
-                    data_type='voxel',
-                    voxel_dims=voxel_dims
+            # Generate value distribution plot if visualizer is available
+            if self.visualizer is not None:
+                self.visualizer.generate_value_distribution_plot(
+                    roi_values,
+                    region_name,
+                    "Spherical ROI",
+                    mean_value,
+                    max_value,
+                    min_value,
+                    data_type='voxel'
                 )
-            except Exception as e:
-                self.logger.warning(f"Could not generate focality histogram for spherical ROI: {str(e)}")
+            else:
+                self.logger.warning("Visualization requested but VoxelVisualizer not available")
+            
+            # Generate focality histogram if visualizer is available
+            if self.visualizer is not None:
+                try:
+                    if not self.quiet:
+                        self.logger.info("Generating focality histogram for spherical ROI...")
+                    # Get voxel dimensions from the loaded image
+                    voxel_dims = img.header.get_zooms()[:3]
+                    
+                    # Filter out zero values from whole head data for histogram
+                    whole_head_positive_mask = field_data > 0
+                    whole_head_filtered = field_data[whole_head_positive_mask]
+                    
+                    self.visualizer.generate_focality_histogram(
+                        whole_head_field_data=whole_head_filtered,
+                        roi_field_data=roi_values,
+                        region_name=region_name,
+                        roi_field_value=mean_value,
+                        data_type='voxel',
+                        voxel_dims=voxel_dims
+                    )
+                except Exception as e:
+                    self.logger.warning(f"Could not generate focality histogram for spherical ROI: {str(e)}")
         
         # Calculate and save extra focality information for entire volume
         if not self.quiet:
@@ -561,13 +587,16 @@ class VoxelAnalyzer:
             f"sphere_x{center_coordinates[0]}_y{center_coordinates[1]}_z{center_coordinates[2]}_r{radius}"
         )
         
-        # Save results to CSV
-        region_name = f"sphere_x{center_coordinates[0]}_y{center_coordinates[1]}_z{center_coordinates[2]}_r{radius}"
-        self.visualizer.save_results_to_csv(results, 'spherical', region_name, 'voxel')
-        
-        # Save extra info CSV with focality data
-        if focality_info:
-            self.visualizer.save_extra_info_to_csv(focality_info, 'spherical', region_name, 'voxel')
+        # Save results to CSV if visualizer is available
+        if self.visualizer is not None:
+            region_name = f"sphere_x{center_coordinates[0]}_y{center_coordinates[1]}_z{center_coordinates[2]}_r{radius}"
+            self.visualizer.save_results_to_csv(results, 'spherical', region_name, 'voxel')
+            
+            # Save extra info CSV with focality data
+            if focality_info:
+                self.visualizer.save_extra_info_to_csv(focality_info, 'spherical', region_name, 'voxel')
+        else:
+            self.logger.warning("Cannot save results to CSV - VoxelVisualizer not available")
         
         return results
     

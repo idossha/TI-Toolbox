@@ -33,7 +33,7 @@ RUN wget --progress=bar:force:noscroll https://surfer.nmr.mgh.harvard.edu/pub/di
     && rm -rf /tmp/freesurfer-linux-centos8_x86_64-7.4.1.tar.gz
 
 # Copy the FreeSurfer license
-COPY license.txt $FREESURFER_HOME/license.txt
+COPY development/blueprint/license.txt $FREESURFER_HOME/license.txt
 
 # Set environment variables
 ENV SUBJECTS_DIR=$FREESURFER_HOME/subjects

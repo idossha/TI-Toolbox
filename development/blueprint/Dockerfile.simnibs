@@ -146,7 +146,7 @@ RUN nvim --headless "+LAZY! sync" +qa
 RUN tmux source-file /root/.tmux.conf || true
 
 # Entry point script to ensure XDG_RUNTIME_DIR exists
-COPY entrypoint.sh /usr/local/bin/entrypoint.sh
+COPY /development/blueprint/entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
 
 # Set working directory to TI-Toolbox
