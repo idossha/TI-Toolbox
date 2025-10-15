@@ -112,7 +112,22 @@ EOF
 
 # Download and setup ErnieExtended data
 mkdir -p /mnt/test_projectdir/derivatives/SimNIBS/sub-ernie_extended/m2m_ernie_extended
-curl -L -o /tmp/ErnieExtended.zip "https://osf.io/6qv2z/download"
+echo -e "${CYAN}Downloading ErnieExtended data from OSF...${NC}"
+
+# Try downloading with proper OSF URL format
+if ! curl -L -f -o /tmp/ErnieExtended.zip "https://osf.io/download/6qv2z/"; then
+    echo -e "${YELLOW}First download attempt failed, trying alternative URL...${NC}"
+    curl -L -f -o /tmp/ErnieExtended.zip "https://files.osf.io/v1/resources/6qv2z/providers/osfstorage/?zip="
+fi
+
+# Verify the download is actually a zip file
+if ! file /tmp/ErnieExtended.zip | grep -q "Zip archive"; then
+    echo -e "${RED}Downloaded file is not a valid zip archive. Contents:${NC}"
+    head -20 /tmp/ErnieExtended.zip
+    exit 1
+fi
+
+echo -e "${CYAN}Extracting ErnieExtended data...${NC}"
 unzip -q /tmp/ErnieExtended.zip -d /tmp/ernie
 
 # Move the contents of m2m_ernie_extended into m2m_ernie
