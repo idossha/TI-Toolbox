@@ -18,45 +18,89 @@ The TI-Toolbox uses a multi-layered testing approach that combines unit tests, i
 
 CircleCI is a continuous integration and continuous deployment (CI/CD) platform that automatically builds, tests, and deploys code when changes are pushed to the repository. For the TI-Toolbox, CircleCI:
 
-- **Automatically triggers** on every push to the main branch
-- **Builds Docker images** with all necessary dependencies
-- **Runs comprehensive test suites** including unit and integration tests
-- **Provides detailed reports** on test results and code coverage
-- **Ensures consistency** across different environments
+- **Automatically triggers** on every pull request to the main branch
+- **Uses SimNIBS Docker image** - the same image developers use locally
+- **Runs ALL tests** - both unit and integration tests (complete coverage)
+- **Provides detailed reports** on test results and artifacts
+- **Ensures perfect parity** between local and CI testing environments
 
 ## Pipeline Configuration
 
 The testing pipeline is configured in `.circleci/config.yml` and consists of:
 
-### Parameters
-- `use_dockerhub_images`: Pulls pre-built images from DockerHub (default: true)
-
 ### Executors
 - **vm-docker**: Uses Ubuntu 22.04 with Docker layer caching disabled for consistent builds
 
+### Workflow Triggers
+- **Pull Requests**: Tests automatically run on all branches when a PR is created/updated
+- **Direct Commits**: Tests do NOT run on direct commits to `main` or `master` branches
+- This approach encourages proper PR workflow and saves CI resources
+
 ### Key Components
 
-#### 1. Component Images
-The pipeline builds or pulls several specialized Docker images:
+#### 1. SimNIBS Docker Image
+The pipeline uses the full SimNIBS production image:
 
-- **SimNIBS** (`idossha/simnibs:v2.1.2`): For electromagnetic field simulations
-- **FSL** (`idossha/ti-toolbox_fsl:v6.0.7.18`): For neuroimaging analysis
-- **FreeSurfer** (`idossha/ti-toolbox_freesurfer:v7.4.1`): For brain surface reconstruction
-- **MATLAB Runtime** (`idossha/matlab:20th`): For MATLAB-based computations
-- **CI Runner** (`ci-runner:latest`): Custom image containing the TI-Toolbox and test environment
+- **Image**: `idossha/simnibs:v2.1.3`
+- **Contains**:
+  - SimNIBS 4.5 (electromagnetic field simulations)
+  - FreeSurfer 7.4.1 (brain surface reconstruction)
+  - Python 3.11 with all scientific packages
+  - pytest and BATS testing frameworks
+  - All system utilities (curl, wget, jq, unzip, etc.)
+  - TI-Toolbox code (mounted from PR)
 
-#### 2. Test Execution Strategy
-The pipeline uses a two-phase approach:
+**This is the SAME image developers use locally!**
 
-**Phase 1: Unit Tests**
-- Analyzer unit tests
-- Simulator unit tests  
-- Flex-search unit tests
+#### 2. Test Execution
+Single unified test runner:
 
-**Phase 2: Integration Tests**
-- Full end-to-end simulation workflows
-- Complete analysis pipelines
-- Output validation using BATS (Bash Automated Testing System)
+**Entry Point**: `./tests/run_tests.sh`
+- Runs inside SimNIBS container
+- Tests PR code (mounted into container)
+- Executes all tests: unit + integration
+- Used by both local testing and CI
+
+**Tests Run**:
+- **Unit Tests** (~2 min): 164 tests (analyzer, simulator, flex-search)
+- **Integration Tests** (~15-20 min): Full simulations, analysis pipelines, validation
+
+## Local Testing
+
+Developers can run the complete test suite locally with the exact same environment as CI:
+
+### Quick Start
+```bash
+# Run all tests (unit + integration)
+./tests/test.sh
+
+# Run only unit tests (fast ~2 min)
+./tests/test.sh --unit-only
+
+# Run with verbose output
+./tests/test.sh --verbose
+
+# Run only integration tests
+./tests/test.sh --integration-only
+```
+
+### Available Options
+- `-h, --help`: Show help message
+- `-u, --unit-only`: Run only unit tests (fast)
+- `-i, --integration-only`: Run only integration tests
+- `-v, --verbose`: Show detailed test output
+- `-s, --skip-setup`: Skip test project setup (reuse existing data)
+- `-n, --no-cleanup`: Keep test directories after completion
+
+### Environment Variables
+- `SIMNIBS_IMAGE`: Override SimNIBS image version (default: `idossha/simnibs:v2.1.3`)
+
+### Benefits of Local Testing
+- ✅ **Perfect parity**: Same Docker image as CI (`idossha/simnibs:v2.1.3`)
+- ✅ **Complete testing**: All tests run (unit + integration)
+- ✅ **Fast feedback**: Test before pushing to GitHub
+- ✅ **Predictable**: If it passes locally, it passes in CI
+- ✅ **No local setup**: SimNIBS, FreeSurfer, all tools in container
 
 ## Test Structure
 
@@ -97,43 +141,46 @@ Creates a complete BIDS-compliant test project structure:
 
 ## Test Execution Flow
 
-### 1. Environment Setup
+### Local Testing
 ```bash
-# Pull or build component images
-docker pull idossha/simnibs:v2.1.2
-docker pull idossha/ti-toolbox_fsl:v6.0.7.18
-# ... other images
+# From your machine (TI-Toolbox root directory)
+./tests/test.sh
 
-# Build CI runner with TI-Toolbox
-docker build -f development/blueprint/Dockerfile.ci -t ci-runner:latest .
+# What happens:
+# 1. Script checks Docker is running
+# 2. Pulls idossha/simnibs:v2.1.3 (if needed)
+# 3. Mounts your local code into container
+# 4. Runs: ./tests/run_tests.sh inside container
+# 5. Displays results
 ```
 
-### 2. Unit Test Execution
+### CI/CD Testing (CircleCI)
 ```bash
-# Analyzer tests
-pytest tests/test_analyzer.py tests/test_mesh_analyzer.py tests/test_voxel_analyzer.py tests/test_group_analyzer.py
-
-# Simulator tests  
-pytest tests/test_ti_simulator.py tests/test_mti_simulator.py
-
-# Flex-search tests
-pytest tests/test_flex_search.py
+# CircleCI does:
+# 1. Checkout PR code
+# 2. Pull idossha/simnibs:v2.1.3
+# 3. Mount PR code into container
+# 4. Run: ./tests/run_tests.sh --verbose
+# 5. Store artifacts and report results
 ```
 
-### 3. Integration Test Execution
+### Inside Container (run_tests.sh)
 ```bash
-# Setup test environment
-bash tests/setup_test_projectdir.sh
+# This is what actually runs the tests:
 
-# Run simulation pipeline
-bash tests/test_simulator_runner.sh
+# 1. Unit Tests (simnibs_python -m pytest)
+simnibs_python -m pytest tests/test_analyzer.py    # 157 tests
+simnibs_python -m pytest tests/test_simulator.py   # 3 tests
+simnibs_python -m pytest tests/test_flex_search.py # 4 tests
 
-# Run analysis pipeline
-bash tests/test_analyzer_runner.sh
+# 2. Integration Tests
+bash tests/setup_test_projectdir.sh         # Downloads test data
+bash tests/test_simulator_runner.sh          # Runs simulations
+bash tests/test_analyzer_runner.sh           # Runs analyses
 
-# Validate outputs
-bats tests/test_simulator_outputs.bats
-bats tests/test_analyzer_outputs.bats
+# 3. Validation
+bats tests/test_simulator_outputs.bats       # Validates files
+bats tests/test_analyzer_outputs.bats        # Validates outputs
 ```
 
 ## Test Data Management
@@ -155,14 +202,92 @@ bats tests/test_analyzer_outputs.bats
 
 ## Artifact Collection
 
-The pipeline collects and stores test artifacts(within the runner):
+The pipeline collects and stores test artifacts:
 
+**In CircleCI:**
 - **analyzer-results/**: Unit test results for analyzer components
 - **simulator-results/**: Unit test results for simulator components  
 - **flexsearch-results/**: Unit test results for flex-search components
 - **integration-results/**: Integration test outputs and validation results
 
+**Locally (when using `run_tests_locally.sh`):**
+- **test-results/**: All test outputs saved to this directory
+- **test_projectdir/**: Temporary BIDS project directory (cleaned up unless `--no-cleanup` is used)
+
+## Maintaining the SimNIBS Image
+
+### For Maintainers
+
+The testing uses the production SimNIBS image. To update:
+
+1. **Modify** `development/blueprint/Dockerfile.simnibs`
+2. **Build** the new image:
+   ```bash
+   docker build -f development/blueprint/Dockerfile.simnibs \
+     -t idossha/simnibs:v2.1.4 .
+   ```
+3. **Test** locally:
+   ```bash
+   SIMNIBS_IMAGE=idossha/simnibs:v2.1.4 ./tests/test.sh
+   ```
+4. **Push** to Docker Hub:
+   ```bash
+   docker push idossha/simnibs:v2.1.4
+   docker tag idossha/simnibs:v2.1.4 idossha/simnibs:latest
+   docker push idossha/simnibs:latest
+   ```
+5. **Update** version in `.circleci/config.yml`:
+   ```yaml
+   SIMNIBS_IMAGE="idossha/simnibs:v2.1.4"
+   ```
+
+### When to Rebuild
+- SimNIBS version update
+- Adding testing tools (pytest, bats, etc.)
+- System dependency changes
+- TI-Toolbox integration changes
+
+### Image Details
+- **Repository**: `idossha/simnibs`
+- **Current Version**: `v2.1.3`
+- **Base**: Ubuntu 22.04
+- **Size**: ~15-20 GB (includes SimNIBS, FreeSurfer, all tools)
+
+## Troubleshooting
+
 ### Common Issues
-1. **Docker image availability**: Falls back to local builds if DockerHub images unavailable
-2. **Test data downloads**: Handles network issues gracefully
-3. **Permission problems**: Ensures proper file permissions in test environment
+
+#### 1. Docker image availability
+- **CI**: Falls back to local build if DockerHub pull fails
+- **Local**: Use `--build` flag to build locally instead of pulling
+
+#### 2. Test data downloads
+- ErnieExtended data is fetched from OSF during test setup
+- Script includes fallback URLs and validation
+- Network issues are handled gracefully with clear error messages
+
+#### 3. Permission problems
+- Tests run as root in Docker containers to avoid permission issues
+- Local test directories are automatically created with proper permissions
+
+#### 4. "Docker is not running"
+- Start Docker Desktop
+- Verify with: `docker info`
+
+#### 5. Tests fail locally but pass in CI
+- Pull latest image: remove `--no-pull` flag
+- Check Docker has enough resources (memory, disk space)
+- Use `--verbose` flag to see detailed output
+
+#### 6. Need to test changes to Docker image
+- Build locally: `./tests/run_tests_locally.sh --build`
+- This uses your local `Dockerfile.ci.min` changes
+
+## Additional Resources
+
+- **Local Testing Wrapper**: `tests/test.sh`
+- **Core Test Runner**: `tests/run_tests.sh`
+- **Testing Guide**: `tests/README_TESTING.md`
+- **CircleCI Guide**: `.circleci/README_CIRCLECI.md`
+- **CircleCI Configuration**: `.circleci/config.yml`
+- **SimNIBS Dockerfile**: `development/blueprint/Dockerfile.simnibs`

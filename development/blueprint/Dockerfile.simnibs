@@ -85,6 +85,9 @@ RUN apt-get update && apt-get install -y \
     parallel \
     dos2unix \
     \
+    # Testing tools
+    bats \
+    \
     # Image processing tools
     imagemagick \
     \
@@ -149,8 +152,15 @@ RUN tmux source-file /root/.tmux.conf || true
 COPY /development/blueprint/entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
 
+# Make CLI scripts executable for testing
+RUN chmod +x /ti-toolbox/CLI/*.sh
+
 # Set working directory to TI-Toolbox
 WORKDIR /ti-toolbox
+
+# Set environment variables for test project (if needed)
+ENV PROJECT_DIR_NAME=test_projectdir
+ENV LOCAL_PROJECT_DIR=/mnt/test_projectdir
 
 # Set the entrypoint
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
