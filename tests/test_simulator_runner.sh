@@ -5,11 +5,16 @@ set -e
 PROJECT_DIR="/mnt/test_projectdir"
 export PROJECT_DIR_NAME=$(basename "$PROJECT_DIR")
 
-# Use the guaranteed path from Dockerfile.ci
+# Find simulator script
 if command -v simulator >/dev/null 2>&1; then
     SIM_CMD="simulator"
-else
+elif [ -f "/ti-toolbox/CLI/simulator.sh" ]; then
     SIM_CMD="/ti-toolbox/CLI/simulator.sh"
+elif [ -f "CLI/simulator.sh" ]; then
+    SIM_CMD="./CLI/simulator.sh"
+else
+    echo "Error: simulator.sh not found"
+    exit 1
 fi
 
 # Set environment variables for non-interactive mode

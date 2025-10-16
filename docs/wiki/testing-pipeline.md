@@ -154,7 +154,7 @@ Creates a complete BIDS-compliant test project structure:
 # What happens:
 # 1. Script checks Docker is running
 # 2. Pulls idossha/ti-toolbox-test:latest (if needed)
-# 3. Mounts your local code into container at /workspace
+# 3. Mounts your local code into container at /ti-toolbox
 # 4. Copies TI-Toolbox extensions to SimNIBS
 # 5. Runs: ./tests/run_tests.sh inside container
 # 6. Displays results
@@ -165,7 +165,7 @@ Creates a complete BIDS-compliant test project structure:
 # CircleCI does:
 # 1. Checkout PR code
 # 2. Pull idossha/ti-toolbox-test:latest
-# 3. Mount PR code into container at /workspace
+# 3. Mount PR code into container at /ti-toolbox
 # 4. Script copies extensions (ElectrodeCaps, tes_flex) to SimNIBS
 # 5. Run: ./tests/run_tests.sh --verbose
 # 6. Store artifacts and report results

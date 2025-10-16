@@ -5,13 +5,16 @@ set -e
 PROJECT_DIR="/mnt/test_projectdir"
 export PROJECT_DIR_NAME=$(basename "$PROJECT_DIR")
 
-# Use the guaranteed path from Dockerfile.ci
+# Find analyzer script
 if command -v analyzer >/dev/null 2>&1; then
     ANALYZER_CMD="analyzer"
-elif [ -f "/development/CLI/analyzer.sh" ]; then
-    ANALYZER_CMD="/development/CLI/analyzer.sh"
-else
+elif [ -f "/ti-toolbox/CLI/analyzer.sh" ]; then
     ANALYZER_CMD="/ti-toolbox/CLI/analyzer.sh"
+elif [ -f "CLI/analyzer.sh" ]; then
+    ANALYZER_CMD="./CLI/analyzer.sh"
+else
+    echo "Error: analyzer.sh not found"
+    exit 1
 fi
 
 # Set environment variables for non-interactive mode

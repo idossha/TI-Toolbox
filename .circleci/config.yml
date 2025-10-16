@@ -50,13 +50,13 @@ jobs:
             echo ""
             
             # Run all tests
-            # - Mounts PR code at /workspace (includes TI-Toolbox extensions)
+            # - Mounts PR code at /ti-toolbox (matches production environment)
             # - Script copies ElectrodeCaps and tes_flex to SimNIBS
             docker run --rm \
-              -v "${WORKSPACE}:/workspace" \
+              -v "${WORKSPACE}:/ti-toolbox" \
               -v /tmp/test_projectdir:/mnt/test_projectdir \
               -v /tmp/test-results:/tmp/test-results \
-              -w /workspace \
+              -w /ti-toolbox \
               ti-test:latest \
               bash -c './tests/run_tests.sh --verbose'
             

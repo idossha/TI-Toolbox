@@ -122,4 +122,5 @@ ENV PROJECT_DIR_NAME=test_projectdir
 ENV LOCAL_PROJECT_DIR=/mnt/test_projectdir
 
 # Set working directory where code will be mounted
-WORKDIR /workspace
+# Using /ti-toolbox to match production SimNIBS image
+WORKDIR /ti-toolbox

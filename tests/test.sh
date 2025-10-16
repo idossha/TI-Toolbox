@@ -14,7 +14,7 @@ CYAN='\033[0;36m'
 NC='\033[0m' # No Color
 
 # Configuration
-SIMNIBS_IMAGE="${SIMNIBS_IMAGE:-idossha/simnibs:v2.1.3}"
+TEST_IMAGE="${TEST_IMAGE:-idossha/ti-toolbox-test:latest}"
 
 # Get the repository root (this script is in tests/)
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
@@ -34,14 +34,14 @@ fi
 
 echo -e "${GREEN}✓ Docker is running${NC}"
 
-# Check if SimNIBS image exists
-if ! docker image inspect "$SIMNIBS_IMAGE" > /dev/null 2>&1; then
-    echo -e "${YELLOW}Warning: SimNIBS image '$SIMNIBS_IMAGE' not found locally.${NC}"
+# Check if test image exists
+if ! docker image inspect "$TEST_IMAGE" > /dev/null 2>&1; then
+    echo -e "${YELLOW}Warning: Test image '$TEST_IMAGE' not found locally.${NC}"
     echo -e "${YELLOW}Pulling from Docker Hub...${NC}"
-    docker pull "$SIMNIBS_IMAGE"
+    docker pull "$TEST_IMAGE"
 fi
 
-echo -e "${GREEN}✓ SimNIBS image available${NC}"
+echo -e "${GREEN}✓ Test image available (SimNIBS + testing tools)${NC}"
 echo -e "${GREEN}✓ Mounting local code from: ${REPO_ROOT}${NC}"
 echo ""
 
@@ -52,13 +52,12 @@ echo -e "${CYAN}Starting tests in SimNIBS container...${NC}"
 echo ""
 
 # Run the tests in the container with local code mounted
-# Mount the local TI-Toolbox directory to /workspace
-# The test script will detect and use it
+# Mount to /ti-toolbox to match production environment
 docker run --rm \
-    -v "${REPO_ROOT}:/workspace" \
+    -v "${REPO_ROOT}:/ti-toolbox" \
     -v /tmp/test_projectdir:/mnt/test_projectdir \
-    -w /workspace \
-    "$SIMNIBS_IMAGE" \
+    -w /ti-toolbox \
+    "$TEST_IMAGE" \
     bash -c "./tests/run_tests.sh $TEST_ARGS"
 
 EXIT_CODE=$?
