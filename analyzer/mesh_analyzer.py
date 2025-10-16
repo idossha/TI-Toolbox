@@ -52,22 +52,38 @@ Dependencies:
     - subprocess (for msh2cortex operations)
 """
 
-import simnibs
 import numpy as np
 import os
 import time
 import subprocess
 import tempfile
 from pathlib import Path
-from visualizer import MeshVisualizer
 import csv
 from datetime import datetime
-import matplotlib.pyplot as plt
 import sys
 
 # Add the parent directory to the path to access utils
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 from utils import logging_util
+
+# Import external dependencies with error handling
+try:
+    import simnibs
+except ImportError:
+    simnibs = None
+    print("Warning: simnibs not available. Mesh analysis functionality will be limited.")
+
+try:
+    import matplotlib.pyplot as plt
+except ImportError:
+    plt = None
+    print("Warning: matplotlib not available. Visualization functionality will be limited.")
+
+try:
+    from visualizer import MeshVisualizer
+except ImportError:
+    MeshVisualizer = None
+    print("Warning: MeshVisualizer not available. Visualization functionality will be limited.")
 
 class MeshAnalyzer:
     """
@@ -98,6 +114,10 @@ class MeshAnalyzer:
             output_dir (str): Directory where analysis results will be saved
             logger: Optional logger instance to use. If None, creates its own.
         """
+        # Check for required dependencies
+        if simnibs is None:
+            raise ImportError("simnibs is required for mesh analysis but is not installed")
+        
         self.field_mesh_path = field_mesh_path
         self.field_name = field_name
         self.subject_dir = subject_dir
@@ -122,8 +142,12 @@ class MeshAnalyzer:
             log_file = os.path.join(log_dir, f'mesh_analyzer_{time_stamp}.log')
             self.logger = logging_util.get_logger('mesh_analyzer', log_file, overwrite=True)
         
-        # Initialize visualizer with logger
-        self.visualizer = MeshVisualizer(output_dir, self.logger)
+        # Initialize visualizer with logger (if available)
+        if MeshVisualizer is not None:
+            self.visualizer = MeshVisualizer(output_dir, self.logger)
+        else:
+            self.visualizer = None
+            self.logger.warning("MeshVisualizer not available. Visualization functionality will be disabled.")
         
         # Initialize temporary directory and surface mesh path
         self._temp_dir = None
@@ -709,47 +733,50 @@ class MeshAnalyzer:
             
             # Generate visualizations if requested
             if visualize:
-                self.logger.info("Generating visualizations...")
-                
-                # Generate distribution plot
-                self.visualizer.generate_value_distribution_plot(
-                    field_values_positive,
-                    f"sphere_x{center_coordinates[0]}_y{center_coordinates[1]}_z{center_coordinates[2]}_r{radius}",
-                    "Spherical",
-                    mean_value,
-                    max_value,
-                    min_value,
-                    data_type='node'
-                )
-                
-                # Generate focality histogram
-                try:
-                    self.logger.info("Generating focality histogram for spherical ROI...")
-                    self.visualizer.generate_focality_histogram(
-                        whole_head_field_data=field_values,
-                        roi_field_data=field_values_positive,
-                        whole_head_element_sizes=node_areas,
-                        roi_element_sizes=positive_node_areas,
-                        region_name=f"sphere_x{center_coordinates[0]}_y{center_coordinates[1]}_z{center_coordinates[2]}_r{radius}",
-                        roi_field_value=mean_value,
+                if self.visualizer is not None:
+                    self.logger.info("Generating visualizations...")
+                    
+                    # Generate distribution plot
+                    self.visualizer.generate_value_distribution_plot(
+                        field_values_positive,
+                        f"sphere_x{center_coordinates[0]}_y{center_coordinates[1]}_z{center_coordinates[2]}_r{radius}",
+                        "Spherical",
+                        mean_value,
+                        max_value,
+                        min_value,
                         data_type='node'
                     )
-                except Exception as e:
-                    self.logger.warning(f"Could not generate focality histogram for spherical ROI: {str(e)}")
+                else:
+                    self.logger.warning("Visualization requested but MeshVisualizer not available")
                 
-                # Create spherical ROI overlay visualization
-                self.logger.info("Creating spherical ROI overlay visualization...")
-                viz_file = self.visualizer.visualize_spherical_roi(
-                    gm_surf=gm_surf,
-                    roi_mask=roi_mask,
-                    center_coords=center_coordinates,
-                    radius=radius,
-                    field_values=field_values,
-                    max_value=max_value,
-                    output_dir=self.output_dir,
-                    surface_mesh_path=surface_mesh_path
-                )
-                results['visualization_file'] = viz_file
+                    # Generate focality histogram
+                    try:
+                        self.logger.info("Generating focality histogram for spherical ROI...")
+                        self.visualizer.generate_focality_histogram(
+                            whole_head_field_data=field_values,
+                            roi_field_data=field_values_positive,
+                            whole_head_element_sizes=node_areas,
+                            roi_element_sizes=positive_node_areas,
+                            region_name=f"sphere_x{center_coordinates[0]}_y{center_coordinates[1]}_z{center_coordinates[2]}_r{radius}",
+                            roi_field_value=mean_value,
+                            data_type='node'
+                        )
+                    except Exception as e:
+                        self.logger.warning(f"Could not generate focality histogram for spherical ROI: {str(e)}")
+                    
+                    # Create spherical ROI overlay visualization
+                    self.logger.info("Creating spherical ROI overlay visualization...")
+                    viz_file = self.visualizer.visualize_spherical_roi(
+                        gm_surf=gm_surf,
+                        roi_mask=roi_mask,
+                        center_coords=center_coordinates,
+                        radius=radius,
+                        field_values=field_values,
+                        max_value=max_value,
+                        output_dir=self.output_dir,
+                        surface_mesh_path=surface_mesh_path
+                    )
+                    results['visualization_file'] = viz_file
             
             # Calculate and save extra focality information for entire grey matter
             self.logger.info("Calculating focality metrics for entire grey matter...")
@@ -760,12 +787,15 @@ class MeshAnalyzer:
             )
             
             # Save results to CSV
-            region_name = f"sphere_x{center_coordinates[0]}_y{center_coordinates[1]}_z{center_coordinates[2]}_r{radius}"
-            self.visualizer.save_results_to_csv(results, 'spherical', region_name, 'node')
-            
-            # Save extra info CSV with focality data
-            if focality_info:
-                self.visualizer.save_extra_info_to_csv(focality_info, 'spherical', region_name, 'node')
+            if self.visualizer is not None:
+                region_name = f"sphere_x{center_coordinates[0]}_y{center_coordinates[1]}_z{center_coordinates[2]}_r{radius}"
+                self.visualizer.save_results_to_csv(results, 'spherical', region_name, 'node')
+                
+                # Save extra info CSV with focality data
+                if focality_info:
+                    self.visualizer.save_extra_info_to_csv(focality_info, 'spherical', region_name, 'node')
+            else:
+                self.logger.warning("Cannot save results to CSV - MeshVisualizer not available")
             
             return results
             

@@ -1,0 +1,93 @@
+version: 2.1
+
+executors:
+  vm-docker:
+    machine:
+      image: ubuntu-2204:current
+      docker_layer_caching: false
+
+commands:
+  common-setup:
+    steps:
+      - checkout
+
+  prepare-test-image:
+    steps:
+      - run:
+          name: Pull TI-Toolbox test image
+          command: |
+            set -eo pipefail
+            TEST_IMAGE="idossha/ti-toolbox-test:latest"
+            echo "Pulling TI-Toolbox test image: ${TEST_IMAGE}"
+            docker pull ${TEST_IMAGE}
+            docker tag ${TEST_IMAGE} ti-test:latest
+            echo "✓ Test image ready (SimNIBS + testing tools)"
+
+jobs:
+
+  build-and-run-tests:
+    executor: vm-docker
+    steps:
+      - common-setup
+      - prepare-test-image
+      - run:
+          name: Run complete test suite
+          command: |
+            set -euo pipefail
+            
+            # Create directories for test results and test project
+            mkdir -p /tmp/test-results /tmp/test_projectdir
+            chmod 777 /tmp/test-results /tmp/test_projectdir
+            
+            # Get current working directory (checked out PR code)
+            WORKSPACE=$(pwd)
+            
+            echo "=========================================="
+            echo "TI-Toolbox CI Testing Pipeline"
+            echo "=========================================="
+            echo "Testing PR code from: ${WORKSPACE}"
+            echo "Test image: ti-test:latest"
+            echo ""
+            
+            # Run all tests
+            # - Mounts PR code at /ti-toolbox (matches production environment)
+            # - Script copies ElectrodeCaps and tes_flex to SimNIBS
+            docker run --rm \
+              -v "${WORKSPACE}:/ti-toolbox" \
+              -v /tmp/test_projectdir:/mnt/test_projectdir \
+              -v /tmp/test-results:/tmp/test-results \
+              -w /ti-toolbox \
+              ti-test:latest \
+              bash -c './tests/run_tests.sh --verbose'
+            
+            EXIT_CODE=$?
+            
+            # Cleanup test project directory from host side (after container exits)
+            # Note: Keep /tmp/test-results for artifact storage
+            echo "Cleaning up test project directory from host..."
+            rm -rf /tmp/test_projectdir 2>/dev/null || true
+            
+            if [ $EXIT_CODE -eq 0 ]; then
+              echo ""
+              echo "✓ All tests passed!"
+            else
+              echo ""
+              echo "✗ Some tests failed!"
+              exit $EXIT_CODE
+            fi
+      - store_artifacts:
+          path: /tmp/test-results
+          destination: test-results
+            
+
+
+workflows:
+  version: 2
+  pull_request_workflow:
+    jobs:
+      - build-and-run-tests:
+          filters:
+            branches:
+              ignore: 
+                - main
+                - master
