@@ -12,7 +12,10 @@ This document describes the comprehensive testing pipeline used by the TI-Toolbo
 
 The TI-Toolbox uses a multi-layered testing approach that combines unit tests, integration tests, and automated CI/CD through CircleCI. The testing pipeline ensures code quality, functionality, and reliability across all components of the toolbox.
 
-![TI-Toolbox CI/CD Pipeline](wiki/assets/testing/Ti-ToolboxCICD.svg)
+<div style="text-align: center; margin: 20px 0;">
+<h3 style="color: #333; margin-bottom: 15px; font-family: Arial, sans-serif;">TI-Toolbox CI/CD Pipeline</h3>
+<img src="{{ site.baseurl }}/wiki/assets/testing/Ti-ToolboxCICD.svg" alt="TI-Toolbox CI/CD Pipeline" style="transform: scale(1); border: 1px solid #ccc;">
+</div>
 
 ## What is CircleCI?
 
@@ -162,7 +165,26 @@ The pipeline collects and stores test artifacts(within the runner):
 - **flexsearch-results/**: Unit test results for flex-search components
 - **integration-results/**: Integration test outputs and validation results
 
+### Local Testing with run_tests.sh
+
+For local development and testing, use the `run_tests.sh` script located in `development/bash_dev/run_tests.sh`. This script replicates the CircleCI testing process locally and provides detailed reporting.
+
+**Quick Start:**
+```bash
+bash development/bash_dev/run_tests.sh
+```
+
+**Key Features:**
+- Replicates CircleCI testing environment locally
+- Provides comprehensive test results with timestamps
+- Handles Docker resource management automatically
+- Includes detailed success/failure reporting
+- Supports both DockerHub and local image building
+
+For detailed information about using the local testing script, see the [run_tests.sh Documentation](run_tests_script.md).
+
 ### Common Issues
 1. **Docker image availability**: Falls back to local builds if DockerHub images unavailable
 2. **Test data downloads**: Handles network issues gracefully
 3. **Permission problems**: Ensures proper file permissions in test environment
+4. **Resource constraints**: Use `--build-local` option if DockerHub images cause issues
