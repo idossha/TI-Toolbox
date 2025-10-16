@@ -1,0 +1,125 @@
+# Dockerfile.simnibs
+## 22.04 LTS is a new test to check for simnibs solution.
+
+FROM ubuntu:22.04
+
+# Set noninteractive mode for apt-get
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install packages grouped by context and purpose
+##########################################################
+RUN apt-get update && apt-get install -y \
+    # Core system utilities
+    wget \
+    git \
+    unzip \
+    tar \
+    bzip2 \
+    curl \
+    gettext \
+    locales \
+    fontconfig \
+    \
+    # Python environment
+    python3.11 \
+    python3-pip \
+    python3.11-venv \
+    python3.11-dev \
+    \
+    # Build tools and compilers
+    build-essential \
+    gcc \
+    g++ \
+    gcc-10 \
+    g++-10 \
+    cmake \
+    ninja-build \
+    libtool \
+    libtool-bin \
+    autoconf \
+    automake \
+    pkg-config \
+    \
+    # System libraries
+    libglib2.0-0 \
+    libopenblas-dev \
+    \
+    # OpenGL and Mesa libraries (for 3D graphics)
+    libgl1-mesa-glx \
+    libglu1-mesa \
+    mesa-utils \
+    libgl1-mesa-dri \
+    libglapi-mesa \
+    libosmesa6 \
+        \
+    # X11 libraries (for GUI applications)
+    libxt6 \
+    libxext6 \
+    libxrender1 \
+    libxrandr2 \
+    libxfixes3 \
+    libxcursor1 \
+    libxcomposite1 \
+    libxdamage1 \
+    libxi6 \
+    libxmu6 \
+    libxft2 \ 
+    \
+    # Qt5 libraries (for PyQt5 GUI)
+    libqt5widgets5 \
+    libqt5gui5 \
+    libqt5core5a \
+    libqt5svg5 \
+    libqt5opengl5 \
+    \
+    # GTK libraries (for legacy GUI applications)
+    libgtk2.0-0 \
+    \
+    # Command-line tools and utilities
+    bc \
+    jq \
+    vim \
+    tmux \
+    tree \
+    execstack \
+    parallel \
+    dos2unix \
+    \
+    # Testing tools
+    bats \
+    \
+    # Image processing tools
+    imagemagick \
+    \
+    # Neuroimaging specific tools
+    dcm2niix \
+    # for recon-all function specifically
+    tcsh \
+    \
+    && apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+
+# Install Python packages and create symlinks
+RUN python3.11 -m pip install --upgrade pip && \
+    python3.11 -m pip install numpy scipy pandas meshio nibabel nilearn matplotlib && \
+    ln -sf /usr/bin/python3.11 /usr/bin/python3 && \
+    ln -sf /usr/bin/python3.11 /usr/bin/python
+
+######## Install SimNIBS ################
+RUN mkdir -p /simnibs && chmod -R 755 /simnibs
+
+RUN wget https://github.com/simnibs/simnibs/releases/download/v4.5.0/simnibs_installer_linux.tar.gz -P /simnibs \
+    && tar -xzf /simnibs/simnibs_installer_linux.tar.gz -C /simnibs \
+    && /simnibs/simnibs_installer/install -s
+
+ENV PATH="/root/SimNIBS-4.5/bin:$PATH"
+ENV SIMNIBSDIR="/root/SimNIBS-4.5"
+
+# Note: ElectrodeCaps_MNI and tes_flex_optimization files will be copied
+# from the mounted code after container starts (see run_tests.sh)
+
+# Set environment variables for test project
+ENV PROJECT_DIR_NAME=test_projectdir
+ENV LOCAL_PROJECT_DIR=/mnt/test_projectdir
+
+# Set working directory where code will be mounted
+WORKDIR /workspace

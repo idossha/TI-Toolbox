@@ -123,6 +123,25 @@ if [ -d "CLI" ]; then
     echo -e "${GREEN}✓ CLI scripts made executable${NC}"
 fi
 
+# Copy TI-Toolbox specific files to SimNIBS directories
+if [ -n "$SIMNIBSDIR" ] && [ -d "$SIMNIBSDIR" ]; then
+    echo -e "${CYAN}Copying TI-Toolbox extensions to SimNIBS...${NC}"
+    
+    # Copy EEG caps for CSC
+    if [ -d "assets/ElectrodeCaps_MNI" ]; then
+        mkdir -p "$SIMNIBSDIR/resources/ElectrodeCaps_MNI/"
+        cp assets/ElectrodeCaps_MNI/* "$SIMNIBSDIR/resources/ElectrodeCaps_MNI/" 2>/dev/null || true
+        echo -e "${GREEN}✓ ElectrodeCaps_MNI copied${NC}"
+    fi
+    
+    # Copy Flex optimization extension
+    if [ -f "assets/map-electrodes/tes_flex_optimization.py" ]; then
+        cp assets/map-electrodes/tes_flex_optimization.py \
+           "$SIMNIBSDIR/simnibs/optimization/tes_flex_optimization/tes_flex_optimization.py" 2>/dev/null || true
+        echo -e "${GREEN}✓ tes_flex_optimization.py copied${NC}"
+    fi
+fi
+
 echo ""
 
 # Track test results

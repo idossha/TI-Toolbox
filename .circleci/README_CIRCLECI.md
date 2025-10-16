@@ -12,8 +12,9 @@ The TI-Toolbox uses CircleCI for continuous integration testing on all pull requ
 - This encourages proper PR workflow
 
 ### 2. **Image**
-- **Uses:** `idossha/simnibs:v2.1.3`
-- **Contains:** SimNIBS, FreeSurfer, pytest, BATS, all testing tools
+- **Uses:** `idossha/ti-toolbox-test:latest`
+- **Contains:** SimNIBS 4.5, pytest, BATS, all testing tools
+- **Static:** Only rebuilt when dependencies change
 - **Same as:** What developers use locally for testing
 
 ### 3. **Testing**
@@ -69,9 +70,10 @@ The TI-Toolbox uses CircleCI for continuous integration testing on all pull requ
                         ↓
 ┌─────────────────────────────────────────────────────┐
 │ 6. CircleCI: Automatically triggered                │
-│    - Pulls idossha/simnibs:v2.1.3                  │
+│    - Pulls idossha/ti-toolbox-test:latest          │
 │    - Checks out PR code                            │
 │    - Mounts code into container                    │
+│    - Copies TI-Toolbox extensions to SimNIBS      │
 │    - Runs: ./tests/run_tests.sh                    │
 └─────────────────────────────────────────────────────┘
                         ↓
@@ -107,8 +109,9 @@ The TI-Toolbox uses CircleCI for continuous integration testing on all pull requ
 - No surprises
 
 ### ✅ **Single Source of Truth**
-- One Docker image (SimNIBS)
+- One Docker image (`ti-toolbox-test:latest`)
 - One test script (`run_tests.sh`)
+- Static image, code mounted at runtime
 - Easy to maintain
 
 ## Configuration Details
@@ -129,19 +132,21 @@ Uses Ubuntu 22.04 VM with Docker support.
 **`common-setup`**
 - Checks out PR code from GitHub
 
-**`prepare-simnibs-image`**
-- Pulls `idossha/simnibs:v2.1.3` from Docker Hub
-- Tags as `simnibs-test:latest`
+**`prepare-test-image`**
+- Pulls `idossha/ti-toolbox-test:latest` from Docker Hub
+- Tags as `ti-test:latest`
+- Image contains SimNIBS + testing tools (static)
 
 #### Jobs
 
 **`build-and-run-tests`**
 1. Checks out PR code
-2. Pulls SimNIBS image
+2. Pulls test image (`ti-toolbox-test:latest`)
 3. Creates test directories
 4. Mounts PR code into container at `/workspace`
-5. Runs `./tests/run_tests.sh --verbose`
-6. Stores test artifacts
+5. Script copies TI-Toolbox extensions to SimNIBS
+6. Runs `./tests/run_tests.sh --verbose`
+7. Stores test artifacts
 
 #### Workflows
 
@@ -158,8 +163,13 @@ docker run --rm \
   -v /tmp/test_projectdir:/mnt/test_projectdir \  # Test data
   -v /tmp/test-results:/tmp/test-results \    # Results
   -w /workspace \                             # Working directory
-  simnibs-test:latest \                       # SimNIBS image
+  ti-test:latest \                            # Test image (SimNIBS + tools)
   bash -c './tests/run_tests.sh --verbose'
+
+# Inside run_tests.sh:
+# - Copies ElectrodeCaps_MNI from PR code to SimNIBS
+# - Copies tes_flex_optimization from PR code to SimNIBS
+# - Runs all tests
 ```
 
 ## What Gets Tested
@@ -228,16 +238,27 @@ If it happens:
 - Cache test data downloads
 - Run unit tests first, fail fast
 
-### Need to Update SimNIBS Version
+### Rebuilding the Test Image
 
-Edit `.circleci/config.yml`:
-```yaml
-SIMNIBS_IMAGE="idossha/simnibs:v2.1.4"  # Update version
+**When to rebuild:**
+- SimNIBS version update (e.g., v4.5.0 → v4.6.0)
+- System dependencies change (apt packages)
+- Testing tools update (pytest, bats)
+- Python packages update (numpy, scipy, etc.)
+
+**Do NOT rebuild for:**
+- TI-Toolbox code changes (mounted at runtime)
+- ElectrodeCaps changes (copied from mounted code)
+- tes_flex_optimization changes (copied from mounted code)
+
+**To rebuild:**
+```bash
+docker login
+docker build -f development/blueprint/Dockerfile.test -t idossha/ti-toolbox-test:latest .
+docker push idossha/ti-toolbox-test:latest
 ```
 
-Also update in:
-- `tests/run_tests_with_simnibs_docker.sh`
-- Documentation
+CircleCI automatically uses the updated image on next PR.
 
 ## Comparison: Old vs New
 
@@ -248,15 +269,18 @@ Also update in:
 ❌ Integration tests skipped
 ❌ Different from local testing
 ❌ Multiple Docker images to maintain
+❌ Image changed with every SimNIBS update
 ```
 
 ### New Approach (Current)
 ```
-✅ Full SimNIBS image
+✅ Static test image (ti-toolbox-test:latest)
 ✅ All tests in CI (unit + integration)
 ✅ Complete test coverage
 ✅ Identical to local testing
 ✅ Single Docker image
+✅ Code mounted at runtime (no rebuild for code changes)
+✅ Only rebuild when dependencies change
 ✅ Simpler maintenance
 ```
 
@@ -268,11 +292,12 @@ Also update in:
 3. Push to PR
 4. CI automatically runs same tests
 
-### Updating SimNIBS Image
-1. Build new SimNIBS image with updated `Dockerfile.simnibs`
-2. Push to Docker Hub: `docker push idossha/simnibs:vX.Y.Z`
-3. Update version in `.circleci/config.yml`
-4. Update version in `tests/test.sh`
+### Updating Test Image
+1. Modify `Dockerfile.test` (for dependency changes only)
+2. Build: `docker build -f development/blueprint/Dockerfile.test -t idossha/ti-toolbox-test:latest .`
+3. Push to Docker Hub: `docker push idossha/ti-toolbox-test:latest`
+4. CircleCI automatically uses updated image
+5. **Note:** No rebuild needed for TI-Toolbox code changes (mounted at runtime)
 
 ### Updating Test Scripts
 1. Modify `tests/run_tests.sh` (core runner)

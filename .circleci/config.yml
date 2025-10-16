@@ -11,17 +11,17 @@ commands:
     steps:
       - checkout
 
-  prepare-simnibs-image:
+  prepare-test-image:
     steps:
       - run:
-          name: Pull SimNIBS image for testing
+          name: Pull TI-Toolbox test image
           command: |
             set -eo pipefail
-            SIMNIBS_IMAGE="idossha/simnibs:v2.1.3"
-            echo "Pulling SimNIBS image: ${SIMNIBS_IMAGE}"
-            docker pull ${SIMNIBS_IMAGE}
-            docker tag ${SIMNIBS_IMAGE} simnibs-test:latest
-            echo "✓ SimNIBS image ready for testing"
+            TEST_IMAGE="idossha/ti-toolbox-test:latest"
+            echo "Pulling TI-Toolbox test image: ${TEST_IMAGE}"
+            docker pull ${TEST_IMAGE}
+            docker tag ${TEST_IMAGE} ti-test:latest
+            echo "✓ Test image ready (SimNIBS + testing tools)"
 
 jobs:
 
@@ -29,9 +29,9 @@ jobs:
     executor: vm-docker
     steps:
       - common-setup
-      - prepare-simnibs-image
+      - prepare-test-image
       - run:
-          name: Run complete test suite with SimNIBS
+          name: Run complete test suite
           command: |
             set -euo pipefail
             
@@ -43,19 +43,21 @@ jobs:
             WORKSPACE=$(pwd)
             
             echo "=========================================="
-            echo "Running TI-Toolbox Test Suite"
+            echo "TI-Toolbox CI Testing Pipeline"
             echo "=========================================="
-            echo "Using PR code from: ${WORKSPACE}"
-            echo "SimNIBS image: simnibs-test:latest"
+            echo "Testing PR code from: ${WORKSPACE}"
+            echo "Test image: ti-test:latest"
             echo ""
             
-            # Run all tests using the script (mounts PR code into container)
+            # Run all tests
+            # - Mounts PR code at /workspace (includes TI-Toolbox extensions)
+            # - Script copies ElectrodeCaps and tes_flex to SimNIBS
             docker run --rm \
               -v "${WORKSPACE}:/workspace" \
               -v /tmp/test_projectdir:/mnt/test_projectdir \
               -v /tmp/test-results:/tmp/test-results \
               -w /workspace \
-              simnibs-test:latest \
+              ti-test:latest \
               bash -c './tests/run_tests.sh --verbose'
             
             EXIT_CODE=$?

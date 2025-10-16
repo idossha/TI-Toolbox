@@ -19,7 +19,7 @@ The TI-Toolbox uses a multi-layered testing approach that combines unit tests, i
 CircleCI is a continuous integration and continuous deployment (CI/CD) platform that automatically builds, tests, and deploys code when changes are pushed to the repository. For the TI-Toolbox, CircleCI:
 
 - **Automatically triggers** on every pull request to the main branch
-- **Uses SimNIBS Docker image** - the same image developers use locally
+- **Uses static test image** - `idossha/ti-toolbox-test:latest`
 - **Runs ALL tests** - both unit and integration tests (complete coverage)
 - **Provides detailed reports** on test results and artifacts
 - **Ensures perfect parity** between local and CI testing environments
@@ -38,19 +38,23 @@ The testing pipeline is configured in `.circleci/config.yml` and consists of:
 
 ### Key Components
 
-#### 1. SimNIBS Docker Image
-The pipeline uses the full SimNIBS production image:
+#### 1. TI-Toolbox Test Image
+The pipeline uses a static test image designed for CI/CD:
 
-- **Image**: `idossha/simnibs:v2.1.3`
+- **Image**: `idossha/ti-toolbox-test:latest`
 - **Contains**:
+  - Ubuntu 22.04
   - SimNIBS 4.5 (electromagnetic field simulations)
-  - FreeSurfer 7.4.1 (brain surface reconstruction)
   - Python 3.11 with all scientific packages
   - pytest and BATS testing frameworks
-  - All system utilities (curl, wget, jq, unzip, etc.)
-  - TI-Toolbox code (mounted from PR)
+  - All system utilities (curl, wget, jq, unzip, dos2unix, etc.)
+  - **No TI-Toolbox code** (mounted from PR at runtime)
 
-**This is the SAME image developers use locally!**
+**Benefits:**
+- Static image - doesn't change unless dependencies update
+- PR code is mounted at runtime for testing
+- TI-Toolbox extensions copied from PR code to SimNIBS
+- Same image used locally and in CI
 
 #### 2. Test Execution
 Single unified test runner:
@@ -93,14 +97,15 @@ Developers can run the complete test suite locally with the exact same environme
 - `-n, --no-cleanup`: Keep test directories after completion
 
 ### Environment Variables
-- `SIMNIBS_IMAGE`: Override SimNIBS image version (default: `idossha/simnibs:v2.1.3`)
+- `TEST_IMAGE`: Override test image version (default: `idossha/ti-toolbox-test:latest`)
 
 ### Benefits of Local Testing
-- ✅ **Perfect parity**: Same Docker image as CI (`idossha/simnibs:v2.1.3`)
+- ✅ **Perfect parity**: Same Docker image as CI (`idossha/ti-toolbox-test:latest`)
 - ✅ **Complete testing**: All tests run (unit + integration)
 - ✅ **Fast feedback**: Test before pushing to GitHub
 - ✅ **Predictable**: If it passes locally, it passes in CI
-- ✅ **No local setup**: SimNIBS, FreeSurfer, all tools in container
+- ✅ **No local setup**: SimNIBS, pytest, BATS, all tools in container
+- ✅ **Static image**: Only rebuild when dependencies change
 
 ## Test Structure
 
@@ -148,20 +153,22 @@ Creates a complete BIDS-compliant test project structure:
 
 # What happens:
 # 1. Script checks Docker is running
-# 2. Pulls idossha/simnibs:v2.1.3 (if needed)
-# 3. Mounts your local code into container
-# 4. Runs: ./tests/run_tests.sh inside container
-# 5. Displays results
+# 2. Pulls idossha/ti-toolbox-test:latest (if needed)
+# 3. Mounts your local code into container at /workspace
+# 4. Copies TI-Toolbox extensions to SimNIBS
+# 5. Runs: ./tests/run_tests.sh inside container
+# 6. Displays results
 ```
 
 ### CI/CD Testing (CircleCI)
 ```bash
 # CircleCI does:
 # 1. Checkout PR code
-# 2. Pull idossha/simnibs:v2.1.3
-# 3. Mount PR code into container
-# 4. Run: ./tests/run_tests.sh --verbose
-# 5. Store artifacts and report results
+# 2. Pull idossha/ti-toolbox-test:latest
+# 3. Mount PR code into container at /workspace
+# 4. Script copies extensions (ElectrodeCaps, tes_flex) to SimNIBS
+# 5. Run: ./tests/run_tests.sh --verbose
+# 6. Store artifacts and report results
 ```
 
 ### Inside Container (run_tests.sh)
@@ -214,44 +221,44 @@ The pipeline collects and stores test artifacts:
 - **test-results/**: All test outputs saved to this directory
 - **test_projectdir/**: Temporary BIDS project directory (cleaned up unless `--no-cleanup` is used)
 
-## Maintaining the SimNIBS Image
+## Maintaining the Test Image
 
 ### For Maintainers
 
-The testing uses the production SimNIBS image. To update:
+The testing uses a static test image. To update:
 
-1. **Modify** `development/blueprint/Dockerfile.simnibs`
-2. **Build** the new image:
+1. **Modify** `development/blueprint/Dockerfile.test`
+2. **Build and push**:
    ```bash
-   docker build -f development/blueprint/Dockerfile.simnibs \
-     -t idossha/simnibs:v2.1.4 .
+   docker login
+   docker build -f development/blueprint/Dockerfile.test \
+     -t idossha/ti-toolbox-test:latest .
+   docker push idossha/ti-toolbox-test:latest
    ```
 3. **Test** locally:
    ```bash
-   SIMNIBS_IMAGE=idossha/simnibs:v2.1.4 ./tests/test.sh
+   TEST_IMAGE=idossha/ti-toolbox-test:latest ./tests/test.sh
    ```
-4. **Push** to Docker Hub:
-   ```bash
-   docker push idossha/simnibs:v2.1.4
-   docker tag idossha/simnibs:v2.1.4 idossha/simnibs:latest
-   docker push idossha/simnibs:latest
-   ```
-5. **Update** version in `.circleci/config.yml`:
-   ```yaml
-   SIMNIBS_IMAGE="idossha/simnibs:v2.1.4"
-   ```
+4. CircleCI will automatically use the updated image on next PR
 
 ### When to Rebuild
-- SimNIBS version update
-- Adding testing tools (pytest, bats, etc.)
-- System dependency changes
-- TI-Toolbox integration changes
+- **SimNIBS version update** (e.g., v4.5.0 → v4.6.0)
+- **System dependency changes** (new apt packages)
+- **Testing tool updates** (pytest, bats versions)
+- **Python package updates** (numpy, scipy, etc.)
+
+**Do NOT rebuild for:**
+- TI-Toolbox code changes (code is mounted at runtime)
+- ElectrodeCaps changes (copied from mounted code)
+- tes_flex_optimization changes (copied from mounted code)
 
 ### Image Details
-- **Repository**: `idossha/simnibs`
-- **Current Version**: `v2.1.3`
+- **Repository**: `idossha/ti-toolbox-test`
+- **Current Version**: `latest`
 - **Base**: Ubuntu 22.04
-- **Size**: ~15-20 GB (includes SimNIBS, FreeSurfer, all tools)
+- **Size**: ~15-20 GB (includes SimNIBS 4.5, testing tools)
+- **Contents**: SimNIBS, pytest, BATS, system utilities
+- **Excludes**: TI-Toolbox code (mounted at runtime)
 
 ## Troubleshooting
 

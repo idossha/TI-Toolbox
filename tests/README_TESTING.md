@@ -20,7 +20,8 @@ Complete guide for running tests locally and in CI/CD.
 ```
 
 **What it does:**
-- Uses SimNIBS Docker image with full environment
+- Uses TI-Toolbox test image (`idossha/ti-toolbox-test:latest`)
+- Image contains SimNIBS 4.5 + pytest + BATS + all testing tools
 - Mounts your local code into the container
 - Tests your current changes (not code from GitHub)
 - Runs all tests: unit + integration
@@ -68,7 +69,7 @@ cd /workspace  # or wherever your code is
 - `-n, --no-cleanup` - Keep test directories after tests
 
 ### Environment Variables
-- `SIMNIBS_IMAGE` - Override SimNIBS image (default: `idossha/simnibs:v2.1.3`)
+- `TEST_IMAGE` - Override test image (default: `idossha/ti-toolbox-test:latest`)
 
 ### Examples
 
@@ -79,8 +80,8 @@ cd /workspace  # or wherever your code is
 # Full test suite with verbose output
 ./tests/test.sh --verbose
 
-# Use specific SimNIBS version
-SIMNIBS_IMAGE=idossha/simnibs:latest ./tests/test.sh
+# Use specific test image version
+TEST_IMAGE=idossha/ti-toolbox-test:v1.0.0 ./tests/test.sh
 
 # Run integration tests only (skip unit tests)
 ./tests/test.sh --integration-only
@@ -138,22 +139,29 @@ Same as `test.sh` above
 
 ### Automatic Testing
 - **Triggers:** Every pull request to `main` branch
-- **Image:** `idossha/simnibs:v2.1.3` (same as local)
+- **Image:** `idossha/ti-toolbox-test:latest` (static test image)
+- **Contains:** SimNIBS 4.5 + pytest + BATS + testing tools
 - **Tests:** ALL tests (unit + integration)
 - **Duration:** ~20-25 minutes
 
 ### What CircleCI Runs
 
 ```yaml
-# Pulls SimNIBS image
-docker pull idossha/simnibs:v2.1.3
+# Pulls test image (SimNIBS + testing tools)
+docker pull idossha/ti-toolbox-test:latest
 
 # Mounts PR code and runs tests
-docker run -v ${WORKSPACE}:/workspace simnibs-test:latest \
+docker run -v ${WORKSPACE}:/workspace ti-test:latest \
   bash -c './tests/run_tests.sh --verbose'
 ```
 
 **Same image, same tests, same script as local testing!**
+
+The test image is static and contains:
+- SimNIBS 4.5
+- pytest and BATS
+- All system dependencies
+- Your PR code is mounted at runtime
 
 ---
 
@@ -206,10 +214,10 @@ docker run -v ${WORKSPACE}:/workspace simnibs-test:latest \
 ### "Docker is not running"
 **Solution:** Start Docker Desktop
 
-### "SimNIBS image not found"
+### "Test image not found"
 **Solution:** Script will automatically pull it, or manually:
 ```bash
-docker pull idossha/simnibs:v2.1.3
+docker pull idossha/ti-toolbox-test:latest
 ```
 
 ### "Permission denied" on scripts
@@ -223,7 +231,7 @@ chmod +x CLI/*.sh tests/*.sh
 
 If it happens:
 - Check CircleCI logs
-- Ensure using same SimNIBS version
+- Ensure using same test image version
 - Check for network issues (test data downloads)
 
 ### Integration tests fail
@@ -297,9 +305,9 @@ simnibs_python -m pytest tests/test_analyzer.py -v
 # Uses existing test project data
 ```
 
-### Use Different SimNIBS Version
+### Use Different Test Image Version
 ```bash
-SIMNIBS_IMAGE=idossha/simnibs:v2.1.4 ./tests/test.sh
+TEST_IMAGE=idossha/ti-toolbox-test:v1.0.0 ./tests/test.sh
 ```
 
 ---
