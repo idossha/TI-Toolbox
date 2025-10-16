@@ -166,45 +166,45 @@ prepare_component_images() {
     
     if [ "$USE_DOCKERHUB_IMAGES" = "true" ]; then
         print_status "Attempting to pull pre-built component images from DockerHub..."
-        pulled_any=false
         
         # Try to pull each image, fallback to build if missing
         if docker pull idossha/simnibs:v2.1.2 >/dev/null 2>&1; then 
             docker tag idossha/simnibs:v2.1.2 simnibs:ci
             print_success "Pulled simnibs:v2.1.2"
-            pulled_any=true
         else
             print_warning "Failed to pull simnibs:v2.1.2, will build locally"
+            print_status "Building simnibs image locally..."
+            DOCKER_BUILDKIT=1 docker build -f "$PROJECT_ROOT/development/blueprint/Dockerfile.simnibs" -t simnibs:ci "$PROJECT_ROOT"
         fi
         
         if docker pull idossha/ti-toolbox_fsl:v6.0.7.18 >/dev/null 2>&1; then 
             docker tag idossha/ti-toolbox_fsl:v6.0.7.18 fsl:ci
             print_success "Pulled fsl:v6.0.7.18"
-            pulled_any=true
         else
             print_warning "Failed to pull fsl:v6.0.7.18, will build locally"
+            print_status "Building fsl image locally..."
+            DOCKER_BUILDKIT=1 docker build -f "$PROJECT_ROOT/development/blueprint/Dockerfile.fsl" -t fsl:ci "$PROJECT_ROOT"
         fi
         
         if docker pull idossha/ti-toolbox_freesurfer:v7.4.1 >/dev/null 2>&1; then 
             docker tag idossha/ti-toolbox_freesurfer:v7.4.1 freesurfer:ci
             print_success "Pulled freesurfer:v7.4.1"
-            pulled_any=true
         else
             print_warning "Failed to pull freesurfer:v7.4.1, will build locally"
+            print_status "Building freesurfer image locally..."
+            DOCKER_BUILDKIT=1 docker build -f "$PROJECT_ROOT/development/blueprint/Dockerfile.freesurfer" -t freesurfer:ci "$PROJECT_ROOT"
         fi
         
         if docker pull idossha/matlab:20th >/dev/null 2>&1; then 
             docker tag idossha/matlab:20th matlab-runtime:ci
             print_success "Pulled matlab:20th"
-            pulled_any=true
         else
             print_warning "Failed to pull matlab:20th, will build locally"
+            print_status "Building matlab-runtime image locally..."
+            DOCKER_BUILDKIT=1 docker build -f "$PROJECT_ROOT/development/blueprint/Dockerfile.matlab.deprecated" -t matlab-runtime:ci "$PROJECT_ROOT"
         fi
         
-        if [ "$pulled_any" = "false" ]; then
-            print_warning "No pre-built images available; building locally..."
-            build_component_images
-        fi
+        print_success "All component images prepared"
     else
         print_status "Building component images locally..."
         build_component_images

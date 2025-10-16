@@ -49,7 +49,7 @@ commands:
               DOCKER_BUILDKIT=1 docker build -f development/blueprint/Dockerfile.freesurfer         -t freesurfer:ci       .
               # DOCKER_BUILDKIT=1 docker build -f development/blueprint/Dockerfile.matlab.deprecated  -t matlab-runtime:ci   .
             fi
-            DOCKER_BUILDKIT=1 docker build -f development/blueprint/Dockerfile.ci.min -t ci-runner:latest .
+            DOCKER_BUILDKIT=1 docker build -f development/blueprint/Dockerfile.ci -t ci-runner:latest .
 
 jobs:
 
