@@ -62,6 +62,12 @@ docker run --rm \
 
 EXIT_CODE=$?
 
+# Cleanup test directory from host side (after container exits)
+if [ -d "/tmp/test_projectdir" ]; then
+    echo -e "${CYAN}Cleaning up host test directory...${NC}"
+    rm -rf /tmp/test_projectdir 2>/dev/null || true
+fi
+
 echo ""
 if [ $EXIT_CODE -eq 0 ]; then
     echo -e "${GREEN}========================================${NC}"

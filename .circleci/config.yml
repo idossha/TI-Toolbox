@@ -62,6 +62,11 @@ jobs:
             
             EXIT_CODE=$?
             
+            # Cleanup test project directory from host side (after container exits)
+            # Note: Keep /tmp/test-results for artifact storage
+            echo "Cleaning up test project directory from host..."
+            rm -rf /tmp/test_projectdir 2>/dev/null || true
+            
             if [ $EXIT_CODE -eq 0 ]; then
               echo ""
               echo "✓ All tests passed!"

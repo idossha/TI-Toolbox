@@ -248,8 +248,11 @@ fi
 # Cleanup
 if [ "$CLEANUP" = true ] && [ "$RUN_INTEGRATION_TESTS" = true ]; then
     echo -e "${CYAN}Cleaning up test directories...${NC}"
-    rm -rf /mnt/test_projectdir
-    echo -e "${GREEN}✓ Cleanup complete${NC}"
+    # Clean contents but not the mount point itself (handled by host)
+    if [ -d "/mnt/test_projectdir" ]; then
+        rm -rf /mnt/test_projectdir/* 2>/dev/null || true
+        echo -e "${GREEN}✓ Test data cleaned${NC}"
+    fi
     echo ""
 fi
 
