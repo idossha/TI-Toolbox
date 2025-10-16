@@ -12,6 +12,7 @@ import logging
 from pathlib import Path
 import json
 import re
+from typing import List, Tuple
 
 # Add the parent directory to the path to access utils
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
@@ -89,7 +90,7 @@ def _extract_project_name(file_path: str) -> str:
     # Final fallback
     return 'unknown_project'
 
-def _extract_montage_and_region_info(analysis_dirs: list[str]) -> tuple[str, str]:
+def _extract_montage_and_region_info(analysis_dirs: List[str]) -> Tuple[str, str]:
     """
     Extract montage name and region information from analysis directory paths.
     
@@ -97,10 +98,10 @@ def _extract_montage_and_region_info(analysis_dirs: list[str]) -> tuple[str, str
     .../derivatives/SimNIBS/sub-XXX/Simulations/{montage}/Analyses/{Mesh|Voxel}/{analysis_type}/
     
     Args:
-        analysis_dirs (list[str]): List of analysis directory paths
+        analysis_dirs (List[str]): List of analysis directory paths
         
     Returns:
-        tuple[str, str]: (montage_name, region_name)
+        Tuple[str, str]: (montage_name, region_name)
     """
     if not analysis_dirs:
         return "unknown_montage", "unknown_region"
@@ -179,12 +180,12 @@ def _extract_montage_and_region_info(analysis_dirs: list[str]) -> tuple[str, str
     
     return montage_name, region_name
 
-def _get_run_specific_output_dir(input_paths: list[str]) -> str:
+def _get_run_specific_output_dir(input_paths: List[str]) -> str:
     """
     Create run-specific output directory using montage and region information.
     
     Args:
-        input_paths (list[str]): List of input analysis paths
+        input_paths (List[str]): List of input analysis paths
         
     Returns:
         str: Path to run-specific output directory
@@ -208,13 +209,13 @@ def _get_run_specific_output_dir(input_paths: list[str]) -> str:
     
     return output_dir
 
-def _get_output_path(input_paths: list[str], method_name: str, 
+def _get_output_path(input_paths: List[str], method_name: str, 
                     filename: str, custom_suffix: str = "") -> str:
     """
     Construct output path for generated files in the run-specific directory.
     
     Args:
-        input_paths (list[str]): List of input file paths
+        input_paths (List[str]): List of input file paths
         method_name (str): Name of the method generating the output (e.g., 'averaging', 'intersection')
         filename (str): Base filename or custom filename
         custom_suffix (str): Optional suffix to add before file extension
@@ -288,12 +289,12 @@ def _get_output_path(input_paths: list[str], method_name: str,
     
     return output_path
 
-def _load_subject_data(analyses: list[str]) -> dict:
+def _load_subject_data(analyses: List[str]) -> dict:
     """
     Load CSV data from each analysis directory and extract subject information.
     
     Args:
-        analyses (list[str]): List of absolute paths to analysis directories
+        analyses (List[str]): List of absolute paths to analysis directories
         
     Returns:
         dict: Dictionary with subject identifiers as keys and analysis data as values
@@ -1006,7 +1007,7 @@ def _generate_comparison_plot(stats_df: pd.DataFrame, output_path: str, region_n
     group_logger.info(f"ROI-specific field value comparison plot saved to: {plot_path}")
     return plot_path
 
-def compare_analyses(analyses: list[str], output_dir: str, 
+def compare_analyses(analyses: List[str], output_dir: str, 
                     generate_plot: bool = True, generate_csv: bool = True):
     """
     Compare multiple analyses using structured sub-methods and generate comprehensive reports.
@@ -1019,7 +1020,7 @@ def compare_analyses(analyses: list[str], output_dir: str,
     5. Generate visualization plots (optional)
     
     Args:
-        analyses (list[str]): List of absolute paths to analysis directories
+        analyses (List[str]): List of absolute paths to analysis directories
         output_dir (str): Path to the output directory (legacy parameter for compatibility)
         generate_plot (bool, optional): Whether to generate comparison plots. Defaults to True.
         generate_csv (bool, optional): Whether to generate CSV summary. Defaults to True.
@@ -1113,12 +1114,12 @@ def compare_analyses(analyses: list[str], output_dir: str,
         group_logger.error(f"Error during analysis comparison: {str(e)}")
         raise
 
-def collect_arguments() -> tuple[list[str], str]:
+def collect_arguments() -> Tuple[List[str], str]:
     """
     Collect absolute paths to analysis directories and output directory using command line arguments.
     
     Returns:
-        tuple[list[str], str]: List of absolute paths to analysis directories and output directory path
+        Tuple[List[str], str]: List of absolute paths to analysis directories and output directory path
     """
     parser = argparse.ArgumentParser(description='Compare multiple SimNIBS analysis outputs')
     parser.add_argument('-analyses', nargs='+', required=True, help='Absolute paths to analysis directories (minimum 2)')
@@ -1150,12 +1151,12 @@ def setup_output_dir(output_path: str) -> str:
     os.makedirs(output_path, exist_ok=True)
     return output_path
 
-def average_nifti_images(nifti_paths: list[str], output_filename: str = "average_output.nii.gz", output_dir: str = None) -> str:
+def average_nifti_images(nifti_paths: List[str], output_filename: str = "average_output.nii.gz", output_dir: str = None) -> str:
     """
     Loads multiple NIfTI images, computes their element-wise average, and saves the result.
     
     Args:
-        nifti_paths (list[str]): List of file paths to NIfTI images (.nii or .nii.gz)
+        nifti_paths (List[str]): List of file paths to NIfTI images (.nii or .nii.gz)
         output_filename (str, optional): Name of the output file. Defaults to "average_output.nii.gz"
         output_dir (str, optional): Output directory. If None, uses old path generation logic.
     
@@ -1251,7 +1252,7 @@ def average_nifti_images(nifti_paths: list[str], output_filename: str = "average
     except Exception as e:
         raise Exception(f"Error processing NIfTI images: {str(e)}")
 
-def intersection_high_values_nifti(nifti_paths: list[str], 
+def intersection_high_values_nifti(nifti_paths: List[str], 
                                  min_overlap: int = None,
                                  output_filename: str = "intersection_high_values.nii.gz",
                                  fill_value: float = 0.0,
@@ -1266,7 +1267,7 @@ def intersection_high_values_nifti(nifti_paths: list[str],
     the weighted average of those voxels across all contributing NIfTIs.
     
     Args:
-        nifti_paths (list[str]): List of file paths to NIfTI images (.nii or .nii.gz)
+        nifti_paths (List[str]): List of file paths to NIfTI images (.nii or .nii.gz)
         min_overlap (int, optional): Minimum number of NIfTIs that must have high values in a voxel
                                    for it to be included. Defaults to total number of input NIfTIs.
         output_filename (str, optional): Name of the output file. Defaults to "intersection_high_values.nii.gz"
@@ -1447,7 +1448,7 @@ def intersection_high_values_nifti(nifti_paths: list[str],
     except Exception as e:
         raise Exception(f"Error processing NIfTI intersection: {str(e)}")
 
-def _generate_focality_summary(analysis_dirs: list[str], output_dir: str, region_name: str) -> str:
+def _generate_focality_summary(analysis_dirs: List[str], output_dir: str, region_name: str) -> str:
     """
     Generate a focality summary CSV across all subjects.
     
@@ -1550,7 +1551,7 @@ def _extract_subject_id_from_path(analysis_path: str) -> str:
             return part
     return "unknown_subject"
 
-def run_all_group_comparisons(analysis_dirs: list[str], project_name: str = None) -> str:
+def run_all_group_comparisons(analysis_dirs: List[str], project_name: str = None) -> str:
     """
     Run all available comparison methods on a list of analysis directories.
     
@@ -1558,7 +1559,7 @@ def run_all_group_comparisons(analysis_dirs: list[str], project_name: str = None
     comprehensive group-level comparisons using all available methods.
     
     Args:
-        analysis_dirs (list[str]): List of paths to individual subject analysis directories
+        analysis_dirs (List[str]): List of paths to individual subject analysis directories
         project_name (str, optional): Project name for output directory. If None, extracted from first path.
         
     Returns:

@@ -42,7 +42,7 @@ The Temporal Interference Toolbox started as a side project in early 2024 and ma
     <div class="contributor-card">
       <div class="contributor-avatar">
         <img src="{{ site.baseurl }}/about/assets/aksel/profile.png" alt="Aksel" 
-             onerror="this.src='{{ site.baseurl }}/assets/imgs/default-avatar.png'">
+             onerror="this.src='{{ site.baseurl }}/about/assets/aksel/profile.png'">
       </div>
       <div class="contributor-info">
         <h3>Aksel Jackson</h3>

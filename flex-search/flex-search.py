@@ -13,8 +13,15 @@ from pathlib import Path
 # Add the parent directory to the path to access utils
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
-from simnibs import opt_struct, mni2subject_coords
-from simnibs.mesh_tools.mesh_io import ElementTags
+# Import external dependencies with error handling
+try:
+    from simnibs import opt_struct, mni2subject_coords
+    from simnibs.mesh_tools.mesh_io import ElementTags
+except ImportError:
+    opt_struct = None
+    mni2subject_coords = None
+    ElementTags = None
+    print("Warning: simnibs not available. Flex-search functionality will be limited.")
 from utils.logging_util import get_logger, configure_external_loggers
 
 # -----------------------------------------------------------------------------

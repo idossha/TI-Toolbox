@@ -149,30 +149,71 @@ else
     echo -e "${CYAN}Using configuration file: $config_file${RESET}"
 fi
 
+# Debug: show invocation context
+echo "DEBUG: ARGS: $*"
+echo "DEBUG: ANALYSIS_MODE=${ANALYSIS_MODE:-<unset>}"
+echo "DEBUG: DIRECT_MODE=${DIRECT_MODE:-<unset>}"
+
 # =========================================
 # Initial prompt: Single subject or group analysis
 # =========================================
-while true; do
-    echo -e "\033[1;36mDo you want to perform:\033[0m"
-    echo "1. Single Subject Analysis"
-    echo "2. Group Analysis"
-    read -p "Enter your choice (1 or 2): " analysis_mode
-    case $analysis_mode in
-        1)
-            # Continue with this script
-            break
-            ;;
-        2)
-            # Call group_analyzer.sh and exit
-            script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-            "$script_dir/group_analyzer.sh"
-            exit 0
-            ;;
-        *)
-            echo -e "\033[0;31mInvalid choice. Please enter 1 or 2.\033[0m"
-            ;;
-    esac
+# Skip prompt entirely when running in direct mode (detect anywhere in args)
+direct_mode_arg=false
+for _arg in "$@"; do
+    if [ "$_arg" = "--run-direct" ]; then
+        direct_mode_arg=true
+        break
+    fi
 done
+
+echo "DEBUG: Detected --run-direct in args: $direct_mode_arg"
+
+if [ "$direct_mode_arg" != "true" ] && [ "${DIRECT_MODE}" != "true" ]; then
+    echo "DEBUG: Showing analysis mode prompt (no direct mode detected)"
+    # Allow non-interactive selection via ANALYSIS_MODE env var: 'single' or 'group'
+    if [ -n "$ANALYSIS_MODE" ]; then
+        mode_lower=$(echo "$ANALYSIS_MODE" | tr '[:upper:]' '[:lower:]')
+        case "$mode_lower" in
+            single|single_subject|subject|1)
+                :  # Continue with this script in single-subject mode
+                ;;
+            group|group_analysis|2)
+                # Call group_analyzer.sh and exit
+                script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+                "$script_dir/group_analyzer.sh"
+                exit 0
+                ;;
+            *)
+                echo -e "\033[0;31mInvalid ANALYSIS_MODE. Use 'single' or 'group'.\033[0m"
+                exit 1
+                ;;
+        esac
+    else
+        while true; do
+            echo -e "\033[1;36mDo you want to perform:\033[0m"
+            echo "1. Single Subject Analysis"
+            echo "2. Group Analysis"
+            read -p "Enter your choice (1 or 2): " analysis_mode
+            case $analysis_mode in
+                1)
+                    # Continue with this script
+                    break
+                    ;;
+                2)
+                    # Call group_analyzer.sh and exit
+                    script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+                    "$script_dir/group_analyzer.sh"
+                    exit 0
+                    ;;
+                *)
+                    echo -e "\033[0;31mInvalid choice. Please enter 1 or 2.\033[0m"
+                    ;;
+            esac
+        done
+    fi
+else
+    echo "DEBUG: Skipping analysis mode prompt due to direct mode"
+fi
 
 # =========================================
 # Configuration and Setup Functions
@@ -1274,6 +1315,7 @@ if [[ "$1" == "--run-direct" ]]; then
     
     # Set variables from environment without prompting
     subject_id="$SUBJECT"
+    m2m_dir="$project_dir/derivatives/SimNIBS/sub-$subject_id/m2m_$subject_id"
     simulation_name="$SIMULATION_NAME"
     space_type="$SPACE_TYPE"
     analysis_type="$ANALYSIS_TYPE"

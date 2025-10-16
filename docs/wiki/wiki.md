@@ -20,6 +20,9 @@ Welcome to the Temporal Interference Toolbox Wiki. Here you'll find detailed gui
 - **[Logging](logging)** - Comprehensive logging system documentation
 - **[Atlas Resampling](atlas-resampling)** - Working with brain atlases and resampling
 
-## Support & Development
+### Development & Testing
+- **[Testing Pipeline](testing-pipeline)** - Comprehensive CI/CD testing pipeline with CircleCI integration
+
+## Support
 
 For additional help, installation instructions, and development resources, check the links in the sidebar or visit our [GitHub repository](https://github.com/idossha/TI-Toolbox). 
