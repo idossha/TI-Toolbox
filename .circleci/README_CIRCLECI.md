@@ -260,30 +260,6 @@ docker push idossha/ti-toolbox-test:latest
 
 CircleCI automatically uses the updated image on next PR.
 
-## Comparison: Old vs New
-
-### Old Approach
-```
-❌ Minimal CI image (Dockerfile.ci.min)
-❌ Only unit tests in CI
-❌ Integration tests skipped
-❌ Different from local testing
-❌ Multiple Docker images to maintain
-❌ Image changed with every SimNIBS update
-```
-
-### New Approach (Current)
-```
-✅ Static test image (ti-toolbox-test:latest)
-✅ All tests in CI (unit + integration)
-✅ Complete test coverage
-✅ Identical to local testing
-✅ Single Docker image
-✅ Code mounted at runtime (no rebuild for code changes)
-✅ Only rebuild when dependencies change
-✅ Simpler maintenance
-```
-
 ## Maintenance
 
 ### Updating Tests
@@ -326,7 +302,7 @@ CircleCI automatically uses the updated image on next PR.
 
 ## Summary
 
-The new CircleCI setup provides **complete test coverage** with **perfect parity** between local and CI environments. Developers test with the exact same tools and scripts as CI, eliminating surprises and ensuring high code quality.
+Developers test with the exact same tools and scripts as CI, eliminating surprises and ensuring high code quality.
 
 **Key Principle:** If it passes locally, it will pass in CI! 🎯
 
