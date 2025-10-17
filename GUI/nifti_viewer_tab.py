@@ -25,6 +25,8 @@ class NiftiViewerTab(QtWidgets.QWidget):
         self.freeview_process = None
         self.current_file = None
         self.base_dir = self.find_base_dir()
+        self.subject_sim_pairs = []  # Store subject-simulation pairs for group mode
+        self.visualization_mode = "single"  # "single" or "group"
         self.setup_ui()
         
     def find_base_dir(self):
@@ -78,6 +80,39 @@ class NiftiViewerTab(QtWidgets.QWidget):
                     atlas_files.append(pattern)
         
         return atlas_files
+    
+    def detect_mni_atlases(self):
+        """Detect available MNI atlases in the assets directory.
+        
+        Returns:
+            List of available MNI atlas files
+        """
+        # Get the toolbox root directory (parent of GUI folder)
+        if hasattr(self.parent, 'toolbox_root'):
+            toolbox_root = self.parent.toolbox_root
+        else:
+            # Try to find it relative to current file
+            current_file = os.path.abspath(__file__)
+            toolbox_root = os.path.dirname(os.path.dirname(current_file))
+        
+        atlas_dir = os.path.join(toolbox_root, "assets", "atlas")
+        atlas_files = []
+        
+        if os.path.isdir(atlas_dir):
+            # Look for MNI atlas files
+            atlas_patterns = [
+                "MNI_Glasser_HCP_v1.0.nii.gz",
+                "HarvardOxford-sub-maxprob-thr0-1mm.nii.gz",
+                "HOS-thr0-1mm.nii.gz"
+            ]
+            
+            for pattern in atlas_patterns:
+                atlas_path = os.path.join(atlas_dir, pattern)
+                if os.path.exists(atlas_path):
+                    # Store full path for MNI atlases
+                    atlas_files.append(atlas_path)
+        
+        return atlas_files
         
     def detect_voxel_analyses(self, subject_id, simulation_name):
         """Detect available voxel analyses for a subject and simulation.
@@ -113,9 +148,25 @@ class NiftiViewerTab(QtWidgets.QWidget):
         main_layout.setSpacing(10)
         main_layout.setContentsMargins(10, 10, 10, 10)
         
+        # Mode Selector
+        mode_section = QtWidgets.QGroupBox("Visualization Mode")
+        mode_section.setStyleSheet("QGroupBox { font-weight: bold; }")
+        mode_layout = QtWidgets.QHBoxLayout(mode_section)
+        
+        self.mode_single_radio = QtWidgets.QRadioButton("Single Subject")
+        self.mode_single_radio.setChecked(True)
+        self.mode_single_radio.toggled.connect(self.on_mode_changed)
+        mode_layout.addWidget(self.mode_single_radio)
+        
+        self.mode_group_radio = QtWidgets.QRadioButton("Group")
+        mode_layout.addWidget(self.mode_group_radio)
+        
+        mode_layout.addStretch()
+        main_layout.addWidget(mode_section)
+        
         # Top section: Configuration
-        config_section = QtWidgets.QWidget()
-        config_layout = QtWidgets.QHBoxLayout(config_section)
+        self.config_section = QtWidgets.QWidget()
+        config_layout = QtWidgets.QHBoxLayout(self.config_section)
         config_layout.setSpacing(15)
         
         # Left side: Subject Configuration
@@ -132,18 +183,17 @@ class NiftiViewerTab(QtWidgets.QWidget):
         self.status_label = QtWidgets.QLabel("Ready")
         subject_block_layout.addWidget(self.status_label, 0, 2)
         
-        # Space selection
-        subject_block_layout.addWidget(QtWidgets.QLabel("Space:"), 1, 0)
+        # Space selection - hidden in single subject mode, but keep the widget for compatibility
         self.space_combo = QtWidgets.QComboBox()
         self.space_combo.addItems(["Subject", "MNI"])
-        self.space_combo.setEnabled(False)
-        subject_block_layout.addWidget(self.space_combo, 1, 1, 1, 2)
+        self.space_combo.setCurrentText("Subject")
+        self.space_combo.setVisible(False)  # Hide in single subject mode
         
         # Atlas selection
-        subject_block_layout.addWidget(QtWidgets.QLabel("Atlas:"), 2, 0)
+        subject_block_layout.addWidget(QtWidgets.QLabel("Atlas:"), 1, 0)
         self.atlas_combo = QtWidgets.QComboBox()
         self.atlas_combo.setEnabled(False)
-        subject_block_layout.addWidget(self.atlas_combo, 2, 1, 1, 2)
+        subject_block_layout.addWidget(self.atlas_combo, 1, 1, 1, 2)
         
         # Atlas controls in a horizontal layout
         atlas_controls = QtWidgets.QHBoxLayout()
@@ -161,7 +211,7 @@ class NiftiViewerTab(QtWidgets.QWidget):
         self.atlas_opacity_label = QtWidgets.QLabel("0.50")
         atlas_controls.addWidget(self.atlas_opacity_label)
         self.atlas_opacity_slider.valueChanged.connect(lambda v: self.atlas_opacity_label.setText(f"{v/100:.2f}"))
-        subject_block_layout.addLayout(atlas_controls, 3, 0, 1, 3)
+        subject_block_layout.addLayout(atlas_controls, 2, 0, 1, 3)
         
         config_layout.addWidget(subject_block)
         
@@ -217,7 +267,76 @@ class NiftiViewerTab(QtWidgets.QWidget):
         sim_block_layout.addWidget(self.refresh_btn, 5, 0, 1, 4)
         
         config_layout.addWidget(sim_block)
-        main_layout.addWidget(config_section)
+        main_layout.addWidget(self.config_section)
+        
+        # Group Mode Configuration (initially hidden)
+        self.group_section = QtWidgets.QGroupBox("Group Configuration")
+        self.group_section.setStyleSheet("QGroupBox { font-weight: bold; }")
+        self.group_section.setVisible(False)
+        group_layout = QtWidgets.QVBoxLayout(self.group_section)
+        
+        # Subject-Simulation Pairs List
+        pairs_label = QtWidgets.QLabel("Subject-Simulation Pairs:")
+        pairs_label.setStyleSheet("font-weight: bold;")
+        group_layout.addWidget(pairs_label)
+        
+        # Table for pairs
+        self.pairs_table = QtWidgets.QTableWidget()
+        self.pairs_table.setColumnCount(3)
+        self.pairs_table.setHorizontalHeaderLabels(["Subject", "Simulation", ""])
+        self.pairs_table.horizontalHeader().setStretchLastSection(False)
+        self.pairs_table.horizontalHeader().setSectionResizeMode(0, QtWidgets.QHeaderView.Stretch)
+        self.pairs_table.horizontalHeader().setSectionResizeMode(1, QtWidgets.QHeaderView.Stretch)
+        self.pairs_table.horizontalHeader().setSectionResizeMode(2, QtWidgets.QHeaderView.Fixed)
+        self.pairs_table.setColumnWidth(2, 50)
+        self.pairs_table.setMaximumHeight(200)
+        group_layout.addWidget(self.pairs_table)
+        
+        # Buttons for managing pairs
+        pair_buttons_layout = QtWidgets.QHBoxLayout()
+        
+        self.add_pair_btn = QtWidgets.QPushButton("+ Add Pair")
+        self.add_pair_btn.setStyleSheet("QPushButton { padding: 5px 15px; }")
+        self.add_pair_btn.clicked.connect(self.add_pair_row)
+        pair_buttons_layout.addWidget(self.add_pair_btn)
+        
+        self.quick_add_btn = QtWidgets.QPushButton("📋 Quick Add")
+        self.quick_add_btn.setStyleSheet("QPushButton { padding: 5px 15px; }")
+        self.quick_add_btn.setToolTip("Add the same simulation to multiple subjects at once")
+        self.quick_add_btn.clicked.connect(self.quick_add_pairs)
+        pair_buttons_layout.addWidget(self.quick_add_btn)
+        
+        self.clear_pairs_btn = QtWidgets.QPushButton("Clear All")
+        self.clear_pairs_btn.setStyleSheet("QPushButton { padding: 5px 15px; }")
+        self.clear_pairs_btn.clicked.connect(self.clear_all_pairs)
+        pair_buttons_layout.addWidget(self.clear_pairs_btn)
+        
+        pair_buttons_layout.addStretch()
+        group_layout.addLayout(pair_buttons_layout)
+        
+        # MNI Atlas Selection for Group Mode
+        group_atlas_layout = QtWidgets.QHBoxLayout()
+        group_atlas_layout.addWidget(QtWidgets.QLabel("MNI Atlas:"))
+        self.group_atlas_combo = QtWidgets.QComboBox()
+        self.group_atlas_combo.addItem("None")
+        group_atlas_layout.addWidget(self.group_atlas_combo)
+        
+        self.group_atlas_visibility_chk = QtWidgets.QCheckBox("Visible")
+        self.group_atlas_visibility_chk.setChecked(True)
+        group_atlas_layout.addWidget(self.group_atlas_visibility_chk)
+        
+        group_atlas_layout.addWidget(QtWidgets.QLabel("Opacity:"))
+        self.group_atlas_opacity_slider = QtWidgets.QSlider(QtCore.Qt.Horizontal)
+        self.group_atlas_opacity_slider.setRange(0, 100)
+        self.group_atlas_opacity_slider.setValue(50)
+        group_atlas_layout.addWidget(self.group_atlas_opacity_slider)
+        self.group_atlas_opacity_label = QtWidgets.QLabel("0.50")
+        group_atlas_layout.addWidget(self.group_atlas_opacity_label)
+        self.group_atlas_opacity_slider.valueChanged.connect(lambda v: self.group_atlas_opacity_label.setText(f"{v/100:.2f}"))
+        
+        group_layout.addLayout(group_atlas_layout)
+        
+        main_layout.addWidget(self.group_section)
         
         # Visualization Options
         vis_group = QtWidgets.QGroupBox("Visualization Options")
@@ -310,12 +429,15 @@ class NiftiViewerTab(QtWidgets.QWidget):
         """)
         self.info_area.setText(
             "NIfTI Viewer using Freeview\n\n"
+            "Single Subject Mode:\n"
             "1. Select a subject from the dropdown\n"
-            "2. Choose between Subject space or MNI space\n"
-            "3. Select a simulation\n"
-            "4. Set visualization options\n"
-            "5. Click 'Load Subject Data' to view subject's data\n"
-            "6. Freeview will launch to display the files"
+            "2. Select a simulation and configure options\n"
+            "3. Click 'Load Subject Data' to view in subject space\n\n"
+            "Group Mode:\n"
+            "1. Add subject-simulation pairs using '+ Add Pair' or '📋 Quick Add'\n"
+            "2. Optionally select an MNI atlas overlay\n"
+            "3. Configure visualization options\n"
+            "4. Click 'Load Subject Data' to view group analysis in MNI space"
         )
         main_layout.addWidget(self.info_area)
         
@@ -326,6 +448,9 @@ class NiftiViewerTab(QtWidgets.QWidget):
         
         # Initial refresh
         self.refresh_subjects()
+        
+        # Load MNI atlases for group mode
+        self.load_mni_atlases()
     
     def refresh_subjects(self):
         """Scan for available subjects and update the dropdown."""
@@ -395,30 +520,6 @@ class NiftiViewerTab(QtWidgets.QWidget):
             if os.path.isdir(sim_path):
                 self.sim_combo.addItem(sim_name)
         
-        # Check if MNI space files exist for this subject
-        has_mni_files = False
-        for sim_name in os.listdir(sim_base):
-            # Check for mTI or TI niftis
-            mti_path = os.path.join(sim_base, sim_name, "mTI", "niftis")
-            ti_path = os.path.join(sim_base, sim_name, "TI", "niftis")
-            
-            # Use mTI path if it exists, otherwise TI path
-            sim_path = mti_path if os.path.exists(mti_path) else ti_path
-            
-            if os.path.exists(sim_path):
-                for nifti_file in glob.glob(os.path.join(sim_path, "*.nii*")):
-                    if "_MNI" in os.path.basename(nifti_file):
-                        has_mni_files = True
-                        break
-            if has_mni_files:
-                break
-        
-        # Enable/disable MNI space option based on file availability
-        self.space_combo.setEnabled(has_mni_files)
-        if not has_mni_files:
-            self.space_combo.setCurrentText("Subject")
-            self.info_area.append("\nNote: No MNI space files found. Only subject space is available.")
-        
         # If simulations were found, select the first one and update analyses
         if self.sim_combo.count() > 0:
             self.sim_combo.setCurrentIndex(0)
@@ -460,8 +561,376 @@ class NiftiViewerTab(QtWidgets.QWidget):
         else:
             self.info_area.append(f"\nNo voxel analyses found for simulation {simulation_name}")
     
+    def on_mode_changed(self):
+        """Handle mode change between Single Subject and Group."""
+        if self.mode_single_radio.isChecked():
+            self.visualization_mode = "single"
+            # Show single subject configuration
+            self.config_section.setVisible(True)
+            self.group_section.setVisible(False)
+            
+            # Set to Subject space for single mode
+            self.space_combo.setCurrentText("Subject")
+            
+        else:
+            self.visualization_mode = "group"
+            # Show group configuration
+            self.config_section.setVisible(False)
+            self.group_section.setVisible(True)
+            
+            # Set to MNI space for group mode
+            self.space_combo.setCurrentText("MNI")
+    
+    def load_mni_atlases(self):
+        """Load available MNI atlases into the group atlas combo."""
+        mni_atlases = self.detect_mni_atlases()
+        
+        for atlas_path in mni_atlases:
+            # Extract just the filename for display
+            atlas_name = os.path.basename(atlas_path)
+            # Store full path as item data
+            self.group_atlas_combo.addItem(atlas_name, atlas_path)
+    
+    def get_all_subjects(self):
+        """Get list of all available subjects."""
+        subjects = []
+        try:
+            derivatives_dir = os.path.join(self.base_dir, "derivatives", "SimNIBS")
+            if os.path.isdir(derivatives_dir):
+                subject_dirs = [d for d in os.listdir(derivatives_dir) 
+                              if os.path.isdir(os.path.join(derivatives_dir, d)) and d.startswith('sub-')]
+                subjects = sorted([d[4:] for d in subject_dirs])  # Remove 'sub-' prefix
+        except Exception as e:
+            self.info_area.append(f"\nError getting subjects: {str(e)}")
+        
+        return subjects
+    
+    def get_simulations_for_subject(self, subject_id):
+        """Get list of available simulations for a subject."""
+        simulations = []
+        try:
+            sim_base = os.path.join(self.base_dir, "derivatives", "SimNIBS", 
+                                   f"sub-{subject_id}", "Simulations")
+            if os.path.isdir(sim_base):
+                simulations = sorted([d for d in os.listdir(sim_base) 
+                                    if os.path.isdir(os.path.join(sim_base, d))])
+        except Exception as e:
+            self.info_area.append(f"\nError getting simulations for {subject_id}: {str(e)}")
+        
+        return simulations
+    
+    def add_pair_row(self):
+        """Add a new row for subject-simulation pair selection."""
+        row = self.pairs_table.rowCount()
+        self.pairs_table.insertRow(row)
+        
+        # Subject combo
+        subject_combo = QtWidgets.QComboBox()
+        subjects = self.get_all_subjects()
+        subject_combo.addItems(subjects)
+        subject_combo.currentTextChanged.connect(lambda: self.update_sim_combo_in_row(row))
+        self.pairs_table.setCellWidget(row, 0, subject_combo)
+        
+        # Simulation combo
+        sim_combo = QtWidgets.QComboBox()
+        if subjects:
+            sims = self.get_simulations_for_subject(subjects[0])
+            sim_combo.addItems(sims)
+        self.pairs_table.setCellWidget(row, 1, sim_combo)
+        
+        # Remove button
+        remove_btn = QtWidgets.QPushButton("✕")
+        remove_btn.setMaximumWidth(40)
+        remove_btn.clicked.connect(lambda: self.remove_pair(row))
+        self.pairs_table.setCellWidget(row, 2, remove_btn)
+    
+    def update_sim_combo_in_row(self, row):
+        """Update the simulation combo box when subject changes in a row."""
+        subject_combo = self.pairs_table.cellWidget(row, 0)
+        sim_combo = self.pairs_table.cellWidget(row, 1)
+        
+        if subject_combo and sim_combo:
+            subject_id = subject_combo.currentText()
+            if subject_id:
+                sims = self.get_simulations_for_subject(subject_id)
+                sim_combo.clear()
+                sim_combo.addItems(sims)
+    
+    def remove_pair(self, row):
+        """Remove a subject-simulation pair row."""
+        self.pairs_table.removeRow(row)
+    
+    def clear_all_pairs(self):
+        """Clear all subject-simulation pairs."""
+        self.pairs_table.setRowCount(0)
+    
+    def quick_add_pairs(self):
+        """Open dialog to quickly add the same simulation to multiple subjects."""
+        dialog = QtWidgets.QDialog(self)
+        dialog.setWindowTitle("Quick Add Subject-Simulation Pairs")
+        dialog.setMinimumWidth(400)
+        
+        layout = QtWidgets.QVBoxLayout(dialog)
+        
+        # Simulation selection
+        sim_layout = QtWidgets.QHBoxLayout()
+        sim_layout.addWidget(QtWidgets.QLabel("Simulation:"))
+        sim_combo = QtWidgets.QComboBox()
+        
+        # Get all unique simulations across all subjects
+        all_sims = set()
+        for subject in self.get_all_subjects():
+            all_sims.update(self.get_simulations_for_subject(subject))
+        sim_combo.addItems(sorted(all_sims))
+        sim_layout.addWidget(sim_combo)
+        layout.addLayout(sim_layout)
+        
+        # Subject list
+        layout.addWidget(QtWidgets.QLabel("Select Subjects:"))
+        subject_list = QtWidgets.QListWidget()
+        subject_list.setSelectionMode(QtWidgets.QAbstractItemView.MultiSelection)
+        
+        all_subjects = self.get_all_subjects()
+        for subject in all_subjects:
+            subject_list.addItem(subject)
+        
+        layout.addWidget(subject_list)
+        
+        # Buttons
+        button_layout = QtWidgets.QHBoxLayout()
+        add_btn = QtWidgets.QPushButton("Add Pairs")
+        cancel_btn = QtWidgets.QPushButton("Cancel")
+        
+        add_btn.clicked.connect(dialog.accept)
+        cancel_btn.clicked.connect(dialog.reject)
+        
+        button_layout.addWidget(add_btn)
+        button_layout.addWidget(cancel_btn)
+        layout.addLayout(button_layout)
+        
+        if dialog.exec_() == QtWidgets.QDialog.Accepted:
+            selected_simulation = sim_combo.currentText()
+            selected_items = subject_list.selectedItems()
+            
+            if not selected_items:
+                QtWidgets.QMessageBox.warning(self, "Warning", "Please select at least one subject")
+                return
+            
+            # Add pairs for each selected subject
+            added_count = 0
+            for item in selected_items:
+                subject_id = item.text()
+                
+                # Check if this subject has the selected simulation
+                available_sims = self.get_simulations_for_subject(subject_id)
+                if selected_simulation not in available_sims:
+                    self.info_area.append(f"\nWarning: Subject {subject_id} does not have simulation {selected_simulation}")
+                    continue
+                
+                # Check for duplicates
+                duplicate = False
+                for row in range(self.pairs_table.rowCount()):
+                    existing_subject = self.pairs_table.cellWidget(row, 0).currentText()
+                    existing_sim = self.pairs_table.cellWidget(row, 1).currentText()
+                    if existing_subject == subject_id and existing_sim == selected_simulation:
+                        duplicate = True
+                        break
+                
+                if duplicate:
+                    continue
+                
+                # Add new row
+                row = self.pairs_table.rowCount()
+                self.pairs_table.insertRow(row)
+                
+                # Subject combo
+                subject_combo_widget = QtWidgets.QComboBox()
+                subject_combo_widget.addItems(all_subjects)
+                subject_combo_widget.setCurrentText(subject_id)
+                subject_combo_widget.currentTextChanged.connect(lambda: self.update_sim_combo_in_row(row))
+                self.pairs_table.setCellWidget(row, 0, subject_combo_widget)
+                
+                # Simulation combo
+                sim_combo_widget = QtWidgets.QComboBox()
+                sim_combo_widget.addItems(available_sims)
+                sim_combo_widget.setCurrentText(selected_simulation)
+                self.pairs_table.setCellWidget(row, 1, sim_combo_widget)
+                
+                # Remove button
+                remove_btn = QtWidgets.QPushButton("✕")
+                remove_btn.setMaximumWidth(40)
+                remove_btn.clicked.connect(lambda checked, r=row: self.remove_pair(r))
+                self.pairs_table.setCellWidget(row, 2, remove_btn)
+                
+                added_count += 1
+            
+            self.info_area.append(f"\nAdded {added_count} subject-simulation pairs")
+    
+    def validate_pair(self, subject_id, simulation_name):
+        """Validate that a subject-simulation pair has MNI files available.
+        
+        Args:
+            subject_id: Subject ID without 'sub-' prefix
+            simulation_name: Name of the simulation
+            
+        Returns:
+            Tuple of (is_valid, nifti_path or error_message)
+        """
+        # Look for MNI NIfTI files
+        sim_dir = os.path.join(self.base_dir, "derivatives", "SimNIBS", 
+                              f"sub-{subject_id}", "Simulations", simulation_name)
+        
+        # Check mTI and TI directories
+        for sim_type in ["mTI", "TI"]:
+            nifti_dir = os.path.join(sim_dir, sim_type, "niftis")
+            if os.path.exists(nifti_dir):
+                # Look for MNI files
+                mni_files = glob.glob(os.path.join(nifti_dir, "*_MNI*.nii*"))
+                if mni_files:
+                    return True, nifti_dir
+        
+        return False, f"No MNI files found for subject {subject_id}, simulation {simulation_name}"
+    
+    def load_group_data(self):
+        """Load group visualization with multiple subject-simulation pairs."""
+        self.info_area.clear()
+        
+        # Get all pairs from the table
+        pairs = []
+        for row in range(self.pairs_table.rowCount()):
+            subject_combo = self.pairs_table.cellWidget(row, 0)
+            sim_combo = self.pairs_table.cellWidget(row, 1)
+            
+            if subject_combo and sim_combo:
+                subject_id = subject_combo.currentText()
+                simulation_name = sim_combo.currentText()
+                
+                if subject_id and simulation_name:
+                    pairs.append({"subject": subject_id, "simulation": simulation_name})
+        
+        if not pairs:
+            QtWidgets.QMessageBox.warning(self, "Warning", "Please add at least one subject-simulation pair")
+            return
+        
+        # Get visualization options
+        colormap = self.colormap_combo.currentText()
+        opacity = self.opacity_slider.value() / 100.0
+        percentile = self.percentile_chk.isChecked()
+        threshold_min = self.min_threshold.value()
+        threshold_max = self.max_threshold.value()
+        visible = 1 if self.visibility_chk.isChecked() else 0
+        
+        file_specs = []
+        
+        # Add MNI template first
+        toolbox_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        mni_template = os.path.join(toolbox_root, "assets", "atlas", "MNI152_T1_1mm.nii.gz")
+        
+        if os.path.exists(mni_template):
+            file_specs.append({
+                "path": mni_template,
+                "type": "volume",
+                "visible": 1,
+                "colormap": "grayscale"
+            })
+            self.info_area.append("Loading MNI152 template")
+        else:
+            self.info_area.append(f"Warning: MNI template not found at {mni_template}")
+        
+        # Add MNI atlas if selected
+        if self.group_atlas_combo.currentIndex() > 0:  # Skip "None"
+            atlas_path = self.group_atlas_combo.currentData()
+            if atlas_path and os.path.exists(atlas_path):
+                atlas_visible = 1 if self.group_atlas_visibility_chk.isChecked() else 0
+                atlas_opacity = self.group_atlas_opacity_slider.value() / 100.0
+                
+                atlas_spec = {
+                    "path": atlas_path,
+                    "type": "volume",
+                    "visible": atlas_visible,
+                    "colormap": "lut",
+                    "opacity": atlas_opacity
+                }
+                
+                # Check if this is the Glasser atlas and add the lookup table
+                atlas_name = os.path.basename(atlas_path)
+                if "Glasser" in atlas_name:
+                    # Find the corresponding .txt file
+                    lut_path = atlas_path.replace(".nii.gz", ".txt")
+                    if os.path.exists(lut_path):
+                        atlas_spec["lut_file"] = lut_path
+                        self.info_area.append(f"Loading MNI atlas: {atlas_name} with lookup table")
+                    else:
+                        self.info_area.append(f"Loading MNI atlas: {atlas_name} (lookup table not found)")
+                else:
+                    self.info_area.append(f"Loading MNI atlas: {atlas_name}")
+                
+                file_specs.append(atlas_spec)
+        
+        # Add simulation files for each pair
+        valid_pairs = 0
+        for i, pair in enumerate(pairs):
+            subject_id = pair["subject"]
+            simulation_name = pair["simulation"]
+            
+            # Validate pair
+            is_valid, result = self.validate_pair(subject_id, simulation_name)
+            
+            if not is_valid:
+                self.info_area.append(f"\n{result}")
+                continue
+            
+            nifti_dir = result
+            
+            # Find MNI TI_max files
+            for nifti_file in glob.glob(os.path.join(nifti_dir, "*.nii*")):
+                basename = os.path.basename(nifti_file)
+                
+                # Only include TI_max/TI_Max MNI files, exclude TDCS
+                if "_MNI" not in basename:
+                    continue
+                if ("TI_max" not in basename and "TI_Max" not in basename) or "TDCS" in basename:
+                    continue
+                
+                # Only load grey matter files by default for group
+                if "grey_" not in basename:
+                    continue
+                
+                # Adjust opacity based on number of subjects to avoid oversaturation
+                adjusted_opacity = opacity * (1.0 / (1 + len(pairs) * 0.1))
+                
+                file_specs.append({
+                    "path": nifti_file,
+                    "type": "volume",
+                    "colormap": colormap,
+                    "opacity": adjusted_opacity,
+                    "visible": visible,
+                    "percentile": 1 if percentile else 0,
+                    "threshold_min": threshold_min,
+                    "threshold_max": threshold_max
+                })
+                
+                self.info_area.append(f"Loading: sub-{subject_id}/{simulation_name} - {basename}")
+            
+            valid_pairs += 1
+        
+        if valid_pairs == 0:
+            QtWidgets.QMessageBox.warning(self, "Warning", "No valid subject-simulation pairs with MNI files found")
+            return
+        
+        self.info_area.append(f"\nLoaded {valid_pairs} subject-simulation pairs in MNI space")
+        
+        # Launch Freeview
+        self.launch_freeview_with_files(file_specs)
+    
     def load_subject_data(self):
         """Load the selected subject's data in Freeview."""
+        # Route to appropriate loading function based on mode
+        if self.visualization_mode == "group":
+            self.load_group_data()
+            return
+        
+        # Single subject mode
         self.info_area.clear()  # Clear console before printing output
         if self.subject_combo.count() == 0:
             QtWidgets.QMessageBox.warning(self, "Warning", "No subjects available")
@@ -727,6 +1196,11 @@ class NiftiViewerTab(QtWidgets.QWidget):
                     # Add basic display options
                     if "colormap" in spec:
                         arg += f":colormap={spec['colormap']}"
+                    
+                    # Add lookup table if specified (for atlases)
+                    if "lut_file" in spec:
+                        arg += f":lut={spec['lut_file']}"
+                    
                     if "opacity" in spec:
                         arg += f":opacity={spec['opacity']}"
                     if "visible" in spec:
@@ -823,4 +1297,4 @@ class NiftiViewerTab(QtWidgets.QWidget):
         self.atlas_opacity_slider.setEnabled(is_subject_space)
         
         if not is_subject_space:
-            self.info_area.append("\nNote: Atlas and analysis options are only available in Subject space") 
+            self.info_area.append("\nNote: analysis option is only available in Subject space") 
