@@ -823,7 +823,7 @@ class MOVEATab(QtWidgets.QWidget):
         
         self.current = QtWidgets.QDoubleSpinBox()
         self.current.setRange(0.5, 4.0)
-        self.current.setValue(2.0)
+        self.current.setValue(1.0)
         self.current.setSingleStep(0.1)
         self.current.setSuffix(" mA")
         opt_layout.addRow("Current:", self.current)
@@ -839,7 +839,7 @@ class MOVEATab(QtWidgets.QWidget):
         opt_layout.addRow("", self.enable_pareto)
         
         self.pareto_solutions = QtWidgets.QSpinBox()
-        self.pareto_solutions.setRange(5, 50)
+        self.pareto_solutions.setRange(5, 500)
         self.pareto_solutions.setValue(10)
         self.pareto_solutions.setEnabled(False)
         opt_layout.addRow("  Solutions:", self.pareto_solutions)
@@ -1010,11 +1010,13 @@ class MOVEATab(QtWidgets.QWidget):
         self.debug_mode = self.debug_checkbox.isChecked()
         if self.debug_mode:
             self.update_console("Debug mode enabled - showing all messages", 'info')
-            if hasattr(self, 'logger'):
+            if hasattr(self, 'logger') and self.logger is not None:
+                import logging
                 self.logger.setLevel(logging.DEBUG)
         else:
             self.update_console("Debug mode disabled - showing important messages only", 'info')
-            if hasattr(self, 'logger'):
+            if hasattr(self, 'logger') and self.logger is not None:
+                import logging
                 self.logger.setLevel(logging.INFO)
     
     def list_subjects(self):
