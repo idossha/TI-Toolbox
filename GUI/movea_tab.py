@@ -44,13 +44,18 @@ parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if parent_dir not in sys.path:
     sys.path.insert(0, parent_dir)
 
-# Import logging utility
+# Import logging utility using absolute path to avoid conflict with GUI/utils.py
 try:
-    from utils import logging_util
+    utils_dir = os.path.join(parent_dir, 'utils')
+    if utils_dir not in sys.path:
+        sys.path.insert(0, utils_dir)
+    import logging_util
     LOGGER_AVAILABLE = True
-except ImportError:
+except ImportError as e:
     LOGGER_AVAILABLE = False
-    print("Warning: logging_util not available")
+    print(f"Warning: logging_util not available: {e}")
+    print(f"  Utils dir: {utils_dir}")
+    print(f"  File exists: {os.path.exists(os.path.join(utils_dir, 'logging_util.py'))}")
 
 # Add MOVEA directory to path
 movea_dir = os.path.join(parent_dir, 'MOVEA')
@@ -81,10 +86,43 @@ class LeadfieldGenerationThread(QtCore.QThread):
             # Import MOVEA modules
             try:
                 from MOVEA import LeadfieldGenerator
+                # logging_util already imported at module level
             except ImportError as e:
                 self.error_signal.emit(f"Failed to import MOVEA modules: {str(e)}")
                 self.finished_signal.emit(False, "", "")
                 return
+            
+            # Setup subject-specific log file
+            if LOGGER_AVAILABLE:
+                import time
+                time_stamp = time.strftime('%Y%m%d_%H%M%S')
+                derivatives_dir = os.path.join(self.project_dir, 'derivatives')
+                log_dir = os.path.join(derivatives_dir, 'ti-toolbox', 'logs', f'sub-{self.subject_id}')
+                os.makedirs(log_dir, exist_ok=True)
+                log_file = os.path.join(log_dir, f'MOVEA_leadfield_{time_stamp}.log')
+                
+                # Set environment variable for external scripts
+                os.environ['TI_LOG_FILE'] = log_file
+                
+                # Create logger
+                logger = logging_util.get_logger('MOVEA_Leadfield', log_file, overwrite=False)
+                
+                # Remove console handler to prevent terminal output (GUI only shows via signals)
+                import logging
+                for handler in logger.handlers[:]:
+                    if isinstance(handler, logging.StreamHandler) and not isinstance(handler, logging.FileHandler):
+                        logger.removeHandler(handler)
+                
+                # Configure external loggers and remove their console handlers too
+                for ext_logger_name in ['simnibs', 'mesh_io', 'sim_struct']:
+                    ext_logger = logging.getLogger(ext_logger_name)
+                    for handler in ext_logger.handlers[:]:
+                        if isinstance(handler, logging.StreamHandler) and not isinstance(handler, logging.FileHandler):
+                            ext_logger.removeHandler(handler)
+                
+                logging_util.configure_external_loggers(['simnibs', 'mesh_io', 'sim_struct'], logger)
+                
+                self.output_signal.emit(f"Log file: {log_file}", 'info')
             
             # Setup paths
             m2m_dir = os.path.join(self.project_dir, "derivatives", "SimNIBS", 
@@ -95,15 +133,57 @@ class LeadfieldGenerationThread(QtCore.QThread):
                 self.finished_signal.emit(False, "", "")
                 return
             
+            # Check if target leadfield already exists
+            subject_derivatives = os.path.join(self.project_dir, "derivatives", "SimNIBS", f"sub-{self.subject_id}")
+            movea_leadfield_dir = os.path.join(subject_derivatives, 'MOVEA', 'leadfields')
+            net_name = self.eeg_net_file.replace('.csv', '')
+            lfm_filename = f"{net_name}_leadfield.npy"
+            pos_filename = f"{net_name}_positions.npy"
+            lfm_path = os.path.join(movea_leadfield_dir, lfm_filename)
+            pos_path = os.path.join(movea_leadfield_dir, pos_filename)
+            
+            if os.path.exists(lfm_path) and os.path.exists(pos_path):
+                self.error_signal.emit(f"Leadfield already exists: {lfm_filename}")
+                self.error_signal.emit(f"Delete existing files first or choose a different EEG net")
+                self.finished_signal.emit(False, "", "")
+                return
+            
             self.output_signal.emit(f"Subject: {self.subject_id}", 'info')
             self.output_signal.emit(f"EEG Net: {self.eeg_net_file}", 'info')
             self.output_signal.emit(f"m2m directory: {m2m_dir}", 'info')
             
+            # Clean up any existing SimNIBS simulation files in m2m directory
+            self.output_signal.emit("Checking for old simulation files...", 'info')
+            import glob
+            import shutil
+            old_sim_files = glob.glob(os.path.join(m2m_dir, "simnibs_simulation*.mat"))
+            if old_sim_files:
+                self.output_signal.emit(f"  Found {len(old_sim_files)} old simulation file(s), cleaning up...", 'info')
+                for sim_file in old_sim_files:
+                    try:
+                        os.remove(sim_file)
+                        self.output_signal.emit(f"  Removed: {os.path.basename(sim_file)}", 'info')
+                    except Exception as e:
+                        self.output_signal.emit(f"  Warning: Could not remove {os.path.basename(sim_file)}: {e}", 'warning')
+            
+            # Also clean up temporary leadfield directory if it exists in m2m
+            temp_leadfield_dir = os.path.join(m2m_dir, 'leadfield')
+            if os.path.exists(temp_leadfield_dir):
+                self.output_signal.emit("  Removing old temporary leadfield directory...", 'info')
+                try:
+                    shutil.rmtree(temp_leadfield_dir)
+                    self.output_signal.emit("  Removed: leadfield/", 'info')
+                except Exception as e:
+                    self.output_signal.emit(f"  Warning: Could not remove leadfield directory: {e}", 'warning')
+            
             if self.terminated:
                 return
             
-            # Create leadfield generator
-            gen = LeadfieldGenerator(m2m_dir)
+            # Create leadfield generator with progress callback
+            def progress_callback(message, msg_type='info'):
+                self.output_signal.emit(message, msg_type)
+            
+            gen = LeadfieldGenerator(m2m_dir, progress_callback=progress_callback)
             
             # Generate leadfield using SimNIBS
             self.output_signal.emit("", 'default')
@@ -111,15 +191,21 @@ class LeadfieldGenerationThread(QtCore.QThread):
             self.output_signal.emit("This may take 5-15 minutes depending on mesh size and electrode count", 'info')
             
             try:
-                # NEW: Save leadfield in MOVEA/leadfields directory
-                subject_derivatives = os.path.dirname(m2m_dir)  # .../sub-101
-                movea_leadfield_dir = os.path.join(subject_derivatives, 'MOVEA', 'leadfields')
+                # Ensure MOVEA/leadfields directory exists
                 os.makedirs(movea_leadfield_dir, exist_ok=True)
                 
                 self.output_signal.emit(f"Output directory: {movea_leadfield_dir}", 'info')
                 
+                # Get EEG cap path
+                eeg_cap_path = os.path.join(m2m_dir, 'eeg_positions', self.eeg_net_file)
+                if not os.path.exists(eeg_cap_path):
+                    self.error_signal.emit(f"EEG cap file not found: {eeg_cap_path}")
+                    self.finished_signal.emit(False, "", "")
+                    return
+                
                 # Generate to m2m first (SimNIBS requirement)
-                hdf5_file = gen.generate_leadfield(output_dir=m2m_dir, tissues=[1, 2])
+                self.output_signal.emit(f"Using EEG cap: {self.eeg_net_file}", 'info')
+                hdf5_file = gen.generate_leadfield(output_dir=m2m_dir, tissues=[1, 2], eeg_cap_path=eeg_cap_path)
                 
                 if self.terminated:
                     return
@@ -133,18 +219,29 @@ class LeadfieldGenerationThread(QtCore.QThread):
                 if self.terminated:
                     return
                 
-                # Save as numpy files in NEW location
-                net_name = self.eeg_net_file.replace('.csv', '')
-                lfm_filename = f"{net_name}_leadfield.npy"
-                pos_filename = f"{net_name}_positions.npy"
-                
-                lfm_path = os.path.join(movea_leadfield_dir, lfm_filename)
-                pos_path = os.path.join(movea_leadfield_dir, pos_filename)
-                
+                # Save as numpy files to MOVEA/leadfields
                 self.output_signal.emit("Saving numpy files...", 'info')
                 import numpy as np
                 np.save(lfm_path, lfm)
                 np.save(pos_path, positions)
+                
+                # Clean up intermediate files
+                self.output_signal.emit("Cleaning up intermediate files...", 'info')
+                try:
+                    # Remove HDF5 file from m2m directory
+                    if os.path.exists(hdf5_file):
+                        os.remove(hdf5_file)
+                        self.output_signal.emit(f"  Removed: {os.path.basename(hdf5_file)}", 'info')
+                    
+                    # Clean up any other leadfield files in m2m directory
+                    hdf5_dir = os.path.dirname(hdf5_file)
+                    if os.path.exists(hdf5_dir) and os.path.basename(hdf5_dir) == 'leadfield':
+                        # Remove the entire leadfield directory from m2m
+                        import shutil
+                        shutil.rmtree(hdf5_dir)
+                        self.output_signal.emit(f"  Removed temporary directory: leadfield/", 'info')
+                except Exception as cleanup_err:
+                    self.output_signal.emit(f"  Warning: Cleanup failed: {str(cleanup_err)}", 'warning')
                 
                 self.output_signal.emit("", 'default')
                 self.output_signal.emit("Leadfield generation complete!", 'success')
@@ -194,10 +291,45 @@ class MOVEAOptimizationThread(QtCore.QThread):
             try:
                 from MOVEA import TIOptimizer, LeadfieldGenerator, MontageFormatter, MOVEAVisualizer
                 import numpy as np
+                # logging_util already imported at module level
             except ImportError as e:
                 self.error_signal.emit(f"Failed to import MOVEA modules: {str(e)}")
                 self.finished_signal.emit(False)
                 return
+            
+            # Setup subject-specific log file
+            if LOGGER_AVAILABLE:
+                import time
+                time_stamp = time.strftime('%Y%m%d_%H%M%S')
+                subject_id = self.config['subject_id']
+                project_dir = os.path.join("/mnt", os.environ.get("PROJECT_DIR_NAME", ""))
+                derivatives_dir = os.path.join(project_dir, 'derivatives')
+                log_dir = os.path.join(derivatives_dir, 'ti-toolbox', 'logs', f'sub-{subject_id}')
+                os.makedirs(log_dir, exist_ok=True)
+                log_file = os.path.join(log_dir, f'MOVEA_{time_stamp}.log')
+                
+                # Set environment variable for external scripts
+                os.environ['TI_LOG_FILE'] = log_file
+                
+                # Create logger
+                logger = logging_util.get_logger('MOVEA', log_file, overwrite=False)
+                
+                # Remove console handler to prevent terminal output (GUI only shows via signals)
+                import logging
+                for handler in logger.handlers[:]:
+                    if isinstance(handler, logging.StreamHandler) and not isinstance(handler, logging.FileHandler):
+                        logger.removeHandler(handler)
+                
+                # Configure external loggers and remove their console handlers too
+                for ext_logger_name in ['simnibs', 'scipy', 'mesh_io', 'sim_struct']:
+                    ext_logger = logging.getLogger(ext_logger_name)
+                    for handler in ext_logger.handlers[:]:
+                        if isinstance(handler, logging.StreamHandler) and not isinstance(handler, logging.FileHandler):
+                            ext_logger.removeHandler(handler)
+                
+                logging_util.configure_external_loggers(['simnibs', 'scipy', 'mesh_io', 'sim_struct'], logger)
+                
+                self.output_signal.emit(f"Log file: {log_file}", 'info')
             
             # Load leadfield
             start_time = time.time()
@@ -224,10 +356,15 @@ class MOVEAOptimizationThread(QtCore.QThread):
             if self.terminated:
                 return
             
-            # Create optimizer
+            # Create optimizer with progress callback
             self.output_signal.emit("Initializing optimizer...", 'info')
             num_electrodes = lfm.shape[0]
-            optimizer = TIOptimizer(lfm, positions, num_electrodes)
+            
+            # Create callback to redirect optimizer output to GUI
+            def progress_callback(message, msg_type='info'):
+                self.output_signal.emit(message, msg_type)
+            
+            optimizer = TIOptimizer(lfm, positions, num_electrodes, progress_callback=progress_callback)
             
             # Set target
             target = self.config['target']
@@ -280,9 +417,12 @@ class MOVEAOptimizationThread(QtCore.QThread):
             
             # Load electrode coordinates if available
             electrode_csv = self.config.get('electrode_coords_file')
-            if electrode_csv:
-                self.output_signal.emit(f"Loading electrode names from: {os.path.basename(electrode_csv)}", 'info')
-            formatter = MontageFormatter(electrode_csv)
+            
+            # Create callback to redirect formatter output to GUI
+            def progress_callback(message, msg_type='info'):
+                self.output_signal.emit(message, msg_type)
+            
+            formatter = MontageFormatter(electrode_csv, progress_callback=progress_callback)
             
             # Check if names were loaded
             if formatter.electrode_names:
@@ -304,14 +444,22 @@ class MOVEAOptimizationThread(QtCore.QThread):
                 # 1. Generate Pareto front (like original MOVEA - OPTIONAL, can be slow)
                 generate_pareto = self.config.get('generate_pareto', False)
                 n_pareto_solutions = self.config.get('pareto_n_solutions', 10)
+                n_pareto_cores = self.config.get('pareto_n_cores', None)
                 
                 if generate_pareto:
                     try:
-                        est_time = n_pareto_solutions * 2  # Rough estimate: 2 min per solution
-                        self.output_signal.emit(f"  Generating {n_pareto_solutions} Pareto front solutions (est. {est_time} min)...", 'info')
+                        # Estimate time based on cores (rough: 2 min per solution serially)
+                        if n_pareto_cores and n_pareto_cores > 1:
+                            est_time = max(1, (n_pareto_solutions * 2) // n_pareto_cores)
+                            self.output_signal.emit(f"  Generating {n_pareto_solutions} Pareto front solutions using {n_pareto_cores} cores (est. {est_time} min)...", 'info')
+                        else:
+                            est_time = n_pareto_solutions * 2
+                            self.output_signal.emit(f"  Generating {n_pareto_solutions} Pareto front solutions (est. {est_time} min)...", 'info')
+                        
                         pareto_solutions = optimizer.generate_pareto_solutions(
                             n_solutions=n_pareto_solutions,
-                            max_iter_per_solution=200
+                            max_iter_per_solution=200,
+                            n_cores=n_pareto_cores
                         )
                         
                         # Plot Pareto front
@@ -461,14 +609,8 @@ class MOVEATab(QtWidgets.QWidget):
         self.debug_mode = False
         self.presets = {}
         
-        # Setup logger
-        if LOGGER_AVAILABLE:
-            log_dir = os.path.join(os.path.expanduser("~"), ".ti_toolbox", "logs")
-            os.makedirs(log_dir, exist_ok=True)
-            log_file = os.path.join(log_dir, "movea_gui.log")
-            self.logger = logging_util.get_logger("MOVEA_GUI", log_file, overwrite=False)
-        else:
-            self.logger = logging.getLogger("MOVEA_GUI")
+        # Logger will be created per-operation with subject-specific paths
+        self.logger = None
             
         # Load ROI presets
         self.load_presets()
@@ -702,6 +844,16 @@ class MOVEATab(QtWidgets.QWidget):
         self.pareto_solutions.setEnabled(False)
         opt_layout.addRow("  Solutions:", self.pareto_solutions)
         
+        # CPU cores for parallelization
+        import multiprocessing as mp
+        max_cores = mp.cpu_count()
+        self.pareto_cores = QtWidgets.QSpinBox()
+        self.pareto_cores.setRange(1, max_cores)
+        self.pareto_cores.setValue(max(1, max_cores - 1))  # Default: leave 1 core free
+        self.pareto_cores.setEnabled(False)
+        self.pareto_cores.setToolTip(f"Number of CPU cores to use for parallel processing (max: {max_cores})")
+        opt_layout.addRow("  CPU Cores:", self.pareto_cores)
+        
         right_layout.addWidget(opt_container)
         
         # Add left and right to main horizontal layout
@@ -848,9 +1000,10 @@ class MOVEATab(QtWidgets.QWidget):
         self.coordinate_widget.setVisible(not is_preset)
     
     def toggle_pareto_options(self):
-        """Enable/disable Pareto solutions spinbox based on checkbox."""
+        """Enable/disable Pareto solutions spinbox and cores based on checkbox."""
         enabled = self.enable_pareto.isChecked()
         self.pareto_solutions.setEnabled(enabled)
+        self.pareto_cores.setEnabled(enabled)
     
     def toggle_debug_mode(self):
         """Toggle debug mode for verbose output."""
@@ -993,21 +1146,81 @@ class MOVEATab(QtWidgets.QWidget):
     
     def create_leadfield(self, subject_id, eeg_net_file):
         """Create leadfield for selected EEG net."""
-        self.update_console(f"Creating leadfield for {eeg_net_file}...", 'info')
-        self.update_console("This may take several minutes. Please wait...", 'info')
+        if self.leadfield_generating:
+            QtWidgets.QMessageBox.warning(self, "Already Running", "Leadfield generation is already running")
+            return
         
-        QtWidgets.QMessageBox.information(
+        # Get project directory
+        project_dir = os.path.join("/mnt", os.environ.get("PROJECT_DIR_NAME", ""))
+        if not project_dir or not os.path.exists(project_dir):
+            QtWidgets.QMessageBox.warning(self, "No Project", "Project directory not found")
+            return
+        
+        # Show info dialog
+        reply = QtWidgets.QMessageBox.question(
             self,
             "Leadfield Generation",
-            "Leadfield generation will be performed using the MOVEA leadfield generator.\n\n"
-            "This process may take 5-15 minutes depending on the mesh size and number of electrodes.\n\n"
-            "The leadfield files will be saved in the subject's m2m directory."
+            f"Generate leadfield for {eeg_net_file}?\n\n"
+            f"This process may take 5-15 minutes depending on mesh size and electrode count.\n\n"
+            f"Files will be saved to: derivatives/SimNIBS/sub-{subject_id}/MOVEA/leadfields/\n\n"
+            "Continue?",
+            QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No,
+            QtWidgets.QMessageBox.Yes
         )
         
-        # TODO: Implement actual leadfield generation
-        # For now, just show message
-        self.update_console("Note: Leadfield generation integration coming soon", 'warning')
-        self.update_console("Please use ex-search tab to create leadfields for now", 'info')
+        if reply != QtWidgets.QMessageBox.Yes:
+            return
+        
+        # Clear console and start generation
+        self.console.clear()
+        self.update_console("="*60, 'default')
+        self.update_console("LEADFIELD GENERATION", 'info')
+        self.update_console("="*60, 'default')
+        
+        # Set UI state
+        self.leadfield_generating = True
+        self.create_leadfield_btn.setEnabled(False)
+        self.refresh_leadfields_btn.setEnabled(False)
+        self.run_button.setEnabled(False)
+        self.stop_button.setEnabled(True)
+        self.set_inputs_enabled(False)
+        
+        # Start generation thread
+        self.leadfield_thread = LeadfieldGenerationThread(subject_id, eeg_net_file, project_dir, self)
+        self.leadfield_thread.output_signal.connect(self.update_console)
+        self.leadfield_thread.error_signal.connect(self.handle_error)
+        self.leadfield_thread.finished_signal.connect(self.leadfield_generation_finished)
+        self.leadfield_thread.start()
+    
+    def leadfield_generation_finished(self, success, lfm_path, pos_path):
+        """Handle leadfield generation completion."""
+        self.leadfield_generating = False
+        self.create_leadfield_btn.setEnabled(True)
+        self.refresh_leadfields_btn.setEnabled(True)
+        self.run_button.setEnabled(True)
+        self.stop_button.setEnabled(False)
+        self.set_inputs_enabled(True)
+        
+        if success:
+            self.update_console("", 'default')
+            self.update_console("="*60, 'default')
+            self.update_console("Leadfield generation completed successfully!", 'success')
+            self.update_console("="*60, 'default')
+            
+            # Refresh the leadfield list to show the new leadfield
+            self.refresh_leadfields()
+            
+            # Show success message
+            QtWidgets.QMessageBox.information(
+                self,
+                "Success",
+                "Leadfield generation completed!\n\n"
+                f"Files saved:\n"
+                f"• {os.path.basename(lfm_path)}\n"
+                f"• {os.path.basename(pos_path)}"
+            )
+        else:
+            self.update_console("Leadfield generation failed or was cancelled", 'error')
     
     def validate_inputs(self):
         """Validate user inputs before running optimization."""
@@ -1130,6 +1343,7 @@ class MOVEATab(QtWidgets.QWidget):
             'electrode_coords_file': electrode_csv,
             'generate_pareto': self.enable_pareto.isChecked(),
             'pareto_n_solutions': self.pareto_solutions.value(),
+            'pareto_n_cores': self.pareto_cores.value(),
             'target_name': target_name,
             'debug_mode': self.debug_mode
         }
@@ -1165,20 +1379,43 @@ class MOVEATab(QtWidgets.QWidget):
         self.optimization_thread.start()
     
     def stop_optimization(self):
-        """Stop running optimization."""
-        if self.optimization_thread and self.optimization_thread.isRunning():
-            reply = QtWidgets.QMessageBox.question(
-                self, 'Stop Optimization',
-                "Are you sure you want to stop the optimization?",
-                QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No,
-                QtWidgets.QMessageBox.No
-            )
-            
-            if reply == QtWidgets.QMessageBox.Yes:
+        """Stop running optimization or leadfield generation."""
+        # Check what's running
+        opt_running = self.optimization_thread and self.optimization_thread.isRunning()
+        lf_running = self.leadfield_thread and self.leadfield_thread.isRunning()
+        
+        if not opt_running and not lf_running:
+            return
+        
+        # Determine what to stop
+        if opt_running and lf_running:
+            process_name = "optimization and leadfield generation"
+        elif opt_running:
+            process_name = "optimization"
+        else:
+            process_name = "leadfield generation"
+        
+        reply = QtWidgets.QMessageBox.question(
+            self, 'Stop Process',
+            f"Are you sure you want to stop the {process_name}?",
+            QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No,
+            QtWidgets.QMessageBox.No
+        )
+        
+        if reply == QtWidgets.QMessageBox.Yes:
+            # Stop optimization if running
+            if opt_running:
                 self.update_console("Stopping optimization...", 'warning')
                 self.optimization_thread.terminate_process()
                 self.optimization_thread.wait()
                 self.optimization_finished(False)
+            
+            # Stop leadfield generation if running
+            if lf_running:
+                self.update_console("Stopping leadfield generation...", 'warning')
+                self.leadfield_thread.terminate_process()
+                self.leadfield_thread.wait()
+                self.leadfield_generation_finished(False, "", "")
     
     def optimization_finished(self, success):
         """Handle optimization completion."""
@@ -1215,12 +1452,12 @@ class MOVEATab(QtWidgets.QWidget):
         """Update console output with colored messages (respects debug mode)."""
         # Filter messages based on debug mode
         if not self.debug_mode:
-            # In normal mode, skip verbose messages
-            if is_verbose_message(message) and msg_type not in ['error', 'warning']:
+            # In normal mode, skip verbose messages (show only important ones)
+            if is_verbose_message(message, tab_type='movea') and msg_type not in ['error', 'warning', 'success']:
                 return
         
         # Log to file if logger available
-        if hasattr(self, 'logger'):
+        if hasattr(self, 'logger') and self.logger is not None:
             if msg_type == 'error':
                 self.logger.error(message)
             elif msg_type == 'warning':

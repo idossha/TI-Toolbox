@@ -142,6 +142,42 @@ def is_important_message(text, message_type, tab_type='general'):
             'bad interpreter',
             'fatal error',
             'critical error'
+        ],
+        'movea': [
+            # Summary headings
+            'movea ti electrode optimization',
+            'movea optimization - scipy backend',
+            'movea pareto front generation',
+            # Major steps
+            'subject:',
+            'leadfield:',
+            'target:',
+            'leadfield generation',
+            'generating leadfield with simnibs',
+            'generating leadfield matrix',
+            'leadfield loaded',
+            'initializing optimizer',
+            'starting optimization',
+            'optimization complete',
+            'pareto generation complete',
+            'formatting results',
+            'creating visualizations',
+            # Leadfield info
+            'found mesh file',
+            'using eeg cap',
+            'electrodes:',
+            'voxels:',
+            # Results
+            'best electrodes:',
+            'field strength:',
+            'loaded',
+            'saved:',
+            'results saved to:',
+            # Completion
+            'optimization completed successfully',
+            'leadfield generation complete',
+            'generated',
+            'pareto solutions'
         ]
     }
 

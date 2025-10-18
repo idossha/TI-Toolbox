@@ -4,27 +4,66 @@ Integrates with SimNIBS to create leadfield matrices
 """
 
 import os
+import sys
 import numpy as np
 import h5py
 from pathlib import Path
+
+# Add utils to path for logging
+parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if parent_dir not in sys.path:
+    sys.path.insert(0, parent_dir)
+
+try:
+    from utils import logging_util
+    LOGGER_AVAILABLE = True
+except ImportError:
+    LOGGER_AVAILABLE = False
 
 
 class LeadfieldGenerator:
     """Generate and load leadfield matrices for MOVEA optimization"""
     
-    def __init__(self, subject_dir, electrode_cap='EEG10-10'):
+    def __init__(self, subject_dir, electrode_cap='EEG10-10', progress_callback=None):
         """
         Initialize leadfield generator
         
         Args:
             subject_dir: Path to subject directory (m2m folder)
             electrode_cap: Electrode cap type (e.g., 'EEG10-10', 'GSN-256')
+            progress_callback: Optional callback function(message, type) for progress updates
         """
         self.subject_dir = Path(subject_dir)
         self.electrode_cap = electrode_cap
         self.lfm = None
         self.positions = None
         self.electrode_names = None
+        self._progress_callback = progress_callback
+        
+        # Setup logger if available
+        if LOGGER_AVAILABLE and progress_callback is None:
+            log_file = os.path.join(os.path.expanduser("~"), ".ti_toolbox", "logs", "leadfield_generator.log")
+            os.makedirs(os.path.dirname(log_file), exist_ok=True)
+            self.logger = logging_util.get_logger("LeadfieldGenerator", log_file, overwrite=False)
+            logging_util.configure_external_loggers(['simnibs', 'mesh_io'], self.logger)
+        else:
+            self.logger = None
+    
+    def _log(self, message, msg_type='info'):
+        """Send log message through callback or logger"""
+        if self._progress_callback:
+            self._progress_callback(message, msg_type)
+        elif self.logger:
+            if msg_type == 'error':
+                self.logger.error(message)
+            elif msg_type == 'warning':
+                self.logger.warning(message)
+            elif msg_type == 'debug':
+                self.logger.debug(message)
+            else:
+                self.logger.info(message)
+        else:
+            print(message)
     
     def generate_leadfield(self, output_dir=None, tissues=[1, 2], eeg_cap_path=None):
         """
@@ -67,7 +106,7 @@ class LeadfieldGenerator:
             candidate = self.subject_dir / mesh_name
             if candidate.exists():
                 mesh_file = candidate
-                print(f"Found mesh file: {mesh_file}")
+                self._log(f"Found mesh file: {mesh_file}", 'info')
                 break
         
         if mesh_file is None:
@@ -93,7 +132,7 @@ class LeadfieldGenerator:
             if not Path(eeg_cap_path).exists():
                 raise FileNotFoundError(f"EEG cap file not found: {eeg_cap_path}")
             tdcs_lf.eeg_cap = str(eeg_cap_path)
-            print(f"Using EEG cap: {Path(eeg_cap_path).name}")
+            self._log(f"Using EEG cap: {Path(eeg_cap_path).name}", 'info')
         elif self.electrode_cap and self.electrode_cap != 'EEG10-10':
             # Try to find in eeg_positions directory
             eeg_positions_dir = self.subject_dir / 'eeg_positions'
@@ -101,12 +140,12 @@ class LeadfieldGenerator:
                 cap_file = eeg_positions_dir / f"{self.electrode_cap}.csv"
                 if cap_file.exists():
                     tdcs_lf.eeg_cap = str(cap_file)
-                    print(f"Found EEG cap: {cap_file.name}")
+                    self._log(f"Found EEG cap: {cap_file.name}", 'info')
         
-        print(f"Generating leadfield matrix for {self.subject_dir.name}...")
-        print(f"Electrode cap: {self.electrode_cap if self.electrode_cap else 'Default'}")
-        print(f"Tissues: {tissues} (1=GM, 2=WM)")
-        print(f"Mesh file: {mesh_file.name}")
+        self._log(f"Generating leadfield matrix for {self.subject_dir.name}...", 'info')
+        self._log(f"Electrode cap: {self.electrode_cap if self.electrode_cap else 'Default'}", 'info')
+        self._log(f"Tissues: {tissues} (1=GM, 2=WM)", 'info')
+        self._log(f"Mesh file: {mesh_file.name}", 'info')
         
         simnibs.run_simnibs(tdcs_lf)
         
@@ -116,7 +155,7 @@ class LeadfieldGenerator:
             raise FileNotFoundError(f"No HDF5 leadfield file found in {output_dir}")
         
         hdf5_path = hdf5_files[0]
-        print(f"Leadfield generated: {hdf5_path}")
+        self._log(f"Leadfield generated: {hdf5_path}", 'success')
         
         return hdf5_path
     
@@ -135,7 +174,7 @@ class LeadfieldGenerator:
         if not hdf5_path.exists():
             raise FileNotFoundError(f"HDF5 file not found: {hdf5_path}")
         
-        print(f"Loading leadfield from: {hdf5_path}")
+        self._log(f"Loading leadfield from: {hdf5_path}", 'info')
         
         with h5py.File(hdf5_path, 'r') as f:
             # Load leadfield matrix
@@ -160,11 +199,11 @@ class LeadfieldGenerator:
                 # Use node coordinates directly
                 self.positions = node_coords[:self.lfm.shape[1]]
         
-        print(f"Leadfield shape: {self.lfm.shape}")
-        print(f"  Electrodes: {self.lfm.shape[0]}")
-        print(f"  Voxels: {self.lfm.shape[1]}")
-        print(f"  Components: {self.lfm.shape[2]} (x, y, z)")
-        print(f"Position shape: {self.positions.shape}")
+        self._log(f"Leadfield shape: {self.lfm.shape}", 'info')
+        self._log(f"  Electrodes: {self.lfm.shape[0]}", 'info')
+        self._log(f"  Voxels: {self.lfm.shape[1]}", 'info')
+        self._log(f"  Components: {self.lfm.shape[2]} (x, y, z)", 'info')
+        self._log(f"Position shape: {self.positions.shape}", 'info')
         
         return self.lfm, self.positions
     
@@ -190,8 +229,8 @@ class LeadfieldGenerator:
         np.save(lfm_path, self.lfm)
         np.save(pos_path, self.positions)
         
-        print(f"Saved leadfield to: {lfm_path}")
-        print(f"Saved positions to: {pos_path}")
+        self._log(f"Saved leadfield to: {lfm_path}", 'success')
+        self._log(f"Saved positions to: {pos_path}", 'success')
         
         return lfm_path, pos_path
     
@@ -217,8 +256,8 @@ class LeadfieldGenerator:
         self.lfm = np.load(lfm_path)
         self.positions = np.load(pos_path)
         
-        print(f"Loaded leadfield: {self.lfm.shape}")
-        print(f"Loaded positions: {self.positions.shape}")
+        self._log(f"Loaded leadfield: {self.lfm.shape}", 'info')
+        self._log(f"Loaded positions: {self.positions.shape}", 'info')
         
         return self.lfm, self.positions
 

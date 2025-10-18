@@ -11,21 +11,30 @@ from datetime import datetime
 class MontageFormatter:
     """Format and save MOVEA optimization results"""
     
-    def __init__(self, electrode_coords_file=None):
+    def __init__(self, electrode_coords_file=None, progress_callback=None):
         """
         Initialize formatter
         
         Args:
             electrode_coords_file: CSV file with electrode coordinates
+            progress_callback: Optional callback function(message, type) for progress updates
         """
         self.electrode_coords = None
         self.electrode_names = []
+        self._progress_callback = progress_callback
         
         if electrode_coords_file:
-            print(f"[MontageFormatter] Loading electrode names from: {electrode_coords_file}")
+            self._log(f"Loading electrode names from: {electrode_coords_file}", 'info')
             self.load_electrode_coordinates(electrode_coords_file)
         else:
-            print("[MontageFormatter] No electrode CSV file provided, using generic names (E0, E1, ...)")
+            self._log("No electrode CSV file provided, using generic names (E0, E1, ...)", 'info')
+    
+    def _log(self, message, msg_type='info'):
+        """Send log message through callback or fallback to print"""
+        if self._progress_callback:
+            self._progress_callback(message, msg_type)
+        else:
+            print(message)
     
     def load_electrode_coordinates(self, csv_file):
         """
@@ -36,7 +45,7 @@ class MontageFormatter:
         """
         csv_file = Path(csv_file)
         if not csv_file.exists():
-            print(f"Warning: Electrode coordinate file not found: {csv_file}")
+            self._log(f"Warning: Electrode coordinate file not found: {csv_file}", 'warning')
             return
         
         coords = []
@@ -76,17 +85,17 @@ class MontageFormatter:
             # If we found electrodes, we used the right delimiter
             if len(names) > 0:
                 delim_name = 'tab' if delimiter == '\t' else 'space' if delimiter == ' ' else 'comma'
-                print(f"  Detected delimiter: {delim_name}")
+                self._log(f"  Detected delimiter: {delim_name}", 'info')
                 break
         
         self.electrode_coords = np.array(coords) if coords else None
         self.electrode_names = names
         
         if len(self.electrode_names) > 0:
-            print(f"✓ Loaded {len(self.electrode_names)} electrode names from {csv_file.name}")
-            print(f"  First few: {', '.join(self.electrode_names[:5])}")
+            self._log(f"✓ Loaded {len(self.electrode_names)} electrode names from {csv_file.name}", 'success')
+            self._log(f"  First few: {', '.join(self.electrode_names[:5])}", 'info')
         else:
-            print(f"Warning: No electrodes loaded from {csv_file}")
+            self._log(f"Warning: No electrodes loaded from {csv_file}", 'warning')
     
     def format_ti_montage(self, optimization_result, current_mA=2.0):
         """
@@ -205,7 +214,7 @@ class MontageFormatter:
             writer.writerow(['Generations', opt['generations']])
             writer.writerow(['Population', opt['population']])
         
-        print(f"Montage saved to: {output_file}")
+        self._log(f"Montage saved to: {output_file}", 'success')
     
     def save_montage_simnibs(self, montage_dict, output_file):
         """
@@ -239,32 +248,32 @@ class MontageFormatter:
             f.write(f"# Optimization: {opt['method']}\n")
             f.write(f"# Field Strength: {opt['field_strength_V/m']:.6f} V/m\n")
         
-        print(f"SimNIBS montage saved to: {output_file}")
+        self._log(f"SimNIBS montage saved to: {output_file}", 'success')
     
     def print_montage(self, montage_dict):
         """Print montage to console"""
-        print("\n" + "="*60)
-        print("TI MONTAGE - MOVEA OPTIMIZATION")
-        print("="*60)
+        self._log("\n" + "="*60, 'default')
+        self._log("TI MONTAGE - MOVEA OPTIMIZATION", 'info')
+        self._log("="*60, 'default')
         
-        print("\nPair 1:")
+        self._log("\nPair 1:", 'info')
         p1 = montage_dict['pair1']
-        print(f"  Anode:   {p1['anode']['name']:8s} (#{p1['anode']['index']:2d})  +{p1['current_mA']:.1f} mA")
-        print(f"  Cathode: {p1['cathode']['name']:8s} (#{p1['cathode']['index']:2d})  -{p1['current_mA']:.1f} mA")
+        self._log(f"  Anode:   {p1['anode']['name']:8s} (#{p1['anode']['index']:2d})  +{p1['current_mA']:.1f} mA", 'default')
+        self._log(f"  Cathode: {p1['cathode']['name']:8s} (#{p1['cathode']['index']:2d})  -{p1['current_mA']:.1f} mA", 'default')
         
-        print("\nPair 2:")
+        self._log("\nPair 2:", 'info')
         p2 = montage_dict['pair2']
-        print(f"  Anode:   {p2['anode']['name']:8s} (#{p2['anode']['index']:2d})  +{p2['current_mA']:.1f} mA")
-        print(f"  Cathode: {p2['cathode']['name']:8s} (#{p2['cathode']['index']:2d})  -{p2['current_mA']:.1f} mA")
+        self._log(f"  Anode:   {p2['anode']['name']:8s} (#{p2['anode']['index']:2d})  +{p2['current_mA']:.1f} mA", 'default')
+        self._log(f"  Cathode: {p2['cathode']['name']:8s} (#{p2['cathode']['index']:2d})  -{p2['current_mA']:.1f} mA", 'default')
         
-        print("\nOptimization Results:")
+        self._log("\nOptimization Results:", 'info')
         opt = montage_dict['optimization']
-        print(f"  Method:         {opt['method']}")
-        print(f"  Field Strength: {opt['field_strength_V/m']:.6f} V/m")
-        print(f"  Cost:           {opt['cost']:.6f}")
-        print(f"  Generations:    {opt['generations']}")
-        print(f"  Population:     {opt['population']}")
-        print("="*60 + "\n")
+        self._log(f"  Method:         {opt['method']}", 'default')
+        self._log(f"  Field Strength: {opt['field_strength_V/m']:.6f} V/m", 'default')
+        self._log(f"  Cost:           {opt['cost']:.6f}", 'default')
+        self._log(f"  Generations:    {opt['generations']}", 'default')
+        self._log(f"  Population:     {opt['population']}", 'default')
+        self._log("="*60 + "\n", 'default')
 
 
 def quick_save(optimization_result, output_path, electrode_coords_file=None, current_mA=2.0):
