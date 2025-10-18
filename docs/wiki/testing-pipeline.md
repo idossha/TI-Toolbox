@@ -12,7 +12,7 @@ This document describes the comprehensive testing pipeline used by the TI-Toolbo
 
 The TI-Toolbox uses a multi-layered testing approach that combines unit tests, integration tests, and automated CI/CD through CircleCI. The testing pipeline ensures code quality, functionality, and reliability across all components of the toolbox.
 
-![TI-Toolbox CI/CD Pipeline](wiki/assets/testing/Ti-ToolboxCICD.svg)
+![TI-Toolbox CI/CD Pipeline](/TI-Toolbox/wiki/assets/testing/Ti-ToolboxCICD.svg)
 
 ## What is CircleCI?
 
@@ -247,11 +247,6 @@ The testing uses a static test image. To update:
 - **Testing tool updates** (pytest, bats versions)
 - **Python package updates** (numpy, scipy, etc.)
 
-**Do NOT rebuild for:**
-- TI-Toolbox code changes (code is mounted at runtime)
-- ElectrodeCaps changes (copied from mounted code)
-- tes_flex_optimization changes (copied from mounted code)
-
 ### Image Details
 - **Repository**: `idossha/ti-toolbox-test`
 - **Current Version**: `latest`
@@ -287,8 +282,9 @@ The testing uses a static test image. To update:
 - Use `--verbose` flag to see detailed output
 
 #### 6. Need to test changes to Docker image
-- Build locally: `./tests/run_tests_locally.sh --build`
-- This uses your local `Dockerfile.ci.min` changes
+- Build locally: `docker build -f development/blueprint/Dockerfile.test -t ti-toolbox-test:local .`
+- Use custom image: `TEST_IMAGE=ti-toolbox-test:local ./tests/test.sh`
+- This uses your local `development/blueprint/Dockerfile.test` changes
 
 ## Additional Resources
 

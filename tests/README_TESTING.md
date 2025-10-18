@@ -310,6 +310,25 @@ simnibs_python -m pytest tests/test_analyzer.py -v
 TEST_IMAGE=idossha/ti-toolbox-test:v1.0.0 ./tests/test.sh
 ```
 
+### Run BATS Tests Directly
+BATS (Bash Automated Testing System) tests validate output file structure and content:
+
+```bash
+# Run individual BATS test files
+bats tests/test_simulator_outputs.bats
+bats tests/test_analyzer_outputs.bats
+
+# Run with verbose output
+bats --verbose tests/test_simulator_outputs.bats
+
+# Run specific test by name
+bats --filter "Simulator outputs exist" tests/test_simulator_outputs.bats
+```
+
+**What BATS tests validate:**
+- **Simulator outputs**: File structure, mesh files, field files, log files
+- **Analyzer outputs**: Analysis directories, mesh analysis files, CSV outputs
+
 ---
 
 ## Summary
