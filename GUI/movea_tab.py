@@ -39,8 +39,21 @@ except ImportError:
     sys.path.insert(0, gui_dir)
     from utils import is_verbose_message, is_important_message
 
+# Add parent directory to path for utils
+parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if parent_dir not in sys.path:
+    sys.path.insert(0, parent_dir)
+
+# Import logging utility
+try:
+    from utils import logging_util
+    LOGGER_AVAILABLE = True
+except ImportError:
+    LOGGER_AVAILABLE = False
+    print("Warning: logging_util not available")
+
 # Add MOVEA directory to path
-movea_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'MOVEA')
+movea_dir = os.path.join(parent_dir, 'MOVEA')
 if movea_dir not in sys.path:
     sys.path.insert(0, movea_dir)
 
@@ -303,13 +316,14 @@ class MOVEAOptimizationThread(QtCore.QThread):
                         
                         # Plot Pareto front
                         pareto_path = os.path.join(output_dir, 'pareto_front.png')
-                        visualizer.plot_pareto_front(pareto_solutions, save_path=pareto_path)
+                        target_name = self.config.get('target_name', 'ROI')
+                        visualizer.plot_pareto_front(pareto_solutions, save_path=pareto_path, target_name=target_name)
                         self.output_signal.emit(f"  ✓ Pareto front plot: {os.path.basename(pareto_path)}", 'success')
                         
-                        # Save Pareto solutions to CSV with electrode names
+                        # Save Pareto solutions to CSV with electrode names and focality ratio
                         pareto_csv = os.path.join(output_dir, 'pareto_solutions.csv')
                         with open(pareto_csv, 'w') as f:
-                            f.write("Solution,Electrode1,Electrode2,Electrode3,Electrode4,Intensity_Field_Vm,Focality_Vm\n")
+                            f.write("Solution,Electrode1,Electrode2,Electrode3,Electrode4,ROI_Field_Vm,WholeBrain_Field_Vm,Focality_Ratio\n")
                             for i, sol in enumerate(pareto_solutions):
                                 # Get electrode names if available
                                 e_indices = sol['electrodes']
@@ -318,7 +332,10 @@ class MOVEAOptimizationThread(QtCore.QThread):
                                 else:
                                     e_names = [f"E{idx}" for idx in e_indices]
                                 
-                                f.write(f"{i+1},{e_names[0]},{e_names[1]},{e_names[2]},{e_names[3]},{sol['intensity_field']:.6f},{sol['focality']:.6f}\n")
+                                # Calculate focality ratio (ROI field / Whole brain field)
+                                focality_ratio = sol['intensity_field'] / sol['focality'] if sol['focality'] > 0 else 0
+                                
+                                f.write(f"{i+1},{e_names[0]},{e_names[1]},{e_names[2]},{e_names[3]},{sol['intensity_field']:.6f},{sol['focality']:.6f},{focality_ratio:.4f}\n")
                         self.output_signal.emit(f"  ✓ Pareto solutions: {os.path.basename(pareto_csv)}", 'success')
                         
                     except Exception as pareto_err:
@@ -441,6 +458,20 @@ class MOVEATab(QtWidgets.QWidget):
         self.optimization_running = False
         self.leadfield_thread = None
         self.leadfield_generating = False
+        self.debug_mode = False
+        self.presets = {}
+        
+        # Setup logger
+        if LOGGER_AVAILABLE:
+            log_dir = os.path.join(os.path.expanduser("~"), ".ti_toolbox", "logs")
+            os.makedirs(log_dir, exist_ok=True)
+            log_file = os.path.join(log_dir, "movea_gui.log")
+            self.logger = logging_util.get_logger("MOVEA_GUI", log_file, overwrite=False)
+        else:
+            self.logger = logging.getLogger("MOVEA_GUI")
+            
+        # Load ROI presets
+        self.load_presets()
         
         if PYQT5_AVAILABLE:
             self.setup_ui()
@@ -449,6 +480,28 @@ class MOVEATab(QtWidgets.QWidget):
         else:
             layout = QtWidgets.QVBoxLayout()
             self.setLayout(layout)
+    
+    def load_presets(self):
+        """Load ROI presets from MOVEA/presets.json"""
+        try:
+            presets_file = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 
+                                       'MOVEA', 'presets.json')
+            if os.path.exists(presets_file):
+                with open(presets_file, 'r') as f:
+                    data = json.load(f)
+                    self.presets = data.get('regions', {})
+                    print(f"✓ Loaded {len(self.presets)} ROI presets from presets.json")
+            else:
+                # Fallback to hardcoded presets
+                self.presets = {
+                    'motor': {'name': 'Motor Cortex', 'mni': [47, -13, 52]},
+                    'dlpfc': {'name': 'DLPFC', 'mni': [-39, 34, 37]},
+                    'hippocampus': {'name': 'Hippocampus', 'mni': [-31, -20, -14]},
+                }
+                print(f"Warning: presets.json not found, using defaults")
+        except Exception as e:
+            print(f"Error loading presets: {e}")
+            self.presets = {}
     
     def initial_setup(self):
         """Initial setup after UI is created."""
@@ -569,18 +622,12 @@ class MOVEATab(QtWidgets.QWidget):
         target_type_layout.addStretch()
         target_layout.addLayout(target_type_layout)
         
-        # Preset target
+        # Preset target (loaded from presets.json)
         self.preset_combo = QtWidgets.QComboBox()
-        self.preset_combo.addItems([
-            "motor",
-            "dlpfc",
-            "hippocampus",
-            "v1",
-            "thalamus",
-            "pallidum",
-            "sensory",
-            "dorsal"
-        ])
+        for preset_key in sorted(self.presets.keys()):
+            preset_data = self.presets[preset_key]
+            display_name = f"{preset_data['name']} ({preset_key})"
+            self.preset_combo.addItem(display_name, preset_key)
         target_layout.addWidget(self.preset_combo)
         
         # MNI coordinates
@@ -665,33 +712,133 @@ class MOVEATab(QtWidgets.QWidget):
         scroll_area.setWidget(scroll_content)
         main_layout.addWidget(scroll_area, 1)
         
-        # Control buttons
-        button_layout = QtWidgets.QHBoxLayout()
-        self.run_button = QtWidgets.QPushButton("Run Optimization")
-        self.run_button.setFixedHeight(35)
-        self.run_button.setStyleSheet("font-weight: bold; font-size: 14px;")
-        self.run_button.clicked.connect(self.run_optimization)
+        # Console header with all controls in single horizontal line
+        console_header_layout = QtWidgets.QHBoxLayout()
         
+        # Console Output label
+        console_label = QtWidgets.QLabel("Console Output:")
+        console_label.setStyleSheet("font-weight: bold; font-size: 14px;")
+        console_header_layout.addWidget(console_label)
+        
+        # Add spacing
+        console_header_layout.addSpacing(20)
+        
+        # Run button
+        self.run_button = QtWidgets.QPushButton("Run MOVEA")
+        self.run_button.setStyleSheet("""
+            QPushButton {
+                background-color: #4CAF50;
+                color: white;
+                padding: 5px 15px;
+                border: none;
+                border-radius: 3px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #45a049;
+            }
+            QPushButton:disabled {
+                background-color: #cccccc;
+                color: #888888;
+            }
+        """)
+        self.run_button.clicked.connect(self.run_optimization)
+        console_header_layout.addWidget(self.run_button)
+        
+        # Stop button
         self.stop_button = QtWidgets.QPushButton("Stop")
-        self.stop_button.setFixedHeight(35)
+        self.stop_button.setStyleSheet("""
+            QPushButton {
+                background-color: #f44336;
+                color: white;
+                padding: 5px 15px;
+                border: none;
+                border-radius: 3px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #da190b;
+            }
+            QPushButton:disabled {
+                background-color: #cccccc;
+                color: #888888;
+            }
+        """)
         self.stop_button.setEnabled(False)
         self.stop_button.clicked.connect(self.stop_optimization)
+        console_header_layout.addWidget(self.stop_button)
         
-        button_layout.addWidget(self.run_button)
-        button_layout.addWidget(self.stop_button)
-        button_layout.addStretch()
-        main_layout.addLayout(button_layout)
+        # Clear console button
+        self.clear_console_btn = QtWidgets.QPushButton("Clear")
+        self.clear_console_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #555;
+                color: white;
+                padding: 5px 15px;
+                border: none;
+                border-radius: 3px;
+            }
+            QPushButton:hover {
+                background-color: #666;
+            }
+        """)
+        self.clear_console_btn.clicked.connect(lambda: self.console.clear())
+        console_header_layout.addWidget(self.clear_console_btn)
         
-        # Console output
-        console_label = QtWidgets.QLabel("Console Output:")
-        main_layout.addWidget(console_label)
+        # Debug mode checkbox
+        self.debug_checkbox = QtWidgets.QCheckBox("Debug Mode")
+        self.debug_checkbox.setChecked(False)
+        self.debug_checkbox.setToolTip(
+            "Toggle debug mode:\n"
+            "• ON: Show all detailed logging information\n"
+            "• OFF: Show only key operational steps"
+        )
+        self.debug_checkbox.toggled.connect(self.toggle_debug_mode)
+        self.debug_checkbox.setStyleSheet("""
+            QCheckBox {
+                font-weight: bold;
+                color: #333333;
+                padding: 5px;
+                margin-left: 10px;
+            }
+            QCheckBox::indicator {
+                width: 16px;
+                height: 16px;
+            }
+            QCheckBox::indicator:unchecked {
+                border: 2px solid #cccccc;
+                background-color: white;
+                border-radius: 3px;
+            }
+            QCheckBox::indicator:checked {
+                border: 2px solid #4CAF50;
+                background-color: #4CAF50;
+                border-radius: 3px;
+            }
+        """)
+        console_header_layout.addWidget(self.debug_checkbox)
         
+        # Add stretch to push everything to the left
+        console_header_layout.addStretch()
+        
+        main_layout.addLayout(console_header_layout)
+        
+        # Console output with dark theme (matching ex_search_tab)
         self.console = QtWidgets.QTextEdit()
         self.console.setReadOnly(True)
-        self.console.setMaximumHeight(250)
-        font = QtGui.QFont("Courier")
-        font.setPointSize(10)
-        self.console.setFont(font)
+        self.console.setMinimumHeight(200)
+        self.console.setMaximumHeight(300)
+        self.console.setStyleSheet("""
+            QTextEdit {
+                background-color: #1e1e1e;
+                color: #f0f0f0;
+                font-family: 'Consolas', 'Courier New', monospace;
+                font-size: 13px;
+                border: 1px solid #3c3c3c;
+                border-radius: 5px;
+                padding: 8px;
+            }
+        """)
         main_layout.addWidget(self.console)
     
     def toggle_target_type(self):
@@ -704,6 +851,18 @@ class MOVEATab(QtWidgets.QWidget):
         """Enable/disable Pareto solutions spinbox based on checkbox."""
         enabled = self.enable_pareto.isChecked()
         self.pareto_solutions.setEnabled(enabled)
+    
+    def toggle_debug_mode(self):
+        """Toggle debug mode for verbose output."""
+        self.debug_mode = self.debug_checkbox.isChecked()
+        if self.debug_mode:
+            self.update_console("Debug mode enabled - showing all messages", 'info')
+            if hasattr(self, 'logger'):
+                self.logger.setLevel(logging.DEBUG)
+        else:
+            self.update_console("Debug mode disabled - showing important messages only", 'info')
+            if hasattr(self, 'logger'):
+                self.logger.setLevel(logging.INFO)
     
     def list_subjects(self):
         """List available subjects in the combo box."""
@@ -889,13 +1048,22 @@ class MOVEATab(QtWidgets.QWidget):
         
         # Get target
         if self.preset_radio.isChecked():
-            target = self.preset_combo.currentText()
+            # Get preset key from combo box data
+            preset_key = self.preset_combo.currentData()
+            if preset_key and preset_key in self.presets:
+                target = self.presets[preset_key]['mni']
+                target_name = self.presets[preset_key]['name']
+            else:
+                # Fallback to old behavior
+                target = self.preset_combo.currentText()
+                target_name = target
         else:
             target = [
                 float(self.coord_x.text()),
                 float(self.coord_y.text()),
                 float(self.coord_z.text())
             ]
+            target_name = f"Custom {target}"
         
         # Set output directory
         project_dir = os.path.join("/mnt", os.environ.get("PROJECT_DIR_NAME", ""))
@@ -961,7 +1129,9 @@ class MOVEATab(QtWidgets.QWidget):
             'output_dir': output_dir,
             'electrode_coords_file': electrode_csv,
             'generate_pareto': self.enable_pareto.isChecked(),
-            'pareto_n_solutions': self.pareto_solutions.value()
+            'pareto_n_solutions': self.pareto_solutions.value(),
+            'target_name': target_name,
+            'debug_mode': self.debug_mode
         }
         
         # Clear console
@@ -1042,22 +1212,38 @@ class MOVEATab(QtWidgets.QWidget):
         self.current.setEnabled(enabled)
     
     def update_console(self, message, msg_type='default'):
-        """Update console output with colored messages."""
+        """Update console output with colored messages (respects debug mode)."""
+        # Filter messages based on debug mode
+        if not self.debug_mode:
+            # In normal mode, skip verbose messages
+            if is_verbose_message(message) and msg_type not in ['error', 'warning']:
+                return
+        
+        # Log to file if logger available
+        if hasattr(self, 'logger'):
+            if msg_type == 'error':
+                self.logger.error(message)
+            elif msg_type == 'warning':
+                self.logger.warning(message)
+            elif msg_type == 'debug' or 'DEBUG' in message:
+                self.logger.debug(message)
+            else:
+                self.logger.info(message)
+        
+        # Dark theme colors matching ex_search_tab
         colors = {
-            'default': '#000000',
-            'info': '#0066cc',
-            'success': '#00aa00',
-            'warning': '#ff8800',
-            'error': '#cc0000',
-            'debug': '#666666'
+            'default': '#f0f0f0',
+            'info': '#66b3ff',
+            'success': '#00ff00',
+            'warning': '#ffaa00',
+            'error': '#ff5555',
+            'debug': '#888888'
         }
         
         color = colors.get(msg_type, colors['default'])
         
-        if msg_type == 'default':
-            self.console.append(message)
-        else:
-            self.console.append(f'<span style="color: {color};">{message}</span>')
+        # Append with color
+        self.console.append(f'<span style="color: {color};">{message}</span>')
         
         # Scroll to bottom
         self.console.verticalScrollBar().setValue(

@@ -74,7 +74,7 @@ class MOVEAVisualizer:
         
         return fig
     
-    def plot_pareto_front(self, pareto_solutions, save_path=None):
+    def plot_pareto_front(self, pareto_solutions, save_path=None, target_name="ROI"):
         """
         Plot Pareto front for multi-objective optimization (like original MOVEA)
         Shows trade-off between intensity and focality
@@ -104,10 +104,10 @@ class MOVEAVisualizer:
         ax.scatter(intensity_values, focality_values, 
                   s=100, c='black', marker="o", alpha=0.8, label='MOVEA Solutions', edgecolors='red', linewidths=1.5)
         
-        # Labels matching original MOVEA
-        ax.set_xlabel('TARGET1_Electric_Field(V/m)', fontsize=16)
-        ax.set_ylabel('TARGET2_Electric_Field(V/m)', fontsize=16)
-        ax.set_title('trade-off_for_electric_and_focality', fontsize=20)
+        # Clear axis labels
+        ax.set_xlabel(f'{target_name} Electric Field (V/m)', fontsize=16)
+        ax.set_ylabel('Whole-Brain Electric Field (V/m)', fontsize=16)
+        ax.set_title(f'Intensity vs Focality Trade-off: {target_name}', fontsize=18)
         ax.legend(loc='best', fontsize=16, markerscale=1.0)
         ax.grid(True, alpha=0.3, linestyle='--')
         
