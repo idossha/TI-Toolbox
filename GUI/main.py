@@ -48,6 +48,7 @@ from contact_tab import ContactTab
 from acknowledgments_tab import AcknowledgmentsTab
 from nifti_viewer_tab import NiftiViewerTab
 from analyzer_tab import AnalyzerTab
+from movea_tab import MOVEATab
 
 class MainWindow(QtWidgets.QMainWindow):
     """Main window for the TI-Toolbox GUI."""
@@ -90,6 +91,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.pre_process_tab = PreProcessTab(self)
         self.flex_search_tab = FlexSearchTab(self)
         self.ex_search_tab = ExSearchTab(self)
+        self.movea_tab = MOVEATab(self)
         self.simulator_tab = SimulatorTab(self)
         self.analyzer_tab = AnalyzerTab(self)
         self.nifti_viewer_tab = NiftiViewerTab(self)
@@ -108,6 +110,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.tab_widget.addTab(self.pre_process_tab, "Pre-processing")
         self.tab_widget.addTab(self.flex_search_tab, "Flex-Search")
         self.tab_widget.addTab(self.ex_search_tab, "Ex-Search")
+        self.tab_widget.addTab(self.movea_tab, "MOVEA")
         self.tab_widget.addTab(self.simulator_tab, "Simulator")
         self.tab_widget.addTab(self.analyzer_tab, "Analyzer")
         self.tab_widget.addTab(self.nifti_viewer_tab, "NIfTI Viewer")
