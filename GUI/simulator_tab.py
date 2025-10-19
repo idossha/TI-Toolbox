@@ -36,6 +36,14 @@ except ImportError:
     sys.path.insert(0, gui_dir)
     from utils import confirm_overwrite, is_verbose_message, is_important_message
 
+# Import console and button components
+try:
+    from .components.console import ConsoleWidget
+    from .components.action_buttons import RunStopButtons
+except ImportError:
+    from components.console import ConsoleWidget
+    from components.action_buttons import RunStopButtons
+
 # Add the utils directory to the path
 import sys
 import os
@@ -772,145 +780,32 @@ class SimulatorTab(QtWidgets.QWidget):
         scroll_area.setWidget(scroll_content)
         main_layout.addWidget(scroll_area)
         
-        # Output console
-        output_label = QtWidgets.QLabel("Output:")
-        output_label.setStyleSheet("font-weight: bold; font-size: 14px; margin-top: 10px;")
+        # Create Run/Stop buttons using component
+        self.action_buttons = RunStopButtons(self, run_text="Run Simulation", stop_text="Stop Simulation")
+        self.action_buttons.connect_run(self.run_simulation)
+        self.action_buttons.connect_stop(self.stop_simulation)
         
-        self.output_console = QtWidgets.QTextEdit()
-        self.output_console.setReadOnly(True)
-        self.output_console.setMinimumHeight(180)  # Reduced by 10% (200 * 0.9 = 180)
-        self.output_console.setStyleSheet("""
-            QTextEdit {
-                background-color: #1e1e1e;
-                color: #f0f0f0;
-                font-family: 'Consolas', 'Courier New', monospace;
-                font-size: 13px;
-                border: 1px solid #3c3c3c;
-                border-radius: 5px;
-                padding: 8px;
-            }
-        """)
-        self.output_console.setAcceptRichText(True)
+        # Keep references for backward compatibility
+        self.run_btn = self.action_buttons.get_run_button()
+        self.stop_btn = self.action_buttons.get_stop_button()
         
-        # Console layout
-        console_layout = QtWidgets.QVBoxLayout()
-        header_layout = QtWidgets.QHBoxLayout()
-        header_layout.addWidget(output_label)
-        header_layout.addStretch()
-        
-        # Create button layout for console controls
-        console_buttons_layout = QtWidgets.QHBoxLayout()
-        
-        # Run button
-        self.run_btn = QtWidgets.QPushButton("Run Simulation")
-        self.run_btn.clicked.connect(self.run_simulation)
-        self.run_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #4CAF50;
-                color: white;
-                padding: 5px 10px;
-                border: none;
-                border-radius: 3px;
-            }
-            QPushButton:hover {
-                background-color: #45a049;
-            }
-            QPushButton:pressed {
-                background-color: #3d8b40;
-            }
-            QPushButton:disabled {
-                background-color: #cccccc;
-                color: #888888;
-            }
-        """)
-        
-        # Stop button (initially disabled)
-        self.stop_btn = QtWidgets.QPushButton("Stop Simulation")
-        self.stop_btn.clicked.connect(self.stop_simulation)
-        self.stop_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #f44336;
-                color: white;
-                padding: 5px 10px;
-                border: none;
-                border-radius: 3px;
-            }
-            QPushButton:hover {
-                background-color: #d32f2f;
-            }
-            QPushButton:pressed {
-                background-color: #b71c1c;
-            }
-            QPushButton:disabled {
-                background-color: #cccccc;
-                color: #888888;
-            }
-        """)
-        self.stop_btn.setEnabled(False)  # Initially disabled
-        
-        # Clear console button
-        clear_btn = QtWidgets.QPushButton("Clear Console")
-        clear_btn.clicked.connect(self.clear_console)
-        clear_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #555;
-                color: white;
-                padding: 5px 10px;
-                border: none;
-                border-radius: 3px;
-            }
-            QPushButton:hover {
-                background-color: #666;
-            }
-        """)
-        
-        # Add debug mode checkbox next to console buttons
-        self.debug_mode_checkbox = QtWidgets.QCheckBox("Debug Mode")
-        self.debug_mode_checkbox.setChecked(self.debug_mode)
-        self.debug_mode_checkbox.setToolTip(
-            "Toggle debug mode:\n"
-            "• ON: Show all detailed logging information\n"
-            "• OFF: Show only key operational steps"
+        # Console widget component with Run/Stop buttons integrated
+        self.console_widget = ConsoleWidget(
+            parent=self,
+            show_clear_button=True,
+            show_debug_checkbox=True,
+            console_label="Output:",
+            min_height=180,
+            max_height=None,
+            custom_buttons=[self.run_btn, self.stop_btn]
         )
-        self.debug_mode_checkbox.toggled.connect(self.set_debug_mode)
+        main_layout.addWidget(self.console_widget)
         
-        # Style the debug mode checkbox
-        self.debug_mode_checkbox.setStyleSheet("""
-            QCheckBox {
-                font-weight: bold;
-                color: #333333;
-                padding: 5px;
-                margin-left: 10px;
-            }
-            QCheckBox::indicator {
-                width: 16px;
-                height: 16px;
-            }
-            QCheckBox::indicator:unchecked {
-                border: 2px solid #cccccc;
-                background-color: white;
-                border-radius: 3px;
-            }
-            QCheckBox::indicator:checked {
-                border: 2px solid #4CAF50;
-                background-color: #4CAF50;
-                border-radius: 3px;
-            }
-        """)
+        # Connect the debug checkbox to set_debug_mode method
+        self.console_widget.debug_checkbox.toggled.connect(self.set_debug_mode)
         
-        # Add buttons to console buttons layout in the desired order
-        console_buttons_layout.addWidget(self.run_btn)
-        console_buttons_layout.addWidget(self.stop_btn)
-        console_buttons_layout.addWidget(clear_btn)
-        console_buttons_layout.addWidget(self.debug_mode_checkbox)
-        
-        # Add console buttons layout to header layout
-        header_layout.addLayout(console_buttons_layout)
-        
-        console_layout.addLayout(header_layout)
-        console_layout.addWidget(self.output_console)
-        
-        main_layout.addLayout(console_layout)
+        # Reference to underlying console for backward compatibility
+        self.output_console = self.console_widget.get_console_widget()
         
         # We'll keep the old montage group but hide it since we're moving this functionality
         # to a dialog. It will be referenced by the dialog.
@@ -2221,6 +2116,9 @@ class SimulatorTab(QtWidgets.QWidget):
     def set_debug_mode(self, debug_mode):
         """Set debug mode for output filtering."""
         self.debug_mode = debug_mode
+        # Sync with console widget's internal state if it exists
+        if hasattr(self, 'console_widget'):
+            self.console_widget.debug_mode = debug_mode
 
     def _open_file_safely(self, file_path):
         """Safely open a file in the default application, with fallbacks for different environments."""

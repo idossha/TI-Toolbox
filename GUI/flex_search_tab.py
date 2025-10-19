@@ -22,6 +22,14 @@ except ImportError:
     sys.path.insert(0, gui_dir)
     from utils import confirm_overwrite, is_verbose_message, is_important_message
 
+# Import console and button components
+try:
+    from .components.console import ConsoleWidget
+    from .components.action_buttons import RunStopButtons
+except ImportError:
+    from components.console import ConsoleWidget
+    from components.action_buttons import RunStopButtons
+
 class FlexSearchThread(QtCore.QThread):
     """Thread to run flex-search in background to prevent GUI freezing."""
     
@@ -605,126 +613,32 @@ class FlexSearchTab(QtWidgets.QWidget):
         scroll_area.setWidget(scroll_content)
         main_layout.addWidget(scroll_area)
         
-        # Console output section
-        output_label = QtWidgets.QLabel("Output:")
-        output_label.setStyleSheet("font-weight: bold; font-size: 14px; margin-top: 10px;")
-        self.output_text = QtWidgets.QTextEdit()
-        self.output_text.setReadOnly(True); self.output_text.setMinimumHeight(200)
-        self.output_text.setStyleSheet("""
-            QTextEdit {
-                background-color: #1e1e1e; color: #f0f0f0;
-                font-family: 'Consolas', 'Courier New', monospace; font-size: 13px;
-                border: 1px solid #3c3c3c; border-radius: 5px; padding: 8px;
-            }""")
-        self.output_text.setAcceptRichText(True)
+        # Create Run/Stop buttons using component
+        self.action_buttons = RunStopButtons(self, run_text="Run Optimization", stop_text="Stop Optimization")
+        self.action_buttons.connect_run(self.run_optimization)
+        self.action_buttons.connect_stop(self.stop_optimization)
         
-        console_layout = QtWidgets.QVBoxLayout()
-        header_layout = QtWidgets.QHBoxLayout()
-        header_layout.addWidget(output_label)
-        header_layout.addStretch()
+        # Keep references for backward compatibility
+        self.run_btn = self.action_buttons.get_run_button()
+        self.stop_btn = self.action_buttons.get_stop_button()
         
-        console_buttons_layout = QtWidgets.QHBoxLayout()
-        self.run_btn = QtWidgets.QPushButton("Run Optimization")
-        self.run_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #4CAF50;
-                color: white;
-                padding: 5px 10px;
-                border: none;
-                border-radius: 3px;
-            }
-            QPushButton:hover {
-                background-color: #45a049;
-            }
-            QPushButton:pressed {
-                background-color: #3d8b40;
-            }
-            QPushButton:disabled {
-                background-color: #cccccc;
-                color: #888888;
-            }
-        """) 
-        self.stop_btn = QtWidgets.QPushButton("Stop Optimization")
-        self.stop_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #f44336;
-                color: white;
-                padding: 5px 10px;
-                border: none;
-                border-radius: 3px;
-            }
-            QPushButton:hover {
-                background-color: #d32f2f;
-            }
-            QPushButton:pressed {
-                background-color: #b71c1c;
-            }
-            QPushButton:disabled {
-                background-color: #cccccc;
-                color: #888888;
-            }
-        """) 
-        self.stop_btn.setEnabled(False)
-        clear_btn = QtWidgets.QPushButton("Clear Console")
-        clear_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #555;
-                color: white;
-                padding: 5px 10px;
-                border: none;
-                border-radius: 3px;
-            }
-            QPushButton:hover {
-                background-color: #666;
-            }
-        """) 
-        
-        # Add debug mode checkbox next to console buttons
-        self.debug_mode_checkbox = QtWidgets.QCheckBox("Debug Mode")
-        self.debug_mode_checkbox.setChecked(self.debug_mode)
-        self.debug_mode_checkbox.setToolTip(
-            "Toggle debug mode:\n"
-            "• ON: Show all detailed logging information\n"
-            "• OFF: Show only key operational steps"
+        # Console widget component with Run/Stop buttons integrated
+        self.console_widget = ConsoleWidget(
+            parent=self,
+            show_clear_button=True,
+            show_debug_checkbox=True,
+            console_label="Output:",
+            min_height=180,
+            max_height=None,
+            custom_buttons=[self.run_btn, self.stop_btn]
         )
-        self.debug_mode_checkbox.toggled.connect(self.set_debug_mode)
+        main_layout.addWidget(self.console_widget)
         
-        # Style the debug mode checkbox
-        self.debug_mode_checkbox.setStyleSheet("""
-            QCheckBox {
-                font-weight: bold;
-                color: #333333;
-                padding: 5px;
-                margin-left: 10px;
-            }
-            QCheckBox::indicator {
-                width: 16px;
-                height: 16px;
-            }
-            QCheckBox::indicator:unchecked {
-                border: 2px solid #cccccc;
-                background-color: white;
-                border-radius: 3px;
-            }
-            QCheckBox::indicator:checked {
-                border: 2px solid #4CAF50;
-                background-color: #4CAF50;
-                border-radius: 3px;
-            }
-        """)
+        # Connect the debug checkbox to set_debug_mode method
+        self.console_widget.debug_checkbox.toggled.connect(self.set_debug_mode)
         
-        console_buttons_layout.addWidget(self.run_btn); console_buttons_layout.addWidget(self.stop_btn)
-        console_buttons_layout.addWidget(clear_btn)
-        console_buttons_layout.addWidget(self.debug_mode_checkbox)
-        header_layout.addLayout(console_buttons_layout)
-        console_layout.addLayout(header_layout)
-        console_layout.addWidget(self.output_text)
-        main_layout.addLayout(console_layout)
-
-        # Connect run/stop/clear buttons
-        self.run_btn.clicked.connect(self.run_optimization)
-        self.stop_btn.clicked.connect(self.stop_optimization)
-        clear_btn.clicked.connect(self.clear_console)
+        # Reference to underlying console for backward compatibility
+        self.output_text = self.console_widget.get_console_widget()
         
         # Initialize ROI method display and focality visibility
         self.update_roi_method(self.roi_method_spherical.isChecked())

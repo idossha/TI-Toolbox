@@ -39,6 +39,14 @@ except ImportError:
     sys.path.insert(0, gui_dir)
     from utils import is_verbose_message, is_important_message
 
+# Import console and button components
+try:
+    from .components.console import ConsoleWidget
+    from .components.action_buttons import RunStopButtons
+except ImportError:
+    from components.console import ConsoleWidget
+    from components.action_buttons import RunStopButtons
+
 # Add parent directory to path for utils
 parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if parent_dir not in sys.path:
@@ -902,134 +910,32 @@ class MOVEATab(QtWidgets.QWidget):
         scroll_area.setWidget(scroll_content)
         main_layout.addWidget(scroll_area, 1)
         
-        # Console header with all controls in single horizontal line
-        console_header_layout = QtWidgets.QHBoxLayout()
+        # Create Run/Stop buttons using component
+        self.action_buttons = RunStopButtons(self, run_text="Run MOVEA", stop_text="Stop")
+        self.action_buttons.connect_run(self.run_optimization)
+        self.action_buttons.connect_stop(self.stop_optimization)
         
-        # Console Output label
-        console_label = QtWidgets.QLabel("Console Output:")
-        console_label.setStyleSheet("font-weight: bold; font-size: 14px;")
-        console_header_layout.addWidget(console_label)
+        # Keep references for backward compatibility
+        self.run_button = self.action_buttons.get_run_button()
+        self.stop_button = self.action_buttons.get_stop_button()
         
-        # Add spacing
-        console_header_layout.addSpacing(20)
-        
-        # Run button
-        self.run_button = QtWidgets.QPushButton("Run MOVEA")
-        self.run_button.setStyleSheet("""
-            QPushButton {
-                background-color: #4CAF50;
-                color: white;
-                padding: 5px 15px;
-                border: none;
-                border-radius: 3px;
-                font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: #45a049;
-            }
-            QPushButton:disabled {
-                background-color: #cccccc;
-                color: #888888;
-            }
-        """)
-        self.run_button.clicked.connect(self.run_optimization)
-        console_header_layout.addWidget(self.run_button)
-        
-        # Stop button
-        self.stop_button = QtWidgets.QPushButton("Stop")
-        self.stop_button.setStyleSheet("""
-            QPushButton {
-                background-color: #f44336;
-                color: white;
-                padding: 5px 15px;
-                border: none;
-                border-radius: 3px;
-                font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: #da190b;
-            }
-            QPushButton:disabled {
-                background-color: #cccccc;
-                color: #888888;
-            }
-        """)
-        self.stop_button.setEnabled(False)
-        self.stop_button.clicked.connect(self.stop_optimization)
-        console_header_layout.addWidget(self.stop_button)
-        
-        # Clear console button
-        self.clear_console_btn = QtWidgets.QPushButton("Clear")
-        self.clear_console_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #555;
-                color: white;
-                padding: 5px 15px;
-                border: none;
-                border-radius: 3px;
-            }
-            QPushButton:hover {
-                background-color: #666;
-            }
-        """)
-        self.clear_console_btn.clicked.connect(lambda: self.console.clear())
-        console_header_layout.addWidget(self.clear_console_btn)
-        
-        # Debug mode checkbox
-        self.debug_checkbox = QtWidgets.QCheckBox("Debug Mode")
-        self.debug_checkbox.setChecked(False)
-        self.debug_checkbox.setToolTip(
-            "Toggle debug mode:\n"
-            "• ON: Show all detailed logging information\n"
-            "• OFF: Show only key operational steps"
+        # Console widget component with Run/Stop buttons integrated
+        self.console_widget = ConsoleWidget(
+            parent=self,
+            show_clear_button=True,
+            show_debug_checkbox=True,
+            console_label="Console Output:",
+            min_height=180,
+            max_height=None,
+            custom_buttons=[self.run_button, self.stop_button]
         )
-        self.debug_checkbox.toggled.connect(self.toggle_debug_mode)
-        self.debug_checkbox.setStyleSheet("""
-            QCheckBox {
-                font-weight: bold;
-                color: #333333;
-                padding: 5px;
-                margin-left: 10px;
-            }
-            QCheckBox::indicator {
-                width: 16px;
-                height: 16px;
-            }
-            QCheckBox::indicator:unchecked {
-                border: 2px solid #cccccc;
-                background-color: white;
-                border-radius: 3px;
-            }
-            QCheckBox::indicator:checked {
-                border: 2px solid #4CAF50;
-                background-color: #4CAF50;
-                border-radius: 3px;
-            }
-        """)
-        console_header_layout.addWidget(self.debug_checkbox)
+        main_layout.addWidget(self.console_widget)
         
-        # Add stretch to push everything to the left
-        console_header_layout.addStretch()
+        # Connect the debug checkbox to our custom toggle method (for logger adjustments)
+        self.console_widget.debug_checkbox.toggled.connect(self.toggle_debug_mode)
         
-        main_layout.addLayout(console_header_layout)
-        
-        # Console output with dark theme (matching ex_search_tab)
-        self.console = QtWidgets.QTextEdit()
-        self.console.setReadOnly(True)
-        self.console.setMinimumHeight(200)
-        self.console.setMaximumHeight(300)
-        self.console.setStyleSheet("""
-            QTextEdit {
-                background-color: #1e1e1e;
-                color: #f0f0f0;
-                font-family: 'Consolas', 'Courier New', monospace;
-                font-size: 13px;
-                border: 1px solid #3c3c3c;
-                border-radius: 5px;
-                padding: 8px;
-            }
-        """)
-        main_layout.addWidget(self.console)
+        # Reference to underlying console for backward compatibility
+        self.console = self.console_widget.get_console_widget()
     
     def toggle_target_type(self):
         """Toggle between preset and coordinate target input."""
@@ -1046,14 +952,13 @@ class MOVEATab(QtWidgets.QWidget):
     
     def toggle_debug_mode(self):
         """Toggle debug mode for verbose output."""
-        self.debug_mode = self.debug_checkbox.isChecked()
+        # This is now handled by ConsoleWidget, but we still need to update logger levels
+        self.debug_mode = self.console_widget.is_debug_mode()
         if self.debug_mode:
-            self.update_console("Debug mode enabled - showing all messages", 'info')
             if hasattr(self, 'logger') and self.logger is not None:
                 import logging
                 self.logger.setLevel(logging.DEBUG)
         else:
-            self.update_console("Debug mode disabled - showing important messages only", 'info')
             if hasattr(self, 'logger') and self.logger is not None:
                 import logging
                 self.logger.setLevel(logging.INFO)
@@ -1564,30 +1469,13 @@ class MOVEATab(QtWidgets.QWidget):
                 pass  # Fail silently if logging fails
         
         # THEN filter for GUI display based on debug mode
-        if not self.debug_mode:
+        if not self.console_widget.is_debug_mode():
             # In normal mode, skip verbose messages in GUI (but they're already logged to file)
             if is_verbose_message(message, tab_type='movea') and msg_type not in ['error', 'warning', 'success']:
                 return
         
-        # Dark theme colors matching ex_search_tab
-        colors = {
-            'default': '#f0f0f0',
-            'info': '#66b3ff',
-            'success': '#00ff00',
-            'warning': '#ffaa00',
-            'error': '#ff5555',
-            'debug': '#888888'
-        }
-        
-        color = colors.get(msg_type, colors['default'])
-        
-        # Append with color
-        self.console.append(f'<span style="color: {color};">{message}</span>')
-        
-        # Scroll to bottom
-        self.console.verticalScrollBar().setValue(
-            self.console.verticalScrollBar().maximum()
-        )
+        # Use the console widget's update_console method
+        self.console_widget.update_console(message, msg_type)
     
     def handle_error(self, error_message):
         """Handle error messages."""
