@@ -376,10 +376,11 @@ class MOVEAOptimizationThread(QtCore.QThread):
                 return
             
             # Run optimization
+            opt_method = self.config.get('opt_method', 'differential_evolution')
             generations = self.config['generations']
             population = self.config['population']
             
-            self.output_signal.emit(f"Starting optimization (Generations: {generations}, Population: {population})...", 'info')
+            self.output_signal.emit(f"Starting optimization (Method: {opt_method}, Generations: {generations}, Population: {population})...", 'info')
             self.output_signal.emit("This may take several minutes. Please wait...", 'info')
             
             opt_start = time.time()
@@ -387,7 +388,8 @@ class MOVEAOptimizationThread(QtCore.QThread):
             try:
                 result = optimizer.optimize(
                     max_generations=generations,
-                    population_size=population
+                    population_size=population,
+                    method=opt_method
                 )
             except Exception as e:
                 self.error_signal.emit(f"Optimization failed: {str(e)}")
@@ -431,51 +433,61 @@ class MOVEAOptimizationThread(QtCore.QThread):
                 
                 # 1. Generate Pareto front (like original MOVEA - OPTIONAL, can be slow)
                 generate_pareto = self.config.get('generate_pareto', False)
-                n_pareto_solutions = self.config.get('pareto_n_solutions', 10)
+                n_pareto_solutions = self.config.get('pareto_n_solutions', 20)
+                pareto_max_iter = self.config.get('pareto_max_iter', 500)
                 n_pareto_cores = self.config.get('pareto_n_cores', None)
                 
                 if generate_pareto:
                     try:
-                        # Estimate time based on cores (rough: 2 min per solution serially)
+                        # Estimate time based on cores and iterations
+                        total_evals = n_pareto_solutions * pareto_max_iter
                         if n_pareto_cores and n_pareto_cores > 1:
-                            est_time = max(1, (n_pareto_solutions * 2) // n_pareto_cores)
-                            self.output_signal.emit(f"  Generating {n_pareto_solutions} Pareto front solutions using {n_pareto_cores} cores (est. {est_time} min)...", 'info')
+                            est_time = max(1, (n_pareto_solutions * pareto_max_iter) // (n_pareto_cores * 250))
+                            self.output_signal.emit(f"  Generating {n_pareto_solutions} Pareto solutions ({pareto_max_iter} iters each, {n_pareto_cores} cores)", 'info')
+                            self.output_signal.emit(f"  Total evaluations: {total_evals:,} (est. {est_time} min)...", 'info')
                         else:
-                            est_time = n_pareto_solutions * 2
-                            self.output_signal.emit(f"  Generating {n_pareto_solutions} Pareto front solutions (est. {est_time} min)...", 'info')
+                            est_time = (n_pareto_solutions * pareto_max_iter) // 250
+                            self.output_signal.emit(f"  Generating {n_pareto_solutions} Pareto solutions ({pareto_max_iter} iters each, serial)", 'info')
+                            self.output_signal.emit(f"  Total evaluations: {total_evals:,} (est. {est_time} min)...", 'info')
                         
                         pareto_solutions = optimizer.generate_pareto_solutions(
                             n_solutions=n_pareto_solutions,
-                            max_iter_per_solution=200,
+                            max_iter_per_solution=pareto_max_iter,
                             n_cores=n_pareto_cores
                         )
                         
-                        # Plot Pareto front
-                        pareto_path = os.path.join(output_dir, 'pareto_front.png')
-                        target_name = self.config.get('target_name', 'ROI')
-                        visualizer.plot_pareto_front(pareto_solutions, save_path=pareto_path, target_name=target_name)
-                        self.output_signal.emit(f"  ✓ Pareto front plot: {os.path.basename(pareto_path)}", 'success')
-                        
-                        # Save Pareto solutions to CSV with electrode names and focality ratio
-                        pareto_csv = os.path.join(output_dir, 'pareto_solutions.csv')
-                        with open(pareto_csv, 'w') as f:
-                            f.write("Solution,Electrode1,Electrode2,Electrode3,Electrode4,ROI_Field_Vm,WholeBrain_Field_Vm,Focality_Ratio\n")
-                            for i, sol in enumerate(pareto_solutions):
-                                # Get electrode names if available
-                                e_indices = sol['electrodes']
-                                if formatter.electrode_names and len(formatter.electrode_names) > max(e_indices):
-                                    e_names = [formatter.electrode_names[idx] for idx in e_indices]
-                                else:
-                                    e_names = [f"E{idx}" for idx in e_indices]
-                                
-                                # Calculate focality ratio (ROI field / Whole brain field)
-                                focality_ratio = sol['intensity_field'] / sol['focality'] if sol['focality'] > 0 else 0
-                                
-                                f.write(f"{i+1},{e_names[0]},{e_names[1]},{e_names[2]},{e_names[3]},{sol['intensity_field']:.6f},{sol['focality']:.6f},{focality_ratio:.4f}\n")
-                        self.output_signal.emit(f"  ✓ Pareto solutions: {os.path.basename(pareto_csv)}", 'success')
+                        # Only create visualizations if we got valid solutions
+                        if pareto_solutions and len(pareto_solutions) > 0:
+                            # Plot Pareto front
+                            pareto_path = os.path.join(output_dir, 'pareto_front.png')
+                            target_name = self.config.get('target_name', 'ROI')
+                            visualizer.plot_pareto_front(pareto_solutions, save_path=pareto_path, target_name=target_name)
+                            self.output_signal.emit(f"  ✓ Pareto front plot: {os.path.basename(pareto_path)}", 'success')
+                            
+                            # Save Pareto solutions to CSV with electrode names and focality ratio
+                            pareto_csv = os.path.join(output_dir, 'pareto_solutions.csv')
+                            with open(pareto_csv, 'w') as f:
+                                f.write("Solution,Electrode1,Electrode2,Electrode3,Electrode4,ROI_Field_Vm,WholeBrain_Field_Vm,Focality_Ratio\n")
+                                for i, sol in enumerate(pareto_solutions):
+                                    # Get electrode names if available
+                                    e_indices = sol['electrodes']
+                                    if formatter.electrode_names and len(formatter.electrode_names) > max(e_indices):
+                                        e_names = [formatter.electrode_names[idx] for idx in e_indices]
+                                    else:
+                                        e_names = [f"E{idx}" for idx in e_indices]
+                                    
+                                    # Calculate focality ratio (ROI field / Whole brain field)
+                                    focality_ratio = sol['intensity_field'] / sol['focality'] if sol['focality'] > 0 else 0
+                                    
+                                    f.write(f"{i+1},{e_names[0]},{e_names[1]},{e_names[2]},{e_names[3]},{sol['intensity_field']:.6f},{sol['focality']:.6f},{focality_ratio:.4f}\n")
+                            self.output_signal.emit(f"  ✓ Pareto solutions: {os.path.basename(pareto_csv)}", 'success')
+                        else:
+                            self.output_signal.emit(f"  ⚠ Pareto generation returned no valid solutions", 'warning')
                         
                     except Exception as pareto_err:
-                        self.output_signal.emit(f"  ⓘ Pareto front generation failed: {str(pareto_err)}", 'info')
+                        import traceback
+                        self.output_signal.emit(f"  ⚠ Pareto front generation failed: {str(pareto_err)}", 'warning')
+                        self.output_signal.emit(f"  {traceback.format_exc()}", 'debug')
                 else:
                     self.output_signal.emit("  ⓘ Pareto front generation disabled (enable in GUI to generate)", 'info')
                 
@@ -794,43 +806,77 @@ class MOVEATab(QtWidgets.QWidget):
         
         # Optimization Parameters
         opt_container = QtWidgets.QGroupBox("Optimization Parameters")
-        opt_container.setFixedHeight(230)
+        opt_container.setFixedHeight(340)
         opt_layout = QtWidgets.QFormLayout(opt_container)
         opt_layout.setContentsMargins(10, 10, 10, 10)
         opt_layout.setSpacing(8)
         
+        # Single-objective section
+        single_obj_label = QtWidgets.QLabel("Single-Objective (Intensity Only):")
+        single_obj_label.setStyleSheet("font-weight: bold; color: #2196F3;")
+        opt_layout.addRow(single_obj_label)
+        
+        self.opt_method = QtWidgets.QComboBox()
+        self.opt_method.addItem("Differential Evolution (recommended)", "differential_evolution")
+        self.opt_method.addItem("Dual Annealing", "dual_annealing")
+        self.opt_method.addItem("Basin Hopping", "basinhopping")
+        self.opt_method.setToolTip(
+            "Differential Evolution: Best for discrete electrode selection\n"
+            "Dual Annealing: Alternative global optimizer\n"
+            "Basin Hopping: Local search with random jumps"
+        )
+        opt_layout.addRow("  Method:", self.opt_method)
+        
         self.generations = QtWidgets.QSpinBox()
-        self.generations.setRange(10, 500)
+        self.generations.setRange(10, 1000)
         self.generations.setValue(50)
-        opt_layout.addRow("Generations:", self.generations)
+        self.generations.setToolTip("Number of optimization iterations (more = better but slower)")
+        opt_layout.addRow("  Generations:", self.generations)
         
         self.population = QtWidgets.QSpinBox()
-        self.population.setRange(10, 100)
+        self.population.setRange(10, 200)
         self.population.setValue(30)
-        opt_layout.addRow("Population:", self.population)
+        self.population.setToolTip("Population size (more = better exploration but slower)")
+        opt_layout.addRow("  Population:", self.population)
         
         self.current = QtWidgets.QDoubleSpinBox()
         self.current.setRange(0.5, 4.0)
         self.current.setValue(1.0)
         self.current.setSingleStep(0.1)
         self.current.setSuffix(" mA")
-        opt_layout.addRow("Current:", self.current)
+        self.current.setToolTip("Stimulation current magnitude")
+        opt_layout.addRow("  Current:", self.current)
         
         # Pareto Front Generation (like original MOVEA)
-        pareto_label = QtWidgets.QLabel("Pareto Front (Multi-Objective):")
-        pareto_label.setStyleSheet("font-weight: bold; margin-top: 5px;")
+        pareto_label = QtWidgets.QLabel("Multi-Objective (Intensity + Focality):")
+        pareto_label.setStyleSheet("font-weight: bold; margin-top: 5px; color: #FF9800;")
         opt_layout.addRow(pareto_label)
         
-        self.enable_pareto = QtWidgets.QCheckBox("Generate Pareto solutions (slow)")
+        self.enable_pareto = QtWidgets.QCheckBox("Generate Pareto front")
         self.enable_pareto.setChecked(False)
         self.enable_pareto.toggled.connect(self.toggle_pareto_options)
+        self.enable_pareto.setToolTip("Enable to explore intensity vs focality trade-offs")
         opt_layout.addRow("", self.enable_pareto)
         
         self.pareto_solutions = QtWidgets.QSpinBox()
         self.pareto_solutions.setRange(5, 500)
-        self.pareto_solutions.setValue(10)
+        self.pareto_solutions.setValue(20)
         self.pareto_solutions.setEnabled(False)
+        self.pareto_solutions.setToolTip(
+            "Number of Pareto-optimal solutions to generate\n"
+            "20 = quick exploration, 100-200 = research quality"
+        )
         opt_layout.addRow("  Solutions:", self.pareto_solutions)
+        
+        self.pareto_iterations = QtWidgets.QSpinBox()
+        self.pareto_iterations.setRange(100, 2000)
+        self.pareto_iterations.setValue(500)
+        self.pareto_iterations.setEnabled(False)
+        self.pareto_iterations.setToolTip(
+            "Random search iterations per solution\n"
+            "More iterations = better quality solutions but slower"
+        )
+        opt_layout.addRow("  Iterations/Sol:", self.pareto_iterations)
         
         # CPU cores for parallelization
         import multiprocessing as mp
@@ -839,7 +885,11 @@ class MOVEATab(QtWidgets.QWidget):
         self.pareto_cores.setRange(1, max_cores)
         self.pareto_cores.setValue(max(1, max_cores - 1))  # Default: leave 1 core free
         self.pareto_cores.setEnabled(False)
-        self.pareto_cores.setToolTip(f"Number of CPU cores to use for parallel processing (max: {max_cores})")
+        self.pareto_cores.setToolTip(
+            f"Number of CPU cores for parallel processing\n"
+            f"Available: {max_cores} cores\n"
+            f"Recommended: {max(1, max_cores - 1)} (leave 1 free)"
+        )
         opt_layout.addRow("  CPU Cores:", self.pareto_cores)
         
         right_layout.addWidget(opt_container)
@@ -991,6 +1041,7 @@ class MOVEATab(QtWidgets.QWidget):
         """Enable/disable Pareto solutions spinbox and cores based on checkbox."""
         enabled = self.enable_pareto.isChecked()
         self.pareto_solutions.setEnabled(enabled)
+        self.pareto_iterations.setEnabled(enabled)
         self.pareto_cores.setEnabled(enabled)
     
     def toggle_debug_mode(self):
@@ -1244,6 +1295,29 @@ class MOVEATab(QtWidgets.QWidget):
             QtWidgets.QMessageBox.warning(self, "Already Running", "Optimization is already running")
             return
         
+        # Warn about very large Pareto computations
+        if self.enable_pareto.isChecked():
+            n_solutions = self.pareto_solutions.value()
+            n_iters = self.pareto_iterations.value()
+            total_evals = n_solutions * n_iters
+            
+            # Warn if total evaluations exceed 100,000
+            if total_evals > 100000:
+                reply = QtWidgets.QMessageBox.question(
+                    self,
+                    "Large Computation Warning",
+                    f"Pareto front generation will perform {total_evals:,} evaluations.\n\n"
+                    f"This may take 20-60+ minutes depending on mesh size.\n\n"
+                    f"Consider reducing:\n"
+                    f"  • Solutions: {n_solutions} → 50-100\n"
+                    f"  • Iterations/solution: {n_iters} → 200-300\n\n"
+                    f"Continue with current settings?",
+                    QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No,
+                    QtWidgets.QMessageBox.No
+                )
+                if reply != QtWidgets.QMessageBox.Yes:
+                    return
+        
         # Get configuration
         subject_id = self.subject_combo.currentText()
         selected_items = self.leadfield_list.selectedItems()
@@ -1328,6 +1402,7 @@ class MOVEATab(QtWidgets.QWidget):
             'positions_path': lf_info['positions_path'],
             'target': target,
             'roi_radius_mm': self.roi_radius.value(),
+            'opt_method': self.opt_method.currentData(),
             'generations': self.generations.value(),
             'population': self.population.value(),
             'current_mA': self.current.value(),
@@ -1335,6 +1410,7 @@ class MOVEATab(QtWidgets.QWidget):
             'electrode_coords_file': electrode_csv,
             'generate_pareto': self.enable_pareto.isChecked(),
             'pareto_n_solutions': self.pareto_solutions.value(),
+            'pareto_max_iter': self.pareto_iterations.value(),
             'pareto_n_cores': self.pareto_cores.value(),
             'target_name': target_name,
             'debug_mode': self.debug_mode
@@ -1348,11 +1424,27 @@ class MOVEATab(QtWidgets.QWidget):
         self.update_console(f"Subject: {subject_id}", 'info')
         self.update_console(f"Leadfield: {lf_info['net_name']}", 'info')
         if isinstance(target, list):
-            self.update_console(f"Target: [{', '.join(map(str, target))}]", 'info')
+            self.update_console(f"Target: [{', '.join(map(str, target))}] ({target_name})", 'info')
         else:
             self.update_console(f"Target: {target}", 'info')
+        self.update_console(f"ROI Radius: {self.roi_radius.value()} mm", 'info')
         if electrode_csv:
             self.update_console(f"Electrode names: {os.path.basename(electrode_csv)}", 'info')
+        self.update_console("", 'default')
+        self.update_console("Optimization Configuration:", 'info')
+        self.update_console(f"  Method: {self.opt_method.currentText()}", 'default')
+        self.update_console(f"  Generations: {self.generations.value()}", 'default')
+        self.update_console(f"  Population: {self.population.value()}", 'default')
+        self.update_console(f"  Current: {self.current.value()} mA", 'default')
+        if self.enable_pareto.isChecked():
+            self.update_console("", 'default')
+            self.update_console("Pareto Front Generation:", 'info')
+            self.update_console(f"  Solutions: {self.pareto_solutions.value()}", 'default')
+            self.update_console(f"  Iterations/solution: {self.pareto_iterations.value()}", 'default')
+            self.update_console(f"  CPU Cores: {self.pareto_cores.value()}", 'default')
+            total_evals = self.pareto_solutions.value() * self.pareto_iterations.value()
+            self.update_console(f"  Total evaluations: {total_evals:,}", 'default')
+        self.update_console("", 'default')
         self.update_console(f"Output: {output_dir}", 'info')
         self.update_console("="*60, 'default')
         
@@ -1436,19 +1528,20 @@ class MOVEATab(QtWidgets.QWidget):
         self.coord_y.setEnabled(enabled)
         self.coord_z.setEnabled(enabled)
         self.roi_radius.setEnabled(enabled)
+        self.opt_method.setEnabled(enabled)
         self.generations.setEnabled(enabled)
         self.population.setEnabled(enabled)
         self.current.setEnabled(enabled)
+        self.enable_pareto.setEnabled(enabled)
+        # Pareto options are controlled by toggle_pareto_options, not directly here
+        if enabled and self.enable_pareto.isChecked():
+            self.pareto_solutions.setEnabled(True)
+            self.pareto_iterations.setEnabled(True)
+            self.pareto_cores.setEnabled(True)
     
     def update_console(self, message, msg_type='default'):
         """Update console output with colored messages (respects debug mode)."""
-        # Filter messages based on debug mode
-        if not self.debug_mode:
-            # In normal mode, skip verbose messages (show only important ones)
-            if is_verbose_message(message, tab_type='movea') and msg_type not in ['error', 'warning', 'success']:
-                return
-        
-        # Log to file using active logger (get by name to find thread-created logger)
+        # ALWAYS log to file first, regardless of debug mode
         if LOGGER_AVAILABLE:
             try:
                 import logging
@@ -1469,6 +1562,12 @@ class MOVEATab(QtWidgets.QWidget):
                         logger.info(message)
             except Exception:
                 pass  # Fail silently if logging fails
+        
+        # THEN filter for GUI display based on debug mode
+        if not self.debug_mode:
+            # In normal mode, skip verbose messages in GUI (but they're already logged to file)
+            if is_verbose_message(message, tab_type='movea') and msg_type not in ['error', 'warning', 'success']:
+                return
         
         # Dark theme colors matching ex_search_tab
         colors = {

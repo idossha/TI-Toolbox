@@ -148,6 +148,7 @@ def is_important_message(text, message_type, tab_type='general'):
             'movea ti electrode optimization',
             'movea optimization - scipy backend',
             'movea pareto front generation',
+            'pareto front generation complete',
             # Major steps
             'subject:',
             'leadfield:',
@@ -162,6 +163,19 @@ def is_important_message(text, message_type, tab_type='general'):
             'pareto generation complete',
             'formatting results',
             'creating visualizations',
+            # Pareto-specific progress
+            'starting parallel processing',
+            'created worker pool',
+            'workers processing solutions',
+            'progress:',
+            'collection complete:',
+            'validating and filtering solutions',
+            'valid solutions',
+            'parallel generation complete',
+            'solution statistics:',
+            'intensity range:',
+            'focality range:',
+            'notable solutions:',
             # Leadfield info
             'found mesh file',
             'using eeg cap',
@@ -177,7 +191,8 @@ def is_important_message(text, message_type, tab_type='general'):
             'optimization completed successfully',
             'leadfield generation complete',
             'generated',
-            'pareto solutions'
+            'pareto solutions',
+            'solutions generated:'
         ]
     }
 
