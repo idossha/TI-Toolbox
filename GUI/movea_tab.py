@@ -113,13 +113,7 @@ class LeadfieldGenerationThread(QtCore.QThread):
                     if isinstance(handler, logging.StreamHandler) and not isinstance(handler, logging.FileHandler):
                         logger.removeHandler(handler)
                 
-                # Configure external loggers and remove their console handlers too
-                for ext_logger_name in ['simnibs', 'mesh_io', 'sim_struct']:
-                    ext_logger = logging.getLogger(ext_logger_name)
-                    for handler in ext_logger.handlers[:]:
-                        if isinstance(handler, logging.StreamHandler) and not isinstance(handler, logging.FileHandler):
-                            ext_logger.removeHandler(handler)
-                
+                # Configure external loggers (they will inherit only file handler, no console)
                 logging_util.configure_external_loggers(['simnibs', 'mesh_io', 'sim_struct'], logger)
                 
                 self.output_signal.emit(f"Log file: {log_file}", 'info')
@@ -320,13 +314,7 @@ class MOVEAOptimizationThread(QtCore.QThread):
                     if isinstance(handler, logging.StreamHandler) and not isinstance(handler, logging.FileHandler):
                         logger.removeHandler(handler)
                 
-                # Configure external loggers and remove their console handlers too
-                for ext_logger_name in ['simnibs', 'scipy', 'mesh_io', 'sim_struct']:
-                    ext_logger = logging.getLogger(ext_logger_name)
-                    for handler in ext_logger.handlers[:]:
-                        if isinstance(handler, logging.StreamHandler) and not isinstance(handler, logging.FileHandler):
-                            ext_logger.removeHandler(handler)
-                
+                # Configure external loggers (they will inherit only file handler, no console)
                 logging_util.configure_external_loggers(['simnibs', 'scipy', 'mesh_io', 'sim_struct'], logger)
                 
                 self.output_signal.emit(f"Log file: {log_file}", 'info')
@@ -1280,9 +1268,11 @@ class MOVEATab(QtWidgets.QWidget):
             ]
             target_name = f"Custom {target}"
         
-        # Set output directory
+        # Set output directory with timestamp to avoid overwriting
+        import time
+        timestamp = time.strftime('%Y%m%d_%H%M%S')
         project_dir = os.path.join("/mnt", os.environ.get("PROJECT_DIR_NAME", ""))
-        output_dir = os.path.join(project_dir, "derivatives", "SimNIBS", f"sub-{subject_id}", "MOVEA")
+        output_dir = os.path.join(project_dir, "derivatives", "SimNIBS", f"sub-{subject_id}", "MOVEA", timestamp)
         
         # Find electrode coordinates CSV file
         # NEW Path structure:
@@ -1458,16 +1448,27 @@ class MOVEATab(QtWidgets.QWidget):
             if is_verbose_message(message, tab_type='movea') and msg_type not in ['error', 'warning', 'success']:
                 return
         
-        # Log to file if logger available
-        if hasattr(self, 'logger') and self.logger is not None:
-            if msg_type == 'error':
-                self.logger.error(message)
-            elif msg_type == 'warning':
-                self.logger.warning(message)
-            elif msg_type == 'debug' or 'DEBUG' in message:
-                self.logger.debug(message)
-            else:
-                self.logger.info(message)
+        # Log to file using active logger (get by name to find thread-created logger)
+        if LOGGER_AVAILABLE:
+            try:
+                import logging
+                # Try to get the active logger (either MOVEA or MOVEA_Leadfield)
+                logger = logging.getLogger('MOVEA')
+                if not logger.handlers:  # If MOVEA not initialized, try MOVEA_Leadfield
+                    logger = logging.getLogger('MOVEA_Leadfield')
+                
+                # Only log if the logger has handlers (meaning it was initialized by a thread)
+                if logger.handlers:
+                    if msg_type == 'error':
+                        logger.error(message)
+                    elif msg_type == 'warning':
+                        logger.warning(message)
+                    elif msg_type == 'debug' or 'DEBUG' in message:
+                        logger.debug(message)
+                    else:
+                        logger.info(message)
+            except Exception:
+                pass  # Fail silently if logging fails
         
         # Dark theme colors matching ex_search_tab
         colors = {

@@ -147,7 +147,20 @@ class LeadfieldGenerator:
         self._log(f"Tissues: {tissues} (1=GM, 2=WM)", 'info')
         self._log(f"Mesh file: {mesh_file.name}", 'info')
         
-        simnibs.run_simnibs(tdcs_lf)
+        # Suppress SimNIBS terminal output (redirect to GUI console only)
+        import sys
+        from io import StringIO
+        old_stdout = sys.stdout
+        old_stderr = sys.stderr
+        sys.stdout = StringIO()
+        sys.stderr = StringIO()
+        
+        try:
+            simnibs.run_simnibs(tdcs_lf)
+        finally:
+            # Restore stdout/stderr
+            sys.stdout = old_stdout
+            sys.stderr = old_stderr
         
         # Find generated HDF5 file
         hdf5_files = list(output_dir.glob('*.hdf5'))
