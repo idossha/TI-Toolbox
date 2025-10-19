@@ -1,0 +1,55 @@
+{
+  "regions": {
+    "motor": {
+      "name": "Motor Cortex",
+      "mni": [47, -13, 52],
+      "description": "Primary motor cortex (M1)"
+    },
+    "dlpfc": {
+      "name": "Dorsolateral Prefrontal Cortex",
+      "mni": [-39, 34, 37],
+      "description": "Left DLPFC"
+    },
+    "hippocampus": {
+      "name": "Hippocampus",
+      "mni": [-31, -20, -14],
+      "description": "Left hippocampus"
+    },
+    "v1": {
+      "name": "Primary Visual Cortex",
+      "mni": [10, -92, 2],
+      "description": "Primary visual cortex (V1)"
+    },
+    "thalamus": {
+      "name": "Thalamus",
+      "mni": [10, -19, 6],
+      "description": "Central thalamus"
+    },
+    "pallidum": {
+      "name": "Globus Pallidus",
+      "mni": [-17, 3, -1],
+      "description": "Left globus pallidus"
+    },
+    "sensory": {
+      "name": "Sensory Cortex",
+      "mni": [41, -36, 66],
+      "description": "Primary somatosensory cortex (S1)"
+    },
+    "dorsal": {
+      "name": "Dorsal Prefrontal",
+      "mni": [25, 42, 37],
+      "description": "Dorsal prefrontal cortex"
+    },
+    "acc": {
+      "name": "Anterior Cingulate Cortex",
+      "mni": [0, 32, 20],
+      "description": "Anterior cingulate cortex (ACC)"
+    },
+    "pcc": {
+      "name": "Posterior Cingulate Cortex",
+      "mni": [0, -52, 26],
+      "description": "Posterior cingulate cortex (PCC)"
+    }
+  }
+}
+

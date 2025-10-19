@@ -39,15 +39,12 @@ from version import __version__
 
 # Import tool-specific modules
 from simulator_tab import SimulatorTab
-from flex_search_tab import FlexSearchTab
-from ex_search_tab import ExSearchTab
 from pre_process_tab import PreProcessTab
 from system_monitor_tab import SystemMonitorTab
-from help_tab import HelpTab
-from contact_tab import ContactTab
-from acknowledgments_tab import AcknowledgmentsTab
 from nifti_viewer_tab import NiftiViewerTab
 from analyzer_tab import AnalyzerTab
+from optimize_tab import OptimizeTab
+from settings_menu import SettingsMenuButton
 
 class MainWindow(QtWidgets.QMainWindow):
     """Main window for the TI-Toolbox GUI."""
@@ -86,17 +83,22 @@ class MainWindow(QtWidgets.QMainWindow):
         # Create the tab widget for different tools
         self.tab_widget = QtWidgets.QTabWidget()
         
+        # Add the settings gear button to the tab bar's corner
+        self.settings_button = SettingsMenuButton(self)
+        self.tab_widget.setCornerWidget(self.settings_button, QtCore.Qt.TopRightCorner)
+        
         # Create all tabs first
         self.pre_process_tab = PreProcessTab(self)
-        self.flex_search_tab = FlexSearchTab(self)
-        self.ex_search_tab = ExSearchTab(self)
+        self.optimize_tab = OptimizeTab(self)
         self.simulator_tab = SimulatorTab(self)
         self.analyzer_tab = AnalyzerTab(self)
         self.nifti_viewer_tab = NiftiViewerTab(self)
         self.system_monitor_tab = SystemMonitorTab(self)
-        self.help_tab = HelpTab(self)
-        self.contact_tab = ContactTab(self)
-        self.acknowledgments_tab = AcknowledgmentsTab(self)
+
+        # Create aliases for backward compatibility - access to individual optimization tabs
+        self.ex_search_tab = self.optimize_tab.ex_search_tab
+        self.flex_search_tab = self.optimize_tab.flex_search_tab
+        self.movea_tab = self.optimize_tab.movea_tab
 
         # Connect analyzer tab signals
         self.analyzer_tab.analysis_completed.connect(self.on_analysis_completed)
@@ -104,22 +106,15 @@ class MainWindow(QtWidgets.QMainWindow):
         # Clear the tab widget in case we're reordering tabs
         self.tab_widget.clear()
         
-        # Step 1: Add functional tabs on the left side
+        # Add all functional tabs
         self.tab_widget.addTab(self.pre_process_tab, "Pre-processing")
-        self.tab_widget.addTab(self.flex_search_tab, "Flex-Search")
-        self.tab_widget.addTab(self.ex_search_tab, "Ex-Search")
+        self.tab_widget.addTab(self.optimize_tab, "Optimize")
         self.tab_widget.addTab(self.simulator_tab, "Simulator")
         self.tab_widget.addTab(self.analyzer_tab, "Analyzer")
         self.tab_widget.addTab(self.nifti_viewer_tab, "NIfTI Viewer")
         self.tab_widget.addTab(self.system_monitor_tab, "System Monitor")
-
-        # Step 2: Count how many tabs we have to calculate positions from the right
-        total_tabs = self.tab_widget.count() + 3  # +3 for Help, Contact, and Acknowledgments
         
-        # Step 3: Add the utility tabs at the end (right side)
-        self.tab_widget.insertTab(total_tabs - 3, self.help_tab, "Help")
-        self.tab_widget.insertTab(total_tabs - 2, self.contact_tab, "Contact")
-        self.tab_widget.insertTab(total_tabs - 1, self.acknowledgments_tab, "Acknowledgments")
+        # Note: Help, Contact, and Acknowledgments are now accessible via the settings gear icon
         
         # Set the tab bar with close buttons only for certain tabs
         self.tab_widget.setTabsClosable(False)
@@ -212,9 +207,14 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def resizeEvent(self, event):
         # Ensure overlays resize with the window
-        for tab in [self.pre_process_tab, self.simulator_tab, self.flex_search_tab]:
+        for tab in [self.pre_process_tab, self.simulator_tab, self.optimize_tab]:
             if hasattr(tab, '_busy_overlay'):
                 tab._busy_overlay.setGeometry(tab.rect())
+        # Also check the sub-tabs within optimize_tab
+        if hasattr(self, 'optimize_tab'):
+            for sub_tab in [self.optimize_tab.ex_search_tab, self.optimize_tab.flex_search_tab, self.optimize_tab.movea_tab]:
+                if hasattr(sub_tab, '_busy_overlay'):
+                    sub_tab._busy_overlay.setGeometry(sub_tab.rect())
         super().resizeEvent(event)
         # Optionally, keep window centered after resize (uncomment if desired):
         # self.center_on_screen()
