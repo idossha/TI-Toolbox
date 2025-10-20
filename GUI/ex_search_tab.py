@@ -13,6 +13,12 @@ import subprocess
 import csv
 import time
 import logging
+import sys
+
+# Add project root to path for tools import
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
 
 from PyQt5 import QtWidgets, QtCore, QtGui
 
@@ -21,6 +27,7 @@ from utils import confirm_overwrite, is_verbose_message, is_important_message
 from components.console import ConsoleWidget
 from components.action_buttons import RunStopButtons
 from components.path_manager import get_path_manager
+from tools import logging_util
 
 class ExSearchThread(QtCore.QThread):
     """Thread to run ex-search optimization in background to prevent GUI freezing."""
@@ -312,22 +319,7 @@ class ExSearchTab(QtWidgets.QWidget):
                 return
                 
             # Create a file-only logger for configuration details (no console output)
-            config_logger = logging.getLogger('Ex-Search-Config-File-Only')
-            config_logger.setLevel(logging.INFO)
-            config_logger.propagate = False
-            
-            # Remove any existing handlers
-            for handler in list(config_logger.handlers):
-                config_logger.removeHandler(handler)
-            
-            # Add only file handler (no console handler)
-            file_handler = logging.FileHandler(log_file, mode='a')
-            file_handler.setLevel(logging.INFO)
-            file_handler.setFormatter(logging.Formatter(
-                '[%(asctime)s] [%(name)s] [%(levelname)s] %(message)s',
-                datefmt='%Y-%m-%d %H:%M:%S'
-            ))
-            config_logger.addHandler(file_handler)
+            config_logger = logging_util.get_file_only_logger('Ex-Search-Config-File-Only', log_file)
             
             # Log header
             config_logger.info("="*80)
@@ -400,22 +392,7 @@ class ExSearchTab(QtWidgets.QWidget):
                 return
                 
             # Create a file-only logger for ROI details (no console output)
-            roi_logger = logging.getLogger('Ex-Search-ROI-File-Only')
-            roi_logger.setLevel(logging.INFO)
-            roi_logger.propagate = False
-            
-            # Remove any existing handlers
-            for handler in list(roi_logger.handlers):
-                roi_logger.removeHandler(handler)
-            
-            # Add only file handler (no console handler)
-            file_handler = logging.FileHandler(log_file, mode='a')
-            file_handler.setLevel(logging.INFO)
-            file_handler.setFormatter(logging.Formatter(
-                '[%(asctime)s] [%(name)s] [%(levelname)s] %(message)s',
-                datefmt='%Y-%m-%d %H:%M:%S'
-            ))
-            roi_logger.addHandler(file_handler)
+            roi_logger = logging_util.get_file_only_logger('Ex-Search-ROI-File-Only', log_file)
             
             # Log ROI processing details
             roi_index = self.current_roi_index + 1
@@ -468,22 +445,7 @@ class ExSearchTab(QtWidgets.QWidget):
                     latest_log = os.path.join(log_dir, sorted(ex_search_logs)[-1])
                     
                     # Create a file-only logger for completion details (no console output)
-                    completion_logger = logging.getLogger('Ex-Search-Completion-File-Only')
-                    completion_logger.setLevel(logging.INFO)
-                    completion_logger.propagate = False
-                    
-                    # Remove any existing handlers
-                    for handler in list(completion_logger.handlers):
-                        completion_logger.removeHandler(handler)
-                    
-                    # Add only file handler (no console handler)
-                    file_handler = logging.FileHandler(latest_log, mode='a')
-                    file_handler.setLevel(logging.INFO)
-                    file_handler.setFormatter(logging.Formatter(
-                        '[%(asctime)s] [%(name)s] [%(levelname)s] %(message)s',
-                        datefmt='%Y-%m-%d %H:%M:%S'
-                    ))
-                    completion_logger.addHandler(file_handler)
+                    completion_logger = logging_util.get_file_only_logger('Ex-Search-Completion-File-Only', latest_log)
                     
                     # Log completion summary
                     completion_logger.info("="*80)
