@@ -1,16 +1,5 @@
 #!/bin/bash
 
-##############################################
-# Ido Haber - ihaber@wisc.edu
-# September 2, 2024
-# Optimized for optimizer pipeline
-#
-# This script helps visualize the T1-weighted MRI in subject space 
-# for accurate ROI targeting. Freeview is launched in the background 
-# to allow continuous user input while viewing the T1 image.
-##############################################
-
-
 set -e  # Exit immediately if a command exits with a non-zero status
 
 # Set up the project and subject directories

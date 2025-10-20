@@ -22,22 +22,6 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 # Local imports
 from tools import logging_util
 
-'''
-Ido Haber - ihaber@wisc.edu
-TI Simulation Script - Optimized for ex-search pipeline
-
-This script performs Temporal Interference (TI) simulations with:
-1. Default 1mA current amplitude
-2. Optimized sequential processing (SimNIBS has internal parallelization)
-3. Better progress tracking and error handling
-
-Key improvements:
-- Default stimulation amplitude set to 1mA (0.001A)
-- Progress tracking and time estimation
-- Robust error handling
-- Compatible with SimNIBS internal parallel processing
-'''
-
 # Define color variables
 BOLD = '\033[1m'
 UNDERLINE = '\033[4m'

@@ -1,11 +1,4 @@
 #!/usr/bin/env python3
-"""
-Python replacement for MATLAB field-analysis scripts
-Extracts field peaks, percentiles, and focality metrics from .msh files
-
-Author: TI-toolbox Python Conversion
-Replaces: process_mesh_files.m and process_mesh_files_new.m
-"""
 
 # Standard library imports
 import glob
