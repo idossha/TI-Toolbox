@@ -5,13 +5,19 @@ set -e
 PROJECT_DIR="/mnt/test_projectdir"
 export PROJECT_DIR_NAME=$(basename "$PROJECT_DIR")
 
-# Find simulator script
-if command -v simulator >/dev/null 2>&1; then
-    SIM_CMD="simulator"
-elif [ -f "/ti-toolbox/CLI/simulator.sh" ]; then
-    SIM_CMD="/ti-toolbox/CLI/simulator.sh"
+# Find simulator script - prioritize development code
+if [ -f "/development/CLI/simulator.sh" ]; then
+    SIM_CMD="/development/CLI/simulator.sh"
+    echo "Using development simulator: $SIM_CMD"
 elif [ -f "CLI/simulator.sh" ]; then
     SIM_CMD="./CLI/simulator.sh"
+    echo "Using relative simulator: $SIM_CMD"
+elif command -v simulator >/dev/null 2>&1; then
+    SIM_CMD="simulator"
+    echo "Using installed simulator: $SIM_CMD"
+elif [ -f "/ti-toolbox/CLI/simulator.sh" ]; then
+    SIM_CMD="/ti-toolbox/CLI/simulator.sh"
+    echo "WARNING: Using baked-in simulator (NOT development code): $SIM_CMD"
 else
     echo "Error: simulator.sh not found"
     exit 1

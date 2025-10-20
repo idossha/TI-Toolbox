@@ -92,19 +92,24 @@ fi
 echo -e "${GREEN}✓ SimNIBS environment detected${NC}"
 
 # Find the TI-Toolbox directory
-# Priority: 1) Current directory if it has tests/, 2) /ti-toolbox
+# Priority: 1) /development (mounted dev code), 2) Current directory if it has tests/, 3) /ti-toolbox (baked-in)
 TOOLBOX_DIR=""
 
-if [ -d "tests" ] && [ -f "tests/test_analyzer.py" ]; then
+if [ -d "/development/tests" ] && [ -f "/development/tests/test_analyzer.py" ]; then
+    TOOLBOX_DIR="/development"
+    echo -e "${GREEN}✓ Using development mount: ${TOOLBOX_DIR}${NC}"
+elif [ -d "tests" ] && [ -f "tests/test_analyzer.py" ]; then
     TOOLBOX_DIR=$(pwd)
     echo -e "${GREEN}✓ Using current directory: ${TOOLBOX_DIR}${NC}"
 elif [ -d "/ti-toolbox/tests" ] && [ -f "/ti-toolbox/tests/test_analyzer.py" ]; then
     TOOLBOX_DIR="/ti-toolbox"
-    echo -e "${GREEN}✓ Using /ti-toolbox directory${NC}"
+    echo -e "${YELLOW}⚠ Using baked-in code: ${TOOLBOX_DIR}${NC}"
+    echo -e "${YELLOW}⚠ WARNING: This is NOT the development code!${NC}"
 else
     echo -e "${RED}Error: TI-Toolbox tests directory not found.${NC}"
     echo ""
     echo "Checked locations:"
+    echo "  - /development/tests (development mount)"
     echo "  - $(pwd)/tests"
     echo "  - /ti-toolbox/tests"
     echo ""

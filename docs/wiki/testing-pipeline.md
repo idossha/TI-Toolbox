@@ -71,20 +71,22 @@ Single unified test runner:
 
 ## Local Testing
 
-Developers can run the complete test suite locally with the exact same environment as CI:
+Developers can run the complete test suite locally with the exact same environment as CI.
+
+**⚠️ Important:** Always use `./tests/test.sh` from your host machine. Do NOT run individual integration test scripts (`test_simulator_runner.sh`, `test_analyzer_runner.sh`) directly - they require the Docker container environment and will fail on your host.
 
 ### Quick Start
 ```bash
-# Run all tests (unit + integration)
+# Run all tests (unit + integration) - RECOMMENDED before committing
 ./tests/test.sh
 
-# Run only unit tests (fast ~2 min)
+# Run only unit tests (fast ~2 min) - for quick validation during development
 ./tests/test.sh --unit-only
 
-# Run with verbose output
+# Run with verbose output - helpful for debugging test failures
 ./tests/test.sh --verbose
 
-# Run only integration tests
+# Run only integration tests - if you've already verified unit tests
 ./tests/test.sh --integration-only
 ```
 
@@ -106,6 +108,28 @@ Developers can run the complete test suite locally with the exact same environme
 - ✅ **Predictable**: If it passes locally, it passes in CI
 - ✅ **No local setup**: SimNIBS, pytest, BATS, all tools in container
 - ✅ **Static image**: Only rebuild when dependencies change
+- ✅ **Tests your code**: Your local changes are mounted into container and tested
+
+### ⚠️ Common Mistakes to Avoid
+
+**DON'T run integration tests directly:**
+```bash
+# ❌ These will FAIL on your host machine (macOS/Windows/Linux)
+./tests/test_simulator_runner.sh
+./tests/test_analyzer_runner.sh
+
+# ❌ Unit tests need SimNIBS environment
+simnibs_python -m pytest tests/test_ti_simulator.py
+```
+
+**DO use the test wrapper:**
+```bash
+# ✅ This works - automatically sets up Docker and runs tests
+./tests/test.sh
+
+# ✅ For quick validation during development
+./tests/test.sh --unit-only
+```
 
 ## Test Structure
 
@@ -136,9 +160,13 @@ Creates a complete BIDS-compliant test project structure:
 - Downloads test simulation data
 - Configures proper permissions
 
-#### Test Runners
+#### Test Runners (Run Inside Container Only)
 - `test_simulator_runner.sh`: Executes full simulation workflows
+  - ⚠️ Designed to run INSIDE Docker container only
+  - Called automatically by `test.sh` and `run_tests.sh`
 - `test_analyzer_runner.sh`: Runs complete analysis pipelines
+  - ⚠️ Designed to run INSIDE Docker container only
+  - Called automatically by `test.sh` and `run_tests.sh`
 
 #### Output Validation (`tests/test_*.bats`)
 - `test_simulator_outputs.bats`: Validates simulation outputs
@@ -146,18 +174,35 @@ Creates a complete BIDS-compliant test project structure:
 
 ## Test Execution Flow
 
-### Local Testing
+### Local Testing (Primary Method)
 ```bash
-# From your machine (TI-Toolbox root directory)
+# From your host machine (TI-Toolbox root directory)
 ./tests/test.sh
 
 # What happens:
 # 1. Script checks Docker is running
 # 2. Pulls idossha/ti-toolbox-test:latest (if needed)
 # 3. Mounts your local code into container at /ti-toolbox
-# 4. Copies TI-Toolbox extensions to SimNIBS
+# 4. Creates test directories (/tmp/test_projectdir on host)
 # 5. Runs: ./tests/run_tests.sh inside container
-# 6. Displays results
+#    - Copies TI-Toolbox extensions (ElectrodeCaps, tes_flex) to SimNIBS
+#    - Runs unit tests with pytest
+#    - Sets up test project with ErnieExtended data
+#    - Runs integration tests (simulator, analyzer)
+#    - Validates outputs with BATS
+# 6. Cleans up test directories
+# 7. Displays results
+```
+
+### Development Container Testing (Advanced)
+If you're working inside a Docker development container with code mounted at `/development`:
+```bash
+# From inside the development container
+cd /development
+./tests/run_tests.sh
+
+# The script detects the mounted code and uses it
+# Priority: /development → current dir → /ti-toolbox (baked-in)
 ```
 
 ### CI/CD Testing (CircleCI)
@@ -217,9 +262,11 @@ The pipeline collects and stores test artifacts:
 - **flexsearch-results/**: Unit test results for flex-search components
 - **integration-results/**: Integration test outputs and validation results
 
-**Locally (when using `run_tests_locally.sh`):**
-- **test-results/**: All test outputs saved to this directory
-- **test_projectdir/**: Temporary BIDS project directory (cleaned up unless `--no-cleanup` is used)
+**Locally (when using `./tests/test.sh`):**
+- **`/tmp/test_projectdir/`**: Temporary BIDS project directory (automatically cleaned up)
+  - Use `--no-cleanup` flag to keep for inspection
+- Test output is displayed to console
+  - Use `--verbose` flag for detailed output
 
 ## Maintaining the Test Image
 
@@ -276,15 +323,26 @@ The testing uses a static test image. To update:
 - Start Docker Desktop
 - Verify with: `docker info`
 
-#### 5. Tests fail locally but pass in CI
-- Pull latest image: remove `--no-pull` flag
-- Check Docker has enough resources (memory, disk space)
-- Use `--verbose` flag to see detailed output
+#### 5. Tests pass locally but fail in CI
+- This should be extremely rare (both use same image and scripts)
+- Check CircleCI logs for details
+- Verify test image versions match
+- Check for network issues (test data downloads from OSF)
 
-#### 6. Need to test changes to Docker image
+#### 6. Integration tests fail when run directly
+- **Expected!** Integration tests require Docker container environment
+- Use `./tests/test.sh` instead of running test scripts directly
+- Individual integration test scripts (`test_*_runner.sh`) are designed for container use only
+
+#### 7. Need to test changes to Docker image
 - Build locally: `docker build -f development/blueprint/Dockerfile.test -t ti-toolbox-test:local .`
 - Use custom image: `TEST_IMAGE=ti-toolbox-test:local ./tests/test.sh`
 - This uses your local `development/blueprint/Dockerfile.test` changes
+
+#### 8. Want to inspect test data after tests complete
+- Use `--no-cleanup` flag: `./tests/test.sh --no-cleanup`
+- Test project will remain in `/tmp/test_projectdir`
+- Manually clean up when done: `rm -rf /tmp/test_projectdir`
 
 ## Additional Resources
 
