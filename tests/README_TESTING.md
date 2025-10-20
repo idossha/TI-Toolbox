@@ -6,7 +6,7 @@ Complete guide for running tests locally and in CI/CD.
 
 ## Quick Start
 
-### **From Your Host Machine** (Recommended)
+### **From Your Host Machine** (Recommended for Local Development)
 
 ```bash
 # Run all tests with your local code
@@ -22,17 +22,21 @@ Complete guide for running tests locally and in CI/CD.
 **What it does:**
 - Uses TI-Toolbox test image (`idossha/ti-toolbox-test:latest`)
 - Image contains SimNIBS 4.5 + pytest + BATS + all testing tools
-- Mounts your local code into the container
+- Mounts your local code into the container at `/ti-toolbox`
 - Tests your current changes (not code from GitHub)
 - Runs all tests: unit + integration
 
+**⚠️ Important:** Integration tests require the Docker container environment. Do NOT run `./tests/test_simulator_runner.sh` or `./tests/test_analyzer_runner.sh` directly on your host machine - they will fail. Always use `./tests/test.sh` which handles the Docker setup automatically.
+
 ---
 
-### **Inside Docker Container** (If Already Running)
+### **Inside Docker Container** (Advanced - For Development Container Users)
+
+If you're already working inside the development Docker container:
 
 ```bash
-# Inside the SimNIBS container
-cd /workspace  # or wherever your code is
+# Inside the development container
+cd /development  # or wherever your code is mounted
 
 # Run all tests
 ./tests/run_tests.sh
@@ -41,14 +45,18 @@ cd /workspace  # or wherever your code is
 ./tests/run_tests.sh --unit-only
 ```
 
+**Note:** This approach is for users who have their development environment running in Docker with code mounted at `/development`.
+
 ---
 
 ## The Two Scripts
 
 | Script | Where | Purpose |
 |--------|-------|---------|
-| **`test.sh`** | Host machine | Wrapper that starts Docker and runs tests |
-| **`run_tests.sh`** | Inside container | Core test runner (called by test.sh and CI) |
+| **`test.sh`** | Host machine | **PRIMARY SCRIPT** - Starts Docker, mounts local code, runs all tests |
+| **`run_tests.sh`** | Inside container | Core test runner (called by test.sh and CI/CD) |
+
+**For local development, always use `test.sh` from your host machine.**
 
 ---
 
@@ -106,9 +114,9 @@ TEST_IMAGE=idossha/ti-toolbox-test:v1.0.0 ./tests/test.sh
 Same as `test.sh` above
 
 ### When to use directly
-- You're already inside the SimNIBS container
-- Running in CI/CD
-- Developing inside the container
+- You're already inside a development Docker container (with code mounted at `/development`)
+- Running in CI/CD pipeline (CircleCI)
+- **NOT for running individual integration test scripts** - those require the full container environment
 
 ---
 
@@ -170,11 +178,16 @@ The test image is static and contains:
 ```
 ┌─────────────────────────────────────┐
 │ 1. Make changes to TI-Toolbox code │
+│    (on your host machine)           │
 └─────────────────────────────────────┘
                  ↓
 ┌─────────────────────────────────────┐
-│ 2. Test locally                     │
-│    ./tests/test.sh --unit-only     │
+│ 2. Test locally (from host)         │
+│    ./tests/test.sh --unit-only      │
+│                                     │
+│    ✓ Docker pulls test image       │
+│    ✓ Mounts your local code        │
+│    ✓ Runs tests inside container   │
 └─────────────────────────────────────┘
                  ↓
            ✓ Tests pass?
@@ -182,6 +195,9 @@ The test image is static and contains:
 ┌─────────────────────────────────────┐
 │ 3. Full test before committing     │
 │    ./tests/test.sh --verbose       │
+│                                     │
+│    ✓ Runs unit + integration tests │
+│    ✓ Same environment as CI/CD     │
 └─────────────────────────────────────┘
                  ↓
            ✓ Tests pass?
@@ -206,6 +222,8 @@ The test image is static and contains:
 │ 7. Ready to merge!                  │
 └─────────────────────────────────────┘
 ```
+
+**⚠️ Important:** Always run tests from your host machine using `./tests/test.sh`. Do NOT run individual test runner scripts (`test_simulator_runner.sh`, `test_analyzer_runner.sh`) directly - they require the container environment.
 
 ---
 
@@ -260,20 +278,40 @@ This is normal during development - integration tests catch real bugs!
 
 ### During Development
 ```bash
-# Quick validation (fast)
+# Quick validation (fast, ~2 minutes)
 ./tests/test.sh --unit-only
 
-# Before each commit
+# Before each commit (full suite, ~20 minutes)
 ./tests/test.sh --verbose
 ```
 
 ### Before Creating PR
 ```bash
-# Full test suite
-./tests/test.sh
+# Full test suite with verbose output
+./tests/test.sh --verbose
 
 # Ensure all tests pass
-# Then push to GitHub
+# Then commit and push to GitHub
+```
+
+### ⚠️ Common Mistakes to Avoid
+
+**DON'T run integration tests directly on host:**
+```bash
+# ❌ This will FAIL on macOS/Windows
+./tests/test_simulator_runner.sh
+
+# ❌ This will FAIL - missing SimNIBS
+simnibs_python -m pytest tests/test_ti_simulator.py
+```
+
+**DO use the test wrapper:**
+```bash
+# ✅ This works correctly - mounts code into container
+./tests/test.sh
+
+# ✅ For unit tests only (faster during development)
+./tests/test.sh --unit-only
 ```
 
 ### Adding New Tests
@@ -333,25 +371,30 @@ bats --filter "Simulator outputs exist" tests/test_simulator_outputs.bats
 
 ## Summary
 
-### Local Testing
+### Local Testing (PRIMARY METHOD)
 ```bash
-./tests/test.sh              # Full test suite
-./tests/test.sh --unit-only  # Fast unit tests
+./tests/test.sh              # Full test suite (~20 min)
+./tests/test.sh --unit-only  # Fast unit tests (~2 min)
 ./tests/test.sh --verbose    # With detailed output
 ```
 
-### Inside Container
+**✅ Always use `test.sh` from your host machine - it handles Docker automatically**
+
+### Inside Development Container (ADVANCED)
 ```bash
-./tests/run_tests.sh         # Full test suite
-./tests/run_tests.sh --unit-only  # Fast unit tests
+./tests/run_tests.sh         # If already in dev container
+./tests/run_tests.sh --unit-only  # Unit tests only
 ```
 
-### CI/CD
-- Automatic on every PR
-- Uses same scripts and image as local
-- Full test coverage
+**⚠️ Only use this if you're working inside a Docker development container with code mounted at `/development`**
 
-**Key Principle:** If tests pass locally, they'll pass in CI! 🎯
+### CI/CD
+- Automatic on every PR to `main`
+- Uses same test image as local (`idossha/ti-toolbox-test:latest`)
+- Mounts PR code and runs `run_tests.sh`
+- Full test coverage (unit + integration)
+
+**Key Principle:** If tests pass locally with `./tests/test.sh`, they'll pass in CI! 🎯
 
 ---
 

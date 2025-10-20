@@ -1,23 +1,30 @@
 #!/bin/bash
 
+# Integration Test Runner for Simulator
+# 
+# ⚠️ WARNING: This script is designed to run INSIDE the Docker test container.
+# DO NOT run this script directly on your host machine - it will fail!
+# 
+# Instead, use from your host:
+#   ./tests/test.sh              # Run all tests
+#   ./tests/test.sh --unit-only  # Run only unit tests
+#
+# This script is called automatically by test.sh and run_tests.sh
+
 set -e
 
 PROJECT_DIR="/mnt/test_projectdir"
 export PROJECT_DIR_NAME=$(basename "$PROJECT_DIR")
 
-# Find simulator script - prioritize development code
-if [ -f "/development/CLI/simulator.sh" ]; then
-    SIM_CMD="/development/CLI/simulator.sh"
-    echo "Using development simulator: $SIM_CMD"
-elif [ -f "CLI/simulator.sh" ]; then
-    SIM_CMD="./CLI/simulator.sh"
-    echo "Using relative simulator: $SIM_CMD"
-elif command -v simulator >/dev/null 2>&1; then
+# Find simulator script
+if command -v simulator >/dev/null 2>&1; then
     SIM_CMD="simulator"
-    echo "Using installed simulator: $SIM_CMD"
 elif [ -f "/ti-toolbox/CLI/simulator.sh" ]; then
     SIM_CMD="/ti-toolbox/CLI/simulator.sh"
-    echo "WARNING: Using baked-in simulator (NOT development code): $SIM_CMD"
+elif [ -f "/development/CLI/simulator.sh" ]; then
+    SIM_CMD="/development/CLI/simulator.sh"
+elif [ -f "CLI/simulator.sh" ]; then
+    SIM_CMD="./CLI/simulator.sh"
 else
     echo "Error: simulator.sh not found"
     exit 1
@@ -35,6 +42,12 @@ export ELECTRODE_SHAPE="rect"
 export DIMENSIONS="2,2"
 export THICKNESS="4"
 export CURRENT="2"
+
+echo "Running simulator with:"
+echo "  Subject: $SUBJECT_CHOICES"
+echo "  Sim Mode: $SIM_MODE (U=Unipolar TI)"
+echo "  Conductivity: $CONDUCTIVITY"
+echo "  Montage: $SELECTED_MONTAGES"
 
 # Run simulator in non-interactive mode
 "$SIM_CMD" --run-direct
