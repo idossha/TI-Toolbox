@@ -33,9 +33,11 @@ except ImportError:
 try:
     from .components.console import ConsoleWidget
     from .components.action_buttons import RunStopButtons
+    from .components.path_manager import get_path_manager
 except ImportError:
     from components.console import ConsoleWidget
     from components.action_buttons import RunStopButtons
+    from components.path_manager import get_path_manager
     gui_dir = os.path.dirname(os.path.abspath(__file__))
     sys.path.insert(0, gui_dir)
     from utils import confirm_overwrite, is_verbose_message, is_important_message
@@ -248,8 +250,11 @@ class PreProcessTab(QtWidgets.QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         
-        # Get the project directory from environment or detect it
-        self.project_dir = self.detect_project_dir()
+        # Initialize path manager
+        self.pm = get_path_manager()
+        
+        # Get the project directory using PathManager
+        self.project_dir = self.pm.get_project_dir()
         if not self.project_dir:
             raise RuntimeError("Could not detect project directory. Please ensure the environment is properly set up.")
             
@@ -446,46 +451,21 @@ class PreProcessTab(QtWidgets.QWidget):
         self.update_available_subjects()
 
     def detect_project_dir(self):
-        """Detect the project directory using the same logic as the CLI."""
-        # First try to get from environment variable
-        project_dir = os.environ.get('PROJECT_DIR')
-        if project_dir and os.path.isdir(project_dir):
-            return project_dir
-            
-        # If we're in a Docker container, check /mnt for mounted directories
-        if os.path.isdir("/mnt"):
-            # Look for directories under /mnt that contain our expected structure
-            for dir_name in os.listdir("/mnt"):
-                dir_path = os.path.join("/mnt", dir_name)
-                if os.path.isdir(dir_path):
-                    # Check if this looks like a valid project directory
-                    if os.path.isdir(os.path.join(dir_path, "sourcedata")) or \
-                       os.path.isdir(os.path.join(dir_path, "derivatives")):
-                        return dir_path
-                    # If no BIDS structure found yet, just take the first directory
-                    return dir_path
+        """Detect the project directory using PathManager.
         
-        # If not in Docker, try to find the project directory relative to the script
-        script_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        potential_dirs = [
-            script_dir,  # The directory containing the script
-            os.path.dirname(script_dir),  # Parent directory
-            os.getcwd(),  # Current working directory
-        ]
-        
-        for dir_path in potential_dirs:
-            if os.path.isdir(dir_path):
-                return dir_path
-        
-        return None
+        Note: This method is deprecated and kept for backward compatibility.
+        Use self.pm.get_project_dir() instead.
+        """
+        return self.pm.get_project_dir()
 
     def update_available_subjects(self):
         """Update the list of available subjects."""
         self.subject_list.clear()
         
         # First check sourcedata directory for new subjects
-        sourcedata_dir = os.path.join(self.project_dir, "sourcedata")
-        if os.path.exists(sourcedata_dir):
+        sourcedata_dir = self.pm.get_sourcedata_dir()
+        
+        if sourcedata_dir and os.path.exists(sourcedata_dir):
             for subj_dir in glob.glob(os.path.join(sourcedata_dir, "sub-*")):
                 if os.path.isdir(subj_dir):
                     # Check for both BIDS structure and compressed format

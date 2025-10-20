@@ -40,9 +40,11 @@ except ImportError:
 try:
     from .components.console import ConsoleWidget
     from .components.action_buttons import RunStopButtons
+    from .components.path_manager import get_path_manager
 except ImportError:
     from components.console import ConsoleWidget
     from components.action_buttons import RunStopButtons
+    from components.path_manager import get_path_manager
 
 # Add the utils directory to the path
 import sys
@@ -334,11 +336,10 @@ class SimulationThread(QtCore.QThread):
         Only removes directories that don't have recent simulation results.
         """
         try:
-            # Get project directory
-            project_dir = f"/mnt/{os.environ.get('PROJECT_DIR_NAME', 'BIDS_new')}"
-            simulation_dir = os.path.join(project_dir, 'derivatives', 'SimNIBS', f'sub-{subject_id}', 'Simulations')
+            # Get simulation directory using path manager
+            simulation_dir = self.pm.get_simulation_dir(subject_id, 'Simulations')
             
-            if not os.path.exists(simulation_dir):
+            if not simulation_dir or not os.path.exists(simulation_dir):
                 return
             
             # Get current time
@@ -399,6 +400,8 @@ class SimulatorTab(QtWidgets.QWidget):
         self._project_dir_path_current = None
         # Initialize debug mode (default to False)
         self.debug_mode = False
+        # Initialize path manager
+        self.pm = get_path_manager()
         self.setup_ui()
         
         # Initialize with available subjects and montages
@@ -878,48 +881,22 @@ class SimulatorTab(QtWidgets.QWidget):
     def list_subjects(self):
         """List available subjects in the project directory."""
         try:
-            # Get project directory from environment variable
-            project_dir = f"/mnt/{os.environ.get('PROJECT_DIR_NAME', 'BIDS_new')}"
-            if not project_dir:
-                return
-            
             # Clear existing items
             self.subject_list.clear()
-            self.eeg_net_combo.clear()  # Clear existing EEG nets
+            self.eeg_net_combo.clear()
             
-            # Look for subjects in the derivatives/SimNIBS directory
-            simnibs_dir = os.path.join(project_dir, 'derivatives', 'SimNIBS')
-            if not os.path.exists(simnibs_dir):
-                return
-            
-            # Find all subject directories that have m2m_ directories
-            subjects = []
-            for subject_dir in os.listdir(simnibs_dir):
-                if subject_dir.startswith('sub-'):
-                    subject_id = subject_dir[4:]  # Remove 'sub-' prefix
-                    m2m_dir = os.path.join(simnibs_dir, subject_dir, f'm2m_{subject_id}')
-                    if os.path.isdir(m2m_dir):
-                        subjects.append(subject_id)
-                        
-                        # Check for EEG nets in eeg_positions directory
-                        eeg_dir = os.path.join(m2m_dir, 'eeg_positions')
-                        if os.path.isdir(eeg_dir):
-                            for net_file in os.listdir(eeg_dir):
-                                if net_file.endswith('.csv'):
-                                    if net_file not in [self.eeg_net_combo.itemText(i) for i in range(self.eeg_net_combo.count())]:
-                                        self.eeg_net_combo.addItem(net_file)
-            
-            # Sort subjects using natural sorting
-            def natural_sort_key(s):
-                # Split the string into parts: numbers and non-numbers
-                import re
-                return [int(c) if c.isdigit() else c.lower() for c in re.split('([0-9]+)', s)]
-            
-            subjects.sort(key=natural_sort_key)
+            # Get subjects using path manager (already sorted naturally)
+            subjects = self.pm.list_subjects()
             
             # Add subjects to list widget
-            for subject in subjects:
-                self.subject_list.addItem(subject)
+            for subject_id in subjects:
+                self.subject_list.addItem(subject_id)
+                
+                # Check for EEG nets in eeg_positions directory
+                eeg_caps = self.pm.list_eeg_caps(subject_id)
+                for net_file in eeg_caps:
+                    if net_file not in [self.eeg_net_combo.itemText(i) for i in range(self.eeg_net_combo.count())]:
+                        self.eeg_net_combo.addItem(net_file)
             
             # If no nets found, add default
             if self.eeg_net_combo.count() == 0:
@@ -945,11 +922,6 @@ class SimulatorTab(QtWidgets.QWidget):
         try:
             self.flex_search_list.clear()
             
-            # Get project directory
-            project_dir = f"/mnt/{os.environ.get('PROJECT_DIR_NAME', 'BIDS_new')}"
-            if not project_dir:
-                return
-            
             # Get selected subjects to filter flex-search outputs
             selected_subjects = [item.text() for item in self.subject_list.selectedItems()]
             
@@ -957,8 +929,8 @@ class SimulatorTab(QtWidgets.QWidget):
             if not selected_subjects:
                 return
             
-            # Search for flex-search outputs
-            simnibs_dir = os.path.join(project_dir, 'derivatives', 'SimNIBS')
+            # Get simnibs directory using path manager
+            simnibs_dir = self.pm.get_simnibs_dir()
             
             if os.path.exists(simnibs_dir):
                 # Iterate through selected subject directories only
@@ -1082,8 +1054,8 @@ class SimulatorTab(QtWidgets.QWidget):
     def update_montage_list(self, checked=None):
         """Update the list of available montages."""
         try:
-            # Get project directory from environment variable
-            project_dir = f"/mnt/{os.environ.get('PROJECT_DIR_NAME', 'BIDS_new')}"
+            # Get project directory using path manager
+            project_dir = self.pm.get_project_dir()
             if not project_dir:
                 return
             # Clear existing items
@@ -1150,9 +1122,10 @@ class SimulatorTab(QtWidgets.QWidget):
     def list_montages(self):
         """List available montages from montage_list.json."""
         try:
-            # Use environment variable for project directory like simulator.sh does
-            project_dir_name = os.environ.get('PROJECT_DIR_NAME', 'BIDS_test')
-            project_dir = f"/mnt/{project_dir_name}"
+            # Get project directory using path manager
+            project_dir = self.pm.get_project_dir()
+            if not project_dir:
+                return
             # Ensure and use the new location under code/ti-toolbox/config
             montage_file = self.ensure_montage_file_exists(project_dir)
 
@@ -1260,8 +1233,8 @@ class SimulatorTab(QtWidgets.QWidget):
                 for subject_id in selected_subjects:
                     self.cleanup_old_simulation_directories(subject_id)
             
-            # Get project directory
-            project_dir = f"/mnt/{os.environ.get('PROJECT_DIR_NAME', 'BIDS_new')}"
+            # Get project directory using path manager
+            project_dir = self.pm.get_project_dir()
             
             # Check simulation mode and validate selections
             is_montage_mode = self.sim_type_montage.isChecked()
@@ -1302,9 +1275,8 @@ class SimulatorTab(QtWidgets.QWidget):
                     # Create individual montage configurations based on selection
                     if use_mapped:
                         # Read electrode_mapping.json for this flex-search
-                        mapping_file = os.path.join(project_dir, 'derivatives', 'SimNIBS', 
-                                                  f'sub-{subject_id}', 'flex-search', search_name, 
-                                                  'electrode_mapping.json')
+                        flex_search_dir = self.pm.get_flex_search_dir(subject_id, search_name)
+                        mapping_file = os.path.join(flex_search_dir, 'electrode_mapping.json') if flex_search_dir else None
                         
                         if not os.path.exists(mapping_file):
                             self.update_output(f"Error: Could not find electrode mapping file: {mapping_file}", 'error')
@@ -1572,7 +1544,7 @@ class SimulatorTab(QtWidgets.QWidget):
             self._current_run_is_montage = is_montage_mode
             self._current_run_montages = selected_montages[:] if is_montage_mode else [cfg['montage']['name'] for cfg in flex_montage_configs]
             self._run_start_time = time.time()
-            self._project_dir_path_current = f"/mnt/{os.environ.get('PROJECT_DIR_NAME', 'BIDS_new')}"
+            self._project_dir_path_current = self.pm.get_project_dir()
 
             # Display simulation configuration
             self.update_output("--- SIMULATION CONFIGURATION ---")
@@ -1609,7 +1581,7 @@ class SimulatorTab(QtWidgets.QWidget):
             
             # Initialize report generator for this simulation session
             self.simulation_session_id = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-            project_dir_path = f"/mnt/{os.environ.get('PROJECT_DIR_NAME', 'BIDS_new')}"
+            project_dir_path = self.pm.get_project_dir()
             
             if REPORT_UTIL_AVAILABLE:
                 self.report_generator = get_simulation_report_generator(project_dir_path, self.simulation_session_id)
@@ -1748,8 +1720,8 @@ class SimulatorTab(QtWidgets.QWidget):
     def auto_generate_simulation_report(self):
         """Auto-generate individual simulation reports for each subject-montage combination."""
         try:
-            # Get project directory from environment variable
-            project_dir = f"/mnt/{os.environ.get('PROJECT_DIR_NAME', 'BIDS_new')}"
+            # Get project directory using path manager
+            project_dir = self.pm.get_project_dir()
             
             # Get selected subjects and montages
             selected_subjects = [item.text() for item in self.subject_list.selectedItems()]
@@ -1800,9 +1772,8 @@ class SimulatorTab(QtWidgets.QWidget):
                     if subject_flex_data:
                         try:
                             search_name = subject_flex_data[0]['search_name']
-                            mapping_file = os.path.join(project_dir, 'derivatives', 'SimNIBS', 
-                                                      f'sub-{subject_id}', 'flex-search', search_name, 
-                                                      'electrode_mapping.json')
+                            flex_search_dir = self.pm.get_flex_search_dir(subject_id, search_name)
+                            mapping_file = os.path.join(flex_search_dir, 'electrode_mapping.json') if flex_search_dir else None
                             
                             if os.path.exists(mapping_file):
                                 with open(mapping_file, 'r') as f:
@@ -1849,7 +1820,7 @@ class SimulatorTab(QtWidgets.QWidget):
                         
                         # Add this specific subject
                         bids_subject_id = f"sub-{subject_id}"
-                        m2m_path = os.path.join(project_dir, 'derivatives', 'SimNIBS', bids_subject_id, f'm2m_{subject_id}')
+                        m2m_path = self.pm.get_m2m_dir(subject_id)
                         report_generator.add_subject(subject_id, m2m_path, 'completed')
                         
                         # Add this specific montage
@@ -1860,8 +1831,8 @@ class SimulatorTab(QtWidgets.QWidget):
                         )
                         
                         # Get expected output files for this specific combination
-                        simulations_dir = os.path.join(project_dir, 'derivatives', 'SimNIBS', bids_subject_id, 'Simulations', montage_name)
-                        ti_dir = os.path.join(simulations_dir, 'TI')
+                        simulations_dir = self.pm.get_simulation_dir(subject_id, f'Simulations/{montage_name}')
+                        ti_dir = os.path.join(simulations_dir, 'TI') if simulations_dir else None
                         nifti_dir = os.path.join(ti_dir, 'niftis')
                         
                         output_files = {'TI': [], 'niftis': []}
@@ -1892,7 +1863,7 @@ class SimulatorTab(QtWidgets.QWidget):
             self.update_output(f"--- Generated {successful_reports}/{total_reports} individual simulation reports ---")
             
             if successful_reports > 0:
-                reports_dir = os.path.join(project_dir, 'derivatives', 'reports')
+                reports_dir = self.pm.get_reports_dir()
                 self.update_output(f"[INFO] Reports saved in: {reports_dir}")
                 
                 # Open the reports directory instead of individual files
@@ -2227,10 +2198,11 @@ class SimulatorTab(QtWidgets.QWidget):
 
     def _cleanup_partial_outputs(self):
         """Remove files/directories created during a failed simulation run."""
-        project_dir = self._project_dir_path_current or f"/mnt/{os.environ.get('PROJECT_DIR_NAME', 'BIDS_new')}"
         for subject_id in (self._current_run_subjects or []):
-            sub_root = os.path.join(project_dir, 'derivatives', 'SimNIBS', f'sub-{subject_id}')
-            sim_root = os.path.join(sub_root, 'Simulations')
+            sub_root = self.pm.get_subject_dir(subject_id)
+            sim_root = os.path.join(sub_root, 'Simulations') if sub_root else None
+            if not sim_root:
+                continue
             # Remove tmp directory entirely
             tmp_dir = os.path.join(sim_root, 'tmp')
             if os.path.isdir(tmp_dir):
@@ -2249,7 +2221,7 @@ class SimulatorTab(QtWidgets.QWidget):
                     except Exception:
                         pass
             # Mark log files created during this failed run as errored by renaming them
-            logs_dir = os.path.join(project_dir, 'derivatives', 'ti-toolbox', 'logs', f'sub-{subject_id}')
+            logs_dir = self.pm.get_logs_dir(subject_id)
             if os.path.isdir(logs_dir):
                 try:
                     for fname in list(os.listdir(logs_dir)):
@@ -2295,8 +2267,8 @@ class SimulatorTab(QtWidgets.QWidget):
                     self.update_output("Error: Invalid electrode format (should be E1, E2)")
                     return
             
-            # Get project directory
-            project_dir = f"/mnt/{os.environ.get('PROJECT_DIR_NAME', 'BIDS_new')}"
+            # Get project directory using path manager
+            project_dir = self.pm.get_project_dir()
             
             # Ensure montage file exists and get its path
             montage_file = self.ensure_montage_file_exists(project_dir)
@@ -2359,8 +2331,8 @@ class SimulatorTab(QtWidgets.QWidget):
             )
             
             if reply == QtWidgets.QMessageBox.Yes:
-                # Get project directory
-                project_dir = f"/mnt/{os.environ.get('PROJECT_DIR_NAME', 'BIDS_new')}"
+                # Get project directory using path manager
+                project_dir = self.pm.get_project_dir()
                 
                 # Ensure montage file exists and get its path
                 montage_file = self.ensure_montage_file_exists(project_dir)
@@ -2615,9 +2587,12 @@ class SimulatorTab(QtWidgets.QWidget):
     def cleanup_temporary_files(self):
         """Clean up temporary simulation completion files after processing."""
         try:
-            # Get project directory
-            project_dir = f"/mnt/{os.environ.get('PROJECT_DIR_NAME', 'BIDS_new')}"
-            temp_dir = os.path.join(project_dir, 'derivatives', 'temp')
+            # Get project directory using path manager
+            project_dir = self.pm.get_project_dir()
+            derivatives_dir = self.pm.get_derivatives_dir()
+            temp_dir = os.path.join(derivatives_dir, 'temp') if derivatives_dir else None
+            if not temp_dir:
+                return
             
             if not os.path.exists(temp_dir):
                 return
@@ -2677,8 +2652,10 @@ class SimulatorTab(QtWidgets.QWidget):
             return
         
         try:
-            project_dir_path = f"/mnt/{os.environ.get('PROJECT_DIR_NAME', 'BIDS_new')}"
-            temp_dir = os.path.join(project_dir_path, 'derivatives', 'temp')
+            derivatives_dir = self.pm.get_derivatives_dir()
+            temp_dir = os.path.join(derivatives_dir, 'temp') if derivatives_dir else None
+            if not temp_dir:
+                return
             
             if not os.path.exists(temp_dir):
                 return
@@ -2736,8 +2713,7 @@ class SimulatorTab(QtWidgets.QWidget):
     
     def _get_expected_output_files(self, project_dir, subject_id, montage_name):
         """Get expected output files for a simulation."""
-        bids_subject_id = f"sub-{subject_id}"
-        simulations_dir = os.path.join(project_dir, "derivatives", "SimNIBS", bids_subject_id, "Simulations", montage_name)
+        simulations_dir = self.pm.get_simulation_dir(subject_id, f"Simulations/{montage_name}")
         ti_dir = os.path.join(simulations_dir, "TI")
         nifti_dir = os.path.join(ti_dir, "niftis")
         
@@ -2905,9 +2881,8 @@ class SimulatorTab(QtWidgets.QWidget):
         Only removes directories that don't have recent simulation results.
         """
         try:
-            # Get project directory
-            project_dir = f"/mnt/{os.environ.get('PROJECT_DIR_NAME', 'BIDS_new')}"
-            simulation_dir = os.path.join(project_dir, 'derivatives', 'SimNIBS', f'sub-{subject_id}', 'Simulations')
+            # Get simulation directory using path manager
+            simulation_dir = self.pm.get_simulation_dir(subject_id, 'Simulations')
             
             if not os.path.exists(simulation_dir):
                 return
@@ -3154,21 +3129,18 @@ class AddMontageDialog(QtWidgets.QDialog):
             self.electrode_list.clear()
             net_file = self.net_combo.currentText()
             
-            # Get project directory from environment variable
-            project_dir = f"/mnt/{os.environ.get('PROJECT_DIR_NAME', 'BIDS_new')}"
-            if not project_dir:
+            # Get SimNIBS directory using path manager
+            simnibs_dir = self.pm.get_simnibs_dir()
+            if not simnibs_dir:
                 return
-            
-            # Look in derivatives/SimNIBS for subjects
-            simnibs_dir = os.path.join(project_dir, 'derivatives', 'SimNIBS')
             subject_found = False
             
             # Look through all subject directories
             for subject_dir in os.listdir(simnibs_dir):
                 if subject_dir.startswith('sub-'):
                     subject_id = subject_dir[4:]  # Remove 'sub-' prefix
-                    m2m_dir = os.path.join(simnibs_dir, subject_dir, f'm2m_{subject_id}')
-                    if os.path.isdir(m2m_dir):
+                    m2m_dir = self.pm.get_m2m_dir(subject_id)
+                    if m2m_dir and os.path.isdir(m2m_dir):
                         eeg_file = os.path.join(m2m_dir, 'eeg_positions', net_file)
                         if os.path.exists(eeg_file):
                             subject_found = True

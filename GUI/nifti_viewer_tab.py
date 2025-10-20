@@ -12,6 +12,12 @@ import glob
 import subprocess
 from PyQt5 import QtWidgets, QtCore, QtGui
 
+# Import path manager
+try:
+    from .components.path_manager import get_path_manager
+except ImportError:
+    from components.path_manager import get_path_manager
+
 # Define a variable for compatibility with main.py imports
 # This tab doesn't actually use NiBabel, but we need this for compatibility
 NIBABEL_AVAILABLE = True
@@ -31,28 +37,14 @@ class NiftiViewerTab(QtWidgets.QWidget):
         
     def find_base_dir(self):
         """Find the base directory for data (look for BIDS-format data)."""
-        # Get project directory from environment variable
-        project_dir_name = os.environ.get('PROJECT_DIR_NAME', 'BIDS_new')
-        base_dir = f"/mnt/{project_dir_name}"
+        # Get project directory using path manager
+        pm = get_path_manager()
+        base_dir = pm.get_project_dir()
         
         # Check if the directory exists
-        if os.path.isdir(base_dir):
+        if base_dir and os.path.isdir(base_dir):
             return base_dir
-                
-        # If not found, try some fallback directories
-        potential_dirs = [
-            "/mnt/BIDS_test",
-            "/mnt/BIDS",
-            os.getcwd(),  # Current directory as last resort
-        ]
-        
-        for dir_path in potential_dirs:
-            if os.path.isdir(dir_path):
-                return dir_path
-                
-        # If no special directory found, just use current dir
-        return os.getcwd()
-        
+           
     def detect_freesurfer_atlases(self, subject_id):
         """Detect available Freesurfer atlases for a subject.
         

@@ -29,9 +29,11 @@ except ImportError:
 try:
     from .components.console import ConsoleWidget
     from .components.action_buttons import RunStopButtons
+    from .components.path_manager import get_path_manager
 except ImportError:
     from components.console import ConsoleWidget
     from components.action_buttons import RunStopButtons
+    from components.path_manager import get_path_manager
 
 class ExSearchThread(QtCore.QThread):
     """Thread to run ex-search optimization in background to prevent GUI freezing."""
@@ -178,6 +180,9 @@ class ExSearchTab(QtWidgets.QWidget):
         self.ROI_START_TIMES = {}
         self.STEP_START_TIMES = {}
         
+        # Initialize path manager
+        self.pm = get_path_manager()
+        
         self.setup_ui()
         
         # Initialize with available subjects and check leadfields
@@ -296,7 +301,7 @@ class ExSearchTab(QtWidgets.QWidget):
             time_stamp = time.strftime('%Y%m%d_%H%M%S')
             
             # Get project directory structure
-            project_dir = os.path.join("/mnt", os.environ.get("PROJECT_DIR_NAME", ""))
+            project_dir = self.pm.get_project_dir() if hasattr(self, 'pm') else get_path_manager().get_project_dir()
             derivatives_dir = os.path.join(project_dir, 'derivatives')
             log_dir = os.path.join(derivatives_dir, 'ti-toolbox', 'logs', f'sub-{subject_id}')
             os.makedirs(log_dir, exist_ok=True)
@@ -464,7 +469,7 @@ class ExSearchTab(QtWidgets.QWidget):
                 return
                 
             # Create log file path same way as before
-            project_dir = os.path.join("/mnt", os.environ.get("PROJECT_DIR_NAME", ""))
+            project_dir = self.pm.get_project_dir() if hasattr(self, 'pm') else get_path_manager().get_project_dir()
             derivatives_dir = os.path.join(project_dir, 'derivatives')
             log_dir = os.path.join(derivatives_dir, 'ti-toolbox', 'logs', f'sub-{subject_id}')
             
@@ -776,8 +781,8 @@ class ExSearchTab(QtWidgets.QWidget):
             self.update_output("\nChecking available subjects and leadfields...")
         
         try:
-            project_dir = os.path.join("/mnt", os.environ.get("PROJECT_DIR_NAME", ""))
-            simnibs_dir = os.path.join(project_dir, "derivatives", "SimNIBS")
+            project_dir = self.pm.get_project_dir() if hasattr(self, 'pm') else get_path_manager().get_project_dir()
+            simnibs_dir = self.pm.get_simnibs_dir() if hasattr(self, 'pm') else get_path_manager().get_simnibs_dir()
             
             # Count subjects and leadfields with new naming scheme
             subject_count = 0
@@ -839,8 +844,8 @@ class ExSearchTab(QtWidgets.QWidget):
         if not subject_id:
             return
         
-        project_dir = os.path.join("/mnt", os.environ.get("PROJECT_DIR_NAME", ""))
-        subject_dir = os.path.join(project_dir, "derivatives", "SimNIBS", f"sub-{subject_id}")
+        project_dir = self.pm.get_project_dir() if hasattr(self, 'pm') else get_path_manager().get_project_dir()
+        subject_dir = self.pm.get_subject_dir(subject_id) if hasattr(self, 'pm') else get_path_manager().get_subject_dir(subject_id)
         
         try:
             # Look for leadfield directories with pattern: leadfield_vol_*
@@ -889,9 +894,8 @@ class ExSearchTab(QtWidgets.QWidget):
     
     def get_available_eeg_nets(self, subject_id):
         """Get available EEG nets for a subject."""
-        project_dir = os.path.join("/mnt", os.environ.get("PROJECT_DIR_NAME", ""))
-        eeg_positions_dir = os.path.join(project_dir, "derivatives", "SimNIBS", f"sub-{subject_id}",
-                                        f"m2m_{subject_id}", "eeg_positions")
+        pm = self.pm if hasattr(self, 'pm') else get_path_manager()
+        eeg_positions_dir = pm.get_eeg_positions_dir(subject_id)
         
         eeg_nets = []
         if os.path.exists(eeg_positions_dir):
@@ -925,9 +929,8 @@ class ExSearchTab(QtWidgets.QWidget):
     def create_leadfield_with_net(self, subject_id, eeg_net_file):
         """Create leadfield with selected EEG net."""
         try:
-            project_dir = os.path.join("/mnt", os.environ.get("PROJECT_DIR_NAME", ""))
-            m2m_dir = os.path.join(project_dir, "derivatives", "SimNIBS", f"sub-{subject_id}",
-                                  f"m2m_{subject_id}")
+            pm = self.pm if hasattr(self, 'pm') else get_path_manager()
+            m2m_dir = pm.get_m2m_dir(subject_id)
             eeg_cap_path = os.path.join(m2m_dir, "eeg_positions", eeg_net_file)
             net_name_clean = eeg_net_file.replace('.csv', '')
             
@@ -978,12 +981,13 @@ class ExSearchTab(QtWidgets.QWidget):
         
         try:
             # Try to find the EEG cap file for this net
-            project_dir = os.path.join("/mnt", os.environ.get("PROJECT_DIR_NAME", ""))
+            project_dir = self.pm.get_project_dir() if hasattr(self, 'pm') else get_path_manager().get_project_dir()
             
             # First try the subject's eeg_positions directory
             eeg_cap_file = f"{net_name}.csv"
-            eeg_path = os.path.join(project_dir, "derivatives", "SimNIBS", f"sub-{subject_id}",
-                                  f"m2m_{subject_id}", "eeg_positions", eeg_cap_file)
+            pm = self.pm if hasattr(self, 'pm') else get_path_manager()
+            m2m_dir = pm.get_m2m_dir(subject_id)
+            eeg_path = os.path.join(m2m_dir, "eeg_positions", eeg_cap_file) if m2m_dir else None
             
             if not os.path.exists(eeg_path):
                 # Fallback to assets directory
@@ -1021,12 +1025,12 @@ class ExSearchTab(QtWidgets.QWidget):
     def list_subjects(self):
         """List available subjects in the combo box."""
         self.subject_combo.clear()
-        project_dir = os.path.join("/mnt", os.environ.get("PROJECT_DIR_NAME", ""))
+        project_dir = self.pm.get_project_dir() if hasattr(self, 'pm') else get_path_manager().get_project_dir()
         if not project_dir or not os.path.exists(project_dir):
             self.update_status("No project directory selected", error=True)
             return
             
-        subjects_dir = os.path.join(project_dir, "derivatives", "SimNIBS")
+        subjects_dir = self.pm.get_simnibs_dir() if hasattr(self, 'pm') else get_path_manager().get_simnibs_dir()
         if not os.path.exists(subjects_dir):
             self.update_status("No subjects directory found", error=True)
             return
@@ -1061,9 +1065,9 @@ class ExSearchTab(QtWidgets.QWidget):
             if not subject_id:
                 return
             
-            project_dir = os.path.join("/mnt", os.environ.get("PROJECT_DIR_NAME", ""))
-            roi_dir = os.path.join(project_dir, "derivatives", "SimNIBS", f"sub-{subject_id}",
-                                 f"m2m_{subject_id}", "ROIs")
+            pm = self.pm if hasattr(self, 'pm') else get_path_manager()
+            m2m_dir = pm.get_m2m_dir(subject_id)
+            roi_dir = os.path.join(m2m_dir, "ROIs") if m2m_dir else None
             
             self.roi_list.clear()
             
@@ -1131,9 +1135,9 @@ class ExSearchTab(QtWidgets.QWidget):
         if msg.exec_() == QtWidgets.QMessageBox.Yes:
             try:
                 selected_subject = self.subject_combo.currentText()
-                project_dir = os.path.join("/mnt", os.environ.get("PROJECT_DIR_NAME", ""))
-                roi_dir = os.path.join(project_dir, "derivatives", "SimNIBS", f"sub-{selected_subject}",
-                                     f"m2m_{selected_subject}", "ROIs")
+                pm = get_path_manager()
+                m2m_dir = pm.get_m2m_dir(selected_subject)
+                roi_dir = os.path.join(m2m_dir, "ROIs") if m2m_dir else None
                 roi_list_file = os.path.join(roi_dir, "roi_list.txt")
                 # Read existing ROIs
                 if os.path.exists(roi_list_file):
@@ -1219,8 +1223,9 @@ class ExSearchTab(QtWidgets.QWidget):
             return
             
         subject_id = self.subject_combo.currentText()
-        project_dir = os.path.join("/mnt", os.environ.get("PROJECT_DIR_NAME", ""))
-        ex_search_dir = os.path.join(project_dir, "derivatives", "SimNIBS", f"sub-{subject_id}", "ex-search")
+        project_dir = self.pm.get_project_dir() if hasattr(self, 'pm') else get_path_manager().get_project_dir()
+        pm = self.pm if hasattr(self, 'pm') else get_path_manager()
+        ex_search_dir = pm.get_ex_search_dir(subject_id)
         
         # Show confirmation dialog
         selected_rois = self.roi_list.selectedItems()
@@ -1316,8 +1321,9 @@ class ExSearchTab(QtWidgets.QWidget):
         selected_hdf5_path = leadfield_data["hdf5_path"]
         
         # Get ROI coordinates for environment variables
-        roi_dir = os.path.join(project_dir, "derivatives", "SimNIBS", f"sub-{subject_id}", 
-                              f"m2m_{subject_id}", "ROIs")
+        pm = self.pm if hasattr(self, 'pm') else get_path_manager()
+        m2m_dir = pm.get_m2m_dir(subject_id)
+        roi_dir = os.path.join(m2m_dir, "ROIs") if m2m_dir else None
         roi_file = os.path.join(roi_dir, current_roi)
         
         try:
@@ -1447,8 +1453,9 @@ class ExSearchTab(QtWidgets.QWidget):
         
         # Create directory name: roi_leadfield format  
         output_dir_name = f"{roi_name}_{eeg_net_name}"
-        mesh_dir = os.path.join(project_dir, "derivatives", "SimNIBS", f"sub-{subject_id}", 
-                               "ex-search", output_dir_name)
+        pm = self.pm if hasattr(self, 'pm') else get_path_manager()
+        ex_search_dir = pm.get_ex_search_dir(subject_id)
+        mesh_dir = os.path.join(ex_search_dir, output_dir_name) if ex_search_dir else None
         
         # Create temporary roi_list.txt with just the current ROI for roi-analyzer.py
         roi_dir = env.get("ROI_DIR")
@@ -1520,8 +1527,9 @@ class ExSearchTab(QtWidgets.QWidget):
         
         # Create directory name: roi_leadfield format
         output_dir_name = f"{roi_name}_{eeg_net_name}"
-        mesh_dir = os.path.join(project_dir, "derivatives", "SimNIBS", f"sub-{subject_id}", 
-                               "ex-search", output_dir_name)
+        pm = self.pm if hasattr(self, 'pm') else get_path_manager()
+        ex_search_dir = pm.get_ex_search_dir(subject_id)
+        mesh_dir = os.path.join(ex_search_dir, output_dir_name) if ex_search_dir else None
         
         # Log mesh processing step start
         self.log_step_start("Mesh processing")
@@ -1584,8 +1592,9 @@ class ExSearchTab(QtWidgets.QWidget):
             self.update_output("\nStep 2: ROI analyzer skipped (integrated into mesh processing)")
         
         # Skip directly to mesh processing
-        roi_dir = os.path.join(project_dir, "derivatives", "SimNIBS", f"sub-{subject_id}", 
-                              f"m2m_{subject_id}", "ROIs")
+        pm = self.pm if hasattr(self, 'pm') else get_path_manager()
+        m2m_dir = pm.get_m2m_dir(subject_id)
+        roi_dir = os.path.join(m2m_dir, "ROIs") if m2m_dir else None
         self.run_mesh_processing(subject_id, project_dir, ex_search_dir, roi_dir, selected_roi_names, env)
     
     def run_mesh_processing(self, subject_id, project_dir, ex_search_dir, roi_dir, selected_roi_names, env):
@@ -1717,8 +1726,9 @@ class ExSearchTab(QtWidgets.QWidget):
         # Log final completion with summary
         subject_id = self.subject_combo.currentText()
         total_rois = len(self.roi_processing_queue)
-        project_dir = os.path.join("/mnt", os.environ.get("PROJECT_DIR_NAME", ""))
-        ex_search_dir = os.path.join(project_dir, "derivatives", "SimNIBS", f"sub-{subject_id}", "ex-search")
+        project_dir = self.pm.get_project_dir() if hasattr(self, 'pm') else get_path_manager().get_project_dir()
+        pm = self.pm if hasattr(self, 'pm') else get_path_manager()
+        ex_search_dir = pm.get_ex_search_dir(subject_id)
         
         self.log_exsearch_complete(subject_id, total_rois, ex_search_dir)
         
@@ -1963,8 +1973,9 @@ class AddROIDialog(QtWidgets.QDialog):
             if not subject_id:
                 QtWidgets.QMessageBox.warning(self, "Error", "Please select a subject first")
                 return
-            project_dir = os.path.join("/mnt", os.environ.get("PROJECT_DIR_NAME", ""))
-            t1_path = os.path.join(project_dir, "derivatives", "SimNIBS", f"sub-{subject_id}", f"m2m_{subject_id}", "T1.nii.gz")
+            project_dir = self.pm.get_project_dir() if hasattr(self, 'pm') else get_path_manager().get_project_dir()
+            pm = self.pm if hasattr(self, 'pm') else get_path_manager()
+            t1_path = pm.get_t1_path(subject_id)
             if not os.path.exists(t1_path):
                 QtWidgets.QMessageBox.warning(self, "Error", f"T1 NIfTI file not found: {t1_path}")
                 return
@@ -1993,9 +2004,9 @@ class AddROIDialog(QtWidgets.QDialog):
                 roi_name += '.csv'
             
             # Create ROI file
-            project_dir = os.path.join("/mnt", os.environ.get("PROJECT_DIR_NAME", ""))
-            roi_dir = os.path.join(project_dir, "derivatives", "SimNIBS", f"sub-{subject_id}",
-                                 f"m2m_{subject_id}", "ROIs")
+            pm = self.pm if hasattr(self, 'pm') else get_path_manager()
+            m2m_dir = pm.get_m2m_dir(subject_id)
+            roi_dir = os.path.join(m2m_dir, "ROIs") if m2m_dir else None
             
             os.makedirs(roi_dir, exist_ok=True)
             
@@ -2114,7 +2125,7 @@ class EEGNetSelectionDialog(QtWidgets.QDialog):
         try:
             # Get path to EEG net file
             if self.subject_id:
-                project_dir = os.path.join("/mnt", os.environ.get("PROJECT_DIR_NAME", ""))
+                project_dir = self.pm.get_project_dir() if hasattr(self, 'pm') else get_path_manager().get_project_dir()
                 eeg_path = os.path.join(project_dir, "derivatives", "SimNIBS", f"sub-{self.subject_id}",
                                       f"m2m_{self.subject_id}", "eeg_positions", selected_net)
             else:

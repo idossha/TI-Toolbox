@@ -43,9 +43,11 @@ except ImportError:
 try:
     from .components.console import ConsoleWidget
     from .components.action_buttons import RunStopButtons
+    from .components.path_manager import get_path_manager
 except ImportError:
     from components.console import ConsoleWidget
     from components.action_buttons import RunStopButtons
+    from components.path_manager import get_path_manager
 
 # Add parent directory to path for utils
 parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -126,17 +128,17 @@ class LeadfieldGenerationThread(QtCore.QThread):
                 
                 self.output_signal.emit(f"Log file: {log_file}", 'info')
             
-            # Setup paths
-            m2m_dir = os.path.join(self.project_dir, "derivatives", "SimNIBS", 
-                                   f"sub-{self.subject_id}", f"m2m_{self.subject_id}")
+            # Setup paths using path manager
+            pm = get_path_manager()
+            m2m_dir = pm.get_m2m_dir(self.subject_id)
             
-            if not os.path.exists(m2m_dir):
-                self.error_signal.emit(f"m2m directory not found: {m2m_dir}")
+            if not m2m_dir or not os.path.exists(m2m_dir):
+                self.error_signal.emit(f"m2m directory not found for subject {self.subject_id}")
                 self.finished_signal.emit(False, "", "")
                 return
             
             # Check if target leadfield already exists
-            subject_derivatives = os.path.join(self.project_dir, "derivatives", "SimNIBS", f"sub-{self.subject_id}")
+            subject_derivatives = pm.get_subject_dir(self.subject_id)
             movea_leadfield_dir = os.path.join(subject_derivatives, 'MOVEA', 'leadfields')
             net_name = self.eeg_net_file.replace('.csv', '')
             lfm_filename = f"{net_name}_leadfield.npy"
@@ -304,10 +306,10 @@ class MOVEAOptimizationThread(QtCore.QThread):
                 import time
                 time_stamp = time.strftime('%Y%m%d_%H%M%S')
                 subject_id = self.config['subject_id']
-                project_dir = os.path.join("/mnt", os.environ.get("PROJECT_DIR_NAME", ""))
-                derivatives_dir = os.path.join(project_dir, 'derivatives')
-                log_dir = os.path.join(derivatives_dir, 'ti-toolbox', 'logs', f'sub-{subject_id}')
-                os.makedirs(log_dir, exist_ok=True)
+                pm = get_path_manager()
+                log_dir = pm.get_logs_dir(subject_id)
+                if log_dir:
+                    os.makedirs(log_dir, exist_ok=True)
                 log_file = os.path.join(log_dir, f'MOVEA_{time_stamp}.log')
                 
                 # Set environment variable for external scripts
@@ -617,6 +619,9 @@ class MOVEATab(QtWidgets.QWidget):
         self.debug_mode = False
         self.presets = {}
         
+        # Initialize path manager
+        self.pm = get_path_manager()
+        
         # Logger will be created per-operation with subject-specific paths
         self.logger = None
             
@@ -640,7 +645,6 @@ class MOVEATab(QtWidgets.QWidget):
                 with open(presets_file, 'r') as f:
                     data = json.load(f)
                     self.presets = data.get('regions', {})
-                    print(f"✓ Loaded {len(self.presets)} ROI presets from presets.json")
             else:
                 # Fallback to hardcoded presets
                 self.presets = {
@@ -966,13 +970,13 @@ class MOVEATab(QtWidgets.QWidget):
     def list_subjects(self):
         """List available subjects in the combo box."""
         self.subject_combo.clear()
-        project_dir = os.path.join("/mnt", os.environ.get("PROJECT_DIR_NAME", ""))
         
-        if not project_dir or not os.path.exists(project_dir):
-            self.update_console("No project directory found", 'error')
-            return
+        # Get subjects using path manager
+        subjects = self.pm.list_subjects()
+        self.subject_combo.addItems(subjects)
+        return
         
-        subjects_dir = os.path.join(project_dir, "derivatives", "SimNIBS")
+        # Old code below - removed, now using PathManager
         if not os.path.exists(subjects_dir):
             self.update_console("No subjects directory found", 'error')
             return
@@ -1012,8 +1016,7 @@ class MOVEATab(QtWidgets.QWidget):
         if not subject_id:
             return
         
-        project_dir = os.path.join("/mnt", os.environ.get("PROJECT_DIR_NAME", ""))
-        subject_dir = os.path.join(project_dir, "derivatives", "SimNIBS", f"sub-{subject_id}")
+        subject_dir = self.pm.get_subject_dir(subject_id)
         
         # NEW: Search in MOVEA/leadfields directory
         movea_leadfield_dir = os.path.join(subject_dir, "MOVEA", "leadfields")
@@ -1066,9 +1069,7 @@ class MOVEATab(QtWidgets.QWidget):
             return
         
         # Get available EEG nets
-        project_dir = os.path.join("/mnt", os.environ.get("PROJECT_DIR_NAME", ""))
-        m2m_dir = os.path.join(project_dir, "derivatives", "SimNIBS", f"sub-{subject_id}", f"m2m_{subject_id}")
-        eeg_positions_dir = os.path.join(m2m_dir, "eeg_positions")
+        eeg_positions_dir = self.pm.get_eeg_positions_dir(subject_id)
         
         eeg_nets = []
         if os.path.exists(eeg_positions_dir):
@@ -1097,7 +1098,7 @@ class MOVEATab(QtWidgets.QWidget):
             return
         
         # Get project directory
-        project_dir = os.path.join("/mnt", os.environ.get("PROJECT_DIR_NAME", ""))
+        project_dir = self.pm.get_project_dir()
         if not project_dir or not os.path.exists(project_dir):
             QtWidgets.QMessageBox.warning(self, "No Project", "Project directory not found")
             return
@@ -1250,8 +1251,11 @@ class MOVEATab(QtWidgets.QWidget):
         # Set output directory with timestamp to avoid overwriting
         import time
         timestamp = time.strftime('%Y%m%d_%H%M%S')
-        project_dir = os.path.join("/mnt", os.environ.get("PROJECT_DIR_NAME", ""))
-        output_dir = os.path.join(project_dir, "derivatives", "SimNIBS", f"sub-{subject_id}", "MOVEA", timestamp)
+        subject_dir = self.pm.get_subject_dir(subject_id)
+        output_dir = os.path.join(subject_dir, "MOVEA", timestamp) if subject_dir else None
+        if not output_dir:
+            QtWidgets.QMessageBox.warning(self, "Error", "Could not determine output directory")
+            return
         
         # Find electrode coordinates CSV file
         # NEW Path structure:
