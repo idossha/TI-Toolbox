@@ -30,7 +30,7 @@ class OptimizeTab(QtWidgets.QWidget):
         
         # Create dropdown menu
         self.method_combo = QtWidgets.QComboBox()
-        self.method_combo.addItems(["Ex-Search", "Flex-Search", "MOVEA"])
+        self.method_combo.addItems(["Ex-Search", "Flex-Search; Weise et. al. 2025", "MOVEA; Wang et. al. 2023"])
         self.method_combo.setMinimumWidth(200)
         self.method_combo.currentIndexChanged.connect(self.on_method_changed)
         selector_layout.addWidget(self.method_combo)

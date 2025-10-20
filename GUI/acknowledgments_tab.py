@@ -44,11 +44,26 @@ class AcknowledgmentsTab(QtWidgets.QWidget):
         # Add all the acknowledgment sections
         self.add_acknowledgment_section(
             scroll_layout, 
-            "SimNIBS",
-            "SimNIBS (Simulation of Non-invasive Brain Stimulation) is a software package for realistic modeling and simulation of non-invasive brain stimulation techniques.<br><br>"
-            "<br>"
-            "<b>CHARM Segmentation Pipeline:</b> Puonti O, Van Leemput K, Saturnino GB, Siebner HR, Madsen KH, Thielscher A. (2020). Accurate and robust whole-head segmentation from magnetic resonance images for individualized head modeling. Neuroimage, 219:117044.<br><br>"
-            "<b>Flex-Search: Leadfield-free TES Optimization:</b> Weise K, Madsen KH, Worbs T, Knösche TR, Korshøj A, Thielscher A, A Leadfield-Free Optimization Framework for Transcranially Applied Electric Currents, bioRxiv 10.1101/2024.12.18.629095"
+            "TI-Toolbox",
+            "Haber I, Jackson A, Thielscher A, Hai A, Tononi G. Temporal Interference Toolbox: A comprehensive pipeline for transcranial electrical stimulation optimization. bioRxiv 2025.10.06.680781; https://doi.org/10.1101/2025.10.06.680781."
+        )
+
+        self.add_acknowledgment_section(
+            scroll_layout, 
+            "SimNIBS CHARM Segmentation Pipeline",
+            "Puonti O, Van Leemput K, Saturnino GB, Siebner HR, Madsen KH, Thielscher A. (2020). Accurate and robust whole-head segmentation from magnetic resonance images for individualized head modeling. Neuroimage, 219:117044."
+        )
+
+        self.add_acknowledgment_section(
+            scroll_layout, 
+            "Flex-Search Optimization Algorithm",
+            "Weise K, Madsen KH, Worbs T, Knösche TR, Korshøj A, Thielscher A, A Leadfield-Free Optimization Framework for Transcranially Applied Electric Currents, bioRxiv 10.1101/2024.12.18.629095"
+        )
+
+        self.add_acknowledgment_section(
+            scroll_layout, 
+            "MOVEA Optimization Algorithm",
+            "Wang, Kexin Lou, Zeming Liu, Pengfei Wei, Quanying Liu,Multi-objective optimization via evolutionary algorithm (MOVEA) for high-definition transcranial electrical stimulation of the human brain,NeuroImage, https://doi.org/10.1016/j.neuroimage.2023.120331."
         )
         
         self.add_acknowledgment_section(
@@ -60,7 +75,7 @@ class AcknowledgmentsTab(QtWidgets.QWidget):
         self.add_acknowledgment_section(
             scroll_layout, 
             "FreeSurfer",
-            "Fischl B. FreeSurfer. Neuroimage. 2012 Aug 15;62(2):774-81. doi: 10.1016/j.neuroimage.2012.01.021.<br><a href='https://pmc.ncbi.nlm.nih.gov/articles/PMC3685476/'>PMC3685476</a>"
+            "Fischl B. FreeSurfer. Neuroimage. 2012 Aug 15;62(2):774-81. https://doi.org/10.1016/j.neuroimage.2012.01.021."
         )
         
         self.add_acknowledgment_section(
@@ -80,7 +95,7 @@ class AcknowledgmentsTab(QtWidgets.QWidget):
         self.add_acknowledgment_section(
             scroll_layout, 
             "BIDS",
-            "Gorgolewski, K., Auer, T., Calhoun, V. et al. The brain imaging data structure, a format for organizing and describing outputs of neuroimaging experiments. Sci Data 3, 160044 (2016).<br><a href='https://www.nature.com/articles/sdata201644'>doi:10.1038/sdata.2016.44</a>"
+            "Gorgolewski, K., Auer, T., Calhoun, V. et al. The brain imaging data structure, a format for organizing and describing outputs of neuroimaging experiments. Sci Data 3, 160044 (2016). https://doi.org/10.1038/sdata.2016.44"
         )
         
         self.add_acknowledgment_section(
@@ -92,8 +107,7 @@ class AcknowledgmentsTab(QtWidgets.QWidget):
         self.add_acknowledgment_section(
             scroll_layout, 
             "Gmsh",
-            "C. Geuzaine and J.-F. Remacle. Gmsh: a three-dimensional finite element mesh generator with built-in pre- and post-processing facilities. International Journal for Numerical Methods in Engineering 79(11), pp. 1309-1331, 2009.<br><br>"
-            "Visit the official website: <a href='https://gmsh.info/'>https://gmsh.info/</a>"
+            "C. Geuzaine and J.-F. Remacle. Gmsh: a three-dimensional finite element mesh generator with built-in pre- and post-processing facilities. International Journal for Numerical Methods in Engineering 79(11), pp. 1309-1331, 2009."
         )
         
         # Add a note at the bottom about missing acknowledgments
