@@ -98,7 +98,7 @@ def run_simulation(montage_name, montage, is_xyz=False, net=None):
     # Setup SimNIBS session
     S = sim_struct.SESSION()
     S.subpath = base_subpath
-    S.fnamehead = subject_id  # Explicitly set output filename prefix
+    S.fnamehead = os.path.join(base_subpath, f"{subject_id}.msh")  # Full path to head mesh
     S.anisotropy_type = sim_type
     S.pathfem = hf_dir
     if not is_xyz:

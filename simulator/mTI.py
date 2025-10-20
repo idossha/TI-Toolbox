@@ -126,7 +126,7 @@ def run_simulation(montage_name, electrode_pairs):
     # Setup SimNIBS session
     S = sim_struct.SESSION()
     S.subpath = base_subpath
-    S.fnamehead = subject_id  # Explicitly set output filename prefix
+    S.fnamehead = os.path.join(base_subpath, f"{subject_id}.msh")  # Full path to head mesh
     S.anisotropy_type = sim_type
     S.pathfem = hf_dir
     S.eeg_cap = os.path.join(base_subpath, "eeg_positions", eeg_net)
