@@ -77,10 +77,6 @@ montage_formatter.py (format results)
 visualizer.py (generate plots)
 ```
 
-## References
-
-Based on Huang, Y., & Parra, L. C. (2019). *Can transcranial electric stimulation with multiple electrodes reach deep targets?* Brain Stimulation, 12(1), 30-40.
-
 ## Notes
 
 - Leadfield generation requires SimNIBS 4.0+
