@@ -18,10 +18,6 @@ try:
 except ImportError:
     from components.path_manager import get_path_manager
 
-# Define a variable for compatibility with main.py imports
-# This tab doesn't actually use NiBabel, but we need this for compatibility
-NIBABEL_AVAILABLE = True
-
 class NiftiViewerTab(QtWidgets.QWidget):
     """Tab for NIfTI visualization using Freeview."""
     

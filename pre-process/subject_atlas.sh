@@ -4,7 +4,7 @@
 
 # Source the logging utility
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "$script_dir/../utils/bash_logging.sh"
+source "$script_dir/../tools/bash_logging.sh"
 
 # Initialize logging
 set_logger_name "subject_atlas"

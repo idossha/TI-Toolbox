@@ -15,7 +15,7 @@ if parent_dir not in sys.path:
     sys.path.insert(0, parent_dir)
 
 try:
-    from utils import logging_util
+    from tools import logging_util
     LOGGER_AVAILABLE = True
 except ImportError:
     LOGGER_AVAILABLE = False

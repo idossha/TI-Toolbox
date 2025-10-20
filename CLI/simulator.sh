@@ -316,7 +316,7 @@ except Exception as e:
         echo -e "${CYAN}Generating simulation reports...${RESET}"
         
         # Source the reporting utilities
-        reporting_script="$script_dir/../utils/bash_reporting.sh"
+        reporting_script="$script_dir/../tools/bash_reporting.sh"
         if [ -f "$reporting_script" ]; then
             source "$reporting_script"
             
@@ -1757,11 +1757,11 @@ echo -e "${GREEN}All tasks completed successfully.${RESET}"
 echo -e "${CYAN}Generating simulation reports...${RESET}"
 
 # Source the reporting utilities
-reporting_script="$script_dir/../utils/bash_reporting.sh"
+reporting_script="$script_dir/../tools/bash_reporting.sh"
 if [ -f "$reporting_script" ]; then
     source "$reporting_script"
-elif [ -f "/development/utils/bash_reporting.sh" ]; then
-    source "/development/utils/bash_reporting.sh"
+elif [ -f "/development/tools/bash_reporting.sh" ]; then
+    source "/development/tools/bash_reporting.sh"
     
     # Initialize reporting
     init_reporting "$project_dir"

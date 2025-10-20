@@ -48,7 +48,7 @@ except ImportError:
 
 # Add logging utility import
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
-from utils import logging_util
+from tools import logging_util
 
 # Check if simnibs is available
 if mesh_io is None or run_simnibs is None or sim_struct is None or TI is None:

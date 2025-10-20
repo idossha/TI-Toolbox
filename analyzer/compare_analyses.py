@@ -16,8 +16,8 @@ from typing import List, Tuple
 
 # Add the parent directory to the path to access utils
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
-from utils import logging_util
-from utils.logging_util import get_logger
+from tools import logging_util
+from tools.logging_util import get_logger
 
 # Initialize centralized group analysis logger (will be configured in setup_group_logger)
 group_logger = None

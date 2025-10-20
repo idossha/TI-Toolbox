@@ -12,11 +12,11 @@
 # Source the logging utility
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 echo "DEBUG: Script directory: $script_dir" >&2
-echo "DEBUG: Looking for logging utility at: $script_dir/../utils/bash_logging.sh" >&2
+echo "DEBUG: Looking for logging utility at: $script_dir/../tools/bash_logging.sh" >&2
 
-if [[ -f "$script_dir/../utils/bash_logging.sh" ]]; then
+if [[ -f "$script_dir/../tools/bash_logging.sh" ]]; then
     echo "DEBUG: Logging utility file exists, sourcing it..." >&2
-    source "$script_dir/../utils/bash_logging.sh"
+    source "$script_dir/../tools/bash_logging.sh"
     echo "DEBUG: Logging utility sourced" >&2
     
     # Check if key functions are available
@@ -32,7 +32,7 @@ if [[ -f "$script_dir/../utils/bash_logging.sh" ]]; then
         echo "DEBUG: log_info function is NOT available" >&2
     fi
 else
-    echo "ERROR: Logging utility file not found at $script_dir/../utils/bash_logging.sh" >&2
+    echo "ERROR: Logging utility file not found at $script_dir/../tools/bash_logging.sh" >&2
     echo "ERROR: Logging will not be available" >&2
 fi
 

@@ -43,7 +43,7 @@ from pre_process_tab import PreProcessTab
 from system_monitor_tab import SystemMonitorTab
 from nifti_viewer_tab import NiftiViewerTab
 from analyzer_tab import AnalyzerTab
-from optimize_tab import OptimizeTab
+from optimizer_tab import OptimizerTab
 from settings_menu import SettingsMenuButton
 
 class MainWindow(QtWidgets.QMainWindow):
@@ -89,16 +89,16 @@ class MainWindow(QtWidgets.QMainWindow):
         
         # Create all tabs first
         self.pre_process_tab = PreProcessTab(self)
-        self.optimize_tab = OptimizeTab(self)
+        self.optimizer_tab = OptimizerTab(self)
         self.simulator_tab = SimulatorTab(self)
         self.analyzer_tab = AnalyzerTab(self)
         self.nifti_viewer_tab = NiftiViewerTab(self)
         self.system_monitor_tab = SystemMonitorTab(self)
 
         # Create aliases for backward compatibility - access to individual optimization tabs
-        self.ex_search_tab = self.optimize_tab.ex_search_tab
-        self.flex_search_tab = self.optimize_tab.flex_search_tab
-        self.movea_tab = self.optimize_tab.movea_tab
+        self.ex_search_tab = self.optimizer_tab.ex_search_tab
+        self.flex_search_tab = self.optimizer_tab.flex_search_tab
+        self.movea_tab = self.optimizer_tab.movea_tab
 
         # Connect analyzer tab signals
         self.analyzer_tab.analysis_completed.connect(self.on_analysis_completed)
@@ -108,7 +108,7 @@ class MainWindow(QtWidgets.QMainWindow):
         
         # Add all functional tabs
         self.tab_widget.addTab(self.pre_process_tab, "Pre-processing")
-        self.tab_widget.addTab(self.optimize_tab, "Optimize")
+        self.tab_widget.addTab(self.optimizer_tab, "Optimizer")
         self.tab_widget.addTab(self.simulator_tab, "Simulator")
         self.tab_widget.addTab(self.analyzer_tab, "Analyzer")
         self.tab_widget.addTab(self.nifti_viewer_tab, "NIfTI Viewer")
@@ -207,12 +207,12 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def resizeEvent(self, event):
         # Ensure overlays resize with the window
-        for tab in [self.pre_process_tab, self.simulator_tab, self.optimize_tab]:
+        for tab in [self.pre_process_tab, self.simulator_tab, self.optimizer_tab]:
             if hasattr(tab, '_busy_overlay'):
                 tab._busy_overlay.setGeometry(tab.rect())
         # Also check the sub-tabs within optimize_tab
-        if hasattr(self, 'optimize_tab'):
-            for sub_tab in [self.optimize_tab.ex_search_tab, self.optimize_tab.flex_search_tab, self.optimize_tab.movea_tab]:
+        if hasattr(self, 'optimizer_tab'):
+            for sub_tab in [self.optimizer_tab.ex_search_tab, self.optimizer_tab.flex_search_tab, self.optimizer_tab.movea_tab]:
                 if hasattr(sub_tab, '_busy_overlay'):
                     sub_tab._busy_overlay.setGeometry(sub_tab.rect())
         super().resizeEvent(event)

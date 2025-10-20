@@ -18,52 +18,29 @@ import datetime
 import tempfile
 import shutil
 
-try:
-    from PyQt5 import QtWidgets, QtCore, QtGui
-    PYQT5_AVAILABLE = True
-except ImportError:
-    PYQT5_AVAILABLE = False
-    print("Warning: PyQt5 not available")
+from PyQt5 import QtWidgets, QtCore, QtGui
 
-from confirmation_dialog import ConfirmationDialog
 try:
+    from .confirmation_dialog import ConfirmationDialog
     from .utils import confirm_overwrite, is_verbose_message, is_important_message
-except ImportError:
-    # Fallback for when running as standalone script
-    import os
-    import sys
-    gui_dir = os.path.dirname(os.path.abspath(__file__))
-    sys.path.insert(0, gui_dir)
-    from utils import confirm_overwrite, is_verbose_message, is_important_message
-
-# Import console and button components
-try:
     from .components.console import ConsoleWidget
     from .components.action_buttons import RunStopButtons
     from .components.path_manager import get_path_manager
 except ImportError:
+    from confirmation_dialog import ConfirmationDialog
+    from utils import confirm_overwrite, is_verbose_message, is_important_message
     from components.console import ConsoleWidget
     from components.action_buttons import RunStopButtons
     from components.path_manager import get_path_manager
 
-# Add the utils directory to the path
+# Add project root to path for tools import
 import sys
 import os
-utils_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'utils')
-if utils_dir not in sys.path:
-    sys.path.insert(0, utils_dir)
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
 
-# Now import from utils
-try:
-    from report_util import get_simulation_report_generator
-    REPORT_UTIL_AVAILABLE = True
-except ImportError as e:
-    print(f"Warning: Could not import report utilities: {e}")
-    REPORT_UTIL_AVAILABLE = False
-    # Define a fallback function
-    def get_simulation_report_generator(*args, **kwargs):
-        print("Warning: Report generation not available")
-        return None
+from tools.report_util import get_simulation_report_generator
 
 # Utility: strip ANSI/VT100 escape sequences from text (e.g., "\x1b[0;32m")
 ANSI_ESCAPE_PATTERN = re.compile(r"\x1B\[[0-?]*[ -/]*[@-~]")
@@ -1583,10 +1560,7 @@ class SimulatorTab(QtWidgets.QWidget):
             self.simulation_session_id = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
             project_dir_path = self.pm.get_project_dir()
             
-            if REPORT_UTIL_AVAILABLE:
-                self.report_generator = get_simulation_report_generator(project_dir_path, self.simulation_session_id)
-            else:
-                self.report_generator = None
+            self.report_generator = get_simulation_report_generator(project_dir_path, self.simulation_session_id)
             
             # Add simulation parameters to report (including custom conductivities)
             if self.report_generator:
@@ -1623,7 +1597,7 @@ class SimulatorTab(QtWidgets.QWidget):
                 try:
                     with open(montage_file, 'r') as f:
                         montage_data = json.load(f)
-                except:
+                except Exception:
                     montage_data = {"nets": {}}
                 
                 for montage_name in selected_montages:
@@ -1775,13 +1749,13 @@ class SimulatorTab(QtWidgets.QWidget):
                             flex_search_dir = self.pm.get_flex_search_dir(subject_id, search_name)
                             mapping_file = os.path.join(flex_search_dir, 'electrode_mapping.json') if flex_search_dir else None
                             
-                            if os.path.exists(mapping_file):
+                            if mapping_file and os.path.exists(mapping_file):
                                 with open(mapping_file, 'r') as f:
                                     mapping_data = json.load(f)
                                     eeg_net = mapping_data.get('eeg_net', 'EGI_template.csv')
                             else:
                                 eeg_net = 'EGI_template.csv'
-                        except:
+                        except Exception:
                             eeg_net = 'EGI_template.csv'
                     else:
                         eeg_net = 'EGI_template.csv'
@@ -2629,7 +2603,7 @@ class SimulatorTab(QtWidgets.QWidget):
                 if not os.listdir(temp_dir):
                     os.rmdir(temp_dir)
                     self.update_output("[CLEANUP] Removed empty temp directory")
-            except:
+            except OSError:
                 pass  # Directory not empty or permission issue, ignore
                 
         except Exception as e:

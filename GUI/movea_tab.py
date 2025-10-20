@@ -15,62 +15,27 @@ import time
 import logging
 from pathlib import Path
 
-try:
-    from PyQt5 import QtWidgets, QtCore, QtGui
-    PYQT5_AVAILABLE = True
-except ImportError:
-    PYQT5_AVAILABLE = False
-    print("Warning: PyQt5 not available")
-    # Create dummy classes to prevent import errors
-    class QtWidgets:
-        class QWidget:
-            pass
-    class QtCore:
-        pass
-    class QtGui:
-        pass
+from PyQt5 import QtWidgets, QtCore, QtGui
 
 try:
     from .utils import is_verbose_message, is_important_message
-except ImportError:
-    import os
-    import sys
-    gui_dir = os.path.dirname(os.path.abspath(__file__))
-    sys.path.insert(0, gui_dir)
-    from utils import is_verbose_message, is_important_message
-
-# Import console and button components
-try:
     from .components.console import ConsoleWidget
     from .components.action_buttons import RunStopButtons
     from .components.path_manager import get_path_manager
 except ImportError:
+    from utils import is_verbose_message, is_important_message
     from components.console import ConsoleWidget
     from components.action_buttons import RunStopButtons
     from components.path_manager import get_path_manager
 
-# Add parent directory to path for utils
-parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-if parent_dir not in sys.path:
-    sys.path.insert(0, parent_dir)
+# Add project root to path for tools import
+import sys
+import os
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
 
-# Import logging utility using absolute path to avoid conflict with GUI/utils.py
-try:
-    utils_dir = os.path.join(parent_dir, 'utils')
-    if utils_dir not in sys.path:
-        sys.path.insert(0, utils_dir)
-    import logging_util
-    LOGGER_AVAILABLE = True
-except ImportError as e:
-    LOGGER_AVAILABLE = False
-    print(f"Warning: logging_util not available: {e}")
-    print(f"  Utils dir: {utils_dir}")
-    print(f"  File exists: {os.path.exists(os.path.join(utils_dir, 'logging_util.py'))}")
-
-# Add MOVEA directory to path
-movea_dir = os.path.join(parent_dir, 'MOVEA')
-if movea_dir not in sys.path:
-    sys.path.insert(0, movea_dir)
+from tools import logging_util
 
 
 class LeadfieldGenerationThread(QtCore.QThread):
@@ -103,30 +68,29 @@ class LeadfieldGenerationThread(QtCore.QThread):
                 return
             
             # Setup subject-specific log file
-            if LOGGER_AVAILABLE:
-                import time
-                time_stamp = time.strftime('%Y%m%d_%H%M%S')
-                derivatives_dir = os.path.join(self.project_dir, 'derivatives')
-                log_dir = os.path.join(derivatives_dir, 'ti-toolbox', 'logs', f'sub-{self.subject_id}')
-                os.makedirs(log_dir, exist_ok=True)
-                log_file = os.path.join(log_dir, f'MOVEA_leadfield_{time_stamp}.log')
-                
-                # Set environment variable for external scripts
-                os.environ['TI_LOG_FILE'] = log_file
-                
-                # Create logger
-                logger = logging_util.get_logger('MOVEA_Leadfield', log_file, overwrite=False)
-                
-                # Remove console handler to prevent terminal output (GUI only shows via signals)
-                import logging
-                for handler in logger.handlers[:]:
-                    if isinstance(handler, logging.StreamHandler) and not isinstance(handler, logging.FileHandler):
-                        logger.removeHandler(handler)
-                
-                # Configure external loggers (they will inherit only file handler, no console)
-                logging_util.configure_external_loggers(['simnibs', 'mesh_io', 'sim_struct'], logger)
-                
-                self.output_signal.emit(f"Log file: {log_file}", 'info')
+            import time
+            time_stamp = time.strftime('%Y%m%d_%H%M%S')
+            derivatives_dir = os.path.join(self.project_dir, 'derivatives')
+            log_dir = os.path.join(derivatives_dir, 'ti-toolbox', 'logs', f'sub-{self.subject_id}')
+            os.makedirs(log_dir, exist_ok=True)
+            log_file = os.path.join(log_dir, f'MOVEA_leadfield_{time_stamp}.log')
+            
+            # Set environment variable for external scripts
+            os.environ['TI_LOG_FILE'] = log_file
+            
+            # Create logger
+            logger = logging_util.get_logger('MOVEA_Leadfield', log_file, overwrite=False)
+            
+            # Remove console handler to prevent terminal output (GUI only shows via signals)
+            import logging
+            for handler in logger.handlers[:]:
+                if isinstance(handler, logging.StreamHandler) and not isinstance(handler, logging.FileHandler):
+                    logger.removeHandler(handler)
+            
+            # Configure external loggers (they will inherit only file handler, no console)
+            logging_util.configure_external_loggers(['simnibs', 'mesh_io', 'sim_struct'], logger)
+            
+            self.output_signal.emit(f"Log file: {log_file}", 'info')
             
             # Setup paths using path manager
             pm = get_path_manager()
@@ -302,32 +266,31 @@ class MOVEAOptimizationThread(QtCore.QThread):
                 return
             
             # Setup subject-specific log file
-            if LOGGER_AVAILABLE:
-                import time
-                time_stamp = time.strftime('%Y%m%d_%H%M%S')
-                subject_id = self.config['subject_id']
-                pm = get_path_manager()
-                log_dir = pm.get_logs_dir(subject_id)
-                if log_dir:
-                    os.makedirs(log_dir, exist_ok=True)
-                log_file = os.path.join(log_dir, f'MOVEA_{time_stamp}.log')
-                
-                # Set environment variable for external scripts
-                os.environ['TI_LOG_FILE'] = log_file
-                
-                # Create logger
-                logger = logging_util.get_logger('MOVEA', log_file, overwrite=False)
-                
-                # Remove console handler to prevent terminal output (GUI only shows via signals)
-                import logging
-                for handler in logger.handlers[:]:
-                    if isinstance(handler, logging.StreamHandler) and not isinstance(handler, logging.FileHandler):
-                        logger.removeHandler(handler)
-                
-                # Configure external loggers (they will inherit only file handler, no console)
-                logging_util.configure_external_loggers(['simnibs', 'scipy', 'mesh_io', 'sim_struct'], logger)
-                
-                self.output_signal.emit(f"Log file: {log_file}", 'info')
+            import time
+            time_stamp = time.strftime('%Y%m%d_%H%M%S')
+            subject_id = self.config['subject_id']
+            pm = get_path_manager()
+            log_dir = pm.get_logs_dir(subject_id)
+            if log_dir:
+                os.makedirs(log_dir, exist_ok=True)
+            log_file = os.path.join(log_dir, f'MOVEA_{time_stamp}.log')
+            
+            # Set environment variable for external scripts
+            os.environ['TI_LOG_FILE'] = log_file
+            
+            # Create logger
+            logger = logging_util.get_logger('MOVEA', log_file, overwrite=False)
+            
+            # Remove console handler to prevent terminal output (GUI only shows via signals)
+            import logging
+            for handler in logger.handlers[:]:
+                if isinstance(handler, logging.StreamHandler) and not isinstance(handler, logging.FileHandler):
+                    logger.removeHandler(handler)
+            
+            # Configure external loggers (they will inherit only file handler, no console)
+            logging_util.configure_external_loggers(['simnibs', 'scipy', 'mesh_io', 'sim_struct'], logger)
+            
+            self.output_signal.emit(f"Log file: {log_file}", 'info')
             
             # Load leadfield
             start_time = time.time()
@@ -628,13 +591,9 @@ class MOVEATab(QtWidgets.QWidget):
         # Load ROI presets
         self.load_presets()
         
-        if PYQT5_AVAILABLE:
-            self.setup_ui()
-            # Initialize with available subjects
-            QtCore.QTimer.singleShot(500, self.initial_setup)
-        else:
-            layout = QtWidgets.QVBoxLayout()
-            self.setLayout(layout)
+        self.setup_ui()
+        # Initialize with available subjects
+        QtCore.QTimer.singleShot(500, self.initial_setup)
     
     def load_presets(self):
         """Load ROI presets from MOVEA/presets.json"""
@@ -975,32 +934,6 @@ class MOVEATab(QtWidgets.QWidget):
         # Get subjects using path manager
         subjects = self.pm.list_subjects()
         self.subject_combo.addItems(subjects)
-        return
-        
-        # Old code below - removed, now using PathManager
-        if not os.path.exists(subjects_dir):
-            self.update_console("No subjects directory found", 'error')
-            return
-        
-        # Find all m2m_* directories
-        subjects = []
-        for item in os.listdir(subjects_dir):
-            if item.startswith("sub-"):
-                subject_path = os.path.join(subjects_dir, item)
-                for m2m_dir in os.listdir(subject_path):
-                    if m2m_dir.startswith("m2m_"):
-                        subject_id = m2m_dir.replace("m2m_", "")
-                        subjects.append(subject_id)
-        
-        if not subjects:
-            self.update_console("No subjects found", 'error')
-            return
-        
-        # Sort subjects naturally
-        subjects.sort(key=lambda x: [int(c) if c.isdigit() else c.lower() for c in re.split('([0-9]+)', x)])
-        self.subject_combo.addItems(subjects)
-        
-        self.update_console(f"Found {len(subjects)} subject(s)", 'success')
     
     def on_subject_changed(self):
         """Handle subject selection change."""
@@ -1258,11 +1191,7 @@ class MOVEATab(QtWidgets.QWidget):
             QtWidgets.QMessageBox.warning(self, "Error", "Could not determine output directory")
             return
         
-        # Find electrode coordinates CSV file
-        # NEW Path structure:
-        # Leadfield: /mnt/projectID/derivatives/SimNIBS/sub-101/MOVEA/leadfields/EEG10-10_Cutini_2011_leadfield.npy
-        # Electrode: /mnt/projectID/derivatives/SimNIBS/sub-101/m2m_101/eeg_positions/EEG10-10_Cutini_2011.csv
-        
+        # Find electrode coordinates CSV file using path_manager
         electrode_csv = None
         leadfield_path = lf_info['leadfield_path']
         
@@ -1271,40 +1200,19 @@ class MOVEATab(QtWidgets.QWidget):
         leadfield_basename = os.path.basename(leadfield_path)
         eeg_name = leadfield_basename.replace('_leadfield.npy', '').replace('_leadfield', '')
         
-        # Navigate from leadfield to m2m directory
-        # /mnt/.../sub-101/MOVEA/leadfields/xxx.npy -> /mnt/.../sub-101/m2m_101/eeg_positions/
-        leadfield_dir = os.path.dirname(leadfield_path)  # .../MOVEA/leadfields
-        movea_dir = os.path.dirname(leadfield_dir)  # .../MOVEA
-        subject_dir = os.path.dirname(movea_dir)  # .../sub-101
+        # Use path_manager to get eeg_positions directory
+        eeg_positions_dir = self.pm.get_eeg_positions_dir(subject_id)
         
-        # Look for m2m_* directory
-        m2m_dir = None
-        try:
-            for item in os.listdir(subject_dir):
-                if item.startswith('m2m_'):
-                    candidate = os.path.join(subject_dir, item)
-                    if os.path.isdir(candidate):
-                        m2m_dir = candidate
-                        break
-        except:
-            pass
-        
-        if m2m_dir:
-            eeg_positions_dir = os.path.join(m2m_dir, 'eeg_positions')
-            
-            if os.path.exists(eeg_positions_dir):
-                # Look for matching CSV
-                possible_csv = os.path.join(eeg_positions_dir, f'{eeg_name}.csv')
-                if os.path.exists(possible_csv):
-                    electrode_csv = possible_csv
-                else:
-                    # Fallback: try any CSV file in directory
-                    try:
-                        csv_files = [f for f in os.listdir(eeg_positions_dir) if f.endswith('.csv')]
-                        if csv_files:
-                            electrode_csv = os.path.join(eeg_positions_dir, csv_files[0])
-                    except:
-                        pass
+        if eeg_positions_dir and os.path.exists(eeg_positions_dir):
+            # Look for matching CSV
+            possible_csv = os.path.join(eeg_positions_dir, f'{eeg_name}.csv')
+            if os.path.exists(possible_csv):
+                electrode_csv = possible_csv
+            else:
+                # Fallback: try any CSV file in directory
+                csv_files = [f for f in os.listdir(eeg_positions_dir) if f.endswith('.csv')]
+                if csv_files:
+                    electrode_csv = os.path.join(eeg_positions_dir, csv_files[0])
         
         config = {
             'subject_id': subject_id,
@@ -1452,26 +1360,25 @@ class MOVEATab(QtWidgets.QWidget):
     def update_console(self, message, msg_type='default'):
         """Update console output with colored messages (respects debug mode)."""
         # ALWAYS log to file first, regardless of debug mode
-        if LOGGER_AVAILABLE:
-            try:
-                import logging
-                # Try to get the active logger (either MOVEA or MOVEA_Leadfield)
-                logger = logging.getLogger('MOVEA')
-                if not logger.handlers:  # If MOVEA not initialized, try MOVEA_Leadfield
-                    logger = logging.getLogger('MOVEA_Leadfield')
-                
-                # Only log if the logger has handlers (meaning it was initialized by a thread)
-                if logger.handlers:
-                    if msg_type == 'error':
-                        logger.error(message)
-                    elif msg_type == 'warning':
-                        logger.warning(message)
-                    elif msg_type == 'debug' or 'DEBUG' in message:
-                        logger.debug(message)
-                    else:
-                        logger.info(message)
-            except Exception:
-                pass  # Fail silently if logging fails
+        try:
+            import logging
+            # Try to get the active logger (either MOVEA or MOVEA_Leadfield)
+            logger = logging.getLogger('MOVEA')
+            if not logger.handlers:  # If MOVEA not initialized, try MOVEA_Leadfield
+                logger = logging.getLogger('MOVEA_Leadfield')
+            
+            # Only log if the logger has handlers (meaning it was initialized by a thread)
+            if logger.handlers:
+                if msg_type == 'error':
+                    logger.error(message)
+                elif msg_type == 'warning':
+                    logger.warning(message)
+                elif msg_type == 'debug' or 'DEBUG' in message:
+                    logger.debug(message)
+                else:
+                    logger.info(message)
+        except Exception:
+            pass  # Fail silently if logging fails
         
         # THEN filter for GUI display based on debug mode
         if not self.console_widget.is_debug_mode():
@@ -1489,11 +1396,8 @@ class MOVEATab(QtWidgets.QWidget):
 
 # Standalone testing
 if __name__ == '__main__':
-    if PYQT5_AVAILABLE:
-        import sys
-        app = QtWidgets.QApplication(sys.argv)
-        tab = MOVEATab()
-        tab.show()
-        sys.exit(app.exec_())
-    else:
-        print("PyQt5 not available. Cannot run GUI.")
+    import sys
+    app = QtWidgets.QApplication(sys.argv)
+    tab = MOVEATab()
+    tab.show()
+    sys.exit(app.exec_())

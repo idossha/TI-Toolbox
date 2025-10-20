@@ -16,7 +16,7 @@ NC='\033[0m' # No Color
 # Default values
 OUTPUT_DIR="tissue_analysis"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PYTHON_SCRIPT="$SCRIPT_DIR/../utils/tissue_analyzer.py"
+PYTHON_SCRIPT="$SCRIPT_DIR/../tools/tissue_analyzer.py"
 
 # Source shared bash logging utility
 UTIL_DIR="$SCRIPT_DIR/../utils"
@@ -89,7 +89,7 @@ Examples:
 
 Requirements:
     - Python 3 with nibabel, numpy, matplotlib, scipy
-    - tissue_analyzer.py script in utils/ directory
+    - tissue_analyzer.py script in tools/ directory
     - bash_logging.sh utility (optional, for enhanced logging)
 
 EOF

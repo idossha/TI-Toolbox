@@ -36,7 +36,7 @@ for path in possible_paths:
         sys.path.insert(0, path)
 
 try:
-    from utils import logging_util
+    from tools import logging_util
 except ImportError:
     # Fallback: create a simple logger that writes to stdout
     import logging
@@ -841,7 +841,7 @@ class MeshFieldAnalyzer:
 def main():
     # Set up logger for main function
     try:
-        from utils import logging_util
+        from tools import logging_util
         
         # Check if running from GUI (TI_LOG_FILE environment variable set)
         shared_log_file = os.environ.get('TI_LOG_FILE')

@@ -19,28 +19,15 @@ from PyQt5 import QtWidgets, QtCore, QtGui
 from PyQt5.QtCore import QTimer, QThread, pyqtSignal
 from PyQt5.QtWidgets import QHeaderView
 
-# Import matplotlib for graphs
-try:
-    import matplotlib
-    matplotlib.use('Qt5Agg')
-    try:
-        from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
-    except ImportError:
-        from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
-    from matplotlib.figure import Figure
-    import matplotlib.pyplot as plt
-    plt.style.use('dark_background')  # Use dark theme for graphs
-    MATPLOTLIB_AVAILABLE = True
-except ImportError:
-    MATPLOTLIB_AVAILABLE = False
-    print("Warning: matplotlib not available. Install with: pip install matplotlib")
+import matplotlib
+matplotlib.use('Qt5Agg')
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+from matplotlib.figure import Figure
+import matplotlib.pyplot as plt
+plt.style.use('dark_background')  # Use dark theme for graphs
 
-try:
-    import psutil
-    PSUTIL_AVAILABLE = True
-except ImportError:
-    PSUTIL_AVAILABLE = False
-    print("Warning: psutil not available. Install with: pip install psutil")
+import psutil
+
 
 class ProcessMonitorThread(QThread):
     """Thread to monitor system processes without blocking the GUI."""
@@ -69,36 +56,22 @@ class ProcessMonitorThread(QThread):
         """Main monitoring loop."""
         while self.running:
             try:
-                if PSUTIL_AVAILABLE:
-                    # Get system-wide statistics
-                    cpu_percent = psutil.cpu_percent(interval=0.1)
-                    memory = psutil.virtual_memory()
-                    
-                    system_stats = {
-                        'cpu_percent': cpu_percent,
-                        'memory_percent': memory.percent,
-                        'memory_used': memory.used,
-                        'memory_total': memory.total,
-                        'timestamp': datetime.now().strftime("%H:%M:%S")
-                    }
-                    self.system_stats_signal.emit(system_stats)
-                    
-                    # Get relevant processes
-                    relevant_processes = self.get_relevant_processes()
-                    self.process_data_signal.emit(relevant_processes)
-                else:
-                    # Fallback without psutil
-                    fallback_processes = self.get_processes_fallback()
-                    self.process_data_signal.emit(fallback_processes)
-                    
-                    system_stats = {
-                        'cpu_percent': 0,
-                        'memory_percent': 0,
-                        'memory_used': 0,
-                        'memory_total': 0,
-                        'timestamp': datetime.now().strftime("%H:%M:%S")
-                    }
-                    self.system_stats_signal.emit(system_stats)
+                # Get system-wide statistics
+                cpu_percent = psutil.cpu_percent(interval=0.1)
+                memory = psutil.virtual_memory()
+                
+                system_stats = {
+                    'cpu_percent': cpu_percent,
+                    'memory_percent': memory.percent,
+                    'memory_used': memory.used,
+                    'memory_total': memory.total,
+                    'timestamp': datetime.now().strftime("%H:%M:%S")
+                }
+                self.system_stats_signal.emit(system_stats)
+                
+                # Get relevant processes
+                relevant_processes = self.get_relevant_processes()
+                self.process_data_signal.emit(relevant_processes)
                 
                 time.sleep(self.update_interval)
                 
@@ -128,7 +101,7 @@ class ProcessMonitorThread(QThread):
                         try:
                             memory_info = proc.memory_info()
                             memory_mb = memory_info.rss / (1024 * 1024)  # Convert to MB
-                        except:
+                        except (psutil.AccessDenied, psutil.NoSuchProcess):
                             pass
                         
                         process_data = {
@@ -313,11 +286,9 @@ class SystemMonitorTab(QtWidgets.QWidget):
         self.pause_btn = QtWidgets.QPushButton("Pause Monitoring")
         self.pause_btn.clicked.connect(self.toggle_monitoring)
         
-        # Add clear graphs button if matplotlib is available
-        if MATPLOTLIB_AVAILABLE:
-            self.clear_graphs_btn = QtWidgets.QPushButton("Clear Graphs")
-            self.clear_graphs_btn.clicked.connect(self.clear_graph_data)
-            self.clear_graphs_btn.setStyleSheet("background-color: #555; color: white;")
+        self.clear_graphs_btn = QtWidgets.QPushButton("Clear Graphs")
+        self.clear_graphs_btn.clicked.connect(self.clear_graph_data)
+        self.clear_graphs_btn.setStyleSheet("background-color: #555; color: white;")
         
         self.kill_btn = QtWidgets.QPushButton("Terminate Selected Process")
         self.kill_btn.clicked.connect(self.terminate_selected_process)
@@ -325,8 +296,7 @@ class SystemMonitorTab(QtWidgets.QWidget):
         
         controls_layout.addWidget(self.refresh_btn)
         controls_layout.addWidget(self.pause_btn)
-        if MATPLOTLIB_AVAILABLE:
-            controls_layout.addWidget(self.clear_graphs_btn)
+        controls_layout.addWidget(self.clear_graphs_btn)
         controls_layout.addStretch()
         controls_layout.addWidget(self.kill_btn)
         
@@ -334,45 +304,25 @@ class SystemMonitorTab(QtWidgets.QWidget):
         main_layout.addWidget(processes_group)
         
         # Real-time graphs section
-        if MATPLOTLIB_AVAILABLE:
-            graphs_group = QtWidgets.QGroupBox("Real-time Performance Graphs")
-            graphs_layout = QtWidgets.QHBoxLayout(graphs_group)
-            
-            # Create matplotlib figures
-            self.setup_graphs()
-            
-            # Add graphs to layout
-            graphs_layout.addWidget(self.cpu_canvas)
-            graphs_layout.addWidget(self.memory_canvas)
-            
-            main_layout.addWidget(graphs_group)
-        else:
-            # Show message if matplotlib not available
-            graphs_warning = QtWidgets.QLabel(
-                "📊 Real-time graphs not available. Install matplotlib for enhanced monitoring: pip install matplotlib"
-            )
-            graphs_warning.setStyleSheet("color: orange; font-style: italic; padding: 10px;")
-            main_layout.addWidget(graphs_warning)
+        graphs_group = QtWidgets.QGroupBox("Real-time Performance Graphs")
+        graphs_layout = QtWidgets.QHBoxLayout(graphs_group)
+        
+        # Create matplotlib figures
+        self.setup_graphs()
+        
+        # Add graphs to layout
+        graphs_layout.addWidget(self.cpu_canvas)
+        graphs_layout.addWidget(self.memory_canvas)
+        
+        main_layout.addWidget(graphs_group)
         
         # Status label
         self.status_label = QtWidgets.QLabel("Monitoring active...")
         self.status_label.setStyleSheet("color: green; font-weight: bold;")
         main_layout.addWidget(self.status_label)
-        
-        # Warning if psutil not available
-        if not PSUTIL_AVAILABLE:
-            warning_label = QtWidgets.QLabel(
-                "⚠️ psutil library not found. Limited functionality available. "
-                "Install with: pip install psutil"
-            )
-            warning_label.setStyleSheet("color: orange; font-weight: bold;")
-            main_layout.addWidget(warning_label)
     
     def setup_graphs(self):
         """Set up the matplotlib graphs for CPU and memory monitoring."""
-        if not MATPLOTLIB_AVAILABLE:
-            return
-        
         # Set up CPU graph
         self.cpu_figure = Figure(figsize=(6, 3), dpi=80)
         self.cpu_canvas = FigureCanvas(self.cpu_figure)
@@ -443,7 +393,7 @@ class SystemMonitorTab(QtWidgets.QWidget):
         self.cpu_data.clear()
         self.memory_data.clear()
         self.time_data.clear()
-        if MATPLOTLIB_AVAILABLE and hasattr(self, 'cpu_line'):
+        if hasattr(self, 'cpu_line'):
             self.cpu_line.set_data([], [])
             self.memory_line.set_data([], [])
             self.cpu_canvas.draw()
@@ -476,15 +426,12 @@ class SystemMonitorTab(QtWidgets.QWidget):
         
         self.update_label.setText(f"Last Update: {stats['timestamp']}")
         
-        # Update graphs if matplotlib is available
-        if MATPLOTLIB_AVAILABLE and hasattr(self, 'cpu_line'):
+        # Update graphs
+        if hasattr(self, 'cpu_line'):
             self.update_graphs(stats)
     
     def update_graphs(self, stats):
         """Update the real-time graphs with new data."""
-        if not MATPLOTLIB_AVAILABLE:
-            return
-        
         # Get current time for x-axis (seconds since start)
         current_time = time.time()
         if len(self.time_data) == 0:
@@ -604,18 +551,9 @@ class SystemMonitorTab(QtWidgets.QWidget):
         
         if reply == QtWidgets.QMessageBox.Yes:
             try:
-                if PSUTIL_AVAILABLE:
-                    proc = psutil.Process(pid)
-                    proc.terminate()
-                    QtWidgets.QMessageBox.information(self, "Success", f"Process {pid} terminated successfully.")
-                else:
-                    # Fallback for systems without psutil
-                    if os.name != 'nt':
-                        os.kill(pid, 15)  # SIGTERM
-                        QtWidgets.QMessageBox.information(self, "Success", f"Process {pid} terminated successfully.")
-                    else:
-                        QtWidgets.QMessageBox.warning(self, "Not Supported", "Process termination not supported on this system without psutil.")
-                        
+                proc = psutil.Process(pid)
+                proc.terminate()
+                QtWidgets.QMessageBox.information(self, "Success", f"Process {pid} terminated successfully.")
             except Exception as e:
                 QtWidgets.QMessageBox.critical(self, "Error", f"Failed to terminate process {pid}:\n{str(e)}")
     

@@ -8,11 +8,11 @@ Optimize Tab - Combined interface for Ex-Search, Flex-Search, and MOVEA
 from PyQt5 import QtWidgets, QtCore
 
 
-class OptimizeTab(QtWidgets.QWidget):
+class OptimizerTab(QtWidgets.QWidget):
     """Combined tab for all optimization methods."""
     
     def __init__(self, parent=None):
-        super(OptimizeTab, self).__init__(parent)
+        super(OptimizerTab, self).__init__(parent)
         self.parent = parent
         self.setup_ui()
     

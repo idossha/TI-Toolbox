@@ -6,31 +6,26 @@ TI-Toolbox-2.0 Analyzer Tab
 This module provides a GUI interface for the analyzer functionality.
 """
 
+import traceback 
+import time
 import os
-import json # Original script had this, though not obviously used in snippet
 import subprocess
 from PyQt5 import QtWidgets, QtCore, QtGui
-from confirmation_dialog import ConfirmationDialog # Assuming this exists from original
-try:
-    from .utils import confirm_overwrite, is_verbose_message, is_important_message
-except ImportError:
-    # Fallback for when running as standalone script
-    import os
-    import sys
-    gui_dir = os.path.dirname(os.path.abspath(__file__))
-    sys.path.insert(0, gui_dir)
-    from utils import confirm_overwrite, is_verbose_message, is_important_message
 
-# Import console and button components
 try:
+    from .confirmation_dialog import ConfirmationDialog
+    from .utils import confirm_overwrite, is_verbose_message, is_important_message
     from .components.console import ConsoleWidget
     from .components.action_buttons import RunStopButtons
+    from .components.path_manager import get_path_manager
 except ImportError:
+    from confirmation_dialog import ConfirmationDialog
+    from utils import confirm_overwrite, is_verbose_message, is_important_message
     from components.console import ConsoleWidget
     from components.action_buttons import RunStopButtons
+    from components.path_manager import get_path_manager
 
-import traceback # For more detailed error logging if needed
-import time
+
 
 class AnalysisThread(QtCore.QThread):
     """Thread to run analysis in background to prevent GUI freezing."""

@@ -21,41 +21,28 @@ import shutil
 import datetime
 
 from PyQt5 import QtWidgets, QtCore, QtGui
-from confirmation_dialog import ConfirmationDialog
-try:
-    from .utils import confirm_overwrite, is_verbose_message, is_important_message
-except ImportError:
-    # Fallback for when running as standalone script
-    import os
-    import sys
 
-# Import console and button components
 try:
+    from .confirmation_dialog import ConfirmationDialog
+    from .utils import confirm_overwrite, is_verbose_message, is_important_message
     from .components.console import ConsoleWidget
     from .components.action_buttons import RunStopButtons
     from .components.path_manager import get_path_manager
 except ImportError:
+    from confirmation_dialog import ConfirmationDialog
+    from utils import confirm_overwrite, is_verbose_message, is_important_message
     from components.console import ConsoleWidget
     from components.action_buttons import RunStopButtons
     from components.path_manager import get_path_manager
-    gui_dir = os.path.dirname(os.path.abspath(__file__))
-    sys.path.insert(0, gui_dir)
-    from utils import confirm_overwrite, is_verbose_message, is_important_message
 
-# Add the utils directory to the path
-utils_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'utils')
-if utils_dir not in sys.path:
-    sys.path.insert(0, utils_dir)
+# Add project root to path for tools import
+import sys
+import os
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
 
-# Import from utils with error handling
-try:
-    from report_util import get_preprocessing_report_generator
-except ImportError as e:
-    print(f"Warning: Could not import report utilities: {e}")
-    # Define a fallback function
-    def get_preprocessing_report_generator(*args, **kwargs):
-        print("Warning: Report generation not available")
-        return None
+from tools.report_util import get_preprocessing_report_generator
 
 class PreProcessThread(QtCore.QThread):
     """Thread to run pre-processing in background to prevent GUI freezing."""
@@ -229,7 +216,7 @@ class PreProcessThread(QtCore.QThread):
                     child_pids = [int(pid) for pid in ps_output.decode().strip().split('\n') if pid]
                     for pid in child_pids:
                         os.kill(pid, signal.SIGTERM)
-                except:
+                except (subprocess.CalledProcessError, OSError, ValueError):
                     pass  # Ignore errors in finding child processes
                 
                 # Kill the main process

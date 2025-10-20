@@ -22,7 +22,7 @@ except ImportError:
     mni2subject_coords = None
     ElementTags = None
     print("Warning: simnibs not available. Flex-search functionality will be limited.")
-from utils.logging_util import get_logger, configure_external_loggers
+from tools.logging_util import get_logger, configure_external_loggers
 
 # -----------------------------------------------------------------------------
 # Summary logging system for non-debug mode

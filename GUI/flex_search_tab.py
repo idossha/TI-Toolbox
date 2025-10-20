@@ -11,24 +11,19 @@ import json
 import glob
 import subprocess
 from PyQt5 import QtWidgets, QtCore, QtGui
-from confirmation_dialog import ConfirmationDialog
 try:
+    from .confirmation_dialog import ConfirmationDialog
     from .utils import confirm_overwrite, is_verbose_message, is_important_message
-except ImportError:
-    # Fallback for when running as standalone script
-    import os
-    import sys
-    gui_dir = os.path.dirname(os.path.abspath(__file__))
-    sys.path.insert(0, gui_dir)
-    from utils import confirm_overwrite, is_verbose_message, is_important_message
-
-# Import console and button components
-try:
     from .components.console import ConsoleWidget
     from .components.action_buttons import RunStopButtons
+    from .components.path_manager import get_path_manager
 except ImportError:
+    from confirmation_dialog import ConfirmationDialog
+    from utils import confirm_overwrite, is_verbose_message, is_important_message
     from components.console import ConsoleWidget
     from components.action_buttons import RunStopButtons
+    from components.path_manager import get_path_manager
+
 
 class FlexSearchThread(QtCore.QThread):
     """Thread to run flex-search in background to prevent GUI freezing."""
@@ -105,7 +100,7 @@ class FlexSearchThread(QtCore.QThread):
                     child_pids = [int(pid) for pid in ps_output.decode().strip().split('\n') if pid]
                     for pid in child_pids:
                         os.kill(pid, signal.SIGTERM)
-                except:
+                except (subprocess.CalledProcessError, OSError, ValueError):
                     pass  # Ignore errors in finding child processes
                 
                 # Kill the main process
@@ -650,15 +645,14 @@ class FlexSearchTab(QtWidgets.QWidget):
         self.subject_list.clear()
         self.output_text.clear()
         
-        # Get project directory name from environment variable
-        project_dir_name = os.environ.get('PROJECT_DIR_NAME')
-        if not project_dir_name:
-            self.output_text.append("Error: PROJECT_DIR_NAME environment variable is not set")
-            self.output_text.append("Please set PROJECT_DIR_NAME to your project directory name")
+        # Use path_manager to find subjects
+        pm = get_path_manager()
+        project_dir = pm.get_project_dir()
+        
+        if not project_dir:
+            self.output_text.append("Error: Could not detect project directory")
+            self.output_text.append("Please ensure PROJECT_DIR or PROJECT_DIR_NAME environment variable is set")
             return
-            
-        # Construct project directory path
-        project_dir = f"/mnt/{project_dir_name}"
         
         # Set PROJECT_DIR for other components that might need it
         os.environ['PROJECT_DIR'] = project_dir
@@ -667,18 +661,10 @@ class FlexSearchTab(QtWidgets.QWidget):
         if self.debug_mode:
             self.output_text.append(f"Looking for subjects in: {project_dir}")
         
-        # Look in derivatives/SimNIBS directory for subjects
-        simnibs_dir = os.path.join(project_dir, 'derivatives', 'SimNIBS')
-        if not os.path.isdir(simnibs_dir):
-            self.output_text.append(f"Error: SimNIBS directory not found at: {simnibs_dir}")
-            return
-            
-        # Look for subject directories with m2m_ prefix (matching shell script behavior)
-        for subject_path in glob.glob(os.path.join(simnibs_dir, 'sub-*', 'm2m_*')):
-            if os.path.isdir(subject_path):
-                subject_id = os.path.basename(subject_path).replace('m2m_', '')
-                self.subjects.append(subject_id)
-                self.subject_list.addItem(subject_id)
+        # Get subjects using path_manager
+        self.subjects = pm.list_subjects()
+        for subject_id in self.subjects:
+            self.subject_list.addItem(subject_id)
                 
         # Console output: subjects found (only in debug mode)
         if self.debug_mode:

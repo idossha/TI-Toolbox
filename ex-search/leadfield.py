@@ -6,7 +6,7 @@ import time
 
 # Add logging utility import
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
-from utils import logging_util
+from tools import logging_util
 
 '''
 Ido Haber - ihaber@wisc.edu

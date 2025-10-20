@@ -14,23 +14,15 @@ import csv
 import time
 import logging
 from PyQt5 import QtWidgets, QtCore, QtGui
-from confirmation_dialog import ConfirmationDialog
 try:
+    from .confirmation_dialog import ConfirmationDialog
     from .utils import confirm_overwrite, is_verbose_message, is_important_message
-except ImportError:
-    # Fallback for when running as standalone script
-    import os
-    import sys
-    gui_dir = os.path.dirname(os.path.abspath(__file__))
-    sys.path.insert(0, gui_dir)
-    from utils import confirm_overwrite, is_verbose_message, is_important_message
-
-# Import console and button components
-try:
     from .components.console import ConsoleWidget
     from .components.action_buttons import RunStopButtons
     from .components.path_manager import get_path_manager
 except ImportError:
+    from confirmation_dialog import ConfirmationDialog
+    from utils import confirm_overwrite, is_verbose_message, is_important_message
     from components.console import ConsoleWidget
     from components.action_buttons import RunStopButtons
     from components.path_manager import get_path_manager
@@ -135,7 +127,7 @@ class ExSearchThread(QtCore.QThread):
                     self.process.stdout.close()
                     if self.process.stdin:
                         self.process.stdin.close()
-                except:
+                except (OSError, AttributeError):
                     pass
     
     def terminate_process(self):
@@ -152,7 +144,7 @@ class ExSearchThread(QtCore.QThread):
                     child_pids = [int(pid) for pid in ps_output.decode().strip().split('\n') if pid]
                     for pid in child_pids:
                         os.kill(pid, signal.SIGTERM)
-                except:
+                except (subprocess.CalledProcessError, OSError, ValueError):
                     pass
                 
                 self.process.terminate()
@@ -358,7 +350,7 @@ class ExSearchTab(QtWidgets.QWidget):
             try:
                 file_size = os.path.getsize(selected_hdf5_path) / (1024**3)  # GB
                 config_logger.info(f"Leadfield File Size: {file_size:.2f} GB")
-            except:
+            except OSError:
                 config_logger.info("Leadfield File Size: Unable to determine")
             
             # ROI information
@@ -520,7 +512,7 @@ class ExSearchTab(QtWidgets.QWidget):
                                     completion_logger.info(f"  {i+1}. {roi_file} → ex-search/{output_dir}/")
                                 else:
                                     completion_logger.info(f"  {i+1}. {roi_file}")
-                            except:
+                            except (KeyError, AttributeError, RuntimeError):
                                 completion_logger.info(f"  {i+1}. {roi_file}")
                     
                     # Log electrode configuration summary

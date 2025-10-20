@@ -64,7 +64,7 @@ import sys
 
 # Add the parent directory to the path to access utils
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
-from utils import logging_util
+from tools import logging_util
 
 # Import external dependencies with error handling
 try:

@@ -750,7 +750,7 @@ show_atlas_regions() {
     local annot_file=$2
     
     echo "Loading atlas regions..."
-    simnibs_python "$script_dir/../utils/read_annot.py" "$ATLAS_DIR/$annot_file"
+    simnibs_python "$script_dir/../tools/read_annot.py" "$ATLAS_DIR/$annot_file"
     
     if [ $? -ne 0 ]; then
         echo "Error reading annotation file"
@@ -1053,7 +1053,7 @@ get_label_name() {
     local atlas_file="$1"
     local label_number="$2"
     # Use read_annot.py to get the label name
-    local label_name=$(simnibs_python "$script_dir/../utils/read_annot.py" "$atlas_file" | grep "^[[:space:]]*$label_number:" | cut -d':' -f2 | cut -d'|' -f1 | xargs)
+    local label_name=$(simnibs_python "$script_dir/../tools/read_annot.py" "$atlas_file" | grep "^[[:space:]]*$label_number:" | cut -d':' -f2 | cut -d'|' -f1 | xargs)
     echo "$label_name"
 }
 
