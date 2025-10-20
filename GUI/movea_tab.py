@@ -720,44 +720,6 @@ class MOVEATab(QtWidgets.QWidget):
         subject_layout.addLayout(subject_button_layout)
         left_layout.addWidget(subject_container)
         
-        # Leadfield Management
-        leadfield_container = QtWidgets.QGroupBox("Leadfield Management")
-        leadfield_container.setFixedHeight(240)
-        leadfield_layout = QtWidgets.QVBoxLayout(leadfield_container)
-        leadfield_layout.setContentsMargins(10, 10, 10, 10)
-        leadfield_layout.setSpacing(8)
-        
-        available_label = QtWidgets.QLabel("Available Leadfields:")
-        available_label.setStyleSheet("font-weight: bold; margin-bottom: 5px;")
-        leadfield_layout.addWidget(available_label)
-        
-        self.leadfield_list = QtWidgets.QListWidget()
-        self.leadfield_list.setFixedHeight(140)
-        self.leadfield_list.setSelectionMode(QtWidgets.QAbstractItemView.SingleSelection)
-        self.leadfield_list.itemSelectionChanged.connect(self.on_leadfield_selection_changed)
-        leadfield_layout.addWidget(self.leadfield_list)
-        
-        self.selected_leadfield_label = QtWidgets.QLabel("Selected: None")
-        self.selected_leadfield_label.setStyleSheet("color: #666; font-style: italic; margin: 5px 0;")
-        leadfield_layout.addWidget(self.selected_leadfield_label)
-        
-        leadfield_buttons_layout = QtWidgets.QHBoxLayout()
-        self.refresh_leadfields_btn = QtWidgets.QPushButton("Refresh")
-        self.refresh_leadfields_btn.setFixedHeight(25)
-        self.refresh_leadfields_btn.clicked.connect(self.refresh_leadfields)
-        leadfield_buttons_layout.addWidget(self.refresh_leadfields_btn)
-        
-        self.create_leadfield_btn = QtWidgets.QPushButton("Create New")
-        self.create_leadfield_btn.setFixedHeight(25)
-        self.create_leadfield_btn.clicked.connect(self.show_create_leadfield_dialog)
-        leadfield_buttons_layout.addWidget(self.create_leadfield_btn)
-        
-        leadfield_layout.addLayout(leadfield_buttons_layout)
-        left_layout.addWidget(leadfield_container)
-        
-        # Right side layout
-        right_layout = QtWidgets.QVBoxLayout()
-        
         # Target Configuration
         target_container = QtWidgets.QGroupBox("Target Configuration")
         target_container.setFixedHeight(180)
@@ -814,7 +776,45 @@ class MOVEATab(QtWidgets.QWidget):
         radius_layout.addStretch()
         target_layout.addLayout(radius_layout)
         
-        right_layout.addWidget(target_container)
+        left_layout.addWidget(target_container)
+        
+        # Leadfield Management
+        leadfield_container = QtWidgets.QGroupBox("Leadfield Management")
+        leadfield_container.setFixedHeight(240)
+        leadfield_layout = QtWidgets.QVBoxLayout(leadfield_container)
+        leadfield_layout.setContentsMargins(10, 10, 10, 10)
+        leadfield_layout.setSpacing(8)
+        
+        available_label = QtWidgets.QLabel("Available Leadfields:")
+        available_label.setStyleSheet("font-weight: bold; margin-bottom: 5px;")
+        leadfield_layout.addWidget(available_label)
+        
+        self.leadfield_list = QtWidgets.QListWidget()
+        self.leadfield_list.setFixedHeight(140)
+        self.leadfield_list.setSelectionMode(QtWidgets.QAbstractItemView.SingleSelection)
+        self.leadfield_list.itemSelectionChanged.connect(self.on_leadfield_selection_changed)
+        leadfield_layout.addWidget(self.leadfield_list)
+        
+        self.selected_leadfield_label = QtWidgets.QLabel("Selected: None")
+        self.selected_leadfield_label.setStyleSheet("color: #666; font-style: italic; margin: 5px 0;")
+        leadfield_layout.addWidget(self.selected_leadfield_label)
+        
+        leadfield_buttons_layout = QtWidgets.QHBoxLayout()
+        self.refresh_leadfields_btn = QtWidgets.QPushButton("Refresh")
+        self.refresh_leadfields_btn.setFixedHeight(25)
+        self.refresh_leadfields_btn.clicked.connect(self.refresh_leadfields)
+        leadfield_buttons_layout.addWidget(self.refresh_leadfields_btn)
+        
+        self.create_leadfield_btn = QtWidgets.QPushButton("Create New")
+        self.create_leadfield_btn.setFixedHeight(25)
+        self.create_leadfield_btn.clicked.connect(self.show_create_leadfield_dialog)
+        leadfield_buttons_layout.addWidget(self.create_leadfield_btn)
+        
+        leadfield_layout.addLayout(leadfield_buttons_layout)
+        left_layout.addWidget(leadfield_container)
+        
+        # Right side layout
+        right_layout = QtWidgets.QVBoxLayout()
         
         # Optimization Parameters
         opt_container = QtWidgets.QGroupBox("Optimization Parameters")
@@ -905,6 +905,7 @@ class MOVEATab(QtWidgets.QWidget):
         opt_layout.addRow("  CPU Cores:", self.pareto_cores)
         
         right_layout.addWidget(opt_container)
+        right_layout.addStretch()  # Push optimization parameters to top
         
         # Add left and right to main horizontal layout
         main_horizontal_layout.addLayout(left_layout, 1)
