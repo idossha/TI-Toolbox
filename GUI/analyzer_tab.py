@@ -653,7 +653,7 @@ class AnalyzerTab(QtWidgets.QWidget):
         spherical_layout.addWidget(self.mni_info_label)
         
         coordinates_layout = QtWidgets.QHBoxLayout()
-        self.coordinates_label = QtWidgets.QLabel("RAS Coordinates (x,y,z):")
+        self.coordinates_label = QtWidgets.QLabel("RAS Coord. (x,y,z):")
         self.coord_x = QtWidgets.QLineEdit()
         self.coord_y = QtWidgets.QLineEdit()
         self.coord_z = QtWidgets.QLineEdit()

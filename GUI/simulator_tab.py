@@ -569,7 +569,7 @@ class SimulatorTab(QtWidgets.QWidget):
         
         # Simulation type (Isotropic/Anisotropic)
         sim_type_layout = QtWidgets.QHBoxLayout()
-        self.sim_type_label = QtWidgets.QLabel("Brain Anisotropy:")
+        self.sim_type_label = QtWidgets.QLabel("Anisotropy:")
         self.sim_type_combo = QtWidgets.QComboBox()
         self.sim_type_combo.addItem("Isotropic", "scalar")
         self.sim_type_combo.addItem("Anisotropic (vn)", "vn")

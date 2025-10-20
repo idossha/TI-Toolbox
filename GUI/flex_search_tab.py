@@ -200,7 +200,7 @@ class FlexSearchTab(QtWidgets.QWidget):
 
         # Initialize checkboxes
 
-        self.enable_mapping_checkbox = QtWidgets.QCheckBox("✓ Enable electrode mapping to EEG net positions")
+        self.enable_mapping_checkbox = QtWidgets.QCheckBox("✓ Enable electrode mapping")
         self.enable_mapping_checkbox.setChecked(False)
         
         self.run_mapped_simulation_checkbox = QtWidgets.QCheckBox("Run simulation with mapped electrodes")
@@ -211,8 +211,8 @@ class FlexSearchTab(QtWidgets.QWidget):
         
         # Initialize radio buttons
         self.roi_method_spherical = QtWidgets.QRadioButton("Spherical (coordinates and radius)")
-        self.roi_method_cortical = QtWidgets.QRadioButton("Cortical (atlas-based parcellation)")
-        self.roi_method_subcortical = QtWidgets.QRadioButton("Subcortical (volume segmentation)")
+        self.roi_method_cortical = QtWidgets.QRadioButton("Cortical")
+        self.roi_method_subcortical = QtWidgets.QRadioButton("Subcortical")
         self.roi_method_spherical.setChecked(True)
         
         # Initialize spinboxes and line edits
