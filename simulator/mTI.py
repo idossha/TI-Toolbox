@@ -1,42 +1,25 @@
-import os
-import sys
-import json
-import subprocess
-import shutil
-from copy import deepcopy
+# Standard library imports
 import glob
-import numpy as np
-from datetime import datetime
+import json
+import os
+import shutil
+import subprocess
+import sys
 import time
+from copy import deepcopy
+from datetime import datetime
 
-# Import external dependencies with error handling
-try:
-    from simnibs import mesh_io, run_simnibs, sim_struct
-    from simnibs.utils import TI_utils as TI
-except ImportError:
-    mesh_io = None
-    run_simnibs = None
-    sim_struct = None
-    TI = None
-    print("Warning: simnibs not available. mTI simulation functionality will be limited.")
+# Third-party imports
+import numpy as np
+from simnibs import mesh_io, run_simnibs, sim_struct
+from simnibs.utils import TI_utils as TI
 
-###########################################
-# Ido Haber / ihaber@wisc.edu
-# October 14, 2024
-# optimized for TI-Toolbox analyzer
-#
-# This script runs SimNIBS simulations for multipolar TI (mTI)
-# It preserves the original mTI computation logic while using BIDS directory structure
-###########################################
-
-# Add logging utility import
+# Add project root to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+
+# Local imports
 from tools import logging_util
 
-# Check if simnibs is available
-if mesh_io is None or run_simnibs is None or sim_struct is None or TI is None:
-    print("Error: simnibs is required for mTI simulation but is not installed")
-    sys.exit(1)
 
 # Get subject ID, simulation type, and montages from command-line arguments
 print(f"[DEBUG] mTI.py called with {len(sys.argv)} arguments: {sys.argv}")

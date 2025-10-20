@@ -1,31 +1,31 @@
+# Standard library imports
+import glob
+import json
 import os
 import sys
-import json
-from copy import deepcopy
-import glob
-import numpy as np
-from datetime import datetime
 import time
+from copy import deepcopy
+from datetime import datetime
 
-# Import external dependencies with error handling
-try:
-    from simnibs import mesh_io, run_simnibs, sim_struct
-    from simnibs.utils import TI_utils as TI
-except ImportError:
-    mesh_io = None
-    run_simnibs = None
-    sim_struct = None
-    TI = None
-    print("Warning: simnibs not available. TI simulation functionality will be limited.")
+# Third-party imports
+import numpy as np
+
+from simnibs import mesh_io, run_simnibs, sim_struct
+from simnibs.utils import TI_utils as TI
+
+# Add project root to path
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+
+# Local imports
+from tools import logging_util
 
 ###########################################
-
 # Ido Haber / ihaber@wisc.edu
 # October 14, 2024
 # optimized for TI-Toolbox analyzer
-
+#
 # This script runs SimNIBS simulations
-
+#
 # Arguments:
 #   1. subject_id        : The ID of the subject.
 #   2. sim_type          : The type of simulation anisotropy ('scalar', 'vn', 'dir', 'mc').
@@ -38,22 +38,12 @@ except ImportError:
 #   9. thickness        : The thickness of the electrodes in mm.
 #   10. eeg_net           : The filename of the selected EEG net.
 #   11+ montage_names     : A list of montage names to use for the simulation.
-
+#
 # Functionality:
 #   - Loads the selected montages from a JSON file located in the ../utils directory relative to the subject directory.
 #   - Runs the simulation for each montage and saves the resulting mesh files.
 #   - Calculates and stores the maximal amplitude of the temporal interference (TI) envelope for multi-polar montages.
-
 ###########################################
-
-# Add logging utility import
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
-from tools import logging_util
-
-# Check if simnibs is available
-if mesh_io is None or run_simnibs is None or sim_struct is None or TI is None:
-    print("Error: simnibs is required for TI simulation but is not installed")
-    sys.exit(1)
 
 # Get subject ID, simulation type, and montages from command-line arguments
 subject_id = sys.argv[1]

@@ -51,8 +51,8 @@ sys.modules['matplotlib'] = MagicMock()
 sys.modules['matplotlib.pyplot'] = mock_plt
 sys.modules['visualizer'] = MagicMock()
 sys.modules['visualizer'].VoxelVisualizer = mock_visualizer
-sys.modules['utils'] = MagicMock()
-sys.modules['utils'].logging_util = mock_logging_util
+sys.modules['tools'] = MagicMock()
+sys.modules['tools'].logging_util = mock_logging_util
 
 # Now import the voxel_analyzer module
 from analyzer.voxel_analyzer import VoxelAnalyzer

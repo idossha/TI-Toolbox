@@ -49,38 +49,25 @@ Dependencies:
     - simnibs (for MeshVisualizer)
 """
 
-import os
-import numpy as np
+# Standard library imports
 import csv
+import os
 import sys
 from pathlib import Path
 
-# Add the parent directory to the path to access utils
+# Third-party imports
+import matplotlib.pyplot as plt
+from matplotlib import cm
+from matplotlib.colors import Normalize
+import nibabel as nib
+import numpy as np
+import simnibs
+
+# Add project root to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+
+# Local imports
 from tools import logging_util
-
-# Import external dependencies with error handling
-try:
-    import matplotlib.pyplot as plt
-    from matplotlib import cm
-    from matplotlib.colors import Normalize
-except ImportError:
-    plt = None
-    cm = None
-    Normalize = None
-    print("Warning: matplotlib not available. Visualization functionality will be limited.")
-
-try:
-    import simnibs
-except ImportError:
-    simnibs = None
-    print("Warning: simnibs not available. Mesh visualization functionality will be limited.")
-
-try:
-    import nibabel as nib
-except ImportError:
-    nib = None
-    print("Warning: nibabel not available. Voxel visualization functionality will be limited.")
 
 
 class BaseVisualizer:

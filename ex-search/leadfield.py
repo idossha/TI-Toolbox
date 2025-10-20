@@ -1,11 +1,14 @@
-import os
+# Standard library imports
 import logging
-from simnibs import run_simnibs, sim_struct
+import os
 import sys
 import time
 
-# Add logging utility import
+from simnibs import run_simnibs, sim_struct
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+
+# Local imports
 from tools import logging_util
 
 '''

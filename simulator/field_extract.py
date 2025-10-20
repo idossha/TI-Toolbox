@@ -1,7 +1,11 @@
 #!/Users/idohaber/Applications/SimNIBS-4.1/bin/simnibs_python
 # -*- coding: utf-8 -*-
+
+# Standard library imports
 import argparse
 import os
+
+# Third-party imports
 from simnibs import mesh_io
 
 ##############################################

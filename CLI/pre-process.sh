@@ -634,7 +634,7 @@ for SUBJECT_ID in "${selected_subjects[@]}"; do
         python3 -c "
 import sys
 import os
-sys.path.insert(0, '$script_dir/../utils')
+sys.path.insert(0, '$script_dir/../tools')
 try:
     from report_util import create_preprocessing_report
     report_path = create_preprocessing_report('$PROJECT_DIR', '$SUBJECT_ID')

@@ -14,13 +14,13 @@ set -e  # Exit immediately if a command exits with a non-zero status
 
 # Get the directory where this script is located
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-utils_dir="$(cd "$script_dir/../utils" && pwd)"
+tools_dir="$(cd "$script_dir/../tools" && pwd)"
 
 # Set timestamp for consistent log naming
 timestamp=$(date +%Y%m%d_%H%M%S)
 
 # Source the logging utility
-source "$utils_dir/bash_logging.sh"
+source "$tools_dir/bash_logging.sh"
 
 # Initialize logging
 set_logger_name "ex-search"

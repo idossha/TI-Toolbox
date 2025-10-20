@@ -49,41 +49,30 @@ Dependencies:
     - subprocess (for FreeSurfer operations)
 """
 
-import os
-import numpy as np
-import subprocess
-import tempfile
-from pathlib import Path
-import time
+# Standard library imports
 import csv
-from datetime import datetime
+import os
+import subprocess
 import sys
+import tempfile
+import time
 import traceback
+from datetime import datetime
+from pathlib import Path
 
-# Add the parent directory to the path to access utils
+# Third-party imports
+import matplotlib
+matplotlib.use('Agg')  # Use non-interactive backend
+import matplotlib.pyplot as plt
+import nibabel as nib
+import numpy as np
+
+# Add project root to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+
+# Local imports
 from tools import logging_util
-
-# Import external dependencies with error handling
-try:
-    import nibabel as nib
-except ImportError:
-    nib = None
-    print("Warning: nibabel not available. Voxel analysis functionality will be limited.")
-
-try:
-    import matplotlib
-    matplotlib.use('Agg')  # Use non-interactive backend
-    import matplotlib.pyplot as plt
-except ImportError:
-    plt = None
-    print("Warning: matplotlib not available. Visualization functionality will be limited.")
-
-try:
-    from visualizer import VoxelVisualizer
-except ImportError:
-    VoxelVisualizer = None
-    print("Warning: VoxelVisualizer not available. Visualization functionality will be limited.")
+from visualizer import VoxelVisualizer
 
 
 class VoxelAnalyzer:
@@ -142,12 +131,8 @@ class VoxelAnalyzer:
             log_file = os.path.join(log_dir, f'voxel_analyzer_{time_stamp}.log')
             self.logger = logging_util.get_logger('voxel_analyzer', log_file, overwrite=True)
         
-        # Initialize visualizer with logger (if available)
-        if VoxelVisualizer is not None:
-            self.visualizer = VoxelVisualizer(output_dir, self.logger)
-        else:
-            self.visualizer = None
-            self.logger.warning("VoxelVisualizer not available. Visualization functionality will be disabled.")
+        # Initialize visualizer with logger
+        self.visualizer = VoxelVisualizer(output_dir, self.logger)
         
         # Create output directory if it doesn't exist
         if not os.path.exists(output_dir):

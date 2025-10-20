@@ -87,8 +87,8 @@ def load_ti_module(mock_tmpdir):
     logging_util.get_logger = get_logger
     logging_util.configure_external_loggers = configure_external_loggers
     utils_pkg.logging_util = logging_util
-    sys.modules['utils'] = utils_pkg
-    sys.modules['utils.logging_util'] = logging_util
+    sys.modules['tools'] = utils_pkg
+    sys.modules['tools.logging_util'] = logging_util
 
     # Provide minimal CLI args expected by TI.py to avoid IndexError at import time
     sys.argv = [

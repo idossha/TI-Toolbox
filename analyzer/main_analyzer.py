@@ -63,11 +63,16 @@ Example Usage:
         --whole_head
 """
 
+# Standard library imports
+import argparse
+import functools
+import logging
 import os
 import sys
-import argparse
 import time
 from pathlib import Path
+
+# Local imports
 from mesh_analyzer import MeshAnalyzer
 from voxel_analyzer import VoxelAnalyzer
 
@@ -77,7 +82,6 @@ _start_times = {}
 _analysis_start_time = None
 
 # Initialize a default logger for module-level functions
-import logging
 logger = logging.getLogger('analyzer')
 logger.setLevel(logging.DEBUG)
 if not logger.handlers:
@@ -100,7 +104,6 @@ try:
         raise AttributeError("reconfigure not available")
 except (AttributeError, OSError):
     # For Python < 3.7 or when reconfigure is not available, use this approach
-    import functools
     original_stdout_write = sys.stdout.write
     original_stderr_write = sys.stderr.write
     
@@ -117,9 +120,9 @@ except (AttributeError, OSError):
     sys.stdout.write = flushing_stdout_write
     sys.stderr.write = flushing_stderr_write
 
-# Add the parent directory to the path to access utils
+# Add the parent directory to the path to access tools
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
-from utils import logging_util
+from tools import logging_util
 
 def flush_output():
     """Force flush stdout and stderr for real-time GUI updates."""

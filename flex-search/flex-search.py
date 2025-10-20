@@ -1,27 +1,24 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+# Standard library imports
 import argparse
 import os
 import shutil
 import sys
 import time
 import traceback
-import numpy as np
 from pathlib import Path
 
-# Add the parent directory to the path to access utils
+# Third-party imports
+import numpy as np
+from simnibs import opt_struct, mni2subject_coords
+from simnibs.mesh_tools.mesh_io import ElementTags
+
+# Add project root to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
-# Import external dependencies with error handling
-try:
-    from simnibs import opt_struct, mni2subject_coords
-    from simnibs.mesh_tools.mesh_io import ElementTags
-except ImportError:
-    opt_struct = None
-    mni2subject_coords = None
-    ElementTags = None
-    print("Warning: simnibs not available. Flex-search functionality will be limited.")
+# Local imports
 from tools.logging_util import get_logger, configure_external_loggers
 
 # -----------------------------------------------------------------------------

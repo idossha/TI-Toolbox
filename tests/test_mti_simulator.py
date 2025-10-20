@@ -64,8 +64,8 @@ def load_mti_module(tmpdir):
     logging_util.get_logger = get_logger
     logging_util.configure_external_loggers = configure_external_loggers
     utils_pkg.logging_util = logging_util
-    sys.modules['utils'] = utils_pkg
-    sys.modules['utils.logging_util'] = logging_util
+    sys.modules['tools'] = utils_pkg
+    sys.modules['tools.logging_util'] = logging_util
 
     # Provide minimal CLI args expected by mTI.py to avoid IndexError at import time
     # Args: script, subject_id, sim_type, project_dir, simulation_dir, intensities, shape, dims, thickness, eeg_net, montage

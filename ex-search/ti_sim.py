@@ -1,20 +1,25 @@
 #!/usr/bin/env python3
 
+# Standard library imports
 import copy
+import csv
+import logging
 import os
 import re
+import signal
 import sys
 import time
-import numpy as np
-import logging
-import signal
 from itertools import product
+
+# Third-party imports
+import numpy as np
 from simnibs import mesh_io
 from simnibs.utils import TI_utils as TI
-import csv
 
-# Add logging utility import
+# Add project root to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+
+# Local imports
 from tools import logging_util
 
 '''

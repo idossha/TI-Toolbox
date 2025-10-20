@@ -14,7 +14,7 @@ umask 0000  # Set umask to 0000 to ensure all created files and directories have
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 flex_search_dir="$script_dir/../flex-search"
 project_dir="/mnt/$PROJECT_DIR_NAME"
-utils_dir="$script_dir/../utils"
+tools_dir="$script_dir/../tools"
 config_file="$project_dir/code/ti-toolbox/config/flex-search_config/flex_config.json"
 
 # Export project directory for Python script

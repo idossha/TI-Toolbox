@@ -52,38 +52,27 @@ Dependencies:
     - subprocess (for msh2cortex operations)
 """
 
-import numpy as np
-import os
-import time
-import subprocess
-import tempfile
-from pathlib import Path
+# Standard library imports
 import csv
-from datetime import datetime
+import os
+import subprocess
 import sys
+import tempfile
+import time
+from datetime import datetime
+from pathlib import Path
 
-# Add the parent directory to the path to access utils
+# Third-party imports
+import matplotlib.pyplot as plt
+import numpy as np
+import simnibs
+
+# Add project root to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+
+# Local imports
 from tools import logging_util
-
-# Import external dependencies with error handling
-try:
-    import simnibs
-except ImportError:
-    simnibs = None
-    print("Warning: simnibs not available. Mesh analysis functionality will be limited.")
-
-try:
-    import matplotlib.pyplot as plt
-except ImportError:
-    plt = None
-    print("Warning: matplotlib not available. Visualization functionality will be limited.")
-
-try:
-    from visualizer import MeshVisualizer
-except ImportError:
-    MeshVisualizer = None
-    print("Warning: MeshVisualizer not available. Visualization functionality will be limited.")
+from visualizer import MeshVisualizer
 
 class MeshAnalyzer:
     """
@@ -114,10 +103,6 @@ class MeshAnalyzer:
             output_dir (str): Directory where analysis results will be saved
             logger: Optional logger instance to use. If None, creates its own.
         """
-        # Check for required dependencies
-        if simnibs is None:
-            raise ImportError("simnibs is required for mesh analysis but is not installed")
-        
         self.field_mesh_path = field_mesh_path
         self.field_name = field_name
         self.subject_dir = subject_dir
@@ -142,12 +127,8 @@ class MeshAnalyzer:
             log_file = os.path.join(log_dir, f'mesh_analyzer_{time_stamp}.log')
             self.logger = logging_util.get_logger('mesh_analyzer', log_file, overwrite=True)
         
-        # Initialize visualizer with logger (if available)
-        if MeshVisualizer is not None:
-            self.visualizer = MeshVisualizer(output_dir, self.logger)
-        else:
-            self.visualizer = None
-            self.logger.warning("MeshVisualizer not available. Visualization functionality will be disabled.")
+        # Initialize visualizer with logger
+        self.visualizer = MeshVisualizer(output_dir, self.logger)
         
         # Initialize temporary directory and surface mesh path
         self._temp_dir = None

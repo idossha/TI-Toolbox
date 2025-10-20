@@ -7,56 +7,27 @@ Author: TI-toolbox Python Conversion
 Replaces: process_mesh_files.m and process_mesh_files_new.m
 """
 
-import os
-import sys
+# Standard library imports
 import glob
-import re
-import numpy as np
 import logging
-import pandas as pd
-import matplotlib.pyplot as plt
-import matplotlib
-import meshio
-
-# Import logging utility for proper output handling
-import sys
 import os
-
-# Add multiple possible paths for utils import
-script_dir = os.path.dirname(os.path.abspath(__file__))
-possible_paths = [
-    os.path.join(script_dir, '..'),  # Parent of script directory
-    os.path.join(script_dir, '..', '..'),  # Grandparent of script directory
-    os.path.join(os.getcwd(), 'utils'),  # utils in current working directory
-    os.path.join(os.getcwd(), '..', 'utils'),  # utils in parent of current working directory
-]
-
-for path in possible_paths:
-    if path not in sys.path:
-        sys.path.insert(0, path)
-
-try:
-    from tools import logging_util
-except ImportError:
-    # Fallback: create a simple logger that writes to stdout
-    import logging
-    logging.basicConfig(level=logging.INFO, format='%(message)s', stream=sys.stdout)
-    class SimpleLoggingUtil:
-        @staticmethod
-        def get_logger(name, log_file=None, overwrite=True):
-            logger = logging.getLogger(name)
-            logger.setLevel(logging.INFO)
-            return logger
-        
-        @staticmethod
-        def configure_external_loggers(names, parent_logger):
-            pass
-    
-    logging_util = SimpleLoggingUtil()
-
-
-matplotlib.use('Agg')  # Use non-interactive backend
+import re
+import sys
 from pathlib import Path
+
+# Third-party imports
+import matplotlib
+matplotlib.use('Agg')  # Use non-interactive backend before importing pyplot
+import matplotlib.pyplot as plt
+import meshio
+import numpy as np
+import pandas as pd
+
+# Add project root to path
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+
+# Local imports
+from tools import logging_util
 
 
 class MeshFieldAnalyzer:

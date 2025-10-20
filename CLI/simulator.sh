@@ -356,8 +356,8 @@ import os
 import json
 import datetime
 
-# Add utils to path
-sys.path.insert(0, '$script_dir/../utils')
+# Add tools to path
+sys.path.insert(0, '$script_dir/../tools')
 from simulation_report_generator import SimulationReportGenerator
 
 project_dir = '$project_dir'
@@ -1814,7 +1814,7 @@ else
 #!/usr/bin/env python3
 import sys
 import os
-sys.path.append('$script_dir/../utils')
+sys.path.append('$script_dir/../tools')
 
 from report_util import create_simulation_report
 import datetime
