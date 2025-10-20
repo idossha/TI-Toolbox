@@ -179,9 +179,9 @@ log_simulation_step_start() {
     
     # Debug: Show what we're storing
     if [ "$SUMMARY_MODE" = true ]; then
-        echo "├─ $step_name: Starting..."
+        echo "├─ $step_name: Started"
     else
-        log_info "$step_name: Starting..."
+        log_info "$step_name: Started"
     fi
 }
 

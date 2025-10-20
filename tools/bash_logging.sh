@@ -258,7 +258,7 @@ log_process_start() {
     PROCESS_NAMES["$process_key"]="$process_name"
     
     if $SUMMARY_ENABLED; then
-        echo "├─ $process_name: Starting..."
+        echo "├─ $process_name: Started"
         # In summary mode, also log to file
         log_info "Starting $process_name for subject: $subject_id" >/dev/null 2>&1
     else
@@ -557,11 +557,11 @@ log_analysis_step_start() {
     PROCESS_START_TIMES[$step_key]=$start_time
     
     if $SUMMARY_ENABLED; then
-        echo "├─ $step_name: Starting..."
+        echo "├─ $step_name: Started"
     fi
     
     # Always log to file
-    log_info "$step_name: Starting..." > /dev/null 2>&1
+    log_info "$step_name: Started" > /dev/null 2>&1
 }
 
 # Function to log analysis step completion

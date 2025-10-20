@@ -1686,7 +1686,7 @@ class AnalyzerTab(QtWidgets.QWidget):
                 self.update_output(f"Beginning analysis for subject: {subject_id} ({details})")
                 self._summary_printed.add('headline')
                 # Field data loading step
-                self.update_output("├─ Field data loading: Starting...")
+                self.update_output("├─ Field data loading: Started")
                 self.update_output("├─ Field data loading: ✓ Complete (0s)")
                 self._summary_printed.update({'field_start', 'field_done'})
                 # Start main analysis step timer
@@ -1694,7 +1694,7 @@ class AnalyzerTab(QtWidgets.QWidget):
                 # Only set start timer if not already set
                 if step_key not in self.STEP_START_TIMES:
                     self.STEP_START_TIMES[step_key] = time.time()
-                self.update_output(f"├─ {step_key.title()}: Starting...")
+                self.update_output(f"├─ {step_key.title()}: Started")
                 self._summary_printed.add('analysis_start')
                 # Record output dir for later summary line
                 self._last_output_dir = self._extract_output_dir_from_cmd(cmd)
@@ -1966,7 +1966,7 @@ class AnalyzerTab(QtWidgets.QWidget):
                     if saved_to_display.startswith('/mnt/'):
                         # Show without the leading /mnt/ to match examples
                         saved_to_display = saved_to_display[5:]
-                    self.update_output("├─ Results saving: Starting...")
+                    self.update_output("├─ Results saving: Started")
                     self._summary_printed.add('results_start')
                     self.update_output(f"├─ Results saving: ✓ Complete (0s) - saved to {saved_to_display}")
                     self._summary_printed.add('results_done')

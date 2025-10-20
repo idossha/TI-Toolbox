@@ -259,7 +259,7 @@ class ExSearchTab(QtWidgets.QWidget):
         if not self.SUMMARY_MODE:
             return
         
-        self.update_output(f"├─ Optimization run {run_number}/{total_runs}: Starting...", 'info')
+        self.update_output(f"├─ Optimization run {run_number}/{total_runs}: Started", 'info')
     
     def log_optimization_run_complete(self, run_number, total_runs, duration):
         """Log the completion of an optimization run."""
