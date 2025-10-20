@@ -235,7 +235,7 @@ class TestLoggingFunctions:
         """Test log_analysis_step_start function"""
         log_analysis_step_start("Field loading", "test_subject")
         
-        mock_logger.info.assert_called_once_with("Field loading: Starting...")
+        mock_logger.info.assert_called_once_with("Field loading: Started")
     
     @patch('analyzer.main_analyzer.SUMMARY_MODE', True)
     @patch('builtins.print')
@@ -243,7 +243,7 @@ class TestLoggingFunctions:
         """Test log_analysis_step_start function in summary mode"""
         log_analysis_step_start("Field loading", "test_subject")
         
-        mock_print.assert_called_once_with("├─ Field loading: Starting...")
+        mock_print.assert_called_once_with("├─ Field loading: Started")
     
     @patch('analyzer.main_analyzer.SUMMARY_MODE', False)
     @patch('analyzer.main_analyzer.logger')
