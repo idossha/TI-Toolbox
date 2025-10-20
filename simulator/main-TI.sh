@@ -14,13 +14,13 @@ set -e # Exit immediately if a command exits with a non-zero status
 
 # Get the directory where this script is located
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-utils_dir="$(cd "$script_dir/../utils" && pwd)"
+tools_dir="$(cd "$script_dir/../tools" && pwd)"
 
 # Set timestamp for consistent log naming
 timestamp=$(date +%Y%m%d_%H%M%S)
 
 # Source the logging utility
-source "$utils_dir/bash_logging.sh"
+source "$tools_dir/bash_logging.sh"
 
 # Initialize logging
 set_logger_name "main-TI"
@@ -253,7 +253,7 @@ log_simulation_step_failed() {
 # Debug output (only in non-summary mode)
 if [ "$SUMMARY_MODE" != true ]; then
     log_info "Script directory: $script_dir"
-    log_info "Utils directory: $utils_dir"
+    log_info "Tools directory: $tools_dir"
     log_info "Input Arguments:"
     log_info "  - subject_id: $subject_id"
     log_info "  - conductivity: $conductivity"
@@ -365,7 +365,7 @@ run_visualize_montages() {
         if [ "$SUMMARY_MODE" != true ]; then
             log_info "Visualizing montage: $montage"
         fi
-        visualize_montage_script_path="$utils_dir/visualize-montage.sh"
+        visualize_montage_script_path="$tools_dir/visualize-montage.sh"
         if ! bash "$visualize_montage_script_path" "$montage" "$sim_mode" "$eeg_net" "$montage_output_dir" 2>&1 | tee -a "${logs_dir}/simulator_${timestamp}.log"; then
             log_error "Failed to visualize montage: $montage"
             success=false
@@ -515,7 +515,7 @@ for flex_montage in flex_montages:
         
         # Call visualize-montage.sh for this specific montage
         cmd = [
-            'bash', '$utils_dir/visualize-montage.sh',
+            'bash', '$tools_dir/visualize-montage.sh',
             montage_name, 'U', eeg_net, montage_output_dir
         ]
         
@@ -583,7 +583,7 @@ mapping_file = '$mapping_file'
 montage_name = '$montage_name'
 montage_config_file = '$project_dir/code/ti-toolbox/config/montage_list.json'
 montage_output_dir = '$montage_output_dir'
-utils_dir = '$utils_dir'
+tools_dir = '$tools_dir'
 
 try:
     # Read the electrode mapping
@@ -622,7 +622,7 @@ try:
         os.makedirs(montage_output_dir, exist_ok=True)
         
         # Call visualization script
-        cmd = ['bash', f'{utils_dir}/visualize-montage.sh', montage_name, 'U', eeg_net, montage_output_dir]
+        cmd = ['bash', f'{tools_dir}/visualize-montage.sh', montage_name, 'U', eeg_net, montage_output_dir]
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
         
         if result.returncode == 0:
@@ -652,9 +652,7 @@ except Exception as e:
     return 1
 }
 
-# Create temporary directory for SimNIBS output
-tmp_dir="$sim_dir/tmp"
-mkdir -p "$tmp_dir"
+# No temporary directory needed - files written directly to final locations
 
 # Montage visualization step
 log_simulation_step_start "Montage visualization"
@@ -807,13 +805,12 @@ log_simulation_step_start "NIfTI transformation"
 # Process each montage's simulation results
 for montage in "${selected_montages[@]}"; do
     montage_dir="$sim_dir/$montage"
-    tmp_montage_dir="$tmp_dir/$montage"
     
     # Convert T1 to MNI space
     convert_t1_to_mni
     
-    # Skip if temporary directory doesn't exist
-    if [ ! -d "$tmp_montage_dir" ]; then
+    # Skip if high_Frequency directory doesn't exist (means simulation didn't run)
+    if [ ! -d "$montage_dir/high_Frequency" ]; then
         log_error "No simulation results found for montage: $montage"
         continue
     fi
@@ -822,9 +819,12 @@ for montage in "${selected_montages[@]}"; do
         log_info "Processing simulation results for montage: $montage"
     fi
     
-    # Move high frequency mesh files
+    # High frequency files are already in place (TI.py writes directly to high_Frequency/)
+    hf_dir="$montage_dir/high_Frequency"
+    
+    # Move high frequency mesh files to proper location
     for pattern in "TDCS_1" "TDCS_2"; do
-        for file in "$tmp_montage_dir"/*${pattern}*; do
+        for file in "$hf_dir"/*${pattern}*; do
             if [[ -f "$file" ]]; then
                 if [[ "$file" == *".geo" || "$file" == *"scalar.msh" || "$file" == *"scalar.msh.opt" ]]; then
                     mv "$file" "$montage_dir/high_Frequency/mesh/"
@@ -837,96 +837,65 @@ for montage in "${selected_montages[@]}"; do
     done
     
     # Handle subject_volumes directory
-    if [ -d "$tmp_montage_dir/subject_volumes" ]; then
-        mv "$tmp_montage_dir/subject_volumes"/* "$montage_dir/high_Frequency/niftis/"
-        rmdir "$tmp_montage_dir/subject_volumes"
+    if [ -d "$hf_dir/subject_volumes" ]; then
+        mv "$hf_dir/subject_volumes"/* "$montage_dir/high_Frequency/niftis/"
+        rmdir "$hf_dir/subject_volumes"
         if [ "$SUMMARY_MODE" != true ]; then
             log_info "Moved subject volumes to high frequency niftis directory"
         fi
     fi
     
     # Handle subject_overlays directory (surface files)
-    if [ -d "$tmp_montage_dir/subject_overlays" ]; then
-        mv "$tmp_montage_dir/subject_overlays"/* "$montage_dir/TI/surface_overlays/"
-        rmdir "$tmp_montage_dir/subject_overlays"
+    if [ -d "$hf_dir/subject_overlays" ]; then
+        mv "$hf_dir/subject_overlays"/* "$montage_dir/TI/surface_overlays/"
+        rmdir "$hf_dir/subject_overlays"
         if [ "$SUMMARY_MODE" != true ]; then
             log_info "Moved subject overlays to TI surface overlays directory"
         fi
     fi
     
     # Move fields_summary.txt to analysis
-    if [ -f "$tmp_montage_dir/fields_summary.txt" ]; then
-        mv "$tmp_montage_dir/fields_summary.txt" "$montage_dir/high_Frequency/analysis/"
+    if [ -f "$hf_dir/fields_summary.txt" ]; then
+        mv "$hf_dir/fields_summary.txt" "$montage_dir/high_Frequency/analysis/"
         if [ "$SUMMARY_MODE" != true ]; then
             log_info "Moved fields summary to analysis directory"
         fi
     fi
     
     # Move log and mat files to documentation
-    for file in "$tmp_montage_dir"/simnibs_simulation_*.{log,mat}; do
+    for file in "$hf_dir"/simnibs_simulation_*.{log,mat}; do
         if [ -f "$file" ]; then
             mv "$file" "$montage_dir/documentation/"
-                    if [ "$SUMMARY_MODE" != true ]; then
-            log_info "Moved $(basename "$file") to documentation directory"
-        fi
+            if [ "$SUMMARY_MODE" != true ]; then
+                log_info "Moved $(basename "$file") to documentation directory"
+            fi
         fi
     done
     
-    # Process TI mesh
-    if [ -f "$tmp_montage_dir/TI.msh" ]; then
+    # Process TI mesh (TI.py now writes directly to final location)
+    ti_mesh="$montage_dir/TI/mesh/${montage}_TI.msh"
+    if [ -f "$ti_mesh" ]; then
         if [ "$SUMMARY_MODE" != true ]; then
             log_info "Processing TI mesh"
         fi
         
-        # Move and rename TI mesh and its opt file (without subject ID)
-        mv "$tmp_montage_dir/TI.msh" "$montage_dir/TI/mesh/${montage}_TI.msh"
-        if [ -f "$tmp_montage_dir/TI.msh.opt" ]; then
-            mv "$tmp_montage_dir/TI.msh.opt" "$montage_dir/TI/mesh/${montage}_TI.msh.opt"
-        fi
-        if [ "$SUMMARY_MODE" != true ]; then
-            log_info "Moved and renamed TI mesh files"
-        fi
-        
-        # Extract GM and WM fields (without subject ID)
-        ti_mesh="$montage_dir/TI/mesh/${montage}_TI.msh"
+        # Extract GM and WM fields
         gm_output="$montage_dir/TI/mesh/grey_${montage}_TI.msh"
         wm_output="$montage_dir/TI/mesh/white_${montage}_TI.msh"
         extract_fields "$ti_mesh" "$gm_output" "$wm_output"
         
-        # Transform volume meshes to NIfTI (excluding central surface meshes)
-        # Create temporary directory with only volume meshes for NIfTI conversion
-        temp_nifti_dir="$tmp_dir/${montage}_nifti_conversion"
-        mkdir -p "$temp_nifti_dir"
+        # Transform volume meshes to NIfTI (directly from TI/mesh to TI/niftis)
+        transform_parcellated_meshes_to_nifti "$montage_dir/TI/mesh" "$montage_dir/TI/niftis"
         
-        # Copy only volume mesh files (exclude TI_central files)
-        cp "$montage_dir/TI/mesh/${montage}_TI.msh" "$temp_nifti_dir/"
-        if [ -f "$montage_dir/TI/mesh/grey_${montage}_TI.msh" ]; then
-            cp "$montage_dir/TI/mesh/grey_${montage}_TI.msh" "$temp_nifti_dir/"
+        if [ "$SUMMARY_MODE" != true ]; then
+            log_info "TI mesh processing completed"
         fi
-        if [ -f "$montage_dir/TI/mesh/white_${montage}_TI.msh" ]; then
-            cp "$montage_dir/TI/mesh/white_${montage}_TI.msh" "$temp_nifti_dir/"
-        fi
-        
-        # Convert only volume meshes to NIfTI
-        transform_parcellated_meshes_to_nifti "$temp_nifti_dir" "$montage_dir/TI/niftis"
-        
-        # Clean up temporary directory
-        rm -rf "$temp_nifti_dir"
     fi
     
-    # Process TI central surface mesh (middle cortical layer) - AFTER NIfTI conversion
-    if [ -f "$tmp_montage_dir/TI_central.msh" ]; then
+    # TI normal mesh is already in place (written by TI.py)
+    if [ -f "$montage_dir/TI/mesh/${montage}_normal.msh" ]; then
         if [ "$SUMMARY_MODE" != true ]; then
-            log_info "Processing TI central surface mesh (surface-only, no NIfTI conversion)"
-        fi
-        
-        # Move and rename TI central mesh and its opt file to match montage_normal.msh pattern
-        mv "$tmp_montage_dir/TI_central.msh" "$montage_dir/TI/mesh/${montage}_normal.msh"
-        if [ -f "$tmp_montage_dir/TI_central.msh.opt" ]; then
-            mv "$tmp_montage_dir/TI_central.msh.opt" "$montage_dir/TI/mesh/${montage}_normal.msh.opt"
-        fi
-        if [ "$SUMMARY_MODE" != true ]; then
-            log_info "Moved and renamed TI central surface mesh to ${montage}_normal.msh (surface format preserved)"
+            log_info "TI normal surface mesh found (${montage}_normal.msh)"
         fi
     fi
 done

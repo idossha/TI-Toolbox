@@ -9,620 +9,256 @@ from datetime import datetime
 
 # Third-party imports
 import numpy as np
-
 from simnibs import mesh_io, run_simnibs, sim_struct
 from simnibs.utils import TI_utils as TI
 
-# Add project root to path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
-
 # Local imports
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 from tools import logging_util
 
-###########################################
-# Ido Haber / ihaber@wisc.edu
-# October 14, 2024
-# optimized for TI-Toolbox analyzer
-#
-# This script runs SimNIBS simulations
-#
-# Arguments:
-#   1. subject_id        : The ID of the subject.
-#   2. sim_type          : The type of simulation anisotropy ('scalar', 'vn', 'dir', 'mc').
-#   3. project_dir       : The directory where subject-specific data is stored.
-#   4. simulation_dir    : The directory where simulation results will be saved.
-#   5. sim_mode          : The mode of simulation ('scalar', 'vn', 'dir', 'mc').
-#   6. intensity         : The stimulation intensity in A.
-#   7. electrode_shape   : The shape of the electrodes ('rect' or 'ellipse').
-#   8. dimensions        : The dimensions of the electrodes (x,y in mm).
-#   9. thickness        : The thickness of the electrodes in mm.
-#   10. eeg_net           : The filename of the selected EEG net.
-#   11+ montage_names     : A list of montage names to use for the simulation.
-#
-# Functionality:
-#   - Loads the selected montages from a JSON file located in the ../utils directory relative to the subject directory.
-#   - Runs the simulation for each montage and saves the resulting mesh files.
-#   - Calculates and stores the maximal amplitude of the temporal interference (TI) envelope for multi-polar montages.
-###########################################
-
-# Get subject ID, simulation type, and montages from command-line arguments
+# Parse command-line arguments
 subject_id = sys.argv[1]
-sim_type = sys.argv[2]  # The anisotropy type
-project_dir = sys.argv[3]  # Changed from subject_dir to project_dir
+sim_type = sys.argv[2]
+project_dir = sys.argv[3]
 simulation_dir = sys.argv[4]
-sim_mode = sys.argv[5]  # Now explicitly parsed
+sim_mode = sys.argv[5]
 
-# Parse intensity - now supports either single value or comma-separated pair
 intensity_str = sys.argv[6]
 if ',' in intensity_str:
-    # If comma-separated, parse as two different intensities
     intensity1, intensity2 = map(float, intensity_str.split(','))
 else:
-    # If single value, use same intensity for both channels
     intensity1 = intensity2 = float(intensity_str)
 
 electrode_shape = sys.argv[7]
-dimensions = [float(x) for x in sys.argv[8].split(',')]  # Convert dimensions to list of floats
+dimensions = [float(x) for x in sys.argv[8].split(',')]
 thickness = float(sys.argv[9])
-eeg_net = sys.argv[10]  # Get the EEG net filename
+eeg_net = sys.argv[10]
 
-# Parse remaining arguments for montage names
 remaining_args = sys.argv[11:]
-montage_names = []
-quiet_mode = False
-for arg in remaining_args:
-    if arg == '--quiet':
-        quiet_mode = True
-    else:
-        montage_names.append(arg)
+montage_names = [arg for arg in remaining_args if arg != '--quiet']
+quiet_mode = '--quiet' in remaining_args
 
-# Initialize flex_montages early (will be populated after logger init)
-flex_montages = []
-
-# Define the correct path for the JSON file
-ti_csc_dir = os.path.join(project_dir, 'code', 'ti-toolbox')
-config_dir = os.path.join(ti_csc_dir, 'config')
+# Setup paths
+derivatives_dir = os.path.join(project_dir, 'derivatives')
+config_dir = os.path.join(project_dir, 'code', 'ti-toolbox', 'config')
 montage_file = os.path.join(config_dir, 'montage_list.json')
+simnibs_dir = os.path.join(derivatives_dir, 'SimNIBS', f'sub-{subject_id}')
+base_subpath = os.path.join(simnibs_dir, f'm2m_{subject_id}')
+tensor_file = os.path.join(base_subpath, "DTI_coregT1_tensor.nii.gz")
 
-# Create directories if they don't exist
+# Create config directory
 os.makedirs(config_dir, exist_ok=True)
-os.chmod(ti_csc_dir, 0o777)
+os.chmod(os.path.join(project_dir, 'code', 'ti-toolbox'), 0o777)
 os.chmod(config_dir, 0o777)
 
-# Create montage file if it doesn't exist
+# Initialize montage file
 if not os.path.exists(montage_file):
-    initial_content = {
-        "nets": {
-            "EGI_template.csv": {
-                "uni_polar_montages": {},
-                "multi_polar_montages": {}
-            }
-        }
-    }
     with open(montage_file, 'w') as f:
-        json.dump(initial_content, f, indent=4)
+        json.dump({"nets": {"EGI_template.csv": {"uni_polar_montages": {}, "multi_polar_montages": {}}}}, f, indent=4)
     os.chmod(montage_file, 0o777)
 
-# Load montages from JSON file
+# Load montages
 with open(montage_file) as f:
     all_montages = json.load(f)
 
-# Check if we have any regular montages
-if not montage_names:
-    montages = {}  # No standard montages to process
-    print("No regular montages provided, skipping montage validation")
-else:
-    # Check if the net exists in the JSON
-    if eeg_net not in all_montages.get('nets', {}):
-        print(f"Error: EEG net '{eeg_net}' not found in montage list.")
-        sys.exit(1)
-    
-    # Get the montages for this net
+montages = {}
+if montage_names and eeg_net in all_montages.get('nets', {}):
     net_montages = all_montages['nets'][eeg_net]
-    
-    # Check and process montages based on simulation mode
-    montage_type = 'uni_polar_montages' if len(sys.argv[11:]) > 0 and sys.argv[11] in net_montages.get('uni_polar_montages', {}) else 'multi_polar_montages'
+    montage_type = 'uni_polar_montages' if sys.argv[11] in net_montages.get('uni_polar_montages', {}) else 'multi_polar_montages'
     montages = {name: net_montages[montage_type].get(name) for name in montage_names}
 
-# Validate montage structure
-def validate_montage(montage, montage_name):
-    if not montage or len(montage) < 2 or len(montage[0]) < 2:
-        print(f"Invalid montage structure for {montage_name}. Skipping.")
-        return False
-    return True
-
 # Initialize logger
-# Check if log file path is provided through environment variable
 log_file = os.environ.get('TI_LOG_FILE')
 if not log_file:
-    # If not provided, create a new log file (fallback behavior)
-    time_stamp = time.strftime('%Y%m%d_%H%M%S')
-    derivatives_dir = os.path.join(project_dir, 'derivatives')
     log_dir = os.path.join(derivatives_dir, 'ti-toolbox', 'logs', f'sub-{subject_id}')
     os.makedirs(log_dir, exist_ok=True)
-    log_file = os.path.join(log_dir, f'Simulator_{time_stamp}.log')
+    log_file = os.path.join(log_dir, f'Simulator_{time.strftime("%Y%m%d_%H%M%S")}.log')
 
-# Initialize our main logger
 logger = logging_util.get_logger('TI', log_file, overwrite=False)
-
-# Configure SimNIBS related loggers to use our logging setup
 logging_util.configure_external_loggers(['simnibs', 'mesh_io', 'sim_struct'], logger)
 
-
-
-# Check if we have flex montages file (now after logger init)
-flex_montages_file = os.environ.get('FLEX_MONTAGES_FILE')
-if flex_montages_file and os.path.exists(flex_montages_file):
-    logger.debug(f"Loading flex montage from: {flex_montages_file}")
-    with open(flex_montages_file, 'r') as f:
+# Load flex montages
+flex_montages = []
+flex_file = os.environ.get('FLEX_MONTAGES_FILE')
+if flex_file and os.path.exists(flex_file):
+    with open(flex_file, 'r') as f:
         flex_config = json.load(f)
+    flex_montages = flex_config if isinstance(flex_config, list) else ([flex_config['montage']] if 'montage' in flex_config else [])
+    logger.debug(f"Loaded {len(flex_montages)} flex montage(s)")
+
+def resolve_mesh_file(pattern):
+    """Find mesh file using glob pattern, prefer subject_id match"""
+    matches = glob.glob(pattern)
+    if not matches:
+        return None
+    if len(matches) == 1:
+        return matches[0]
+    for match in matches:
+        if subject_id in os.path.basename(match):
+            return match
+    return matches[0]
+
+def run_simulation(montage_name, montage, is_xyz=False, net=None):
+    logger.info(f"Starting simulation: {montage_name}")
     
-    # Handle new individual config format vs old array format
-    if isinstance(flex_config, list):
-        # Old format - array of montages
-        flex_montages = flex_config
-        logger.debug(f"Loaded {len(flex_montages)} flex montages (legacy format)")
-    elif isinstance(flex_config, dict) and 'montage' in flex_config:
-        # New format - single config with subject_id, eeg_net, and montage
-        flex_montages = [flex_config['montage']]
-        logger.debug(f"Loaded individual flex montage: {flex_config['montage']['name']} for subject {flex_config['subject_id']}")
-        logger.debug(f"Using EEG net: {flex_config['eeg_net']}")
-    else:
-        logger.warning(f"Unrecognized flex montages file format: {type(flex_config)}")
-        flex_montages = []
+    # Setup paths
+    montage_dir = os.path.join(simulation_dir, montage_name)
+    hf_dir = os.path.join(montage_dir, "high_Frequency")
+    ti_mesh_dir = os.path.join(montage_dir, "TI", "mesh")
+    os.makedirs(hf_dir, exist_ok=True)
+    os.makedirs(ti_mesh_dir, exist_ok=True)
     
-    # Note: Don't clean up the temporary file here - the CLI will handle cleanup
-    logger.debug(f"Processing {len(flex_montages)} flex montage(s)")
-else:
-    logger.debug("No flex montages file provided")
-
-# Base paths
-derivatives_dir = os.path.join(project_dir, 'derivatives')
-simnibs_dir = os.path.join(derivatives_dir, 'SimNIBS', f'sub-{subject_id}')
-base_subpath = os.path.join(simnibs_dir, f'm2m_{subject_id}')
-conductivity_path = base_subpath
-tensor_file = os.path.join(conductivity_path, "DTI_coregT1_tensor.nii.gz")
-
-# Create temporary directory for SimNIBS output
-temp_dir = os.path.join(simulation_dir, "tmp")
-if not os.path.exists(temp_dir):
-    os.makedirs(temp_dir, exist_ok=True)
-    logger.debug(f"Created temporary directory at {temp_dir}")
-
-# Function to run simulations
-def run_simulation(montage_name, montage, is_xyz=False, eeg_net=None):
-    logger.info(f"Starting simulation for montage: {montage_name}")
-    
-    if not validate_montage(montage, montage_name):
-        logger.error(f"Invalid montage structure for {montage_name}. Skipping.")
-        return
-
+    # Setup SimNIBS session
     S = sim_struct.SESSION()
     S.subpath = base_subpath
     S.anisotropy_type = sim_type
-    
-    logger.debug(f"Set up SimNIBS session with anisotropy type: {sim_type}")
-    
-    # Use temporary directory for SimNIBS output
-    S.pathfem = os.path.join(temp_dir, montage_name)
-    
-    # Use the selected EEG net (only if not using XYZ coordinates)
+    S.pathfem = hf_dir
     if not is_xyz:
-        # Use the passed eeg_net parameter if provided, otherwise use the global one
-        net_to_use = eeg_net if eeg_net else globals()['eeg_net']
-        S.eeg_cap = os.path.join(base_subpath, "eeg_positions", net_to_use)
-    
-    S.map_to_surf = True  # Enable cortical surface mapping for middle surface analysis
+        S.eeg_cap = os.path.join(base_subpath, "eeg_positions", net or eeg_net)
+    S.map_to_surf = True
     S.map_to_fsavg = False
     S.map_to_vol = True
     S.map_to_mni = True
     S.open_in_gmsh = False
     S.tissues_in_niftis = "all"
-
-    # Load the conductivity tensors
     S.dti_nii = tensor_file
-
+    
     # First electrode pair
     tdcs = S.add_tdcslist()
-    tdcs.anisotropy_type = sim_type  # Set anisotropy_type to the input sim_type
+    tdcs.anisotropy_type = sim_type
+    tdcs.currents = [intensity1, -intensity1]
     
-    # Set custom conductivities if provided in environment variables
     for i in range(len(tdcs.cond)):
-        tissue_num = i + 1
-        env_var = f"TISSUE_COND_{tissue_num}"
+        env_var = f"TISSUE_COND_{i+1}"
         if env_var in os.environ:
             try:
                 tdcs.cond[i].value = float(os.environ[env_var])
-                logger.debug(f"Setting conductivity for tissue {tissue_num} to {tdcs.cond[i].value} S/m")
             except ValueError:
-                logger.warning(f"Invalid conductivity value for tissue {tissue_num}")
-
-    # Set currents for first pair using intensity1
-    tdcs.currents = [intensity1, -intensity1]
+                pass
     
-    # First electrode
-    electrode = tdcs.add_electrode()
-    electrode.channelnr = 1
-    if is_xyz:
-        # For XYZ coordinates, montage[0][0] is already a list [x, y, z]
-        electrode.centre = montage[0][0]
-    else:
-        # For electrode names, montage[0][0] is a string
-        electrode.centre = montage[0][0]
-    electrode.shape = electrode_shape
-    electrode.dimensions = dimensions
-    electrode.thickness = [thickness, 2]
-
-    # Second electrode
-    electrode = tdcs.add_electrode()
-    electrode.channelnr = 2
-    if is_xyz:
-        electrode.centre = montage[0][1]
-    else:
-        electrode.centre = montage[0][1]
-    electrode.shape = electrode_shape
-    electrode.dimensions = dimensions
-    electrode.thickness = [thickness, 2]
-
+    for idx, pos in enumerate(montage[0]):
+        electrode = tdcs.add_electrode()
+        electrode.channelnr = idx + 1
+        electrode.centre = pos
+        electrode.shape = electrode_shape
+        electrode.dimensions = dimensions
+        electrode.thickness = [thickness, 2]
+    
     # Second electrode pair
     tdcs_2 = S.add_tdcslist(deepcopy(tdcs))
-    # Set currents for second pair using intensity2
     tdcs_2.currents = [intensity2, -intensity2]
-    tdcs_2.electrode[0].centre = montage[1][0] if is_xyz else montage[1][0]
-    tdcs_2.electrode[1].centre = montage[1][1] if is_xyz else montage[1][1]
-
-    logger.info("Running SimNIBS simulation...")
+    tdcs_2.electrode[0].centre = montage[1][0]
+    tdcs_2.electrode[1].centre = montage[1][1]
+    
+    # Run simulation
+    logger.info("Running SimNIBS...")
     run_simnibs(S)
-    logger.info("SimNIBS simulation completed")
-
-    # Resolve TDCS file paths robustly to avoid accidental truncation of subject IDs
-    subject_identifier = subject_id
-    anisotropy_type = S.anisotropy_type
-
-    def resolve_tdcs_file(tdcs_index: int) -> str:
-        # Prefer full subject id
-        full = os.path.join(S.pathfem, f"{subject_identifier}_TDCS_{tdcs_index}_{anisotropy_type}.msh")
-        if os.path.exists(full):
-            return full
-        # Try truncated last segment only if it actually exists
-        truncated = os.path.join(S.pathfem, f"{subject_identifier.split('_')[-1]}_TDCS_{tdcs_index}_{anisotropy_type}.msh")
-        if os.path.exists(truncated):
-            logger.debug(f"Found truncated subject ID variant for TDCS_{tdcs_index}")
-            return truncated
-        # Fallback: glob any matching file
-        pattern = os.path.join(S.pathfem, f"*TDCS_{tdcs_index}_{anisotropy_type}.msh")
-        matches = glob.glob(pattern)
-        if len(matches) == 1:
-            logger.debug(f"Resolved TDCS_{tdcs_index} via glob: {os.path.basename(matches[0])}")
-            return matches[0]
-        logger.error(f"Could not resolve TDCS_{tdcs_index} mesh. Looked for full, truncated, and pattern {pattern}")
-        return full  # Return the expected full path for clearer error downstream
-
-    m1_file = resolve_tdcs_file(1)
-    m2_file = resolve_tdcs_file(2)
-
-    logger.debug("Loading mesh files for TI calculation")
+    logger.info("SimNIBS completed")
+    
+    # Find output files
+    m1_file = resolve_mesh_file(os.path.join(S.pathfem, f"*TDCS_1_{sim_type}.msh"))
+    m2_file = resolve_mesh_file(os.path.join(S.pathfem, f"*TDCS_2_{sim_type}.msh"))
+    
+    if not m1_file or not m2_file:
+        logger.error(f"Mesh files not found in {S.pathfem}")
+        return
+    
+    # Load and process meshes
     m1 = mesh_io.read_msh(m1_file)
     m2 = mesh_io.read_msh(m2_file)
-
+    
     tags_keep = np.hstack((np.arange(1, 100), np.arange(1001, 1100)))
     m1 = m1.crop_mesh(tags=tags_keep)
     m2 = m2.crop_mesh(tags=tags_keep)
-
-    ef1 = m1.field["E"]
-    ef2 = m2.field["E"]
-    logger.debug("Calculating TI maximum values")
-    TImax = TI.get_maxTI(ef1.value, ef2.value)
-
-    # Calculate TI normal component using middle cortical surface
-    logger.debug("Calculating TI normal component for middle cortical surface")
+    
+    # Calculate TI max
+    TImax = TI.get_maxTI(m1.field["E"].value, m2.field["E"].value)
+    
+    # Calculate TI normal (central surface if available)
     try:
-        # Look for central surface files (middle cortical layer) using robust resolution
         overlays_dir = os.path.join(S.pathfem, "subject_overlays")
-        def resolve_central(tdcs_index: int) -> str:
-            full = os.path.join(overlays_dir, f"{subject_identifier}_TDCS_{tdcs_index}_{anisotropy_type}_central.msh")
-            if os.path.exists(full):
-                return full
-            truncated = os.path.join(overlays_dir, f"{subject_identifier.split('_')[-1]}_TDCS_{tdcs_index}_{anisotropy_type}_central.msh")
-            if os.path.exists(truncated):
-                logger.debug(f"Found truncated subject ID central variant for TDCS_{tdcs_index}")
-                return truncated
-            pattern = os.path.join(overlays_dir, f"*TDCS_{tdcs_index}_{anisotropy_type}_central.msh")
-            matches = glob.glob(pattern)
-            if len(matches) == 1:
-                logger.debug(f"Resolved central TDCS_{tdcs_index} via glob: {os.path.basename(matches[0])}")
-                return matches[0]
-            return full
-
-        central_file_1 = resolve_central(1)
-        central_file_2 = resolve_central(2)
+        central_1 = resolve_mesh_file(os.path.join(overlays_dir, f"*TDCS_1_{sim_type}_central.msh"))
+        central_2 = resolve_mesh_file(os.path.join(overlays_dir, f"*TDCS_2_{sim_type}_central.msh"))
         
-        # Initialize TI_normal array with zeros for all elements
-        TI_normal = np.zeros(len(ef1.value))
-        TI_normal_central = None
-        
-        if os.path.exists(central_file_1) and os.path.exists(central_file_2):
-            logger.debug("Using middle cortical surface (central.msh files) for normal calculation")
+        if central_1 and central_2:
+            cm1 = mesh_io.read_msh(central_1)
+            cm2 = mesh_io.read_msh(central_2)
             
-            # Load central surface meshes
-            central_m1 = mesh_io.read_msh(central_file_1)
-            central_m2 = mesh_io.read_msh(central_file_2)
-            
-            # Check what fields are available in the central mesh
-            available_fields_1 = [field.field_name for field in central_m1.nodedata + central_m1.elmdata]
-            available_fields_2 = [field.field_name for field in central_m2.nodedata + central_m2.elmdata]
-            logger.debug(f"Available fields in central mesh 1: {available_fields_1}")
-            logger.debug(f"Available fields in central mesh 2: {available_fields_2}")
-            
-            # Get 3D electric field vectors from central surface files
-            # We need the full E field vectors (not just normal components) for proper TI calculation
-            try:
-                # Method 1: Try to get full E field vectors directly
-                ef1_central = None
-                ef2_central = None
-                
-                # Try different field access methods
-                if hasattr(central_m1, 'field') and 'E' in central_m1.field:
-                    ef1_central = central_m1.field["E"]
-                    ef2_central = central_m2.field["E"]
-                    logger.debug("Found full E field vectors using field['E'] accessor")
-                else:
-                    # Method 2: Reconstruct E field from components if available
-                    try:
-                        # Get individual components
-                        ef1_normal = central_m1.field["E_normal"]
-                        ef1_tangent = central_m1.field["E_tangent"] 
-                        ef2_normal = central_m2.field["E_normal"]
-                        ef2_tangent = central_m2.field["E_tangent"]
-                        
-                        # Calculate surface normals and tangent directions
-                        surface_normals = central_m1.nodes_normals().value
-                        
-                        # Reconstruct 3D E field vectors (this is an approximation)
-                        # E = E_normal * normal + E_tangent * tangent_direction
-                        # For simplicity, we'll use a basic approach where tangent is in the xy-plane
-                        n_nodes = len(ef1_normal.value)
-                        
-                        # Create approximate 3D vectors using normal and magnitude info
-                        ef1_3d = np.zeros((n_nodes, 3))
-                        ef2_3d = np.zeros((n_nodes, 3))
-                        
-                        # Use normal component along normal direction
-                        ef1_3d = ef1_normal.value.reshape(-1, 1) * surface_normals
-                        ef2_3d = ef2_normal.value.reshape(-1, 1) * surface_normals
-                        
-                        # Create field objects
-                        ef1_central = type('', (), {'value': ef1_3d})()
-                        ef2_central = type('', (), {'value': ef2_3d})()
-                        
-                        logger.debug("Reconstructed 3D E field vectors from normal components")
-                        logger.warning("Using approximated 3D vectors - results may be less accurate")
-                        
-                    except Exception as reconstruct_error:
-                        logger.error(f"Could not reconstruct E field vectors: {str(reconstruct_error)}")
-                        raise ValueError("Could not access full E field vectors from central surface files")
-                
-                logger.debug(f"E field 1 has {len(ef1_central.value)} nodes with shape {ef1_central.value.shape}")
-                logger.debug(f"E field 2 has {len(ef2_central.value)} nodes with shape {ef2_central.value.shape}")
-                
-            except Exception as e:
-                logger.error(f"Could not access E field data: {str(e)}")
-                logger.warning("Available node data fields: " + str([f.field_name for f in central_m1.nodedata]))
-                logger.warning("Available element data fields: " + str([f.field_name for f in central_m1.elmdata]))
-                raise ValueError("E field data not found in central surface files")
-            
-            # Calculate surface normals for directional calculation
-            surface_normals = central_m1.nodes_normals().value
-            
-            # Calculate TI normal component using the proper SimNIBS method
-            # This follows the exact approach used in tes_flex_optimization.py
-            TI_normal_central = TI.get_dirTI(E1=ef1_central.value, E2=ef2_central.value, dirvec_org=surface_normals)
-            
-            logger.debug(f"Calculated TI normal component for {len(TI_normal_central)} nodes on middle cortical surface")
-            logger.debug(f"TI_normal range: {np.min(TI_normal_central):.6f} to {np.max(TI_normal_central):.6f} V/m")
-            
-            # Save the central surface TI normal as a separate mesh file (TI_normal only)
-            mout_central = deepcopy(central_m1)
-            mout_central.nodedata = []
-            mout_central.add_node_field(TI_normal_central, "TI_normal")
-            
-            # Write central surface mesh with TI fields
-            central_ti_file = os.path.join(S.pathfem, "TI_central.msh")
-            mesh_io.write_msh(mout_central, central_ti_file)
-            
-            # Create visualization for central surface (TI_normal only)
-            v_central = mout_central.view(visible_fields=["TI_normal"])
-            v_central.write_opt(central_ti_file)
-            
-            logger.debug(f"Saved middle cortical surface TI_normal analysis to: {central_ti_file}")
-        
-        else:
-            logger.warning("Central surface files not found, falling back to superficial cortical surface")
-            logger.debug("To use middle cortical surface, ensure map_to_surf=True in simulation settings")
-            
-            # Fallback to original method using superficial surface
-            # Get indices of gray matter elements in the original mesh
-            gm_indices = np.isin(m1.elm.tag1, [1002])
-            
-            if np.any(gm_indices):
-                # Extract gray matter surface (tag 1002) for normal calculation
-                gm_mesh = m1.crop_mesh(tags=[1002])
-                
-                if len(gm_mesh.elm.elm_number) > 0:
-                    # Calculate surface normals for the gray matter surface
-                    surface_normals = gm_mesh.triangle_normals()
-                    
-                    # Get electric fields for gray matter elements only
-                    ef1_gm = ef1.value[gm_indices]
-                    ef2_gm = ef2.value[gm_indices]
-                    
-                    # The surface normals from cropped mesh should match the gray matter elements
-                    if len(surface_normals.value) == len(ef1_gm):
-                        # Calculate directional TI along normal direction for gray matter
-                        TI_normal_gm = TI.get_dirTI(ef1_gm, ef2_gm, surface_normals.value)
-                        
-                        # Assign calculated values to gray matter elements
-                        TI_normal[gm_indices] = TI_normal_gm
-                        
-                        logger.debug(f"Calculated TI normal component for {len(TI_normal_gm)} superficial cortical elements")
-                    else:
-                        logger.warning(f"Dimension mismatch: normals {len(surface_normals.value)} vs fields {len(ef1_gm)}")
-                else:
-                    logger.warning("No gray matter surface found after cropping")
+            if hasattr(cm1, 'field') and 'E' in cm1.field:
+                ef1_c, ef2_c = cm1.field["E"], cm2.field["E"]
             else:
-                logger.warning("No gray matter elements found for normal calculation")
+                normals = cm1.nodes_normals().value
+                ef1_c = type('', (), {'value': cm1.field["E_normal"].value.reshape(-1, 1) * normals})()
+                ef2_c = type('', (), {'value': cm2.field["E_normal"].value.reshape(-1, 1) * normals})()
             
+            TI_normal = TI.get_dirTI(ef1_c.value, ef2_c.value, cm1.nodes_normals().value)
+            
+            mout_c = deepcopy(cm1)
+            mout_c.nodedata = []
+            mout_c.add_node_field(TI_normal, "TI_normal")
+            normal_path = os.path.join(ti_mesh_dir, f"{montage_name}_normal.msh")
+            mesh_io.write_msh(mout_c, normal_path)
+            mout_c.view(visible_fields=["TI_normal"]).write_opt(normal_path)
+            logger.debug(f"Saved {montage_name}_normal.msh")
     except Exception as e:
-        logger.error(f"Error calculating TI normal component: {str(e)}")
-        logger.debug("Setting TI_normal to zeros due to error")
-        TI_normal = np.zeros(len(ef1.value))
-
-    logger.debug("Writing output mesh files")
+        logger.warning(f"Central surface TI calculation skipped: {e}")
+    
+    # Save TI max mesh
     mout = deepcopy(m1)
     mout.elmdata = []
     mout.add_element_field(TImax, "TI_max")
-    # NOTE: TI_normal is NOT added to volume mesh - it's only in the central surface mesh
-    mesh_io.write_msh(mout, os.path.join(S.pathfem, "TI.msh"))
-
-    v = mout.view(visible_tags=[1002, 1006], visible_fields=["TI_max"])
-    v.write_opt(os.path.join(S.pathfem, "TI.msh"))
-    logger.info(f"Completed simulation for montage: {montage_name}")
-    logger.info(f"Volume mesh (TI.msh) contains TI_max field only")
-    logger.info(f"Central surface mesh (TI_central.msh) contains TI_normal field only")
-
-# Run the simulations for each selected montage
-if montage_names:
-    for name in montage_names:
-        if name in montages and montages[name]:
-            run_simulation(name, montages[name], is_xyz=False)
-        else:
-            logger.error(f"Montage {name} not found or invalid. Skipping.")
-else:
-    logger.debug("No regular montages to simulate")
-
-# Run simulations for flex montages
-for flex_montage in flex_montages:
-    montage_name = flex_montage['name']
-    montage_type = flex_montage['type']
+    ti_path = os.path.join(ti_mesh_dir, f"{montage_name}_TI.msh")
+    mesh_io.write_msh(mout, ti_path)
+    mout.view(visible_tags=[1002, 1006], visible_fields=["TI_max"]).write_opt(ti_path)
     
-    # Create directories for this flex montage
-    montage_dir = os.path.join(simulation_dir, montage_name)
-    os.makedirs(montage_dir, exist_ok=True)
-    os.makedirs(os.path.join(montage_dir, "high_Frequency", "mesh"), exist_ok=True)
-    os.makedirs(os.path.join(montage_dir, "high_Frequency", "niftis"), exist_ok=True)
-    os.makedirs(os.path.join(montage_dir, "high_Frequency", "analysis"), exist_ok=True)
-    os.makedirs(os.path.join(montage_dir, "TI", "mesh"), exist_ok=True)
-    os.makedirs(os.path.join(montage_dir, "TI", "niftis"), exist_ok=True)
-    os.makedirs(os.path.join(montage_dir, "TI", "montage_imgs"), exist_ok=True)
-    os.makedirs(os.path.join(montage_dir, "documentation"), exist_ok=True)
-    logger.debug(f"Created directory structure for flex montage: {montage_name}")
+    logger.info(f"Completed: {montage_name}")
+
+# Run regular montages
+for name in montage_names:
+    if name in montages and montages[name]:
+        run_simulation(name, montages[name])
+
+# Run flex montages
+for flex in flex_montages:
+    montage_name = flex['name']
+    montage_type = flex['type']
     
     if montage_type == 'flex_mapped':
-        # For mapped electrodes, use electrode labels and EEG net from the JSON
-        electrode_labels = flex_montage['electrode_labels']
-        pairs = flex_montage['pairs']
-        eeg_net_for_montage = flex_montage.get('eeg_net', eeg_net)  # Use from JSON, fallback to default
-        
-        # Convert to the expected format
+        pairs = flex['pairs']
         montage_data = [[pairs[0][0], pairs[0][1]], [pairs[1][0], pairs[1][1]]]
-        if not quiet_mode:
-            logger.info(f"Running flex mapped simulation with electrodes: {electrode_labels}")
-        logger.debug(f"Using EEG net from flex-search: {eeg_net_for_montage}")
-        
-        # Temporarily set the EEG net for this simulation
-        original_eeg_net = eeg_net
-        eeg_net = eeg_net_for_montage
-        run_simulation(montage_name, montage_data, is_xyz=False, eeg_net=eeg_net_for_montage)
-        eeg_net = original_eeg_net  # Restore original
-    
+        run_simulation(montage_name, montage_data, is_xyz=False, net=flex.get('eeg_net', eeg_net))
     elif montage_type == 'flex_optimized':
-        # For optimized electrodes, use XYZ coordinates (no EEG net needed)
-        electrode_positions = flex_montage['electrode_positions']
-        # Format: [[pos1, pos2], [pos3, pos4]] where each pos is [x, y, z]
-        montage_data = [[electrode_positions[0], electrode_positions[1]], 
-                        [electrode_positions[2], electrode_positions[3]]]
-        logger.info(f"Running flex optimized simulation with XYZ coordinates")
+        ep = flex['electrode_positions']
+        montage_data = [[ep[0], ep[1]], [ep[2], ep[3]]]
         run_simulation(montage_name, montage_data, is_xyz=True)
 
-# Create a simulation completion report for the GUI
-completion_report = {
+# Create completion report
+completed = []
+for name in montage_names:
+    ti_mesh = os.path.join(simulation_dir, name, "TI", "mesh", f"{name}_TI.msh")
+    if os.path.exists(ti_mesh):
+        completed.append({'montage_name': name, 'montage_type': 'regular', 'status': 'completed'})
+
+for flex in flex_montages:
+    ti_mesh = os.path.join(simulation_dir, flex['name'], "TI", "mesh", f"{flex['name']}_TI.msh")
+    if os.path.exists(ti_mesh):
+        completed.append({'montage_name': flex['name'], 'montage_type': flex['type'], 'status': 'completed'})
+
+report = {
     'session_id': os.environ.get('SIMULATION_SESSION_ID', 'unknown'),
     'subject_id': subject_id,
     'project_dir': project_dir,
     'simulation_dir': simulation_dir,
-    'completed_simulations': [],
+    'completed_simulations': completed,
     'timestamp': datetime.now().isoformat(),
-    'total_simulations': 0,
-    'success_count': 0,
-    'error_count': 0
+    'total_simulations': len(montage_names) + len(flex_montages),
+    'success_count': len(completed),
+    'error_count': len(montage_names) + len(flex_montages) - len(completed)
 }
 
-# Track completed regular montages
-successful_montages = []
-if montage_names:
-    for name in montage_names:
-        if name in montages and montages[name]:
-            # Check if simulation files were created
-            temp_montage_dir = os.path.join(temp_dir, name)
-            if os.path.exists(temp_montage_dir):
-                ti_mesh_file = os.path.join(temp_montage_dir, "TI.msh")
-                if os.path.exists(ti_mesh_file):
-                    successful_montages.append(name)
-                    completion_report['completed_simulations'].append({
-                        'montage_name': name,
-                        'montage_type': 'regular',
-                        'status': 'completed',
-                        'temp_path': temp_montage_dir,
-                        'output_files': {
-                            'TI': [ti_mesh_file]
-                        }
-                    })
-                    completion_report['success_count'] += 1
-                else:
-                    logger.error(f"TI mesh file not found for {name}")
-                    completion_report['error_count'] += 1
-            else:
-                logger.error(f"Simulation directory not found for {name}")
-                completion_report['error_count'] += 1
-        else:
-            logger.error(f"Montage {name} not found or invalid")
-            completion_report['error_count'] += 1
+report_file = os.path.join(project_dir, 'derivatives', 'temp', f'simulation_completion_{subject_id}_{int(time.time())}.json')
+os.makedirs(os.path.dirname(report_file), exist_ok=True)
+with open(report_file, 'w') as f:
+    json.dump(report, f, indent=2)
 
-# Track completed flex montages
-successful_flex_montages = []
-for flex_montage in flex_montages:
-    montage_name = flex_montage['name']
-    temp_montage_dir = os.path.join(temp_dir, montage_name)
-    
-    if os.path.exists(temp_montage_dir):
-        ti_mesh_file = os.path.join(temp_montage_dir, "TI.msh")
-        if os.path.exists(ti_mesh_file):
-            successful_flex_montages.append(montage_name)
-            completion_report['completed_simulations'].append({
-                'montage_name': montage_name,
-                'montage_type': flex_montage['type'],
-                'status': 'completed',
-                'temp_path': temp_montage_dir,
-                'output_files': {
-                    'TI': [ti_mesh_file]
-                }
-            })
-            completion_report['success_count'] += 1
-        else:
-            logger.error(f"TI mesh file not found for flex montage {montage_name}")
-            completion_report['error_count'] += 1
-    else:
-        logger.error(f"Simulation directory not found for flex montage {montage_name}")
-        completion_report['error_count'] += 1
-
-completion_report['total_simulations'] = len(montage_names) + len(flex_montages)
-
-# Write completion report to a file the GUI can read
-completion_file = os.path.join(project_dir, 'derivatives', 'temp', f'simulation_completion_{subject_id}_{int(time.time())}.json')
-os.makedirs(os.path.dirname(completion_file), exist_ok=True)
-with open(completion_file, 'w') as f:
-    json.dump(completion_report, f, indent=2)
-
-logger.info(f"Simulation completion report written to: {completion_file}")
-logger.info(f"Successfully completed {completion_report['success_count']}/{completion_report['total_simulations']} simulations")
-        
+logger.info(f"Completed {report['success_count']}/{report['total_simulations']} simulations")

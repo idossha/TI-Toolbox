@@ -36,8 +36,8 @@ def load_ti_module(mock_tmpdir):
         def __init__(self):
             self.subpath = ''
             self.anisotropy_type = ''
-            # TI.py sets S.pathfem = os.path.join(temp_dir, montage_name) where temp_dir = simulation_dir/tmp
-            self.pathfem = os.path.join(str(mock_tmpdir), 'tmp', 'central_montage')
+            # TI.py sets S.pathfem = hf_dir (high_Frequency directory)
+            self.pathfem = os.path.join(str(mock_tmpdir), 'central_montage', 'high_Frequency')
             self.eeg_cap = ''
             self.map_to_surf = True
             self.map_to_fsavg = False
@@ -120,13 +120,17 @@ def test_ti_reads_hf_meshes_and_writes_output(tmp_path):
     # Ensure TI.py uses our mock directly
     mod.mesh_io = mesh_io_mock
 
-    # Prepare 2 HF meshes under pathfem the way TI.py expects: simulation_dir/tmp/<montage>/
+    # Prepare directories the way TI.py expects: simulation_dir/<montage>/high_Frequency/
     montage_name = 'central_montage'
-    montage_dir = os.path.join(str(tmp_path), 'tmp', montage_name)
-    os.makedirs(montage_dir, exist_ok=True)
+    montage_dir = os.path.join(str(tmp_path), montage_name)
+    hf_dir = os.path.join(montage_dir, 'high_Frequency')
+    ti_mesh_dir = os.path.join(montage_dir, 'TI', 'mesh')
+    os.makedirs(hf_dir, exist_ok=True)
+    os.makedirs(ti_mesh_dir, exist_ok=True)
     # Expected filenames use subject_id and anisotropy type set in sys.argv within loader
-    open(os.path.join(montage_dir, 'subj001_TDCS_1_scalar.msh'), 'w').close()
-    open(os.path.join(montage_dir, 'subj001_TDCS_2_scalar.msh'), 'w').close()
+    # TI.py expects these in S.pathfem which is hf_dir
+    open(os.path.join(hf_dir, 'subj001_TDCS_1_scalar.msh'), 'w').close()
+    open(os.path.join(hf_dir, 'subj001_TDCS_2_scalar.msh'), 'w').close()
 
     # Minimal fake mesh object implementing required API
     class FakeField:
@@ -174,8 +178,8 @@ def test_ti_reads_hf_meshes_and_writes_output(tmp_path):
     # Act (let exceptions surface to aid debugging if any)
     mod.run_simulation(montage_name, [['E1', 'E2'], ['E3', 'E4']], is_xyz=False)
 
-    # Assert TI output was written
-    ti_out = os.path.join(montage_dir, 'TI.msh')
+    # Assert TI output was written to TI/mesh/ directory
+    ti_out = os.path.join(ti_mesh_dir, f'{montage_name}_TI.msh')
     assert os.path.exists(ti_out)
 
 
@@ -185,12 +189,16 @@ def test_ti_uses_central_surface_when_available(tmp_path):
     mod.mesh_io = mesh_io_mock
 
     montage_name = 'central_montage'
-    montage_dir = os.path.join(str(tmp_path), 'tmp', montage_name)
-    overlays_dir = os.path.join(montage_dir, 'subject_overlays')
+    montage_dir = os.path.join(str(tmp_path), montage_name)
+    hf_dir = os.path.join(montage_dir, 'high_Frequency')
+    ti_mesh_dir = os.path.join(montage_dir, 'TI', 'mesh')
+    overlays_dir = os.path.join(hf_dir, 'subject_overlays')
+    os.makedirs(hf_dir, exist_ok=True)
+    os.makedirs(ti_mesh_dir, exist_ok=True)
     os.makedirs(overlays_dir, exist_ok=True)
-    # Create required HF mesh files
-    open(os.path.join(montage_dir, 'subj001_TDCS_1_scalar.msh'), 'w').close()
-    open(os.path.join(montage_dir, 'subj001_TDCS_2_scalar.msh'), 'w').close()
+    # Create required HF mesh files in hf_dir (S.pathfem)
+    open(os.path.join(hf_dir, 'subj001_TDCS_1_scalar.msh'), 'w').close()
+    open(os.path.join(hf_dir, 'subj001_TDCS_2_scalar.msh'), 'w').close()
     # Create central surface files to trigger central path
     open(os.path.join(overlays_dir, 'subj001_TDCS_1_scalar_central.msh'), 'w').close()
     open(os.path.join(overlays_dir, 'subj001_TDCS_2_scalar_central.msh'), 'w').close()
@@ -252,6 +260,10 @@ def test_ti_uses_central_surface_when_available(tmp_path):
     # Act
     mod.run_simulation(montage_name, [['E1', 'E2'], ['E3', 'E4']], is_xyz=False)
 
-    # Assert central TI output was written
-    central_out = os.path.join(montage_dir, 'TI_central.msh')
+    # Assert central TI normal surface output was written to TI/mesh/
+    central_out = os.path.join(ti_mesh_dir, f'{montage_name}_normal.msh')
     assert os.path.exists(central_out)
+
+
+if __name__ == "__main__":
+    pytest.main([__file__])

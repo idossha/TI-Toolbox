@@ -24,7 +24,8 @@ def load_mti_module(tmpdir):
         def __init__(self):
             self.subpath = ''
             self.anisotropy_type = ''
-            self.pathfem = str(tmpdir)
+            # mTI.py sets S.pathfem = hf_dir (high_Frequency directory)
+            self.pathfem = os.path.join(str(tmpdir), 'central_montage', 'high_Frequency')
             self.eeg_cap = ''
             self.map_to_surf = False
             self.map_to_fsavg = False
@@ -92,11 +93,18 @@ def load_mti_module(tmpdir):
 
 def test_mti_resolves_hf_meshes_and_writes_intermediates(tmp_path):
     mod, mesh_io_mock = load_mti_module(tmp_path)
-    # Prepare 4 HF meshes under pathfem the way mTI.py expects: simulation_dir/<montage>/
-    montage_dir = os.path.join(str(tmp_path), 'central_montage')
-    os.makedirs(montage_dir, exist_ok=True)
+    # Prepare directories the way mTI.py expects: simulation_dir/<montage>/high_Frequency/
+    montage_name = 'central_montage'
+    montage_dir = os.path.join(str(tmp_path), montage_name)
+    hf_dir = os.path.join(montage_dir, 'high_Frequency')
+    ti_mesh_dir = os.path.join(montage_dir, 'TI', 'mesh')
+    mti_mesh_dir = os.path.join(montage_dir, 'mTI', 'mesh')
+    os.makedirs(hf_dir, exist_ok=True)
+    os.makedirs(ti_mesh_dir, exist_ok=True)
+    os.makedirs(mti_mesh_dir, exist_ok=True)
+    # Create 4 HF mesh files in hf_dir (S.pathfem)
     for i in range(1, 5):
-        open(os.path.join(montage_dir, f'subj001_TDCS_{i}_scalar.msh'), 'w').close()
+        open(os.path.join(hf_dir, f'subj001_TDCS_{i}_scalar.msh'), 'w').close()
 
     # Configure module CLI-like globals
     mod.subject_id = 'ernie_extended'
@@ -124,11 +132,18 @@ def test_mti_resolves_hf_meshes_and_writes_intermediates(tmp_path):
     mesh_C = make_mesh([0.0, 0.0, 1.0])
     mesh_D = make_mesh([1.0, 1.0, 0.0])
     mesh_io_mock.read_msh.side_effect = [mesh_A, mesh_B, mesh_C, mesh_D]
+    
+    # Make write_msh create the file so we can assert on filesystem
+    def write_msh_side_effect(_mesh, path):
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        open(path, 'w').close()
+    mesh_io_mock.write_msh.side_effect = write_msh_side_effect
 
     # Act
     try:
-        out = mod.run_simulation('central_montage', [['E1', 'E2'], ['E3', 'E4'], ['E5', 'E6'], ['E7', 'E8']], str(tmp_path))
-    except Exception:
+        out = mod.run_simulation(montage_name, [['E1', 'E2'], ['E3', 'E4'], ['E5', 'E6'], ['E7', 'E8']])
+    except Exception as e:
+        print(f"Exception during run_simulation: {e}")
         out = None
 
     # Assert HF meshes were read and cropped
@@ -137,6 +152,19 @@ def test_mti_resolves_hf_meshes_and_writes_intermediates(tmp_path):
     assert mesh_B.crop_mesh.called
     assert mesh_C.crop_mesh.called
     assert mesh_D.crop_mesh.called
+    
+    # Assert intermediate TI meshes were written to TI/mesh/
+    ti_ab_mesh = os.path.join(ti_mesh_dir, f'{montage_name}_TI_AB.msh')
+    ti_cd_mesh = os.path.join(ti_mesh_dir, f'{montage_name}_TI_CD.msh')
+    assert os.path.exists(ti_ab_mesh), f"TI_AB mesh not found at {ti_ab_mesh}"
+    assert os.path.exists(ti_cd_mesh), f"TI_CD mesh not found at {ti_cd_mesh}"
+    
+    # Assert final mTI mesh was written to mTI/mesh/
+    mti_mesh = os.path.join(mti_mesh_dir, f'{montage_name}_mTI.msh')
+    assert os.path.exists(mti_mesh), f"mTI mesh not found at {mti_mesh}"
+    
+    # Assert return value is the mTI mesh path
+    assert out == mti_mesh
     
 
 

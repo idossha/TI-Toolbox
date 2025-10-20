@@ -1432,6 +1432,35 @@ class SimulatorTab(QtWidgets.QWidget):
             ):
                 return
             
+            # Check for existing simulation directories and ask for overwrite confirmation
+            existing_dirs = []
+            for subject_id in selected_subjects:
+                if is_montage_mode:
+                    montages_to_check = selected_montages
+                else:
+                    montages_to_check = [cfg['montage']['name'] for cfg in flex_montage_configs if cfg['subject_id'] == subject_id]
+                
+                for montage_name in montages_to_check:
+                    simulation_dir = self.pm.get_simulation_dir(subject_id, 'Simulations')
+                    if simulation_dir:
+                        montage_dir = os.path.join(simulation_dir, montage_name)
+                        if os.path.exists(montage_dir):
+                            existing_dirs.append(f"{subject_id}/{montage_name}")
+            
+            # If any directories exist, ask for confirmation to overwrite
+            if existing_dirs:
+                existing_list = "\n".join([f"  • {d}" for d in existing_dirs[:10]])  # Show max 10
+                if len(existing_dirs) > 10:
+                    existing_list += f"\n  ... and {len(existing_dirs) - 10} more"
+                
+                if not ConfirmationDialog.confirm(
+                    self,
+                    title="Overwrite Existing Simulations?",
+                    message=f"The following simulation directories already exist and will be overwritten:",
+                    details=f"{existing_list}\n\nDo you want to continue and overwrite these simulations?"
+                ):
+                    return
+            
             # Prepare environment variables
             env = os.environ.copy()
             env['DIRECT_MODE'] = 'true'
