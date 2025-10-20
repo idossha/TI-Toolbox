@@ -126,6 +126,7 @@ def run_simulation(montage_name, electrode_pairs):
     # Setup SimNIBS session
     S = sim_struct.SESSION()
     S.subpath = base_subpath
+    S.fnamehead = subject_id  # Explicitly set output filename prefix
     S.anisotropy_type = sim_type
     S.pathfem = hf_dir
     S.eeg_cap = os.path.join(base_subpath, "eeg_positions", eeg_net)
@@ -166,13 +167,16 @@ def run_simulation(montage_name, electrode_pairs):
     run_simnibs(S)
     logger.info("SimNIBS completed")
     
-    # Load HF meshes
+    # Load HF meshes (fnamehead is set to subject_id, so filenames are predictable)
     hf_meshes = []
+    
     for i in range(1, 5):
         mesh_file = os.path.join(hf_dir, f"{subject_id}_TDCS_{i}_{sim_type}.msh")
+            
         if not os.path.exists(mesh_file):
-            logger.error(f"Could not find {mesh_file}")
+            logger.error(f"Could not find mesh file: {mesh_file}")
             return None
+            
         m = mesh_io.read_msh(mesh_file)
         m = m.crop_mesh(tags=np.hstack((np.arange(1, 100), np.arange(1001, 1100))))
         hf_meshes.append(m)
