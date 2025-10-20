@@ -93,17 +93,17 @@ def load_ti_module(mock_tmpdir):
     # Provide minimal CLI args expected by TI.py to avoid IndexError at import time
     sys.argv = [
         'TI.py',
-        'subj001',                 # subject_id
-        'scalar',                  # sim_type
-        str(mock_tmpdir),          # project_dir
-        str(mock_tmpdir),          # simulation_dir
-        'U',                       # sim_mode
-        '1.0',                     # intensity
-        'rect',                    # electrode_shape
-        '10,20',                   # dimensions
-        '2.0',                     # thickness
-        'EGI_template.csv',        # eeg_net (exists in default montage JSON)
-        'dummy_montage'            # montage name (not used in this test)
+        'subj001',                 # subject_id (argv[1])
+        'scalar',                  # sim_type (argv[2])
+        str(mock_tmpdir),          # project_dir (argv[3])
+        str(mock_tmpdir),          # simulation_dir (argv[4])
+        'U',                       # sim_mode (argv[5])
+        '1.0',                     # intensity (argv[6])
+        'rect',                    # electrode_shape (argv[7])
+        '10,20',                   # dimensions (argv[8])
+        '2.0',                     # thickness (argv[9])
+        'EGI_template.csv',        # eeg_net (argv[10])
+        'dummy_montage'            # montage name (argv[11])
     ]
 
     # Load simulator/TI.py

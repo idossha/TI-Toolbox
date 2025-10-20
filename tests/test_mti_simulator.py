@@ -72,16 +72,16 @@ def load_mti_module(tmpdir):
     # Args: script, subject_id, sim_type, project_dir, simulation_dir, intensities, shape, dims, thickness, eeg_net, montage
     sys.argv = [
         'mTI.py',
-        'subj001',                # subject_id
-        'scalar',                 # sim_type
-        str(tmpdir),              # project_dir
-        str(tmpdir),              # simulation_dir
-        '1.0,1.0,1.0,1.0',        # intensities for 4 channels
-        'rect',                   # electrode_shape
-        '10,20',                  # dimensions
-        '2.0',                    # thickness
-        'EGI_template.csv',       # eeg_net
-        'central_montage'         # montage name
+        'subj001',                # subject_id (argv[1])
+        'scalar',                 # sim_type (argv[2])
+        str(tmpdir),              # project_dir (argv[3])
+        str(tmpdir),              # simulation_dir (argv[4])
+        '1.0,1.0,1.0,1.0',        # intensities for 4 channels (argv[5]) - NO sim_mode param
+        'rect',                   # electrode_shape (argv[6])
+        '10,20',                  # dimensions (argv[7])
+        '2.0',                    # thickness (argv[8])
+        'EGI_template.csv',       # eeg_net (argv[9])
+        'central_montage'         # montage name (argv[10])
     ]
 
     module_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'simulator', 'mTI.py')
@@ -102,12 +102,12 @@ def test_mti_resolves_hf_meshes_and_writes_intermediates(tmp_path):
     os.makedirs(hf_dir, exist_ok=True)
     os.makedirs(ti_mesh_dir, exist_ok=True)
     os.makedirs(mti_mesh_dir, exist_ok=True)
-    # Create 4 HF mesh files in hf_dir (S.pathfem)
-    for i in range(1, 5):
-        open(os.path.join(hf_dir, f'subj001_TDCS_{i}_scalar.msh'), 'w').close()
-
-    # Configure module CLI-like globals
+    # Configure module CLI-like globals first
     mod.subject_id = 'ernie_extended'
+    
+    # Create 4 HF mesh files in hf_dir (S.pathfem) with correct subject ID
+    for i in range(1, 5):
+        open(os.path.join(hf_dir, f'{mod.subject_id}_TDCS_{i}_scalar.msh'), 'w').close()
     mod.sim_type = 'scalar'
     mod.project_dir = '/mnt/test'
     mod.simulation_dir = str(tmp_path)

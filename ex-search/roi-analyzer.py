@@ -21,19 +21,6 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 from tools import logging_util
 
 
-'''
-Ido Haber - ihaber@wisc.edu
-
-This script analyzes mesh files in the simulation directory by extracting 
-fields at specific ROI coordinates and compiling the results into a structured format.
-
-Key Features:
-- Reads ROI files and extracts TImax values from mesh files.
-- Stores the results in a JSON file for easy access and further analysis.
-- Formats the extracted data and writes it to a CSV file for reporting.
-- Performs cleanup by removing intermediate CSV files after processing.
-'''
-
 def get_roi_coordinates(roi_file):
     """Read coordinates from a ROI CSV file."""
     try:

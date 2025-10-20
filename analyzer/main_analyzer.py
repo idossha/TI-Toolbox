@@ -201,9 +201,9 @@ def log_analysis_step_start(step_name, subject_id):
     _start_times[step_key] = time.time()
     
     if SUMMARY_MODE:
-        print(f"├─ {step_name}: Starting...")
+        print(f"├─ {step_name}: Started")
     else:
-        logger.info(f"{step_name}: Starting...")
+        logger.info(f"{step_name}: Started")
 
 def log_analysis_step_complete(step_name, subject_id, step_details=""):
     """Log the completion of an analysis step."""

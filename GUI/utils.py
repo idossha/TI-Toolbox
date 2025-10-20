@@ -60,20 +60,23 @@ def is_important_message(text, message_type, tab_type='general'):
         'simulator': [
             # Summary headings and starts
             'beginning simulation for subject:',
-            # Major step starts/completions
-            'montage visualization:',
-            'simnibs simulation:',
-            'field extraction:',
-            'nifti transformation:',
-            'results processing:',
-            # Completion summaries
-            'simulation completed successfully for subject:',
-            'pipeline completed successfully',
-            # Result output locations
-            'simulation completion report written to',
-            'results available in:',
-            'results saved to:',
-            'saved to:'
+            # Major step starts/completions (must be exact matches with ': Started' or ': Complete')
+            'montage visualization: started',
+            'montage visualization: ✓ complete',
+            'simnibs simulation: started',
+            'simnibs simulation: ✓ complete',
+            'field extraction: started',
+            'field extraction: ✓ complete',
+            'nifti transformation: started',
+            'nifti transformation: ✓ complete',
+            'results processing: started',
+            'results processing: ✓ complete',
+            # Completion summaries (must start with └─)
+            '└─ simulation completed successfully for subject:',
+            '└─ simulation failed for subject:',
+            # Result output locations (must start with spaces)
+            '   results saved to:',
+            '   simulation completion report written to:'
         ],
         'analyzer': [
             # Summary headline and steps
@@ -221,6 +224,7 @@ def is_important_message(text, message_type, tab_type='general'):
 
     # Explicitly filter out messages that should not appear in summary mode
     filtered_patterns = [
+        # General processing messages
         'Pre-processing completed for all subjects',
         'Report generation completed',
         'Processing completed!',
@@ -234,7 +238,16 @@ def is_important_message(text, message_type, tab_type='general'):
         'Each subject will',
         'Will run',
         'cores available',
-        'Estimated current calibration error'  # Normal calibration message that shouldn't alert users
+        'Estimated current calibration error',  # Normal calibration message that shouldn't alert users
+        # Configuration details that should be filtered in summary mode
+        'Mode:',
+        'Montages:',
+        'Conductivity:',
+        'Electrode:',
+        'Debug:',
+        'Placing Electrode:',
+        'Intensity:',
+        'Simulation Mode:'
     ]
 
     if any(pattern in text for pattern in filtered_patterns):

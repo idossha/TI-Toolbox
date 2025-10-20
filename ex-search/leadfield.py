@@ -11,19 +11,6 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 # Local imports
 from tools import logging_util
 
-'''
-Ido Haber - ihaber@wisc.edu
-June, 2025
-
-This script is designed to create leadfield matrices for Temporal Interference (TI) simulations, 
-which are based on different EEG net configurations.
-
-Updated for multiple EEG net support with new naming scheme:
-- leadfield_vol_{net_name}/leadfield.hdf5
-
-The script exports leadfield configurations based on the provided input EEG cap and subject directory.
-'''
-
 # Ensure the correct number of arguments are provided
 if len(sys.argv) != 4:
     print("Usage: leadfield.py <m2m_directory> <eeg_cap_path> <net_name>")

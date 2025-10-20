@@ -798,7 +798,7 @@ class PreProcessTab(QtWidgets.QWidget):
                         continue
                     
                     cmd = ["subject_atlas", "-m", m2m_folder, "-a", atlas, "-o", output_dir]
-                    self.update_output(f"├─ Atlas {atlas}: Starting...", 'info')
+                    self.update_output(f"├─ Atlas {atlas}: Started", 'info')
                     try:
                         proc = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
                         if proc.returncode == 0:
@@ -914,10 +914,10 @@ class PreProcessTab(QtWidgets.QWidget):
             # Colorize summary lines: blue for starts, white for completes, green for final
             lower = text.lower()
             is_final = lower.startswith('└─') or 'completed successfully' in lower
-            # Treat "Beginning ...", ": Starting...", and "├─ ...: Starting..." as task starts
+            # Treat "Beginning ...", ": Started", and "├─ ...: Started" as task starts
             is_start = (lower.startswith('beginning ') or 
-                       ': starting' in lower or 
-                       lower.startswith('├─ ') and 'starting' in lower)
+                       ': started' in lower or 
+                       lower.startswith('├─ ') and 'started' in lower)
             # Treat ✓ Complete, saved/results lines as completes
             is_complete = ('✓ complete' in lower) or ('results available in:' in lower) or ('saved to' in lower)
             color = '#55ff55' if is_final else ('#55aaff' if is_start else '#ffffff')

@@ -1,5 +1,4 @@
 # Standard library imports
-import glob
 import json
 import os
 import sys
@@ -86,18 +85,6 @@ if flex_file and os.path.exists(flex_file):
     flex_montages = flex_config if isinstance(flex_config, list) else ([flex_config['montage']] if 'montage' in flex_config else [])
     logger.debug(f"Loaded {len(flex_montages)} flex montage(s)")
 
-def resolve_mesh_file(pattern):
-    """Find mesh file using glob pattern, prefer subject_id match"""
-    matches = glob.glob(pattern)
-    if not matches:
-        return None
-    if len(matches) == 1:
-        return matches[0]
-    for match in matches:
-        if subject_id in os.path.basename(match):
-            return match
-    return matches[0]
-
 def run_simulation(montage_name, montage, is_xyz=False, net=None):
     logger.info(f"Starting simulation: {montage_name}")
     
@@ -111,6 +98,7 @@ def run_simulation(montage_name, montage, is_xyz=False, net=None):
     # Setup SimNIBS session
     S = sim_struct.SESSION()
     S.subpath = base_subpath
+    S.fnamehead = os.path.join(base_subpath, f"{subject_id}.msh")  # Full path to head mesh
     S.anisotropy_type = sim_type
     S.pathfem = hf_dir
     if not is_xyz:
@@ -155,13 +143,9 @@ def run_simulation(montage_name, montage, is_xyz=False, net=None):
     run_simnibs(S)
     logger.info("SimNIBS completed")
     
-    # Find output files
-    m1_file = resolve_mesh_file(os.path.join(S.pathfem, f"*TDCS_1_{sim_type}.msh"))
-    m2_file = resolve_mesh_file(os.path.join(S.pathfem, f"*TDCS_2_{sim_type}.msh"))
-    
-    if not m1_file or not m2_file:
-        logger.error(f"Mesh files not found in {S.pathfem}")
-        return
+    # Find output files with explicit subject prefix
+    m1_file = os.path.join(S.pathfem, f"{subject_id}_TDCS_1_{sim_type}.msh")
+    m2_file = os.path.join(S.pathfem, f"{subject_id}_TDCS_2_{sim_type}.msh")
     
     # Load and process meshes
     m1 = mesh_io.read_msh(m1_file)
@@ -177,10 +161,10 @@ def run_simulation(montage_name, montage, is_xyz=False, net=None):
     # Calculate TI normal (central surface if available)
     try:
         overlays_dir = os.path.join(S.pathfem, "subject_overlays")
-        central_1 = resolve_mesh_file(os.path.join(overlays_dir, f"*TDCS_1_{sim_type}_central.msh"))
-        central_2 = resolve_mesh_file(os.path.join(overlays_dir, f"*TDCS_2_{sim_type}_central.msh"))
+        central_1 = os.path.join(overlays_dir, f"{subject_id}_TDCS_1_{sim_type}_central.msh")
+        central_2 = os.path.join(overlays_dir, f"{subject_id}_TDCS_2_{sim_type}_central.msh")
         
-        if central_1 and central_2:
+        if os.path.exists(central_1) and os.path.exists(central_2):
             cm1 = mesh_io.read_msh(central_1)
             cm2 = mesh_io.read_msh(central_2)
             

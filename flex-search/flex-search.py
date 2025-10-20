@@ -67,9 +67,9 @@ def log_optimization_step_start(step_name):
     STEP_START_TIMES[step_name] = time.time()
     
     if SUMMARY_MODE:
-        print(f"├─ {step_name}: Starting...")
+        print(f"├─ {step_name}: Started")
     else:
-        logger.info(f"Starting {step_name}...")
+        logger.info(f"Starting {step_name}")
 
 def log_optimization_step_complete(step_name, additional_info=""):
     """Log the completion of an optimization step."""

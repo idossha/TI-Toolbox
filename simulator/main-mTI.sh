@@ -91,17 +91,18 @@ log_simulation_start() {
     # Record start time
     SIMULATION_START_TIME=$(date +%s)
     
-    if [ "$SUMMARY_MODE" = true ]; then
-        echo "" >&2
-        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" >&2
-        if [ $montage_count -eq 1 ]; then
-            echo "  mTI Simulation Pipeline - Subject: $subject_id (1 montage)" >&2
-        else
-            echo "  mTI Simulation Pipeline - Subject: $subject_id ($montage_count montages)" >&2
-        fi
-        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" >&2
+    # Create description similar to TI format
+    local sim_description
+    if [ $montage_count -eq 1 ]; then
+        sim_description="mTI: 1 montage, intensity: ${intensity}mA"
     else
-        log_info "Starting mTI simulation for subject: $subject_id with $montage_count montage(s)"
+        sim_description="mTI: $montage_count montages, intensity: ${intensity}mA"
+    fi
+    
+    if [ "$SUMMARY_MODE" = true ]; then
+        echo "Beginning simulation for subject: $subject_id ($sim_description)"
+    else
+        log_info "Beginning simulation for subject: $subject_id ($sim_description)"
     fi
 }
 
@@ -117,17 +118,15 @@ log_simulation_complete() {
         
         if [ "$SUMMARY_MODE" = true ]; then
             if [ -n "$results_summary" ]; then
-                echo "└─ Simulation completed successfully for subject: $subject_id ($results_summary, Total: $duration_str)" >&2
+                echo "└─ Simulation completed successfully for subject: $subject_id ($results_summary, Total: $duration_str)"
             else
-                echo "└─ Simulation completed successfully for subject: $subject_id (Total: $duration_str)" >&2
+                echo "└─ Simulation completed successfully for subject: $subject_id (Total: $duration_str)"
             fi
             if [ -n "$output_path" ]; then
                 # Show relative path from /mnt/ for cleaner display
                 local display_path=$(echo "$output_path" | sed 's|^/mnt/||')
-                echo "   Results saved to: $display_path" >&2
+                echo "   Results saved to: $display_path"
             fi
-            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" >&2
-            echo "" >&2
         else
             log_info "Simulation completed successfully for subject: $subject_id (Total: $duration_str)"
         fi
@@ -144,9 +143,7 @@ log_simulation_failed() {
         local duration_str=$(format_duration $total_duration)
         
         if [ "$SUMMARY_MODE" = true ]; then
-            echo "└─ Simulation failed for subject: $subject_id ($duration_str) - $error_msg" >&2
-            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" >&2
-            echo "" >&2
+            echo "└─ Simulation failed for subject: $subject_id ($duration_str) - $error_msg"
         else
             log_error "Simulation failed for subject: $subject_id ($duration_str) - $error_msg"
         fi
@@ -162,9 +159,9 @@ log_simulation_step_start() {
     STEP_START_TIMES["$step_key"]="$step_start_time"
     
     if [ "$SUMMARY_MODE" = true ]; then
-        echo "├─ $step_name: Starting..." >&2
+        echo "├─ $step_name: Started"
     else
-        log_info "$step_name: Starting..."
+        log_info "$step_name: Started"
     fi
 }
 
@@ -186,9 +183,9 @@ log_simulation_step_complete() {
         
         if [ "$SUMMARY_MODE" = true ]; then
             if [ -n "$step_details" ]; then
-                echo "├─ $step_name: ✓ Complete ($duration_str) - $step_details" >&2
+                echo "├─ $step_name: ✓ Complete ($duration_str) - $step_details"
             else
-                echo "├─ $step_name: ✓ Complete ($duration_str)" >&2
+                echo "├─ $step_name: ✓ Complete ($duration_str)"
             fi
         else
             log_info "$step_name: Complete ($duration_str)"
@@ -197,9 +194,9 @@ log_simulation_step_complete() {
         if [ "$SUMMARY_MODE" = true ]; then
             # Show completion even without timing
             if [ -n "$step_details" ]; then
-                echo "├─ $step_name: ✓ Complete - $step_details" >&2
+                echo "├─ $step_name: ✓ Complete - $step_details"
             else
-                echo "├─ $step_name: ✓ Complete" >&2
+                echo "├─ $step_name: ✓ Complete"
             fi
         fi
     fi
@@ -222,13 +219,13 @@ log_simulation_step_failed() {
         local duration_str=$(format_duration $duration)
         
         if [ "$SUMMARY_MODE" = true ]; then
-            echo "├─ $step_name: ✗ Failed ($duration_str) - $error_msg" >&2
+            echo "├─ $step_name: ✗ Failed ($duration_str) - $error_msg"
         else
             log_error "$step_name: Failed ($duration_str) - $error_msg"
         fi
     else
         if [ "$SUMMARY_MODE" = true ]; then
-            echo "├─ $step_name: ✗ Failed (timing unavailable) - $error_msg" >&2
+            echo "├─ $step_name: ✗ Failed (timing unavailable) - $error_msg"
         fi
     fi
 }
@@ -273,16 +270,6 @@ fi
 # Initialize simulation and display summary
 montage_count=${#selected_montages[@]}
 log_simulation_start "$subject_id" "$montage_count"
-
-# Display additional details in summary mode
-if [ "$SUMMARY_MODE" = true ]; then
-    echo "  Montages: ${selected_montages[*]}" >&2
-    echo "  Conductivity: $conductivity" >&2
-    echo "  Mode: Multipolar (4 electrode pairs → 2 TI pairs → mTI)" >&2
-    echo "  Intensity: $intensity mA" >&2
-    echo "  Electrode: $electrode_shape ($dimensions mm, ${thickness}mm thick)" >&2
-    echo "" >&2
-fi
 
 # Function to setup directories for a montage
 setup_montage_dirs() {

@@ -5,23 +5,6 @@ import csv
 import sys
 import subprocess
 
-'''
-Ido Haber - ihaber@wisc.edu
-October 16, 2024
-Optimized for optimizer pipeline
-
-This script manages the creation of Regions of Interest (ROIs) for simulations.
-It lists existing ROIs along with their coordinates and allows users to select one,
-or add a new ROI, with the option to visualize the subject's T1-weighted MRI in Freeview
-before specifying ROI coordinates.
-
-Key Features:
-- Lists existing ROIs and displays their coordinates.
-- Option to select an existing ROI or add a new one.
-- If adding a new ROI, prompts the user to open Freeview for visual aid or enter coordinates directly.
-- Saves ROI coordinates to a CSV file and maintains a list of all ROI files.
-- Handles file permissions and directory creation as needed.
-'''
 
 # Define color variables
 BOLD = '\033[1m'
