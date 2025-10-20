@@ -8,6 +8,7 @@ This module provides a contact tab for users to reach out to developers.
 
 import os
 import platform
+
 from PyQt5 import QtWidgets, QtCore, QtGui
 
 class ContactTab(QtWidgets.QWidget):

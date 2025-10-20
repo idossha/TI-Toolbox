@@ -15,26 +15,16 @@ import time
 import logging
 from pathlib import Path
 
-from PyQt5 import QtWidgets, QtCore, QtGui
-
-try:
-    from .utils import is_verbose_message, is_important_message
-    from .components.console import ConsoleWidget
-    from .components.action_buttons import RunStopButtons
-    from .components.path_manager import get_path_manager
-except ImportError:
-    from utils import is_verbose_message, is_important_message
-    from components.console import ConsoleWidget
-    from components.action_buttons import RunStopButtons
-    from components.path_manager import get_path_manager
-
 # Add project root to path for tools import
-import sys
-import os
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
+from PyQt5 import QtWidgets, QtCore, QtGui
+from utils import is_verbose_message, is_important_message
+from components.console import ConsoleWidget
+from components.action_buttons import RunStopButtons
+from components.path_manager import get_path_manager
 from tools import logging_util
 
 

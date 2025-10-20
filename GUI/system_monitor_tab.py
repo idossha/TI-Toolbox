@@ -9,6 +9,7 @@ Shows CPU, memory usage, and process information for relevant operations.
 
 import os
 import sys
+import psutil
 import subprocess
 import time
 import threading
@@ -25,8 +26,6 @@ from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 import matplotlib.pyplot as plt
 plt.style.use('dark_background')  # Use dark theme for graphs
-
-import psutil
 
 
 class ProcessMonitorThread(QThread):

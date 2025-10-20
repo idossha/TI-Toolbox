@@ -12,11 +12,7 @@ import glob
 import subprocess
 from PyQt5 import QtWidgets, QtCore, QtGui
 
-# Import path manager
-try:
-    from .components.path_manager import get_path_manager
-except ImportError:
-    from components.path_manager import get_path_manager
+from components.path_manager import get_path_manager
 
 class NiftiViewerTab(QtWidgets.QWidget):
     """Tab for NIfTI visualization using Freeview."""

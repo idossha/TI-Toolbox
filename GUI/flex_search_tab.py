@@ -10,19 +10,15 @@ import os
 import json
 import glob
 import subprocess
+
 from PyQt5 import QtWidgets, QtCore, QtGui
-try:
-    from .confirmation_dialog import ConfirmationDialog
-    from .utils import confirm_overwrite, is_verbose_message, is_important_message
-    from .components.console import ConsoleWidget
-    from .components.action_buttons import RunStopButtons
-    from .components.path_manager import get_path_manager
-except ImportError:
-    from confirmation_dialog import ConfirmationDialog
-    from utils import confirm_overwrite, is_verbose_message, is_important_message
-    from components.console import ConsoleWidget
-    from components.action_buttons import RunStopButtons
-    from components.path_manager import get_path_manager
+
+from confirmation_dialog import ConfirmationDialog
+from utils import confirm_overwrite, is_verbose_message, is_important_message
+from components.console import ConsoleWidget
+from components.action_buttons import RunStopButtons
+from components.path_manager import get_path_manager
+
 
 
 class FlexSearchThread(QtCore.QThread):

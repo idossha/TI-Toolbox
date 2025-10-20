@@ -18,28 +18,17 @@ import datetime
 import tempfile
 import shutil
 
-from PyQt5 import QtWidgets, QtCore, QtGui
-
-try:
-    from .confirmation_dialog import ConfirmationDialog
-    from .utils import confirm_overwrite, is_verbose_message, is_important_message
-    from .components.console import ConsoleWidget
-    from .components.action_buttons import RunStopButtons
-    from .components.path_manager import get_path_manager
-except ImportError:
-    from confirmation_dialog import ConfirmationDialog
-    from utils import confirm_overwrite, is_verbose_message, is_important_message
-    from components.console import ConsoleWidget
-    from components.action_buttons import RunStopButtons
-    from components.path_manager import get_path_manager
-
 # Add project root to path for tools import
-import sys
-import os
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
+from PyQt5 import QtWidgets, QtCore, QtGui
+from confirmation_dialog import ConfirmationDialog
+from utils import confirm_overwrite, is_verbose_message, is_important_message
+from components.console import ConsoleWidget
+from components.action_buttons import RunStopButtons
+from components.path_manager import get_path_manager
 from tools.report_util import get_simulation_report_generator
 
 # Utility: strip ANSI/VT100 escape sequences from text (e.g., "\x1b[0;32m")
