@@ -147,13 +147,29 @@ class LeadfieldGenerator:
         self._log(f"Tissues: {tissues} (1=GM, 2=WM)", 'info')
         self._log(f"Mesh file: {mesh_file.name}", 'info')
         
-        # Suppress SimNIBS terminal output (redirect to GUI console only)
+        # Redirect SimNIBS output to GUI console via callback (not terminal)
         import sys
         from io import StringIO
+        import logging
+        
+        # Suppress SimNIBS console output by redirecting stdout/stderr to StringIO
         old_stdout = sys.stdout
         old_stderr = sys.stderr
-        sys.stdout = StringIO()
-        sys.stderr = StringIO()
+        stdout_capture = StringIO()
+        stderr_capture = StringIO()
+        sys.stdout = stdout_capture
+        sys.stderr = stderr_capture
+        
+        # Configure SimNIBS logger to use callback if available
+        simnibs_logger = logging.getLogger('simnibs')
+        old_simnibs_handlers = simnibs_logger.handlers[:]
+        
+        if self._progress_callback and LOGGER_AVAILABLE:
+            # Remove console handlers from SimNIBS logger
+            logging_util.suppress_console_output(simnibs_logger)
+            
+            # Add callback handler to redirect to GUI
+            logging_util.add_callback_handler(simnibs_logger, self._progress_callback, logging.INFO)
         
         try:
             simnibs.run_simnibs(tdcs_lf)
@@ -161,6 +177,23 @@ class LeadfieldGenerator:
             # Restore stdout/stderr
             sys.stdout = old_stdout
             sys.stderr = old_stderr
+            
+            # Restore SimNIBS logger handlers
+            if self._progress_callback:
+                simnibs_logger.handlers = old_simnibs_handlers
+            
+            # Send any captured stdout/stderr to callback (fallback for print statements)
+            if self._progress_callback:
+                stdout_text = stdout_capture.getvalue()
+                stderr_text = stderr_capture.getvalue()
+                if stdout_text.strip():
+                    for line in stdout_text.strip().split('\n'):
+                        if line.strip():
+                            self._log(line, 'info')
+                if stderr_text.strip():
+                    for line in stderr_text.strip().split('\n'):
+                        if line.strip():
+                            self._log(line, 'warning')
         
         # Find generated HDF5 file
         hdf5_files = list(output_dir.glob('*.hdf5'))

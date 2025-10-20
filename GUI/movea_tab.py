@@ -72,10 +72,7 @@ class LeadfieldGenerationThread(QtCore.QThread):
             logger = logging_util.get_logger('MOVEA_Leadfield', log_file, overwrite=False)
             
             # Remove console handler to prevent terminal output (GUI only shows via signals)
-            import logging
-            for handler in logger.handlers[:]:
-                if isinstance(handler, logging.StreamHandler) and not isinstance(handler, logging.FileHandler):
-                    logger.removeHandler(handler)
+            logging_util.suppress_console_output(logger)
             
             # Configure external loggers (they will inherit only file handler, no console)
             logging_util.configure_external_loggers(['simnibs', 'mesh_io', 'sim_struct'], logger)
@@ -272,10 +269,7 @@ class MOVEAOptimizationThread(QtCore.QThread):
             logger = logging_util.get_logger('MOVEA', log_file, overwrite=False)
             
             # Remove console handler to prevent terminal output (GUI only shows via signals)
-            import logging
-            for handler in logger.handlers[:]:
-                if isinstance(handler, logging.StreamHandler) and not isinstance(handler, logging.FileHandler):
-                    logger.removeHandler(handler)
+            logging_util.suppress_console_output(logger)
             
             # Configure external loggers (they will inherit only file handler, no console)
             logging_util.configure_external_loggers(['simnibs', 'scipy', 'mesh_io', 'sim_struct'], logger)

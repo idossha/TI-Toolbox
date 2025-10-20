@@ -28,6 +28,42 @@ class FlushingFileHandler(logging.FileHandler):
         except Exception:
             self.handleError(record)
 
+class CallbackHandler(logging.Handler):
+    """Custom handler that redirects log messages to a callback function.
+    
+    Useful for GUI applications where log messages need to be displayed
+    in a custom console widget rather than stdout/stderr.
+    """
+    
+    def __init__(self, callback):
+        """
+        Initialize callback handler.
+        
+        Args:
+            callback: Function with signature callback(message: str, msg_type: str)
+                     where msg_type is one of: 'error', 'warning', 'info', 'debug'
+        """
+        super().__init__()
+        self.callback = callback
+    
+    def emit(self, record):
+        """Emit a record by calling the callback with formatted message."""
+        try:
+            msg = self.format(record)
+            if self.callback:
+                # Map log level to message type
+                if record.levelno >= logging.ERROR:
+                    msg_type = 'error'
+                elif record.levelno >= logging.WARNING:
+                    msg_type = 'warning'
+                elif record.levelno >= logging.DEBUG:
+                    msg_type = 'debug'
+                else:
+                    msg_type = 'info'
+                self.callback(msg, msg_type)
+        except Exception:
+            self.handleError(record)
+
 # ----------------------------------------------------------------------------
 # Configuration
 # ----------------------------------------------------------------------------
@@ -147,3 +183,72 @@ def configure_external_loggers(names: List[str],
         # attach copies of the parent's handlers
         for handler in parent_logger.handlers:
             ext_logger.addHandler(_copy_handler(handler))
+
+
+def suppress_console_output(logger: logging.Logger) -> None:
+    """
+    Remove console/stdout handlers from a logger, keeping only file handlers.
+    
+    This is useful in GUI contexts where you want logs to go to a file
+    but not to the terminal.
+    
+    Args:
+        logger: Logger instance to modify
+    """
+    for handler in logger.handlers[:]:
+        if isinstance(handler, logging.StreamHandler) and not isinstance(handler, logging.FileHandler):
+            logger.removeHandler(handler)
+
+
+def add_callback_handler(logger: logging.Logger,
+                         callback,
+                         level: int = logging.INFO) -> CallbackHandler:
+    """
+    Add a callback handler to a logger for GUI integration.
+    
+    Args:
+        logger: Logger instance to modify
+        callback: Function with signature callback(message: str, msg_type: str)
+        level: Minimum log level for the handler
+    
+    Returns:
+        The created CallbackHandler instance
+    """
+    handler = CallbackHandler(callback)
+    handler.setLevel(level)
+    handler.setFormatter(logging.Formatter(CONSOLE_FORMAT))
+    logger.addHandler(handler)
+    return handler
+
+
+def get_file_only_logger(name: str,
+                         log_file: str,
+                         level: int = logging.INFO) -> logging.Logger:
+    """
+    Create a file-only logger (no console output).
+    
+    Useful for logging detailed information to file without cluttering
+    the GUI console with verbose details.
+    
+    Args:
+        name: Logger name
+        log_file: Path to log file (will append)
+        level: Minimum log level
+    
+    Returns:
+        Logger instance configured with only a file handler
+    """
+    logger = logging.getLogger(name)
+    logger.setLevel(level)
+    logger.propagate = False
+    
+    # Remove any existing handlers
+    _cleanup_handlers(logger)
+    
+    # Add only file handler (no console handler)
+    file_handler = FlushingFileHandler(log_file, mode='a')
+    file_handler.setLevel(level)
+    file_handler.setFormatter(logging.Formatter(FILE_FORMAT, datefmt=DATE_FORMAT))
+    logger.addHandler(file_handler)
+    
+    return logger

@@ -74,18 +74,8 @@ class MeshFieldAnalyzer:
             logger.setLevel(logging.INFO)
             logger.propagate = False
             
-            # Remove any existing handlers
-            for handler in list(logger.handlers):
-                logger.removeHandler(handler)
-            
-            # Add only file handler (no console handler) when running from GUI
-            file_handler = logging.FileHandler(log_file, mode='a')
-            file_handler.setLevel(logging.INFO)
-            file_handler.setFormatter(logging.Formatter(
-                '[%(asctime)s] [%(name)s] [%(levelname)s] %(message)s',
-                datefmt='%Y-%m-%d %H:%M:%S'
-            ))
-            logger.addHandler(file_handler)
+            # Reconfigure as file-only logger when running from GUI
+            logger = logging_util.get_file_only_logger('mesh_field_analyzer', log_file)
         else:
             # CLI usage: create individual log file with both console and file output
             logger_name = 'MeshFieldAnalyzer'
@@ -816,18 +806,8 @@ def main():
             main_logger.setLevel(logging.INFO)
             main_logger.propagate = False
             
-            # Remove any existing handlers
-            for handler in list(main_logger.handlers):
-                main_logger.removeHandler(handler)
-            
-            # Add only file handler (no console handler) when running from GUI
-            file_handler = logging.FileHandler(shared_log_file, mode='a')
-            file_handler.setLevel(logging.INFO)
-            file_handler.setFormatter(logging.Formatter(
-                '[%(asctime)s] [%(name)s] [%(levelname)s] %(message)s',
-                datefmt='%Y-%m-%d %H:%M:%S'
-            ))
-            main_logger.addHandler(file_handler)
+            # Reconfigure as file-only logger when running from GUI
+            main_logger = logging_util.get_file_only_logger('mesh_field_analyzer_main', shared_log_file)
         else:
             # CLI usage: use standard logging utility
             main_logger = logging_util.get_logger('MeshFieldAnalyzer-Main')
