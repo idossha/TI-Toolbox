@@ -36,17 +36,9 @@ if not log_file:
     log_file = os.path.join(log_dir, f'leadfield_{time_stamp}.log')
 
 # Initialize our main logger
-if log_file and os.environ.get('TI_LOG_FILE'):
-    # When running from GUI, create a file-only logger to avoid console output
-    logger = logging.getLogger('Leadfield')
-    logger.setLevel(logging.INFO)
-    logger.propagate = False
-    
-    # Reconfigure as file-only logger when running from GUI
-    logger = logging_util.get_file_only_logger('leadfield', log_file)
-else:
-    # CLI usage: use standard logging utility with both console and file output
-    logger = logging_util.get_logger('Leadfield', log_file, overwrite=False)
+# When running from GUI as subprocess, we want both file AND stdout (GUI captures stdout)
+# When running from CLI, we also want both file and console
+logger = logging_util.get_logger('leadfield', log_file, overwrite=False)
 
 # Configure SimNIBS related loggers to use our logging setup
 logging_util.configure_external_loggers(['simnibs', 'mesh_io'], logger)

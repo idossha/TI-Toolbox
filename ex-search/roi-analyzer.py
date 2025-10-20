@@ -83,17 +83,10 @@ if not project_dir or not subject_name:
 shared_log_file = os.environ.get('TI_LOG_FILE')
 
 if shared_log_file:
-    # Use shared log file and shared logger name for unified logging
-    logger_name = 'Ex-Search'
+    # Use shared log file for unified logging
+    # When running from GUI as subprocess, we want both file AND stdout (GUI captures stdout)
     log_file = shared_log_file
-    
-    # When running from GUI, create a file-only logger to avoid console output
-    logger = logging.getLogger(logger_name)
-    logger.setLevel(logging.INFO)
-    logger.propagate = False
-    
-    # Reconfigure as file-only logger when running from GUI
-    logger = logging_util.get_file_only_logger('roi_analyzer', log_file)
+    logger = logging_util.get_logger('roi_analyzer', log_file, overwrite=False)
 else:
     # CLI usage: create individual log file with both console and file output
     logger_name = 'ROI-Analyzer'

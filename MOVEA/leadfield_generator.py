@@ -24,7 +24,7 @@ except ImportError:
 class LeadfieldGenerator:
     """Generate and load leadfield matrices for MOVEA optimization"""
     
-    def __init__(self, subject_dir, electrode_cap='EEG10-10', progress_callback=None):
+    def __init__(self, subject_dir, electrode_cap='EEG10-10', progress_callback=None, termination_flag=None):
         """
         Initialize leadfield generator
         
@@ -32,6 +32,7 @@ class LeadfieldGenerator:
             subject_dir: Path to subject directory (m2m folder)
             electrode_cap: Electrode cap type (e.g., 'EEG10-10', 'GSN-256')
             progress_callback: Optional callback function(message, type) for progress updates
+            termination_flag: Optional callable that returns True if generation should be terminated
         """
         self.subject_dir = Path(subject_dir)
         self.electrode_cap = electrode_cap
@@ -39,6 +40,8 @@ class LeadfieldGenerator:
         self.positions = None
         self.electrode_names = None
         self._progress_callback = progress_callback
+        self._termination_flag = termination_flag
+        self._simnibs_process = None
         
         # Setup logger if available
         if LOGGER_AVAILABLE and progress_callback is None:
@@ -65,7 +68,35 @@ class LeadfieldGenerator:
         else:
             print(message)
     
-    def generate_leadfield(self, output_dir=None, tissues=[1, 2], eeg_cap_path=None):
+    def cleanup_old_simulations(self):
+        """Clean up old SimNIBS simulation files and temporary directories."""
+        import glob
+        import shutil
+        
+        self._log("Checking for old simulation files...", 'info')
+        
+        # Remove old simulation .mat files
+        old_sim_files = glob.glob(str(self.subject_dir / "simnibs_simulation*.mat"))
+        if old_sim_files:
+            self._log(f"  Found {len(old_sim_files)} old simulation file(s), cleaning up...", 'info')
+            for sim_file in old_sim_files:
+                try:
+                    os.remove(sim_file)
+                    self._log(f"  Removed: {os.path.basename(sim_file)}", 'info')
+                except Exception as e:
+                    self._log(f"  Warning: Could not remove {os.path.basename(sim_file)}: {e}", 'warning')
+        
+        # Remove temporary leadfield directory
+        temp_leadfield_dir = self.subject_dir / 'leadfield'
+        if temp_leadfield_dir.exists():
+            self._log("  Removing old temporary leadfield directory...", 'info')
+            try:
+                shutil.rmtree(temp_leadfield_dir)
+                self._log("  Removed: leadfield/", 'info')
+            except Exception as e:
+                self._log(f"  Warning: Could not remove leadfield directory: {e}", 'warning')
+    
+    def generate_leadfield(self, output_dir=None, tissues=[1, 2], eeg_cap_path=None, cleanup=True):
         """
         Generate leadfield matrix using SimNIBS
         
@@ -73,6 +104,7 @@ class LeadfieldGenerator:
             output_dir: Output directory for leadfield (default: subject_dir)
             tissues: Tissue types to include [1=GM, 2=WM]
             eeg_cap_path: Path to EEG cap CSV file (optional, will look in eeg_positions if not provided)
+            cleanup: Whether to clean up old simulation files before running (default: True)
         
         Returns:
             Path to generated HDF5 file
@@ -142,6 +174,10 @@ class LeadfieldGenerator:
                     tdcs_lf.eeg_cap = str(cap_file)
                     self._log(f"Found EEG cap: {cap_file.name}", 'info')
         
+        # Clean up old files if requested
+        if cleanup:
+            self.cleanup_old_simulations()
+        
         self._log(f"Generating leadfield matrix for {self.subject_dir.name}...", 'info')
         self._log(f"Electrode cap: {self.electrode_cap if self.electrode_cap else 'Default'}", 'info')
         self._log(f"Tissues: {tissues} (1=GM, 2=WM)", 'info')
@@ -171,8 +207,26 @@ class LeadfieldGenerator:
             # Add callback handler to redirect to GUI
             logging_util.add_callback_handler(simnibs_logger, self._progress_callback, logging.INFO)
         
+        # Run SimNIBS with termination checks
+        simnibs_error = None
         try:
+            # Check for termination before starting
+            if self._termination_flag and self._termination_flag():
+                self._log("Leadfield generation cancelled before starting", 'warning')
+                raise InterruptedError("Leadfield generation was cancelled before starting")
+            
+            # Note: SimNIBS runs MPI processes that cannot be interrupted mid-execution
+            # The termination check will take effect after SimNIBS completes
+            self._log("Running SimNIBS (this cannot be interrupted mid-execution)...", 'info')
             simnibs.run_simnibs(tdcs_lf)
+            
+            # Check for termination after SimNIBS finishes
+            if self._termination_flag and self._termination_flag():
+                self._log("Leadfield generation cancelled after SimNIBS execution", 'warning')
+                raise InterruptedError("Leadfield generation was cancelled")
+                
+        except Exception as e:
+            simnibs_error = e
         finally:
             # Restore stdout/stderr
             sys.stdout = old_stdout
@@ -194,6 +248,10 @@ class LeadfieldGenerator:
                     for line in stderr_text.strip().split('\n'):
                         if line.strip():
                             self._log(line, 'warning')
+        
+        # Re-raise any error that occurred during SimNIBS run
+        if simnibs_error:
+            raise simnibs_error
         
         # Find generated HDF5 file
         hdf5_files = list(output_dir.glob('*.hdf5'))
@@ -306,6 +364,74 @@ class LeadfieldGenerator:
         self._log(f"Loaded positions: {self.positions.shape}", 'info')
         
         return self.lfm, self.positions
+
+
+    def generate_and_save_numpy(self, output_dir, eeg_cap_file, cleanup_intermediate=True):
+        """
+        Complete workflow: Generate leadfield, convert to numpy, cleanup.
+        
+        Args:
+            output_dir: Directory to save final .npy files
+            eeg_cap_file: EEG cap filename (will look in subject_dir/eeg_positions/)
+            cleanup_intermediate: Whether to remove intermediate HDF5 files (default: True)
+        
+        Returns:
+            tuple: (lfm_path, pos_path, lfm_shape)
+        """
+        import shutil
+        
+        # Get EEG cap path
+        eeg_cap_path = self.subject_dir / 'eeg_positions' / eeg_cap_file
+        if not eeg_cap_path.exists():
+            raise FileNotFoundError(f"EEG cap file not found: {eeg_cap_path}")
+        
+        # Generate leadfield to subject_dir (SimNIBS requirement)
+        self._log("", 'info')
+        self._log("Generating leadfield with SimNIBS...", 'info')
+        self._log("This may take 5-15 minutes depending on mesh size and electrode count", 'info')
+        self._log("", 'info')
+        
+        hdf5_file = self.generate_leadfield(
+            output_dir=self.subject_dir,
+            tissues=[1, 2],
+            eeg_cap_path=str(eeg_cap_path)
+        )
+        
+        self._log(f"Leadfield generated: {Path(hdf5_file).name}", 'success')
+        
+        # Load and convert
+        self._log("Loading and converting leadfield...", 'info')
+        lfm, positions = self.load_from_hdf5(hdf5_file, compute_centroids=True)
+        
+        # Save as numpy files
+        self._log("Saving numpy files...", 'info')
+        output_dir = Path(output_dir)
+        output_dir.mkdir(parents=True, exist_ok=True)
+        
+        net_name = eeg_cap_file.replace('.csv', '')
+        lfm_path = output_dir / f"{net_name}_leadfield.npy"
+        pos_path = output_dir / f"{net_name}_positions.npy"
+        
+        np.save(lfm_path, lfm)
+        np.save(pos_path, positions)
+        
+        # Cleanup intermediate files if requested
+        if cleanup_intermediate:
+            self._log("Cleaning up intermediate files...", 'info')
+            try:
+                if Path(hdf5_file).exists():
+                    os.remove(hdf5_file)
+                    self._log(f"  Removed: {Path(hdf5_file).name}", 'info')
+                
+                # Remove leadfield directory from subject_dir if it exists
+                hdf5_dir = Path(hdf5_file).parent
+                if hdf5_dir.exists() and hdf5_dir.name == 'leadfield':
+                    shutil.rmtree(hdf5_dir)
+                    self._log("  Removed temporary directory: leadfield/", 'info')
+            except Exception as e:
+                self._log(f"  Warning: Cleanup failed: {str(e)}", 'warning')
+        
+        return str(lfm_path), str(pos_path), lfm.shape
 
 
 def convert_hdf5_to_numpy(hdf5_path, output_dir=None):
