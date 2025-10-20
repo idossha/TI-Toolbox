@@ -454,55 +454,6 @@ class MOVEAOptimizationThread(QtCore.QThread):
                 else:
                     self.output_signal.emit("  ⓘ Pareto front generation disabled (enable in GUI to generate)", 'info')
                 
-                # 3. Try to create NIfTI field visualization if reference available
-                try:
-                    # Look for m2m.nii.gz in subject directory
-                    subject_dir = os.path.dirname(os.path.dirname(output_dir))
-                    possible_refs = [
-                        os.path.join(subject_dir, 'm2m.nii.gz'),
-                        os.path.join(subject_dir, 'm2m', 'm2m.nii.gz'),
-                        os.path.join(os.path.dirname(subject_dir), 'm2m', self.config['subject_id'] + '.nii.gz'),
-                    ]
-                    
-                    reference_nifti = None
-                    for ref in possible_refs:
-                        if os.path.exists(ref):
-                            reference_nifti = ref
-                            break
-                    
-                    if reference_nifti:
-                        # Calculate full brain field
-                        from MOVEA.utils import calculate_ti_field
-                        e1, e2, e3, e4 = result['electrodes']
-                        stim1 = np.zeros(num_electrodes)
-                        stim1[e1] = 1
-                        stim1[e2] = -1
-                        stim2 = np.zeros(num_electrodes)
-                        stim2[e3] = 1
-                        stim2[e4] = -1
-                        
-                        field_values = calculate_ti_field(lfm, stim1, stim2, target_indices=None)
-                        
-                        # Create NIfTI
-                        nifti_path = os.path.join(output_dir, 'ti_field.nii.gz')
-                        visualizer.create_field_nifti(
-                            field_values, positions, reference_nifti, 
-                            nifti_path, interpolate=True
-                        )
-                        self.output_signal.emit(f"  ✓ Field NIfTI: {os.path.basename(nifti_path)}", 'success')
-                        
-                        # Create brain visualization
-                        brain_viz_path = os.path.join(output_dir, 'brain_field.png')
-                        visualizer.visualize_field_on_brain(
-                            nifti_path, reference_nifti, target, brain_viz_path
-                        )
-                        self.output_signal.emit(f"  ✓ Brain visualization: {os.path.basename(brain_viz_path)}", 'success')
-                    else:
-                        self.output_signal.emit("  ⓘ Reference NIfTI not found, skipping field visualization", 'info')
-                
-                except Exception as viz_err:
-                    self.output_signal.emit(f"  ⓘ Could not create field visualization: {str(viz_err)}", 'info')
-                
             except Exception as viz_error:
                 self.output_signal.emit(f"Warning: Visualization failed: {str(viz_error)}", 'warning')
                 # Continue even if visualization fails
@@ -536,8 +487,6 @@ class MOVEAOptimizationThread(QtCore.QThread):
             viz_files = [
                 'pareto_front.png',  # Like original MOVEA (optional)
                 'pareto_solutions.csv',  # (optional)
-                'ti_field.nii.gz', 
-                'brain_field.png'
             ]
             for viz_file in viz_files:
                 viz_path = os.path.join(output_dir, viz_file)

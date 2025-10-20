@@ -136,12 +136,14 @@ class MOVEAVisualizer:
         Args:
             field_values: Array of field magnitudes [n_voxels]
             voxel_positions: Voxel MNI coordinates [n_voxels, 3]
-            reference_nifti: Path to reference NIfTI (e.g., m2m file)
+            reference_nifti: Path to reference NIfTI file
             output_path: Output path for NIfTI file
             interpolate: Whether to interpolate to full brain grid
         
         Returns:
             output_path: Path to created NIfTI file
+        
+        Note: This method is currently not used by the GUI but kept for future use.
         """
         try:
             import nibabel as nib
@@ -233,6 +235,8 @@ class MOVEAVisualizer:
         
         Returns:
             fig: Matplotlib figure (if nilearn available)
+        
+        Note: This method is currently not used by the GUI but kept for future use.
         """
         try:
             import nibabel as nib
@@ -361,17 +365,14 @@ class MOVEAVisualizer:
         return fig
 
 
-def visualize_complete_results(optimizer, result, reference_nifti=None, 
-                               output_dir='results', target_coords=None):
+def visualize_complete_results(optimizer, result, output_dir='results'):
     """
     Create complete visualization suite for optimization results
     
     Args:
         optimizer: TIOptimizer or ScipyTIOptimizer instance
         result: Optimization result dictionary
-        reference_nifti: Path to reference NIfTI file
         output_dir: Output directory for all visualizations
-        target_coords: Target MNI coordinates
     
     Returns:
         dict: Paths to generated files
@@ -392,41 +393,6 @@ def visualize_complete_results(optimizer, result, reference_nifti=None,
     montage_path = output_dir / 'montage.png'
     visualizer.visualize_montage(result, save_path=montage_path)
     generated_files['montage'] = str(montage_path)
-    
-    # 3. Create field NIfTI if reference provided
-    if reference_nifti and os.path.exists(reference_nifti):
-        try:
-            # Calculate full brain field for best montage
-            e1, e2, e3, e4 = result['electrodes']
-            stim1 = np.zeros(optimizer.num_electrodes)
-            stim1[e1] = 1
-            stim1[e2] = -1
-            stim2 = np.zeros(optimizer.num_electrodes)
-            stim2[e3] = 1
-            stim2[e4] = -1
-            
-            from .utils import calculate_ti_field
-            field_values = calculate_ti_field(
-                optimizer.lfm, stim1, stim2, target_indices=None
-            )
-            
-            # Create NIfTI
-            nifti_path = output_dir / 'ti_field.nii.gz'
-            visualizer.create_field_nifti(
-                field_values, optimizer.positions, reference_nifti, 
-                nifti_path, interpolate=True
-            )
-            generated_files['nifti'] = str(nifti_path)
-            
-            # Create brain visualization
-            brain_viz_path = output_dir / 'brain_field.png'
-            visualizer.visualize_field_on_brain(
-                nifti_path, reference_nifti, target_coords, brain_viz_path
-            )
-            generated_files['brain_viz'] = str(brain_viz_path)
-            
-        except Exception as e:
-            print(f"Warning: Could not create NIfTI visualization: {e}")
     
     print(f"\n{'='*60}")
     print(f"Visualization Complete")
