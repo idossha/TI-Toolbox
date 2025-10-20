@@ -1,5 +1,4 @@
 # Standard library imports
-import glob
 import json
 import os
 import sys
@@ -106,17 +105,6 @@ def get_TI_vectors(E1_org, E2_org):
     
     return TI_vectors
 
-def resolve_mesh_file(pattern):
-    """Find mesh file using glob pattern, prefer subject_id match"""
-    matches = glob.glob(pattern)
-    if not matches:
-        return None
-    if len(matches) == 1:
-        return matches[0]
-    for match in matches:
-        if subject_id in os.path.basename(match):
-            return match
-    return matches[0]
 
 def run_simulation(montage_name, electrode_pairs):
     """Run multipolar TI simulation with 4 electrode pairs"""
@@ -181,9 +169,9 @@ def run_simulation(montage_name, electrode_pairs):
     # Load HF meshes
     hf_meshes = []
     for i in range(1, 5):
-        mesh_file = resolve_mesh_file(os.path.join(hf_dir, f"*TDCS_{i}_{sim_type}.msh"))
-        if not mesh_file:
-            logger.error(f"Could not find TDCS_{i} mesh")
+        mesh_file = os.path.join(hf_dir, f"{subject_id}_TDCS_{i}_{sim_type}.msh")
+        if not os.path.exists(mesh_file):
+            logger.error(f"Could not find {mesh_file}")
             return None
         m = mesh_io.read_msh(mesh_file)
         m = m.crop_mesh(tags=np.hstack((np.arange(1, 100), np.arange(1001, 1100))))

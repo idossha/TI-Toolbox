@@ -102,12 +102,12 @@ def test_mti_resolves_hf_meshes_and_writes_intermediates(tmp_path):
     os.makedirs(hf_dir, exist_ok=True)
     os.makedirs(ti_mesh_dir, exist_ok=True)
     os.makedirs(mti_mesh_dir, exist_ok=True)
-    # Create 4 HF mesh files in hf_dir (S.pathfem)
-    for i in range(1, 5):
-        open(os.path.join(hf_dir, f'subj001_TDCS_{i}_scalar.msh'), 'w').close()
-
-    # Configure module CLI-like globals
+    # Configure module CLI-like globals first
     mod.subject_id = 'ernie_extended'
+    
+    # Create 4 HF mesh files in hf_dir (S.pathfem) with correct subject ID
+    for i in range(1, 5):
+        open(os.path.join(hf_dir, f'{mod.subject_id}_TDCS_{i}_scalar.msh'), 'w').close()
     mod.sim_type = 'scalar'
     mod.project_dir = '/mnt/test'
     mod.simulation_dir = str(tmp_path)
