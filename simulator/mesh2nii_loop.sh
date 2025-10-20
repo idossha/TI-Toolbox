@@ -48,6 +48,13 @@ for FN_MESH in "$input_mesh_dir"/*.msh; do
   # Get the base name of the .msh file (without directory and extension)
   BASE_NAME=$(basename "$FN_MESH" .msh)
   
+  # Skip surface meshes (e.g., *_normal.msh) as they don't have volume elements
+  # and cannot be transformed to MNI space using volume-based methods
+  if [[ "$BASE_NAME" == *"normal"* ]]; then
+    echo "Skipping surface mesh (no volume elements): $BASE_NAME"
+    continue
+  fi
+  
   # Define the output file names with the desired naming convention
   FN_OUT="$output_dir/${BASE_NAME}_MNI.nii.gz"
   
