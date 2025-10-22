@@ -405,6 +405,7 @@ class SimulatorTab(QtWidgets.QWidget):
         self.subject_list.setSelectionMode(QtWidgets.QAbstractItemView.ExtendedSelection)
         self.subject_list.setMinimumHeight(90)  # Reduced by 10% (100 * 0.9 = 90)
         self.subject_list.itemSelectionChanged.connect(self.refresh_flex_search_list)  # Refresh flex-search when subjects change
+        self.subject_list.itemSelectionChanged.connect(self.update_freehand_configs)  # Refresh free-hand configs when subjects change
         subject_content_layout.addWidget(self.subject_list)
         
         # Subject control buttons in vertical layout on the right
@@ -898,52 +899,57 @@ class SimulatorTab(QtWidgets.QWidget):
     def update_freehand_configs(self):
         """Update the list of available free-hand electrode configurations."""
         try:
-            # Get current subject
-            current_subject = self.subject_combo.currentText()
-            if not current_subject:
-                return
-            
-            # Clear existing items
+            # Clear existing items first
             self.montage_list.clear()
+            
+            # Require exactly one subject to view subject-specific free-hand configs
+            selected_subjects = [item.text() for item in self.subject_list.selectedItems()]
+            if len(selected_subjects) != 1:
+                placeholder = QtWidgets.QListWidgetItem("Select exactly one subject to view free-hand configurations")
+                placeholder.setFlags(placeholder.flags() & ~QtCore.Qt.ItemIsSelectable)
+                self.montage_list.addItem(placeholder)
+                return
+            current_subject = selected_subjects[0]
             
             # Get stim_configs directory
             m2m_dir = self.pm.get_m2m_dir(current_subject)
             if not m2m_dir:
+                placeholder = QtWidgets.QListWidgetItem("No subject m2m directory found")
+                placeholder.setFlags(placeholder.flags() & ~QtCore.Qt.ItemIsSelectable)
+                self.montage_list.addItem(placeholder)
                 return
             
             stim_configs_dir = os.path.join(m2m_dir, "stim_configs")
-            
-            # Check if directory exists
             if not os.path.exists(stim_configs_dir):
-                self.montage_list.addItem(QtWidgets.QListWidgetItem("No free-hand configurations found"))
+                placeholder = QtWidgets.QListWidgetItem("No free-hand configurations found")
+                placeholder.setFlags(placeholder.flags() & ~QtCore.Qt.ItemIsSelectable)
+                self.montage_list.addItem(placeholder)
                 return
             
-            # Load JSON configs
             config_files = [f for f in os.listdir(stim_configs_dir) if f.endswith('.json')]
-            
             if not config_files:
-                self.montage_list.addItem(QtWidgets.QListWidgetItem("No free-hand configurations found"))
+                placeholder = QtWidgets.QListWidgetItem("No free-hand configurations found")
+                placeholder.setFlags(placeholder.flags() & ~QtCore.Qt.ItemIsSelectable)
+                self.montage_list.addItem(placeholder)
                 return
             
-            # Add each config to the list
+            # Populate list with configs
             for config_file in sorted(config_files):
                 config_path = os.path.join(stim_configs_dir, config_file)
                 try:
                     with open(config_path, 'r') as f:
                         config_data = json.load(f)
-                    
-                    # Extract info
                     name = config_data.get('name', config_file.replace('.json', ''))
                     stim_type = config_data.get('type', 'U')
                     electrode_positions = config_data.get('electrode_positions', {})
-                    
-                    # Create formatted label
                     type_label = "Unipolar" if stim_type == 'U' else "Multipolar"
                     label_html = f"<b>{name}</b> ({type_label}, {len(electrode_positions)} electrodes)"
                     
                     item = QtWidgets.QListWidgetItem()
-                    item.setData(QtCore.Qt.UserRole, config_file.replace('.json', ''))  # Store config name
-                    item.setData(QtCore.Qt.UserRole + 1, config_data)  # Store full config data
+                    item.setData(QtCore.Qt.UserRole, name)
+                    payload = dict(config_data)
+                    payload['subject_id'] = current_subject
+                    item.setData(QtCore.Qt.UserRole + 1, payload)
                     self.montage_list.addItem(item)
                     
                     label_widget = QtWidgets.QLabel()
@@ -952,17 +958,22 @@ class SimulatorTab(QtWidgets.QWidget):
                     label_widget.setStyleSheet("QLabel { padding: 2px 4px; font-size: 13px; }")
                     self.montage_list.setItemWidget(item, label_widget)
                     item.setSizeHint(label_widget.sizeHint())
-                    
                 except Exception as e:
                     print(f"Error loading config {config_file}: {e}")
                     continue
-                    
         except Exception as e:
             self.update_output(f"Error loading free-hand configs: {e}", 'error')
     
     def launch_electrode_placement_gui(self):
-        electrode_placement_gui = ElectrodePlacementGUI()
-        electrode_placement_gui.show()
+        # Keep a reference so the window isn't garbage collected
+        if not hasattr(self, '_electrode_placement_gui') or self._electrode_placement_gui is None:
+            self._electrode_placement_gui = ElectrodePlacementGUI()
+        self._electrode_placement_gui.show()
+        try:
+            self._electrode_placement_gui.raise_()
+            self._electrode_placement_gui.activateWindow()
+        except Exception:
+            pass
      
     
     def refresh_flex_search_list(self):

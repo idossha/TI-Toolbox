@@ -56,6 +56,16 @@ OpenGLWidgetBase = QtWidgets.QOpenGLWidget
 if USE_QGL_FALLBACK and QGL_AVAILABLE:
     OpenGLWidgetBase = QGLWidget
 
+# Ensure a conservative default OpenGL format is set even when launched from another GUI
+try:
+    fmt = QtGui.QSurfaceFormat()
+    fmt.setVersion(2, 1)
+    fmt.setProfile(QtGui.QSurfaceFormat.NoProfile)
+    fmt.setRenderableType(QtGui.QSurfaceFormat.OpenGL)
+    QtGui.QSurfaceFormat.setDefaultFormat(fmt)
+except Exception:
+    pass
+
 # Import path manager
 try:
     from GUI.components.path_manager import get_path_manager
