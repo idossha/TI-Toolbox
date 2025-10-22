@@ -1607,8 +1607,8 @@ except Exception as e:
                         export FLEX_MONTAGES_FILE="$file_path"
                         
                         # Run the simulation for this individual montage
-                                                echo "Executing: $simulator_dir/$main_script $subject_id $conductivity $project_dir $simulation_dir $sim_mode $current $electrode_shape $dimensions $thickness flex_mode --"
-        "$simulator_dir/$main_script" "$subject_id" "$conductivity" "$project_dir" "$simulation_dir" "$sim_mode" "$current" "$electrode_shape" "$dimensions" "$thickness" "flex_mode" --
+                        echo "Executing: $simulator_dir/$main_script $subject_id $conductivity $project_dir $simulation_dir $sim_mode $current $electrode_shape $dimensions $thickness flex_mode $montage_name --"
+        "$simulator_dir/$main_script" "$subject_id" "$conductivity" "$project_dir" "$simulation_dir" "$sim_mode" "$current" "$electrode_shape" "$dimensions" "$thickness" "flex_mode" "$montage_name" --
                         
                         # Clean up this specific temp file after simulation
                         if [[ -f "$file_path" ]]; then
@@ -1648,8 +1648,8 @@ except Exception as e:
                     if [[ -f "$file_path" ]]; then
                         echo "Processing individual free-hand simulation: $subject_id - $montage_name"
                         export FREEHAND_MONTAGES_FILE="$file_path"
-                        echo "Executing: $simulator_dir/$main_script $subject_id $conductivity $project_dir $simulation_dir $sim_mode $current $electrode_shape $dimensions $thickness freehand --"
-                        "$simulator_dir/$main_script" "$subject_id" "$conductivity" "$project_dir" "$simulation_dir" "$sim_mode" "$current" "$electrode_shape" "$dimensions" "$thickness" "freehand" --
+                        echo "Executing: $simulator_dir/$main_script $subject_id $conductivity $project_dir $simulation_dir $sim_mode $current $electrode_shape $dimensions $thickness freehand $montage_name --"
+                        "$simulator_dir/$main_script" "$subject_id" "$conductivity" "$project_dir" "$simulation_dir" "$sim_mode" "$current" "$electrode_shape" "$dimensions" "$thickness" "freehand" "$montage_name" --
                         if [[ -f "$file_path" ]]; then
                             rm -f "$file_path"
                             echo "Cleaned up free-hand temp file for $subject_id-$montage_name: $file_path"
