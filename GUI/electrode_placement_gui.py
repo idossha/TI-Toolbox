@@ -41,6 +41,21 @@ except ImportError:
     print("PyOpenGL is required. Install with: pip install PyOpenGL")
     sys.exit(1)
 
+# Optional fallback to legacy QGLWidget for environments where QOpenGLWidget
+# cannot create a context (e.g., Docker on macOS with indirect GLX)
+USE_QGL_FALLBACK = os.environ.get("TI_GUI_QGL_FALLBACK", "0") == "1"
+try:
+    from PyQt5.QtOpenGL import QGLWidget  # Deprecated but useful as a fallback
+    QGL_AVAILABLE = True
+except Exception:
+    QGLWidget = None
+    QGL_AVAILABLE = False
+
+# Decide which OpenGL widget base to use
+OpenGLWidgetBase = QtWidgets.QOpenGLWidget
+if USE_QGL_FALLBACK and QGL_AVAILABLE:
+    OpenGLWidgetBase = QGLWidget
+
 # Import path manager
 try:
     from GUI.components.path_manager import get_path_manager
@@ -58,7 +73,7 @@ except ImportError:
     print("Warning: SimNIBS not found. Make sure it's installed and accessible.")
 
 
-class GLSurfaceWidget(QtWidgets.QOpenGLWidget):
+class GLSurfaceWidget(OpenGLWidgetBase):
     """OpenGL widget for rendering head surfaces and markers"""
     
     markerPlaced = QtCore.pyqtSignal(list)  # Signal when a marker is placed
@@ -947,6 +962,13 @@ class ElectrodePlacementGUI(QMainWindow):
 def main():
     """Main entry point"""
     app = QApplication(sys.argv)
+    
+    # Configure OpenGL format for better compatibility
+    fmt = QtGui.QSurfaceFormat()
+    fmt.setVersion(2, 1)  # Use OpenGL 2.1
+    fmt.setProfile(QtGui.QSurfaceFormat.NoProfile)
+    fmt.setRenderableType(QtGui.QSurfaceFormat.OpenGL)
+    QtGui.QSurfaceFormat.setDefaultFormat(fmt)
     
     # Set application style
     app.setStyle('Fusion')

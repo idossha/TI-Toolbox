@@ -27,7 +27,11 @@ services:
       DISPLAY: ${DISPLAY}
       # OpenGL configuration for software rendering (better compatibility)
       LIBGL_ALWAYS_SOFTWARE: "1"
+      LIBGL_ALWAYS_INDIRECT: "1"
       QT_X11_NO_MITSHM: "1"
+      QT_OPENGL: desktop
+      # Force legacy QGL fallback in our app on macOS/XQuartz
+      TI_GUI_QGL_FALLBACK: "1"
       # FreeSurfer environment
       FREESURFER_HOME: /usr/local/freesurfer
       SUBJECTS_DIR: /usr/local/freesurfer/subjects

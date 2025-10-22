@@ -28,7 +28,10 @@ services:
       DISPLAY: ${DISPLAY}
       # OpenGL configuration for software rendering (better compatibility)
       LIBGL_ALWAYS_SOFTWARE: "1"
+      LIBGL_ALWAYS_INDIRECT: "1"
       QT_X11_NO_MITSHM: "1"
+      QT_OPENGL: desktop
+      TI_GUI_QGL_FALLBACK: "1"
 
       # FreeSurfer environment
       FREESURFER_HOME: /usr/local/freesurfer

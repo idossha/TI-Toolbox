@@ -51,6 +51,9 @@ RUN apt-get update && apt-get install -y \
     libgl1-mesa-dri \
     libglapi-mesa \
     libosmesa6 \
+    mesa-va-drivers \
+    libegl1-mesa \
+    libgbm1 \
         \
     # X11 libraries (for GUI applications)
     libxt6 \
@@ -63,7 +66,9 @@ RUN apt-get update && apt-get install -y \
     libxdamage1 \
     libxi6 \
     libxmu6 \
-    libxft2 \ 
+    libxft2 \
+    libice6 \
+    libsm6 \
     \
     # Qt5 libraries (for PyQt5 GUI)
     libqt5widgets5 \
@@ -71,6 +76,8 @@ RUN apt-get update && apt-get install -y \
     libqt5core5a \
     libqt5svg5 \
     libqt5opengl5 \
+    qt5-default \
+    qtbase5-dev \
     \
     # GTK libraries (for legacy GUI applications)
     libgtk2.0-0 \
@@ -100,7 +107,7 @@ RUN apt-get update && apt-get install -y \
 
 # Install Python packages and create symlinks
 RUN python3.11 -m pip install --upgrade pip && \
-    python3.11 -m pip install numpy scipy pandas meshio nibabel nilearn matplotlib && \
+    python3.11 -m pip install numpy scipy pandas meshio nibabel nilearn matplotlib PyOpenGL PyOpenGL-accelerate PyQt5 && \
     ln -sf /usr/bin/python3.11 /usr/bin/python3 && \
     ln -sf /usr/bin/python3.11 /usr/bin/python
 
