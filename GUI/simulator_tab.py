@@ -899,6 +899,9 @@ class SimulatorTab(QtWidgets.QWidget):
     def update_freehand_configs(self):
         """Update the list of available free-hand electrode configurations."""
         try:
+            # Only populate when Free-hand mode is selected
+            if not self.sim_type_freehand.isChecked():
+                return
             # Clear existing items first
             self.montage_list.clear()
             
@@ -1448,13 +1451,14 @@ class SimulatorTab(QtWidgets.QWidget):
             # Get simulation parameters
             conductivity = self.sim_type_combo.currentData()  # Get conductivity from combo box
             
+            # Determine sim mode (U/M) for all frameworks; pipeline selection is handled elsewhere
+            sim_mode = "U" if self.sim_mode_unipolar.isChecked() else "M"
             if is_montage_mode:
-                sim_mode = "U" if self.sim_mode_unipolar.isChecked() else "M"
                 eeg_net = self.eeg_net_combo.currentText()
+            elif is_freehand_mode:
+                eeg_net = "freehand"
             else:
-                # For flex mode, always use TI pipeline (main-TI.sh) since we're doing temporal interference
-                sim_mode = "FLEX_TI"  # Special mode for flex-search TI simulations
-                eeg_net = "flex_mode"  # Placeholder since EEG net is determined per montage
+                eeg_net = "flex_mode"
             
             # Get current values and convert to Amperes (from mA)
             try:
@@ -1517,6 +1521,16 @@ class SimulatorTab(QtWidgets.QWidget):
                           f"• Electrode shape: {electrode_shape}\n"
                           f"• Dimensions: {dimensions} mm\n"
                           f"• Thickness: {thickness} mm")
+            elif is_freehand_mode:
+                details = (f"This will run FREE-HAND simulations for:\n\n"
+                          f"• {len(selected_subjects)} subject(s)\n"
+                          f"• {len(freehand_configs)} configuration(s)\n\n"
+                          f"Parameters:\n"
+                          f"• Simulation type: {conductivity}\n"
+                          f"• Mode: {'Unipolar' if sim_mode == 'U' else 'Multipolar'}\n"
+                          f"• Electrode shape: {electrode_shape}\n"
+                          f"• Dimensions: {dimensions} mm\n"
+                          f"• Thickness: {thickness} mm")
             else:
                 details = (f"This will run FLEX-SEARCH simulations for:\n\n"
                           f"• {len(selected_subjects)} subject(s)\n"
@@ -1554,6 +1568,8 @@ class SimulatorTab(QtWidgets.QWidget):
             for subject_id in selected_subjects:
                 if is_montage_mode:
                     montages_to_check = selected_montages
+                elif is_freehand_mode:
+                    montages_to_check = [cfg.get('name') for cfg in freehand_configs if cfg]
                 else:
                     montages_to_check = [cfg['montage']['name'] for cfg in flex_montage_configs if cfg['subject_id'] == subject_id]
                 
@@ -1620,7 +1636,8 @@ class SimulatorTab(QtWidgets.QWidget):
             elif is_freehand_mode:
                 # Free-hand simulation mode
                 env['SELECTED_MONTAGES'] = ''  # No regular montages
-                env['SIMULATION_FRAMEWORK'] = 'freehand'  # CLI expects SIMULATION_FRAMEWORK
+                # Use dedicated free-hand framework
+                env['SIMULATION_FRAMEWORK'] = 'freehand'
                 
                 # Create temporary JSON files for free-hand configs
                 import tempfile
@@ -1635,15 +1652,33 @@ class SimulatorTab(QtWidgets.QWidget):
                     # For each subject, create a config
                     for subject_id in selected_subjects:
                         with tempfile.NamedTemporaryFile(mode='w', suffix=f'_{subject_id}_{config_name}.json', delete=False) as tf:
-                            # Create config in format expected by simulator
+                            # Map dict to list of 4 XYZ coordinates in TI-expected order
+                            # Prefer E1+, E1-, E2+, E2-; otherwise take first 4 by sorted name
+                            ordered_keys = ['E1+', 'E1-', 'E2+', 'E2-']
+                            coords = []
+                            try:
+                                for k in ordered_keys:
+                                    if k in electrode_positions:
+                                        coords.append(electrode_positions[k])
+                                if len(coords) < 4:
+                                    # Fallback to first 4 entries sorted by key
+                                    for k in sorted(electrode_positions.keys()):
+                                        if k not in ordered_keys and len(coords) < 4:
+                                            coords.append(electrode_positions.get(k))
+                            except Exception:
+                                coords = []
+                            
+                            if len(coords) < 4:
+                                # Not enough electrodes; skip creating this file
+                                continue
+                            
+                            # Create config for free-hand pipeline
                             freehand_config = {
                                 'subject_id': subject_id,
-                                'eeg_net': 'freehand',  # Indicator for free-hand mode
                                 'montage': {
                                     'name': config_name,
-                                    'type': 'freehand',
-                                    'stim_mode': stim_type,
-                                    'electrode_positions': electrode_positions
+                                    'type': 'freehand_xyz',
+                                    'electrode_positions': coords[:4]
                                 }
                             }
                             json.dump(freehand_config, tf, indent=2)
@@ -1657,7 +1692,7 @@ class SimulatorTab(QtWidgets.QWidget):
                             })
                 
                 # Store the freehand file list for CLI to use
-                env['FLEX_MONTAGE_FILES'] = json.dumps(freehand_file_list)
+                env['FREEHAND_MONTAGE_FILES'] = json.dumps(freehand_file_list)
                 self.update_output(f"--- Prepared {len(temp_files)} free-hand simulations for processing ---")
                 
                 # Store temp files for cleanup later
@@ -1699,7 +1734,12 @@ class SimulatorTab(QtWidgets.QWidget):
             # Persist run context for cleanup/termination decisions
             self._current_run_subjects = selected_subjects[:]
             self._current_run_is_montage = is_montage_mode
-            self._current_run_montages = selected_montages[:] if is_montage_mode else [cfg['montage']['name'] for cfg in flex_montage_configs]
+            if is_montage_mode:
+                self._current_run_montages = selected_montages[:]
+            elif is_freehand_mode:
+                self._current_run_montages = [cfg.get('name') for cfg in freehand_configs if cfg]
+            else:
+                self._current_run_montages = [cfg['montage']['name'] for cfg in flex_montage_configs]
             self._run_start_time = time.time()
             self._project_dir_path_current = self.pm.get_project_dir()
 

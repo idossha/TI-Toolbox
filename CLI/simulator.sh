@@ -1627,6 +1627,44 @@ except Exception as e:
                 unset FLEX_MONTAGES_FILE
             fi
         fi
+
+        # For free-hand mode, process individual subject-montage temp files (XYZ coordinates)
+        if [[ "$simulation_framework" == "freehand" ]]; then
+            if [[ -n "$FREEHAND_MONTAGE_FILES" ]]; then
+                subject_montage_files=$(echo "$FREEHAND_MONTAGE_FILES" | python3 -c "
+import json
+import sys
+
+try:
+    file_list = json.load(sys.stdin)
+    subject_files = [f for f in file_list if f['subject_id'] == '$subject_id']
+    for f in subject_files:
+        print(f\"{f['file_path']}|{f['montage_name']}\")
+except Exception as e:
+    print(f'Error parsing FREEHAND_MONTAGE_FILES: {e}', file=sys.stderr)
+")
+
+                while IFS='|' read -r file_path montage_name; do
+                    if [[ -f "$file_path" ]]; then
+                        echo "Processing individual free-hand simulation: $subject_id - $montage_name"
+                        export FREEHAND_MONTAGES_FILE="$file_path"
+                        echo "Executing: $simulator_dir/$main_script $subject_id $conductivity $project_dir $simulation_dir $sim_mode $current $electrode_shape $dimensions $thickness freehand --"
+                        "$simulator_dir/$main_script" "$subject_id" "$conductivity" "$project_dir" "$simulation_dir" "$sim_mode" "$current" "$electrode_shape" "$dimensions" "$thickness" "freehand" --
+                        if [[ -f "$file_path" ]]; then
+                            rm -f "$file_path"
+                            echo "Cleaned up free-hand temp file for $subject_id-$montage_name: $file_path"
+                        fi
+                    else
+                        echo "Warning: Free-hand temp file not found: $file_path"
+                    fi
+                done <<< "$subject_montage_files"
+
+                continue
+            else
+                echo "Warning: No FREEHAND_MONTAGE_FILES found for free-hand simulation"
+                unset FREEHAND_MONTAGES_FILE
+            fi
+        fi
         
         # Debug output for montages
         echo "Debug: Selected montages array: ${selected_montages[@]}"
