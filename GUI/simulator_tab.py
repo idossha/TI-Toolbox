@@ -457,16 +457,23 @@ class SimulatorTab(QtWidgets.QWidget):
         self.clear_montage_selection_btn = QtWidgets.QPushButton("Clear")
         self.clear_montage_selection_btn.clicked.connect(self.clear_montage_selection)
         
+        # Add button to launch electrode placement GUI
+        self.launch_electrode_placement_btn = QtWidgets.QPushButton("Place Electrodes")
+        self.launch_electrode_placement_btn.setToolTip("Launch electrode placement GUI to create free-hand configurations")
+        self.launch_electrode_placement_btn.clicked.connect(self.launch_electrode_placement_gui)
+        
         montage_button_layout.addWidget(self.add_new_montage_btn)
         montage_button_layout.addWidget(self.remove_montage_btn)
         montage_button_layout.addWidget(self.list_montages_btn)
         montage_button_layout.addWidget(self.clear_montage_selection_btn)
+        montage_button_layout.addWidget(self.launch_electrode_placement_btn)
         montage_button_layout.addStretch()  # Push buttons to the top
         
         montage_content_layout.addLayout(montage_button_layout)
         montage_layout.addLayout(montage_content_layout)
         
         # Add montage container to left layout
+        self.montage_container = montage_container  # Store reference for visibility control
         left_layout.addWidget(montage_container)
         
         # Flex-search outputs selection
@@ -585,17 +592,19 @@ class SimulatorTab(QtWidgets.QWidget):
         # Connect EEG net selection change to montage list update
         self.eeg_net_combo.currentTextChanged.connect(self.update_montage_list)
 
-        # Simulation Type Selection (Montage vs Flex)
+        # Simulation Type Selection (Montage vs Flex vs Free-hand)
         sim_type_selection_layout = QtWidgets.QHBoxLayout()
         self.sim_type_selection_label = QtWidgets.QLabel("Montage Source:")
         self.sim_type_montage = QtWidgets.QRadioButton("Montage List")
         self.sim_type_flex = QtWidgets.QRadioButton("Flex-Search")
+        self.sim_type_freehand = QtWidgets.QRadioButton("Free-hand")
         self.sim_type_montage.setChecked(True)  # Default to montage simulation
         
         # Create button group for mutual exclusion
         self.sim_type_group = QtWidgets.QButtonGroup()
         self.sim_type_group.addButton(self.sim_type_montage, 1)
         self.sim_type_group.addButton(self.sim_type_flex, 2)
+        self.sim_type_group.addButton(self.sim_type_freehand, 3)
         
         # Add help button for montage source
         self.montage_source_help_btn = QtWidgets.QPushButton("?")
@@ -617,6 +626,7 @@ class SimulatorTab(QtWidgets.QWidget):
         sim_type_selection_layout.addWidget(self.sim_type_selection_label)
         sim_type_selection_layout.addWidget(self.sim_type_montage)
         sim_type_selection_layout.addWidget(self.sim_type_flex)
+        sim_type_selection_layout.addWidget(self.sim_type_freehand)
         sim_type_selection_layout.addWidget(self.montage_source_help_btn)
         sim_type_selection_layout.addStretch()
         sim_params_layout.addLayout(sim_type_selection_layout)
@@ -624,6 +634,7 @@ class SimulatorTab(QtWidgets.QWidget):
         # Connect to mode change handler - use clicked to avoid double signals
         self.sim_type_montage.clicked.connect(self.on_simulation_type_changed)
         self.sim_type_flex.clicked.connect(self.on_simulation_type_changed)
+        self.sim_type_freehand.clicked.connect(self.on_simulation_type_changed)
 
         # Simulation mode (Unipolar/Multipolar) - only for montage simulation
         sim_mode_layout = QtWidgets.QHBoxLayout()
@@ -883,6 +894,102 @@ class SimulatorTab(QtWidgets.QWidget):
         """Clear the selection in the montage list."""
         self.montage_list.clearSelection()
     
+    def update_freehand_configs(self):
+        """Update the list of available free-hand electrode configurations."""
+        try:
+            # Get current subject
+            current_subject = self.subject_combo.currentText()
+            if not current_subject:
+                return
+            
+            # Clear existing items
+            self.montage_list.clear()
+            
+            # Get stim_configs directory
+            m2m_dir = self.pm.get_m2m_dir(current_subject)
+            if not m2m_dir:
+                return
+            
+            stim_configs_dir = os.path.join(m2m_dir, "stim_configs")
+            
+            # Check if directory exists
+            if not os.path.exists(stim_configs_dir):
+                self.montage_list.addItem(QtWidgets.QListWidgetItem("No free-hand configurations found"))
+                return
+            
+            # Load JSON configs
+            config_files = [f for f in os.listdir(stim_configs_dir) if f.endswith('.json')]
+            
+            if not config_files:
+                self.montage_list.addItem(QtWidgets.QListWidgetItem("No free-hand configurations found"))
+                return
+            
+            # Add each config to the list
+            for config_file in sorted(config_files):
+                config_path = os.path.join(stim_configs_dir, config_file)
+                try:
+                    with open(config_path, 'r') as f:
+                        config_data = json.load(f)
+                    
+                    # Extract info
+                    name = config_data.get('name', config_file.replace('.json', ''))
+                    stim_type = config_data.get('type', 'U')
+                    electrode_positions = config_data.get('electrode_positions', {})
+                    
+                    # Create formatted label
+                    type_label = "Unipolar" if stim_type == 'U' else "Multipolar"
+                    label_html = f"<b>{name}</b> ({type_label}, {len(electrode_positions)} electrodes)"
+                    
+                    item = QtWidgets.QListWidgetItem()
+                    item.setData(QtCore.Qt.UserRole, config_file.replace('.json', ''))  # Store config name
+                    item.setData(QtCore.Qt.UserRole + 1, config_data)  # Store full config data
+                    self.montage_list.addItem(item)
+                    
+                    label_widget = QtWidgets.QLabel()
+                    label_widget.setTextFormat(QtCore.Qt.RichText)
+                    label_widget.setText(label_html)
+                    label_widget.setStyleSheet("QLabel { padding: 2px 4px; font-size: 13px; }")
+                    self.montage_list.setItemWidget(item, label_widget)
+                    item.setSizeHint(label_widget.sizeHint())
+                    
+                except Exception as e:
+                    print(f"Error loading config {config_file}: {e}")
+                    continue
+                    
+        except Exception as e:
+            self.update_output(f"Error loading free-hand configs: {e}", 'error')
+    
+    def launch_electrode_placement_gui(self):
+        """Launch the electrode placement GUI."""
+        try:
+            # Get current subject
+            current_subject = self.subject_combo.currentText()
+            if not current_subject:
+                QtWidgets.QMessageBox.warning(self, "Warning", "Please select a subject first")
+                return
+            
+            # Get path to electrode placement GUI script
+            gui_script = os.path.join(os.path.dirname(__file__), "electrode_placement_gui.py")
+            
+            if not os.path.exists(gui_script):
+                QtWidgets.QMessageBox.critical(
+                    self, "Error", 
+                    f"Electrode placement GUI script not found:\n{gui_script}"
+                )
+                return
+            
+            # Launch the GUI in a separate process
+            import sys
+            subprocess.Popen([sys.executable, gui_script])
+            
+            self.update_output(f"Launched electrode placement GUI for subject {current_subject}", 'info')
+            
+        except Exception as e:
+            QtWidgets.QMessageBox.critical(
+                self, "Error", 
+                f"Failed to launch electrode placement GUI:\n{str(e)}"
+            )
+    
     def refresh_flex_search_list(self):
         """Refresh the list of available flex-search outputs based on selected subjects."""
         try:
@@ -946,28 +1053,33 @@ class SimulatorTab(QtWidgets.QWidget):
         self.flex_search_list.clearSelection()
     
     def on_simulation_type_changed(self):
-        """Handle changes between Montage and Flex simulation modes."""
+        """Handle changes between Montage, Flex, and Free-hand simulation modes."""
         is_montage_mode = self.sim_type_montage.isChecked()
+        is_flex_mode = self.sim_type_flex.isChecked()
+        is_freehand_mode = self.sim_type_freehand.isChecked()
         
         # Show/hide montage-related UI elements
-        self.montage_container.setVisible(is_montage_mode)
+        self.montage_container.setVisible(is_montage_mode or is_freehand_mode)
         
-        # Enable/disable (grey out) simulation mode and EEG net controls instead of hiding
+        # Enable/disable (grey out) simulation mode and EEG net controls
         for widget in self.sim_mode_layout_widgets:
             widget.setEnabled(is_montage_mode)
         self.eeg_net_combo.setEnabled(is_montage_mode)
         self.eeg_net_label.setEnabled(is_montage_mode)
         
         # Show/hide flex-search-related UI elements
-        self.flex_search_container.setVisible(not is_montage_mode)
+        self.flex_search_container.setVisible(is_flex_mode)
         
-        # Update window title or status
+        # Update window title or status and refresh lists
         if is_montage_mode:
             self.update_output("Switched to Montage Simulation mode", 'info')
             self.update_montage_list()  # Refresh montage list
-        else:
+        elif is_flex_mode:
             self.update_output("Switched to Flex-Search Simulation mode", 'info')
             self.refresh_flex_search_list()  # Refresh flex-search list
+        elif is_freehand_mode:
+            self.update_output("Switched to Free-hand Simulation mode", 'info')
+            self.update_freehand_configs()  # Refresh free-hand configs
 
     def initialize_ui_state(self):
         """Initialize UI state without printing messages."""
@@ -1204,6 +1316,7 @@ class SimulatorTab(QtWidgets.QWidget):
             
             # Check simulation mode and validate selections
             is_montage_mode = self.sim_type_montage.isChecked()
+            is_freehand_mode = self.sim_type_freehand.isChecked()
             
             if is_montage_mode:
                 # Montage simulation mode
@@ -1212,6 +1325,24 @@ class SimulatorTab(QtWidgets.QWidget):
                     QtWidgets.QMessageBox.warning(self, "Warning", "Please select at least one montage.")
                     return
                 selected_flex_searches = []  # No flex-search in montage mode
+                flex_montage_configs = []
+                freehand_configs = []
+            elif is_freehand_mode:
+                # Free-hand simulation mode
+                selected_freehand = [item for item in self.montage_list.selectedItems()]
+                if not selected_freehand:
+                    QtWidgets.QMessageBox.warning(self, "Warning", "Please select at least one free-hand configuration.")
+                    return
+                
+                # Get the free-hand config data
+                freehand_configs = []
+                for item in selected_freehand:
+                    config_data = item.data(QtCore.Qt.UserRole + 1)
+                    if config_data:
+                        freehand_configs.append(config_data)
+                
+                selected_montages = []
+                selected_flex_searches = []
                 flex_montage_configs = []
             else:
                 # Flex-search simulation mode
@@ -1500,6 +1631,51 @@ class SimulatorTab(QtWidgets.QWidget):
                 # Montage simulation mode
                 env['SELECTED_MONTAGES'] = ','.join(selected_montages)  # Use comma-separated for CLI parsing
                 env['SIMULATION_FRAMEWORK'] = 'montage'  # CLI expects SIMULATION_FRAMEWORK
+            elif is_freehand_mode:
+                # Free-hand simulation mode
+                env['SELECTED_MONTAGES'] = ''  # No regular montages
+                env['SIMULATION_FRAMEWORK'] = 'freehand'  # CLI expects SIMULATION_FRAMEWORK
+                
+                # Create temporary JSON files for free-hand configs
+                import tempfile
+                temp_files = []
+                freehand_file_list = []  # List of temp file paths in processing order
+                
+                for config_data in freehand_configs:
+                    config_name = config_data.get('name', 'unnamed')
+                    stim_type = config_data.get('type', 'U')
+                    electrode_positions = config_data.get('electrode_positions', {})
+                    
+                    # For each subject, create a config
+                    for subject_id in selected_subjects:
+                        with tempfile.NamedTemporaryFile(mode='w', suffix=f'_{subject_id}_{config_name}.json', delete=False) as tf:
+                            # Create config in format expected by simulator
+                            freehand_config = {
+                                'subject_id': subject_id,
+                                'eeg_net': 'freehand',  # Indicator for free-hand mode
+                                'montage': {
+                                    'name': config_name,
+                                    'type': 'freehand',
+                                    'stim_mode': stim_type,
+                                    'electrode_positions': electrode_positions
+                                }
+                            }
+                            json.dump(freehand_config, tf, indent=2)
+                            temp_file_path = tf.name
+                            temp_files.append(temp_file_path)
+                            freehand_file_list.append({
+                                'file_path': temp_file_path,
+                                'subject_id': subject_id,
+                                'montage_name': config_name,
+                                'eeg_net': 'freehand'
+                            })
+                
+                # Store the freehand file list for CLI to use
+                env['FLEX_MONTAGE_FILES'] = json.dumps(freehand_file_list)
+                self.update_output(f"--- Prepared {len(temp_files)} free-hand simulations for processing ---")
+                
+                # Store temp files for cleanup later
+                self.temp_flex_files = temp_files
             else:
                 # Flex-search simulation mode
                 env['SELECTED_MONTAGES'] = ''  # No regular montages
@@ -1550,6 +1726,16 @@ class SimulatorTab(QtWidgets.QWidget):
                 self.update_output(f"Mode: {'Unipolar' if sim_mode == 'U' else 'Multipolar'}")
                 self.update_output(f"EEG Net: {env['EEG_NET']}")
                 self.update_output(f"Montages: {', '.join(selected_montages)}")
+            elif is_freehand_mode:
+                # Free-hand configuration display
+                config_names = [config_data.get('name', 'unnamed') for config_data in freehand_configs]
+                self.update_output(f"Free-hand configurations: {', '.join(config_names)}")
+                for config_data in freehand_configs:
+                    config_name = config_data.get('name', 'unnamed')
+                    stim_type = config_data.get('type', 'U')
+                    electrode_positions = config_data.get('electrode_positions', {})
+                    mode_text = 'Unipolar' if stim_type == 'U' else 'Multipolar'
+                    self.update_output(f"  {config_name}: {mode_text}, {len(electrode_positions)} electrodes")
             else:
                 self.update_output(f"Flex-search montages: {', '.join([config['montage']['name'] for config in flex_montage_configs])}")
                 
