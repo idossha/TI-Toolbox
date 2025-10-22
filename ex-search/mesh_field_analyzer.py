@@ -65,27 +65,10 @@ class MeshFieldAnalyzer:
         shared_log_file = os.environ.get('TI_LOG_FILE')
         
         if shared_log_file:
-            # Use shared log file and shared logger name for unified logging
-            logger_name = 'Ex-Search'
+            # Use shared log file for unified logging
+            # When running from GUI as subprocess, we want both file AND stdout (GUI captures stdout)
             log_file = shared_log_file
-            
-            # When running from GUI, create a file-only logger to avoid console output
-            logger = logging.getLogger(logger_name)
-            logger.setLevel(logging.INFO)
-            logger.propagate = False
-            
-            # Remove any existing handlers
-            for handler in list(logger.handlers):
-                logger.removeHandler(handler)
-            
-            # Add only file handler (no console handler) when running from GUI
-            file_handler = logging.FileHandler(log_file, mode='a')
-            file_handler.setLevel(logging.INFO)
-            file_handler.setFormatter(logging.Formatter(
-                '[%(asctime)s] [%(name)s] [%(levelname)s] %(message)s',
-                datefmt='%Y-%m-%d %H:%M:%S'
-            ))
-            logger.addHandler(file_handler)
+            logger = logging_util.get_logger('mesh_field_analyzer', log_file, overwrite=False)
         else:
             # CLI usage: create individual log file with both console and file output
             logger_name = 'MeshFieldAnalyzer'
@@ -811,23 +794,8 @@ def main():
         shared_log_file = os.environ.get('TI_LOG_FILE')
         
         if shared_log_file:
-            # When running from GUI, create a file-only logger
-            main_logger = logging.getLogger('MeshFieldAnalyzer-Main')
-            main_logger.setLevel(logging.INFO)
-            main_logger.propagate = False
-            
-            # Remove any existing handlers
-            for handler in list(main_logger.handlers):
-                main_logger.removeHandler(handler)
-            
-            # Add only file handler (no console handler) when running from GUI
-            file_handler = logging.FileHandler(shared_log_file, mode='a')
-            file_handler.setLevel(logging.INFO)
-            file_handler.setFormatter(logging.Formatter(
-                '[%(asctime)s] [%(name)s] [%(levelname)s] %(message)s',
-                datefmt='%Y-%m-%d %H:%M:%S'
-            ))
-            main_logger.addHandler(file_handler)
+            # When running from GUI as subprocess, we want both file AND stdout (GUI captures stdout)
+            main_logger = logging_util.get_logger('mesh_field_analyzer_main', shared_log_file, overwrite=False)
         else:
             # CLI usage: use standard logging utility
             main_logger = logging_util.get_logger('MeshFieldAnalyzer-Main')

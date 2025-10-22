@@ -29,7 +29,7 @@ from tools import logging_util
 
 
 class LeadfieldGenerationThread(QtCore.QThread):
-    """Thread to run leadfield generation in background."""
+    """Thread to run leadfield generation as subprocess (like ex-search for instant termination)."""
     
     # Signals
     output_signal = QtCore.pyqtSignal(str, str)  # message, type
@@ -42,47 +42,17 @@ class LeadfieldGenerationThread(QtCore.QThread):
         self.eeg_net_file = eeg_net_file
         self.project_dir = project_dir
         self.terminated = False
+        self.process = None
         
     def run(self):
-        """Run leadfield generation."""
+        """Run leadfield generation as subprocess for instant termination."""
         try:
             self.output_signal.emit("Initializing leadfield generation...", 'info')
             
-            # Import MOVEA modules
-            try:
-                from MOVEA import LeadfieldGenerator
-                # logging_util already imported at module level
-            except ImportError as e:
-                self.error_signal.emit(f"Failed to import MOVEA modules: {str(e)}")
-                self.finished_signal.emit(False, "", "")
-                return
+            # Prepare command to run leadfield script as subprocess
+            leadfield_script = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                                          'MOVEA', 'leadfield_script.py')
             
-            # Setup subject-specific log file
-            import time
-            time_stamp = time.strftime('%Y%m%d_%H%M%S')
-            derivatives_dir = os.path.join(self.project_dir, 'derivatives')
-            log_dir = os.path.join(derivatives_dir, 'ti-toolbox', 'logs', f'sub-{self.subject_id}')
-            os.makedirs(log_dir, exist_ok=True)
-            log_file = os.path.join(log_dir, f'MOVEA_leadfield_{time_stamp}.log')
-            
-            # Set environment variable for external scripts
-            os.environ['TI_LOG_FILE'] = log_file
-            
-            # Create logger
-            logger = logging_util.get_logger('MOVEA_Leadfield', log_file, overwrite=False)
-            
-            # Remove console handler to prevent terminal output (GUI only shows via signals)
-            import logging
-            for handler in logger.handlers[:]:
-                if isinstance(handler, logging.StreamHandler) and not isinstance(handler, logging.FileHandler):
-                    logger.removeHandler(handler)
-            
-            # Configure external loggers (they will inherit only file handler, no console)
-            logging_util.configure_external_loggers(['simnibs', 'mesh_io', 'sim_struct'], logger)
-            
-            self.output_signal.emit(f"Log file: {log_file}", 'info')
-            
-            # Setup paths using path manager
             pm = get_path_manager()
             m2m_dir = pm.get_m2m_dir(self.subject_id)
             
@@ -91,140 +61,133 @@ class LeadfieldGenerationThread(QtCore.QThread):
                 self.finished_signal.emit(False, "", "")
                 return
             
-            # Check if target leadfield already exists
-            subject_derivatives = pm.get_subject_dir(self.subject_id)
-            movea_leadfield_dir = os.path.join(subject_derivatives, 'MOVEA', 'leadfields')
-            net_name = self.eeg_net_file.replace('.csv', '')
-            lfm_filename = f"{net_name}_leadfield.npy"
-            pos_filename = f"{net_name}_positions.npy"
-            lfm_path = os.path.join(movea_leadfield_dir, lfm_filename)
-            pos_path = os.path.join(movea_leadfield_dir, pos_filename)
+            # Setup environment and log file
+            import time
+            time_stamp = time.strftime('%Y%m%d_%H%M%S')
+            derivatives_dir = os.path.join(self.project_dir, 'derivatives')
+            log_dir = os.path.join(derivatives_dir, 'ti-toolbox', 'logs', f'sub-{self.subject_id}')
+            os.makedirs(log_dir, exist_ok=True)
+            log_file = os.path.join(log_dir, f'MOVEA_leadfield_{time_stamp}.log')
             
-            if os.path.exists(lfm_path) and os.path.exists(pos_path):
-                self.error_signal.emit(f"Leadfield already exists: {lfm_filename}")
-                self.error_signal.emit(f"Delete existing files first or choose a different EEG net")
-                self.finished_signal.emit(False, "", "")
-                return
+            env = os.environ.copy()
+            env['TI_LOG_FILE'] = log_file
             
+            self.output_signal.emit(f"Log file: {log_file}", 'info')
             self.output_signal.emit(f"Subject: {self.subject_id}", 'info')
             self.output_signal.emit(f"EEG Net: {self.eeg_net_file}", 'info')
             self.output_signal.emit(f"m2m directory: {m2m_dir}", 'info')
             
-            # Clean up any existing SimNIBS simulation files in m2m directory
-            self.output_signal.emit("Checking for old simulation files...", 'info')
-            import glob
-            import shutil
-            old_sim_files = glob.glob(os.path.join(m2m_dir, "simnibs_simulation*.mat"))
-            if old_sim_files:
-                self.output_signal.emit(f"  Found {len(old_sim_files)} old simulation file(s), cleaning up...", 'info')
-                for sim_file in old_sim_files:
-                    try:
-                        os.remove(sim_file)
-                        self.output_signal.emit(f"  Removed: {os.path.basename(sim_file)}", 'info')
-                    except Exception as e:
-                        self.output_signal.emit(f"  Warning: Could not remove {os.path.basename(sim_file)}: {e}", 'warning')
+            # Prepare command to run as subprocess
+            cmd = ["simnibs_python", leadfield_script, m2m_dir, self.eeg_net_file, self.project_dir]
             
-            # Also clean up temporary leadfield directory if it exists in m2m
-            temp_leadfield_dir = os.path.join(m2m_dir, 'leadfield')
-            if os.path.exists(temp_leadfield_dir):
-                self.output_signal.emit("  Removing old temporary leadfield directory...", 'info')
-                try:
-                    shutil.rmtree(temp_leadfield_dir)
-                    self.output_signal.emit("  Removed: leadfield/", 'info')
-                except Exception as e:
-                    self.output_signal.emit(f"  Warning: Could not remove leadfield directory: {e}", 'warning')
-            
-            if self.terminated:
-                return
-            
-            # Create leadfield generator with progress callback
-            def progress_callback(message, msg_type='info'):
-                self.output_signal.emit(message, msg_type)
-            
-            gen = LeadfieldGenerator(m2m_dir, progress_callback=progress_callback)
-            
-            # Generate leadfield using SimNIBS
             self.output_signal.emit("", 'default')
-            self.output_signal.emit("Generating leadfield with SimNIBS...", 'info')
-            self.output_signal.emit("This may take 5-15 minutes depending on mesh size and electrode count", 'info')
+            self.output_signal.emit("Starting leadfield generation subprocess...", 'info')
             
-            try:
-                # Ensure MOVEA/leadfields directory exists
-                os.makedirs(movea_leadfield_dir, exist_ok=True)
-                
-                self.output_signal.emit(f"Output directory: {movea_leadfield_dir}", 'info')
-                
-                # Get EEG cap path
-                eeg_cap_path = os.path.join(m2m_dir, 'eeg_positions', self.eeg_net_file)
-                if not os.path.exists(eeg_cap_path):
-                    self.error_signal.emit(f"EEG cap file not found: {eeg_cap_path}")
-                    self.finished_signal.emit(False, "", "")
-                    return
-                
-                # Generate to m2m first (SimNIBS requirement)
-                self.output_signal.emit(f"Using EEG cap: {self.eeg_net_file}", 'info')
-                hdf5_file = gen.generate_leadfield(output_dir=m2m_dir, tissues=[1, 2], eeg_cap_path=eeg_cap_path)
-                
+            # Run as subprocess (like ex-search does for instant termination)
+            self.process = subprocess.Popen(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                universal_newlines=True,
+                bufsize=1,
+                env=env
+            )
+            
+            # Track paths for success
+            lfm_path = ""
+            pos_path = ""
+            
+            # Real-time output display
+            for line in iter(self.process.stdout.readline, ''):
                 if self.terminated:
-                    return
-                
-                self.output_signal.emit(f"Leadfield generated: {os.path.basename(hdf5_file)}", 'success')
-                
-                # Load from HDF5
-                self.output_signal.emit("Loading and converting leadfield...", 'info')
-                lfm, positions = gen.load_from_hdf5(hdf5_file, compute_centroids=True)
-                
-                if self.terminated:
-                    return
-                
-                # Save as numpy files to MOVEA/leadfields
-                self.output_signal.emit("Saving numpy files...", 'info')
-                import numpy as np
-                np.save(lfm_path, lfm)
-                np.save(pos_path, positions)
-                
-                # Clean up intermediate files
-                self.output_signal.emit("Cleaning up intermediate files...", 'info')
-                try:
-                    # Remove HDF5 file from m2m directory
-                    if os.path.exists(hdf5_file):
-                        os.remove(hdf5_file)
-                        self.output_signal.emit(f"  Removed: {os.path.basename(hdf5_file)}", 'info')
+                    break
+                if line:
+                    line_stripped = line.strip()
                     
-                    # Clean up any other leadfield files in m2m directory
-                    hdf5_dir = os.path.dirname(hdf5_file)
-                    if os.path.exists(hdf5_dir) and os.path.basename(hdf5_dir) == 'leadfield':
-                        # Remove the entire leadfield directory from m2m
-                        import shutil
-                        shutil.rmtree(hdf5_dir)
-                        self.output_signal.emit(f"  Removed temporary directory: leadfield/", 'info')
-                except Exception as cleanup_err:
-                    self.output_signal.emit(f"  Warning: Cleanup failed: {str(cleanup_err)}", 'warning')
-                
-                self.output_signal.emit("", 'default')
-                self.output_signal.emit("Leadfield generation complete!", 'success')
-                self.output_signal.emit(f"Saved: {lfm_filename}", 'success')
-                self.output_signal.emit(f"Saved: {pos_filename}", 'success')
-                self.output_signal.emit(f"Electrodes: {lfm.shape[0]}", 'info')
-                self.output_signal.emit(f"Voxels: {lfm.shape[1]}", 'info')
-                
-                self.finished_signal.emit(True, lfm_path, pos_path)
-                
-            except Exception as e:
-                import traceback
-                tb = traceback.format_exc()
-                self.error_signal.emit(f"Leadfield generation failed: {str(e)}\n{tb}")
+                    # Capture output paths from script
+                    if line_stripped.startswith("LFM_PATH:"):
+                        lfm_path = line_stripped.replace("LFM_PATH:", "")
+                        continue
+                    elif line_stripped.startswith("POS_PATH:"):
+                        pos_path = line_stripped.replace("POS_PATH:", "")
+                        continue
+                    
+                    # Detect message type
+                    if any(keyword in line_stripped.lower() for keyword in ['error:', 'failed', 'exception']):
+                        message_type = 'error'
+                    elif any(keyword in line_stripped.lower() for keyword in ['warning:', 'warn']):
+                        message_type = 'warning'
+                    elif any(keyword in line_stripped.lower() for keyword in ['complete!', 'success', 'saved:']):
+                        message_type = 'success'
+                    else:
+                        message_type = 'default'
+                    
+                    self.output_signal.emit(line_stripped, message_type)
+            
+            # Check process completion
+            if not self.terminated:
+                returncode = self.process.wait()
+                if returncode == 0 and lfm_path and pos_path:
+                    self.finished_signal.emit(True, lfm_path, pos_path)
+                else:
+                    self.error_signal.emit(f"Process returned exit code: {returncode}")
+                    self.finished_signal.emit(False, "", "")
+            else:
+                self.output_signal.emit("Leadfield generation was terminated", 'warning')
                 self.finished_signal.emit(False, "", "")
+            
+            # Clean up process
+            if self.process:
+                try:
+                    self.process.stdout.close()
+                except (OSError, AttributeError):
+                    pass
                 
         except Exception as e:
             import traceback
             tb = traceback.format_exc()
             self.error_signal.emit(f"Error during leadfield generation: {str(e)}\n{tb}")
             self.finished_signal.emit(False, "", "")
+        finally:
+            # Ensure process is cleaned up
+            if self.process:
+                try:
+                    self.process.stdout.close()
+                except (OSError, AttributeError):
+                    pass
     
     def terminate_process(self):
-        """Terminate the generation."""
-        self.terminated = True
+        """Terminate the leadfield generation subprocess."""
+        if self.process and self.process.poll() is None:
+            self.terminated = True
+            if os.name == 'nt':  # Windows
+                subprocess.call(['taskkill', '/F', '/T', '/PID', str(self.process.pid)])
+            else:  # Unix/Linux/Mac
+                import signal
+                try:
+                    # Kill child processes first (SimNIBS spawns MPI processes)
+                    parent_pid = self.process.pid
+                    ps_output = subprocess.check_output(f"ps -o pid --ppid {parent_pid} --noheaders", shell=True)
+                    child_pids = [int(pid) for pid in ps_output.decode().strip().split('\n') if pid]
+                    for pid in child_pids:
+                        try:
+                            os.kill(pid, signal.SIGTERM)
+                        except OSError:
+                            pass
+                except (subprocess.CalledProcessError, OSError, ValueError):
+                    pass
+                
+                # Terminate main process
+                self.process.terminate()
+                try:
+                    self.process.wait(timeout=2)
+                except subprocess.TimeoutExpired:
+                    self.process.kill()
+            
+            return True
+        else:
+            self.terminated = True
+            return False
 
 
 class MOVEAOptimizationThread(QtCore.QThread):
@@ -272,10 +235,7 @@ class MOVEAOptimizationThread(QtCore.QThread):
             logger = logging_util.get_logger('MOVEA', log_file, overwrite=False)
             
             # Remove console handler to prevent terminal output (GUI only shows via signals)
-            import logging
-            for handler in logger.handlers[:]:
-                if isinstance(handler, logging.StreamHandler) and not isinstance(handler, logging.FileHandler):
-                    logger.removeHandler(handler)
+            logging_util.suppress_console_output(logger)
             
             # Configure external loggers (they will inherit only file handler, no console)
             logging_util.configure_external_loggers(['simnibs', 'scipy', 'mesh_io', 'sim_struct'], logger)
@@ -1236,9 +1196,12 @@ class MOVEATab(QtWidgets.QWidget):
         else:
             process_name = "leadfield generation"
         
+        # Simple confirmation
+        warning_msg = f"Are you sure you want to stop the {process_name}?"
+        
         reply = QtWidgets.QMessageBox.question(
             self, 'Stop Process',
-            f"Are you sure you want to stop the {process_name}?",
+            warning_msg,
             QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No,
             QtWidgets.QMessageBox.No
         )
