@@ -752,6 +752,23 @@ export DEV_CODEBASE_DIR
 export DEV_CODEBASE_DIR_NAME
 export DEV_CODEBASE_NAME="$DEV_CODEBASE_DIR_NAME"  # Add this line to fix the warning
 
+# Set OpenGL environment variables conditionally based on OS
+if [[ "$(uname -s)" == "Darwin" ]]; then
+  # macOS needs these settings for OpenGL to work in Docker
+  export LIBGL_ALWAYS_SOFTWARE="1"
+  export LIBGL_ALWAYS_INDIRECT="1"
+  export QT_X11_NO_MITSHM="1"
+  export QT_OPENGL="desktop"
+  export TI_GUI_QGL_FALLBACK="1"
+else
+  # For Windows and Linux, use empty values (which will be omitted from the container)
+  export LIBGL_ALWAYS_SOFTWARE=""
+  export LIBGL_ALWAYS_INDIRECT=""
+  export QT_X11_NO_MITSHM=""
+  export QT_OPENGL=""
+  export TI_GUI_QGL_FALLBACK=""
+fi
+
 # Save the paths for next time
 save_default_paths
 
