@@ -30,6 +30,7 @@ from components.console import ConsoleWidget
 from components.action_buttons import RunStopButtons
 from components.path_manager import get_path_manager
 from tools.report_util import get_simulation_report_generator
+from electrode_placement_gui import ElectrodePlacementGUI
 
 # Utility: strip ANSI/VT100 escape sequences from text (e.g., "\x1b[0;32m")
 ANSI_ESCAPE_PATTERN = re.compile(r"\x1B\[[0-?]*[ -/]*[@-~]")
@@ -960,35 +961,9 @@ class SimulatorTab(QtWidgets.QWidget):
             self.update_output(f"Error loading free-hand configs: {e}", 'error')
     
     def launch_electrode_placement_gui(self):
-        """Launch the electrode placement GUI."""
-        try:
-            # Get current subject
-            current_subject = self.subject_combo.currentText()
-            if not current_subject:
-                QtWidgets.QMessageBox.warning(self, "Warning", "Please select a subject first")
-                return
-            
-            # Get path to electrode placement GUI script
-            gui_script = os.path.join(os.path.dirname(__file__), "electrode_placement_gui.py")
-            
-            if not os.path.exists(gui_script):
-                QtWidgets.QMessageBox.critical(
-                    self, "Error", 
-                    f"Electrode placement GUI script not found:\n{gui_script}"
-                )
-                return
-            
-            # Launch the GUI in a separate process
-            import sys
-            subprocess.Popen([sys.executable, gui_script])
-            
-            self.update_output(f"Launched electrode placement GUI for subject {current_subject}", 'info')
-            
-        except Exception as e:
-            QtWidgets.QMessageBox.critical(
-                self, "Error", 
-                f"Failed to launch electrode placement GUI:\n{str(e)}"
-            )
+        electrode_placement_gui = ElectrodePlacementGUI()
+        electrode_placement_gui.show()
+     
     
     def refresh_flex_search_list(self):
         """Refresh the list of available flex-search outputs based on selected subjects."""
