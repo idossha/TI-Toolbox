@@ -4,9 +4,13 @@ title: Analyzer Module
 permalink: /wiki/analyzer/
 ---
 
-# Analyzer Module
+The Analyzer module provides analysis capabilities for TI simulation results, supporting both mesh-based and voxel-based data analysis. It provides descriptive statistics and visualization for understanding field distributions in the brain as a whole and specific region of interests.
 
-The Analyzer module provides comprehensive analysis capabilities for TI simulation results, supporting both mesh-based and voxel-based data analysis. It provides descriptive statistics and  visualization for understanding field distributions in the brain as a whole and specific region of interests.
+## Important Quantities of Interest to Recognize
+- [ ] **A. Mean TInorm Intensity in ROI**: Maximal modulation depth (aka TImax).
+- [ ] **B. Mean TInorm Intensity in non-ROI**: Could be defind as entire cortex or a specific avoidance target.
+- [ ] **C. Focality**: Ratio between A/B
+- [ ] **D. TInormal**: Normal compoent of TInorm with respect to fifth layer of the cortex.
 
 ## Overview
 
@@ -16,8 +20,6 @@ The Analyzer module consists of three main components:
 - **VoxelAnalyzer**: Analyzes NIfTI files (.nii, .nii.gz, .mgz) containing field data  
 - **Group Analyzer**: Batch processing for multiple subjects and comparative analysis
 
-![TI Field]({{ site.baseurl }}/wiki/assets/analyzer/TI_max_all.png)
-*Comprehensive view of all TI field components including individual frequency contributions*
 
 ## Key Features
 
@@ -70,12 +72,12 @@ The MeshAnalyzer works with SimNIBS mesh files and provides high-resolution anal
 
 <div class="image-row">
   <div class="image-container">
-    <img src="{{ site.baseurl }}/wiki/assets/analyzer/TI_max.png" alt="TI Max Field Analysis">
-    <em>Maximum TI field distribution showing peak intensity areas and spatial localization patterns</em>
+    <img src="{{ site.baseurl }}/wiki/assets/analyzer/TI_max.png" alt="TI Max Field in ROI">
+    <em>TInorm field distribution in ROI (Left Insula)</em>
   </div>
   <div class="image-container">
-    <img src="{{ site.baseurl }}/wiki/assets/analyzer/TI_normal.png" alt="TI Normal Field">
-    <em>Normalized TI field distribution highlighting relative field strength variations</em>
+    <img src="{{ site.baseurl }}/wiki/assets/analyzer/TI_normal.png" alt="TI Normal Field in ROI">
+    <em>TInormal field distribution in ROI (Left Insula)</em>
   </div>
 </div>
 
