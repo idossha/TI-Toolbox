@@ -125,8 +125,6 @@
 
 /* Image size constraints for all wiki images */
 .wiki-content img {
-  max-width: 600px !important;
-  max-height: 600px !important;
   width: auto !important;
   height: auto !important;
   display: block;

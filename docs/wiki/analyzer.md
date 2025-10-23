@@ -3,15 +3,15 @@ layout: wiki
 title: Analyzer Module
 permalink: /wiki/analyzer/
 ---
-
 The Analyzer module provides analysis capabilities for TI simulation results, supporting both mesh-based and voxel-based data analysis. It provides descriptive statistics and visualization for understanding field distributions in the brain as a whole and specific region of interests.
 
 ## Important Quantities of Interest to Recognize
-- [ ] **A. Mean TInorm Intensity in ROI**: Maximal modulation depth (aka TImax).
-- [ ] **B. Mean TInorm Intensity in non-ROI**: Could be defind as entire cortex or a specific avoidance target.
-- [ ] **C. Focality**: Ratio between A/B
-- [ ] **D. TInormal**: Normal compoent of TInorm with respect to fifth layer of the cortex.
+- **A. Mean TInorm Intensity in ROI**: Maximal modulation depth (aka TImax).
+- **B. Mean TInorm Intensity in non-ROI**: Could be defind as entire cortex or a specific avoidance target.
+- **C. Focality**: Ratio between A/B
+- **D. TInormal**: Normal compoent of TInorm with respect to fifth layer of the cortex.
 
+---
 ## Overview
 
 The Analyzer module consists of three main components:
@@ -19,7 +19,6 @@ The Analyzer module consists of three main components:
 - **MeshAnalyzer**: Analyzes SimNIBS mesh files (.msh) containing field data
 - **VoxelAnalyzer**: Analyzes NIfTI files (.nii, .nii.gz, .mgz) containing field data  
 - **Group Analyzer**: Batch processing for multiple subjects and comparative analysis
-
 
 ## Key Features
 
@@ -39,26 +38,7 @@ The Analyzer module consists of three main components:
 - Batch processing of all atlas regions
 - Comparative analysis and ranking
 
-### Output Metrics
-
-For each analysis, the module provides comprehensive dual-field metrics:
-
-**TI_max Field Analysis:**
-- **Mean Value**: Average TI_max field strength in the ROI
-- **Maximum Value**: Peak TI_max field intensity 
-- **Minimum Value**: Lowest TI_max field intensity
-- **Focality**: ROI average / whole brain average (selectivity measure)
-
-**TI_normal Field Analysis:**
-- **Normal Mean Value**: Average TI_normal field strength (directional component)
-- **Normal Maximum Value**: Peak TI_normal field intensity
-- **Normal Minimum Value**: Lowest TI_normal field intensity
-- **Normal Focality**: TI_normal ROI average / whole brain average
-
-**Additional Metrics:**
-- **Element Count**: Number of voxels/nodes in the ROI
-- **Visualization Files**: 3D mesh files with dual-field overlays
-
+---
 ## Mesh-Based Analysis
 
 The MeshAnalyzer works with SimNIBS mesh files and provides high-resolution analysis of field data on brain surfaces.
@@ -69,6 +49,8 @@ The MeshAnalyzer works with SimNIBS mesh files and provides high-resolution anal
 - **Atlas Integration**: Support for SimNIBS native atlases (DK40, HCP_MMP1)
 - **Field Extraction**: Analysis of TI_max and TI_normal fields
 - **3D Visualization**: Generation of mesh files for 3D viewing
+
+### Cortical ROI Analysis
 
 <div class="image-row">
   <div class="image-container">
@@ -81,23 +63,8 @@ The MeshAnalyzer works with SimNIBS mesh files and provides high-resolution anal
   </div>
 </div>
 
-## Voxel-Based Analysis
-
-The VoxelAnalyzer handles NIfTI format files and integrates with FreeSurfer atlases for detailed volumetric analysis.
-
-### Features
-
-- **NIfTI Support**: Direct analysis of .nii, .nii.gz, .mgz files
-- **FreeSurfer Integration**: Automatic atlas region extraction
-- **4D Data Handling**: Support for multi-volume datasets
-- **Visualization Overlays**: Generation of ROI-specific NIfTI overlays
-
-
 ### Spherical ROI Analysis
 
-The Analyzer provides comprehensive spherical ROI analysis with dual-field visualization capabilities, enabling precise targeting of specific brain regions with both TI_max and TI_normal field components.
-
-#### Spherical Field Analysis Visualization
 
 <div class="image-row">
   <div class="image-container">
@@ -110,24 +77,30 @@ The Analyzer provides comprehensive spherical ROI analysis with dual-field visua
   </div>
 </div>
 
-## Group Analysis
 
-The Group Analyzer enables batch processing of multiple subjects for comparative studies and population-level analysis.
+---
+## Voxel-Based Analysis
+
+The VoxelAnalyzer handles NIfTI format files and integrates with FreeSurfer atlases for detailed volumetric analysis.
 
 ### Features
 
-- **Batch Processing**: Analyze multiple subjects simultaneously
-- **Centralized Logging**: Unified logging across all subjects
-- **Comparative Analysis**: Cross-subject comparisons and summaries
-
-
-### Statistical Analysis Visualization
+- **NIfTI Support**: Direct analysis of .nii, .nii.gz, .mgz files
+- **FreeSurfer Integration**: Automatic atlas region extraction
+- **4D Data Handling**: Support for multi-volume datasets
+- **Visualization Overlays**: Generation of ROI-specific NIfTI overlays
 
 <div class="image-row">
   <div class="image-container">
-    <img src="{{ site.baseurl }}/wiki/assets/analyzer/analysis_plot.png" alt="Analysis Plots">
-    <em>Comprehensive analysis plots showing field strength distributions and statistical summaries</em>
+    <img src="{{ site.baseurl }}/gallery/assets/analyzer/voxel_montage_1.png" alt="Spherical TI_max Analysis">
+    <em>Right Hippocampus ROI analysis showing TI_max field distribution given a 1mA:1mA stimualtion</em>
   </div>
+</div>
+
+---
+### Statistical Analysis Visualization
+
+<div class="image-row">
   <div class="image-container">
     <img src="{{ site.baseurl }}/wiki/assets/analyzer/lh.insula_whole_head_roi_histogram.png" alt="ROI Histogram">
     <em>Region-of-interest histogram analysis for left hemisphere insula showing field distribution within target areas</em>
@@ -151,42 +124,6 @@ analysis_output/
 └── analysis_log.txt
 ```
 
-### CSV Output Examples
-
-The Analyzer generates comprehensive CSV files containing both TI_max and TI_normal field statistics for detailed quantitative analysis.
-
-#### Spherical Analysis Results
-
-Example output from spherical ROI analysis (10mm radius sphere):
-
-```csv
-Metric,Value
-mean_value,0.577272543139917
-max_value,0.7982711479293491
-min_value,0.38333103543123126
-focality,2.461358021318228
-normal_mean_value,0.2788342877837438
-normal_max_value,0.6472740802202535
-normal_min_value,4.749416826041464e-05
-normal_focality,2.6908262979169675
-nodes_in_roi,1016
-```
-
-#### Cortical Analysis Results
-
-Example output from cortical region analysis (left insula):
-
-```csv
-Metric,Value
-mean_value,0.4805476971070656
-max_value,0.7982711479293491
-min_value,0.31956329890391955
-focality,2.0489454122778112
-normal_mean_value,0.3230791922418123
-normal_max_value,0.6334826739681794
-normal_min_value,4.749416826041464e-05
-normal_focality,3.1178015935697405
-```
 
 ### Field Analysis Metrics
 
@@ -206,27 +143,11 @@ normal_focality,3.1178015935697405
 - `nodes_in_roi`: Number of mesh nodes within the ROI
 - `visualization_file`: Path to the generated mesh visualization file
 
-## Integration with TI-Toolbox
+---
+## Group Analysis
 
-- Direct analysis of simulation outputs
-- Automatic field file detection
-- Integrated workflow processing
-- Automatic detection in Nifti Viewer
+More to come soon.
 
-## Best Practices
-
-### For Mesh Analysis
-- Ensure SimNIBS m2m folder is properly configured
-- Use appropriate atlas for your research question
-
-### For Voxel Analysis  
-- Verify coordinate system alignment between field and atlas
-- Check field data units and scaling
-
-### For Group Analysis
-- Standardize preprocessing across subjects
-- Use consistent atlas and coordinate systems
-- Plan adequate computational resources
 
 ---
 
