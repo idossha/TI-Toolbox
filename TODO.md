@@ -1,6 +1,10 @@
 
 To-Do List:
 
-1. Ex-search viewer - graphical UI for electrode visualization and selection.
-2. AMV - fix location and size of rings for the new template `10-10-net`                       
-4. SAR calculation for HF signal
+
+- [ ] Ex-search viewer - graphical UI for electrode visualization and selection.
+- [ ] AMV - fix location and size of rings for the new template `10-10-net`                       
+- [ ] SAR calculation for HF signal
+- [ ] Blender Integration 
+- [ ] look into changing the GUI to % instead of fixed pixel count
+- [ ] MOVEA optiumizer integration

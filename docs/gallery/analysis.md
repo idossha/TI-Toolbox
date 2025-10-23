@@ -9,19 +9,37 @@ permalink: /gallery/analysis/
 Comprehensive analysis and visualization of TI simulation results, field distributions, and statistical metrics.
 
 <div class="gallery-section">
-  <h3>Field Analysis & Visualization</h3>
+  <h3>Field Analysis & Visualization in mesh space (Gmsh)</h3>
   <div class="gallery-grid">
     <div class="gallery-item">
       <img src="{{ site.baseurl }}/gallery/assets/analyzer/TI_max.png" alt="Maximum TI Field" onclick="openLightbox(this)" />
-      <p>TI field distribution showing intensity map in the cortical ROI.</p>
+      <p>TInorm field distribution showing intensity map in the cortical ROI (Left Insula).</p>
     </div>
     <div class="gallery-item">
       <img src="{{ site.baseurl }}/gallery/assets/analyzer/TI_normal.png" alt="Normalized TI Field" onclick="openLightbox(this)" />
-      <p>Normal component of the TI field distribution showing intensity map in the cortical ROI</p>
+      <p>Normal component of the TInorm field distribution showing intensity map in the cortical ROI (Left Insula)</p>
     </div>
     <div class="gallery-item">
       <img src="{{ site.baseurl }}/gallery/assets/analyzer/TI_max_all.png" alt="All TI Field Components" onclick="openLightbox(this)" />
-      <p>TI field distribution showing intensity map across the entire brain.</p>
+      <p>TInorm field distribution showing intensity map across the entire brain.</p>
+    </div>
+  </div>
+</div>
+
+<div class="gallery-section">
+  <h3>Field Analysis & Visualization in voxel space (Freesurfer)</h3>
+  <div class="gallery-grid">
+    <div class="gallery-item">
+      <img src="{{ site.baseurl }}/gallery/assets/analyzer/TI_max.png" alt="TInorm field in ROI" onclick="openLightbox(this)" />
+      <p>TInorm field distribution showing intensity map in the cortical ROI (Left Insula).</p>
+    </div>
+    <div class="gallery-item">
+      <img src="{{ site.baseurl }}/gallery/assets/analyzer/TI_normal.png" alt="TInormal field in ROI" onclick="openLightbox(this)" />
+      <p>Normal component of the TInorm field distribution showing intensity map in the cortical ROI (Left Insula)</p>
+    </div>
+    <div class="gallery-item">
+      <img src="{{ site.baseurl }}/gallery/assets/analyzer/TI_max_all.png" alt="TInorm field in cortex" onclick="openLightbox(this)" />
+      <p>TInorm field distribution showing intensity map across the entire brain.</p>
     </div>
   </div>
 </div>
