@@ -12,7 +12,18 @@ This document describes the comprehensive testing pipeline used by the TI-Toolbo
 
 The TI-Toolbox uses a multi-layered testing approach that combines unit tests, integration tests, and automated CI/CD through CircleCI. The testing pipeline ensures code quality, functionality, and reliability across all components of the toolbox.
 
-![TI-Toolbox CI/CD Pipeline](/TI-Toolbox/wiki/assets/testing/Ti-ToolboxCICD.svg)
+
+<div class="image-row">
+  <div class="image-container">
+    <img src="{{ site.baseurl }}/gallery/assets/tech-stack/graphical_abstract_revised.png" alt="Complete TI-Toolbox Tech-stach">
+    <em>Complete TI-Toolbox Tech-stach</em>
+  </div>
+  <div class="image-container">
+    <img src="{{ site.baseurl }}/wiki/assets/testing/Ti-ToolboxCICD.svg" alt="TI-Toolbox CI/CD Pipeline">
+    <em>TI-Toolbox CI/CD Pipeline</em>
+  </div>
+</div>
+
 
 ## What is CircleCI?
 
