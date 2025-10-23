@@ -109,13 +109,6 @@ We demonstrate the effectiveness of flex-search by optimizing electrode position
 
 ## Key Findings
 
-### Post-Processing Method Comparison
-The optimization results demonstrate distinct characteristics for each TI field analysis method:
-
-- **Maximum TI Field**: Achieved the highest field intensities (4.17 V/m peak, 2.21 V/m median ROI) and best optimization score (-2.320)
-- **Normal Component**: Provided the most focused targeting with highest spatial precision (1,850 mm² focality area)
-- **Tangential Component**: Generated broader spatial distribution (4,140 mm² focality area) with moderate field intensities
-
 ### Directional Sensitivity
 The optimization successfully distinguished between different field analysis approaches:
 - **Non-directional (max_TI)**: Optimized for overall field strength without cortical orientation constraints

@@ -22,20 +22,14 @@ The toolbox expects data to be organized following the BIDS (Brain Imaging Data 
 
 ```
 project_root/
-├── sourcedata/
-│   └── sub-{subject_id}/
-│       ├── T1w/
-│       │   ├── dicom/          # Raw T1w DICOM files
-│       │   └── *.tgz           # Compressed DICOM archives (optional)
-│       └── T2w/
-│           ├── dicom/          # Raw T2w DICOM files
-│           └── *.tgz           # Compressed DICOM archives (optional)
-└── sub-{subject_id}/
-    └── anat/                   # Converted NIfTI files (created by pipeline)
-        ├── anat-T1w_acq-MPRAGE.nii.gz
-        ├── anat-T1w_acq-MPRAGE.json
-        ├── anat-T2w_acq-CUBE.nii.gz
-        └── anat-T2w_acq-CUBE.json
+└── sourcedata/
+    └── sub-{subject_id}/
+        ├── T1w/
+        │   ├── dicom/          # Raw T1w DICOM files
+        │   └── *.tgz           # Compressed DICOM archives (optional)
+        └── T2w/
+            ├── dicom/          # Raw T2w DICOM files
+            └── *.tgz           # Compressed DICOM archives (optional)
 ```
 
 ### Data Requirements
@@ -44,8 +38,7 @@ project_root/
 |-------------|-------------|---------|
 | **T1-weighted MRI** | High-resolution anatomical image (typically MPRAGE) | **Required** |
 | **T2-weighted MRI** | High-resolution anatomical image (typically CUBE/SPACE) | **Recommended** |
-| **Image Resolution** | Minimum 1mm isotropic voxels | **Required** |
-| **Subject ID** | Numeric identifier (e.g., 101, 102) | **Required** |
+
 
 ### Supported Input Formats
 
@@ -87,16 +80,6 @@ graph LR
 ./dicom2nifti.sh /path/to/sub-101 --quiet
 ```
 
-#### Generated Output Structure
-
-```
-sub-101/
-└── anat/
-    ├── anat-T1w_acq-MPRAGE.nii.gz    # T1-weighted image
-    ├── anat-T1w_acq-MPRAGE.json      # T1 metadata
-    ├── anat-T2w_acq-CUBE.nii.gz      # T2-weighted image
-    └── anat-T2w_acq-CUBE.json        # T2 metadata
-```
 
 ### Stage 2: FreeSurfer recon-all
 
@@ -107,22 +90,6 @@ sub-101/
 
 - **T1 + T2 Processing**: Utilizes both T1 and T2 images when available for improved pial surface reconstruction
 - **Parallel Processing**: Configurable for single-threaded or multi-threaded execution
-- **Resilient Execution**: Continues processing other subjects even if some fail
-
-#### Process Flow
-
-```mermaid
-graph TD
-    A[Basic Input Validation] --> B[T1/T2 Detection]
-    B --> C[FreeSurfer Environment Check]
-    C --> D[Motion Correction]
-    D --> E[Intensity Normalization]
-    E --> F[Skull Stripping]
-    F --> G[White Matter Segmentation]
-    G --> H[Surface Generation]
-    H --> I[T2pial Refinement]
-    I --> J[Basic Completion Check]
-```
 
 
 #### Usage
@@ -134,8 +101,6 @@ graph TD
 # With parallel processing (all available cores for this subject)
 ./recon-all.sh /path/to/sub-101 --parallel
 
-# Quiet mode
-./recon-all.sh /path/to/sub-101 --quiet
 ```
 
 **Note:** The `--parallel` flag in `recon-all.sh` enables FreeSurfer's internal parallelization (multiple cores for one subject). This is different from the `--parallel` flag in `structural.sh` which enables processing multiple subjects simultaneously.
@@ -162,27 +127,12 @@ derivatives/
 - **Input**: Supports T1-only or T1+T2 processing
 - **Sequential Processing**: Runs one subject at a time 
 
-#### Process Flow
-
-```mermaid
-graph TD
-    A[T1/T2 Detection] --> B[SimNIBS Environment Check]
-    B --> C[Memory Safeguards Setup]
-    C --> D[Tissue Segmentation]
-    D --> E[Mesh Generation]
-    E --> F[Electrode Positioning]
-    F --> G[Quality Control]
-    G --> H[Head Model Output]
-```
 
 #### Usage
 
 ```bash
 # Create head model for single subject
 ./charm.sh /path/to/sub-101
-
-# Quiet mode
-./charm.sh /path/to/sub-101 --quiet
 ```
 
 #### Generated Output Structure
@@ -226,7 +176,7 @@ derivatives/
 | `--create-m2m` | Include SimNIBS head model creation | Optional |
 | `--parallel` | Enable parallel processing mode (multiple subjects, 1 core each) | Optional |
 | `--recon-only` | Skip all non-recon steps | Optional |
-| `--quiet` | Suppress console output | Optional |
+
 
 #### Processing Mode Selection
 
@@ -270,38 +220,7 @@ graph TD
 | **Sequential** (Default) | `./structural.sh sub-101 sub-102 recon-all` | 1 at a time | All available | Small datasets, fastest per-subject |
 | **Parallel** | `./structural.sh sub-101 sub-102 recon-all --parallel` | Multiple | 1 each | Large datasets, maximum throughput |
 
-#### Implementation Details
 
-**Sequential Mode:**
-```bash
-# Each subject uses all available cores
-export OMP_NUM_THREADS=$AVAILABLE_CORES
-export ITK_GLOBAL_DEFAULT_NUMBER_OF_THREADS=$AVAILABLE_CORES
-
-# Process subjects one by one
-for subject in subjects; do
-    recon-all.sh $subject --parallel  # FreeSurfer internal parallelization
-done
-```
-
-**Parallel Mode:**
-```bash
-# Each subject uses single core
-export OMP_NUM_THREADS=1
-export ITK_GLOBAL_DEFAULT_NUMBER_OF_THREADS=1
-
-# Process multiple subjects with GNU Parallel
-parallel --jobs $AVAILABLE_CORES recon-all.sh {} ::: "${SUBJECTS[@]}"
-```
-
-#### Performance Characteristics
-
-| System Specs | Sequential Mode | Parallel Mode | Recommendation |
-|---------------|-----------------|---------------|----------------|
-| **4-8 cores, 1-3 subjects** | ~6-8 hours/subject | ~6-8 hours/subject | **Sequential** - simpler |
-| **8+ cores, 4+ subjects** | 6-8 hours × N subjects | ~6-8 hours total | **Parallel** - much faster |
-| **Limited memory (<16GB)** | **Recommended** | May cause OOM | **Sequential** - safer |
-| **Abundant resources** | Good | **Optimal** | **Parallel** - maximum efficiency |
 
 #### SimNIBS Processing
 
@@ -311,51 +230,7 @@ SimNIBS charm processing is **always sequential** regardless of mode:
 - Full CPU cores available per subject
 - Memory safeguards to prevent segmentation faults
 
-## Complete Pipeline Execution
-
-### Processing Mode Examples
-
-#### Sequential Mode (Default) - Maximum Speed per Subject
-
-```bash
-# Best for: 1-3 subjects, fastest individual processing
-./structural.sh \
-    /mnt/study_data/sub-101 \
-    /mnt/study_data/sub-102 \
-    recon-all \
-    --convert-dicom \
-    --create-m2m
-
-# Estimated timing (8-core system):
-# Subject 1: ~6-8 hours (all 8 cores)
-# Subject 2: ~6-8 hours (all 8 cores)
-# Total: ~12-16 hours
-```
-
-#### Parallel Mode - Maximum Throughput
-
-```bash
-# Best for: 4+ subjects, fastest total processing
-./structural.sh \
-    /mnt/study_data/sub-101 \
-    /mnt/study_data/sub-102 \
-    /mnt/study_data/sub-103 \
-    /mnt/study_data/sub-104 \
-    /mnt/study_data/sub-105 \
-    /mnt/study_data/sub-106 \
-    /mnt/study_data/sub-107 \
-    /mnt/study_data/sub-108 \
-    recon-all \
-    --parallel \
-    --convert-dicom \
-    --create-m2m
-
-# Estimated timing (8-core system):
-# All 8 subjects: ~6-8 hours total (8 subjects × 1 core each)
-# 66% faster than sequential for 8 subjects!
-```
-
-### Stage-by-Stage Execution
+## CLI Execution Example
 
 ```bash
 # Stage 1: DICOM conversion only
@@ -370,24 +245,6 @@ SimNIBS charm processing is **always sequential** regardless of mode:
 
 # Stage 3: SimNIBS head model only  
 ./charm.sh /mnt/study_data/sub-101
-```
-
-### Quick Decision Guide
-
-```bash
-# How many subjects do you have?
-
-# 1-3 subjects → Use Sequential Mode (default)
-./structural.sh sub-101 sub-102 sub-103 recon-all --convert-dicom
-
-# 4+ subjects → Use Parallel Mode
-./structural.sh sub-101 sub-102 sub-103 sub-104 sub-105 recon-all --parallel --convert-dicom
-
-# Limited memory/resources → Always use Sequential Mode
-./structural.sh sub-101 sub-102 recon-all --convert-dicom
-
-# Time-critical analysis → Use Parallel Mode for maximum speed
-./structural.sh sub-{101..120} recon-all --parallel --convert-dicom
 ```
 
 ## Output Directory Structure
@@ -410,14 +267,9 @@ project_root/
     │       ├── mri/
     │       ├── surf/
     │       └── scripts/
-    ├── SimNIBS/                    # SimNIBS outputs
-    │   └── sub-101/
-    │       └── m2m_101/
-    └── logs/                       # Processing logs
+    └── SimNIBS/                    # SimNIBS outputs
         └── sub-101/
-            ├── dicom2nifti_20250625_120000.log
-            ├── recon-all_20250625_130000.log
-            └── charm_20250625_140000.log
+            └── m2m_101/
 ```
 
 ## Logging and Monitoring
@@ -425,7 +277,7 @@ project_root/
 ### Log File Organization
 
 ```
-derivatives/logs/sub-{subject_id}/
+derivatives/ti-toolbox/logs/sub-{subject_id}/
 ├── dicom2nifti_{timestamp}.log     # DICOM conversion logs
 ├── recon-all_{timestamp}.log       # FreeSurfer processing logs
 └── charm_{timestamp}.log           # SimNIBS processing logs
@@ -465,54 +317,13 @@ tail -f /mnt/project/derivatives/logs/sub-101/recon-all_*.log
 ls -la /mnt/project/derivatives/freesurfer/*/mri/aseg.mgz
 ```
 
-## Troubleshooting
-
-### Common Issues
-
-| Issue | Symptoms | Solution |
-|-------|----------|----------|
-| **Missing T1 Image** | "No T1 image found" error | Ensure DICOM conversion completed successfully |
-| **Illegal Instruction** | FreeSurfer crashes early | ✅ **Fixed** in latest version with improved resource management |
-| **Memory Issues** | OOM errors, crashes | Use sequential mode, check Docker memory allocation |
-| **PETSC Segmentation Fault** | SimNIBS charm crashes | Ensure sequential processing, check memory limits |
-| **Partial FreeSurfer Output** | Some files missing | Check log files, results may still be usable |
-| **Missing T2 Image** | Warning in logs | Processing continues with T1 only |
-
-### Recent Improvements
-
-**Version 2024.12+:**
-- ✅ **Resolved "Illegal instruction" errors** through improved parallelization strategy
-- ✅ **Simplified processing modes** - clear sequential vs parallel options
-- ✅ **Better resource management** - proper thread and memory allocation
-- ✅ **Cleaner error handling** - no false retry attempts
-- ✅ **Improved logging** - clearer progress indication
-
-### Processing Behavior
-
-The pipeline now implements a more flexible approach:
-
-1. **Partial Results**: Keeps partial results instead of deleting them
-2. **Continued Processing**: Continues with other subjects even if some fail
-3. **T2 Handling**: Gracefully falls back to T1-only if T2 is missing/unreadable
-4. **Basic Validation**: Simple existence checks replace strict file validation
-5. **Error Reporting**: Provides warnings instead of errors for non-critical issues
-
-### System Requirements
-
-| Component | Minimum | Recommended |
-|-----------|---------|-------------|
-| **CPU Cores** | 4 | 8+ |
-| **RAM** | 8 GB | 16+ GB |
-| **Disk Space** | 10 GB per subject | 20+ GB per subject |
-| **Docker Memory** | 6 GB | 12+ GB |
 
 ### Performance Optimization
 
 1. **Parallel Processing**: Use `--parallel` flag for multiple subjects
 2. **Memory Management**: Ensure adequate Docker memory allocation
 3. **Disk I/O**: Use fast storage (SSD) for improved performance
-4. **CPU Utilization**: Match number of parallel jobs to available cores
-5. **Failure Handling**: Pipeline continues even if some subjects fail
+4. **CPU Utilization**: Consider leaving a couple of cores free
 
 ## Integration with Analysis Pipeline
 
