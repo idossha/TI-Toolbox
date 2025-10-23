@@ -9,7 +9,7 @@ permalink: /gallery/analysis/
 Comprehensive analysis and visualization of TI simulation results, field distributions, and statistical metrics.
 
 <div class="gallery-section">
-  <h3>Field Analysis & Visualization in mesh space (Gmsh)</h3>
+  <h3>Field Analysis & Visualization in mesh space (Gmsh Integration)</h3>
   <div class="gallery-grid">
     <div class="gallery-item">
       <img src="{{ site.baseurl }}/gallery/assets/analyzer/TI_max.png" alt="Maximum TI Field" onclick="openLightbox(this)" />
@@ -27,15 +27,15 @@ Comprehensive analysis and visualization of TI simulation results, field distrib
 </div>
 
 <div class="gallery-section">
-  <h3>Field Analysis & Visualization in voxel space (Freesurfer)</h3>
+  <h3>Field Analysis & Visualization in voxel space (Freesurfer Integration)</h3>
   <div class="gallery-grid">
     <div class="gallery-item">
       <img src="{{ site.baseurl }}/gallery/assets/analyzer/voxel_montage_1.png" alt="TInorm field in ROI (Right Hippocampus)" onclick="openLightbox(this)" />
-      <p>TInorm field distribution showing intensity map in the sub-cortical ROI (Right Hippocampus).</p>
+      <p>Montage A: TInorm field distribution showing intensity map in the sub-cortical ROI (Right Hippocampus).</p>
     </div>
     <div class="gallery-item">
       <img src="{{ site.baseurl }}/gallery/assets/analyzer/voxel_montage_2.png" alt="TInormal field in ROI (Right Hippocampus)" onclick="openLightbox(this)" />
-      <p>TInorm field distribution showing intensity map in the sub-cortical ROI (Right Hippocampus).</p>
+      <p>Montage B: TInorm field distribution showing intensity map in the sub-cortical ROI (Right Hippocampus).</p>
     </div>
     <div class="gallery-item">
       <img src="{{ site.baseurl }}/gallery/assets/analyzer/TI_max_all.png" alt="TInorm field in cortex" onclick="openLightbox(this)" />

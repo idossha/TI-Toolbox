@@ -209,6 +209,46 @@
   display: block;
 }
 
+/* Natural sizing for side-by-side images - preserves aspect ratios and relative sizes */
+.image-row-natural {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 40px;
+  flex-wrap: wrap;
+  margin: 30px 0;
+  text-align: center;
+}
+
+.image-row-natural .image-container-natural {
+  flex: 0 0 auto; /* Don't grow or shrink, use natural size */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  max-width: calc(50% - 20px); /* Only limit to half width, let images scale naturally within that */
+}
+
+.image-row-natural .image-container-natural img {
+  margin: 0 !important;
+  width: auto; /* Use natural width */
+  max-width: 100% !important; /* Constrain to container */
+  max-height: 500px !important; /* Reasonable height limit */
+  height: auto !important; /* Maintain aspect ratio */
+  object-fit: contain;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+.image-row-natural .image-container-natural em {
+  margin-top: 10px;
+  font-style: italic;
+  color: #666;
+  font-size: 0.9em;
+  line-height: 1.4;
+  text-align: center;
+  display: block;
+}
+
 /* Responsive design */
 /* Remove max-width constraints to let content be as wide as possible */
 
@@ -266,6 +306,17 @@
   .image-row .image-container {
     max-width: 100% !important;
     padding: 0 !important;
+  }
+  
+  /* Stack natural-sized images vertically on mobile */
+  .image-row-natural {
+    flex-direction: column;
+    align-items: center;
+    gap: 25px;
+  }
+  
+  .image-row-natural .image-container-natural {
+    max-width: 100% !important;
   }
   
   /* Fallback for browsers without :has() support */
