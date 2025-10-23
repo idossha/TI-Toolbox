@@ -4,7 +4,7 @@ title: About
 permalink: /about/
 ---
 
-The Temporal Interference Toolbox started as a side project in early 2024 and matured to be a comperhensive toolbox that allows both inexperience and experience users simulate TI fields from standardized and personalized imaging data.
+The Temporal Interference Toolbox started as a side project in early 2024 and matured to be a toolbox that allows both inexperience and experience users simulate TI fields from standardized and personalized imaging data.
 
 ### Contributors
 
@@ -23,13 +23,6 @@ The Temporal Interference Toolbox started as a side project in early 2024 and ma
         <p class="contributor-description">
           PhD Research Assistant and software developer specializing in computational neurostimulation. 
           Developed the idea and architecture for the TI-Toolbox.<br>
-          <br>
-          Docker-compose architecture<br>
-          Deployment Pipeline<br>
-          Software Integration<br>
-          Ex-search algorithm <br>
-          flex-search extentions<br>
-
         </p>
         <div class="contributor-links">
           <a href="mailto:ihaber@wisc.edu" target="_blank">📧 Email</a>
@@ -49,12 +42,6 @@ The Temporal Interference Toolbox started as a side project in early 2024 and ma
         <p class="contributor-role">Core Contributor</p>
         <p class="contributor-description">
           Undergraduate Research Assistant and software developer focused on computational modeling, visualization, and analysis of electric field distribution. <br>
-          <br>
-          Contributed to the development of:<br>
-          Analyzer tool<br>
-          Mesh Visualizer (Gmsh)<br>
-          Pipeline Animation (Blender)<br>
-          Automatic Montage Visualizer<br>
         </p>
         <div class="contributor-links">
           <a href="mailto:awjackson2@wisc.edu" target="_blank">📧 Email</a>
@@ -143,6 +130,7 @@ We extend our gratitude to the developers and contributors of the tools integrat
   line-height: 1.5;
   margin-bottom: 1rem;
   font-size: 0.95rem;
+  text-align: Left;
 }
 
 .contributor-links {
