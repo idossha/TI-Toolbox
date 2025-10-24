@@ -1,32 +1,17 @@
 ---
 layout: installation
-title: Bash/CLI Usage
+title: Bash Entrypoint
 permalink: /installation/bash-cli/
 ---
 
-Alternative command-line installation and usage guide for the TI Toolbox.
-
-## Overview
-
-You do **not** have to use the graphical executables to run the TI Toolbox! The executables simply provide a GUI for the launcher program. The bash script method gives you the same core functionality in a terminal-based interface.
-
-## When to Use Bash/CLI Method
-
-- **Remote servers** (no GUI available)
-- **Command-line workflows** preference
-- **Automation** and scripting
-
-## Prerequisites
-
-### Required Dependencies
-- **Docker**: [Docker Engine](https://docs.docker.com/engine/install/) (Linux)
+You do **not** have to use the graphical executables to run the TI Toolbox! The executables simply provide a GUI for the launcher program. The bash script method gives you the same core functionality (for launching the toolbox) in a terminal-based interface.
 
 
 ## Installation Steps
 
 ### Step 1: Download Required Files
 
-Download these two files from the [TI Toolbox GitHub Releases](https://github.com/idossha/TI-Toolbox/releases):
+Download these two files from the [TI-Toolbox GitHub Releases](https://github.com/idossha/TI-Toolbox/releases):
 
 1. `launcher/bash/loader.sh` - Main launcher script
 2. `launcher/bash/docker-compose.yml` - Docker configuration
@@ -63,6 +48,9 @@ The script will guide you through:
 When loader program completed:
 
 ```bash
+#Try ebter the core GUI tool
+GUI
+
 # Try enter the pre-processing tool
 pre-process
 

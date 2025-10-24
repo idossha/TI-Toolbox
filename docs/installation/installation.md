@@ -4,15 +4,11 @@ title: Installation
 permalink: /installation/
 ---
 
-The Temporal Interference Toolbox is distributed as compiled executables for Windows, macOS, and Linux. Follow this quick guide to get started, or use the sidebar to access detailed platform-specific instructions.
+The [bash entrypoint](https://idossha.github.io/TI-Toolbox/installation/bash-cli/) is the recommended way of launching the Temporal Interference Toolbox, however, it is also distributed as compiled executables for Windows, macOS, and Linux. Follow this quick guide to get started, or use the sidebar to access detailed platform-specific instructions.
 
-## Download
-
-Get the latest version from:
+**Get the latest version from:**
 - **[Releases Page]({{ site.baseurl }}/releases/)** on this website
 - **[GitHub Releases](https://github.com/idossha/TI-Toolbox/releases)** for all versions
-
-## Dependencies
 
 **Required for all platforms:**
 - **Docker**: [Docker Desktop](https://www.docker.com/products/docker-desktop/) (Windows/macOS) or [Docker Engine](https://docs.docker.com/engine/install/) (Linux)
