@@ -12,7 +12,7 @@ permalink: /installation/macos/
 
 ## Step 2: Remove Quarantine (Security Setup)
 
-Since the TI Toolbox is not officially signed, you need to remove macOS quarantine:
+Since the TI-Toolbox is not officially signed, you need to remove macOS quarantine:
 
 1. Open **Terminal** (Applications > Utilities > Terminal)
 2. Navigate to Downloads folder:
@@ -36,7 +36,7 @@ If you get a security warning when opening:
 ## Step 4: First Run
 
 1. Ensure Docker Desktop is running (green status)
-2. Launch TI Toolbox from Applications
+2. Launch TI-Toolbox from Applications
 3. **First run will download Docker images (~30GB)**
    - This process may take 30+ minutes
    - Progress will be shown in the application
@@ -45,12 +45,8 @@ If you get a security warning when opening:
 ## macOS-Specific Features
 
 ### Apple Silicon Compatibility
-- TI Toolbox Universal build works on both Intel and Apple Silicon Macs
+- TI-Toolbox Universal build works on both Intel and Apple Silicon Macs
 - Docker Desktop automatically handles architecture differences
 - Some performance differences may occur between architectures
 
-## Apple Silicon Specific Notes
-
-### Rosetta 2
-- Some Docker images may require Rosetta 2 for compatibility
-- Install if prompted: `softwareupdate --install-rosetta`
+![Docker Settings on Apple]({{ site.baseurl }}/installation/assets/docker_apple.png)

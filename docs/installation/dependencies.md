@@ -10,11 +10,13 @@ Windows/macOS: Install [Docker Desktop](https://www.docker.com/products/docker-d
 
 Linux: Install [Docker Engine](https://docs.docker.com/engine/install/) using your distribution's package manager.
 
-**Post-Installation Configuration:**
+Post-Installation Configuration:
 - Open Docker Desktop settings
 - Go to "Resources" 
 - Allocate at least **32GB RAM** (recommended)
 - Ensure you have at sufficient free disk space
+
+![Docker Settings on Apple]({{ site.baseurl }}/installation/assets/docker_resource.png)
 
 ---
 
@@ -56,11 +58,6 @@ xhost +local:docker
 - **Storage**: At least 30GB free space for Docker images
 - **Administrative privileges**: Required for initial setup
 
-### Recommended Specifications
-- **RAM**: 64GB+ for large datasets
-- **CPU**: Multi-core processor (8+ cores recommended)
-- **Storage**: SSD with 50GB+ free space
-- **Network**: Stable internet connection for Docker image downloads
 
 ## Verification
 

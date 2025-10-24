@@ -8,14 +8,11 @@ permalink: /installation/linux/
 
 1. Go to the [Releases Page]({{ site.baseurl }}/releases/)
 2. Download the **Linux AppImage** file
-3. Save to a convenient location (e.g., `~/Downloads/`)
+
 
 ## Step 2: Make AppImage Executable
 
 ```bash
-# Navigate to download location
-cd ~/Downloads
-
 # Make AppImage executable
 chmod +x TemporalInterferenceToolbox-Linux-x86_64.AppImage
 ```
@@ -31,4 +28,4 @@ chmod +x TemporalInterferenceToolbox-Linux-x86_64.AppImage
 
 ## Distribution-Specific Notes
 
-Currently only tested on Ubuntu distro.
+Currently only tested on Ubuntu distro. Please submit an issue if encountered problems. 
