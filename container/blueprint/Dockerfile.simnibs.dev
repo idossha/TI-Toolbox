@@ -1,0 +1,173 @@
+# Dockerfile.simnibs
+## 22.04 LTS is a new test to check for simnibs solution.
+
+FROM ubuntu:22.04
+
+# Set noninteractive mode for apt-get
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install packages grouped by context and purpose
+##########################################################
+RUN apt-get update && apt-get install -y \
+    # Core system utilities
+    wget \
+    git \
+    unzip \
+    tar \
+    bzip2 \
+    curl \
+    gettext \
+    locales \
+    fontconfig \
+    tzdata \
+    \
+    # Python environment
+    python3.11 \
+    python3-pip \
+    python3.11-venv \
+    python3.11-dev \
+    \
+    # Build tools and compilers
+    build-essential \
+    gcc \
+    g++ \
+    gcc-10 \
+    g++-10 \
+    cmake \
+    ninja-build \
+    libtool \
+    libtool-bin \
+    autoconf \
+    automake \
+    pkg-config \
+    \
+    # System libraries
+    libglib2.0-0 \
+    libopenblas-dev \
+    \
+    # OpenGL and Mesa libraries (for 3D graphics)
+    libgl1-mesa-glx \
+    libglu1-mesa \
+    mesa-utils \
+    libgl1-mesa-dri \
+    libglapi-mesa \
+    libosmesa6 \
+    mesa-va-drivers \
+    libegl1-mesa \
+    libgbm1 \
+        \
+    # X11 libraries (for GUI applications)
+    libxt6 \
+    libxext6 \
+    libxrender1 \
+    libxrandr2 \
+    libxfixes3 \
+    libxcursor1 \
+    libxcomposite1 \
+    libxdamage1 \
+    libxi6 \
+    libxmu6 \
+    libxft2 \
+    libice6 \
+    libsm6 \
+    \
+    # Qt5 libraries (for PyQt5 GUI)
+    libqt5widgets5 \
+    libqt5gui5 \
+    libqt5core5a \
+    libqt5svg5 \
+    libqt5opengl5 \
+    qtbase5-dev \
+    qtbase5-dev-tools \
+    qtchooser \
+    \
+    # GTK libraries (for legacy GUI applications)
+    libgtk2.0-0 \
+    \
+    # Command-line tools and utilities
+    bc \
+    jq \
+    vim \
+    tmux \
+    tree \
+    execstack \
+    parallel \
+    dos2unix \
+    \
+    # Testing tools
+    bats \
+    \
+    # Image processing tools
+    imagemagick \
+    \
+    # Neuroimaging specific tools
+    dcm2niix \
+    # for recon-all function specifically
+    tcsh \
+    \
+    && apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+
+# Install Python packages and create symlinks
+RUN python3.11 -m pip install --upgrade pip && \
+    python3.11 -m pip install numpy scipy pandas meshio nibabel nilearn matplotlib PyOpenGL PyOpenGL-accelerate PyQt5 && \
+    ln -sf /usr/bin/python3.11 /usr/bin/python3 && \
+    ln -sf /usr/bin/python3.11 /usr/bin/python
+
+# Avoid OpenMP affinity crash during postinstall
+ENV OMP_NUM_THREADS=1
+ENV KMP_AFFINITY=disabled
+
+######## Install SimNIBS ################
+RUN mkdir -p /simnibs && chmod -R 755 /simnibs
+
+RUN wget https://github.com/simnibs/simnibs/releases/download/v4.5.0/simnibs_installer_linux.tar.gz -P /simnibs \
+    && tar -xzf /simnibs/simnibs_installer_linux.tar.gz -C /simnibs \
+    && /simnibs/simnibs_installer/install -s
+
+ENV PATH="/root/SimNIBS-4.5/bin:$PATH"
+ENV SIMNIBSDIR="/root/SimNIBS-4.5"
+
+########### TI-Toolbox ########################
+# RUN git clone --branch my-feature-branch --single-branch https://github.com/username/repo-name.git .
+RUN git clone --branch v2.0.0 --single-branch https://github.com/idossha/TI-Toolbox.git /ti-toolbox
+
+# Convert all shell scripts to Unix line endings
+RUN find /ti-toolbox -name "*.sh" -exec dos2unix {} \;
+
+# EEG caps for CSC 
+RUN mkdir -p $SIMNIBSDIR/resources/ElectrodeCaps_MNI/
+RUN cp /ti-toolbox/resources/ElectrodeCaps_MNI/* $SIMNIBSDIR/resources/ElectrodeCaps_MNI/
+
+# Flex extention by Ido Haber 
+RUN rm -f $SIMNIBSDIR/simnibs/optimization/tes_flex_optimization/tes_flex_optimization.py && \
+    cp /ti-toolbox/resources/map-electrodes/tes_flex_optimization.py $SIMNIBSDIR/simnibs/optimization/tes_flex_optimization/tes_flex_optimization.py
+
+############ CLI tools ###############
+
+# Install Neovim v.0.11.0 from source 
+RUN git clone https://github.com/neovim/neovim.git /tmp/neovim \
+    && cd /tmp/neovim \
+    && git checkout v0.11.0 \
+    && make CMAKE_BUILD_TYPE=Release \ 
+    && make install \
+    && rm -rf /tmp/neovim
+
+# Create symlinks for config files
+RUN ln -sf /ti-toolbox/config/.tmux.conf /root/.tmux.conf && \
+ln -sf /ti-toolbox/config/nvim /root/.config/
+
+# Install plugins using lazy.nvim
+RUN nvim --headless "+LAZY! sync" +qa
+
+# Source tmux
+RUN tmux source-file /root/.tmux.conf || true
+
+
+# Copy the robust entrypoint script into the image
+COPY entrypoint.sh /usr/local/bin/entrypoint.sh
+
+# Make the script executable
+RUN chmod +x /usr/local/bin/entrypoint.sh
+
+# Set the entrypoint
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
