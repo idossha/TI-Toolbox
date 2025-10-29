@@ -1,4 +1,4 @@
-# Extension Development Guide
+=31;OK\# Extension Development Guide
 
 ## Overview
 
@@ -121,24 +121,6 @@ self.status_label.setText("Processing...")
 QtWidgets.QMessageBox.information(self, "Done", "Processing complete!")
 ```
 
-### 4. Consistent Styling
-
-Match the TI-Toolbox GUI style:
-
-```python
-button.setStyleSheet("""
-    QPushButton {
-        background-color: #4CAF50;
-        color: white;
-        padding: 8px;
-        border-radius: 4px;
-        font-weight: bold;
-    }
-    QPushButton:hover {
-        background-color: #45a049;
-    }
-""")
-```
 
 ## Integration with TI-Toolbox Core
 
@@ -158,21 +140,6 @@ sys.path.insert(0, str(ti_toolbox_path))
 from core.paths import Paths
 from core.utils import Utils
 from core.constants import Constants
-```
-
-### Accessing Project Data
-
-Use Path objects to navigate project structure:
-
-```python
-def get_subject_dirs(project_dir):
-    """Get all subject directories."""
-    project_path = Path(project_dir)
-    subjects = []
-    for item in project_path.iterdir():
-        if item.is_dir() and item.name.startswith('sub-'):
-            subjects.append(item)
-    return subjects
 ```
 
 ### Following BIDS Conventions
@@ -217,8 +184,7 @@ project_dir/
 Extensions are single files that can be easily shared:
 
 1. **Direct File Sharing**: Send the `.py` file
-2. **GitHub Gist**: Share as a gist
-3. **Pull Request**: Contribute to TI-Toolbox repository
+2. **Pull Request**: Contribute to TI-Toolbox repository
 
 ### Installation Instructions
 
@@ -297,21 +263,6 @@ class MyExtension(QtWidgets.QDialog):
 - Check Python path configuration
 - Verify module names are correct
 
-**UI issues:**
-- Test with different screen sizes
-- Check for modal vs. modeless dialogs
-- Verify layouts are properly configured
-
-## Example: Complete Extension
-
-See `example_calculator.py` for a complete, well-documented extension that demonstrates:
-
-- Proper metadata definition
-- Clean UI layout
-- Event handling
-- Styled buttons
-- Error handling
-- Clear code organization
 
 ## Resources
 
@@ -330,8 +281,3 @@ To contribute an extension to the TI-Toolbox repository:
 5. Include example usage and screenshots
 
 ---
-
-**Happy Extension Development!** 🚀
-
-For questions or support, contact the TI-Toolbox development team through the GitHub repository or the Contact tab in the GUI.
-
