@@ -111,27 +111,24 @@ class SubjectRow(QtWidgets.QWidget):
         self.response_combo.setCurrentIndex(0 if config['response'] == 1 else 1)
 
 
-class ClusterPermutationWindow(QtWidgets.QDialog):
-    """Main window for cluster-based permutation testing"""
-    
+class ClusterPermutationWidget(QtWidgets.QWidget):
+    """Main widget for cluster-based permutation testing"""
+
     def __init__(self, parent=None):
-        super(ClusterPermutationWindow, self).__init__(parent)
-        self.setWindowTitle("Cluster-Based Permutation Testing")
-        self.setMinimumSize(900, 700)
-        self.setWindowFlag(QtCore.Qt.Window)  # Make it a proper window, not modal
+        super(ClusterPermutationWidget, self).__init__(parent)
         self.parent_window = parent
-        
+
         # Get path manager
         self.pm = get_path_manager() if get_path_manager else None
-        
+
         # Data
         self.subjects_list = []
         self.simulations_dict = {}
         self.subject_rows = []
-        
+
         # Setup UI
         self.setup_ui()
-        
+
         # Load subjects
         self.load_subjects()
     
@@ -669,6 +666,24 @@ class AnalysisThread(QtCore.QThread):
             import traceback
             error_msg = f"{str(e)}\n\n{traceback.format_exc()}"
             self.error_signal.emit(error_msg)
+
+
+class ClusterPermutationWindow(QtWidgets.QDialog):
+    """Dialog wrapper for the cluster-based permutation testing widget (for floating windows)"""
+
+    def __init__(self, parent=None):
+        super(ClusterPermutationWindow, self).__init__(parent)
+        self.setWindowTitle("Cluster-Based Permutation Testing")
+        self.setMinimumSize(900, 700)
+        self.setWindowFlag(QtCore.Qt.Window)  # Make it a proper window, not modal
+
+        # Create the main widget
+        self.widget = ClusterPermutationWidget(self)
+
+        # Set up dialog layout
+        layout = QtWidgets.QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.addWidget(self.widget)
 
 
 def main(parent=None):

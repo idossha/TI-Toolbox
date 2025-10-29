@@ -132,25 +132,21 @@ class ExtensionCard(QtWidgets.QGroupBox):
             spec.loader.exec_module(module)
             
             # Check if the extension window class exists
-            # Look for a class that inherits from QDialog or QWidget
+            # Prefer QWidget classes over QDialog classes for better tab integration
             extension_class = None
             for attr_name in dir(module):
                 attr = getattr(module, attr_name)
-                if isinstance(attr, type) and issubclass(attr, (QtWidgets.QDialog, QtWidgets.QWidget)):
+                if isinstance(attr, type) and issubclass(attr, QtWidgets.QWidget):
                     # Skip base classes
                     if attr not in (QtWidgets.QDialog, QtWidgets.QWidget):
-                        extension_class = attr
-                        break
+                        # Prefer widget classes over dialog classes
+                        if extension_class is None or not issubclass(extension_class, QtWidgets.QDialog):
+                            extension_class = attr
             
             if extension_class:
                 # Create the extension widget
                 self.extension_widget = extension_class(parent=self.main_window)
-                
-                # If it's a QDialog, we need to convert it to work as a tab
-                # Remove window flags if it's a dialog
-                if isinstance(self.extension_widget, QtWidgets.QDialog):
-                    self.extension_widget.setWindowFlags(QtCore.Qt.Widget)
-                
+
                 # Add it as a tab
                 tab_index = self.main_window.tab_widget.addTab(self.extension_widget, self.name)
                 

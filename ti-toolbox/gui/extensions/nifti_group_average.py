@@ -123,27 +123,24 @@ class SubjectRow(QtWidgets.QWidget):
             self.group_combo.setCurrentText(group)
 
 
-class NiftiGroupAverageWindow(QtWidgets.QDialog):
-    """Main window for NIfTI group averaging"""
-    
+class NiftiGroupAverageWidget(QtWidgets.QWidget):
+    """Main widget for NIfTI group averaging"""
+
     def __init__(self, parent=None):
-        super(NiftiGroupAverageWindow, self).__init__(parent)
-        self.setWindowTitle("NIfTI Group Averaging")
-        self.setMinimumSize(900, 700)
-        self.setWindowFlag(QtCore.Qt.Window)  # Make it a proper window, not modal
+        super(NiftiGroupAverageWidget, self).__init__(parent)
         self.parent_window = parent
-        
+
         # Get path manager
         self.pm = get_path_manager() if get_path_manager else None
-        
+
         # Data
         self.subjects_list = []
         self.simulations_dict = {}
         self.subject_rows = []
-        
+
         # Setup UI
         self.setup_ui()
-        
+
         # Load subjects
         self.load_subjects()
     
@@ -786,6 +783,24 @@ class AnalysisThread(QtCore.QThread):
             import traceback
             error_msg = f"{str(e)}\n\n{traceback.format_exc()}"
             self.error_signal.emit(error_msg)
+
+
+class NiftiGroupAverageWindow(QtWidgets.QDialog):
+    """Dialog wrapper for the NIfTI group averaging widget (for floating windows)"""
+
+    def __init__(self, parent=None):
+        super(NiftiGroupAverageWindow, self).__init__(parent)
+        self.setWindowTitle("NIfTI Group Averaging")
+        self.setMinimumSize(900, 700)
+        self.setWindowFlag(QtCore.Qt.Window)  # Make it a proper window, not modal
+
+        # Create the main widget
+        self.widget = NiftiGroupAverageWidget(self)
+
+        # Set up dialog layout
+        layout = QtWidgets.QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.addWidget(self.widget)
 
 
 def main(parent=None):

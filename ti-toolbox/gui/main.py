@@ -163,9 +163,6 @@ class MainWindow(QtWidgets.QMainWindow):
     def get_extensions_config_path(self):
         """Get the path to the extensions configuration file."""
         project_dir = self.pm.get_project_dir()
-        if not project_dir:
-            # Fallback to a default location if project dir is not available
-            return Path.home() / '.ti-toolbox' / 'extensions.json'
         
         # Path: /mnt/project_dir/code/ti-toolbox/config/extensions.json
         config_path = Path(project_dir) / 'code' / 'ti-toolbox' / 'config' / 'extensions.json'
@@ -245,23 +242,20 @@ class MainWindow(QtWidgets.QMainWindow):
                         name = getattr(module, 'EXTENSION_NAME', extension_file.stem.replace('_', ' ').title())
                         
                         if name == extension_name:
-                            # Find the extension class
+                            # Find the extension class (prefer QWidget over QDialog)
                             extension_class = None
                             for attr_name in dir(module):
                                 attr = getattr(module, attr_name)
-                                if isinstance(attr, type) and issubclass(attr, (QtWidgets.QDialog, QtWidgets.QWidget)):
+                                if isinstance(attr, type) and issubclass(attr, QtWidgets.QWidget):
                                     if attr not in (QtWidgets.QDialog, QtWidgets.QWidget):
-                                        extension_class = attr
-                                        break
+                                        # Prefer widget classes over dialog classes
+                                        if extension_class is None or not issubclass(extension_class, QtWidgets.QDialog):
+                                            extension_class = attr
                             
                             if extension_class:
                                 # Create the extension widget
                                 extension_widget = extension_class(parent=self)
-                                
-                                # Remove window flags if it's a dialog
-                                if isinstance(extension_widget, QtWidgets.QDialog):
-                                    extension_widget.setWindowFlags(QtCore.Qt.Widget)
-                                
+
                                 # Add it as a tab
                                 self.tab_widget.addTab(extension_widget, name)
                             
