@@ -26,20 +26,11 @@ sys.path.insert(0, str(ti_toolbox_path))
 gui_path = Path(__file__).parent.parent
 sys.path.insert(0, str(gui_path))
 
-try:
-    from core import get_path_manager
-    from core import constants as const
-except ImportError:
-    print("Warning: Could not import TI-Toolbox core modules")
-    get_path_manager = None
+from core import get_path_manager
+from core import constants as const
 
-try:
-    from components.console import ConsoleWidget
-    from components.action_buttons import RunStopButtons
-except ImportError:
-    print("Warning: Could not import GUI components")
-    ConsoleWidget = None
-    RunStopButtons = None
+from components.console import ConsoleWidget
+from components.action_buttons import RunStopButtons
 
 
 class SubjectRow(QtWidgets.QWidget):

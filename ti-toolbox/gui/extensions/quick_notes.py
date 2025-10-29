@@ -21,11 +21,7 @@ EXTENSION_DESCRIPTION = "Take quick notes during your analysis sessions with tim
 ti_toolbox_path = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(ti_toolbox_path))
 
-try:
-    from core import get_path_manager
-except ImportError:
-    print("Warning: Could not import TI-Toolbox core modules")
-    get_path_manager = None
+from core import get_path_manager
 
 
 class NotesWindow(QtWidgets.QDialog):

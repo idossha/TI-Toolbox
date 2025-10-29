@@ -29,14 +29,12 @@ from pathlib import Path
 # Import from modular utilities (relative imports for stats module)
 import gc
 try:
-    from .io_utils import save_nifti
     from .stats_utils import ttest_voxelwise, cluster_based_correction, cluster_analysis
     from .atlas_utils import atlas_overlap_analysis
     from .visualization import plot_permutation_null_distribution, plot_cluster_size_mass_correlation
     from .reporting import generate_summary
 except ImportError:
     # Fallback for direct execution
-    from io_utils import save_nifti
     from stats_utils import ttest_voxelwise, cluster_based_correction, cluster_analysis
     from atlas_utils import atlas_overlap_analysis
     from visualization import plot_permutation_null_distribution, plot_cluster_size_mass_correlation
@@ -47,10 +45,12 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 try:
     from core import get_path_manager
     from core import constants as const
+    from core import nifti as nifti_utils
 except ImportError:
     print("Warning: Could not import TI-Toolbox core modules. Some features may not work.")
     get_path_manager = None
     const = None
+    nifti_utils = None
 
 import nibabel as nib
 import pandas as pd
@@ -88,111 +88,34 @@ def load_subject_data_ti_toolbox(subject_configs, nifti_file_pattern=None):
     non_responder_ids : list
         List of non-responder subject IDs
     """
-    pm = get_path_manager() if get_path_manager else None
-    
     if nifti_file_pattern is None:
         nifti_file_pattern = "grey_{simulation_name}_TI_MNI_MNI_TI_max.nii.gz"
     
-    responders = []
-    non_responders = []
-    responder_ids = []
-    non_responder_ids = []
-    template_img = None
-    template_affine = None
-    template_header = None
+    # Separate configs by response
+    responder_configs = [c for c in subject_configs if c['response'] == 1]
+    non_responder_configs = [c for c in subject_configs if c['response'] == 0]
     
-    for config in subject_configs:
-        subject_id = config['subject_id']
-        simulation_name = config['simulation_name']
-        response = config['response']
-        
-        # Construct file path using TI-Toolbox path structure
-        # /mnt/PROJECT/derivatives/SimNIBS/sub-XXX/Simulations/SIMULATION_NAME/TI/niftis/
-        if pm:
-            project_dir = pm.get_project_dir()
-            if not project_dir:
-                raise ValueError("Project directory not found. Is PROJECT_DIR_NAME set?")
-            
-            nifti_dir = os.path.join(
-                project_dir, 
-                const.DIR_DERIVATIVES, 
-                const.DIR_SIMNIBS,
-                f"{const.PREFIX_SUBJECT}{subject_id}",
-                "Simulations",
-                simulation_name,
-                "TI",
-                "niftis"
-            )
-        else:
-            # Fallback: assume we're in container environment
-            project_dir = os.environ.get('PROJECT_DIR', '/mnt')
-            nifti_dir = os.path.join(
-                project_dir,
-                "derivatives",
-                "SimNIBS",
-                f"sub-{subject_id}",
-                "Simulations",
-                simulation_name,
-                "TI",
-                "niftis"
-            )
-        
-        # Format the filename pattern
-        filename = nifti_file_pattern.format(
-            subject_id=subject_id,
-            simulation_name=simulation_name
-        )
-        filepath = os.path.join(nifti_dir, filename)
-        
-        if not os.path.exists(filepath):
-            print(f"Warning: File not found - {filepath}")
-            continue
-        
-        # Load NIfTI
-        img = nib.load(filepath)
-        # Load as float32 to save memory
-        data = img.get_fdata(dtype=np.float32)
-        
-        # Store template image from first subject
-        if template_img is None:
-            template_img = img
-            # Only keep what we need from template
-            template_affine = img.affine.copy()
-            template_header = img.header.copy()
-        
-        # Clear the image object to free memory
-        del img
-        
-        # Ensure 3D data (squeeze out extra dimensions if present)
-        while data.ndim > 3:
-            data = np.squeeze(data, axis=-1)
-        
-        if response == 1:
-            responders.append(data)
-            responder_ids.append(subject_id)
-        else:
-            non_responders.append(data)
-            non_responder_ids.append(subject_id)
-    
-    if len(responders) == 0 or len(non_responders) == 0:
+    if len(responder_configs) == 0 or len(non_responder_configs) == 0:
         raise ValueError("Need at least one responder and one non-responder")
     
-    print(f"\nLoaded {len(responders)} responders: {responder_ids}")
-    print(f"Loaded {len(non_responders)} non-responders: {non_responder_ids}")
+    # Load responders
+    responders, template_img, responder_ids = nifti_utils.load_group_data_ti_toolbox(
+        responder_configs,
+        nifti_file_pattern=nifti_file_pattern,
+        dtype=np.float32
+    )
     
-    # Stack into 4D arrays (subjects x volume) with float32
-    responders = np.stack(responders, axis=-1).astype(np.float32)
-    non_responders = np.stack(non_responders, axis=-1).astype(np.float32)
+    # Load non-responders
+    non_responders, _, non_responder_ids = nifti_utils.load_group_data_ti_toolbox(
+        non_responder_configs,
+        nifti_file_pattern=nifti_file_pattern,
+        dtype=np.float32
+    )
     
+    print(f"\nLoaded {len(responder_ids)} responders: {responder_ids}")
+    print(f"Loaded {len(non_responder_ids)} non-responders: {non_responder_ids}")
     print(f"Responders shape: {responders.shape}")
     print(f"Non-responders shape: {non_responders.shape}")
-    
-    # Recreate a minimal template image with just what we need
-    # This prevents keeping the full nibabel object in memory
-    template_img = nib.Nifti1Image(responders[..., 0], template_affine, template_header)
-    
-    # Force garbage collection after loading
-    gc.collect()
     
     return responders, non_responders, template_img, responder_ids, non_responder_ids
 
@@ -604,19 +527,19 @@ def run_analysis(subject_configs, analysis_name, config=None, output_callback=No
     # Average responders (compute in float32 to save memory)
     avg_responders = np.mean(responders, axis=-1).astype(np.float32)
     avg_resp_file = os.path.join(output_dir, 'average_responders.nii.gz')
-    save_nifti(avg_responders, template_img.affine, template_img.header, avg_resp_file)
+    nifti_utils.save_nifti_like(avg_responders, template_img, avg_resp_file)
     logger.info(f"Saved: average_responders.nii.gz")
     
     # Average non-responders (compute in float32 to save memory)
     avg_non_responders = np.mean(non_responders, axis=-1).astype(np.float32)
     avg_non_resp_file = os.path.join(output_dir, 'average_non_responders.nii.gz')
-    save_nifti(avg_non_responders, template_img.affine, template_img.header, avg_non_resp_file)
+    nifti_utils.save_nifti_like(avg_non_responders, template_img, avg_non_resp_file)
     logger.info(f"Saved: average_non_responders.nii.gz")
     
     # Difference map
     diff_map = (avg_responders - avg_non_responders).astype(np.float32)
     diff_file = os.path.join(output_dir, 'difference_map.nii.gz')
-    save_nifti(diff_map, template_img.affine, template_img.header, diff_file)
+    nifti_utils.save_nifti_like(diff_map, template_img, diff_file)
     logger.info(f"Saved: difference_map.nii.gz")
     
     logger.info(f"Mean difference in brain: {np.mean(diff_map[valid_mask]):.4f}")
@@ -665,14 +588,14 @@ def run_analysis(subject_configs, analysis_name, config=None, output_callback=No
     
     # Binary mask
     output_mask = os.path.join(output_dir, 'significant_voxels_mask.nii.gz')
-    save_nifti(sig_mask, template_img.affine, template_img.header, output_mask, dtype=np.uint8)
+    nifti_utils.save_nifti_like(sig_mask, template_img, output_mask, dtype=np.uint8)
     logger.info(f"Saved: significant_voxels_mask.nii.gz")
     
     # P-values map (as -log10 for visualization)
     log_p = -np.log10(p_values + 1e-10)
     log_p[~valid_mask] = 0
     output_pvalues = os.path.join(output_dir, 'pvalues_map.nii.gz')
-    save_nifti(log_p, template_img.affine, template_img.header, output_pvalues)
+    nifti_utils.save_nifti_like(log_p, template_img, output_pvalues)
     logger.info(f"Saved: pvalues_map.nii.gz")
     
     # Summary report
