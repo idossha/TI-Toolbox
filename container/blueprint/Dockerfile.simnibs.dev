@@ -129,7 +129,8 @@ ENV SIMNIBSDIR="/root/SimNIBS-4.5"
 
 ########### TI-Toolbox ########################
 # RUN git clone --branch my-feature-branch --single-branch https://github.com/username/repo-name.git .
-RUN git clone --branch v2.0.0 --single-branch https://github.com/idossha/TI-Toolbox.git /ti-toolbox
+# Makse sure the branch name is correct otherwise the main will be cloned.
+RUN git clone --branch v2.2.0 --single-branch https://github.com/idossha/TI-Toolbox.git /ti-toolbox
 
 # Convert all shell scripts to Unix line endings
 RUN find /ti-toolbox -name "*.sh" -exec dos2unix {} \;
