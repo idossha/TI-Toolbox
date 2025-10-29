@@ -217,7 +217,7 @@ class MainWindow(QtWidgets.QMainWindow):
             extensions = config.get("extensions", {})
             
             # Find the extensions directory
-            extensions_dir = Path(__file__).parent / "extentions"
+            extensions_dir = Path(__file__).parent / "extensions"
             if not extensions_dir.exists():
                 return
             
