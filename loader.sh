@@ -752,6 +752,35 @@ write_system_info() {
     # No need to mirror since we're now using the derivatives location directly
 }
 
+# Function to get the system timezone
+get_system_timezone() {
+  # Try to get timezone using date command
+  local tz=$(date +%Z)
+  
+  # If that returns UTC or similar short code, try to get full timezone name
+  if [[ -z "$tz" ]] || [[ ${#tz} -le 3 ]]; then
+    # Try to get from /etc/timezone (Linux)
+    if [[ -f /etc/timezone ]]; then
+      tz=$(cat /etc/timezone)
+    # Try to get from system preferences (macOS)
+    elif command -v systemsetup >/dev/null 2>&1; then
+      tz=$(systemsetup -gettimezone | awk '{print $NF}')
+    # Fall back to TZ environment variable or UTC
+    else
+      tz="${TZ:-UTC}"
+    fi
+  fi
+  
+  echo "$tz"
+}
+
+# Function to set timezone environment variable
+set_timezone_env() {
+  local tz=$(get_system_timezone)
+  export TZ="$tz"
+  echo "System timezone detected: $tz"
+}
+
 # Main Script Execution
 validate_docker_compose
 display_welcome
@@ -824,5 +853,6 @@ initialize_simnibs_derivative >/dev/null 2>&1
 
 set_display_env >/dev/null 2>&1
 allow_xhost >/dev/null 2>&1 # Allow X11 connections
+set_timezone_env >/dev/null 2>&1
 
 run_docker_compose 

@@ -21,5 +21,5 @@ example:
 ```bash 
 docker build --no-cache --platform linux/amd64 \
   -f Dockerfile.simnibs \
-  -t idossha/simnibs:vX.X.X \
+  -t idossha/simnibs:vX.X.X .
   ```

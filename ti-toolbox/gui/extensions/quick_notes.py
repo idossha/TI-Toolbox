@@ -4,24 +4,119 @@
 """
 Example Extension: Quick Notes
 A simple note-taking extension for recording observations during analysis.
+Notes are automatically saved to projectDIR/derivatives/ti-toolbox/notes.txt
 """
 
-from PyQt5 import QtWidgets, QtCore
+import sys
+import os
+from pathlib import Path
 from datetime import datetime
+from PyQt5 import QtWidgets, QtCore
 
 # Extension metadata (required)
 EXTENSION_NAME = "Quick Notes"
-EXTENSION_DESCRIPTION = "Take quick notes during your analysis sessions with timestamps."
+EXTENSION_DESCRIPTION = "Take quick notes during your analysis sessions with timestamps. Notes are saved persistently."
+
+# Add TI-Toolbox to path
+ti_toolbox_path = Path(__file__).parent.parent.parent
+sys.path.insert(0, str(ti_toolbox_path))
+
+try:
+    from core import get_path_manager
+except ImportError:
+    print("Warning: Could not import TI-Toolbox core modules")
+    get_path_manager = None
 
 
 class NotesWindow(QtWidgets.QDialog):
-    """Quick notes window."""
+    """Quick notes window with persistent storage."""
     
     def __init__(self, parent=None):
         super(NotesWindow, self).__init__(parent)
         self.setWindowTitle("Quick Notes")
         self.setMinimumSize(600, 500)
+        
+        # Initialize path manager and notes file path
+        self.pm = get_path_manager() if get_path_manager else None
+        self.notes_file_path = None
+        self.notes = []
+        
+        # Determine notes file path
+        self._setup_notes_file_path()
+        
+        # Load existing notes if available
+        self._load_notes()
+        
         self.setup_ui()
+    
+    def _setup_notes_file_path(self):
+        """Set up the notes file path using path manager."""
+        if not self.pm:
+            return
+        
+        project_dir = self.pm.get_project_dir()
+        if not project_dir:
+            return
+        
+        # Create derivatives/ti-toolbox directory if it doesn't exist
+        ti_toolbox_dir = os.path.join(project_dir, "derivatives", "ti-toolbox")
+        os.makedirs(ti_toolbox_dir, exist_ok=True)
+        
+        # Set notes file path
+        self.notes_file_path = os.path.join(ti_toolbox_dir, "notes.txt")
+    
+    def _load_notes(self):
+        """Load notes from file if it exists."""
+        if not self.notes_file_path or not os.path.exists(self.notes_file_path):
+            return
+        
+        try:
+            with open(self.notes_file_path, 'r', encoding='utf-8') as f:
+                content = f.read().strip()
+                if content:
+                    # Parse notes (they're separated by separator lines)
+                    self.notes = content.split('\n' + '-' * 70 + '\n')
+                    # Clean up the list
+                    self.notes = [note.strip() for note in self.notes if note.strip()]
+        except (IOError, OSError) as e:
+            print(f"Error loading notes: {e}")
+    
+    def _save_notes(self):
+        """Save notes to file."""
+        if not self.notes_file_path:
+            return
+        
+        try:
+            with open(self.notes_file_path, 'w', encoding='utf-8') as f:
+                for i, note in enumerate(self.notes, 1):
+                    f.write(f"Note #{i}:\n{note}\n")
+                    if i < len(self.notes):
+                        f.write('-' * 70 + '\n\n')
+        except (IOError, OSError) as e:
+            QtWidgets.QMessageBox.warning(
+                self,
+                "Save Error",
+                f"Could not save notes: {e}"
+            )
+    
+    def _get_timestamp_with_timezone(self):
+        """Get current timestamp with timezone info."""
+        try:
+            # Get a naive datetime object representing the current time
+            now_naive = datetime.now()
+            
+            # Convert the naive datetime object to a timezone-aware object,
+            # which automatically uses the local system's timezone
+            local_now_aware = now_naive.astimezone()
+            
+            # Format with timezone name
+            timestamp_str = local_now_aware.strftime("%Y-%m-%d %H:%M:%S")
+            timezone_name = local_now_aware.tzname()
+            
+            return f"{timestamp_str} {timezone_name}"
+        except Exception:
+            # Ultimate fallback - just use local time without timezone
+            return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     
     def setup_ui(self):
         """Set up the notes UI."""
@@ -33,9 +128,12 @@ class NotesWindow(QtWidgets.QDialog):
         layout.addWidget(header_label)
         
         # Info label
-        info_label = QtWidgets.QLabel(
-            "<i>Take quick notes with automatic timestamps. Notes are kept in memory for this session only.</i>"
-        )
+        if self.notes_file_path:
+            info_text = f"<i>Notes are saved to: {os.path.basename(self.notes_file_path)}</i>"
+        else:
+            info_text = "<i>No project directory detected. Notes will be kept in memory only.</i>"
+        
+        info_label = QtWidgets.QLabel(info_text)
         info_label.setWordWrap(True)
         info_label.setAlignment(QtCore.Qt.AlignCenter)
         info_label.setStyleSheet("color: #666; padding: 5px;")
@@ -82,60 +180,21 @@ class NotesWindow(QtWidgets.QDialog):
         
         add_btn = QtWidgets.QPushButton("Add Note")
         add_btn.clicked.connect(self.add_note)
-        add_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #4CAF50;
-                color: white;
-                padding: 8px 20px;
-                font-weight: bold;
-                border: none;
-                border-radius: 5px;
-            }
-            QPushButton:hover {
-                background-color: #45a049;
-            }
-        """)
         button_layout.addWidget(add_btn)
         
         clear_btn = QtWidgets.QPushButton("Clear All Notes")
         clear_btn.clicked.connect(self.clear_all_notes)
-        clear_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #f44336;
-                color: white;
-                padding: 8px 20px;
-                font-weight: bold;
-                border: none;
-                border-radius: 5px;
-            }
-            QPushButton:hover {
-                background-color: #da190b;
-            }
-        """)
         button_layout.addWidget(clear_btn)
         
         copy_btn = QtWidgets.QPushButton("Copy All to Clipboard")
         copy_btn.clicked.connect(self.copy_to_clipboard)
-        copy_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #2196F3;
-                color: white;
-                padding: 8px 20px;
-                font-weight: bold;
-                border: none;
-                border-radius: 5px;
-            }
-            QPushButton:hover {
-                background-color: #0b7dda;
-            }
-        """)
         button_layout.addWidget(copy_btn)
         
         input_layout.addLayout(button_layout)
         layout.addWidget(input_group)
         
-        # Store notes
-        self.notes = []
+        # Update display with loaded notes
+        self.update_notes_display()
     
     def add_note(self):
         """Add a new note with timestamp."""
@@ -149,12 +208,15 @@ class NotesWindow(QtWidgets.QDialog):
             )
             return
         
-        # Get current timestamp
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        # Get current timestamp with timezone
+        timestamp = self._get_timestamp_with_timezone()
         
         # Add to notes list
-        formatted_note = f"[{timestamp}]\n{note_text}\n"
+        formatted_note = f"[{timestamp}]\n{note_text}"
         self.notes.append(formatted_note)
+        
+        # Save to file
+        self._save_notes()
         
         # Update display
         self.update_notes_display()
@@ -166,7 +228,7 @@ class NotesWindow(QtWidgets.QDialog):
         """Update the notes display area."""
         display_text = ""
         for i, note in enumerate(self.notes, 1):
-            display_text += f"Note #{i}:\n{note}\n{'-' * 70}\n\n"
+            display_text += f"Note #{i}:\n{note}\n\n{'-' * 70}\n\n"
         
         self.notes_display.setPlainText(display_text)
         
@@ -196,6 +258,7 @@ class NotesWindow(QtWidgets.QDialog):
         if reply == QtWidgets.QMessageBox.Yes:
             self.notes = []
             self.notes_display.clear()
+            self._save_notes()
     
     def copy_to_clipboard(self):
         """Copy all notes to clipboard."""

@@ -13,7 +13,6 @@ services:
     platform: linux/amd64
     image: idossha/simnibs:v2.1.3
     container_name: simnibs_container
-    shm_size: '2gb'
     volumes:
       - ti-toolbox_freesurfer_data:/usr/local/freesurfer/
       - /tmp/.X11-unix:/tmp/.X11-unix
@@ -34,6 +33,8 @@ services:
       PROJECT_DIR_NAME: ${PROJECT_DIR_NAME}
       DEV_CODEBASE_DIR: ${DEV_CODEBASE_DIR}
       DEV_CODEBASE_NAME: ${DEV_CODEBASE_NAME}
+      # Timezone configuration
+      TZ: ${TZ:-UTC}
       KMP_AFFINITY: "disabled"
     networks:
       - ti_network

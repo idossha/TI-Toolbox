@@ -35,6 +35,7 @@ RUN apt update -y && apt upgrade -y && apt install -y \
     libopenblas-dev \
     libxft2 \
     libgomp1 \
+    tzdata \
     && apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 # Install FSL non-interactively

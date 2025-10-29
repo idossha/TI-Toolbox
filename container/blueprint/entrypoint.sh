@@ -3,15 +3,12 @@
 # Initialize .bashrc if it doesn't exist
 touch ~/.bashrc
 
-# Source environment setup scripts
+# Source FreeSurfer environment setup script (only if it exists)
 [ -f "$FREESURFER_HOME/SetUpFreeSurfer.sh" ] && source "$FREESURFER_HOME/SetUpFreeSurfer.sh"
-[ -f "$FSLDIR/etc/fslconf/fsl.sh" ] && source "$FSLDIR/etc/fslconf/fsl.sh"
 
-# Add environment setup to .bashrc
+# Add FreeSurfer environment setup to .bashrc (with proper conditional sourcing)
 {
-    echo "source \"\$FSLDIR/etc/fslconf/fsl.sh\""
-    echo "source \"\$FREESURFER_HOME/SetUpFreeSurfer.sh\""
-    [ -f "/usr/local/fsl/lib/libstdc++.so.6" ] && echo 'export LD_PRELOAD=/usr/local/fsl/lib/libstdc++.so.6'
+    [ -n "$FREESURFER_HOME" ] && echo "[ -f \"\$FREESURFER_HOME/SetUpFreeSurfer.sh\" ] && source \"\$FREESURFER_HOME/SetUpFreeSurfer.sh\""
 } >> ~/.bashrc
 
 # Setup CLI tools if present

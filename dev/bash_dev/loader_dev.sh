@@ -166,6 +166,35 @@ set_display_env() {
   fi
 }
 
+# Function to get the system timezone
+get_system_timezone() {
+  # Try to get timezone using date command
+  local tz=$(date +%Z)
+  
+  # If that returns UTC or similar short code, try to get full timezone name
+  if [[ -z "$tz" ]] || [[ ${#tz} -le 3 ]]; then
+    # Try to get from /etc/timezone (Linux)
+    if [[ -f /etc/timezone ]]; then
+      tz=$(cat /etc/timezone)
+    # Try to get from system preferences (macOS)
+    elif command -v systemsetup >/dev/null 2>&1; then
+      tz=$(systemsetup -gettimezone | awk '{print $NF}')
+    # Fall back to TZ environment variable or UTC
+    else
+      tz="${TZ:-UTC}"
+    fi
+  fi
+  
+  echo "$tz"
+}
+
+# Function to set timezone environment variable
+set_timezone_env() {
+  local tz=$(get_system_timezone)
+  export TZ="$tz"
+  echo "System timezone detected: $tz"
+}
+
 # Function to validate docker-compose.yml existence
 validate_docker_compose() {
   if [[ ! -f "$SCRIPT_DIR/docker-compose.dev.yml" ]]; then
@@ -873,5 +902,7 @@ initialize_freesurfer_derivative >/dev/null 2>&1
 
 # Ensure SimNIBS derivative dataset description exists
 initialize_simnibs_derivative >/dev/null 2>&1
+
+set_timezone_env >/dev/null 2>&1
 
 run_docker_compose

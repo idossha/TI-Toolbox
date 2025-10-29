@@ -43,6 +43,8 @@ services:
       # Project paths
       LOCAL_PROJECT_DIR: ${LOCAL_PROJECT_DIR}
       PROJECT_DIR_NAME: ${PROJECT_DIR_NAME}
+      # Timezone configuration
+      TZ: ${TZ:-UTC}
       # Performance settings
       KMP_AFFINITY: "disabled"
     networks:

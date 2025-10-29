@@ -19,6 +19,7 @@ RUN apt-get update && apt-get install -y \
     gettext \
     locales \
     fontconfig \
+    tzdata \
     \
     # Python environment
     python3.11 \
@@ -76,8 +77,9 @@ RUN apt-get update && apt-get install -y \
     libqt5core5a \
     libqt5svg5 \
     libqt5opengl5 \
-    qt5-default \
     qtbase5-dev \
+    qtbase5-dev-tools \
+    qtchooser \
     \
     # GTK libraries (for legacy GUI applications)
     libgtk2.0-0 \
@@ -111,6 +113,10 @@ RUN python3.11 -m pip install --upgrade pip && \
     ln -sf /usr/bin/python3.11 /usr/bin/python3 && \
     ln -sf /usr/bin/python3.11 /usr/bin/python
 
+# Avoid OpenMP affinity crash during postinstall
+ENV OMP_NUM_THREADS=1
+ENV KMP_AFFINITY=disabled
+
 ######## Install SimNIBS ################
 RUN mkdir -p /simnibs && chmod -R 755 /simnibs
 
@@ -128,12 +134,12 @@ RUN git clone https://github.com/idossha/TI-Toolbox.git /ti-toolbox
 RUN find /ti-toolbox -name "*.sh" -exec dos2unix {} \;
 
 # EEG caps for CSC 
-RUN mkdir -p $SIMNIBSDIR/resources/ElectrodeCaps_MNI/
-RUN cp /ti-toolbox/resources/ElectrodeCaps_MNI/* $SIMNIBSDIR/resources/ElectrodeCaps_MNI/
+RUN mkdir -p $SIMNIBSDIR/assets/ElectrodeCaps_MNI/
+RUN cp /ti-toolbox/assets/ElectrodeCaps_MNI/* $SIMNIBSDIR/assets/ElectrodeCaps_MNI/
 
 # Flex extention by Ido Haber 
 RUN rm -f $SIMNIBSDIR/simnibs/optimization/tes_flex_optimization/tes_flex_optimization.py && \
-    cp /ti-toolbox/resources/map-electrodes/tes_flex_optimization.py $SIMNIBSDIR/simnibs/optimization/tes_flex_optimization/tes_flex_optimization.py
+    cp /ti-toolbox/assets/map-electrodes/tes_flex_optimization.py $SIMNIBSDIR/simnibs/optimization/tes_flex_optimization/tes_flex_optimization.py
 
 ############ CLI tools ###############
 
@@ -156,7 +162,7 @@ RUN nvim --headless "+LAZY! sync" +qa
 RUN tmux source-file /root/.tmux.conf || true
 
 # Entry point script to ensure XDG_RUNTIME_DIR exists
-COPY /development/blueprint/entrypoint.sh /usr/local/bin/entrypoint.sh
+COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
 
 # Make CLI and tool scripts executable for testing
