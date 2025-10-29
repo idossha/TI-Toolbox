@@ -68,6 +68,34 @@ def load_mti_module(tmpdir):
     sys.modules['tools'] = utils_pkg
     sys.modules['tools.logging_util'] = logging_util
 
+    # Mock core.paths module (PathManager)
+    core_pkg = ModuleType('core')
+    
+    # Create mock PathManager
+    class MockPathManager:
+        def __init__(self):
+            self.project_dir = str(tmpdir)
+            
+        def get_derivatives_dir(self):
+            return os.path.join(str(tmpdir), 'derivatives')
+        
+        def get_simnibs_dir(self):
+            return os.path.join(str(tmpdir), 'derivatives', 'SimNIBS')
+        
+        def get_m2m_dir(self, subject_id):
+            # Return a path to m2m directory
+            m2m_path = os.path.join(str(tmpdir), 'derivatives', 'SimNIBS', f'sub-{subject_id}', f'm2m_{subject_id}')
+            os.makedirs(m2m_path, exist_ok=True)
+            return m2m_path
+    
+    mock_pm_instance = MockPathManager()
+    
+    def get_path_manager():
+        return mock_pm_instance
+    
+    core_pkg.get_path_manager = get_path_manager
+    sys.modules['core'] = core_pkg
+
     # Provide minimal CLI args expected by mTI.py to avoid IndexError at import time
     # Args: script, subject_id, sim_type, project_dir, simulation_dir, intensities, shape, dims, thickness, eeg_net, montage
     sys.argv = [
@@ -84,7 +112,7 @@ def load_mti_module(tmpdir):
         'central_montage'         # montage name (argv[10])
     ]
 
-    module_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'simulator', 'mTI.py')
+    module_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'ti-toolbox', 'sim', 'mTI.py')
     spec = importlib.util.spec_from_file_location('mti_module', module_path)
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)

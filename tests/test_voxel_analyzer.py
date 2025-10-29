@@ -24,9 +24,10 @@ from pathlib import Path
 from unittest.mock import Mock, patch, MagicMock, call, mock_open
 from io import StringIO
 
-# Add project root to path
+# Add ti-toolbox directory to path
 project_root = str(Path(__file__).resolve().parent.parent)
-sys.path.insert(0, project_root)
+ti_toolbox_dir = str(Path(project_root) / 'ti-toolbox')
+sys.path.insert(0, ti_toolbox_dir)
 
 # Mock external dependencies before importing voxel_analyzer
 from unittest.mock import MagicMock

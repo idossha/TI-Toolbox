@@ -23,7 +23,7 @@ from pathlib import Path
 import argparse
 
 # Add the analyzer directory to the path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'analyzer'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'ti-toolbox', 'analyzer'))
 
 # Import the module under test
 try:
@@ -32,7 +32,7 @@ except ImportError as e:
     # If relative imports fail, try absolute import
     import sys
     import os
-    analyzer_path = os.path.join(os.path.dirname(__file__), '..', 'analyzer')
+    analyzer_path = os.path.join(os.path.dirname(__file__), '..', 'ti-toolbox', 'analyzer')
     if analyzer_path not in sys.path:
         sys.path.insert(0, analyzer_path)
     import group_analyzer

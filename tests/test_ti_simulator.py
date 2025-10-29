@@ -90,6 +90,34 @@ def load_ti_module(mock_tmpdir):
     sys.modules['tools'] = utils_pkg
     sys.modules['tools.logging_util'] = logging_util
 
+    # Mock core.paths module (PathManager)
+    core_pkg = ModuleType('core')
+    
+    # Create mock PathManager
+    class MockPathManager:
+        def __init__(self):
+            self.project_dir = str(mock_tmpdir)
+            
+        def get_derivatives_dir(self):
+            return os.path.join(str(mock_tmpdir), 'derivatives')
+        
+        def get_simnibs_dir(self):
+            return os.path.join(str(mock_tmpdir), 'derivatives', 'SimNIBS')
+        
+        def get_m2m_dir(self, subject_id):
+            # Return a path to m2m directory
+            m2m_path = os.path.join(str(mock_tmpdir), 'derivatives', 'SimNIBS', f'sub-{subject_id}', f'm2m_{subject_id}')
+            os.makedirs(m2m_path, exist_ok=True)
+            return m2m_path
+    
+    mock_pm_instance = MockPathManager()
+    
+    def get_path_manager():
+        return mock_pm_instance
+    
+    core_pkg.get_path_manager = get_path_manager
+    sys.modules['core'] = core_pkg
+
     # Provide minimal CLI args expected by TI.py to avoid IndexError at import time
     sys.argv = [
         'TI.py',
@@ -106,8 +134,8 @@ def load_ti_module(mock_tmpdir):
         'dummy_montage'            # montage name (argv[11])
     ]
 
-    # Load simulator/TI.py
-    module_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'simulator', 'TI.py')
+    # Load ti-toolbox/sim/TI.py
+    module_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'ti-toolbox', 'sim', 'TI.py')
     spec = importlib.util.spec_from_file_location('ti_module', module_path)
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)

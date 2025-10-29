@@ -110,8 +110,12 @@ cat > code/ti-toolbox/config/montage_list.json << 'EOF'
 }
 EOF
 
-# Download and setup ErnieExtended data
+# Create base directory structure
+echo -e "${CYAN}Creating directory structure...${NC}"
 mkdir -p /mnt/test_projectdir/derivatives/SimNIBS/sub-ernie_extended/m2m_ernie_extended
+mkdir -p /mnt/test_projectdir/derivatives/SimNIBS/sub-ernie_extended/Simulations
+
+# Download and setup ErnieExtended data
 echo -e "${CYAN}Downloading ErnieExtended data from OSF...${NC}"
 
 # Try downloading with proper OSF URL format
@@ -139,14 +143,18 @@ else
 fi
 
 # Download and setup "test_montage", this a example of simulation data that will be used for the analyzer testing
-mkdir -p /mnt/test_projectdir/derivatives/SimNIBS/sub-ernie_extended/Simulations
+echo -e "${CYAN}Downloading test_montage simulation data...${NC}"
 curl -L -o /tmp/test_montage.zip "https://archive.org/download/test_montage/test_montage.zip"
+
+echo -e "${CYAN}Extracting test_montage simulation data...${NC}"
 unzip -q /tmp/test_montage.zip -d /tmp/ernie_simulation
 
 # Move the contents of test_montage into ernie_extend's simulations
 if [ -d "/tmp/ernie_simulation/test_montage" ]; then
     cp -r /tmp/ernie_simulation/test_montage* /mnt/test_projectdir/derivatives/SimNIBS/sub-ernie_extended/Simulations/
+    echo -e "${GREEN}✓ Simulation data copied${NC}"
 else
+    echo -e "${RED}Error: test_montage directory not found${NC}"
     find /tmp/ernie_simulation -maxdepth 3 -type d -print
     exit 1
 fi

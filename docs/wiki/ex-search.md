@@ -126,10 +126,11 @@ derivatives/SimNIBS/sub-{subject}/
 │   └── ROIs/                    # Target regions
 │       ├── roi_list.txt
 │       └── L_Insula.csv
-├── leadfield_vol_GSN-HydroCel-185/   # Leadfield matrices
-│   └── leadfield.hdf5
-└── leadfield_vol_EGI10-20_Okamoto_2004/
-    └── leadfield.hdf5
+└── leadfields/
+    ├── leadfield_vol_GSN-HydroCel-185/   # Leadfield matrices
+    │   └── leadfield.hdf5
+    └── leadfield_vol_EGI10-20_Okamoto_2004/
+        └── leadfield.hdf5
 ```
 
 ### Output Structure
