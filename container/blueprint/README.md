@@ -23,3 +23,7 @@ docker build --no-cache --platform linux/amd64 \
   -f Dockerfile.simnibs \
   -t idossha/simnibs:vX.X.X .
   ```
+
+---
+
+Always build the images when you are within the `blueprint` directory.
