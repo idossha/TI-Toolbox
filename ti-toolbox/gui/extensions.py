@@ -204,7 +204,7 @@ class ExtensionsTab(QtWidgets.QWidget):
         super(ExtensionsTab, self).__init__(parent)
         self.parent = parent
         self.main_window = main_window or parent  # Use parent as main_window if not provided
-        self.extensions_dir = Path(__file__).parent / "extentions"
+        self.extensions_dir = Path(__file__).parent / "extensions"
         self.setup_ui()
         self.load_extensions()
     
