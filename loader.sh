@@ -374,26 +374,25 @@ run_docker_compose() {
   esac
 }
 
-# Function to get system timezone
+# Get system timezone (3-letter code)
 get_system_timezone() {
-  local tz=$(date +%Z)
-  
-  if [[ -z "$tz" ]] || [[ ${#tz} -le 3 ]]; then
-    if [[ -f /etc/timezone ]]; then
-      tz=$(cat /etc/timezone)
-    elif command -v systemsetup >/dev/null 2>&1; then
-      tz=$(systemsetup -gettimezone | awk '{print $NF}')
-    else
-      tz="${TZ:-UTC}"
-    fi
+  local tz
+
+  if [[ "$OSTYPE" == "linux"* ]] || [[ "$OSTYPE" == "darwin"* ]]; then
+    tz=$(date +%Z)
+  elif [[ "$OS" == "Windows_NT" ]]; then
+    tz=$(tzutil /g 2>/dev/null | awk '{print substr($0,1,3)}')
+  else
+    tz="${TZ:-UTC}"
   fi
-  
+
   echo "$tz"
 }
 
-# Function to set timezone environment variable
+# Set timezone environment variable
 set_timezone_env() {
-  local tz=$(get_system_timezone)
+  local tz
+  tz=$(get_system_timezone)
   export TZ="$tz"
   echo "System timezone detected: $tz"
 }
@@ -487,6 +486,59 @@ EOF
     sed -i "s/PROJECT_NAME_PLACEHOLDER/$project_name/" "$readme_file"
   fi
 }
+
+# Function to setup example data for new projects
+setup_example_data_if_new() {
+  echo "═══════════════════════════════════════════════════════"
+  echo "DEBUG: setup_example_data_if_new() called"
+  echo "═══════════════════════════════════════════════════════"
+  
+  local toolbox_root="$SCRIPT_DIR/../.."
+  local example_data_manager="$toolbox_root/ti-toolbox/new_project/example_data_manager.py"
+  
+  echo "DEBUG: SCRIPT_DIR = $SCRIPT_DIR"
+  echo "DEBUG: toolbox_root = $toolbox_root"
+  echo "DEBUG: example_data_manager = $example_data_manager"
+  echo "DEBUG: LOCAL_PROJECT_DIR = $LOCAL_PROJECT_DIR"
+  
+  # Check if the example data manager exists
+  if [ ! -f "$example_data_manager" ]; then
+    echo "ERROR: Example data manager not found at $example_data_manager"
+    echo "DEBUG: Listing directory contents:"
+    ls -la "$toolbox_root/ti-toolbox/new_project/" 2>&1 || echo "Directory does not exist"
+    return 1
+  fi
+  
+  echo "DEBUG: ✓ Example data manager file found"
+  
+  # Check if Python is available (in dev mode, we're on host, not in Docker)
+  if command -v python3 >/dev/null 2>&1; then
+    echo "DEBUG: ✓ Python3 found at: $(which python3)"
+    echo "DEBUG: Python3 version: $(python3 --version)"
+    echo "Setting up example data for new project..."
+    echo "DEBUG: Running command: python3 $example_data_manager $toolbox_root $LOCAL_PROJECT_DIR"
+    
+    # Run the example data manager with verbose output
+    if python3 "$example_data_manager" "$toolbox_root" "$LOCAL_PROJECT_DIR" 2>&1; then
+      echo "✓ Example data setup completed successfully"
+    else
+      local exit_code=$?
+      echo "ERROR: Example data setup failed with exit code: $exit_code"
+      echo "Continuing with project initialization..."
+    fi
+  else
+    echo "ERROR: Python3 not available in PATH"
+    echo "DEBUG: Current PATH = $PATH"
+    echo "Skipping example data setup"
+  fi
+  
+  echo "═══════════════════════════════════════════════════════"
+  echo "DEBUG: setup_example_data_if_new() completed"
+  echo "═══════════════════════════════════════════════════════"
+}
+
+
+
 
 # Function to initialize root dataset_description.json
 initialize_dataset_description() {
