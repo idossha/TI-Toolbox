@@ -1,5 +1,3 @@
-
-
 Image building:
 
 docker build -f `file` -t `image_name` .

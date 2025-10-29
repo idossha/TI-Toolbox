@@ -107,65 +107,16 @@ RUN apt-get update && apt-get install -y \
     \
     && apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
-# Install Python packages and create symlinks
-RUN python3.11 -m pip install --upgrade pip && \
-    python3.11 -m pip install numpy scipy pandas meshio nibabel nilearn matplotlib PyOpenGL PyOpenGL-accelerate PyQt5 && \
-    ln -sf /usr/bin/python3.11 /usr/bin/python3 && \
-    ln -sf /usr/bin/python3.11 /usr/bin/python
-
-# Avoid OpenMP affinity crash during postinstall
-ENV OMP_NUM_THREADS=1
-ENV KMP_AFFINITY=disabled
-
-######## Install SimNIBS ################
-RUN mkdir -p /simnibs && chmod -R 755 /simnibs
-
-RUN wget https://github.com/simnibs/simnibs/releases/download/v4.5.0/simnibs_installer_linux.tar.gz -P /simnibs \
-    && tar -xzf /simnibs/simnibs_installer_linux.tar.gz -C /simnibs \
-    && /simnibs/simnibs_installer/install -s
-
-ENV PATH="/root/SimNIBS-4.5/bin:$PATH"
-ENV SIMNIBSDIR="/root/SimNIBS-4.5"
-
-########### TI-Toolbox ########################
-RUN git clone https://github.com/idossha/TI-Toolbox.git /ti-toolbox
-
-# Convert all shell scripts to Unix line endings
-RUN find /ti-toolbox -name "*.sh" -exec dos2unix {} \;
-
-# EEG caps for CSC 
-RUN mkdir -p $SIMNIBSDIR/resources/ElectrodeCaps_MNI/
-RUN cp /ti-toolbox/resources/ElectrodeCaps_MNI/* $SIMNIBSDIR/resources/ElectrodeCaps_MNI/
-
-# Flex extention by Ido Haber 
-RUN rm -f $SIMNIBSDIR/simnibs/optimization/tes_flex_optimization/tes_flex_optimization.py && \
-    cp /ti-toolbox/resources/map-electrodes/tes_flex_optimization.py $SIMNIBSDIR/simnibs/optimization/tes_flex_optimization/tes_flex_optimization.py
-
-############ CLI tools ###############
-
-# Install Neovim v.0.11.0 from source 
-RUN git clone https://github.com/neovim/neovim.git /tmp/neovim \
-    && cd /tmp/neovim \
-    && git checkout v0.11.0 \
-    && make CMAKE_BUILD_TYPE=Release \ 
-    && make install \
-    && rm -rf /tmp/neovim
-
-# Create symlinks for config files
-RUN ln -sf /ti-toolbox/config/.tmux.conf /root/.tmux.conf && \
-ln -sf /ti-toolbox/config/nvim /root/.config/
-
-# Install plugins using lazy.nvim
-RUN nvim --headless "+LAZY! sync" +qa
-
-# Source tmux
-RUN tmux source-file /root/.tmux.conf || true
-
-# Copy the robust entrypoint script into the image
+# Entry point script to ensure XDG_RUNTIME_DIR exists
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
-
-# Make the script executable
 RUN chmod +x /usr/local/bin/entrypoint.sh
+
+# Configure FreeSurfer to be sourced automatically in all bash sessions
+RUN echo 'source /usr/local/freesurfer/SetUpFreeSurfer.sh' >> /root/.bashrc
+
+# Set working directory to TI-Toolbox
+WORKDIR /ti-toolbox
 
 # Set the entrypoint
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+

@@ -1,7 +1,7 @@
 services:
- 
+
   freesurfer:
-    image: idossha/ti-toolbox_freesurfer:v7.4.1
+    image: idossha/ti-toolbox_freesurfer:v7.4.1b
     platform: linux/amd64
     container_name: freesurfer_container
     volumes:
@@ -9,14 +9,12 @@ services:
     networks:
       - ti_network
     restart: unless-stopped
+    command: ["tail", "-f", "/dev/null"]
 
   simnibs:
-    image: idossha/simnibs:v2.1.3
+    image: idossha/simnibs:v2.2.0_final
     platform: linux/amd64
     container_name: simnibs_container
-    # Shared memory size for multiprocessing (joblib, scipy, etc.)
-    # Increase this if running parallel permutation tests or large optimizations
-    shm_size: '2gb'
     volumes:
       - ti-toolbox_freesurfer_data:/usr/local/freesurfer/
       - ${LOCAL_PROJECT_DIR}:/mnt/${PROJECT_DIR_NAME}
@@ -54,7 +52,6 @@ services:
     tty: true
     stdin_open: true
     working_dir: /ti-toolbox
-    command: ["/bin/bash"]
     restart: unless-stopped
 
 networks:

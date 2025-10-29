@@ -1,20 +1,8 @@
 #!/bin/bash
 
-# Source FreeSurfer environment setup script (only if FREESURFER_HOME is set and file exists)
-if [ -n "$FREESURFER_HOME" ]; then
-    if [ -f "$FREESURFER_HOME/SetUpFreeSurfer.sh" ]; then
-        source "$FREESURFER_HOME/SetUpFreeSurfer.sh"
-    else
-        # Fallback: manually set FreeSurfer paths if setup script is missing
-        export PATH="$FREESURFER_HOME/bin:$PATH"
-        export FREESURFER="$FREESURFER_HOME"
-        
-        # Set other FreeSurfer environment variables if not already set
-        [ -z "$SUBJECTS_DIR" ] && export SUBJECTS_DIR="$FREESURFER_HOME/subjects"
-        [ -z "$FS_LICENSE" ] && export FS_LICENSE="$FREESURFER_HOME/license.txt"
-        
-        echo "FreeSurfer environment manually configured (SetUpFreeSurfer.sh not found)"
-    fi
+# Source FreeSurfer environment setup script
+if [ -n "$FREESURFER_HOME" ] && [ -f "$FREESURFER_HOME/SetUpFreeSurfer.sh" ]; then
+    source "$FREESURFER_HOME/SetUpFreeSurfer.sh" >/dev/null 2>&1
 fi
 
 # Setup CLI tools if present
