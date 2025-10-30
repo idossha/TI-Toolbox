@@ -88,6 +88,11 @@ workflows:
       - build-and-run-tests:
           filters:
             branches:
-              ignore: 
+              ignore:
                 - main
                 - master
+            pull_requests:
+              types:
+                - opened
+                - synchronize
+                - reopened
