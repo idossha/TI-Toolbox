@@ -167,27 +167,11 @@ set_display_env() {
 }
 
 
-# Get system timezone (3-letter code)
-get_system_timezone() {
-  local tz
-
-  if [[ "$OSTYPE" == "linux"* ]] || [[ "$OSTYPE" == "darwin"* ]]; then
-    tz=$(date +%Z)
-  elif [[ "$OS" == "Windows_NT" ]]; then
-    tz=$(tzutil /g 2>/dev/null | awk '{print substr($0,1,3)}')
-  else
-    tz="${TZ:-UTC}"
-  fi
-
-  echo "$tz"
-}
-
-# Set timezone environment variable
-set_timezone_env() {
-  local tz
-  tz=$(get_system_timezone)
-  export TZ="$tz"
-  echo "System timezone detected: $tz"
+# Get current timestamp from host machine (cross-platform)
+get_host_timestamp() {
+  # Use date command which works on all Unix-like systems and Git Bash
+  # Format: Thu Oct 30 13:57:36 CDT 2025
+  date
 }
 
 
@@ -230,6 +214,9 @@ run_docker_compose() {
     echo "Pulling required Docker images..."
     docker compose -f "$SCRIPT_DIR/docker-compose.dev.yml" pull
   fi
+
+  # Set host machine timestamp for notes and logging
+  export HOST_TIMESTAMP="$(get_host_timestamp)"
 
   # Run Docker Compose
   echo "Starting services..."
@@ -898,7 +885,5 @@ initialize_freesurfer_derivative >/dev/null 2>&1
 
 # Ensure SimNIBS derivative dataset description exists
 initialize_simnibs_derivative >/dev/null 2>&1
-
-set_timezone_env >/dev/null 2>&1
 
 run_docker_compose

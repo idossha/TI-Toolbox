@@ -96,23 +96,14 @@ class NotesWindow(QtWidgets.QDialog):
             )
     
     def _get_timestamp_with_timezone(self):
-        """Get current timestamp with timezone info."""
-        try:
-            # Get a naive datetime object representing the current time
-            now_naive = datetime.now()
-            
-            # Convert the naive datetime object to a timezone-aware object,
-            # which automatically uses the local system's timezone
-            local_now_aware = now_naive.astimezone()
-            
-            # Format with timezone name
-            timestamp_str = local_now_aware.strftime("%Y-%m-%d %H:%M:%S")
-            timezone_name = local_now_aware.tzname()
-            
-            return f"{timestamp_str} {timezone_name}"
-        except Exception:
-            # Ultimate fallback - just use local time without timezone
-            return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        """Get current timestamp from host machine."""
+        import os
+        # Use the host timestamp passed from the loader
+        host_timestamp = os.environ.get('HOST_TIMESTAMP')
+        if host_timestamp:
+            return host_timestamp
+        # Fallback if env var not set
+        return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     
     def setup_ui(self):
         """Set up the notes UI."""

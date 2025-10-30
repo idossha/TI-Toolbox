@@ -2,6 +2,7 @@ import logging
 import sys
 import os
 from typing import List, Optional
+from datetime import datetime
 
 # ----------------------------------------------------------------------------
 # Custom handler for real-time output
@@ -27,6 +28,27 @@ class FlushingFileHandler(logging.FileHandler):
             self.flush()
         except Exception:
             self.handleError(record)
+
+class HostTimestampFormatter(logging.Formatter):
+    """Custom formatter that uses host timestamp from environment variable."""
+
+    def formatTime(self, record, datefmt=None):
+        """Override formatTime to use host timestamp."""
+        host_timestamp = os.environ.get('HOST_TIMESTAMP')
+        if host_timestamp:
+            # Extract just the time part from host timestamp (HH:MM:SS)
+            # Format is like: "Thu Oct 30 13:57:36 CDT 2025"
+            try:
+                # Split by spaces and get the time part (index 3)
+                parts = host_timestamp.split()
+                if len(parts) >= 4:
+                    time_part = parts[3]
+                    return time_part
+            except (IndexError, AttributeError):
+                pass
+        # Fallback to default formatting
+        return super().formatTime(record, datefmt)
+
 
 class CallbackHandler(logging.Handler):
     """Custom handler that redirects log messages to a callback function.
@@ -154,7 +176,7 @@ def get_logger(name: str,
         mode = 'w' if overwrite else 'a'
         file_handler = FlushingFileHandler(log_file, mode=mode)
         file_handler.setLevel(FILE_LOG_LEVEL)
-        file_handler.setFormatter(logging.Formatter(FILE_FORMAT, datefmt=DATE_FORMAT))
+        file_handler.setFormatter(HostTimestampFormatter(FILE_FORMAT, datefmt=DATE_FORMAT))
         # Force immediate flushing for file output too
         if hasattr(file_handler.stream, 'reconfigure'):
             file_handler.stream.reconfigure(line_buffering=True)
@@ -248,7 +270,7 @@ def get_file_only_logger(name: str,
     # Add only file handler (no console handler)
     file_handler = FlushingFileHandler(log_file, mode='a')
     file_handler.setLevel(level)
-    file_handler.setFormatter(logging.Formatter(FILE_FORMAT, datefmt=DATE_FORMAT))
+    file_handler.setFormatter(HostTimestampFormatter(FILE_FORMAT, datefmt=DATE_FORMAT))
     logger.addHandler(file_handler)
     
     return logger

@@ -33,8 +33,8 @@ services:
       PROJECT_DIR_NAME: ${PROJECT_DIR_NAME}
       DEV_CODEBASE_DIR: ${DEV_CODEBASE_DIR}
       DEV_CODEBASE_NAME: ${DEV_CODEBASE_NAME}
-      # Timezone configuration
-      TZ: ${TZ:-UTC}
+      # Host machine timestamp for notes and logging
+      HOST_TIMESTAMP: ${HOST_TIMESTAMP}
       KMP_AFFINITY: "disabled"
     networks:
       - ti_network

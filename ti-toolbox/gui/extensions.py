@@ -241,16 +241,6 @@ class ExtensionsTab(QtWidgets.QWidget):
         
         scroll_area.setWidget(self.extensions_container)
         main_layout.addWidget(scroll_area)
-        
-        # Refresh button
-        button_layout = QtWidgets.QHBoxLayout()
-        button_layout.addStretch()
-        refresh_btn = QtWidgets.QPushButton("Refresh Extensions")
-        refresh_btn.clicked.connect(self.refresh_extensions)
-        refresh_btn.setMinimumWidth(150)
-        button_layout.addWidget(refresh_btn)
-        button_layout.addStretch()
-        main_layout.addLayout(button_layout)
     
     def load_extensions(self):
         """Load all extensions from the extensions directory."""
@@ -308,10 +298,6 @@ class ExtensionsTab(QtWidgets.QWidget):
                 error_label.setStyleSheet("color: red;")
                 error_layout.addWidget(error_label)
                 self.extensions_layout.addWidget(error_card)
-    
-    def refresh_extensions(self):
-        """Refresh the list of available extensions."""
-        self.load_extensions()
 
 
 class FloatingExtensionsWindow(QtWidgets.QDialog):
