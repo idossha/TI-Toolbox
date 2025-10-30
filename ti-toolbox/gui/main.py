@@ -384,16 +384,17 @@ def parse_version(version_str):
 
 def check_for_update(current_version, parent_window=None):
     """Check for updates and show a notification dialog if a newer version is available.
-    
+
     Args:
         current_version (str): The current version of the application
         parent_window (QWidget, optional): The parent window to center the dialog on
     """
     try:
-        url = "https://raw.githubusercontent.com/idossha/TI-Toolbox/main/docs/latest_version.txt"
+        url = "https://api.github.com/repos/idossha/TI-Toolbox/releases/latest"
         response = requests.get(url, timeout=2)
         if response.status_code == 200:
-            latest_version = response.text.strip()
+            release_data = response.json()
+            latest_version = release_data.get('tag_name', '').lstrip('v')  # Remove 'v' prefix if present
             if latest_version:
                 # Only prompt if remote version is strictly newer
                 if parse_version(latest_version) > parse_version(current_version):

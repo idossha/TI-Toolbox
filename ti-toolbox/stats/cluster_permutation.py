@@ -45,12 +45,12 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 try:
     from core import get_path_manager
     from core import constants as const
-    from core import nifti as nifti_utils
+    from core import nifti
 except ImportError:
     print("Warning: Could not import TI-Toolbox core modules. Some features may not work.")
     get_path_manager = None
     const = None
-    nifti_utils = None
+    nifti = None
 
 import nibabel as nib
 import pandas as pd
@@ -527,19 +527,28 @@ def run_analysis(subject_configs, analysis_name, config=None, output_callback=No
     # Average responders (compute in float32 to save memory)
     avg_responders = np.mean(responders, axis=-1).astype(np.float32)
     avg_resp_file = os.path.join(output_dir, 'average_responders.nii.gz')
-    nifti_utils.save_nifti_like(avg_responders, template_img, avg_resp_file)
+    # Save NIfTI file
+    os.makedirs(os.path.dirname(avg_resp_file) or ".", exist_ok=True)
+    img = nib.Nifti1Image(avg_responders, template_img.affine, template_img.header)
+    nib.save(img, avg_resp_file)
     logger.info(f"Saved: average_responders.nii.gz")
     
     # Average non-responders (compute in float32 to save memory)
     avg_non_responders = np.mean(non_responders, axis=-1).astype(np.float32)
     avg_non_resp_file = os.path.join(output_dir, 'average_non_responders.nii.gz')
-    nifti_utils.save_nifti_like(avg_non_responders, template_img, avg_non_resp_file)
+    # Save NIfTI file
+    os.makedirs(os.path.dirname(avg_non_resp_file) or ".", exist_ok=True)
+    img = nib.Nifti1Image(avg_non_responders, template_img.affine, template_img.header)
+    nib.save(img, avg_non_resp_file)
     logger.info(f"Saved: average_non_responders.nii.gz")
     
     # Difference map
     diff_map = (avg_responders - avg_non_responders).astype(np.float32)
     diff_file = os.path.join(output_dir, 'difference_map.nii.gz')
-    nifti_utils.save_nifti_like(diff_map, template_img, diff_file)
+    # Save NIfTI file
+    os.makedirs(os.path.dirname(diff_file) or ".", exist_ok=True)
+    img = nib.Nifti1Image(diff_map, template_img.affine, template_img.header)
+    nib.save(img, diff_file)
     logger.info(f"Saved: difference_map.nii.gz")
     
     logger.info(f"Mean difference in brain: {np.mean(diff_map[valid_mask]):.4f}")
@@ -588,14 +597,20 @@ def run_analysis(subject_configs, analysis_name, config=None, output_callback=No
     
     # Binary mask
     output_mask = os.path.join(output_dir, 'significant_voxels_mask.nii.gz')
-    nifti_utils.save_nifti_like(sig_mask, template_img, output_mask, dtype=np.uint8)
+    # Save NIfTI file
+    os.makedirs(os.path.dirname(output_mask) or ".", exist_ok=True)
+    img = nib.Nifti1Image(sig_mask.astype(np.uint8), template_img.affine, template_img.header)
+    nib.save(img, output_mask)
     logger.info(f"Saved: significant_voxels_mask.nii.gz")
     
     # P-values map (as -log10 for visualization)
     log_p = -np.log10(p_values + 1e-10)
     log_p[~valid_mask] = 0
     output_pvalues = os.path.join(output_dir, 'pvalues_map.nii.gz')
-    nifti_utils.save_nifti_like(log_p, template_img, output_pvalues)
+    # Save NIfTI file
+    os.makedirs(os.path.dirname(output_pvalues) or ".", exist_ok=True)
+    img = nib.Nifti1Image(log_p, template_img.affine, template_img.header)
+    nib.save(img, output_pvalues)
     logger.info(f"Saved: pvalues_map.nii.gz")
     
     # Summary report

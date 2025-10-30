@@ -11,6 +11,9 @@ import os
 from pathlib import Path
 from PyQt5 import QtWidgets, QtCore, QtGui
 import json
+import numpy as np
+import nibabel as nib
+import gc
 
 # Extension metadata (required)
 EXTENSION_NAME = "NIfTI Group Averaging"
@@ -628,76 +631,43 @@ class AnalysisThread(QtCore.QThread):
             
             self.output_signal.emit(f"Output directory: {output_dir}")
             
-            # Organize subjects by group
-            groups = {}
-            for config in self.subject_configs:
-                group = config['group']
-                if group not in groups:
-                    groups[group] = []
-                groups[group].append(config)
-            
-            self.output_signal.emit(f"\nFound {len(groups)} groups:")
-            for group, configs in groups.items():
-                self.output_signal.emit(f"  • {group}: {len(configs)} subjects")
-            
-            # Load and average each group
+            # Load subjects organized by groups using core nifti function
+            self.output_signal.emit(f"\nLoading subject data...")
+            groups_data, template_img, groups_ids = nifti.load_grouped_subjects_ti_toolbox(
+                self.subject_configs,
+                nifti_file_pattern=self.config['nifti_file_pattern'],
+                dtype=np.float32
+            )
+
+            self.output_signal.emit(f"\nFound {len(groups_data)} groups:")
+            for group_name, data_4d in groups_data.items():
+                subject_ids = groups_ids[group_name]
+                self.output_signal.emit(f"  • {group_name}: {data_4d.shape[-1]} subjects ({', '.join(subject_ids)})")
+
+            # Compute averages for each group
             group_averages = {}
             group_images = {}
-            
-            for group_name, group_configs in groups.items():
+
+            for group_name, data_4d in groups_data.items():
                 self.output_signal.emit(f"\nProcessing group: {group_name}")
-                
-                # Collect file paths for this group
-                filepaths = []
-                for config in group_configs:
-                    subject_id = config['subject_id']
-                    simulation_name = config['simulation_name']
-                    
-                    # Construct file path
-                    nifti_dir = os.path.join(
-                        project_dir,
-                        const.DIR_DERIVATIVES,
-                        const.DIR_SIMNIBS,
-                        f"{const.PREFIX_SUBJECT}{subject_id}",
-                        "Simulations",
-                        simulation_name,
-                        "TI",
-                        "niftis"
-                    )
-                    
-                    filename = self.config['nifti_file_pattern'].format(
-                        subject_id=subject_id,
-                        simulation_name=simulation_name
-                    )
-                    filepath = os.path.join(nifti_dir, filename)
-                    
-                    if os.path.exists(filepath):
-                        filepaths.append(filepath)
-                        self.output_signal.emit(f"  ✓ Found: {subject_id} - {simulation_name}")
-                    else:
-                        self.output_signal.emit(f"  ✗ Missing: {subject_id} - {simulation_name}")
-                
-                if len(filepaths) == 0:
-                    self.output_signal.emit(f"  Warning: No files found for group {group_name}")
-                    continue
-                
-                self.output_signal.emit(f"  Computing average of {len(filepaths)} files...")
-                
+
                 # Compute average
-                avg_data, template_img = nifti.average_niftis(
-                    filepaths,
-                    verify_shape=True,
-                    verify_affine=True
-                )
-                
+                avg_data = np.mean(data_4d, axis=-1).astype(np.float32)
                 group_averages[group_name] = avg_data
                 group_images[group_name] = template_img
-                
+
                 # Save group average
                 output_filename = f"average_{group_name}.nii.gz"
                 output_path = os.path.join(output_dir, output_filename)
-                nifti.save_nifti_like(avg_data, template_img, output_path)
+                # Save NIfTI file
+                os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
+                img = nib.Nifti1Image(avg_data, template_img.affine, template_img.header)
+                nib.save(img, output_path)
                 self.output_signal.emit(f"  ✓ Saved: {output_filename}")
+
+                # Clean up
+                del data_4d
+                gc.collect()
             
             # Compute differences between groups
             self.output_signal.emit("\nComputing group differences...")
@@ -728,15 +698,15 @@ class AnalysisThread(QtCore.QThread):
                         continue
                     
                     # Compute difference
-                    diff_data = nifti.compute_difference(
-                        group_averages[group1],
-                        group_averages[group2]
-                    )
+                    diff_data = (group_averages[group1] - group_averages[group2]).astype(np.float32)
                     
                     # Save difference
                     output_filename = f"difference_{group1}_minus_{group2}.nii.gz"
                     output_path = os.path.join(output_dir, output_filename)
-                    nifti.save_nifti_like(diff_data, group_images[group1], output_path)
+                    # Save NIfTI file
+                    os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
+                    img = nib.Nifti1Image(diff_data, group_images[group1].affine, group_images[group1].header)
+                    nib.save(img, output_path)
                     differences.append(f"{group1} - {group2}")
                     self.output_signal.emit(f"  ✓ Saved: {output_filename}")
             else:
@@ -745,15 +715,15 @@ class AnalysisThread(QtCore.QThread):
                 for i, group1 in enumerate(group_names):
                     for group2 in group_names[i+1:]:
                         # Compute difference
-                        diff_data = nifti.compute_difference(
-                            group_averages[group1],
-                            group_averages[group2]
-                        )
+                        diff_data = (group_averages[group1] - group_averages[group2]).astype(np.float32)
                         
                         # Save difference
                         output_filename = f"difference_{group1}_minus_{group2}.nii.gz"
                         output_path = os.path.join(output_dir, output_filename)
-                        nifti.save_nifti_like(diff_data, group_images[group1], output_path)
+                        # Save NIfTI file
+                        os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
+                        img = nib.Nifti1Image(diff_data, group_images[group1].affine, group_images[group1].header)
+                        nib.save(img, output_path)
                         differences.append(f"{group1} - {group2}")
                         self.output_signal.emit(f"  ✓ Saved: {output_filename}")
             
@@ -763,7 +733,7 @@ class AnalysisThread(QtCore.QThread):
                 json.dump({
                     'analysis_name': self.analysis_name,
                     'nifti_pattern': self.config['nifti_file_pattern'],
-                    'groups': {group: [c for c in group_configs] for group, group_configs in groups.items()},
+                    'groups': {group: groups_ids[group] for group in groups_data.keys()},
                     'differences': differences
                 }, f, indent=2)
             self.output_signal.emit(f"\n✓ Configuration saved: config.json")
