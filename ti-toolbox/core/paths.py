@@ -213,11 +213,15 @@ class PathManager:
         subject_dir = self.get_subject_dir(subject_id)
         if not subject_dir or not os.path.exists(subject_dir):
             return []
-        
+        # Simulations live under the 'Simulations' subdirectory of the subject root
+        sim_root = os.path.join(subject_dir, "Simulations")
+        if not os.path.isdir(sim_root):
+            return []
+
         simulations = []
-        for item in os.listdir(subject_dir):
-            item_path = os.path.join(subject_dir, item)
-            if os.path.isdir(item_path) and not item.startswith(const.DIR_M2M_PREFIX):
+        for item in os.listdir(sim_root):
+            item_path = os.path.join(sim_root, item)
+            if os.path.isdir(item_path):
                 simulations.append(item)
         
         simulations.sort()
@@ -234,10 +238,35 @@ class PathManager:
         Returns:
             Path to simulation directory or None
         """
-        subject_dir = self.get_subject_dir(subject_id)
-        if subject_dir:
-            return os.path.join(subject_dir, simulation_name)
+        subject_root = None
+        simnibs_dir = self.get_simnibs_dir()
+        if simnibs_dir:
+            subject_root = os.path.join(simnibs_dir, f"{const.PREFIX_SUBJECT}{subject_id}")
+        if subject_root and os.path.isdir(subject_root):
+            return os.path.join(subject_root, "Simulations", simulation_name)
         return None
+
+    def get_ti_mesh_path(self, subject_id: str, simulation_name: str) -> Optional[str]:
+        """
+        Get the volumetric TI mesh path for a simulation.
+        Returns: .../derivatives/SimNIBS/sub-<id>/Simulations/<sim>/TI/mesh/<sim>_TI.msh
+        """
+        sim_dir = self.get_simulation_dir(subject_id, simulation_name)
+        if not sim_dir:
+            return None
+        ti_mesh_dir = os.path.join(sim_dir, "TI", "mesh")
+        return os.path.join(ti_mesh_dir, f"{simulation_name}_TI{const.EXT_MESH}")
+
+    def get_ti_central_surface_path(self, subject_id: str, simulation_name: str) -> Optional[str]:
+        """
+        Get the expected central surface mesh path produced by msh2cortex.
+        Returns: .../derivatives/SimNIBS/sub-<id>/Simulations/<sim>/TI/mesh/surfaces/<sim>_TI_central.msh
+        """
+        sim_dir = self.get_simulation_dir(subject_id, simulation_name)
+        if not sim_dir:
+            return None
+        surfaces_dir = os.path.join(sim_dir, "TI", "mesh", "surfaces")
+        return os.path.join(surfaces_dir, f"{simulation_name}_TI_central{const.EXT_MESH}")
     
     def get_eeg_positions_dir(self, subject_id: str) -> Optional[str]:
         """
