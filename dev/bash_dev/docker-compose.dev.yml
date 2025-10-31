@@ -34,7 +34,7 @@ services:
       DEV_CODEBASE_DIR: ${DEV_CODEBASE_DIR}
       DEV_CODEBASE_NAME: ${DEV_CODEBASE_NAME}
       # Host machine timestamp for notes and logging
-      HOST_TIMESTAMP: ${HOST_TIMESTAMP}
+      TZ: ${TZ}
       KMP_AFFINITY: "disabled"
     networks:
       - ti_network

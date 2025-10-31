@@ -30,7 +30,6 @@ from components.console import ConsoleWidget
 from components.action_buttons import RunStopButtons
 from core import get_path_manager
 from tools.report_util import get_simulation_report_generator
-from electrode_placement_gui import ElectrodePlacementGUI
 
 # Utility: strip ANSI/VT100 escape sequences from text (e.g., "\x1b[0;32m")
 ANSI_ESCAPE_PATTERN = re.compile(r"\x1B\[[0-?]*[ -/]*[@-~]")
@@ -459,16 +458,10 @@ class SimulatorTab(QtWidgets.QWidget):
         self.clear_montage_selection_btn = QtWidgets.QPushButton("Clear")
         self.clear_montage_selection_btn.clicked.connect(self.clear_montage_selection)
         
-        # Add button to launch electrode placement GUI
-        self.launch_electrode_placement_btn = QtWidgets.QPushButton("Place Electrodes")
-        self.launch_electrode_placement_btn.setToolTip("Launch electrode placement GUI to create free-hand configurations")
-        self.launch_electrode_placement_btn.clicked.connect(self.launch_electrode_placement_gui)
-        
         montage_button_layout.addWidget(self.add_new_montage_btn)
         montage_button_layout.addWidget(self.remove_montage_btn)
         montage_button_layout.addWidget(self.list_montages_btn)
         montage_button_layout.addWidget(self.clear_montage_selection_btn)
-        montage_button_layout.addWidget(self.launch_electrode_placement_btn)
         montage_button_layout.addStretch()  # Push buttons to the top
         
         montage_content_layout.addLayout(montage_button_layout)
@@ -966,18 +959,6 @@ class SimulatorTab(QtWidgets.QWidget):
                     continue
         except Exception as e:
             self.update_output(f"Error loading free-hand configs: {e}", 'error')
-    
-    def launch_electrode_placement_gui(self):
-        # Keep a reference so the window isn't garbage collected
-        if not hasattr(self, '_electrode_placement_gui') or self._electrode_placement_gui is None:
-            self._electrode_placement_gui = ElectrodePlacementGUI()
-        self._electrode_placement_gui.show()
-        try:
-            self._electrode_placement_gui.raise_()
-            self._electrode_placement_gui.activateWindow()
-        except Exception:
-            pass
-     
     
     def refresh_flex_search_list(self):
         """Refresh the list of available flex-search outputs based on selected subjects."""

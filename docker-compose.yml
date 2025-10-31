@@ -1,7 +1,7 @@
 services:
 
   freesurfer:
-    image: idossha/ti-toolbox_freesurfer:v7.4.1b
+    image: idossha/ti-toolbox_freesurfer:v7.4.1
     platform: linux/amd64
     container_name: freesurfer_container
     volumes:
@@ -42,7 +42,7 @@ services:
       LOCAL_PROJECT_DIR: ${LOCAL_PROJECT_DIR}
       PROJECT_DIR_NAME: ${PROJECT_DIR_NAME}
       # Host machine timestamp for notes and logging
-      HOST_TIMESTAMP: ${HOST_TIMESTAMP}
+      TZ: ${TZ}
       # Performance settings
       KMP_AFFINITY: "disabled"
     networks:

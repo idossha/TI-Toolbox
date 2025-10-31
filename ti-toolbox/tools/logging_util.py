@@ -3,6 +3,12 @@ import sys
 import os
 from typing import List, Optional
 from datetime import datetime
+try:
+    from zoneinfo import ZoneInfo
+except ImportError:
+    # Fallback for older Python versions
+    import pytz
+    ZoneInfo = lambda tz: pytz.timezone(tz)
 
 # ----------------------------------------------------------------------------
 # Custom handler for real-time output
@@ -30,24 +36,18 @@ class FlushingFileHandler(logging.FileHandler):
             self.handleError(record)
 
 class HostTimestampFormatter(logging.Formatter):
-    """Custom formatter that uses host timestamp from environment variable."""
+    """Custom formatter that uses host timezone from environment variable."""
 
     def formatTime(self, record, datefmt=None):
-        """Override formatTime to use host timestamp."""
-        host_timestamp = os.environ.get('HOST_TIMESTAMP')
-        if host_timestamp:
-            # Extract just the time part from host timestamp (HH:MM:SS)
-            # Format is like: "Thu Oct 30 13:57:36 CDT 2025"
-            try:
-                # Split by spaces and get the time part (index 3)
-                parts = host_timestamp.split()
-                if len(parts) >= 4:
-                    time_part = parts[3]
-                    return time_part
-            except (IndexError, AttributeError):
-                pass
-        # Fallback to default formatting
-        return super().formatTime(record, datefmt)
+        """Override formatTime to use host timezone."""
+        tz_name = os.environ.get('TZ', 'UTC')
+        try:
+            tz = ZoneInfo(tz_name)
+            dt = datetime.now(tz)
+            return dt.strftime("%H:%M:%S")
+        except Exception:
+            # Fallback to default formatting
+            return super().formatTime(record, datefmt)
 
 
 class CallbackHandler(logging.Handler):

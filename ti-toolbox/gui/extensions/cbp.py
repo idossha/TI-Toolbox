@@ -15,7 +15,7 @@ import json
 
 # Extension metadata (required)
 EXTENSION_NAME = "Cluster-Based Permutation Testing"
-EXTENSION_DESCRIPTION = "Non-parametric statistical analysis to identify significant brain regions between groups using cluster-based permutation correction."
+EXTENSION_DESCRIPTION = "Non-parametric statistical analysis using cluster-based permutation correction."
 
 
 # Add TI-Toolbox to path
@@ -110,7 +110,6 @@ class SubjectRow(QtWidgets.QWidget):
         
         self.response_combo.setCurrentIndex(0 if config['response'] == 1 else 1)
 
-
 class ClusterPermutationWidget(QtWidgets.QWidget):
     """Main widget for cluster-based permutation testing"""
 
@@ -142,7 +141,7 @@ class ClusterPermutationWidget(QtWidgets.QWidget):
         layout.addWidget(header_label)
         
         desc_label = QtWidgets.QLabel(
-            "Identify brain regions with significant differences between responders and non-responders "
+            "Identify brain regions with significant differences between groups"
             "using non-parametric cluster-based permutation correction."
         )
         desc_label.setWordWrap(True)

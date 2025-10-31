@@ -498,19 +498,12 @@ class MOVEATab(QtWidgets.QWidget):
         """Load ROI presets from opt/movea/presets.json"""
         try:
             presets_file = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 
-                                       'opt', 'movea', 'presets.json')
+                                       'opt', 'movea', 'roi_presets.json')
             if os.path.exists(presets_file):
                 with open(presets_file, 'r') as f:
                     data = json.load(f)
                     self.presets = data.get('regions', {})
-            else:
-                # Fallback to hardcoded presets
-                self.presets = {
-                    'motor': {'name': 'Motor Cortex', 'mni': [47, -13, 52]},
-                    'dlpfc': {'name': 'DLPFC', 'mni': [-39, 34, 37]},
-                    'hippocampus': {'name': 'Hippocampus', 'mni': [-31, -20, -14]},
-                }
-                print(f"Warning: presets.json not found, using defaults")
+
         except Exception as e:
             print(f"Error loading presets: {e}")
             self.presets = {}

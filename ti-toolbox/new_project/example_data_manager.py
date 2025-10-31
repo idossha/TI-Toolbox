@@ -16,9 +16,11 @@ import logging
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
-# Set up logging
-logging.basicConfig(level=logging.INFO)
+# Set up logging (no console output)
 logger = logging.getLogger(__name__)
+logger.addHandler(logging.NullHandler())
+logger.setLevel(logging.INFO)
+logger.propagate = False  # Prevent propagation to root logger
 
 
 class ExampleDataManager:
@@ -174,7 +176,6 @@ class ExampleDataManager:
             Tuple of (success: bool, copied_subjects: List[str])
         """
         if not self.check_example_data_exists():
-            logger.error("Example data not available for copying")
             return False, []
         
         if not self.is_new_project():

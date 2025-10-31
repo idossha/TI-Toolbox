@@ -11,11 +11,17 @@ import sys
 import os
 from pathlib import Path
 from datetime import datetime
+try:
+    from zoneinfo import ZoneInfo
+except ImportError:
+    # Fallback for older Python versions
+    import pytz
+    ZoneInfo = lambda tz: pytz.timezone(tz)
 from PyQt5 import QtWidgets, QtCore
 
 # Extension metadata (required)
 EXTENSION_NAME = "Quick Notes"
-EXTENSION_DESCRIPTION = "Take quick notes during your analysis sessions with timestamps. Notes are saved persistently."
+EXTENSION_DESCRIPTION = "Take quick notes during your analysis sessions with timestamps."
 
 # Add TI-Toolbox to path
 ti_toolbox_path = Path(__file__).parent.parent.parent
@@ -96,14 +102,18 @@ class NotesWindow(QtWidgets.QDialog):
             )
     
     def _get_timestamp_with_timezone(self):
-        """Get current timestamp from host machine."""
+        """Get current timestamp with timezone from host machine."""
         import os
-        # Use the host timestamp passed from the loader
-        host_timestamp = os.environ.get('HOST_TIMESTAMP')
-        if host_timestamp:
-            return host_timestamp
-        # Fallback if env var not set
-        return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        # Use the host timezone passed from the loader
+        tz_name = os.environ.get('TZ', 'UTC')
+        try:
+            tz = ZoneInfo(tz_name)
+            dt = datetime.now(tz)
+            return dt.strftime("%Y-%m-%d %H:%M:%S %Z")
+        except Exception as e:
+            # Fallback if timezone is invalid or zoneinfo not available
+            print(f"Warning: Could not use timezone '{tz_name}': {e}")
+            return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     
     def setup_ui(self):
         """Set up the notes UI."""

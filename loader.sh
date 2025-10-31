@@ -290,8 +290,8 @@ run_docker_compose() {
     docker compose -f "$SCRIPT_DIR/docker-compose.yml" pull
   fi
 
-  # Set host machine timestamp for notes and logging
-  export HOST_TIMESTAMP="$(get_host_timestamp)"
+  # Set host machine timezone for notes and logging
+  export TZ="$(get_host_timezone)"
 
   # Run Docker Compose
   echo "Starting services..."
@@ -375,6 +375,25 @@ run_docker_compose() {
     fi
     ;;
   esac
+}
+
+# Get current timezone from host machine (cross-platform)
+get_host_timezone() {
+  # Try different methods to get timezone name
+  if command -v timedatectl >/dev/null 2>&1; then
+    # Linux with systemd
+    timedatectl show --property=Timezone --value 2>/dev/null || echo "UTC"
+  elif [ -L /etc/localtime ]; then
+    # macOS and some Linux systems - localtime is a symlink
+    timezone_path=$(readlink /etc/localtime 2>/dev/null | sed 's|.*/zoneinfo/||')
+    echo "${timezone_path:-UTC}"
+  elif command -v systemsetup >/dev/null 2>&1; then
+    # macOS alternative
+    systemsetup -gettimezone 2>/dev/null | sed 's/Time Zone: //' || echo "UTC"
+  else
+    # Fallback - try to get from date command
+    date +%Z 2>/dev/null || echo "UTC"
+  fi
 }
 
 # Get current timestamp from host machine (cross-platform)
