@@ -229,7 +229,9 @@ def validate_args(args):
 
         if not os.path.isdir(m2m_path):
             raise ValueError(f"Subject {subject_id} m2m directory not found: {m2m_path}")
-        if not os.path.exists(field_path):
+        # For mesh analysis, field_path is actually a montage name, not a file path
+        # Skip file existence check for mesh analysis
+        if args.space != 'mesh' and not os.path.exists(field_path):
             raise ValueError(f"Subject {subject_id} field file not found: {field_path}")
 
         if args.space == 'voxel' and args.analysis_type == 'cortical':
@@ -244,21 +246,29 @@ def compute_subject_output_dir(args, subject_args: List[str]) -> str:
     matching the structure used in analyzer_tab.py:
     derivatives/SimNIBS/<subject_id>/Simulations/<montage_name>/Analyses/<Mesh-or-Voxel>/<analysis_description>/
     """
+    subject_id = subject_args[0]
     field_path = subject_args[2]
-    path_parts = Path(field_path).parts
 
     try:
-        # Locate "Simulations" in the file path
-        sim_idx = path_parts.index('Simulations')
-        # Montage name is the folder immediately after "Simulations"
-        montage_name = path_parts[sim_idx + 1]
-        # Build base up through: .../Simulations/<montage_name>
-        base_montage_dir = os.path.join(*path_parts[: sim_idx + 2])
+        if args.space == 'mesh':
+            # For mesh analysis, field_path is the montage name directly
+            montage_name = field_path
+            # Build the expected path structure
+            base_montage_dir = os.path.join(args.output_dir, f'sub-{subject_id}', 'Simulations', montage_name)
+        else:
+            # For voxel analysis, parse the montage name from the field file path
+            path_parts = Path(field_path).parts
+            # Locate "Simulations" in the file path
+            sim_idx = path_parts.index('Simulations')
+            # Montage name is the folder immediately after "Simulations"
+            montage_name = path_parts[sim_idx + 1]
+            # Build base up through: .../Simulations/<montage_name>
+            base_montage_dir = os.path.join(*path_parts[: sim_idx + 2])
 
         # Decide if this is a Mesh or Voxel subfolder
         space_dir = 'Mesh' if args.space == 'mesh' else 'Voxel'
         analyses_base = os.path.join(base_montage_dir, 'Analyses', space_dir)
-        
+
         # Create descriptive analysis folder name based on parameters
         if args.analysis_type == 'spherical':
             coords_str = '_'.join([str(c) for c in args.coordinates])
@@ -274,14 +284,19 @@ def compute_subject_output_dir(args, subject_args: List[str]) -> str:
                     analysis_name = f"whole_head_{atlas_name}"
             else:
                 analysis_name = f"region_{args.region}"
-        
+
         output_dir = os.path.join(analyses_base, analysis_name)
         os.makedirs(output_dir, exist_ok=True)
         return output_dir
 
     except (ValueError, IndexError):
-        # If "Simulations" isn't found, fall back to placing outputs next to the field file:
-        fallback = os.path.join(os.path.dirname(field_path), f"fallback_{subject_args[0]}")
+        # If parsing fails, fall back to a simple directory structure
+        if args.space == 'mesh':
+            # For mesh analysis, create fallback in the expected SimNIBS structure
+            fallback = os.path.join(args.output_dir, f'sub-{subject_id}', 'Simulations', field_path, 'Analyses', 'Mesh', 'fallback_analysis')
+        else:
+            # For voxel analysis, fall back to placing outputs next to the field file
+            fallback = os.path.join(os.path.dirname(field_path), f"fallback_{subject_id}")
         os.makedirs(fallback, exist_ok=True)
         return fallback
 
@@ -311,31 +326,11 @@ def build_main_analyzer_command(
     # Add arguments in the same order as analyzer_tab.py
     cmd += ["--m2m_subject_path", m2m_path]
     
-    # For mesh analysis, we need to determine the montage name from the field path
-    # For voxel analysis, we use the field path directly
+    # For mesh analysis, field_path is the montage name directly
+    # For voxel analysis, field_path is the actual file path
     if args.space == 'mesh':
-        # Extract montage directory name directly from the field path structure
-        # Path structure: .../Simulations/montage_directory/TI/mesh/filename.msh
-        path_parts = Path(field_path).parts
-        
-        try:
-            # Find the "Simulations" directory in the path
-            sim_idx = path_parts.index('Simulations')
-            # The montage directory is immediately after "Simulations"
-            montage_name = path_parts[sim_idx + 1]
-        except (ValueError, IndexError):
-            # Fallback: extract from filename if path structure is unexpected
-            field_filename = Path(field_path).stem
-            if field_filename.endswith('_TINormal'):
-                montage_name = field_filename.replace('_TINormal', 'Normal')
-            elif field_filename.endswith('_TI_Normal'):
-                montage_name = field_filename.replace('_TI_Normal', '_Normal')
-            elif field_filename.endswith('_TI'):
-                montage_name = field_filename.replace('_TI', '')
-            else:
-                montage_name = field_filename
-            
-        cmd += ["--montage_name", montage_name]
+        # field_path is already the montage name
+        cmd += ["--montage_name", field_path]
     else:
         cmd += ["--field_path", field_path]
     
