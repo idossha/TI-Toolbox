@@ -109,6 +109,12 @@ class AcknowledgmentsTab(QtWidgets.QWidget):
             "Gmsh",
             "C. Geuzaine and J.-F. Remacle. Gmsh: a three-dimensional finite element mesh generator with built-in pre- and post-processing facilities. International Journal for Numerical Methods in Engineering 79(11), pp. 1309-1331, 2009."
         )
+
+        self.add_acknowledgment_section(
+            scroll_layout, 
+            "Blender",
+            "https://github.com/blender"
+        )
         
         # Add a note at the bottom about missing acknowledgments
         note_label = QtWidgets.QLabel(
