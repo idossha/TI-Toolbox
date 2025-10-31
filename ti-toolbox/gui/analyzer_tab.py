@@ -21,7 +21,7 @@ from components.action_buttons import RunStopButtons
 # Import path manager from core
 import sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
-from core import get_path_manager
+from core import get_path_manager, get_simnibs_dir, get_freesurfer_mri_dir, get_simulation_dir, get_m2m_dir
 
 class AnalysisThread(QtCore.QThread):
     """Thread to run analysis in background to prevent GUI freezing."""
@@ -146,18 +146,44 @@ class AnalyzerTab(QtWidgets.QWidget):
     
     analysis_completed = QtCore.pyqtSignal(str, str, str)
     
+    @property
+    def is_group_mode(self):
+        """Determine if we're in group mode based on number of selected pairs."""
+        if hasattr(self, 'pairs_table') and self.pairs_table:
+            return self.pairs_table.rowCount() > 1
+        return False
+
+    def on_pairs_changed(self):
+        """Handle changes to subject-simulation pairs - update UI accordingly."""
+        try:
+            # Update coordinate space labels based on new mode
+            if hasattr(self, '_update_coordinate_space_labels'):
+                self._update_coordinate_space_labels()
+            # Update atlas visibility and options
+            if hasattr(self, 'update_atlas_combo'):
+                self.update_atlas_combo()
+            if self.is_group_mode and hasattr(self, 'type_cortical') and self.type_cortical.isChecked():
+                if hasattr(self, 'update_group_atlas_options'):
+                    self.update_group_atlas_options()
+            if hasattr(self, 'update_atlas_visibility'):
+                self.update_atlas_visibility()
+        except Exception as e:
+            # Silently ignore errors during UI setup
+            pass
+
     def __init__(self, parent=None):
         super(AnalyzerTab, self).__init__(parent)
         self.parent = parent
         self.analysis_running = False
         # self.analysis_process = None # This was the QProcess in original, now AnalysisThread
         self.optimization_process = None # Using this name for the AnalysisThread instance
-        self.is_group_mode = False
-        
-        self.group_montage_config = {}
-        self.group_field_config = {}
+        # is_group_mode is now determined dynamically based on number of pairs
+
         self.group_atlas_config = {}
-        
+
+        # Initialize PathManager
+        self.pm = get_path_manager()
+
         # Initialize debug mode (default to False)
         self.debug_mode = False
         # Initialize summary mode state and timers for non-debug summaries
@@ -167,10 +193,8 @@ class AnalyzerTab(QtWidgets.QWidget):
         self._last_output_dir = None
         self._last_plain_output_line = None
         self._summary_printed = set()
-        
+
         self.setup_ui()
-        
-        QtCore.QTimer.singleShot(500, self.list_subjects) # Delay subject listing
     
     def setup_ui(self):
         """Set up the user interface for the analyzer tab."""
@@ -207,85 +231,10 @@ class AnalyzerTab(QtWidgets.QWidget):
         left_layout = QtWidgets.QVBoxLayout(left_container)
         left_layout.setContentsMargins(0, 0, 0, 0)
         left_layout.setSpacing(2)
-        # Add mode selection toggle at the top
-        mode_container = QtWidgets.QGroupBox("Analysis Mode")
-        mode_layout = QtWidgets.QHBoxLayout(mode_container)
-        mode_layout.setContentsMargins(2, 2, 2, 2)
-        mode_layout.setSpacing(5)
-        mode_container.setSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Maximum)
-        self.single_mode_radio = QtWidgets.QRadioButton("Single Subject")
-        self.group_mode_radio = QtWidgets.QRadioButton("Group Analysis")
-        self.single_mode_radio.setChecked(True)  # Default to single mode
-        self.mode_group = QtWidgets.QButtonGroup(self)
-        self.mode_group.addButton(self.single_mode_radio)
-        self.mode_group.addButton(self.group_mode_radio)
-        mode_layout.addWidget(self.single_mode_radio)
-        mode_layout.addWidget(self.group_mode_radio)
-        left_layout.addWidget(mode_container)
         
-        # Create stacked widget to switch between entire subject containers
-        self.subject_selection_stack = QtWidgets.QStackedWidget()
-        
-        # Single mode: separate container with just dropdown
-        single_subject_container = QtWidgets.QGroupBox("Subject")
-        single_subject_layout = QtWidgets.QVBoxLayout(single_subject_container)
-        single_subject_layout.setContentsMargins(2, 2, 2, 2)
-        single_subject_layout.setSpacing(2)
-        single_subject_container.setSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Maximum)
-        self.subject_combo = QtWidgets.QComboBox()
-        self.subject_combo.addItem("Select subject...")
-        single_subject_layout.addWidget(self.subject_combo)
-        
-        # Single mode buttons
-        single_button_layout = QtWidgets.QHBoxLayout()
-        single_button_layout.setContentsMargins(0, 0, 0, 0)
-        single_button_layout.setSpacing(5)
-        self.list_subjects_btn = QtWidgets.QPushButton("Refresh List")
-        self.list_subjects_btn.clicked.connect(self.list_subjects)
-        self.clear_subject_selection_btn = QtWidgets.QPushButton("Reset")
-        self.clear_subject_selection_btn.clicked.connect(self.clear_subject_selection)
-        single_button_layout.addWidget(self.list_subjects_btn)
-        single_button_layout.addWidget(self.clear_subject_selection_btn)
-        single_subject_layout.addLayout(single_button_layout)
-        
-        self.subject_selection_stack.addWidget(single_subject_container)
-        
-        # Group mode: separate container with list widget
-        group_subject_container = QtWidgets.QGroupBox("Subjects")
-        group_subject_layout = QtWidgets.QVBoxLayout(group_subject_container)
-        group_subject_layout.setContentsMargins(2, 2, 2, 2)
-        group_subject_layout.setSpacing(2)
-        group_subject_container.setSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Maximum)
-        self.subject_list = QtWidgets.QListWidget()
-        self.subject_list.setSelectionMode(QtWidgets.QAbstractItemView.ExtendedSelection)
-        self.subject_list.setMaximumHeight(100)  # Limit height to make it more compact
-        group_subject_layout.addWidget(self.subject_list)
-        
-        # Group mode buttons
-        group_button_layout = QtWidgets.QHBoxLayout()
-        group_button_layout.setContentsMargins(0, 0, 0, 0)
-        group_button_layout.setSpacing(5)
-        self.list_subjects_btn_group = QtWidgets.QPushButton("Refresh List")
-        self.list_subjects_btn_group.clicked.connect(self.list_subjects)
-        self.select_all_subjects_btn = QtWidgets.QPushButton("Select All")
-        self.select_all_subjects_btn.clicked.connect(self.select_all_subjects)
-        self.clear_subject_selection_btn_group = QtWidgets.QPushButton("Clear")
-        self.clear_subject_selection_btn_group.clicked.connect(self.clear_subject_selection)
-        group_button_layout.addWidget(self.list_subjects_btn_group)
-        group_button_layout.addWidget(self.select_all_subjects_btn)
-        group_button_layout.addWidget(self.clear_subject_selection_btn_group)
-        group_subject_layout.addLayout(group_button_layout)
-        
-        self.subject_selection_stack.addWidget(group_subject_container)
-        
-        left_layout.addWidget(self.subject_selection_stack)
-        
-        self.analysis_mode_stack = QtWidgets.QStackedWidget()
-        self.single_analysis_widget = self.create_single_analysis_widget()
-        self.analysis_mode_stack.addWidget(self.single_analysis_widget)
-        self.group_analysis_widget = self.create_group_analysis_widget()
-        self.analysis_mode_stack.addWidget(self.group_analysis_widget)
-        left_layout.addWidget(self.analysis_mode_stack)
+        # Subject-simulation pairs selection (always shown)
+        self.pairs_widget = self.create_pairs_widget()
+        left_layout.addWidget(self.pairs_widget)
         
         # Add left container (subjects) to the layout first
         main_horizontal_layout.addWidget(left_container, 1)
@@ -327,18 +276,8 @@ class AnalyzerTab(QtWidgets.QWidget):
         self.output_console = self.console_widget.get_console_widget()
 
         # Connect signals after all widgets are created
-        self.subject_list.itemSelectionChanged.connect(self.on_subject_selection_changed)
-        self.subject_combo.currentTextChanged.connect(self.on_subject_selection_changed)
         
-        # Connect mode toggle signals
-        self.single_mode_radio.toggled.connect(self.on_mode_changed)
-        self.group_mode_radio.toggled.connect(self.on_mode_changed)
-        
-        # Set initial UI state for single mode (default)
-        self.subject_selection_stack.setCurrentIndex(0)  # Show combo for single mode
-        self.update_subject_button_states()  # Set button states for single mode
-        
-        # After all widgets are created, set field name visibility and connect toggles (for single mode)
+        # After all widgets are created, set field name visibility and connect toggles
         # This needs to be robust if widgets aren't found (e.g., during initial setup)
         if hasattr(self, 'field_name_label') and hasattr(self, 'field_name_input') and \
            hasattr(self, 'space_mesh') and hasattr(self, 'space_voxel'):
@@ -349,87 +288,6 @@ class AnalyzerTab(QtWidgets.QWidget):
             self.space_voxel.toggled.connect(lambda checked: self.field_name_label.setVisible(not checked) if hasattr(self, 'field_name_label') else None)
             self.space_voxel.toggled.connect(lambda checked: self.field_name_input.setVisible(not checked) if hasattr(self, 'field_name_input') else None)
     
-    def on_mode_changed(self):
-        """Handle mode toggle between single and group analysis."""
-        was_group_mode = self.is_group_mode
-        self.is_group_mode = self.group_mode_radio.isChecked()
-        
-        if self.is_group_mode != was_group_mode:
-            # Switch subject selection widget based on mode
-            if self.is_group_mode:
-                # Switch to group mode
-                self.subject_selection_stack.setCurrentIndex(1)  # Show list widget
-                self.analysis_mode_stack.setCurrentIndex(1)
-                self.update_output("Switched to Group Analysis mode")
-                
-                # Update button states for group mode
-                self.update_subject_button_states()
-                
-                # Connect group-mode specific signals for space toggles
-                try:
-                    self.space_mesh.toggled.disconnect(self.update_group_field_widgets)
-                    self.space_voxel.toggled.disconnect(self.update_group_field_widgets)
-                except TypeError:
-                    pass  # Not connected
-                self.space_mesh.toggled.connect(self.update_group_field_widgets)
-                self.space_voxel.toggled.connect(self.update_group_field_widgets)
-                
-                # Enable spherical analysis in group mode with MNI coordinates
-                self.type_spherical.setEnabled(True)
-                self.type_spherical.setToolTip("")
-                
-                # Update coordinate labels for MNI space when group mode is active
-                self._update_coordinate_space_labels()
-                
-                # Populate group common configuration if subjects are selected
-                selected_subjects = self.get_selected_subjects()
-                self.populate_group_common_config(selected_subjects)
-                    
-                self.set_analysis_config_panel_size('group')
-            else:
-                # Switch to single mode
-                self.subject_selection_stack.setCurrentIndex(0)  # Show combo widget
-                self.analysis_mode_stack.setCurrentIndex(0)
-                self.update_output("Switched to Single Analysis mode")
-                
-                # Update button states for single mode
-                self.update_subject_button_states()
-                
-                # Disconnect group-specific signals
-                try:
-                    self.space_mesh.toggled.disconnect(self.update_group_field_widgets)
-                    self.space_voxel.toggled.disconnect(self.update_group_field_widgets)
-                except TypeError:
-                    pass
-                
-                # Re-enable spherical analysis in single mode
-                self.type_spherical.setEnabled(True)
-                self.type_spherical.setToolTip("")
-                
-                # Update coordinate labels for subject space when single mode is active
-                self._update_coordinate_space_labels()
-                
-                # Single mode field update signals are now connected globally in setup_ui
-                
-                # Update single mode widgets
-                self.update_simulations()
-                self.update_atlas_combo()
-                self.update_mesh_files()
-                
-                self.restore_single_mode_sizes()
-                self.set_analysis_config_panel_size('single')
-            
-            # Force layout recalculation
-            if hasattr(self, 'analysis_params_container'):
-                self.analysis_params_container.adjustSize()
-                self.analysis_params_container.updateGeometry()
-            
-            # Always recheck for valid atlases when mode changes
-            self.update_atlas_combo()
-            if self.is_group_mode and self.type_cortical.isChecked():
-                self.update_group_atlas_options()
-            
-            self.update_atlas_visibility()
 
     def _update_coordinate_space_labels(self):
         """Update coordinate space labels and tooltips based on analysis mode."""
@@ -474,128 +332,287 @@ class AnalyzerTab(QtWidgets.QWidget):
                     self.mni_info_label.setVisible(False)
 
     def get_selected_subjects(self):
-        """Get selected subjects based on current mode."""
-        if self.is_group_mode:
-            return [item.text() for item in self.subject_list.selectedItems()]
-        else:
-            # Single mode: return selected subject from combo (if not placeholder)
-            current_text = self.subject_combo.currentText()
-            if current_text and current_text != "Select subject...":
-                return [current_text]
-            return []
+        """Get selected subjects from pairs table."""
+        subjects = set()
+        for row in range(self.pairs_table.rowCount()):
+            subject_combo = self.pairs_table.cellWidget(row, 0)
+            if subject_combo:
+                subject_id = subject_combo.currentText()
+                if subject_id:
+                    subjects.add(subject_id)
+        return list(subjects)
     
-    def update_subject_button_states(self):
-        """Update button visibility/text based on current mode."""
-        # No longer need to change button states since we have separate containers
-        # The correct buttons are automatically shown based on the stacked widget
-        pass
 
     def on_subject_selection_changed(self):
-        """Handle subject selection changes - update UI based on current mode."""
+        """Handle subject selection changes - update UI accordingly."""
         selected_subjects = self.get_selected_subjects()
-        
+
         if self.is_group_mode:
-            # In group mode, update the common configuration
-            self.populate_group_common_config(selected_subjects)
             if not selected_subjects:
                 # Clear configurations if no subjects selected
-                self.group_montage_config = {}
-                self.group_field_config = {}
                 self.group_atlas_config = {}
         else:
-            # In single mode, update single mode widgets
-            self.update_simulations()
+            # In single mode, update widgets
             self.update_atlas_combo()
             self.update_mesh_files()
-        
+
         # Always recheck for valid atlases when subject selection changes
         self.update_atlas_combo()
         if self.is_group_mode and self.type_cortical.isChecked():
             self.update_group_atlas_options()
-        
+
         self.update_atlas_visibility()
 
-    def create_single_analysis_widget(self):
-        widget = QtWidgets.QWidget()
-        layout = QtWidgets.QVBoxLayout(widget)
-        
-        simulation_container = QtWidgets.QGroupBox("Montage")
-        simulation_layout = QtWidgets.QVBoxLayout(simulation_container)
-        self.simulation_combo = QtWidgets.QComboBox()
-        self.simulation_combo.addItem("Select montage...")
-        simulation_layout.addWidget(self.simulation_combo)
-        layout.addWidget(simulation_container)
-        
-        field_container = QtWidgets.QGroupBox("Field Selection")
-        field_layout = QtWidgets.QGridLayout(field_container)
-
-        # Field File row (field name is now hardcoded to TI_max)
-        self.field_file_label = QtWidgets.QLabel("Field File:")
-        self.field_combo = QtWidgets.QComboBox()
-        self.browse_field_btn = QtWidgets.QPushButton()
-        self.browse_field_btn.setIcon(self.style().standardIcon(QtWidgets.QStyle.SP_DirIcon))
-        self.browse_field_btn.setToolTip("Browse for field file")
-        self.browse_field_btn.clicked.connect(self.browse_field)
-        field_layout.addWidget(self.field_file_label, 0, 0)
-        field_layout.addWidget(self.field_combo, 0, 1)
-        field_layout.addWidget(self.browse_field_btn, 0, 2)
-
-        layout.addWidget(field_container)
-
-        # Connect signals for single mode
-        self.simulation_combo.currentTextChanged.connect(self.update_field_files)
-        return widget
     
-    def create_group_analysis_widget(self):
+    def create_pairs_widget(self):
         widget = QtWidgets.QWidget()
         layout = QtWidgets.QVBoxLayout(widget)
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(2)
-        # Create common configuration section instead of tabs
-        common_config_group = QtWidgets.QGroupBox("Common Configuration (Applied to All Selected Subjects)")
-        common_config_layout = QtWidgets.QVBoxLayout(common_config_group)
-        common_config_layout.setContentsMargins(2, 2, 2, 2)
-        common_config_layout.setSpacing(2)
-        common_config_group.setSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Maximum)
-        # Common montage selection
-        montage_group = QtWidgets.QGroupBox("Shared Montage")
-        montage_layout = QtWidgets.QVBoxLayout(montage_group)
-        montage_layout.setContentsMargins(2, 2, 2, 2)
-        montage_layout.setSpacing(2)
-        montage_group.setSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Maximum)
-        montage_selection_layout = QtWidgets.QHBoxLayout()
-        montage_selection_layout.setContentsMargins(0, 0, 0, 0)
-        montage_selection_layout.setSpacing(5)
-        montage_label = QtWidgets.QLabel("Montage:")
-        self.group_montage_combo = QtWidgets.QComboBox()
-        self.group_montage_combo.addItem("Select common montage...")
-        self.group_montage_combo.currentTextChanged.connect(self.update_common_montage_config)
-        montage_selection_layout.addWidget(montage_label)
-        montage_selection_layout.addWidget(self.group_montage_combo)
-        montage_layout.addLayout(montage_selection_layout)
-        common_config_layout.addWidget(montage_group)
-        # Common field selection (auto-selects grey matter subject space scans)
-        field_group = QtWidgets.QGroupBox("Shared Field Configuration")
-        field_layout = QtWidgets.QVBoxLayout(field_group)
-        field_layout.setContentsMargins(2, 2, 2, 2)
-        field_layout.setSpacing(2)
-        field_group.setSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Maximum)
-        
-        # Auto-selection info and status (field name is now hardcoded to TI_max)
-        self.group_field_status_label = QtWidgets.QLabel("Field files will be auto-selected when montage is chosen...")
-        self.group_field_status_label.setStyleSheet("color: #666666; font-style: italic;")
-        field_layout.addWidget(self.group_field_status_label)
-        
-        # Show selected fields button
-        self.show_selected_fields_btn = QtWidgets.QPushButton("Show Selected Field Files")
-        self.show_selected_fields_btn.clicked.connect(self.show_selected_field_files)
-        self.show_selected_fields_btn.setEnabled(False)
-        field_layout.addWidget(self.show_selected_fields_btn)
-        common_config_layout.addWidget(field_group)
-        layout.addWidget(common_config_group)
+        layout.setSpacing(10)
+
+        # Table for subject-simulation pairs
+        pairs_group = QtWidgets.QGroupBox("Subject-Simulation Pairs")
+        pairs_layout = QtWidgets.QVBoxLayout(pairs_group)
+
+        self.pairs_table = QtWidgets.QTableWidget()
+        self.pairs_table.setColumnCount(3)
+        self.pairs_table.setHorizontalHeaderLabels(["Subject", "Simulation", ""])
+        self.pairs_table.horizontalHeader().setStretchLastSection(False)
+        self.pairs_table.horizontalHeader().setSectionResizeMode(0, QtWidgets.QHeaderView.Stretch)
+        self.pairs_table.horizontalHeader().setSectionResizeMode(1, QtWidgets.QHeaderView.Stretch)
+        self.pairs_table.setColumnWidth(2, 50)
+        self.pairs_table.setMaximumHeight(250)
+        pairs_layout.addWidget(self.pairs_table)
+
+        # Buttons for managing pairs
+        buttons_layout = QtWidgets.QHBoxLayout()
+        buttons_layout.setSpacing(5)
+
+        self.add_pair_btn = QtWidgets.QPushButton("+ Add Pair")
+        self.add_pair_btn.setStyleSheet("QPushButton { padding: 5px 15px; }")
+        self.add_pair_btn.clicked.connect(self.add_pair_row)
+        buttons_layout.addWidget(self.add_pair_btn)
+
+        self.quick_add_btn = QtWidgets.QPushButton("Quick Add")
+        self.quick_add_btn.setStyleSheet("QPushButton { padding: 5px 15px; }")
+        self.quick_add_btn.setToolTip("Add the same simulation to multiple subjects at once")
+        self.quick_add_btn.clicked.connect(self.quick_add_pairs)
+        buttons_layout.addWidget(self.quick_add_btn)
+
+        self.clear_pairs_btn = QtWidgets.QPushButton("Clear All")
+        self.clear_pairs_btn.setStyleSheet("QPushButton { padding: 5px 15px; }")
+        self.clear_pairs_btn.clicked.connect(self.clear_all_pairs)
+        buttons_layout.addWidget(self.clear_pairs_btn)
+
+        self.refresh_pairs_btn = QtWidgets.QPushButton("Refresh")
+        self.refresh_pairs_btn.setStyleSheet("QPushButton { padding: 5px 15px; }")
+        self.refresh_pairs_btn.clicked.connect(self.refresh_pairs)
+        buttons_layout.addWidget(self.refresh_pairs_btn)
+
+        buttons_layout.addStretch()
+        pairs_layout.addLayout(buttons_layout)
+        layout.addWidget(pairs_group)
+
+        # Analysis info
+        info_label = QtWidgets.QLabel("Field files will be automatically selected for each subject-simulation pair.\nFor mesh analysis: {simulation}.msh, For voxel analysis: grey matter files preferred.")
+        info_label.setStyleSheet("color: #666666; font-style: italic; padding: 5px;")
+        info_label.setWordWrap(True)
+        layout.addWidget(info_label)
+
+        # Add one empty row by default so the UI isn't completely empty
+        self.add_pair_row()
+
         return widget
-    
-    # create_subject_tab method removed - no longer using individual subject tabs
+
+    def add_pair_row(self):
+        """Add a new row for subject-simulation pair selection."""
+        row = self.pairs_table.rowCount()
+        self.pairs_table.insertRow(row)
+
+        # Subject combo
+        subject_combo = QtWidgets.QComboBox()
+        subjects = self.get_all_subjects()
+        subject_combo.addItems(subjects)
+        subject_combo.currentTextChanged.connect(lambda: self.update_sim_combo_in_row(row))
+        self.pairs_table.setCellWidget(row, 0, subject_combo)
+
+        # Simulation combo
+        sim_combo = QtWidgets.QComboBox()
+        if subjects:
+            sims = self.pm.list_simulations(subjects[0])
+            sim_combo.addItems(sims)
+        self.pairs_table.setCellWidget(row, 1, sim_combo)
+
+        # Remove button
+        remove_btn = QtWidgets.QPushButton("✕")
+        remove_btn.setMaximumWidth(40)
+        remove_btn.clicked.connect(lambda: self.remove_pair(row))
+        self.pairs_table.setCellWidget(row, 2, remove_btn)
+
+        # Update UI after adding pair
+        self.on_pairs_changed()
+
+    def update_sim_combo_in_row(self, row):
+        """Update the simulation combo box when subject changes in a row."""
+        subject_combo = self.pairs_table.cellWidget(row, 0)
+        sim_combo = self.pairs_table.cellWidget(row, 1)
+
+        if subject_combo and sim_combo:
+            subject_id = subject_combo.currentText()
+            if subject_id:
+                sims = self.pm.list_simulations(subject_id)
+                sim_combo.clear()
+                sim_combo.addItems(sims)
+
+    def remove_pair(self, row):
+        """Remove a subject-simulation pair row."""
+        self.pairs_table.removeRow(row)
+        self.on_pairs_changed()
+
+    def clear_all_pairs(self):
+        """Clear all subject-simulation pairs."""
+        self.pairs_table.setRowCount(0)
+        self.on_pairs_changed()
+
+    def refresh_pairs(self):
+        """Refresh all subject and simulation combos in the pairs table."""
+        all_subjects = self.get_all_subjects()
+        for row in range(self.pairs_table.rowCount()):
+            subject_combo = self.pairs_table.cellWidget(row, 0)
+            sim_combo = self.pairs_table.cellWidget(row, 1)
+
+            if subject_combo:
+                current_subject = subject_combo.currentText()
+                subject_combo.clear()
+                subject_combo.addItems(all_subjects)
+                if current_subject in all_subjects:
+                    subject_combo.setCurrentText(current_subject)
+                elif all_subjects:
+                    subject_combo.setCurrentText(all_subjects[0])
+
+            if sim_combo and subject_combo:
+                subject_id = subject_combo.currentText()
+                if subject_id:
+                    sims = self.pm.list_simulations(subject_id)
+                    current_sim = sim_combo.currentText()
+                    sim_combo.clear()
+                    sim_combo.addItems(sims)
+                    if current_sim in sims:
+                        sim_combo.setCurrentText(current_sim)
+
+    def quick_add_pairs(self):
+        """Open dialog to quickly add the same simulation to multiple subjects."""
+        dialog = QtWidgets.QDialog(self)
+        dialog.setWindowTitle("Quick Add Subject-Simulation Pairs")
+        dialog.setMinimumWidth(400)
+
+        layout = QtWidgets.QVBoxLayout(dialog)
+
+        # Simulation selection
+        sim_layout = QtWidgets.QHBoxLayout()
+        sim_layout.addWidget(QtWidgets.QLabel("Simulation:"))
+        sim_combo = QtWidgets.QComboBox()
+
+        # Get all unique simulations across all subjects
+        all_sims = set()
+        for subject in self.get_all_subjects():
+            all_sims.update(self.pm.list_simulations(subject))
+        sim_combo.addItems(sorted(all_sims))
+        sim_layout.addWidget(sim_combo)
+        layout.addLayout(sim_layout)
+
+        # Subject list
+        layout.addWidget(QtWidgets.QLabel("Select Subjects:"))
+        subject_list = QtWidgets.QListWidget()
+        subject_list.setSelectionMode(QtWidgets.QAbstractItemView.MultiSelection)
+
+        all_subjects = self.get_all_subjects()
+        for subject in all_subjects:
+            subject_list.addItem(subject)
+
+        layout.addWidget(subject_list)
+
+        # Buttons
+        button_layout = QtWidgets.QHBoxLayout()
+        add_btn = QtWidgets.QPushButton("Add Pairs")
+        cancel_btn = QtWidgets.QPushButton("Cancel")
+
+        add_btn.clicked.connect(dialog.accept)
+        cancel_btn.clicked.connect(dialog.reject)
+
+        button_layout.addWidget(add_btn)
+        button_layout.addWidget(cancel_btn)
+        layout.addLayout(button_layout)
+
+        if dialog.exec_() == QtWidgets.QDialog.Accepted:
+            selected_simulation = sim_combo.currentText()
+            selected_items = subject_list.selectedItems()
+
+            if not selected_items:
+                QtWidgets.QMessageBox.warning(self, "Warning", "Please select at least one subject")
+                return
+
+            # Add pairs for each selected subject
+            added_count = 0
+            for item in selected_items:
+                subject_id = item.text()
+
+                # Check if this subject has the selected simulation
+                available_sims = self.pm.list_simulations(subject_id)
+                if selected_simulation not in available_sims:
+                    self.update_output(f"\nWarning: Subject {subject_id} does not have simulation {selected_simulation}")
+                    continue
+
+                # Check for duplicates
+                duplicate = False
+                for row in range(self.pairs_table.rowCount()):
+                    existing_subject = self.pairs_table.cellWidget(row, 0).currentText()
+                    existing_sim = self.pairs_table.cellWidget(row, 1).currentText()
+                    if existing_subject == subject_id and existing_sim == selected_simulation:
+                        duplicate = True
+                        break
+
+                if duplicate:
+                    continue
+
+                # Add new row
+                row = self.pairs_table.rowCount()
+                self.pairs_table.insertRow(row)
+
+                # Subject combo
+                subject_combo_widget = QtWidgets.QComboBox()
+                subject_combo_widget.addItems(all_subjects)
+                subject_combo_widget.setCurrentText(subject_id)
+                subject_combo_widget.currentTextChanged.connect(lambda: self.update_sim_combo_in_row(row))
+                self.pairs_table.setCellWidget(row, 0, subject_combo_widget)
+
+                # Simulation combo
+                sim_combo_widget = QtWidgets.QComboBox()
+                sim_combo_widget.addItems(available_sims)
+                sim_combo_widget.setCurrentText(selected_simulation)
+                self.pairs_table.setCellWidget(row, 1, sim_combo_widget)
+
+                # Remove button
+                remove_btn = QtWidgets.QPushButton("✕")
+                remove_btn.setMaximumWidth(40)
+                remove_btn.clicked.connect(lambda checked, r=row: self.remove_pair(r))
+                self.pairs_table.setCellWidget(row, 2, remove_btn)
+
+                added_count += 1
+
+            self.update_output(f"\nAdded {added_count} subject-simulation pairs")
+
+            # Update UI after adding pairs
+            self.on_pairs_changed()
+
+    def get_all_subjects(self):
+        """Get all available subjects."""
+        from core import list_subjects
+        try:
+            return list_subjects()
+        except Exception:
+            return []
+
     
     def create_analysis_parameters_widget(self, container_widget):
         right_layout = QtWidgets.QVBoxLayout(container_widget)
@@ -724,13 +741,6 @@ class AnalyzerTab(QtWidgets.QWidget):
         self.type_spherical.toggled.connect(self.update_atlas_visibility)
         self.type_cortical.toggled.connect(self.update_atlas_visibility)
         
-        # Connect signals for group field widget updates
-        self.space_mesh.toggled.connect(self.update_group_field_widgets)
-        self.space_voxel.toggled.connect(self.update_group_field_widgets)
-        
-        # Connect signals for single mode field updates
-        self.space_mesh.toggled.connect(self.update_field_files)
-        self.space_voxel.toggled.connect(self.update_field_files)
         
         # Connect signals for mesh file updates (space and type changes)
         self.space_mesh.toggled.connect(self.update_mesh_files)
@@ -769,399 +779,30 @@ class AnalyzerTab(QtWidgets.QWidget):
         
         return right_layout
 
-    def select_all_subjects(self):
-        if self.is_group_mode:
-            self.subject_list.selectAll()
-        # No select all for single mode (only one subject can be selected)
-    
-    def populate_group_common_config(self, selected_subjects):
-        """Find common montages shared across all selected subjects and populate the group config."""
-        self.group_montage_config = {}
-        self.group_field_config = {}
-        self.group_atlas_config = {}
-        
-        if not selected_subjects:
-            self.group_montage_combo.clear()
-            self.group_montage_combo.addItem("Select common montage...")
-            return
-            
-        # Find common montages across all subjects
-        common_montages = self.find_common_montages(selected_subjects)
-        
-        # Update the montage combo with common montages
-        current_selection = self.group_montage_combo.currentText()
-        self.group_montage_combo.clear()
-        self.group_montage_combo.addItem("Select common montage...")
-        
-        if common_montages:
-            self.group_montage_combo.addItems(sorted(common_montages))
-            # Try to restore previous selection if it's still available
-            if current_selection in common_montages:
-                index = self.group_montage_combo.findText(current_selection)
-                if index != -1:
-                    self.group_montage_combo.setCurrentIndex(index)
-        else:
-            self.group_montage_combo.addItem("No common montages found")
-            self.group_montage_combo.model().item(1).setEnabled(False)
-    
-    def find_common_montages(self, selected_subjects):
-        """Find montages that exist for all selected subjects."""
-        if not selected_subjects:
-            return []
-            
-        project_dir_name = os.environ.get('PROJECT_DIR_NAME', 'BIDS_new')
-        project_dir = f"/mnt/{project_dir_name}"
-        
-        # Get montages for the first subject
-        first_subject = selected_subjects[0]
-        first_subject_simulations_dir = os.path.join(project_dir, 'derivatives', 'SimNIBS', 
-                                                    f'sub-{first_subject}', 'Simulations')
-        
-        if not os.path.exists(first_subject_simulations_dir):
-            return []
-            
-        # Start with all montages from first subject
-        common_montages = set()
-        try:
-            common_montages = set([d for d in os.listdir(first_subject_simulations_dir) 
-                                 if os.path.isdir(os.path.join(first_subject_simulations_dir, d))])
-        except Exception:
-            return []
-        
-        # Check remaining subjects and keep only common montages
-        for subject_id in selected_subjects[1:]:
-            subject_simulations_dir = os.path.join(project_dir, 'derivatives', 'SimNIBS', 
-                                                  f'sub-{subject_id}', 'Simulations')
-            
-            if not os.path.exists(subject_simulations_dir):
-                return []  # If any subject doesn't have simulations, no common montages
-                
-            try:
-                subject_montages = set([d for d in os.listdir(subject_simulations_dir) 
-                                      if os.path.isdir(os.path.join(subject_simulations_dir, d))])
-                # Keep only montages that exist in both
-                common_montages = common_montages.intersection(subject_montages)
-            except Exception:
-                return []
-                
-        return list(common_montages)
-    
-    def update_common_montage_config(self, montage_name):
-        """Update the common montage configuration for all selected subjects."""
-        if montage_name and montage_name != "Select common montage..." and not montage_name.startswith("No common"):
-            # Store the common montage name - it will be applied to all subjects during analysis
-            self.group_montage_config['common_montage'] = montage_name
-            self.update_output(f"Set common montage: {montage_name} (will be applied to all selected subjects)")
-            
-            # Auto-select field files for all subjects when montage is selected
-            self.auto_select_group_field_files(montage_name)
-        else:
-            self.group_montage_config.clear()
-            self.group_field_config.clear()
-            self.group_field_status_label.setText("Field files will be auto-selected when montage is chosen...")
-            self.show_selected_fields_btn.setEnabled(False)
-    
-    def auto_select_group_field_files(self, montage_name):
-        """Auto-select grey matter subject space field files for all selected subjects."""
-        selected_subjects = self.get_selected_subjects()
-        if not selected_subjects or not montage_name:
-            return
-            
-        project_dir_name = os.environ.get('PROJECT_DIR_NAME', 'BIDS_new')
-        project_dir = f"/mnt/{project_dir_name}"
-        is_mesh = self.space_mesh.isChecked()
-        
-        # Clear previous field config
-        self.group_field_config.clear()
-        
-        # Find field files for each subject
-        failed_subjects = []
-        success_count = 0
-        
-        for subject_id in selected_subjects:
-            # Determine the correct directory based on analysis space
-            # Check for mTI simulation first
-            is_mti = False
-            if is_mesh:
-                mti_mesh_dir = os.path.join(project_dir, 'derivatives', 'SimNIBS', f'sub-{subject_id}', 
-                                           'Simulations', montage_name, 'mTI', 'mesh')
-                ti_mesh_dir = os.path.join(project_dir, 'derivatives', 'SimNIBS', f'sub-{subject_id}', 
-                                          'Simulations', montage_name, 'TI', 'mesh')
-                if os.path.exists(mti_mesh_dir):
-                    field_dir = mti_mesh_dir
-                    is_mti = True
-                else:
-                    field_dir = ti_mesh_dir
-            else:
-                mti_nifti_dir = os.path.join(project_dir, 'derivatives', 'SimNIBS', f'sub-{subject_id}', 
-                                            'Simulations', montage_name, 'mTI', 'niftis')
-                ti_nifti_dir = os.path.join(project_dir, 'derivatives', 'SimNIBS', f'sub-{subject_id}', 
-                                           'Simulations', montage_name, 'TI', 'niftis')
-                if os.path.exists(mti_nifti_dir):
-                    field_dir = mti_nifti_dir
-                    is_mti = True
-                else:
-                    field_dir = ti_nifti_dir
-            
-            if not os.path.exists(field_dir):
-                failed_subjects.append(f"{subject_id} (directory not found)")
-                continue
-                
-            try:
-                all_files = os.listdir(field_dir)
-            except Exception:
-                failed_subjects.append(f"{subject_id} (cannot read directory)")
-                continue
-            
-            # Filter files based on criteria and analysis space
-            if is_mesh:
-                eligible_files = [f for f in all_files if f.endswith('.msh') and not f.endswith('.msh.opt')]
-            else:
-                eligible_files = [f for f in all_files if any(f.endswith(ext) for ext in ['.nii', '.nii.gz', '.mgz'])]
-            
-            # Find appropriate field files with flexible naming patterns
-            # For mesh analysis, prefer main field files (like single analyzer)
-            # For voxel analysis, prefer grey matter files
-            field_files = []
-            
-            if is_mesh:
-                # Pattern 1: Main field files (montage_name_TI.msh or montage_name_mTI.msh)
-                if is_mti:
-                    # For mTI simulations, look for _mTI.msh files
-                    field_files = [f for f in eligible_files 
-                                 if f == f"{montage_name}_mTI.msh"]
-                else:
-                    # For regular TI simulations, look for _TI.msh files
-                    field_files = [f for f in eligible_files 
-                                 if f == f"{montage_name}_TI.msh"]
-                
-                # Pattern 2: If no exact match, look for files with montage name and appropriate suffix
-                if not field_files:
-                    suffix = '_mTI.msh' if is_mti else '_TI.msh'
-                    field_files = [f for f in eligible_files 
-                                 if montage_name.lower() in f.lower() and suffix in f and 'MNI' not in f and not f.endswith('_central.msh') and not f.startswith('grey')]
-                
-                # Pattern 3: Fall back to grey matter files if main files not found
-                if not field_files:
-                    field_files = [f for f in eligible_files 
-                                 if f.startswith('grey') and 'MNI' not in f and not f.endswith('_central.msh')]
-            else:
-                # For voxel analysis, prefer grey matter files (original logic)
-                # Pattern 1: Files starting with 'grey' (traditional naming)
-                field_files = [f for f in eligible_files 
-                             if f.startswith('grey') and 'MNI' not in f and not f.endswith('_central.msh')]
-                
-                # Pattern 2: If no 'grey' files, look for TI_max files (newer naming)
-                if not field_files:
-                    field_files = [f for f in eligible_files 
-                                 if 'TI_max' in f and 'MNI' not in f and not f.endswith('_central.msh')]
-            
-            # Pattern (common): Look for any file with montage name and no MNI
-            if not field_files:
-                field_files = [f for f in eligible_files 
-                             if montage_name.lower() in f.lower() and 'MNI' not in f and not f.endswith('_central.msh')]
-            
-            # Pattern (last resort): Any eligible file that's not MNI or central surface mesh
-            if not field_files:
-                field_files = [f for f in eligible_files 
-                             if 'MNI' not in f and not f.endswith('_central.msh')]
-            
-            if not field_files:
-                failed_subjects.append(f"{subject_id} (no appropriate field files found)")
-                continue
-            
-            # Select the first appropriate field file (they should be equivalent)
-            selected_file = field_files[0]
-            selected_path = os.path.join(field_dir, selected_file)
-            self.group_field_config[subject_id] = selected_path
-            success_count += 1
-        
-        # Update status
-        if success_count == len(selected_subjects):
-            self.group_field_status_label.setText(f"[SUCCESS] Auto-selected fields for all {success_count} subjects")
-            self.group_field_status_label.setStyleSheet("color: #228B22; font-weight: bold;")
-            self.show_selected_fields_btn.setEnabled(True)
-        elif success_count > 0:
-            self.group_field_status_label.setText(f"[WARNING] Auto-selected fields for {success_count}/{len(selected_subjects)} subjects")
-            self.group_field_status_label.setStyleSheet("color: #FF8C00; font-weight: bold;")
-            self.show_selected_fields_btn.setEnabled(True)
-        else:
-            self.group_field_status_label.setText(f"[ERROR] Failed to auto-select fields")
-            self.group_field_status_label.setStyleSheet("color: #DC143C; font-weight: bold;")
-            self.show_selected_fields_btn.setEnabled(False)
-        
-        # Show details of failures if any
-        if failed_subjects:
-            failure_details = "\n".join(f"  - {failure}" for failure in failed_subjects)
-            self.update_output(f"Field auto-selection completed. Failed subjects:\n{failure_details}")
-    
-    def show_selected_field_files(self):
-        """Show a dialog with the selected field files for each subject."""
-        if not self.group_field_config:
-            QtWidgets.QMessageBox.information(self, "No Field Files", "No field files have been selected yet.")
-            return
-            
-        dialog = QtWidgets.QDialog(self)
-        dialog.setWindowTitle("Selected Field Files")
-        dialog.setMinimumWidth(600)
-        dialog.setMinimumHeight(400)
-        
-        layout = QtWidgets.QVBoxLayout(dialog)
-        
-        # Header
-        header_label = QtWidgets.QLabel("Grey Matter Subject Space Field Files Selected:")
-        header_label.setStyleSheet("font-weight: bold; font-size: 14px; margin-bottom: 10px;")
-        layout.addWidget(header_label)
-        
-        # List widget to show files
-        list_widget = QtWidgets.QListWidget()
-        for subject_id, field_path in sorted(self.group_field_config.items()):
-            file_name = os.path.basename(field_path)
-            item_text = f"Subject {subject_id}: {file_name}"
-            list_item = QtWidgets.QListWidgetItem(item_text)
-            list_item.setData(QtCore.Qt.UserRole, field_path)  # Store full path
-            list_item.setToolTip(f"Full path: {field_path}")
-            list_widget.addItem(list_item)
-        
-        layout.addWidget(list_widget)
-        
-        # Buttons
-        button_layout = QtWidgets.QHBoxLayout()
-        close_btn = QtWidgets.QPushButton("Close")
-        close_btn.clicked.connect(dialog.accept)
-        button_layout.addStretch()
-        button_layout.addWidget(close_btn)
-        layout.addLayout(button_layout)
-        
-        dialog.exec_()
-    
-    def update_group_field_widgets(self): # Called when space_mesh/voxel toggled in group mode
-        """Update field widgets in group mode when space type changes."""
-        if not self.is_group_mode:
-            return
-        
-        # Field name is now hardcoded to TI_max, so no field name widgets to update
-        
-        # Re-run auto-selection if montage is already selected
-        current_montage = self.group_montage_config.get('common_montage')
-        if current_montage:
-            self.auto_select_group_field_files(current_montage)
-
-    def list_subjects(self):
-        try:
-            project_dir_name = os.environ.get('PROJECT_DIR_NAME', 'BIDS_new')
-            if not project_dir_name:
-                return
-            
-            project_dir = f"/mnt/{project_dir_name}"
-            
-            # Clear both widgets
-            self.subject_list.clear()
-            self.subject_combo.clear()
-            self.subject_combo.addItem("Select subject...")
-            
-            simnibs_dir = os.path.join(project_dir, 'derivatives', 'SimNIBS')
-            
-            if not os.path.exists(simnibs_dir):
-                return
-            
-            subjects = []
-            for item_name in os.listdir(simnibs_dir): # item_name is like 'sub-001' or 'sub-ernie'
-                if item_name.startswith('sub-'):
-                    subject_id_short = item_name[4:] # '001' or 'ernie'
-                    m2m_dir_to_check = os.path.join(simnibs_dir, item_name, f'm2m_{subject_id_short}')
-                    if os.path.isdir(m2m_dir_to_check):
-                        subjects.append(subject_id_short)
-            
-            def natural_sort_key(s):
-                import re
-                return [int(c) if c.isdigit() else c.lower() for c in re.split('([0-9]+)', s)]
-            subjects.sort(key=natural_sort_key)
-            
-            # Populate both widgets
-            for subject in subjects:
-                self.subject_list.addItem(subject)
-                self.subject_combo.addItem(subject)
-        except Exception as e:
-            pass
-
-    def clear_subject_selection(self):
-        if self.is_group_mode:
-            self.subject_list.clearSelection()
-        else:
-            # Reset to placeholder for single mode
-            self.subject_combo.setCurrentIndex(0)
-
-    def get_m2m_dir_for_subject(self, subject_id): # subject_id is short form like "001"
-        project_dir_name = os.environ.get('PROJECT_DIR_NAME', 'BIDS_new')
-        project_dir = f"/mnt/{project_dir_name}"
-        # Original logic for m2m dir path
-        return os.path.join(project_dir, 'derivatives', 'SimNIBS', f'sub-{subject_id}', f'm2m_{subject_id}')
-
-
-    def browse_field(self): # For single mode
-        if self.space_mesh.isChecked():
-            file_filter = "Mesh Files (*.msh);;All Files (*)"
-        else:
-            file_filter = "NIfTI Files (*.nii *.nii.gz);;MGZ Files (*.mgz);;All Files (*)"
-            
-        file_name, _ = QtWidgets.QFileDialog.getOpenFileName(self, "Select Field File", "", file_filter)
-        
-        if file_name:
-            is_mesh_ext = file_name.endswith('.msh') and not file_name.endswith('.msh.opt')
-            is_vol_ext = any(file_name.endswith(ext) for ext in ['.nii', '.nii.gz', '.mgz'])
-
-            valid_type = (is_mesh_ext and self.space_mesh.isChecked()) or \
-                         (is_vol_ext and not self.space_mesh.isChecked()) # Original logic: not self.space_mesh
-
-            if not valid_type:
-                QtWidgets.QMessageBox.warning(self, "Invalid File Type",
-                    "Please select a valid field file:\n" +
-                    "- For mesh analysis: .msh files\n" +
-                    "- For voxel analysis: .nii, .nii.gz, or .mgz files")
-                return
-            
-            file_basename = os.path.basename(file_name)
-            # Check if file already exists in combo box (by data which is path)
-            found = any(self.field_combo.itemData(i) == file_name for i in range(self.field_combo.count()))
-            
-            if not found:
-                self.field_combo.addItem(file_basename, file_name) # Add with path as data
-            
-            # Select the item (either newly added or existing)
-            for i in range(self.field_combo.count()): # Iterate to find and select
-                if self.field_combo.itemData(i) == file_name:
-                    self.field_combo.setCurrentIndex(i)
-                    break
-            
-            # Field name is now hardcoded to TI_max
-
 
     def get_available_atlas_files(self, subject_id): # subject_id is short form
         atlas_files = []
         if not subject_id: return atlas_files
 
-        project_dir_name = os.environ.get("PROJECT_DIR_NAME", "BIDS_new")
-        project_dir = os.path.join("/mnt", project_dir_name)
         # Freesurfer path uses full subject ID for both levels, e.g., sub-001/sub-001/mri
-        freesurfer_mri_dir = os.path.join(project_dir, "derivatives", "freesurfer", f"sub-{subject_id}", "mri")
-        
+        freesurfer_mri_dir = get_freesurfer_mri_dir(subject_id)
+
         # Original defined atlases
         atlases_to_check = ['aparc.DKTatlas+aseg.mgz', 'aparc.a2009s+aseg.mgz']
-        
-        if os.path.isdir(freesurfer_mri_dir): # Check if subject's FS mri dir exists
+
+        if freesurfer_mri_dir and os.path.isdir(freesurfer_mri_dir): # Check if subject's FS mri dir exists
             for atlas_filename in atlases_to_check:
                 full_path = os.path.join(freesurfer_mri_dir, atlas_filename)
                 if os.path.exists(full_path):
                     # Original stored (atlas_filename, full_path)
-                    atlas_files.append((atlas_filename, full_path)) 
-        
+                    atlas_files.append((atlas_filename, full_path))
+
         # Check for SimNIBS labeling.nii.gz atlas
-        simnibs_seg_dir = os.path.join(project_dir, "derivatives", "SimNIBS", f"sub-{subject_id}", 
-                                       f"m2m_{subject_id}", "segmentation")
-        labeling_path = os.path.join(simnibs_seg_dir, "labeling.nii.gz")
-        if os.path.exists(labeling_path):
-            atlas_files.append(("SimNIBS labeling", labeling_path))
+        m2m_dir = get_m2m_dir(subject_id)
+        if m2m_dir:
+            labeling_path = os.path.join(m2m_dir, "segmentation", "labeling.nii.gz")
+            if os.path.exists(labeling_path):
+                atlas_files.append(("SimNIBS labeling", labeling_path))
         
         if not atlas_files: # No specific atlases found
             # Original warning message logic
@@ -1304,7 +945,7 @@ class AnalyzerTab(QtWidgets.QWidget):
         selected_subjects = self.get_selected_subjects()
         if selected_subjects:
             subject_id = selected_subjects[0]
-            m2m_dir_path = self.get_m2m_dir_for_subject(subject_id)
+            m2m_dir_path = self.pm.get_m2m_dir(subject_id)
             if m2m_dir_path and os.path.exists(m2m_dir_path): # Check existence
                 initial_dir = os.path.join(m2m_dir_path, 'segmentation') 
         
@@ -1404,8 +1045,8 @@ class AnalyzerTab(QtWidgets.QWidget):
 
     def update_group_atlas_options(self): # For shared atlas selectors in group mode
         if not self.is_group_mode: return
-        selected_subjects = [item.text() for item in self.subject_list.selectedItems()]
-        if not selected_subjects: 
+        selected_subjects = self.get_selected_subjects()
+        if not selected_subjects:
             # Don't disable everything if no subjects - user might be in process of selecting
             return
             
@@ -1489,16 +1130,16 @@ class AnalyzerTab(QtWidgets.QWidget):
 
     def update_group_mesh_atlas(self, atlas_name): # Called by shared mesh atlas_name_combo
         if not self.is_group_mode or not self.space_mesh.isChecked() or not self.type_cortical.isChecked(): return
-            
-        selected_subjects = [item.text() for item in self.subject_list.selectedItems()]
+
+        selected_subjects = self.get_selected_subjects()
         for subject_id in selected_subjects:
             # For mesh, atlas name is sufficient, path is not needed from subject's dir for SimNIBS subject_atlas
             self.group_atlas_config[subject_id] = {'name': atlas_name, 'path': None, 'type': 'mesh'}
 
     def update_group_voxel_atlas(self, atlas_display_name_from_shared_combo): # Called by shared voxel atlas_combo
         if not self.is_group_mode or not self.space_voxel.isChecked() or not self.type_cortical.isChecked(): return
-            
-        selected_subjects = [item.text() for item in self.subject_list.selectedItems()]
+
+        selected_subjects = self.get_selected_subjects()
         
         # The shared_combo's currentData() gives the path for the *first subject* or a representative.
         # We need to find the equivalent path for *each* subject.
@@ -1540,40 +1181,50 @@ class AnalyzerTab(QtWidgets.QWidget):
     def validate_single_inputs(self):
         selected_subjects = self.get_selected_subjects()
         if not selected_subjects:
-            QtWidgets.QMessageBox.warning(self, "Warning", "Please select a subject.")
+            QtWidgets.QMessageBox.warning(self, "Warning", "Please select at least one subject-simulation pair.")
             return False
-        if self.simulation_combo.currentIndex() == 0:
-            QtWidgets.QMessageBox.warning(self, "Warning", "Please select a montage.")
-            return False
-        if self.field_combo.currentIndex() == 0:
-            QtWidgets.QMessageBox.warning(self, "Warning", "Please select a field file.")
-            return False
-        # Field name is now hardcoded to TI_max for mesh analysis
+        if self.pairs_table.rowCount() != 1:
+            # For group mode, validate that all pairs have subjects and simulations
+            for row in range(self.pairs_table.rowCount()):
+                subject_combo = self.pairs_table.cellWidget(row, 0)
+                sim_combo = self.pairs_table.cellWidget(row, 1)
+                if not subject_combo or not sim_combo:
+                    QtWidgets.QMessageBox.warning(self, "Warning", "Please complete all subject-simulation pairs.")
+                    return False
+                if not subject_combo.currentText() or not sim_combo.currentText():
+                    QtWidgets.QMessageBox.warning(self, "Warning", "Please select both subject and simulation for all pairs.")
+                    return False
+        else:
+            # For single mode, check the single pair
+            subject_combo = self.pairs_table.cellWidget(0, 0)
+            sim_combo = self.pairs_table.cellWidget(0, 1)
+            if not subject_combo or not sim_combo or not subject_combo.currentText() or not sim_combo.currentText():
+                QtWidgets.QMessageBox.warning(self, "Warning", "Please select both subject and simulation.")
+                return False
         return self.validate_analysis_parameters()
     
     def validate_group_inputs(self):
-        selected_subjects = self.get_selected_subjects()
-        if len(selected_subjects) < 1:
-            QtWidgets.QMessageBox.warning(self, "Warning", "Please select one or more subjects for group analysis.")
+        # Check that we have at least one subject-simulation pair
+        if self.pairs_table.rowCount() == 0:
+            QtWidgets.QMessageBox.warning(self, "Warning", "Please add at least one subject-simulation pair for group analysis.")
             return False
-        
-        # Check common montage selection
-        if 'common_montage' not in self.group_montage_config or not self.group_montage_config['common_montage']:
-            QtWidgets.QMessageBox.warning(self, "Warning", "Please select a common montage for all subjects.")
-            return False
+
+        # Validate each pair in the table
+        for row in range(self.pairs_table.rowCount()):
+            subject_combo = self.pairs_table.cellWidget(row, 0)
+            sim_combo = self.pairs_table.cellWidget(row, 1)
+
+            if subject_combo and sim_combo:
+                subject_id = subject_combo.currentText()
+                simulation_name = sim_combo.currentText()
+
+                if not subject_id or not simulation_name:
+                    QtWidgets.QMessageBox.warning(self, "Warning", f"Please complete the subject-simulation pair in row {row + 1}.")
+                    return False
+            else:
+                QtWidgets.QMessageBox.warning(self, "Warning", f"Invalid subject-simulation pair in row {row + 1}.")
+                return False
             
-        # Check field configuration
-        if not self.group_field_config:
-            QtWidgets.QMessageBox.warning(self, "Warning", "No field files have been auto-selected. Please select a montage to auto-select grey matter field files.")
-            return False
-            
-        # Check that all selected subjects have field files
-        missing_fields = [subj for subj in selected_subjects if subj not in self.group_field_config]
-        if missing_fields:
-            QtWidgets.QMessageBox.warning(self, "Warning", f"Missing field files for subjects: {', '.join(missing_fields)}")
-            return False
-            
-        # Field name is now hardcoded to TI_max for mesh analysis
         
         # Group analysis now supports both spherical (with MNI coordinates) and cortical analysis
         # No restriction needed
@@ -1620,9 +1271,8 @@ class AnalyzerTab(QtWidgets.QWidget):
 
         details, title = "", ""
         if self.is_group_mode:
-            selected_s = [item.text() for item in self.subject_list.selectedItems()]
-            details = self.get_group_analysis_details(selected_s)
-            title = f"Confirm Group Analysis ({len(selected_s)} subjects)"
+            details = self.get_group_analysis_details([])
+            title = f"Confirm Group Analysis ({self.pairs_table.rowCount()} subject-simulation pairs)"
         else:
             details = self.get_single_analysis_details()
             title = "Confirm Single Analysis"
@@ -1648,29 +1298,29 @@ class AnalyzerTab(QtWidgets.QWidget):
                 return
             if hasattr(self, 'optimization_process') and self.optimization_process and self.optimization_process.isRunning():
                 return
-            # In single mode, get the selected subject from the combo
-            selected_subjects = self.get_selected_subjects()
-            if not selected_subjects:
-                self.update_output("Error: No subject selected for single analysis.")
-                self.analysis_finished(success=False)
-                return
-            subject_id = selected_subjects[0]  # Take the selected subject
-            
-            field_path = self.get_selected_field_path() # Uses currentData from field_combo
-            if not field_path: # Should be caught by validation, but double check
-                self.update_output("Error: Field path not selected for single analysis.")
+            # In single mode, get the subject and simulation from the single pair
+            if self.pairs_table.rowCount() != 1:
+                self.update_output("Error: Single analysis requires exactly one subject-simulation pair.")
                 self.analysis_finished(success=False)
                 return
 
-            # Infer simulation_name from field_path (original had simulation_name from combo)
-            # Let's use the combo for simulation_name as per original structure
-            simulation_name = self.simulation_combo.currentText()
-            if simulation_name == "Select montage...":
-                 self.update_output("Error: Montage not selected for single analysis.")
-                 self.analysis_finished(success=False)
-                 return
+            subject_combo = self.pairs_table.cellWidget(0, 0)
+            sim_combo = self.pairs_table.cellWidget(0, 1)
 
-            cmd = self.build_single_analysis_command(subject_id, simulation_name, field_path)
+            if not subject_combo or not sim_combo:
+                self.update_output("Error: Subject-simulation pair not properly configured.")
+                self.analysis_finished(success=False)
+                return
+
+            subject_id = subject_combo.currentText()
+            simulation_name = sim_combo.currentText()
+
+            if not subject_id or not simulation_name:
+                self.update_output("Error: Subject or simulation not selected.")
+                self.analysis_finished(success=False)
+                return
+
+            cmd = self.build_single_analysis_command(subject_id, simulation_name)
             if not cmd: # build_analysis_command returns None on error
                 self.analysis_finished(success=False)
                 return
@@ -1723,15 +1373,9 @@ class AnalyzerTab(QtWidgets.QWidget):
     
     def run_group_analysis(self):
         """Run group analysis using the group_analyzer.py script."""
-        selected_subjects = [item.text() for item in self.subject_list.selectedItems()]
-        if not selected_subjects:
-            self.update_output("No subjects selected for group analysis.")
-            self.analysis_finished(success=False)
-            return
-        
         try:
             # Build the group analyzer command
-            cmd = self.build_group_analyzer_command(selected_subjects)
+            cmd = self.build_group_analyzer_command()
             if not cmd:
                 self.update_output("Error: Could not build group analyzer command.")
                 self.analysis_finished(success=False)
@@ -1743,11 +1387,29 @@ class AnalyzerTab(QtWidgets.QWidget):
             
             if self.SUMMARY_MODE:
                 # For group we still provide a concise start message
+                pairs_summary = []
+                for row in range(self.pairs_table.rowCount()):
+                    subject_combo = self.pairs_table.cellWidget(row, 0)
+                    sim_combo = self.pairs_table.cellWidget(row, 1)
+                    if subject_combo and sim_combo:
+                        subject_id = subject_combo.currentText()
+                        simulation_name = sim_combo.currentText()
+                        if subject_id and simulation_name:
+                            pairs_summary.append(f"{subject_id}({simulation_name})")
                 self.ANALYSIS_START_TIME = time.time()
-                self.update_output(f"Beginning group analysis for subjects: {', '.join(selected_subjects)}")
+                self.update_output(f"Beginning group analysis for pairs: {', '.join(pairs_summary)}")
                 self._last_output_dir = self._extract_output_dir_from_cmd(cmd)
             else:
-                self.update_output(f"Starting group analysis for subjects: {', '.join(selected_subjects)}")
+                pairs_summary = []
+                for row in range(self.pairs_table.rowCount()):
+                    subject_combo = self.pairs_table.cellWidget(row, 0)
+                    sim_combo = self.pairs_table.cellWidget(row, 1)
+                    if subject_combo and sim_combo:
+                        subject_id = subject_combo.currentText()
+                        simulation_name = sim_combo.currentText()
+                        if subject_id and simulation_name:
+                            pairs_summary.append(f"{subject_id}({simulation_name})")
+                self.update_output(f"Starting group analysis for pairs: {', '.join(pairs_summary)}")
                 self.update_output(f"Command: {' '.join(cmd)}")
             
             # Create and start thread
@@ -1763,7 +1425,7 @@ class AnalyzerTab(QtWidgets.QWidget):
             self.update_output(f"Error preparing group analysis: {str(e)}")
             self.analysis_finished(success=False)
     
-    def build_group_analyzer_command(self, selected_subjects):
+    def build_group_analyzer_command(self):
         """Build command to run group_analyzer.py with all selected subjects."""
         try:
             # Locate group_analyzer.py script
@@ -1774,9 +1436,11 @@ class AnalyzerTab(QtWidgets.QWidget):
                 return None
 
             # Build base command with temporary output directory (group_analyzer.py will create the actual organized directories)
-            project_dir_name = os.environ.get('PROJECT_DIR_NAME', 'BIDS_new')
-            project_dir = f"/mnt/{project_dir_name}"
-            temp_output_dir = os.path.join(project_dir, 'derivatives', 'SimNIBS')
+            project_dir = self.pm.get_project_dir()
+            if not project_dir:
+                self.update_output("Error: Could not determine project directory")
+                return None
+            temp_output_dir = self.pm.get_simnibs_dir()
             
             cmd = ['simnibs_python', group_analyzer_script_path,
                    '--space', 'mesh' if self.space_mesh.isChecked() else 'voxel',
@@ -1820,24 +1484,50 @@ class AnalyzerTab(QtWidgets.QWidget):
             if not self.debug_mode:
                 cmd.append('--quiet')
 
-            # Add subject specifications
-            common_montage = self.group_montage_config.get('common_montage')
-            if not common_montage:
-                self.update_output("Error: No common montage configured.")
-                return None
+            # Add subject specifications from pairs table
+            for row in range(self.pairs_table.rowCount()):
+                subject_combo = self.pairs_table.cellWidget(row, 0)
+                sim_combo = self.pairs_table.cellWidget(row, 1)
 
-            for subject_id in selected_subjects:
+                if subject_combo and sim_combo:
+                    subject_id = subject_combo.currentText()
+                    simulation_name = sim_combo.currentText()
+
+                    if not subject_id or not simulation_name:
+                        self.update_output(f"Error: Incomplete subject-simulation pair in row {row + 1}")
+                        return None
+                else:
+                    self.update_output(f"Error: Invalid subject-simulation pair in row {row + 1}")
+                    return None
                 # Get m2m path
-                m2m_path = self.get_m2m_dir_for_subject(subject_id)
+                m2m_path = self.pm.get_m2m_dir(subject_id)
                 if not m2m_path or not os.path.isdir(m2m_path):
                     self.update_output(f"Error: m2m_{subject_id} folder not found at {m2m_path}. Please create the m2m folder first using the Pre-process tab.", 'error')
                     return None
 
-                # Get field path for both mesh and voxel analysis
-                field_path = self.group_field_config.get(subject_id)
-                if not field_path or not os.path.exists(field_path):
-                    self.update_output(f"Error: Field file not found for subject {subject_id}")
-                    return None
+                # Construct field path or montage name based on analysis space
+                if self.space_mesh.isChecked():
+                    # For mesh analysis, use montage name (same as single subject analysis)
+                    field_path = simulation_name  # This will be treated as montage name by group_analyzer.py
+                else:
+                    # For voxel analysis, look for appropriate NIfTI file
+                    base_sim_dir = self.pm.get_simulation_dir(subject_id, simulation_name)
+                    nifti_dir = os.path.join(base_sim_dir, 'mTI', 'niftis') if os.path.exists(os.path.join(base_sim_dir, 'mTI', 'niftis')) else os.path.join(base_sim_dir, 'TI', 'niftis')
+                    # Prefer grey matter files, then any other file
+                    grey_files = [f for f in os.listdir(nifti_dir) if f.startswith('grey_') and not f.endswith('_MNI.nii.gz')] if os.path.exists(nifti_dir) else []
+                    if grey_files:
+                        field_path = os.path.join(nifti_dir, grey_files[0])
+                    else:
+                        # Fallback to any NIfTI file
+                        nii_files = [f for f in os.listdir(nifti_dir) if f.endswith('.nii') or f.endswith('.nii.gz')] if os.path.exists(nifti_dir) else []
+                        if nii_files:
+                            field_path = os.path.join(nifti_dir, nii_files[0])
+                        else:
+                            field_path = None
+
+                    if not field_path or not os.path.exists(field_path):
+                        self.update_output(f"Error: Field file not found for subject {subject_id}, simulation {simulation_name} (expected: {field_path})")
+                        return None
 
                 # Build subject specification
                 subject_spec = [subject_id, m2m_path, field_path]
@@ -1860,17 +1550,26 @@ class AnalyzerTab(QtWidgets.QWidget):
             return None
 
     def get_single_analysis_details(self):
-        selected_subjects = self.get_selected_subjects()
-        if not selected_subjects: return "No subject selected."
-        subj = selected_subjects[0]  # Use the selected subject
+        if self.pairs_table.rowCount() != 1:
+            return "Single analysis requires exactly one subject-simulation pair."
+
+        subject_combo = self.pairs_table.cellWidget(0, 0)
+        sim_combo = self.pairs_table.cellWidget(0, 1)
+
+        if not subject_combo or not sim_combo:
+            return "Subject-simulation pair not properly configured."
+
+        subj = subject_combo.currentText()
+        mont = sim_combo.currentText()
+
+        if not subj or not mont:
+            return "Subject or simulation not selected."
+
         space = 'Mesh' if self.space_mesh.isChecked() else 'Voxel'
         atype = 'Spherical' if self.type_spherical.isChecked() else 'Cortical'
-        mont = self.simulation_combo.currentText()
-        fpath = self.field_combo.currentText()
-        details = f"- Subject: {subj}\n- Space: {space}\n- Analysis Type: {atype}\n- Montage: {mont}\n- Field File: {fpath}\n"
-        if len(selected_subjects) > 1:
-            details += f"- Note: Using first selected subject ({subj}) for single analysis\n"
-        if self.space_mesh.isChecked(): details += f"- Field Name: TI_max (hardcoded)\n"
+        details = f"- Subject: {subj}\n- Space: {space}\n- Analysis Type: {atype}\n- Simulation: {mont}\n"
+        if self.space_mesh.isChecked():
+            details += f"- Field File: {mont}.msh (auto-selected)\n"
         if self.type_spherical.isChecked():
             coord_space = "MNI" if self.is_group_mode else "RAS"
             details += (f"- Coordinates ({coord_space}): ({self.coord_x.text() or '0'}, {self.coord_y.text() or '0'}, {self.coord_z.text() or '0'})\n"
@@ -1888,22 +1587,20 @@ class AnalyzerTab(QtWidgets.QWidget):
     def get_group_analysis_details(self, subjects):
         space = 'Mesh' if self.space_mesh.isChecked() else 'Voxel'
         analysis_type = 'Spherical' if self.type_spherical.isChecked() else 'Cortical'
-        details = (f"- Subjects: {', '.join(subjects)}\n- Space: {space}\n- Analysis Type: {analysis_type}\n")
+
+        # Collect subject-simulation pairs
+        pairs_info = []
+        for row in range(self.pairs_table.rowCount()):
+            subject_combo = self.pairs_table.cellWidget(row, 0)
+            sim_combo = self.pairs_table.cellWidget(row, 1)
+            if subject_combo and sim_combo:
+                subject_id = subject_combo.currentText()
+                simulation_name = sim_combo.currentText()
+                if subject_id and simulation_name:
+                    pairs_info.append(f"{subject_id}({simulation_name})")
+
+        details = (f"- Subject-Simulation Pairs: {', '.join(pairs_info)}\n- Space: {space}\n- Analysis Type: {analysis_type}\n")
         
-        # Common configuration
-        details += "\n- Common Configuration (Applied to All Subjects):\n"
-        common_montage = self.group_montage_config.get('common_montage', 'N/A')
-        details += f"  - Common Montage: {common_montage}\n"
-        
-        # Field configuration details
-        if self.group_field_config:
-            field_count = len(self.group_field_config)
-            details += f"  - Field Files: Auto-selected grey matter subject space files for {field_count} subjects\n"
-            if self.space_mesh.isChecked():
-                field_name = "TI_max"  # Field name is now hardcoded
-                details += f"  - Field Name (Mesh): {field_name}\n"
-        else:
-            details += f"  - Field Files: None auto-selected\n"
         
         # Shared analysis parameters
         details += "\n- Shared Analysis Parameters:\n"
@@ -1927,20 +1624,9 @@ class AnalyzerTab(QtWidgets.QWidget):
         """Force a complete UI refresh to ensure all controls are in the correct state."""
         # Force update of all relevant UI components
         if not self.is_group_mode:
-            self.update_simulations()
-            self.update_field_files()
             self.update_mesh_files()
         
-        # Update atlas and region controls
         self.update_atlas_visibility()
-        
-        # Force refresh group mode configurations if applicable
-        if self.is_group_mode:
-            selected_subjects = self.get_selected_subjects()
-            if selected_subjects:
-                self.populate_group_common_config(selected_subjects)
-        
-        # Update button states
         self.update_gmsh_button_state()
         
         # Force widget updates
@@ -1997,11 +1683,13 @@ class AnalyzerTab(QtWidgets.QWidget):
                     analysis_type_str = 'Mesh' if self.space_mesh.isChecked() else 'Voxel'
                     self.analysis_completed.emit(subject_id, simulation_name, analysis_type_str)
                 elif self.is_group_mode:
-                    selected_subjects = [item.text() for item in self.subject_list.selectedItems()]
                     analysis_type_str = 'Mesh' if self.space_mesh.isChecked() else 'Voxel'
-                    if selected_subjects:
-                        common_montage = self.group_montage_config.get('common_montage', 'group_analysis')
-                        self.analysis_completed.emit(selected_subjects[0], common_montage, analysis_type_str)
+                    # For group mode, emit with first subject and 'group_analysis' as simulation name
+                    if self.pairs_table.rowCount() > 0:
+                        first_subject_combo = self.pairs_table.cellWidget(0, 0)
+                        if first_subject_combo:
+                            first_subject = first_subject_combo.currentText()
+                            self.analysis_completed.emit(first_subject, 'group_analysis', analysis_type_str)
             else:
                  self.update_output('<div style="margin: 10px 0;"><span style="color: #ff5555; font-weight: bold;">[ERROR] Analysis process failed or was cancelled by user.</span></div>')
 
@@ -2219,12 +1907,9 @@ class AnalyzerTab(QtWidgets.QWidget):
     def disable_controls(self):
         # List of widgets to disable, similar to original
         widgets_to_set_enabled = [
-            # Subject buttons for both modes
-            self.list_subjects_btn, self.clear_subject_selection_btn,  # Single mode
-            self.list_subjects_btn_group, self.select_all_subjects_btn, self.clear_subject_selection_btn_group,  # Group mode
+            # Pair management buttons
+            self.add_pair_btn, self.quick_add_btn, self.clear_pairs_btn, self.refresh_pairs_btn,
             # Other widgets
-            self.subject_list, self.subject_combo, self.single_mode_radio, self.group_mode_radio,
-            self.simulation_combo, self.field_combo, self.browse_field_btn,
             self.space_mesh, self.space_voxel, self.type_spherical, self.type_cortical,
             self.coord_x, self.coord_y, self.coord_z, self.radius_input,
             self.view_in_freeview_btn,
@@ -2234,11 +1919,6 @@ class AnalyzerTab(QtWidgets.QWidget):
         for widget in widgets_to_set_enabled:
             if hasattr(widget, 'setEnabled'): widget.setEnabled(False)
 
-        if self.is_group_mode: # Also disable group configuration widgets
-            if hasattr(self, 'group_montage_combo'):
-                self.group_montage_combo.setEnabled(False)
-            if hasattr(self, 'show_selected_fields_btn'):
-                self.show_selected_fields_btn.setEnabled(False)
         
         # Keep debug checkbox enabled during processing
         if hasattr(self, 'console_widget') and hasattr(self.console_widget, 'debug_checkbox'):
@@ -2249,12 +1929,9 @@ class AnalyzerTab(QtWidgets.QWidget):
 
     def enable_controls(self):
         widgets_to_set_enabled = [
-            # Subject buttons for both modes
-            self.list_subjects_btn, self.clear_subject_selection_btn,  # Single mode
-            self.list_subjects_btn_group, self.select_all_subjects_btn, self.clear_subject_selection_btn_group,  # Group mode
+            # Pair management buttons
+            self.add_pair_btn, self.quick_add_btn, self.clear_pairs_btn, self.refresh_pairs_btn,
             # Other widgets
-            self.subject_list, self.subject_combo, self.single_mode_radio, self.group_mode_radio,
-            self.simulation_combo, self.field_combo, self.browse_field_btn,
             self.space_mesh, self.space_voxel, self.type_spherical, self.type_cortical,
             self.coord_x, self.coord_y, self.coord_z, self.radius_input,
             self.view_in_freeview_btn,
@@ -2276,168 +1953,13 @@ class AnalyzerTab(QtWidgets.QWidget):
         self.update_atlas_visibility() # This will correctly set enable states for atlas/region controls
         self.update_gmsh_button_state()
 
-        if self.is_group_mode:
-            if hasattr(self, 'group_montage_combo'):
-                self.group_montage_combo.setEnabled(True)
-            if hasattr(self, 'show_selected_fields_btn'):
-                # Button state depends on whether fields are selected
-                self.show_selected_fields_btn.setEnabled(bool(self.group_field_config))
         
         # Spherical analysis should be enabled in both modes
         self.type_spherical.setEnabled(True)
 
         self.status_label.hide()
 
-    def update_simulations(self): # For single mode montage
-        if self.is_group_mode: return
-        
-        current_sim_text = self.simulation_combo.currentText()
-        self.simulation_combo.clear()
-        self.simulation_combo.addItem("Select montage...")
-        # self.field_combo.clear() # Field combo is updated by update_field_files
-        # self.field_combo.addItem("Select field file...") # Placeholder added by update_field_files
 
-        selected_subjects = self.get_selected_subjects()
-        if not selected_subjects:
-            self.simulation_combo.setCurrentIndex(0)
-            self.update_field_files() # Clear/reset field files
-            return
-            
-        subject_id = selected_subjects[0]
-        project_dir_name = os.environ.get('PROJECT_DIR_NAME', 'BIDS_new')
-        simulations_dir = os.path.join(f"/mnt/{project_dir_name}", 'derivatives', 'SimNIBS', f'sub-{subject_id}', 'Simulations')
-        
-        if not os.path.exists(simulations_dir):
-            self.simulation_combo.setCurrentIndex(0)
-            self.update_field_files()
-            return
-            
-        simulations = sorted([d for d in os.listdir(simulations_dir) if os.path.isdir(os.path.join(simulations_dir, d))])
-        self.simulation_combo.addItems(simulations)
-
-        idx = self.simulation_combo.findText(current_sim_text)
-        if idx != -1: self.simulation_combo.setCurrentIndex(idx)
-        elif simulations: self.simulation_combo.setCurrentIndex(1) # Select first actual if previous not found
-        else: self.simulation_combo.setCurrentIndex(0)
-        # update_field_files is connected to currentTextChanged of simulation_combo
-
-    def update_field_files(self): # For single mode fields
-        if self.is_group_mode: return
-        
-        # Preserve current selection to try and restore it
-        current_field_text = self.field_combo.currentText()
-        current_field_data = self.field_combo.currentData() # Path
-
-        self.field_combo.clear()
-        self.field_combo.addItem("Select field file...")
-        
-        selected_subjects = self.get_selected_subjects()
-        if not selected_subjects or self.simulation_combo.currentIndex() == 0:
-            self.field_combo.setCurrentIndex(0)
-            return
-            
-        subject_id = selected_subjects[0]
-        simulation_name = self.simulation_combo.currentText()
-        project_dir_name = os.environ.get('PROJECT_DIR_NAME', 'BIDS_new')
-        
-        base_sim_dir = os.path.join(f"/mnt/{project_dir_name}", 'derivatives', 'SimNIBS', 
-                                    f'sub-{subject_id}', 'Simulations', simulation_name)
-        search_dir = ""
-        is_mti = False
-        if self.space_mesh.isChecked():
-            # Check for mTI simulation
-            mti_mesh_dir = os.path.join(base_sim_dir, 'mTI', 'mesh')
-            ti_mesh_dir = os.path.join(base_sim_dir, 'TI', 'mesh')
-            if os.path.exists(mti_mesh_dir):
-                search_dir = mti_mesh_dir
-                is_mti = True
-            else:
-                search_dir = ti_mesh_dir
-        else: # voxel
-            # Check for mTI simulation
-            mti_nifti_dir = os.path.join(base_sim_dir, 'mTI', 'niftis')
-            ti_nifti_dir = os.path.join(base_sim_dir, 'TI', 'niftis')
-            if os.path.exists(mti_nifti_dir):
-                search_dir = mti_nifti_dir
-                is_mti = True
-            else:
-                search_dir = ti_nifti_dir
-        
-        if not os.path.exists(search_dir):
-            self.field_combo.setCurrentIndex(0)
-            return
-            
-        try:
-            all_files_in_dir = os.listdir(search_dir)
-        except Exception as e:
-            print(f"Error reading dir {search_dir}: {str(e)}")
-            self.field_combo.setCurrentIndex(0)
-            return
-            
-        # Original filtering and sorting logic for single mode
-        field_files_paths = [] # Store (display_name, full_path)
-        if self.space_mesh.isChecked():
-            # For mesh analysis, look for the specific pattern based on simulation type
-            if is_mti:
-                # For mTI simulations, look for <montage>_mTI.msh
-                expected_mesh_file = f"{simulation_name}_mTI.msh"
-            else:
-                # For regular TI simulations, look for <montage>_TI.msh
-                expected_mesh_file = f"{simulation_name}_TI.msh"
-            
-            if expected_mesh_file in all_files_in_dir:
-                field_files_paths.append((expected_mesh_file, os.path.join(search_dir, expected_mesh_file)))
-            else:
-                # Fallback: look for any .msh files if the expected pattern doesn't exist
-                mesh_files = sorted([f for f in all_files_in_dir if f.endswith('.msh') and not f.endswith('.msh.opt')])
-                for f_name in mesh_files:
-                    field_files_paths.append((f_name, os.path.join(search_dir, f_name)))
-        else: # Voxel
-            nifti_mgz_files = [f for f in all_files_in_dir if any(f.endswith(ext) for ext in ['.nii', '.nii.gz', '.mgz'])]
-            grey_non_mni = sorted([f for f in nifti_mgz_files if f.startswith('grey_') and '_MNI_' not in f])
-            grey_mni = sorted([f for f in nifti_mgz_files if f.startswith('grey_') and '_MNI_' in f])
-            other_vol = sorted([f for f in nifti_mgz_files if not f.startswith('grey_')])
-            
-            for f_name in grey_non_mni: field_files_paths.append((f_name, os.path.join(search_dir, f_name)))
-            for f_name in grey_mni: field_files_paths.append((f_name, os.path.join(search_dir, f_name)))
-            for f_name in other_vol: field_files_paths.append((f_name, os.path.join(search_dir, f_name)))
-        
-        if not field_files_paths:
-            self.field_combo.setCurrentIndex(0)
-            return
-        
-        for display, path_val in field_files_paths:
-            self.field_combo.addItem(display, path_val)
-
-        # Attempt to restore previous selection
-        restored_idx = -1
-        if current_field_data: # Try by path first
-            for i in range(self.field_combo.count()):
-                if self.field_combo.itemData(i) == current_field_data:
-                    restored_idx = i; break
-        if restored_idx == -1 and current_field_text != "Select field file...": # Then by text
-             restored_idx = self.field_combo.findText(current_field_text)
-
-        if restored_idx != -1 and restored_idx !=0 :
-            self.field_combo.setCurrentIndex(restored_idx)
-        elif self.field_combo.count() > 1: # Default selection if not restored
-            if self.space_mesh.isChecked():
-                # For mesh analysis, automatically select the first file (should be the correct pattern)
-                self.field_combo.setCurrentIndex(1)
-            elif not self.space_mesh.isChecked() and grey_non_mni: # Voxel: prefer first non-MNI grey
-                idx_pref = self.field_combo.findText(grey_non_mni[0])
-                if idx_pref != -1 : self.field_combo.setCurrentIndex(idx_pref)
-                else: self.field_combo.setCurrentIndex(1)
-            else: # Fallback to first actual item
-                self.field_combo.setCurrentIndex(1) 
-        else: # Only placeholder left
-             self.field_combo.setCurrentIndex(0)
-
-
-    def get_selected_field_path(self): # For single mode
-        if self.is_group_mode or self.field_combo.currentIndex() == 0:
-            return None
-        return self.field_combo.currentData() # Path stored in item data
 
     def show_available_regions(self): # For single mode "List Regions"
         try:
@@ -2457,7 +1979,7 @@ class AnalyzerTab(QtWidgets.QWidget):
                 atlas_name_simnibs = self.atlas_name_combo.currentText()
                 if not atlas_name_simnibs: QtWidgets.QMessageBox.warning(self, "Atlas Error", "Select mesh atlas."); return
                 atlas_type_display = atlas_name_simnibs
-                m2m_dir = self.get_m2m_dir_for_subject(subject_id)
+                m2m_dir = self.pm.get_m2m_dir(subject_id)
                 if not m2m_dir: QtWidgets.QMessageBox.critical(self, "Error", f"m2m dir not found: {subject_id}."); return
                 
                 progress_dialog.setValue(20); QtWidgets.QApplication.processEvents()
@@ -2594,7 +2116,7 @@ class AnalyzerTab(QtWidgets.QWidget):
             else:
                 # Single mode or non-spherical: load subject's T1
                 subject_id = selected_subjects[0]
-                m2m_dir_path = self.get_m2m_dir_for_subject(subject_id)
+                m2m_dir_path = self.pm.get_m2m_dir(subject_id)
                 if not m2m_dir_path: QtWidgets.QMessageBox.warning(self, "Error", f"m2m dir not found for {subject_id}."); return
                 
                 t1_nii_gz_path = os.path.join(m2m_dir_path, "T1.nii.gz")
@@ -2614,28 +2136,41 @@ class AnalyzerTab(QtWidgets.QWidget):
         except FileNotFoundError: QtWidgets.QMessageBox.critical(self, "Error", "Freeview not found. Ensure installed and in PATH.")
         except Exception as e: QtWidgets.QMessageBox.critical(self, "Error", f"Failed to launch Freeview: {str(e)}"); self.update_output(f"Error: {e}")
 
-    def update_mesh_files(self): # For single mode Gmsh dropdown
+    def update_mesh_files(self): # For Gmsh dropdown
         if self.is_group_mode: return
-        
+
         # Only populate mesh files when Mesh space is selected
         if not self.space_mesh.isChecked():
             self.mesh_combo.clear()
             self.mesh_combo.addItem("Select mesh file...")
             self.update_gmsh_button_state()
             return
-        
+
         self.mesh_combo.clear(); self.mesh_combo.addItem("Select mesh file...")
-        
-        selected_subjects = self.get_selected_subjects()
-        if not selected_subjects or self.simulation_combo.currentIndex() == 0:
-            self.update_gmsh_button_state(); return
-            
-        subject_id = selected_subjects[0]
-        simulation_name = self.simulation_combo.currentText()
-        project_dir_name = os.environ.get('PROJECT_DIR_NAME', 'BIDS_new')
-        
-        mesh_dir_gmsh = os.path.join(f"/mnt/{project_dir_name}", "derivatives", "SimNIBS", f"sub-{subject_id}", 
-                                   "Simulations", simulation_name, "Analyses", "Mesh")
+
+        # For single mode, get simulation from the selected pair
+        if self.pairs_table.rowCount() != 1:
+            self.update_gmsh_button_state()
+            return
+
+        # Get the subject and simulation from the single pair
+        subject_combo = self.pairs_table.cellWidget(0, 0)
+        sim_combo = self.pairs_table.cellWidget(0, 1)
+
+        if not subject_combo or not sim_combo:
+            self.update_gmsh_button_state()
+            return
+
+        subject_id = subject_combo.currentText()
+        simulation_name = sim_combo.currentText()
+
+        if not subject_id or not simulation_name:
+            self.update_gmsh_button_state()
+            return
+
+        # Get simulation directory using PathManager, then add Analyses/Mesh
+        sim_dir = self.pm.get_simulation_dir(subject_id, simulation_name)
+        mesh_dir_gmsh = os.path.join(sim_dir, "Analyses", "Mesh") if sim_dir else None
         
         mesh_files_to_list = []
         if os.path.exists(mesh_dir_gmsh):
@@ -2652,6 +2187,14 @@ class AnalyzerTab(QtWidgets.QWidget):
         for disp, path_val in mesh_files_to_list: self.mesh_combo.addItem(disp, path_val)
         
         self.update_gmsh_button_state()
+
+    def update_field_files(self): # Stub method for compatibility
+        """Update field files list after analysis completion.
+
+        This method is called from main.py after analysis completion.
+        Currently a stub since the field file UI was simplified.
+        """
+        pass
 
     def launch_gmsh(self):
         if self.mesh_combo.currentIndex() == 0 or not self.mesh_combo.currentData():
@@ -2691,23 +2234,15 @@ class AnalyzerTab(QtWidgets.QWidget):
                 atlas_combo.addItem(disp_name, path_val) # Store path as data
             if atlas_combo.count() > 0: atlas_combo.setCurrentIndex(0) # Select first valid
     
-    # Old tab-related configuration methods removed - using common configuration approach now
 
-    # Old auto-select helper methods removed - no longer using individual subject tabs
 
-    def restore_single_mode_sizes(self):
-        # Simplified - let layout managers handle sizing naturally
-        pass
-
-    def set_analysis_config_panel_size(self, mode):
-        # Simplified - let layout managers handle sizing naturally
-        pass
-
-    def build_single_analysis_command(self, subject_id, simulation_name, field_path):
+    def build_single_analysis_command(self, subject_id, simulation_name):
         """Build command to run main_analyzer.py for a single subject."""
         try:
-            project_dir_name = os.environ.get('PROJECT_DIR_NAME', 'BIDS_new')
-            project_dir = f"/mnt/{project_dir_name}"
+            project_dir = self.pm.get_project_dir()
+            if not project_dir:
+                self.update_output("Error: Could not determine project directory")
+                return None
             
             target_info = ""
             if self.type_spherical.isChecked():
@@ -2740,9 +2275,12 @@ class AnalyzerTab(QtWidgets.QWidget):
             if simulation_name == "Select montage...":
                  return None
 
-            output_dir = os.path.join(project_dir, 'derivatives', 'SimNIBS', f'sub-{subject_id}',
-                                      'Simulations', simulation_name, 'Analyses',
-                                      analysis_space_folder, target_info)
+            # Build output directory using PathManager
+            sim_dir = self.pm.get_simulation_dir(subject_id, simulation_name)
+            if not sim_dir:
+                self.update_output(f"Error: Could not find simulation directory for {subject_id}, {simulation_name}")
+                return None
+            output_dir = os.path.join(sim_dir, 'Analyses', analysis_space_folder, target_info)
 
             if os.path.exists(output_dir) and not confirm_overwrite(self, output_dir, "analysis output directory"):
                 return None
@@ -2753,7 +2291,7 @@ class AnalyzerTab(QtWidgets.QWidget):
             if not os.path.exists(main_analyzer_script_path):
                 return None
 
-            m2m_path = self.get_m2m_dir_for_subject(subject_id)
+            m2m_path = self.pm.get_m2m_dir(subject_id)
             if not m2m_path or not os.path.isdir(m2m_path):
                 self.update_output(f"Error: m2m_{subject_id} folder not found at {m2m_path}. Please create the m2m folder first using the Pre-process tab.", 'error')
                 return None
@@ -2768,7 +2306,22 @@ class AnalyzerTab(QtWidgets.QWidget):
             if self.space_mesh.isChecked():
                 cmd.extend(['--montage_name', simulation_name])
             else:
-                cmd.extend(['--field_path', field_path])
+                # For voxel analysis, automatically construct field path
+                base_sim_dir = get_simulation_dir(subject_id, simulation_name)
+                nifti_dir = os.path.join(base_sim_dir, 'mTI', 'niftis') if os.path.exists(os.path.join(base_sim_dir, 'mTI', 'niftis')) else os.path.join(base_sim_dir, 'TI', 'niftis')
+                # Prefer grey matter files
+                grey_files = [f for f in os.listdir(nifti_dir) if f.startswith('grey_') and not f.endswith('_MNI.nii.gz')] if os.path.exists(nifti_dir) else []
+                if grey_files:
+                    voxel_field_path = os.path.join(nifti_dir, grey_files[0])
+                else:
+                    # Fallback to any NIfTI file
+                    nii_files = [f for f in os.listdir(nifti_dir) if f.endswith('.nii') or f.endswith('.nii.gz')] if os.path.exists(nifti_dir) else []
+                    voxel_field_path = os.path.join(nifti_dir, nii_files[0]) if nii_files else None
+
+                if not voxel_field_path or not os.path.exists(voxel_field_path):
+                    self.update_output(f"Error: Field file not found for subject {subject_id} (expected in {nifti_dir})")
+                    return None
+                cmd.extend(['--field_path', voxel_field_path])
 
             if self.type_spherical.isChecked():
                 coords_str = [self.coord_x.text().strip() or "0", self.coord_y.text().strip() or "0", self.coord_z.text().strip() or "0"]
