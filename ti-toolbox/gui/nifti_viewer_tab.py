@@ -17,7 +17,7 @@ project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-from core import get_path_manager
+from core import get_path_manager, get_freesurfer_mri_dir, get_simulation_dir, get_simnibs_dir, list_simulations, get_subject_dir, get_m2m_dir
 
 class NiftiViewerTab(QtWidgets.QWidget):
     """Tab for NIfTI visualization using Freeview."""
@@ -44,17 +44,17 @@ class NiftiViewerTab(QtWidgets.QWidget):
            
     def detect_freesurfer_atlases(self, subject_id):
         """Detect available Freesurfer atlases for a subject.
-        
+
         Args:
             subject_id: The subject ID without 'sub-' prefix
-            
+
         Returns:
             List of available atlas files
         """
-        freesurfer_dir = os.path.join(self.base_dir, "derivatives", "freesurfer", f"sub-{subject_id}", "mri")
+        freesurfer_dir = get_freesurfer_mri_dir(subject_id)
         atlas_files = []
-        
-        if os.path.isdir(freesurfer_dir):
+
+        if freesurfer_dir and os.path.isdir(freesurfer_dir):
             # Look for common atlas files
             atlas_patterns = [
                 "aparc.DKTatlas+aseg.mgz",
@@ -105,17 +105,17 @@ class NiftiViewerTab(QtWidgets.QWidget):
         
     def detect_voxel_analyses(self, subject_id, simulation_name):
         """Detect available voxel analyses for a subject and simulation.
-        
+
         Args:
             subject_id: The subject ID without 'sub-' prefix
             simulation_name: Name of the simulation
-            
+
         Returns:
             List of available region names
         """
         regions = []
-        analyses_dir = os.path.join(self.base_dir, "derivatives", "SimNIBS", 
-                                  f"sub-{subject_id}", "Simulations", simulation_name, "Analyses")
+        sim_dir = get_simulation_dir(subject_id, simulation_name)
+        analyses_dir = os.path.join(sim_dir, "Analyses") if sim_dir else None
         
         if os.path.isdir(analyses_dir):
             # Look for Voxel analysis directory
@@ -289,7 +289,7 @@ class NiftiViewerTab(QtWidgets.QWidget):
         self.add_pair_btn.clicked.connect(self.add_pair_row)
         pair_buttons_layout.addWidget(self.add_pair_btn)
         
-        self.quick_add_btn = QtWidgets.QPushButton("📋 Quick Add")
+        self.quick_add_btn = QtWidgets.QPushButton("Quick Add")
         self.quick_add_btn.setStyleSheet("QPushButton { padding: 5px 15px; }")
         self.quick_add_btn.setToolTip("Add the same simulation to multiple subjects at once")
         self.quick_add_btn.clicked.connect(self.quick_add_pairs)
@@ -444,17 +444,17 @@ class NiftiViewerTab(QtWidgets.QWidget):
     def refresh_subjects(self):
         """Scan for available subjects and update the dropdown."""
         self.subject_combo.clear()
-        
+
         # Look for subject directories in the derivatives/SimNIBS directory
         try:
-            derivatives_dir = os.path.join(self.base_dir, "derivatives", "SimNIBS")
-            if not os.path.isdir(derivatives_dir):
+            simnibs_dir = get_simnibs_dir()
+            if not simnibs_dir or not os.path.isdir(simnibs_dir):
                 self.status_label.setText("No subjects found")
                 return
-            
+
             # Look for sub-* directories
-            subject_dirs = [d for d in os.listdir(derivatives_dir) 
-                          if os.path.isdir(os.path.join(derivatives_dir, d)) and d.startswith('sub-')]
+            subject_dirs = [d for d in os.listdir(simnibs_dir)
+                          if os.path.isdir(os.path.join(simnibs_dir, d)) and d.startswith('sub-')]
             
             if subject_dirs:
                 # Remove 'sub-' prefix for display
@@ -495,19 +495,20 @@ class NiftiViewerTab(QtWidgets.QWidget):
         self.sim_combo.clear()
         if self.subject_combo.count() == 0:
             return
-            
+
         subject_id = self.subject_combo.currentText()
-        sim_base = os.path.join(self.base_dir, "derivatives", "SimNIBS", f"sub-{subject_id}", "Simulations")
-        
-        if not os.path.isdir(sim_base):
+        simulations = list_simulations(subject_id)
+
+        if not simulations:
+            pm = get_path_manager()
+            subject_dir = pm.get_subject_dir(subject_id)
+            sim_base = os.path.join(subject_dir, "Simulations") if subject_dir else "unknown location"
             self.info_area.append(f"\nNo Simulations directory found at {sim_base}")
             return
-            
-        # List all subdirectories (simulations)
-        for sim_name in sorted(os.listdir(sim_base)):
-            sim_path = os.path.join(sim_base, sim_name)
-            if os.path.isdir(sim_path):
-                self.sim_combo.addItem(sim_name)
+
+        # Add simulations to combo box
+        for sim_name in simulations:
+            self.sim_combo.addItem(sim_name)
         
         # If simulations were found, select the first one and update analyses
         if self.sim_combo.count() > 0:
@@ -582,31 +583,20 @@ class NiftiViewerTab(QtWidgets.QWidget):
     
     def get_all_subjects(self):
         """Get list of all available subjects."""
-        subjects = []
+        from core import list_subjects
         try:
-            derivatives_dir = os.path.join(self.base_dir, "derivatives", "SimNIBS")
-            if os.path.isdir(derivatives_dir):
-                subject_dirs = [d for d in os.listdir(derivatives_dir) 
-                              if os.path.isdir(os.path.join(derivatives_dir, d)) and d.startswith('sub-')]
-                subjects = sorted([d[4:] for d in subject_dirs])  # Remove 'sub-' prefix
+            return list_subjects()
         except Exception as e:
             self.info_area.append(f"\nError getting subjects: {str(e)}")
-        
-        return subjects
+            return []
     
     def get_simulations_for_subject(self, subject_id):
         """Get list of available simulations for a subject."""
-        simulations = []
         try:
-            sim_base = os.path.join(self.base_dir, "derivatives", "SimNIBS", 
-                                   f"sub-{subject_id}", "Simulations")
-            if os.path.isdir(sim_base):
-                simulations = sorted([d for d in os.listdir(sim_base) 
-                                    if os.path.isdir(os.path.join(sim_base, d))])
+            return list_simulations(subject_id)
         except Exception as e:
-            self.info_area.append(f"\nError getting simulations for {subject_id}: {str(e)}")
-        
-        return simulations
+            self.info_area.append(f"\nError getting simulations for subject {subject_id}: {str(e)}")
+            return []
     
     def add_pair_row(self):
         """Add a new row for subject-simulation pair selection."""
@@ -757,17 +747,16 @@ class NiftiViewerTab(QtWidgets.QWidget):
     
     def validate_pair(self, subject_id, simulation_name):
         """Validate that a subject-simulation pair has MNI files available.
-        
+
         Args:
             subject_id: Subject ID without 'sub-' prefix
             simulation_name: Name of the simulation
-            
+
         Returns:
             Tuple of (is_valid, nifti_path or error_message)
         """
         # Look for MNI NIfTI files
-        sim_dir = os.path.join(self.base_dir, "derivatives", "SimNIBS", 
-                              f"sub-{subject_id}", "Simulations", simulation_name)
+        sim_dir = get_simulation_dir(subject_id, simulation_name)
         
         # Check mTI and TI directories
         for sim_type in ["mTI", "TI"]:
@@ -933,11 +922,10 @@ class NiftiViewerTab(QtWidgets.QWidget):
             QtWidgets.QMessageBox.warning(self, "Warning", "Please select a simulation")
             return
         
-        # Construct paths using BIDS structure
-        derivatives_dir = os.path.join(self.base_dir, "derivatives", "SimNIBS")
-        subject_dir = os.path.join(derivatives_dir, f"sub-{subject_id}")
-        m2m_dir = os.path.join(subject_dir, f"m2m_{subject_id}")
-        simulations_dir = os.path.join(subject_dir, "Simulations")
+        # Get paths using path manager
+        subject_dir = get_subject_dir(subject_id)
+        m2m_dir = get_m2m_dir(subject_id)
+        simulations_dir = os.path.join(subject_dir, "Simulations") if subject_dir else None
         
         # Get visualization options
         colormap = self.colormap_combo.currentText()
@@ -969,8 +957,8 @@ class NiftiViewerTab(QtWidgets.QWidget):
         # Add Freesurfer atlas if selected and available
         if self.atlas_combo.isEnabled() and self.atlas_combo.currentText():
             atlas_name = self.atlas_combo.currentText()
-            atlas_file = os.path.join(self.base_dir, "derivatives", "freesurfer", 
-                                    f"sub-{subject_id}", "mri", atlas_name)
+            freesurfer_mri_dir = get_freesurfer_mri_dir(subject_id)
+            atlas_file = os.path.join(freesurfer_mri_dir, atlas_name) if freesurfer_mri_dir else None
             
             if os.path.exists(atlas_file):
                 atlas_visible = 1 if self.atlas_visibility_chk.isChecked() else 0
@@ -992,9 +980,8 @@ class NiftiViewerTab(QtWidgets.QWidget):
             region_name = self.analysis_region_combo.currentText()
             
             # Look for the ROI file
-            analysis_dir = os.path.join(self.base_dir, "derivatives", "SimNIBS",
-                                    f"sub-{subject_id}", "Simulations", simulation_name,
-                                    "Analyses", "Voxel", region_name)
+            sim_dir = get_simulation_dir(subject_id, simulation_name)
+            analysis_dir = os.path.join(sim_dir, "Analyses", "Voxel", region_name) if sim_dir else None
             
             if os.path.exists(analysis_dir):
                 # First try to find the specific ROI file
@@ -1095,30 +1082,6 @@ class NiftiViewerTab(QtWidgets.QWidget):
                 else:
                     self.info_area.append(f"\nWarning: High frequency directory not found at {high_freq_dir}")
 
-            # Then, add related analysis files from the Analyses directory
-            if not is_mni_space:  # Only load analysis files in subject space
-                # Look for matching analysis directory
-                analysis_sim_dir = os.path.join(derivatives_dir, simulation_name)
-                if os.path.exists(analysis_sim_dir):
-                    # Look for Voxel analysis files
-                    voxel_dir = os.path.join(analysis_sim_dir, "Voxel")
-                    if os.path.exists(voxel_dir):
-                        # Look for region directories
-                        for region_dir in os.listdir(voxel_dir):
-                            region_path = os.path.join(voxel_dir, region_dir)
-                            if os.path.isdir(region_path):
-                                # Look for NIfTI files directly in the region directory
-                                for nifti_file in glob.glob(os.path.join(region_path, "*.nii*")):
-                                    file_specs.append({
-                                        "path": nifti_file,
-                                        "type": "volume",
-                                        "colormap": "jet",  # Use different colormap for analysis files
-                                        "opacity": opacity * 0.7,  # Slightly lower opacity
-                                        "visible": 0,  # Not visible by default
-                                        "percentile": 1 if percentile else 0,
-                                        "threshold_min": threshold_min,
-                                        "threshold_max": threshold_max
-                                    })
         
         if not any(spec for spec in file_specs if spec["path"].endswith((".nii", ".nii.gz"))):
             QtWidgets.QMessageBox.warning(self, "Warning", 
