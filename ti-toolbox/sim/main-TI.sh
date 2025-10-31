@@ -47,6 +47,11 @@ m2m_dir="$simnibs_dir/m2m_$subject_id"
 # Update simulation directory to be under the BIDS derivatives structure
 simulation_dir="$simnibs_dir/Simulations"
 
+# Handle freehand montages (treat same as flex montages for TI.py)
+if [[ -n "${FREEHAND_MONTAGES_FILE:-}" ]]; then
+    export FLEX_MONTAGES_FILE="$FREEHAND_MONTAGES_FILE"
+fi
+
 # Initialize arrays for montage parsing
 selected_montages=()
 

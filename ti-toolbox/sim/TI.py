@@ -198,28 +198,50 @@ def run_simulation(montage_name, montage, is_xyz=False, net=None):
 # Run regular montages
 for name in montage_names:
     if name in montages and montages[name]:
-        run_simulation(name, montages[name])
+        # For freehand mode, electrode positions are XYZ coordinates, not electrode names
+        is_xyz_mode = eeg_net in ["freehand", "flex_mode"]
+        try:
+            run_simulation(name, montages[name], is_xyz=is_xyz_mode)
+        except Exception as e:
+            logger.error(f"Failed to run regular montage {name}: {e}")
+            import traceback
+            traceback.print_exc()
 
 # Run flex montages
 for flex in flex_montages:
     montage_name = flex['name']
     montage_type = flex['type']
-    
-    if montage_type == 'flex_mapped':
-        pairs = flex['pairs']
-        montage_data = [[pairs[0][0], pairs[0][1]], [pairs[1][0], pairs[1][1]]]
-        run_simulation(montage_name, montage_data, is_xyz=False, net=flex.get('eeg_net', eeg_net))
-    elif montage_type == 'flex_optimized':
-        ep = flex['electrode_positions']
-        montage_data = [[ep[0], ep[1]], [ep[2], ep[3]]]
-        run_simulation(montage_name, montage_data, is_xyz=True)
+
+    try:
+        if montage_type == 'flex_mapped':
+            pairs = flex['pairs']
+            montage_data = [[pairs[0][0], pairs[0][1]], [pairs[1][0], pairs[1][1]]]
+            run_simulation(montage_name, montage_data, is_xyz=False, net=flex.get('eeg_net', eeg_net))
+        elif montage_type == 'flex_optimized':
+            ep = flex['electrode_positions']
+            montage_data = [[ep[0], ep[1]], [ep[2], ep[3]]]
+            run_simulation(montage_name, montage_data, is_xyz=True)
+        elif montage_type == 'freehand_xyz':
+            # Freehand mode: electrode positions are XYZ coordinates
+            ep = flex['electrode_positions']
+            montage_data = [[ep[0], ep[1]], [ep[2], ep[3]]]
+            run_simulation(montage_name, montage_data, is_xyz=True)
+        else:
+            logger.warning(f"Unknown flex montage type: {montage_type}")
+    except Exception as e:
+        logger.error(f"Failed to run flex montage {montage_name} ({montage_type}): {e}")
+        import traceback
+        traceback.print_exc()
 
 # Create completion report
 completed = []
+actual_regular_montages = 0
 for name in montage_names:
-    ti_mesh = os.path.join(simulation_dir, name, "TI", "mesh", f"{name}_TI.msh")
-    if os.path.exists(ti_mesh):
-        completed.append({'montage_name': name, 'montage_type': 'regular', 'status': 'completed'})
+    if name in montages and montages[name]:  # Only count montages that will actually be processed
+        actual_regular_montages += 1
+        ti_mesh = os.path.join(simulation_dir, name, "TI", "mesh", f"{name}_TI.msh")
+        if os.path.exists(ti_mesh):
+            completed.append({'montage_name': name, 'montage_type': 'regular', 'status': 'completed'})
 
 for flex in flex_montages:
     ti_mesh = os.path.join(simulation_dir, flex['name'], "TI", "mesh", f"{flex['name']}_TI.msh")
@@ -233,9 +255,9 @@ report = {
     'simulation_dir': simulation_dir,
     'completed_simulations': completed,
     'timestamp': datetime.now().isoformat(),
-    'total_simulations': len(montage_names) + len(flex_montages),
+    'total_simulations': actual_regular_montages + len(flex_montages),
     'success_count': len(completed),
-    'error_count': len(montage_names) + len(flex_montages) - len(completed)
+    'error_count': actual_regular_montages + len(flex_montages) - len(completed)
 }
 
 report_file = os.path.join(project_dir, 'derivatives', 'temp', f'simulation_completion_{subject_id}_{int(time.time())}.json')

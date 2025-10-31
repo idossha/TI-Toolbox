@@ -369,13 +369,43 @@ class PathManager:
         """
         return self.get_m2m_dir(subject_id)
     
+    def get_freesurfer_subject_dir(self, subject_id: str) -> Optional[str]:
+        """
+        Get the FreeSurfer subject directory path.
+
+        Args:
+            subject_id: Subject ID (e.g., "001" or "101")
+
+        Returns:
+            Path to FreeSurfer subject directory or None
+        """
+        derivatives_dir = self.get_derivatives_dir()
+        if derivatives_dir:
+            return os.path.join(derivatives_dir, "freesurfer", f"{const.PREFIX_SUBJECT}{subject_id}")
+        return None
+
+    def get_freesurfer_mri_dir(self, subject_id: str) -> Optional[str]:
+        """
+        Get the FreeSurfer MRI directory path for a subject.
+
+        Args:
+            subject_id: Subject ID (e.g., "001" or "101")
+
+        Returns:
+            Path to FreeSurfer mri directory or None
+        """
+        freesurfer_subject_dir = self.get_freesurfer_subject_dir(subject_id)
+        if freesurfer_subject_dir:
+            return os.path.join(freesurfer_subject_dir, "mri")
+        return None
+
     def get_t1_path(self, subject_id: str) -> Optional[str]:
         """
         Get the T1 NIfTI file path for a subject.
-        
+
         Args:
             subject_id: Subject ID
-            
+
         Returns:
             Path to T1.nii.gz file or None
         """
@@ -559,7 +589,32 @@ def list_subjects() -> List[str]:
     return get_path_manager().list_subjects()
 
 
+def list_simulations(subject_id: str) -> List[str]:
+    """List all simulations for a subject."""
+    return get_path_manager().list_simulations(subject_id)
+
+
 def validate_subject(subject_id: str) -> Dict[str, any]:
     """Validate subject directory structure."""
     return get_path_manager().validate_subject_structure(subject_id)
+
+
+def get_freesurfer_subject_dir(subject_id: str) -> Optional[str]:
+    """Get the FreeSurfer subject directory path."""
+    return get_path_manager().get_freesurfer_subject_dir(subject_id)
+
+
+def get_simnibs_dir() -> Optional[str]:
+    """Get the SimNIBS directory path."""
+    return get_path_manager().get_simnibs_dir()
+
+
+def get_simulation_dir(subject_id: str, simulation_name: str) -> Optional[str]:
+    """Get the simulation directory path."""
+    return get_path_manager().get_simulation_dir(subject_id, simulation_name)
+
+
+def get_freesurfer_mri_dir(subject_id: str) -> Optional[str]:
+    """Get the FreeSurfer MRI directory path."""
+    return get_path_manager().get_freesurfer_mri_dir(subject_id)
 

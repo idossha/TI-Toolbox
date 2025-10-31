@@ -74,29 +74,33 @@ class ResourcePathManager:
     def get_coordinate_file(self, eeg_net: str) -> str:
         """
         Get the coordinate file path for a specific EEG net.
-        
+
         Args:
             eeg_net: Name of the EEG net (e.g., "EGI_template.csv")
-            
+
         Returns:
-            Path to coordinate CSV file
-            
+            Path to coordinate CSV file, or None for freehand/flex modes that don't use predefined coordinates
+
         Raises:
             ValueError: If EEG net is not supported
         """
+        # Freehand and flex modes don't use predefined coordinate files
+        if eeg_net in ["freehand", "flex_mode"]:
+            return None
+
         # GSN-HD compatible nets
         gsn_hd_nets = [
             "EGI_template.csv",
-            "GSN-HydroCel-185.csv", 
+            "GSN-HydroCel-185.csv",
             "GSN-HydroCel-256.csv"
         ]
-        
+
         # 10-10 system nets
         ten_ten_nets = [
             "EEG10-10_UI_Jurak_2007.csv",
             "EEG10-10_Neuroelectrics.csv"
         ]
-        
+
         if eeg_net in gsn_hd_nets:
             return os.path.join(self.resources_dir, "GSN-HD.csv")
         elif eeg_net in ten_ten_nets:
@@ -201,7 +205,7 @@ class ElectrodeCoordinateReader:
 class MontageVisualizer:
     """Creates montage visualizations using ImageMagick."""
     
-    def __init__(self, 
+    def __init__(self,
                  montage_file: str,
                  resource_manager: ResourcePathManager,
                  eeg_net: str,
@@ -210,7 +214,7 @@ class MontageVisualizer:
                  verbose: bool = True):
         """
         Initialize montage visualizer.
-        
+
         Args:
             montage_file: Path to montage_list.json
             resource_manager: ResourcePathManager instance
@@ -225,25 +229,33 @@ class MontageVisualizer:
         self.sim_mode = sim_mode
         self.output_directory = output_directory
         self.verbose = verbose
-        
+
+        # Check if this is a freehand/flex mode that doesn't use predefined coordinates
+        self.skip_visualization = eeg_net in ["freehand", "flex_mode"]
+
+        if self.skip_visualization:
+            if self.verbose:
+                print(f"Skipping montage visualization for {eeg_net} mode (arbitrary electrode positions)")
+            return
+
         # Set up coordinate reader
         coord_file = resource_manager.get_coordinate_file(eeg_net)
         self.coord_reader = ElectrodeCoordinateReader(coord_file)
-        
+
         # Get template image
         self.template_image = resource_manager.get_template_image(eeg_net)
-        
+
         # Determine montage type
         self.montage_type = "uni_polar_montages" if sim_mode == "U" else "multi_polar_montages"
-        
+
         # Create output directory
         os.makedirs(output_directory, exist_ok=True)
-        
+
         # For multipolar mode, initialize combined output image
         self.combined_output_image = None
         if sim_mode == "M":
             self.combined_output_image = os.path.join(
-                output_directory, 
+                output_directory,
                 "combined_montage_visualization.png"
             )
             self._copy_template(self.template_image, self.combined_output_image)
@@ -297,13 +309,19 @@ class MontageVisualizer:
     def visualize_montages(self, montage_names: List[str]) -> bool:
         """
         Visualize selected montages.
-        
+
         Args:
             montage_names: List of montage names to visualize
-            
+
         Returns:
             True if successful, False otherwise
         """
+        # Skip visualization for freehand/flex modes
+        if self.skip_visualization:
+            if self.verbose:
+                print(f"Montage visualization skipped for {self.eeg_net} mode - arbitrary electrode positions cannot be visualized on standard templates")
+            return True
+
         # Load montage configuration
         try:
             with open(self.montage_file, 'r') as f:
