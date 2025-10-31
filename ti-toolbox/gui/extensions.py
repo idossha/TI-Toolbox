@@ -215,8 +215,7 @@ class ExtensionsTab(QtWidgets.QWidget):
         
         # Description
         description_label = QtWidgets.QLabel(
-            "<p>Extensions are additional tools and utilities that extend the functionality of TI-Toolbox. "
-            "Browse the available extensions below and click 'Launch' to run them.</p>"
+            "<p>Extensions are additional tools and utilities that extend the functionality of TI-Toolbox.</p>"
         )
         description_label.setWordWrap(True)
         description_label.setAlignment(QtCore.Qt.AlignCenter)
