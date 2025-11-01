@@ -21,6 +21,7 @@ DIR_REPORTS = "reports"
 DIR_SIMNIBS = "SimNIBS"
 DIR_TI_TOOLBOX = "ti-toolbox"
 DIR_LOGS = "logs"
+DIR_NILEARN_VISUALS = "nilearn_visuals"
 
 # Subject-level directories
 DIR_M2M_PREFIX = "m2m_"
