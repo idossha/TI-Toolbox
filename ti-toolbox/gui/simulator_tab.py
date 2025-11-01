@@ -3141,6 +3141,11 @@ class AddMontageDialog(QtWidgets.QDialog):
     def __init__(self, parent=None):
         super(AddMontageDialog, self).__init__(parent)
         self.parent = parent
+        # Get path manager from parent if available
+        if parent and hasattr(parent, 'pm'):
+            self.pm = parent.pm
+        else:
+            self.pm = get_path_manager()
         self.setup_ui()
         
         # Connect radio buttons to update electrode inputs

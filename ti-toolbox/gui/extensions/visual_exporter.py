@@ -139,7 +139,7 @@ class VisualExporterWidget(QtWidgets.QWidget):
         mvl = QtWidgets.QVBoxLayout(mode_group)
         radio_layout = QtWidgets.QHBoxLayout()
         self.rb_stl = QtWidgets.QRadioButton("Cortical Regions")
-        self.rb_vec = QtWidgets.QRadioButton("Simulation")
+        self.rb_vec = QtWidgets.QRadioButton("Field Vectors")
         self.rb_stl.setChecked(True)
         # Help buttons for modes
         self.btn_help_stl = QtWidgets.QToolButton()
@@ -157,7 +157,7 @@ class VisualExporterWidget(QtWidgets.QWidget):
             "Supports sampling, scaling, width, anchor, and optional SUM/TI_normal."
         )
 
-        # Row: [Cortical Regions] [?]   [Simulation] [?]
+        # Row: [Cortical Regions] [?]   [Field Vectors] [?]
         radio_layout.addWidget(self.rb_stl)
         radio_layout.addWidget(self.btn_help_stl)
         radio_layout.addSpacing(12)
@@ -208,18 +208,6 @@ class VisualExporterWidget(QtWidgets.QWidget):
         self.stl_field_edit = QtWidgets.QLineEdit("TI_max")
         gl.addWidget(self.stl_field_edit, r, 3)
         r += 1
-        # Output format
-        fmt_box = QtWidgets.QGroupBox("Output formats")
-        fmt_layout = QtWidgets.QHBoxLayout(fmt_box)
-        self.cort_fmt_stl = QtWidgets.QCheckBox("STL")
-        self.cort_fmt_ply = QtWidgets.QCheckBox("PLY")
-        # Default to both formats enabled
-        self.cort_fmt_stl.setChecked(True)
-        self.cort_fmt_ply.setChecked(True)
-        fmt_layout.addWidget(self.cort_fmt_stl)
-        fmt_layout.addWidget(self.cort_fmt_ply)
-        gl.addWidget(fmt_box, r, 0, 1, 4)
-        r += 1
         # Regions selector
         regions_box = QtWidgets.QGroupBox("Cortical regions")
         rb_layout = QtWidgets.QVBoxLayout(regions_box)
@@ -237,6 +225,18 @@ class VisualExporterWidget(QtWidgets.QWidget):
         self.cort_whole_gm.setChecked(True)
         rb_layout.addWidget(self.cort_whole_gm)
         gl.addWidget(regions_box, r, 0, 1, 4)
+        r += 1
+        # Output format
+        fmt_box = QtWidgets.QGroupBox("Output formats")
+        fmt_layout = QtWidgets.QHBoxLayout(fmt_box)
+        self.cort_fmt_stl = QtWidgets.QCheckBox("STL")
+        self.cort_fmt_ply = QtWidgets.QCheckBox("PLY")
+        # Default to both formats enabled
+        self.cort_fmt_stl.setChecked(True)
+        self.cort_fmt_ply.setChecked(True)
+        fmt_layout.addWidget(self.cort_fmt_stl)
+        fmt_layout.addWidget(self.cort_fmt_ply)
+        gl.addWidget(fmt_box, r, 0, 1, 4)
         r += 1
         # Wire buttons
         self.btn_regions_sel_all.clicked.connect(lambda: self._regions_select_all(True))
