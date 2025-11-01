@@ -55,9 +55,8 @@ class NilearnVisualizer:
     def _setup_output_directory(self):
         """Set up the output directory for visualizations."""
         derivatives_dir = self.pm.get_derivatives_dir()
-        if derivatives_dir:
-            self.output_dir = os.path.join(derivatives_dir, DIR_NILEARN_VISUALS)
-            os.makedirs(self.output_dir, exist_ok=True)
+        self.output_dir = os.path.join(derivatives_dir, "ti-toolbox", DIR_NILEARN_VISUALS)
+        os.makedirs(self.output_dir, exist_ok=True)
 
     def _get_simulation_files(self, subject_id: str) -> Dict[str, str]:
         """
