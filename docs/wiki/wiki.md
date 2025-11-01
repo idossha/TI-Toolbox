@@ -15,10 +15,17 @@ Welcome to the Temporal Interference Toolbox Wiki. Here you'll find detailed gui
 - **[Simulator](simulator)** -  Simualtor with flexible parameter input
 - **[Analyzer](analyzer)** - Comprehensive field analysis for both mesh and voxel data
 
-### Reporting, Logging & Auxilaries 
+### Reporting, Logging & Auxilaries
 - **[Reports](reports)** - Understanding HTML simulation reports and results
 - **[Logging](logging)** - Comprehensive logging system documentation
 - **[Atlas Resampling](atlas-resampling)** - Working with brain atlases and resampling
+
+### Extensions
+- **[Extension System](extension)** - Modular plugin architecture and development guide
+- **[Nilearn Visuals](nilearn-visuals)** - Publication-ready brain visualizations
+- **[Cluster-Based Permutation Testing](cluster-permutation-testing)** - Non-parametric statistical analysis
+- **[Quick Notes](quick-notes)** - Timestamped note-taking during analysis sessions
+- **[NIfTI Group Averaging](nifti-group-averaging)** - Group analysis and comparison tools
 
 ### Development & Testing
 - **[Testing Pipeline](testing-pipeline)** - Comprehensive CI/CD testing pipeline with CircleCI integration
