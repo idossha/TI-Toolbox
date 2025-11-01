@@ -400,7 +400,7 @@ create_flex_montage_entries() {
     log_info "Creating temporary montage entries for flex-search visualization"
     
     # Use Python to process the JSON and add temporary entries
-    python3 -c "
+    simnibs_python -c "
 import json
 import sys
 import os
@@ -484,7 +484,7 @@ run_visualize_flex_montages() {
     create_flex_montage_entries "$flex_montages_file"
     
     # Extract flex montage information and visualize mapped ones
-    python3 -c "
+    simnibs_python -c "
 import json
 import subprocess
 import sys
@@ -579,7 +579,7 @@ visualize_flex_montage_post_simulation_DISABLED() {
                         log_info "Found mapping file for $montage_name: $mapping_file"
                         
                         # Extract electrode data and create temporary montage entry
-                        python3 -c "
+                        simnibs_python -c "
 import json
 import subprocess
 import os

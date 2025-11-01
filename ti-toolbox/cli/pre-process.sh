@@ -629,9 +629,9 @@ for SUBJECT_ID in "${selected_subjects[@]}"; do
     print_message "$CYAN" "[Report] $SUBJECT_ID: Generating preprocessing report..."
     
     # Try to generate report using Python directly
-    if command -v python3 >/dev/null 2>&1; then
+    if command -v simnibs_python >/dev/null 2>&1; then
         # Try to generate report using the report generator
-        python3 -c "
+        simnibs_python -c "
 import sys
 import os
 sys.path.insert(0, '$script_dir/../tools')

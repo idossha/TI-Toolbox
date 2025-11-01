@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env simnibs_python
 """ROI (Region of Interest) configuration module for flex-search.
 
 This module handles ROI setup for different methods:

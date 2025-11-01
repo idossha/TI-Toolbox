@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env simnibs_python
 """
 TI-Toolbox Glass Brain Visualizations
 Creates glass brain visualizations using nilearn's plot_glass_brain.

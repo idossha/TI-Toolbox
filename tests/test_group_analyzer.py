@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env simnibs_python
 
 """
 Test suite for group_analyzer.py

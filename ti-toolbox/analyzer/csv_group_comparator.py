@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env simnibs_python
 
 """
 CSV Group Comparator Script
@@ -20,7 +20,7 @@ Expected CSV structure:
 
 
 """
-python3 csv_group_comparator.py /Volumes/Ido/000_strength/derivatives/SimNIBS/group_analysis/cortical_maxTI/DK40_24_ernie_lh.precentral/enhanced_roi_comparison_summary_lh.precentral.csv /Volumes/Ido/000_strength/derivatives/SimNIBS/group_analysis/cortical_maxTI/flex_lh_DK40_24_mean_maxTI_..._lh.precentral/enhanced_roi_comparison_summary_lh.precentral.csv -o /Users/idohaber/Desktop/GA
+simnibs_python csv_group_comparator.py /Volumes/Ido/000_strength/derivatives/SimNIBS/group_analysis/cortical_maxTI/DK40_24_ernie_lh.precentral/enhanced_roi_comparison_summary_lh.precentral.csv /Volumes/Ido/000_strength/derivatives/SimNIBS/group_analysis/cortical_maxTI/flex_lh_DK40_24_mean_maxTI_..._lh.precentral/enhanced_roi_comparison_summary_lh.precentral.csv -o /Users/idohaber/Desktop/GA
 """
 
 import os

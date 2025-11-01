@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env simnibs_python
 """Multi-start optimization module for flex-search.
 
 This module handles multi-start optimization logic, including:

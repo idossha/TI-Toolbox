@@ -21,12 +21,6 @@ RUN apt-get update && apt-get install -y \
     fontconfig \
     tzdata \
     \
-    # Python environment
-    python3.11 \
-    python3-pip \
-    python3.11-venv \
-    python3.11-dev \
-    \
     # Build tools and compilers
     build-essential \
     gcc \
@@ -107,12 +101,6 @@ RUN apt-get update && apt-get install -y \
     \
     && apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
-# Install Python packages and create symlinks
-RUN python3.11 -m pip install --upgrade pip && \
-    python3.11 -m pip install numpy scipy pandas meshio nibabel nilearn matplotlib PyOpenGL PyOpenGL-accelerate PyQt5 && \
-    ln -sf /usr/bin/python3.11 /usr/bin/python3 && \
-    ln -sf /usr/bin/python3.11 /usr/bin/python
-
 # Avoid OpenMP affinity crash during postinstall
 ENV OMP_NUM_THREADS=1
 ENV KMP_AFFINITY=disabled
@@ -127,21 +115,22 @@ RUN wget https://github.com/simnibs/simnibs/releases/download/v4.5.0/simnibs_ins
 ENV PATH="/root/SimNIBS-4.5/bin:$PATH"
 ENV SIMNIBSDIR="/root/SimNIBS-4.5"
 
+# Install additional Python packages to simnibs_python
+RUN simnibs_python -m pip install meshio nilearn PyOpenGL-accelerate trimesh
+
 ########### TI-Toolbox ########################
-# RUN git clone --branch my-feature-branch --single-branch https://github.com/username/repo-name.git .
-# Makse sure the branch name is correct otherwise the main will be cloned.
-RUN git clone --branch v2.2.0 --single-branch https://github.com/idossha/TI-Toolbox.git /ti-toolbox
+RUN git clone https://github.com/idossha/TI-Toolbox.git /ti-toolbox
 
 # Convert all shell scripts to Unix line endings
 RUN find /ti-toolbox -name "*.sh" -exec dos2unix {} \;
 
 # EEG caps for CSC 
-RUN mkdir -p $SIMNIBSDIR/resources/ElectrodeCaps_MNI/
-RUN cp /ti-toolbox/resources/ElectrodeCaps_MNI/* $SIMNIBSDIR/resources/ElectrodeCaps_MNI/
+RUN mkdir -p $SIMNIBSDIR/assets/ElectrodeCaps_MNI/
+RUN cp /ti-toolbox/assets/ElectrodeCaps_MNI/* $SIMNIBSDIR/assets/ElectrodeCaps_MNI/
 
 # Flex extention by Ido Haber 
 RUN rm -f $SIMNIBSDIR/simnibs/optimization/tes_flex_optimization/tes_flex_optimization.py && \
-    cp /ti-toolbox/resources/map-electrodes/tes_flex_optimization.py $SIMNIBSDIR/simnibs/optimization/tes_flex_optimization/tes_flex_optimization.py
+    cp /ti-toolbox/assets/map-electrodes/tes_flex_optimization.py $SIMNIBSDIR/simnibs/optimization/tes_flex_optimization/tes_flex_optimization.py
 
 ############ CLI tools ###############
 
@@ -162,7 +151,6 @@ RUN nvim --headless "+LAZY! sync" +qa
 
 # Source tmux
 RUN tmux source-file /root/.tmux.conf || true
-
 
 # Copy the robust entrypoint script into the image
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh

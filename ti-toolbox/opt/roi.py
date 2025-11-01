@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env simnibs_python
 """Shared ROI (Region of Interest) module for ex-search and movea.
 
 This module provides a unified interface for ROI operations using SimNIBS's

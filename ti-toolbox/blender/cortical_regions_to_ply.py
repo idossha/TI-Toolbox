@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env simnibs_python
 """
 Single-tool converter: generate atlas-accurate cortical region PLYs and a whole-GM PLY.
 

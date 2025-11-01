@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env simnibs_python
 # -*- coding: utf-8 -*-
 """
 Development runner with auto-reload for TI-Toolbox GUI

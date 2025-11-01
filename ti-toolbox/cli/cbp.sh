@@ -11,14 +11,11 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 STATS_DIR="$SCRIPT_DIR/../stats"
 
 # Check if running in SimNIBS environment
-if command -v simnibs_python &>/dev/null; then
-    PYTHON_CMD="simnibs_python"
-elif command -v python3 &>/dev/null; then
-    PYTHON_CMD="python3"
-else
-    echo "Error: Python not found. Please ensure SimNIBS is installed or python3 is available."
+if ! command -v simnibs_python &>/dev/null; then
+    echo "Error: simnibs_python not found. Please ensure SimNIBS is properly installed."
     exit 1
 fi
+PYTHON_CMD="simnibs_python"
 
 # Run the cluster permutation script with all arguments
 exec "$PYTHON_CMD" "$STATS_DIR/cluster_permutation.py" "$@"

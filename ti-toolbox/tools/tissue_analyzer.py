@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env simnibs_python
 """
 Unified Tissue Analysis Tool for TI-toolbox
 Analyzes different tissue types (CSF, bone, etc.) from segmented tissue data.

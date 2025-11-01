@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env simnibs_python
 """
 Post-hoc atlas overlap analysis for existing significant voxel masks
 

@@ -549,7 +549,7 @@ setup_example_data_in_container() {
   # Check if example_data_manager.py exists in container
   if docker exec "$container_name" test -f "/ti-toolbox/new_project/example_data_manager.py"; then
     # Run the example data manager inside the container
-    if docker exec "$container_name" python3 /ti-toolbox/new_project/example_data_manager.py /ti-toolbox/../.. "$container_project_dir" >/dev/null 2>&1; then
+    if docker exec "$container_name" simnibs_python /ti-toolbox/new_project/example_data_manager.py /ti-toolbox/../.. "$container_project_dir" >/dev/null 2>&1; then
       echo "  ✓ Example data copied successfully"
       return 0
     else

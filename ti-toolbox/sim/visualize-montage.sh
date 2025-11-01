@@ -29,7 +29,7 @@ output_directory="${@: -1}"  # The last argument is the output directory
 selected_montages=("${@:1:$(($#-3))}")  # All but the last three arguments are the selected montages
 
 # Call the Python script with the parsed arguments
-python3 "$PYTHON_SCRIPT" \
+simnibs_python "$PYTHON_SCRIPT" \
     "${selected_montages[@]}" \
     --sim-mode "$sim_mode" \
     --eeg-net "$eeg_net" \

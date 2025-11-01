@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env simnibs_python
 """Logging utilities for flex-search optimization.
 
 This module provides structured logging for the optimization process:

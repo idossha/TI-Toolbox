@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env simnibs_python
 """
 TI-Toolbox HTML Report Generator
 Creates interactive HTML visualizations of electric field distributions.

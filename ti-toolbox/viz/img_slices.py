@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env simnibs_python
 """
 TI-Toolbox Publication-Ready Visualizations
 Creates PDF visualizations with multiple views and atlas contours for publication.

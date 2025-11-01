@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env simnibs_python
 """
 MOVEA Leadfield Generation Script
 Runs as subprocess for instant termination support

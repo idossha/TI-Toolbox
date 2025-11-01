@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env simnibs_python
 """
 TI-Toolbox Visualization Package
 Provides tools for creating publication-ready visualizations of electric field distributions.

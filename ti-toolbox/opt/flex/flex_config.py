@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env simnibs_python
 """Configuration and optimization setup for flex-search.
 
 This module handles:

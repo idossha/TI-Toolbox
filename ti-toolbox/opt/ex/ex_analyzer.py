@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env simnibs_python
 """
 Ex-Search Field Analyzer
 Simplified analyzer specifically for ex-search that extracts all field values within ROI.

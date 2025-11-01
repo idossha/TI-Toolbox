@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env simnibs_python
 """Main flex-search script for TI stimulation optimization.
 
 This script orchestrates the flexible search optimization process for

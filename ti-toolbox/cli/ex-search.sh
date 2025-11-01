@@ -394,7 +394,7 @@ for subject_index in "${selected_subjects[@]}"; do
 
     # Call the ROI creator script to handle ROI creation or selection
     log_info "Starting ROI creation/selection process"
-    if python3 "$ex_search_dir/roi-creator.py" "$roi_dir"; then
+    if simnibs_python "$ex_search_dir/roi-creator.py" "$roi_dir"; then
         log_info "ROI creation completed successfully for subject $subject_name"
     else
         log_error "ROI creation failed for subject $subject_name"
@@ -437,7 +437,7 @@ for subject_index in "${selected_subjects[@]}"; do
 
     # Call the ROI analyzer script
     log_info "Starting ROI analysis for subject $subject_name"
-    if python3 "$ex_search_dir/ex_analyzer.py" "$roi_dir"; then
+    if simnibs_python "$ex_search_dir/ex_analyzer.py" "$roi_dir"; then
         log_info "ROI analysis completed successfully for subject $subject_name"
     else
         log_error "ROI analysis failed for subject $subject_name"
@@ -498,7 +498,7 @@ for subject_index in "${selected_subjects[@]}"; do
 
     # Run the Python mesh analysis script
     log_info "Starting mesh field analysis for subject $subject_name"
-    if python3 "$ex_search_dir/mesh_field_analyzer.py" "$mesh_dir"; then
+    if simnibs_python "$ex_search_dir/mesh_field_analyzer.py" "$mesh_dir"; then
         log_info "Mesh field analysis completed successfully for subject $subject_name"
     else
         log_error "Mesh field analysis failed for subject $subject_name"

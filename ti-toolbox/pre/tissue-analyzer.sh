@@ -123,8 +123,8 @@ check_dependencies() {
     print_info "Checking dependencies..."
     
     # Check Python
-    if ! command -v python3 >/dev/null 2>&1; then
-        print_error "Python 3 is required but not found"
+    if ! command -v simnibs_python >/dev/null 2>&1; then
+        print_error "simnibs_python is required but not found"
         exit 1
     fi
     
@@ -135,16 +135,16 @@ check_dependencies() {
     fi
     
     # Check Python packages
-    if ! python3 -c "import nibabel, numpy, matplotlib, scipy" 2>/dev/null; then
+    if ! simnibs_python -c "import nibabel, numpy, matplotlib, scipy" 2>/dev/null; then
         print_error "Required Python packages not found. Please install: nibabel, numpy, matplotlib, scipy"
         exit 1
     fi
     
     # Test Python script with help
     print_info "Testing Python script..."
-    if ! python3 "$PYTHON_SCRIPT" --help >/dev/null 2>&1; then
+    if ! simnibs_python "$PYTHON_SCRIPT" --help >/dev/null 2>&1; then
         print_error "Python script test failed. Testing with verbose output:"
-        python3 "$PYTHON_SCRIPT" --help
+        simnibs_python "$PYTHON_SCRIPT" --help
         exit 1
     fi
     
@@ -176,14 +176,14 @@ run_bone_analysis() {
     print_info "Running bone analysis with Python script..."
     if command -v log_info >/dev/null 2>&1; then
         log_info "Starting bone analysis with Python script: $PYTHON_SCRIPT"
-        log_info "Command: python3 $PYTHON_SCRIPT $nifti_file -t bone -o $bone_output_dir"
+        log_info "Command: simnibs_python $PYTHON_SCRIPT $nifti_file -t bone -o $bone_output_dir"
     fi
     
     # Capture Python script output and log it
     if command -v log_info >/dev/null 2>&1; then
         log_info "=== BONE ANALYSIS PYTHON OUTPUT START ==="
         # Run Python script and capture output, passing the log file path
-        PYTHON_OUTPUT=$(TI_LOG_LEVEL=DEBUG TI_LOG_FILE="$TIMESTAMPED_LOG_FILE" python3 "$PYTHON_SCRIPT" "$nifti_file" -t bone -o "$bone_output_dir" 2>&1)
+        PYTHON_OUTPUT=$(TI_LOG_LEVEL=DEBUG TI_LOG_FILE="$TIMESTAMPED_LOG_FILE" simnibs_python "$PYTHON_SCRIPT" "$nifti_file" -t bone -o "$bone_output_dir" 2>&1)
         PYTHON_EXIT_CODE=$?
         
         # Log each line of the Python output
@@ -197,7 +197,7 @@ run_bone_analysis() {
         log_info "=== BONE ANALYSIS PYTHON OUTPUT END ==="
     else
         # Fallback if logging not available
-        PYTHON_OUTPUT=$(TI_LOG_LEVEL=DEBUG python3 "$PYTHON_SCRIPT" "$nifti_file" -t bone -o "$bone_output_dir" 2>&1)
+        PYTHON_OUTPUT=$(TI_LOG_LEVEL=DEBUG simnibs_python "$PYTHON_SCRIPT" "$nifti_file" -t bone -o "$bone_output_dir" 2>&1)
         PYTHON_EXIT_CODE=$?
     fi
     
@@ -258,14 +258,14 @@ run_csf_analysis() {
     print_info "Running CSF analysis with Python script..."
     if command -v log_info >/dev/null 2>&1; then
         log_info "Starting CSF analysis with Python script: $PYTHON_SCRIPT"
-        log_info "Command: python3 $PYTHON_SCRIPT $nifti_file -t csf -o $csf_output_dir"
+        log_info "Command: simnibs_python $PYTHON_SCRIPT $nifti_file -t csf -o $csf_output_dir"
     fi
     
     # Capture Python script output and log it
     if command -v log_info >/dev/null 2>&1; then
         log_info "=== CSF ANALYSIS PYTHON OUTPUT START ==="
         # Run Python script and capture output, passing the log file path
-        PYTHON_OUTPUT=$(TI_LOG_LEVEL=DEBUG TI_LOG_FILE="$TIMESTAMPED_LOG_FILE" python3 "$PYTHON_SCRIPT" "$nifti_file" -t csf -o "$csf_output_dir" 2>&1)
+        PYTHON_OUTPUT=$(TI_LOG_LEVEL=DEBUG TI_LOG_FILE="$TIMESTAMPED_LOG_FILE" simnibs_python "$PYTHON_SCRIPT" "$nifti_file" -t csf -o "$csf_output_dir" 2>&1)
         PYTHON_EXIT_CODE=$?
         
         # Log each line of the Python output
@@ -279,7 +279,7 @@ run_csf_analysis() {
         log_info "=== CSF ANALYSIS PYTHON OUTPUT END ==="
     else
         # Fallback if logging not available
-        PYTHON_OUTPUT=$(TI_LOG_LEVEL=DEBUG python3 "$PYTHON_SCRIPT" "$nifti_file" -t csf -o "$csf_output_dir" 2>&1)
+        PYTHON_OUTPUT=$(TI_LOG_LEVEL=DEBUG simnibs_python "$PYTHON_SCRIPT" "$nifti_file" -t csf -o "$csf_output_dir" 2>&1)
         PYTHON_EXIT_CODE=$?
     fi
     
@@ -340,14 +340,14 @@ run_skin_analysis() {
     print_info "Running skin analysis with Python script..."
     if command -v log_info >/dev/null 2>&1; then
         log_info "Starting skin analysis with Python script: $PYTHON_SCRIPT"
-        log_info "Command: python3 $PYTHON_SCRIPT $nifti_file -t skin -o $skin_output_dir"
+        log_info "Command: simnibs_python $PYTHON_SCRIPT $nifti_file -t skin -o $skin_output_dir"
     fi
     
     # Capture Python script output and log it
     if command -v log_info >/dev/null 2>&1; then
         log_info "=== SKIN ANALYSIS PYTHON OUTPUT START ==="
         # Run Python script and capture output, passing the log file path
-        PYTHON_OUTPUT=$(TI_LOG_LEVEL=DEBUG TI_LOG_FILE="$TIMESTAMPED_LOG_FILE" python3 "$PYTHON_SCRIPT" "$nifti_file" -t skin -o "$skin_output_dir" 2>&1)
+        PYTHON_OUTPUT=$(TI_LOG_LEVEL=DEBUG TI_LOG_FILE="$TIMESTAMPED_LOG_FILE" simnibs_python "$PYTHON_SCRIPT" "$nifti_file" -t skin -o "$skin_output_dir" 2>&1)
         PYTHON_EXIT_CODE=$?
         
         # Log each line of the Python output
@@ -361,7 +361,7 @@ run_skin_analysis() {
         log_info "=== SKIN ANALYSIS PYTHON OUTPUT END ==="
     else
         # Fallback if logging not available
-        PYTHON_OUTPUT=$(TI_LOG_LEVEL=DEBUG python3 "$PYTHON_SCRIPT" "$nifti_file" -t skin -o "$skin_output_dir" 2>&1)
+        PYTHON_OUTPUT=$(TI_LOG_LEVEL=DEBUG simnibs_python "$PYTHON_SCRIPT" "$nifti_file" -t skin -o "$skin_output_dir" 2>&1)
         PYTHON_EXIT_CODE=$?
     fi
     

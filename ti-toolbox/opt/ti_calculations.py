@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env simnibs_python
 """
 Bridge module for TI calculations
 Imports shared calculation utilities from core module and re-exports them

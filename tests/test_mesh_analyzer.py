@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env simnibs_python
 
 """
 Comprehensive pytest tests for mesh_analyzer.py

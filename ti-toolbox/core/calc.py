@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env simnibs_python
 """
 Shared TI Field Calculation Utilities
 Used by both ex-search and MOVEA optimization tools

@@ -26,7 +26,7 @@ init_logging() {
     echo "  Log file: ${log_file:-None}"
     
     # Create Python command to initialize logging
-    python3 - "$name" "$log_file" <<EOF
+    simnibs_python - "$name" "$log_file" <<EOF
 import sys
 import os
 sys.path.append('$SCRIPT_DIR')
@@ -54,7 +54,7 @@ EOF
 configure_external_loggers() {
     local loggers_json="$1"  # JSON array of logger names
     
-    python3 - "$LOGGER_NAME" "$LOG_FILE" "$loggers_json" <<EOF
+    simnibs_python - "$LOGGER_NAME" "$LOG_FILE" "$loggers_json" <<EOF
 import sys
 import os
 sys.path.append('$SCRIPT_DIR')
@@ -91,7 +91,7 @@ log_info() {
     if ! $LOGGER_INITIALIZED; then
         init_logging
     fi
-    python3 -u - "$LOGGER_NAME" "$LOG_FILE" <<EOF
+    simnibs_python -u - "$LOGGER_NAME" "$LOG_FILE" <<EOF
 import sys, os
 sys.path.append('$SCRIPT_DIR')
 from logging_util import get_logger
@@ -109,7 +109,7 @@ log_warning() {
     if ! $LOGGER_INITIALIZED; then
         init_logging
     fi
-    python3 -u - "$LOGGER_NAME" "$LOG_FILE" <<EOF
+    simnibs_python -u - "$LOGGER_NAME" "$LOG_FILE" <<EOF
 import sys, os
 sys.path.append('$SCRIPT_DIR')
 from logging_util import get_logger
@@ -127,7 +127,7 @@ log_error() {
     if ! $LOGGER_INITIALIZED; then
         init_logging
     fi
-    python3 -u - "$LOGGER_NAME" "$LOG_FILE" <<EOF
+    simnibs_python -u - "$LOGGER_NAME" "$LOG_FILE" <<EOF
 import sys, os
 sys.path.append('$SCRIPT_DIR')
 from logging_util import get_logger
@@ -145,7 +145,7 @@ log_debug() {
     if ! $LOGGER_INITIALIZED; then
         init_logging
     fi
-    python3 -u - "$LOGGER_NAME" "$LOG_FILE" <<EOF
+    simnibs_python -u - "$LOGGER_NAME" "$LOG_FILE" <<EOF
 import sys, os
 sys.path.append('$SCRIPT_DIR')
 from logging_util import get_logger

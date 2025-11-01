@@ -136,7 +136,7 @@ EOL
             temp_flex_files+=("$subject_flex_file")
             
             # Extract configurations for this specific subject
-            python3 -c "
+            simnibs_python -c "
 import json
 import sys
 
@@ -350,7 +350,7 @@ except Exception as e:
                 # Generate Python script to create CLI report
                 temp_script=$(mktemp "${TMPDIR:-/tmp}/cli_report_XXXXXX.py")
                 cat > "$temp_script" <<EOF
-#!/usr/bin/env python3
+#!/usr/bin/env simnibs_python
 import sys
 import os
 import json
@@ -444,7 +444,7 @@ except Exception as e:
 EOF
                 
                 # Run the report generation
-                if python3 "$temp_script"; then
+                if simnibs_python "$temp_script"; then
                     ((reports_generated++))
                 fi
                 
@@ -821,7 +821,7 @@ choose_flex_search_outputs() {
                     
                     if [ -f "$mapping_file" ]; then
                         # Parse JSON to get details
-                        local details=$(python3 -c "
+                        local details=$(simnibs_python -c "
 import json
 import sys
 try:
@@ -1080,7 +1080,7 @@ EOF
     export TEMP_FLEX_FILE="$temp_flex_file"
     
     # Run the Python script with proper arguments
-    python3 "$temp_script" "$use_mapped" "$use_optimized" "${selected_flex_paths[@]}"
+    simnibs_python "$temp_script" "$use_mapped" "$use_optimized" "${selected_flex_paths[@]}"
     
     # Clean up the temporary script
     rm -f "$temp_script"
@@ -1584,7 +1584,7 @@ if [[ "$1" == "--run-direct" ]]; then
             # Process individual temp files for this subject
             if [[ -n "$FLEX_MONTAGE_FILES" ]]; then
                 # Parse the JSON list of montage files
-                subject_montage_files=$(echo "$FLEX_MONTAGE_FILES" | python3 -c "
+                subject_montage_files=$(echo "$FLEX_MONTAGE_FILES" | simnibs_python -c "
 import json
 import sys
 
@@ -1631,7 +1631,7 @@ except Exception as e:
         # For free-hand mode, process individual subject-montage temp files (XYZ coordinates)
         if [[ "$simulation_framework" == "freehand" ]]; then
             if [[ -n "$FREEHAND_MONTAGE_FILES" ]]; then
-                subject_montage_files=$(echo "$FREEHAND_MONTAGE_FILES" | python3 -c "
+                subject_montage_files=$(echo "$FREEHAND_MONTAGE_FILES" | simnibs_python -c "
 import json
 import sys
 
@@ -1824,16 +1824,12 @@ elif [ -f "/development/tools/bash_reporting.sh" ]; then
         fi
     done
 else
-    # Fallback: use Python directly with new utilities
-    python_cmd=""
-    if command -v python3 &> /dev/null; then
-        python_cmd="python3"
-    elif command -v python &> /dev/null; then
-        python_cmd="python"
-    else
-        echo -e "${YELLOW}Warning: Python not found. Skipping report generation.${RESET}"
-        exit 0
+    # Check for simnibs_python
+    if ! command -v simnibs_python &> /dev/null; then
+        echo -e "${RED}Error: simnibs_python not found. Cannot generate reports.${RESET}"
+        exit 1
     fi
+    python_cmd="simnibs_python"
 
     # Generate reports for each processed subject
     reports_generated=0
@@ -1849,7 +1845,7 @@ else
         # Create a temporary Python script to generate the report
         temp_script=$(mktemp)
         cat > "$temp_script" << EOF
-#!/usr/bin/env python3
+#!/usr/bin/env simnibs_python
 import sys
 import os
 sys.path.append('$script_dir/../tools')

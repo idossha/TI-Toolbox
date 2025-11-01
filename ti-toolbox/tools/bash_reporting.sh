@@ -68,7 +68,7 @@ create_preprocessing_report() {
     fi
     
     # Create Python command to generate report
-    python3 - <<EOF
+    simnibs_python - <<EOF
 import sys
 import os
 import json
@@ -146,7 +146,7 @@ create_simulation_report() {
     fi
     
     # Create Python command to generate report
-    python3 - <<EOF
+    simnibs_python - <<EOF
 import sys
 import os
 import json
@@ -212,7 +212,7 @@ list_reports() {
     fi
     
     # Create Python command to list reports
-    python3 - <<EOF
+    simnibs_python - <<EOF
 import sys
 import os
 sys.path.append('$SCRIPT_DIR')
@@ -265,7 +265,7 @@ get_latest_report() {
     fi
     
     # Create Python command to get latest report
-    python3 - "$PROJECT_DIR" "$subject_id" "$report_type" <<EOF
+    simnibs_python - "$PROJECT_DIR" "$subject_id" "$report_type" <<EOF
 import sys
 import os
 sys.path.append('$SCRIPT_DIR')
@@ -308,7 +308,7 @@ add_processing_step_to_log() {
     fi
     
     # Create Python command to add step to log
-    python3 - "$log_file" "$step_name" "$description" "$status" "$duration" <<EOF
+    simnibs_python - "$log_file" "$step_name" "$description" "$status" "$duration" <<EOF
 import sys
 import os
 import json
@@ -365,7 +365,7 @@ add_error_to_log() {
     fi
     
     # Create Python command to add error to log
-    python3 - "$log_file" "$error_message" "$step" <<EOF
+    simnibs_python - "$log_file" "$error_message" "$step" <<EOF
 import sys
 import os
 import json
@@ -418,7 +418,7 @@ add_warning_to_log() {
     fi
     
     # Create Python command to add warning to log
-    python3 - "$log_file" "$warning_message" "$step" <<EOF
+    simnibs_python - "$log_file" "$warning_message" "$step" <<EOF
 import sys
 import os
 import json
