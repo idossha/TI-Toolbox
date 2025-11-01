@@ -4,6 +4,9 @@
 SCRIPT_DIR=$(dirname "$(readlink -f "$0")")
 cd "$SCRIPT_DIR"
 
+# Cache OS type to avoid multiple uname calls
+OS_TYPE=$(uname -s)
+
 # Default paths file
 DEFAULT_PATHS_FILE="$SCRIPT_DIR/.default_paths.dev"
 
@@ -33,20 +36,6 @@ initialize_volumes() {
   fi
 }
 
-# Function to check allocated Docker resources (CPU, memory)
-check_docker_resources() {
-  if docker info >/dev/null 2>&1; then
-    # Get Docker's memory and CPU allocation
-    MEMORY=$(docker info --format '{{.MemTotal}}')
-    CPU=$(docker info --format '{{.NCPU}}')
-
-    # Convert memory from bytes to GB
-    MEMORY_GB=$(echo "scale=2; $MEMORY / (1024^3)" | bc)
-  else
-    echo "Docker is not running or not installed. Please start Docker and try again."
-    exit 1
-  fi
-}
 
 # Function to enable directory path autocompletion
 setup_path_completion() {
@@ -56,24 +45,30 @@ setup_path_completion() {
   bind "set menu-complete-display-prefix on"
 }
 
-# Function to validate and prompt for the project directory
-get_project_directory() {
+# Function to prompt for directory path with validation
+# Usage: get_directory_path <variable_name> <prompt_message> <current_value_var>
+get_directory_path() {
+  local var_name="$1"
+  local prompt_msg="$2"
+  local current_var="$3"
+
   while true; do
-    if [[ -n "$LOCAL_PROJECT_DIR" ]]; then
-      echo "Current project directory: $LOCAL_PROJECT_DIR"
+    if [[ -n "${!current_var}" ]]; then
+      echo "Current $var_name: ${!current_var}"
       echo "Press Enter to use this directory or enter a new path:"
       read -e -r new_path
       if [[ -z "$new_path" ]]; then
         break
       else
-        LOCAL_PROJECT_DIR="$new_path"
+        eval "$current_var=\"$new_path\""
       fi
     else
-      echo "Give path to local project dir:"
-      read -e -r LOCAL_PROJECT_DIR
+      echo "$prompt_msg"
+      read -e -r input
+      eval "$current_var=\"$input\""
     fi
 
-    if [[ -d "$LOCAL_PROJECT_DIR" ]]; then
+    if [[ -d "${!current_var}" ]]; then
       break
     else
       echo "Invalid directory. Please provide a valid path."
@@ -81,29 +76,14 @@ get_project_directory() {
   done
 }
 
+# Function to validate and prompt for the project directory
+get_project_directory() {
+  get_directory_path "project directory" "Give path to local project dir:" LOCAL_PROJECT_DIR
+}
+
 # Function to get development codebase directory
 get_dev_codebase_directory() {
-  while true; do
-    if [[ -n "$DEV_CODEBASE_DIR" ]]; then
-      echo "Current development codebase directory: $DEV_CODEBASE_DIR"
-      echo "Press Enter to use this directory or enter a new path:"
-      read -e -r new_path
-      if [[ -z "$new_path" ]]; then
-        break
-      else
-        DEV_CODEBASE_DIR="$new_path"
-      fi
-    else
-      echo "Enter path to development codebase:"
-      read -e -r DEV_CODEBASE_DIR
-    fi
-
-    if [[ -d "$DEV_CODEBASE_DIR" ]]; then
-      break
-    else
-      echo "Invalid directory. Please provide a valid path."
-    fi
-  done
+  get_directory_path "development codebase directory" "Enter path to development codebase:" DEV_CODEBASE_DIR
 }
 
 # Function to check XQuartz version (from config_sys.sh)
@@ -131,39 +111,19 @@ allow_network_clients() {
   fi
 }
 
-# Function to get the IP address of the host machine
-get_host_ip() {
-  case "$(uname -s)" in
-  Darwin)
-    # Get the local IP address on macOS
-    HOST_IP=$(ifconfig en0 | grep inet | awk '$1=="inet" {print $2}')
-    ;;
+
+# Function to set DISPLAY environment variable based on OS
+set_display_env() {
+  case "$OS_TYPE" in
   Linux)
-    # On Linux, we don't need to calculate HOST_IP for DISPLAY
-    HOST_IP=""
+    # If Linux, use the existing DISPLAY (native X11)
+    export DISPLAY=$DISPLAY
     ;;
-  *)
-    echo "Unsupported OS. Please use macOS or Linux."
-    exit 1
+  Darwin|*)
+    # For macOS/Windows with Docker Desktop, use host.docker.internal
+    export DISPLAY="host.docker.internal:0"
     ;;
   esac
-}
-
-# Function to set DISPLAY environment variable based on OS and processor type
-set_display_env() {
-
-  if [[ "$(uname -s)" == "Linux" ]]; then
-    # If Linux, use the existing DISPLAY
-    export DISPLAY=$DISPLAY
-  elif [[ "$(uname -s)" == "Darwin" ]]; then
-    # For macOS, we need IP-based DISPLAY for the container
-    get_host_ip # Get the IP address dynamically
-    export DISPLAY="$HOST_IP:0"
-  else
-    # For other systems (Windows), use IP-based approach
-    get_host_ip # Get the IP address dynamically
-    export DISPLAY="$HOST_IP:0"
-  fi
 }
 
 
@@ -384,12 +344,17 @@ EOF
   fi
 }
 
-# Function to initialize ti-toolbox derivative dataset_description.json
-initialize_ti_toolbox_derivative() {
+# Function to initialize derivative dataset_description.json files
+# Usage: initialize_derivative_dataset <subdir_name> <template_name> <error_message>
+initialize_derivative_dataset() {
+  local subdir_name="$1"
+  local template_name="$2"
+  local error_msg="$3"
+
   local derivatives_dir="$LOCAL_PROJECT_DIR/derivatives"
-  local ti_toolbox_dir="$derivatives_dir/ti-toolbox"
-  local dataset_file="$ti_toolbox_dir/dataset_description.json"
-  local assets_template="$SCRIPT_DIR/../../resources/dataset_descriptions/ti-toolbox.dataset_description.json"
+  local sub_dir="$derivatives_dir/$subdir_name"
+  local dataset_file="$sub_dir/dataset_description.json"
+  local assets_template="$SCRIPT_DIR/../../resources/dataset_descriptions/$template_name"
 
   # If it already exists, skip
   if [ -f "$dataset_file" ]; then
@@ -401,128 +366,49 @@ initialize_ti_toolbox_derivative() {
     mkdir -p "$derivatives_dir" 2>/dev/null || { echo "Error: Failed to create derivatives directory"; return 1; }
   fi
 
-  # Ensure ti-toolbox directory exists
-  if [ ! -d "$ti_toolbox_dir" ]; then
-    mkdir -p "$ti_toolbox_dir" 2>/dev/null || { echo "Error: Failed to create ti-toolbox directory"; return 1; }
+  # Ensure sub directory exists
+  if [ ! -d "$sub_dir" ]; then
+    mkdir -p "$sub_dir" 2>/dev/null || { echo "Error: Failed to create $subdir_name directory"; return 1; }
   fi
 
   # Check if template exists
   if [ ! -f "$assets_template" ]; then
-    echo "Error: ti-toolbox.dataset_description.json template not found at $assets_template"
+    echo "Error: $template_name template not found at $assets_template"
     return 1
   fi
 
-  # Copy template to derivatives/ti-toolbox/
+  # Copy template to derivatives/subdir/
   if cp "$assets_template" "$dataset_file" 2>/dev/null; then
     # Fill in project-specific information
     local project_name="${PROJECT_DIR_NAME:-$(basename "$LOCAL_PROJECT_DIR")}"
     local current_date=$(date +"%Y-%m-%d")
-    
+
     # Update URI field
     sed -i.tmp "s/\"URI\": \"\"/\"URI\": \"bids:$project_name@$current_date\"/" "$dataset_file" && rm -f "${dataset_file}.tmp"
-    
+
     # Update DatasetLinks field
     sed -i.tmp "s/\"DatasetLinks\": {}/\"DatasetLinks\": {\n    \"$project_name\": \"..\/..\/\"\n  }/" "$dataset_file" && rm -f "${dataset_file}.tmp"
-    
+
     return 0
   else
-    echo "Error: Failed to create ti-toolbox derivative dataset_description.json"
+    echo "Error: Failed to create $error_msg"
     return 1
   fi
+}
+
+# Function to initialize ti-toolbox derivative dataset_description.json
+initialize_ti_toolbox_derivative() {
+  initialize_derivative_dataset "ti-toolbox" "ti-toolbox.dataset_description.json" "ti-toolbox derivative dataset_description.json"
 }
 
 # Function to initialize FreeSurfer derivative dataset_description.json
 initialize_freesurfer_derivative() {
-  local derivatives_dir="$LOCAL_PROJECT_DIR/derivatives"
-  local freesurfer_dir="$derivatives_dir/freesurfer"
-  local dataset_file="$freesurfer_dir/dataset_description.json"
-  local assets_template="$SCRIPT_DIR/../../resources/dataset_descriptions/freesurfer.dataset_description.json"
-
-  # If it already exists, skip
-  if [ -f "$dataset_file" ]; then
-    return 0
-  fi
-
-  # Ensure derivatives directory exists
-  if [ ! -d "$derivatives_dir" ]; then
-    mkdir -p "$derivatives_dir" 2>/dev/null || { echo "Error: Failed to create derivatives directory"; return 1; }
-  fi
-
-  # Ensure freesurfer directory exists
-  if [ ! -d "$freesurfer_dir" ]; then
-    mkdir -p "$freesurfer_dir" 2>/dev/null || { echo "Error: Failed to create freesurfer directory"; return 1; }
-  fi
-
-  # Check if template exists
-  if [ ! -f "$assets_template" ]; then
-    echo "Error: freesurfer.dataset_description.json template not found at $assets_template"
-    return 1
-  fi
-
-  # Copy template to derivatives/freesurfer/
-  if cp "$assets_template" "$dataset_file" 2>/dev/null; then
-    # Fill in project-specific information
-    local project_name="${PROJECT_DIR_NAME:-$(basename "$LOCAL_PROJECT_DIR")}"
-    local current_date=$(date +"%Y-%m-%d")
-    
-    # Update URI field
-    sed -i.tmp "s/\"URI\": \"\"/\"URI\": \"bids:$project_name@$current_date\"/" "$dataset_file" && rm -f "${dataset_file}.tmp"
-    
-    # Update DatasetLinks field
-    sed -i.tmp "s/\"DatasetLinks\": {}/\"DatasetLinks\": {\n    \"$project_name\": \"..\/..\/\"\n  }/" "$dataset_file" && rm -f "${dataset_file}.tmp"
-    
-    return 0
-  else
-    echo "Error: Failed to create FreeSurfer derivative dataset_description.json"
-    return 1
-  fi
+  initialize_derivative_dataset "freesurfer" "freesurfer.dataset_description.json" "FreeSurfer derivative dataset_description.json"
 }
 
 # Function to initialize SimNIBS derivative dataset_description.json
 initialize_simnibs_derivative() {
-  local derivatives_dir="$LOCAL_PROJECT_DIR/derivatives"
-  local simnibs_dir="$derivatives_dir/SimNIBS"
-  local dataset_file="$simnibs_dir/dataset_description.json"
-  local assets_template="$SCRIPT_DIR/../../resources/dataset_descriptions/simnibs.dataset_description.json"
-
-  # If it already exists, skip
-  if [ -f "$dataset_file" ]; then
-    return 0
-  fi
-
-  # Ensure derivatives directory exists
-  if [ ! -d "$derivatives_dir" ]; then
-    mkdir -p "$derivatives_dir" 2>/dev/null || { echo "Error: Failed to create derivatives directory"; return 1; }
-  fi
-
-  # Ensure SimNIBS directory exists
-  if [ ! -d "$simnibs_dir" ]; then
-    mkdir -p "$simnibs_dir" 2>/dev/null || { echo "Error: Failed to create SimNIBS directory"; return 1; }
-  fi
-
-  # Check if template exists
-  if [ ! -f "$assets_template" ]; then
-    echo "Error: simnibs.dataset_description.json template not found at $assets_template"
-    return 1
-  fi
-
-  # Copy template to derivatives/SimNIBS/
-  if cp "$assets_template" "$dataset_file" 2>/dev/null; then
-    # Fill in project-specific information
-    local project_name="${PROJECT_DIR_NAME:-$(basename "$LOCAL_PROJECT_DIR")}"
-    local current_date=$(date +"%Y-%m-%d")
-    
-    # Update URI field
-    sed -i.tmp "s/\"URI\": \"\"/\"URI\": \"bids:$project_name@$current_date\"/" "$dataset_file" && rm -f "${dataset_file}.tmp"
-    
-    # Update DatasetLinks field
-    sed -i.tmp "s/\"DatasetLinks\": {}/\"DatasetLinks\": {\n    \"$project_name\": \"..\/..\/\"\n  }/" "$dataset_file" && rm -f "${dataset_file}.tmp"
-    
-    return 0
-  else
-    echo "Error: Failed to create SimNIBS derivative dataset_description.json"
-    return 1
-  fi
+  initialize_derivative_dataset "SimNIBS" "simnibs.dataset_description.json" "SimNIBS derivative dataset_description.json"
 }
 
 # Function to write system info to a hidden folder in the user's project directory
@@ -578,23 +464,16 @@ write_system_info() {
 # Function to write project status
 write_project_status() {
   echo ""
-  echo "═══════════════════════════════════════════════════════"
-  echo "DEBUG: write_project_status() called"
-  echo "═══════════════════════════════════════════════════════"
-  
+  echo "Initializing project status..."
+
   # Set info directory to derivatives location
   INFO_DIR="$LOCAL_PROJECT_DIR/derivatives/ti-toolbox/.ti-toolbox-info"
   STATUS_FILE="$INFO_DIR/project_status.json"
-  
-  echo "DEBUG: INFO_DIR = $INFO_DIR"
-  echo "DEBUG: STATUS_FILE = $STATUS_FILE"
-  echo "DEBUG: Creating INFO_DIR..."
+
   mkdir -p "$INFO_DIR"
 
   # Check if project is new and initialize configs
-  echo "DEBUG: Calling initialize_project_configs()..."
   IS_NEW_PROJECT=$(initialize_project_configs)
-  echo "DEBUG: IS_NEW_PROJECT = $IS_NEW_PROJECT"
 
   # If it's not a new project, just update the last_updated timestamp
   if [ "$IS_NEW_PROJECT" = false ]; then
@@ -625,42 +504,26 @@ EOF
   fi
 
   # No need to mirror since we're now using the derivatives location directly
-  echo "DEBUG: write_project_status() completed"
-  echo "═══════════════════════════════════════════════════════"
-  echo ""
+  echo "✓ Project status updated"
   return 0
 }
 
 # Function to setup example data for new projects
 setup_example_data_if_new() {
-  echo "═══════════════════════════════════════════════════════"
-  echo "DEBUG: setup_example_data_if_new() called"
-  echo "═══════════════════════════════════════════════════════"
-  
+  echo "Setting up example data for new project..."
+
   local toolbox_root="$SCRIPT_DIR/../.."
   local example_data_manager="$toolbox_root/ti-toolbox/new_project/example_data_manager.py"
-  
-  echo "DEBUG: SCRIPT_DIR = $SCRIPT_DIR"
-  echo "DEBUG: toolbox_root = $toolbox_root"
-  echo "DEBUG: example_data_manager = $example_data_manager"
-  echo "DEBUG: LOCAL_PROJECT_DIR = $LOCAL_PROJECT_DIR"
   
   # Check if the example data manager exists
   if [ ! -f "$example_data_manager" ]; then
     echo "ERROR: Example data manager not found at $example_data_manager"
-    echo "DEBUG: Listing directory contents:"
     ls -la "$toolbox_root/ti-toolbox/new_project/" 2>&1 || echo "Directory does not exist"
     return 1
   fi
   
-  echo "DEBUG: ✓ Example data manager file found"
-  
   # Check if Python is available (in dev mode, we're on host, not in Docker)
   if command -v python3 >/dev/null 2>&1; then
-    echo "DEBUG: ✓ Python3 found at: $(which python3)"
-    echo "DEBUG: Python3 version: $(python3 --version)"
-    echo "Setting up example data for new project..."
-    echo "DEBUG: Running command: python3 $example_data_manager $toolbox_root $LOCAL_PROJECT_DIR"
     
     # Run the example data manager with verbose output
     if python3 "$example_data_manager" "$toolbox_root" "$LOCAL_PROJECT_DIR" 2>&1; then
@@ -671,45 +534,20 @@ setup_example_data_if_new() {
       echo "Continuing with project initialization..."
     fi
   else
-    echo "ERROR: Python3 not available in PATH"
-    echo "DEBUG: Current PATH = $PATH"
-    echo "Skipping example data setup"
+    echo "ERROR: Python3 not available in PATH - skipping example data setup"
   fi
-  
-  echo "═══════════════════════════════════════════════════════"
-  echo "DEBUG: setup_example_data_if_new() completed"
-  echo "═══════════════════════════════════════════════════════"
 }
 
 # Function to initialize project configs with error handling
 initialize_project_configs() {
-  echo ""
-  echo "═══════════════════════════════════════════════════════"
-  echo "DEBUG: initialize_project_configs() called"
-  echo "═══════════════════════════════════════════════════════"
-  
+  echo "Checking project configuration..."
+
   local project_ti_toolbox_dir="$LOCAL_PROJECT_DIR/code/ti-toolbox"
   local project_config_dir="$project_ti_toolbox_dir/config"
   local new_project_configs_dir="$SCRIPT_DIR/../../ti-toolbox/new_project/configs"
   local is_new_project=false
-
-  echo "DEBUG: LOCAL_PROJECT_DIR = $LOCAL_PROJECT_DIR"
-  echo "DEBUG: project_ti_toolbox_dir = $project_ti_toolbox_dir"
-  echo "DEBUG: project_config_dir = $project_config_dir"
-  echo "DEBUG: new_project_configs_dir = $new_project_configs_dir"
   
   # Check if project directories exist
-  if [ -d "$project_ti_toolbox_dir" ]; then
-    echo "DEBUG: project_ti_toolbox_dir exists"
-  else
-    echo "DEBUG: project_ti_toolbox_dir does NOT exist"
-  fi
-  
-  if [ -d "$project_config_dir" ]; then
-    echo "DEBUG: project_config_dir exists"
-  else
-    echo "DEBUG: project_config_dir does NOT exist"
-  fi
 
   # Create directories with error checking
   if [ ! -d "$project_ti_toolbox_dir" ]; then
@@ -718,7 +556,6 @@ initialize_project_configs() {
       echo "Error: Could not create directory $project_config_dir"
       return 1
     fi
-    echo "DEBUG: ✓ Created $project_config_dir"
     is_new_project=true
   elif [ ! -d "$project_config_dir" ]; then
     echo "Creating config directory..."
@@ -726,34 +563,26 @@ initialize_project_configs() {
       echo "Error: Could not create directory $project_config_dir"
       return 1
     fi
-    echo "DEBUG: ✓ Created $project_config_dir"
     is_new_project=true
   fi
-  
-  echo "DEBUG: is_new_project = $is_new_project"
 
   # If it's a new project, copy config files
   if [ "$is_new_project" = true ]; then
     echo "Initializing new project with default configs..."
-    echo "DEBUG: Checking for source configs directory..."
-    
+
     # Ensure source directory exists
     if [ ! -d "$new_project_configs_dir" ]; then
       echo "ERROR: Default configs directory not found at $new_project_configs_dir"
-      echo "DEBUG: Listing parent directory:"
       ls -la "$(dirname "$new_project_configs_dir")" 2>&1 || echo "Parent directory does not exist"
       return 1
     fi
-    echo "DEBUG: ✓ Source configs directory found"
     
     # Create .ti-toolbox-info directory with error checking (under derivatives/ti-toolbox)
     local info_dir="$LOCAL_PROJECT_DIR/derivatives/ti-toolbox/.ti-toolbox-info"
-    echo "DEBUG: Creating info directory at: $info_dir"
     if ! mkdir -p "$info_dir" 2>/dev/null; then
       echo "ERROR: Could not create directory $info_dir"
       return 1
     fi
-    echo "DEBUG: ✓ Created info directory"
     
     # Copy each config file individually and verify, but only if it doesn't exist
     # Exclude entrypoint.json as it's not needed in project configs
@@ -815,25 +644,15 @@ EOF
     if ! chmod -R 755 "$info_dir" 2>/dev/null; then
       echo "Warning: Could not set permissions for $info_dir"
     fi
-    echo "DEBUG: ✓ Permissions set for info directory"
     
     # Initialize BIDS files for new projects
-    echo "DEBUG: Calling initialize_dataset_description..."
     initialize_dataset_description
-    echo "DEBUG: Calling initialize_readme..."
     initialize_readme
     
     # Setup example data for new projects
-    echo "DEBUG: About to call setup_example_data_if_new..."
     setup_example_data_if_new
-    echo "DEBUG: Returned from setup_example_data_if_new"
-  else
-    echo "DEBUG: Skipping new project initialization (not a new project)"
   fi
 
-  echo "DEBUG: initialize_project_configs() returning: $is_new_project"
-  echo "═══════════════════════════════════════════════════════"
-  echo ""
   echo "$is_new_project"
   return 0
 }
@@ -846,18 +665,19 @@ load_default_paths
 get_project_directory
 get_dev_codebase_directory
 # Sanitize possible carriage returns from user input paths - prevents creating a "\r" directory
-LOCAL_PROJECT_DIR=$(printf "%s" "$LOCAL_PROJECT_DIR" | tr -d '\r')
-DEV_CODEBASE_DIR=$(printf "%s" "$DEV_CODEBASE_DIR" | tr -d '\r')
-PROJECT_DIR_NAME=$(basename "$LOCAL_PROJECT_DIR")
-DEV_CODEBASE_DIR_NAME=$(basename "$DEV_CODEBASE_DIR")
-check_docker_resources >/dev/null 2>&1
+LOCAL_PROJECT_DIR=${LOCAL_PROJECT_DIR%$'\r'}
+DEV_CODEBASE_DIR=${DEV_CODEBASE_DIR%$'\r'}
+PROJECT_DIR_NAME=${LOCAL_PROJECT_DIR##*/}
+DEV_CODEBASE_DIR_NAME=${DEV_CODEBASE_DIR##*/}
 initialize_volumes >/dev/null 2>&1
 
 # Setup X11 for macOS (using config_sys.sh approach)
-if [[ "$(uname -s)" == "Darwin" ]]; then
+if [[ "$OS_TYPE" == "Darwin" ]]; then
   check_xquartz_version >/dev/null 2>&1
   allow_network_clients >/dev/null 2>&1
 fi
+
+set_display_env >/dev/null 2>&1
 
 # Set up Docker Compose environment variables
 export LOCAL_PROJECT_DIR
@@ -867,31 +687,22 @@ export DEV_CODEBASE_DIR_NAME
 export DEV_CODEBASE_NAME="$DEV_CODEBASE_DIR_NAME"  # Add this line to fix the warning
 
 # Set OpenGL environment variables conditionally based on OS
-if [[ "$(uname -s)" == "Darwin" ]]; then
+if [[ "$OS_TYPE" == "Darwin" ]]; then
   # macOS needs these settings for OpenGL to work in Docker
   export LIBGL_ALWAYS_SOFTWARE="1"
   export LIBGL_ALWAYS_INDIRECT="1"
   export QT_X11_NO_MITSHM="1"
   export QT_OPENGL="desktop"
   export TI_GUI_QGL_FALLBACK="1"
-else
-  # For Windows and Linux, use empty values (which will be omitted from the container)
-  export LIBGL_ALWAYS_SOFTWARE=""
-  export LIBGL_ALWAYS_INDIRECT=""
-  export QT_X11_NO_MITSHM=""
-  export QT_OPENGL=""
-  export TI_GUI_QGL_FALLBACK=""
 fi
+# For Windows and Linux, leave OpenGL variables unset (docker-compose will use empty defaults)
 
 # Save the paths for next time
 save_default_paths
 
 # Write system info and project status with error handling
-echo "DEBUG: About to call write_system_info..."
 write_system_info >/dev/null 2>&1
-echo "DEBUG: About to call write_project_status..."
 write_project_status
-echo "DEBUG: write_project_status returned"
 
 # Ensure BIDS dataset description exists in the project root
 initialize_dataset_description >/dev/null 2>&1
