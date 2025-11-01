@@ -198,32 +198,30 @@ class ClusterPermutationWidget(QtWidgets.QWidget):
         # === Analysis Configuration ===
         config_group = QtWidgets.QGroupBox("Analysis Configuration")
         config_layout = QtWidgets.QGridLayout(config_group)
-        
-        # Left column (col 0-1), Right column (col 2-3)
+
         row = 0
-        
-        # Analysis name (spans both columns)
+
+        # Left column - Analysis name
         config_layout.addWidget(QtWidgets.QLabel("Analysis Name:"), row, 0)
         self.analysis_name_edit = QtWidgets.QLineEdit()
         self.analysis_name_edit.setPlaceholderText("e.g., hippocampus_responders_vs_nonresponders")
-        config_layout.addWidget(self.analysis_name_edit, row, 1, 1, 3)
-        row += 1
-        
-        # NIfTI file pattern (spans both columns)
-        config_layout.addWidget(QtWidgets.QLabel("NIfTI Pattern:"), row, 0)
+        config_layout.addWidget(self.analysis_name_edit, row, 1)
+
+        # Right column - NIfTI file pattern
+        config_layout.addWidget(QtWidgets.QLabel("NIfTI Pattern:"), row, 2)
         self.nifti_pattern_edit = QtWidgets.QLineEdit()
         self.nifti_pattern_edit.setText("grey_{simulation_name}_TI_MNI_MNI_TI_max.nii.gz")
         self.nifti_pattern_edit.setToolTip("Use {simulation_name} as a variable (subject is in directory path)")
-        config_layout.addWidget(self.nifti_pattern_edit, row, 1, 1, 3)
+        config_layout.addWidget(self.nifti_pattern_edit, row, 3)
         row += 1
-        
+
         # Left column
         # Test type
         config_layout.addWidget(QtWidgets.QLabel("Test Type:"), row, 0)
         self.test_type_combo = QtWidgets.QComboBox()
         self.test_type_combo.addItems(['Unpaired', 'Paired'])
         config_layout.addWidget(self.test_type_combo, row, 1)
-        
+
         # Right column
         # Alternative hypothesis
         config_layout.addWidget(QtWidgets.QLabel("Alternative:"), row, 2)
@@ -232,7 +230,7 @@ class ClusterPermutationWidget(QtWidgets.QWidget):
         self.alternative_combo.setToolTip("Two-sided: ≠, Greater: Resp > Non-Resp, Less: Resp < Non-Resp")
         config_layout.addWidget(self.alternative_combo, row, 3)
         row += 1
-        
+
         # Left column
         # Cluster threshold
         config_layout.addWidget(QtWidgets.QLabel("Cluster Threshold:"), row, 0)
@@ -242,7 +240,7 @@ class ClusterPermutationWidget(QtWidgets.QWidget):
         self.cluster_threshold_spin.setSingleStep(0.01)
         self.cluster_threshold_spin.setDecimals(3)
         config_layout.addWidget(self.cluster_threshold_spin, row, 1)
-        
+
         # Right column
         # Cluster statistic
         config_layout.addWidget(QtWidgets.QLabel("Cluster Statistic:"), row, 2)
@@ -251,7 +249,7 @@ class ClusterPermutationWidget(QtWidgets.QWidget):
         self.cluster_stat_combo.setToolTip("Mass: sum of t-values, Size: voxel count")
         config_layout.addWidget(self.cluster_stat_combo, row, 3)
         row += 1
-        
+
         # Left column
         # Number of permutations
         config_layout.addWidget(QtWidgets.QLabel("Permutations:"), row, 0)
@@ -259,7 +257,7 @@ class ClusterPermutationWidget(QtWidgets.QWidget):
         self.n_permutations_spin.setRange(10, 10000)
         self.n_permutations_spin.setValue(1000)
         config_layout.addWidget(self.n_permutations_spin, row, 1)
-        
+
         # Right column
         # Alpha level
         config_layout.addWidget(QtWidgets.QLabel("Alpha Level:"), row, 2)
@@ -270,25 +268,25 @@ class ClusterPermutationWidget(QtWidgets.QWidget):
         self.alpha_spin.setDecimals(3)
         config_layout.addWidget(self.alpha_spin, row, 3)
         row += 1
-        
-        # Left column
-        # Parallel jobs
+
+        # Left column (full width for parallel jobs)
         config_layout.addWidget(QtWidgets.QLabel("Parallel Jobs:"), row, 0)
-        self.n_jobs_spin = QtWidgets.QSpinBox()
-        self.n_jobs_spin.setRange(-1, 64)
-        self.n_jobs_spin.setValue(-1)
-        self.n_jobs_spin.setSpecialValueText("All cores")
-        self.n_jobs_spin.setToolTip(
+        self.n_jobs_edit = QtWidgets.QLineEdit()
+        import multiprocessing
+        max_cores = multiprocessing.cpu_count()
+        self.n_jobs_edit.setPlaceholderText(f"available cores: 1 to {max_cores} (all cores)")
+        # Set up input validation - only integers from 1 to max_cores
+        self.n_jobs_edit.setValidator(QtGui.QIntValidator(1, max_cores, self.n_jobs_edit))
+        self.n_jobs_edit.setToolTip(
             "Number of CPU cores to use for parallel processing.\n"
-            "-1 = Auto-detect (recommended, limited to max 8 cores)\n"
-            "1 = Sequential (slower but uses less memory)\n"
-            "2-8 = Specific number of cores\n\n"
-            "Note: In Docker containers, this is automatically limited\n"
+            f"Accepted input: 1 to {max_cores} (all cores)\n"
+            "No characters or negative numbers accepted.\n\n"
+            "Note: In Docker containers, this may be automatically limited\n"
             "to 75% of available cores to prevent memory exhaustion.\n"
             "Threading libraries are set to single-threaded mode per worker\n"
             "to avoid CPU oversubscription."
         )
-        config_layout.addWidget(self.n_jobs_spin, row, 1)
+        config_layout.addWidget(self.n_jobs_edit, row, 1, 1, 3)
         
         layout.addWidget(config_group)
         
@@ -528,7 +526,7 @@ class ClusterPermutationWidget(QtWidgets.QWidget):
             'cluster_stat': self.cluster_stat_combo.currentText().lower(),
             'n_permutations': self.n_permutations_spin.value(),
             'alpha': self.alpha_spin.value(),
-            'n_jobs': self.n_jobs_spin.value(),
+            'n_jobs': int(self.n_jobs_edit.text()) if self.n_jobs_edit.text() else 1,
             'nifti_file_pattern': self.nifti_pattern_edit.text()
         }
         
