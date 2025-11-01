@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env simnibs_python
 """
 Version Update Script for Temporal Interference Toolbox
 This script updates version information across all project files.
