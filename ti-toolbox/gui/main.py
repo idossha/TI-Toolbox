@@ -47,7 +47,7 @@ from system_monitor_tab import SystemMonitorTab
 from nifti_viewer_tab import NiftiViewerTab
 from analyzer_tab import AnalyzerTab
 from optimizer_tab import OptimizerTab
-from settings_menu import SettingsMenuButton
+from settings_menu import SettingsMenuButton, ExtensionsButton
 from core import get_path_manager
 
 class MainWindow(QtWidgets.QMainWindow):
@@ -57,6 +57,13 @@ class MainWindow(QtWidgets.QMainWindow):
         super(MainWindow, self).__init__()
         
         self.setWindowTitle("TI-Toolbox")
+        
+        # Set window icon if available
+        icon_path = os.path.join(os.path.dirname(__file__), '..', '..', 'docs', 'assets', 'imgs', 'icon.png')
+        icon_path = os.path.abspath(icon_path)
+        if os.path.exists(icon_path):
+            self.setWindowIcon(QtGui.QIcon(icon_path))
+        
         # Set window flags to ensure proper window behavior
         self.setWindowFlags(
             QtCore.Qt.Window |
@@ -94,9 +101,22 @@ class MainWindow(QtWidgets.QMainWindow):
         # Create the tab widget for different tools
         self.tab_widget = QtWidgets.QTabWidget()
         
-        # Add the settings gear button to the tab bar's corner
+        # Create a container widget for both buttons in the top right corner
+        buttons_container = QtWidgets.QWidget()
+        buttons_layout = QtWidgets.QHBoxLayout(buttons_container)
+        buttons_layout.setContentsMargins(0, 0, 0, 0)
+        buttons_layout.setSpacing(0)
+        
+        # Add the extensions button
+        self.extensions_button = ExtensionsButton(self)
+        buttons_layout.addWidget(self.extensions_button)
+        
+        # Add the settings gear button
         self.settings_button = SettingsMenuButton(self)
-        self.tab_widget.setCornerWidget(self.settings_button, QtCore.Qt.TopRightCorner)
+        buttons_layout.addWidget(self.settings_button)
+        
+        # Add the container with both buttons to the right corner of the tab bar
+        self.tab_widget.setCornerWidget(buttons_container, QtCore.Qt.TopRightCorner)
         
         # Create all tabs first
         self.pre_process_tab = PreProcessTab(self)
@@ -430,6 +450,12 @@ def main():
     
     # Set application style
     app.setStyle("Fusion")
+    
+    # Set application icon if available
+    icon_path = os.path.join(os.path.dirname(__file__), '..', '..', 'docs', 'assets', 'imgs', 'icon.png')
+    icon_path = os.path.abspath(icon_path)
+    if os.path.exists(icon_path):
+        app.setWindowIcon(QtGui.QIcon(icon_path))
     
     # Set up the main window
     window = MainWindow()

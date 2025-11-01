@@ -138,9 +138,6 @@ class SettingsMenuButton(QtWidgets.QPushButton):
         help_action = self.menu.addAction("Help")
         help_action.triggered.connect(self.open_help)
         
-        extensions_action = self.menu.addAction("Extensions")
-        extensions_action.triggered.connect(self.open_extensions)
-        
         contact_action = self.menu.addAction("Contact")
         contact_action.triggered.connect(self.open_contact)
         
@@ -170,4 +167,42 @@ class SettingsMenuButton(QtWidgets.QPushButton):
         """Open the Acknowledgments window."""
         acknowledgments_window = FloatingAcknowledgmentsWindow(self.parent)
         acknowledgments_window.show()
+
+
+class ExtensionsButton(QtWidgets.QPushButton):
+    """Extensions icon button for opening extensions window."""
+    
+    def __init__(self, parent=None):
+        super(ExtensionsButton, self).__init__(parent)
+        self.parent = parent
+        self.setup_ui()
+        
+    def setup_ui(self):
+        """Set up the extensions button."""
+        # Set extensions icon (using Unicode symbol compatible with Ubuntu containers)
+        self.setText("◳")  # Square with top right quadrant - represents extensions/modules
+        self.setStyleSheet("""
+            QPushButton {
+                font-size: 18px;
+                font-weight: bold;
+                border: none;
+                background: transparent;
+                padding: 5px;
+            }
+            QPushButton:hover {
+                background: rgba(0, 0, 0, 0.1);
+                border-radius: 3px;
+            }
+        """)
+        self.setToolTip("Extensions")
+        self.setCursor(QtCore.Qt.PointingHandCursor)
+        
+        # Connect click to open extensions
+        self.clicked.connect(self.open_extensions)
+    
+    def open_extensions(self):
+        """Open the Extensions window."""
+        from extensions import FloatingExtensionsWindow
+        extensions_window = FloatingExtensionsWindow(self.parent, main_window=self.parent)
+        extensions_window.show()
 

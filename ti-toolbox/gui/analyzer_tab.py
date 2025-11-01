@@ -178,9 +178,7 @@ class AnalyzerTab(QtWidgets.QWidget):
         super(AnalyzerTab, self).__init__(parent)
         self.parent = parent
         self.analysis_running = False
-        # self.analysis_process = None # This was the QProcess in original, now AnalysisThread
-        self.optimization_process = None # Using this name for the AnalysisThread instance
-        # is_group_mode is now determined dynamically based on number of pairs
+        self.optimization_process = None
 
         self.group_atlas_config = {}
 
@@ -231,8 +229,9 @@ class AnalyzerTab(QtWidgets.QWidget):
         
         # Create left container (for subjects)
         left_container = QtWidgets.QWidget()
+        left_container.setSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Preferred)
         left_layout = QtWidgets.QVBoxLayout(left_container)
-        left_layout.setContentsMargins(0, 0, 0, 0)
+        left_layout.setContentsMargins(5, 0, 5, 0)  # Match margins with right container
         left_layout.setSpacing(2)
         
         # Subject-simulation pairs selection (always shown)
@@ -240,16 +239,29 @@ class AnalyzerTab(QtWidgets.QWidget):
         left_layout.addWidget(self.pairs_widget)
         
         # Add left container (subjects) to the layout first
+        # Use stretch factor 1 for equal sizing
         main_horizontal_layout.addWidget(left_container, 1)
         
         # Create right container (for analysis configuration)
-        right_layout_container = QtWidgets.QWidget()
-        right_layout_actual = self.create_analysis_parameters_widget(right_layout_container)
-        main_horizontal_layout.addWidget(right_layout_container, 2)
+        self.right_layout_container = QtWidgets.QWidget()
+        self.right_layout_container.setSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Preferred)
+        right_layout_actual = self.create_analysis_parameters_widget(self.right_layout_container)
+        # Use stretch factor 1 for equal sizing with left container
+        main_horizontal_layout.addWidget(self.right_layout_container, 1)
+        
+        # Set stretch factors explicitly to ensure equal sizing
+        main_horizontal_layout.setStretchFactor(left_container, 1)
+        main_horizontal_layout.setStretchFactor(self.right_layout_container, 1)
+        
+        # Store reference to scroll content for resize calculations
+        self.scroll_content = scroll_content
         
         scroll_layout.addLayout(main_horizontal_layout)
         scroll_area.setWidget(scroll_content)
         main_layout.addWidget(scroll_area)
+        
+        # Initial call to set input widths after UI is created
+        QtCore.QTimer.singleShot(100, self._update_input_widths)
         
         # Create Run/Stop buttons using component
         self.action_buttons = RunStopButtons(self, run_text="Run Analysis", stop_text="Stop Analysis")
@@ -613,90 +625,124 @@ class AnalyzerTab(QtWidgets.QWidget):
     
     def create_analysis_parameters_widget(self, container_widget):
         right_layout = QtWidgets.QVBoxLayout(container_widget)
+        right_layout.setContentsMargins(5, 0, 5, 0)  # Reduce side margins
 
         analysis_params_container = QtWidgets.QGroupBox("Analysis Configuration")
         self.analysis_params_container = analysis_params_container
         analysis_params_layout = QtWidgets.QVBoxLayout(analysis_params_container)
+        analysis_params_layout.setSpacing(8)
         
+        # Space selection row - distribute evenly across width
         space_layout = QtWidgets.QHBoxLayout()
-        self.space_label = QtWidgets.QLabel("Analysis Space:")
+        space_layout.setSpacing(10)
+        self.space_label = QtWidgets.QLabel("Space:")
+        self.space_label.setSizePolicy(QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed)
         self.space_mesh = QtWidgets.QRadioButton("Mesh")
         self.space_voxel = QtWidgets.QRadioButton("Voxel")
         self.space_mesh.setChecked(True)
-        self.space_group = QtWidgets.QButtonGroup(self) # Parent `self` is AnalyzerTab
+        self.space_group = QtWidgets.QButtonGroup(self)
         self.space_group.addButton(self.space_mesh)
         self.space_group.addButton(self.space_voxel)
+        
         space_layout.addWidget(self.space_label)
         space_layout.addWidget(self.space_mesh)
         space_layout.addWidget(self.space_voxel)
+        space_layout.addStretch()  # Keep stretch to push radio buttons to left
         analysis_params_layout.addLayout(space_layout)
         
+        # Type selection row (separate from Space) - distribute evenly across width
         type_layout = QtWidgets.QHBoxLayout()
-        self.type_label = QtWidgets.QLabel("Analysis Type:")
+        type_layout.setSpacing(10)
+        self.type_label = QtWidgets.QLabel("Type:")
+        self.type_label.setSizePolicy(QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed)
         self.type_spherical = QtWidgets.QRadioButton("Spherical")
         self.type_cortical = QtWidgets.QRadioButton("Cortical")
         self.type_spherical.setChecked(True)
-        self.type_group = QtWidgets.QButtonGroup(self) # Parent `self` is AnalyzerTab
+        self.type_group = QtWidgets.QButtonGroup(self)
         self.type_group.addButton(self.type_spherical)
         self.type_group.addButton(self.type_cortical)
+        
         type_layout.addWidget(self.type_label)
         type_layout.addWidget(self.type_spherical)
         type_layout.addWidget(self.type_cortical)
+        type_layout.addStretch()  # Keep stretch to push radio buttons to left
         analysis_params_layout.addLayout(type_layout)
 
-        # Region and Atlas selection row
-        region_atlas_layout = QtWidgets.QHBoxLayout()
-        region_layout = QtWidgets.QHBoxLayout()
+        # Region, Atlas, and Spherical parameters - organized into multiple rows
+        # Row 1: Region input, All checkbox, and List Regions button
+        region_row = QtWidgets.QHBoxLayout()
+        region_row.setSpacing(10)
         self.region_label = QtWidgets.QLabel("Region:")
+        self.region_label.setSizePolicy(QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed)
         self.region_input = QtWidgets.QLineEdit()
         self.region_input.setPlaceholderText("e.g., superiorfrontal")
+        self.region_input.setMinimumWidth(100)
+        self.region_input.setMaximumWidth(200)  # Allow some expansion
+        
+        self.whole_head_check = QtWidgets.QCheckBox("All")
+        self.whole_head_check.setSizePolicy(QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed)
+        self.whole_head_check.stateChanged.connect(self.toggle_region_input)
+        
         self.show_regions_btn = QtWidgets.QPushButton("List Regions")
         self.show_regions_btn.setToolTip("Show available regions in the selected atlas")
         self.show_regions_btn.clicked.connect(self.show_available_regions)
         self.show_regions_btn.setEnabled(False)
-        region_layout.addWidget(self.region_label)
-        region_layout.addWidget(self.region_input)
-        region_layout.addWidget(self.show_regions_btn)
-        region_atlas_layout.addLayout(region_layout)
-
-        # Atlas widgets
+        self.show_regions_btn.setSizePolicy(QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed)
+        
+        region_row.addWidget(self.region_label)
+        region_row.addWidget(self.region_input)
+        region_row.addSpacing(5)
+        region_row.addWidget(self.whole_head_check)
+        region_row.addSpacing(5)
+        region_row.addWidget(self.show_regions_btn)
+        region_row.addStretch()
+        analysis_params_layout.addLayout(region_row)
+        
+        # Row 2: Atlas selection (single widget that shows mesh or voxel based on space)
+        atlas_row = QtWidgets.QHBoxLayout()
+        atlas_row.setSpacing(10)
+        
+        # Atlas widgets - always visible, just enabled/disabled
         self.mesh_atlas_widget = QtWidgets.QWidget()
         mesh_atlas_layout = QtWidgets.QHBoxLayout(self.mesh_atlas_widget)
+        mesh_atlas_layout.setContentsMargins(0, 0, 0, 0)
+        mesh_atlas_layout.setSpacing(5)
         self.mesh_atlas_label = QtWidgets.QLabel("Atlas:")
+        self.mesh_atlas_label.setSizePolicy(QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed)
         self.atlas_name_combo = QtWidgets.QComboBox()
         self.atlas_name_combo.addItems(["DK40", "HCP_MMP1", "a2009s"])
         self.atlas_name_combo.setCurrentText("DK40")
+        self.atlas_name_combo.setMinimumWidth(100)
+        self.atlas_name_combo.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed)
         mesh_atlas_layout.addWidget(self.mesh_atlas_label)
         mesh_atlas_layout.addWidget(self.atlas_name_combo)
 
         self.voxel_atlas_widget = QtWidgets.QWidget()
         voxel_atlas_vlayout = QtWidgets.QVBoxLayout(self.voxel_atlas_widget)
         voxel_atlas_vlayout.setContentsMargins(0, 0, 0, 0)
-        voxel_atlas_vlayout.setSpacing(2)
+        voxel_atlas_vlayout.setSpacing(0)
         voxel_atlas_row = QtWidgets.QWidget()
         voxel_atlas_row_layout = QtWidgets.QHBoxLayout(voxel_atlas_row)
         voxel_atlas_row_layout.setContentsMargins(0, 0, 0, 0)
         voxel_atlas_row_layout.setSpacing(5)
         self.voxel_atlas_label = QtWidgets.QLabel("Atlas:")
+        self.voxel_atlas_label.setSizePolicy(QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed)
         self.atlas_combo = QtWidgets.QComboBox()
         self.atlas_combo.setEditable(False)
+        self.atlas_combo.setMinimumWidth(100)
+        self.atlas_combo.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed)
         voxel_atlas_row_layout.addWidget(self.voxel_atlas_label)
         voxel_atlas_row_layout.addWidget(self.atlas_combo)
         voxel_atlas_vlayout.addWidget(voxel_atlas_row)
-
-        region_atlas_layout.addWidget(self.mesh_atlas_widget)
-        region_atlas_layout.addWidget(self.voxel_atlas_widget)
-        analysis_params_layout.addLayout(region_atlas_layout)
-
-        # Analyze Whole Head checkbox
-        self.whole_head_check = QtWidgets.QCheckBox("Analyze Whole Head")
-        self.whole_head_check.stateChanged.connect(self.toggle_region_input)
-        analysis_params_layout.addWidget(self.whole_head_check)
-
-        self.analysis_stack = QtWidgets.QStackedWidget()
-        spherical_widget = QtWidgets.QWidget()
-        spherical_layout = QtWidgets.QVBoxLayout(spherical_widget)
         
+        # Only add the appropriate atlas widget based on current space
+        # Both will be in the layout, but only one enabled/visible at a time
+        atlas_row.addWidget(self.mesh_atlas_widget)
+        atlas_row.addWidget(self.voxel_atlas_widget)
+        atlas_row.addStretch()
+        analysis_params_layout.addLayout(atlas_row)
+
+        # Spherical analysis parameters - split into separate rows
         # Add info label for MNI coordinates (initially hidden)
         self.mni_info_label = QtWidgets.QLabel()
         self.mni_info_label.setText("Group analysis mode: Coordinates will be treated as MNI space and transformed to each subject's native space.")
@@ -704,39 +750,52 @@ class AnalyzerTab(QtWidgets.QWidget):
         self.mni_info_label.setWordWrap(True)
         self.mni_info_label.setMaximumHeight(35)
         self.mni_info_label.setVisible(False)
-        spherical_layout.addWidget(self.mni_info_label)
+        analysis_params_layout.addWidget(self.mni_info_label)
         
-        coordinates_layout = QtWidgets.QHBoxLayout()
-        self.coordinates_label = QtWidgets.QLabel("RAS Coord. (x,y,z):")
+        # Row 3: Coordinates
+        coordinates_row = QtWidgets.QHBoxLayout()
+        coordinates_row.setSpacing(10)
+        self.coordinates_label = QtWidgets.QLabel("Coordinates (x,y,z):")
+        self.coordinates_label.setSizePolicy(QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed)
         self.coord_x = QtWidgets.QLineEdit()
         self.coord_y = QtWidgets.QLineEdit()
         self.coord_z = QtWidgets.QLineEdit()
-        for coord_widget in [self.coord_x, self.coord_y, self.coord_z]: # Renamed variable
+        for coord_widget in [self.coord_x, self.coord_y, self.coord_z]:
             coord_widget.setPlaceholderText("0.0")
-        coordinates_layout.addWidget(self.coordinates_label)
-        coordinates_layout.addWidget(self.coord_x)
-        coordinates_layout.addWidget(self.coord_y)
-        coordinates_layout.addWidget(self.coord_z)
+            coord_widget.setMinimumWidth(60)
+            coord_widget.setMaximumWidth(100)  # Allow some expansion
+            coord_widget.setSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Preferred)
+        coordinates_row.addWidget(self.coordinates_label)
+        coordinates_row.addWidget(self.coord_x)
+        coordinates_row.addWidget(self.coord_y)
+        coordinates_row.addWidget(self.coord_z)
+        coordinates_row.addStretch()
+        analysis_params_layout.addLayout(coordinates_row)
+        
+        # Row 4: Radius and View in Freeview button
+        radius_row = QtWidgets.QHBoxLayout()
+        radius_row.setSpacing(10)
+        self.radius_label = QtWidgets.QLabel("Radius:")
+        self.radius_label.setSizePolicy(QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed)
+        self.radius_input = QtWidgets.QLineEdit()
+        self.radius_input.setPlaceholderText("5.0")
+        self.radius_input.setMinimumWidth(60)
+        self.radius_input.setMaximumWidth(100)  # Allow some expansion
+        self.radius_input.setSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Preferred)
+        radius_row.addWidget(self.radius_label)
+        radius_row.addWidget(self.radius_input)
+        
         self.view_in_freeview_btn = QtWidgets.QPushButton("View in Freeview")
         self.view_in_freeview_btn.setToolTip("View T1 in Freeview to help find coordinates")
         self.view_in_freeview_btn.clicked.connect(self.load_t1_in_freeview)
-        coordinates_layout.addWidget(self.view_in_freeview_btn)
-        spherical_layout.addLayout(coordinates_layout)
-        radius_layout = QtWidgets.QHBoxLayout()
-        self.radius_label = QtWidgets.QLabel("Radius (mm):")
-        self.radius_input = QtWidgets.QLineEdit()
-        self.radius_input.setPlaceholderText("5.0")
-        radius_layout.addWidget(self.radius_label)
-        radius_layout.addWidget(self.radius_input)
-        spherical_layout.addLayout(radius_layout)
-        self.analysis_stack.addWidget(spherical_widget)
+        self.view_in_freeview_btn.setSizePolicy(QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed)
+        radius_row.addSpacing(10)
+        radius_row.addWidget(self.view_in_freeview_btn)
+        radius_row.addStretch()
+        analysis_params_layout.addLayout(radius_row)
         
-        cortical_widget = QtWidgets.QWidget()
-        cortical_layout = QtWidgets.QVBoxLayout(cortical_widget)
-        self.analysis_stack.addWidget(cortical_widget)
-        
-        self.type_spherical.toggled.connect(lambda checked: self.analysis_stack.setCurrentIndex(0) if checked else None)
-        self.type_cortical.toggled.connect(lambda checked: self.analysis_stack.setCurrentIndex(1) if checked else None)
+        # Remove the stacked widget approach - coordinates/radius are always visible
+        # Instead, we'll enable/disable them based on mode
         
         # Original connections from setup_ui for space/type changes
         self.space_mesh.toggled.connect(self.update_atlas_visibility)
@@ -752,35 +811,50 @@ class AnalyzerTab(QtWidgets.QWidget):
 
         self.update_atlas_visibility() # Initial call
         self.update_cortical_button_text() # Initial call
-        analysis_params_layout.addWidget(self.analysis_stack)
         right_layout.addWidget(analysis_params_container)
 
-        # Simple Gmsh visualization
+        # Compact Gmsh visualization - using space more efficiently
         visualization_container = QtWidgets.QGroupBox("Gmsh Visualization")
         visualization_layout = QtWidgets.QVBoxLayout(visualization_container)
+        visualization_layout.setSpacing(8)
 
-        # Create 2x2 grid layout
-        grid_layout = QtWidgets.QGridLayout()
-
-        # Top row: Subject | Simulation
-        grid_layout.addWidget(QtWidgets.QLabel("Subject:"), 0, 0)
+        # Top row: Subject and Simulation - evenly distribute space
+        top_row = QtWidgets.QHBoxLayout()
+        top_row.setSpacing(10)
+        subject_label = QtWidgets.QLabel("Subject:")
+        subject_label.setSizePolicy(QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed)
+        top_row.addWidget(subject_label)
         self.gmsh_subject_combo = QtWidgets.QComboBox()
-        grid_layout.addWidget(self.gmsh_subject_combo, 0, 1)
-
-        grid_layout.addWidget(QtWidgets.QLabel("Simulation:"), 0, 2)
+        self.gmsh_subject_combo.setMinimumWidth(120)
+        self.gmsh_subject_combo.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed)
+        top_row.addWidget(self.gmsh_subject_combo)
+        top_row.addSpacing(15)
+        simulation_label = QtWidgets.QLabel("Simulation:")
+        simulation_label.setSizePolicy(QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed)
+        top_row.addWidget(simulation_label)
         self.gmsh_sim_combo = QtWidgets.QComboBox()
-        grid_layout.addWidget(self.gmsh_sim_combo, 0, 3)
+        self.gmsh_sim_combo.setMinimumWidth(120)
+        self.gmsh_sim_combo.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed)
+        top_row.addWidget(self.gmsh_sim_combo)
+        visualization_layout.addLayout(top_row)
 
-        # Bottom row: Analysis | Launch button
-        grid_layout.addWidget(QtWidgets.QLabel("Analysis:"), 1, 0)
+        # Bottom row: Analysis and Launch button - evenly distribute space
+        bottom_row = QtWidgets.QHBoxLayout()
+        bottom_row.setSpacing(10)
+        analysis_label = QtWidgets.QLabel("Analysis:")
+        analysis_label.setSizePolicy(QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed)
+        bottom_row.addWidget(analysis_label)
         self.gmsh_analysis_combo = QtWidgets.QComboBox()
-        grid_layout.addWidget(self.gmsh_analysis_combo, 1, 1)
-
+        self.gmsh_analysis_combo.setMinimumWidth(120)
+        self.gmsh_analysis_combo.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed)
+        bottom_row.addWidget(self.gmsh_analysis_combo)
+        bottom_row.addSpacing(15)
         self.launch_gmsh_btn = QtWidgets.QPushButton("Launch Gmsh")
         self.launch_gmsh_btn.clicked.connect(self.launch_gmsh_simple)
-        grid_layout.addWidget(self.launch_gmsh_btn, 1, 2, 1, 2)  # Span 2 columns
-
-        visualization_layout.addLayout(grid_layout)
+        self.launch_gmsh_btn.setSizePolicy(QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed)
+        bottom_row.addWidget(self.launch_gmsh_btn)
+        bottom_row.addStretch()
+        visualization_layout.addLayout(bottom_row)
 
         right_layout.addWidget(visualization_container)
 
@@ -794,21 +868,19 @@ class AnalyzerTab(QtWidgets.QWidget):
         return right_layout
 
 
-    def get_available_atlas_files(self, subject_id): # subject_id is short form
+    def get_available_atlas_files(self, subject_id):
         atlas_files = []
         if not subject_id: return atlas_files
 
         # Freesurfer path uses full subject ID for both levels, e.g., sub-001/sub-001/mri
         freesurfer_mri_dir = get_freesurfer_mri_dir(subject_id)
 
-        # Original defined atlases
         atlases_to_check = ['aparc.DKTatlas+aseg.mgz', 'aparc.a2009s+aseg.mgz']
 
         if freesurfer_mri_dir and os.path.isdir(freesurfer_mri_dir): # Check if subject's FS mri dir exists
             for atlas_filename in atlases_to_check:
                 full_path = os.path.join(freesurfer_mri_dir, atlas_filename)
                 if os.path.exists(full_path):
-                    # Original stored (atlas_filename, full_path)
                     atlas_files.append((atlas_filename, full_path))
 
         # Check for SimNIBS labeling.nii.gz atlas
@@ -818,13 +890,12 @@ class AnalyzerTab(QtWidgets.QWidget):
             if os.path.exists(labeling_path):
                 atlas_files.append(("SimNIBS labeling", labeling_path))
         
-        if not atlas_files: # No specific atlases found
-            # Original warning message logic
+        if not atlas_files:
             atlas_files.append("FreeSurfer recon-all preprocessing required for atlas generation")
         return atlas_files
 
 
-    def update_atlas_combo(self): # For single mode
+    def update_atlas_combo(self):
         if self.is_group_mode: return
         
         self.atlas_combo.clear()
@@ -954,7 +1025,7 @@ class AnalyzerTab(QtWidgets.QWidget):
         can_list_regions = cortical_controls_enabled and not self.whole_head_check.isChecked()
         self.show_regions_btn.setEnabled(can_list_regions)
 
-    def browse_atlas(self): # For single mode voxel atlas browsing
+    def browse_atlas(self):
         initial_dir = ""
         selected_subjects = self.get_selected_subjects()
         if selected_subjects:
@@ -967,9 +1038,6 @@ class AnalyzerTab(QtWidgets.QWidget):
             "Atlas Files (*.nii *.nii.gz *.mgz);;All Files (*)")
         
         if file_name:
-            # Original code had self.atlas_combo.setEditText(file_name)
-            # This implies atlas_combo might have been editable. Current setup is not.
-            # We should add it as an item if not present, and select it.
             base_name = os.path.basename(file_name)
             existing_index = -1
             for i in range(self.atlas_combo.count()):
@@ -979,9 +1047,8 @@ class AnalyzerTab(QtWidgets.QWidget):
             if existing_index != -1:
                 self.atlas_combo.setCurrentIndex(existing_index)
             else:
-                # Add the new browsed atlas file
-                self.atlas_combo.addItem(base_name, file_name) # Use base_name for display, path for data
-                self.atlas_combo.setCurrentIndex(self.atlas_combo.count() - 1) # Select newly added
+                self.atlas_combo.addItem(base_name, file_name)
+                self.atlas_combo.setCurrentIndex(self.atlas_combo.count() - 1)
             
             # Since we now have a valid atlas, enable the combo and related controls
             if self.space_voxel.isChecked() and self.type_cortical.isChecked():
@@ -1002,21 +1069,23 @@ class AnalyzerTab(QtWidgets.QWidget):
     def update_atlas_visibility(self):
         is_mesh = self.space_mesh.isChecked()
         is_cortical = self.type_cortical.isChecked()
+        is_spherical = self.type_spherical.isChecked()
         
         # Hide warning label in group mode - it should never show in group mode
         if self.is_group_mode and hasattr(self, 'atlas_warning_label'):
             self.atlas_warning_label.setVisible(False)
         
-        # Original visibility logic for atlas selection widgets
-        self.mesh_atlas_widget.setVisible(is_mesh and is_cortical)
-        self.voxel_atlas_widget.setVisible(not is_mesh and is_cortical)
-        
-        # Field name is now hardcoded to TI_max
-        
-        # Enable atlas widgets based on analysis type
+        # Atlas widgets - show only the relevant one based on space, enabled when cortical
+        mesh_atlas_visible = is_mesh
+        voxel_atlas_visible = not is_mesh
         mesh_atlas_enabled = is_mesh and is_cortical
         voxel_atlas_enabled = not is_mesh and is_cortical
         
+        # Show only the relevant atlas widget based on space selection
+        self.mesh_atlas_widget.setVisible(mesh_atlas_visible)
+        self.voxel_atlas_widget.setVisible(voxel_atlas_visible)
+        
+        # Enable only when both space matches and cortical mode is selected
         self.mesh_atlas_widget.setEnabled(mesh_atlas_enabled)
         self.voxel_atlas_widget.setEnabled(voxel_atlas_enabled)
         
@@ -1037,7 +1106,23 @@ class AnalyzerTab(QtWidgets.QWidget):
             # For group mode, enable if we have any items
             self.atlas_combo.setEnabled(self.atlas_combo.count() > 0)
         
-        self.mesh_atlas_widget.update() # Original calls
+        # Coordinates and radius are always visible, enabled only in spherical mode
+        coordinates_enabled = is_spherical
+        if hasattr(self, 'coordinates_label'):
+            self.coordinates_label.setEnabled(coordinates_enabled)
+        if hasattr(self, 'coord_x'):
+            self.coord_x.setEnabled(coordinates_enabled)
+            self.coord_y.setEnabled(coordinates_enabled)
+            self.coord_z.setEnabled(coordinates_enabled)
+        if hasattr(self, 'view_in_freeview_btn'):
+            self.view_in_freeview_btn.setEnabled(coordinates_enabled)
+        
+        if hasattr(self, 'radius_label'):
+            self.radius_label.setEnabled(coordinates_enabled)
+        if hasattr(self, 'radius_input'):
+            self.radius_input.setEnabled(coordinates_enabled)
+        
+        self.mesh_atlas_widget.update()
         self.voxel_atlas_widget.update()
         
         # Update atlas options and related controls
@@ -1057,7 +1142,7 @@ class AnalyzerTab(QtWidgets.QWidget):
         else:
             self.type_cortical.setText("Cortical")
 
-    def update_group_atlas_options(self): # For shared atlas selectors in group mode
+    def update_group_atlas_options(self):
         if not self.is_group_mode: return
         selected_subjects = self.get_selected_subjects()
         if not selected_subjects:
@@ -1142,7 +1227,7 @@ class AnalyzerTab(QtWidgets.QWidget):
         # Update all related controls using centralized method
         self.update_atlas_dependent_controls(has_valid_atlas=has_valid_atlas, requires_atlas=requires_atlas)
 
-    def update_group_mesh_atlas(self, atlas_name): # Called by shared mesh atlas_name_combo
+    def update_group_mesh_atlas(self, atlas_name):
         if not self.is_group_mode or not self.space_mesh.isChecked() or not self.type_cortical.isChecked(): return
 
         selected_subjects = self.get_selected_subjects()
@@ -1150,7 +1235,7 @@ class AnalyzerTab(QtWidgets.QWidget):
             # For mesh, atlas name is sufficient, path is not needed from subject's dir for SimNIBS subject_atlas
             self.group_atlas_config[subject_id] = {'name': atlas_name, 'path': None, 'type': 'mesh'}
 
-    def update_group_voxel_atlas(self, atlas_display_name_from_shared_combo): # Called by shared voxel atlas_combo
+    def update_group_voxel_atlas(self, atlas_display_name_from_shared_combo):
         if not self.is_group_mode or not self.space_voxel.isChecked() or not self.type_cortical.isChecked(): return
 
         selected_subjects = self.get_selected_subjects()
@@ -1180,7 +1265,7 @@ class AnalyzerTab(QtWidgets.QWidget):
                 self.group_atlas_config.pop(subject_id, None) # Atlas not found for this subject
 
 
-    def toggle_region_input(self, state_int): # state is int from checkbox
+    def toggle_region_input(self, state_int):
         is_checked = bool(state_int)
         # The centralized method will handle all the enable/disable logic
         # Just call update_atlas_visibility which will trigger the proper state updates
@@ -1968,7 +2053,7 @@ class AnalyzerTab(QtWidgets.QWidget):
 
 
 
-    def show_available_regions(self): # For single mode "List Regions"
+    def show_available_regions(self):
         try:
             selected_subjects = self.get_selected_subjects()
             if not selected_subjects:
@@ -2064,9 +2149,9 @@ class AnalyzerTab(QtWidgets.QWidget):
             layout_diag.addLayout(button_layout_diag)
             progress_dialog.setValue(100); progress_dialog.close()
 
-            def filter_regions_local(text_filt): # Renamed
+            def filter_regions_local(text_filt):
                 for i in range(list_widget_diag.count()): list_widget_diag.item(i).setHidden(text_filt.lower() not in list_widget_diag.item(i).text().lower())
-            def copy_selected_local(): # Renamed
+            def copy_selected_local():
                 curr_item = list_widget_diag.currentItem()
                 if curr_item:
                     sel_text = curr_item.text()
@@ -2144,7 +2229,7 @@ class AnalyzerTab(QtWidgets.QWidget):
         except Exception as e: QtWidgets.QMessageBox.critical(self, "Error", f"Failed to launch Freeview: {str(e)}"); self.update_output(f"Error: {e}")
 
 
-    def update_field_files(self): # Stub method for compatibility
+    def update_field_files(self):
         """Update field files list after analysis completion.
 
         This method is called from main.py after analysis completion.
@@ -2262,22 +2347,6 @@ class AnalyzerTab(QtWidgets.QWidget):
     # populate_subject_montages and populate_subject_fields methods removed - no longer using individual subject tabs
 
     
-    def populate_subject_atlases(self, subject_id, atlas_combo): # For group tab's per-subject atlas (if used)
-        # This was the original method, likely intended for per-tab atlas selectors if they existed.
-        # Current group atlas logic uses shared combos.
-        atlas_combo.clear()
-        atlas_files = self.get_available_atlas_files(subject_id)
-        if not atlas_files:
-            atlas_combo.addItem("No atlases found"); atlas_combo.setEnabled(False)
-        elif isinstance(atlas_files[0], str) and atlas_files[0].startswith('[WARNING]'):
-            atlas_combo.addItem(atlas_files[0]); atlas_combo.setEnabled(False)
-        else:
-            atlas_combo.setEnabled(True)
-            for disp_name, path_val in atlas_files: # Original used file[0] as display
-                atlas_combo.addItem(disp_name, path_val) # Store path as data
-            if atlas_combo.count() > 0: atlas_combo.setCurrentIndex(0) # Select first valid
-    
-
 
     def build_single_analysis_command(self, subject_id, simulation_name):
         """Build command to run main_analyzer.py for a single subject."""
@@ -2393,3 +2462,56 @@ class AnalyzerTab(QtWidgets.QWidget):
             return cmd
         except Exception:
             return None
+    
+    def resizeEvent(self, event):
+        """Handle resize events to dynamically adjust input box widths."""
+        super().resizeEvent(event)
+        self._update_input_widths()
+    
+    def _update_input_widths(self):
+        """Update maximum widths of input boxes based on container size.
+        
+        Note: Many widgets now use QSizePolicy.Expanding, so they will automatically
+        expand to fill available space. This method only adjusts widgets that still
+        need dynamic width constraints.
+        """
+        if not hasattr(self, 'right_layout_container'):
+            return
+        
+        # Get the width of the right container (analysis configuration panel)
+        container_width = self.right_layout_container.width()
+        
+        # If container hasn't been sized yet, use a default calculation
+        if container_width <= 0:
+            # Estimate based on window size
+            window_width = self.width()
+            if window_width > 0:
+                # Right container is roughly half the window (with margins)
+                container_width = max(300, (window_width - 50) // 2)
+            else:
+                container_width = 400  # Default fallback
+        
+        # Calculate dynamic maximum widths as percentages of container width
+        # These percentages allow growth while preventing overflow
+        # Region input uses Preferred policy, so it will expand up to max
+        if hasattr(self, 'region_input'):
+            # Allow expansion up to a reasonable max based on container size
+            max_region_width = max(200, min(300, int(container_width * 0.40)))
+            if self.region_input.maximumWidth() != max_region_width:
+                self.region_input.setMaximumWidth(max_region_width)
+        
+        # Coordinate inputs use Preferred policy, allow reasonable expansion
+        if hasattr(self, 'coord_x') and hasattr(self, 'coord_y') and hasattr(self, 'coord_z'):
+            coord_max = max(100, min(150, int(container_width * 0.15)))
+            for coord_widget in [self.coord_x, self.coord_y, self.coord_z]:
+                if coord_widget.maximumWidth() != coord_max:
+                    coord_widget.setMaximumWidth(coord_max)
+        
+        # Radius input uses Preferred policy
+        if hasattr(self, 'radius_input'):
+            radius_max = max(100, min(150, int(container_width * 0.20)))
+            if self.radius_input.maximumWidth() != radius_max:
+                self.radius_input.setMaximumWidth(radius_max)
+        
+        # Buttons use Fixed policy - no dynamic adjustment needed
+        # Atlas and Gmsh combo boxes use Expanding policy - they automatically fill space
