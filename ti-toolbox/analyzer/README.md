@@ -15,8 +15,8 @@
 ## Output Files
 
 - **`analysis_results.csv`**: Statistical summary
-- **`*_distribution.png`**: Value distribution plot (optional)
-- **`*_visualization.png`**: ROI visualization (optional)
+- **`*_histogram.png`**: Whole-head field distribution with ROI contribution (shows histogram with ROI color coding)
+- **`*.msh`**: 3D mesh visualization files with ROI highlighted (for mesh analysis)
 
 ## Values and Source Files
 

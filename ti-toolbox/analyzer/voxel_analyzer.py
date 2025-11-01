@@ -336,23 +336,8 @@ class VoxelAnalyzer:
                             output_dir=region_dir
                         )
                         
-                        # Generate region-specific value distribution plot
+                        # Generate focality histogram for this region
                         if len(field_values) > 0:
-                            # Create a custom visualizer just for this region with the region directory as output
-                            region_visualizer = VoxelVisualizer(region_dir, self.logger)
-                            
-                            # Generate value distribution plot for this region
-                            region_visualizer.generate_value_distribution_plot(
-                                field_values,
-                                region_name,
-                                atlas_type,
-                                mean_value,
-                                max_value,
-                                min_value,
-                                data_type='voxel'
-                            )
-                            
-                            # Generate focality histogram for this region
                             try:
                                 if not self.quiet:
                                     self.logger.info(f"Generating focality histogram for region: {region_name}")
@@ -385,12 +370,7 @@ class VoxelAnalyzer:
                         'voxels_in_roi': 0
                     }
             
-            # Generate global scatter plot and save whole-head results to CSV directly in the main output directory
-            if visualize and results:
-                if not self.quiet:
-                    self.logger.info("Generating global visualization plots...")
-                # Generate scatter plots in the main output directory
-                self.visualizer._generate_whole_head_plots(results, atlas_type, 'voxel')
+            # Generate global visualization plots are disabled - only histograms are generated per region
                 
                 # Generate and save summary CSV
                 self.visualizer.save_whole_head_results_to_csv(results, atlas_type, 'voxel')
@@ -528,19 +508,7 @@ class VoxelAnalyzer:
             if not self.quiet:
                 self.logger.info(f"Created visualization overlay: {output_filename}")
             
-            # Generate value distribution plot if visualizer is available
-            if self.visualizer is not None:
-                self.visualizer.generate_value_distribution_plot(
-                    roi_values,
-                    region_name,
-                    "Spherical ROI",
-                    mean_value,
-                    max_value,
-                    min_value,
-                    data_type='voxel'
-                )
-            else:
-                self.logger.warning("Visualization requested but VoxelVisualizer not available")
+            # Visualization requested but only histogram generation is supported
             
             # Generate focality histogram if visualizer is available
             if self.visualizer is not None:
@@ -906,16 +874,7 @@ class VoxelAnalyzer:
         if visualize:
             if not self.quiet:
                 self.logger.info("Generating visualizations...")
-            self.visualizer.generate_value_distribution_plot(
-                field_values,
-                region_name,
-                atlas_type,
-                mean_value,
-                max_value,
-                min_value,
-                data_type='voxel'
-            )
-            
+
             # Generate focality histogram
             try:
                 if not self.quiet:

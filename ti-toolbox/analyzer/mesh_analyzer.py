@@ -563,32 +563,19 @@ class MeshAnalyzer:
                             output_dir=region_dir,
                             surface_mesh_path=self._surface_mesh_path
                         )
-                        
-                        # Generate region-specific value distribution plot
+
+                        # Generate focality histogram for this region
                         if len(field_values_positive) > 0:
-                            # Create a custom visualizer just for this region with the region directory as output
-                            # Pass the main logger to avoid creating derivatives folder in region directory
-                            region_visualizer = MeshVisualizer(region_dir, self.logger)
-                            
-                            # Generate value distribution plot for this region
-                            self.logger.info(f"Generating value distribution plot for region: {region_name}")
-                            region_visualizer.generate_value_distribution_plot(
-                                field_values_positive,
-                                region_name,
-                                atlas_type,
-                                mean_value,
-                                max_value,
-                                min_value,
-                                data_type='node'
-                            )
-                            
-                            # Generate focality histogram for this region
                             try:
                                 self.logger.info(f"Generating focality histogram for region: {region_name}")
                                 # Get node areas for volume weighting
                                 node_areas = gm_surf.nodes_areas()
                                 positive_node_areas = node_areas[roi_mask][positive_mask]
-                                
+
+                                # Create a custom visualizer just for this region with the region directory as output
+                                # Pass the main logger to avoid creating derivatives folder in region directory
+                                region_visualizer = MeshVisualizer(region_dir, self.logger)
+
                                 region_visualizer.generate_focality_histogram(
                                     whole_head_field_data=field_values,
                                     roi_field_data=field_values_positive,
@@ -615,11 +602,7 @@ class MeshAnalyzer:
                         'normal_focality': None
                     }
             
-            # Generate global scatter plot and save whole-head results to CSV directly in the main output directory
-            if visualize and results:
-                self.logger.info("Generating global visualization plot...")
-                # Generate scatter plots in the main output directory
-                self.visualizer._generate_whole_head_plots(results, atlas_type, 'node')
+            # Generate global visualization plots are disabled - only histograms are generated per region
             
             # Always generate and save summary CSV after all regions are processed
             self.logger.info("Saving whole-head analysis summary to CSV...")
@@ -749,20 +732,7 @@ class MeshAnalyzer:
             if visualize:
                 if self.visualizer is not None:
                     self.logger.info("Generating visualizations...")
-                    
-                    # Generate distribution plot
-                    self.visualizer.generate_value_distribution_plot(
-                        field_values_positive,
-                        f"sphere_x{center_coordinates[0]}_y{center_coordinates[1]}_z{center_coordinates[2]}_r{radius}",
-                        "Spherical",
-                        mean_value,
-                        max_value,
-                        min_value,
-                        data_type='node'
-                    )
-                else:
-                    self.logger.warning("Visualization requested but MeshVisualizer not available")
-                
+
                     # Generate focality histogram
                     try:
                         self.logger.info("Generating focality histogram for spherical ROI...")
@@ -777,6 +747,8 @@ class MeshAnalyzer:
                         )
                     except Exception as e:
                         self.logger.warning(f"Could not generate focality histogram for spherical ROI: {str(e)}")
+                else:
+                    self.logger.warning("Visualization requested but MeshVisualizer not available")
                     
                     # Create spherical ROI overlay visualization
                     self.logger.info("Creating spherical ROI overlay visualization...")
@@ -941,24 +913,13 @@ class MeshAnalyzer:
             # Generate visualization if requested
             if visualize:
                 self.logger.info("Generating visualizations...")
-                # Generate distribution plot
-                self.visualizer.generate_value_distribution_plot(
-                    field_values_positive,
-                    target_region,
-                    atlas_type,
-                    mean_value,
-                    max_value,
-                    min_value,
-                    data_type='node'
-                )
-                
                 # Generate focality histogram
                 try:
                     self.logger.info(f"Generating focality histogram for region: {target_region}")
                     # Get node areas for volume weighting
                     node_areas = gm_surf.nodes_areas()
                     positive_node_areas = node_areas[roi_mask][positive_mask]
-                    
+
                     self.visualizer.generate_focality_histogram(
                         whole_head_field_data=field_values,
                         roi_field_data=field_values_positive,
