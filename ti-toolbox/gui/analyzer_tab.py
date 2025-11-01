@@ -167,6 +167,9 @@ class AnalyzerTab(QtWidgets.QWidget):
                     self.update_group_atlas_options()
             if hasattr(self, 'update_atlas_visibility'):
                 self.update_atlas_visibility()
+            # Update gmsh subjects when pairs change
+            if hasattr(self, 'update_gmsh_subjects'):
+                self.update_gmsh_subjects()
         except Exception as e:
             # Silently ignore errors during UI setup
             pass
@@ -354,7 +357,6 @@ class AnalyzerTab(QtWidgets.QWidget):
         else:
             # In single mode, update widgets
             self.update_atlas_combo()
-            self.update_mesh_files()
 
         # Always recheck for valid atlases when subject selection changes
         self.update_atlas_combo()
@@ -412,12 +414,7 @@ class AnalyzerTab(QtWidgets.QWidget):
         buttons_layout.addStretch()
         pairs_layout.addLayout(buttons_layout)
         layout.addWidget(pairs_group)
-
-        # Analysis info
-        info_label = QtWidgets.QLabel("Field files will be automatically selected for each subject-simulation pair.\nFor mesh analysis: {simulation}.msh, For voxel analysis: grey matter files preferred.")
-        info_label.setStyleSheet("color: #666666; font-style: italic; padding: 5px;")
-        info_label.setWordWrap(True)
-        layout.addWidget(info_label)
+        
 
         # Add one empty row by default so the UI isn't completely empty
         self.add_pair_row()
@@ -646,7 +643,56 @@ class AnalyzerTab(QtWidgets.QWidget):
         type_layout.addWidget(self.type_spherical)
         type_layout.addWidget(self.type_cortical)
         analysis_params_layout.addLayout(type_layout)
-        
+
+        # Region and Atlas selection row
+        region_atlas_layout = QtWidgets.QHBoxLayout()
+        region_layout = QtWidgets.QHBoxLayout()
+        self.region_label = QtWidgets.QLabel("Region:")
+        self.region_input = QtWidgets.QLineEdit()
+        self.region_input.setPlaceholderText("e.g., superiorfrontal")
+        self.show_regions_btn = QtWidgets.QPushButton("List Regions")
+        self.show_regions_btn.setToolTip("Show available regions in the selected atlas")
+        self.show_regions_btn.clicked.connect(self.show_available_regions)
+        self.show_regions_btn.setEnabled(False)
+        region_layout.addWidget(self.region_label)
+        region_layout.addWidget(self.region_input)
+        region_layout.addWidget(self.show_regions_btn)
+        region_atlas_layout.addLayout(region_layout)
+
+        # Atlas widgets
+        self.mesh_atlas_widget = QtWidgets.QWidget()
+        mesh_atlas_layout = QtWidgets.QHBoxLayout(self.mesh_atlas_widget)
+        self.mesh_atlas_label = QtWidgets.QLabel("Atlas:")
+        self.atlas_name_combo = QtWidgets.QComboBox()
+        self.atlas_name_combo.addItems(["DK40", "HCP_MMP1", "a2009s"])
+        self.atlas_name_combo.setCurrentText("DK40")
+        mesh_atlas_layout.addWidget(self.mesh_atlas_label)
+        mesh_atlas_layout.addWidget(self.atlas_name_combo)
+
+        self.voxel_atlas_widget = QtWidgets.QWidget()
+        voxel_atlas_vlayout = QtWidgets.QVBoxLayout(self.voxel_atlas_widget)
+        voxel_atlas_vlayout.setContentsMargins(0, 0, 0, 0)
+        voxel_atlas_vlayout.setSpacing(2)
+        voxel_atlas_row = QtWidgets.QWidget()
+        voxel_atlas_row_layout = QtWidgets.QHBoxLayout(voxel_atlas_row)
+        voxel_atlas_row_layout.setContentsMargins(0, 0, 0, 0)
+        voxel_atlas_row_layout.setSpacing(5)
+        self.voxel_atlas_label = QtWidgets.QLabel("Atlas:")
+        self.atlas_combo = QtWidgets.QComboBox()
+        self.atlas_combo.setEditable(False)
+        voxel_atlas_row_layout.addWidget(self.voxel_atlas_label)
+        voxel_atlas_row_layout.addWidget(self.atlas_combo)
+        voxel_atlas_vlayout.addWidget(voxel_atlas_row)
+
+        region_atlas_layout.addWidget(self.mesh_atlas_widget)
+        region_atlas_layout.addWidget(self.voxel_atlas_widget)
+        analysis_params_layout.addLayout(region_atlas_layout)
+
+        # Analyze Whole Head checkbox
+        self.whole_head_check = QtWidgets.QCheckBox("Analyze Whole Head")
+        self.whole_head_check.stateChanged.connect(self.toggle_region_input)
+        analysis_params_layout.addWidget(self.whole_head_check)
+
         self.analysis_stack = QtWidgets.QStackedWidget()
         spherical_widget = QtWidgets.QWidget()
         spherical_layout = QtWidgets.QVBoxLayout(spherical_widget)
@@ -687,49 +733,6 @@ class AnalyzerTab(QtWidgets.QWidget):
         
         cortical_widget = QtWidgets.QWidget()
         cortical_layout = QtWidgets.QVBoxLayout(cortical_widget)
-        self.mesh_atlas_widget = QtWidgets.QWidget()
-        mesh_atlas_layout = QtWidgets.QHBoxLayout(self.mesh_atlas_widget)
-        self.mesh_atlas_label = QtWidgets.QLabel("Atlas Name:")
-        self.atlas_name_combo = QtWidgets.QComboBox()
-        self.atlas_name_combo.addItems(["DK40", "HCP_MMP1", "a2009s"])
-        self.atlas_name_combo.setCurrentText("DK40")
-        mesh_atlas_layout.addWidget(self.mesh_atlas_label)
-        mesh_atlas_layout.addWidget(self.atlas_name_combo)
-
-        # --- Change voxel_atlas_widget to QVBoxLayout with a row container ---
-        self.voxel_atlas_widget = QtWidgets.QWidget()
-        voxel_atlas_vlayout = QtWidgets.QVBoxLayout(self.voxel_atlas_widget)
-        voxel_atlas_vlayout.setContentsMargins(0, 0, 0, 0)
-        voxel_atlas_vlayout.setSpacing(2)
-        # Add warning label placeholder (will be managed in update_atlas_combo)
-        # Add row container for label and combo
-        voxel_atlas_row = QtWidgets.QWidget()
-        voxel_atlas_row_layout = QtWidgets.QHBoxLayout(voxel_atlas_row)
-        voxel_atlas_row_layout.setContentsMargins(0, 0, 0, 0)
-        voxel_atlas_row_layout.setSpacing(5)
-        self.voxel_atlas_label = QtWidgets.QLabel("Atlas File:")
-        self.atlas_combo = QtWidgets.QComboBox() # This is for single mode voxel atlas
-        self.atlas_combo.setEditable(False) # Original was non-editable
-        voxel_atlas_row_layout.addWidget(self.voxel_atlas_label)
-        voxel_atlas_row_layout.addWidget(self.atlas_combo)
-        voxel_atlas_vlayout.addWidget(voxel_atlas_row)
-        cortical_layout.addWidget(self.mesh_atlas_widget)
-        cortical_layout.addWidget(self.voxel_atlas_widget)
-        region_layout = QtWidgets.QHBoxLayout()
-        self.region_label = QtWidgets.QLabel("Region:")
-        self.region_input = QtWidgets.QLineEdit()
-        self.region_input.setPlaceholderText("e.g., superiorfrontal")
-        self.show_regions_btn = QtWidgets.QPushButton("List Regions")
-        self.show_regions_btn.setToolTip("Show available regions in the selected atlas")
-        self.show_regions_btn.clicked.connect(self.show_available_regions)
-        self.show_regions_btn.setEnabled(False)
-        region_layout.addWidget(self.region_label)
-        region_layout.addWidget(self.region_input)
-        region_layout.addWidget(self.show_regions_btn)
-        cortical_layout.addLayout(region_layout)
-        self.whole_head_check = QtWidgets.QCheckBox("Analyze Whole Head")
-        self.whole_head_check.stateChanged.connect(self.toggle_region_input)
-        cortical_layout.addWidget(self.whole_head_check)
         self.analysis_stack.addWidget(cortical_widget)
         
         self.type_spherical.toggled.connect(lambda checked: self.analysis_stack.setCurrentIndex(0) if checked else None)
@@ -742,41 +745,52 @@ class AnalyzerTab(QtWidgets.QWidget):
         self.type_cortical.toggled.connect(self.update_atlas_visibility)
         
         
-        # Connect signals for mesh file updates (space and type changes)
-        self.space_mesh.toggled.connect(self.update_mesh_files)
-        self.space_voxel.toggled.connect(self.update_mesh_files)
-        self.type_spherical.toggled.connect(self.update_mesh_files)
-        self.type_cortical.toggled.connect(self.update_mesh_files)
         
         # Connect signals to update cortical button text based on space
         self.space_mesh.toggled.connect(self.update_cortical_button_text)
         self.space_voxel.toggled.connect(self.update_cortical_button_text)
-        
+
         self.update_atlas_visibility() # Initial call
         self.update_cortical_button_text() # Initial call
         analysis_params_layout.addWidget(self.analysis_stack)
         right_layout.addWidget(analysis_params_container)
-        
-        visualization_container = QtWidgets.QGroupBox("Visualization")
-        visualization_layout = QtWidgets.QVBoxLayout(visualization_container)
-        mesh_viz_layout = QtWidgets.QVBoxLayout()
-        mesh_viz_label = QtWidgets.QLabel("View Mesh in Gmsh:")
-        mesh_viz_label.setStyleSheet("font-weight: bold;")
-        mesh_viz_layout.addWidget(mesh_viz_label)
-        mesh_controls_layout = QtWidgets.QHBoxLayout()
-        self.mesh_combo = QtWidgets.QComboBox() # For Gmsh
-        self.mesh_combo.addItem("Select mesh file...")
-        self.launch_gmsh_btn = QtWidgets.QPushButton("Launch Gmsh")
-        self.launch_gmsh_btn.clicked.connect(self.launch_gmsh)
-        self.launch_gmsh_btn.setEnabled(False)
-        self.mesh_combo.currentTextChanged.connect(self.update_gmsh_button_state) # Connect here
 
-        mesh_controls_layout.addWidget(self.mesh_combo)
-        mesh_controls_layout.addWidget(self.launch_gmsh_btn)
-        mesh_viz_layout.addLayout(mesh_controls_layout)
-        visualization_layout.addLayout(mesh_viz_layout)
+        # Simple Gmsh visualization
+        visualization_container = QtWidgets.QGroupBox("Gmsh Visualization")
+        visualization_layout = QtWidgets.QVBoxLayout(visualization_container)
+
+        # Create 2x2 grid layout
+        grid_layout = QtWidgets.QGridLayout()
+
+        # Top row: Subject | Simulation
+        grid_layout.addWidget(QtWidgets.QLabel("Subject:"), 0, 0)
+        self.gmsh_subject_combo = QtWidgets.QComboBox()
+        grid_layout.addWidget(self.gmsh_subject_combo, 0, 1)
+
+        grid_layout.addWidget(QtWidgets.QLabel("Simulation:"), 0, 2)
+        self.gmsh_sim_combo = QtWidgets.QComboBox()
+        grid_layout.addWidget(self.gmsh_sim_combo, 0, 3)
+
+        # Bottom row: Analysis | Launch button
+        grid_layout.addWidget(QtWidgets.QLabel("Analysis:"), 1, 0)
+        self.gmsh_analysis_combo = QtWidgets.QComboBox()
+        grid_layout.addWidget(self.gmsh_analysis_combo, 1, 1)
+
+        self.launch_gmsh_btn = QtWidgets.QPushButton("Launch Gmsh")
+        self.launch_gmsh_btn.clicked.connect(self.launch_gmsh_simple)
+        grid_layout.addWidget(self.launch_gmsh_btn, 1, 2, 1, 2)  # Span 2 columns
+
+        visualization_layout.addLayout(grid_layout)
+
         right_layout.addWidget(visualization_container)
-        
+
+        # Connect gmsh dropdown signals after widgets are created
+        self.gmsh_subject_combo.currentTextChanged.connect(self.update_gmsh_simulations)
+        self.gmsh_sim_combo.currentTextChanged.connect(self.update_gmsh_analyses)
+
+        # Initial update for gmsh
+        self.update_gmsh_subjects()
+
         return right_layout
 
 
@@ -1623,12 +1637,8 @@ class AnalyzerTab(QtWidgets.QWidget):
     def force_ui_refresh(self):
         """Force a complete UI refresh to ensure all controls are in the correct state."""
         # Force update of all relevant UI components
-        if not self.is_group_mode:
-            self.update_mesh_files()
-        
         self.update_atlas_visibility()
-        self.update_gmsh_button_state()
-        
+
         # Force widget updates
         if hasattr(self, 'analysis_params_container'):
             self.analysis_params_container.update()
@@ -1913,8 +1923,7 @@ class AnalyzerTab(QtWidgets.QWidget):
             self.space_mesh, self.space_voxel, self.type_spherical, self.type_cortical,
             self.coord_x, self.coord_y, self.coord_z, self.radius_input,
             self.view_in_freeview_btn,
-            self.atlas_name_combo, self.atlas_combo, self.show_regions_btn, self.region_input, self.whole_head_check,
-            self.mesh_combo, self.launch_gmsh_btn
+            self.atlas_name_combo, self.atlas_combo, self.show_regions_btn, self.region_input, self.whole_head_check
         ]
         for widget in widgets_to_set_enabled:
             if hasattr(widget, 'setEnabled'): widget.setEnabled(False)
@@ -1936,7 +1945,6 @@ class AnalyzerTab(QtWidgets.QWidget):
             self.coord_x, self.coord_y, self.coord_z, self.radius_input,
             self.view_in_freeview_btn,
             # atlas_name_combo, atlas_combo, show_regions_btn, region_input, whole_head_check handled by update_atlas_visibility
-            self.mesh_combo # launch_gmsh_btn handled by its own update
         ]
         for widget in widgets_to_set_enabled:
              if hasattr(widget, 'setEnabled'): widget.setEnabled(True)
@@ -1951,7 +1959,6 @@ class AnalyzerTab(QtWidgets.QWidget):
         
         # Now update visibility and proper enable states
         self.update_atlas_visibility() # This will correctly set enable states for atlas/region controls
-        self.update_gmsh_button_state()
 
         
         # Spherical analysis should be enabled in both modes
@@ -2136,57 +2143,6 @@ class AnalyzerTab(QtWidgets.QWidget):
         except FileNotFoundError: QtWidgets.QMessageBox.critical(self, "Error", "Freeview not found. Ensure installed and in PATH.")
         except Exception as e: QtWidgets.QMessageBox.critical(self, "Error", f"Failed to launch Freeview: {str(e)}"); self.update_output(f"Error: {e}")
 
-    def update_mesh_files(self): # For Gmsh dropdown
-        if self.is_group_mode: return
-
-        # Only populate mesh files when Mesh space is selected
-        if not self.space_mesh.isChecked():
-            self.mesh_combo.clear()
-            self.mesh_combo.addItem("Select mesh file...")
-            self.update_gmsh_button_state()
-            return
-
-        self.mesh_combo.clear(); self.mesh_combo.addItem("Select mesh file...")
-
-        # For single mode, get simulation from the selected pair
-        if self.pairs_table.rowCount() != 1:
-            self.update_gmsh_button_state()
-            return
-
-        # Get the subject and simulation from the single pair
-        subject_combo = self.pairs_table.cellWidget(0, 0)
-        sim_combo = self.pairs_table.cellWidget(0, 1)
-
-        if not subject_combo or not sim_combo:
-            self.update_gmsh_button_state()
-            return
-
-        subject_id = subject_combo.currentText()
-        simulation_name = sim_combo.currentText()
-
-        if not subject_id or not simulation_name:
-            self.update_gmsh_button_state()
-            return
-
-        # Get simulation directory using PathManager, then add Analyses/Mesh
-        sim_dir = self.pm.get_simulation_dir(subject_id, simulation_name)
-        mesh_dir_gmsh = os.path.join(sim_dir, "Analyses", "Mesh") if sim_dir else None
-        
-        mesh_files_to_list = []
-        if os.path.exists(mesh_dir_gmsh):
-            for root, _, files in os.walk(mesh_dir_gmsh):
-                for file_item in files:
-                    if file_item.endswith('.msh'):
-                        full_path_item = os.path.join(root, file_item)
-                        rel_path_display = os.path.relpath(full_path_item, mesh_dir_gmsh)
-                        # Use relative path as display name to distinguish files in different subdirectories
-                        display_name = os.path.splitext(rel_path_display)[0].replace(os.sep, '/')
-                        mesh_files_to_list.append((display_name, full_path_item))
-        
-        mesh_files_to_list.sort(key=lambda x: x[0])
-        for disp, path_val in mesh_files_to_list: self.mesh_combo.addItem(disp, path_val)
-        
-        self.update_gmsh_button_state()
 
     def update_field_files(self): # Stub method for compatibility
         """Update field files list after analysis completion.
@@ -2196,25 +2152,112 @@ class AnalyzerTab(QtWidgets.QWidget):
         """
         pass
 
-    def launch_gmsh(self):
-        if self.mesh_combo.currentIndex() == 0 or not self.mesh_combo.currentData():
-            QtWidgets.QMessageBox.warning(self, "Warning", "Please select a mesh file first"); return
-        mesh_file_path_val = self.mesh_combo.currentData()
-        if not mesh_file_path_val or not os.path.exists(mesh_file_path_val):
-            QtWidgets.QMessageBox.warning(self, "Error", "Selected mesh file not found"); return
+    def update_gmsh_subjects(self):
+        """Update the gmsh subject dropdown with available subjects."""
+        self.gmsh_subject_combo.clear()
+        # Use path_manager to find subjects via m2m_dir
+        subjects = self.pm.list_subjects()
+        if subjects:
+            self.gmsh_subject_combo.addItems(subjects)
+            if len(subjects) == 1:
+                self.gmsh_subject_combo.setCurrentIndex(0)
+                self.update_gmsh_simulations()
+
+    def update_gmsh_simulations(self):
+        """Update the gmsh simulation dropdown based on selected subject."""
+        self.gmsh_sim_combo.clear()
+        subject_id = self.gmsh_subject_combo.currentText()
+        if not subject_id:
+            return
+
+        # Use sim_dir to find simulations via path_manager
+        simulations = self.pm.list_simulations(subject_id)
+        if simulations:
+            self.gmsh_sim_combo.addItems(simulations)
+            if len(simulations) == 1:
+                self.gmsh_sim_combo.setCurrentIndex(0)
+                self.update_gmsh_analyses()
+
+    def update_gmsh_analyses(self):
+        """Update the gmsh analysis dropdown based on selected subject and simulation."""
+        self.gmsh_analysis_combo.clear()
+        subject_id = self.gmsh_subject_combo.currentText()
+        simulation_name = self.gmsh_sim_combo.currentText()
+
+        if not subject_id or not simulation_name:
+            return
+
+        # Look specifically in Analyses/Mesh/ for mesh analysis folders
+        sim_dir = self.pm.get_simulation_dir(subject_id, simulation_name)
+        mesh_dir = os.path.join(sim_dir, "Analyses", "Mesh") if sim_dir else None
+
+        if not mesh_dir or not os.path.exists(mesh_dir):
+            return
+
+        try:
+            # Look for mesh analysis folders in Analyses/Mesh/
+            mesh_analyses = []
+            for item in os.listdir(mesh_dir):
+                item_path = os.path.join(mesh_dir, item)
+                if os.path.isdir(item_path) and not item.startswith('.'):
+                    # Check if this analysis folder contains any .msh files
+                    has_meshes = False
+                    for root, _, files in os.walk(item_path):
+                        if any(f.endswith('.msh') for f in files):
+                            has_meshes = True
+                            break
+                    if has_meshes:
+                        mesh_analyses.append(item)
+
+            if mesh_analyses:
+                self.gmsh_analysis_combo.addItems(sorted(mesh_analyses))
+                if len(mesh_analyses) == 1:
+                    self.gmsh_analysis_combo.setCurrentIndex(0)
+        except Exception as e:
+            self.update_output(f"Error listing mesh analyses: {e}")
+
+    def launch_gmsh_simple(self):
+        """Launch Gmsh with the selected subject, simulation, and analysis."""
+        subject_id = self.gmsh_subject_combo.currentText()
+        simulation_name = self.gmsh_sim_combo.currentText()
+        analysis_name = self.gmsh_analysis_combo.currentText()
+
+        if not subject_id or not simulation_name or not analysis_name:
+            QtWidgets.QMessageBox.warning(self, "Warning", "Please select subject, simulation, and analysis first")
+            return
+
+        # Find the analysis directory in Analyses/Mesh/ and look for .msh files
+        sim_dir = self.pm.get_simulation_dir(subject_id, simulation_name)
+        analysis_dir = os.path.join(sim_dir, "Analyses", "Mesh", analysis_name) if sim_dir else None
+
+        if not analysis_dir or not os.path.exists(analysis_dir):
+            QtWidgets.QMessageBox.critical(self, "Error", f"Analysis directory not found: {analysis_dir}")
+            return
+
+        # Find .msh files in the analysis directory
+        msh_files = []
+        for root, _, files in os.walk(analysis_dir):
+            for file_item in files:
+                if file_item.endswith('.msh'):
+                    msh_files.append(os.path.join(root, file_item))
+
+        if not msh_files:
+            QtWidgets.QMessageBox.critical(self, "Error", f"No mesh files found in analysis: {analysis_name}")
+            return
+
+        # If multiple mesh files, use the first one (or could show selection dialog)
+        msh_file = msh_files[0]
 
         try:
             # Launch Gmsh directly with the mesh file as argument
-            subprocess.Popen(["gmsh", mesh_file_path_val])
-            self.update_output(f"Launched Gmsh with mesh file: {mesh_file_path_val}")
+            subprocess.Popen(["gmsh", msh_file])
+            self.update_output(f"Launched Gmsh with mesh file: {msh_file}")
         except FileNotFoundError:
             QtWidgets.QMessageBox.critical(self, "Error", "Gmsh not found. Please install Gmsh and add it to PATH.")
         except Exception as e:
             QtWidgets.QMessageBox.critical(self, "Error", f"Failed to launch Gmsh: {str(e)}")
             self.update_output(f"Error launching Gmsh: {e}")
 
-    def update_gmsh_button_state(self):
-        self.launch_gmsh_btn.setEnabled(self.mesh_combo.currentIndex() > 0 and bool(self.mesh_combo.currentData()))
 
     # populate_subject_montages and populate_subject_fields methods removed - no longer using individual subject tabs
 
