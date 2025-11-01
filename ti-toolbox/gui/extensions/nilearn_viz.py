@@ -2,8 +2,8 @@
 # -*- coding: utf-8 -*-
 
 """
-Extension: Nilearn Slices Image Generator
-Create Nilearn slices image visualizations with atlas contours and multiple views.
+Extension: Nilearn Visuals
+Create Nilearn visualizations for high-quality images.
 """
 
 import os
@@ -14,8 +14,8 @@ from pathlib import Path
 from PyQt5 import QtWidgets, QtCore
 
 # Extension metadata (required)
-EXTENSION_NAME = "Nilearn Slices Image Generator"
-EXTENSION_DESCRIPTION = "Create Nilearn slices image visualizations with atlas contours and multiple views."
+EXTENSION_NAME = "Nilearn Visuals"
+EXTENSION_DESCRIPTION = "Create Nilearn high resolution visualizations."
 
 # Add TI-Toolbox to path
 ti_toolbox_path = Path(__file__).parent.parent.parent
@@ -38,7 +38,7 @@ class PublicationImageWorker(QtCore.QThread):
     finished_signal = QtCore.pyqtSignal(int)
     error_signal = QtCore.pyqtSignal(str)
 
-    def __init__(self, subject_simulation_pairs, min_cutoff, max_cutoff, atlas_name, selected_regions=None, subdir_name="nilearn_visuals", use_percentiles=False):
+    def __init__(self, subject_simulation_pairs, min_cutoff, max_cutoff, atlas_name, selected_regions=None, subdir_name="nilearn_visuals", use_percentiles=False, create_glass_brain=False, glass_brain_cmap='hot'):
         super().__init__()
         self.subject_simulation_pairs = subject_simulation_pairs  # List of dicts with 'subject_id' and 'simulation_name'
         self.min_cutoff = min_cutoff
@@ -47,6 +47,8 @@ class PublicationImageWorker(QtCore.QThread):
         self.selected_regions = selected_regions
         self.subdir_name = subdir_name
         self.use_percentiles = use_percentiles
+        self.create_glass_brain = create_glass_brain
+        self.glass_brain_cmap = glass_brain_cmap
 
     def run(self):
         try:
@@ -59,6 +61,7 @@ class PublicationImageWorker(QtCore.QThread):
             # Import required modules
             from core.nifti import load_group_data_ti_toolbox
             from viz.img_slices import create_pdf_entry_point_group
+            from viz.img_glass import create_glass_brain_entry_point_group
             from core import get_path_manager
             import nibabel as nib
             import numpy as np
@@ -190,6 +193,8 @@ class PublicationImageWorker(QtCore.QThread):
                 f.write(f"Averaged NIfTI: {nifti_filename}\n")
                 f.write(f"Parameters: {txt_filename}\n")
                 f.write(f"PDF: {base_filename}_multiple_views.pdf\n")
+                if self.create_glass_brain:
+                    f.write(f"Glass Brain PDF: {base_filename}_glass_brain.pdf\n")
 
             self.output_signal.emit(f"Saved parameters file: {txt_filepath}")
 
@@ -206,7 +211,21 @@ class PublicationImageWorker(QtCore.QThread):
                 output_callback=output_callback
             )
 
-            if result:
+            # Create glass brain visualization if enabled
+            glass_brain_result = None
+            if self.create_glass_brain:
+                output_callback("Creating glass brain visualization...")
+                glass_brain_result = create_glass_brain_entry_point_group(
+                    averaged_img,
+                    base_filename,
+                    output_base_dir,
+                    actual_min_cutoff,
+                    actual_max_cutoff,
+                    self.glass_brain_cmap,
+                    output_callback=output_callback
+                )
+
+            if result or glass_brain_result:
                 # Update the .txt file with additional statistics
                 self._update_txt_file_with_stats(txt_filepath, averaged_img, self.use_percentiles,
                                               self.min_cutoff, self.max_cutoff,
@@ -391,6 +410,7 @@ class PublicationImageDialog(QtWidgets.QDialog):
         self.percentile_checkbox.setToolTip("When checked, cutoff values are treated as percentiles (0-100%) from maximum field value")
         self.percentile_checkbox.stateChanged.connect(self._on_percentile_mode_changed)
         layout.addWidget(self.percentile_checkbox)
+
 
         # Visualization parameters grid
         param_layout = QtWidgets.QGridLayout()
@@ -691,6 +711,7 @@ class PublicationImageDialog(QtWidgets.QDialog):
             self.max_cutoff_spin.setSingleStep(0.5)
             self.max_cutoff_spin.setSuffix(" V/m")
 
+
     def _on_atlas_changed(self, atlas_name):
         """Handle atlas selection change and populate region combo."""
         if not atlas_name:
@@ -791,7 +812,9 @@ class PublicationImageDialog(QtWidgets.QDialog):
         # Get output parameters
         subdir_name = self.subdir_edit.text().strip()
         if not subdir_name:
-            subdir_name = "nilearn_visuals"
+            QtWidgets.QMessageBox.warning(self, "Missing Output Directory",
+                                         "Please enter a sub-directory name for the output files.")
+            return
         use_percentiles = self.percentile_checkbox.isChecked()
 
         if use_percentiles:
@@ -807,17 +830,24 @@ class PublicationImageDialog(QtWidgets.QDialog):
         else:
             self.console.update_console("Selected regions: All regions", 'info')
 
+        # Glass brain visualization (always enabled with 'hot' colormap)
+        create_glass_brain = True
+        glass_brain_cmap = 'hot'
+        self.console.update_console("Glass brain visualization: Enabled (colormap: hot)", 'info')
+
         # Disable run button and enable stop button
         self.action_buttons.enable_stop()
 
         # Get output parameters
         subdir_name = self.subdir_edit.text().strip()
         if not subdir_name:
-            subdir_name = "nilearn_visuals"
+            QtWidgets.QMessageBox.warning(self, "Missing Output Directory",
+                                         "Please enter a sub-directory name for the output files.")
+            return
         use_percentiles = self.percentile_checkbox.isChecked()
 
         # Start worker thread
-        self.worker = PublicationImageWorker(subject_simulation_pairs, min_cutoff, max_cutoff, atlas_name, selected_regions, subdir_name, use_percentiles)
+        self.worker = PublicationImageWorker(subject_simulation_pairs, min_cutoff, max_cutoff, atlas_name, selected_regions, subdir_name, use_percentiles, create_glass_brain, glass_brain_cmap)
         self.worker.output_signal.connect(lambda text: self.console.update_console(text, 'default'))
         self.worker.finished_signal.connect(self._on_worker_finished)
         self.worker.error_signal.connect(self._on_worker_error)

@@ -453,3 +453,74 @@ class NilearnVisualizer:
         print(f"  Colorbar range: {min_cutoff:.2f} - {max_cutoff:.2f} V/m")
 
         return pdf_filepath
+
+    def create_glass_brain_visualization(self, subject_id: str, simulation_name: str,
+                                       min_cutoff: float = 0.3, max_cutoff: float = None,
+                                       cmap: str = 'hot') -> Optional[str]:
+        """
+        Create glass brain visualization using nilearn's plot_glass_brain.
+
+        Args:
+            subject_id: Subject ID
+            simulation_name: Name of the simulation
+            min_cutoff: Minimum cutoff for visualization (V/m)
+            max_cutoff: Maximum cutoff for visualization (V/m), if None uses 99.9th percentile
+            cmap: Colormap name for visualization
+
+        Returns:
+            Path to saved PNG file or None if failed
+        """
+        print(f"=== Creating Glass Brain Visualization for {subject_id}/{simulation_name} ===")
+
+        # Get simulation files
+        sim_files = self._get_simulation_files(subject_id)
+        if simulation_name not in sim_files:
+            print(f"Error: Simulation '{simulation_name}' not found for subject {subject_id}")
+            return None
+
+        ef_filepath = sim_files[simulation_name]
+        ef_img = self._load_electric_field_data(ef_filepath)
+        if ef_img is None:
+            return None
+
+        # Load and analyze data
+        data = ef_img.get_fdata()
+        data_nonzero = data[data > 0]
+        if len(data_nonzero) == 0:
+            print("Warning: No non-zero field values found")
+            return None
+
+        max_value = np.max(data)
+        percentile_999 = np.percentile(data_nonzero, 99.9)
+        min_value = np.min(data_nonzero)
+
+        # Use provided max_cutoff or default to 99.9th percentile
+        if max_cutoff is None:
+            max_cutoff = percentile_999
+
+        print(f"Electric field statistics:")
+        print(f"  Absolute maximum: {max_value:.2f} V/m")
+        print(f"  99.9th percentile: {percentile_999:.2f} V/m")
+        print(f"  Minimum (non-zero): {min_value:.2f} V/m")
+        print(f"  Visualization range: {min_cutoff:.2f} - {max_cutoff:.2f} V/m")
+
+        # Create output filename
+        png_filename = f"{subject_id}_{simulation_name}_glass_brain.png"
+        png_filepath = os.path.join(self.output_dir, png_filename)
+
+        # Create glass brain visualization
+        plotting.plot_glass_brain(
+            stat_map_img=ef_img,
+            threshold=min_cutoff,
+            vmax=max_cutoff,
+            cmap=cmap,
+            colorbar=True,
+            plot_abs=False,
+            symmetric_cbar=False,
+            title=f"Electric Field - {subject_id}/{simulation_name}\n{min_cutoff:.2f}-{max_cutoff:.2f} V/m",
+            output_file=png_filepath
+        )
+
+        print(f"✓ Saved glass brain visualization: {png_filepath}")
+
+        return png_filepath
