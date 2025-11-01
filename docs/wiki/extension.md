@@ -6,10 +6,6 @@ permalink: /wiki/extension/
 
 The TI-Toolbox Extension System provides a modular framework for adding new tools and features without modifying the core application codebase. Extensions are self-contained Python scripts that can be easily installed, updated, or removed.
 
-## Overview
-
-Extensions enable developers to create plug-and-play tools that enhance TI-Toolbox functionality. The system automatically discovers and loads extensions from the `gui/extensions/` directory, providing a seamless integration experience.
-
 ## Architecture
 
 ```
@@ -17,7 +13,6 @@ ti-toolbox/gui/
 ├── extensions.py              # Main extension interface
 ├── settings_menu.py           # Settings menu with Extensions option
 └── extensions/                # Extension directory
-    ├── README.md              # Developer documentation
     ├── *.py                   # Individual extension files
     └── ...
 ```
@@ -41,15 +36,6 @@ Each extension must define required metadata constants:
 EXTENSION_NAME = "My Extension"
 EXTENSION_DESCRIPTION = "What this extension does"
 ```
-
-## User Interface
-
-Extensions integrate directly into the TI-Toolbox GUI through the **Settings → Extensions** menu. Users can:
-
-- Browse available extensions
-- Launch extensions with a single click
-- Access extension-specific help
-
 ## Development
 
 ### Creating Extensions
@@ -135,50 +121,6 @@ project_dir/
     └── ti-toolbox/
 ```
 
-## Available Extensions
-
-### Nilearn Visuals
-
-Create publication-ready visualizations using Nilearn for high-quality brain imaging.
-
-**Features:**
-- Group-averaged TI field visualization
-- Multiple view orientations (sagittal, coronal, axial)
-- Atlas contour overlays
-- Glass brain visualizations
-- Percentile-based or absolute cutoff thresholds
-
-### Cluster-Based Permutation Testing
-
-Perform non-parametric statistical analysis to identify brain regions with significant differences between groups.
-
-**Features:**
-- Responder vs non-responder analysis
-- Unpaired and paired t-test support
-- Cluster-level correction for multiple comparisons
-- Parallel processing with multi-core support
-- Comprehensive statistical reporting
-
-### Quick Notes
-
-Take timestamped notes during analysis sessions for documentation and reproducibility.
-
-**Features:**
-- Automatic timestamping with timezone support
-- Persistent storage in project derivatives
-- Copy to clipboard functionality
-- Clear and searchable note format
-
-### NIfTI Group Averaging
-
-Compute group averages and differences for NIfTI files organized by experimental groups.
-
-**Features:**
-- Flexible group assignment
-- Automatic group average computation
-- Pairwise group difference calculations
-- CSV import/export for subject configurations
-- Memory-efficient processing for large datasets
 
 ## Installation and Distribution
 
@@ -246,29 +188,3 @@ self.status_label.setText("Processing...")
 # Completion messages
 QtWidgets.QMessageBox.information(self, "Done", "Processing complete!")
 ```
-
-## Troubleshooting
-
-### Common Issues
-
-**Extension doesn't appear:**
-- Verify file has `.py` extension
-- Check `EXTENSION_NAME` and `EXTENSION_DESCRIPTION` are defined
-- Ensure file is in `gui/extensions/` directory
-- Try clicking "Refresh Extensions"
-
-**Import errors:**
-- Verify required packages are installed
-- Check Python path configuration
-- Ensure module names are correct
-
-**Runtime errors:**
-- Check console output for detailed error messages
-- Verify project directory structure
-- Ensure necessary data files exist
-
-## Resources
-
-- **PyQt5 Documentation**: https://doc.qt.io/qtforpython/
-- **Python importlib**: https://docs.python.org/3/library/importlib.html
-- **TI-Toolbox GitHub**: https://github.com/idossha/TI-Toolbox
