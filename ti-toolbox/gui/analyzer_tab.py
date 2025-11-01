@@ -309,7 +309,7 @@ class AnalyzerTab(QtWidgets.QWidget):
         if hasattr(self, 'coordinates_label') and hasattr(self, 'coord_x'):
             if self.is_group_mode:
                 # Group mode: use MNI coordinates
-                self.coordinates_label.setText("MNI Coordinates (x,y,z):")
+                self.coordinates_label.setText("MNI RAS (x,y,z):")
                 self.coordinates_label.setToolTip("MNI space coordinates (will be transformed to subject space for each subject)")
                 self.coordinates_label.setStyleSheet("color: #007ACC; font-weight: bold;")
                 
@@ -322,13 +322,9 @@ class AnalyzerTab(QtWidgets.QWidget):
                 if hasattr(self, 'view_in_freeview_btn'):
                     self.view_in_freeview_btn.setText("View MNI Template")
                     self.view_in_freeview_btn.setToolTip("Open MNI152 template to find MNI coordinates")
-                
-                # Show MNI info banner if it exists
-                if hasattr(self, 'mni_info_label'):
-                    self.mni_info_label.setVisible(True)
             else:
                 # Single mode: use subject coordinates
-                self.coordinates_label.setText("RAS Coordinates (x,y,z):")
+                self.coordinates_label.setText("Subject RAS (x,y,z):")
                 self.coordinates_label.setToolTip("Subject-specific RAS coordinates")
                 self.coordinates_label.setStyleSheet("")
                 
@@ -341,10 +337,6 @@ class AnalyzerTab(QtWidgets.QWidget):
                 if hasattr(self, 'view_in_freeview_btn'):
                     self.view_in_freeview_btn.setText("View in Freeview")
                     self.view_in_freeview_btn.setToolTip("View T1 in Freeview to help find coordinates")
-                
-                # Hide MNI info banner if it exists
-                if hasattr(self, 'mni_info_label'):
-                    self.mni_info_label.setVisible(False)
 
     def get_selected_subjects(self):
         """Get selected subjects from pairs table."""
@@ -743,14 +735,6 @@ class AnalyzerTab(QtWidgets.QWidget):
         analysis_params_layout.addLayout(atlas_row)
 
         # Spherical analysis parameters - split into separate rows
-        # Add info label for MNI coordinates (initially hidden)
-        self.mni_info_label = QtWidgets.QLabel()
-        self.mni_info_label.setText("Group analysis mode: Coordinates will be treated as MNI space and transformed to each subject's native space.")
-        self.mni_info_label.setStyleSheet("background-color: #E3F2FD; color: #1976D2; padding: 3px 6px; border-radius: 4px; font-size: 11px;")
-        self.mni_info_label.setWordWrap(True)
-        self.mni_info_label.setMaximumHeight(35)
-        self.mni_info_label.setVisible(False)
-        analysis_params_layout.addWidget(self.mni_info_label)
         
         # Row 3: Coordinates
         coordinates_row = QtWidgets.QHBoxLayout()
