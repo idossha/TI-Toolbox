@@ -21,7 +21,6 @@ The Quick Notes extension provides a simple note-taking tool for documenting obs
 Each note follows a consistent structure:
 
 ```
-Note #1:
 [2024-11-01 14:30:45 EST]
 This is my observation about the hippocampal stimulation results.
 The field strength appears optimal at 2.3 V/m for this electrode configuration.
