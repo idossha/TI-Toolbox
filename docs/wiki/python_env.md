@@ -1,19 +1,22 @@
+---
+layout: wiki
+title: Python Environment
+permalink: /wiki/python_env/
+---
+
+The TI-Toolbox operates within a containerized environment that includes SimNIBS. The `simnibs_python` interpreter is SimNIBS's bundled Python environment that provides all most dependencies for TI-Toolbox operations. If you want to add a package for a new feature, follow the steps below.
+
+### Environment Management
+
+| Task | Command |
+|------|---------|
+| Check location | `which simnibs_python` |
+| List installed packages | `simnibs_python -m pip list` |
+| Install package | `simnibs_python -m pip install <package>` |
 
 
+### Key Points
 
-🧠 Using the simnibs_python interpreter
-Task	Command / Description
-Check location	which simnibs_python (mac/Linux) or where simnibs_python (Windows)
-List installed packages	simnibs_python -m pip list
-Install new package	simnibs_python -m pip install <package>
-Upgrade existing package	simnibs_python -m pip install --upgrade <package>
-Update pip itself	simnibs_python -m pip install --upgrade pip setuptools wheel
-Create a separate virtual environment (recommended)	simnibs_python -m venv ~/simnibs_venv → source ~/simnibs_venv/bin/activate
+- **Containerized Setup**: The environment is defined in `container/blueprint/Dockerfile.simnibs`, which installs SimNIBS v4.5.0 and additional Python packages (meshio, nilearn, PyOpenGL-accelerate, trimesh) required for TI-Toolbox functionality.
 
-💡 Tips
-
-simnibs_python is a self-contained interpreter — you can manage it like any Python installation.
-
-Use -m pip to safely install or list packages within it.
-
-For experimental installs, use a virtual environment to keep the core SimNIBS setup stable.
+- **Script executions**: All python scripts should be executed using the `simnibs_python script.py`.

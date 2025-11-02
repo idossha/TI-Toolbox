@@ -95,14 +95,21 @@ hippocampus_stimulation/
 
 ## Example Results
 
-### Hippocampal Stimulation Group Average
+### Visualization Types
 
-<div class="image-row">
-  <div class="image-container">
-    <img src="{{ site.baseurl }}/wiki/assets/nilearn_visuals/hippocampus_group_average.png" alt="Hippocampal TI Field Group Average">
-    <em>Group-averaged TI field distribution for hippocampal stimulation across 5 subjects</em>
-  </div>
-</div>
+The extension generates two main types of high-resolution PDF visualizations:
+
+#### Glass Brain View
+<object data="{{ site.baseurl }}/wiki/assets/nilearn_visuals/glass_brain.pdf" type="application/pdf" width="100%" height="600px">
+  <p>Unable to display PDF file. <a href="{{ site.baseurl }}/wiki/assets/nilearn_visuals/glass_brain.pdf">Download the PDF</a> instead.</p>
+</object>
+<em>Glass brain projection showing TI field distribution with transparency for 3D visualization</em>
+
+#### Sliced Brain View
+<object data="{{ site.baseurl }}/wiki/assets/nilearn_visuals/sliced_brain.pdf" type="application/pdf" width="100%" height="600px">
+  <p>Unable to display PDF file. <a href="{{ site.baseurl }}/wiki/assets/nilearn_visuals/sliced_brain.pdf">Download the PDF</a> instead.</p>
+</object>
+<em>Multi-slice anatomical view showing TI field distribution across sagittal, coronal, and axial planes</em>
 
 
 ### File Format Requirements

@@ -29,6 +29,7 @@ Welcome to the Temporal Interference Toolbox Wiki. Here you'll find detailed gui
 
 ### Development & Testing
 - **[Testing Pipeline](testing-pipeline)** - Comprehensive CI/CD testing pipeline with CircleCI integration
+- **[Python Environment](python_env)** - Managing the SimNIBS Python environment and dependencies
 
 ## Support
 
