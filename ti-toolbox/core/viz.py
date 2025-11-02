@@ -266,20 +266,21 @@ class NilearnVisualizer:
         # Threshold field data
         field_img_thresholded = threshold_img(field_img, threshold=min_cutoff)
 
-        # Create figure with multiple slices
-        fig, axes = plt.subplots(8, 3, figsize=(12, 32))
+        # Create figure with multiple slices - 3 rows (one per view) x 8 columns (slices)
+        fig, axes = plt.subplots(3, 7, figsize=(32, 12), facecolor='white')
+        fig.patch.set_facecolor('white')
 
         # Coordinates for multiple slices
-        sagittal_coords = [-30, -20, -10, 0, 10, 20, 30, 40]   # x coordinates
-        coronal_coords = [-40, -30, -20, -10, 0, 10, 20, 30]   # y coordinates
-        axial_coords = [10, 20, 30, 40, 50, 60, 70, 80]       # z coordinates
+        sagittal_coords = [-60, -40, -20, 0, 20, 40, 60]   # x coordinates
+        coronal_coords = [-80, -55, -30, -5, 20, 45, 70]   # y coordinates
+        axial_coords = [ -30, -15, 10, 25, 40, 55, 70]       # z coordinates
 
         all_coords = [sagittal_coords, coronal_coords, axial_coords]
         view_names = ['Sagittal', 'Coronal', 'Axial']
         coord_labels = ['x', 'y', 'z']
 
-        for col, (coords, view_name, coord_label) in enumerate(zip(all_coords, view_names, coord_labels)):
-            for row, cut_coord in enumerate(coords):
+        for row, (coords, view_name, coord_label) in enumerate(zip(all_coords, view_names, coord_labels)):
+            for col, cut_coord in enumerate(coords):
                 ax = axes[row, col]
 
                 # Plot the field data as the base layer
@@ -288,10 +289,9 @@ class NilearnVisualizer:
                     cut_coords=[cut_coord],
                     display_mode=coord_label.lower(),
                     axes=ax,
-                    annotate=False,
+                    annotate=True,
                     black_bg=False,
                     cmap='hot',
-                    alpha=0.8,
                     vmin=min_cutoff,
                     vmax=max_cutoff,
                     colorbar=False
@@ -303,13 +303,13 @@ class NilearnVisualizer:
                         atlas_img,
                         colors=['red', 'blue', 'green', 'yellow', 'purple', 'orange'] * 20,
                         alpha=0.4,
-                        linewidths=0.5,
+                        linewidths=1,
                         levels=list(range(1, 200))
                     )
 
-                # Set view names only on first row for cleaner layout
-                if row == 0:
-                    ax.set_title(f'{view_name}', fontsize=10, fontweight='bold')
+                # Set view names only on first column for cleaner layout
+                if col == 0:
+                    ax.set_ylabel(f'{view_name}', fontsize=10, fontweight='bold', rotation=90, labelpad=10)
 
         # Add colorbar
         import matplotlib.cm as cm
@@ -329,7 +329,7 @@ class NilearnVisualizer:
         fig.suptitle(f'Electric Field Multi-Slices{atlas_text}\n{min_cutoff:.2f}-{max_cutoff:.2f} V/m Range',
                     fontsize=14, fontweight='bold')
 
-        plt.tight_layout(rect=[0, 0.05, 1, 0.95])
+        plt.tight_layout(rect=[0, 0.08, 1, 0.92])
 
         # Save the figure
         fig.savefig(output_path, dpi=300, bbox_inches='tight')

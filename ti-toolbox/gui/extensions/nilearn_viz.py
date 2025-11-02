@@ -6,16 +6,18 @@ Extension: Nilearn Visuals
 Create Nilearn visualizations for high-quality images.
 """
 
+# Standard library imports
 import os
 import sys
-import subprocess
-import numpy as np
+import traceback
+from datetime import datetime
 from pathlib import Path
-from PyQt5 import QtWidgets, QtCore
 
-# Extension metadata (required)
-EXTENSION_NAME = "Nilearn Visuals"
-EXTENSION_DESCRIPTION = "Create Nilearn high resolution visualizations."
+# Third-party imports
+import nibabel as nib
+import numpy as np
+from nilearn import datasets
+from PyQt5 import QtWidgets, QtCore
 
 # Add TI-Toolbox to path
 ti_toolbox_path = Path(__file__).parent.parent.parent
@@ -25,11 +27,19 @@ sys.path.insert(0, str(ti_toolbox_path))
 gui_path = Path(__file__).parent.parent
 sys.path.insert(0, str(gui_path))
 
+# TI-Toolbox imports
 from core import get_path_manager
-from core import constants as const
+from core.nifti import load_group_data_ti_toolbox
+from viz.img_slices import create_pdf_entry_point_group
+from viz.img_glass import create_glass_brain_entry_point_group
 
+# GUI component imports
 from components.console import ConsoleWidget
 from components.action_buttons import RunStopButtons
+
+# Extension metadata (required)
+EXTENSION_NAME = "Nilearn Visuals"
+EXTENSION_DESCRIPTION = "Create Nilearn high resolution visualizations."
 
 
 class PublicationImageWorker(QtCore.QThread):
@@ -52,22 +62,6 @@ class PublicationImageWorker(QtCore.QThread):
 
     def run(self):
         try:
-            # Ensure the TI-Toolbox path is in sys.path for imports
-            import sys
-            ti_toolbox_path = str(Path(__file__).parent.parent.parent)
-            if ti_toolbox_path not in sys.path:
-                sys.path.insert(0, ti_toolbox_path)
-
-            # Import required modules
-            from core.nifti import load_group_data_ti_toolbox
-            from viz.img_slices import create_pdf_entry_point_group
-            from viz.img_glass import create_glass_brain_entry_point_group
-            from core import get_path_manager
-            import nibabel as nib
-            import numpy as np
-            import os
-            from datetime import datetime
-
             # Define output callback to emit signals
             def output_callback(text):
                 self.output_signal.emit(text)
@@ -124,21 +118,13 @@ class PublicationImageWorker(QtCore.QThread):
 
             # Create output directory: derivatives/ti-toolbox/[subdir_name]/
             pm = get_path_manager()
-            if not pm:
-                self.error_signal.emit("PathManager not available")
-                return
-
             project_dir = pm.get_project_dir()
-            if not project_dir:
-                self.error_signal.emit("Project directory not found")
-                return
 
             output_base_dir = os.path.join(project_dir, "derivatives", "ti-toolbox", "nilearn_visuals", self.subdir_name)
             os.makedirs(output_base_dir, exist_ok=True)
 
-            # Generate timestamp for unique filename
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            base_filename = f"group_averaged_{len(subject_ids)}_subjects_{timestamp}"
+            # Generate base filename without timestamp
+            base_filename = f"group_averaged_{len(subject_ids)}_subjects"
 
             # Save averaged NIfTI file
             nifti_filename = f"{base_filename}.nii.gz"
@@ -235,7 +221,6 @@ class PublicationImageWorker(QtCore.QThread):
                 self.error_signal.emit("Visualization failed - check console output above")
 
         except Exception as e:
-            import traceback
             self.error_signal.emit(f"Error during visualization: {str(e)}\n\n{traceback.format_exc()}")
 
     def terminate_and_wait(self):
@@ -718,9 +703,6 @@ class PublicationImageDialog(QtWidgets.QDialog):
             return
 
         try:
-            # Import here to avoid circular imports
-            from nilearn import datasets
-
             # Get atlas regions based on selected atlas
             atlas_configs = {
                 'harvard_oxford': {
