@@ -99,14 +99,14 @@ def load_subject_data_ti_toolbox(subject_configs, nifti_file_pattern=None):
         raise ValueError("Need at least one responder and one non-responder")
     
     # Load responders
-    responders, template_img, responder_ids = nifti_utils.load_group_data_ti_toolbox(
+    responders, template_img, responder_ids = nifti.load_group_data_ti_toolbox(
         responder_configs,
         nifti_file_pattern=nifti_file_pattern,
         dtype=np.float32
     )
     
     # Load non-responders
-    non_responders, _, non_responder_ids = nifti_utils.load_group_data_ti_toolbox(
+    non_responders, _, non_responder_ids = nifti.load_group_data_ti_toolbox(
         non_responder_configs,
         nifti_file_pattern=nifti_file_pattern,
         dtype=np.float32
