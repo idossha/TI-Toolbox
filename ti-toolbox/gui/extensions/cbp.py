@@ -141,7 +141,7 @@ class ClusterPermutationWidget(QtWidgets.QWidget):
         layout.addWidget(header_label)
         
         desc_label = QtWidgets.QLabel(
-            "Identify brain regions with significant differences between groups"
+            "Identify brain regions with significant differences between groups "
             "using non-parametric cluster-based permutation correction."
         )
         desc_label.setWordWrap(True)
