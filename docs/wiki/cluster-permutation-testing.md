@@ -6,10 +6,6 @@ permalink: /wiki/cluster-permutation-testing/
 
 The Cluster-Based Permutation Testing extension performs non-parametric statistical analysis to identify brain regions with significant differences in temporal interference (TI) stimulation fields between experimental groups. This method provides robust control of family-wise error rates when performing voxelwise comparisons across the brain.
 
-## Overview
-
-Cluster-based permutation testing (CBP) is a powerful statistical approach for neuroimaging that addresses the multiple comparisons problem inherent in voxelwise statistical tests. The TI-Toolbox implementation automatically handles BIDS-compliant data organization and provides both GUI and programmatic interfaces for comprehensive statistical analysis.
-
 ## Key Features
 
 - **Non-parametric Statistics**: No assumptions about data distribution
@@ -23,7 +19,7 @@ Cluster-based permutation testing (CBP) is a powerful statistical approach for n
 
 ### Why Cluster-Based Permutation Testing?
 
-Traditional voxelwise statistical tests (like t-tests) performed at each brain voxel create a massive multiple comparisons problem. With ~100,000 voxels in a typical brain analysis, even a 5% false positive rate would yield 5,000 false discoveries.
+Traditional voxelwise statistical tests (like t-tests) performed at each brain voxel create a massive multiple comparisons problem. With ~1,000,000 voxels in a typical brain analysis, even a 5% false positive rate would yield 50,000 false discoveries.
 
 Cluster-based permutation testing addresses this by:
 1. Performing voxelwise statistics (t-values)
@@ -60,10 +56,10 @@ Configure experimental groups through an intuitive interface:
 - **Alternative Hypothesis**: Two-sided, greater than, or less than
 - **Cluster Threshold**: p-value for initial cluster formation (default: 0.05)
 - **Cluster Statistic**: "Mass" (t-value sum) or "Size" (voxel count)
+- **Significance Level**: cutoff for the permutation null distribution (default: 0.05)
 
 #### Computational Settings
 - **Number of Permutations**: 1,000-10,000 (more = more accurate p-values)
-- **Significance Level**: Family-wise error rate (default: 0.05)
 - **Parallel Jobs**: CPU cores for parallel processing (default: all available)
 
 ## Workflow Example
@@ -79,7 +75,7 @@ Configure experimental groups through an intuitive interface:
    - Test type: Unpaired
    - Permutations: 1,000
    - Cluster statistic: Mass
-4. **Run Analysis**: Process takes ~5-30 minutes depending on dataset size
+4. **Run Analysis**: This cann take a while depending on dataset size, number of permutations, and number of cores assigned
 
 ### Output Structure
 
@@ -139,22 +135,6 @@ hippocampus_responders_vs_nonresponders/
 - **File Format**: NIfTI files in MNI space
 - **File Pattern**: Default `grey_{simulation_name}_TI_MNI_MNI_TI_max.nii.gz`
 - **Data Type**: Field intensity values in V/m
-- **Group Balance**: At least 1 subject per group (recommended: 8+ per group)
-
-### Performance Optimization
-
-- **Memory Usage**: ~4-8 GB RAM for typical datasets
-- **Processing Time**: Scales with permutations × voxels × subjects
-- **Parallel Speedup**: Near-linear scaling with CPU cores
-- **Disk I/O**: Efficient streaming for large datasets
-
-### Statistical Power
-
-Power depends on:
-- **Effect Size**: Larger differences → higher power
-- **Sample Size**: More subjects → higher power
-- **Spatial Extent**: Larger true effects → higher power
-- **Permutations**: More permutations → more precise p-values
 
 ## Advanced Usage
 
@@ -203,19 +183,6 @@ subject_id,simulation_name,response
 004,HIPP_R,0
 ```
 
-### Multiple Comparison Correction
-
-The method controls family-wise error rate (FWER) at the cluster level:
-- **FWER**: Probability of at least one false positive across all tests
-- **Cluster-level**: Correction applied to clusters, not individual voxels
-- **Permutation-based**: Exact control without parametric assumptions
-
-### Effect Size Considerations
-
-- **Mass vs Size**: Mass is more sensitive to strong, focal effects; size to diffuse effects
-- **Threshold Selection**: More liberal thresholds (0.01) for exploratory; conservative (0.001) for confirmatory
-- **Permutation Count**: 1,000 minimum; 5,000+ for publication-quality precision
-
 ## Troubleshooting
 
 ### Common Issues
@@ -227,13 +194,11 @@ The method controls family-wise error rate (FWER) at the cluster level:
 
 **Memory exhaustion**
 - Reduce `n_jobs` to use fewer CPU cores
-- Decrease number of permutations temporarily
-- Process subsets of subjects if dataset is very large
+- Decrease number of permutations
 
 **No significant clusters found**
 - Check effect sizes in difference maps
 - Consider more liberal cluster threshold (0.01 instead of 0.05)
-- Verify groups are truly different (inspect average maps)
 - Increase statistical power with more subjects
 
 ### Data Validation
@@ -248,22 +213,6 @@ The method controls family-wise error rate (FWER) at the cluster level:
 - Check for outliers that might affect results
 - Verify no subject appears in multiple groups
 
-## Integration with Other Tools
-
-### Analysis Pipeline Integration
-
-1. **Simulation**: Generate TI fields with SimNIBS
-2. **Flex/Ex Search**: Optimize electrode positions
-3. **Analyzer**: Extract field metrics and statistics
-4. **CBP Testing**: Identify significant group differences
-5. **Nilearn Visuals**: Create publication figures
-
-### Statistical Reporting
-
-The extension generates comprehensive reports suitable for:
-- **Methods Sections**: Detailed statistical parameters
-- **Results Sections**: Cluster statistics and significance levels
-- **Supplementary Materials**: Complete permutation details
 
 ## References
 
