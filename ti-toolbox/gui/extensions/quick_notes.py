@@ -71,15 +71,26 @@ class NotesWindow(QtWidgets.QDialog):
         """Load notes from file if it exists."""
         if not self.notes_file_path or not os.path.exists(self.notes_file_path):
             return
-        
+
         try:
             with open(self.notes_file_path, 'r', encoding='utf-8') as f:
                 content = f.read().strip()
                 if content:
                     # Parse notes (they're separated by separator lines)
-                    self.notes = content.split('\n' + '-' * 70 + '\n')
-                    # Clean up the list
-                    self.notes = [note.strip() for note in self.notes if note.strip()]
+                    note_blocks = content.split('\n' + '-' * 70 + '\n')
+                    self.notes = []
+                    for block in note_blocks:
+                        block = block.strip()
+                        if block:
+                            # Remove "Note #X:" prefix if present (for backward compatibility)
+                            lines = block.split('\n', 1)
+                            if len(lines) > 0 and lines[0].startswith('Note #'):
+                                # Remove the "Note #X:" line and keep only the content
+                                note_content = lines[1] if len(lines) > 1 else ''
+                                self.notes.append(note_content.strip())
+                            else:
+                                # If no prefix, treat the whole block as the note
+                                self.notes.append(block)
         except (IOError, OSError) as e:
             print(f"Error loading notes: {e}")
     
@@ -87,12 +98,13 @@ class NotesWindow(QtWidgets.QDialog):
         """Save notes to file."""
         if not self.notes_file_path:
             return
-        
+
         try:
             with open(self.notes_file_path, 'w', encoding='utf-8') as f:
-                for i, note in enumerate(self.notes, 1):
-                    f.write(f"Note #{i}:\n{note}\n")
-                    if i < len(self.notes):
+                for i, note in enumerate(self.notes):
+                    f.write(f"{note}\n")
+                    # Only add separator if not the last note
+                    if i < len(self.notes) - 1:
                         f.write('-' * 70 + '\n\n')
         except (IOError, OSError) as e:
             QtWidgets.QMessageBox.warning(
@@ -224,9 +236,9 @@ class NotesWindow(QtWidgets.QDialog):
     def update_notes_display(self):
         """Update the notes display area."""
         display_text = ""
-        for i, note in enumerate(self.notes, 1):
-            display_text += f"Note #{i}:\n{note}\n\n{'-' * 70}\n\n"
-        
+        for note in self.notes:
+            display_text += f"{note}\n\n{'-' * 70}\n\n"
+
         self.notes_display.setPlainText(display_text)
         
         # Scroll to bottom
