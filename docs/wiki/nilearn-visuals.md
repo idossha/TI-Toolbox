@@ -97,19 +97,18 @@ hippocampus_stimulation/
 
 ### Visualization Types
 
-The extension generates two main types of high-resolution PDF visualizations:
+The extension generates two main types of high-resolution visualizations:
 
-#### Glass Brain View
-<object data="{{ site.baseurl }}/wiki/assets/nilearn_visuals/glass_brain.pdf" type="application/pdf" width="100%" height="600px">
-  <p>Unable to display PDF file. <a href="{{ site.baseurl }}/wiki/assets/nilearn_visuals/glass_brain.pdf">Download the PDF</a> instead.</p>
-</object>
-<em>Glass brain projection showing TI field distribution with transparency for 3D visualization</em>
+<div class="image-container">
+  <img src="{{ site.baseurl }}/wiki/assets/nilearn_visuals/glass_brain.png" alt="Glass Brain View" style="max-width: 50%; height: auto;">
+  <em>Glass brain projection showing TI field distribution with transparency for 3D visualization</em>
+</div>
 
-#### Sliced Brain View
-<object data="{{ site.baseurl }}/wiki/assets/nilearn_visuals/sliced_brain.pdf" type="application/pdf" width="100%" height="600px">
-  <p>Unable to display PDF file. <a href="{{ site.baseurl }}/wiki/assets/nilearn_visuals/sliced_brain.pdf">Download the PDF</a> instead.</p>
-</object>
-<em>Multi-slice anatomical view showing TI field distribution across sagittal, coronal, and axial planes</em>
+<div class="image-container">
+  <img src="{{ site.baseurl }}/wiki/assets/nilearn_visuals/sliced_brain.png" alt="Sliced Brain View" style="max-width: 50%; height: auto;">
+  <em>Multi-slice anatomical view showing TI field distribution across sagittal, coronal, and axial planes</em>
+</div>
+
 
 
 ### File Format Requirements
