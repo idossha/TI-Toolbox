@@ -27,6 +27,7 @@ Welcome to the Temporal Interference Toolbox Wiki. Here you'll find detailed gui
 - **[Cluster-Based Permutation Testing](cluster-permutation-testing)** - Non-parametric statistical analysis
 - **[Quick Notes](quick-notes)** - Timestamped note-taking during analysis sessions
 - **[NIfTI Group Averaging](nifti-group-averaging)** - Group analysis and comparison tools
+- **[Tissue Analyzer](tissue-analyzer)** - Volume and thickness assessment for CSF, bone, and skin
 
 ### Development & Testing
 - **[Testing Pipeline](testing-pipeline)** - Comprehensive CI/CD testing pipeline with CircleCI integration
