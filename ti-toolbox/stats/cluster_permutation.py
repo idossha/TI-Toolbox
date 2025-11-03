@@ -25,9 +25,12 @@ import logging
 from datetime import datetime
 import time
 from pathlib import Path
-
-# Import from modular utilities (relative imports for stats module)
 import gc
+
+import nibabel as nib
+import pandas as pd
+
+
 try:
     from .stats_utils import ttest_voxelwise, cluster_based_correction, cluster_analysis
     from .atlas_utils import atlas_overlap_analysis
@@ -42,20 +45,11 @@ except ImportError:
 
 # Import TI-Toolbox core modules
 sys.path.insert(0, str(Path(__file__).parent.parent))
-try:
-    from core import get_path_manager
-    from core import constants as const
-    from core import nifti
-    from tools import logging_util
-except ImportError:
-    print("Warning: Could not import TI-Toolbox core modules. Some features may not work.")
-    get_path_manager = None
-    const = None
-    nifti = None
-    logging_util = None
+from core import get_path_manager
+from core import constants as const
+from core import nifti
+from tools import logging_util
 
-import nibabel as nib
-import pandas as pd
 
 
 # ==============================================================================
@@ -164,15 +158,15 @@ DEFAULT_CONFIG = {
     'n_permutations': 1000,         # Number of permutations
     'alpha': 0.05,                  # Cluster-level significance
     'n_jobs': -1,                   # Number of parallel jobs (-1 = all cores, 1 = sequential)
-    
+
     # Group and metric labels (customize for your study)
     'group1_name': 'Responders',
     'group2_name': 'Non-Responders',
     'value_metric': 'Current Intensity',
-    
+
     # File pattern for NIfTI files
     'nifti_file_pattern': 'grey_{simulation_name}_TI_MNI_MNI_TI_max.nii.gz',
-    
+
     # Atlas files (optional, relative to TI-toolbox/resources/atlas/)
     'atlas_files': []  # Can add atlas files if available
 }

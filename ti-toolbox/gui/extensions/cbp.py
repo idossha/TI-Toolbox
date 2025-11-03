@@ -289,7 +289,7 @@ class ClusterPermutationWidget(QtWidgets.QWidget):
             "to avoid CPU oversubscription."
         )
         config_layout.addWidget(self.n_jobs_edit, row, 1, 1, 3)
-        
+
         layout.addWidget(config_group)
         
         # === Output Console (using reusable component) ===

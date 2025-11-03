@@ -128,6 +128,12 @@ def _copy_handler(handler: logging.Handler) -> logging.Handler:
         new_handler = logging.FileHandler(handler.baseFilename, mode='a')
     elif isinstance(handler, logging.StreamHandler):
         new_handler = logging.StreamHandler(sys.stdout)
+    elif isinstance(handler, CallbackHandler):
+        # Skip CallbackHandler as it's GUI-specific and shouldn't be shared
+        raise ValueError("CallbackHandler cannot be copied to external loggers")
+    elif hasattr(handler, '_is_gui_handler') and handler._is_gui_handler:
+        # Skip GUI-specific handlers that cannot be copied
+        raise ValueError("GUI handlers cannot be copied to external loggers")
     else:
         # Fallback: instantiate same class without args
         new_handler = handler.__class__()
@@ -204,7 +210,11 @@ def configure_external_loggers(names: List[str],
 
         # attach copies of the parent's handlers
         for handler in parent_logger.handlers:
-            ext_logger.addHandler(_copy_handler(handler))
+            try:
+                ext_logger.addHandler(_copy_handler(handler))
+            except ValueError:
+                # Skip handlers that cannot be copied (e.g., CallbackHandler)
+                pass
 
 
 def suppress_console_output(logger: logging.Logger) -> None:

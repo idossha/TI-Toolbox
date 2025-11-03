@@ -13,7 +13,6 @@ matplotlib.use('Agg')  # Use non-interactive backend for PDF generation
 
 # Set white background explicitly for consistency across environments
 matplotlib.rcParams['figure.facecolor'] = 'white'
-matplotlib.rcParams['axes.facecolor'] = 'white'
 matplotlib.rcParams['savefig.facecolor'] = 'white'
 
 

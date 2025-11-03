@@ -16,123 +16,183 @@ import multiprocessing
 import gc
 
 
-def _fast_ttest_ind(a, b, alternative='two-sided'):
+def vectorized_ttest_ind(test_data, n_resp, n_non_resp, alternative='two-sided'):
     """
-    Fast manual computation of independent samples t-test
-    ~13x faster than scipy.stats.ttest_ind
-    
+    Vectorized computation of independent samples t-tests for all voxels at once.
+
     Parameters:
     -----------
-    a, b : array-like
-        Sample arrays (group 1 and group 2)
+    test_data : ndarray, shape (n_voxels, n_total_subjects)
+        Data for all test voxels and subjects
+    n_resp : int
+        Number of responders
+    n_non_resp : int
+        Number of non-responders
     alternative : {'two-sided', 'greater', 'less'}, optional
-        Defines the alternative hypothesis (default: 'two-sided'):
-        * 'two-sided': means are different (a ≠ b)
-        * 'greater': mean of a is greater than mean of b (a > b)
-        * 'less': mean of a is less than mean of b (a < b)
-    
+        Alternative hypothesis
+
     Returns:
     --------
-    t_stat : float
-        T-statistic
-    p_val : float
-        P-value for the specified alternative hypothesis
+    t_stats : ndarray, shape (n_voxels,)
+        T-statistics for all voxels
+    p_values : ndarray, shape (n_voxels,)
+        P-values for all voxels
     """
-    n1, n2 = len(a), len(b)
-    mean1, mean2 = np.mean(a), np.mean(b)
-    var1, var2 = np.var(a, ddof=1), np.var(b, ddof=1)
-    
-    # Pooled standard deviation
-    pooled_std = np.sqrt(((n1-1)*var1 + (n2-1)*var2) / (n1+n2-2))
-    
+    # Split data into groups
+    resp_data = test_data[:, :n_resp]      # Shape: (n_voxels, n_resp)
+    non_resp_data = test_data[:, n_resp:]  # Shape: (n_voxels, n_non_resp)
+
+    # Compute means and variances for all voxels at once
+    resp_means = np.mean(resp_data, axis=1)      # Shape: (n_voxels,)
+    non_resp_means = np.mean(non_resp_data, axis=1)
+    resp_vars = np.var(resp_data, axis=1, ddof=1)
+    non_resp_vars = np.var(non_resp_data, axis=1, ddof=1)
+
+    # Vectorized pooled variance calculation
+    numerator = ((n_resp-1) * resp_vars + (n_non_resp-1) * non_resp_vars)
+    denominator = n_resp + n_non_resp - 2
+    pooled_vars = numerator / denominator
+
+    # Standard error of the difference
+    se_diff = np.sqrt(pooled_vars * (1/n_resp + 1/n_non_resp))
+
     # Avoid division by zero
-    if pooled_std == 0:
-        return 0.0, 1.0
-    
-    # T-statistic
-    t_stat = (mean1 - mean2) / (pooled_std * np.sqrt(1/n1 + 1/n2))
-    
-    # Degrees of freedom
-    df = n1 + n2 - 2
-    
-    # P-value based on alternative hypothesis
+    valid_voxels = se_diff > 0
+    t_stats = np.zeros(test_data.shape[0])
+
+    # Vectorized t-statistic computation
+    mean_diff = resp_means - non_resp_means
+    t_stats[valid_voxels] = mean_diff[valid_voxels] / se_diff[valid_voxels]
+
+    # Vectorized p-value computation
+    df = n_resp + n_non_resp - 2
+
     if alternative == 'two-sided':
-        p_val = 2 * stats.t.sf(np.abs(t_stat), df)
+        p_values = 2 * stats.t.sf(np.abs(t_stats), df)
     elif alternative == 'greater':
-        # One-sided: test if mean(a) > mean(b)
-        # P(T > t_stat) = sf(t_stat)
-        p_val = stats.t.sf(t_stat, df)
+        p_values = stats.t.sf(t_stats, df)
     elif alternative == 'less':
-        # One-sided: test if mean(a) < mean(b)
-        # P(T < t_stat) = cdf(t_stat) = sf(-t_stat)
-        p_val = stats.t.sf(-t_stat, df)
+        p_values = stats.t.sf(-t_stats, df)
     else:
         raise ValueError("alternative must be 'two-sided', 'greater', or 'less'")
-    
-    return t_stat, p_val
+
+    return t_stats, p_values
 
 
-def _fast_ttest_rel(a, b, alternative='two-sided'):
+def _vectorized_ttest_rel(test_data, n_resp, alternative='two-sided'):
     """
-    Fast manual computation of paired samples t-test
-    ~10x faster than scipy.stats.ttest_rel
-    
+    Vectorized computation of paired samples t-tests for all voxels at once.
+
     Parameters:
     -----------
-    a, b : array-like
-        Paired sample arrays
+    test_data : ndarray, shape (n_voxels, n_total_subjects)
+        Data for all test voxels and subjects (paired)
+    n_resp : int
+        Number of pairs (same as n_non_resp for paired test)
     alternative : {'two-sided', 'greater', 'less'}, optional
-        Defines the alternative hypothesis (default: 'two-sided'):
-        * 'two-sided': means are different (a ≠ b)
-        * 'greater': mean of a is greater than mean of b (a > b)
-        * 'less': mean of a is less than mean of b (a < b)
-    
+        Alternative hypothesis
+
     Returns:
     --------
-    t_stat : float
-        T-statistic
-    p_val : float
-        P-value for the specified alternative hypothesis
+    t_stats : ndarray, shape (n_voxels,)
+        T-statistics for all voxels
+    p_values : ndarray, shape (n_voxels,)
+        P-values for all voxels
     """
-    # Compute differences
-    diff = a - b
-    n = len(diff)
-    
-    # Mean and std of differences
-    mean_diff = np.mean(diff)
-    std_diff = np.std(diff, ddof=1)
-    
+    # For paired tests, data is already paired
+    resp_data = test_data[:, :n_resp]
+    non_resp_data = test_data[:, n_resp:]
+
+    # Compute differences for all voxels at once
+    diff_data = resp_data - non_resp_data  # Shape: (n_voxels, n_pairs)
+
+    # Compute means and std of differences for all voxels
+    diff_means = np.mean(diff_data, axis=1)  # Shape: (n_voxels,)
+    diff_stds = np.std(diff_data, axis=1, ddof=1)
+
     # Avoid division by zero
-    if std_diff == 0:
-        return 0.0, 1.0
-    
-    # T-statistic
-    t_stat = mean_diff / (std_diff / np.sqrt(n))
-    
-    # Degrees of freedom
-    df = n - 1
-    
-    # P-value based on alternative hypothesis
+    valid_voxels = diff_stds > 0
+    t_stats = np.zeros(test_data.shape[0])
+
+    # Vectorized t-statistic computation
+    se_diff = diff_stds / np.sqrt(n_resp)
+    t_stats[valid_voxels] = diff_means[valid_voxels] / se_diff[valid_voxels]
+
+    # Vectorized p-value computation
+    df = n_resp - 1
+
     if alternative == 'two-sided':
-        p_val = 2 * stats.t.sf(np.abs(t_stat), df)
+        p_values = 2 * stats.t.sf(np.abs(t_stats), df)
     elif alternative == 'greater':
-        # One-sided: test if mean(a) > mean(b)
-        p_val = stats.t.sf(t_stat, df)
+        p_values = stats.t.sf(t_stats, df)
     elif alternative == 'less':
-        # One-sided: test if mean(a) < mean(b)
-        p_val = stats.t.sf(-t_stat, df)
+        p_values = stats.t.sf(-t_stats, df)
     else:
         raise ValueError("alternative must be 'two-sided', 'greater', or 'less'")
-    
-    return t_stat, p_val
+
+    return t_stats, p_values
+
+
+def vectorized_ttest_rel(test_data, n_resp, alternative='two-sided'):
+    """
+    Vectorized computation of paired samples t-tests for all voxels at once.
+
+    Parameters:
+    -----------
+    test_data : ndarray, shape (n_voxels, n_total_subjects)
+        Data for all test voxels and subjects (paired)
+    n_resp : int
+        Number of pairs (same as n_non_resp for paired test)
+    alternative : {'two-sided', 'greater', 'less'}, optional
+        Alternative hypothesis
+
+    Returns:
+    --------
+    t_stats : ndarray, shape (n_voxels,)
+        T-statistics for all voxels
+    p_values : ndarray, shape (n_voxels,)
+        P-values for all voxels
+    """
+    # For paired tests, data is already paired
+    resp_data = test_data[:, :n_resp]
+    non_resp_data = test_data[:, n_resp:]
+
+    # Compute differences for all voxels at once
+    diff_data = resp_data - non_resp_data  # Shape: (n_voxels, n_pairs)
+
+    # Compute means and std of differences for all voxels
+    diff_means = np.mean(diff_data, axis=1)  # Shape: (n_voxels,)
+    diff_stds = np.std(diff_data, axis=1, ddof=1)
+
+    # Avoid division by zero
+    valid_voxels = diff_stds > 0
+    t_stats = np.zeros(test_data.shape[0])
+
+    # Vectorized t-statistic computation
+    se_diff = diff_stds / np.sqrt(n_resp)
+    t_stats[valid_voxels] = diff_means[valid_voxels] / se_diff[valid_voxels]
+
+    # Vectorized p-value computation
+    df = n_resp - 1
+
+    if alternative == 'two-sided':
+        p_values = 2 * stats.t.sf(np.abs(t_stats), df)
+    elif alternative == 'greater':
+        p_values = stats.t.sf(t_stats, df)
+    elif alternative == 'less':
+        p_values = stats.t.sf(-t_stats, df)
+    else:
+        raise ValueError("alternative must be 'two-sided', 'greater', or 'less'")
+
+    return t_stats, p_values
 
 
 def ttest_voxelwise(responders, non_responders, test_type='unpaired', alternative='two-sided', verbose=True):
     """
-    Perform t-test (paired or unpaired) at each voxel using optimized manual computation
-    
-    Uses fast manual t-test implementation (~13x faster than scipy.stats.ttest_ind)
-    
+    Perform vectorized t-test (paired or unpaired) at each voxel.
+
+    Uses vectorized computation for optimal performance.
+
     Parameters:
     -----------
     responders : ndarray (x, y, z, n_subjects)
@@ -148,7 +208,7 @@ def ttest_voxelwise(responders, non_responders, test_type='unpaired', alternativ
         * 'less': responders have lower values (responders < non-responders)
     verbose : bool
         Print progress information
-    
+
     Returns:
     --------
     p_values : ndarray (x, y, z)
@@ -165,73 +225,69 @@ def ttest_voxelwise(responders, non_responders, test_type='unpaired', alternativ
             alt_text = " (one-sided: responders > non-responders)"
         elif alternative == 'less':
             alt_text = " (one-sided: responders < non-responders)"
-        print(f"\nPerforming voxelwise {test_name} t-tests{alt_text} (optimized)...")
-    
+        print(f"\nPerforming voxelwise {test_name} t-tests{alt_text} (vectorized)...")
+
     # Validate test type
     if test_type not in ['paired', 'unpaired']:
         raise ValueError("test_type must be 'paired' or 'unpaired'")
-    
+
     # For paired test, check that sample sizes match
     if test_type == 'paired':
         if responders.shape[-1] != non_responders.shape[-1]:
             raise ValueError(f"Paired t-test requires equal sample sizes. "
                            f"Got {responders.shape[-1]} vs {non_responders.shape[-1]} subjects")
-    
+
     shape = responders.shape[:3]
     p_values = np.ones(shape)
     t_statistics = np.zeros(shape)
-    
+
     # Create mask of valid voxels (non-zero in at least some subjects)
     responder_mask = np.any(responders > 0, axis=-1)
     non_responder_mask = np.any(non_responders > 0, axis=-1)
     valid_mask = responder_mask | non_responder_mask
-    
+
     total_voxels = np.sum(valid_mask)
     if verbose:
-        print(f"Testing {total_voxels} valid voxels...")
-    
+        print(f"Testing {total_voxels} valid voxels using vectorized approach...")
+
     # Get coordinates of valid voxels
     valid_coords = np.argwhere(valid_mask)
-    
-    # Perform test at each voxel
-    iterator = tqdm(valid_coords, desc="Testing voxels") if verbose else valid_coords
-    for coord in iterator:
-        i, j, k = coord[0], coord[1], coord[2]
-        
-        resp_vals = responders[i, j, k, :]
-        non_resp_vals = non_responders[i, j, k, :]
-        
-        # Only test if we have variance
-        if test_type == 'paired':
-            # For paired test, check variance of differences
-            diff = resp_vals - non_resp_vals
-            if np.std(diff) > 0:
-                try:
-                    t_stat, p_val = _fast_ttest_rel(resp_vals, non_resp_vals, alternative=alternative)
-                    t_statistics[i, j, k] = t_stat
-                    p_values[i, j, k] = p_val
-                except:
-                    pass
-        else:
-            # For unpaired test, check variance in at least one group
-            if np.std(resp_vals) > 0 or np.std(non_resp_vals) > 0:
-                try:
-                    t_stat, p_val = _fast_ttest_ind(resp_vals, non_resp_vals, alternative=alternative)
-                    t_statistics[i, j, k] = t_stat
-                    p_values[i, j, k] = p_val
-                except:
-                    pass
-    
+
+    # Vectorized approach: compute all tests at once
+    n_valid = len(valid_coords)
+    n_resp = responders.shape[-1]
+    n_non_resp = non_responders.shape[-1]
+
+    # Pre-extract voxel data for faster computation
+    voxel_data = np.zeros((n_valid, n_resp + n_non_resp), dtype=np.float32)
+    for idx, coord in enumerate(valid_coords):
+        i, j, k = coord
+        voxel_data[idx, :n_resp] = responders[i, j, k, :].astype(np.float32)
+        voxel_data[idx, n_resp:] = non_responders[i, j, k, :].astype(np.float32)
+
+    # Use vectorized t-test functions
+    if test_type == 'paired':
+        t_stats_1d, p_values_1d = vectorized_ttest_rel(
+            voxel_data, n_resp, alternative=alternative
+        )
+    else:
+        t_stats_1d, p_values_1d = vectorized_ttest_ind(
+            voxel_data, n_resp, n_non_resp, alternative=alternative
+        )
+
+    # Map results back to 3D volume coordinates
+    for idx, coord in enumerate(valid_coords):
+        i, j, k = coord
+        t_statistics[i, j, k] = t_stats_1d[idx]
+        p_values[i, j, k] = p_values_1d[idx]
+
     return p_values, t_statistics, valid_mask
 
 
-# Removed unpacker - not needed with joblib
-
-
-def _run_single_permutation(test_data, test_coords, n_resp, n_total, cluster_threshold, 
-                           valid_mask, p_values_shape, test_type='unpaired', 
-                           alternative='two-sided', cluster_stat='size', seed=None, 
-                           return_indices=False):
+def _run_single_permutation(test_data, test_coords, n_resp, n_total, cluster_threshold,
+                           valid_mask, p_values_shape, test_type='unpaired',
+                           alternative='two-sided', cluster_stat='size',
+                           seed=None, return_indices=False):
     """
     Helper function to run a single permutation (for parallel processing)
     
@@ -314,26 +370,22 @@ def _run_single_permutation(test_data, test_coords, n_resp, n_total, cluster_thr
     # Compute permuted p-values and t-statistics
     perm_p_values = np.ones(p_values_shape)
     perm_t_statistics = np.zeros(p_values_shape)
-    
+
+    # Use vectorized t-test computation for all voxels at once
+    if test_type == 'paired':
+        t_stats_1d, p_values_1d = vectorized_ttest_rel(
+            perm_test_data, n_resp, alternative=alternative
+        )
+    else:
+        t_stats_1d, p_values_1d = vectorized_ttest_ind(
+            perm_test_data, n_resp, n_total - n_resp, alternative=alternative
+        )
+
+    # Map results back to 3D volume coordinates
     for idx, coord in enumerate(test_coords):
         i, j, k = coord[0], coord[1], coord[2]
-        resp_vals = perm_resp_data[idx, :]
-        non_resp_vals = perm_non_resp_data[idx, :]
-        
-        try:
-            if test_type == 'paired':
-                diff = resp_vals - non_resp_vals
-                if np.std(diff) > 0:
-                    t_stat, p_val = _fast_ttest_rel(resp_vals, non_resp_vals, alternative=alternative)
-                    perm_t_statistics[i, j, k] = t_stat
-                    perm_p_values[i, j, k] = p_val
-            else:
-                if np.std(resp_vals) > 0 or np.std(non_resp_vals) > 0:
-                    t_stat, p_val = _fast_ttest_ind(resp_vals, non_resp_vals, alternative=alternative)
-                    perm_t_statistics[i, j, k] = t_stat
-                    perm_p_values[i, j, k] = p_val
-        except:
-            pass
+        perm_t_statistics[i, j, k] = t_stats_1d[idx]
+        perm_p_values[i, j, k] = p_values_1d[idx]
     
     # Find clusters in permuted data
     perm_mask = (perm_p_values < cluster_threshold) & valid_mask
@@ -381,11 +433,11 @@ def _run_single_permutation(test_data, test_coords, n_resp, n_total, cluster_thr
         return max_cluster_stat, max_cluster_size, max_cluster_mass
 
 
-def cluster_based_correction(responders, non_responders, p_values, valid_mask, 
+def cluster_based_correction(responders, non_responders, p_values, valid_mask,
                             cluster_threshold=0.01, n_permutations=500, alpha=0.05,
                             test_type='unpaired', alternative='two-sided', cluster_stat='size',
                             t_statistics=None, n_jobs=-1, verbose=True,
-                            save_permutation_log=False, permutation_log_file=None,
+                            logger=None, save_permutation_log=False, permutation_log_file=None,
                             subject_ids_resp=None, subject_ids_non_resp=None):
     """
     Apply cluster-based permutation correction for multiple comparisons
@@ -423,6 +475,8 @@ def cluster_based_correction(responders, non_responders, p_values, valid_mask,
         Number of parallel jobs. -1 uses all available CPU cores. 1 disables parallelization.
     verbose : bool
         Print progress information
+    logger : logging.Logger, optional
+        Logger instance for output (default: None)
     save_permutation_log : bool, optional
         If True, save detailed permutation information to file (default: False)
     permutation_log_file : str, optional
@@ -462,25 +516,37 @@ def cluster_based_correction(responders, non_responders, p_values, valid_mask,
         raise ValueError("t_statistics must be provided when cluster_stat='mass'")
     
     if verbose:
-        print(f"\n{'='*70}")
-        print("CLUSTER-BASED PERMUTATION CORRECTION")
-        print(f"{'='*70}")
+        header = f"\n{'='*70}\nCLUSTER-BASED PERMUTATION CORRECTION\n{'='*70}"
+        if logger:
+            logger.info(header)
+        else:
+            print(header)
         cluster_stat_name = "Cluster Size" if cluster_stat == 'size' else "Cluster Mass"
-        print(f"Cluster statistic: {cluster_stat_name}")
-        print(f"Cluster-forming threshold: p < {cluster_threshold}")
-        print(f"Number of permutations: {n_permutations}")
-        print(f"Cluster-level alpha: {alpha}")
+        config_info = f"Cluster statistic: {cluster_stat_name}\nCluster-forming threshold: p < {cluster_threshold}\nNumber of permutations: {n_permutations}\nCluster-level alpha: {alpha}"
+        if logger:
+            for line in config_info.split('\n'):
+                logger.info(line)
+        else:
+            print(config_info)
     
     # Step 1: Form clusters based on initial threshold
     initial_mask = (p_values < cluster_threshold) & valid_mask
     labeled_array, n_clusters = label(initial_mask)
     
     if verbose:
-        print(f"\nFound {n_clusters} clusters at p < {cluster_threshold} (uncorrected)")
-    
+        msg = f"\nFound {n_clusters} clusters at p < {cluster_threshold} (uncorrected)"
+        if logger:
+            logger.info(msg)
+        else:
+            print(msg)
+
     if n_clusters == 0:
         if verbose:
-            print("No clusters found. Try increasing cluster_threshold (e.g., 0.05)")
+            msg = "No clusters found. Try increasing cluster_threshold (e.g., 0.05)"
+            if logger:
+                logger.warning(msg)
+            else:
+                print(msg)
         # Return all 6 expected values with empty/default data
         empty_correlation_data = {
             'sizes': np.array([]),
@@ -490,15 +556,19 @@ def cluster_based_correction(responders, non_responders, p_values, valid_mask,
     
     # Calculate cluster statistics efficiently without storing all clusters
     if n_clusters > 1000 and verbose:
-        print(f"\nWARNING: Found {n_clusters} clusters! This is unusually high.")
-        print("Consider:")
-        print("  1. Using a stricter cluster_threshold (e.g., 0.01 instead of 0.05)")
-        print("  2. Checking if your data is properly masked")
-        print("  3. Verifying your p-values are computed correctly")
+        warning_msg = f"\nWARNING: Found {n_clusters} clusters! This is unusually high.\nConsider:\n  1. Using a stricter cluster_threshold (e.g., 0.01 instead of 0.05)\n  2. Checking if your data is properly masked\n  3. Verifying your p-values are computed correctly"
+        if logger:
+            logger.warning(warning_msg)
+        else:
+            print(warning_msg)
     
     # Find top clusters for display without storing all in memory
     if verbose:
-        print(f"\nFinding largest clusters for summary...")
+        msg = f"\nFinding largest clusters for summary..."
+        if logger:
+            logger.info(msg)
+        else:
+            print(msg)
         top_clusters = []
         
         # Find top 10 clusters by their statistic
@@ -523,17 +593,30 @@ def cluster_based_correction(responders, non_responders, p_values, valid_mask,
         if top_clusters:
             # Show summary of top clusters
             if cluster_stat == 'size':
-                print(f"\nTop {len(top_clusters)} clusters (largest: {top_clusters[0][2]:.0f} voxels)")
+                msg = f"\nTop {len(top_clusters)} clusters (largest: {top_clusters[0][2]:.0f} voxels)"
             else:
-                print(f"\nTop {len(top_clusters)} clusters (largest mass: {top_clusters[0][2]:.2f})")
-            
+                msg = f"\nTop {len(top_clusters)} clusters (largest mass: {top_clusters[0][2]:.2f})"
+
+            if logger:
+                logger.info(msg)
+            else:
+                print(msg)
+
             for i, (cid, size, stat_value) in enumerate(top_clusters[:5], 1):
                 if cluster_stat == 'size':
-                    print(f"  {i}. Cluster {cid}: {size} voxels")
+                    msg = f"  {i}. Cluster {cid}: {size} voxels"
                 else:
-                    print(f"  {i}. Cluster {cid}: {size} voxels, mass = {stat_value:.2f}")
+                    msg = f"  {i}. Cluster {cid}: {size} voxels, mass = {stat_value:.2f}"
+                if logger:
+                    logger.info(msg)
+                else:
+                    print(msg)
         else:
-            print(f"\nNo multi-voxel clusters found")
+            msg = f"\nNo multi-voxel clusters found"
+            if logger:
+                logger.info(msg)
+            else:
+                print(msg)
     
     # Step 2: Test all valid voxels in permutations
     test_mask = valid_mask
@@ -541,11 +624,19 @@ def cluster_based_correction(responders, non_responders, p_values, valid_mask,
     n_test_voxels = len(test_coords)
     
     if verbose:
-        print(f"\nTesting all {n_test_voxels} valid voxels in permutations")
-    
+        msg = f"\nTesting all {n_test_voxels} valid voxels in permutations"
+        if logger:
+            logger.info(msg)
+        else:
+            print(msg)
+
     # Step 3: Permutation testing
     if verbose:
-        print(f"\nRunning {n_permutations} permutations...")
+        msg = f"\nRunning {n_permutations} permutations..."
+        if logger:
+            logger.info(msg)
+        else:
+            print(msg)
     
     # Combine all subjects
     all_data = np.concatenate([responders, non_responders], axis=-1)
@@ -555,24 +646,30 @@ def cluster_based_correction(responders, non_responders, p_values, valid_mask,
     
     # Pre-extract data for test voxels
     if verbose:
-        print(f"Pre-extracting voxel data for faster permutations...")
-        print(f"  Test voxels: {n_test_voxels:,}")
-        print(f"  Total subjects: {n_total}")
-    
+        msg = f"Pre-extracting voxel data for faster permutations...\n  Test voxels: {n_test_voxels:,}\n  Total subjects: {n_total}"
+        if logger:
+            logger.info(msg)
+        else:
+            print(msg)
+
     # Use float32 to save memory
     test_data = np.zeros((n_test_voxels, n_total), dtype=np.float32)
     for idx, coord in enumerate(test_coords):
         i, j, k = coord[0], coord[1], coord[2]
         test_data[idx, :] = all_data[i, j, k, :].astype(np.float32)
-    
+
     # Free the original combined data array
     del all_data
     gc.collect()
-    
+
     # Report memory usage
     if verbose:
         test_data_mb = test_data.nbytes / (1024**2)
-        print(f"  Test data size: {test_data_mb:.1f} MB")
+        msg = f"  Test data size: {test_data_mb:.1f} MB"
+        if logger:
+            logger.info(msg)
+        else:
+            print(msg)
     
     # Determine number of jobs
     if n_jobs == -1:
@@ -602,8 +699,8 @@ def cluster_based_correction(responders, non_responders, p_values, valid_mask,
         iterator = tqdm(range(n_permutations), desc="Permutations") if verbose else range(n_permutations)
         for perm in iterator:
             result = _run_single_permutation(
-                test_data, test_coords, n_resp, n_total, 
-                cluster_threshold, valid_mask, p_values.shape, 
+                test_data, test_coords, n_resp, n_total,
+                cluster_threshold, valid_mask, p_values.shape,
                 test_type=test_type,
                 alternative=alternative,
                 cluster_stat=cluster_stat,
@@ -664,10 +761,11 @@ def cluster_based_correction(responders, non_responders, p_values, valid_mask,
     
     if verbose:
         stat_unit = "voxels" if cluster_stat == 'size' else "mass units"
-        print(f"\n{100*(1-alpha)}th percentile of null distribution: {cluster_stat_threshold:.2f} {stat_unit}")
-        print(f"Null distribution stats: min={np.min(null_max_cluster_stats):.2f}, "
-              f"mean={np.mean(null_max_cluster_stats):.2f}, "
-              f"max={np.max(null_max_cluster_stats):.2f}")
+        msg = f"\n{100*(1-alpha)}th percentile of null distribution: {cluster_stat_threshold:.2f} {stat_unit}\nNull distribution stats: min={np.min(null_max_cluster_stats):.2f}, mean={np.mean(null_max_cluster_stats):.2f}, max={np.max(null_max_cluster_stats):.2f}"
+        if logger:
+            logger.info(msg)
+        else:
+            print(msg)
     
     # Save permutation details if requested
     if save_permutation_log and permutation_indices is not None:
@@ -729,8 +827,11 @@ def cluster_based_correction(responders, non_responders, p_values, valid_mask,
                     n_sig_printed += 1
     
     if verbose:
-        print(f"\nNumber of significant clusters: {len(sig_clusters)}")
-        print(f"Total significant voxels: {np.sum(sig_mask)}")
+        msg = f"\nNumber of significant clusters: {len(sig_clusters)}\nTotal significant voxels: {np.sum(sig_mask)}"
+        if logger:
+            logger.info(msg)
+        else:
+            print(msg)
     
     # Prepare correlation data
     correlation_data = {
