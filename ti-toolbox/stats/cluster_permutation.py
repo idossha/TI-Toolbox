@@ -46,11 +46,13 @@ try:
     from core import get_path_manager
     from core import constants as const
     from core import nifti
+    from tools import logging_util
 except ImportError:
     print("Warning: Could not import TI-Toolbox core modules. Some features may not work.")
     get_path_manager = None
     const = None
     nifti = None
+    logging_util = None
 
 import nibabel as nib
 import pandas as pd
@@ -180,15 +182,17 @@ DEFAULT_CONFIG = {
 # LOGGING SETUP
 # ==============================================================================
 
-def setup_logging(output_dir):
+def setup_logging(output_dir, callback_handler=None):
     """
-    Set up logging to both file and console
-    
+    Set up logging using TI-Toolbox logging utility
+
     Parameters:
     -----------
     output_dir : str
         Directory where log file will be saved
-    
+    callback_handler : logging.Handler, optional
+        Callback handler for GUI integration (suppresses console output if provided)
+
     Returns:
     --------
     logger : logging.Logger
@@ -196,36 +200,26 @@ def setup_logging(output_dir):
     log_file : str
         Path to log file
     """
+    if logging_util is None:
+        raise ImportError("logging_util module not available")
+
     # Create timestamp for log file
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     log_file = os.path.join(output_dir, f"analysis_{timestamp}.log")
-    
-    # Create logger
-    logger = logging.getLogger('VoxelwiseAnalysis')
-    logger.setLevel(logging.INFO)
-    
-    # Remove existing handlers
-    logger.handlers = []
-    
-    # Create formatters
-    detailed_formatter = logging.Formatter(
-        '%(asctime)s - %(levelname)s - %(message)s',
-        datefmt='%Y-%m-%d %H:%M:%S'
-    )
-    console_formatter = logging.Formatter('%(message)s')
-    
-    # File handler (detailed)
-    file_handler = logging.FileHandler(log_file, mode='w')
-    file_handler.setLevel(logging.INFO)
-    file_handler.setFormatter(detailed_formatter)
-    logger.addHandler(file_handler)
-    
-    # Console handler (simple)
-    console_handler = logging.StreamHandler(sys.stdout)
-    console_handler.setLevel(logging.INFO)
-    console_handler.setFormatter(console_formatter)
-    logger.addHandler(console_handler)
-    
+
+    # Create logger using logging_util
+    logger = logging_util.get_logger('ClusterPermutationAnalysis', log_file, overwrite=True)
+
+    # If callback handler provided (for GUI), suppress console output and add callback
+    # The stdout redirector in stats_utils will capture joblib output and send to logger
+    if callback_handler:
+        logging_util.suppress_console_output(logger)
+        logger.addHandler(callback_handler)
+
+    # Configure external loggers to inherit file handler only (no console spam)
+    external_loggers = ['scipy', 'numpy', 'nibabel', 'pandas', 'matplotlib']
+    logging_util.configure_external_loggers(external_loggers, logger)
+
     return logger, log_file
 
 
@@ -233,10 +227,10 @@ def setup_logging(output_dir):
 # MAIN WORKFLOW
 # ==============================================================================
 
-def run_analysis(subject_configs, analysis_name, config=None, output_callback=None):
+def run_analysis(subject_configs, analysis_name, config=None, output_callback=None, callback_handler=None, progress_callback=None, stop_callback=None):
     """
     Run cluster-based permutation analysis
-    
+
     Parameters:
     -----------
     subject_configs : list of dict or str
@@ -248,7 +242,13 @@ def run_analysis(subject_configs, analysis_name, config=None, output_callback=No
         Configuration dictionary (merged with DEFAULT_CONFIG)
     output_callback : callable, optional
         Callback function for status updates (for GUI integration)
-        
+    callback_handler : logging.Handler, optional
+        Callback handler for GUI console integration
+    progress_callback : callable, optional
+        Callback function for progress updates (called with progress percentage)
+    stop_callback : callable, optional
+        Callback function to check if analysis should be stopped (returns True if stopped)
+
     Returns:
     --------
     dict : Results dictionary with keys:
@@ -295,7 +295,10 @@ def run_analysis(subject_configs, analysis_name, config=None, output_callback=No
     os.makedirs(output_dir, exist_ok=True)
     
     # Set up logging
-    logger, log_file = setup_logging(output_dir)
+    if callback_handler:
+        logger, log_file = setup_logging(output_dir, callback_handler)
+    else:
+        logger, log_file = setup_logging(output_dir)
     
     logger.info("="*70)
     logger.info("CLUSTER-BASED PERMUTATION TESTING - TI-TOOLBOX")
@@ -375,6 +378,11 @@ def run_analysis(subject_configs, analysis_name, config=None, output_callback=No
     
     logger.info(f"\nStep completed in {time.time() - step_start:.2f} seconds")
     
+    # Check for stop request
+    if stop_callback and stop_callback():
+        logger.warning("Analysis stopped by user during voxelwise testing preparation")
+        raise KeyboardInterrupt("Analysis stopped by user")
+
     # -------------------------------------------------------------------------
     # 2. VOXELWISE STATISTICAL TEST
     # -------------------------------------------------------------------------
@@ -382,9 +390,9 @@ def run_analysis(subject_configs, analysis_name, config=None, output_callback=No
     logger.info("-" * 70)
     log_callback("Running voxelwise statistical tests...")
     step_start = time.time()
-    
+
     p_values, t_statistics, valid_mask = ttest_voxelwise(
-        responders, 
+        responders,
         non_responders,
         test_type=CONFIG['test_type'],
         alternative=CONFIG['alternative']
@@ -434,6 +442,11 @@ def run_analysis(subject_configs, analysis_name, config=None, output_callback=No
         logger.info(f"\nLargest observed cluster: {observed_cluster_sizes[0]} voxels")
         logger.info(f"Total voxels in all clusters: {sum(observed_cluster_sizes)}")
     
+    # Check for stop request
+    if stop_callback and stop_callback():
+        logger.warning("Analysis stopped by user before permutation testing")
+        raise KeyboardInterrupt("Analysis stopped by user")
+
     # -------------------------------------------------------------------------
     # 3. CLUSTER-BASED PERMUTATION CORRECTION
     # -------------------------------------------------------------------------
@@ -446,9 +459,9 @@ def run_analysis(subject_configs, analysis_name, config=None, output_callback=No
     permutation_log_file = os.path.join(output_dir, 'permutation_details.txt')
     
     sig_mask, cluster_threshold, sig_clusters, null_distribution, all_clusters, correlation_data = cluster_based_correction(
-        responders, 
-        non_responders, 
-        p_values, 
+        responders,
+        non_responders,
+        p_values,
         valid_mask,
         cluster_threshold=CONFIG['cluster_threshold'],
         n_permutations=CONFIG['n_permutations'],
@@ -458,6 +471,7 @@ def run_analysis(subject_configs, analysis_name, config=None, output_callback=No
         cluster_stat=CONFIG['cluster_stat'],
         t_statistics=t_statistics,
         n_jobs=CONFIG['n_jobs'],
+        logger=logger,
         save_permutation_log=True,
         permutation_log_file=permutation_log_file,
         subject_ids_resp=resp_ids,

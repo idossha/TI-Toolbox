@@ -9,6 +9,7 @@ current intensity between responders and non-responders.
 
 import sys
 import os
+import logging
 from pathlib import Path
 from PyQt5 import QtWidgets, QtCore, QtGui
 import json
@@ -28,6 +29,7 @@ sys.path.insert(0, str(gui_path))
 
 from core import get_path_manager
 from core import constants as const
+from tools import logging_util
 
 from components.console import ConsoleWidget
 from components.action_buttons import RunStopButtons
@@ -65,9 +67,9 @@ class SubjectRow(QtWidgets.QWidget):
         layout.addWidget(self.response_combo, 2)
         
         # Remove button
-        remove_btn = QtWidgets.QPushButton("✕")
-        remove_btn.setFixedWidth(30)
-        remove_btn.setStyleSheet("""
+        self.remove_btn = QtWidgets.QPushButton("✕")
+        self.remove_btn.setFixedWidth(30)
+        self.remove_btn.setStyleSheet("""
             QPushButton {
                 background-color: #f44336;
                 color: white;
@@ -78,8 +80,8 @@ class SubjectRow(QtWidgets.QWidget):
                 background-color: #d32f2f;
             }
         """)
-        remove_btn.clicked.connect(lambda: self.remove_requested.emit(self))
-        layout.addWidget(remove_btn)
+        self.remove_btn.clicked.connect(lambda: self.remove_requested.emit(self))
+        layout.addWidget(self.remove_btn)
         
         # Initialize simulations
         self.on_subject_changed(self.subject_combo.currentText())
@@ -150,8 +152,8 @@ class ClusterPermutationWidget(QtWidgets.QWidget):
         layout.addWidget(desc_label)
         
         # === Subject Configuration ===
-        subjects_group = QtWidgets.QGroupBox("Subject Configuration")
-        subjects_layout = QtWidgets.QVBoxLayout(subjects_group)
+        self.subjects_group = QtWidgets.QGroupBox("Subject Configuration")
+        subjects_layout = QtWidgets.QVBoxLayout(self.subjects_group)
         
         # Toolbar
         toolbar_layout = QtWidgets.QHBoxLayout()
@@ -193,7 +195,7 @@ class ClusterPermutationWidget(QtWidgets.QWidget):
         scroll_area.setWidget(self.subjects_container)
         subjects_layout.addWidget(scroll_area)
         
-        layout.addWidget(subjects_group)
+        layout.addWidget(self.subjects_group)
         
         # === Analysis Configuration ===
         config_group = QtWidgets.QGroupBox("Analysis Configuration")
@@ -552,7 +554,20 @@ class ClusterPermutationWidget(QtWidgets.QWidget):
             self.action_buttons.enable_stop()
         elif hasattr(self, 'run_btn'):
             self.run_btn.setEnabled(False)
-        
+
+        # Lock GUI interface during processing
+        if hasattr(self, 'parent_window') and self.parent_window and hasattr(self.parent_window, 'set_tab_busy'):
+            keep_enabled = []
+            if hasattr(self, 'console_widget') and self.console_widget and hasattr(self.console_widget, 'debug_checkbox'):
+                keep_enabled = [self.console_widget.debug_checkbox]
+            stop_btn = getattr(self, 'action_buttons', None)
+            if stop_btn:
+                stop_btn = stop_btn.get_stop_button()
+            self.parent_window.set_tab_busy(self, True, stop_btn=stop_btn, keep_enabled=keep_enabled)
+
+        # Disable input controls (grey them out)
+        self.disable_controls()
+
         # Clear console
         if hasattr(self, 'console_widget') and self.console_widget:
             self.console_widget.clear_console()
@@ -561,7 +576,8 @@ class ClusterPermutationWidget(QtWidgets.QWidget):
         self.update_output("Starting analysis...", 'info')
         
         # Run in thread
-        self.worker_thread = AnalysisThread(subject_configs, analysis_name, config)
+        console_widget = getattr(self, 'console_widget', None)
+        self.worker_thread = AnalysisThread(subject_configs, analysis_name, config, console_widget)
         self.worker_thread.output_signal.connect(self.on_output)
         self.worker_thread.finished_signal.connect(self.on_finished)
         self.worker_thread.error_signal.connect(self.on_error)
@@ -571,10 +587,21 @@ class ClusterPermutationWidget(QtWidgets.QWidget):
         """Stop the running analysis."""
         if hasattr(self, 'worker_thread') and self.worker_thread and self.worker_thread.isRunning():
             self.update_output("\nStopping analysis...", 'warning')
-            self.worker_thread.terminate()
-            self.worker_thread.wait()
+            self.worker_thread.request_stop()
+            # Wait for thread to finish gracefully, but with a timeout
+            if not self.worker_thread.wait(5000):  # 5 second timeout
+                self.update_output("Force terminating analysis...", 'warning')
+                self.worker_thread.terminate()
+                self.worker_thread.wait()
             self.update_output("Analysis stopped by user.", 'warning')
-            
+
+            # Unlock GUI interface
+            if hasattr(self, 'parent_window') and self.parent_window and hasattr(self.parent_window, 'set_tab_busy'):
+                self.parent_window.set_tab_busy(self, False)
+
+            # Re-enable input controls
+            self.enable_controls()
+
             # Re-enable run button
             if hasattr(self, 'action_buttons'):
                 self.action_buttons.enable_run()
@@ -587,12 +614,26 @@ class ClusterPermutationWidget(QtWidgets.QWidget):
     
     def on_finished(self, results):
         """Handle analysis completion"""
+        # Unlock GUI interface
+        if hasattr(self, 'parent_window') and self.parent_window and hasattr(self.parent_window, 'set_tab_busy'):
+            self.parent_window.set_tab_busy(self, False)
+
+        # Re-enable input controls
+        self.enable_controls()
+
         # Re-enable run button
         if hasattr(self, 'action_buttons'):
             self.action_buttons.enable_run()
         elif hasattr(self, 'run_btn'):
             self.run_btn.setEnabled(True)
-        
+
+        # Check if analysis was stopped by user
+        if results.get('stopped_by_user', False):
+            self.update_output("\n" + "="*50, 'warning')
+            self.update_output("ANALYSIS STOPPED BY USER", 'warning')
+            self.update_output("="*50, 'warning')
+            return
+
         self.update_output("\n" + "="*50, 'success')
         self.update_output("ANALYSIS COMPLETE!", 'success')
         self.update_output("="*50, 'success')
@@ -600,7 +641,7 @@ class ClusterPermutationWidget(QtWidgets.QWidget):
         self.update_output(f"Significant clusters: {results['n_significant_clusters']}", 'info')
         self.update_output(f"Significant voxels: {results['n_significant_voxels']}", 'info')
         self.update_output(f"Analysis time: {results['analysis_time']:.1f} seconds", 'info')
-        
+
         QtWidgets.QMessageBox.information(
             self,
             "Analysis Complete",
@@ -612,6 +653,13 @@ class ClusterPermutationWidget(QtWidgets.QWidget):
     
     def on_error(self, error_msg):
         """Handle analysis error"""
+        # Unlock GUI interface
+        if hasattr(self, 'parent_window') and self.parent_window and hasattr(self.parent_window, 'set_tab_busy'):
+            self.parent_window.set_tab_busy(self, False)
+
+        # Re-enable input controls
+        self.enable_controls()
+
         # Re-enable run button
         if hasattr(self, 'action_buttons'):
             self.action_buttons.enable_run()
@@ -629,6 +677,64 @@ class ClusterPermutationWidget(QtWidgets.QWidget):
             f"An error occurred during analysis:\n\n{error_msg}"
         )
 
+    def disable_controls(self):
+        """Disable all input controls during analysis."""
+        # Disable analysis configuration inputs
+        self.analysis_name_edit.setEnabled(False)
+        self.nifti_pattern_edit.setEnabled(False)
+        self.test_type_combo.setEnabled(False)
+        self.alternative_combo.setEnabled(False)
+        self.cluster_threshold_spin.setEnabled(False)
+        self.cluster_stat_combo.setEnabled(False)
+        self.n_permutations_spin.setEnabled(False)
+        self.alpha_spin.setEnabled(False)
+        self.n_jobs_edit.setEnabled(False)
+
+        # Disable subject-simulation combo boxes and remove buttons
+        for row in self.subject_rows:
+            row.subject_combo.setEnabled(False)
+            row.simulation_combo.setEnabled(False)
+            row.response_combo.setEnabled(False)
+            row.remove_btn.setEnabled(False)
+
+        # Disable toolbar buttons (store references for re-enabling)
+        if not hasattr(self, '_toolbar_buttons'):
+            # Store button references on first call
+            self._toolbar_buttons = []
+            for i in range(self.subjects_group.layout().itemAt(0).layout().count()):
+                item = self.subjects_group.layout().itemAt(0).layout().itemAt(i)
+                if item and item.widget() and isinstance(item.widget(), QtWidgets.QPushButton):
+                    self._toolbar_buttons.append(item.widget())
+
+        # Disable toolbar buttons
+        for btn in self._toolbar_buttons:
+            btn.setEnabled(False)
+
+    def enable_controls(self):
+        """Enable all input controls after analysis."""
+        # Enable analysis configuration inputs
+        self.analysis_name_edit.setEnabled(True)
+        self.nifti_pattern_edit.setEnabled(True)
+        self.test_type_combo.setEnabled(True)
+        self.alternative_combo.setEnabled(True)
+        self.cluster_threshold_spin.setEnabled(True)
+        self.cluster_stat_combo.setEnabled(True)
+        self.n_permutations_spin.setEnabled(True)
+        self.alpha_spin.setEnabled(True)
+        self.n_jobs_edit.setEnabled(True)
+
+        # Enable subject-simulation combo boxes and remove buttons
+        for row in self.subject_rows:
+            row.subject_combo.setEnabled(True)
+            row.simulation_combo.setEnabled(True)
+            row.response_combo.setEnabled(True)
+            row.remove_btn.setEnabled(True)
+
+        # Enable toolbar buttons
+        if hasattr(self, '_toolbar_buttons'):
+            for btn in self._toolbar_buttons:
+                btn.setEnabled(True)
+
 
 class AnalysisThread(QtCore.QThread):
     """Thread for running analysis in background"""
@@ -637,28 +743,68 @@ class AnalysisThread(QtCore.QThread):
     finished_signal = QtCore.pyqtSignal(dict)
     error_signal = QtCore.pyqtSignal(str)
     
-    def __init__(self, subject_configs, analysis_name, config):
+    def __init__(self, subject_configs, analysis_name, config, console_widget=None):
         super(AnalysisThread, self).__init__()
         self.subject_configs = subject_configs
         self.analysis_name = analysis_name
         self.config = config
-    
+        self.console_widget = console_widget
+        self.stop_requested = False
+
+    def request_stop(self):
+        """Request the analysis to stop gracefully."""
+        self.stop_requested = True
+
     def run(self):
         """Run the analysis"""
         try:
             # Import cluster_permutation module
             from stats import cluster_permutation
-            
-            # Run analysis with callback
+
+            # Set up callback handler for GUI console integration
+            callback_handler = None
+            if logging_util:
+                # Create a custom handler that emits signals to the main thread
+                class GUILogHandler(logging.Handler):
+                    def __init__(self, emit_signal_func):
+                        super().__init__()
+                        self.emit_signal = emit_signal_func
+                        self._is_gui_handler = True  # Mark as GUI handler to skip copying
+
+                    def emit(self, record):
+                        try:
+                            msg = self.format(record)
+                            # Emit signal instead of directly calling GUI methods
+                            self.emit_signal(msg)
+                        except Exception:
+                            self.handleError(record)
+
+                def emit_output_signal(message):
+                    self.output_signal.emit(message)
+
+                callback_handler = GUILogHandler(emit_output_signal)
+
+            # Run analysis with callback handler for logging integration
             results = cluster_permutation.run_analysis(
                 subject_configs=self.subject_configs,
                 analysis_name=self.analysis_name,
                 config=self.config,
-                output_callback=self.output_signal.emit
+                callback_handler=callback_handler,
+                stop_callback=lambda: self.stop_requested
             )
-            
+
             self.finished_signal.emit(results)
-            
+
+        except KeyboardInterrupt:
+            # Analysis was stopped by user - this is expected
+            self.finished_signal.emit({
+                'output_dir': None,
+                'n_significant_clusters': 0,
+                'n_significant_voxels': 0,
+                'analysis_time': 0,
+                'stopped_by_user': True
+            })
+
         except Exception as e:
             import traceback
             error_msg = f"{str(e)}\n\n{traceback.format_exc()}"
