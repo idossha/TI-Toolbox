@@ -19,7 +19,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PYTHON_SCRIPT="$SCRIPT_DIR/../tools/tissue_analyzer.py"
 
 # Source shared bash logging utility
-UTIL_DIR="$SCRIPT_DIR/../utils"
+UTIL_DIR="$SCRIPT_DIR/../tools"
 if [ -f "$UTIL_DIR/bash_logging.sh" ]; then
     # shellcheck disable=SC1090
     source "$UTIL_DIR/bash_logging.sh"

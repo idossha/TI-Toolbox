@@ -15,29 +15,19 @@ from matplotlib.patches import Rectangle
 from scipy import ndimage
 from scipy.spatial.distance import cdist
 import os
+import sys
 import argparse
 import logging
 from pathlib import Path
 from abc import ABC, abstractmethod
 
-# Logging setup: integrate with shared logging utility if available
-try:
-    from logging_util import get_logger
-    # Only create a file logger if TI_LOG_FILE environment variable is set
-    # This prevents duplicate logging when called from the bash script
-    log_file = os.environ.get('TI_LOG_FILE')
-    if log_file:
-        LOGGER = get_logger('tissue_analyzer', log_file=log_file, overwrite=False)
-    else:
-        # Just use console logging when no file is specified
-        LOGGER = get_logger('tissue_analyzer')
-    # Set to DEBUG level to capture all detailed information
-    LOGGER.setLevel(logging.DEBUG)
-except Exception:
-    import logging
-    logging.basicConfig(level=logging.DEBUG, format='%(message)s')
-    LOGGER = logging.getLogger('tissue_analyzer')
-    LOGGER.setLevel(logging.DEBUG)
+script_dir = os.path.dirname(os.path.abspath(__file__))
+from logging_util import get_logger
+
+log_file = os.environ.get('TI_LOG_FILE')
+LOGGER = get_logger('tissue_analyzer', log_file=log_file, overwrite=False)
+LOGGER.setLevel(logging.DEBUG)
+
 
 class TissueAnalyzer(ABC):
     """Base class for tissue analysis with common functionality."""
