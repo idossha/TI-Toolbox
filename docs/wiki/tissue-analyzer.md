@@ -13,37 +13,7 @@ The Tissue Analyzer extension provides volumetric assessment f different tissue 
 - **3D Thickness Analysis**: Distance transform-based thickness calculations with statistical summaries (experimental)
 - **Publication-Quality Visualizations**: High-resolution figures for axial, coronal, and sagittal views
 
-## Supported Tissue Types
 
-### Cerebrospinal Fluid (CSF)
-- **Labels**: Ventricles and cortical CSF regions (4, 5, 14, 15, 43, 44, 72, 24, 520)
-- **Color Scheme**: Blues
-- **Analysis Focus**: CSF spaces around brain regions
-
-### Bone Tissue
-- **Labels**: Cortical and cancellous bone (515, 516)
-- **Color Scheme**: Heat map
-- **Analysis Focus**: Skull bone thickness and volume
-
-### Skin Tissue
-- **Labels**: Skin surface (511)
-- **Color Scheme**: Viridis
-- **Analysis Focus**: Skin thickness and coverage
-
-## Usage Workflow
-
-### Command Line Usage
-
-```bash
-# Basic CSF analysis
-python tissue_analyzer.py /path/to/segmented.nii.gz -t csf
-
-# Bone analysis with custom output directory
-python tissue_analyzer.py /path/to/segmented.nii.gz -t bone -o bone_results
-
-# Skin analysis with custom labels
-python tissue_analyzer.py /path/to/segmented.nii.gz -t skin -l 511 512
-```
 
 ## Analysis Pipeline
 
@@ -58,18 +28,41 @@ python tissue_analyzer.py /path/to/segmented.nii.gz -t skin -l 511 512
 - Filter out lower anatomy using Z-coordinate thresholds
 - Focus analysis on relevant anatomical regions
 
-### 3. Volume Analysis
-- Calculate total tissue volume
+### 3. Analysis
+- Calculate total tissue volume / thickness (experimental)
 - Account for voxel dimensions from NIfTI header
 - Provide voxel count statistics
 
-### 4. Thickness Analysis
-- Use 3D distance transform algorithm
-- Calculate thickness as twice the distance to nearest boundary
-- Generate statistical summaries (mean, std, min, max)
-- Create thickness distribution visualizations
+## Calculation Methodology
 
-### 5. Visualization and Reporting
+**Volume Calculation Methodology**
+
+Volume is calculated by multiplying the number of tissue voxels by the volume of each voxel:
+
+```
+Volume (mm³) = Number of tissue voxels × Voxel volume
+```
+
+Where:
+- **Number of tissue voxels**: Count of all voxels in the filtered tissue mask
+- **Voxel volume**: Product of voxel dimensions from the NIfTI header (`voxel_dim_x × voxel_dim_y × voxel_dim_z`)
+
+The voxel dimensions are extracted from the NIfTI header using `header.get_zooms()[:3]`, which provides the spatial resolution in millimeters for each dimension. This ensures accurate volume measurements regardless of the scan resolution.
+
+
+**Thickness Calculation Methodology**
+
+Thickness is calculated using a 3D Euclidean distance transform:
+
+```
+1. Distance transform: Calculate distance from each tissue voxel to nearest boundary (background)
+2. Thickness = Distance × 2
+```
+
+The algorithm uses scipy's `distance_transform_edt()` with voxel spacing sampling to account for anisotropic voxel dimensions. For each voxel within the tissue mask, the distance to the nearest boundary is computed. The thickness at each point is then defined as twice this distance, representing the full thickness of the tissue structure at that location.
+
+
+### 4. Visualization and Reporting
 - Generate publication-quality figures
 - Create comprehensive analysis reports
 - Export results in multiple formats (PNG, PDF, text)
@@ -93,13 +86,8 @@ output_directory/
 ### Input NIfTI Files
 - **Format**: NIfTI (.nii or .nii.gz)
 - **Segmentation**: Tissue labels from SimNIBS segmentation
-- **Coordinate System**: SimNIBS coordinate system (millimeters)
-
-### Label Mapping
 - **File**: labeling_LUT.txt (optional but recommended)
 - **Location**: Same directory as NIfTI, or parent directories
-- **Format**: Tab-separated values with label numbers and names
-- **Purpose**: Human-readable label names in output
 
 ### Directory Structure
 ```
@@ -112,6 +100,23 @@ derivatives/
             │   └── labeling_LUT.txt     # Label mapping (optional)
             └── ...
 ```
+
+
+## Usage Workflow
+
+### Command Line Usage
+
+```bash
+# Basic CSF analysis
+python tissue_analyzer.py /path/to/segmented.nii.gz -t csf
+
+# Bone analysis with custom output directory
+python tissue_analyzer.py /path/to/segmented.nii.gz -t bone -o bone_results
+
+# Skin analysis with custom labels
+python tissue_analyzer.py /path/to/segmented.nii.gz -t skin -l 511 512
+```
+
 
 ## Configuration Options
 
@@ -141,27 +146,9 @@ custom_labels = {
 analyzer.set_label_names(custom_labels)
 ```
 
-## Visualization Features
-
-### Combined Publication Figure
-- **3×4 Layout**: Identification, extraction, and thickness panels
-- **Three Views**: Axial, coronal, and sagittal slices
-- **Color Coding**: Tissue-specific color schemes
-- **Statistical Overlays**: Thickness statistics and distributions
-
-### Methodology Illustrations
-- **Step-by-Step**: Brain reference identification and tissue extraction
-- **Color Legends**: Clear indication of included/excluded regions
-- **Reference Lines**: Z-cutoff and bounding box visualizations
-
-### Thickness Distributions
-- **Histogram Plots**: Probability density distributions
-- **Statistical Lines**: Mean, standard deviation, and percentiles
-- **Publication Style**: High-resolution output for manuscripts
 
 ## Integration Notes
 
 ### TI-Toolbox Structure
 - **Output Organization**: Results organized under `derivatives/ti-toolbox/{tissue}_analysis/`
 - **Logging Integration**: Compatible with shared TI-toolbox logging utilities
-- **Error Handling**: Comprehensive error handling with detailed logging
