@@ -11,14 +11,15 @@ import matplotlib
 # CRITICAL: Set backend BEFORE importing pyplot for Docker compatibility
 matplotlib.use('Agg')  # Use non-interactive backend for headless environments
 import matplotlib.pyplot as plt
+import seaborn as sns
+import os
 
 # Configure matplotlib for Docker/headless environments
-import os
-os.environ['MPLBACKEND'] = 'Agg'  # Ensure Agg backend via environment variable
+os.environ['MPLBACKEND'] = 'Agg'
 
-# Font configuration for Docker environments (fallback to DejaVu Sans if custom fonts unavailable)
-matplotlib.rcParams['font.family'] = 'DejaVu Sans'
-matplotlib.rcParams['font.sans-serif'] = ['DejaVu Sans', 'Arial', 'Helvetica', 'sans-serif']
+# Set seaborn style for consistent appearance
+sns.set_style("whitegrid")
+sns.set_context("notebook", font_scale=1.0)
 
 
 def plot_permutation_null_distribution(null_distribution, threshold, observed_clusters, 
@@ -35,21 +36,16 @@ def plot_permutation_null_distribution(null_distribution, threshold, observed_cl
     observed_clusters : list of dict
         List of observed cluster information (with 'stat_value' and 'size' keys)
     output_file : str
-        Path to save PNG file
+        Path to save PDF file
     alpha : float
         Significance level used
     cluster_stat : {'size', 'mass'}, optional
         Cluster statistic used (default: 'size')
     """
     # Explicitly create new figure (Docker-safe)
-    fig = plt.figure(figsize=(10, 6))
+    fig, ax = plt.subplots(figsize=(10, 6))
     
     try:
-        # Plot histogram of null distribution with higher bin resolution
-        # Use more bins for better resolution (200 instead of 50)
-        plt.hist(null_distribution, bins=200, alpha=0.7, color='gray', 
-                 edgecolor='black', label='Null Distribution')
-        
         # Set labels based on cluster statistic
         if cluster_stat == 'size':
             x_label = 'Maximum Cluster Size (voxels)'
@@ -60,9 +56,13 @@ def plot_permutation_null_distribution(null_distribution, threshold, observed_cl
             title = 'Permutation Null Distribution of Maximum Cluster Mass'
             threshold_label = f'Threshold (α={alpha}): {threshold:.2f}'
         
+        # Plot histogram of null distribution with seaborn
+        sns.histplot(null_distribution, bins=200, alpha=0.7, color='gray', 
+                    edgecolor='black', label='Null Distribution', ax=ax)
+        
         # Plot threshold line
-        plt.axvline(threshold, color='red', linestyle='--', linewidth=2, 
-                    label=threshold_label)
+        ax.axvline(threshold, color='red', linestyle='--', linewidth=2, 
+                   label=threshold_label)
         
         # Plot observed cluster statistics
         for i, cluster in enumerate(observed_clusters):
@@ -73,18 +73,18 @@ def plot_permutation_null_distribution(null_distribution, threshold, observed_cl
             if i == 0 and not is_significant:
                 label = 'Non-significant Cluster'
             
-            plt.axvline(stat_value, color=color, linestyle='-', linewidth=1.5, 
-                       alpha=0.8, label=label)
+            ax.axvline(stat_value, color=color, linestyle='-', linewidth=1.5, 
+                      alpha=0.8, label=label)
         
-        plt.xlabel(x_label, fontsize=12)
-        plt.ylabel('Frequency', fontsize=12)
-        plt.title(title, fontsize=14, fontweight='bold')
-        plt.legend(loc='upper right', fontsize=10)
-        plt.grid(True, alpha=0.3)
+        ax.set_xlabel(x_label, fontsize=12)
+        ax.set_ylabel('Frequency', fontsize=12)
+        ax.set_title(title, fontsize=14, fontweight='bold')
+        ax.legend(loc='upper right', fontsize=10)
+        ax.grid(True, alpha=0.3)
         plt.tight_layout()
         
-        # Save as high-quality PNG
-        plt.savefig(output_file, format='png', dpi=300, bbox_inches='tight', 
+        # Save as high-quality PDF
+        plt.savefig(output_file, format='pdf', dpi=300, bbox_inches='tight', 
                    facecolor='white', edgecolor='none')
         print(f"Saved permutation null distribution plot: {output_file}")
         
@@ -107,7 +107,7 @@ def plot_cluster_size_mass_correlation(cluster_sizes, cluster_masses, output_fil
     cluster_masses : ndarray
         Maximum cluster masses from each permutation
     output_file : str
-        Path to save PNG file
+        Path to save PDF file
     """
     from scipy.stats import pearsonr
     
@@ -124,37 +124,35 @@ def plot_cluster_size_mass_correlation(cluster_sizes, cluster_masses, output_fil
     r_value, p_value = pearsonr(sizes_nonzero, masses_nonzero)
     
     # Explicitly create new figure (Docker-safe)
-    fig = plt.figure(figsize=(10, 8))
+    fig, ax = plt.subplots(figsize=(10, 8))
     
     try:
-        # Scatter plot
-        plt.scatter(sizes_nonzero, masses_nonzero, alpha=0.6, s=50, 
-                   color='steelblue', edgecolors='black', linewidth=0.5)
+        # Scatter plot with regression line using seaborn
+        sns.regplot(x=sizes_nonzero, y=masses_nonzero, ax=ax,
+                   scatter_kws={'alpha': 0.6, 's': 50, 'color': 'steelblue', 
+                               'edgecolors': 'black', 'linewidths': 0.5},
+                   line_kws={'color': 'red', 'linewidth': 2})
         
-        # Linear regression line
+        # Calculate linear fit parameters for label
         z = np.polyfit(sizes_nonzero, masses_nonzero, 1)
-        p = np.poly1d(z)
-        x_line = np.linspace(sizes_nonzero.min(), sizes_nonzero.max(), 100)
-        plt.plot(x_line, p(x_line), 'r-', linewidth=2, label=f'Linear fit: y = {z[0]:.2f}x + {z[1]:.2f}')
         
         # Labels and title
-        plt.xlabel('Maximum Cluster Size (voxels)', fontsize=12, fontweight='bold')
-        plt.ylabel('Maximum Cluster Mass (sum of t-statistics)', fontsize=12, fontweight='bold')
-        plt.title(f'Cluster Size vs Cluster Mass Correlation\nPearson r = {r_value:.3f} (p = {p_value:.2e})', 
-                 fontsize=14, fontweight='bold')
+        ax.set_xlabel('Maximum Cluster Size (voxels)', fontsize=12, fontweight='bold')
+        ax.set_ylabel('Maximum Cluster Mass (sum of t-statistics)', fontsize=12, fontweight='bold')
+        ax.set_title(f'Cluster Size vs Cluster Mass Correlation\nPearson r = {r_value:.3f} (p = {p_value:.2e})', 
+                    fontsize=14, fontweight='bold')
         
         # Add text box with statistics
-        textstr = f'n = {len(sizes_nonzero)} permutations\nr = {r_value:.3f}\np = {p_value:.2e}'
+        textstr = f'n = {len(sizes_nonzero)} permutations\nr = {r_value:.3f}\np = {p_value:.2e}\nLinear fit: y = {z[0]:.2f}x + {z[1]:.2f}'
         props = dict(boxstyle='round', facecolor='wheat', alpha=0.8)
-        plt.text(0.05, 0.95, textstr, transform=plt.gca().transAxes, fontsize=11,
-                verticalalignment='top', bbox=props)
+        ax.text(0.05, 0.95, textstr, transform=ax.transAxes, fontsize=11,
+               verticalalignment='top', bbox=props)
         
-        plt.legend(loc='lower right', fontsize=10)
-        plt.grid(True, alpha=0.3)
+        ax.grid(True, alpha=0.3)
         plt.tight_layout()
         
-        # Save as high-quality PNG
-        plt.savefig(output_file, format='png', dpi=300, bbox_inches='tight',
+        # Save as high-quality PDF
+        plt.savefig(output_file, format='pdf', dpi=300, bbox_inches='tight',
                    facecolor='white', edgecolor='none')
         print(f"Saved cluster size-mass correlation plot: {output_file}")
         print(f"Pearson correlation: r = {r_value:.3f}, p = {p_value:.2e}")
