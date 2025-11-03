@@ -58,10 +58,6 @@ Configure experimental groups through an intuitive interface:
 - **Cluster Statistic**: "Mass" (t-value sum) or "Size" (voxel count)
 - **Significance Level**: cutoff for the permutation null distribution (default: 0.05)
 
-#### Computational Settings
-- **Number of Permutations**: 1,000-10,000 (more = more accurate p-values)
-- **Parallel Jobs**: CPU cores for parallel processing (default: all available)
-
 ## Workflow Example
 
 ### Responder vs Non-Responder Analysis
@@ -96,37 +92,14 @@ hippocampus_responders_vs_nonresponders/
 └── config.json                             # Analysis configuration
 ```
 
-## Statistical Interpretation
-
-### Understanding Results
-
-#### Significant Clusters
-- **Cluster Mask**: Voxels that survive cluster-level correction
-- **P-values**: Cluster-level significance (not voxel-level)
-- **Cluster Statistics**: Mass/size values for each significant cluster
-
-#### Effect Size Maps
-- **Difference Map**: Raw group differences (Responders - Non-responders)
-- **T-value Map**: Statistical strength at each voxel
-- **Percentile Maps**: Relative field strength distributions
-
-### Example Results
-
-**Hippocampal Stimulation Response Analysis:**
-
-| Metric | Value |
-|--------|--------|
-| Total subjects | 24 (12 responders, 12 non-responders) |
-| Significant clusters | 3 |
-| Largest cluster size | 2,847 voxels |
-| Peak t-value | 4.32 |
-| Analysis time | 12.5 minutes |
-| Permutations | 1,000 |
 
 **Key Findings:**
 - Significant cluster in left hippocampus (p = 0.008, 1,245 voxels)
 - Significant cluster in right hippocampus (p = 0.012, 987 voxels)
 - Trend-level cluster in left entorhinal cortex (p = 0.067, 615 voxels)
+
+
+![Permutation Null Distribution]({{ site.baseurl }}/wiki/assets/stats/permutation_null_dist.png)
 
 ## Technical Details
 
@@ -136,40 +109,6 @@ hippocampus_responders_vs_nonresponders/
 - **File Pattern**: Default `grey_{simulation_name}_TI_MNI_MNI_TI_max.nii.gz`
 - **Data Type**: Field intensity values in V/m
 
-## Advanced Usage
-
-### Custom Analysis Configurations
-
-#### Programmatic Interface
-
-```python
-from stats import cluster_permutation
-
-# Define subject configurations
-subject_configs = [
-    {'subject_id': '001', 'simulation_name': 'HIPP_L', 'response': 1},
-    {'subject_id': '002', 'simulation_name': 'HIPP_L', 'response': 0},
-    # ... more subjects
-]
-
-# Configure analysis
-config = {
-    'test_type': 'unpaired',
-    'alternative': 'two-sided',
-    'cluster_threshold': 0.05,
-    'cluster_stat': 'mass',
-    'n_permutations': 1000,
-    'alpha': 0.05,
-    'n_jobs': -1
-}
-
-# Run analysis
-results = cluster_permutation.run_analysis(
-    subject_configs=subject_configs,
-    analysis_name='hippocampus_response_analysis',
-    config=config
-)
-```
 
 #### CSV-Based Configuration
 
@@ -182,36 +121,6 @@ subject_id,simulation_name,response
 003,HIPP_R,1
 004,HIPP_R,0
 ```
-
-## Troubleshooting
-
-### Common Issues
-
-**"Need at least one responder and one non-responder"**
-- Ensure subjects are properly classified in the group assignment
-- Check that response values are 0 (non-responder) or 1 (responder)
-- Verify CSV import parsed classifications correctly
-
-**Memory exhaustion**
-- Reduce `n_jobs` to use fewer CPU cores
-- Decrease number of permutations
-
-**No significant clusters found**
-- Check effect sizes in difference maps
-- Consider more liberal cluster threshold (0.01 instead of 0.05)
-- Increase statistical power with more subjects
-
-### Data Validation
-
-**Check Input Files:**
-- Verify NIfTI files exist in expected locations
-- Confirm files contain valid floating-point data
-- Check coordinate systems are consistent (MNI space)
-
-**Validate Group Assignments:**
-- Ensure balanced group sizes when possible
-- Check for outliers that might affect results
-- Verify no subject appears in multiple groups
 
 
 ## References
