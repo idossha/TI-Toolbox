@@ -449,8 +449,8 @@ class TissueAnalyzer(ABC):
         im1 = ax1.imshow(masked_thickness.T, cmap=self.color_scheme, origin='lower', 
                         aspect=aspect_ratio, interpolation='bilinear', vmin=vmin, vmax=vmax)
         ax1.set_title('A. Axial View', fontsize=14, fontweight='bold', pad=15)
-        ax1.set_xlabel('Anterior - Posterior', fontweight='bold', fontsize=12)
-        ax1.set_ylabel('Left - Right', fontweight='bold', fontsize=12)
+        ax1.set_xlabel('', fontweight='bold', fontsize=12)
+        ax1.set_ylabel('', fontweight='bold', fontsize=12)
         ax1.grid(True, alpha=0.2, linestyle='--')
         
         # 2. Coronal slice (X-Z plane) - top center
@@ -460,8 +460,8 @@ class TissueAnalyzer(ABC):
         im2 = ax2.imshow(masked_thickness.T, cmap=self.color_scheme, origin='lower',
                         aspect=aspect_ratio, interpolation='bilinear', vmin=vmin, vmax=vmax)
         ax2.set_title('B. Coronal View', fontsize=14, fontweight='bold', pad=15)
-        ax2.set_xlabel('Anterior - Posterior', fontweight='bold', fontsize=12)
-        ax2.set_ylabel('Inferior - Superior', fontweight='bold', fontsize=12)
+        ax2.set_xlabel('', fontweight='bold', fontsize=12)
+        ax2.set_ylabel('', fontweight='bold', fontsize=12)
         ax2.grid(True, alpha=0.2, linestyle='--')
         
         # 3. Sagittal slice (Y-Z plane) - top right  
@@ -471,8 +471,8 @@ class TissueAnalyzer(ABC):
         im3 = ax3.imshow(masked_thickness.T, cmap=self.color_scheme, origin='lower',
                         aspect=aspect_ratio, interpolation='bilinear', vmin=vmin, vmax=vmax)
         ax3.set_title('C. Sagittal View', fontsize=14, fontweight='bold', pad=15)
-        ax3.set_xlabel('Left - Right', fontweight='bold', fontsize=12)
-        ax3.set_ylabel('Inferior - Superior', fontweight='bold', fontsize=12)
+        ax3.set_xlabel('', fontweight='bold', fontsize=12)
+        ax3.set_ylabel('', fontweight='bold', fontsize=12)
         ax3.grid(True, alpha=0.2, linestyle='--')
         
         # Add shared colorbar for the three views
@@ -662,8 +662,8 @@ Voxel dimensions: {self.voxel_dims} mm'''
                 # Display the image with correct aspect ratio
                 ax.imshow(img, origin='lower', aspect=aspect_ratio)
                 # Set labels and formatting
-                ax.set_xlabel(xlabel, fontweight='bold', fontsize=9)
-                ax.set_ylabel(ylabel, fontweight='bold', fontsize=9)
+                ax.set_xlabel('', fontweight='bold', fontsize=9)
+                ax.set_ylabel('', fontweight='bold', fontsize=9)
                 ax.grid(True, alpha=0.2, linestyle='--')
                 # Add legend for first column only to avoid repetition
                 if col == 0:
@@ -674,18 +674,9 @@ Voxel dimensions: {self.voxel_dims} mm'''
                 ax.set_xticks([])
                 ax.set_yticks([])
         
-        # Add comprehensive methodology explanation at the bottom
-        method_text = f"""
-{self.tissue_name} Extraction Methodology:
-A. Brain Reference Identification: Left/Right Cerebral Cortex (grey) + Brain Stem (green) define Z-coordinate reference
-B. {self.tissue_name} Extraction Result: Apply 3D bounding box (±{self.padding_voxels}mm) + Z-cutoff below brain center to exclude lower anatomy (dimmed = excluded)
-        """.strip()
-        fig.text(0.02, 0.02, method_text, fontsize=11, verticalalignment='bottom',
-                bbox=dict(boxstyle="round,pad=0.5", facecolor="lightyellow", alpha=0.9, edgecolor='gray'))
-        
         # Adjust layout
         plt.tight_layout()
-        plt.subplots_adjust(left=0.05, right=0.98, top=0.91, bottom=0.15, 
+        plt.subplots_adjust(left=0.05, right=0.98, top=0.91, bottom=0.08, 
                           wspace=0.08, hspace=0.25)
         
         # Save the figure in both PNG and PDF formats
@@ -839,26 +830,11 @@ B. {self.tissue_name} Extraction Result: Apply 3D bounding box (±{self.padding_
                 # Set common properties
                 ax.set_title(f'{chr(65+row)}{col+1}. {view_labels[col]} ({row_title})',
                            fontsize=11, fontweight='bold', pad=8)
-                ax.set_xlabel(xlabel, fontweight='bold', fontsize=9)
-                ax.set_ylabel(ylabel, fontweight='bold', fontsize=9)
+                ax.set_xlabel('', fontweight='bold', fontsize=9)
+                ax.set_ylabel('', fontweight='bold', fontsize=9)
                 ax.grid(True, alpha=0.2, linestyle='--')
                 ax.set_xticks([])
                 ax.set_yticks([])
-        
-        # Add methodology summary
-        color_description = {
-            'CSF': 'blue color scheme',
-            'Bone': 'heat color scheme', 
-            'Skin': 'viridis color scheme'
-        }.get(self.tissue_name, 'custom color scheme')
-        
-        method_text = f"""Analysis Pipeline:
-A. Identification: Brain reference regions (grey matter in grey, stem in green) with {self.tissue_name} context
-B. Extraction: Apply 3D bounding box (±{self.padding_voxels}mm) + Z-cutoff to isolate relevant {self.tissue_name} (dimmed = excluded)
-C. Thickness: Calculate using 3D distance transform ({color_description})"""
-        
-        fig.text(0.02, 0.02, method_text, fontsize=9, verticalalignment='bottom',
-                bbox=dict(boxstyle="round,pad=0.4", facecolor="lightyellow", alpha=0.9, edgecolor='gray'))
         
         # Adjust layout
         fig.subplots_adjust(left=0.05, right=0.95, top=0.92, bottom=0.08, wspace=0.15, hspace=0.25)
@@ -963,6 +939,15 @@ C. Thickness: Calculate using 3D distance transform ({color_description})"""
         # Log analysis results at DEBUG level
         LOGGER.debug(f"[{self.tissue_name} Analysis] Volume results: {volume_results}")
         LOGGER.debug(f"[{self.tissue_name} Analysis] Thickness statistics: {thickness_stats}")
+        
+        # Create thickness visualization with histogram
+        LOGGER.debug(f"[{self.tissue_name} Analysis] Creating thickness visualization...")
+        self.create_thickness_visualization(
+            thickness_stats['thickness_map'],
+            filtered_tissue_mask,
+            self.tissue_name,
+            thickness_stats
+        )
         
         # Create publication figure
         LOGGER.debug(f"[{self.tissue_name} Analysis] Creating publication figure...")
