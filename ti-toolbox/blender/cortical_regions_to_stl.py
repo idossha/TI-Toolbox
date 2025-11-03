@@ -25,6 +25,12 @@ from pathlib import Path
 import numpy as np
 import simnibs
 
+# Import shared mesh utilities
+import sys
+import os
+sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+from core.mesh import create_mesh_opt_file
+
 def write_binary_stl(vertices, faces, output_path):
     """Write binary STL file from vertices and faces."""
     import struct
@@ -191,7 +197,20 @@ def create_roi_mesh(surface_mesh, roi_mask, field_values, field_name, region_nam
     
     # Write the modified mesh
     roi_mesh.write(temp_mesh_path)
-    
+
+    # Create .opt file for Gmsh visualization
+    if len(roi_field_values[roi_mask]) > 0:
+        max_value = np.max(roi_field_values[roi_mask])
+    else:
+        max_value = 1.0
+
+    field_info = {
+        'fields': [field_name],
+        'max_values': {field_name: max_value},
+        'field_type': 'node'
+    }
+    create_mesh_opt_file(temp_mesh_path, field_info)
+
     return temp_mesh_path
 
 def process_region_to_stl(surface_mesh, atlas, region_name, field_name, output_dir, atlas_type, temp_dir):

@@ -40,24 +40,18 @@ import tempfile
 import subprocess
 import shutil
 import platform
+import nibabel as nib
+import simnibs
 
-try:
-    import simnibs
-    from simnibs import read_msh
-    from simnibs.utils.transformations import subject_atlas
-    from simnibs.mesh_tools.mesh_io import NodeData
-except ImportError:
-    print("Error: SimNIBS not found. Please install SimNIBS and activate the environment.")
-    sys.exit(1)
+from simnibs import read_msh
+from simnibs.utils.transformations import subject_atlas
+from simnibs.mesh_tools.mesh_io import NodeData
 
-try:
-    import nibabel as nib
-except ImportError:
-    print("Error: nibabel not found. Please install nibabel in the SimNIBS environment.")
-    sys.exit(1)
-
-
-# Logging removed for consistency with STL script
+# Import shared mesh utilities
+import sys
+import os
+sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+from core.mesh import create_mesh_opt_file
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -259,7 +253,20 @@ def create_roi_mesh(surface_mesh, roi_mask, field_values, field_name, region_nam
     
     # Write the modified mesh
     roi_mesh.write(temp_mesh_path)
-    
+
+    # Create .opt file for Gmsh visualization
+    if len(roi_field_values[roi_mask]) > 0:
+        max_value = np.max(roi_field_values[roi_mask])
+    else:
+        max_value = 1.0
+
+    field_info = {
+        'fields': [field_name],
+        'max_values': {field_name: max_value},
+        'field_type': 'node'
+    }
+    create_mesh_opt_file(temp_mesh_path, field_info)
+
     return temp_mesh_path
 
 
@@ -476,6 +483,20 @@ def run_conversion(mesh_path, m2m_dir, output_dir, atlas_name, field_file, field
                         try:
                             roi_mesh.write(str(msh_path))
                             mesh_success_count += 1
+
+                            # Create .opt file for Gmsh visualization
+                            field_values = roi_mesh.field[field_name].value
+                            if len(field_values[field_values > 0]) > 0:
+                                max_value = np.max(field_values[field_values > 0])
+                            else:
+                                max_value = 1.0
+
+                            field_info = {
+                                'fields': [field_name],
+                                'max_values': {field_name: max_value},
+                                'field_type': 'node'
+                            }
+                            create_mesh_opt_file(str(msh_path), field_info)
                         except Exception as e:
                             pass
                     
@@ -499,6 +520,20 @@ def run_conversion(mesh_path, m2m_dir, output_dir, atlas_name, field_file, field
         whole_msh = Path(output_dir) / "whole_gm.msh"
         try:
             mesh.write(str(whole_msh))
+
+            # Create .opt file for Gmsh visualization
+            field_values = mesh.field[field_name].value
+            if len(field_values[field_values > 0]) > 0:
+                max_value = np.max(field_values[field_values > 0])
+            else:
+                max_value = 1.0
+
+            field_info = {
+                'fields': [field_name],
+                'max_values': {field_name: max_value},
+                'field_type': 'node'
+            }
+            create_mesh_opt_file(str(whole_msh), field_info)
         except Exception as e:
             pass
     
