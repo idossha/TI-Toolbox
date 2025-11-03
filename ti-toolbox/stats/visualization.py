@@ -11,6 +11,11 @@ import matplotlib.pyplot as plt
 import matplotlib
 matplotlib.use('Agg')  # Use non-interactive backend for PDF generation
 
+# Set white background explicitly for consistency across environments
+matplotlib.rcParams['figure.facecolor'] = 'white'
+matplotlib.rcParams['axes.facecolor'] = 'white'
+matplotlib.rcParams['savefig.facecolor'] = 'white'
+
 
 def plot_permutation_null_distribution(null_distribution, threshold, observed_clusters, 
                                        output_file, alpha=0.05, cluster_stat='size'):
