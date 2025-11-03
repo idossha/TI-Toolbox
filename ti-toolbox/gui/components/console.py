@@ -223,9 +223,6 @@ class ConsoleWidget(QtWidgets.QWidget):
         # Only auto-scroll if user was already at the bottom
         if at_bottom:
             self.console.ensureCursorVisible()
-        
-        # Process events to keep GUI responsive
-        QtWidgets.QApplication.processEvents()
     
     def append_html(self, html_text):
         """

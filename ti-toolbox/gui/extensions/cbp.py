@@ -310,7 +310,7 @@ class ClusterPermutationWidget(QtWidgets.QWidget):
                 show_debug_checkbox=True,
                 console_label="Output:",
                 min_height=150,
-                max_height=150,
+                max_height=None,
                 custom_buttons=[self.action_buttons.get_run_button(), self.action_buttons.get_stop_button()]
             )
             layout.addWidget(self.console_widget)

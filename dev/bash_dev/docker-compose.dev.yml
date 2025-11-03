@@ -26,6 +26,9 @@ services:
       QT_X11_NO_MITSHM: ${QT_X11_NO_MITSHM:-}
       QT_OPENGL: ${QT_OPENGL:-}
       TI_GUI_QGL_FALLBACK: ${TI_GUI_QGL_FALLBACK:-}
+      # Matplotlib backend for headless plotting
+      MPLBACKEND: "Agg"
+
       FREESURFER_HOME: /usr/local/freesurfer
       SUBJECTS_DIR: /usr/local/freesurfer/subjects
       FS_LICENSE: /usr/local/freesurfer/license.txt
