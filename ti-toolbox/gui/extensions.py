@@ -16,14 +16,15 @@ from PyQt5 import QtWidgets, QtCore, QtGui
 
 class ExtensionCard(QtWidgets.QGroupBox):
     """Card widget for displaying a single extension."""
-    
-    def __init__(self, name, description, module_path, parent=None, main_window=None):
+
+    def __init__(self, name, description, module_path, parent=None, main_window=None, allow_tab_integration=True):
         super(ExtensionCard, self).__init__(parent)
         self.name = name
         self.description = description
         self.module_path = module_path
         self.parent = parent
         self.main_window = main_window
+        self.allow_tab_integration = allow_tab_integration
         self.extension_widget = None  # Store the extension widget when added as tab
         self.setup_ui()
     
@@ -44,13 +45,14 @@ class ExtensionCard(QtWidgets.QGroupBox):
         self.launch_btn.clicked.connect(self.launch_extension)
         layout.addWidget(self.launch_btn)
         
-        # Add/Remove Tab button (only if main_window is available)
+        # Add/Remove Tab button (always shown if main_window is available, but disabled if tab integration not allowed)
         if self.main_window:
             self.tab_btn = QtWidgets.QPushButton("Add Tab")
             self.tab_btn.setFixedWidth(100)
             self.tab_btn.clicked.connect(self.toggle_tab)
+            self.tab_btn.setEnabled(self.allow_tab_integration)
             layout.addWidget(self.tab_btn)
-            
+
             # Update button text based on current state
             self.update_tab_button_state()
     
@@ -87,12 +89,15 @@ class ExtensionCard(QtWidgets.QGroupBox):
         """Update the tab button text based on whether extension is in tabs."""
         if not self.main_window or not hasattr(self, 'tab_btn'):
             return
-        
+
         # Check if this extension is currently a tab
         if self.is_extension_in_tabs():
             self.tab_btn.setText("Remove Tab")
         else:
             self.tab_btn.setText("Add Tab")
+
+        # Ensure the button is enabled/disabled based on tab integration permission
+        self.tab_btn.setEnabled(self.allow_tab_integration)
     
     def is_extension_in_tabs(self):
         """Check if this extension is currently shown as a tab."""
@@ -107,6 +112,9 @@ class ExtensionCard(QtWidgets.QGroupBox):
     
     def toggle_tab(self):
         """Toggle the extension as a tab in the main window."""
+        if not self.allow_tab_integration:
+            return
+
         if self.is_extension_in_tabs():
             self.remove_from_tab()
         else:
@@ -119,6 +127,14 @@ class ExtensionCard(QtWidgets.QGroupBox):
                 self,
                 "Cannot Add Tab",
                 "Main window reference not available."
+            )
+            return
+
+        if not self.allow_tab_integration:
+            QtWidgets.QMessageBox.warning(
+                self,
+                "Cannot Add Tab",
+                f"Extension '{self.name}' does not support tab integration."
             )
             return
         
@@ -284,9 +300,10 @@ class ExtensionsTab(QtWidgets.QWidget):
                 # Get extension metadata
                 name = getattr(module, 'EXTENSION_NAME', extension_file.stem.replace('_', ' ').title())
                 description = getattr(module, 'EXTENSION_DESCRIPTION', 'No description available.')
-                
+                allow_tab_integration = getattr(module, 'ALLOW_TAB_INTEGRATION', True)
+
                 # Create extension card with main_window reference
-                card = ExtensionCard(name, description, str(extension_file), self.parent, self.main_window)
+                card = ExtensionCard(name, description, str(extension_file), self.parent, self.main_window, allow_tab_integration)
                 self.extensions_layout.addWidget(card)
                 
             except Exception as e:
