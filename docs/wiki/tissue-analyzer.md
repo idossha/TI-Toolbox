@@ -81,6 +81,9 @@ output_directory/
 └── csf_combined_publication_figure.pdf  # Combined analysis figure (PDF)
 ```
 
+![Tissue Analsis Viz]({{ site.baseurl }}/assets/imgs/bone_combined_publication_figure.png)
+
+
 ## Data Requirements
 
 ### Input NIfTI Files
