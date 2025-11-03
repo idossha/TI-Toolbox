@@ -385,7 +385,6 @@ class MainWindow(QtWidgets.QMainWindow):
             # Update mesh files list if it's a mesh analysis
             if analysis_type == 'Mesh':
                 # Update the mesh files list in the analyzer tab
-                self.analyzer_tab.update_mesh_files()
                 self.analyzer_tab.update_field_files()
         finally:
             self._processing_analysis_completion = False
