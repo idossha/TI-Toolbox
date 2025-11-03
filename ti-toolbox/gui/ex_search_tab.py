@@ -1158,7 +1158,6 @@ class ExSearchTab(QtWidgets.QWidget):
                     for roi in rois:
                         f.write(f"{roi}\n")
                 self.update_roi_list()
-                self.update_status("ROI(s) removed successfully")
             except Exception as e:
                 self.update_status(f"Error removing ROI: {str(e)}", error=True)
     
@@ -1937,6 +1936,11 @@ class AddROIDialog(QtWidgets.QDialog):
                 y = self.y_coord.value()
                 z = self.z_coord.value()
             
+            # Format coordinates to two decimal places
+            x = round(x, 2)
+            y = round(y, 2)
+            z = round(z, 2)
+
             # Write coordinates to ROI file as three comma-separated columns
             roi_file = os.path.join(roi_dir, roi_name)
             with open(roi_file, 'w', newline='') as f:
