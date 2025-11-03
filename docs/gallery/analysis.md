@@ -12,15 +12,15 @@ Comprehensive analysis and visualization of TI simulation results, field distrib
   <h3>Field Analysis & Visualization in mesh space (Gmsh Integration)</h3>
   <div class="gallery-grid">
     <div class="gallery-item">
-      <img src="{{ site.baseurl }}/gallery/assets/analyzer/TI_max.png" alt="Maximum TI Field" onclick="openLightbox(this)" />
+      <img src="{{ site.baseurl }}/assets/imgs/analyzer_TI_max.png" alt="Maximum TI Field" onclick="openLightbox(this)" />
       <p>TInorm field distribution showing intensity map in the cortical ROI (Left Insula).</p>
     </div>
     <div class="gallery-item">
-      <img src="{{ site.baseurl }}/gallery/assets/analyzer/TI_normal.png" alt="Normalized TI Field" onclick="openLightbox(this)" />
+      <img src="{{ site.baseurl }}/assets/imgs/analyzer_TI_normal.png" alt="Normalized TI Field" onclick="openLightbox(this)" />
       <p>Normal component of the TInorm field distribution showing intensity map in the cortical ROI (Left Insula)</p>
     </div>
     <div class="gallery-item">
-      <img src="{{ site.baseurl }}/gallery/assets/analyzer/TI_max_all.png" alt="All TI Field Components" onclick="openLightbox(this)" />
+      <img src="{{ site.baseurl }}/assets/imgs/analyzer_TI_max_all.png" alt="All TI Field Components" onclick="openLightbox(this)" />
       <p>TInorm field distribution showing intensity map across the entire brain.</p>
     </div>
   </div>
@@ -30,16 +30,12 @@ Comprehensive analysis and visualization of TI simulation results, field distrib
   <h3>Field Analysis & Visualization in voxel space (Freesurfer Integration)</h3>
   <div class="gallery-grid">
     <div class="gallery-item">
-      <img src="{{ site.baseurl }}/gallery/assets/analyzer/voxel_montage_1.png" alt="TInorm field in ROI (Right Hippocampus)" onclick="openLightbox(this)" />
+      <img src="{{ site.baseurl }}/assets/imgs/gallery_analyzer_voxel_montage_1.png" alt="TInorm field in ROI (Right Hippocampus)" onclick="openLightbox(this)" />
       <p>Montage A: TInorm field distribution showing intensity map in the sub-cortical ROI (Right Hippocampus).</p>
     </div>
     <div class="gallery-item">
-      <img src="{{ site.baseurl }}/gallery/assets/analyzer/voxel_montage_2.png" alt="TInormal field in ROI (Right Hippocampus)" onclick="openLightbox(this)" />
+      <img src="{{ site.baseurl }}/assets/imgs/gallery_analyzer_voxel_montage_2.png" alt="TInormal field in ROI (Right Hippocampus)" onclick="openLightbox(this)" />
       <p>Montage B: TInorm field distribution showing intensity map in the sub-cortical ROI (Right Hippocampus).</p>
-    </div>
-    <div class="gallery-item">
-      <img src="{{ site.baseurl }}/gallery/assets/analyzer/TI_max_all.png" alt="TInorm field in cortex" onclick="openLightbox(this)" />
-      <p>TInorm field distribution showing intensity map across the entire brain.</p>
     </div>
   </div>
 </div>
@@ -48,23 +44,10 @@ Comprehensive analysis and visualization of TI simulation results, field distrib
   <h3>Statistical Analysis & Metrics</h3>
   <div class="gallery-grid">
     <div class="gallery-item">
-      <img src="{{ site.baseurl }}/gallery/assets/analyzer/analysis_plot.png" alt="Analysis Plots" onclick="openLightbox(this)" />
-      <p>field strength distribution in the ROI.</p>
-    </div>
-    <div class="gallery-item">
-      <img src="{{ site.baseurl }}/gallery/assets/analyzer/lh.insula_whole_head_roi_histogram.png" alt="ROI Histogram Analysis" onclick="openLightbox(this)" />
+      <img src="{{ site.baseurl }}/assets/imgs/analyzer_lh.insula_whole_head_roi_histogram.png" alt="ROI Histogram Analysis" onclick="openLightbox(this)" />
       <p>Histrogram showing focality, intensity cutoffs, and relationship to ROI</p>
     </div>
-    <div class="gallery-item">
-      <img src="{{ site.baseurl }}/gallery/assets/ex-search/ex-search_analysis_values.png" alt="Ex-Search Quantitative Values" onclick="openLightbox(this)" />
-      <p>Quantitative values corresponding to histrogram plot.</p>
-    </div>
   </div>
-</div>
-
-<div class="gallery-section">
-  <h3>Comparative Analysis</h3>
-  <div class="gallery-grid">
 </div>
 
 <!-- Lightbox Modal -->
@@ -171,5 +154,4 @@ Comprehensive analysis and visualization of TI simulation results, field distrib
     max-height: 250px !important;
   }
 }
-</style> 
-</style> 
+</style>  

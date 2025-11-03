@@ -35,7 +35,7 @@ If Edge/Chrome blocks the download:
 - Check WSL 2 is enabled and updated
 - Verify sufficient disk space and memory allocation
 
-![Docker Settings on Windows]({{ site.baseurl }}/installation/assets/docker_windows.png){:style="max-width: 800px;"}
+![Docker Settings on Windows]({{ site.baseurl }}/assets/imgs/installation_docker_windows.png){:style="max-width: 800px;"}
 
 
 ---

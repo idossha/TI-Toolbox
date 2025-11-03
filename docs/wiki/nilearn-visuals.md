@@ -100,12 +100,12 @@ hippocampus_stimulation/
 The extension generates two main types of high-resolution visualizations:
 
 <div class="image-container">
-  <img src="{{ site.baseurl }}/wiki/assets/nilearn_visuals/glass_brain.png" alt="Glass Brain View" style="max-width: 50%; height: auto;">
+  <img src="{{ site.baseurl }}/assets/imgs/wiki_nilearn_visuals_glass_brain.png" alt="Glass Brain View" style="max-width: 50%; height: auto;">
   <em>Glass brain projection showing TI field distribution with transparency for 3D visualization</em>
 </div>
 
 <div class="image-container">
-  <img src="{{ site.baseurl }}/wiki/assets/nilearn_visuals/sliced_brain.png" alt="Sliced Brain View" style="max-width: 50%; height: auto;">
+  <img src="{{ site.baseurl }}/assets/imgs/wiki_nilearn_visuals_sliced_brain.png" alt="Sliced Brain View" style="max-width: 50%; height: auto;">
   <em>Multi-slice anatomical view showing TI field distribution across sagittal, coronal, and axial planes</em>
 </div>
 

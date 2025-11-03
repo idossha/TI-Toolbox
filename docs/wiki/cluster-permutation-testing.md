@@ -99,7 +99,7 @@ hippocampus_responders_vs_nonresponders/
 - Trend-level cluster in left entorhinal cortex (p = 0.067, 615 voxels)
 
 
-![Permutation Null Distribution]({{ site.baseurl }}/wiki/assets/stats/permutation_null_dist.png)
+![Permutation Null Distribution]({{ site.baseurl }}/assets/imgs/wiki_stats_permutation_null_dist.png)
 
 ## Technical Details
 
