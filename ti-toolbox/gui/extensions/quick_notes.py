@@ -137,10 +137,8 @@ class NotesWindow(QtWidgets.QDialog):
         layout.addWidget(header_label)
         
         # Info label
-        if self.notes_file_path:
-            info_text = f"<i>Notes are saved to: {os.path.basename(self.notes_file_path)}</i>"
-        else:
-            info_text = "<i>No project directory detected. Notes will be kept in memory only.</i>"
+        project_dir_name = self.pm.get_project_dir_name() if self.pm else None
+        info_text = f"<i>Notes are saved to: /mnt/{project_dir_name}/derivatives/ti-toolbox/notes.txt</i>"
         
         info_label = QtWidgets.QLabel(info_text)
         info_label.setWordWrap(True)
