@@ -1854,8 +1854,7 @@ class SimulatorTab(QtWidgets.QWidget):
             
             # Disable UI controls during simulation
             self.disable_controls()
-            self.run_btn.setEnabled(False)
-            self.stop_btn.setEnabled(True)
+            self.action_buttons.enable_stop()
             self.simulation_running = True
             
             # Create and start the thread
