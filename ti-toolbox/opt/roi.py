@@ -21,14 +21,9 @@ import numpy as np
 import numpy.typing as npt
 
 # SimNIBS imports - these are available in the docker container
-try:
-    from simnibs.utils.region_of_interest import RegionOfInterest
-    from simnibs.mesh_tools.mesh_io import Msh, read_msh, ElementTags
-    from simnibs.utils.transformations import mni2subject_coords
-    SIMNIBS_AVAILABLE = True
-except ImportError:
-    SIMNIBS_AVAILABLE = False
-    print("Warning: SimNIBS not available. ROI functionality will be limited.")
+from simnibs.utils.region_of_interest import RegionOfInterest
+from simnibs.mesh_tools.mesh_io import Msh, read_msh, ElementTags
+from simnibs.utils.transformations import mni2subject_coords
 
 if TYPE_CHECKING:
     from typing import Dict, Any
@@ -48,9 +43,6 @@ class ROIManager:
             mesh_path: Optional path to the head mesh. If not provided, will be
                       loaded from m2m folder when needed.
         """
-        if not SIMNIBS_AVAILABLE:
-            raise ImportError("SimNIBS is required for ROI functionality")
-        
         self.m2m_path = m2m_path
         self.mesh_path = mesh_path
         self._mesh = None
@@ -245,9 +237,6 @@ class ROICoordinateHelper:
         Returns:
             Subject space coordinates [x, y, z]
         """
-        if not SIMNIBS_AVAILABLE:
-            raise ImportError("SimNIBS is required for coordinate transformation")
-        
         return mni2subject_coords(list(mni_coords), m2m_path)
     
     @staticmethod
