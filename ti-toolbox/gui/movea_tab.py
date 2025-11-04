@@ -842,20 +842,21 @@ class MOVEATab(QtWidgets.QWidget):
         if not subject_id:
             return
         
-        subject_dir = self.pm.get_subject_dir(subject_id)
-        
-        # NEW: Search in MOVEA/leadfields directory
-        movea_leadfield_dir = os.path.join(subject_dir, "MOVEA", "leadfields")
-        
+        simnibs_dir = self.pm.get_simnibs_dir()
+
+        # Search in m2m directory leadfields
+        m2m_dir_name = f"m2m_{subject_id}"
+        leadfield_dir = os.path.join(simnibs_dir, m2m_dir_name, "leadfields")
+
         # Check for existing leadfield NPY files
         leadfield_files = []
-        if os.path.exists(movea_leadfield_dir):
-            for file in os.listdir(movea_leadfield_dir):
+        if os.path.exists(leadfield_dir):
+            for file in os.listdir(leadfield_dir):
                 if file.endswith('_leadfield.npy'):
-                    leadfield_path = os.path.join(movea_leadfield_dir, file)
+                    leadfield_path = os.path.join(leadfield_dir, file)
                     # Look for corresponding positions file
                     pos_file = file.replace('_leadfield.npy', '_positions.npy')
-                    pos_path = os.path.join(movea_leadfield_dir, pos_file)
+                    pos_path = os.path.join(leadfield_dir, pos_file)
                     
                     if os.path.exists(pos_path):
                         net_name = file.replace('_leadfield.npy', '')

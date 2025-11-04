@@ -57,17 +57,16 @@ except ImportError as e:
     sys.exit(1)
 
 # Get paths
-subject_id = os.path.basename(m2m_dir).replace('m2m_', '')
-subject_derivatives = os.path.join(project_dir, 'derivatives', 'SimNIBS', f'sub-{subject_id}')
-movea_leadfield_dir = os.path.join(subject_derivatives, 'MOVEA', 'leadfields')
-os.makedirs(movea_leadfield_dir, exist_ok=True)
+m2m_dir_basename = os.path.basename(m2m_dir)
+leadfield_dir = os.path.join(project_dir, 'derivatives', 'SimNIBS', m2m_dir_basename, 'leadfields')
+os.makedirs(leadfield_dir, exist_ok=True)
 
 # Check if leadfield already exists
 net_name = eeg_cap_file.replace('.csv', '')
 lfm_filename = f"{net_name}_leadfield.npy"
 pos_filename = f"{net_name}_positions.npy"
-lfm_path = os.path.join(movea_leadfield_dir, lfm_filename)
-pos_path = os.path.join(movea_leadfield_dir, pos_filename)
+lfm_path = os.path.join(leadfield_dir, lfm_filename)
+pos_path = os.path.join(leadfield_dir, pos_filename)
 
 if os.path.exists(lfm_path) and os.path.exists(pos_path):
     logger.error(f"Leadfield already exists: {lfm_filename}")
@@ -89,7 +88,7 @@ gen = LeadfieldGenerator(m2m_dir, progress_callback=progress_callback)
 try:
     # Use the complete workflow method (handles everything: cleanup, generate, convert, save)
     lfm_path, pos_path, lfm_shape = gen.generate_and_save_numpy(
-        output_dir=movea_leadfield_dir,
+        output_dir=leadfield_dir,
         eeg_cap_file=eeg_cap_file,
         cleanup_intermediate=True
     )
