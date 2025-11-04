@@ -109,11 +109,8 @@ class LeadfieldGenerator:
         Returns:
             Path to generated HDF5 file
         """
-        try:
-            from simnibs import sim_struct
-            import simnibs
-        except ImportError:
-            raise ImportError("SimNIBS not found. Please install SimNIBS to generate leadfields.")
+        from simnibs import sim_struct
+        import simnibs
         
         if output_dir is None:
             output_dir = self.subject_dir / 'leadfield'
