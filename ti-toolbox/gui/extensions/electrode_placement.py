@@ -75,15 +75,8 @@ except ImportError:
     get_path_manager = None
     print("Warning: PathManager not found. Some features may be limited.")
 
-# Try to import SimNIBS modules
-try:
-    from simnibs.mesh_tools import mesh_io, surface
-    SIMNIBS_AVAILABLE = True
-except ImportError:
-    SIMNIBS_AVAILABLE = False
-    mesh_io = None
-    surface = None
-    print("Warning: SimNIBS not found. Make sure it's installed and accessible.")
+# SimNIBS imports
+from simnibs.mesh_tools import mesh_io, surface
 
 
 class GLSurfaceWidget(OpenGLWidgetBase):
@@ -145,10 +138,6 @@ class GLSurfaceWidget(OpenGLWidgetBase):
     
     def loadMesh(self, mesh_fn):
         """Load mesh file and extract skin surface"""
-        if not SIMNIBS_AVAILABLE:
-            QMessageBox.critical(None, "Error", "SimNIBS is not available!")
-            return False
-        
         try:
             print(f"Loading mesh: {mesh_fn}")
             mesh_struct = mesh_io.read_msh(mesh_fn)

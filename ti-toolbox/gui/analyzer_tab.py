@@ -2064,7 +2064,6 @@ class AnalyzerTab(QtWidgets.QWidget):
                     atlas = simnibs.subject_atlas(atlas_name_simnibs, m2m_dir)
                     regions = sorted(atlas.keys())
                     progress_dialog.setValue(80); QtWidgets.QApplication.processEvents()
-                except ImportError: QtWidgets.QMessageBox.critical(self, "Import Error", "SimNIBS lib not found."); progress_dialog.cancel(); return
                 except Exception as e: QtWidgets.QMessageBox.critical(self, "Load Error", f"Load mesh atlas fail: {e}"); progress_dialog.cancel(); print(traceback.format_exc()); return
             
             else: # Voxel Atlas
