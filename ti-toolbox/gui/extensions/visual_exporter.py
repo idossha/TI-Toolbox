@@ -276,7 +276,7 @@ class VisualExporterWidget(QtWidgets.QWidget):
         cust.addWidget(self.vec_anchor, r, 1)
         cust.addWidget(QtWidgets.QLabel("Color scale:"), r, 2)
         self.vec_color_mode = QtWidgets.QComboBox()
-        self.vec_color_mode.addItems(["default", "rgb", "magscale"])
+        self.vec_color_mode.addItems(["rgb", "magscale"])
         cust.addWidget(self.vec_color_mode, r, 3)
         r += 1
         # Magscale options
@@ -312,31 +312,30 @@ class VisualExporterWidget(QtWidgets.QWidget):
         # Processing Options (balanced left/right)
         proc_group = QtWidgets.QGroupBox("Processing Options")
         proc = QtWidgets.QGridLayout(proc_group)
-        # Row 0: left seed, right Generate SUM
+        # Row 0: left seed, right Export TI_sum
         rowp = 0
         proc.addWidget(QtWidgets.QLabel("Seed:"), rowp, 0)
         self.vec_seed = QtWidgets.QSpinBox()
         self.vec_seed.setRange(0, 1_000_000)
         self.vec_seed.setValue(42)
         proc.addWidget(self.vec_seed, rowp, 1)
-        self.vec_do_sum = QtWidgets.QCheckBox("Generate SUM vector")
+        self.vec_do_sum = QtWidgets.QCheckBox("Export TI_sum vector")
         proc.addWidget(self.vec_do_sum, rowp, 3, 1, 3)
         rowp += 1
-        # Row 1: left sample count + use maximum, right Generate TI_normal
+        # Row 1: left sample count + use maximum, right Export TI_normal
         proc.addWidget(QtWidgets.QLabel("Sample count:"), rowp, 0)
         self.vec_count = QtWidgets.QSpinBox()
         self.vec_count.setRange(1, 2_000_000)
-        self.vec_count.setValue(100000)
+        self.vec_count.setValue(10000)
         proc.addWidget(self.vec_count, rowp, 1)
         self.vec_all_nodes = QtWidgets.QCheckBox("Use maximum (all nodes)")
         proc.addWidget(self.vec_all_nodes, rowp, 2)
-        self.vec_do_ti_normal = QtWidgets.QCheckBox("Generate TI_normal vector")
+        self.vec_do_ti_normal = QtWidgets.QCheckBox("Export TI_normal vector")
         proc.addWidget(self.vec_do_ti_normal, rowp, 3, 1, 3)
         rowp += 1
-        # Row 2: left surface id, right Enable mTI
-        proc.addWidget(QtWidgets.QLabel("Surface ID (optional):"), rowp, 0)
-        self.vec_surface_id = QtWidgets.QLineEdit()
-        proc.addWidget(self.vec_surface_id, rowp, 1, 1, 2)
+        # Row 2: left Export CH1/CH2 checkbox, right Enable mTI
+        self.vec_export_ch1_ch2 = QtWidgets.QCheckBox("Export CH1 and CH2 vectors")
+        proc.addWidget(self.vec_export_ch1_ch2, rowp, 0, 1, 2)
         self.vec_enable_mti = QtWidgets.QCheckBox("Enable mTI (4 meshes)")
         proc.addWidget(self.vec_enable_mti, rowp, 3, 1, 3)
         rowp += 1
@@ -613,7 +612,7 @@ class VisualExporterWidget(QtWidgets.QWidget):
                     os.makedirs(stl_dir, exist_ok=True)
                     cmd_stl = [
                         "simnibs_python",
-                        str(ti_toolbox_path / "blender" / "cortical_regions_to_stl.py"),
+                        str(ti_toolbox_path / "3d_exporter" / "cortical_regions_to_stl.py"),
                         "--mesh", central_surface,
                         "--m2m", self._m2m_dir(subject_id),
                         "--output-dir", stl_dir,
@@ -642,7 +641,7 @@ class VisualExporterWidget(QtWidgets.QWidget):
                     os.makedirs(ply_dir, exist_ok=True)
                     cmd_ply = [
                         "simnibs_python",
-                        str(ti_toolbox_path / "blender" / "cortical_regions_to_ply.py"),
+                        str(ti_toolbox_path / "3d_exporter" / "cortical_regions_to_ply.py"),
                         "--mesh", central_surface,
                         "--m2m", self._m2m_dir(subject_id),
                         "--output-dir", ply_dir,
@@ -684,29 +683,42 @@ class VisualExporterWidget(QtWidgets.QWidget):
                 if not m1 or not m2 or not os.path.exists(m1) or not os.path.exists(m2):
                     raise ValueError("TDCS meshes 1 and 2 not found. Provide files or ensure simulation outputs exist.")
 
-                prefix = os.path.join(mode_dir, ("mTI" if self.vec_enable_mti.isChecked() else "TI"))
+                # Get central surface (required)
+                try:
+                    central_surface = self._ensure_central_surface(subject_id, simulation_name)
+                    if not central_surface or not os.path.exists(central_surface):
+                        raise ValueError("Central surface mesh is required but could not be generated")
+                except Exception as e:
+                    raise ValueError(f"Failed to get central surface: {e}")
+                
+                # Use output directory as prefix (vectors will be named TI.ply, CH1.ply, etc.)
                 cmd = [
                     "simnibs_python",
-                    str(ti_toolbox_path / "blender" / "vector_ply.py"),
+                    str(ti_toolbox_path / "3d_exporter" / "vector_ply.py"),
                     m1,
                     m2,
-                    prefix,
+                    mode_dir,  # Output directory
+                    "--central-surface", central_surface,
                 ]
+                
                 if self.vec_enable_mti.isChecked():
                     m3 = self.vec_m3.text().strip()
                     m4 = self.vec_m4.text().strip()
                     if not (m3 and m4 and os.path.exists(m3) and os.path.exists(m4)):
                         raise ValueError("mTI enabled: TDCS meshes 3 and 4 required.")
                     cmd.extend(["--mti", m3, m4])
+                
+                # Export CH1/CH2 if requested
+                if self.vec_export_ch1_ch2.isChecked():
+                    cmd.append("--export-ch1-ch2")
+                
                 if self.vec_do_sum.isChecked():
                     cmd.append("--sum")
                 if self.vec_do_ti_normal.isChecked():
                     cmd.append("--ti-normal")
-                if self.vec_surface_id.text().strip():
-                    cmd.extend(["--surface-id", self.vec_surface_id.text().strip()])
                 # Color scale
                 color_mode = self.vec_color_mode.currentText().strip()
-                if color_mode and color_mode != "default":
+                if color_mode:
                     cmd.extend(["--color", color_mode])
                     if color_mode == "magscale":
                         cmd.extend(["--blue-percentile", str(self.spn_blue.value())])
