@@ -119,18 +119,19 @@ ENV SIMNIBSDIR="/root/SimNIBS-4.5"
 RUN simnibs_python -m pip install meshio nilearn PyOpenGL-accelerate trimesh seaborn
 
 ########### TI-Toolbox ########################
-RUN git clone https://github.com/idossha/TI-Toolbox.git /ti-toolbox
+# Clone a specific branch by -b {branch name} --single-brnach {repo URL}
+RUN git clone -b v2.2.0 --single-branch https://github.com/idossha/TI-Toolbox.git /ti-toolbox
 
 # Convert all shell scripts to Unix line endings
 RUN find /ti-toolbox -name "*.sh" -exec dos2unix {} \;
 
-# EEG caps for CSC 
-RUN mkdir -p $SIMNIBSDIR/assets/ElectrodeCaps_MNI/
-RUN cp /ti-toolbox/assets/ElectrodeCaps_MNI/* $SIMNIBSDIR/assets/ElectrodeCaps_MNI/
+# Extra EEG nets 
+RUN mkdir -p $SIMNIBSDIR/resources/ElectrodeCaps_MNI/
+RUN cp /ti-toolbox/resources/ElectrodeCaps_MNI/* $SIMNIBSDIR/resources/ElectrodeCaps_MNI/
 
-# Flex extention by Ido Haber 
+# Flex extention by TI-Toolbox team
 RUN rm -f $SIMNIBSDIR/simnibs/optimization/tes_flex_optimization/tes_flex_optimization.py && \
-    cp /ti-toolbox/assets/map-electrodes/tes_flex_optimization.py $SIMNIBSDIR/simnibs/optimization/tes_flex_optimization/tes_flex_optimization.py
+    cp /ti-toolbox/resources/map-electrodes/tes_flex_optimization.py $SIMNIBSDIR/simnibs/optimization/tes_flex_optimization/tes_flex_optimization.py
 
 ############ CLI tools ###############
 
