@@ -14,6 +14,7 @@ import csv
 import time
 import logging
 import sys
+from pathlib import Path
 
 # Add project root to path for tools import
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
@@ -29,9 +30,133 @@ from components.action_buttons import RunStopButtons
 from core import get_path_manager
 from tools import logging_util
 
+
+class LeadfieldGenerationThread(QtCore.QThread):
+    """Thread to run leadfield generation for Ex-Search (generates both HDF5 and NPY files)."""
+    
+    # Signals
+    output_signal = QtCore.pyqtSignal(str, str)  # message, type
+    error_signal = QtCore.pyqtSignal(str)
+    finished_signal = QtCore.pyqtSignal(bool, str)  # success, hdf5_path
+    
+    def __init__(self, subject_id, eeg_net_file, project_dir, parent=None):
+        super(LeadfieldGenerationThread, self).__init__(parent)
+        self.subject_id = subject_id
+        self.eeg_net_file = eeg_net_file
+        self.project_dir = project_dir
+        self.terminated = False
+        self.generator = None
+        
+    def run(self):
+        """Run leadfield generation using LeadfieldGenerator (generates both HDF5 and NPY files)."""
+        try:
+            self.output_signal.emit("Initializing leadfield generation...", 'info')
+            
+            pm = get_path_manager()
+            m2m_dir = pm.get_m2m_dir(self.subject_id)
+            
+            if not m2m_dir or not os.path.exists(m2m_dir):
+                self.error_signal.emit(f"m2m directory not found for subject {self.subject_id}")
+                self.finished_signal.emit(False, "")
+                return
+            
+            # Setup log file
+            time_stamp = time.strftime('%Y%m%d_%H%M%S')
+            derivatives_dir = os.path.join(self.project_dir, 'derivatives')
+            log_dir = os.path.join(derivatives_dir, 'ti-toolbox', 'logs', f'sub-{self.subject_id}')
+            os.makedirs(log_dir, exist_ok=True)
+            log_file = os.path.join(log_dir, f'exsearch_leadfield_{time_stamp}.log')
+            
+            self.output_signal.emit(f"Log file: {log_file}", 'info')
+            self.output_signal.emit(f"Subject: {self.subject_id}", 'info')
+            self.output_signal.emit(f"EEG Net: {self.eeg_net_file}", 'info')
+            self.output_signal.emit(f"m2m directory: {m2m_dir}", 'info')
+            
+            # Get leadfield output directory
+            subject_dir = f"sub-{self.subject_id}"
+            leadfield_dir = os.path.join(self.project_dir, 'derivatives', 'SimNIBS', subject_dir, 'leadfields')
+            os.makedirs(leadfield_dir, exist_ok=True)
+            
+            # Clean net name (remove .csv extension)
+            net_name = self.eeg_net_file.replace('.csv', '') if self.eeg_net_file.endswith('.csv') else self.eeg_net_file
+            
+            # Check if leadfield already exists
+            hdf5_filename = f"{net_name}_leadfield.hdf5"
+            hdf5_path = os.path.join(leadfield_dir, hdf5_filename)
+            
+            if os.path.exists(hdf5_path):
+                self.error_signal.emit(f"Leadfield already exists: {hdf5_filename}")
+                self.error_signal.emit("Delete existing file first or choose a different EEG net")
+                self.finished_signal.emit(False, "")
+                return
+            
+            # Progress callback to emit signals
+            def progress_callback(message, msg_type='info'):
+                self.output_signal.emit(message, msg_type)
+                
+            # Termination check callback
+            def termination_check():
+                return self.terminated
+            
+            # Create leadfield generator
+            self.output_signal.emit("", 'default')
+            self.output_signal.emit("Creating leadfield generator...", 'info')
+            
+            try:
+                from opt.leadfield import LeadfieldGenerator
+                self.generator = LeadfieldGenerator(
+                    m2m_dir, 
+                    electrode_cap=net_name,
+                    progress_callback=progress_callback,
+                    termination_flag=termination_check
+                )
+                
+                # Generate leadfield (creates both HDF5 and NPY files)
+                self.output_signal.emit("Starting leadfield generation...", 'info')
+                result = self.generator.generate_leadfield(
+                    output_dir=leadfield_dir,
+                    tissues=[1, 2],
+                    eeg_cap_path=os.path.join(m2m_dir, "eeg_positions", self.eeg_net_file)
+                )
+                
+                if self.terminated:
+                    self.output_signal.emit("Leadfield generation was terminated", 'warning')
+                    self.finished_signal.emit(False, "")
+                    return
+                
+                # Check if HDF5 file was generated successfully
+                if result['hdf5']:
+                    hdf5_path = result['hdf5']
+                    self.output_signal.emit("", 'default')
+                    self.output_signal.emit(f"Leadfield HDF5 saved: {os.path.basename(hdf5_path)}", 'success')
+                    self.finished_signal.emit(True, hdf5_path)
+                else:
+                    self.error_signal.emit("Failed to generate HDF5 file")
+                    self.finished_signal.emit(False, "")
+                    
+            except Exception as e:
+                import traceback
+                self.error_signal.emit(f"Error during leadfield generation: {str(e)}")
+                self.error_signal.emit(traceback.format_exc())
+                self.finished_signal.emit(False, "")
+                
+        except Exception as e:
+            import traceback
+            self.error_signal.emit(f"Error initializing leadfield generation: {str(e)}")
+            self.error_signal.emit(traceback.format_exc())
+            self.finished_signal.emit(False, "")
+    
+    def terminate_process(self):
+        """Terminate the leadfield generation."""
+        self.terminated = True
+        if self.generator:
+            # The generator checks termination_flag during generation
+            pass
+
+
 class ExSearchThread(QtCore.QThread):
     """Thread to run ex-search optimization in background to prevent GUI freezing."""
-    
+
     # Signal to emit output text with message type
     output_signal = QtCore.pyqtSignal(str, str)
     error_signal = QtCore.pyqtSignal(str)
@@ -88,8 +213,9 @@ class ExSearchThread(QtCore.QThread):
                 if self.terminated:
                     break
                 if line:
-                    # Detect message type based on content
                     line_stripped = line.strip()
+
+                    # Detect message type based on content
                     if any(keyword in line_stripped.lower() for keyword in ['error:', 'critical:', 'failed', 'exception']):
                         message_type = 'error'
                     elif any(keyword in line_stripped.lower() for keyword in ['warning:', 'warn']):
@@ -104,7 +230,7 @@ class ExSearchThread(QtCore.QThread):
                         message_type = 'info'
                     else:
                         message_type = 'default'
-                    
+
                     self.output_signal.emit(line_stripped, message_type)
             
             # Check process completion
@@ -166,6 +292,8 @@ class ExSearchTab(QtWidgets.QWidget):
         self.parent = parent
         self.optimization_running = False
         self.optimization_process = None
+        self.leadfield_generating = False
+        self.leadfield_thread = None
         # Initialize debug mode (default to False)
         self.debug_mode = False
         # Initialize summary mode and timing trackers for non-debug summaries
@@ -494,7 +622,7 @@ class ExSearchTab(QtWidgets.QWidget):
                                 if selected_items and selected_items[0].data(QtCore.Qt.UserRole):
                                     eeg_net = selected_items[0].data(QtCore.Qt.UserRole)["net_name"]
                                     output_dir = f"{roi_name}_{eeg_net}"
-                                    completion_logger.info(f"  {i+1}. {roi_file} → ex-search/{output_dir}/")
+                                    completion_logger.info(f"  {i+1}. {roi_file} → derivatives/{output_dir}/")
                                 else:
                                     completion_logger.info(f"  {i+1}. {roi_file}")
                             except (KeyError, AttributeError, RuntimeError):
@@ -508,7 +636,7 @@ class ExSearchTab(QtWidgets.QWidget):
                     
                     # Note where results can be found
                     completion_logger.info("Output Location:")
-                    completion_logger.info(f"  Results stored in: {project_dir}/derivatives/SimNIBS/sub-{subject_id}/ex-search/")
+                    completion_logger.info(f"  Results stored in: {project_dir}/derivatives/SimNIBS/sub-{subject_id}/derivatives/")
                     completion_logger.info("  Each ROI has its own directory with analysis results")
                     completion_logger.info("  Look for final_output.csv in each ROI's analysis/ subdirectory")
                     
@@ -773,36 +901,39 @@ class ExSearchTab(QtWidgets.QWidget):
             self.update_output("\nChecking available subjects and leadfields...")
         
         try:
-            project_dir = self.pm.get_project_dir() if hasattr(self, 'pm') else get_path_manager().get_project_dir()
-            simnibs_dir = self.pm.get_simnibs_dir() if hasattr(self, 'pm') else get_path_manager().get_simnibs_dir()
+            from opt.leadfield import LeadfieldGenerator
             
-            # Count subjects and leadfields with new naming scheme
-            subject_count = 0
+            pm = self.pm if hasattr(self, 'pm') else get_path_manager()
+            
+            # Get list of subjects
+            subjects = []
+            simnibs_dir = pm.get_simnibs_dir()
+            if os.path.exists(simnibs_dir):
+                for item in os.listdir(simnibs_dir):
+                    if item.startswith("sub-"):
+                        subject_id = item[4:]  # Remove 'sub-' prefix
+                        subjects.append(subject_id)
+            
+            subject_count = len(subjects)
             total_leadfields = 0
             subjects_with_leadfields = {}
             
-            for item in os.listdir(simnibs_dir):
-                if item.startswith("sub-"):
-                    subject_id = item[4:]  # Remove 'sub-' prefix
-                    subject_count += 1
-                    subject_dir = os.path.join(simnibs_dir, item)
-                    
-                    # Look for leadfield directories in ex-search subdirectory with pattern: leadfield_vol_*
-                    subject_leadfields = []
-                    ex_search_dir = os.path.join(subject_dir, "leadfields")
-                    if os.path.exists(ex_search_dir):
-                        for subdir in os.listdir(ex_search_dir):
-                            if subdir.startswith("leadfield_vol_"):
-                                leadfield_path = os.path.join(ex_search_dir, subdir)
-                                # Check if leadfield.hdf5 exists
-                                hdf5_file = os.path.join(leadfield_path, "leadfield.hdf5")
-                                if os.path.exists(hdf5_file):
-                                    net_name = subdir[len("leadfield_vol_"):]
-                                    subject_leadfields.append(net_name)
-                                    total_leadfields += 1
-                    
-                    if subject_leadfields:
-                        subjects_with_leadfields[subject_id] = subject_leadfields
+            # Use LeadfieldGenerator to count leadfields for each subject
+            for subject_id in subjects:
+                try:
+                    m2m_dir = pm.get_m2m_dir(subject_id)
+                    if m2m_dir and os.path.exists(m2m_dir):
+                        gen = LeadfieldGenerator(m2m_dir)
+                        leadfields = gen.list_available_leadfields_hdf5(subject_id)
+                        
+                        if leadfields:
+                            # Extract net names from leadfield list
+                            net_names = [net_name for net_name, _, _ in leadfields]
+                            subjects_with_leadfields[subject_id] = net_names
+                            total_leadfields += len(leadfields)
+                except Exception:
+                    # Skip subjects with errors
+                    pass
             
             # Display summary only in debug mode
             if self.debug_mode:
@@ -813,10 +944,10 @@ class ExSearchTab(QtWidgets.QWidget):
                 for subject_id, nets in subjects_with_leadfields.items():
                     self.update_output(f"  {subject_id}: {', '.join(nets)}")
                 
-                subjects_without_leadfield = [sid for sid in range(1, subject_count+1) 
-                                            if str(sid) not in subjects_with_leadfields]
+                subjects_without_leadfield = [sid for sid in subjects 
+                                            if sid not in subjects_with_leadfields]
                 if subjects_without_leadfield:
-                    self.update_output(f"- Subjects without leadfields: {', '.join(map(str, subjects_without_leadfield))}")
+                    self.update_output(f"- Subjects without leadfields: {', '.join(subjects_without_leadfield)}")
                 
                 self.update_output("\nTo start optimization:")
                 self.update_output("1. Select a subject")
@@ -834,43 +965,33 @@ class ExSearchTab(QtWidgets.QWidget):
         self.leadfield_list.clear()
         self.selected_leadfield_label.setText("Selected: None")
         self.show_electrodes_leadfield_btn.setEnabled(False)
-        
+
         if not subject_id:
             return
-        
-        project_dir = self.pm.get_project_dir() if hasattr(self, 'pm') else get_path_manager().get_project_dir()
-        subject_dir = self.pm.get_subject_dir(subject_id) if hasattr(self, 'pm') else get_path_manager().get_subject_dir(subject_id)
-        
+
         try:
-            # Look for leadfield directories in ex-search subdirectory with pattern: leadfield_vol_*
-            leadfields = []
-            if os.path.exists(subject_dir):
-                ex_search_dir = os.path.join(subject_dir, "leadfields")
-                if os.path.exists(ex_search_dir):
-                    for item in os.listdir(ex_search_dir):
-                        if item.startswith("leadfield_vol_"):
-                            leadfield_path = os.path.join(ex_search_dir, item)
-                            # Check if leadfield.hdf5 exists
-                            hdf5_file = os.path.join(leadfield_path, "leadfield.hdf5")
-                            if os.path.exists(hdf5_file):
-                                net_name = item[len("leadfield_vol_"):]
-                                # Get file size for display
-                                file_size = os.path.getsize(hdf5_file) / (1024**3)  # GB
-                                leadfields.append((net_name, hdf5_file, file_size))
-            
+            # Get subject's m2m directory for LeadfieldGenerator
+            pm = self.pm if hasattr(self, 'pm') else get_path_manager()
+            m2m_dir = pm.get_m2m_dir(subject_id)
+
+            # Use LeadfieldGenerator to list available leadfields
+            from opt.leadfield import LeadfieldGenerator
+            gen = LeadfieldGenerator(m2m_dir)
+            leadfields = gen.list_available_leadfields_hdf5(subject_id)
+
             # Populate the list
-            for net_name, hdf5_path, file_size in sorted(leadfields):
+            for net_name, hdf5_path, file_size in leadfields:
                 item_text = f"{net_name} ({file_size:.1f} GB)"
                 item = QtWidgets.QListWidgetItem(item_text)
                 item.setData(QtCore.Qt.UserRole, {"net_name": net_name, "hdf5_path": hdf5_path})
                 self.leadfield_list.addItem(item)
-            
+
             if not leadfields:
                 no_leadfields_item = QtWidgets.QListWidgetItem("No leadfields found")
                 no_leadfields_item.setFlags(QtCore.Qt.NoItemFlags)  # Make it non-selectable
                 no_leadfields_item.setForeground(QtGui.QColor("#666"))
                 self.leadfield_list.addItem(no_leadfields_item)
-                
+
         except Exception as e:
             self.update_status(f"Error refreshing leadfields: {str(e)}", error=True)
     
@@ -923,40 +1044,76 @@ class ExSearchTab(QtWidgets.QWidget):
                 self.create_leadfield_with_net(subject_id, selected_net)
     
     def create_leadfield_with_net(self, subject_id, eeg_net_file):
-        """Create leadfield with selected EEG net."""
-        try:
-            pm = self.pm if hasattr(self, 'pm') else get_path_manager()
-            m2m_dir = pm.get_m2m_dir(subject_id)
-            eeg_cap_path = os.path.join(m2m_dir, "eeg_positions", eeg_net_file)
-            net_name_clean = eeg_net_file.replace('.csv', '')
+        """Create leadfield with selected EEG net using thread-based approach."""
+        if self.leadfield_generating:
+            QtWidgets.QMessageBox.warning(self, "Already Running", "Leadfield generation is already running")
+            return
+        
+        # Get project directory
+        project_dir = self.pm.get_project_dir()
+        if not project_dir or not os.path.exists(project_dir):
+            QtWidgets.QMessageBox.warning(self, "No Project", "Project directory not found")
+            return
+        
+        # Clean net name
+        net_name_clean = eeg_net_file.replace('.csv', '')
+        
+        # Show confirmation dialog
+        reply = QtWidgets.QMessageBox.question(
+            self,
+            "Leadfield Generation",
+            f"Generate leadfield for {eeg_net_file}?\n\n"
+            f"This process may take 5-15 minutes depending on mesh size and electrode count.\n\n"
+            f"Files will be saved to: derivatives/SimNIBS/sub-{subject_id}/leadfields/\n\n"
+            "Continue?",
+            QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No,
+            QtWidgets.QMessageBox.Yes
+        )
+        
+        if reply != QtWidgets.QMessageBox.Yes:
+            return
+        
+        # Clear console and start generation
+        self.console_output.clear()
+        self.update_output("="*60, 'default')
+        self.update_output("LEADFIELD GENERATION", 'info')
+        self.update_output("="*60, 'default')
+        
+        # Set UI state
+        self.leadfield_generating = True
+        self.disable_controls()
+        
+        # Start generation thread
+        self.leadfield_thread = LeadfieldGenerationThread(subject_id, eeg_net_file, project_dir, self)
+        self.leadfield_thread.output_signal.connect(self.update_output)
+        self.leadfield_thread.error_signal.connect(lambda msg: self.update_output(msg, 'error'))
+        self.leadfield_thread.finished_signal.connect(self.leadfield_generation_finished)
+        self.leadfield_thread.start()
+    
+    def leadfield_generation_finished(self, success, hdf5_path):
+        """Handle leadfield generation completion."""
+        self.leadfield_generating = False
+        self.enable_controls()
+        
+        if success:
+            self.update_output("", 'default')
+            self.update_output("="*60, 'default')
+            self.update_output("Leadfield generation completed successfully!", 'success')
+            self.update_output("="*60, 'default')
             
-            # Prepare command with new leadfield.py arguments
-            leadfield_script = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 
-                                          "opt", "leadfield.py")
-            cmd = ["simnibs_python", leadfield_script, m2m_dir, eeg_cap_path, net_name_clean]
+            # Refresh the leadfield list to show the new leadfield
+            self.refresh_leadfields()
             
-            # Set up environment variables with log file
-            env = os.environ.copy()
-            log_file = self.create_log_file_env('leadfield_creation', subject_id)
-            if log_file:
-                env["TI_LOG_FILE"] = log_file
-                self.update_output(f"Log file: {log_file}")
-            
-            # Create and start thread
-            self.optimization_process = ExSearchThread(cmd, env)
-            self.optimization_process.output_signal.connect(self.update_output)
-            self.optimization_process.error_signal.connect(lambda msg: self.handle_process_error(msg))
-            self.optimization_process.finished.connect(self.leadfield_creation_completed)
-            self.optimization_process.start()
-            
-            # Update UI
-            self.disable_controls()
-            self.update_status(f"Creating leadfield for {net_name_clean}...")
-            self.update_output(f"Creating leadfield for EEG net: {eeg_net_file}")
-            
-        except Exception as e:
-            self.update_status(f"Error creating leadfield: {str(e)}", error=True)
-            self.enable_controls()
+            # Show success message
+            QtWidgets.QMessageBox.information(
+                self,
+                "Success",
+                "Leadfield generation completed!\n\n"
+                f"File saved:\n"
+                f"• {os.path.basename(hdf5_path)}"
+            )
+        else:
+            self.update_output("Leadfield generation failed or was cancelled", 'error')
     
     def show_electrodes_for_selected_leadfield(self):
         """Show electrodes for the currently selected leadfield."""
@@ -976,37 +1133,24 @@ class ExSearchTab(QtWidgets.QWidget):
             return
         
         try:
-            # Try to find the EEG cap file for this net
-            project_dir = self.pm.get_project_dir() if hasattr(self, 'pm') else get_path_manager().get_project_dir()
-            
-            # First try the subject's eeg_positions directory
-            eeg_cap_file = f"{net_name}.csv"
+            # Use LeadfieldGenerator to get electrode names
             pm = self.pm if hasattr(self, 'pm') else get_path_manager()
             m2m_dir = pm.get_m2m_dir(subject_id)
-            eeg_path = os.path.join(m2m_dir, "eeg_positions", eeg_cap_file) if m2m_dir else None
-            
-            if not os.path.exists(eeg_path):
-                # Fallback to assets directory
-                script_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-                eeg_path = os.path.join(script_dir, "assets", "ElectrodeCaps_MNI", eeg_cap_file)
-            
-            if not os.path.exists(eeg_path):
-                QtWidgets.QMessageBox.warning(self, "EEG File Not Found", 
-                                            f"Could not find EEG cap file for {net_name}")
+
+            from opt.leadfield import LeadfieldGenerator
+            gen = LeadfieldGenerator(m2m_dir)
+
+            # Try to get electrodes - the new method handles fallbacks automatically
+            try:
+                electrodes = gen.get_electrode_names_from_cap(cap_name=net_name)
+            except FileNotFoundError as e:
+                QtWidgets.QMessageBox.warning(self, "EEG File Not Found",
+                                            f"Could not find EEG cap file for {net_name}.\n\n"
+                                            f"Details: {str(e)}")
                 return
-            
-            # Read electrode information - all files follow same format: Electrode,X,Y,Z,Label
-            electrodes = []
-            with open(eeg_path, 'r') as f:
-                for line in f:
-                    parts = line.strip().split(',')
-                    if len(parts) >= 5 and parts[0] == 'Electrode':
-                        electrode_label = parts[4].strip()  # 5th column (index 4) is the label
-                        if electrode_label and not electrode_label.replace('.', '').replace('-', '').isdigit():  # Skip numeric values
-                            electrodes.append(electrode_label)
-            
+
             if not electrodes:
-                QtWidgets.QMessageBox.information(self, "No Electrodes", 
+                QtWidgets.QMessageBox.information(self, "No Electrodes",
                                                 f"No electrode labels found for {net_name}")
                 return
             
@@ -1531,7 +1675,7 @@ class ExSearchTab(QtWidgets.QWidget):
         if self.debug_mode:
             self.update_output("\nStep 3: Mesh processing integrated into ROI analysis", 'info')
             output_dir_name = f"{roi_name}_{eeg_net_name}"
-            self.update_output(f"Output directory: ex-search/{output_dir_name}/", 'info')
+            self.update_output(f"Output directory: derivatives/{output_dir_name}/", 'info')
         
         self.log_step_complete("Mesh processing", success=True)
         
@@ -1566,12 +1710,6 @@ class ExSearchTab(QtWidgets.QWidget):
         self.enable_controls()
         self.update_status("Process failed - see console for details", error=True)
     
-    def leadfield_creation_completed(self):
-        """Handle leadfield creation completion."""
-        self.enable_controls()
-        self.refresh_leadfields()
-        self.update_status("Leadfield creation completed")
-    
     def pipeline_completed(self):
         """Handle the completion of the pipeline."""
         # Log completion summary
@@ -1594,7 +1732,18 @@ class ExSearchTab(QtWidgets.QWidget):
         self.update_status("Ex-search optimization completed successfully")
     
     def stop_optimization(self):
-        """Stop the running optimization process."""
+        """Stop the running optimization or leadfield generation process."""
+        # Check if leadfield generation is running
+        if self.leadfield_generating and self.leadfield_thread:
+            self.leadfield_thread.terminate_process()
+            self.leadfield_thread.wait()
+            self.leadfield_generating = False
+            self.update_status("Leadfield generation stopped by user")
+            self.update_output("Leadfield generation terminated by user", 'warning')
+            self.enable_controls()
+            return
+        
+        # Otherwise check for optimization process
         if self.optimization_process and self.optimization_process.terminate_process():
             self.update_status("Optimization stopped by user")
             self.update_output("Process terminated by user", 'warning')
@@ -1712,9 +1861,10 @@ class ExSearchTab(QtWidgets.QWidget):
         self.status_label.show()
     
     def disable_controls(self):
-        """Disable controls during optimization."""
+        """Disable controls during optimization or leadfield generation."""
         self.subject_combo.setEnabled(False)
         self.roi_list.setEnabled(False)
+        self.roi_radius_spinbox.setEnabled(False)
         self.e1_plus_input.setEnabled(False)
         self.e1_minus_input.setEnabled(False)
         self.e2_plus_input.setEnabled(False)
@@ -1736,13 +1886,17 @@ class ExSearchTab(QtWidgets.QWidget):
             self.console_widget.debug_checkbox.setEnabled(True)
         
         # Show status label when processing starts
-        self.status_label.setText("Processing... Stop button and Debug Mode are available")
+        if self.leadfield_generating:
+            self.status_label.setText("Generating leadfield... Stop button and Debug Mode are available")
+        else:
+            self.status_label.setText("Processing... Stop button and Debug Mode are available")
         self.status_label.show()
     
     def enable_controls(self):
         """Enable controls after optimization."""
         self.subject_combo.setEnabled(True)
         self.roi_list.setEnabled(True)
+        self.roi_radius_spinbox.setEnabled(True)
         self.e1_plus_input.setEnabled(True)
         self.e1_minus_input.setEnabled(True)
         self.e2_plus_input.setEnabled(True)
@@ -2054,33 +2208,46 @@ class EEGNetSelectionDialog(QtWidgets.QDialog):
         selected_net = selected_items[0].text()
         
         try:
-            # Get path to EEG net file
+            # Use LeadfieldGenerator to get electrode names
             if self.subject_id:
-                project_dir = self.pm.get_project_dir() if hasattr(self, 'pm') else get_path_manager().get_project_dir()
-                eeg_path = os.path.join(project_dir, "derivatives", "SimNIBS", f"sub-{self.subject_id}",
-                                      f"m2m_{self.subject_id}", "eeg_positions", selected_net)
+                # Try to get electrodes from subject's eeg_positions directory first
+                from opt.leadfield import LeadfieldGenerator
+                from core import get_path_manager
+                pm = get_path_manager()
+                m2m_dir = pm.get_m2m_dir(self.subject_id)
+                gen = LeadfieldGenerator(m2m_dir)
+
+                try:
+                    electrodes = gen.get_electrode_names_from_cap(cap_name=selected_net)
+                except FileNotFoundError:
+                    QtWidgets.QMessageBox.warning(self, "File Not Found",
+                                                f"EEG net file not found: {selected_net}.\n\n"
+                                                f"The system searched in:\n"
+                                                f"- m2m directory: eeg_positions/\n"
+                                                f"- Resources: ElectrodeCaps_MNI/")
+                    return
             else:
-                # Fallback to assets directory
+                # No subject selected, use project root as base for searching
+                from opt.leadfield import LeadfieldGenerator
                 script_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-                eeg_path = os.path.join(script_dir, "assets", "ElectrodeCaps_MNI", selected_net)
-            
-            if not os.path.exists(eeg_path):
-                QtWidgets.QMessageBox.warning(self, "File Not Found", 
-                                            f"EEG net file not found: {eeg_path}")
-                return
-            
-            # Read electrode information - all files follow same format: Electrode,X,Y,Z,Label
-            electrodes = []
-            with open(eeg_path, 'r') as f:
-                for line in f:
-                    parts = line.strip().split(',')
-                    if len(parts) >= 5 and parts[0] == 'Electrode':
-                        electrode_label = parts[4].strip()  # 5th column (index 4) is the label
-                        if electrode_label and not electrode_label.replace('.', '').replace('-', '').isdigit():  # Skip numeric values
-                            electrodes.append(electrode_label)
-            
+                project_root = os.path.dirname(script_dir)  # Go up to project root
+                # Create a dummy LeadfieldGenerator to use the flexible search method
+                dummy_m2m_dir = os.path.join(project_root, "dummy")  # Won't actually use this
+                gen = LeadfieldGenerator(dummy_m2m_dir)
+                
+                # Override the project root calculation in the generator
+                gen.subject_dir = Path(project_root) / "dummy" / "m2m"  # Set up proper path hierarchy
+                
+                try:
+                    electrodes = gen.get_electrode_names_from_cap(cap_name=selected_net)
+                except FileNotFoundError:
+                    QtWidgets.QMessageBox.warning(self, "File Not Found",
+                                                f"EEG net file not found: {selected_net}.\n\n"
+                                                f"Searched in resources/ElectrodeCaps_MNI/")
+                    return
+
             if not electrodes:
-                QtWidgets.QMessageBox.information(self, "No Electrodes", 
+                QtWidgets.QMessageBox.information(self, "No Electrodes",
                                                 "No electrode labels found in the selected EEG net file")
                 return
             

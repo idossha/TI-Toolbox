@@ -52,7 +52,7 @@ except ImportError as e:
 
 
 class LeadfieldGenerationThread(QtCore.QThread):
-    """Thread to run leadfield generation as subprocess (like ex-search for instant termination)."""
+    """Thread to run leadfield generation for MOVEA (generates both HDF5 and NPY files)."""
     
     # Signals
     output_signal = QtCore.pyqtSignal(str, str)  # message, type
@@ -65,16 +65,12 @@ class LeadfieldGenerationThread(QtCore.QThread):
         self.eeg_net_file = eeg_net_file
         self.project_dir = project_dir
         self.terminated = False
-        self.process = None
+        self.generator = None
         
     def run(self):
-        """Run leadfield generation as subprocess for instant termination."""
+        """Run leadfield generation using LeadfieldGenerator (generates both HDF5 and NPY files)."""
         try:
             self.output_signal.emit("Initializing leadfield generation...", 'info')
-            
-            # Prepare command to run leadfield script as subprocess
-            leadfield_script = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-                                          'opt', 'movea', 'leadfield_script.py')
             
             pm = get_path_manager()
             m2m_dir = pm.get_m2m_dir(self.subject_id)
@@ -84,130 +80,111 @@ class LeadfieldGenerationThread(QtCore.QThread):
                 self.finished_signal.emit(False, "", "")
                 return
             
-            # Setup environment and log file
+            # Setup log file
             time_stamp = time.strftime('%Y%m%d_%H%M%S')
             derivatives_dir = os.path.join(self.project_dir, 'derivatives')
             log_dir = os.path.join(derivatives_dir, 'ti-toolbox', 'logs', f'sub-{self.subject_id}')
             os.makedirs(log_dir, exist_ok=True)
             log_file = os.path.join(log_dir, f'MOVEA_leadfield_{time_stamp}.log')
             
-            env = os.environ.copy()
-            env['TI_LOG_FILE'] = log_file
-            
             self.output_signal.emit(f"Log file: {log_file}", 'info')
             self.output_signal.emit(f"Subject: {self.subject_id}", 'info')
             self.output_signal.emit(f"EEG Net: {self.eeg_net_file}", 'info')
             self.output_signal.emit(f"m2m directory: {m2m_dir}", 'info')
             
-            # Prepare command to run as subprocess
-            cmd = ["simnibs_python", leadfield_script, m2m_dir, self.eeg_net_file, self.project_dir]
+            # Get leadfield output directory
+            subject_dir = f"sub-{self.subject_id}"
+            leadfield_dir = os.path.join(self.project_dir, 'derivatives', 'SimNIBS', subject_dir, 'leadfields')
+            os.makedirs(leadfield_dir, exist_ok=True)
             
+            # Clean net name (remove .csv extension)
+            net_name = self.eeg_net_file.replace('.csv', '') if self.eeg_net_file.endswith('.csv') else self.eeg_net_file
+            
+            # Check if leadfield already exists
+            lfm_filename = f"{net_name}_leadfield.npy"
+            pos_filename = f"{net_name}_positions.npy"
+            lfm_path = os.path.join(leadfield_dir, lfm_filename)
+            pos_path = os.path.join(leadfield_dir, pos_filename)
+
+            # Check if NPY files already exist - prevent duplicates
+            if os.path.exists(lfm_path) and os.path.exists(pos_path):
+                self.error_signal.emit(f"Leadfield NPY files already exist: {lfm_filename}")
+                self.error_signal.emit("Delete existing NPY files first or choose a different EEG net")
+                self.finished_signal.emit(False, "", "")
+                return
+
+            # Progress callback to emit signals
+            def progress_callback(message, msg_type='info'):
+                self.output_signal.emit(message, msg_type)
+
+            # Termination check callback
+            def termination_check():
+                return self.terminated
+
+            # Create leadfield generator
             self.output_signal.emit("", 'default')
-            self.output_signal.emit("Starting leadfield generation subprocess...", 'info')
-            
-            # Run as subprocess (like ex-search does for instant termination)
-            self.process = subprocess.Popen(
-                cmd,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                universal_newlines=True,
-                bufsize=1,
-                env=env
-            )
-            
-            # Track paths for success
-            lfm_path = ""
-            pos_path = ""
-            
-            # Real-time output display
-            for line in iter(self.process.stdout.readline, ''):
+            self.output_signal.emit("Creating leadfield generator...", 'info')
+
+            try:
+                from opt.leadfield import LeadfieldGenerator
+                self.generator = LeadfieldGenerator(
+                    m2m_dir,
+                    electrode_cap=net_name,
+                    progress_callback=progress_callback,
+                    termination_flag=termination_check
+                )
+
+                # Generate leadfield (creates both HDF5 and NPY files)
+                self.output_signal.emit("Starting leadfield generation...", 'info')
+                result = self.generator.generate_leadfield(
+                    output_dir=leadfield_dir,
+                    tissues=[1, 2],
+                    eeg_cap_path=os.path.join(m2m_dir, "eeg_positions", self.eeg_net_file)
+                )
+                
                 if self.terminated:
-                    break
-                if line:
-                    line_stripped = line.strip()
+                    self.output_signal.emit("Leadfield generation was terminated", 'warning')
+                    self.finished_signal.emit(False, "", "")
+                    return
+                
+                # Check if NPY files were generated successfully
+                if result['npy_leadfield'] and result['npy_positions']:
+                    lfm_path = result['npy_leadfield']
+                    pos_path = result['npy_positions']
                     
-                    # Capture output paths from script
-                    if line_stripped.startswith("LFM_PATH:"):
-                        lfm_path = line_stripped.replace("LFM_PATH:", "")
-                        continue
-                    elif line_stripped.startswith("POS_PATH:"):
-                        pos_path = line_stripped.replace("POS_PATH:", "")
-                        continue
+                    # Get shape info for logging
+                    lfm_shape = self.generator.lfm.shape if self.generator.lfm is not None else None
                     
-                    # Detect message type
-                    if any(keyword in line_stripped.lower() for keyword in ['error:', 'failed', 'exception']):
-                        message_type = 'error'
-                    elif any(keyword in line_stripped.lower() for keyword in ['warning:', 'warn']):
-                        message_type = 'warning'
-                    elif any(keyword in line_stripped.lower() for keyword in ['complete!', 'success', 'saved:']):
-                        message_type = 'success'
-                    else:
-                        message_type = 'default'
+                    self.output_signal.emit("", 'default')
+                    self.output_signal.emit("="*60, 'default')
+                    self.output_signal.emit("LEADFIELD GENERATION COMPLETE!", 'success')
+                    self.output_signal.emit("="*60, 'default')
+                    self.output_signal.emit(f"Saved: {os.path.basename(lfm_path)}", 'success')
+                    self.output_signal.emit(f"Saved: {os.path.basename(pos_path)}", 'success')
+                    if lfm_shape:
+                        self.output_signal.emit(f"Electrodes: {lfm_shape[0]}", 'info')
+                        self.output_signal.emit(f"Voxels: {lfm_shape[1]}", 'info')
+                    self.output_signal.emit("="*60, 'default')
                     
-                    self.output_signal.emit(line_stripped, message_type)
-            
-            # Check process completion
-            if not self.terminated:
-                returncode = self.process.wait()
-                if returncode == 0 and lfm_path and pos_path:
                     self.finished_signal.emit(True, lfm_path, pos_path)
                 else:
-                    self.error_signal.emit(f"Process returned exit code: {returncode}")
+                    self.error_signal.emit("Failed to generate NPY files")
                     self.finished_signal.emit(False, "", "")
-            else:
-                self.output_signal.emit("Leadfield generation was terminated", 'warning')
+                    
+            except ImportError as e:
+                self.error_signal.emit(f"Failed to import LeadfieldGenerator: {str(e)}")
                 self.finished_signal.emit(False, "", "")
-            
-            # Clean up process
-            if self.process:
-                try:
-                    self.process.stdout.close()
-                except (OSError, AttributeError):
-                    pass
                 
         except Exception as e:
             tb = traceback.format_exc()
             self.error_signal.emit(f"Error during leadfield generation: {str(e)}\n{tb}")
             self.finished_signal.emit(False, "", "")
-        finally:
-            # Ensure process is cleaned up
-            if self.process:
-                try:
-                    self.process.stdout.close()
-                except (OSError, AttributeError):
-                    pass
     
     def terminate_process(self):
-        """Terminate the leadfield generation subprocess."""
-        if self.process and self.process.poll() is None:
-            self.terminated = True
-            if os.name == 'nt':  # Windows
-                subprocess.call(['taskkill', '/F', '/T', '/PID', str(self.process.pid)])
-            else:  # Unix/Linux/Mac
-                try:
-                    # Kill child processes first (SimNIBS spawns MPI processes)
-                    parent_pid = self.process.pid
-                    ps_output = subprocess.check_output(f"ps -o pid --ppid {parent_pid} --noheaders", shell=True)
-                    child_pids = [int(pid) for pid in ps_output.decode().strip().split('\n') if pid]
-                    for pid in child_pids:
-                        try:
-                            os.kill(pid, signal.SIGTERM)
-                        except OSError:
-                            pass
-                except (subprocess.CalledProcessError, OSError, ValueError):
-                    pass
-                
-                # Terminate main process
-                self.process.terminate()
-                try:
-                    self.process.wait(timeout=2)
-                except subprocess.TimeoutExpired:
-                    self.process.kill()
-            
-            return True
-        else:
-            self.terminated = True
-            return False
+        """Terminate the leadfield generation (note: SimNIBS processes cannot be interrupted once started)."""
+        self.terminated = True
+        self.output_signal.emit("Termination requested. Note: SimNIBS processes cannot be interrupted mid-execution.", 'warning')
+        return True
 
 
 class MOVEAOptimizationThread(QtCore.QThread):
@@ -264,17 +241,18 @@ class MOVEAOptimizationThread(QtCore.QThread):
             start_time = time.time()
             lfm_path = self.config['leadfield_path']
             pos_path = self.config['positions_path']
-            
+
+
             if not os.path.exists(lfm_path):
                 self.error_signal.emit(f"Leadfield file not found: {lfm_path}")
                 self.finished_signal.emit(False)
                 return
-            
+
             if not os.path.exists(pos_path):
                 self.error_signal.emit(f"Positions file not found: {pos_path}")
                 self.finished_signal.emit(False)
                 return
-            
+
             self.output_signal.emit(f"Loading leadfield from: {os.path.basename(lfm_path)}", 'info')
             lfm = np.load(lfm_path)
             positions = np.load(pos_path)
@@ -961,44 +939,36 @@ class MOVEATab(QtWidgets.QWidget):
     def refresh_leadfields(self):
         """Refresh the list of available leadfields."""
         self.leadfield_list.clear()
-        
+
         subject_id = self.subject_combo.currentText()
         if not subject_id:
             return
-        
-        simnibs_dir = self.pm.get_simnibs_dir()
 
-        # Search in subject directory leadfields
-        subject_dir = f"sub-{subject_id}"
-        leadfield_dir = os.path.join(simnibs_dir, subject_dir, "leadfields")
+        # Use LeadfieldGenerator to list available NPY leadfields
+        from opt.leadfield import LeadfieldGenerator
+        m2m_dir = self.pm.get_m2m_dir(subject_id)
+        if not m2m_dir or not os.path.exists(m2m_dir):
+            self.update_console(f"No M2M directory found for {subject_id}", 'warning')
+            return
 
-        # Check for existing leadfield NPY files
-        leadfield_files = []
-        if os.path.exists(leadfield_dir):
-            for file in os.listdir(leadfield_dir):
-                if file.endswith('_leadfield.npy'):
-                    leadfield_path = os.path.join(leadfield_dir, file)
-                    # Look for corresponding positions file
-                    pos_file = file.replace('_leadfield.npy', '_positions.npy')
-                    pos_path = os.path.join(leadfield_dir, pos_file)
-                    
-                    if os.path.exists(pos_path):
-                        net_name = file.replace('_leadfield.npy', '')
-                        leadfield_files.append({
-                            'net_name': net_name,
-                            'leadfield_path': leadfield_path,
-                            'positions_path': pos_path,
-                            'display': f"{net_name} (leadfield + positions)"
-                        })
-        
-        # Add items to list
-        for lf_info in leadfield_files:
-            item = QtWidgets.QListWidgetItem(lf_info['display'])
+        gen = LeadfieldGenerator(m2m_dir)
+        leadfields = gen.list_available_leadfields_npy(subject_id)
+
+        # Populate the list
+        for net_name, npy_leadfield_path, npy_positions_path, file_size in leadfields:
+            item_text = f"{net_name} ({file_size:.1f} GB)"
+            item = QtWidgets.QListWidgetItem(item_text)
+            lf_info = {
+                'net_name': net_name,
+                'leadfield_path': npy_leadfield_path,
+                'positions_path': npy_positions_path,
+                'display': item_text
+            }
             item.setData(QtCore.Qt.UserRole, lf_info)
             self.leadfield_list.addItem(item)
-        
-        if leadfield_files:
-            self.update_console(f"Found {len(leadfield_files)} leadfield(s) for {subject_id}", 'success')
+
+        if leadfields:
+            self.update_console(f"Found {len(leadfields)} leadfield(s) for {subject_id}", 'success')
         else:
             self.update_console(f"No leadfields found for {subject_id}. Click 'Create New' to generate.", 'warning')
     

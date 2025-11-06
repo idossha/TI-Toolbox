@@ -82,7 +82,8 @@ def process_leadfield(E1_plus, E1_minus, E2_plus, E2_minus, subject_name):
     pm = get_path_manager()
     subject_dir = pm.get_subject_dir(subject_name)
     output_dir_name = f"{roi_name}_{selected_net}"
-    output_dir = os.path.join(subject_dir, "ex-search", output_dir_name)
+    ex_search_dir = pm.get_ex_search_dir(subject_name)
+    output_dir = os.path.join(ex_search_dir, output_dir_name)
     logger.info(f"Output directory: {output_dir}")
     
     # Create output directory
