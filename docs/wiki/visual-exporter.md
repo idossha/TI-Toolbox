@@ -176,6 +176,76 @@ Vector exports append suffixes such as `_CH1`, `_CH2`, `_TI`, `_TI_sum`, and `_T
 - **Atlas updates**: If you add a new atlas, ensure the `m2m_*` directory contains the matching label files before launching the GUI.
 - **Error logs**: The extension console mirrors stdout/stderr from the scripts. Copy the failing command and re-run in a terminal to investigate with additional flags (for example `--verbose`).
 
+## Blender Tutorial: Visualizing PLY Files
+
+This tutorial walks you through importing and visualizing PLY files exported from TI-Toolbox in Blender, including how to display the embedded color attributes.
+
+### Step 1: Importing PLY Files
+
+1. Open Blender and start with the default scene (or create a new project).
+2. Go to **File** → **Import** → **Stanford (.ply)**.
+3. Navigate to your exported PLY file location (typically in `derivatives/ti-toolbox/visual_exports/sub-<id>/<simulation>/ply/`).
+4. Select your PLY file and click **Import Stanford (.ply)**.
+
+The mesh will appear in your viewport. If the mesh appears very small or very large, you may need to adjust the view or scale the object.
+
+![Import PLY file]({{ site.baseurl }}/assets/imgs/wiki_visual_exporter_blender_1.png)
+
+### Step 2: Switching to Material Preview
+
+To see materials and colors properly, switch the viewport shading mode:
+
+1. In the 3D viewport, locate the viewport shading buttons in the top-right corner (or press `Z` to open the viewport shading menu).
+2. Select **Material Preview** mode (or press `Z` then `2`).
+
+Material Preview mode provides a quick preview of how materials will look with basic lighting, making it ideal for checking color attributes.
+
+![Material Preview mode]({{ site.baseurl }}/assets/imgs/wiki_visual_exporter_blender_2.png)
+
+### Step 3: Adding a Material
+
+To display the color attributes from your PLY file, you need to create and assign a material:
+
+1. Select your imported PLY mesh object in the viewport.
+2. In the **Material Properties** panel (right sidebar, indicated by a sphere icon), click **New** to create a new material.
+3. The material will be automatically assigned to your selected object.
+
+![Adding a material]({{ site.baseurl }}/assets/imgs/wiki_visual_exporter_blender_3.png)
+
+### Step 4: Setting Color to 'col' Attribute
+
+To use the color data embedded in your PLY file (stored in the `col` attribute), set it as the material's base color:
+
+1. With your object still selected, in the **Material Properties** panel, locate the **Base Color** field (under the **Surface** section).
+2. Click on the **Base Color** field.
+3. Select **Color Attribute** from the dropdown menu.
+4. In the attribute name field that appears, enter `col` (this matches the color attribute name in your PLY file).
+
+Your mesh should now display the color-mapped field data from your simulation. The colors represent the field values (e.g., `TI_max`) that were exported with the mesh.
+
+<div class="carousel-container">
+  <div class="carousel-wrapper">
+    <div class="carousel-images">
+      <div class="carousel-slide active">
+        <img src="{{ site.baseurl }}/assets/imgs/wiki_visual_exporter_blender_4.png" alt="Setting color attribute - Attribute node">
+        <p>Adding the Attribute node and setting it to 'col'</p>
+      </div>
+      <div class="carousel-slide">
+        <img src="{{ site.baseurl }}/assets/imgs/wiki_visual_exporter_blender_5.png" alt="Setting color attribute - Connected shader">
+        <p>Final result with color attribute connected to the material</p>
+      </div>
+    </div>
+    <button class="carousel-btn prev" onclick="changeSlide(this, -1)">&#10094;</button>
+    <button class="carousel-btn next" onclick="changeSlide(this, 1)">&#10095;</button>
+    <div class="carousel-dots">
+      <span class="dot active" onclick="currentSlide(this, 0)"></span>
+      <span class="dot" onclick="currentSlide(this, 1)"></span>
+    </div>
+  </div>
+</div>
+
+**Note**: If your PLY file uses a different attribute name for colors, replace `col` in step 4 with the appropriate attribute name. You can check available attributes by selecting the mesh and viewing the **Geometry Nodes** or **Mesh Data** properties.
+
 <style>
 /* Carousel Styles */
 .carousel-container {
