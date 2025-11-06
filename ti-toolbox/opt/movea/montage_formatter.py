@@ -215,41 +215,7 @@ class MontageFormatter:
             writer.writerow(['Population', opt['population']])
         
         self._log(f"Montage saved to: {output_file}", 'success')
-    
-    def save_montage_simnibs(self, montage_dict, output_file):
-        """
-        Save montage in SimNIBS-compatible format
-        
-        Args:
-            montage_dict: Formatted montage dictionary
-            output_file: Output text file path
-        """
-        output_file = Path(output_file)
-        output_file.parent.mkdir(parents=True, exist_ok=True)
-        
-        with open(output_file, 'w') as f:
-            f.write("# TI Montage - MOVEA Optimization\n")
-            f.write(f"# Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n")
-            
-            # Pair 1
-            p1 = montage_dict['pair1']
-            f.write(f"# Pair 1 (Frequency f1)\n")
-            f.write(f"{p1['anode']['name']}\t{p1['current_mA']:.3f}\n")
-            f.write(f"{p1['cathode']['name']}\t{-p1['current_mA']:.3f}\n\n")
-            
-            # Pair 2
-            p2 = montage_dict['pair2']
-            f.write(f"# Pair 2 (Frequency f2)\n")
-            f.write(f"{p2['anode']['name']}\t{p2['current_mA']:.3f}\n")
-            f.write(f"{p2['cathode']['name']}\t{-p2['current_mA']:.3f}\n\n")
-            
-            # Optimization info
-            opt = montage_dict['optimization']
-            f.write(f"# Optimization: {opt['method']}\n")
-            f.write(f"# Field Strength: {opt['field_strength_V/m']:.6f} V/m\n")
-        
-        self._log(f"SimNIBS montage saved to: {output_file}", 'success')
-    
+
     def print_montage(self, montage_dict):
         """Print montage to console"""
         self._log("\n" + "="*60, 'default')
@@ -290,10 +256,8 @@ def quick_save(optimization_result, output_path, electrode_coords_file=None, cur
     montage = formatter.format_ti_montage(optimization_result, current_mA)
     
     output_path = Path(output_path)
-    if output_path.suffix.lower() == '.csv':
-        formatter.save_montage_csv(montage, output_path)
-    else:
-        formatter.save_montage_simnibs(montage, output_path)
+    # Always save as CSV format, regardless of file extension
+    formatter.save_montage_csv(montage, output_path)
     
     formatter.print_montage(montage)
     

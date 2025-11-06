@@ -62,11 +62,15 @@ def validate_ti_montage(electrodes, num_electrodes):
     return True
 
 
+# Backward compatibility aliases
+calculate_ti_field = calculate_ti_field_from_leadfield
+
 # Re-export all for convenience
 __all__ = [
     'get_TI_vectors',
     'envelope',
     'calculate_ti_field_from_leadfield',
+    'calculate_ti_field',  # backward compatibility alias
     'create_stim_patterns',
     'find_roi_element_indices',
     'find_grey_matter_indices',

@@ -173,7 +173,7 @@ import numpy as np
 from pathlib import Path
 
 # Add MOVEA to path
-movea_dir = Path(__file__).parent.parent.parent / 'movea'
+movea_dir = Path(__file__).parent.parent / 'opt' / 'movea'
 sys.path.insert(0, str(movea_dir))
 
 from movea import TIOptimizer, LeadfieldGenerator, MontageFormatter
@@ -290,16 +290,13 @@ def main():
     
     # Save outputs
     output_csv = os.path.join(output_dir, 'movea_montage.csv')
-    output_txt = os.path.join(output_dir, 'movea_montage.txt')
-    
+
     formatter.save_montage_csv(montage, output_csv)
-    formatter.save_montage_simnibs(montage, output_txt)
     formatter.print_montage(montage)
-    
+
     print(f"\n{'='*60}")
     print(f"Results saved to: {output_dir}")
     print(f"  - {output_csv}")
-    print(f"  - {output_txt}")
     print(f"{'='*60}\n")
 
 if __name__ == '__main__':

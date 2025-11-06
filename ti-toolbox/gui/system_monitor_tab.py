@@ -359,6 +359,10 @@ class SystemMonitorTab(QtWidgets.QWidget):
         # Style the figures
         self.cpu_figure.patch.set_facecolor('#2b2b2b')
         self.memory_figure.patch.set_facecolor('#2b2b2b')
+
+        # Set axes background to black
+        self.cpu_ax.set_facecolor('black')
+        self.memory_ax.set_facecolor('black')
         
         # Tight layout to prevent label cutoff
         self.cpu_figure.tight_layout()

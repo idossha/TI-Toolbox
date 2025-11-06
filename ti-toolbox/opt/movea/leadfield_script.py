@@ -16,6 +16,7 @@ opt_dir = os.path.dirname(script_dir)  # opt/
 toolbox_dir = os.path.dirname(opt_dir)  # ti-toolbox/
 sys.path.insert(0, toolbox_dir)
 
+from opt.leadfield import LeadfieldGenerator
 from tools import logging_util
 from core import get_path_manager
 
@@ -25,7 +26,7 @@ if len(sys.argv) != 4:
     sys.exit(1)
 
 m2m_dir = sys.argv[1]
-eeg_cap_file = sys.argv[2]  # Just the filename, e.g., "EEG10-10_Cutini_2011.csv"
+eeg_cap_file = sys.argv[2]
 project_dir = sys.argv[3]
 
 # Initialize logger
@@ -49,16 +50,10 @@ logger.info(f"M2M Directory: {m2m_dir}")
 logger.info(f"EEG Cap File: {eeg_cap_file}")
 logger.info(f"Project Directory: {project_dir}")
 
-# Import MOVEA leadfield generator from opt.movea
-try:
-    from opt.movea import LeadfieldGenerator
-except ImportError as e:
-    logger.error(f"Failed to import MOVEA modules: {e}")
-    sys.exit(1)
-
 # Get paths
-m2m_dir_basename = os.path.basename(m2m_dir)
-leadfield_dir = os.path.join(project_dir, 'derivatives', 'SimNIBS', m2m_dir_basename, 'leadfields')
+subject_id = os.path.basename(m2m_dir).replace('m2m_', '')
+subject_dir = f"sub-{subject_id}"
+leadfield_dir = os.path.join(project_dir, 'derivatives', 'SimNIBS', subject_dir, 'leadfields')
 os.makedirs(leadfield_dir, exist_ok=True)
 
 # Check if leadfield already exists
@@ -87,6 +82,7 @@ gen = LeadfieldGenerator(m2m_dir, progress_callback=progress_callback)
 
 try:
     # Use the complete workflow method (handles everything: cleanup, generate, convert, save)
+    # Generate intermediate files in leadfield_dir to keep everything organized
     lfm_path, pos_path, lfm_shape = gen.generate_and_save_numpy(
         output_dir=leadfield_dir,
         eeg_cap_file=eeg_cap_file,

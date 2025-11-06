@@ -5,145 +5,46 @@ TI electrode optimization using scipy's differential_evolution
 import numpy as np
 from scipy.optimize import differential_evolution
 from pathlib import Path
-from .utils import calculate_ti_field, find_target_voxels, validate_ti_montage
-import multiprocessing as mp
+from ..ti_calculations import calculate_ti_field_from_leadfield as calculate_ti_field, find_target_voxels, validate_ti_montage
+import concurrent.futures
+import threading
 from functools import partial
+import time
 
 
-def _worker_test():
-    """Simple test function to verify workers are operational"""
-    return "OK"
-
-
-def _generate_single_pareto_solution(args):
+def _evaluate_montage_parallel(args):
     """
-    Worker function for parallel Pareto solution generation
+    Worker function for parallel montage evaluation (thread-safe)
     
     Args:
-        args: Tuple of (solution_idx, lfm, num_electrodes, target_indices, max_iter, seed)
+        args: Tuple of (optimizer_ref, individual_idx, individual)
     
     Returns:
-        solution: Dictionary with Pareto solution
+        tuple: (individual_idx, objectives)
     """
-    import time
     try:
-        solution_idx, lfm, num_electrodes, target_indices, max_iter, seed = args
-        start_time = time.time()
+        optimizer_ref, individual_idx, individual = args
+        electrodes = individual[:4].astype(int)
+        current_ratio = individual[4] if len(individual) > 4 else 0
         
-        # Set random seed for reproducibility
-        np.random.seed(seed + solution_idx)
+        objectives = optimizer_ref.evaluate_montage(
+            electrodes, 
+            current_ratio, 
+            return_dual_objective=True
+        )
         
-        best_cost = [float('inf'), float('inf')]
-        best_electrodes = None
-        best_cr = 0
-        improvements = 0
-        
-        for iter_idx in range(max_iter):
-            electrodes = np.random.choice(num_electrodes, size=4, replace=False)
-            current_ratio = np.random.randint(0, 101)  # 0-100 for current ratio percentage
-            
-            # Evaluate dual objective
-            objs = _evaluate_montage_dual(lfm, num_electrodes, target_indices, electrodes, current_ratio)
-            
-            # Keep if better on intensity
-            if objs[0] < best_cost[0]:
-                best_cost = objs.copy()
-                best_electrodes = electrodes.copy()
-                best_cr = current_ratio
-                improvements += 1
-        
-        # Calculate actual field values
-        intensity_field = 1.0 / best_cost[0] if best_cost[0] > 0 else 0
-        focality = best_cost[1]
-        elapsed = time.time() - start_time
-        
-        solution = {
-            'electrodes': best_electrodes.tolist(),
-            'current_ratio': int(best_cr),
-            'intensity_cost': float(best_cost[0]),
-            'intensity_field': float(intensity_field),  # V/m at target
-            'focality': float(focality),  # Whole brain field (V/m)
-            'method': 'pareto_random_search_parallel',
-            'improvements': improvements,
-            'time_seconds': elapsed,
-            'solution_idx': solution_idx
-        }
-        
-        return solution
+        return individual_idx, objectives
     except Exception as e:
-        import traceback
-        # Return error result instead of crashing
-        return {
-            'electrodes': [0, 1, 2, 3],
-            'current_ratio': 50,
-            'intensity_cost': float('inf'),
-            'intensity_field': 0.0,
-            'focality': float('inf'),
-            'method': 'pareto_error',
-            'error': str(e),
-            'traceback': traceback.format_exc(),
-            'solution_idx': solution_idx
-        }
-
-
-def _evaluate_montage_dual(lfm, num_electrodes, target_indices, electrode_indices, current_ratio=0):
-    """
-    Static evaluation function for multiprocessing
-    
-    Args:
-        lfm: Leadfield matrix
-        num_electrodes: Number of electrodes
-        target_indices: Target voxel indices
-        electrode_indices: [e1, e2, e3, e4]
-        current_ratio: Current ratio adjustment
-    
-    Returns:
-        array: [intensity_cost, focality]
-    """
-    # Convert to integers and validate
-    electrode_indices = np.round(electrode_indices).astype(int)
-    
-    if not validate_ti_montage(electrode_indices):
-        return np.array([1000.0, 1000.0])
-    
-    e1, e2, e3, e4 = electrode_indices
-    
-    # Ensure indices are within bounds
-    if np.any(electrode_indices >= num_electrodes) or np.any(electrode_indices < 0):
-        return np.array([1000.0, 1000.0])
-    
-    # Create stimulation patterns (bipolar pairs)
-    stim1 = np.zeros(num_electrodes)
-    stim1[e1] = 1 + current_ratio / num_electrodes
-    stim1[e2] = -(1 + current_ratio / num_electrodes)
-    
-    stim2 = np.zeros(num_electrodes)
-    stim2[e3] = 1 - current_ratio / num_electrodes
-    stim2[e4] = -(1 - current_ratio / num_electrodes)
-    
-    # Calculate full brain field for focality
-    # WARNING: This can be very slow with millions of voxels (2.3M in this case)
-    # Each evaluation computes E-field for ALL voxels, then TI envelope
-    ti_field_full = calculate_ti_field(lfm, stim1, stim2, target_indices=None)
-    ti_field_target = ti_field_full[target_indices]
-    
-    # Objective 1: Maximize target field (minimize reciprocal)
-    avg_target = np.average(ti_field_target)
-    obj1 = 1.0 / (avg_target + 1e-10)
-    
-    # Objective 2: Minimize whole brain field (focality)
-    obj2 = np.mean(ti_field_full)
-    
-    return np.array([obj1, obj2])
+        return individual_idx, np.array([float('inf'), float('inf')])
 
 
 class TIOptimizer:
     """TI electrode montage optimizer using scipy (no geatpy dependency)"""
-    
+
     def __init__(self, leadfield_matrix, voxel_positions, num_electrodes=75, progress_callback=None):
         """
         Initialize TI optimizer with scipy backend
-        
+
         Args:
             leadfield_matrix: Leadfield matrix [n_electrodes, n_voxels, 3]
             voxel_positions: Voxel MNI coordinates [n_voxels, 3]
@@ -157,18 +58,21 @@ class TIOptimizer:
         self.optimization_results = []
         self._eval_count = 0
         self._progress_callback = progress_callback
-    
+        self._best_cost = float('inf')
+        self._best_solution = None
+        self._generation_results = []
+
     def _log(self, message, msg_type='info'):
         """Send log message through callback or fallback to print"""
         if self._progress_callback:
             self._progress_callback(message, msg_type)
         else:
             print(message)
-    
+
     def set_target(self, target_mni, roi_radius_mm=10):
         """
         Set optimization target ROI
-        
+
         Args:
             target_mni: Target MNI coordinate [x, y, z]
             roi_radius_mm: ROI radius in mm
@@ -178,56 +82,56 @@ class TIOptimizer:
         )
         if len(self.target_indices) == 0:
             raise ValueError(f"No voxels found within {roi_radius_mm}mm of target {target_mni}")
-    
+
     def evaluate_montage(self, electrode_indices, current_ratio=0, return_dual_objective=False):
         """
         Evaluate a TI montage configuration
-        
+
         Args:
             electrode_indices: [e1, e2, e3, e4] electrode indices
             current_ratio: Current ratio adjustment (optional)
             return_dual_objective: If True, return both objectives [intensity_cost, focality]
-        
+
         Returns:
             cost: Single objective (intensity only) or tuple (intensity, focality)
         """
         # Convert to integers and validate
         electrode_indices = np.round(electrode_indices).astype(int)
-        
-        if not validate_ti_montage(electrode_indices):
+
+        if not validate_ti_montage(electrode_indices, self.num_electrodes):
             if return_dual_objective:
                 return np.array([1000.0, 1000.0])
             return 1000.0
-        
+
         e1, e2, e3, e4 = electrode_indices
-        
+
         # Ensure indices are within bounds
         if np.any(electrode_indices >= self.num_electrodes) or np.any(electrode_indices < 0):
             if return_dual_objective:
                 return np.array([1000.0, 1000.0])
             return 1000.0
-        
+
         # Create stimulation patterns (bipolar pairs)
         stim1 = np.zeros(self.num_electrodes)
         stim1[e1] = 1 + current_ratio / self.num_electrodes
         stim1[e2] = -(1 + current_ratio / self.num_electrodes)
-        
+
         stim2 = np.zeros(self.num_electrodes)
         stim2[e3] = 1 - current_ratio / self.num_electrodes
         stim2[e4] = -(1 - current_ratio / self.num_electrodes)
-        
+
         if return_dual_objective:
             # Calculate full brain field for focality
             ti_field_full = calculate_ti_field(self.lfm, stim1, stim2, target_indices=None)
             ti_field_target = ti_field_full[self.target_indices]
-            
+
             # Objective 1: Maximize target field (minimize reciprocal)
             avg_target = np.average(ti_field_target)
             obj1 = 1.0 / (avg_target + 1e-10)
-            
+
             # Objective 2: Minimize whole brain field (focality)
             obj2 = np.mean(ti_field_full)
-            
+
             return np.array([obj1, obj2])
         else:
             # Single objective: maximize target field only
@@ -235,28 +139,151 @@ class TIOptimizer:
             avg_field = np.average(ti_field)
             cost = 1.0 / (avg_field + 1e-10)
             return cost
-    
+
     def _objective_wrapper(self, x):
         """Wrapper for scipy optimizer (single objective)"""
         self._eval_count += 1
         if self._eval_count % 100 == 0:
             self._log(f"  Evaluations: {self._eval_count}", 'info')
-        
+
         # x contains [e1, e2, e3, e4, current_ratio]
-        return self.evaluate_montage(x[:4], current_ratio=x[4] if len(x) > 4 else 0, return_dual_objective=False)
-    
-    def optimize(self, max_generations=500, population_size=30, 
-                 preset_target=None, roi_radius_mm=10, method='differential_evolution'):
+        cost = self.evaluate_montage(x[:4], current_ratio=x[4] if len(x) > 4 else 0, return_dual_objective=False)
+
+        # Track best solution found so far
+        if cost < self._best_cost:
+            self._best_cost = cost
+            self._best_solution = x.copy()
+
+            # Store intermediate result for convergence plotting
+            # Use evaluation count as generation number for plotting
+            generation_num = self._eval_count // 50  # Approximate generations
+            if generation_num >= len(self._generation_results):
+                result = {
+                    'electrodes': np.round(x[:4]).astype(int).tolist(),
+                    'cost': float(cost),
+                    'field_strength': 1.0 / cost if cost > 0 else 0,
+                    'current_ratio': int(x[4]) if len(x) > 4 else 0,
+                    'generation': generation_num,
+                    'evaluations': self._eval_count
+                }
+                self._generation_results.append(result)
+
+        return cost
+
+    def _manual_optimization_loop(self, bounds, max_generations, population_size):
         """
-        Run scipy-based optimization
+        Fallback optimization loop when differential evolution fails.
+        Uses a simple but efficient genetic algorithm approach.
+        """
+        self._log(f"Starting fallback optimization with {population_size} population, {max_generations} generations...", 'info')
+
+        # Initialize population more efficiently
+        num_params = len(bounds)
+        population = np.zeros((population_size, num_params), dtype=int)
         
+        # Generate diverse initial population
+        for i in range(population_size):
+            electrodes = np.random.choice(self.num_electrodes, size=4, replace=False)
+            current_ratio = np.random.randint(0, self.num_electrodes)
+            population[i] = np.concatenate([electrodes, [current_ratio]])
+
+        # Use threading for parallel evaluation
+        from concurrent.futures import ThreadPoolExecutor
+        
+        # Evaluate initial population in parallel
+        with ThreadPoolExecutor(max_workers=min(4, population_size)) as executor:
+            fitness_scores = np.array(list(executor.map(self._objective_wrapper, population)))
+        
+        best_idx = np.argmin(fitness_scores)
+        best_individual = population[best_idx].copy()
+        best_fitness = fitness_scores[best_idx]
+
+        self._log(f"Initial best fitness: {best_fitness:.6f}", 'info')
+
+        # Genetic algorithm with elitism
+        elite_size = max(2, population_size // 10)
+        
+        for gen in range(max_generations):
+            # Sort population by fitness
+            sorted_indices = np.argsort(fitness_scores)
+            
+            # Keep elite individuals
+            new_population = population[sorted_indices[:elite_size]].copy()
+            
+            # Generate rest of population
+            while len(new_population) < population_size:
+                # Tournament selection
+                parent1_idx = sorted_indices[np.random.randint(0, population_size // 2)]
+                parent2_idx = sorted_indices[np.random.randint(0, population_size // 2)]
+                
+                # Crossover for electrodes
+                if np.random.random() < 0.8:
+                    # Uniform crossover ensuring no duplicates
+                    child = population[parent1_idx].copy()
+                    electrode_pool = np.unique(np.concatenate([
+                        population[parent1_idx][:4],
+                        population[parent2_idx][:4]
+                    ]))
+                    if len(electrode_pool) >= 4:
+                        child[:4] = np.random.choice(electrode_pool, 4, replace=False)
+                    # Blend current ratio
+                    child[4] = (population[parent1_idx][4] + population[parent2_idx][4]) // 2
+                else:
+                    child = population[parent1_idx].copy()
+                
+                # Mutation
+                if np.random.random() < 0.3:
+                    mut_idx = np.random.randint(0, 4)
+                    available = list(range(self.num_electrodes))
+                    for e in child[:4]:
+                        if e in available:
+                            available.remove(e)
+                    if available:
+                        child[mut_idx] = np.random.choice(available)
+                
+                new_population = np.vstack([new_population, child])
+            
+            population = new_population[:population_size]
+            
+            # Parallel evaluation
+            with ThreadPoolExecutor(max_workers=min(4, population_size)) as executor:
+                fitness_scores = np.array(list(executor.map(self._objective_wrapper, population)))
+            
+            current_best_idx = np.argmin(fitness_scores)
+            current_best_fitness = fitness_scores[current_best_idx]
+
+            # Update best solution
+            if current_best_fitness < best_fitness:
+                best_individual = population[current_best_idx].copy()
+                best_fitness = current_best_fitness
+                self._log(f"Generation {gen+1}: New best fitness: {best_fitness:.6f}", 'info')
+
+            self._eval_count = (gen + 1) * population_size
+
+        self._log(f"Optimization completed. Best fitness: {best_fitness:.6f}, Evaluations: {self._eval_count}", 'success')
+
+        # Create result object similar to differential_evolution
+        class ManualResult:
+            def __init__(self, x, fun, success=True, nfev=None):
+                self.x = x
+                self.fun = fun
+                self.success = success
+                self.nfev = nfev
+
+        return ManualResult(best_individual, best_fitness, success=True, nfev=self._eval_count)
+
+
+    def optimize(self, max_generations=500, population_size=30,
+                 preset_target=None, roi_radius_mm=10):
+        """
+        Run differential evolution optimization
+
         Args:
             max_generations: Number of generations (iterations)
             population_size: Population size
             preset_target: Preset target name or MNI coordinate
             roi_radius_mm: ROI radius in mm
-            method: Optimization method ('differential_evolution', 'dual_annealing', or 'basinhopping')
-        
+
         Returns:
             best_solution: Dictionary with best electrode configuration
         """
@@ -264,81 +291,65 @@ class TIOptimizer:
         if preset_target is not None:
             target_mni = self._get_preset_target(preset_target)
             self.set_target(target_mni, roi_radius_mm)
-        
+
         if self.target_indices is None:
             raise ValueError("Target not set. Call set_target() first.")
-        
+
         # Calculate actual population for differential evolution
-        if method == 'differential_evolution':
-            popsize_multiplier = max(3, population_size // 5)
-            actual_population = popsize_multiplier * 5
-        else:
-            actual_population = population_size
-        
+        popsize_multiplier = max(3, population_size // 5)
+        actual_population = popsize_multiplier * 5
+
         self._log(f"\n{'='*60}", 'default')
-        self._log(f"MOVEA Optimization - Scipy Backend", 'info')
+        self._log(f"MOVEA Optimization - Differential Evolution", 'info')
         self._log(f"{'='*60}", 'default')
-        self._log(f"Method: {method}", 'info')
         self._log(f"Target voxels: {len(self.target_indices)}", 'info')
         self._log(f"Max generations: {max_generations}", 'info')
         self._log(f"Requested population: {population_size}", 'info')
-        if method == 'differential_evolution':
-            self._log(f"Actual population: {actual_population} (popsize={popsize_multiplier} × 5 params)", 'info')
-            self._log(f"Expected evaluations: ~{max_generations * actual_population}", 'info')
+        self._log(f"Actual population: {actual_population} (popsize={popsize_multiplier} × 5 params)", 'info')
+        self._log(f"Expected evaluations: ~{max_generations * actual_population}", 'info')
         self._log(f"{'='*60}\n", 'default')
-        
+
         # Define bounds: 4 electrodes + 1 current ratio
         bounds = [(0, self.num_electrodes - 1)] * 4 + [(0, self.num_electrodes - 1)]
-        
+
         self._eval_count = 0
-        
-        if method == 'differential_evolution':
-            # Differential evolution is good for discrete optimization
-            # popsize is a MULTIPLIER: actual_pop = popsize * num_params
-            # For num_params=5, popsize=6 gives actual_pop=30
-            popsize_multiplier = max(3, population_size // 5)  # Divide by number of parameters
-            
+        self._best_cost = float('inf')
+        self._best_solution = None
+        self._generation_results = []
+
+        # Try differential evolution, but handle potential issues
+        try:
+            self._log("Attempting differential evolution optimization...", 'info')
             result = differential_evolution(
                 self._objective_wrapper,
                 bounds,
                 maxiter=max_generations,
                 popsize=popsize_multiplier,  # This is a multiplier!
                 seed=42,
-                workers=1,
-                updating='deferred',
                 atol=0.001,
                 tol=0.001,
-                polish=False  # Don't polish since we need integers
+                polish=False,  # Don't polish since we need integers
+                workers=1  # Disable parallel processing to avoid map-like callable issues
             )
-        elif method == 'dual_annealing':
-            from scipy.optimize import dual_annealing
-            result = dual_annealing(
-                self._objective_wrapper,
-                bounds,
-                maxiter=max_generations * population_size,
-                seed=42
-            )
-        elif method == 'basinhopping':
-            from scipy.optimize import basinhopping
-            # Start with random initial guess
-            x0 = np.random.randint(0, self.num_electrodes, 5)
-            result = basinhopping(
-                self._objective_wrapper,
-                x0,
-                niter=max_generations,
-                seed=42
-            )
-        else:
-            raise ValueError(f"Unknown method: {method}")
-        
+            self._log("Differential evolution completed successfully", 'success')
+        except Exception as de_error:
+            # If differential evolution fails, fall back to manual optimization loop
+            error_str = str(de_error)
+            self._log(f"Differential evolution failed: {error_str}", 'warning')
+            if "map-like callable" in error_str:
+                self._log("Detected map-like callable error. Using manual optimization loop...", 'warning')
+            else:
+                self._log(f"Other optimization error, using manual optimization loop...", 'warning')
+            result = self._manual_optimization_loop(bounds, max_generations, population_size)
+
         # Extract best solution
         best_vars = np.round(result.x).astype(int)
         best_electrodes = best_vars[:4]
         best_cost = result.fun
-        
+
         # Ensure valid solution
         best_electrodes = np.clip(best_electrodes, 0, self.num_electrodes - 1)
-        
+
         solution = {
             'electrodes': best_electrodes.tolist(),
             'cost': float(best_cost),
@@ -346,13 +357,19 @@ class TIOptimizer:
             'current_ratio': int(best_vars[4]) if len(best_vars) > 4 else 0,
             'generations': max_generations,
             'population': population_size,
-            'method': method,
+            'method': 'differential_evolution' if hasattr(result, 'success') else 'manual_genetic',
             'success': result.success if hasattr(result, 'success') else True,
-            'evaluations': self._eval_count
+            'evaluations': getattr(result, 'nfev', self._eval_count)
         }
-        
-        self.optimization_results.append(solution)
-        
+
+        # Store generation results for convergence plotting
+        self.optimization_results = self._generation_results.copy()
+
+        # Also store the final solution as the last result
+        if not self.optimization_results or self.optimization_results[-1]['cost'] != solution['cost']:
+            solution['generation'] = max_generations
+            self.optimization_results.append(solution)
+
         self._log(f"\n{'='*60}", 'default')
         self._log(f"Optimization Complete!", 'success')
         self._log(f"{'='*60}", 'default')
@@ -362,440 +379,248 @@ class TIOptimizer:
         self._log(f"Total evaluations: {self._eval_count}", 'info')
         self._log(f"Success: {solution['success']}", 'info')
         self._log(f"{'='*60}\n", 'default')
-        
+
         return solution
-    
-    def generate_pareto_solutions(self, n_solutions=20, max_iter_per_solution=500, n_cores=None):
+
+    def generate_pareto_solutions(self, n_solutions=20, max_generations=50, n_cores=None):
         """
-        Generate multiple Pareto-optimal solutions (like original MOVEA) with multi-core parallelization
-        Explores trade-off between intensity and focality
+        Generate Pareto-optimal solutions using NSGA-II style multi-objective optimization
         
         Args:
-            n_solutions: Number of solutions to generate
-            max_iter_per_solution: Iterations per solution
-            n_cores: Number of CPU cores to use (None = auto-detect, 1 = serial)
+            n_solutions: Population size (number of solutions to maintain)
+            max_generations: Number of generations to evolve
+            n_cores: Number of CPU cores to use (None = auto)
         
         Returns:
-            pareto_solutions: List of solution dictionaries with dual objectives
+            list: List of non-dominated solution dictionaries
         """
         if self.target_indices is None:
             raise ValueError("Target not set. Call set_target() first.")
         
-        # Determine number of cores
         if n_cores is None:
-            n_cores = max(1, mp.cpu_count() - 1)  # Leave one core free
-        elif n_cores <= 0:
-            n_cores = mp.cpu_count()
-        
-        use_parallel = n_cores > 1 and n_solutions > 1
-        
-        # Check for very large leadfields
-        n_voxels = self.lfm.shape[1]
-        total_evaluations = n_solutions * max_iter_per_solution
+            n_cores = min(4, max(1, threading.active_count() - 1))
         
         self._log(f"\n{'='*60}", 'default')
-        self._log(f"MOVEA Pareto Front Generation", 'info')
+        self._log("MOVEA Multi-Objective Optimization (NSGA-II style)", 'info')
         self._log(f"{'='*60}", 'default')
-        self._log(f"Leadfield size: {n_voxels:,} voxels", 'info')
-        self._log(f"Target voxels: {len(self.target_indices)}", 'info')
-        self._log(f"Generating {n_solutions} Pareto-optimal solutions", 'info')
-        self._log(f"Iterations per solution: {max_iter_per_solution}", 'info')
-        self._log(f"Total evaluations: {total_evaluations:,}", 'info')
-        
-        # Warning for large computations
-        if n_voxels > 500000:  # More than 500k voxels
-            # Estimate memory usage per worker
-            lfm_size_mb = (self.lfm.nbytes) / (1024 * 1024)
-            total_memory_mb = lfm_size_mb * n_cores
-            
-            self._log("", 'default')
-            self._log("⚠ WARNING: Large leadfield detected!", 'warning')
-            self._log(f"  Leadfield size: {lfm_size_mb:.1f} MB per worker", 'warning')
-            self._log(f"  Total memory for {n_cores} workers: ~{total_memory_mb:.1f} MB", 'warning')
-            self._log(f"  {n_voxels:,} voxels × {total_evaluations:,} evaluations", 'warning')
-            self._log(f"  Each evaluation computes TI field for ALL voxels", 'warning')
-            self._log(f"  This will be VERY SLOW (minutes to hours)", 'warning')
-            
-            if total_memory_mb > 16000:  # More than 16GB
-                self._log(f"  ⚠⚠ Memory usage may cause system instability!", 'warning')
-            
-            self._log("  Consider:", 'warning')
-            self._log(f"    • Reducing solutions to 5-10", 'warning')
-            self._log(f"    • Reducing iterations to 50-100", 'warning')
-            self._log(f"    • Reducing CPU cores to 4-6", 'warning')
-            self._log(f"    • Or skip Pareto generation entirely", 'warning')
-            self._log("", 'default')
-        
-        if use_parallel:
-            self._log(f"Using {n_cores} CPU cores in parallel", 'info')
-        else:
-            self._log(f"Using serial processing (1 core)", 'info')
-        self._log(f"This explores intensity vs focality trade-offs", 'info')
+        self._log(f"Population size: {n_solutions}", 'info')
+        self._log(f"Generations: {max_generations}", 'info')
+        self._log(f"Parallel threads: {n_cores}", 'info')
         self._log(f"{'='*60}\n", 'default')
         
-        if use_parallel:
-            # Parallel processing with multiprocessing
-            # Prepare arguments for each worker
-            worker_args = [
-                (i, self.lfm, self.num_electrodes, self.target_indices, max_iter_per_solution, 42)
-                for i in range(n_solutions)
-            ]
-            
-            # Estimate realistic timeout based on problem size
-            # Pareto uses FULL brain field, not just target
-            n_voxels_full = self.lfm.shape[1]
-            n_target_voxels = len(self.target_indices)
-            
-            # Base estimate on single-objective performance
-            # Assume each full-brain evaluation takes proportionally longer than target-only
-            # Rough estimate: 0.05s per 10k voxels (conservative)
-            eval_time_estimate = (n_voxels_full / 10000) * 0.05  # seconds per evaluation
-            total_time_estimate = (n_solutions * max_iter_per_solution * eval_time_estimate) / n_cores
-            
-            # Add large buffer for safety and ensure reasonable minimum
-            timeout_seconds = max(1800, int(total_time_estimate * 3.0))  # At least 30 min
-            
-            # Cap at reasonable maximum (4 hours)
-            timeout_seconds = min(timeout_seconds, 14400)
-            
-            self._log("Starting parallel processing...", 'info')
-            self._log(f"Estimated time: {int(total_time_estimate/60)} min, timeout: {int(timeout_seconds/60)} min", 'info')
-            
-            pareto_solutions = []
-            pool = None  # Initialize to None for finally block
-            
-            try:
-                # Set start method to 'fork' on Unix for better performance/reliability
-                import sys
-                import time
-                
-                if sys.platform != 'win32':
-                    try:
-                        mp.set_start_method('fork', force=True)
-                    except RuntimeError:
-                        pass  # Already set
-                
-                self._log(f"Creating worker pool with {n_cores} processes...", 'info')
-                pool = mp.Pool(processes=n_cores)
-                
-                try:
-                    self._log(f"  Worker pool created", 'info')
-                    
-                    # Test that workers are actually running with a simple task
-                    self._log("  Testing workers...", 'info')
-                    test_result = pool.apply_async(_worker_test)
-                    try:
-                        test_msg = test_result.get(timeout=10)
-                        self._log(f"  ✓ Workers responding: {test_msg}", 'success')
-                    except mp.TimeoutError:
-                        self._log(f"  ✗ Workers not responding after 10s - aborting", 'error')
-                        self._log(f"  This may indicate memory issues or worker crashes", 'error')
-                        pool.terminate()
-                        pool.join()
-                        pareto_solutions = []
-                        return []
-                    except Exception as test_err:
-                        self._log(f"  ✗ Worker test failed: {str(test_err)}", 'error')
-                        import traceback
-                        self._log(f"  {traceback.format_exc()}", 'debug')
-                        pool.terminate()
-                        pool.join()
-                        pareto_solutions = []
-                        return []
-                    
-                    # Use map_async instead of imap to avoid blocking forever
-                    self._log("  Submitting work to pool...", 'info')
-                    result_async = pool.map_async(_generate_single_pareto_solution, worker_args)
-                    self._log("  Work submitted, monitoring progress...", 'info')
-                    
-                    # Monitor progress without blocking
-                    start_time = time.time()
-                    last_log_time = start_time
-                    
-                    self._log("", 'default')
-                    
-                    while True:
-                        current_time = time.time()
-                        elapsed = current_time - start_time
-                        
-                        # Check if results are ready (non-blocking)
-                        if result_async.ready():
-                            self._log(f"  All workers completed after {int(elapsed)}s ({int(elapsed/60)}min)", 'success')
-                            break
-                        
-                        # Check timeout
-                        if elapsed > timeout_seconds:
-                            self._log(f"  ⚠ Timeout after {int(elapsed)}s ({int(elapsed/60)} min) - terminating workers", 'warning')
-                            pool.terminate()
-                            pool.join()
-                            pareto_solutions = []
-                            break
-                        
-                        # Log progress every 10 seconds
-                        if current_time - last_log_time >= 10:
-                            self._log(
-                                f"  Processing... Elapsed: {int(elapsed/60)}m:{int(elapsed%60):02d}s | "
-                                f"Timeout in: {int((timeout_seconds - elapsed)/60)}m",
-                                'info'
-                            )
-                            last_log_time = current_time
-                        
-                        # Wait a bit before checking again (non-blocking)
-                        result_async.wait(timeout=2)
-                    
-                    # Get results if computation completed
-                    if result_async.ready():
-                        self._log("  Collecting results...", 'info')
-                        try:
-                            completed_solutions = result_async.get(timeout=30)
-                            total_time = time.time() - start_time
-                            
-                            self._log("", 'default')
-                            self._log(f"  ✓ Collection complete: {len(completed_solutions)}/{n_solutions} solutions in {int(total_time)}s ({int(total_time/60)}min)", 'success')
-                            
-                            # Log some solution statistics
-                            if completed_solutions:
-                                for idx, sol in enumerate(completed_solutions[:5]):  # Show first 5
-                                    if sol.get('method') != 'pareto_error':
-                                        self._log(
-                                            f"    Sol {idx+1}: I={sol['intensity_field']:.4f} V/m, "
-                                            f"F={sol['focality']:.4f} V/m, "
-                                            f"time={sol.get('time_seconds', 0):.1f}s",
-                                            'info'
-                                        )
-                            
-                            pareto_solutions = completed_solutions
-                            
-                        except Exception as e:
-                            self._log(f"  Error collecting results: {str(e)}", 'error')
-                            import traceback
-                            self._log(f"  {traceback.format_exc()}", 'debug')
-                            pareto_solutions = []
-                
-                finally:
-                    # Always clean up pool
-                    if pool is not None:
-                        self._log("  Closing worker pool...", 'info')
-                        pool.close()
-                        pool.join()
-                        self._log("  Worker pool closed", 'info')
-                    
-            except KeyboardInterrupt:
-                self._log("  User interrupted - terminating workers...", 'warning')
-                if pool is not None:
-                    try:
-                        pool.terminate()
-                        pool.join()
-                    except:
-                        pass
-                pareto_solutions = []
-            except Exception as e:
-                self._log(f"  Critical error in parallel processing: {str(e)}", 'error')
-                import traceback
-                self._log(f"  {traceback.format_exc()}", 'debug')
-                if pool is not None:
-                    try:
-                        pool.terminate()
-                        pool.join()
-                    except:
-                        pass
-                pareto_solutions = []
-            
-            if pareto_solutions and len(pareto_solutions) > 0:
-                self._log("", 'default')
-                self._log("Validating and filtering solutions...", 'info')
-                
-                # Filter out any error results
-                valid_solutions = [s for s in pareto_solutions if s.get('method') != 'pareto_error']
-                error_count = len(pareto_solutions) - len(valid_solutions)
-                
-                if error_count > 0:
-                    self._log(f"  ⚠ {error_count} solutions failed during computation", 'warning')
-                    # Log details of failed solutions
-                    for sol in pareto_solutions:
-                        if sol.get('method') == 'pareto_error':
-                            self._log(f"    Solution {sol.get('solution_idx', '?')}: {sol.get('error', 'Unknown error')}", 'debug')
-                
-                if len(valid_solutions) > 0:
-                    self._log(f"  ✓ {len(valid_solutions)} valid solutions", 'success')
-                    
-                    # Calculate statistics
-                    intensities = [s['intensity_field'] for s in valid_solutions]
-                    focalities = [s['focality'] for s in valid_solutions]
-                    times = [s.get('time_seconds', 0) for s in valid_solutions]
-                    improvements = [s.get('improvements', 0) for s in valid_solutions]
-                    
-                    self._log("", 'default')
-                    self._log("Solution Statistics:", 'info')
-                    self._log(f"  Intensity (V/m): min={min(intensities):.6f}, max={max(intensities):.6f}, avg={np.mean(intensities):.6f}", 'info')
-                    self._log(f"  Focality (V/m):  min={min(focalities):.6f}, max={max(focalities):.6f}, avg={np.mean(focalities):.6f}", 'info')
-                    self._log(f"  Time per solution: min={min(times):.1f}s, max={max(times):.1f}s, avg={np.mean(times):.1f}s", 'info')
-                    self._log(f"  Improvements per solution: min={min(improvements)}, max={max(improvements)}, avg={np.mean(improvements):.1f}", 'info')
-                    
-                    pareto_solutions = valid_solutions
-                    self._log("", 'default')
-                    self._log(f"✓ Parallel generation complete! {len(pareto_solutions)} Pareto-optimal solutions ready", 'success')
-                else:
-                    self._log(f"  ✗ All solutions failed validation", 'error')
-                    pareto_solutions = []
-            else:
-                self._log(f"Parallel generation failed or returned no results", 'error')
-                # Return empty list rather than None to allow continued processing
-                pareto_solutions = []
-        else:
-            # Serial processing (fallback)
-            pareto_solutions = []
-            for i in range(n_solutions):
-                # Progress update every solution
-                progress_pct = int(((i + 1) / n_solutions) * 100)
-                self._log(f"Generating solution {i+1}/{n_solutions} ({progress_pct}% complete)...", 'info')
-                
-                # Use random search with dual objective evaluation
-                best_cost = [float('inf'), float('inf')]
-                best_electrodes = None
-                best_cr = 0
-                
-                np.random.seed(42 + i)
-                
-                for _ in range(max_iter_per_solution):
-                    electrodes = np.random.choice(self.num_electrodes, size=4, replace=False)
-                    current_ratio = np.random.randint(0, 101)  # 0-100 for current ratio percentage
-                    
-                    objs = self.evaluate_montage(electrodes, current_ratio, return_dual_objective=True)
-                    
-                    # Keep if better on intensity
-                    if objs[0] < best_cost[0]:
-                        best_cost = objs.copy()
-                        best_electrodes = electrodes.copy()
-                        best_cr = current_ratio
-                
-                # Calculate actual field values
-                intensity_field = 1.0 / best_cost[0] if best_cost[0] > 0 else 0
-                focality = best_cost[1]
-                
-                solution = {
-                    'electrodes': best_electrodes.tolist(),
-                    'current_ratio': int(best_cr),
-                    'intensity_cost': float(best_cost[0]),
-                    'intensity_field': float(intensity_field),  # V/m at target
-                    'focality': float(focality),  # Whole brain field (V/m)
-                    'method': 'pareto_random_search'
-                }
-                
-                pareto_solutions.append(solution)
+        start_time = time.time()
         
-        self._log(f"\n{'='*60}", 'default')
-        self._log(f"PARETO FRONT GENERATION COMPLETE", 'info')
-        self._log(f"{'='*60}", 'default')
-        
-        if pareto_solutions and len(pareto_solutions) > 0:
-            intensities = [s['intensity_field'] for s in pareto_solutions]
-            focalities = [s['focality'] for s in pareto_solutions]
-            ratios = [s['intensity_field'] / s['focality'] if s['focality'] > 0 else 0 for s in pareto_solutions]
-            
-            self._log(f"Solutions generated: {len(pareto_solutions)}", 'success')
-            self._log(f"Intensity range: {min(intensities):.6f} - {max(intensities):.6f} V/m", 'info')
-            self._log(f"Focality range: {min(focalities):.6f} - {max(focalities):.6f} V/m", 'info')
-            self._log(f"Focality ratio range: {min(ratios):.2f} - {max(ratios):.2f}", 'info')
-            
-            # Identify best solutions
-            best_intensity_idx = intensities.index(max(intensities))
-            best_focality_idx = focalities.index(min(focalities))
-            best_ratio_idx = ratios.index(max(ratios))
-            
-            self._log("", 'default')
-            self._log("Notable solutions:", 'info')
-            self._log(f"  Max intensity: Solution {best_intensity_idx+1} - {intensities[best_intensity_idx]:.6f} V/m", 'info')
-            self._log(f"    Electrodes: {pareto_solutions[best_intensity_idx]['electrodes']}", 'debug')
-            self._log(f"  Best focality: Solution {best_focality_idx+1} - {focalities[best_focality_idx]:.6f} V/m", 'info')
-            self._log(f"    Electrodes: {pareto_solutions[best_focality_idx]['electrodes']}", 'debug')
-            self._log(f"  Best ratio: Solution {best_ratio_idx+1} - {ratios[best_ratio_idx]:.2f}", 'info')
-            self._log(f"    Electrodes: {pareto_solutions[best_ratio_idx]['electrodes']}", 'debug')
-        else:
-            self._log(f"Failed to generate any valid Pareto solutions", 'error')
-            self._log(f"Check logs above for error details", 'error')
-        
-        self._log(f"{'='*60}\n", 'default')
-        
-        return pareto_solutions
-    
-    def optimize_simple(self, preset_target=None, roi_radius_mm=10, max_iter=1000):
-        """
-        Simple brute-force optimization with random sampling
-        Fast but less optimal, good for quick tests
-        
-        Args:
-            preset_target: Preset target name or MNI coordinate
-            roi_radius_mm: ROI radius in mm
-            max_iter: Maximum iterations
-        
-        Returns:
-            best_solution: Dictionary with best electrode configuration
-        """
-        # Handle preset targets
-        if preset_target is not None:
-            target_mni = self._get_preset_target(preset_target)
-            self.set_target(target_mni, roi_radius_mm)
-        
-        if self.target_indices is None:
-            raise ValueError("Target not set. Call set_target() first.")
-        
-        self._log(f"Starting simple random search optimization...", 'info')
-        self._log(f"Target voxels: {len(self.target_indices)}", 'info')
-        self._log(f"Max iterations: {max_iter}", 'info')
-        
-        best_cost = float('inf')
-        best_electrodes = None
-        best_current_ratio = 0
-        
-        for i in range(max_iter):
-            # Generate random unique electrode indices
+        # Initialize population with random solutions
+        population = []
+        for i in range(n_solutions):
+            # Random electrode indices and current ratio
             electrodes = np.random.choice(self.num_electrodes, size=4, replace=False)
-            current_ratio = np.random.randint(0, self.num_electrodes)
+            current_ratio = np.random.uniform(0, 100)
+            individual = np.concatenate([electrodes, [current_ratio]])
+            population.append(individual)
+        
+        population = np.array(population)
+        
+        # Evolution loop
+        best_pareto_front = []
+        
+        for gen in range(max_generations):
+            # Evaluate population in parallel
+            objectives = self._evaluate_population_parallel(population, n_cores)
             
-            cost = self.evaluate_montage(electrodes, current_ratio)
+            # Find non-dominated solutions
+            pareto_indices = self._find_pareto_front(objectives)
             
-            if cost < best_cost:
-                best_cost = cost
-                best_electrodes = electrodes.copy()
-                best_current_ratio = current_ratio
-                self._log(f"  Iteration {i+1}: New best cost = {best_cost:.6f}, electrodes = {best_electrodes}", 'info')
+            # Update best Pareto front
+            current_pareto = []
+            for idx in pareto_indices:
+                solution = self._create_solution_dict(population[idx], objectives[idx])
+                current_pareto.append(solution)
+            
+            if len(current_pareto) > len(best_pareto_front):
+                best_pareto_front = current_pareto
+            
+            # Progress update every generation
+            self._log(f"Generation {gen + 1}/{max_generations}: {len(pareto_indices)} non-dominated solutions", 'info')
+            
+            # Create next generation
+            if gen < max_generations - 1:
+                population = self._create_next_generation(
+                    population, objectives, pareto_indices, n_solutions
+                )
         
-        solution = {
-            'electrodes': best_electrodes.tolist(),
-            'cost': float(best_cost),
-            'field_strength': 1.0 / best_cost if best_cost > 0 else 0,
-            'current_ratio': int(best_current_ratio),
-            'iterations': max_iter,
-            'method': 'random_search'
-        }
+        elapsed = time.time() - start_time
         
-        self.optimization_results.append(solution)
+        self._log(f"\n{'='*60}", 'default')
+        self._log(f"Multi-objective optimization completed in {elapsed:.1f}s", 'success')
+        self._log(f"Final Pareto front: {len(best_pareto_front)} solutions", 'info')
+        self._log(f"{'='*60}\n", 'default')
         
-        self._log(f"\nOptimization complete!", 'success')
-        self._log(f"Best electrodes: {solution['electrodes']}", 'info')
-        self._log(f"Field strength: {solution['field_strength']:.6f} V/m", 'info')
+        # Sort by intensity field (descending)
+        best_pareto_front.sort(key=lambda x: x['intensity_field'], reverse=True)
         
-        return solution
+        return best_pareto_front
     
-    def _get_preset_target(self, target_name):
-        """Get MNI coordinates for preset targets"""
-        presets = {
-            'motor': np.array([47, -13, 52]),
-            'dlpfc': np.array([-39, 34, 37]),
-            'hippocampus': np.array([-31, -20, -14]),
-            'hippo': np.array([-31, -20, -14]),
-            'v1': np.array([10, -92, 2]),
-            'thalamus': np.array([10, -19, 6]),
-            'pallidum': np.array([-17, 3, -1]),
-            'sensory': np.array([41, -36, 66]),
-            'dorsal': np.array([25, 42, 37]),
-        }
+    def _evaluate_population_parallel(self, population, n_cores):
+        """Evaluate population objectives in parallel using threads"""
+        objectives = np.zeros((len(population), 2))
         
+        # Prepare arguments for parallel evaluation
+        args_list = [(self, i, ind) for i, ind in enumerate(population)]
+        
+        # Use ThreadPoolExecutor for GUI-friendly parallelism
+        with concurrent.futures.ThreadPoolExecutor(max_workers=n_cores) as executor:
+            futures = [executor.submit(_evaluate_montage_parallel, args) for args in args_list]
+            
+            for future in concurrent.futures.as_completed(futures):
+                try:
+                    idx, obj = future.result()
+                    objectives[idx] = obj
+                except Exception as e:
+                    self._log(f"Evaluation error: {str(e)}", 'debug')
+                    # Failed evaluations get infinite cost
+                    idx = args_list[futures.index(future)][1]
+                    objectives[idx] = [float('inf'), float('inf')]
+        
+        return objectives
+    
+    def _find_pareto_front(self, objectives):
+        """Find indices of non-dominated solutions"""
+        n_solutions = len(objectives)
+        is_dominated = np.zeros(n_solutions, dtype=bool)
+        
+        for i in range(n_solutions):
+            if is_dominated[i]:
+                continue
+            
+            for j in range(n_solutions):
+                if i == j or is_dominated[j]:
+                    continue
+                
+                # Check if solution j dominates solution i
+                # (better in all objectives)
+                if np.all(objectives[j] <= objectives[i]) and np.any(objectives[j] < objectives[i]):
+                    is_dominated[i] = True
+                    break
+        
+        return np.where(~is_dominated)[0]
+    
+    def _create_next_generation(self, population, objectives, pareto_indices, target_size):
+        """Create next generation using tournament selection and crossover"""
+        next_gen = []
+        
+        # Always include Pareto front solutions (elitism)
+        for idx in pareto_indices:
+            next_gen.append(population[idx].copy())
+        
+        # Fill rest with offspring
+        while len(next_gen) < target_size:
+            # Tournament selection
+            parent1 = self._tournament_selection(population, objectives)
+            parent2 = self._tournament_selection(population, objectives)
+            
+            # Crossover
+            if np.random.random() < 0.8:  # 80% crossover rate
+                offspring = self._crossover(parent1, parent2)
+            else:
+                offspring = parent1.copy()
+            
+            # Mutation
+            offspring = self._mutate(offspring)
+            
+            next_gen.append(offspring)
+        
+        return np.array(next_gen[:target_size])
+    
+    def _tournament_selection(self, population, objectives, tournament_size=3):
+        """Tournament selection based on dominance ranking"""
+        indices = np.random.choice(len(population), tournament_size, replace=False)
+        
+        # Find best individual in tournament
+        best_idx = indices[0]
+        for idx in indices[1:]:
+            # Check if idx dominates best_idx
+            if np.all(objectives[idx] <= objectives[best_idx]) and np.any(objectives[idx] < objectives[best_idx]):
+                best_idx = idx
+        
+        return population[best_idx].copy()
+    
+    def _crossover(self, parent1, parent2):
+        """Uniform crossover for electrode indices and blend for current ratio"""
+        offspring = parent1.copy()
+        
+        # Crossover electrode indices (ensure no duplicates)
+        electrode_pool = np.unique(np.concatenate([parent1[:4], parent2[:4]]))
+        if len(electrode_pool) >= 4:
+            offspring[:4] = np.random.choice(electrode_pool, 4, replace=False)
+        
+        # Blend current ratios
+        if len(parent1) > 4 and len(parent2) > 4:
+            alpha = np.random.random()
+            offspring[4] = alpha * parent1[4] + (1 - alpha) * parent2[4]
+        
+        return offspring
+    
+    def _mutate(self, individual, mutation_rate=0.2):
+        """Mutate individual with given probability"""
+        mutated = individual.copy()
+        
+        # Mutate electrode indices
+        if np.random.random() < mutation_rate:
+            # Replace one electrode with a random one
+            idx_to_mutate = np.random.randint(0, 4)
+            available = list(range(self.num_electrodes))
+            for e in mutated[:4]:
+                if int(e) in available:
+                    available.remove(int(e))
+            if available:
+                mutated[idx_to_mutate] = np.random.choice(available)
+        
+        # Mutate current ratio
+        if len(mutated) > 4 and np.random.random() < mutation_rate:
+            # Add Gaussian noise
+            mutated[4] += np.random.normal(0, 10)
+            mutated[4] = np.clip(mutated[4], 0, 100)
+        
+        return mutated
+    
+    def _create_solution_dict(self, individual, objectives):
+        """Create solution dictionary from individual and objectives"""
+        electrodes = individual[:4].astype(int)
+        current_ratio = int(individual[4]) if len(individual) > 4 else 0
+        
+        return {
+            'electrodes': electrodes.tolist(),
+            'current_ratio': current_ratio,
+            'intensity_cost': float(objectives[0]),
+            'intensity_field': 1.0 / objectives[0] if objectives[0] > 0 else 0,
+            'focality': float(objectives[1]),
+            'method': 'pareto_nsga2',
+            'focality_ratio': (1.0 / objectives[0]) / objectives[1] if objectives[1] > 0 else 0
+        }
+
+    def _get_preset_target(self, target_name):
+        """Get MNI coordinates for preset targets from external config file"""
+        import json
+        import os
+
+        # Load presets from roi_presets.json
+        presets_file = os.path.join(os.path.dirname(os.path.dirname(__file__)),
+                                   'roi_presets.json')
+
+        presets = {}
+        if os.path.exists(presets_file):
+            try:
+                with open(presets_file, 'r') as f:
+                    data = json.load(f)
+                    presets = data.get('regions', {})
+            except Exception as e:
+                self._log(f"Warning: Could not load presets file: {e}", 'warning')
+
         if isinstance(target_name, str):
             target_name = target_name.lower()
             if target_name in presets:
-                return presets[target_name]
+                return np.array(presets[target_name]['mni'])
             else:
                 # Try to parse as coordinates
                 try:
@@ -804,9 +629,14 @@ class TIOptimizer:
                         return np.array(coords)
                 except:
                     pass
+                available_presets = list(presets.keys()) if presets else []
                 raise ValueError(
                     f"Unknown target: {target_name}. "
-                    f"Available: {list(presets.keys())} or 'x,y,z' coordinates"
+                    f"Available presets: {available_presets} or 'x,y,z' coordinates"
                 )
         else:
             return np.array(target_name)
+
+
+
+

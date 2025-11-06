@@ -6,13 +6,17 @@ TI-Toolbox MOVEA Tab
 GUI interface for MOVEA-based TI electrode optimization
 """
 
-import os
-import sys
+# Standard library imports
 import json
-import re
-import subprocess
-import time
 import logging
+import multiprocessing as mp
+import os
+import re
+import signal
+import subprocess
+import sys
+import time
+import traceback
 from pathlib import Path
 
 # Add project root to path for tools import
@@ -20,12 +24,31 @@ project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-from PyQt5 import QtWidgets, QtCore, QtGui
-from utils import is_verbose_message, is_important_message
-from components.console import ConsoleWidget
+# Third-party imports
+from PyQt5 import QtCore, QtGui, QtWidgets
+
+# Local imports
 from components.action_buttons import RunStopButtons
+from components.console import ConsoleWidget
 from core import get_path_manager
 from tools import logging_util
+from utils import is_important_message, is_verbose_message
+
+# MOVEA imports - loaded at module level for thread safety
+MOVEA_AVAILABLE = False
+try:
+    import numpy as np
+    from opt.leadfield import LeadfieldGenerator
+    from opt.movea import (
+        MOVEAVisualizer,
+        MontageFormatter,
+        TIOptimizer,
+    )
+    MOVEA_AVAILABLE = True
+except ImportError as e:
+    # Will be handled in the thread if import fails
+    MOVEA_IMPORT_ERROR = str(e)
+    pass
 
 
 class LeadfieldGenerationThread(QtCore.QThread):
@@ -62,7 +85,6 @@ class LeadfieldGenerationThread(QtCore.QThread):
                 return
             
             # Setup environment and log file
-            import time
             time_stamp = time.strftime('%Y%m%d_%H%M%S')
             derivatives_dir = os.path.join(self.project_dir, 'derivatives')
             log_dir = os.path.join(derivatives_dir, 'ti-toolbox', 'logs', f'sub-{self.subject_id}')
@@ -144,7 +166,6 @@ class LeadfieldGenerationThread(QtCore.QThread):
                     pass
                 
         except Exception as e:
-            import traceback
             tb = traceback.format_exc()
             self.error_signal.emit(f"Error during leadfield generation: {str(e)}\n{tb}")
             self.finished_signal.emit(False, "", "")
@@ -163,7 +184,6 @@ class LeadfieldGenerationThread(QtCore.QThread):
             if os.name == 'nt':  # Windows
                 subprocess.call(['taskkill', '/F', '/T', '/PID', str(self.process.pid)])
             else:  # Unix/Linux/Mac
-                import signal
                 try:
                     # Kill child processes first (SimNIBS spawns MPI processes)
                     parent_pid = self.process.pid
@@ -203,23 +223,21 @@ class MOVEAOptimizationThread(QtCore.QThread):
         self.config = config
         self.terminated = False
         
+        # No need for multiprocessing setup anymore - we use threading
+        
     def run(self):
         """Run MOVEA optimization."""
         try:
             self.output_signal.emit("Initializing MOVEA optimization...", 'info')
             
-            # Import MOVEA modules
-            try:
-                from movea import TIOptimizer, LeadfieldGenerator, MontageFormatter, MOVEAVisualizer
-                import numpy as np
-                # logging_util already imported at module level
-            except ImportError as e:
-                self.error_signal.emit(f"Failed to import MOVEA modules: {str(e)}")
+            # Check if MOVEA modules were imported successfully
+            if not MOVEA_AVAILABLE:
+                error_msg = f"Failed to import MOVEA modules: {MOVEA_IMPORT_ERROR if 'MOVEA_IMPORT_ERROR' in globals() else 'Unknown import error'}"
+                self.error_signal.emit(error_msg)
                 self.finished_signal.emit(False)
                 return
             
             # Setup subject-specific log file
-            import time
             time_stamp = time.strftime('%Y%m%d_%H%M%S')
             subject_id = self.config['subject_id']
             pm = get_path_manager()
@@ -311,8 +329,7 @@ class MOVEAOptimizationThread(QtCore.QThread):
             try:
                 result = optimizer.optimize(
                     max_generations=generations,
-                    population_size=population,
-                    method=opt_method
+                    population_size=population
                 )
             except Exception as e:
                 self.error_signal.emit(f"Optimization failed: {str(e)}")
@@ -352,7 +369,7 @@ class MOVEAOptimizationThread(QtCore.QThread):
             # Create visualizations
             self.output_signal.emit("Creating visualizations...", 'info')
             try:
-                visualizer = MOVEAVisualizer(output_dir)
+                visualizer = MOVEAVisualizer(output_dir, progress_callback=self.output_signal.emit)
                 
                 # 1. Generate Pareto front (like original MOVEA - OPTIONAL, can be slow)
                 generate_pareto = self.config.get('generate_pareto', False)
@@ -362,22 +379,34 @@ class MOVEAOptimizationThread(QtCore.QThread):
                 
                 if generate_pareto:
                     try:
-                        # Estimate time based on cores and iterations
-                        total_evals = n_pareto_solutions * pareto_max_iter
-                        if n_pareto_cores and n_pareto_cores > 1:
-                            est_time = max(1, (n_pareto_solutions * pareto_max_iter) // (n_pareto_cores * 250))
-                            self.output_signal.emit(f"  Generating {n_pareto_solutions} Pareto solutions ({pareto_max_iter} iters each, {n_pareto_cores} cores)", 'info')
-                            self.output_signal.emit(f"  Total evaluations: {total_evals:,} (est. {est_time} min)...", 'info')
-                        else:
-                            est_time = (n_pareto_solutions * pareto_max_iter) // 250
-                            self.output_signal.emit(f"  Generating {n_pareto_solutions} Pareto solutions ({pareto_max_iter} iters each, serial)", 'info')
-                            self.output_signal.emit(f"  Total evaluations: {total_evals:,} (est. {est_time} min)...", 'info')
+                        # Calculate generations for NSGA-II algorithm
+                        approx_generations = max(10, pareto_max_iter // n_pareto_solutions)
+                        total_evals = n_pareto_solutions * approx_generations
                         
-                        pareto_solutions = optimizer.generate_pareto_solutions(
-                            n_solutions=n_pareto_solutions,
-                            max_iter_per_solution=pareto_max_iter,
-                            n_cores=n_pareto_cores
-                        )
+                        # Estimate time (NSGA-II is more efficient than random search)
+                        est_time = max(1, total_evals // 500)
+                        self.output_signal.emit(f"  Generating Pareto front using NSGA-II algorithm", 'info')
+                        self.output_signal.emit(f"  Population size: {n_pareto_solutions}, Generations: {approx_generations}", 'info')
+                        if n_pareto_cores and n_pareto_cores > 1:
+                            self.output_signal.emit(f"  Parallel threads: {n_pareto_cores}", 'info')
+                        self.output_signal.emit(f"  Estimated evaluations: {total_evals:,} (est. {est_time} min)...", 'info')
+                        
+                        # Wrap in comprehensive error handling to prevent GUI crashes
+                        try:
+                            # Use new NSGA-II based multi-objective optimization
+                            # Convert iterations to generations (roughly 1 generation = population_size evaluations)
+                            approx_generations = max(10, pareto_max_iter // n_pareto_solutions)
+                            
+                            pareto_solutions = optimizer.generate_pareto_solutions(
+                                n_solutions=n_pareto_solutions,
+                                max_generations=approx_generations,
+                                n_cores=n_pareto_cores
+                            )
+                        except Exception as pareto_gen_err:
+                            # If Pareto generation fails completely, log but continue
+                            self.output_signal.emit(f"  ⚠ Pareto generation failed: {str(pareto_gen_err)}", 'error')
+                            self.output_signal.emit(f"  {traceback.format_exc()}", 'debug')
+                            pareto_solutions = []
                         
                         # Only create visualizations if we got valid solutions
                         if pareto_solutions and len(pareto_solutions) > 0:
@@ -406,23 +435,30 @@ class MOVEAOptimizationThread(QtCore.QThread):
                             self.output_signal.emit(f"  ✓ Pareto solutions: {os.path.basename(pareto_csv)}", 'success')
                         else:
                             self.output_signal.emit(f"  ⚠ Pareto generation returned no valid solutions", 'warning')
-                        
+
                     except Exception as pareto_err:
-                        import traceback
                         self.output_signal.emit(f"  ⚠ Pareto front generation failed: {str(pareto_err)}", 'warning')
                         self.output_signal.emit(f"  {traceback.format_exc()}", 'debug')
                 else:
                     self.output_signal.emit("  ⓘ Pareto front generation disabled (enable in GUI to generate)", 'info')
+
+                # 2. Generate convergence plot for optimization results
+                if hasattr(optimizer, 'optimization_results') and len(optimizer.optimization_results) > 0:
+                    try:
+                        conv_path = os.path.join(output_dir, 'convergence.png')
+                        visualizer.plot_convergence(optimizer.optimization_results, save_path=conv_path)
+                        self.output_signal.emit(f"  ✓ Convergence plot: {os.path.basename(conv_path)}", 'success')
+                    except Exception as conv_err:
+                        self.output_signal.emit(f"  ⚠ Convergence plot failed: {str(conv_err)}", 'warning')
+                        self.output_signal.emit(f"  {traceback.format_exc()}", 'debug')
                 
             except Exception as viz_error:
                 self.output_signal.emit(f"Warning: Visualization failed: {str(viz_error)}", 'warning')
                 # Continue even if visualization fails
             
             output_csv = os.path.join(output_dir, 'movea_montage.csv')
-            output_txt = os.path.join(output_dir, 'movea_montage.txt')
-            
+
             formatter.save_montage_csv(montage, output_csv)
-            formatter.save_montage_simnibs(montage, output_txt)
             
             # Print summary
             self.output_signal.emit("", 'default')
@@ -441,12 +477,13 @@ class MOVEAOptimizationThread(QtCore.QThread):
             self.output_signal.emit("="*60, 'default')
             self.output_signal.emit(f"Results saved to: {output_dir}", 'success')
             self.output_signal.emit(f"  • {os.path.basename(output_csv)}", 'default')
-            self.output_signal.emit(f"  • {os.path.basename(output_txt)}", 'default')
             
             # List visualization files
             viz_files = [
                 'pareto_front.png',  # Like original MOVEA (optional)
                 'pareto_solutions.csv',  # (optional)
+                'convergence.png',  # Optimization progress (when multiple runs)
+                'montage_summary.png',  # Single run montage visualization
             ]
             for viz_file in viz_files:
                 viz_path = os.path.join(output_dir, viz_file)
@@ -458,7 +495,6 @@ class MOVEAOptimizationThread(QtCore.QThread):
             self.finished_signal.emit(True)
             
         except Exception as e:
-            import traceback
             tb = traceback.format_exc()
             self.error_signal.emit(f"Error during optimization: {str(e)}\n{tb}")
             self.finished_signal.emit(False)
@@ -495,10 +531,10 @@ class MOVEATab(QtWidgets.QWidget):
         QtCore.QTimer.singleShot(500, self.initial_setup)
     
     def load_presets(self):
-        """Load ROI presets from opt/movea/presets.json"""
+        """Load ROI presets from opt/roi_presets.json"""
         try:
-            presets_file = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 
-                                       'opt', 'movea', 'roi_presets.json')
+            presets_file = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                                       'opt', 'roi_presets.json')
             if os.path.exists(presets_file):
                 with open(presets_file, 'r') as f:
                     data = json.load(f)
@@ -540,9 +576,9 @@ class MOVEATab(QtWidgets.QWidget):
         scroll_area.setWidgetResizable(True)
         scroll_content = QtWidgets.QWidget()
         scroll_layout = QtWidgets.QVBoxLayout(scroll_content)
-        scroll_layout.setContentsMargins(10, 10, 10, 10)
-        scroll_layout.setSpacing(10)
-        
+        scroll_layout.setContentsMargins(5, 0, 5, 5)
+        scroll_layout.setSpacing(5)
+
         # Main horizontal layout
         main_horizontal_layout = QtWidgets.QHBoxLayout()
         main_horizontal_layout.setSpacing(15)
@@ -552,19 +588,22 @@ class MOVEATab(QtWidgets.QWidget):
         
         # Subject selection
         subject_container = QtWidgets.QGroupBox("Subject Selection")
-        subject_container.setFixedHeight(100)
+        subject_container.setStyleSheet("""
+            QGroupBox {
+                margin-top: 2px;
+                padding-top: 2px;
+            }
+        """)
         subject_layout = QtWidgets.QVBoxLayout(subject_container)
-        subject_layout.setContentsMargins(10, 10, 10, 10)
-        subject_layout.setSpacing(8)
+        subject_layout.setContentsMargins(5, 0, 5, 0)
+        subject_layout.setSpacing(2)
         
         self.subject_combo = QtWidgets.QComboBox()
-        self.subject_combo.setFixedHeight(30)
         self.subject_combo.currentIndexChanged.connect(self.on_subject_changed)
         subject_layout.addWidget(self.subject_combo)
-        
+
         subject_button_layout = QtWidgets.QHBoxLayout()
         self.list_subjects_btn = QtWidgets.QPushButton("Refresh List")
-        self.list_subjects_btn.setFixedHeight(25)
         self.list_subjects_btn.clicked.connect(self.list_subjects)
         subject_button_layout.addWidget(self.list_subjects_btn)
         
@@ -573,75 +612,107 @@ class MOVEATab(QtWidgets.QWidget):
         
         # Target Configuration
         target_container = QtWidgets.QGroupBox("Target Configuration")
-        target_container.setFixedHeight(180)
         target_layout = QtWidgets.QVBoxLayout(target_container)
-        target_layout.setContentsMargins(10, 10, 10, 10)
-        target_layout.setSpacing(8)
-        
-        # Target type selection
-        target_type_layout = QtWidgets.QHBoxLayout()
+        target_layout.setContentsMargins(5, 2, 5, 2)
+        target_layout.setSpacing(2)
+
+        # Create button group for mutually exclusive radio buttons
+        self.target_button_group = QtWidgets.QButtonGroup()
+
+        # Preset option
+        preset_layout = QtWidgets.QHBoxLayout()
         self.preset_radio = QtWidgets.QRadioButton("Preset")
         self.preset_radio.setChecked(True)
         self.preset_radio.toggled.connect(self.toggle_target_type)
-        self.coordinate_radio = QtWidgets.QRadioButton("MNI Coordinates")
-        target_type_layout.addWidget(self.preset_radio)
-        target_type_layout.addWidget(self.coordinate_radio)
-        target_type_layout.addStretch()
-        target_layout.addLayout(target_type_layout)
-        
-        # Preset target (loaded from presets.json)
+        self.target_button_group.addButton(self.preset_radio)
+        preset_layout.addWidget(self.preset_radio)
+
         self.preset_combo = QtWidgets.QComboBox()
         for preset_key in sorted(self.presets.keys()):
             preset_data = self.presets[preset_key]
             display_name = f"{preset_data['name']} ({preset_key})"
             self.preset_combo.addItem(display_name, preset_key)
-        target_layout.addWidget(self.preset_combo)
-        
-        # MNI coordinates
+        preset_layout.addWidget(self.preset_combo)
+        preset_layout.addStretch()
+        self.preset_widget = QtWidgets.QWidget()
+        self.preset_widget.setLayout(preset_layout)
+        target_layout.addWidget(self.preset_widget)
+
+        # Separator line
+        separator = QtWidgets.QFrame()
+        separator.setFrameShape(QtWidgets.QFrame.HLine)
+        separator.setFrameShadow(QtWidgets.QFrame.Sunken)
+        target_layout.addWidget(separator)
+
+        # MNI coordinates option
         coordinate_layout = QtWidgets.QHBoxLayout()
+        self.coordinate_radio = QtWidgets.QRadioButton("MNI Coordinates")
+        self.coordinate_radio.toggled.connect(self.toggle_target_type)
+        self.target_button_group.addButton(self.coordinate_radio)
+        coordinate_layout.addWidget(self.coordinate_radio)
+
         self.coord_x = QtWidgets.QLineEdit()
         self.coord_x.setPlaceholderText("X")
+        self.coord_x.setFixedWidth(60)
         self.coord_y = QtWidgets.QLineEdit()
         self.coord_y.setPlaceholderText("Y")
+        self.coord_y.setFixedWidth(60)
         self.coord_z = QtWidgets.QLineEdit()
         self.coord_z.setPlaceholderText("Z")
-        coordinate_layout.addWidget(QtWidgets.QLabel("X:"))
+        self.coord_z.setFixedWidth(60)
+
         coordinate_layout.addWidget(self.coord_x)
-        coordinate_layout.addWidget(QtWidgets.QLabel("Y:"))
         coordinate_layout.addWidget(self.coord_y)
-        coordinate_layout.addWidget(QtWidgets.QLabel("Z:"))
         coordinate_layout.addWidget(self.coord_z)
-        self.coordinate_widget = QtWidgets.QWidget()
-        self.coordinate_widget.setLayout(coordinate_layout)
-        self.coordinate_widget.setVisible(False)
-        target_layout.addWidget(self.coordinate_widget)
-        
-        # ROI radius
-        radius_layout = QtWidgets.QHBoxLayout()
-        radius_layout.addWidget(QtWidgets.QLabel("ROI Radius:"))
+
         self.roi_radius = QtWidgets.QSpinBox()
         self.roi_radius.setRange(5, 50)
-        self.roi_radius.setValue(10)
+        self.roi_radius.setValue(15)  # Standard for most brain regions
         self.roi_radius.setSuffix(" mm")
-        radius_layout.addWidget(self.roi_radius)
-        radius_layout.addStretch()
-        target_layout.addLayout(radius_layout)
-        
+        self.roi_radius.setFixedWidth(80)
+        self.roi_radius.setToolTip(
+            "Target region radius for optimization\n"
+            "10-15 mm: Focal stimulation (recommended)\n"
+            "20-30 mm: Broader cortical areas\n"
+            "Larger radius = less focal but more coverage"
+        )
+        coordinate_layout.addWidget(self.roi_radius)
+        coordinate_layout.addStretch()
+
+        self.coordinate_widget = QtWidgets.QWidget()
+        self.coordinate_widget.setLayout(coordinate_layout)
+        target_layout.addWidget(self.coordinate_widget)
+
+        # Launch MNI button below coordinate selection
+        button_layout = QtWidgets.QHBoxLayout()
+        self.launch_mni_btn = QtWidgets.QPushButton("Launch MNI Nifti")
+        self.launch_mni_btn.setToolTip("Open MNI152 T1 template in external viewer")
+        self.launch_mni_btn.clicked.connect(self.launch_mni_nifti)
+        button_layout.addWidget(self.launch_mni_btn)
+        button_layout.addStretch()
+
+        self.button_widget = QtWidgets.QWidget()
+        self.button_widget.setLayout(button_layout)
+        target_layout.addWidget(self.button_widget)
+
+        # Initialize the toggle state (preset selected by default)
+        self.toggle_target_type()
+
         left_layout.addWidget(target_container)
         
         # Leadfield Management
         leadfield_container = QtWidgets.QGroupBox("Leadfield Management")
-        leadfield_container.setFixedHeight(240)
+        leadfield_container.setFixedHeight(192)
         leadfield_layout = QtWidgets.QVBoxLayout(leadfield_container)
-        leadfield_layout.setContentsMargins(10, 10, 10, 10)
-        leadfield_layout.setSpacing(8)
+        leadfield_layout.setContentsMargins(5, 2, 5, 2)
+        leadfield_layout.setSpacing(2)
         
         available_label = QtWidgets.QLabel("Available Leadfields:")
         available_label.setStyleSheet("font-weight: bold; margin-bottom: 5px;")
         leadfield_layout.addWidget(available_label)
         
         self.leadfield_list = QtWidgets.QListWidget()
-        self.leadfield_list.setFixedHeight(140)
+        self.leadfield_list.setFixedHeight(112)
         self.leadfield_list.setSelectionMode(QtWidgets.QAbstractItemView.SingleSelection)
         self.leadfield_list.itemSelectionChanged.connect(self.on_leadfield_selection_changed)
         leadfield_layout.addWidget(self.leadfield_list)
@@ -662,87 +733,101 @@ class MOVEATab(QtWidgets.QWidget):
         leadfield_buttons_layout.addWidget(self.create_leadfield_btn)
         
         leadfield_layout.addLayout(leadfield_buttons_layout)
-        left_layout.addWidget(leadfield_container)
         
         # Right side layout
         right_layout = QtWidgets.QVBoxLayout()
         
         # Optimization Parameters
         opt_container = QtWidgets.QGroupBox("Optimization Parameters")
-        opt_container.setFixedHeight(340)
         opt_layout = QtWidgets.QFormLayout(opt_container)
-        opt_layout.setContentsMargins(10, 10, 10, 10)
-        opt_layout.setSpacing(8)
+        opt_layout.setContentsMargins(5, 2, 5, 2)
+        opt_layout.setSpacing(2)
         
         # Single-objective section
         single_obj_label = QtWidgets.QLabel("Single-Objective (Intensity Only):")
-        single_obj_label.setStyleSheet("font-weight: bold; color: #2196F3;")
+        single_obj_label.setStyleSheet("font-weight: bold;")
         opt_layout.addRow(single_obj_label)
         
-        self.opt_method = QtWidgets.QComboBox()
-        self.opt_method.addItem("Differential Evolution (recommended)", "differential_evolution")
-        self.opt_method.addItem("Dual Annealing", "dual_annealing")
-        self.opt_method.addItem("Basin Hopping", "basinhopping")
-        self.opt_method.setToolTip(
-            "Differential Evolution: Best for discrete electrode selection\n"
-            "Dual Annealing: Alternative global optimizer\n"
-            "Basin Hopping: Local search with random jumps"
-        )
-        opt_layout.addRow("  Method:", self.opt_method)
         
         self.generations = QtWidgets.QSpinBox()
         self.generations.setRange(10, 1000)
-        self.generations.setValue(50)
-        self.generations.setToolTip("Number of optimization iterations (more = better but slower)")
+        self.generations.setValue(100)  # Balanced speed vs quality
+        self.generations.setToolTip(
+            "Number of optimization iterations\n"
+            "50-100: Quick optimization (5-10 min)\n"
+            "200-500: Standard quality (15-30 min)\n"
+            "500+: Publication quality (30+ min)"
+        )
         opt_layout.addRow("  Generations:", self.generations)
         
         self.population = QtWidgets.QSpinBox()
         self.population.setRange(10, 200)
-        self.population.setValue(30)
-        self.population.setToolTip("Population size (more = better exploration but slower)")
+        self.population.setValue(50)  # Good exploration capability
+        self.population.setToolTip(
+            "Population size for evolutionary algorithm\n"
+            "30-50: Standard (recommended)\n"
+            "100+: Thorough exploration (slower)\n"
+            "Larger populations find better solutions"
+        )
         opt_layout.addRow("  Population:", self.population)
-        
-        self.current = QtWidgets.QDoubleSpinBox()
-        self.current.setRange(0.5, 4.0)
-        self.current.setValue(1.0)
-        self.current.setSingleStep(0.1)
-        self.current.setSuffix(" mA")
-        self.current.setToolTip("Stimulation current magnitude")
-        opt_layout.addRow("  Current:", self.current)
-        
+
+        # Add separator between single and multi-objective sections
+        # Add spacing above separator
+        spacer_above = QtWidgets.QWidget()
+        spacer_above.setFixedHeight(5)
+        opt_layout.addRow(spacer_above)
+
+        separator = QtWidgets.QFrame()
+        separator.setFrameShape(QtWidgets.QFrame.HLine)
+        separator.setFrameShadow(QtWidgets.QFrame.Sunken)
+        opt_layout.addRow(separator)
+
+        # Add spacing below separator
+        spacer_below = QtWidgets.QWidget()
+        spacer_below.setFixedHeight(5)
+        opt_layout.addRow(spacer_below)
+
         # Pareto Front Generation (like original MOVEA)
+        pareto_layout = QtWidgets.QHBoxLayout()
         pareto_label = QtWidgets.QLabel("Multi-Objective (Intensity + Focality):")
-        pareto_label.setStyleSheet("font-weight: bold; margin-top: 5px; color: #FF9800;")
-        opt_layout.addRow(pareto_label)
-        
+        pareto_label.setStyleSheet("font-weight: bold; margin-top: 5px;")
+        pareto_layout.addWidget(pareto_label)
+
         self.enable_pareto = QtWidgets.QCheckBox("Generate Pareto front")
-        self.enable_pareto.setChecked(False)
+        self.enable_pareto.setChecked(False)  # Disabled by default for faster single-objective optimization
         self.enable_pareto.toggled.connect(self.toggle_pareto_options)
         self.enable_pareto.setToolTip("Enable to explore intensity vs focality trade-offs")
-        opt_layout.addRow("", self.enable_pareto)
-        
+        pareto_layout.addWidget(self.enable_pareto)
+        pareto_layout.addStretch()
+
+        opt_layout.addRow(pareto_layout)
+
         self.pareto_solutions = QtWidgets.QSpinBox()
         self.pareto_solutions.setRange(5, 500)
-        self.pareto_solutions.setValue(20)
+        self.pareto_solutions.setValue(30)  # Good Pareto front coverage
         self.pareto_solutions.setEnabled(False)
         self.pareto_solutions.setToolTip(
             "Number of Pareto-optimal solutions to generate\n"
-            "20 = quick exploration, 100-200 = research quality"
+            "20-30: Quick exploration (recommended)\n"
+            "50-100: Detailed analysis\n"
+            "100+: Research/publication quality\n"
+            "More solutions = better trade-off visualization"
         )
         opt_layout.addRow("  Solutions:", self.pareto_solutions)
-        
+
         self.pareto_iterations = QtWidgets.QSpinBox()
         self.pareto_iterations.setRange(100, 2000)
-        self.pareto_iterations.setValue(500)
+        self.pareto_iterations.setValue(1000)  # Better quality solutions
         self.pareto_iterations.setEnabled(False)
         self.pareto_iterations.setToolTip(
-            "Random search iterations per solution\n"
-            "More iterations = better quality solutions but slower"
+            "Generations for multi-objective evolution\n"
+            "500-1000: Quick results (recommended)\n"
+            "1500+: High-quality Pareto front\n"
+            "Higher values find better trade-offs"
         )
         opt_layout.addRow("  Iterations/Sol:", self.pareto_iterations)
-        
+
         # CPU cores for parallelization
-        import multiprocessing as mp
         max_cores = mp.cpu_count()
         self.pareto_cores = QtWidgets.QSpinBox()
         self.pareto_cores.setRange(1, max_cores)
@@ -754,9 +839,11 @@ class MOVEATab(QtWidgets.QWidget):
             f"Recommended: {max(1, max_cores - 1)} (leave 1 free)"
         )
         opt_layout.addRow("  CPU Cores:", self.pareto_cores)
-        
+
         right_layout.addWidget(opt_container)
-        right_layout.addStretch()  # Push optimization parameters to top
+
+        # Leadfield Management (moved from left side)
+        right_layout.addWidget(leadfield_container)
         
         # Add left and right to main horizontal layout
         main_horizontal_layout.addLayout(left_layout, 1)
@@ -796,27 +883,41 @@ class MOVEATab(QtWidgets.QWidget):
     def toggle_target_type(self):
         """Toggle between preset and coordinate target input."""
         is_preset = self.preset_radio.isChecked()
-        self.preset_combo.setVisible(is_preset)
-        self.coordinate_widget.setVisible(not is_preset)
-    
+
+        # Enable/disable preset widgets (but not the radio button)
+        self.preset_combo.setEnabled(is_preset)
+        # Grey out only the combo box, not the radio button
+        self.preset_combo.setStyleSheet("color: black;" if is_preset else "color: grey;")
+
+        # Enable/disable coordinate widgets (but not the radio button)
+        self.coord_x.setEnabled(not is_preset)
+        self.coord_y.setEnabled(not is_preset)
+        self.coord_z.setEnabled(not is_preset)
+        self.roi_radius.setEnabled(not is_preset)
+        self.button_widget.setEnabled(not is_preset)
+        # Grey out only the input widgets, not the radio button
+        coord_color = "color: black;" if not is_preset else "color: grey;"
+        self.coord_x.setStyleSheet(coord_color)
+        self.coord_y.setStyleSheet(coord_color)
+        self.coord_z.setStyleSheet(coord_color)
+        self.roi_radius.setStyleSheet(coord_color)
+
     def toggle_pareto_options(self):
         """Enable/disable Pareto solutions spinbox and cores based on checkbox."""
         enabled = self.enable_pareto.isChecked()
         self.pareto_solutions.setEnabled(enabled)
         self.pareto_iterations.setEnabled(enabled)
         self.pareto_cores.setEnabled(enabled)
-    
+
     def toggle_debug_mode(self):
         """Toggle debug mode for verbose output."""
         # This is now handled by ConsoleWidget, but we still need to update logger levels
         self.debug_mode = self.console_widget.is_debug_mode()
         if self.debug_mode:
             if hasattr(self, 'logger') and self.logger is not None:
-                import logging
                 self.logger.setLevel(logging.DEBUG)
         else:
             if hasattr(self, 'logger') and self.logger is not None:
-                import logging
                 self.logger.setLevel(logging.INFO)
     
     def list_subjects(self):
@@ -826,7 +927,30 @@ class MOVEATab(QtWidgets.QWidget):
         # Get subjects using path manager
         subjects = self.pm.list_subjects()
         self.subject_combo.addItems(subjects)
-    
+
+    def launch_mni_nifti(self):
+        """Launch MNI152 T1 template in Freeview."""
+        # Path to MNI template
+        mni_path = '/ti-toolbox/resources/atlas/MNI152_T1_1mm.nii.gz'
+
+        if not os.path.exists(mni_path):
+            QtWidgets.QMessageBox.warning(self, "File Not Found",
+                                        f"MNI template not found at: {mni_path}")
+            return
+
+        try:
+            self.update_console("Launching MNI template with Freeview...", 'info')
+            subprocess.run(['freeview', mni_path], check=True)
+            self.update_console("MNI template launched successfully", 'info')
+        except FileNotFoundError:
+            QtWidgets.QMessageBox.warning(self, "Freeview Not Found",
+                                        "Freeview (FreeSurfer) is not installed or not in PATH.\n\n"
+                                        "Please install FreeSurfer to use this feature:\n"
+                                        "https://surfer.nmr.mgh.harvard.edu/")
+        except subprocess.CalledProcessError as e:
+            QtWidgets.QMessageBox.warning(self, "Launch Failed",
+                                        f"Failed to launch Freeview:\n{e}")
+
     def on_subject_changed(self):
         """Handle subject selection change."""
         subject_id = self.subject_combo.currentText()
@@ -844,9 +968,9 @@ class MOVEATab(QtWidgets.QWidget):
         
         simnibs_dir = self.pm.get_simnibs_dir()
 
-        # Search in m2m directory leadfields
-        m2m_dir_name = f"m2m_{subject_id}"
-        leadfield_dir = os.path.join(simnibs_dir, m2m_dir_name, "leadfields")
+        # Search in subject directory leadfields
+        subject_dir = f"sub-{subject_id}"
+        leadfield_dir = os.path.join(simnibs_dir, subject_dir, "leadfields")
 
         # Check for existing leadfield NPY files
         leadfield_files = []
@@ -1027,13 +1151,13 @@ class MOVEATab(QtWidgets.QWidget):
         if self.optimization_running:
             QtWidgets.QMessageBox.warning(self, "Already Running", "Optimization is already running")
             return
-        
+
         # Warn about very large Pareto computations
         if self.enable_pareto.isChecked():
             n_solutions = self.pareto_solutions.value()
             n_iters = self.pareto_iterations.value()
             total_evals = n_solutions * n_iters
-            
+
             # Warn if total evaluations exceed 100,000
             if total_evals > 100000:
                 reply = QtWidgets.QMessageBox.question(
@@ -1050,7 +1174,7 @@ class MOVEATab(QtWidgets.QWidget):
                 )
                 if reply != QtWidgets.QMessageBox.Yes:
                     return
-        
+
         # Get configuration
         subject_id = self.subject_combo.currentText()
         selected_items = self.leadfield_list.selectedItems()
@@ -1076,7 +1200,6 @@ class MOVEATab(QtWidgets.QWidget):
             target_name = f"Custom {target}"
         
         # Set output directory with timestamp to avoid overwriting
-        import time
         timestamp = time.strftime('%Y%m%d_%H%M%S')
         subject_dir = self.pm.get_subject_dir(subject_id)
         output_dir = os.path.join(subject_dir, "MOVEA", timestamp) if subject_dir else None
@@ -1113,10 +1236,10 @@ class MOVEATab(QtWidgets.QWidget):
             'positions_path': lf_info['positions_path'],
             'target': target,
             'roi_radius_mm': self.roi_radius.value(),
-            'opt_method': self.opt_method.currentData(),
+            'opt_method': 'differential_evolution',
             'generations': self.generations.value(),
             'population': self.population.value(),
-            'current_mA': self.current.value(),
+            'current_mA': 1.0,
             'output_dir': output_dir,
             'electrode_coords_file': electrode_csv,
             'generate_pareto': self.enable_pareto.isChecked(),
@@ -1143,10 +1266,10 @@ class MOVEATab(QtWidgets.QWidget):
             self.update_console(f"Electrode names: {os.path.basename(electrode_csv)}", 'info')
         self.update_console("", 'default')
         self.update_console("Optimization Configuration:", 'info')
-        self.update_console(f"  Method: {self.opt_method.currentText()}", 'default')
+        self.update_console("  Method: Differential Evolution", 'default')
         self.update_console(f"  Generations: {self.generations.value()}", 'default')
         self.update_console(f"  Population: {self.population.value()}", 'default')
-        self.update_console(f"  Current: {self.current.value()} mA", 'default')
+        self.update_console("  Current: 1.0 mA", 'default')
         if self.enable_pareto.isChecked():
             self.update_console("", 'default')
             self.update_console("Pareto Front Generation:", 'info')
@@ -1242,17 +1365,14 @@ class MOVEATab(QtWidgets.QWidget):
         self.coord_y.setEnabled(enabled)
         self.coord_z.setEnabled(enabled)
         self.roi_radius.setEnabled(enabled)
-        self.opt_method.setEnabled(enabled)
+        self.button_widget.setEnabled(enabled)
         self.generations.setEnabled(enabled)
         self.population.setEnabled(enabled)
-        self.current.setEnabled(enabled)
         self.enable_pareto.setEnabled(enabled)
-        # Pareto options are controlled by toggle_pareto_options, not directly here
-        if enabled and self.enable_pareto.isChecked():
-            self.pareto_solutions.setEnabled(True)
-            self.pareto_iterations.setEnabled(True)
-            self.pareto_cores.setEnabled(True)
-        
+        self.pareto_solutions.setEnabled(enabled)
+        self.pareto_iterations.setEnabled(enabled)
+        self.pareto_cores.setEnabled(enabled)
+
         # Keep debug checkbox enabled during processing
         if hasattr(self, 'console_widget') and hasattr(self.console_widget, 'debug_checkbox'):
             self.console_widget.debug_checkbox.setEnabled(True)
@@ -1261,7 +1381,6 @@ class MOVEATab(QtWidgets.QWidget):
         """Update console output with colored messages (respects debug mode)."""
         # ALWAYS log to file first, regardless of debug mode
         try:
-            import logging
             # Try to get the active logger (either MOVEA or MOVEA_Leadfield)
             logger = logging.getLogger('MOVEA')
             if not logger.handlers:  # If MOVEA not initialized, try MOVEA_Leadfield
@@ -1296,7 +1415,6 @@ class MOVEATab(QtWidgets.QWidget):
 
 # Standalone testing
 if __name__ == '__main__':
-    import sys
     app = QtWidgets.QApplication(sys.argv)
     tab = MOVEATab()
     tab.show()
