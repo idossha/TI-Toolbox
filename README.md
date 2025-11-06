@@ -3,6 +3,12 @@
 
 [![Docker Pulls](https://img.shields.io/docker/pulls/idossha/simnibs)](https://hub.docker.com/r/idossha/simnibs)
 [![GitHub Release](https://img.shields.io/github/v/release/idossha/TI-Toolbox)](https://github.com/idossha/TI-Toolbox/releases)
+[![GitHub Stars](https://img.shields.io/github/stars/idossha/TI-Toolbox)](https://github.com/idossha/TI-Toolbox/stargazers)
+[![GitHub License](https://img.shields.io/github/license/idossha/TI-Toolbox)](https://github.com/idossha/TI-Toolbox/blob/main/LICENSE)
+
+
+
+
 
 
 Releases, guides, and wiki please see: https://idossha.github.io/TI-Toolbox/
