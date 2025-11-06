@@ -31,42 +31,43 @@ jobs:
       - common-setup
       - prepare-test-image
       - run:
-          name: Run complete test suite
+          name: Run complete test suite with coverage
           command: |
             set -euo pipefail
-            
-            # Create directories for test results and test project
-            mkdir -p /tmp/test-results /tmp/test_projectdir
-            chmod 777 /tmp/test-results /tmp/test_projectdir
-            
+
+            # Create directories for test results, coverage, and test project
+            mkdir -p /tmp/test-results /tmp/test_projectdir /tmp/coverage
+            chmod 777 /tmp/test-results /tmp/test_projectdir /tmp/coverage
+
             # Get current working directory (checked out PR code)
             WORKSPACE=$(pwd)
-            
+
             echo "=========================================="
             echo "TI-Toolbox CI Testing Pipeline"
             echo "=========================================="
             echo "Testing PR code from: ${WORKSPACE}"
             echo "Test image: ti-test:latest"
             echo ""
-            
-            # Run all tests
+
+            # Run all tests with coverage
             # - Mounts PR code at /ti-toolbox (matches production environment)
             # - Script copies ElectrodeCaps and tes_flex to SimNIBS
             docker run --rm \
               -v "${WORKSPACE}:/ti-toolbox" \
               -v /tmp/test_projectdir:/mnt/test_projectdir \
               -v /tmp/test-results:/tmp/test-results \
+              -v /tmp/coverage:/tmp/coverage \
               -w /ti-toolbox \
               ti-test:latest \
-              bash -c './tests/run_tests.sh --verbose'
-            
+              bash -c './tests/run_tests.sh --verbose --coverage'
+
             EXIT_CODE=$?
-            
+
             # Cleanup test project directory from host side (after container exits)
-            # Note: Keep /tmp/test-results for artifact storage
+            # Note: Keep /tmp/test-results and /tmp/coverage for artifact storage
             echo "Cleaning up test project directory from host..."
             rm -rf /tmp/test_projectdir 2>/dev/null || true
-            
+
             if [ $EXIT_CODE -eq 0 ]; then
               echo ""
               echo "✓ All tests passed!"
@@ -75,9 +76,25 @@ jobs:
               echo "✗ Some tests failed!"
               exit $EXIT_CODE
             fi
+
+      - run:
+          name: Upload coverage to Codecov
+          command: |
+            # Install codecov uploader
+            curl -Os https://uploader.codecov.io/latest/linux/codecov
+            chmod +x codecov
+
+            # Upload coverage report
+            ./codecov -t ${CODECOV_TOKEN} -f /tmp/coverage/coverage.xml -F unittests
+          when: always
+
       - store_artifacts:
           path: /tmp/test-results
           destination: test-results
+
+      - store_artifacts:
+          path: /tmp/coverage
+          destination: coverage
             
 
 

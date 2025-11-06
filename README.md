@@ -5,6 +5,8 @@
 [![GitHub Release](https://img.shields.io/github/v/release/idossha/TI-Toolbox)](https://github.com/idossha/TI-Toolbox/releases)
 [![GitHub Stars](https://img.shields.io/github/stars/idossha/TI-Toolbox)](https://github.com/idossha/TI-Toolbox/stargazers)
 [![GitHub License](https://img.shields.io/github/license/idossha/TI-Toolbox)](https://github.com/idossha/TI-Toolbox/blob/main/LICENSE)
+[![codecov](https://codecov.io/gh/idossha/TI-toolbox/branch/main/graph/badge.svg)](https://codecov.io/gh/idossha/TI-toolbox)
+[![CircleCI](https://dl.circleci.com/status-badge/img/gh/idossha/TI-toolbox/tree/main.svg?style=shield)](https://dl.circleci.com/status-badge/redirect/gh/idossha/TI-toolbox/tree/main)
 
 
 

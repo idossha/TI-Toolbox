@@ -42,4 +42,6 @@ TI-Toolbox_*_*/
 .default_paths.user
 .default_paths.dev
 
+# Claude
 CLAUDE.md
+.claude

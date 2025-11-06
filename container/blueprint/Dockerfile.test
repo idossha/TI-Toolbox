@@ -98,12 +98,6 @@ RUN apt-get update && apt-get install -y \
     \
     && apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
-# Install Python packages and create symlinks
-RUN python3.11 -m pip install --upgrade pip && \
-    python3.11 -m pip install numpy scipy pandas meshio nibabel nilearn matplotlib && \
-    ln -sf /usr/bin/python3.11 /usr/bin/python3 && \
-    ln -sf /usr/bin/python3.11 /usr/bin/python
-
 ######## Install SimNIBS ################
 RUN mkdir -p /simnibs && chmod -R 755 /simnibs
 
@@ -113,6 +107,9 @@ RUN wget https://github.com/simnibs/simnibs/releases/download/v4.5.0/simnibs_ins
 
 ENV PATH="/root/SimNIBS-4.5/bin:$PATH"
 ENV SIMNIBSDIR="/root/SimNIBS-4.5"
+
+# Install additional Python packages to simnibs_python
+RUN simnibs_python -m pip install meshio nilearn PyOpenGL-accelerate trimesh seaborn
 
 # Note: ElectrodeCaps_MNI and tes_flex_optimization files will be copied
 # from the mounted code after container starts (see run_tests.sh)
