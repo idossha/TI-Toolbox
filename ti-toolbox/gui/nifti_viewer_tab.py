@@ -409,13 +409,16 @@ class NiftiViewerTab(QtWidgets.QWidget):
         self.info_area.setMinimumHeight(200)
         self.info_area.setStyleSheet("""
             QTextEdit {
-                background-color: #2b2b2b;
-                color: #ffffff;
-                font-family: Consolas, Monaco, monospace;
-                border: none;
+                background-color: #1e1e1e;
+                color: #f0f0f0;
+                font-family: 'Consolas', 'Courier New', monospace;
+                font-size: 13px;
+                border: 1px solid #3c3c3c;
+                border-radius: 5px;
                 padding: 8px;
             }
         """)
+        self.info_area.setAcceptRichText(True)
         self.info_area.setText(
             "NIfTI Viewer using Freeview\n\n"
             "Single Subject Mode:\n"
