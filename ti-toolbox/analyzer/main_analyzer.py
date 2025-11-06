@@ -245,8 +245,8 @@ def log_analysis_step_failed(step_name, subject_id, error_msg):
 def create_roi_description(args):
     """Create a human-readable ROI description for summary logging."""
     if args.analysis_type == 'spherical':
-        coords = ', '.join(f"{float(c):.1f}" for c in args.coordinates)
-        return f"Spherical ROI: x={coords}, r={args.radius}mm"
+        coords = args.coordinates
+        return f"Spherical: ({coords[0]},{coords[1]},{coords[2]}) r{args.radius}mm"
     elif args.analysis_type == 'cortical':
         if args.whole_head:
             if args.space == 'mesh':
@@ -609,9 +609,9 @@ def main():
         # Perform analysis based on type
         if args.quiet:
             if args.analysis_type == 'spherical':
-                log_analysis_step_start("Spherical ROI analysis", subject_id)
+                log_analysis_step_start("Spherical Analysis", subject_id)
             else:
-                log_analysis_step_start("Cortical analysis", subject_id)
+                log_analysis_step_start("Cortical Analysis", subject_id)
         
         if args.analysis_type == 'spherical':
             if args.space == 'mesh':
@@ -677,21 +677,21 @@ def main():
             if args.analysis_type == 'spherical':
                 if isinstance(results, dict) and results.get('voxel_count'):
                     step_details = f"{results['voxel_count']} voxels analyzed"
-                    log_analysis_step_complete("Spherical ROI analysis", subject_id, step_details)
+                    log_analysis_step_complete("Spherical Analysis", subject_id, step_details)
                 else:
-                    log_analysis_step_complete("Spherical ROI analysis", subject_id)
+                    log_analysis_step_complete("Spherical Analysis", subject_id)
             else:
                 if isinstance(results, dict):
                     if any(k in results for k in ['mean_value', 'max_value', 'min_value']):
                         # Single region results
-                        log_analysis_step_complete("Cortical analysis", subject_id, "1 region analyzed")
+                        log_analysis_step_complete("Cortical Analysis", subject_id, "1 region analyzed")
                     else:
                         # Multiple region results
                         valid_regions = len([r for r in results.values() if isinstance(r, dict) and r.get('mean_value') is not None])
                         total_regions = len(results)
-                        log_analysis_step_complete("Cortical analysis", subject_id, f"{valid_regions}/{total_regions} regions processed")
+                        log_analysis_step_complete("Cortical Analysis", subject_id, f"{valid_regions}/{total_regions} regions processed")
                 else:
-                    log_analysis_step_complete("Cortical analysis", subject_id)
+                    log_analysis_step_complete("Cortical Analysis", subject_id)
         
         # Add results saving step
         if args.quiet:

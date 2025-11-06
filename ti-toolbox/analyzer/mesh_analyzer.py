@@ -747,10 +747,9 @@ class MeshAnalyzer:
                         )
                     except Exception as e:
                         self.logger.warning(f"Could not generate focality histogram for spherical ROI: {str(e)}")
-                else:
-                    self.logger.warning("Visualization requested but MeshVisualizer not available")
                     
                     # Create spherical ROI overlay visualization
+                    # This creates a mesh file with the ROI highlighted
                     self.logger.info("Creating spherical ROI overlay visualization...")
                     viz_file = self.visualizer.visualize_spherical_roi(
                         gm_surf=gm_surf,
@@ -763,6 +762,8 @@ class MeshAnalyzer:
                         surface_mesh_path=surface_mesh_path
                     )
                     results['visualization_file'] = viz_file
+                else:
+                    self.logger.warning("Visualization requested but MeshVisualizer not available")
             
             # Calculate and save extra focality information for entire grey matter
             self.logger.info("Calculating focality metrics for entire grey matter...")

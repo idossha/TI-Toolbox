@@ -1416,26 +1416,18 @@ class AnalyzerTab(QtWidgets.QWidget):
             # Mark thread start as early as possible to avoid race double-starts
             self._thread_started = True
 
+            # Clear summary printed set at start of new analysis to ensure summary output shows
+            if hasattr(self, '_summary_printed'):
+                self._summary_printed.clear()
+            else:
+                self._summary_printed = set()
+
             # Summary-mode: headline and initial step (guard against duplicates)
             if self.SUMMARY_MODE and not getattr(self, '_summary_started', False):
-                details = self._build_start_details(subject_id)
-                self.ANALYSIS_START_TIME = time.time()
-                self.update_output(f"Beginning analysis for subject: {subject_id} ({details})")
-                self._summary_printed.add('headline')
-                # Field data loading step
-                self.update_output("├─ Field data loading: Started")
-                self.update_output("├─ Field data loading: ✓ Complete (0s)")
-                self._summary_printed.update({'field_start', 'field_done'})
-                # Start main analysis step timer
-                step_key = 'cortical analysis' if self.type_cortical.isChecked() else 'spherical analysis'
-                # Only set start timer if not already set
-                if step_key not in self.STEP_START_TIMES:
-                    self.STEP_START_TIMES[step_key] = time.time()
-                self.update_output(f"├─ {step_key.title()}: Started")
-                self._summary_printed.add('analysis_start')
                 # Record output dir for later summary line
                 self._last_output_dir = self._extract_output_dir_from_cmd(cmd)
                 # Mark started to avoid duplicated blocks
+                # Note: The analyzer process will print all the step messages via its logging functions
                 self._summary_started = True
             else:
                 self.update_output(f"Running single subject analysis for: {subject_id}")
@@ -1467,6 +1459,12 @@ class AnalyzerTab(QtWidgets.QWidget):
             env = os.environ.copy()
             project_dir_name = os.environ.get('PROJECT_DIR_NAME', 'BIDS_new')
             env['PROJECT_DIR'] = f"/mnt/{project_dir_name}"
+            
+            # Clear summary printed set at start of new analysis to ensure summary output shows
+            if hasattr(self, '_summary_printed'):
+                self._summary_printed.clear()
+            else:
+                self._summary_printed = set()
             
             if self.SUMMARY_MODE:
                 # For group we still provide a concise start message
@@ -1721,34 +1719,8 @@ class AnalyzerTab(QtWidgets.QWidget):
         try:
             if success:
                 if self.SUMMARY_MODE and getattr(self, '_summary_started', False) and not getattr(self, '_summary_finished', False):
-                    # Complete analysis step timing if started
-                    analysis_step_key = 'cortical analysis' if self.type_cortical.isChecked() else 'spherical analysis'
-                    start_time = self.STEP_START_TIMES.get(analysis_step_key)
-                    if start_time:
-                        duration_sec = int(max(0, (time.time() - start_time)))
-                        duration_str = f"{duration_sec}s" if duration_sec < 60 else f"{duration_sec // 60}m {duration_sec % 60}s"
-                        regions_info = "- 1 region analyzed" if self.type_cortical.isChecked() else ""
-                        self.update_output(f"├─ {analysis_step_key.title()}: ✓ Complete ({duration_str}) {regions_info}".rstrip())
-                        self._summary_printed.add('analysis_done')
-                    # Results saving summary
-                    saved_to_display = self._last_output_dir or ""
-                    if saved_to_display.startswith('/mnt/'):
-                        # Show without the leading /mnt/ to match examples
-                        saved_to_display = saved_to_display[5:]
-                    self.update_output("├─ Results saving: Started")
-                    self._summary_printed.add('results_start')
-                    self.update_output(f"├─ Results saving: ✓ Complete (0s) - saved to {saved_to_display}")
-                    self._summary_printed.add('results_done')
-                    # Final line with total duration
-                    total_duration_str = "0s"
-                    if self.ANALYSIS_START_TIME:
-                        total_sec = int(max(0, (time.time() - self.ANALYSIS_START_TIME)))
-                        total_duration_str = f"{total_sec}s" if total_sec < 60 else f"{total_sec // 60}m {total_sec % 60}s"
-                    regions_count = "1 region analyzed" if self.type_cortical.isChecked() else ""
-                    subj_display = subject_id or (self.get_selected_subjects()[0] if self.get_selected_subjects() else "")
-                    suffix = f" (1 region analyzed, Total: {total_duration_str})" if regions_count else f" (Total: {total_duration_str})"
-                    self.update_output(f"└─ Analysis completed successfully for subject: {subj_display}{suffix}")
-                    self._summary_printed.add('final')
+                    # Note: The analyzer process already prints all step completion messages via its logging functions.
+                    # We just need to mark that the summary is finished to avoid duplicate processing.
                     self._summary_finished = True
                 else:
                     last_line = self.output_console.toPlainText().strip().split('\n')[-1] if self.output_console.toPlainText() else ""
@@ -1787,6 +1759,9 @@ class AnalyzerTab(QtWidgets.QWidget):
                 delattr(self, '_thread_started')
             if hasattr(self, '_last_plain_output_line'):
                 delattr(self, '_last_plain_output_line')
+            # Clear the summary printed set to allow summary output on next run
+            if hasattr(self, '_summary_printed'):
+                self._summary_printed.clear()
             
             # Force a complete UI refresh to ensure everything is properly restored
             QtCore.QTimer.singleShot(100, self.force_ui_refresh)
@@ -1850,40 +1825,41 @@ class AnalyzerTab(QtWidgets.QWidget):
             # Guard against duplicate summary lines (whether from our own calls or subprocess echo)
             if low.startswith('beginning analysis for subject:') and 'headline' in self._summary_printed:
                 return
-            if low.startswith('├─ field data loading: starting') and 'field_start' in self._summary_printed:
+            if low.startswith('├─ field data loading: started') and 'field_start' in self._summary_printed:
                 return
             if low.startswith('├─ field data loading: ✓ complete') and 'field_done' in self._summary_printed:
                 return
-            if (low.startswith('├─ cortical analysis: starting') or low.startswith('├─ spherical analysis: starting')) and 'analysis_start' in self._summary_printed:
+            if (low.startswith('├─ cortical analysis: started') or low.startswith('├─ spherical analysis: started')) and 'analysis_start' in self._summary_printed:
                 return
             if (low.startswith('├─ cortical analysis: ✓ complete') or low.startswith('├─ spherical analysis: ✓ complete')) and 'analysis_done' in self._summary_printed:
                 return
-            if low.startswith('├─ results saving: starting') and 'results_start' in self._summary_printed:
+            if low.startswith('├─ results saving: started') and 'results_start' in self._summary_printed:
                 return
             if low.startswith('├─ results saving: ✓ complete') and 'results_done' in self._summary_printed:
                 return
             if low.startswith('└─ analysis completed successfully for subject:') and 'final' in self._summary_printed:
                 return
-            # Colorize summary lines: blue for starts, white for completes, green for final
+            # Colorize summary lines: blue for starts, green for completes, bright green for final
             is_final = low.startswith('└─') or 'completed successfully' in low
-            is_start = low.startswith('beginning ') or ': starting' in low
+            is_start = (low.startswith('beginning ') or ': started' in low or
+                       ': starting' in low or 'starting...' in low)
             is_complete = ('✓ complete' in low) or ('results available in:' in low) or ('saved to' in low)
-            color = '#55ff55' if is_final else ('#55aaff' if is_start else '#ffffff')
+            color = '#55ff55' if is_final else ('#55aaff' if is_start else ('#88ff88' if is_complete else '#ffffff'))
             formatted = f'<span style="color: {color};">{text}</span>'
             self.output_console.append(formatted)
             self._last_plain_output_line = text
             # Mark printed flags for summary lines
             if low.startswith('beginning analysis for subject:'):
                 self._summary_printed.add('headline')
-            elif low.startswith('├─ field data loading: starting'):
+            elif low.startswith('├─ field data loading: started'):
                 self._summary_printed.add('field_start')
             elif low.startswith('├─ field data loading: ✓ complete'):
                 self._summary_printed.add('field_done')
-            elif low.startswith('├─ cortical analysis: starting') or low.startswith('├─ spherical analysis: starting'):
+            elif low.startswith('├─ cortical analysis: started') or low.startswith('├─ spherical analysis: started'):
                 self._summary_printed.add('analysis_start')
             elif low.startswith('├─ cortical analysis: ✓ complete') or low.startswith('├─ spherical analysis: ✓ complete'):
                 self._summary_printed.add('analysis_done')
-            elif low.startswith('├─ results saving: starting'):
+            elif low.startswith('├─ results saving: started'):
                 self._summary_printed.add('results_start')
             elif low.startswith('├─ results saving: ✓ complete'):
                 self._summary_printed.add('results_done')
@@ -2212,13 +2188,82 @@ class AnalyzerTab(QtWidgets.QWidget):
         except Exception as e: QtWidgets.QMessageBox.critical(self, "Error", f"Failed to launch Freeview: {str(e)}"); self.update_output(f"Error: {e}")
 
 
-    def update_field_files(self):
+    def update_field_files(self, analyzed_subject_id=None, analyzed_simulation_name=None):
         """Update field files list after analysis completion.
 
         This method is called from main.py after analysis completion.
-        Currently a stub since the field file UI was simplified.
+        Refreshes the gmsh visualization dropdowns to show newly available meshes.
+        
+        Parameters
+        ----------
+        analyzed_subject_id : str, optional
+            The subject ID that was just analyzed. If provided, the gmsh dropdowns
+            will be set to this subject/simulation and the analyses list will be refreshed.
+        analyzed_simulation_name : str, optional
+            The simulation name that was just analyzed. If provided along with subject_id,
+            the gmsh dropdowns will be set to this subject/simulation.
         """
-        pass
+        # Refresh gmsh visualization dropdowns to show newly created mesh analyses
+        if hasattr(self, 'gmsh_subject_combo') and hasattr(self, 'gmsh_sim_combo'):
+            # Refresh subjects list (in case new subjects were added)
+            self.update_gmsh_subjects()
+            
+            # If we have the analyzed subject/simulation, set the dropdowns to match
+            if analyzed_subject_id:
+                index = self.gmsh_subject_combo.findText(analyzed_subject_id)
+                if index >= 0:
+                    self.gmsh_subject_combo.setCurrentIndex(index)
+                    # This will trigger update_gmsh_simulations() via signal connection
+                    # Use a small delay to ensure simulations are updated first
+                    if analyzed_simulation_name:
+                        QtCore.QTimer.singleShot(50, lambda: self._set_gmsh_simulation(analyzed_simulation_name))
+                    else:
+                        # Just update simulations for the selected subject
+                        self.update_gmsh_simulations()
+                else:
+                    # Subject not found, just update simulations for first subject if available
+                    if self.gmsh_subject_combo.count() > 0:
+                        self.update_gmsh_simulations()
+            else:
+                # No analyzed subject provided, preserve current selection if possible
+                current_subject = self.gmsh_subject_combo.currentText()
+                current_sim = self.gmsh_sim_combo.currentText()
+                
+                if current_subject:
+                    index = self.gmsh_subject_combo.findText(current_subject)
+                    if index >= 0:
+                        self.gmsh_subject_combo.setCurrentIndex(index)
+                        if current_sim:
+                            QtCore.QTimer.singleShot(50, lambda: self._restore_gmsh_selection(current_sim))
+                    else:
+                        # Subject no longer exists, just update simulations for first subject
+                        self.update_gmsh_simulations()
+                else:
+                    # No subject was selected, just update simulations for first subject if available
+                    if self.gmsh_subject_combo.count() > 0:
+                        self.update_gmsh_simulations()
+    
+    def _set_gmsh_simulation(self, simulation_name):
+        """Helper method to set gmsh simulation selection and refresh analyses."""
+        if hasattr(self, 'gmsh_sim_combo'):
+            index = self.gmsh_sim_combo.findText(simulation_name)
+            if index >= 0:
+                self.gmsh_sim_combo.setCurrentIndex(index)
+                # This will trigger update_gmsh_analyses() via signal connection
+            else:
+                # Simulation not found, just update analyses for first simulation
+                self.update_gmsh_analyses()
+    
+    def _restore_gmsh_selection(self, simulation_name):
+        """Helper method to restore gmsh simulation selection after refresh."""
+        if hasattr(self, 'gmsh_sim_combo'):
+            index = self.gmsh_sim_combo.findText(simulation_name)
+            if index >= 0:
+                self.gmsh_sim_combo.setCurrentIndex(index)
+                # This will trigger update_gmsh_analyses() via signal connection
+            else:
+                # Simulation no longer exists, just update analyses for first simulation
+                self.update_gmsh_analyses()
 
     def update_gmsh_subjects(self):
         """Update the gmsh subject dropdown with available subjects."""

@@ -384,8 +384,8 @@ class MainWindow(QtWidgets.QMainWindow):
                 
             # Update mesh files list if it's a mesh analysis
             if analysis_type == 'Mesh':
-                # Update the mesh files list in the analyzer tab
-                self.analyzer_tab.update_field_files()
+                # Update the mesh files list in the analyzer tab and refresh gmsh visualization
+                self.analyzer_tab.update_field_files(subject_id, simulation_name)
         finally:
             self._processing_analysis_completion = False
 
