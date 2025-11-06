@@ -31,6 +31,69 @@ from core import get_path_manager
 from tools import logging_util
 
 
+def _get_and_display_electrodes(subject_id, cap_name, parent_widget, path_manager=None):
+    """
+    Helper function to get electrode names from a cap and display them.
+    
+    Args:
+        subject_id: Subject ID
+        cap_name: EEG cap name (e.g., 'GSN-256', 'EEG10-10')
+        parent_widget: Parent widget for the dialog
+        path_manager: Optional PathManager instance (will use get_path_manager() if not provided)
+    
+    Returns:
+        bool: True if electrodes were displayed successfully, False otherwise
+    """
+    if not subject_id:
+        QtWidgets.QMessageBox.warning(parent_widget, "No Subject", "Please select a subject first")
+        return False
+    
+    if not cap_name:
+        QtWidgets.QMessageBox.warning(parent_widget, "No Cap Name", "No EEG cap name provided")
+        return False
+    
+    try:
+        # Get path manager
+        pm = path_manager if path_manager is not None else get_path_manager()
+        m2m_dir = pm.get_m2m_dir(subject_id)
+        
+        if not m2m_dir or not os.path.exists(m2m_dir):
+            QtWidgets.QMessageBox.warning(parent_widget, "Directory Not Found",
+                                         f"m2m directory not found for subject {subject_id}")
+            return False
+        
+        # Create LeadfieldGenerator and get electrode names
+        from opt.leadfield import LeadfieldGenerator
+        gen = LeadfieldGenerator(m2m_dir)
+        
+        # Clean cap name (remove .csv extension if present)
+        clean_cap_name = cap_name.replace('.csv', '') if cap_name.endswith('.csv') else cap_name
+        
+        # Get electrodes using get_electrode_names_from_cap
+        try:
+            electrodes = gen.get_electrode_names_from_cap(cap_name=clean_cap_name)
+        except FileNotFoundError as e:
+            QtWidgets.QMessageBox.warning(parent_widget, "EEG File Not Found",
+                                         f"Could not find EEG cap file for {clean_cap_name}.\n\n"
+                                         f"Details: {str(e)}")
+            return False
+        
+        if not electrodes:
+            QtWidgets.QMessageBox.information(parent_widget, "No Electrodes",
+                                             f"No electrode labels found for {clean_cap_name}")
+            return False
+        
+        # Create and show electrode display dialog (non-modal)
+        electrode_dialog = ElectrodeDisplayDialog(clean_cap_name, electrodes, parent_widget)
+        electrode_dialog.show()
+        return True
+        
+    except Exception as e:
+        QtWidgets.QMessageBox.critical(parent_widget, "Error", 
+                                     f"Error reading electrode information: {str(e)}")
+        return False
+
+
 class LeadfieldGenerationThread(QtCore.QThread):
     """Thread to run leadfield generation for Ex-Search (generates both HDF5 and NPY files)."""
     
@@ -1128,39 +1191,9 @@ class ExSearchTab(QtWidgets.QWidget):
         net_name = leadfield_data["net_name"]
         subject_id = self.subject_combo.currentText()
         
-        if not subject_id:
-            QtWidgets.QMessageBox.warning(self, "No Subject", "Please select a subject first")
-            return
-        
-        try:
-            # Use LeadfieldGenerator to get electrode names
-            pm = self.pm if hasattr(self, 'pm') else get_path_manager()
-            m2m_dir = pm.get_m2m_dir(subject_id)
-
-            from opt.leadfield import LeadfieldGenerator
-            gen = LeadfieldGenerator(m2m_dir)
-
-            # Try to get electrodes - the new method handles fallbacks automatically
-            try:
-                electrodes = gen.get_electrode_names_from_cap(cap_name=net_name)
-            except FileNotFoundError as e:
-                QtWidgets.QMessageBox.warning(self, "EEG File Not Found",
-                                            f"Could not find EEG cap file for {net_name}.\n\n"
-                                            f"Details: {str(e)}")
-                return
-
-            if not electrodes:
-                QtWidgets.QMessageBox.information(self, "No Electrodes",
-                                                f"No electrode labels found for {net_name}")
-                return
-            
-            # Create and show electrode display dialog (non-modal)
-            self.electrode_dialog = ElectrodeDisplayDialog(net_name, electrodes, self)
-            self.electrode_dialog.show()
-            
-        except Exception as e:
-            QtWidgets.QMessageBox.critical(self, "Error", 
-                                         f"Error reading electrode information: {str(e)}")
+        # Use consolidated helper function
+        pm = self.pm if hasattr(self, 'pm') else None
+        _get_and_display_electrodes(subject_id, net_name, self, path_manager=pm)
     
     def list_subjects(self):
         """List available subjects in the combo box."""
@@ -2207,57 +2240,12 @@ class EEGNetSelectionDialog(QtWidgets.QDialog):
         
         selected_net = selected_items[0].text()
         
-        try:
-            # Use LeadfieldGenerator to get electrode names
-            if self.subject_id:
-                # Try to get electrodes from subject's eeg_positions directory first
-                from opt.leadfield import LeadfieldGenerator
-                from core import get_path_manager
-                pm = get_path_manager()
-                m2m_dir = pm.get_m2m_dir(self.subject_id)
-                gen = LeadfieldGenerator(m2m_dir)
-
-                try:
-                    electrodes = gen.get_electrode_names_from_cap(cap_name=selected_net)
-                except FileNotFoundError:
-                    QtWidgets.QMessageBox.warning(self, "File Not Found",
-                                                f"EEG net file not found: {selected_net}.\n\n"
-                                                f"The system searched in:\n"
-                                                f"- m2m directory: eeg_positions/\n"
-                                                f"- Resources: ElectrodeCaps_MNI/")
-                    return
-            else:
-                # No subject selected, use project root as base for searching
-                from opt.leadfield import LeadfieldGenerator
-                script_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-                project_root = os.path.dirname(script_dir)  # Go up to project root
-                # Create a dummy LeadfieldGenerator to use the flexible search method
-                dummy_m2m_dir = os.path.join(project_root, "dummy")  # Won't actually use this
-                gen = LeadfieldGenerator(dummy_m2m_dir)
-                
-                # Override the project root calculation in the generator
-                gen.subject_dir = Path(project_root) / "dummy" / "m2m"  # Set up proper path hierarchy
-                
-                try:
-                    electrodes = gen.get_electrode_names_from_cap(cap_name=selected_net)
-                except FileNotFoundError:
-                    QtWidgets.QMessageBox.warning(self, "File Not Found",
-                                                f"EEG net file not found: {selected_net}.\n\n"
-                                                f"Searched in resources/ElectrodeCaps_MNI/")
-                    return
-
-            if not electrodes:
-                QtWidgets.QMessageBox.information(self, "No Electrodes",
-                                                "No electrode labels found in the selected EEG net file")
-                return
-            
-            # Create and show electrode display dialog (non-modal)
-            self.electrode_dialog = ElectrodeDisplayDialog(selected_net, electrodes, self)
-            self.electrode_dialog.show()
-            
-        except Exception as e:
-            QtWidgets.QMessageBox.critical(self, "Error", 
-                                         f"Error reading EEG net file: {str(e)}")
+        # Use consolidated helper function
+        # Get path manager from parent if available, otherwise use default
+        pm = None
+        if self.parent and hasattr(self.parent, 'pm'):
+            pm = self.parent.pm
+        _get_and_display_electrodes(self.subject_id, selected_net, self, path_manager=pm)
     
     def get_selected_net(self):
         """Get the selected EEG net."""

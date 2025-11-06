@@ -767,9 +767,9 @@ class MOVEATab(QtWidgets.QWidget):
 
         # Pareto Front Generation (like original MOVEA)
         pareto_layout = QtWidgets.QHBoxLayout()
-        pareto_label = QtWidgets.QLabel("Multi-Objective (Intensity + Focality):")
-        pareto_label.setStyleSheet("font-weight: bold; margin-top: 5px;")
-        pareto_layout.addWidget(pareto_label)
+        self.pareto_label = QtWidgets.QLabel("Multi-Objective (Intensity + Focality):")
+        self.pareto_label.setStyleSheet("font-weight: bold; margin-top: 5px;")
+        pareto_layout.addWidget(self.pareto_label)
 
         self.enable_pareto = QtWidgets.QCheckBox("Generate Pareto front")
         self.enable_pareto.setChecked(False)  # Disabled by default for faster single-objective optimization
@@ -857,6 +857,9 @@ class MOVEATab(QtWidgets.QWidget):
         
         # Reference to underlying console for backward compatibility
         self.console = self.console_widget.get_console_widget()
+        
+        # Set initial state for pareto options (checkbox is unchecked by default)
+        self.toggle_pareto_options()
     
     def toggle_target_type(self):
         """Toggle between preset and coordinate target input."""
@@ -883,9 +886,23 @@ class MOVEATab(QtWidgets.QWidget):
     def toggle_pareto_options(self):
         """Enable/disable Pareto solutions spinbox and cores based on checkbox."""
         enabled = self.enable_pareto.isChecked()
+        
+        # Enable/disable spinboxes
         self.pareto_solutions.setEnabled(enabled)
         self.pareto_iterations.setEnabled(enabled)
         self.pareto_cores.setEnabled(enabled)
+        
+        # Apply visual styling (grey out when disabled)
+        if enabled:
+            self.pareto_label.setStyleSheet("font-weight: bold; margin-top: 5px; color: black;")
+            self.pareto_solutions.setStyleSheet("color: black;")
+            self.pareto_iterations.setStyleSheet("color: black;")
+            self.pareto_cores.setStyleSheet("color: black;")
+        else:
+            self.pareto_label.setStyleSheet("font-weight: bold; margin-top: 5px; color: grey;")
+            self.pareto_solutions.setStyleSheet("color: grey;")
+            self.pareto_iterations.setStyleSheet("color: grey;")
+            self.pareto_cores.setStyleSheet("color: grey;")
 
     def toggle_debug_mode(self):
         """Toggle debug mode for verbose output."""
@@ -1339,9 +1356,16 @@ class MOVEATab(QtWidgets.QWidget):
         self.generations.setEnabled(enabled)
         self.population.setEnabled(enabled)
         self.enable_pareto.setEnabled(enabled)
-        self.pareto_solutions.setEnabled(enabled)
-        self.pareto_iterations.setEnabled(enabled)
-        self.pareto_cores.setEnabled(enabled)
+        
+        # Respect checkbox state when re-enabling inputs
+        if enabled:
+            # Re-apply the pareto options toggle to ensure correct state and styling
+            self.toggle_pareto_options()
+        else:
+            # When disabling, just disable everything
+            self.pareto_solutions.setEnabled(False)
+            self.pareto_iterations.setEnabled(False)
+            self.pareto_cores.setEnabled(False)
 
         # Keep debug checkbox enabled during processing
         if hasattr(self, 'console_widget') and hasattr(self.console_widget, 'debug_checkbox'):
