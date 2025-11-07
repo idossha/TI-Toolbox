@@ -37,8 +37,6 @@ Complete changelog for all versions of the Temporal Interference Toolbox.
 
 ---
 
-### v
-
 ### v2.1.3
 
 **Release Date**: October 08, 2025
@@ -60,8 +58,6 @@ Complete changelog for all versions of the Temporal Interference Toolbox.
 - [Linux AppImage](https://github.com/idossha/TI-Toolbox/releases/download/v2.1.3/TemporalInterferenceToolbox-Linux-x86_64.AppImage)
 
 ---
-
-### v
 
 ### v2.1.2
 
