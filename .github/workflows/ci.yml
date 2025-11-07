@@ -1,8 +1,8 @@
 name: CI
 
+# Only run on pull requests to main, NOT on direct commits to main
+# This prevents duplicate runs when PRs are merged
 on:
-  push:
-    branches: [ main ]
   pull_request:
     branches: [ main ]
 
@@ -38,7 +38,8 @@ jobs:
       uses: codecov/codecov-action@v4
       with:
         token: ${{ secrets.CODECOV_TOKEN }}
-        file: /tmp/coverage/coverage.xml
-        flags: unittests
-        name: codecov-umbrella
-        fail_ci_if_error: false
+        files: /tmp/coverage/coverage.xml
+        flags: unittests,core,simulator,analyzer,optimizer
+        name: github-actions-${{ github.run_number }}
+        fail_ci_if_error: true
+        verbose: true
