@@ -308,7 +308,7 @@ def update_navigation(version):
         
         # Add new version to the version history section
         # Find the line with the first version link and add the new version before it
-        version_link = f'        <li><a href="{{{{{{ site.baseurl }}}}}}/releases/v{version}/" {{%% if page.url == \'/releases/v{version}/\' or page.url == \'/TI-Toolbox/releases/v{version}/\' %%}}class="active"{{%% endif %%}}>v{version}</a></li>'
+        version_link = f'        <li><a href="{{{{ site.baseurl }}}}/releases/v{version}/" {{% if page.url == \'/releases/v{version}/\' or page.url == \'/TI-Toolbox/releases/v{version}/\' %}}class="active"{{% endif %}}>v{version}</a></li>'
         
         # Check if version is already in the sidebar
         if f'/releases/v{version}/' in content:
