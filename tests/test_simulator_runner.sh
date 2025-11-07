@@ -19,12 +19,12 @@ export PROJECT_DIR_NAME=$(basename "$PROJECT_DIR")
 # Find simulator script
 if command -v simulator >/dev/null 2>&1; then
     SIM_CMD="simulator"
-elif [ -f "/ti-toolbox/CLI/simulator.sh" ]; then
-    SIM_CMD="/ti-toolbox/CLI/simulator.sh"
-elif [ -f "/development/CLI/simulator.sh" ]; then
-    SIM_CMD="/development/CLI/simulator.sh"
-elif [ -f "CLI/simulator.sh" ]; then
-    SIM_CMD="./CLI/simulator.sh"
+elif [ -f "/ti-toolbox/ti-toolbox/cli/simulator.sh" ]; then
+    SIM_CMD="/ti-toolbox/ti-toolbox/cli/simulator.sh"
+elif [ -f "/development/ti-toolbox/cli/simulator.sh" ]; then
+    SIM_CMD="/development/ti-toolbox/cli/simulator.sh"
+elif [ -f "ti-toolbox/cli/simulator.sh" ]; then
+    SIM_CMD="./ti-toolbox/cli/simulator.sh"
 else
     echo "Error: simulator.sh not found"
     exit 1

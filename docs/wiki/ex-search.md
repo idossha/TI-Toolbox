@@ -17,7 +17,7 @@ Ex-Search utilizes leadfield-based optimization to determine optimal electrode c
 
 ## User Interface
 
-![Ex-Search Interface]({{ site.baseurl }}/wiki/assets/ex-search/ex-search_UI.png)
+![Ex-Search Interface]({{ site.baseurl }}/assets/imgs/wiki_ex-search_ex-search_UI.png)
 
 The interface provides controls for:
 - **Subject Selection**: Choose from available subjects with automatic leadfield scanning
@@ -35,11 +35,11 @@ Ex-Search automatically detects and supports multiple EEG electrode configuratio
 
 <div class="image-row">
   <div class="image-container">
-    <img src="{{ site.baseurl }}/wiki/assets/ex-search/EEG10-20_Okamoto_2004_net.png" alt="EEG 10-20 Network">
+    <img src="{{ site.baseurl }}/assets/imgs/wiki_ex-search_EEG10-20_Okamoto_2004_net.png" alt="EEG 10-20 Network">
     <em>EGI 10-20 Okamoto 2004 electrode configuration - widely used standard with 32 electrodes</em>
   </div>
   <div class="image-container">
-    <img src="{{ site.baseurl }}/wiki/assets/ex-search/GSN256_net.png" alt="GSN 256 Network">
+    <img src="{{ site.baseurl }}/assets/imgs/wiki_ex-search_GSN256_net.png" alt="GSN 256 Network">
     <em>GSN-HydroCel 256 electrode configuration - high-density net for precise targeting</em>
   </div>
 </div>
@@ -62,11 +62,11 @@ We demonstrate the Ex-Search pipeline capabilities using a representative TI sti
 
 <div class="image-row">
   <div class="image-container">
-    <img src="{{ site.baseurl }}/wiki/assets/ex-search/field_msh.png" alt="TI Field Mesh">
+    <img src="{{ site.baseurl }}/assets/imgs/wiki_ex-search_field_msh.png" alt="TI Field Mesh">
     <em>TI field distribution visualized on the cortical surface showing spatial targeting and field intensity</em>
   </div>
   <div class="image-container">
-    <img src="{{ site.baseurl }}/wiki/assets/ex-search/TI_field_F7_T7_and_T8_Fz_histogram.png" alt="Field Histogram">
+    <img src="{{ site.baseurl }}/assets/imgs/wiki_ex-search_TI_field_F7_T7_and_T8_Fz_histogram.png" alt="Field Histogram">
     <em>Volume-weighted field distribution histogram with focality thresholds and ROI indicators</em>
   </div>
 </div>
@@ -126,10 +126,11 @@ derivatives/SimNIBS/sub-{subject}/
 │   └── ROIs/                    # Target regions
 │       ├── roi_list.txt
 │       └── L_Insula.csv
-├── leadfield_vol_GSN-HydroCel-185/   # Leadfield matrices
-│   └── leadfield.hdf5
-└── leadfield_vol_EGI10-20_Okamoto_2004/
-    └── leadfield.hdf5
+└── leadfields/
+    ├── leadfield_vol_GSN-HydroCel-185/   # Leadfield matrices
+    │   └── leadfield.hdf5
+    └── leadfield_vol_EGI10-20_Okamoto_2004/
+        └── leadfield.hdf5
 ```
 
 ### Output Structure

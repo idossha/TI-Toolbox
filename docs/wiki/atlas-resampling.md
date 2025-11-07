@@ -14,7 +14,7 @@ Below are two images showing the effect of atlas resampling:
 
 | Original Atlas (Not Aligned) | Resampled Atlas (Aligned) |
 |-----------------------------|---------------------------|
-| ![Original Atlas]({{ site.baseurl }}/wiki/assets/atlas_resample/atlas_under_field.png) | ![Resampled Atlas]({{ site.baseurl }}/wiki/assets/atlas_resample/aligned_atlas_under_field.png) |
+| ![Original Atlas]({{ site.baseurl }}/assets/imgs/wiki_atlas_resample_atlas_under_field.png) | ![Resampled Atlas]({{ site.baseurl }}/assets/imgs/wiki_atlas_resample_aligned_atlas_under_field.png) |
 
 **Left:** The blue outline shows the original atlas, which does not perfectly align with the heat map of the cortical region (field data).
 

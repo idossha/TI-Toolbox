@@ -19,10 +19,10 @@ export PROJECT_DIR_NAME=$(basename "$PROJECT_DIR")
 # Find analyzer script
 if command -v analyzer >/dev/null 2>&1; then
     ANALYZER_CMD="analyzer"
-elif [ -f "/ti-toolbox/CLI/analyzer.sh" ]; then
-    ANALYZER_CMD="/ti-toolbox/CLI/analyzer.sh"
-elif [ -f "CLI/analyzer.sh" ]; then
-    ANALYZER_CMD="./CLI/analyzer.sh"
+elif [ -f "/ti-toolbox/ti-toolbox/cli/analyzer.sh" ]; then
+    ANALYZER_CMD="/ti-toolbox/ti-toolbox/cli/analyzer.sh"
+elif [ -f "ti-toolbox/cli/analyzer.sh" ]; then
+    ANALYZER_CMD="./ti-toolbox/cli/analyzer.sh"
 else
     echo "Error: analyzer.sh not found"
     exit 1

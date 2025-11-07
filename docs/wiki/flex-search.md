@@ -15,7 +15,7 @@ Flex Search uses differential evolution optimization to determine the best elect
 
 ## User Interface
 
-![Flex Search Interface]({{ site.baseurl }}/wiki/assets/flex-search/flex-search_UI.png)
+![Flex Search Interface]({{ site.baseurl }}/assets/imgs/wiki_flex-search_flex-search_UI.png)
 
 The interface provides comprehensive controls for:
 - **Basic Parameters**: Subject selection, optimization goal, and post-processing method
@@ -39,11 +39,11 @@ We demonstrate the effectiveness of flex-search by optimizing electrode position
 
 <div class="image-row">
   <div class="image-container">
-    <img src="{{ site.baseurl }}/wiki/assets/flex-search/max_TI_field.png" alt="Maximum TI Field">
+    <img src="{{ site.baseurl }}/assets/imgs/wiki_flex-search_max_TI_field.png" alt="Maximum TI Field">
     <em>Maximum TI field distribution showing optimization results</em>
   </div>
   <div class="image-container">
-    <img src="{{ site.baseurl }}/wiki/assets/flex-search/max_TI_ROI.png" alt="Maximum TI ROI Targeting">
+    <img src="{{ site.baseurl }}/assets/imgs/wiki_flex-search_max_TI_ROI.png" alt="Maximum TI ROI Targeting">
     <em>ROI targeting analysis for maximum TI field optimization</em>
   </div>
 </div>
@@ -63,11 +63,11 @@ We demonstrate the effectiveness of flex-search by optimizing electrode position
 
 <div class="image-row">
   <div class="image-container">
-    <img src="{{ site.baseurl }}/wiki/assets/flex-search/Normal_field.png" alt="Normal TI Field">
+    <img src="{{ site.baseurl }}/assets/imgs/wiki_flex-search_Normal_field.png" alt="Normal TI Field">
     <em>Normal component TI field distribution perpendicular to cortical surface</em>
   </div>
   <div class="image-container">
-    <img src="{{ site.baseurl }}/wiki/assets/flex-search/normal_ROI.png" alt="Normal ROI Targeting">
+    <img src="{{ site.baseurl }}/assets/imgs/wiki_flex-search_normal_ROI.png" alt="Normal ROI Targeting">
     <em>ROI targeting analysis for normal component optimization</em>
   </div>
 </div>
@@ -87,11 +87,11 @@ We demonstrate the effectiveness of flex-search by optimizing electrode position
 
 <div class="image-row">
   <div class="image-container">
-    <img src="{{ site.baseurl }}/wiki/assets/flex-search/tangent_field.png" alt="Tangential TI Field">
+    <img src="{{ site.baseurl }}/assets/imgs/wiki_flex-search_tangent_field.png" alt="Tangential TI Field">
     <em>Tangential component TI field distribution parallel to cortical surface</em>
   </div>
   <div class="image-container">
-    <img src="{{ site.baseurl }}/wiki/assets/flex-search/tangent_ROI.png" alt="Tangential ROI Targeting">
+    <img src="{{ site.baseurl }}/assets/imgs/wiki_flex-search_tangent_ROI.png" alt="Tangential ROI Targeting">
     <em>ROI targeting analysis for tangential component optimization</em>
   </div>
 </div>

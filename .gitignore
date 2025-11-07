@@ -39,10 +39,9 @@ TI-Toolbox_*_*/
 .pytest_cache/
 
 # Development-specific
-development/loader/.*
-development/**/dist/
-development/**/build/
-development/bash_dev/.default_paths.dev
-example_data/*
-assets/example_data/*
-launcher/bash/.default_paths.user
+.default_paths.user
+.default_paths.dev
+
+# Claude
+CLAUDE.md
+.claude

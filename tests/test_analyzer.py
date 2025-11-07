@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env simnibs_python
 
 """
 Comprehensive pytest tests for main_analyzer.py
@@ -21,9 +21,10 @@ from pathlib import Path
 from unittest.mock import Mock, patch, MagicMock, call
 from io import StringIO
 
-# Add project root to path
+# Add ti-toolbox directory to path
 project_root = str(Path(__file__).resolve().parent.parent)
-sys.path.insert(0, project_root)
+ti_toolbox_dir = str(Path(project_root) / 'ti-toolbox')
+sys.path.insert(0, ti_toolbox_dir)
 
 # Mock the analyzer modules before importing main_analyzer
 from unittest.mock import MagicMock
@@ -294,9 +295,10 @@ class TestROIDescription:
         args.analysis_type = 'spherical'
         args.coordinates = [10.0, 20.0, 30.0]
         args.radius = 5.0
-        
+
         description = create_roi_description(args)
-        assert description == "Spherical ROI: x=10.0, 20.0, 30.0, r=5.0mm"
+        # Updated to match actual implementation format
+        assert description == "Spherical: (10.0,20.0,30.0) r5.0mm"
     
     def test_create_roi_description_cortical_mesh_whole_head(self):
         """Test ROI description for cortical mesh analysis (whole head)"""

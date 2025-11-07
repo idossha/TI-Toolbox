@@ -49,4 +49,4 @@ If you get a security warning when opening:
 - Docker Desktop automatically handles architecture differences
 - Some performance differences may occur between architectures
 
-![Docker Settings on Apple]({{ site.baseurl }}/installation/assets/docker_apple.png){:style="max-width: 800px;"}
+![Docker Settings on Apple]({{ site.baseurl }}/assets/imgs/installation_docker_apple.png){:style="max-width: 800px;"}

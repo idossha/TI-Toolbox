@@ -18,8 +18,8 @@ NC='\033[0m' # No Color
 RUN_UNIT_TESTS=true
 RUN_INTEGRATION_TESTS=true
 VERBOSE=false
-SETUP_PROJECT=true
 CLEANUP=true
+ENABLE_COVERAGE=false
 
 show_help() {
     echo -e "${CYAN}TI-Toolbox Test Runner (SimNIBS Environment)${NC}"
@@ -30,9 +30,9 @@ show_help() {
     echo "  -h, --help              Show this help message"
     echo "  -u, --unit-only         Run only unit tests (skip integration tests)"
     echo "  -i, --integration-only  Run only integration tests (skip unit tests)"
-    echo "  -s, --skip-setup        Skip test project setup (assumes already set up)"
     echo "  -v, --verbose           Show verbose output"
     echo "  -n, --no-cleanup        Don't cleanup test directories after completion"
+    echo "  -c, --coverage          Enable code coverage reporting (generates coverage.xml)"
     echo ""
     echo "Examples:"
     echo "  $0                      # Run all tests"
@@ -57,16 +57,16 @@ while [[ $# -gt 0 ]]; do
             RUN_UNIT_TESTS=false
             shift
             ;;
-        -s|--skip-setup)
-            SETUP_PROJECT=false
-            shift
-            ;;
         -v|--verbose)
             VERBOSE=true
             shift
             ;;
         -n|--no-cleanup)
             CLEANUP=false
+            shift
+            ;;
+        -c|--coverage)
+            ENABLE_COVERAGE=true
             shift
             ;;
         *)
@@ -123,8 +123,8 @@ cd "$TOOLBOX_DIR"
 echo -e "${GREEN}✓ Working directory: ${TOOLBOX_DIR}${NC}"
 
 # Ensure CLI scripts have execute permissions (important for mounted volumes)
-if [ -d "CLI" ]; then
-    chmod +x CLI/*.sh 2>/dev/null || true
+if [ -d "ti-toolbox/cli" ]; then
+    chmod +x ti-toolbox/cli/*.sh 2>/dev/null || true
     echo -e "${GREEN}✓ CLI scripts made executable${NC}"
 fi
 
@@ -133,15 +133,15 @@ if [ -n "$SIMNIBSDIR" ] && [ -d "$SIMNIBSDIR" ]; then
     echo -e "${CYAN}Copying TI-Toolbox extensions to SimNIBS...${NC}"
     
     # Copy EEG caps for CSC
-    if [ -d "assets/ElectrodeCaps_MNI" ]; then
+    if [ -d "resources/ElectrodeCaps_MNI" ]; then
         mkdir -p "$SIMNIBSDIR/resources/ElectrodeCaps_MNI/"
-        cp assets/ElectrodeCaps_MNI/* "$SIMNIBSDIR/resources/ElectrodeCaps_MNI/" 2>/dev/null || true
+        cp resources/ElectrodeCaps_MNI/* "$SIMNIBSDIR/resources/ElectrodeCaps_MNI/" 2>/dev/null || true
         echo -e "${GREEN}✓ ElectrodeCaps_MNI copied${NC}"
     fi
     
-    # Copy Flex optimization extension
-    if [ -f "assets/map-electrodes/tes_flex_optimization.py" ]; then
-        cp assets/map-electrodes/tes_flex_optimization.py \
+    # Copy Flex optimization extension (if it exists in resources)
+    if [ -f "resources/tes_flex_optimization.py" ]; then
+        cp resources/tes_flex_optimization.py \
            "$SIMNIBSDIR/simnibs/optimization/tes_flex_optimization/tes_flex_optimization.py" 2>/dev/null || true
         echo -e "${GREEN}✓ tes_flex_optimization.py copied${NC}"
     fi
@@ -189,23 +189,99 @@ if [ "$RUN_UNIT_TESTS" = true ]; then
     echo -e "${BLUE}Unit Tests${NC}"
     echo -e "${BLUE}========================================${NC}"
     echo ""
-    
+
+    # Setup coverage flags if enabled
+    if [ "$ENABLE_COVERAGE" = true ]; then
+        PYTEST_FLAGS="--cov=ti-toolbox --cov-report=xml:/tmp/coverage/coverage.xml --cov-report=term"
+        echo -e "${CYAN}Coverage reporting enabled${NC}"
+        mkdir -p /tmp/coverage
+    else
+        if [ "$VERBOSE" = true ]; then
+            PYTEST_FLAGS="-v"
+        else
+            PYTEST_FLAGS="-q"
+        fi
+    fi
+
     # Analyzer unit tests
     run_test "Analyzer Tests" \
-        "simnibs_python -m pytest -q tests/test_analyzer.py tests/test_mesh_analyzer.py tests/test_voxel_analyzer.py tests/test_group_analyzer.py" || true
-    
+        "simnibs_python -m pytest $PYTEST_FLAGS tests/test_analyzer.py tests/test_mesh_analyzer.py tests/test_voxel_analyzer.py tests/test_group_analyzer.py" || true
+
     echo ""
-    
+
     # Simulator unit tests
     run_test "Simulator Tests" \
-        "simnibs_python -m pytest -q tests/test_ti_simulator.py tests/test_mti_simulator.py" || true
-    
+        "simnibs_python -m pytest $PYTEST_FLAGS tests/test_ti_simulator.py tests/test_mti_simulator.py" || true
+
     echo ""
-    
+
     # Flex-search unit tests
     run_test "Flex-Search Tests" \
-        "simnibs_python -m pytest -q tests/test_flex_search.py" || true
-    
+        "simnibs_python -m pytest $PYTEST_FLAGS tests/test_flex_search.py" || true
+
+    echo ""
+
+    # Ex-search unit tests
+    run_test "Ex-Search Analyzer Tests" \
+        "simnibs_python -m pytest $PYTEST_FLAGS tests/test_ex_analyzer.py" || true
+
+    echo ""
+
+    # MOVEA optimizer unit tests
+    run_test "MOVEA Optimizer Tests" \
+        "simnibs_python -m pytest $PYTEST_FLAGS tests/test_movea_optimizer.py" || true
+
+    echo ""
+
+    # New core module tests
+    run_test "Core Errors Tests" \
+        "simnibs_python -m pytest $PYTEST_FLAGS tests/test_errors.py" || true
+
+    echo ""
+
+    run_test "Core Process Tests" \
+        "simnibs_python -m pytest $PYTEST_FLAGS tests/test_process.py" || true
+
+    echo ""
+
+    run_test "Core Mesh Tests" \
+        "simnibs_python -m pytest $PYTEST_FLAGS tests/test_core_mesh.py" || true
+
+    echo ""
+
+    run_test "Core Calc Tests" \
+        "simnibs_python -m pytest $PYTEST_FLAGS tests/test_calc.py" || true
+
+    echo ""
+
+    # Core paths tests
+    run_test "Core Paths Tests" \
+        "simnibs_python -m pytest $PYTEST_FLAGS tests/test_paths.py" || true
+
+    echo ""
+
+    # Core constants tests
+    run_test "Core Constants Tests" \
+        "simnibs_python -m pytest $PYTEST_FLAGS tests/test_constants.py" || true
+
+    echo ""
+
+    # Core nifti tests
+    run_test "Core NIfTI Tests" \
+        "simnibs_python -m pytest $PYTEST_FLAGS tests/test_nifti.py" || true
+
+    echo ""
+
+    # Core utils tests
+    run_test "Core Utils Tests" \
+        "simnibs_python -m pytest $PYTEST_FLAGS tests/test_utils.py" || true
+
+    echo ""
+
+    # Core integration tests
+    run_test "Core Integration Tests" \
+        "simnibs_python -m pytest $PYTEST_FLAGS tests/test_core_integration.py" || true
+
     echo ""
 fi
 
@@ -216,20 +292,10 @@ if [ "$RUN_INTEGRATION_TESTS" = true ]; then
     echo -e "${BLUE}========================================${NC}"
     echo ""
     
-    # Setup test project directory if needed
-    if [ "$SETUP_PROJECT" = true ]; then
-        echo -e "${CYAN}Setting up test project directory...${NC}"
-        mkdir -p /mnt/test_projectdir
-        chmod 777 /mnt/test_projectdir
-        
-        run_test "Setup Test Project" \
-            "bash tests/setup_test_projectdir.sh" || true
-        
-        echo ""
-    else
-        echo -e "${YELLOW}Skipping test project setup (using existing)${NC}"
-        echo ""
-    fi
+    # Test data is pre-baked in the Docker image and copied to /mnt/test_projectdir
+    # by entrypoint_test.sh when the container starts
+    echo -e "${GREEN}✓ Test data available (pre-baked in image)${NC}"
+    echo ""
     
     # Run simulator integration tests
     run_test "Simulator Integration Tests" \
@@ -245,7 +311,7 @@ if [ "$RUN_INTEGRATION_TESTS" = true ]; then
     
     # Run BATS tests
     run_test "BATS Output Validation Tests" \
-        "bash -lc 'bats tests/test_simulator_outputs.bats && bats tests/test_analyzer_outputs.bats'" || true
+        "bash -lc 'bats tests/test_simulator_outputs.bats && bats tests/test_analyzer_outputs.bats && bats tests/test_ex_search_integration.bats && bats tests/test_movea_integration.bats'" || true
     
     echo ""
 fi
