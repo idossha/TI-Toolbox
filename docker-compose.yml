@@ -12,7 +12,7 @@ services:
     command: ["tail", "-f", "/dev/null"]
 
   simnibs:
-    image: idossha/simnibs:v2.2.0_final
+    image: idossha/simnibs:v2.2.0
     platform: linux/amd64
     container_name: simnibs_container
     volumes:
