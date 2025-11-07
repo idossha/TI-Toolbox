@@ -253,6 +253,36 @@ if [ "$RUN_UNIT_TESTS" = true ]; then
         "simnibs_python -m pytest $PYTEST_FLAGS tests/test_calc.py" || true
 
     echo ""
+
+    # Core paths tests
+    run_test "Core Paths Tests" \
+        "simnibs_python -m pytest $PYTEST_FLAGS tests/test_paths.py" || true
+
+    echo ""
+
+    # Core constants tests
+    run_test "Core Constants Tests" \
+        "simnibs_python -m pytest $PYTEST_FLAGS tests/test_constants.py" || true
+
+    echo ""
+
+    # Core nifti tests
+    run_test "Core NIfTI Tests" \
+        "simnibs_python -m pytest $PYTEST_FLAGS tests/test_nifti.py" || true
+
+    echo ""
+
+    # Core utils tests
+    run_test "Core Utils Tests" \
+        "simnibs_python -m pytest $PYTEST_FLAGS tests/test_utils.py" || true
+
+    echo ""
+
+    # Core integration tests
+    run_test "Core Integration Tests" \
+        "simnibs_python -m pytest $PYTEST_FLAGS tests/test_core_integration.py" || true
+
+    echo ""
 fi
 
 # Integration Tests
