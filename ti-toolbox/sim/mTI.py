@@ -11,76 +11,102 @@ from simnibs import mesh_io, run_simnibs, sim_struct
 from simnibs.utils import TI_utils as TI
 
 # Local imports
+# Add parent directory to path for module imports
+# This is needed both when running as script and when imported for testing
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+
 from tools import logging_util
 from core import get_path_manager
 from core.calc import get_TI_vectors
 
-# Parse command-line arguments
-subject_id = sys.argv[1]
-sim_type = sys.argv[2]
-project_dir = sys.argv[3]
-simulation_dir = sys.argv[4]
-intensity_str = sys.argv[5]
+# Initialize module-level variables
+# When imported for testing, these won't be set until test setup
+logger = None  # Will be initialized in if __name__ == '__main__' block
+base_subpath = None
+tensor_file = None
+intensity1_ch1 = None
+intensity1_ch2 = None
+intensity2_ch1 = None
+intensity2_ch2 = None
 
-if ',' in intensity_str:
-    intensities = [float(x.strip()) for x in intensity_str.split(',')]
-    if len(intensities) == 4:
-        intensity1_ch1, intensity1_ch2, intensity2_ch1, intensity2_ch2 = intensities
-    elif len(intensities) == 2:
-        intensity1_ch1, intensity1_ch2 = intensities
-        intensity2_ch1, intensity2_ch2 = intensities
+# Parse command-line arguments (only when running as script)
+# When imported for testing, these variables won't be set
+subject_id = None
+sim_type = None
+project_dir = None
+simulation_dir = None
+intensity_str = None
+electrode_shape = None
+dimensions = None
+thickness = None
+eeg_net = None
+montage_names = []
+
+if __name__ == '__main__':
+    subject_id = sys.argv[1]
+    sim_type = sys.argv[2]
+    project_dir = sys.argv[3]
+    simulation_dir = sys.argv[4]
+    intensity_str = sys.argv[5]
+
+    if ',' in intensity_str:
+        intensities = [float(x.strip()) for x in intensity_str.split(',')]
+        if len(intensities) == 4:
+            intensity1_ch1, intensity1_ch2, intensity2_ch1, intensity2_ch2 = intensities
+        elif len(intensities) == 2:
+            intensity1_ch1, intensity1_ch2 = intensities
+            intensity2_ch1, intensity2_ch2 = intensities
+        else:
+            intensity1_ch1 = intensity1_ch2 = intensity2_ch1 = intensity2_ch2 = intensities[0]
     else:
-        intensity1_ch1 = intensity1_ch2 = intensity2_ch1 = intensity2_ch2 = intensities[0]
-else:
-    intensity = float(intensity_str)
-    intensity1_ch1 = intensity1_ch2 = intensity2_ch1 = intensity2_ch2 = intensity
+        intensity = float(intensity_str)
+        intensity1_ch1 = intensity1_ch2 = intensity2_ch1 = intensity2_ch2 = intensity
 
-electrode_shape = sys.argv[6]
-dimensions = [float(x) for x in sys.argv[7].split(',')]
-thickness = float(sys.argv[8])
-eeg_net = sys.argv[9]
-montage_names = sys.argv[10:]
+    electrode_shape = sys.argv[6]
+    dimensions = [float(x) for x in sys.argv[7].split(',')]
+    thickness = float(sys.argv[8])
+    eeg_net = sys.argv[9]
+    montage_names = sys.argv[10:]
 
-# Setup paths using PathManager
-pm = get_path_manager()
-config_dir = os.path.join(project_dir, 'code', 'ti-toolbox', 'config')
-montage_file = os.path.join(config_dir, 'montage_list.json')
-derivatives_dir = pm.get_derivatives_dir()
-simnibs_dir = pm.get_simnibs_dir()
-base_subpath = pm.get_m2m_dir(subject_id)
-tensor_file = os.path.join(base_subpath, "DTI_coregT1_tensor.nii.gz")
+    # Setup paths using PathManager
+    pm = get_path_manager()
+    config_dir = os.path.join(project_dir, 'code', 'ti-toolbox', 'config')
+    montage_file = os.path.join(config_dir, 'montage_list.json')
+    derivatives_dir = pm.get_derivatives_dir()
+    simnibs_dir = pm.get_simnibs_dir()
+    base_subpath = pm.get_m2m_dir(subject_id)
+    tensor_file = os.path.join(base_subpath, "DTI_coregT1_tensor.nii.gz")
 
-# Create config directory
-os.makedirs(config_dir, exist_ok=True)
-os.chmod(os.path.join(project_dir, 'code', 'ti-toolbox'), 0o777)
-os.chmod(config_dir, 0o777)
+    # Create config directory
+    os.makedirs(config_dir, exist_ok=True)
+    os.chmod(os.path.join(project_dir, 'code', 'ti-toolbox'), 0o777)
+    os.chmod(config_dir, 0o777)
 
-# Initialize montage file
-if not os.path.exists(montage_file):
-    with open(montage_file, 'w') as f:
-        json.dump({"nets": {"EGI_template.csv": {"uni_polar_montages": {}, "multi_polar_montages": {}}}}, f, indent=4)
-    os.chmod(montage_file, 0o777)
+    # Initialize montage file
+    if not os.path.exists(montage_file):
+        with open(montage_file, 'w') as f:
+            json.dump({"nets": {"EGI_template.csv": {"uni_polar_montages": {}, "multi_polar_montages": {}}}}, f, indent=4)
+        os.chmod(montage_file, 0o777)
 
-# Load montages
-with open(montage_file) as f:
-    all_montages = json.load(f)
+    # Load montages
+    with open(montage_file) as f:
+        all_montages = json.load(f)
 
-if eeg_net not in all_montages.get('nets', {}):
-    print(f"Error: EEG net '{eeg_net}' not found in montage list.")
-    sys.exit(1)
+    if eeg_net not in all_montages.get('nets', {}):
+        print(f"Error: EEG net '{eeg_net}' not found in montage list.")
+        sys.exit(1)
 
-montages = {name: all_montages['nets'][eeg_net]['multi_polar_montages'].get(name) for name in montage_names}
+    montages = {name: all_montages['nets'][eeg_net]['multi_polar_montages'].get(name) for name in montage_names}
 
-# Initialize logger
-log_file = os.environ.get('TI_LOG_FILE')
-if not log_file:
-    log_dir = os.path.join(derivatives_dir, 'ti-toolbox', 'logs', f'sub-{subject_id}')
-    os.makedirs(log_dir, exist_ok=True)
-    log_file = os.path.join(log_dir, f'Simulator_{time.strftime("%Y%m%d_%H%M%S")}.log')
+    # Initialize logger
+    log_file = os.environ.get('TI_LOG_FILE')
+    if not log_file:
+        log_dir = os.path.join(derivatives_dir, 'ti-toolbox', 'logs', f'sub-{subject_id}')
+        os.makedirs(log_dir, exist_ok=True)
+        log_file = os.path.join(log_dir, f'Simulator_{time.strftime("%Y%m%d_%H%M%S")}.log')
 
-logger = logging_util.get_logger('mTI', log_file, overwrite=False)
-logging_util.configure_external_loggers(['simnibs', 'mesh_io', 'sim_struct'], logger)
+    logger = logging_util.get_logger('mTI', log_file, overwrite=False)
+    logging_util.configure_external_loggers(['simnibs', 'mesh_io', 'sim_struct'], logger)
 
 
 def run_simulation(montage_name, electrode_pairs):
@@ -194,13 +220,14 @@ def run_simulation(montage_name, electrode_pairs):
     logger.info(f"Completed: {montage_name}")
     return mti_path
 
-# Run simulations
-for montage_name in montage_names:
-    if montage_name in montages and montages[montage_name]:
-        electrode_pairs = montages[montage_name]
-        if not electrode_pairs or len(electrode_pairs) < 4:
-            logger.error(f"Need 4 electrode pairs for mTI, found {len(electrode_pairs)} for '{montage_name}'")
-            continue
-        run_simulation(montage_name, electrode_pairs)
-    else:
-        logger.error(f"Montage {montage_name} not found")
+if __name__ == '__main__':
+    # Run simulations
+    for montage_name in montage_names:
+        if montage_name in montages and montages[montage_name]:
+            electrode_pairs = montages[montage_name]
+            if not electrode_pairs or len(electrode_pairs) < 4:
+                logger.error(f"Need 4 electrode pairs for mTI, found {len(electrode_pairs)} for '{montage_name}'")
+                continue
+            run_simulation(montage_name, electrode_pairs)
+        else:
+            logger.error(f"Montage {montage_name} not found")

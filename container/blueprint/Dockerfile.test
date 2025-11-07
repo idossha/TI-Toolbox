@@ -109,15 +109,51 @@ ENV PATH="/root/SimNIBS-4.5/bin:$PATH"
 ENV SIMNIBSDIR="/root/SimNIBS-4.5"
 
 # Install additional Python packages to simnibs_python
-RUN simnibs_python -m pip install meshio nilearn PyOpenGL-accelerate trimesh seaborn
+# Base packages for TI-Toolbox functionality
+RUN simnibs_python -m pip install meshio nilearn PyOpenGL-accelerate trimesh seaborn pytest-cov seaborn
 
-# Note: ElectrodeCaps_MNI and tes_flex_optimization files will be copied
-# from the mounted code after container starts (see run_tests.sh)
+# Note: Electrode caps will be copied from mounted ti-toolbox/resources/ElectrodeCaps_MNI/
+# at runtime by entrypoint_test.sh (no need to download during build)
 
 # Set environment variables for test project
 ENV PROJECT_DIR_NAME=test_projectdir
 ENV LOCAL_PROJECT_DIR=/mnt/test_projectdir
 
+# Copy the entrypoint script
+COPY entrypoint_test.sh /entrypoint_test.sh
+RUN chmod +x /entrypoint_test.sh
+
+######## Create Directories for Downloads ################
+# Create minimal directories needed for downloads during build
+RUN mkdir -p /opt/test_projectdir/derivatives/SimNIBS/sub-ernie_extended/m2m_ernie_extended \
+    && mkdir -p /opt/test_projectdir/derivatives/SimNIBS/sub-ernie_extended/Simulations
+
+######## Download Test Data During Build ################
+
+# Download and setup ErnieExtended data (long download - baked into image)
+RUN echo "Downloading ErnieExtended data from OSF..." \
+    && (curl -L -f -o /tmp/ErnieExtended.zip "https://osf.io/download/6qv2z/" || \
+        curl -L -f -o /tmp/ErnieExtended.zip "https://files.osf.io/v1/resources/6qv2z/providers/osfstorage/?zip=") \
+    && echo "Extracting ErnieExtended data..." \
+    && unzip -q /tmp/ErnieExtended.zip -d /tmp/ernie \
+    && if [ -d "/tmp/ernie/ErnieExtended/m2m_ernie_extended" ]; then \
+        cp -r /tmp/ernie/ErnieExtended/m2m_ernie_extended/* /opt/test_projectdir/derivatives/SimNIBS/sub-ernie_extended/m2m_ernie_extended/; \
+    fi \
+    && rm -rf /tmp/ernie /tmp/ErnieExtended.zip
+
+# Download and setup test_montage simulation data (long download - baked into image)
+RUN echo "Downloading test_montage simulation data..." \
+    && curl -L -f -o /tmp/test_montage.zip "https://archive.org/download/test_montage/test_montage.zip" \
+    && echo "Extracting test_montage simulation data..." \
+    && unzip -q /tmp/test_montage.zip -d /tmp/ernie_simulation \
+    && if [ -d "/tmp/ernie_simulation/test_montage" ]; then \
+        cp -r /tmp/ernie_simulation/test_montage* /opt/test_projectdir/derivatives/SimNIBS/sub-ernie_extended/Simulations/; \
+    fi \
+    && rm -rf /tmp/ernie_simulation /tmp/test_montage.zip
+
 # Set working directory where code will be mounted
 # Using /ti-toolbox to match production SimNIBS image
 WORKDIR /ti-toolbox
+
+# Set entrypoint to run the setup script
+ENTRYPOINT ["/entrypoint_test.sh"]

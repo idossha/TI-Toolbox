@@ -96,6 +96,20 @@ def load_mti_module(tmpdir):
     core_pkg.get_path_manager = get_path_manager
     sys.modules['core'] = core_pkg
 
+    # Mock core.calc module (needed by mTI.py)
+    core_calc = ModuleType('core.calc')
+    core_calc.get_TI_vectors = MagicMock(return_value=np.zeros((1, 3)))
+    sys.modules['core.calc'] = core_calc
+
+    # Mock tools.logging_util module (needed by mTI.py)
+    tools_pkg = ModuleType('tools')
+    logging_util = ModuleType('tools.logging_util')
+    logging_util.get_logger = MagicMock(return_value=MagicMock())
+    logging_util.configure_external_loggers = MagicMock()
+    tools_pkg.logging_util = logging_util
+    sys.modules['tools'] = tools_pkg
+    sys.modules['tools.logging_util'] = logging_util
+
     # Provide minimal CLI args expected by mTI.py to avoid IndexError at import time
     # Args: script, subject_id, sim_type, project_dir, simulation_dir, intensities, shape, dims, thickness, eeg_net, montage
     sys.argv = [
@@ -132,7 +146,16 @@ def test_mti_resolves_hf_meshes_and_writes_intermediates(tmp_path):
     os.makedirs(mti_mesh_dir, exist_ok=True)
     # Configure module CLI-like globals first
     mod.subject_id = 'ernie_extended'
-    
+    # Set up logger (needed by run_simulation function)
+    mod.logger = MagicMock()
+    # Set up other module-level variables needed by run_simulation
+    mod.base_subpath = str(tmp_path)
+    mod.tensor_file = None  # Not used in this test
+    mod.intensity1_ch1 = 1.0
+    mod.intensity1_ch2 = 1.0
+    mod.intensity2_ch1 = 1.0
+    mod.intensity2_ch2 = 1.0
+
     # Create 4 HF mesh files in hf_dir (S.pathfem) with correct subject ID
     for i in range(1, 5):
         open(os.path.join(hf_dir, f'{mod.subject_id}_TDCS_{i}_scalar.msh'), 'w').close()

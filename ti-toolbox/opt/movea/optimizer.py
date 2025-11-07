@@ -100,16 +100,16 @@ class TIOptimizer:
 
         if not validate_ti_montage(electrode_indices, self.num_electrodes):
             if return_dual_objective:
-                return np.array([1000.0, 1000.0])
-            return 1000.0
+                return np.array([np.inf, np.inf])
+            return np.inf
 
         e1, e2, e3, e4 = electrode_indices
 
         # Ensure indices are within bounds
         if np.any(electrode_indices >= self.num_electrodes) or np.any(electrode_indices < 0):
             if return_dual_objective:
-                return np.array([1000.0, 1000.0])
-            return 1000.0
+                return np.array([np.inf, np.inf])
+            return np.inf
 
         # Create stimulation patterns (bipolar pairs)
         stim1 = np.zeros(self.num_electrodes)

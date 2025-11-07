@@ -51,6 +51,9 @@ TEST_ARGS="$@"
 echo -e "${CYAN}Starting tests in SimNIBS container...${NC}"
 echo ""
 
+# Create mount directory if it doesn't exist
+mkdir -p /tmp/test_projectdir
+
 # Run the tests in the container with local code mounted
 # Mount to /ti-toolbox to match production environment
 docker run --rm \
@@ -58,7 +61,7 @@ docker run --rm \
     -v /tmp/test_projectdir:/mnt/test_projectdir \
     -w /ti-toolbox \
     "$TEST_IMAGE" \
-    bash -c "./tests/run_tests.sh $TEST_ARGS"
+    ./tests/run_tests.sh $TEST_ARGS
 
 EXIT_CODE=$?
 

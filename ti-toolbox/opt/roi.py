@@ -291,20 +291,42 @@ class ROICoordinateHelper:
     @staticmethod
     def load_roi_from_csv(csv_path: str) -> npt.NDArray:
         """Load ROI coordinates from CSV file.
-        
+
         Supports the ex-search CSV format with single coordinate [x, y, z].
-        
+        Automatically detects and skips header rows.
+
         Args:
             csv_path: Path to CSV file
-        
+
         Returns:
-            Coordinate array [x, y, z]
+            Coordinate array [x, y, z], or None if file cannot be loaded
         """
         import csv
-        with open(csv_path, 'r') as f:
-            reader = csv.reader(f)
-            coords = next(reader)
-            return np.array([float(c) for c in coords])
+        try:
+            with open(csv_path, 'r') as f:
+                reader = csv.reader(f)
+                for row in reader:
+                    # Skip empty rows
+                    if not row:
+                        continue
+                    # Try to convert to floats
+                    try:
+                        coords = [float(c.strip()) for c in row]
+                        # Check if we have exactly 3 coordinates
+                        if len(coords) == 3:
+                            return np.array(coords)
+                        # If more than 3, take first 3
+                        elif len(coords) > 3:
+                            return np.array(coords[:3])
+                    except ValueError:
+                        # This might be a header row, skip it
+                        continue
+                # No valid coordinate row found
+                return None
+        except FileNotFoundError:
+            return None
+        except Exception:
+            return None
     
     @staticmethod
     def save_roi_to_csv(coordinates: Union[List[float], npt.NDArray], csv_path: str):
