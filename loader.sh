@@ -157,30 +157,6 @@ ensure_docker_volumes() {
   done
 }
 
-# Function to prompt for interactive mode
-prompt_interactive_mode() {
-  echo ""
-  echo "Choose mode:"
-  echo "  1) Interactive mode (command line access)"
-  echo "  2) GUI mode (launch GUI only)"
-  echo ""
-  while true; do
-    read -p "Enter your choice (1 or 2): " choice
-    case $choice in
-      1)
-        export INTERACTIVE_MODE=true
-        break
-        ;;
-      2)
-        export INTERACTIVE_MODE=false
-        break
-        ;;
-      *)
-        echo "Invalid choice. Please enter 1 or 2."
-        ;;
-    esac
-  done
-}
 
 
 # Function to run Docker Compose and attach to simnibs container
@@ -235,23 +211,12 @@ run_docker_compose() {
     setup_example_data_in_container
   fi
 
-  # Handle interactive vs GUI mode
-  if [ "$INTERACTIVE_MODE" = true ]; then
-    # Attach to the simnibs container with an interactive terminal
-    docker exec -ti simnibs_container bash
-  else
-    # Launch GUI mode
-    echo "Launching GUI..."
-    docker exec simnibs_container bash -c GUI
-    
-    # Keep the script running and wait for user to press Enter to stop
-    echo ""
-    echo "GUI is running. Press Enter to stop the container..."
-    read -r
-  fi
+  # Attach to the simnibs container with an interactive terminal
+  echo "Attaching to the simnibs_container..."
+  docker exec -ti simnibs_container bash
 
   # Stop and remove all containers when done
-  docker compose -f "$SCRIPT_DIR/docker-compose.yml" down >/dev/null 2>&1
+  docker compose -f "$SCRIPT_DIR/docker-compose.yml" down
   # Stop and remove all containers when done
 
   # Revert X server access permissions
@@ -546,26 +511,13 @@ setup_example_data_in_container() {
     fi
   done
   
-  # Check if example_data_manager.py exists in container
-  if docker exec "$container_name" test -f "/ti-toolbox/new_project/example_data_manager.py"; then
-    # Run the example data manager inside the container
-    if docker exec "$container_name" simnibs_python /ti-toolbox/new_project/example_data_manager.py /ti-toolbox/../.. "$container_project_dir" >/dev/null 2>&1; then
-      echo "  ✓ Example data copied successfully"
-      return 0
-    else
-      echo "  ⚠ Example data setup failed (continuing anyway)"
-      return 1
-    fi
+  # Run the example data manager inside the container with correct paths
+  if docker exec "$container_name" simnibs_python /ti-toolbox/ti-toolbox/new_project/example_data_manager.py /ti-toolbox "$container_project_dir"; then
+    echo "  ✓ Example data copied successfully"
+    return 0
   else
-    # Fallback: Direct copy if example_data_manager doesn't exist
-    if docker exec "$container_name" test -d "/ti-toolbox/assets/example_data"; then
-      docker exec "$container_name" cp -r /ti-toolbox/assets/example_data/* "$container_project_dir/sourcedata/" >/dev/null 2>&1
-      echo "  ✓ Example data copied successfully"
-      return 0
-    else
-      echo "  ⚠ Example data not found (skipping)"
-      return 1
-    fi
+    echo "  ⚠ Example data setup failed"
+    return 1
   fi
 }
 
@@ -645,9 +597,6 @@ fi
 
 load_default_paths
 get_project_directory
-
-# Prompt for interactive mode
-prompt_interactive_mode
 
 # Sanitize potential carriage returns from path
 LOCAL_PROJECT_DIR=${LOCAL_PROJECT_DIR%$'\r'}
