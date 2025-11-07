@@ -80,12 +80,37 @@ jobs:
       - run:
           name: Upload coverage to Codecov
           command: |
-            # Install codecov uploader
+            # Install codecov uploader (official uploader)
             curl -Os https://uploader.codecov.io/latest/linux/codecov
             chmod +x codecov
 
-            # Upload coverage report
-            ./codecov -t ${CODECOV_TOKEN} -f /tmp/coverage/coverage.xml -F unittests
+            # Verify uploader integrity (recommended security practice)
+            curl -Os https://uploader.codecov.io/latest/linux/codecov.SHA256SUM
+            curl -Os https://uploader.codecov.io/latest/linux/codecov.SHA256SUM.sig
+
+            # Verify SHA256 (will exit with error if mismatch)
+            sha256sum -c codecov.SHA256SUM 2>&1 | grep OK
+
+            echo "Uploading coverage report to Codecov..."
+
+            # Upload coverage report with proper configuration
+            # -t: Codecov token (set in CircleCI environment)
+            # -f: Coverage file location
+            # -F: Flags to categorize coverage (matches .codecov.yml flags)
+            # -n: Custom name for the upload
+            # -B: Branch name
+            # -C: Commit SHA
+            # -Z: Exit with non-zero code on upload failure
+            ./codecov \
+              -t ${CODECOV_TOKEN} \
+              -f /tmp/coverage/coverage.xml \
+              -F unittests,core,simulator,analyzer,optimizer \
+              -n "CircleCI-${CIRCLE_BUILD_NUM}" \
+              -B "${CIRCLE_BRANCH}" \
+              -C "${CIRCLE_SHA1}" \
+              -Z
+
+            echo "Coverage uploaded successfully"
           when: always
 
       - store_artifacts:
@@ -100,11 +125,18 @@ jobs:
 
 workflows:
   version: 2
+  # Only run on pull requests to main branch
+  # This workflow will NOT run on direct commits to main
   pull_request_workflow:
     jobs:
       - build-and-run-tests:
           filters:
             branches:
+              # Run on all branches EXCEPT main/master (where PRs come FROM)
+              # Combined with GitHub branch protection, this ensures:
+              # 1. Tests run when opening PR from feature branch -> main
+              # 2. Tests do NOT run on direct commits to main
+              # 3. Tests do NOT run when PR is merged to main
               ignore:
                 - main
                 - master
