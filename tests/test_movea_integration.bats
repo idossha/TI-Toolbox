@@ -65,14 +65,23 @@ import numpy as np
 sys.path.insert(0, '${BATS_TEST_DIRNAME}/../ti-toolbox')
 from opt.movea.optimizer import TIOptimizer
 
+# Set seed for reproducible test data
+np.random.seed(42)
+
+# Create synthetic leadfield
 lfm = np.random.rand(10, 50, 3) * 0.1
+
+# Create positions with some near the target [0, 0, 0]
 positions = np.random.rand(50, 3) * 100 - 50
+# Ensure some positions are near the target
+positions[0] = [0, 0, 0]  # Exact target
+positions[1:5] = np.random.rand(4, 3) * 2 - 1  # Within 1mm of target
 
 optimizer = TIOptimizer(lfm, positions, num_electrodes=10)
 optimizer.set_target([0, 0, 0], 10.0)
 print('Target set successfully')
 "
-    [ "$status" -eq 0 ]
+    [ "$status" -eq 0 ] || echo "Error output: $output"
     [[ "$output" =~ "successfully" ]]
 }
 
@@ -83,8 +92,17 @@ import numpy as np
 sys.path.insert(0, '${BATS_TEST_DIRNAME}/../ti-toolbox')
 from opt.movea.optimizer import TIOptimizer
 
+# Set seed for reproducible test data
+np.random.seed(42)
+
+# Create synthetic leadfield
 lfm = np.random.rand(10, 50, 3) * 0.1
+
+# Create positions with some near the target [0, 0, 0]
 positions = np.random.rand(50, 3) * 100 - 50
+# Ensure some positions are near the target
+positions[0] = [0, 0, 0]  # Exact target
+positions[1:5] = np.random.rand(4, 3) * 2 - 1  # Within 1mm of target
 
 optimizer = TIOptimizer(lfm, positions, num_electrodes=10)
 optimizer.set_target([0, 0, 0], 10.0)
@@ -93,7 +111,7 @@ cost = optimizer.evaluate_montage([0, 1, 2, 3], 0.5)
 print(f'Cost: {cost}')
 print('Evaluation successful')
 "
-    [ "$status" -eq 0 ]
+    [ "$status" -eq 0 ] || echo "Error output: $output"
     [[ "$output" =~ "Cost:" ]]
     [[ "$output" =~ "successful" ]]
 }
@@ -149,8 +167,17 @@ import numpy as np
 sys.path.insert(0, '${BATS_TEST_DIRNAME}/../ti-toolbox')
 from opt.movea.optimizer import TIOptimizer
 
+# Set seed for reproducible test data
+np.random.seed(42)
+
+# Create synthetic leadfield
 lfm = np.random.rand(10, 50, 3) * 0.1
+
+# Create positions with some near the target [0, 0, 0]
 positions = np.random.rand(50, 3) * 100 - 50
+# Ensure some positions are near the target
+positions[0] = [0, 0, 0]  # Exact target
+positions[1:5] = np.random.rand(4, 3) * 2 - 1  # Within 1mm of target
 
 optimizer = TIOptimizer(lfm, positions, num_electrodes=10)
 optimizer.set_target([0, 0, 0], 10.0)

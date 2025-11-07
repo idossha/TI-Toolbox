@@ -115,7 +115,7 @@ while [[ $# -gt 0 ]]; do
             ;;
         *)
             echo -e "${RED}Unknown option: $1${RESET}"
-            usage
+            usage 1
             ;;
     esac
 done
