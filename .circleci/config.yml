@@ -108,8 +108,3 @@ workflows:
               ignore:
                 - main
                 - master
-            pull_requests:
-              types:
-                - opened
-                - synchronize
-                - reopened
