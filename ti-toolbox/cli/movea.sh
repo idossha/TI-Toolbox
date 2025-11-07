@@ -30,6 +30,7 @@ TARGET_TYPE="preset"
 
 # Function to display usage
 usage() {
+    local exit_code="${1:-0}"
     echo -e "${BOLD_CYAN}TI-Toolbox MOVEA Optimization${RESET}"
     echo ""
     echo "Usage: $0 [OPTIONS]"
@@ -56,7 +57,7 @@ usage() {
     echo "  $0 -s /path/to/m2m_subject -t motor -g 100 -n 50"
     echo "  $0 -s /path/to/m2m_subject -t '47,-13,52' -g 50"
     echo ""
-    exit 0
+    exit "$exit_code"
 }
 
 # Parse command line arguments
@@ -122,12 +123,12 @@ done
 # Validate required arguments
 if [ -z "$SUBJECT_DIR" ]; then
     echo -e "${RED}Error: Subject directory is required${RESET}"
-    usage
+    usage 1
 fi
 
 if [ -z "$TARGET" ]; then
     echo -e "${RED}Error: Target is required${RESET}"
-    usage
+    usage 1
 fi
 
 if [ ! -d "$SUBJECT_DIR" ]; then
