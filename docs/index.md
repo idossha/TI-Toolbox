@@ -27,7 +27,7 @@ layout: home
 <div class="carousel-container">
   <div class="carousel-wrapper">
     <div class="carousel-images">
-      <div class="carousel-slide">
+      <div class="carousel-slide active">
         <img src="{{ site.baseurl }}/assets/imgs/wiki_visual_exporter_vectors_close.png" alt="Vector Field Visualization">
         <p>High-resolution electric field vector visualization showing direction and magnitude</p>
       </div>
@@ -47,7 +47,7 @@ layout: home
         <img src="{{ site.baseurl }}/assets/imgs/gallery_UI_sim.png" alt="Simulation GUI">
         <p>User-friendly GUI for configuring and running temporal interference simulations</p>
       </div>
-      <div class="carousel-slide active">
+      <div class="carousel-slide">
         <img src="{{ site.baseurl }}/assets/imgs/wiki_stats_permutation_null_dist.png" alt="Cluster-Based Permutation Testing">
         <p>Statistical analysis with cluster-based permutation testing for group-level inference</p>
       </div>
