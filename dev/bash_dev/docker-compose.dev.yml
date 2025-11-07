@@ -11,7 +11,7 @@ services:
 
   simnibs:
     platform: linux/amd64
-    image: idossha/simnibs:v2.2.0dev
+    image: idossha/simnibs:v2.2.0
     container_name: simnibs_container
     volumes:
       - ti-toolbox_freesurfer_data:/usr/local/freesurfer/
