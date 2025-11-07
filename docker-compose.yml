@@ -40,6 +40,7 @@ services:
       FREESURFER_HOME: /usr/local/freesurfer
       SUBJECTS_DIR: /usr/local/freesurfer/subjects
       FS_LICENSE: /usr/local/freesurfer/license.txt
+      FS_FREESURFERENV_NO_OUTPUT: "1"
       # Project paths
       LOCAL_PROJECT_DIR: ${LOCAL_PROJECT_DIR}
       PROJECT_DIR_NAME: ${PROJECT_DIR_NAME}
@@ -47,6 +48,8 @@ services:
       TZ: ${TZ}
       # Performance settings
       KMP_AFFINITY: "disabled"
+      # TI-Toolbox version from image tag
+      TI_TOOLBOX_VERSION: "v2.2.0"
     networks:
       - ti_network
     depends_on:
@@ -55,6 +58,7 @@ services:
     stdin_open: true
     working_dir: /ti-toolbox
     restart: unless-stopped
+    command: ["tail", "-f", "/dev/null"]
 
 networks:
   ti_network:
