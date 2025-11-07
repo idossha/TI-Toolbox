@@ -75,6 +75,20 @@ The optimization generates several output files in the derivatives folder:
 4. **convergence.png**: Optimization progress plot showing field strength and cost convergence (when multiple runs)
 5. **montage_summary.png**: Comprehensive summary plot of single-objective optimization results
 
+## Visualization Examples
+
+### Single-Objective Optimization Results
+
+![MOVEA Single-Objective Results]({{ site.baseurl }}/assets/imgs/movea_single.png)
+
+*Figure: Single-objective optimization summary showing optimal electrode montage and field distribution*
+
+### Multi-Objective Optimization Results
+
+![MOVEA Multi-Objective Results]({{ site.baseurl }}/assets/imgs/movea_multi.png)
+
+*Figure: Multi-objective optimization Pareto front showing trade-off between intensity and focality*
+
 ## Algorithm Details
 
 ### MOVEA Processing Pipeline
