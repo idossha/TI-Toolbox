@@ -143,8 +143,8 @@ RUN git clone https://github.com/neovim/neovim.git /tmp/neovim \
     && rm -rf /tmp/neovim
 
 # Create symlinks for config files
-RUN ln -sf /ti-toolbox/config/.tmux.conf /root/.tmux.conf && \
-ln -sf /ti-toolbox/config/nvim /root/.config/
+RUN ln -sf /ti-toolbox/container/config/.tmux.conf /root/.tmux.conf && \
+ln -sf /ti-toolbox/container/config/nvim /root/.config/
 
 # Install plugins using lazy.nvim
 RUN nvim --headless "+LAZY! sync" +qa
