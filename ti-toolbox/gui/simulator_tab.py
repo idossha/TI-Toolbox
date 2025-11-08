@@ -1604,7 +1604,7 @@ class SimulatorTab(QtWidgets.QWidget):
             # Build command
             cmd = [
                 'bash',
-                os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'CLI', 'simulator.sh'),
+                os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'cli', 'simulator.sh'),
                 '--run-direct'
             ]
             
