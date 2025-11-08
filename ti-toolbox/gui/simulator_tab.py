@@ -1555,9 +1555,11 @@ class SimulatorTab(QtWidgets.QWidget):
                     montages_to_check = [cfg['montage']['name'] for cfg in flex_montage_configs if cfg['subject_id'] == subject_id]
                 
                 for montage_name in montages_to_check:
-                    simulation_dir = self.pm.get_simulation_dir(subject_id, 'Simulations')
-                    if simulation_dir:
-                        montage_dir = os.path.join(simulation_dir, montage_name)
+                    # Get the subject's Simulations directory
+                    subject_dir = self.pm.get_subject_dir(subject_id)
+                    if subject_dir:
+                        simulations_dir = os.path.join(subject_dir, 'Simulations')
+                        montage_dir = os.path.join(simulations_dir, montage_name)
                         if os.path.exists(montage_dir):
                             existing_dirs.append(f"{subject_id}/{montage_name}")
             
@@ -1586,9 +1588,11 @@ class SimulatorTab(QtWidgets.QWidget):
                         montages_to_delete = [cfg['montage']['name'] for cfg in flex_montage_configs if cfg['subject_id'] == subject_id]
                     
                     for montage_name in montages_to_delete:
-                        simulation_dir = self.pm.get_simulation_dir(subject_id, 'Simulations')
-                        if simulation_dir:
-                            montage_dir = os.path.join(simulation_dir, montage_name)
+                        # Get the subject's Simulations directory
+                        subject_dir = self.pm.get_subject_dir(subject_id)
+                        if subject_dir:
+                            simulations_dir = os.path.join(subject_dir, 'Simulations')
+                            montage_dir = os.path.join(simulations_dir, montage_name)
                             if os.path.exists(montage_dir):
                                 try:
                                     shutil.rmtree(montage_dir)
@@ -1784,16 +1788,12 @@ class SimulatorTab(QtWidgets.QWidget):
             self.update_output(f"Electrode: {electrode_shape} ({dimensions} mm, {thickness} mm thick)")
             self.update_output("--- STARTING SIMULATION ---")
             
-            # Set tab as busy
-            if hasattr(self, 'parent') and self.parent:
-                self.parent.set_tab_busy(self, True, stop_btn=self.stop_btn, keep_enabled=[self.console_widget.debug_checkbox])
-            
             # Initialize report generator for this simulation session
             self.simulation_session_id = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
             project_dir_path = self.pm.get_project_dir()
-            
+
             self.report_generator = get_simulation_report_generator(project_dir_path, self.simulation_session_id)
-            
+
             # Add simulation parameters to report (including custom conductivities)
             if self.report_generator:
                 self.report_generator.add_simulation_parameters(
@@ -1805,7 +1805,7 @@ class SimulatorTab(QtWidgets.QWidget):
                     quiet_mode=False,
                     conductivities=self._get_conductivities_for_report()
                 )
-                
+
                 # Add electrode parameters to report
                 dim_parts = dimensions.split(',')
                 self.report_generator.add_electrode_parameters(
@@ -1813,17 +1813,17 @@ class SimulatorTab(QtWidgets.QWidget):
                     dimensions=[float(dim_parts[0]), float(dim_parts[1])],
                     thickness=float(thickness)
                 )
-                
+
                 # Add subjects to report
                 for subject_id in selected_subjects:
                     bids_subject_id = f"sub-{subject_id}"
-                    m2m_path = os.path.join(project_dir_path, 'derivatives', 'SimNIBS', 
+                    m2m_path = os.path.join(project_dir_path, 'derivatives', 'SimNIBS',
                                           bids_subject_id, f'm2m_{subject_id}')
                     self.report_generator.add_subject(subject_id, m2m_path, 'processing')
-                
+
                 # Add montages to report
                 montage_type = 'unipolar' if sim_mode == 'U' else 'multipolar'
-                
+
                 # Load actual electrode pairs from montage file
                 montage_file = self.ensure_montage_file_exists(project_dir_path)
                 try:
@@ -1831,38 +1831,44 @@ class SimulatorTab(QtWidgets.QWidget):
                         montage_data = json.load(f)
                 except Exception:
                     montage_data = {"nets": {}}
-                
+
                 for montage_name in selected_montages:
                     # Try to get actual electrode pairs from the montage file
                     electrode_pairs = [['E1', 'E2']]  # Default fallback
-                    
+
                     # Look for the montage in the appropriate net and type
                     net_type = "uni_polar_montages" if sim_mode == 'U' else "multi_polar_montages"
-                    
-                    if ("nets" in montage_data and 
-                        eeg_net in montage_data["nets"] and 
-                        net_type in montage_data["nets"][eeg_net] and 
+
+                    if ("nets" in montage_data and
+                        eeg_net in montage_data["nets"] and
+                        net_type in montage_data["nets"][eeg_net] and
                         montage_name in montage_data["nets"][eeg_net][net_type]):
                         electrode_pairs = montage_data["nets"][eeg_net][net_type][montage_name]
-                    
+
                     # Use keyword arguments for consistency with updated method signature
                     self.report_generator.add_montage(
                         name=montage_name,  # Use 'name' keyword argument for consistency
                         electrode_pairs=electrode_pairs,
                         montage_type=montage_type
                     )
-            
-            # Disable UI controls during simulation
+
+            # Disable UI controls during simulation and set button states
             self.disable_controls()
-            self.action_buttons.enable_stop()
+            self.action_buttons.set_running(True)
+
+            # Set tab as busy (with stop_btn parameter for proper state management)
+            if hasattr(self, 'parent') and self.parent:
+                self.parent.set_tab_busy(self, True, stop_btn=self.stop_btn, keep_enabled=[self.console_widget.debug_checkbox])
+
             self.simulation_running = True
             
             # Create and start the thread
             self.simulation_process = SimulationThread(cmd, env)
             self._had_errors_during_run = False
+            self._simulation_finished_called = False  # Reset flag for new simulation
             self.simulation_process.output_signal.connect(self._handle_thread_output)
             self.simulation_process.error_signal.connect(lambda msg: self._handle_thread_output(msg, 'error'))
-            self.simulation_process.finished.connect(self.simulation_finished)
+            self.simulation_process.finished.connect(lambda: self.simulation_finished() if not getattr(self, '_simulation_finished_called', False) else None)
             self.simulation_process.start()
             
         except Exception as e:
@@ -1871,10 +1877,12 @@ class SimulatorTab(QtWidgets.QWidget):
     
     def simulation_finished(self):
         """Handle simulation completion."""
-        # Clear parent tab's busy state
-        if hasattr(self, 'parent') and self.parent:
-            self.parent.set_tab_busy(self, False)
-        
+        # Prevent double calling
+        if hasattr(self, '_simulation_finished_called') and self._simulation_finished_called:
+            return
+
+        self._simulation_finished_called = True
+
         if self.debug_mode:
             if self._had_errors_during_run:
                 self.output_console.append('<div style="margin: 10px 0;"><span style="color: #ff5555; font-size: 16px; font-weight: bold;">--- SIMULATION PROCESS COMPLETED WITH ERRORS ---</span></div>')
@@ -1884,7 +1892,7 @@ class SimulatorTab(QtWidgets.QWidget):
             else:
                 self.output_console.append('<div style="margin: 10px 0;"><span style="color: #55ff55; font-size: 16px; font-weight: bold;">--- SIMULATION PROCESS COMPLETED ---</span></div>')
             self.output_console.append('<div style="border-bottom: 1px solid #555; margin-bottom: 10px;"></div>')
-        
+
         # Only auto-generate simulation report if there were no errors; else cleanup partial outputs and inform user
         if not self._had_errors_during_run:
             self.auto_generate_simulation_report()
@@ -1894,10 +1902,10 @@ class SimulatorTab(QtWidgets.QWidget):
                 self._cleanup_partial_outputs()
             except Exception as cleanup_exc:
                 self.update_output(f"[WARNING] Cleanup encountered an issue: {cleanup_exc}", 'warning')
-        
+
         # Clean up temporary completion files
         self.cleanup_temporary_files()
-        
+
         # Clean up any remaining temporary flex montage files (CLI should have cleaned most)
         if hasattr(self, 'temp_flex_files'):
             remaining_files = 0
@@ -1912,15 +1920,18 @@ class SimulatorTab(QtWidgets.QWidget):
             if remaining_files > 0:
                 self.update_output(f"[CLEANUP] Removed {remaining_files} remaining temp files")
             delattr(self, 'temp_flex_files')
-        
+
         self.simulation_running = False
         self._aborting_due_to_error = False
-        self.run_btn.setEnabled(True)
+
+        # Reset button states using centralized method
         self.run_btn.setText("Run Simulation")
-        
-        # Use action_buttons to properly reset button states (fixes stop button staying red)
-        self.action_buttons.enable_run()
-        
+        self.action_buttons.set_running(False)
+
+        # Clear parent tab's busy state (with stop_btn parameter for proper state management)
+        if hasattr(self, 'parent') and self.parent:
+            self.parent.set_tab_busy(self, False, stop_btn=self.stop_btn)
+
         # Re-enable all controls
         self.enable_controls()
     
@@ -2180,25 +2191,22 @@ class SimulatorTab(QtWidgets.QWidget):
             # Show stopping message
             self.update_output("Stopping simulation...")
             self.output_console.append('<div style="margin: 10px 0;"><span style="color: #ff5555; font-weight: bold;">--- SIMULATION TERMINATED BY USER ---</span></div>')
-            
+
             # Terminate the process
             if self.simulation_process.terminate_process():
                 self.update_output("Simulation process terminated successfully.")
             else:
                 self.update_output("Failed to terminate simulation process or process already completed.")
-            
+
             # Reset UI state
             self.simulation_running = False
-            self.run_btn.setEnabled(True)
             self.run_btn.setText("Run Simulation")
-            
-            # Use action_buttons to properly reset button states (fixes stop button staying red)
-            self.action_buttons.enable_run()
-            
-            # Clear parent tab's busy state
+            self.action_buttons.set_running(False)
+
+            # Clear parent tab's busy state (with stop_btn parameter for proper state management)
             if hasattr(self, 'parent') and self.parent:
-                self.parent.set_tab_busy(self, False)
-            
+                self.parent.set_tab_busy(self, False, stop_btn=self.stop_btn)
+
             # Clean up temporary flex montage files
             if hasattr(self, 'temp_flex_files'):
                 remaining_files = 0
@@ -2213,7 +2221,7 @@ class SimulatorTab(QtWidgets.QWidget):
                 if remaining_files > 0:
                     self.update_output(f"[CLEANUP] Removed {remaining_files} temp files after stop")
                 delattr(self, 'temp_flex_files')
-            
+
             # Re-enable all controls
             self.enable_controls()
     
@@ -2403,6 +2411,8 @@ class SimulatorTab(QtWidgets.QWidget):
                     self._cleanup_partial_outputs()
                 except Exception as cleanup_exc:
                     self.update_output(f"[WARNING] Cleanup encountered an issue: {cleanup_exc}", 'warning')
+                # Explicitly finish simulation to reset UI state immediately
+                self.simulation_finished()
         self.update_output(text, message_type)
 
     def _cleanup_partial_outputs(self):
