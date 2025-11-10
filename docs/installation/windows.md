@@ -24,7 +24,7 @@ permalink: /installation/windows/
    - Go to "Resources" > "WSL Integration"
    - Enable integration with your Ubuntu distribution
 
-![Docker Settings on Windows]({{ site.baseurl }}/assets/imgs/installation_docker_windows.png){:style="max-width: 800px;"}
+![Docker Settings on Windows]({{ site.baseurl }}/assets/imgs/installation/docker_windows.png){:style="max-width: 800px;"}
 
 3. **Restart Docker Desktop** after enabling integration
 

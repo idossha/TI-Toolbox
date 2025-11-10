@@ -10,47 +10,47 @@ permalink: /gallery/UI/
   <h3>TI-Toolbox User Interface</h3>
   <div class="gallery-grid">
     <div class="gallery-item">
-      <img src="{{ site.baseurl }}/assets/imgs/gallery_UI_pre-process.png" alt="Pre-Processing UI" onclick="openLightbox(this)" />
+      <img src="{{ site.baseurl }}/assets/imgs/gallery/UI_pre-process.png" alt="Pre-Processing UI" onclick="openLightbox(this)" />
       <p>Pre-Processing interface for DICOM to NIfTI conversion and FreeSurfer segmentation.</p>
     </div>
     <div class="gallery-item">
-      <img src="{{ site.baseurl }}/assets/imgs/gallery_UI_flex.png" alt="Flex-Search UI" onclick="openLightbox(this)" />
+      <img src="{{ site.baseurl }}/assets/imgs/gallery/UI_flex.png" alt="Flex-Search UI" onclick="openLightbox(this)" />
       <p>Flex-Search interface for evolutionary electrode optimization.</p>
     </div>
     <div class="gallery-item">
-      <img src="{{ site.baseurl }}/assets/imgs/gallery_UI_ex.png" alt="Ex-Search UI" onclick="openLightbox(this)" />
+      <img src="{{ site.baseurl }}/assets/imgs/gallery/UI_ex.png" alt="Ex-Search UI" onclick="openLightbox(this)" />
       <p>Ex-Search interface for exhaustive electrode combination search.</p>
     </div>
     <div class="gallery-item">
-      <img src="{{ site.baseurl }}/assets/imgs/gallery_UI_sim.png" alt="Simulations UI" onclick="openLightbox(this)" />
+      <img src="{{ site.baseurl }}/assets/imgs/gallery/UI_sim.png" alt="Simulations UI" onclick="openLightbox(this)" />
       <p>Simulations interface for temporal interference field analysis.</p>
     </div>
     <div class="gallery-item">
-      <img src="{{ site.baseurl }}/assets/imgs/gallery_UI_ana.png" alt="Analysis UI" onclick="openLightbox(this)" />
+      <img src="{{ site.baseurl }}/assets/imgs/gallery/UI_ana.png" alt="Analysis UI" onclick="openLightbox(this)" />
       <p>Analysis interface for comprehensive results visualization.</p>
     </div>
     <div class="gallery-item">
-      <img src="{{ site.baseurl }}/assets/imgs/gallery_UI_nifti.png" alt="NIfTI UI" onclick="openLightbox(this)" />
+      <img src="{{ site.baseurl }}/assets/imgs/gallery/UI_nifti.png" alt="NIfTI UI" onclick="openLightbox(this)" />
       <p>NIfTI file processing and visualization interface.</p>
     </div>
     <div class="gallery-item">
-      <img src="{{ site.baseurl }}/assets/imgs/gallery_UI_monitor.png" alt="System Monitor UI" onclick="openLightbox(this)" />
+      <img src="{{ site.baseurl }}/assets/imgs/gallery/UI_monitor.png" alt="System Monitor UI" onclick="openLightbox(this)" />
       <p>System monitoring interface for tracking toolbox processes.</p>
     </div>
     <div class="gallery-item">
-      <img src="{{ site.baseurl }}/assets/imgs/gallery_UI_cbpt.png" alt="CBPT UI" onclick="openLightbox(this)" />
+      <img src="{{ site.baseurl }}/assets/imgs/gallery/UI_cbpt.png" alt="CBPT UI" onclick="openLightbox(this)" />
       <p>CBPT (Computational Brain Phantom Toolkit) interface for phantom-based simulations.</p>
     </div>
     <div class="gallery-item">
-      <img src="{{ site.baseurl }}/assets/imgs/gallery_UI_extension.png" alt="Extension UI" onclick="openLightbox(this)" />
+      <img src="{{ site.baseurl }}/assets/imgs/gallery/UI_extension.png" alt="Extension UI" onclick="openLightbox(this)" />
       <p>Extension manager interface for toolbox customization and plugin management.</p>
     </div>
     <div class="gallery-item">
-      <img src="{{ site.baseurl }}/assets/imgs/gallery_UI_nifti_group_avg.png" alt="NIfTI Group Average UI" onclick="openLightbox(this)" />
+      <img src="{{ site.baseurl }}/assets/imgs/gallery/UI_nifti_group_avg.png" alt="NIfTI Group Average UI" onclick="openLightbox(this)" />
       <p>NIfTI group averaging interface for multi-subject data analysis.</p>
     </div>
     <div class="gallery-item">
-      <img src="{{ site.baseurl }}/assets/imgs/gallery_UI_nilearn_visuals.png" alt="NiLearn Visuals UI" onclick="openLightbox(this)" />
+      <img src="{{ site.baseurl }}/assets/imgs/gallery/UI_nilearn_visuals.png" alt="NiLearn Visuals UI" onclick="openLightbox(this)" />
       <p>NiLearn visualization interface for advanced brain imaging plots and graphics.</p>
     </div>
   </div>

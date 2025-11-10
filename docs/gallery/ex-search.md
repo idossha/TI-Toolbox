@@ -10,11 +10,11 @@ permalink: /gallery/ex-search/
   <h3>Exhaustive Search Results</h3>
   <div class="gallery-grid">
     <div class="gallery-item">
-      <img src="{{ site.baseurl }}/assets/imgs/gallery_ex-search_ex-search_selection.png" alt="Ex-Search Selection" onclick="openLightbox(this)" />
+      <img src="{{ site.baseurl }}/assets/imgs/gallery/ex-search_ex-search_selection.png" alt="Ex-Search Selection" onclick="openLightbox(this)" />
       <p>electrode selection is required for exhaustive search optimization</p>
     </div>
     <div class="gallery-item">
-      <img src="{{ site.baseurl }}/assets/imgs/gallery_ex-search_ex-search_combos.png" alt="Ex-Search Combinations" onclick="openLightbox(this)" />
+      <img src="{{ site.baseurl }}/assets/imgs/gallery/ex-search_ex-search_combos.png" alt="Ex-Search Combinations" onclick="openLightbox(this)" />
       <p>All elecrode combinations to be searches through n^4 combniations</p>
     </div>
   </div>

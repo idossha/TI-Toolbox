@@ -48,4 +48,4 @@ Download these files to your preferred location (e.g., `~/TI-Toolbox/`):
 - All TI-Toolbox features work on both architectures
 
 
-![Docker Settings on Apple]({{ site.baseurl }}/assets/imgs/installation_docker_apple.png){:style="max-width: 800px;"}
+![Docker Settings on Apple]({{ site.baseurl }}/assets/imgs/installation/docker_apple.png){:style="max-width: 800px;"}

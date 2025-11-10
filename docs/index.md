@@ -35,27 +35,27 @@ bash loader.sh
   <div class="carousel-wrapper">
     <div class="carousel-images">
       <div class="carousel-slide active">
-        <img src="{{ site.baseurl }}/assets/imgs/wiki_visual_exporter_vectors_close.png" alt="Vector Field Visualization">
+        <img src="{{ site.baseurl }}/assets/imgs/wiki/visual-exporter/visual_exporter_vectors_close.png" alt="Vector Field Visualization">
         <p>High-resolution electric field vector visualization showing direction and magnitude</p>
       </div>
       <div class="carousel-slide">
-        <img src="{{ site.baseurl }}/assets/imgs/wiki_testing_graphical_abstract_revised.png" alt="TI-Toolbox Tech Stack">
+        <img src="{{ site.baseurl }}/assets/imgs/wiki/testing-pipeline/testing_graphical_abstract_revised.png" alt="TI-Toolbox Tech Stack">
         <p>Complete TI-Toolbox technology stack: BIDS-compatible, Docker-based, end-to-end pipeline</p>
       </div>
       <div class="carousel-slide">
-        <img src="{{ site.baseurl }}/assets/imgs/gallery_ex-search_ex-search_selection.png" alt="Electrode Selection">
+        <img src="{{ site.baseurl }}/assets/imgs/gallery/ex-search_ex-search_selection.png" alt="Electrode Selection">
         <p>Exhaustive search for optimal electrode placement across standard EEG montages</p>
       </div>
       <div class="carousel-slide">
-        <img src="{{ site.baseurl }}/assets/imgs/gallery_flex-search_mapping.png" alt="Flex-Search Mapping">
+        <img src="{{ site.baseurl }}/assets/imgs/gallery/flex-search_mapping.png" alt="Flex-Search Mapping">
         <p>Flexible search extension mapping genetic algorithm output to registered EEG positions</p>
       </div>
       <div class="carousel-slide">
-        <img src="{{ site.baseurl }}/assets/imgs/gallery_UI_sim.png" alt="Simulation GUI">
+        <img src="{{ site.baseurl }}/assets/imgs/gallery/UI_sim.png" alt="Simulation GUI">
         <p>User-friendly GUI for configuring and running temporal interference simulations</p>
       </div>
       <div class="carousel-slide">
-        <img src="{{ site.baseurl }}/assets/imgs/wiki_stats_permutation_null_dist.png" alt="Cluster-Based Permutation Testing">
+        <img src="{{ site.baseurl }}/assets/imgs/wiki/cluster-permutation-testing/stats_permutation_null_dist.png" alt="Cluster-Based Permutation Testing">
         <p>Statistical analysis with cluster-based permutation testing for group-level inference</p>
       </div>
     </div>

@@ -10,11 +10,11 @@ permalink: /gallery/flex-search/
   <h3>Evolutionary Electrode Optimization</h3>
   <div class="gallery-grid">
     <div class="gallery-item">
-      <img src="{{ site.baseurl }}/assets/imgs/gallery_flex-search_flex-search.png" alt="Flex-Search Optimization" onclick="openLightbox(this)" />
+      <img src="{{ site.baseurl }}/assets/imgs/gallery/flex-search_flex-search.png" alt="Flex-Search Optimization" onclick="openLightbox(this)" />
       <p>Evolutionary optimization showing flexible electrode placement unbound by EEG net.</p>
     </div>
     <div class="gallery-item">
-      <img src="{{ site.baseurl }}/assets/imgs/gallery_flex-search_mapping.png" alt="Electrode Mapping" onclick="openLightbox(this)" />
+      <img src="{{ site.baseurl }}/assets/imgs/gallery/flex-search_mapping.png" alt="Electrode Mapping" onclick="openLightbox(this)" />
       <p>Extention to the flex-search mapping optimized electrodes to nearest avilable EEG electrodes</p>
     </div>
   </div>
