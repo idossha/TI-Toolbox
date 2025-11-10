@@ -4,7 +4,7 @@ title: Electrode Placement
 permalink: /wiki/electrode-placement/
 ---
 
-The Electrode Placement extension provides an interactive 3D tool for placing electrode markers on head surfaces. This tool is designed for precise and flexible electrode positioning.
+The Electrode Placement extension provides an interactive 3D tool for freely placing electrode on head surfaces. This tool is designed for precise and flexible electrode positioning and is heavily inspired by SimNIBS's GUI apporach. 
 
 ## Key Features
 

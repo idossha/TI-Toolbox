@@ -1,7 +1,7 @@
 ---
 layout: wiki
 title: MOVEA Optimization
-permalink: /wiki/movea_opt/
+permalink: /wiki/movea-opt/
 ---
 
 ## Overview

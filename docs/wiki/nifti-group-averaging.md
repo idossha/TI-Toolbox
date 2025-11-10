@@ -41,7 +41,7 @@ The group difference analysis provides visual output showing statistical compari
 
 ![Group Difference Visualization]({{ site.baseurl }}/assets/imgs/group_diff_nifti.png)
 
-*Figure: Statistical comparison showing group differences in electric field distributions*
+*Figure: group differences in electric field distributions*
 
 ## CSV Configuration Management
 
