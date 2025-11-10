@@ -18,11 +18,18 @@ layout: home
 ## Quick Start Workflow
 
 1. **Set up your BIDS project directory**
-   - Organize your data in BIDS format. Place DICOM files in `sourcedata/sub-<subject>/T1w/dicom/` (and optionally T2w).
+   - Organize your data in BIDS format. Place DICOM files in `{project-name}/sourcedata/sub-{subjectID}/T1w/dicom/` (and optionally T2w).
 2. **Install Docker Desktop**
    - Required for running the toolbox environment.
-3. **Get the Latest Release**
-   - Download the latest version (2.x.x or newer) from the <a href="{{ site.baseurl }}/releases/">Releases page</a>. See the <a href="{{ site.baseurl }}/installation/">Installation</a> for platform-specific instructions. Note: Versions 1.x.x are no longer supported.
+3. **Download the required files:**
+- **[loader.sh](https://github.com/idossha/TI-toolbox/blob/main/loader.sh)** - Main launch script
+- **[docker-compose.yml](https://github.com/idossha/TI-toolbox/blob/main/docker-compose.yml)** - Docker configuration
+
+```bash
+# Run the script
+bash loader.sh
+```
+
 
 <div class="carousel-container">
   <div class="carousel-wrapper">
