@@ -11,14 +11,6 @@ MOVEA (Multi-Objective Optimization via Evolutionary Algorithm) is an advanced o
 **Original Project**: [MOVEA on GitHub](https://github.com/ncclab-sustech/MOVEA)  
 **Original Paper**: [Zhu et al., 2023](https://doi.org/10.1016/j.neuroimage.2023.120331) - "MOVEA: Multi-objective optimization via evolutionary algorithm for high-definition transcranial electrical stimulation of the human brain"
 
-## Key Features
-
-### Multi-Objective Optimization
-MOVEA simultaneously optimizes two competing objectives:
-1. **Maximize electric field intensity at the target region** - Ensures effective stimulation
-2. **Minimize electric field across the whole brain** - Improves focality
-
-This creates a Pareto front showing the trade-off between intensity and focality, allowing researchers to choose the best compromise for their specific application.
 
 ### TI-Toolbox Implementation of MOVEA
 - **NSGA-II style evolutionary algorithm** for true multi-objective optimization
@@ -27,8 +19,6 @@ This creates a Pareto front showing the trade-off between intensity and focality
 - **Elitism** to preserve best solutions across generations
 
 ## GUI Usage
-
-### MOVEA Optimization GUI
 
 <img src="{{ site.baseurl }}/assets/imgs/wiki/movea-opt/mova_UI.png" alt="MOVEA Optimization Interface" style="width: 80%; max-width: 700px;">
 

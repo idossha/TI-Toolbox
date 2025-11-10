@@ -148,9 +148,4 @@ analysis_output/
 ---
 ## Group Analysis
 
-More to come soon.
-
-
----
-
-*The Analyzer module is continuously updated to support new analysis methods and visualization techniques. For the latest features and documentation updates, refer to the [TI-Toolbox repository](https://github.com/idossha/TI-toolbox).* 
+More to come soon. 
