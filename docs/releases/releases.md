@@ -32,7 +32,8 @@ Moved to support bash entrypoint only, see the [Bash Script & Compose YAML](http
 
 #### Download Links
 - Docker Image: `docker pull idossha/simnibs:v2.2.0`
-- Source Code: [GitHub Repository](https://github.com/idossha/TI-Toolbox)
+- **[loader.sh](https://github.com/idossha/TI-toolbox/blob/main/loader.sh)** - Main launch script
+- **[docker-compose.yml](https://github.com/idossha/TI-toolbox/blob/main/docker-compose.yml)** - Docker configuration
 
 For installation instructions, see the [Installation Guide]({{ site.baseurl }}/installation/).
 
