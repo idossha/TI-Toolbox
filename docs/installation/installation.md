@@ -15,7 +15,7 @@ Starting **v2.2.0** the TI-Toolbox can only be launched via bash script. Executa
 - **X Server**: XQuartz (macOS), VcXsrv (Windows), or X11 (Linux - usually pre-installed)
 
 ---
-
+<br>
 ⚠️ **Security Notice**: Only run bash scripts on your machine from official sources. 
 
 For detailed, step-by-step instructions for your platform, use the sidebar navigation.

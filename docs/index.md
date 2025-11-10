@@ -15,7 +15,7 @@ layout: home
 </div>
 
 
-## Quick Start Workflow
+## Quick Start
 
 1. **Set up your BIDS project directory**
    - Organize your data in BIDS format. Place DICOM files in `{project-name}/sourcedata/sub-{subjectID}/T1w/dicom/` (and optionally T2w).
