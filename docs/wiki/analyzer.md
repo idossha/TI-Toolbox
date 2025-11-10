@@ -17,8 +17,10 @@ The Analyzer module provides analysis capabilities for TI simulation results, su
 The Analyzer module consists of three main components:
 
 - **MeshAnalyzer**: Analyzes SimNIBS mesh files (.msh) containing field data
-- **VoxelAnalyzer**: Analyzes NIfTI files (.nii, .nii.gz, .mgz) containing field data  
+- **VoxelAnalyzer**: Analyzes NIfTI files (.nii, .nii.gz, .mgz) containing field data
 - **Group Analyzer**: Batch processing for multiple subjects and comparative analysis
+
+<img src="{{ site.baseurl }}/assets/imgs/wiki/analyzer/UI_ana.png" alt="Analyzer User Interface" style="width: 100%; max-width: 600px;">
 
 ## Key Features
 

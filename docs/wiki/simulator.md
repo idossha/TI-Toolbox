@@ -33,6 +33,9 @@ Mode that allows exploration of untraditional montages
 
 ## Simulation Modes
 
+<img src="{{ site.baseurl }}/assets/imgs/wiki/simulator/uTI_mTI.png" alt="Unipolar TI" style="width: 80%; max-width: 300px;">
+<em>Left column unipolar (two channels) right column multipolar (four channels). Panels A,D: target and electrode montage. Panels B,E: high frequency fields. Panels C,F: modulation fields.</em>
+
 ### Unipolar Mode
 - **Configuration**: Single active electrode with dedicated return path
 - **Current Settings**: Two current inputs (active and return electrodes)
@@ -108,6 +111,8 @@ The simulator supports different tissue conductivity models:
 ---
 
 ## User Interface
+
+<img src="{{ site.baseurl }}/assets/imgs/wiki/simulator/UI_sim.png" alt="Simulator User Interface" style="width: 100%; max-width: 600px;">
 
 The simulator GUI provides intuitive controls for all simulation parameters:
 
