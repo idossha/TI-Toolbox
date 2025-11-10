@@ -81,7 +81,7 @@ output_directory/
 └── csf_combined_publication_figure.pdf  # Combined analysis figure (PDF)
 ```
 
-![Tissue Analsis Viz]({{ site.baseurl }}/assets/imgs/bone_combined_publication_figure.png)
+<img src="{{ site.baseurl }}/assets/imgs/bone_combined_publication_figure.png" alt="Bone Analysis Figure" style="width: 80%; max-width: 700px;">
 
 
 ## Data Requirements

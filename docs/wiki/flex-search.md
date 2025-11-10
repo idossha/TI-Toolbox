@@ -23,7 +23,7 @@ Flex Search uses differential evolution optimization to determine the best elect
 ## User Interface
 
 
-<img src="{{ site.baseurl }}/assets/imgs/wiki_flex-search_flex-search_UI.png" alt="Flex Search Interface" style="width: 70%; max-width: 600px;">
+<img src="{{ site.baseurl }}/assets/imgs/gallery_UI_flex.png" alt="Flex Search Interface" style="width: 80%; max-width: 700px;">
 
 The interface provides comprehensive controls for:
 - **Basic Parameters**: Subject selection, optimization goal, and post-processing method
@@ -88,7 +88,7 @@ As described in the [original paper](https://www.sciencedirect.com/science/artic
 
 <img src="{{ site.baseurl }}/assets/imgs/focality_thresholds.png" alt="Focality Threshold Analysis" style="width: 70%; max-width: 400px;">
 
-**Focality optimization analysis**: Comparative evaluation of threshold strategies reveals critical insights: mapped electrode configurations achieve superior spatial selectivity compared to generalized approaches, though HD-EEG constraints impose minimal penalty on achievable focality. Threshold selection profoundly impacts results, with relative thresholds (50% of peak) yielding 75% higher focality than fixed thresholds, while 80% thresholds reduce focality by 37%, highlighting the importance of threshold optimization for precise neuromodulation. *Data regarding focality thresholds and optimization performance comes from the supplementary information of Haber et al. 2025.*
+**Focality optimization analysis**: Comparative evaluation of threshold strategies reveals critical insights: threshold selection profoundly impacts results, with relative thresholds (50% of peak) yielding 75% higher focality than fixed thresholds, while 80% thresholds reduce focality by 37%, compared to fixed thresholds (0.1V/m and 0.3V/m) highlighting the importance of threshold optimization for precise neuromodulation. Dynamic % based thresholds were derived automatically from an intial pass of mean TImax search and applied to the upper bound only. The lower bound was kept at 20% from that value. *Data regarding focality thresholds and optimization performance comes from the supplementary information of Haber et al. 2025.*
 
 ## Multi-Start Optimization
 

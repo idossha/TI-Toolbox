@@ -30,7 +30,7 @@ This creates a Pareto front showing the trade-off between intensity and focality
 
 ### MOVEA Optimization GUI
 
-![MOVEA Optimization Interface]({{ site.baseurl }}/assets/imgs/mova_UI.png)
+<img src="{{ site.baseurl }}/assets/imgs/mova_UI.png" alt="MOVEA Optimization Interface" style="width: 80%; max-width: 700px;">
 
 *Figure: MOVEA optimization GUI showing the main interface with target selection, parameter configuration, and optimization controls*
 
@@ -59,13 +59,12 @@ The optimization generates several output files in the derivatives folder:
 
 ### Single-Objective Optimization Results
 
-![MOVEA Single-Objective Results]({{ site.baseurl }}/assets/imgs/movea_single.png)
-
+<img src="{{ site.baseurl }}/assets/imgs/movea_single.png" alt="MOVEA Single-Objective Results" style="width: 80%; max-width: 700px;">
 *Figure: Single-objective optimization summary showing optimal electrode montage and field distribution*
 
 ### Multi-Objective Optimization Results
 
-![MOVEA Multi-Objective Results]({{ site.baseurl }}/assets/imgs/movea_multi.png)
+<img src="{{ site.baseurl }}/assets/imgs/movea_multi.png" alt="MOVEA Single-Objective Results" style="width: 80%; max-width: 600px;">
 
 *Figure: Multi-objective optimization Pareto front showing trade-off between intensity and focality*
 

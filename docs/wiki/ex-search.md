@@ -16,7 +16,7 @@ Ex-Search utilizes leadfield-based optimization to determine optimal electrode c
 
 ## User Interface
 
-![Ex-Search Interface]({{ site.baseurl }}/assets/imgs/wiki_ex-search_ex-search_UI.png)
+<img src="{{ site.baseurl }}/assets/imgs/gallery_UI_ex.png" alt="Flex Search Interface" style="width: 80%; max-width: 700px;">
 
 The interface provides controls for:
 - **Subject Selection**: Choose from available subjects with automatic leadfield scanning
