@@ -45,3 +45,6 @@ TI-Toolbox_*_*/
 # Claude
 CLAUDE.md
 .claude
+
+benchmark_results/
+benchmark_config.yaml
