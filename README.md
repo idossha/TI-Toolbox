@@ -3,7 +3,7 @@
 
 [![Docker Pulls](https://img.shields.io/docker/pulls/idossha/simnibs?cacheSeconds=86400)](https://hub.docker.com/r/idossha/simnibs)
 [![GitHub Release](https://img.shields.io/github/v/release/idossha/TI-toolbox?cacheSeconds=86400)](https://github.com/idossha/TI-toolbox/releases)
-[![GitHub License](https://img.shields.io/badge/license-GPL--3.0-blue.svg?cacheSeconds=86400)](https://github.com/idossha/TI-toolbox/blob/main/LICENSE)
+[![GitHub License](https://img.shields.io/github/license/idossha/TI-toolbox?cacheSeconds=86400)](https://github.com/idossha/TI-toolbox/blob/main/LICENSE)
 [![codecov](https://codecov.io/gh/idossha/TI-toolbox/branch/main/graph/badge.svg)](https://codecov.io/gh/idossha/TI-toolbox)
 
 
