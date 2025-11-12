@@ -98,13 +98,15 @@ class ResourcePathManager:
         # 10-10 system nets
         ten_ten_nets = [
             "EEG10-10_UI_Jurak_2007.csv",
+            "EEG10-10_Cutini_2011.csv",
+            "EEG10-20_Okamoto_2004.csv",
             "EEG10-10_Neuroelectrics.csv"
         ]
 
         if eeg_net in gsn_hd_nets:
-            return os.path.join(self.resources_dir, "GSN-HD.csv")
+            return os.path.join(self.resources_dir, "GSN-256.csv")
         elif eeg_net in ten_ten_nets:
-            return os.path.join(self.resources_dir, "10-10-net.csv")
+            return os.path.join(self.resources_dir, "10-10.csv")
         else:
             raise ValueError(f"Unsupported EEG net: {eeg_net}")
     
@@ -124,10 +126,8 @@ class ResourcePathManager:
             "GSN-HydroCel-256.csv"
         ]
         
-        if eeg_net in gsn_hd_nets:
-            return os.path.join(self.resources_dir, "256template.png")
-        else:
-            return os.path.join(self.resources_dir, "10-10-net.png")
+        # All nets use the same GSN-256 template image
+        return os.path.join(self.resources_dir, "GSN-256.png")
     
     def get_ring_image(self, pair_index: int) -> str:
         """
@@ -166,7 +166,8 @@ class ElectrodeCoordinateReader:
             coordinate_file: Path to coordinate CSV file
         """
         self.coordinate_file = coordinate_file
-        self.is_gsn_hd = "GSN-HD" in coordinate_file
+        # GSN-HD format has 5 columns, others have 3 columns
+        self.is_gsn_hd = False  # All our current files use 3-column format
         
     def get_coordinates(self, electrode_label: str) -> Optional[Tuple[int, int]]:
         """
@@ -272,13 +273,13 @@ class MontageVisualizer:
         except subprocess.CalledProcessError as e:
             raise RuntimeError(f"Failed to copy template image: {e}")
     
-    def _overlay_ring(self, 
+    def _overlay_ring(self,
                      output_image: str,
-                     electrode_label: str, 
+                     electrode_label: str,
                      ring_image: str):
         """
         Overlay a ring on the output image at electrode coordinates.
-        
+
         Args:
             output_image: Path to output image being modified
             electrode_label: Label of electrode to highlight
@@ -289,23 +290,118 @@ class MontageVisualizer:
         if coords is None:
             self._log(f"Warning: Coordinates not found for electrode '{electrode_label}'. Skipping overlay.")
             return
-        
+
         x, y = coords
         self._log(f"Coordinates for electrode '{electrode_label}': x={x}, y={y}")
-        
+
+        # New ring images are 100x100 with the ring centered at (50,50)
+        # To center the ring on electrode coordinates (x,y),
+        # place the ring image at (x-50, y-50)
+        adjusted_x = x - 50
+        adjusted_y = y - 50
+
+        self._log(f"Adjusted position for ring centering: x={adjusted_x}, y={adjusted_y}")
+
         # Use ImageMagick to overlay ring
         try:
             subprocess.run([
                 'convert',
                 output_image,
                 ring_image,
-                '-geometry', f'+{x}+{y}',
+                '-geometry', f'+{adjusted_x}+{adjusted_y}',
                 '-composite',
                 output_image
             ], check=True)
         except subprocess.CalledProcessError as e:
             self._log(f"Error: Failed to overlay ring image '{ring_image}' onto output image '{output_image}'.")
-    
+
+    def _draw_connection_line(self,
+                             output_image: str,
+                             electrode1: str,
+                             electrode2: str,
+                             pair_index: int):
+        """
+        Draw an arched connection line between two electrodes using the same color as their rings.
+
+        Args:
+            output_image: Path to output image being modified
+            electrode1: Name of first electrode
+            electrode2: Name of second electrode
+            pair_index: Index of the electrode pair (used to determine color)
+        """
+        # Get coordinates for both electrodes
+        coords1 = self.coord_reader.get_coordinates(electrode1)
+        coords2 = self.coord_reader.get_coordinates(electrode2)
+
+        if coords1 is None or coords2 is None:
+            self._log(f"Warning: Could not get coordinates for electrodes '{electrode1}' or '{electrode2}'. Skipping connection line.")
+            return
+
+        x1, y1 = coords1
+        x2, y2 = coords2
+
+        self._log(f"Drawing connection line between '{electrode1}' ({x1},{y1}) and '{electrode2}' ({x2},{y2})")
+
+        # Determine the ring color from the pair index
+        color_map = [
+            'chartreuse',    # pair 0 (pair1ring.png)
+            'deepskyblue',   # pair 1 (pair2ring.png)
+            'lime',          # pair 2 (pair3ring.png)
+            'gold',          # pair 3 (pair4ring.png)
+            'hotpink',       # pair 4 (pair5ring.png)
+            'turquoise',     # pair 5 (pair6ring.png)
+            'violet',        # pair 6 (pair7ring.png)
+            'orange'         # pair 7 (pair8ring.png)
+        ]
+        line_color = color_map[pair_index % len(color_map)]
+
+        # Calculate vector between electrodes
+        dx = x2 - x1
+        dy = y2 - y1
+        distance = (dx**2 + dy**2)**0.5
+
+        if distance > 0:
+            # Normalize the vector
+            unit_x = dx / distance
+            unit_y = dy / distance
+
+            # Offset start and end points by -15px from electrode centers
+            offset_distance = 15
+            start_x = x1 + unit_x * offset_distance  # Move away from electrode 1
+            start_y = y1 + unit_y * offset_distance
+            end_x = x2 - unit_x * offset_distance    # Move away from electrode 2
+            end_y = y2 - unit_y * offset_distance
+
+            # Calculate control point for quadratic bezier curve (creates an arch)
+            # Control point is midway between the offset points, lifted up by a quarter of the distance
+            mid_x = (start_x + end_x) / 2
+            mid_y = (start_y + end_y) / 2
+            arch_height = distance * 0.25  # 25% of distance for nice arch
+
+            # Calculate perpendicular direction for arch
+            perp_x = -dy / distance
+            perp_y = dx / distance
+
+            control_x = mid_x + perp_x * arch_height
+            control_y = mid_y + perp_y * arch_height
+
+            # Draw the arched line using ImageMagick
+            try:
+                subprocess.run([
+                    'convert',
+                    output_image,
+                    '-stroke', line_color,
+                    '-strokewidth', '3',
+                    '-fill', 'none',
+                    '-draw', f'bezier {start_x},{start_y} {control_x},{control_y} {end_x},{end_y}',
+                    output_image
+                ], check=True)
+                self._log(f"Connection line drawn in {line_color} with 15px offset")
+            except subprocess.CalledProcessError as e:
+                self._log(f"Error: Failed to draw connection line on output image '{output_image}'.")
+        else:
+            self._log(f"Warning: Electrodes are at the same position, skipping connection line.")
+
     def visualize_montages(self, montage_names: List[str]) -> bool:
         """
         Visualize selected montages.
@@ -377,11 +473,14 @@ class MontageVisualizer:
                 
                 # Get ring image for this pair
                 ring_image = self.resource_manager.get_ring_image(global_pair_index)
-                
+
                 # Overlay rings for both electrodes
                 self._overlay_ring(output_image, pair[0], ring_image)
                 self._overlay_ring(output_image, pair[1], ring_image)
-                
+
+                # Draw connection line between the electrodes
+                self._draw_connection_line(output_image, pair[0], pair[1], global_pair_index)
+
                 global_pair_index += 1
             
             # Log completion for unipolar mode
