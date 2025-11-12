@@ -387,7 +387,7 @@ class TestMontageVisualizer(unittest.TestCase):
         )
 
         # Test with non-existent electrode
-        visualizer._overlay_ring("/fake/image.png", "NonExistent", "fake_ring.png")
+        visualizer._overlay_ring("/fake/image.png", "NonExistent", 0)
         # Should not crash, just log warning
 
     def test_copy_template(self):

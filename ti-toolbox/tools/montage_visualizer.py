@@ -157,55 +157,86 @@ class ResourcePathManager:
 
 class ElectrodeCoordinateReader:
     """Reads electrode coordinates from CSV files."""
-    
+
     def __init__(self, coordinate_file: str):
         """
         Initialize coordinate reader.
-        
+
         Args:
             coordinate_file: Path to coordinate CSV file
         """
         self.coordinate_file = coordinate_file
         # GSN-HD format has 5 columns, others have 3 columns
         self.is_gsn_hd = False  # All our current files use 3-column format
-        
-    def get_coordinates(self, electrode_label: str) -> Optional[Tuple[int, int]]:
+
+        # Cache all coordinates for efficiency
+        self._coordinate_cache = self._load_all_coordinates()
+
+    def _load_all_coordinates(self) -> Dict[str, Tuple[int, int]]:
         """
-        Get coordinates for an electrode label.
-        
-        Args:
-            electrode_label: Electrode label (e.g., "E020", "Fp1")
-            
+        Load all electrode coordinates into memory for fast lookup.
+
         Returns:
-            Tuple of (x, y) coordinates, or None if not found
+            Dictionary mapping electrode labels to (x, y) coordinate tuples
         """
+        coordinates = {}
         try:
             with open(self.coordinate_file, 'r') as f:
                 for line in f:
                     parts = line.strip().split(',')
                     if not parts:
                         continue
-                    
-                    if parts[0] == electrode_label:
+
+                    electrode_label = parts[0]
+                    try:
                         if self.is_gsn_hd:
                             # GSN-HD format: name,xcord,modifiedxcord,ycord,modifiedycord
                             # Use columns 3,5 (indices 2,4)
                             if len(parts) >= 5:
-                                return (int(float(parts[2])), int(float(parts[4])))
+                                coords = (int(float(parts[2])), int(float(parts[4])))
+                                coordinates[electrode_label] = coords
                         else:
                             # 10-10-net format: electrode_name,x,y
                             # Use columns 2,3 (indices 1,2)
                             if len(parts) >= 3:
-                                return (int(float(parts[1])), int(float(parts[2])))
+                                coords = (int(float(parts[1])), int(float(parts[2])))
+                                coordinates[electrode_label] = coords
+                    except (ValueError, IndexError) as e:
+                        print(f"Warning: Error parsing coordinates for {electrode_label}: {e}")
+                        continue
         except Exception as e:
-            print(f"Warning: Error reading coordinates for {electrode_label}: {e}")
-        
-        return None
+            print(f"Warning: Error loading coordinate file {self.coordinate_file}: {e}")
+
+        return coordinates
+
+    def get_coordinates(self, electrode_label: str) -> Optional[Tuple[int, int]]:
+        """
+        Get coordinates for an electrode label.
+
+        Args:
+            electrode_label: Electrode label (e.g., "E020", "Fp1")
+
+        Returns:
+            Tuple of (x, y) coordinates, or None if not found
+        """
+        return self._coordinate_cache.get(electrode_label)
 
 
 class MontageVisualizer:
     """Creates montage visualizations using ImageMagick."""
-    
+
+    # Class constants for efficiency - professional, visually distinct, brighter colors for scientific visualization
+    COLOR_MAP = [
+        'blue',            # pair 0 - brighter blue
+        'red',             # pair 1 - brighter red
+        'green',           # pair 2 - brighter green
+        'purple',          # pair 3 - distinct purple
+        'orange',          # pair 4 - brighter orange
+        'cyan',            # pair 5 - brighter cyan
+        'chocolate',       # pair 6 - brighter brown
+        'violet'           # pair 7 - brighter purple-violet
+    ]
+
     def __init__(self,
                  montage_file: str,
                  resource_manager: ResourcePathManager,
@@ -243,6 +274,9 @@ class MontageVisualizer:
         coord_file = resource_manager.get_coordinate_file(eeg_net)
         self.coord_reader = ElectrodeCoordinateReader(coord_file)
 
+        # Cache base ring path for efficiency
+        self.base_ring = resource_manager.get_ring_image(0)
+
         # Get template image
         self.template_image = resource_manager.get_template_image(eeg_net)
 
@@ -276,14 +310,14 @@ class MontageVisualizer:
     def _overlay_ring(self,
                      output_image: str,
                      electrode_label: str,
-                     ring_image: str):
+                     pair_index: int):
         """
-        Overlay a ring on the output image at electrode coordinates.
+        Overlay a colorized ring on the output image at electrode coordinates.
 
         Args:
             output_image: Path to output image being modified
             electrode_label: Label of electrode to highlight
-            ring_image: Path to ring image
+            pair_index: Index of the electrode pair (used to determine color)
         """
         # Get coordinates
         coords = self.coord_reader.get_coordinates(electrode_label)
@@ -294,6 +328,11 @@ class MontageVisualizer:
         x, y = coords
         self._log(f"Coordinates for electrode '{electrode_label}': x={x}, y={y}")
 
+        # Get the ring color from the pair index (same as connection lines)
+        ring_color = self.COLOR_MAP[pair_index % len(self.COLOR_MAP)]
+
+        # Use cached base ring template
+
         # New ring images are 100x100 with the ring centered at (50,50)
         # To center the ring on electrode coordinates (x,y),
         # place the ring image at (x-50, y-50)
@@ -301,19 +340,24 @@ class MontageVisualizer:
         adjusted_y = y - 50
 
         self._log(f"Adjusted position for ring centering: x={adjusted_x}, y={adjusted_y}")
+        self._log(f"Using color '{ring_color}' for ring overlay")
 
-        # Use ImageMagick to overlay ring
+        # Use ImageMagick to colorize and overlay ring
         try:
             subprocess.run([
                 'convert',
                 output_image,
-                ring_image,
+                '(',
+                self.base_ring,
+                '-fill', ring_color,
+                '-colorize', '100,100,100',  # Fully colorize the ring
+                ')',
                 '-geometry', f'+{adjusted_x}+{adjusted_y}',
                 '-composite',
                 output_image
             ], check=True)
         except subprocess.CalledProcessError as e:
-            self._log(f"Error: Failed to overlay ring image '{ring_image}' onto output image '{output_image}'.")
+            self._log(f"Error: Failed to overlay colorized ring onto output image '{output_image}'.")
 
     def _draw_connection_line(self,
                              output_image: str,
@@ -342,18 +386,8 @@ class MontageVisualizer:
 
         self._log(f"Drawing connection line between '{electrode1}' ({x1},{y1}) and '{electrode2}' ({x2},{y2})")
 
-        # Determine the ring color from the pair index
-        color_map = [
-            'chartreuse',    # pair 0 (pair1ring.png)
-            'deepskyblue',   # pair 1 (pair2ring.png)
-            'lime',          # pair 2 (pair3ring.png)
-            'gold',          # pair 3 (pair4ring.png)
-            'hotpink',       # pair 4 (pair5ring.png)
-            'turquoise',     # pair 5 (pair6ring.png)
-            'violet',        # pair 6 (pair7ring.png)
-            'orange'         # pair 7 (pair8ring.png)
-        ]
-        line_color = color_map[pair_index % len(color_map)]
+        # Determine the line color from the pair index (same as rings)
+        line_color = self.COLOR_MAP[pair_index % len(self.COLOR_MAP)]
 
         # Calculate vector between electrodes
         dx = x2 - x1
@@ -470,13 +504,10 @@ class MontageVisualizer:
                     continue
                 
                 self._log(f"Processing pair: {pair}")
-                
-                # Get ring image for this pair
-                ring_image = self.resource_manager.get_ring_image(global_pair_index)
 
-                # Overlay rings for both electrodes
-                self._overlay_ring(output_image, pair[0], ring_image)
-                self._overlay_ring(output_image, pair[1], ring_image)
+                # Overlay rings for both electrodes (colorized based on pair index)
+                self._overlay_ring(output_image, pair[0], global_pair_index)
+                self._overlay_ring(output_image, pair[1], global_pair_index)
 
                 # Draw connection line between the electrodes
                 self._draw_connection_line(output_image, pair[0], pair[1], global_pair_index)

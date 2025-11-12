@@ -46,7 +46,7 @@ Multipolar montages use **8 electrodes** arranged in **4 simultaneous channels**
 
 ### Electrode Rings
 - **Size**: 40px radius rings centered on electrode positions
-- **Colors**: 8 distinct colors (chartreuse, deepskyblue, lime, gold, hotpink, turquoise, violet, orange)
+- **Colors**: 8 distinct professional colors (blue, red, green, purple, orange, cyan, chocolate, violet)
 - **Design**: Hollow circles with 6px stroke width for clear visibility
 
 ### Connection Lines
@@ -58,20 +58,20 @@ Multipolar montages use **8 electrodes** arranged in **4 simultaneous channels**
 ## Example Visualizations
 
 ### Unipolar Montage (4 Electrodes, 2 Channels)
-![Unipolar Montage Example](assets/example_unipolar_highlighted_visualization.png)
+![Unipolar Montage Example]({{ site.baseurl }}/assets/imgs/wiki/montage_visualizer/unipolar.png)
 
 This example shows a unipolar montage with 2 channels (4 electrodes total):
-- **Channel 1** (chartreuse): E010-E011
-- **Channel 2** (deepskyblue): E012-E013
+- **Channel 1** (blue): E010-E011
+- **Channel 2** (red): E012-E013
 
 ### Multipolar Montage (8 Electrodes, 4 Channels)
-![Multipolar Montage Example](assets/combined_montage_visualization.png)
+![Multipolar Montage Example]({{ site.baseurl }}/assets/imgs/wiki/montage_visualizer/multipolar.png)
 
 This example shows a multipolar montage with 4 channels (8 electrodes total):
-- **Channel 1** (chartreuse): E010-E011
-- **Channel 2** (deepskyblue): E012-E013
-- **Channel 3** (lime): E014-E015
-- **Channel 4** (gold): E016-E017
+- **Channel 1** (blue): E010-E011
+- **Channel 2** (red): E012-E013
+- **Channel 3** (green): E014-E015
+- **Channel 4** (purple): E016-E017
 
 ## Usage
 
