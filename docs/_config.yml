@@ -28,6 +28,9 @@ kramdown:
 
 # Basic Jekyll configuration for GitHub Pages compatibility
 
+# Google Analytics (enabled by default, disabled only when ENABLE_ANALYTICS=false is set)
+google_analytics: G-YMJPLLDT3Q
+
 # Exclude files
 exclude:
   - Gemfile

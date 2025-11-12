@@ -152,6 +152,48 @@ git push origin main
 - Changes automatically deploy to GitHub Pages
 - Live site: https://idossha.github.io/TI-Toolbox/
 
+## Google Analytics (Developer Only)
+
+The documentation site includes Google Analytics integration that is **enabled by default** and tracks all users. The analytics data is only accessible to the owner and developers.
+
+### Setup
+
+1. **Get your Google Analytics Measurement ID**
+   - Go to [Google Analytics](https://analytics.google.com/)
+   - Create a property or use an existing one
+   - Copy your Measurement ID (format: `G-XXXXXXXXXX`)
+
+2. **Add it to `_config.yml`**
+   ```yaml
+   google_analytics: G-XXXXXXXXXX  # Replace with your actual ID
+   ```
+
+### Viewing Analytics
+
+To view the analytics data:
+
+1. **Access Google Analytics**
+   - Go to [Google Analytics](https://analytics.google.com/)
+   - Sign in with the account that owns the property
+
+2. **Navigate to your property**
+   - Select the TI-Toolbox property from the property dropdown
+   - The dashboard will show real-time and historical data
+
+3. **Key metrics to monitor**
+   - **Users**: Total number of unique visitors
+   - **Page views**: Total page views across the site
+   - **Sessions**: User sessions and engagement
+   - **Top pages**: Most visited documentation pages
+   - **Traffic sources**: How users are finding the site
+
+### Important Notes
+
+- ✅ Analytics is **enabled by default** on the public site
+- ✅ Tracks all user interactions and page views
+- ✅ Data is only accessible to the owner and developers
+- ✅ Can be disabled locally by setting `ENABLE_ANALYTICS=false`
+
 ## Technology Stack
 
 - **Jekyll 3.9** - Static site generator
