@@ -188,6 +188,11 @@ class ElectrodeCoordinateReader:
                         continue
 
                     electrode_label = parts[0]
+
+                    # Skip header row or invalid electrode names
+                    if electrode_label in ['electrode_name', 'name', ''] or not electrode_label:
+                        continue
+
                     try:
                         if self.is_gsn_hd:
                             # GSN-HD format: name,xcord,modifiedxcord,ycord,modifiedycord
