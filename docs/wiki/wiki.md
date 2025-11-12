@@ -22,6 +22,7 @@ Welcome to the Temporal Interference Toolbox Wiki. Here you'll find detailed gui
 ### Extensions
 - **[Extension System](extension)** - Modular plugin architecture and development guide
 - **[Electrode Placement](electrode-placement)** - Interactive 3D electrode positioning on head surfaces
+- **[Montage Visualizer](montage_visualizer)** - Electrode montage visualization on head templates
 - **[Nilearn Visuals](nilearn-visuals)** - Publication-ready brain visualizations
 - **[Cluster-Based Permutation Testing](cluster-permutation-testing)** - Non-parametric statistical analysis
 - **[Quick Notes](quick-notes)** - Timestamped note-taking during analysis sessions
