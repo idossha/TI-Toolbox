@@ -1,7 +1,7 @@
 To-Do List:
 
 - [ ] Ex-search viewer - graphical UI for electrode visualization and selection.
-- [ ] AMV - fix location and size of rings for the new template `10-10-net`     
+- [X] AMV - fix location and size of rings for the new template `10-10-net`     
 - [ ] docs maintenance - wiki, gallery, API (sphinx), etc.
 - [ ] codecov 
 - [ ] SAR calculation for HF signal
