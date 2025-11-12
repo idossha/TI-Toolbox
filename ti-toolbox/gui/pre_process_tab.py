@@ -19,6 +19,7 @@ from pathlib import Path
 import tempfile
 import shutil
 import datetime
+import multiprocessing
 
 # Add project root to path for tools import
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
@@ -363,9 +364,24 @@ class PreProcessTab(QtWidgets.QWidget):
         
         self.parallel_cb = QtWidgets.QCheckBox("Run FreeSurfer reconstruction in parallel")
         self.parallel_cb.setEnabled(True)
-        options_group_layout.addWidget(self.parallel_cb)
+        # Add layout for parallel options
+        parallel_layout = QtWidgets.QHBoxLayout()
+        parallel_layout.addWidget(self.parallel_cb, 0)
+        self.cores_label = QtWidgets.QLabel("Cores:")
+        parallel_layout.addWidget(self.cores_label, 0)
+        available_cores = multiprocessing.cpu_count()
+        self.cores_spin = QtWidgets.QSpinBox()
+        self.cores_spin.setRange(1, available_cores)
+        self.cores_spin.setValue(available_cores)
+        parallel_layout.addWidget(self.cores_spin, 0)
+        self.available_label = QtWidgets.QLabel(f"{available_cores} cores available")
+        parallel_layout.addWidget(self.available_label, 0)
+        parallel_layout.addStretch(1)
+        options_group_layout.addLayout(parallel_layout)
+        # Enable spinbox based on checkbox
+        self.parallel_cb.toggled.connect(lambda checked: self.cores_spin.setEnabled(checked))
+        self.cores_spin.setEnabled(self.parallel_cb.isChecked())
         
-        # SimNIBS options
         self.create_m2m_cb = QtWidgets.QCheckBox("Create SimNIBS m2m folder")
         self.create_m2m_cb.setChecked(True)
         self.create_m2m_cb.setToolTip("SimNIBS charm processes run one at a time (sequential) to prevent PETSC conflicts, but each uses full CPU power")
@@ -694,6 +710,8 @@ class PreProcessTab(QtWidgets.QWidget):
 
         if self.parallel_cb.isChecked():
             cmd.append("--parallel")
+            cmd.append("--cores")
+            cmd.append(str(self.cores_spin.value()))
 
         if self.convert_dicom_cb.isChecked():
             cmd.append("--convert-dicom")

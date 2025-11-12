@@ -210,8 +210,10 @@ if [[ -n "$PROJECT_DIR" ]]; then
 fi
 
 # Process flags
-for flag in "${temp_flags[@]}"; do
-  case "$flag" in
+i=0
+while [ $i -lt ${#temp_flags[@]} ]; do
+  flag=${temp_flags[$i]}
+  case $flag in
     --parallel)
       PARALLEL=true
       echo "DEBUG: Set PARALLEL=true" >&2
@@ -232,6 +234,15 @@ for flag in "${temp_flags[@]}"; do
       RUN_RECON=true
       echo "DEBUG: Set RUN_RECON=true" >&2
       ;;
+    --cores)
+      i=$((i+1))
+      CORES=${temp_flags[$i]}
+      if ! [[ $CORES =~ ^[0-9]+$ ]] || [ $CORES -lt 1 ]; then
+        echo "Error: --cores must be followed by a positive integer" >&2
+        exit 1
+      fi
+      echo "DEBUG: Set CORES=$CORES" >&2
+      ;;
     *)
       echo "Unknown flag: $flag"
       echo "Usage: $0 <subject_dir_or_id>... [recon-all] [--recon-only] [--parallel] [--convert-dicom] [--create-m2m]"
@@ -248,6 +259,7 @@ for flag in "${temp_flags[@]}"; do
       exit 1
       ;;
   esac
+  i=$((i+1))
 done
 
 echo "DEBUG: Final SUBJECT_DIRS: ${SUBJECT_DIRS[*]}" >&2
@@ -440,10 +452,13 @@ if $PARALLEL && ($RUN_RECON || $RECON_ONLY) && [[ ${#SUBJECT_DIRS[@]} -gt 1 ]]; 
         AVAILABLE_CORES=4  # fallback default
     fi
     
-    # Set number of parallel jobs to available cores (or number of subjects if fewer)
-    PARALLEL_JOBS=$AVAILABLE_CORES
+    if [[ -n "$CORES" ]]; then
+      PARALLEL_JOBS=$CORES
+    else
+      PARALLEL_JOBS=$AVAILABLE_CORES
+    fi
     if [[ $PARALLEL_JOBS -gt ${#SUBJECT_DIRS[@]} ]]; then
-        PARALLEL_JOBS=${#SUBJECT_DIRS[@]}
+      PARALLEL_JOBS=${#SUBJECT_DIRS[@]}
     fi
     
     if ! $SUMMARY_ENABLED; then
