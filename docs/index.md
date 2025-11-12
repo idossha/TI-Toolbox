@@ -15,40 +15,47 @@ layout: home
 </div>
 
 
-## Quick Start Workflow
+## Quick Start
 
 1. **Set up your BIDS project directory**
-   - Organize your data in BIDS format. Place DICOM files in `sourcedata/sub-<subject>/T1w/dicom/` (and optionally T2w).
+   - Organize your data in BIDS format. Place DICOM files in `{project-name}/sourcedata/sub-{subjectID}/T1w/dicom/` (and optionally T2w).
 2. **Install Docker Desktop**
    - Required for running the toolbox environment.
-3. **Get the Latest Release**
-   - Download the latest version (2.x.x or newer) from the <a href="{{ site.baseurl }}/releases/">Releases page</a>. See the <a href="{{ site.baseurl }}/installation/">Installation</a> for platform-specific instructions. Note: Versions 1.x.x are no longer supported.
+3. **Download the required files:**
+- **[loader.sh](https://github.com/idossha/TI-toolbox/blob/main/loader.sh)** - Main launch script
+- **[docker-compose.yml](https://github.com/idossha/TI-toolbox/blob/main/docker-compose.yml)** - Docker configuration
+
+```bash
+# Run the script
+bash loader.sh
+```
+
 
 <div class="carousel-container">
   <div class="carousel-wrapper">
     <div class="carousel-images">
       <div class="carousel-slide active">
-        <img src="{{ site.baseurl }}/assets/imgs/wiki_visual_exporter_vectors_close.png" alt="Vector Field Visualization">
+        <img src="{{ site.baseurl }}/assets/imgs/wiki/visual-exporter/visual_exporter_vectors_close.png" alt="Vector Field Visualization">
         <p>High-resolution electric field vector visualization showing direction and magnitude</p>
       </div>
       <div class="carousel-slide">
-        <img src="{{ site.baseurl }}/assets/imgs/wiki_testing_graphical_abstract_revised.png" alt="TI-Toolbox Tech Stack">
+        <img src="{{ site.baseurl }}/assets/imgs/wiki/testing-pipeline/testing_graphical_abstract_revised.png" alt="TI-Toolbox Tech Stack">
         <p>Complete TI-Toolbox technology stack: BIDS-compatible, Docker-based, end-to-end pipeline</p>
       </div>
       <div class="carousel-slide">
-        <img src="{{ site.baseurl }}/assets/imgs/gallery_ex-search_ex-search_selection.png" alt="Electrode Selection">
+        <img src="{{ site.baseurl }}/assets/imgs/gallery/ex-search_ex-search_selection.png" alt="Electrode Selection">
         <p>Exhaustive search for optimal electrode placement across standard EEG montages</p>
       </div>
       <div class="carousel-slide">
-        <img src="{{ site.baseurl }}/assets/imgs/gallery_flex-search_mapping.png" alt="Flex-Search Mapping">
+        <img src="{{ site.baseurl }}/assets/imgs/gallery/flex-search_mapping.png" alt="Flex-Search Mapping">
         <p>Flexible search extension mapping genetic algorithm output to registered EEG positions</p>
       </div>
       <div class="carousel-slide">
-        <img src="{{ site.baseurl }}/assets/imgs/gallery_UI_sim.png" alt="Simulation GUI">
+        <img src="{{ site.baseurl }}/assets/imgs/gallery/UI_sim.png" alt="Simulation GUI">
         <p>User-friendly GUI for configuring and running temporal interference simulations</p>
       </div>
       <div class="carousel-slide">
-        <img src="{{ site.baseurl }}/assets/imgs/wiki_stats_permutation_null_dist.png" alt="Cluster-Based Permutation Testing">
+        <img src="{{ site.baseurl }}/assets/imgs/wiki/cluster-permutation-testing/stats_permutation_null_dist.png" alt="Cluster-Based Permutation Testing">
         <p>Statistical analysis with cluster-based permutation testing for group-level inference</p>
       </div>
     </div>

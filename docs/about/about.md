@@ -14,7 +14,7 @@ The Temporal Interference Toolbox started as a side project in early 2024 and ma
     <!-- Ido Haber Profile -->
     <div class="contributor-card">
       <div class="contributor-avatar">
-        <img src="{{ site.baseurl }}/assets/imgs/about_ido_profile.png" alt="Ido Haber" 
+        <img src="{{ site.baseurl }}/assets/imgs/about/ido_profile.png" alt="Ido Haber" 
              onerror="this.src='{{ site.baseurl }}/assets/imgs/default-avatar.png'">
       </div>
       <div class="contributor-info">
@@ -34,7 +34,7 @@ The Temporal Interference Toolbox started as a side project in early 2024 and ma
     <!-- Aksel Profile -->
     <div class="contributor-card">
       <div class="contributor-avatar">
-        <img src="{{ site.baseurl }}/assets/imgs/about_aksel_profile.png" alt="Aksel" 
+        <img src="{{ site.baseurl }}/assets/imgs/about/aksel_profile.png" alt="Aksel" 
              onerror="this.src='{{ site.baseurl }}/assets/imgs/default-avatar.png'">
       </div>
       <div class="contributor-info">

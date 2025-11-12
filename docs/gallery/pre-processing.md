@@ -10,19 +10,19 @@ permalink: /gallery/pre-processing/
   <h3>DICOM to NIfTI Conversion & FreeSurfer Segmentation</h3>
   <div class="gallery-grid">
     <div class="gallery-item">
-      <img src="{{ site.baseurl }}/assets/imgs/gallery_pre-process_dicom.png" alt="DICOM Processing" onclick="openLightbox(this)" />
+      <img src="{{ site.baseurl }}/assets/imgs/gallery/pre-process_dicom.png" alt="DICOM Processing" onclick="openLightbox(this)" />
       <p>DICOM files serve as the only require input data to start the pipeline.</p>
     </div>
     <div class="gallery-item">
-      <img src="{{ site.baseurl }}/assets/imgs/gallery_pre-process_nifti.png" alt="NIfTI Conversion" onclick="openLightbox(this)" />
+      <img src="{{ site.baseurl }}/assets/imgs/gallery/pre-process_nifti.png" alt="NIfTI Conversion" onclick="openLightbox(this)" />
       <p>3D volumetric niftii file is created using dcm2niix from DICOMs.</p>
     </div>
     <div class="gallery-item">
-      <img src="{{ site.baseurl }}/assets/imgs/gallery_pre-process_co-registration.png" alt="Preprocessing Pipeline" onclick="openLightbox(this)" />
+      <img src="{{ site.baseurl }}/assets/imgs/gallery/pre-process_co-registration.png" alt="Preprocessing Pipeline" onclick="openLightbox(this)" />
       <p>Automatic co-registration of multiple EEG nets is part of the CHARM function</p>
     </div>
     <div class="gallery-item">
-      <img src="{{ site.baseurl }}/assets/imgs/gallery_pre-process_atlas.png" alt="Atlas Registration" onclick="openLightbox(this)" />
+      <img src="{{ site.baseurl }}/assets/imgs/gallery/pre-process_atlas.png" alt="Atlas Registration" onclick="openLightbox(this)" />
       <p>Multiple cortical atlases are aligned to subject space</p>
     </div>
   </div>

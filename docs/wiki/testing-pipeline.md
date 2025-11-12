@@ -10,11 +10,11 @@ The TI-Toolbox uses a multi-layered testing approach that combines unit tests, i
 
 <div class="image-row-natural">
   <div class="image-container-natural">
-    <img src="{{ site.baseurl }}/assets/imgs/wiki_testing_graphical_abstract_revised.png" alt="Complete TI-Toolbox Tech-stack">
+    <img src="{{ site.baseurl }}/assets/imgs/wiki/testing-pipeline/testing_graphical_abstract_revised.png" alt="Complete TI-Toolbox Tech-stack">
     <em>Complete TI-Toolbox Tech-stack</em>
   </div>
   <div class="image-container-natural">
-    <img src="{{ site.baseurl }}/assets/imgs/wiki_testing_Ti-ToolboxCICD.png" alt="TI-Toolbox CI/CD Pipeline">
+    <img src="{{ site.baseurl }}/assets/imgs/wiki/testing-pipeline/testing_Ti-ToolboxCICD.png" alt="TI-Toolbox CI/CD Pipeline">
     <em>TI-Toolbox CI/CD Pipeline</em>
   </div>
 </div>
@@ -189,3 +189,5 @@ Creates a complete BIDS-compliant test project structure:
 ```
 
 ---
+
+

@@ -26,15 +26,15 @@ This mode exports cortical surface regions defined by anatomical atlases as 3D m
   <div class="carousel-wrapper">
     <div class="carousel-images">
       <div class="carousel-slide active">
-        <img src="{{ site.baseurl }}/assets/imgs/wiki_visual_exporter_stl_sample.png" alt="STL Export Sample">
+        <img src="{{ site.baseurl }}/assets/imgs/wiki/visual-exporter/visual_exporter_stl_sample.png" alt="STL Export Sample">
         <p>STL format export showing cortical surface geometry</p>
       </div>
       <div class="carousel-slide">
-        <img src="{{ site.baseurl }}/assets/imgs/wiki_visual_exporter_ply_sample.png" alt="PLY Export Sample">
+        <img src="{{ site.baseurl }}/assets/imgs/wiki/visual-exporter/visual_exporter_ply_sample.png" alt="PLY Export Sample">
         <p>PLY format export with color-mapped field data</p>
       </div>
       <div class="carousel-slide">
-        <img src="{{ site.baseurl }}/assets/imgs/wiki_visual_exporter_ply_sample_2.png" alt="PLY Export Sample 2">
+        <img src="{{ site.baseurl }}/assets/imgs/wiki/visual-exporter/visual_exporter_ply_sample_2.png" alt="PLY Export Sample 2">
         <p>PLY format export showing detailed cortical regions</p>
       </div>
     </div>
@@ -70,15 +70,15 @@ This mode exports electric field vectors from TDCS simulations as arrow clouds i
   <div class="carousel-wrapper">
     <div class="carousel-images">
       <div class="carousel-slide active">
-        <img src="{{ site.baseurl }}/assets/imgs/wiki_visual_exporter_vectors.png" alt="Vector Field Visualization">
+        <img src="{{ site.baseurl }}/assets/imgs/wiki/visual-exporter/visual_exporter_vectors.png" alt="Vector Field Visualization">
         <p>TI vector field visualization showing electric field directions and magnitudes</p>
       </div>
       <div class="carousel-slide">
-        <img src="{{ site.baseurl }}/assets/imgs/wiki_visual_exporter_vectors_close.png" alt="Close-up Vector Field Visualization">
+        <img src="{{ site.baseurl }}/assets/imgs/wiki/visual-exporter/visual_exporter_vectors_close.png" alt="Close-up Vector Field Visualization">
         <p>Close-up view of the vector field, highlighting individual arrow placement and detail</p>
       </div>
       <div class="carousel-slide">
-        <img src="{{ site.baseurl }}/assets/imgs/wiki_visual_exporter_rgb_vectors.png" alt="RGB Vector Visualization">
+        <img src="{{ site.baseurl }}/assets/imgs/wiki/visual-exporter/visual_exporter_rgb_vectors.png" alt="RGB Vector Visualization">
         <p>RGB color-coded vectors showing CH1 (red), CH2 (blue), TI (green), TI_sum (yellow), and TI_normal (cyan) fields</p>
       </div>
     </div>
@@ -189,7 +189,7 @@ This tutorial walks you through importing and visualizing PLY files exported fro
 
 The mesh will appear in your viewport. If the mesh appears very small or very large, you may need to adjust the view or scale the object.
 
-![Import PLY file]({{ site.baseurl }}/assets/imgs/wiki_visual_exporter_blender_1.png)
+![Import PLY file]({{ site.baseurl }}/assets/imgs/wiki/visual-exporter/visual_exporter_blender_1.png)
 
 ### Step 2: Switching to Material Preview
 
@@ -200,7 +200,7 @@ To see materials and colors properly, switch the viewport shading mode:
 
 Material Preview mode provides a quick preview of how materials will look with basic lighting, making it ideal for checking color attributes.
 
-![Material Preview mode]({{ site.baseurl }}/assets/imgs/wiki_visual_exporter_blender_2.png)
+![Material Preview mode]({{ site.baseurl }}/assets/imgs/wiki/visual-exporter/visual_exporter_blender_2.png)
 
 ### Step 3: Adding a Material
 
@@ -210,7 +210,7 @@ To display the color attributes from your PLY file, you need to create and assig
 2. In the **Material Properties** panel (right sidebar, indicated by a sphere icon), click **New** to create a new material.
 3. The material will be automatically assigned to your selected object.
 
-![Adding a material]({{ site.baseurl }}/assets/imgs/wiki_visual_exporter_blender_3.png)
+![Adding a material]({{ site.baseurl }}/assets/imgs/wiki/visual-exporter/visual_exporter_blender_3.png)
 
 ### Step 4: Setting Color to 'col' Attribute
 
@@ -227,11 +227,11 @@ Your mesh should now display the color-mapped field data from your simulation. T
   <div class="carousel-wrapper">
     <div class="carousel-images">
       <div class="carousel-slide active">
-        <img src="{{ site.baseurl }}/assets/imgs/wiki_visual_exporter_blender_4.png" alt="Setting color attribute - Attribute node">
+        <img src="{{ site.baseurl }}/assets/imgs/wiki/visual-exporter/visual_exporter_blender_4.png" alt="Setting color attribute - Attribute node">
         <p>Adding the Attribute node and setting it to 'col'</p>
       </div>
       <div class="carousel-slide">
-        <img src="{{ site.baseurl }}/assets/imgs/wiki_visual_exporter_blender_5.png" alt="Setting color attribute - Connected shader">
+        <img src="{{ site.baseurl }}/assets/imgs/wiki/visual-exporter/visual_exporter_blender_5.png" alt="Setting color attribute - Connected shader">
         <p>Final result with color attribute connected to the material</p>
       </div>
     </div>

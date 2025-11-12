@@ -16,7 +16,7 @@ Post-Installation Configuration:
 - Allocate at least **32GB RAM** (recommended)
 - Ensure you have at sufficient free disk space
 
-![Docker Settings on Apple]({{ site.baseurl }}/assets/imgs/installation_docker_resource.png){:style="max-width: 350px;"}
+![Docker Settings on Apple]({{ site.baseurl }}/assets/imgs/installation/docker_resource.png){:style="max-width: 350px;"}
 
 ---
 

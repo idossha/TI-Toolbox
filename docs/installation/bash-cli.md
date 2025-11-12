@@ -4,17 +4,14 @@ title: Bash Entrypoint
 permalink: /installation/bash-cli/
 ---
 
-You do **not** have to use the graphical executables to run the TI Toolbox! The executables simply provide a GUI for the launcher program. The bash script method gives you the same core functionality (for launching the toolbox) in a terminal-based interface.
-
 
 ## Installation Steps
 
 ### Step 1: Download Required Files
 
-Download these two files from the [TI-Toolbox GitHub Releases](https://github.com/idossha/TI-Toolbox/releases):
-
-1. `launcher/bash/loader.sh` - Main launcher script
-2. `launcher/bash/docker-compose.yml` - Docker configuration
+**Download the required files:**
+- **[loader.sh](https://github.com/idossha/TI-toolbox/blob/main/loader.sh)** - Main launch script
+- **[docker-compose.yml](https://github.com/idossha/TI-toolbox/blob/main/docker-compose.yml)** - Docker configuration
 
 ## Usage
 

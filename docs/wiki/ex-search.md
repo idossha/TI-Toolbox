@@ -10,14 +10,13 @@ The Ex-Search module provides a semi-exaustive search approach for Temporal Inte
 
 Ex-Search utilizes leadfield-based optimization to determine optimal electrode configurations for TI stimulation based on:
 - **Multiple EEG Nets**: Support for high-density (10:10) and 10-20 nets
-- **ROI Analysis**: fixed 3mm sphere sampling with both TImax and TImean calculations
-- **Field Metrics**: Volume-weighted analysis with percentiles and focality measures
+- **ROI Analysis**: spherical only ROI definition with flexible radius specification
 
----
+
 
 ## User Interface
 
-![Ex-Search Interface]({{ site.baseurl }}/assets/imgs/wiki_ex-search_ex-search_UI.png)
+<img src="{{ site.baseurl }}/assets/imgs/gallery/UI_ex.png" alt="Flex Search Interface" style="width: 80%; max-width: 700px;">
 
 The interface provides controls for:
 - **Subject Selection**: Choose from available subjects with automatic leadfield scanning
@@ -35,48 +34,29 @@ Ex-Search automatically detects and supports multiple EEG electrode configuratio
 
 <div class="image-row">
   <div class="image-container">
-    <img src="{{ site.baseurl }}/assets/imgs/wiki_ex-search_EEG10-20_Okamoto_2004_net.png" alt="EEG 10-20 Network">
+    <img src="{{ site.baseurl }}/assets/imgs/wiki/ex-search/ex-search_EEG10-20_Okamoto_2004_net.png" alt="EEG 10-20 Network">
     <em>EGI 10-20 Okamoto 2004 electrode configuration - widely used standard with 32 electrodes</em>
   </div>
   <div class="image-container">
-    <img src="{{ site.baseurl }}/assets/imgs/wiki_ex-search_GSN256_net.png" alt="GSN 256 Network">
+    <img src="{{ site.baseurl }}/assets/imgs/wiki/ex-search/ex-search_GSN256_net.png" alt="GSN 256 Network">
     <em>GSN-HydroCel 256 electrode configuration - high-density net for precise targeting</em>
   </div>
 </div>
 
 ---
 
-## Example: TI Field Analysis Pipeline
+**Example Results:**
 
-We demonstrate the Ex-Search pipeline capabilities using a representative TI stimulation analysis targeting the left insula region with F7/T7 and T8/Fz electrode pairs.
+| Montage | TImax_ROI | TImean_ROI | TImean_GM | Focality |
+|---------|------------|------------|-----------|----------|
+| Fp1_Pz <> C3_C4 | 0.1748 | 0.1418 | 0.1595 | 0.8892 |
+| Fp1_Pz <> C3_F4 | 0.2321 | 0.1480 | 0.1723 | 0.8587 |
+| Fp1_Pz <> C3_P4 | 0.1632 | 0.1150 | 0.1637 | 0.7025 |
+| Fp1_Pz <> F3_C4 | 0.1884 | 0.1558 | 0.1803 | 0.8643 |
 
-### Analysis Setup
-- **Subject**: 101
-- **EEG Net**: EEG10-20_Okamoto_2004
-- **Target ROI**: Left insula region
-- **Electrode Configuration**: F7_T7 <> T8_Fz
-- **Current**: 1mA (default)
-- **Analysis**: Enhanced 3mm sphere ROI sampling
 
-### Field Visualization & Statistical Analysis
 
-<div class="image-row">
-  <div class="image-container">
-    <img src="{{ site.baseurl }}/assets/imgs/wiki_ex-search_field_msh.png" alt="TI Field Mesh">
-    <em>TI field distribution visualized on the cortical surface showing spatial targeting and field intensity</em>
-  </div>
-  <div class="image-container">
-    <img src="{{ site.baseurl }}/assets/imgs/wiki_ex-search_TI_field_F7_T7_and_T8_Fz_histogram.png" alt="Field Histogram">
-    <em>Volume-weighted field distribution histogram with focality thresholds and ROI indicators</em>
-  </div>
-</div>
-
-**Quantitative Results:**
-
-| Electrode Configuration | TImax ROI | TImean ROI | Peak Field | 95th % | 99th % | 99.9th % | Focality 50% | Focality 75% | Focality 90% | Focality 95% | Peak Location |
-|------------------------|-----------|------------|------------|--------|--------|----------|--------------|--------------|--------------|--------------|---------------|
-| F7_T7 <> T8_Fz | 0.076 V/m | 0.062 V/m | 0.361 V/m | 0.154 V/m | 0.200 V/m | 0.246 V/m | 81.9 mm² | 13.4 mm² | 2.9 mm² | 1.6 mm² | (-45.12, 34.09, -40.45) |
-
+![Ex-Search Distribution Analysis]({{ site.baseurl }}/assets/imgs/wiki/ex-search/ex-search_distribution.png)
 
 ---
 
@@ -99,50 +79,6 @@ We demonstrate the Ex-Search pipeline capabilities using a representative TI sti
 - **Performance Optimization**: Efficient loading of large matrices (2-20GB)
 
 ### 3. Optimization & Analysis Pipeline
-- **Selection of Candidate Electrodes**: 3-5 electrodes per group, depending on search space
+- **Selection of Candidate Electrodes**: X electrodes per group, depending on search space
 - **Run Time**: From minutes to hours, depending on leadfield size and number of candidates selected
 - **Analysis & Visualization**: Automatic histogram generation with professional formatting
-
-## Performance Characteristics
-
-### Processing Times
-
-| EEG Network | Leadfield Size | Loading Time | Sim. Time (per config) |
-|-------------|----------------|--------------|-----------------|
-| GSN-HydroCel-185 | ~16GB | 2-3 minutes | 3-5 seconds |
-| GSN-HydroCel-256 | ~25GB | 4-6 minutes | 5-8 seconds |
-| EGI10-20 | ~2GB | 30-60 seconds | 2-3 seconds |
-
-## File Structure
-
-### Input Organization
-```
-derivatives/SimNIBS/sub-{subject}/
-├── m2m_{subject}/
-│   ├── eeg_positions/           # EEG net configurations
-│   │   ├── GSN-HydroCel-185.csv
-│   │   ├── GSN-HydroCel-256.csv
-│   │   └── EGI10-20_Okamoto_2004.csv
-│   └── ROIs/                    # Target regions
-│       ├── roi_list.txt
-│       └── L_Insula.csv
-└── leadfields/
-    ├── leadfield_vol_GSN-HydroCel-185/   # Leadfield matrices
-    │   └── leadfield.hdf5
-    └── leadfield_vol_EGI10-20_Okamoto_2004/
-        └── leadfield.hdf5
-```
-
-### Output Structure
-```
-derivatives/SimNIBS/sub-{subject}/ex-search/
-├── L_Insula_GSN-HydroCel-185/      # ROI-specific results
-│   ├── analysis/
-│   │   ├── final_output.csv        # Complete results
-│   │   ├── summary.csv            # Field analysis metrics
-│   │   ├── *_histogram.png        # Visualizations
-│   │   └── mesh_data.json         # Raw analysis data
-│   └── TI_field_*.msh             # Simulation meshes
-└── derivatives/logs/sub-{subject}/
-    └── ex_search_20250122_143012.log  # Unified pipeline log
-```

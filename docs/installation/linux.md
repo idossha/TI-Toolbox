@@ -4,28 +4,61 @@ title: Linux Installation
 permalink: /installation/linux/
 ---
 
-## Step 1: Download TI Toolbox
+## Prerequisites
 
-1. Go to the [Releases Page]({{ site.baseurl }}/releases/)
-2. Download the **Linux AppImage** file
+### Docker Engine
+1. **Install Docker Engine** following the [official installation guide](https://docs.docker.com/engine/install/)
+2. **Start Docker service**:
+   ```bash
+   sudo systemctl start docker
+   sudo systemctl enable docker
+   ```
+3. **Add user to docker group** (optional, avoids using sudo):
+   ```bash
+   sudo usermod -aG docker $USER
+   ```
+   *Log out and back in for changes to take effect*
 
+### X Server
+Most Linux distributions come with X11 pre-installed. If you need to install it:
+- **Ubuntu/Debian**: `sudo apt install xorg`
+- **Fedora/RHEL**: `sudo dnf install xorg-x11-server-Xorg` (or yum)
+- **Arch**: `sudo pacman -S xorg-server`
 
-## Step 2: Make AppImage Executable
+## Setup Steps
 
-```bash
-# Make AppImage executable
-chmod +x TemporalInterferenceToolbox-Linux-x86_64.AppImage
-```
+### Step 1: Download Required Files
 
-## Step 3: First Run
+Download these files to your preferred location (e.g., `~/TI-Toolbox/`):
+- **[loader.sh](https://github.com/idossha/TI-toolbox/blob/main/loader.sh)**
+- **[docker-compose.yml](https://github.com/idossha/TI-toolbox/blob/main/docker-compose.yml)**
 
-1. Ensure Docker service is running: `sudo systemctl status docker`
-2. Launch TI Toolbox
-3. **First run will download Docker images (~30GB)**
-   - This process may take 30+ minutes
-   - Progress will be shown in the application
-   - Images are cached for future use
+### Step 2: Launch TI-Toolbox
+
+1. **Open Terminal**
+2. **Navigate to your download location**:
+   ```bash
+   cd ~/TI-Toolbox/
+   ```
+3. **Make loader.sh executable**:
+   ```bash
+   chmod +x loader.sh
+   ```
+4. **Ensure Docker is running**:
+   ```bash
+   sudo systemctl status docker
+   ```
+5. **Launch TI-Toolbox**:
+   ```bash
+   ./loader.sh
+   ```
+6. **First run will download Docker images (~30GB)** - this may take 30+ minutes
 
 ## Distribution-Specific Notes
 
-Currently only tested on Ubuntu distro. Please submit an issue if encountered problems. 
+### Ubuntu/Debian
+- Follow standard Docker installation instructions
+- X11 is usually pre-installed
+
+
+*Currently tested primarily on Ubuntu. Please submit an issue if you encounter problems on other distributions.* 

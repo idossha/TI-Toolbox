@@ -3,53 +3,7 @@ layout: installation
 title: Troubleshooting
 permalink: /installation/troubleshooting/
 ---
-
-Comprehensive troubleshooting guide for TI Toolbox installation and usage issues.
-
-## Common Installation Issues
-
-### Security and Permissions
-
-#### macOS: "Cannot be opened because the developer cannot be verified"
-**Solution:**
-1. Use Terminal quarantine removal method:
-   ```bash
-   sudo xattr -r -d com.apple.quarantine TemporalInterferenceToolbox-macOS-universal.zip
-   ```
-2. Or right-click the app and select "Open" (instead of double-clicking)
-3. Check System Preferences > Security & Privacy for blocked apps
-
-#### Windows: "Windows protected your PC"
-**Solution:**
-1. Click "More info" when you see the warning
-2. Click "Run anyway"
-3. Run installer as administrator (right-click > "Run as administrator")
-
-#### Windows: Antivirus blocking execution
-**Solution:**
-1. Temporarily disable real-time protection
-2. Add TI Toolbox to antivirus exclusions
-3. Check Windows Defender quarantine and restore if needed
-
-#### Linux: Permission denied
-**Solution:**
-```bash
-# Make AppImage executable
-chmod +x TemporalInterferenceToolbox-Linux-x86_64.AppImage
-
-# Or add user to docker group
-sudo usermod -aG docker $USER
-# Log out and back in for changes to take effect
-```
-
-### Download Issues
-
-#### Browser blocking download
-**Solution:**
-- **Chrome/Edge**: Click "..." on download warning > "Keep" > "Keep anyway"
-- **Firefox**: Click on download arrow > right-click file > "Allow download"
-- **Safari**: Download will appear in Downloads folder with quarantine
-
+---
 
 ## Docker Issues
 
@@ -68,11 +22,9 @@ sudo usermod -aG docker $USER
 **Symptoms:** Slow performance, out of memory errors, failed simulations
 
 **Solution:**
-1. Open Docker Desktop settings
-2. Go to Resources
-3. Allocate:
-   - **Memory**: 32GB minimum (64GB recommended)
-4. Apply and restart Docker
+1. Open Docker Desktop settings -> Go to Resources
+2. Allocate: **Memory**: 32GB minimum
+3. Apply and restart Docker
 
 ### Docker images not downloading
 **Symptoms:** Stuck at "Pulling image" or network timeouts
@@ -80,14 +32,12 @@ sudo usermod -aG docker $USER
 **Solution:**
 1. Check internet connection
 2. Restart Docker Desktop
-3. Clear Docker cache:
+3. Try manual pull:
    ```bash
-   docker system prune -a
+   docker pull idossha/simnibs:{version}
    ```
-4. Try manual pull:
-   ```bash
-   docker pull idossha/simnibs:latest
-   ```
+
+---
 
 ## GUI Display Issues
 
@@ -111,6 +61,12 @@ export DISPLAY=:0
 3. Launch XQuartz from Applications > Utilities
 4. Check XQuartz preferences: Allow connections from network clients
 
+If still running into issues, download the **[config_sys.sh](https://github.com/idossha/TI-toolbox/blob/main/dev/bash_dev/config_sys.sh)** place it next to your loader.sh, and run it:
+
+```bash
+bash config_sys.sh
+```
+
 ### No GUI appears (Windows)
 **Solution:**
 1. Ensure VcXsrv is running (check system tray)
@@ -119,36 +75,11 @@ export DISPLAY=:0
    - Start no client
    - **"Disable access control" MUST be checked**
 3. Restart VcXsrv if needed
-4. Check Windows Firewall isn't blocking VcXsrv
+4. Check Windows Firewall isn't blocking VcXsrv  
 
-## Application-Specific Issues
+<br>
 
-### Memory Issues
-**Symptoms:** "Out of memory" errors during processing
-
-**Solutions:**
-1. Increase Docker memory allocation
-2. Close other applications
-3. Process smaller datasets
-
-## Network and Connectivity
-
-### Slow Docker image downloads
-**Solution:**
-1. Use wired internet connection
-2. Close other bandwidth-intensive applications
-3. Try downloading during off-peak hours
-
-### macOS Apple Silicon Issues
-**Symptoms:** Performance issues or compatibility errors
-
-**Solution:**
-1. Ensure Docker Desktop supports Apple Silicon
-2. Install Rosetta 2 if prompted:
-   ```bash
-   softwareupdate --install-rosetta
-   ```
-3. Check Docker Desktop settings for architecture
+---
 
 ## Getting Help
 

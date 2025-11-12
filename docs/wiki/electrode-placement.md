@@ -4,7 +4,7 @@ title: Electrode Placement
 permalink: /wiki/electrode-placement/
 ---
 
-The Electrode Placement extension provides an interactive 3D tool for placing electrode markers on head surfaces. This tool is designed for precise and flexible electrode positioning.
+The Electrode Placement extension provides an interactive 3D tool for freely placing electrode on head surfaces. This tool is designed for precise and flexible electrode positioning and is heavily inspired by SimNIBS's GUI apporach. 
 
 ## Key Features
 
@@ -32,7 +32,7 @@ The Electrode Placement extension provides an interactive 3D tool for placing el
 3. **Automatic Naming**: Electrodes are automatically named with polarity (E1+, E1-, E2+, E2-, etc.)
 4. **Color Coding**: Each electrode pair receives a distinct color for visual organization
 
-![Freehand Electrode Placement]({{ site.baseurl }}/assets/imgs/freehand.png)
+![Freehand Electrode Placement]({{ site.baseurl }}/assets/imgs/wiki/electrode-placement/freehand.png)
 
 *Figure: Interactive 3D electrode placement interface showing freehand positioning on head surface*
 

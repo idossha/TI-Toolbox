@@ -6,6 +6,29 @@ permalink: /wiki/simulator/
 
 The Simulator module provides temporal interference (TI) simulation capabilities within the TI-Toolbox GUI, supporting multiple montage sources, electrode configurations, and simulation parameters.
 
+## User Interface
+
+<img src="{{ site.baseurl }}/assets/imgs/wiki/simulator/UI_sim.png" alt="Simulator User Interface" style="width: 100%; max-width: 600px;">
+
+The simulator GUI provides intuitive controls for all simulation parameters:
+
+### Main Controls
+- **Subject Selection**: Choose from available pre-processed subjects
+- **Montage Source**: Radio buttons for montage list, flex mode, and free-hand
+- **Simulation Mode**: Unipolar/multipolar selection with current inputs
+- **EEG Net**: Dropdown selection of available electrode configurations
+
+### Advanced Options
+- **Conductivity Model**: Isotropic/anisotropic tissue modeling
+- **Current Configuration**: Individual electrode current settings
+- **Batch Processing**: Multiple subject simulation queues
+
+### Output Management
+- **Real-time Logging**: Simulation progress and status updates
+- **Result Visualization**: Automatic generation of field maps and statistics
+- **Data Export**: NIfTI files, electrode positions, and analysis reports
+
+---
 
 ## Montage Sources
 
@@ -14,7 +37,7 @@ The simulator supports three primary montage source types:
 ### 1. Montage List
 Pre-defined electrode configurations organized by EEG net and stimulation mode:
 - **Unipolar Montages**: The traditiona two pairs electrode montage
-- **Multipolar Montages**: Multiple (currently only supporting four) pairs for higher focality 
+- **Multipolar Montages**: Multiple (currently only supporting four) pairs for higher focality
 - **EEG Net Compatibility**: Automatically filtered based on selected electrode configuration
 - **Management**: Add, remove, and refresh montage collections
 
@@ -22,7 +45,6 @@ Pre-defined electrode configurations organized by EEG net and stimulation mode:
 Automatic integration with the flex-search optimizer.
 - **Optimize**: Start by running the optimizer based on your needs
 - **Simulate**: Move to the simulator and use the automatic montage available from the flex-search
-- **Mapping**: Make sure to enable the mapping function in the flex-search to have it available 
 
 ### 3. Free-Hand
 Mode that allows exploration of untraditional montages
@@ -32,6 +54,9 @@ Mode that allows exploration of untraditional montages
 ---
 
 ## Simulation Modes
+
+<img src="{{ site.baseurl }}/assets/imgs/wiki/simulator/uTI_mTI.png" alt="Unipolar TI" style="width: 80%; max-width: 300px;">
+<em>Left column unipolar (two channels) right column multipolar (four channels). Panels A,D: target and electrode montage. Panels B,E: high frequency fields. Panels C,F: modulation fields.</em>
 
 ### Unipolar Mode
 - **Configuration**: Single active electrode with dedicated return path
@@ -104,25 +129,3 @@ The simulator supports different tissue conductivity models:
 - **Automatic Conversion**: Built-in coordinate transformation utilities
 - **ROI Mapping**: Support for both subject and MNI coordinate inputs
 - **Visualization**: Compatible with both coordinate systems for analysis
-
----
-
-## User Interface
-
-The simulator GUI provides intuitive controls for all simulation parameters:
-
-### Main Controls
-- **Subject Selection**: Choose from available pre-processed subjects
-- **Montage Source**: Radio buttons for montage list, flex mode, and free-hand
-- **Simulation Mode**: Unipolar/multipolar selection with current inputs
-- **EEG Net**: Dropdown selection of available electrode configurations
-
-### Advanced Options
-- **Conductivity Model**: Isotropic/anisotropic tissue modeling
-- **Current Configuration**: Individual electrode current settings
-- **Batch Processing**: Multiple subject simulation queues
-
-### Output Management
-- **Real-time Logging**: Simulation progress and status updates
-- **Result Visualization**: Automatic generation of field maps and statistics
-- **Data Export**: NIfTI files, electrode positions, and analysis reports
