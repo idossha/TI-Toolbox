@@ -1,0 +1,135 @@
+# ======================================================================
+# TI-Toolbox Benchmark Configuration
+# ======================================================================
+# Global benchmark settings
+output_dir: /development/benchmark_results          # Main directory for benchmark results and logs
+keep_project: true                                  # Keep temporary project directories after completion
+debug_mode: true                                    # Enable verbose debug logging
+
+# ======================================================================
+# CHARM Benchmark - Head mesh (m2m) creation
+# ======================================================================
+charm:
+  # Project setup
+  project_dir: /tmp/ti-toolbox-benchmark-charm
+  
+  # Input data
+  t1_image: /mnt/BIDS_new/sub-101/anat/anat-T1w_acq-MPRAGE.nii.gz
+  t2_image: /mnt/BIDS_new/sub-101/anat/anat-T2w_acq-CUBE.nii.gz
+  subject_id: 101
+  
+  # Script path
+  charm_script: /development/ti-toolbox/pre/charm.sh
+  
+  # Options
+  clean: false                                       # Clean existing m2m directory before running
+
+# ======================================================================
+# RECON-ALL Benchmark - FreeSurfer reconstruction
+# ======================================================================
+recon:
+  # Project setup
+  project_dir: /tmp/ti-toolbox-benchmark-recon
+  
+  # Input data
+  t1_image: /mnt/BIDS_new/sub-101/anat/anat-T1w_acq-MPRAGE.nii.gz
+  t2_image: /mnt/BIDS_new/sub-101/anat/anat-T2w_acq-CUBE.nii.gz
+  subject_id: 101
+  
+  # Script path
+  recon_script: /development/ti-toolbox/pre/recon-all.sh
+  
+  # Options
+  parallel: false                                    # Enable parallel processing
+  clean: false                                       # Clean existing FreeSurfer directory before running
+
+# ======================================================================
+# DICOM Benchmark - DICOM to NIfTI conversion
+# ======================================================================
+dicom:
+  # Project setup
+  project_dir: /tmp/ti-toolbox-benchmark-dicom
+  
+  # Input data
+  dicom_source: /mnt/BIDS_new/sourcedata/sub-101/T1w/dicom
+  subject_id: 101
+  
+  # Script path
+  dicom_script: /development/ti-toolbox/pre/dicom2nifti.sh
+
+# ======================================================================
+# FLEX-SEARCH Benchmark - TI optimization with differential evolution
+# ======================================================================
+flex:
+  # Project setup
+  project_dir: /tmp/ti-toolbox-benchmark-flex
+  m2m_dir: /mnt/BIDS_new/derivatives/SimNIBS/sub-101/m2m_101
+  
+  # Core optimization parameters
+  opt_goal: mean                                     # Options: mean, max, focality
+  postproc: max_TI                                   # Options: max_TI, dir_TI_normal, dir_TI_tangential
+  
+  # ROI configuration (for spherical ROI method)
+  roi_method: spherical                              # Options: spherical, atlas, subcortical
+  roi_center: [0, 0, 0]                             # ROI center coordinates (x, y, z) in mm
+  roi_radius: 10.0                                   # ROI radius in mm
+  
+  # Electrode parameters
+  eeg_net: 10-10                                     # EEG cap configuration (CSV filename without .csv)
+  electrode_radius: 4.0                              # Electrode radius in mm
+  electrode_current: 1.0                             # Electrode current in mA
+  
+  # Optimizer settings
+  multistart: [1, 2]                                 # Multi-start values to test
+  iterations: 500                                    # Max iterations for differential_evolution
+  popsize: 13                                        # Population size for differential_evolution
+  cpus: 9                                            # Number of CPU cores to use
+  
+  # Optional: Focality-specific parameters (only used if opt_goal: focality)
+  # thresholds: 0.5                                  # Single value or comma-separated values
+  # non_roi_method: everything_else                  # Options: everything_else, specific
+  
+  # Optional: Mapping settings (disabled by default)
+  # enable_mapping: false                            # Map optimal electrodes to nearest EEG-net nodes
+  # disable_mapping_simulation: false                # Skip simulation with mapped electrodes
+  
+  # Optional: Output control
+  # run_final_electrode_simulation: false            # Run final simulation with optimal electrodes
+  # skip_final_electrode_simulation: false           # Skip final simulation
+
+# ======================================================================
+# LEADFIELD Benchmark - Leadfield matrix generation
+# ======================================================================
+leadfield:
+  # Project setup
+  project_dir: /tmp/ti-toolbox-benchmark-leadfield
+  m2m_dir: /mnt/BIDS_new/derivatives/SimNIBS/sub-101/m2m_101
+  
+  # Leadfield generation parameters
+  # electrode_csv: GSN-HydroCel-185.csv                # CSV file for electrode positions
+  electrode_csv: EEG10-10_UI_Jurak_2007.csv
+  tissues: [1, 2]                                    # Tissue types to include (1=GM, 2=WM)
+  
+  # Optional: Advanced parameters
+  # cleanup: true                                    # Clean up intermediate files (default: true)
+
+# ======================================================================
+# EX-SEARCH Benchmark - Exhaustive TI electrode search
+# ======================================================================
+ex_search:
+  # Project setup
+  project_dir: /tmp/ti-toolbox-benchmark-ex-search
+  m2m_dir: /mnt/BIDS_new/derivatives/SimNIBS/sub-101/m2m_101
+  leadfield: /mnt/BIDS_new/derivatives/SimNIBS/sub-101/leadfields/101_leadfield_EEG10-20_Okamoto_2004.hdf5
+  
+  # Optimization parameters
+  n_electrodes: 2                                    # Number of electrodes per channel (E1+, E1-, E2+, E2-)
+  total_current: 1.0                                 # Total current in mA
+  step_size: 0.2                                     # Current step size in mA
+  
+  # ROI configuration
+  roi_center: [0, 0, 0]                             # ROI center coordinates (x, y, z) in mm
+  roi_radius: 10.0                                   # ROI radius in mm
+  
+  # Optional: Output configuration
+  # results_output_dir: /development/benchmark_results/ex_search_results  # Custom directory for ex-search results (default: uses m2m ex-search dir)
