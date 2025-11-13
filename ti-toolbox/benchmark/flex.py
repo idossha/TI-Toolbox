@@ -164,13 +164,21 @@ def run_flex_optimization(
     logger: BenchmarkLogger,
     opt_goal: str = "mean",
     postproc: str = "max_TI",
+    roi_method: str = "spherical",
     roi_center: tuple[float, float, float] = (0, 0, 0),
     roi_radius: float = 10.0,
+    eeg_net: str = "10-10",
     electrode_radius: float = 4.0,
     electrode_current: float = 1.0,
     max_iterations: int = 500,
     population_size: int = 13,
     cpus: int = 1,
+    thresholds: str = None,
+    non_roi_method: str = None,
+    enable_mapping: bool = False,
+    disable_mapping_simulation: bool = False,
+    run_final_electrode_simulation: bool = False,
+    skip_final_electrode_simulation: bool = False,
     debug_mode: bool = True
 ) -> dict:
     """
@@ -233,8 +241,8 @@ def run_flex_optimization(
             "--subject", subject_id,
             "--goal", opt_goal,
             "--postproc", postproc,
-            "--roi-method", "spherical",
-            "--eeg-net", "10-10",  # Standard cap
+            "--roi-method", roi_method,
+            "--eeg-net", eeg_net,
             "--radius", str(electrode_radius),
             "--current", str(electrode_current),
             "--n-multistart", str(n_multistart),
@@ -242,6 +250,24 @@ def run_flex_optimization(
             "--population-size", str(population_size),
             "--cpus", str(cpus)
         ]
+        
+        # Add optional focality parameters
+        if thresholds:
+            cmd.extend(["--thresholds", str(thresholds)])
+        if non_roi_method:
+            cmd.extend(["--non-roi-method", non_roi_method])
+        
+        # Add optional mapping parameters
+        if enable_mapping:
+            cmd.append("--enable-mapping")
+        if disable_mapping_simulation:
+            cmd.append("--disable-mapping-simulation")
+        
+        # Add optional simulation control parameters
+        if run_final_electrode_simulation:
+            cmd.append("--run-final-electrode-simulation")
+        if skip_final_electrode_simulation:
+            cmd.append("--skip-final-electrode-simulation")
         
         logger.info(f"Running command: {' '.join(cmd)}")
         logger.info(f"Environment: ROI_X={env['ROI_X']}, ROI_Y={env['ROI_Y']}, ROI_Z={env['ROI_Z']}, ROI_RADIUS={env['ROI_RADIUS']}")
@@ -467,13 +493,21 @@ Configuration:
         opt_params = {
             "opt_goal": merged_config.get('opt_goal', 'mean'),
             "postproc": merged_config.get('postproc', 'max_TI'),
+            "roi_method": merged_config.get('roi_method', 'spherical'),
             "roi_center": tuple(merged_config.get('roi_center', [0, 0, 0])),
             "roi_radius": merged_config.get('roi_radius', 10.0),
+            "eeg_net": merged_config.get('eeg_net', '10-10'),
             "electrode_radius": merged_config.get('electrode_radius', 4.0),
             "electrode_current": merged_config.get('electrode_current', 1.0),
             "max_iterations": iterations,
             "population_size": popsize,
             "cpus": cpus,
+            "thresholds": merged_config.get('thresholds'),
+            "non_roi_method": merged_config.get('non_roi_method'),
+            "enable_mapping": merged_config.get('enable_mapping', False),
+            "disable_mapping_simulation": merged_config.get('disable_mapping_simulation', False),
+            "run_final_electrode_simulation": merged_config.get('run_final_electrode_simulation', False),
+            "skip_final_electrode_simulation": merged_config.get('skip_final_electrode_simulation', False),
             "debug_mode": debug_mode
         }
         
