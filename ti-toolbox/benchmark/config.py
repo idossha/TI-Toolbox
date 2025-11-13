@@ -32,8 +32,8 @@ recon:
 # DICOM benchmark configuration
 dicom:
   project_dir: /path/to/project
-  dicom_source: /path/to/dicom/files
-  dicom_script: /path/to/dicom2nifti.sh
+  subject_source: /path/to/subject/dir
+  dicom_script: /path/to/ti-toolbox/pre/dicom2nifti.sh
 
 # Flex-search benchmark configuration
 flex:
@@ -190,8 +190,8 @@ class BenchmarkConfig:
         if 'project_dir' not in dicom:
             dicom['project_dir'] = str(Path("/mnt/ti-toolbox-benchmark-dicom") if os.path.exists("/mnt")
                                        else Path("/tmp/ti-toolbox-benchmark-dicom"))
-        if 'dicom_source' not in dicom:
-            dicom['dicom_source'] = None
+        if 'subject_source' not in dicom and 'dicom_source' not in dicom:
+            dicom['subject_source'] = None
         
         # Flex defaults
         if 'flex' not in self.config:
@@ -307,7 +307,7 @@ class BenchmarkConfig:
             },
             'dicom': {
                 'project_dir': '/tmp/ti-toolbox-benchmark-dicom',
-                'dicom_source': '/path/to/dicom/files',
+                'subject_source': '/path/to/subject/dir',
                 'dicom_script': '/path/to/ti-toolbox/pre/dicom2nifti.sh'
             },
             'flex': {

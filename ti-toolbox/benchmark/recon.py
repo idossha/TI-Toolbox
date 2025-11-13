@@ -27,7 +27,7 @@ from benchmark.config import BenchmarkConfig, merge_config_with_args
 
 
 def setup_project(project_dir: Path, t1_image: Path, t2_image: Path, subject_id: str, logger):
-    """Set up BIDS project with T1/T2 images."""
+    """Set up BIDS project structure (no file copying needed)."""
     bids_subject_id = f"sub-{subject_id}"
     
     # Detect container and set paths
@@ -37,23 +37,24 @@ def setup_project(project_dir: Path, t1_image: Path, t2_image: Path, subject_id:
     else:
         subject_dir = project_dir / bids_subject_id
     
-    # Create BIDS structure
-    anat_dir = subject_dir / "anat"
-    anat_dir.mkdir(parents=True, exist_ok=True)
+    # Verify input files exist
+    if not t1_image.exists():
+        raise FileNotFoundError(f"T1 image not found: {t1_image}")
+    if t2_image and not t2_image.exists():
+        raise FileNotFoundError(f"T2 image not found: {t2_image}")
     
-    # Copy images
-    shutil.copy2(t1_image, anat_dir / f"{bids_subject_id}_T1w.nii.gz")
-    if t2_image and t2_image.exists():
-        shutil.copy2(t2_image, anat_dir / f"{bids_subject_id}_T2w.nii.gz")
-        logger.info(f"Copied T1 and T2 images")
-    else:
-        logger.info(f"Copied T1 image only")
+    # Create output directory for FreeSurfer
+    freesurfer_dir = subject_dir.parent / "derivatives" / "freesurfer" / bids_subject_id
+    freesurfer_dir.mkdir(parents=True, exist_ok=True)
     
     # Create dataset_description.json
     dataset_desc = subject_dir.parent / "dataset_description.json"
     if not dataset_desc.exists():
         dataset_desc.write_text('{"Name": "FreeSurfer Benchmark", "BIDSVersion": "1.6.0"}')
     
+    logger.info(f"Using existing files - T1: {t1_image}")
+    if t2_image:
+        logger.info(f"Using existing files - T2: {t2_image}")
     logger.info(f"Project ready: {subject_dir.parent}")
     return subject_dir, subject_id
 

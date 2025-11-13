@@ -45,16 +45,15 @@ def setup_project(project_dir: Path, m2m_dir: Path, leadfield_path: Path, logger
         subject_dir = project_dir / bids_subject_id
         simnibs_dir = project_dir / "derivatives" / "SimNIBS" / bids_subject_id
     
-    # Create directories
-    leadfields_dir = simnibs_dir / "leadfields"
-    leadfields_dir.mkdir(parents=True, exist_ok=True)
+    # Verify leadfield exists
+    if not leadfield_path.exists():
+        raise FileNotFoundError(f"Leadfield not found: {leadfield_path}")
     
-    # Copy leadfield
-    target_leadfield = leadfields_dir / leadfield_path.name
-    if not target_leadfield.exists():
-        shutil.copy2(leadfield_path, target_leadfield)
-        logger.info(f"Copied leadfield to: {target_leadfield}")
+    # Create output directories
+    ex_search_dir = simnibs_dir / "ex_search"
+    ex_search_dir.mkdir(parents=True, exist_ok=True)
     
+    logger.info(f"Using existing leadfield: {leadfield_path}")
     return subject_dir, subject_id
 
 
