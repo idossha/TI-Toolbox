@@ -33,6 +33,7 @@ BENCHMARKS = {
     'leadfield': ('benchmark.leadfield', 'main'),
     'flex': ('benchmark.flex', 'main'),
     'ex_search': ('benchmark.ex_search', 'main'),
+    'simulator': ('benchmark.simulator', 'main'),
 }
 
 # Benchmark descriptions for better UX
@@ -43,6 +44,7 @@ BENCHMARK_DESCRIPTIONS = {
     'leadfield': 'Leadfield matrix computation',
     'flex': 'Flexible electrode position optimization',
     'ex_search': 'Exhaustive electrode search optimization',
+    'simulator': 'TI/mTI electrode montage simulation',
 }
 
 

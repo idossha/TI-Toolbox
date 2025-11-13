@@ -81,7 +81,7 @@ leadfield:
   project_dir: /mnt/TIT_benchmarking
   
   # Input - From CHARM step output
-  m2m_dir: /mnt/TIT_benchmarking/sub-101/m2m_101
+  m2m_dir: /mnt/TIT_benchmarking/derivatives/SimNIBS/sub-101/m2m_101
   
   # Leadfield generation parameters
   electrode_csv: EEG10-10_UI_Jurak_2007.csv
@@ -97,7 +97,7 @@ flex:
   project_dir: /mnt/TIT_benchmarking
   
   # Input - From CHARM step output
-  m2m_dir: /mnt/TIT_benchmarking/sub-101/m2m_101
+  m2m_dir: /mnt/TIT_benchmarking/derivatives/SimNIBS/sub-101/m2m_101
   
   # Core optimization parameters
   opt_goal: mean                                     # Options: mean, max, focality
@@ -141,7 +141,7 @@ ex_search:
   project_dir: /mnt/TIT_benchmarking
   
   # Input - From CHARM and LEADFIELD step outputs
-  m2m_dir: /mnt/TIT_benchmarking/sub-101/m2m_101
+  m2m_dir: /mnt/TIT_benchmarking/derivatives/SimNIBS/sub-101/m2m_101
   leadfield: /mnt/TIT_benchmarking/sub-101/leadfields/101_leadfield_EEG10-10_UI_Jurak_2007.hdf5
   
   # Optimization parameters
@@ -156,15 +156,43 @@ ex_search:
   # Output: /mnt/TIT_benchmarking/sub-101/ex_search_results/
 
 # ======================================================================
+# STEP 7: SIMULATOR Benchmark - TI/mTI simulation execution
+# ======================================================================
+simulator:
+  # Project setup - Use shared pipeline directory
+  project_dir: /mnt/TIT_benchmarking
+  
+  # Input - From CHARM step output
+  m2m_dir: /mnt/TIT_benchmarking/derivatives/SimNIBS/sub-101/m2m_101
+  subject_id: 101
+  
+  # Script path
+  simulator_script: /development/ti-toolbox/cli/simulator.sh
+  
+  # Simulation parameters
+  montage: test_montage                          # Name of montage to simulate
+  sim_mode: U                                    # U=Unipolar, M=Multipolar
+  conductivity: scalar                           # scalar, vn, dir, or mc
+  current: 0.001,0.001                          # Current per channel in Amperes
+  eeg_net: GSN-HydroCel-185.csv                     # EEG cap file
+  electrode_shape: ellipse                          # rect or ellipse
+  dimensions: 8,8                              # Electrode dimensions in mm
+  thickness: 4                                   # Electrode thickness in mm
+  
+  # Output: /mnt/TIT_benchmarking/sub-101/Simulations/
+
+# ======================================================================
 # Pipeline Summary:
 # ======================================================================
 # All benchmarks share the base directory: /mnt/TIT_benchmarking/
 # 
 # Data flow:
 # sourcedata/sub-101/          → [DICOM]     → sub-101/anat/*.nii.gz
-# sub-101/anat/*.nii.gz        → [CHARM]     → sub-101/m2m_101/
+# sub-101/anat/*.nii.gz        → [CHARM]     → derivatives/SimNIBS/sub-101/m2m_101/
 # sub-101/anat/*.nii.gz        → [RECON]     → derivatives/freesurfer/sub-101/
-# sub-101/m2m_101/             → [LEADFIELD] → sub-101/leadfields/*.hdf5
-# sub-101/m2m_101/             → [FLEX]      → sub-101/flex_results/
+# derivatives/.../m2m_101/     → [LEADFIELD] → sub-101/leadfields/*.hdf5
+# derivatives/.../m2m_101/     → [FLEX]      → sub-101/flex_results/
 # sub-101/leadfields/*.hdf5    → [EX_SEARCH] → sub-101/ex_search_results/
+# derivatives/.../m2m_101/     → [SIMULATOR] → derivatives/SimNIBS/sub-101/Simulations/
+
 # ======================================================================
