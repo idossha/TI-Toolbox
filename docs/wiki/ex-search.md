@@ -4,13 +4,19 @@ title: Ex-Search TI Optimization Pipeline
 permalink: /wiki/ex-search/
 ---
 
-The Ex-Search module provides a semi-exaustive search approach for Temporal Interference (TI) simulations. The system features unified logging, multiple EEG net support, flexible leadfield management.
+The Ex-Search module provides a high-performance, exhaustive search approach for Temporal Interference (TI) simulations. The system features unified logging, multiple EEG net support, flexible leadfield management, and optimized computational efficiency.
 
 ## Overview
 
-Ex-Search utilizes leadfield-based optimization to determine optimal electrode configurations for TI stimulation based on:
-- **Multiple EEG Nets**: Support for high-density (10:10) and 10-20 nets
-- **ROI Analysis**: spherical only ROI definition with flexible radius specification
+Ex-Search implements a true **exhaustive search** approach for Temporal Interference (TI) optimization, systematically evaluating all possible electrode combinations within user-defined constraints. Unlike sampling-based methods, ex-search guarantees finding the globally optimal montage configuration.
+
+**Key Features:**
+- **True Exhaustive Search**: Evaluates all N⁴ electrode combinations × current ratios (where N = electrodes per channel)
+- **Multiple EEG Nets**: Support for high-density (10:10) and 10-20 nets with automatic co-registration
+- **ROI Analysis**: Spherical ROI definition with configurable radius specification (default 3mm)
+- **Current Ratio Optimization**: Systematic testing of current ratios respecting channel limits
+- **High-Performance Processing**: Memory-efficient in-memory calculations with real-time progress tracking
+- **Comprehensive Metrics**: TImax, TImean, Focality analysis with automatic visualization
 
 
 
@@ -66,7 +72,7 @@ Ex-Search automatically detects and supports multiple EEG electrode configuratio
 ```
 [INFO] Scanning available EEG nets for subject 101...
   1. EGI10-10_Cutini_2011.csv
-  2. EGI10-10_UI_Jurak_2007.csv  
+  2. EGI10-10_UI_Jurak_2007.csv
   3. EGI10-20_Okamoto_2004.csv
   4. GSN-HydroCel-185.csv        # Default selection
   5. GSN-HydroCel-256.csv
@@ -74,11 +80,60 @@ Ex-Search automatically detects and supports multiple EEG electrode configuratio
 ```
 
 ### 2. Leadfield Management
-- **Intelligent Detection**: Automatic scanning of existing leadfields
-- **Flexible Creation**: Generate leadfields for any supported EEG net
-- **Performance Optimization**: Efficient loading of large matrices (2-20GB)
+- **Intelligent Detection**: Automatic scanning of existing leadfields with HDF5 validation
+- **Flexible Creation**: Generate leadfields for any supported EEG net with automated naming
+- **Performance Optimization**: Efficient loading of large matrices (2-20GB) with memory monitoring
 
-### 3. Optimization & Analysis Pipeline
-- **Selection of Candidate Electrodes**: X electrodes per group, depending on search space
-- **Run Time**: From minutes to hours, depending on leadfield size and number of candidates selected
-- **Analysis & Visualization**: Automatic histogram generation with professional formatting
+### 3. Current Ratio Optimization
+The optimization systematically tests current ratios respecting channel limits:
+```
+For total_current=2.0mA, step=0.2mA, limit=1.6mA:
+  (1.6, 0.4), (1.4, 0.6), (1.2, 0.8), (1.0, 1.0),
+  (0.8, 1.2), (0.6, 1.4), (0.4, 1.6)
+```
+
+### 4. Exhaustive Search Algorithm
+- **Electrode Combinations**: N⁴ combinations where N is electrodes per channel group
+- **Current Ratios**: Systematic testing across user-defined current steps
+- **Total Combinations**: `electrode_combinations × current_ratios`
+- **In-Memory Processing**: No intermediate mesh files, direct field extraction
+- **Progress Tracking**: Real-time monitoring with ETA calculations
+
+### 5. Analysis & Visualization Pipeline
+- **Run Time**: From minutes to hours depending on leadfield size and electrode combinations
+- **Metrics Calculation**: TImax_ROI, TImean_ROI, TImean_GM, Focality (TImean_ROI/TImean_GM)
+- **Visualization**: Automatic histogram generation (TImax, TImean, Focality distributions)
+- **Output Formats**: JSON results, CSV summaries, PNG histograms
+
+## Technical Implementation
+
+### Optimized Processing Architecture
+The ex-search implementation features several performance optimizations:
+
+- **Memory-Efficient Design**: In-memory field calculations eliminate intermediate file I/O
+- **Itertools Integration**: Uses `itertools.product()` for efficient combination generation instead of nested loops
+- **Streamlined Codebase**: 33% reduction in code size (596→398 lines) with improved maintainability
+- **Signal Handling**: Graceful interruption with cleanup and progress preservation
+- **Parameter Validation**: Robust input validation with fallback defaults
+
+### Algorithm Efficiency
+```
+# Before: Nested loop approach (4 levels deep)
+for e1_plus in E1_plus:
+    for e1_minus in E1_minus:
+        for e2_plus in E2_plus:
+            for e2_minus in E2_minus:
+                for current_ratio in ratios:
+                    # Process combination
+
+# After: itertools.product() approach
+for processed, (e1_plus, e1_minus, e2_plus, e2_minus, current_ratio) in \
+        enumerate(product(E1_plus, E1_minus, E2_plus, E2_minus, ratios), 1):
+    # Process combination
+```
+
+### Performance Characteristics
+- **Scalability**: Handles large electrode combinations (1000+ montages) efficiently
+- **Memory Usage**: Constant memory footprint regardless of combination count
+- **Progress Tracking**: Real-time ETA calculation with rate monitoring
+- **Error Resilience**: Individual combination failures don't halt entire optimization

@@ -741,16 +741,15 @@ class ExSearchTab(QtWidgets.QWidget):
         scroll_layout.setContentsMargins(10, 10, 10, 10)
         scroll_layout.setSpacing(10)
         
-        # Main horizontal layout to separate left and right
-        main_horizontal_layout = QtWidgets.QHBoxLayout()
-        main_horizontal_layout.setSpacing(15)  # Add some spacing between left and right sides
+        # Main grid layout for organized component placement
+        main_grid_layout = QtWidgets.QGridLayout()
+        main_grid_layout.setSpacing(15)  # Add spacing between components
         
-        # Left side layout for Subject + Leadfield Management
-        left_layout = QtWidgets.QVBoxLayout()
-        
-        # Subject selection
+        # ============================================================
+        # ROW 0, COLUMN 0: Subject Selection
+        # ============================================================
         subject_container = QtWidgets.QGroupBox("Subject Selection")
-        subject_container.setFixedHeight(100)  # Fixed height for balance
+        subject_container.setFixedHeight(180)  # Match electrode selection height
         subject_layout = QtWidgets.QVBoxLayout(subject_container)
         subject_layout.setContentsMargins(10, 10, 10, 10)
         subject_layout.setSpacing(8)
@@ -773,10 +772,171 @@ class ExSearchTab(QtWidgets.QWidget):
         subject_button_layout.addWidget(self.clear_subject_selection_btn)
         subject_layout.addLayout(subject_button_layout)
         
-        # Add subject container to left layout
-        left_layout.addWidget(subject_container)
+        # Add stretch to push content to top
+        subject_layout.addStretch()
         
-        # Leadfield Management (moved from right to left under subject)
+        # Add subject container to grid - Row 0, Column 0
+        main_grid_layout.addWidget(subject_container, 0, 0)
+        
+        # ============================================================
+        # ROW 0, COLUMN 1: Electrode Selection
+        # ============================================================
+        electrode_container = QtWidgets.QGroupBox("Electrode Selection")
+        electrode_container.setFixedHeight(180)  # Fixed height for balance
+        electrode_layout = QtWidgets.QFormLayout(electrode_container)
+        electrode_layout.setContentsMargins(10, 10, 10, 10)
+        electrode_layout.setSpacing(8)
+        
+        # Create input fields for each electrode category
+        self.e1_plus_input = QtWidgets.QLineEdit()
+        self.e1_minus_input = QtWidgets.QLineEdit()
+        self.e2_plus_input = QtWidgets.QLineEdit()
+        self.e2_minus_input = QtWidgets.QLineEdit()
+        
+        # Set fixed height for input fields
+        for input_field in [self.e1_plus_input, self.e1_minus_input, self.e2_plus_input, self.e2_minus_input]:
+            input_field.setFixedHeight(30)
+        
+        # Set placeholders
+        self.e1_plus_input.setPlaceholderText("E.g., O1, F7")
+        self.e1_minus_input.setPlaceholderText("E.g., Fp1, T7")
+        self.e2_plus_input.setPlaceholderText("E.g., T8, P4")
+        self.e2_minus_input.setPlaceholderText("E.g., Fz, Cz")
+        
+        # Add input fields to layout with labels
+        electrode_layout.addRow("E1+ electrodes:", self.e1_plus_input)
+        electrode_layout.addRow("E1- electrodes:", self.e1_minus_input)
+        electrode_layout.addRow("E2+ electrodes:", self.e2_plus_input)
+        electrode_layout.addRow("E2- electrodes:", self.e2_minus_input)
+        
+        # Add help text
+        help_label = QtWidgets.QLabel("Enter electrode names separated by commas. All categories must have the same number of electrodes.")
+        help_label.setWordWrap(True)
+        help_label.setStyleSheet("color: #666; font-size: 11px; padding: 5px;")
+        electrode_layout.addRow(help_label)
+        
+        # Add electrode container to grid - Row 0, Column 1
+        main_grid_layout.addWidget(electrode_container, 0, 1)
+        
+        # ============================================================
+        # ROW 1, COLUMN 0: ROI Selection
+        # ============================================================
+        roi_container = QtWidgets.QGroupBox("ROI Selection")
+        roi_container.setFixedHeight(190)  # Fixed height for balance (includes radius control)
+        roi_layout = QtWidgets.QVBoxLayout(roi_container)
+        roi_layout.setContentsMargins(10, 10, 10, 10)
+        roi_layout.setSpacing(8)
+        
+        # List widget for ROI selection
+        self.roi_list = QtWidgets.QListWidget()
+        self.roi_list.setSelectionMode(QtWidgets.QAbstractItemView.ExtendedSelection)
+        self.roi_list.setFixedHeight(80)  # Adjusted to fit within ROI container
+        roi_layout.addWidget(self.roi_list)
+        
+        # ROI control buttons
+        roi_button_layout = QtWidgets.QHBoxLayout()
+        self.add_roi_btn = QtWidgets.QPushButton("Add ROI")
+        self.add_roi_btn.setFixedHeight(25)
+        self.add_roi_btn.clicked.connect(self.show_add_roi_dialog)
+        self.remove_roi_btn = QtWidgets.QPushButton("Remove ROI")
+        self.remove_roi_btn.setFixedHeight(25)
+        self.remove_roi_btn.clicked.connect(self.remove_selected_roi)
+        self.list_rois_btn = QtWidgets.QPushButton("Refresh List")
+        self.list_rois_btn.setFixedHeight(25)
+        self.list_rois_btn.clicked.connect(self.update_roi_list)
+        
+        roi_button_layout.addWidget(self.add_roi_btn)
+        roi_button_layout.addWidget(self.remove_roi_btn)
+        roi_button_layout.addWidget(self.list_rois_btn)
+        roi_layout.addLayout(roi_button_layout)
+        
+        # ROI radius parameter
+        radius_layout = QtWidgets.QHBoxLayout()
+        radius_label = QtWidgets.QLabel("ROI Radius (mm):")
+        radius_label.setFixedWidth(100)
+        self.roi_radius_spinbox = QtWidgets.QDoubleSpinBox()
+        self.roi_radius_spinbox.setRange(1.0, 10.0)
+        self.roi_radius_spinbox.setValue(3.0)  # Default 3mm
+        self.roi_radius_spinbox.setSingleStep(0.5)
+        self.roi_radius_spinbox.setDecimals(1)
+        self.roi_radius_spinbox.setToolTip("Radius of spherical ROI for field extraction (default: 3.0mm)")
+        radius_layout.addWidget(radius_label)
+        radius_layout.addWidget(self.roi_radius_spinbox)
+        radius_layout.addStretch()
+        roi_layout.addLayout(radius_layout)
+        
+        # Add ROI container to grid - Row 1, Column 0
+        main_grid_layout.addWidget(roi_container, 1, 0)
+        
+        # ============================================================
+        # ROW 1, COLUMN 1: Current Configuration
+        # ============================================================
+        current_container = QtWidgets.QGroupBox("Current Configuration")
+        current_container.setFixedHeight(190)  # Match ROI selection height
+        current_layout = QtWidgets.QVBoxLayout(current_container)
+        current_layout.setContentsMargins(10, 10, 10, 10)
+        current_layout.setSpacing(8)
+
+        # Total current input
+        total_current_layout = QtWidgets.QHBoxLayout()
+        total_current_label = QtWidgets.QLabel("Total Current (mA):")
+        total_current_label.setFixedWidth(120)
+        self.total_current_spinbox = QtWidgets.QDoubleSpinBox()
+        self.total_current_spinbox.setRange(0.1, 10.0)
+        self.total_current_spinbox.setValue(2.0)  # Default 2mA (per user example)
+        self.total_current_spinbox.setSingleStep(0.1)
+        self.total_current_spinbox.setDecimals(1)
+        self.total_current_spinbox.setToolTip("Total current to distribute between channels")
+        total_current_layout.addWidget(total_current_label)
+        total_current_layout.addWidget(self.total_current_spinbox)
+        total_current_layout.addStretch()
+        current_layout.addLayout(total_current_layout)
+
+        # Current step size input
+        current_step_layout = QtWidgets.QHBoxLayout()
+        current_step_label = QtWidgets.QLabel("Current Step (mA):")
+        current_step_label.setFixedWidth(120)
+        self.current_step_spinbox = QtWidgets.QDoubleSpinBox()
+        self.current_step_spinbox.setRange(0.01, 2.0)
+        self.current_step_spinbox.setValue(0.2)  # Default 0.2mA (per user example)
+        self.current_step_spinbox.setSingleStep(0.01)
+        self.current_step_spinbox.setDecimals(2)
+        self.current_step_spinbox.setToolTip("Step size for current ratio iterations")
+        current_step_layout.addWidget(current_step_label)
+        current_step_layout.addWidget(self.current_step_spinbox)
+        current_step_layout.addStretch()
+        current_layout.addLayout(current_step_layout)
+
+        # Channel limit input
+        channel_limit_layout = QtWidgets.QHBoxLayout()
+        channel_limit_label = QtWidgets.QLabel("Channel Limit (mA):")
+        channel_limit_label.setFixedWidth(120)
+        self.channel_limit_spinbox = QtWidgets.QDoubleSpinBox()
+        self.channel_limit_spinbox.setRange(0.1, 10.0)
+        self.channel_limit_spinbox.setValue(1.6)  # Default 1.6mA (per user example)
+        self.channel_limit_spinbox.setSingleStep(0.1)
+        self.channel_limit_spinbox.setDecimals(1)
+        self.channel_limit_spinbox.setToolTip("Maximum current per channel (must be ≤ total current)")
+        channel_limit_layout.addWidget(channel_limit_label)
+        channel_limit_layout.addWidget(self.channel_limit_spinbox)
+        channel_limit_layout.addStretch()
+        current_layout.addLayout(channel_limit_layout)
+
+        # Help text for current configuration
+        current_help_label = QtWidgets.QLabel("The optimizer will test different current ratios for each electrode configuration.\nExample: 2.0mA total, 0.2mA step, 1.6mA limit → Ch1:1.6mA/Ch2:0.4mA, 1.4mA/0.6mA, 1.2mA/0.8mA, ..., 0.4mA/1.6mA")
+        current_help_label.setWordWrap(True)
+        current_help_label.setStyleSheet("color: #666; font-size: 10px; padding: 5px;")
+        current_layout.addWidget(current_help_label)
+        
+        # Add stretch to push content to top
+        current_layout.addStretch()
+
+        # Add current container to grid - Row 1, Column 1
+        main_grid_layout.addWidget(current_container, 1, 1)
+        
+        # ============================================================
+        # ROW 2, COLUMN 0-1: Leadfield Management (spanning both columns)
+        # ============================================================
         leadfield_container = QtWidgets.QGroupBox("Leadfield Management")
         leadfield_container.setFixedHeight(240)  # Fixed height for balance
         leadfield_layout = QtWidgets.QVBoxLayout(leadfield_container)
@@ -823,150 +983,11 @@ class ExSearchTab(QtWidgets.QWidget):
         # Connect leadfield selection
         self.leadfield_list.itemSelectionChanged.connect(self.on_leadfield_selection_changed)
         
-        # Add leadfield container to left layout
-        left_layout.addWidget(leadfield_container)
+        # Add leadfield container to grid - Row 2, Column 0-1 (spanning both columns)
+        main_grid_layout.addWidget(leadfield_container, 2, 0, 1, 2)
         
-        # Right side layout for Electrodes + ROI
-        right_layout = QtWidgets.QVBoxLayout()
-        
-        # Electrode selection
-        electrode_container = QtWidgets.QGroupBox("Electrode Selection")
-        electrode_container.setFixedHeight(180)  # Fixed height for balance
-        electrode_layout = QtWidgets.QFormLayout(electrode_container)
-        electrode_layout.setContentsMargins(10, 10, 10, 10)
-        electrode_layout.setSpacing(8)
-        
-        # Create input fields for each electrode category
-        self.e1_plus_input = QtWidgets.QLineEdit()
-        self.e1_minus_input = QtWidgets.QLineEdit()
-        self.e2_plus_input = QtWidgets.QLineEdit()
-        self.e2_minus_input = QtWidgets.QLineEdit()
-        
-        # Set fixed height for input fields
-        for input_field in [self.e1_plus_input, self.e1_minus_input, self.e2_plus_input, self.e2_minus_input]:
-            input_field.setFixedHeight(30)
-        
-        # Set placeholders
-        self.e1_plus_input.setPlaceholderText("E.g., O1, F7")
-        self.e1_minus_input.setPlaceholderText("E.g., Fp1, T7")
-        self.e2_plus_input.setPlaceholderText("E.g., T8, P4")
-        self.e2_minus_input.setPlaceholderText("E.g., Fz, Cz")
-        
-        # Add input fields to layout with labels
-        electrode_layout.addRow("E1+ electrodes:", self.e1_plus_input)
-        electrode_layout.addRow("E1- electrodes:", self.e1_minus_input)
-        electrode_layout.addRow("E2+ electrodes:", self.e2_plus_input)
-        electrode_layout.addRow("E2- electrodes:", self.e2_minus_input)
-        
-        # Add help text
-        help_label = QtWidgets.QLabel("Enter electrode names separated by commas. All categories must have the same number of electrodes.")
-        help_label.setWordWrap(True)
-        help_label.setStyleSheet("color: #666; font-size: 11px; padding: 5px;")
-        electrode_layout.addRow(help_label)
-        
-        # Add electrode container to right layout
-        right_layout.addWidget(electrode_container)
-
-        # Current configuration
-        current_container = QtWidgets.QGroupBox("Current Configuration")
-        current_container.setFixedHeight(120)
-        current_layout = QtWidgets.QVBoxLayout(current_container)
-        current_layout.setContentsMargins(10, 10, 10, 10)
-        current_layout.setSpacing(8)
-
-        # Total current input
-        total_current_layout = QtWidgets.QHBoxLayout()
-        total_current_label = QtWidgets.QLabel("Total Current (mA):")
-        total_current_label.setFixedWidth(120)
-        self.total_current_spinbox = QtWidgets.QDoubleSpinBox()
-        self.total_current_spinbox.setRange(0.1, 10.0)
-        self.total_current_spinbox.setValue(1.0)  # Default 1mA
-        self.total_current_spinbox.setSingleStep(0.1)
-        self.total_current_spinbox.setDecimals(1)
-        self.total_current_spinbox.setToolTip("Total current to distribute between channels")
-        total_current_layout.addWidget(total_current_label)
-        total_current_layout.addWidget(self.total_current_spinbox)
-        total_current_layout.addStretch()
-        current_layout.addLayout(total_current_layout)
-
-        # Current step size input
-        current_step_layout = QtWidgets.QHBoxLayout()
-        current_step_label = QtWidgets.QLabel("Current Step (mA):")
-        current_step_label.setFixedWidth(120)
-        self.current_step_spinbox = QtWidgets.QDoubleSpinBox()
-        self.current_step_spinbox.setRange(0.01, 2.0)
-        self.current_step_spinbox.setValue(0.1)  # Default 0.1mA
-        self.current_step_spinbox.setSingleStep(0.01)
-        self.current_step_spinbox.setDecimals(2)
-        self.current_step_spinbox.setToolTip("Step size for current ratio iterations")
-        current_step_layout.addWidget(current_step_label)
-        current_step_layout.addWidget(self.current_step_spinbox)
-        current_step_layout.addStretch()
-        current_layout.addLayout(current_step_layout)
-
-        # Help text for current configuration
-        current_help_label = QtWidgets.QLabel("The optimizer will test different current ratios for each electrode configuration.\nExample: 1.0mA total with 0.1mA step → Ch1:0.1mA/Ch2:0.9mA, 0.2mA/0.8mA, ..., 0.9mA/0.1mA")
-        current_help_label.setWordWrap(True)
-        current_help_label.setStyleSheet("color: #666; font-size: 10px; padding: 5px;")
-        current_layout.addWidget(current_help_label)
-
-        # Add current container to right layout
-        right_layout.addWidget(current_container)
-
-        # ROI selection (moved from left to right under electrodes)
-        roi_container = QtWidgets.QGroupBox("ROI Selection")
-        roi_container.setFixedHeight(190)  # Fixed height for balance (includes radius control)
-        roi_layout = QtWidgets.QVBoxLayout(roi_container)
-        roi_layout.setContentsMargins(10, 10, 10, 10)
-        roi_layout.setSpacing(8)
-        
-        # List widget for ROI selection
-        self.roi_list = QtWidgets.QListWidget()
-        self.roi_list.setSelectionMode(QtWidgets.QAbstractItemView.ExtendedSelection)
-        self.roi_list.setFixedHeight(80)  # Adjusted to fit within ROI container
-        roi_layout.addWidget(self.roi_list)
-        
-        # ROI control buttons
-        roi_button_layout = QtWidgets.QHBoxLayout()
-        self.add_roi_btn = QtWidgets.QPushButton("Add ROI")
-        self.add_roi_btn.setFixedHeight(25)
-        self.add_roi_btn.clicked.connect(self.show_add_roi_dialog)
-        self.remove_roi_btn = QtWidgets.QPushButton("Remove ROI")
-        self.remove_roi_btn.setFixedHeight(25)
-        self.remove_roi_btn.clicked.connect(self.remove_selected_roi)
-        self.list_rois_btn = QtWidgets.QPushButton("Refresh List")
-        self.list_rois_btn.setFixedHeight(25)
-        self.list_rois_btn.clicked.connect(self.update_roi_list)
-        
-        roi_button_layout.addWidget(self.add_roi_btn)
-        roi_button_layout.addWidget(self.remove_roi_btn)
-        roi_button_layout.addWidget(self.list_rois_btn)
-        roi_layout.addLayout(roi_button_layout)
-        
-        # ROI radius parameter
-        radius_layout = QtWidgets.QHBoxLayout()
-        radius_label = QtWidgets.QLabel("ROI Radius (mm):")
-        radius_label.setFixedWidth(100)
-        self.roi_radius_spinbox = QtWidgets.QDoubleSpinBox()
-        self.roi_radius_spinbox.setRange(1.0, 10.0)
-        self.roi_radius_spinbox.setValue(3.0)  # Default 3mm
-        self.roi_radius_spinbox.setSingleStep(0.5)
-        self.roi_radius_spinbox.setDecimals(1)
-        self.roi_radius_spinbox.setToolTip("Radius of spherical ROI for field extraction (default: 3.0mm)")
-        radius_layout.addWidget(radius_label)
-        radius_layout.addWidget(self.roi_radius_spinbox)
-        radius_layout.addStretch()
-        roi_layout.addLayout(radius_layout)
-        
-        # Add ROI container to right layout
-        right_layout.addWidget(roi_container)
-        
-        # Add left and right layouts to main horizontal layout with equal widths
-        main_horizontal_layout.addLayout(left_layout, 1)    # 50% width
-        main_horizontal_layout.addLayout(right_layout, 1)   # 50% width
-        
-        # Add main horizontal layout to scroll layout
-        scroll_layout.addLayout(main_horizontal_layout)
+        # Add grid layout to scroll layout
+        scroll_layout.addLayout(main_grid_layout)
         
         # Set scroll content and add to main layout
         scroll_area.setWidget(scroll_content)
@@ -1574,6 +1595,7 @@ class ExSearchTab(QtWidgets.QWidget):
         env["ROI_RADIUS"] = str(self.roi_radius_spinbox.value())  # Get radius from UI
         env["TOTAL_CURRENT"] = str(self.total_current_spinbox.value())  # Total current from UI
         env["CURRENT_STEP"] = str(self.current_step_spinbox.value())    # Current step from UI
+        env["CHANNEL_LIMIT"] = str(self.channel_limit_spinbox.value())  # Channel limit from UI
         
         # Create shared log file for the entire ex-search pipeline (only on first ROI)
         if self.current_roi_index == 0:
@@ -1634,7 +1656,8 @@ class ExSearchTab(QtWidgets.QWidget):
             " ".join(self.e2_plus),
             " ".join(self.e2_minus),
             str(self.total_current_spinbox.value()),  # Total current
-            str(self.current_step_spinbox.value())    # Current step
+            str(self.current_step_spinbox.value()),   # Current step
+            str(self.channel_limit_spinbox.value())   # Channel limit
         ]
         
         # Command to run ti_sim.py
@@ -1951,6 +1974,9 @@ class ExSearchTab(QtWidgets.QWidget):
         self.e1_minus_input.setEnabled(False)
         self.e2_plus_input.setEnabled(False)
         self.e2_minus_input.setEnabled(False)
+        self.total_current_spinbox.setEnabled(False)
+        self.current_step_spinbox.setEnabled(False)
+        self.channel_limit_spinbox.setEnabled(False)
         self.run_btn.setEnabled(False)
         self.stop_btn.setEnabled(True)
         self.list_subjects_btn.setEnabled(False)
@@ -1983,6 +2009,9 @@ class ExSearchTab(QtWidgets.QWidget):
         self.e1_minus_input.setEnabled(True)
         self.e2_plus_input.setEnabled(True)
         self.e2_minus_input.setEnabled(True)
+        self.total_current_spinbox.setEnabled(True)
+        self.current_step_spinbox.setEnabled(True)
+        self.channel_limit_spinbox.setEnabled(True)
         self.run_btn.setEnabled(True)
         self.stop_btn.setEnabled(False)
         self.list_subjects_btn.setEnabled(True)
@@ -2327,7 +2356,8 @@ class ElectrodeDisplayDialog(QtWidgets.QDialog):
         # Make dialog non-modal so user can interact with main GUI
         self.setModal(False)
         # Set window flags to make it a tool window that stays on top but allows main GUI interaction
-        self.setWindowFlags(QtCore.Qt.Tool | QtCore.Qt.WindowStaysOnTopHint)
+        # Include WindowCloseButtonHint to ensure the X button is visible and functional
+        self.setWindowFlags(QtCore.Qt.Window | QtCore.Qt.WindowStaysOnTopHint | QtCore.Qt.WindowCloseButtonHint)
         self.resize(400, 500)
         
         layout = QtWidgets.QVBoxLayout(self)

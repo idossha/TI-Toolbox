@@ -456,6 +456,27 @@ for subject_index in "${selected_subjects[@]}"; do
     done
     log_info "Current step set to: $CURRENT_STEP mA"
 
+    # Get channel limit
+    while true; do
+        # Calculate default as half of total current
+        default_channel_limit=$(echo "$TOTAL_CURRENT / 2" | bc -l | awk '{printf "%.1f", $1}')
+        echo -ne "${GREEN}Channel limit (mA) [default: $default_channel_limit]: ${RESET}"
+        read -r channel_limit_input
+        if [ -z "$channel_limit_input" ]; then
+            CHANNEL_LIMIT="$default_channel_limit"
+            break
+        else
+            # Basic validation - check if it's a positive number and not greater than total current
+            if [[ "$channel_limit_input" =~ ^[0-9]*\.?[0-9]+$ ]] && (( $(echo "$channel_limit_input > 0 && $channel_limit_input <= $TOTAL_CURRENT" | bc -l) )); then
+                CHANNEL_LIMIT="$channel_limit_input"
+                break
+            else
+                log_error "Invalid input. Please enter a positive number not exceeding total current ($TOTAL_CURRENT mA)"
+            fi
+        fi
+    done
+    log_info "Channel limit set to: $CHANNEL_LIMIT mA"
+
     # Set environment variables for TI simulation
     export LEADFIELD_HDF="$selected_hdf5_path"
     export SELECTED_EEG_NET="$selected_net_name"
@@ -464,6 +485,7 @@ for subject_index in "${selected_subjects[@]}"; do
     export TI_LOG_FILE="$log_file"
     export TOTAL_CURRENT="$TOTAL_CURRENT"
     export CURRENT_STEP="$CURRENT_STEP"
+    export CHANNEL_LIMIT="$CHANNEL_LIMIT"
     
     # Check for existing output directories (coordinate-based naming)
     # Note: For CLI, the directory will be created as xyz_X_Y_Z format

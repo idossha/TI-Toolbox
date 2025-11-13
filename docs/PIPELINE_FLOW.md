@@ -187,16 +187,106 @@ Optimize electrode positions to maximize/target stimulation in specific brain re
 
 ---
 
+## 3. Ex-Search Pipeline
+
+### Purpose
+Perform exhaustive search optimization across all electrode combinations and current ratios to guarantee finding the globally optimal TI montage.
+
+### Flow Diagram
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                      ENTRYPOINT                              │
+│  ti-toolbox/cli/ex-search.sh                                 │
+└─────────────────────────────────────────────────────────────┘
+                            ↓
+┌─────────────────────────────────────────────────────────────┐
+│                         INPUT                                │
+│  • Subject ID(s)                                             │
+│  • ROI definition:                                           │
+│    - Spherical: (x,y,z,radius) in MNI or subject space      │
+│  • EEG net selection (auto-detected from pre-processing)    │
+│  • Electrode groups (E1+, E1-, E2+, E2-)                     │
+│  • Current parameters:                                       │
+│    - Total current (mA)                                      │
+│    - Current step size (mA)                                  │
+│    - Channel limit (mA)                                      │
+└─────────────────────────────────────────────────────────────┘
+                            ↓
+┌─────────────────────────────────────────────────────────────┐
+│                   INFORMATION FLOW                           │
+│                                                              │
+│  1. Parse and validate inputs                                │
+│     └─> Interactive electrode and current parameter input   │
+│                                                              │
+│  2. Setup optimization environment                           │
+│     └─> Locate m2m directory and ROI files                   │
+│     └─> Load/select EEG net and leadfield                    │
+│                                                              │
+│  3. Call main optimization script                            │
+│     └─> ti-toolbox/opt/ex/ti_sim.py                          │
+└─────────────────────────────────────────────────────────────┘
+                            ↓
+┌─────────────────────────────────────────────────────────────┐
+│                      COMPUTATION                             │
+│  (ti_sim.py + SimNIBS TI_utils)                              │
+│                                                              │
+│  1. Generate current ratios                                  │
+│     └─> Systematic ratios respecting channel limits          │
+│                                                              │
+│  2. Load leadfield and mesh                                  │
+│     └─> Find ROI and grey matter elements                    │
+│                                                              │
+│  3. Exhaustive combination loop                              │
+│     └─> For each electrode combination (N⁴):                │
+│         ├─> For each current ratio:                          │
+│         │   ├─> Calculate E-fields for both channels         │
+│         │   ├─> Compute TI_max field                          │
+│         │   ├─> Extract ROI and GM values                     │
+│         │   ├─> Calculate metrics (TImax, TImean, Focality)  │
+│         │   └─> Store results                                 │
+│         └─> Progress tracking with ETA                        │
+│                                                              │
+│  4. Generate analysis outputs                                │
+│     └─> Statistical summaries and histograms                 │
+└─────────────────────────────────────────────────────────────┘
+                            ↓
+┌─────────────────────────────────────────────────────────────┐
+│                        OUTPUT                                │
+│                                                              │
+│  Directory structure:                                        │
+│  derivatives/SimNIBS/sub-{ID}/ex-search/{roi_name}_{net}/    │
+│    ├── analysis_results.json                                  │
+│    │   └─> Complete results for all combinations             │
+│    ├── final_output.csv                                       │
+│    │   └─> Summary CSV with metrics and current ratios       │
+│    ├── montage_distributions.png                              │
+│    │   └─> Histograms: TImax, TImean, Focality distributions │
+│    └── logs/                                                  │
+│        └─> Complete pipeline log                              │
+│                                                              │
+│  Metrics included:                                           │
+│    • TImax_ROI - Maximum TI field in ROI                     │
+│    • TImean_ROI - Mean TI field in ROI                       │
+│    • TImean_GM - Mean TI field in grey matter                │
+│    • Focality - TImean_ROI / TImean_GM                       │
+│    • Current ratios for each channel                         │
+└─────────────────────────────────────────────────────────────┘
+```
+
+---
+
 ## Key Differences
 
-| Aspect | Simulator | Flex-Search |
-|--------|-----------|-------------|
-| **Purpose** | Simulate predefined montages | Optimize electrode positions |
-| **Input** | Montage names or coordinates | ROI specification |
-| **Computation** | Direct FEM simulation | Iterative optimization + FEM |
-| **Duration** | Minutes per montage | Minutes to hours (depends on iterations) |
-| **Output** | TI field distributions | Optimal electrode positions + optional simulation |
-| **Use Case** | Test known configurations | Find best configuration for target |
+| Aspect | Simulator | Flex-Search | Ex-Search |
+|--------|-----------|-------------|-----------|
+| **Purpose** | Simulate predefined montages | Optimize electrode positions | Exhaustive montage search |
+| **Input** | Montage names or coordinates | ROI specification | Electrode groups + ROI |
+| **Algorithm** | Direct FEM simulation | Differential evolution | N⁴ × current_ratios combinations |
+| **Optimality** | N/A (predefined) | Local optimum | **Global optimum guarantee** |
+| **Duration** | Minutes per montage | Minutes to hours | Minutes to hours |
+| **Output** | TI field distributions | Optimal positions | All results + best montage |
+| **Use Case** | Test known configurations | Find optimal positions | Find globally optimal montage |
 
 ---
 
