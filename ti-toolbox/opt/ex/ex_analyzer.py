@@ -173,138 +173,17 @@ def main():
         logger.info("="*60)
         sys.exit(0)
     
-    # If no pre-calculated results, check for mesh files (legacy mode)
-    logger.info("="*60)
-    logger.info("Ex-Search Analysis - Legacy Mode")
-    logger.info("="*60)
-    logger.info("No pre-calculated results found, checking for mesh files...")
-    
-    # Read ROI list
-    custom_roi_list = os.getenv('ROI_LIST_FILE')
-    if custom_roi_list and os.path.exists(custom_roi_list):
-        roi_list_path = custom_roi_list
-        # For custom ROI list, use the directory where the list file is located
-        custom_roi_dir = os.path.dirname(roi_list_path)
-        logger.info(f"Using custom ROI list: {roi_list_path}")
-        logger.info(f"Custom ROI directory: {custom_roi_dir}")
-        roi_directory = custom_roi_dir
-    else:
-        roi_list_path = os.path.join(roi_directory, 'roi_list.txt')
-        logger.info(f"Using default ROI list: {roi_list_path}")
-    
-    try:
-        with open(roi_list_path, 'r') as file:
-            position_files = [os.path.join(roi_directory, line.strip()) for line in file]
-    except FileNotFoundError:
-        logger.error(f"ROI list file not found at {roi_list_path}")
-        sys.exit(1)
-    
-    # Verify ROI files exist
-    missing_files = [f for f in position_files if not os.path.exists(f)]
-    if missing_files:
-        logger.error("The following ROI files are missing:")
-        for f in missing_files:
-            logger.error(f"  - {f}")
-        sys.exit(1)
-    
-    # Run analysis (opt_directory already determined above)
-    logger.info("="*60)
-    logger.info("Ex-Search Field Analysis")
-    logger.info("="*60)
-    
-    mesh_data, analysis_dir = analyze_ex_search(opt_directory, roi_directory, position_files, m2m_dir, logger)
-    
-    # Save JSON results
-    json_output_path = os.path.join(analysis_dir, 'analysis_results.json')
-    with open(json_output_path, 'w') as json_file:
-        json.dump(mesh_data, json_file, indent=4)
-    logger.info(f"Results saved to: {json_output_path}")
-    
-    # Create CSV output
-    header = ['Montage', 'TImax_ROI', 'TImean_ROI']
-    csv_data = [header]
-    
-    # Lists for histogram data
-    timax_values = []
-    timean_values = []
-    
-    for mesh_name, data in mesh_data.items():
-        # Format montage name
-        formatted_name = re.sub(r"TI_field_(.*?)\.msh", r"\1", mesh_name).replace("_and_", " <> ")
-        
-        # Get ROI results
-        ti_max_roi = None
-        ti_mean_roi = None
-        
-        for key, value in data.items():
-            if 'TImax_ROI' in key:
-                ti_max_roi = value
-            elif 'TImean_ROI' in key:
-                ti_mean_roi = value
-        
-        # Format values
-        ti_max_str = f"{float(ti_max_roi):.4f}" if ti_max_roi is not None else ''
-        ti_mean_str = f"{float(ti_mean_roi):.4f}" if ti_mean_roi is not None else ''
-        
-        csv_data.append([formatted_name, ti_max_str, ti_mean_str])
-        
-        # Collect for histogram
-        if ti_max_roi is not None:
-            timax_values.append(ti_max_roi)
-        if ti_mean_roi is not None:
-            timean_values.append(ti_mean_roi)
-    
-    # Write CSV
-    csv_output_path = os.path.join(analysis_dir, 'final_output.csv')
-    with open(csv_output_path, 'w', newline='') as file:
-        writer = csv.writer(file)
-        writer.writerows(csv_data)
-    
-    logger.info(f"CSV output created: {csv_output_path}")
-    
-    # Generate histogram visualizations
-    if timax_values or timean_values:
-        logger.info("Generating histogram visualizations...")
-        try:
-            import matplotlib
-            matplotlib.use('Agg')
-            import matplotlib.pyplot as plt
-            
-            # Create figure with 2 subplots
-            fig, axes = plt.subplots(1, 2, figsize=(12, 4))
-            
-            # TImax histogram
-            if timax_values:
-                axes[0].hist(timax_values, bins=20, color='#2196F3', edgecolor='black', alpha=0.7)
-                axes[0].set_xlabel('TImax (V/m)', fontsize=12)
-                axes[0].set_ylabel('Frequency', fontsize=12)
-                axes[0].set_title('TImax Distribution', fontsize=14, fontweight='bold')
-                axes[0].grid(axis='y', alpha=0.3)
-            
-            # TImean histogram
-            if timean_values:
-                axes[1].hist(timean_values, bins=20, color='#4CAF50', edgecolor='black', alpha=0.7)
-                axes[1].set_xlabel('TImean (V/m)', fontsize=12)
-                axes[1].set_ylabel('Frequency', fontsize=12)
-                axes[1].set_title('TImean Distribution', fontsize=14, fontweight='bold')
-                axes[1].grid(axis='y', alpha=0.3)
-            
-            plt.tight_layout()
-            
-            # Save histogram
-            histogram_path = os.path.join(analysis_dir, 'montage_distributions.png')
-            plt.savefig(histogram_path, dpi=300, bbox_inches='tight')
-            plt.close()
-            
-            logger.info(f"Histogram visualization saved: {histogram_path}")
-            
-        except Exception as e:
-            logger.warning(f"Could not generate histogram: {e}")
-    
-    logger.info("="*60)
-    logger.info(f"Analysis completed for {len(mesh_data)} montages")
-    logger.info("ROI extraction: All mesh elements within 3mm sphere (volume-weighted averaging)")
-    logger.info("="*60)
+    # If no pre-calculated results, exit with error
+    logger.warning("="*60)
+    logger.warning("No Pre-Calculated Results Found")
+    logger.warning("="*60)
+    logger.warning("Ex-search should be run with fast mode enabled (default).")
+    logger.warning("Fast mode calculates results during TI simulation.")
+    logger.warning(f"Expected results file: {results_file}")
+    logger.warning("="*60)
+    logger.error("No results found - analysis cannot proceed without pre-calculated data.")
+    logger.error("Legacy mode has been disabled. TI simulation must use fast mode.")
+    sys.exit(1)
 
 
 if __name__ == "__main__":
