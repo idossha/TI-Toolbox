@@ -1,306 +1,145 @@
 # TI-Toolbox Benchmarking Suite
 
-Measure performance of TI-Toolbox preprocessing and optimization steps with comprehensive hardware profiling.
+Comprehensive performance benchmarking for all TI-Toolbox pipeline components.
+
+## Overview
+
+The benchmarking suite provides automated performance testing for:
+- **CHARM** - Head mesh (m2m) creation
+- **RECON** - FreeSurfer cortical reconstruction
+- **DICOM** - DICOM to NIfTI conversion  
+- **Leadfield** - Leadfield matrix generation
+- **Flex-Search** - TI optimization with differential evolution
+- **Ex-Search** - Exhaustive TI electrode search
 
 ## Quick Start
 
 ```bash
-# 1. Install dependencies
-pip install psutil pyyaml
-
-# 2. Generate config file
-python -m ti_toolbox.benchmark.config --generate
-
-# 3. Edit paths in benchmark_config.yaml
-nano benchmark_config.yaml
-
-# 4. Run benchmarks
-python -m ti_toolbox.benchmark charm
-python -m ti_toolbox.benchmark flex
+# Run all benchmarks with config file
+python -m benchmark.charm --config benchmark_config.yaml
+python -m benchmark.recon --config benchmark_config.yaml
+python -m benchmark.dicom --config benchmark_config.yaml
+python -m benchmark.leadfield --config benchmark_config.yaml
+python -m benchmark.flex --config benchmark_config.yaml
+python -m benchmark.ex_search --config benchmark_config.yaml
 ```
-
-## Available Benchmarks
-
-- **charm** - SimNIBS m2m creation
-- **recon** - FreeSurfer cortical reconstruction  
-- **dicom** - DICOM to NIfTI conversion
-- **flex** - TI optimization with multi-start runs
-
-Each measures: execution time, peak memory, CPU usage, and hardware info.
 
 ## Configuration
 
-### Using Config File (Recommended)
+All benchmarks use `benchmark_config.yaml` for centralized configuration.
 
-Create `benchmark_config.yaml`:
+### Key Configuration Options
 
 ```yaml
-output_dir: ./benchmark_results
-debug_mode: true
-
-charm:
-  ernie_data: /path/to/resources/example_data/ernie
-  charm_script: /path/to/ti-toolbox/pre/charm.sh
-
-flex:
-  ernie_data: /path/to/resources/example_data/ernie
-  multistart: [1, 3, 5]
-  iterations: 500
-  cpus: 1
+# Global settings
+output_dir: /development/benchmark_results    # Where to save results and logs
+keep_project: true                            # Keep temporary directories after completion
+debug_mode: true                              # Enable verbose logging
 ```
 
-Config file locations (searched in order):
-1. `./benchmark_config.yaml`
-2. `~/.ti-toolbox/benchmark_config.yaml`
-3. `<toolbox-root>/benchmark_config.yaml`
+### Per-Benchmark Configuration
 
-### Using Command-Line
+Each benchmark has its own section in the config file:
 
-```bash
-# Specify config location
-python -m ti_toolbox.benchmark charm --config my_config.yaml
+- **charm**: T1/T2 images, subject ID, charm script path
+- **recon**: T1/T2 images, subject ID, recon-all script path, parallel option
+- **dicom**: DICOM source directory, conversion script path
+- **leadfield**: m2m directory, electrode CSV file, tissue types
+- **flex**: m2m directory, optimization parameters, ROI settings
+- **ex_search**: m2m directory, leadfield path, electrode counts, current parameters
 
-# Override config values
-python -m ti_toolbox.benchmark flex --iterations 1000 --cpus 4
+See `benchmark_config.yaml` for all available options.
 
-# No config file needed
-python -m ti_toolbox.benchmark charm \
-  --ernie-data /path/to/ernie \
-  --charm-script /path/to/charm.sh \
-  --output-dir ./results
-```
+## Benchmark Outputs
 
-## Usage Examples
+### JSON Results
 
-### Charm Benchmark
+Each benchmark saves detailed JSON files with:
 
-```bash
-# Basic
-python -m ti_toolbox.benchmark charm
-
-# Clean existing m2m first
-python -m ti_toolbox.benchmark charm --clean
-
-# Keep project files
-python -m ti_toolbox.benchmark charm --keep-project
-```
-
-### Flex Benchmark
-
-```bash
-# Basic (requires charm to be run first)
-python -m ti_toolbox.benchmark flex
-
-# Custom multi-start values
-python -m ti_toolbox.benchmark flex --multistart 1,5,10
-
-# Custom parameters
-python -m ti_toolbox.benchmark flex \
-  --iterations 1000 \
-  --popsize 20 \
-  --cpus 8
-```
-
-### Recon Benchmark
-
-```bash
-# Basic
-python -m ti_toolbox.benchmark recon
-
-# With parallel processing
-python -m ti_toolbox.benchmark recon --parallel
-```
-
-### DICOM Benchmark
-
-```bash
-python -m ti_toolbox.benchmark dicom \
-  --dicom-source /path/to/dicom/files
-```
-
-## Configuration Parameters
-
-### Global Settings
-
-| Parameter | Default | Description |
-|-----------|---------|-------------|
-| `output_dir` | `./benchmark_results` | Results directory |
-| `keep_project` | `false` | Keep test project |
-| `debug_mode` | `true` | Verbose output |
-
-### Charm Parameters
-
-| Parameter | Default | Description |
-|-----------|---------|-------------|
-| `ernie_data` | Auto-detect | Path to Ernie data |
-| `charm_script` | Auto-detect | Path to charm.sh |
-| `clean` | `false` | Clean existing m2m |
-
-### Flex Parameters
-
-| Parameter | Default | Description |
-|-----------|---------|-------------|
-| `ernie_data` | Auto-detect | Path to Ernie data |
-| `multistart` | `[1, 3, 5]` | Multi-start values |
-| `iterations` | `500` | Max iterations |
-| `popsize` | `13` | Population size |
-| `cpus` | `1` | Number of CPUs |
-| `opt_goal` | `mean` | Optimization goal |
-| `roi_center` | `[0, 0, 0]` | ROI center (mm) |
-| `roi_radius` | `10.0` | ROI radius (mm) |
-
-See `benchmark_config_example.yaml` for all parameters.
-
-## Output
-
-Results are saved as JSON files:
-
-```
-benchmark_results/
-├── logs/
-│   ├── charm_ernie_20241112_154427.log
-│   └── flex_ernie_20241112_164820.log
-├── charm_benchmark_ernie_latest.json
-└── flex_benchmark_ernie_summary_20241112_164820.json
-```
-
-Result format:
 ```json
 {
-  "process_name": "charm_m2m_creation",
-  "duration_seconds": 1575.3,
-  "duration_formatted": "26m 15s",
-  "peak_memory_mb": 2048.5,
-  "avg_cpu_percent": 85.3,
-  "hardware_info": {...},
+  "process_name": "flex_search_multistart_1",
+  "duration_seconds": 1279.15,
+  "duration_formatted": "21m 19s",
+  "peak_memory_mb": 28.09,
+  "avg_cpu_percent": 0.11,
+  "hardware_info": { ... },
+  "metadata": { ... },
   "success": true
 }
 ```
 
-## Common Options
+### Log Files
 
-All benchmarks support:
-- `--config PATH` - Config file location
-- `--output-dir PATH` - Override output directory
-- `--keep-project` - Keep test files
-- `--no-debug` - Less verbose output
-- `--help` - Show help
+Detailed execution logs saved to: `{output_dir}/logs/{benchmark}_{subject}_{timestamp}.log`
 
-## Utilities
+### Results Files
+
+- Timestamped: `{benchmark}_benchmark_{subject}_{timestamp}.json`
+- Latest: `{benchmark}_benchmark_{subject}_latest.json`
+
+## Ex-Search Specific
+
+Ex-search produces additional outputs in the m2m directory:
+
+```
+/mnt/BIDS_new/derivatives/SimNIBS/sub-{id}/ex-search/xyz_{X}_{Y}_{Z}_{net_name}/
+├── analysis_results.json       # All montage results
+├── final_output.csv           # Spreadsheet format
+└── montage_distributions.png  # Visualization
+```
+
+The benchmark JSON includes the path in `metadata.results_directory`.
+
+## Hardware Information
+
+All benchmarks capture:
+- CPU model, cores, frequency
+- Memory (total, available)
+- GPU information (if available)
+- Platform details
+- Python version
+
+## Command-Line Overrides
+
+All config file values can be overridden via command-line:
 
 ```bash
-# Generate example config
-python -m ti_toolbox.benchmark.config --generate
-
-# Show current configuration
-python -m ti_toolbox.benchmark.config --show
-
-# Generate at specific location
-python -m ti_toolbox.benchmark.config --generate --output my_config.yaml
+python -m benchmark.flex \
+  --m2m-dir /path/to/m2m_101 \
+  --multistart 1,2,3 \
+  --iterations 1000 \
+  --cpus 4
 ```
 
-## Requirements
-
-**Python packages:**
-```bash
-pip install psutil pyyaml
-```
-
-**External tools:**
-- Charm: SimNIBS
-- Recon: FreeSurfer
-- DICOM: dcm2niix
-- Flex: SimNIBS + completed charm m2m
-
-## Programmatic Usage
-
-```python
-from ti_toolbox.benchmark import BenchmarkTimer, get_hardware_info
-
-# Get hardware info
-hw_info = get_hardware_info()
-print(f"CPU: {hw_info.cpu_model}")
-
-# Benchmark a process
-timer = BenchmarkTimer("my_process")
-timer.start()
-# ... your code ...
-result = timer.stop(success=True)
-print(f"Duration: {result.duration_formatted}")
-```
-
-## Troubleshooting
-
-**Config file not found:**
-- Check filename is `benchmark_config.yaml`
-- Use `--config` to specify path
-- Run `python -m ti_toolbox.benchmark.config --show`
-
-**PyYAML not installed:**
-```bash
-pip install pyyaml
-```
-
-**Path issues:**
-- Use absolute paths in config file
-- Verify paths exist: `ls -la /path/to/data`
-
-**Ernie data not found:**
-- Ensure directory contains `T1.nii.gz` and `T2_reg.nii.gz`
-
-## Example Workflows
-
-### Development Testing
-```yaml
-# dev_config.yaml
-output_dir: /tmp/results
-keep_project: true
-debug_mode: true
-
-flex:
-  multistart: [1]
-  iterations: 100
-  cpus: 4
-```
+## Example: Running Ex-Search Benchmark
 
 ```bash
-python -m ti_toolbox.benchmark flex --config dev_config.yaml
+# Using config file
+python -m benchmark.ex_search --config benchmark_config.yaml
+
+# Command-line override
+python -m benchmark.ex_search \
+  --m2m-dir /mnt/BIDS_new/derivatives/SimNIBS/sub-101/m2m_101 \
+  --leadfield /path/to/leadfield.hdf5 \
+  --n-electrodes 4 \
+  --total-current 1.0 \
+  --step-size 0.1
 ```
 
-### Production Benchmarking
-```yaml
-# prod_config.yaml
-output_dir: /results/benchmarks
-keep_project: false
-debug_mode: false
+## Results Analysis
 
-flex:
-  multistart: [1, 3, 5, 10]
-  iterations: 1000
-  cpus: 16
-```
+Benchmark results include:
+- Execution time (formatted and in seconds)
+- Peak memory usage
+- Average CPU usage
+- Success/failure status
+- Detailed metadata about parameters used
+- Output file locations
 
-```bash
-python -m ti_toolbox.benchmark charm --config prod_config.yaml
-python -m ti_toolbox.benchmark flex --config prod_config.yaml
-```
+## Notes
 
-### Custom Data
-```bash
-# Override specific paths
-python -m ti_toolbox.benchmark charm \
-  --ernie-data /data/my_subject \
-  --output-dir ./my_results
-```
-
-## Tips
-
-1. **Start with charm** - Flex requires charm m2m files
-2. **Use debug mode** - Helpful for troubleshooting
-3. **Test with fewer iterations** - Use `--iterations 100` for quick tests
-4. **Multiple configs** - Create different configs for different scenarios
-5. **Clean runs** - Use `--clean` for fresh benchmarks
-
-## License
-
-Part of TI-Toolbox. See main repository for license information.
+- All paths in config should be absolute for container compatibility
+- Benchmarks automatically detect container environment (/mnt paths)
+- Debug mode logs all subprocess output for troubleshooting
+- Results are always saved even if benchmark fails

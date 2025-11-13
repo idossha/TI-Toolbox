@@ -87,6 +87,7 @@ class BenchmarkTimer:
         self.peak_memory = 0.0
         self.cpu_samples = []
         self.monitoring = False
+        self.current_process = psutil.Process()  # Cache current process
         
     def start(self):
         """Start the benchmark timer."""
@@ -97,15 +98,36 @@ class BenchmarkTimer:
         print(f"[BENCHMARK] Start time: {datetime.fromtimestamp(self.start_time).strftime('%Y-%m-%d %H:%M:%S')}")
         
     def sample(self):
-        """Take a sample of current resource usage."""
+        """Take a sample of current resource usage including child processes."""
         if not self.monitoring:
             return
             
         try:
-            process = psutil.Process()
-            current_memory = process.memory_info().rss / (1024 * 1024)  # MB
-            self.peak_memory = max(self.peak_memory, current_memory)
-            self.cpu_samples.append(process.cpu_percent(interval=0.1))
+            # Sample parent process
+            parent_memory = self.current_process.memory_info().rss / (1024 * 1024)  # MB
+            parent_cpu = self.current_process.cpu_percent(interval=0.01)
+            
+            # Sample all child processes (subprocesses like simnibs_python)
+            child_memory = 0.0
+            child_cpu = 0.0
+            try:
+                children = self.current_process.children(recursive=True)
+                for child in children:
+                    try:
+                        child_memory += child.memory_info().rss / (1024 * 1024)
+                        child_cpu += child.cpu_percent(interval=0.01)
+                    except (psutil.NoSuchProcess, psutil.AccessDenied):
+                        continue
+            except (psutil.NoSuchProcess, psutil.AccessDenied):
+                pass
+            
+            # Total resource usage (parent + children)
+            total_memory = parent_memory + child_memory
+            total_cpu = parent_cpu + child_cpu
+            
+            self.peak_memory = max(self.peak_memory, total_memory)
+            self.cpu_samples.append(total_cpu)
+            
         except (psutil.NoSuchProcess, psutil.AccessDenied):
             pass
     
@@ -239,8 +261,8 @@ def _get_cpu_model() -> str:
             lines = result.stdout.strip().split("\n")
             if len(lines) > 1:
                 return lines[1].strip()
-    except Exception as e:
-        return f"Unknown CPU (error: {str(e)})"
+    except Exception:
+        pass
     
     return "Unknown CPU"
 
