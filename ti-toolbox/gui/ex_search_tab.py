@@ -866,7 +866,53 @@ class ExSearchTab(QtWidgets.QWidget):
         
         # Add electrode container to right layout
         right_layout.addWidget(electrode_container)
-        
+
+        # Current configuration
+        current_container = QtWidgets.QGroupBox("Current Configuration")
+        current_container.setFixedHeight(120)
+        current_layout = QtWidgets.QVBoxLayout(current_container)
+        current_layout.setContentsMargins(10, 10, 10, 10)
+        current_layout.setSpacing(8)
+
+        # Total current input
+        total_current_layout = QtWidgets.QHBoxLayout()
+        total_current_label = QtWidgets.QLabel("Total Current (mA):")
+        total_current_label.setFixedWidth(120)
+        self.total_current_spinbox = QtWidgets.QDoubleSpinBox()
+        self.total_current_spinbox.setRange(0.1, 10.0)
+        self.total_current_spinbox.setValue(1.0)  # Default 1mA
+        self.total_current_spinbox.setSingleStep(0.1)
+        self.total_current_spinbox.setDecimals(1)
+        self.total_current_spinbox.setToolTip("Total current to distribute between channels")
+        total_current_layout.addWidget(total_current_label)
+        total_current_layout.addWidget(self.total_current_spinbox)
+        total_current_layout.addStretch()
+        current_layout.addLayout(total_current_layout)
+
+        # Current step size input
+        current_step_layout = QtWidgets.QHBoxLayout()
+        current_step_label = QtWidgets.QLabel("Current Step (mA):")
+        current_step_label.setFixedWidth(120)
+        self.current_step_spinbox = QtWidgets.QDoubleSpinBox()
+        self.current_step_spinbox.setRange(0.01, 2.0)
+        self.current_step_spinbox.setValue(0.1)  # Default 0.1mA
+        self.current_step_spinbox.setSingleStep(0.01)
+        self.current_step_spinbox.setDecimals(2)
+        self.current_step_spinbox.setToolTip("Step size for current ratio iterations")
+        current_step_layout.addWidget(current_step_label)
+        current_step_layout.addWidget(self.current_step_spinbox)
+        current_step_layout.addStretch()
+        current_layout.addLayout(current_step_layout)
+
+        # Help text for current configuration
+        current_help_label = QtWidgets.QLabel("The optimizer will test different current ratios for each electrode configuration.\nExample: 1.0mA total with 0.1mA step → Ch1:0.1mA/Ch2:0.9mA, 0.2mA/0.8mA, ..., 0.9mA/0.1mA")
+        current_help_label.setWordWrap(True)
+        current_help_label.setStyleSheet("color: #666; font-size: 10px; padding: 5px;")
+        current_layout.addWidget(current_help_label)
+
+        # Add current container to right layout
+        right_layout.addWidget(current_container)
+
         # ROI selection (moved from left to right under electrodes)
         roi_container = QtWidgets.QGroupBox("ROI Selection")
         roi_container.setFixedHeight(190)  # Fixed height for balance (includes radius control)
@@ -1526,6 +1572,8 @@ class ExSearchTab(QtWidgets.QWidget):
         env["SELECTED_ROI_FILE"] = current_roi
         env["ROI_DIR"] = roi_dir
         env["ROI_RADIUS"] = str(self.roi_radius_spinbox.value())  # Get radius from UI
+        env["TOTAL_CURRENT"] = str(self.total_current_spinbox.value())  # Total current from UI
+        env["CURRENT_STEP"] = str(self.current_step_spinbox.value())    # Current step from UI
         
         # Create shared log file for the entire ex-search pipeline (only on first ROI)
         if self.current_roi_index == 0:
@@ -1585,7 +1633,8 @@ class ExSearchTab(QtWidgets.QWidget):
             " ".join(self.e1_minus),
             " ".join(self.e2_plus),
             " ".join(self.e2_minus),
-            ""   # Use default 1mA (empty input will use default)
+            str(self.total_current_spinbox.value()),  # Total current
+            str(self.current_step_spinbox.value())    # Current step
         ]
         
         # Command to run ti_sim.py

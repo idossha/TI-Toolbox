@@ -52,10 +52,18 @@ def get_electrode_list(prompt):
         else:
             logger.error("Invalid input. Please enter valid electrode names, e.g., E001, Fp1, F3, C4")
 
-def process_leadfield(E1_plus, E1_minus, E2_plus, E2_minus, subject_name):
-    """Process leadfield and run TI simulations using fast in-memory approach."""
-    # Hardcoded intensity: 1mA = 0.001A
-    intensity = 0.001  # 1mA in Amperes
+def process_leadfield(E1_plus, E1_minus, E2_plus, E2_minus, subject_name, total_current, current_step):
+    """Process leadfield and run TI simulations using fast in-memory approach.
+    
+    Args:
+        E1_plus: List of positive electrodes for channel 1
+        E1_minus: List of negative electrodes for channel 1
+        E2_plus: List of positive electrodes for channel 2
+        E2_minus: List of negative electrodes for channel 2
+        subject_name: Name of the subject
+        total_current: Total current in mA (e.g., 1.0)
+        current_step: Step size for current ratio iteration in mA (e.g., 0.1)
+    """
     
     # Get environment variables
     selected_net = os.getenv('SELECTED_EEG_NET')
@@ -76,7 +84,8 @@ def process_leadfield(E1_plus, E1_minus, E2_plus, E2_minus, subject_name):
     logger.info(f"Using leadfield: {selected_net}")
     logger.info(f"Leadfield file: {leadfield_hdf}")
     logger.info(f"ROI: {roi_name}")
-    logger.info(f"Intensity: 1.0 mA (0.001 A)")
+    logger.info(f"Total current: {total_current} mA ({total_current/1000} A)")
+    logger.info(f"Current step: {current_step} mA")
     
     # Setup output directory
     pm = get_path_manager()
@@ -131,17 +140,40 @@ def process_leadfield(E1_plus, E1_minus, E2_plus, E2_minus, subject_name):
     gm_indices, gm_volumes = find_grey_matter_indices(mesh, grey_matter_tags=[2])
     logger.info(f"Found {len(gm_indices)} grey matter elements")
     
-    # Calculate total combinations
-    total_combinations = len(E1_plus) * len(E1_minus) * len(E2_plus) * len(E2_minus)
+    # Calculate current ratios based on total_current and current_step
+    # Generate ratios from current_step to (total_current - current_step)
+    # e.g., for total_current=1.0mA and step=0.1mA: [0.1, 0.2, ..., 0.9]
+    # We exclude 0.0 on either channel to ensure both channels are active
+    current_ratios = []
+    current_ch1 = current_step
+    # Use a small epsilon to avoid floating point comparison issues
+    epsilon = current_step * 0.01
+    while current_ch1 < (total_current - epsilon):
+        current_ch2 = total_current - current_ch1
+        # Only add if both channels have meaningful current (> epsilon)
+        if current_ch2 >= current_step - epsilon:
+            current_ratios.append((current_ch1, current_ch2))
+        current_ch1 += current_step
+    
+    logger.info(f"Generated {len(current_ratios)} current ratio combinations")
+    logger.info(f"Current ratios (Ch1, Ch2) in mA: {current_ratios}")
+    
+    # Calculate total combinations (electrode configs * current ratios)
+    electrode_combinations = len(E1_plus) * len(E1_minus) * len(E2_plus) * len(E2_minus)
+    total_combinations = electrode_combinations * len(current_ratios)
+    
     logger.info(f"\n{'='*80}")
     logger.info(f"Starting TI Calculations")
     logger.info(f"{'='*80}")
-    logger.info(f"Total montage combinations: {total_combinations}")
+    logger.info(f"Electrode configurations: {electrode_combinations}")
+    logger.info(f"Current ratios per config: {len(current_ratios)}")
+    logger.info(f"Total combinations: {total_combinations}")
     logger.info(f"E1+ electrodes: {len(E1_plus)}")
     logger.info(f"E1- electrodes: {len(E1_minus)}")
     logger.info(f"E2+ electrodes: {len(E2_plus)}")
     logger.info(f"E2- electrodes: {len(E2_minus)}")
-    logger.info(f"Intensity: {intensity*1000} mA")
+    logger.info(f"Total current: {total_current} mA")
+    logger.info(f"Current step: {current_step} mA")
     logger.info(f"{'='*80}\n")
     
     # Setup signal handler for graceful termination
@@ -162,6 +194,7 @@ def process_leadfield(E1_plus, E1_minus, E2_plus, E2_minus, subject_name):
     all_results = {}
     
     # Process combinations using generator to save memory
+    # Outer loop: electrode configurations
     for e1_plus in E1_plus:
         if stop_flag["value"]:
             break
@@ -176,70 +209,83 @@ def process_leadfield(E1_plus, E1_minus, E2_plus, E2_minus, subject_name):
                         logger.warning("Stopping calculation due to interrupt signal")
                         break
                     
-                    processed += 1
-                    
-                    # Create montage name
-                    montage_name = f"{e1_plus}_{e1_minus}_and_{e2_plus}_{e2_minus}"
-                    mesh_key = f"TI_field_{montage_name}.msh"
-                    
-                    # Progress logging
-                    elapsed = time.time() - start_time
-                    rate = processed / elapsed if elapsed > 0 else 0
-                    remaining = (total_combinations - processed) / rate if rate > 0 else 0
-                    
-                    logger.info(f"[{processed}/{total_combinations}] Processing: {montage_name}")
-                    logger.info(f"  Progress: {100*processed/total_combinations:.1f}% | "
-                              f"Rate: {rate:.2f} montages/sec | "
-                              f"ETA: {remaining/60:.1f} min")
-                    
-                    try:
-                        # Run TI calculation using SimNIBS API (in-memory)
-                        sim_start = time.time()
+                    # Inner loop: current ratios for this electrode configuration
+                    for current_ch1_mA, current_ch2_mA in current_ratios:
+                        if stop_flag["value"]:
+                            logger.warning("Stopping calculation due to interrupt signal")
+                            break
                         
-                        # Create TI pairs
-                        TIpair1 = [e1_plus, e1_minus, intensity]
-                        TIpair2 = [e2_plus, e2_minus, intensity]
+                        processed += 1
                         
-                        # Calculate fields for entire mesh
-                        ef1 = TI.get_field(TIpair1, leadfield, idx_lf)
-                        ef2 = TI.get_field(TIpair2, leadfield, idx_lf)
+                        # Convert mA to Amperes
+                        intensity_ch1 = current_ch1_mA / 1000.0
+                        intensity_ch2 = current_ch2_mA / 1000.0
                         
-                        # Calculate TI_max for entire mesh
-                        TImax_full = TI.get_maxTI(ef1, ef2)
+                        # Create montage name with current ratio information
+                        montage_name = f"{e1_plus}_{e1_minus}_and_{e2_plus}_{e2_minus}_I1-{current_ch1_mA:.1f}mA_I2-{current_ch2_mA:.1f}mA"
+                        mesh_key = f"TI_field_{montage_name}.msh"
                         
-                        # Extract ROI values directly (no mesh file needed!)
-                        ti_field_roi = TImax_full[roi_indices]
+                        # Progress logging
+                        elapsed = time.time() - start_time
+                        rate = processed / elapsed if elapsed > 0 else 0
+                        remaining = (total_combinations - processed) / rate if rate > 0 else 0
                         
-                        # Extract grey matter values for focality
-                        ti_field_gm = TImax_full[gm_indices]
+                        logger.info(f"[{processed}/{total_combinations}] Processing: {montage_name}")
+                        logger.info(f"  Progress: {100*processed/total_combinations:.1f}% | "
+                                  f"Rate: {rate:.2f} montages/sec | "
+                                  f"ETA: {remaining/60:.1f} min")
                         
-                        # Calculate ROI metrics including focality
-                        roi_metrics = calculate_roi_metrics(
-                            ti_field_roi, roi_volumes,
-                            ti_field_gm=ti_field_gm, gm_volumes=gm_volumes
-                        )
-                        
-                        sim_time = time.time() - sim_start
-                        
-                        # Store results
-                        all_results[mesh_key] = {
-                            f'{roi_name}_TImax_ROI': roi_metrics['TImax_ROI'],
-                            f'{roi_name}_TImean_ROI': roi_metrics['TImean_ROI'],
-                            f'{roi_name}_TImean_GM': roi_metrics.get('TImean_GM', 0.0),
-                            f'{roi_name}_Focality': roi_metrics.get('Focality', 0.0),
-                            f'{roi_name}_n_elements': roi_metrics['n_elements']
-                        }
-                        
-                        logger.info(f"  Completed in {sim_time:.2f}s | "
-                                  f"TImax={roi_metrics['TImax_ROI']:.4f} V/m, "
-                                  f"TImean={roi_metrics['TImean_ROI']:.4f} V/m, "
-                                  f"Focality={roi_metrics.get('Focality', 0.0):.4f}")
+                        try:
+                            # Run TI calculation using SimNIBS API (in-memory)
+                            sim_start = time.time()
                             
-                    except Exception as e:
-                        logger.error(f"  Error processing {montage_name}: {e}")
-                        import traceback
-                        logger.error(traceback.format_exc())
-                        continue
+                            # Create TI pairs with different intensities
+                            TIpair1 = [e1_plus, e1_minus, intensity_ch1]
+                            TIpair2 = [e2_plus, e2_minus, intensity_ch2]
+                            
+                            # Calculate fields for entire mesh
+                            ef1 = TI.get_field(TIpair1, leadfield, idx_lf)
+                            ef2 = TI.get_field(TIpair2, leadfield, idx_lf)
+                            
+                            # Calculate TI_max for entire mesh
+                            TImax_full = TI.get_maxTI(ef1, ef2)
+                            
+                            # Extract ROI values directly (no mesh file needed!)
+                            ti_field_roi = TImax_full[roi_indices]
+                            
+                            # Extract grey matter values for focality
+                            ti_field_gm = TImax_full[gm_indices]
+                            
+                            # Calculate ROI metrics including focality
+                            roi_metrics = calculate_roi_metrics(
+                                ti_field_roi, roi_volumes,
+                                ti_field_gm=ti_field_gm, gm_volumes=gm_volumes
+                            )
+                            
+                            sim_time = time.time() - sim_start
+                            
+                            # Store results with current information
+                            all_results[mesh_key] = {
+                                f'{roi_name}_TImax_ROI': roi_metrics['TImax_ROI'],
+                                f'{roi_name}_TImean_ROI': roi_metrics['TImean_ROI'],
+                                f'{roi_name}_TImean_GM': roi_metrics.get('TImean_GM', 0.0),
+                                f'{roi_name}_Focality': roi_metrics.get('Focality', 0.0),
+                                f'{roi_name}_n_elements': roi_metrics['n_elements'],
+                                'current_ch1_mA': current_ch1_mA,
+                                'current_ch2_mA': current_ch2_mA
+                            }
+                            
+                            logger.info(f"  Completed in {sim_time:.2f}s | "
+                                      f"I1={current_ch1_mA:.1f}mA, I2={current_ch2_mA:.1f}mA | "
+                                      f"TImax={roi_metrics['TImax_ROI']:.4f} V/m, "
+                                      f"TImean={roi_metrics['TImean_ROI']:.4f} V/m, "
+                                      f"Focality={roi_metrics.get('Focality', 0.0):.4f}")
+                                
+                        except Exception as e:
+                            logger.error(f"  Error processing {montage_name}: {e}")
+                            import traceback
+                            logger.error(traceback.format_exc())
+                            continue
     
     # Save results directly to output directory (not in analysis/ subdirectory)
     os.makedirs(output_dir, exist_ok=True)
@@ -250,8 +296,8 @@ def process_leadfield(E1_plus, E1_minus, E2_plus, E2_minus, subject_name):
         json.dump(all_results, json_file, indent=4)
     logger.info(f"\nResults saved to: {json_output_path}")
     
-    # Create CSV output with focality
-    header = ['Montage', 'TImax_ROI', 'TImean_ROI', 'TImean_GM', 'Focality', 'n_elements']
+    # Create CSV output with focality and current ratios
+    header = ['Montage', 'Current_Ch1_mA', 'Current_Ch2_mA', 'TImax_ROI', 'TImean_ROI', 'TImean_GM', 'Focality', 'n_elements']
     csv_data = [header]
     
     # Lists for histogram data
@@ -269,14 +315,18 @@ def process_leadfield(E1_plus, E1_minus, E2_plus, E2_minus, subject_name):
         ti_mean_gm = data.get(f'{roi_name}_TImean_GM', None)
         focality = data.get(f'{roi_name}_Focality', None)
         n_elements = data.get(f'{roi_name}_n_elements', 0)
+        current_ch1 = data.get('current_ch1_mA', 0.0)
+        current_ch2 = data.get('current_ch2_mA', 0.0)
         
         # Format values
         ti_max_str = f"{float(ti_max_roi):.4f}" if ti_max_roi is not None else ''
         ti_mean_str = f"{float(ti_mean_roi):.4f}" if ti_mean_roi is not None else ''
         ti_mean_gm_str = f"{float(ti_mean_gm):.4f}" if ti_mean_gm is not None else ''
         focality_str = f"{float(focality):.4f}" if focality is not None else ''
+        current_ch1_str = f"{float(current_ch1):.1f}"
+        current_ch2_str = f"{float(current_ch2):.1f}"
         
-        csv_data.append([formatted_name, ti_max_str, ti_mean_str, ti_mean_gm_str, focality_str, n_elements])
+        csv_data.append([formatted_name, current_ch1_str, current_ch2_str, ti_max_str, ti_mean_str, ti_mean_gm_str, focality_str, n_elements])
         
         # Collect for histogram
         if ti_max_roi is not None:
@@ -386,15 +436,93 @@ def main():
     logger.info(f"Subject: {subject_name}")
     logger.info("")
     
-    # Get electrode lists from stdin
+    # Get electrode lists and current parameters from stdin
     print(f"\n{BOLD_CYAN}=== TI Electrode Configuration ==={RESET}")
-    print(f"{CYAN}Please enter electrode lists for each channel{RESET}")
-    print(f"{CYAN}Intensity: 1.0 mA (fixed){RESET}\n")
-    
+    print(f"{CYAN}Please enter electrode lists for each channel{RESET}\n")
+
     E1_plus = get_electrode_list("E1+ electrodes (space or comma separated): ")
     E1_minus = get_electrode_list("E1- electrodes (space or comma separated): ")
     E2_plus = get_electrode_list("E2+ electrodes (space or comma separated): ")
     E2_minus = get_electrode_list("E2- electrodes (space or comma separated): ")
+
+    # Get current parameters (from stdin input lines, environment variables, or interactive input)
+    print(f"\n{BOLD_CYAN}=== Current Configuration ==={RESET}")
+    print(f"{CYAN}The optimizer will test different current ratios for each electrode configuration{RESET}")
+    print(f"{CYAN}Example: For total_current=1.0mA and step=0.1mA:{RESET}")
+    print(f"{CYAN}  - Ch1: 0.1mA, Ch2: 0.9mA{RESET}")
+    print(f"{CYAN}  - Ch1: 0.2mA, Ch2: 0.8mA{RESET}")
+    print(f"{CYAN}  - ... up to Ch1: 0.9mA, Ch2: 0.1mA{RESET}\n")
+
+    # First try to get from stdin (GUI mode - passed as input lines)
+    try:
+        # Check if we have stdin input available (non-blocking)
+        import select
+        import sys
+        if select.select([sys.stdin], [], [], 0.0)[0]:
+            # Read the next input line which should be total_current
+            total_current_input = input().strip()
+            if total_current_input:
+                total_current = float(total_current_input)
+                logger.info(f"Total current set from stdin: {total_current} mA")
+                # Read the next input line which should be current_step
+                current_step_input = input().strip()
+                if current_step_input:
+                    current_step = float(current_step_input)
+                    logger.info(f"Current step set from stdin: {current_step} mA")
+                else:
+                    current_step = 0.1
+                    logger.warning("Current step not provided in stdin, using default: 0.1 mA")
+            else:
+                total_current = 1.0
+                current_step = 0.1
+                logger.warning("Total current not provided in stdin, using defaults: 1.0 mA total, 0.1 mA step")
+        else:
+            # No stdin input available, try environment variables
+            total_current_env = os.getenv('TOTAL_CURRENT')
+            current_step_env = os.getenv('CURRENT_STEP')
+
+            if total_current_env:
+                try:
+                    total_current = float(total_current_env)
+                    if total_current <= 0:
+                        raise ValueError("Total current must be positive")
+                    logger.info(f"Total current set from environment: {total_current} mA")
+                except ValueError:
+                    logger.error(f"Invalid TOTAL_CURRENT environment variable: {total_current_env}")
+                    total_current = 1.0
+            else:
+                total_current = 1.0
+
+            if current_step_env:
+                try:
+                    current_step = float(current_step_env)
+                    if current_step <= 0 or current_step >= total_current:
+                        raise ValueError("Current step must be positive and less than total current")
+                    logger.info(f"Current step set from environment: {current_step} mA")
+                except ValueError:
+                    logger.error(f"Invalid CURRENT_STEP environment variable: {current_step_env}")
+                    current_step = 0.1
+            else:
+                current_step = 0.1
+
+            # Interactive fallback if no env vars
+            if not total_current_env and not current_step_env:
+                logger.info("No current parameters provided, using defaults: 1.0 mA total, 0.1 mA step")
+                total_current = 1.0
+                current_step = 0.1
+
+    except Exception as e:
+        logger.warning(f"Error reading current parameters: {e}, using defaults")
+        total_current = 1.0
+        current_step = 0.1
+
+    # Validate the final values
+    if total_current <= 0:
+        total_current = 1.0
+        logger.warning("Invalid total current, using default: 1.0 mA")
+    if current_step <= 0 or current_step >= total_current:
+        current_step = 0.1
+        logger.warning("Invalid current step, using default: 0.1 mA")
     
     # Process leadfield and run simulations
     process_leadfield(
@@ -402,7 +530,9 @@ def main():
         E1_minus,
         E2_plus,
         E2_minus,
-        subject_name
+        subject_name,
+        total_current,
+        current_step
     )
 
 if __name__ == "__main__":
