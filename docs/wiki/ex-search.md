@@ -112,21 +112,9 @@ The ex-search implementation features several performance optimizations:
 
 - **Memory-Efficient Design**: In-memory field calculations eliminate intermediate file I/O
 - **Itertools Integration**: Uses `itertools.product()` for efficient combination generation instead of nested loops
-- **Streamlined Codebase**: 33% reduction in code size (596→398 lines) with improved maintainability
-- **Signal Handling**: Graceful interruption with cleanup and progress preservation
-- **Parameter Validation**: Robust input validation with fallback defaults
 
 ### Algorithm Efficiency
 ```
-# Before: Nested loop approach (4 levels deep)
-for e1_plus in E1_plus:
-    for e1_minus in E1_minus:
-        for e2_plus in E2_plus:
-            for e2_minus in E2_minus:
-                for current_ratio in ratios:
-                    # Process combination
-
-# After: itertools.product() approach
 for processed, (e1_plus, e1_minus, e2_plus, e2_minus, current_ratio) in \
         enumerate(product(E1_plus, E1_minus, E2_plus, E2_minus, ratios), 1):
     # Process combination
