@@ -1,0 +1,106 @@
+# TI-Toolbox Benchmark Configuration File
+# 
+# This file allows you to configure all benchmark scripts with your data paths
+# and parameters. Copy this file to one of these locations:
+#   1. Current directory: ./benchmark_config.yaml
+#   2. Home directory: ~/.ti-toolbox/benchmark_config.yaml
+#   3. TI-Toolbox root: /path/to/TI-toolbox/benchmark_config.yaml
+#
+# Command-line arguments will override values specified here.
+
+# ============================================================================
+# Global Settings
+# ============================================================================
+# These settings apply to all benchmarks
+
+# Directory where benchmark results will be saved
+output_dir: ./benchmark_results
+
+# Whether to keep the test project directory after benchmarking
+keep_project: false
+
+# Run in debug mode (more verbose output)
+debug_mode: true
+
+# ============================================================================
+# Charm Benchmark Configuration (SimNIBS m2m creation)
+# ============================================================================
+charm:
+  # Project directory for the benchmark
+  project_dir: /tmp/ti-toolbox-benchmark
+  
+  # Path to Ernie example data directory (must contain T1.nii.gz and T2_reg.nii.gz)
+  ernie_data: /path/to/TI-toolbox/resources/example_data/ernie
+  
+  # Path to the charm.sh script
+  charm_script: /path/to/TI-toolbox/ti-toolbox/pre/charm.sh
+  
+  # Clean existing m2m directory before running
+  clean: false
+
+# ============================================================================
+# Recon-all Benchmark Configuration (FreeSurfer reconstruction)
+# ============================================================================
+recon:
+  # Project directory for the benchmark
+  project_dir: /tmp/ti-toolbox-benchmark-recon
+  
+  # Path to Ernie example data directory
+  ernie_data: /path/to/TI-toolbox/resources/example_data/ernie
+  
+  # Path to the recon-all.sh script
+  recon_script: /path/to/TI-toolbox/ti-toolbox/pre/recon-all.sh
+  
+  # Use parallel processing (if supported)
+  parallel: false
+  
+  # Clean existing FreeSurfer output before running
+  clean: false
+
+# ============================================================================
+# DICOM Benchmark Configuration (DICOM to NIfTI conversion)
+# ============================================================================
+dicom:
+  # Project directory for the benchmark
+  project_dir: /tmp/ti-toolbox-benchmark-dicom
+  
+  # Path to source DICOM files directory (optional)
+  # If not provided, will test with empty directories
+  dicom_source: /path/to/your/dicom/files
+  
+  # Path to the dicom2nifti.sh script
+  dicom_script: /path/to/TI-toolbox/ti-toolbox/pre/dicom2nifti.sh
+
+# ============================================================================
+# Flex-search Benchmark Configuration (TI optimization)
+# ============================================================================
+flex:
+  # Project directory for the benchmark
+  # Note: This requires that charm has already been run to create m2m files
+  project_dir: /tmp/ti-toolbox-benchmark-flex
+  
+  # Path to Ernie example data directory
+  ernie_data: /path/to/TI-toolbox/resources/example_data/ernie
+  
+  # Multi-start values to test (list of integers)
+  multistart: [1, 3, 5]
+  
+  # Optimization parameters
+  iterations: 500
+  popsize: 13
+  cpus: 1
+  
+  # Optimization goal (mean, max, etc.)
+  opt_goal: mean
+  
+  # Post-processing method
+  postproc: max_TI
+  
+  # ROI parameters
+  roi_center: [0, 0, 0]  # x, y, z coordinates in mm
+  roi_radius: 10.0       # radius in mm
+  
+  # Electrode parameters
+  electrode_radius: 4.0   # radius in mm
+  electrode_current: 1.0  # current in mA
+

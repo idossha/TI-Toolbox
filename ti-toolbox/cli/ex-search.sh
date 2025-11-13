@@ -415,12 +415,55 @@ for subject_index in "${selected_subjects[@]}"; do
         exit 1
     fi
 
+    # Get current configuration parameters
+    log_info "Getting current configuration parameters for subject $subject_name"
+
+    # Get total current
+    while true; do
+        echo -ne "${GREEN}Total current (mA) [default: 1.0]: ${RESET}"
+        read -r total_current_input
+        if [ -z "$total_current_input" ]; then
+            TOTAL_CURRENT="1.0"
+            break
+        else
+            # Basic validation - check if it's a positive number
+            if [[ "$total_current_input" =~ ^[0-9]*\.?[0-9]+$ ]] && (( $(echo "$total_current_input > 0" | bc -l) )); then
+                TOTAL_CURRENT="$total_current_input"
+                break
+            else
+                log_error "Invalid input. Please enter a positive number"
+            fi
+        fi
+    done
+    log_info "Total current set to: $TOTAL_CURRENT mA"
+
+    # Get current step size
+    while true; do
+        echo -ne "${GREEN}Current step size (mA) [default: 0.1]: ${RESET}"
+        read -r current_step_input
+        if [ -z "$current_step_input" ]; then
+            CURRENT_STEP="0.1"
+            break
+        else
+            # Basic validation - check if it's a positive number and less than total current
+            if [[ "$current_step_input" =~ ^[0-9]*\.?[0-9]+$ ]] && (( $(echo "$current_step_input > 0 && $current_step_input < $TOTAL_CURRENT" | bc -l) )); then
+                CURRENT_STEP="$current_step_input"
+                break
+            else
+                log_error "Invalid input. Please enter a positive number less than total current ($TOTAL_CURRENT mA)"
+            fi
+        fi
+    done
+    log_info "Current step set to: $CURRENT_STEP mA"
+
     # Set environment variables for TI simulation
     export LEADFIELD_HDF="$selected_hdf5_path"
     export SELECTED_EEG_NET="$selected_net_name"
     export PROJECT_DIR="$project_dir"
     export SUBJECT_NAME="$subject_name"
     export TI_LOG_FILE="$log_file"
+    export TOTAL_CURRENT="$TOTAL_CURRENT"
+    export CURRENT_STEP="$CURRENT_STEP"
     
     # Check for existing output directories (coordinate-based naming)
     # Note: For CLI, the directory will be created as xyz_X_Y_Z format
