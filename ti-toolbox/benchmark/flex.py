@@ -35,24 +35,27 @@ def setup_project(project_dir: Path, m2m_dir: Path, logger):
     subject_id = m2m_name.replace("m2m_", "")
     bids_subject_id = f"sub-{subject_id}"
     
-    # Detect container and set paths
-    if os.path.exists("/mnt"):
-        mnt_project_dir = Path("/mnt") / project_dir.name
-        subject_dir = mnt_project_dir / bids_subject_id
-        simnibs_dir = mnt_project_dir / "derivatives" / "SimNIBS" / bids_subject_id
-    else:
-        subject_dir = project_dir / bids_subject_id
-        simnibs_dir = project_dir / "derivatives" / "SimNIBS" / bids_subject_id
+    # Use project_dir as-is (should already be the container path from config)
+    subject_dir = project_dir / bids_subject_id
+    simnibs_dir = project_dir / "derivatives" / "SimNIBS" / bids_subject_id
     
     simnibs_dir.mkdir(parents=True, exist_ok=True)
-    
+
+    # Verify m2m directory exists before creating symlink
+    if not m2m_dir.exists():
+        raise FileNotFoundError(
+            f"m2m directory not found: {m2m_dir}\n"
+            "This directory should be created by running the CHARM benchmark first.\n"
+            "Make sure the CHARM step has completed successfully before running FLEX."
+        )
+
     # Create symlink to m2m
     project_m2m_dir = simnibs_dir / f"m2m_{subject_id}"
     if not project_m2m_dir.exists():
         project_m2m_dir.symlink_to(m2m_dir)
         logger.info(f"Linked m2m: {m2m_dir} -> {project_m2m_dir}")
-    
-    return subject_dir, subject_id
+
+    return subject_dir, subject_id, project_dir
 
 
 def run_flex_optimization(subject_id, project_dir, n_multistart, logger, **params):
@@ -71,6 +74,8 @@ def run_flex_optimization(subject_id, project_dir, n_multistart, logger, **param
         env = os.environ.copy()
         env.update({
             'PROJECT_DIR': str(project_dir),
+            'SIMNIBS_SUBJECTS_DIR': str(project_dir / 'derivatives' / 'SimNIBS'),
+            'BIDS_ROOT': str(project_dir),
             'DEBUG_MODE': 'true' if params.get('debug_mode', True) else 'false',
             'ROI_X': str(params['roi_center'][0]),
             'ROI_Y': str(params['roi_center'][1]),
@@ -103,7 +108,7 @@ def run_flex_optimization(subject_id, project_dir, n_multistart, logger, **param
         
         process = subprocess.Popen(
             cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-            text=True, bufsize=1, env=env, cwd=str(project_dir.parent)
+            text=True, bufsize=1, env=env, cwd=str(project_dir)
         )
         
         line_count = 0
@@ -175,7 +180,7 @@ def main():
     
     try:
         # Setup project
-        subject_dir, subject_id = setup_project(project_dir, m2m_dir, logger)
+        subject_dir, subject_id, resolved_project_dir = setup_project(project_dir, m2m_dir, logger)
         
         # Optimization parameters
         opt_params = {
@@ -203,7 +208,7 @@ def main():
             logger.separator("=", 70)
             
             result_data = run_flex_optimization(
-                subject_id, project_dir.parent if os.path.exists("/mnt") else project_dir,
+                subject_id, resolved_project_dir,
                 n_multistart, logger, **opt_params
             )
             

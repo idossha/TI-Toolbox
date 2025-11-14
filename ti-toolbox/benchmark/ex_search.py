@@ -32,10 +32,10 @@ def setup_project(project_dir: Path, m2m_dir: Path, leadfield_path: Path, logger
     m2m_name = m2m_dir.name
     if not m2m_name.startswith("m2m_"):
         raise ValueError(f"Invalid m2m directory name: {m2m_name}")
-    
+
     subject_id = m2m_name.replace("m2m_", "")
     bids_subject_id = f"sub-{subject_id}"
-    
+
     # Detect container and set paths
     if os.path.exists("/mnt"):
         mnt_project_dir = Path("/mnt") / project_dir.name
@@ -44,17 +44,34 @@ def setup_project(project_dir: Path, m2m_dir: Path, leadfield_path: Path, logger
     else:
         subject_dir = project_dir / bids_subject_id
         simnibs_dir = project_dir / "derivatives" / "SimNIBS" / bids_subject_id
-    
+
+    # Verify m2m directory exists
+    if not m2m_dir.exists():
+        raise FileNotFoundError(
+            f"m2m directory not found: {m2m_dir}\n"
+            "This directory should be created by running the CHARM benchmark first.\n"
+            "Make sure the CHARM step has completed successfully before running EX_SEARCH."
+        )
+
     # Verify leadfield exists
     if not leadfield_path.exists():
         raise FileNotFoundError(f"Leadfield not found: {leadfield_path}")
-    
+
     # Create output directories
     ex_search_dir = simnibs_dir / "ex_search"
     ex_search_dir.mkdir(parents=True, exist_ok=True)
-    
+
+    # Copy leadfield to expected SimNIBS location
+    leadfield_dir = simnibs_dir / "leadfields"
+    leadfield_dir.mkdir(parents=True, exist_ok=True)
+    expected_leadfield_path = leadfield_dir / leadfield_path.name
+
+    if not expected_leadfield_path.exists():
+        shutil.copy2(leadfield_path, expected_leadfield_path)
+        logger.info(f"Copied leadfield: {leadfield_path} -> {expected_leadfield_path}")
+
     logger.info(f"Using existing leadfield: {leadfield_path}")
-    return subject_dir, subject_id
+    return subject_dir, subject_id, expected_leadfield_path
 
 
 def create_roi_files(m2m_dir: Path, roi_center: tuple, roi_radius: float, logger):
@@ -364,11 +381,11 @@ def main():
     
     try:
         # Setup project
-        subject_dir, subject_id = setup_project(project_dir, m2m_dir, leadfield_path, logger)
-        
+        subject_dir, subject_id, expected_leadfield_path = setup_project(project_dir, m2m_dir, leadfield_path, logger)
+
         # Run benchmark
         result = run_benchmark(
-            subject_dir, project_dir, m2m_dir, leadfield_path, output_dir,
+            subject_dir, project_dir, m2m_dir, expected_leadfield_path, output_dir,
             n_electrodes, total_current, step_size, roi_center, roi_radius, logger
         )
         

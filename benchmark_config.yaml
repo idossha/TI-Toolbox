@@ -87,7 +87,7 @@ leadfield:
   electrode_csv: EEG10-10_UI_Jurak_2007.csv
   tissues: [1, 2]                                    # Tissue types to include (1=GM, 2=WM)
   
-  # Output: /mnt/TIT_benchmarking/sub-101/leadfields/101_leadfield_*.hdf5
+  Output: /mnt/TIT_benchmarking/sub-101/leadfields/101_leadfield_EEG10-10_UI_Jurak_2007.hdf5
 
 # ======================================================================
 # STEP 5: FLEX-SEARCH Benchmark - TI optimization with differential evolution

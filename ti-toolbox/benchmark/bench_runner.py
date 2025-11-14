@@ -16,8 +16,9 @@ import sys
 import argparse
 import time
 import json
+import glob
 from pathlib import Path
-from typing import List, Dict, Any, Tuple
+from typing import List, Dict, Any, Tuple, Optional
 from datetime import datetime
 
 # Add parent directory to path to enable benchmark module imports
@@ -61,12 +62,73 @@ def load_config(config_path: str) -> Dict[str, Any]:
         sys.exit(1)
 
 
-def run_benchmark(benchmark_name: str, continue_on_error: bool = False) -> Tuple[bool, float, str]:
+def parse_benchmark_result(output_dir: Path, benchmark_name: str) -> Tuple[Optional[bool], Optional[str]]:
+    """
+    Parse the latest benchmark result file to determine actual success status.
+
+    Args:
+        output_dir: Directory where benchmark results are saved
+        benchmark_name: Name of the benchmark
+
+    Returns:
+        Tuple of (success: bool or None, error_message: str or None)
+        Returns (None, None) if no result file found
+    """
+    try:
+        # Find the latest result file for this benchmark
+        if benchmark_name == 'ex_search':
+            # ex_search saves: ex_search_benchmark_{subject_id}_{leadfield_name}_latest.json
+            pattern = "ex_search_benchmark_*_latest.json"
+        elif benchmark_name == 'flex':
+            # flex saves: flex_benchmark_{subject_id}_summary_{timestamp}.json
+            # Find the most recent summary file
+            pattern = "flex_benchmark_*_summary_*.json"
+        elif benchmark_name in ['dicom', 'charm', 'recon', 'leadfield', 'simulator']:
+            # These benchmarks use the standard benchmark result format
+            pattern = f"{benchmark_name}_benchmark_*_latest.json"
+        else:
+            return None, None
+
+        # Find matching files
+        result_files = list(output_dir.glob(pattern))
+        if not result_files:
+            return None, None
+
+        # Get the most recent file
+        latest_file = max(result_files, key=lambda p: p.stat().st_mtime)
+
+        # Parse the result file
+        with open(latest_file, 'r') as f:
+            result_data = json.load(f)
+
+        # Extract success and error info based on benchmark type
+        if benchmark_name == 'flex':
+            # For flex, check if any of the results succeeded
+            results = result_data.get('results', [])
+            success = any(r.get('success', False) for r in results)
+            if not success and results:
+                error_message = "All optimization runs failed"
+            else:
+                error_message = None
+        else:
+            # For other benchmarks, check the top-level success field
+            success = result_data.get('success')
+            error_message = result_data.get('error_message')
+
+        return success, error_message
+
+    except (FileNotFoundError, json.JSONDecodeError, KeyError) as e:
+        print(f"Warning: Could not parse benchmark result file: {e}")
+        return None, None
+
+
+def run_benchmark(benchmark_name: str, output_dir: Path, continue_on_error: bool = False) -> Tuple[bool, float, str]:
     """
     Run a single benchmark.
 
     Args:
         benchmark_name: Name of the benchmark to run
+        output_dir: Directory where benchmark results are saved
         continue_on_error: Whether to continue if benchmark fails
 
     Returns:
@@ -94,7 +156,7 @@ def run_benchmark(benchmark_name: str, continue_on_error: bool = False) -> Tuple
         # Save original argv and replace with clean argv for the benchmark
         original_argv = sys.argv.copy()
         sys.argv = [sys.argv[0]]  # Keep only script name
-        
+
         try:
             # Run the benchmark
             start_time = time.time()
@@ -105,9 +167,28 @@ def run_benchmark(benchmark_name: str, continue_on_error: bool = False) -> Tuple
             sys.argv = original_argv
 
         elapsed = end_time - start_time
-        print(f"\n✓ Benchmark '{benchmark_name}' completed successfully")
+
+        # Check the actual benchmark result from the saved file
+        actual_success, actual_error_msg = parse_benchmark_result(output_dir, benchmark_name)
+
+        if actual_success is not None:
+            # Use the actual result from the benchmark file
+            success = actual_success
+            error_msg = actual_error_msg or ""
+            if success:
+                print(f"\n✓ Benchmark '{benchmark_name}' completed successfully")
+            else:
+                print(f"\n✗ Benchmark '{benchmark_name}' failed (internal error)")
+                if actual_error_msg:
+                    print(f"  Error: {actual_error_msg}")
+        else:
+            # Fallback to assuming success if no result file found
+            print(f"\n✓ Benchmark '{benchmark_name}' completed (no result file to check)")
+            success = True
+            error_msg = ""
+
         print(f"  Duration: {elapsed:.2f}s ({elapsed/60:.2f} minutes)")
-        return True, elapsed, ""
+        return success, elapsed, error_msg
 
     except KeyboardInterrupt:
         print(f"\n✗ Benchmark '{benchmark_name}' interrupted by user")
@@ -116,7 +197,7 @@ def run_benchmark(benchmark_name: str, continue_on_error: bool = False) -> Tuple
         elapsed = time.time() - start_time if 'start_time' in locals() else 0.0
         error_msg = str(e)
         print(f"\n✗ Error running benchmark '{benchmark_name}': {error_msg}")
-        
+
         if not continue_on_error:
             print("Stopping sequential execution due to error.")
             return False, elapsed, error_msg
@@ -292,7 +373,7 @@ Available benchmarks: charm, recon, dicom, flex, leadfield, ex_search
 
     try:
         for benchmark in benchmark_order:
-            success, elapsed, error_msg = run_benchmark(benchmark, args.continue_on_error)
+            success, elapsed, error_msg = run_benchmark(benchmark, args.output_dir, args.continue_on_error)
             results.append((benchmark, success, elapsed, error_msg))
 
             if not success and not args.continue_on_error:
