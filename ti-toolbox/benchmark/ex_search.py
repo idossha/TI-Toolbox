@@ -8,6 +8,8 @@ and analysis using pre-existing leadfield matrices.
 Usage:
   python -m benchmark.ex_search --config benchmark_config.yaml
   python -m benchmark.ex_search --m2m-dir /path/to/m2m_101 --leadfield /path/to/leadfield.hdf5
+  python -m benchmark.ex_search --config benchmark_config.yaml --n-electrodes 2,4,6
+  python -m benchmark.ex_search --config benchmark_config.yaml --total-current 2.0 --step-size 0.2 --channel-limit 1.6
 """
 
 import sys
@@ -17,6 +19,7 @@ import shutil
 from pathlib import Path
 from datetime import datetime
 import argparse
+import json
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
@@ -126,7 +129,7 @@ def select_electrodes(electrode_cap_path: Path, n_per_channel: int, logger):
 
 
 def run_ti_simulation(subject_id, project_dir, leadfield_path, electrode_cap_path, 
-                      n_electrodes, total_current, step_size, roi_center, logger):
+                      n_electrodes, total_current, step_size, roi_center, channel_limit, logger):
     """Run TI simulation with automatic electrode selection."""
     # Select electrodes
     e1_plus, e1_minus, e2_plus, e2_minus = select_electrodes(
@@ -151,16 +154,25 @@ def run_ti_simulation(subject_id, project_dir, leadfield_path, electrode_cap_pat
     })
     
     # Prepare input data
-    input_data = "\n".join([
+    input_lines = [
         " ".join(e1_plus), " ".join(e1_minus), " ".join(e2_plus), " ".join(e2_minus),
         str(total_current), str(step_size)
-    ]) + "\n"
+    ]
+    
+    # Add channel_limit if specified
+    if channel_limit is not None:
+        input_lines.append(str(channel_limit))
+    else:
+        input_lines.append("")  # Empty line for default behavior
+    
+    input_data = "\n".join(input_lines) + "\n"
     
     # Run TI simulation
     ti_sim_script = Path(__file__).parent.parent / "opt" / "ex" / "ti_sim.py"
     cmd = ["simnibs_python", str(ti_sim_script)]
     
-    logger.info(f"Running TI simulation: {n_electrodes} electrodes/channel, {total_current}mA, {step_size}mA step")
+    limit_str = f", limit={channel_limit}mA" if channel_limit is not None else ""
+    logger.info(f"Running TI simulation: {n_electrodes} electrodes/channel, {total_current}mA, {step_size}mA step{limit_str}")
     
     process = subprocess.Popen(
         cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, 
@@ -211,17 +223,18 @@ def verify_results(subject_id, project_dir, roi_dir, roi_center, leadfield_path,
     return True
 
 
-def run_benchmark(subject_dir, project_dir, m2m_dir, leadfield_path, output_dir,
-                  n_electrodes, total_current, step_size, roi_center, roi_radius, logger):
-    """Run ex-search benchmark pipeline."""
+def run_single_benchmark(subject_dir, project_dir, m2m_dir, leadfield_path, output_dir,
+                         n_electrodes, total_current, step_size, roi_center, roi_radius, 
+                         channel_limit, logger):
+    """Run ex-search benchmark pipeline for a single electrode configuration."""
     subject_id = subject_dir.name.replace("sub-", "")
     
-    print_hardware_info()
     logger.separator("=", 70)
-    logger.info("EX-SEARCH PIPELINE BENCHMARK")
+    logger.info(f"EX-SEARCH: {n_electrodes} electrodes/channel")
     logger.separator("=", 70)
     logger.info(f"Subject: {subject_id}")
-    logger.info(f"Electrodes/channel: {n_electrodes}, Current: {total_current}mA, Step: {step_size}mA")
+    limit_str = f", Channel limit: {channel_limit}mA" if channel_limit is not None else ""
+    logger.info(f"Electrodes/channel: {n_electrodes}, Current: {total_current}mA, Step: {step_size}mA{limit_str}")
     logger.info(f"ROI: center={roi_center}, radius={roi_radius}mm")
     logger.separator("=", 70)
     
@@ -232,11 +245,12 @@ def run_benchmark(subject_dir, project_dir, m2m_dir, leadfield_path, output_dir,
         "electrodes_per_channel": n_electrodes,
         "total_current": total_current,
         "step_size": step_size,
+        "channel_limit": channel_limit,
         "roi_center": list(roi_center),
         "roi_radius": roi_radius
     }
     
-    timer = BenchmarkTimer("ex_search_pipeline", metadata=metadata)
+    timer = BenchmarkTimer(f"ex_search_n{n_electrodes}", metadata=metadata)
     timer.start()
     
     try:
@@ -276,7 +290,7 @@ def run_benchmark(subject_dir, project_dir, m2m_dir, leadfield_path, output_dir,
         
         if not run_ti_simulation(
             subject_id, actual_project_dir, copied_leadfield, electrode_cap_path,
-            n_electrodes, total_current, step_size, roi_center, logger
+            n_electrodes, total_current, step_size, roi_center, channel_limit, logger
         ):
             raise RuntimeError("TI simulation failed")
         
@@ -301,6 +315,15 @@ def run_benchmark(subject_dir, project_dir, m2m_dir, leadfield_path, output_dir,
         
         result = timer.stop(success=True)
         
+        # Calculate number of current ratios (accounting for channel_limit)
+        effective_channel_limit = channel_limit if channel_limit is not None else total_current / 2.0
+        min_current = max(total_current - effective_channel_limit, step_size)
+        num_ratios = int((effective_channel_limit - min_current) / step_size) + 1
+        
+        # Calculate total iterations and throughput
+        total_iterations = (n_electrodes ** 4) * num_ratios
+        iterations_per_second = total_iterations / result.duration_seconds if result.duration_seconds > 0 else 0
+        
         # Enhanced metadata
         result.metadata.update({
             'results_directory': results_path,
@@ -312,16 +335,23 @@ def run_benchmark(subject_dir, project_dir, m2m_dir, leadfield_path, output_dir,
             'electrode_configuration': {
                 'electrodes_per_channel': n_electrodes,
                 'total_electrode_combinations': n_electrodes ** 4,
-                'current_ratios': int((total_current - step_size) / step_size),
-                'total_montages_tested': (n_electrodes ** 4) * int((total_current - step_size) / step_size)
+                'current_ratios': num_ratios,
+                'total_montages_tested': total_iterations,
+                'channel_limit': channel_limit
+            },
+            'performance': {
+                'total_iterations': total_iterations,
+                'iterations_per_second': round(iterations_per_second, 2),
+                'duration_seconds': result.duration_seconds
             }
         })
         
-        return result
+        return {"success": True, "result": result}
         
     except Exception as e:
         logger.error(f"Benchmark failed: {e}")
-        return timer.stop(success=False, error_message=str(e))
+        result = timer.stop(success=False, error_message=str(e))
+        return {"success": False, "result": result}
 
 
 def main():
@@ -332,9 +362,10 @@ def main():
     parser.add_argument("--output-dir", type=Path, help="Output directory for results")
     parser.add_argument("--m2m-dir", type=Path, help="Path to m2m directory")
     parser.add_argument("--leadfield", type=Path, help="Path to leadfield HDF5 file")
-    parser.add_argument("--n-electrodes", type=int, help="Number of electrodes per channel")
+    parser.add_argument("--n-electrodes", type=str, help="Comma-separated electrode counts per channel")
     parser.add_argument("--total-current", type=float, help="Total current in mA")
     parser.add_argument("--step-size", type=float, help="Current step size in mA")
+    parser.add_argument("--channel-limit", type=float, help="Channel current limit in mA (default: total_current/2)")
     parser.add_argument("--roi-center", type=str, help="ROI center as 'x,y,z'")
     parser.add_argument("--roi-radius", type=float, help="ROI radius in mm")
     parser.add_argument("--no-debug", action="store_true")
@@ -350,10 +381,22 @@ def main():
     output_dir = Path(merged['output_dir'])
     m2m_dir = Path(merged['m2m_dir'])
     leadfield_path = Path(merged['leadfield'])
-    n_electrodes = merged.get('n_electrodes', 4)
-    total_current = merged.get('total_current', 1.0)
-    step_size = merged.get('step_size', 0.1)
     debug_mode = merged.get('debug_mode', True)
+    
+    # Parse n_electrodes - can be single value or list
+    if args.n_electrodes:
+        n_electrodes_list = [int(x.strip()) for x in args.n_electrodes.split(",")]
+    else:
+        n_electrodes_config = merged.get('n_electrodes', 4)
+        if isinstance(n_electrodes_config, list):
+            n_electrodes_list = n_electrodes_config
+        else:
+            n_electrodes_list = [n_electrodes_config]
+    
+    # Parse current parameters
+    total_current = args.total_current if args.total_current is not None else merged.get('total_current', 1.0)
+    step_size = args.step_size if args.step_size is not None else merged.get('step_size', 0.1)
+    channel_limit = args.channel_limit if args.channel_limit is not None else merged.get('channel_limit', None)
     
     # Parse ROI parameters
     roi_center_config = merged.get('roi_center', [0, 0, 0])
@@ -377,30 +420,81 @@ def main():
     logger.header("EX-SEARCH BENCHMARK")
     logger.info(f"m2m: {m2m_dir}")
     logger.info(f"Leadfield: {leadfield_path}")
-    logger.info(f"Parameters: {n_electrodes} electrodes/ch, {total_current}mA, {step_size}mA step")
+    logger.info(f"Electrode counts to test: {n_electrodes_list}")
+    logger.info(f"Current parameters: {total_current}mA total, {step_size}mA step, {channel_limit}mA limit" if channel_limit else f"Current parameters: {total_current}mA total, {step_size}mA step")
     
     try:
         # Setup project
         subject_dir, subject_id, expected_leadfield_path = setup_project(project_dir, m2m_dir, leadfield_path, logger)
-
-        # Run benchmark
-        result = run_benchmark(
-            subject_dir, project_dir, m2m_dir, expected_leadfield_path, output_dir,
-            n_electrodes, total_current, step_size, roi_center, roi_radius, logger
-        )
         
-        # Print and save results
-        print_benchmark_result(result)
+        print_hardware_info()
+        logger.info(f"Testing electrode counts: {n_electrodes_list}")
         
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        leadfield_name = leadfield_path.stem.replace('_leadfield', '')
-        result_file = output_dir / f"ex_search_benchmark_{subject_id}_{leadfield_name}_{timestamp}.json"
-        save_benchmark_result(result, result_file)
+        all_results = []
+        for n_electrodes in n_electrodes_list:
+            logger.separator("=", 70)
+            logger.info(f"Running: n_electrodes={n_electrodes}")
+            logger.separator("=", 70)
+            
+            result_data = run_single_benchmark(
+                subject_dir, project_dir, m2m_dir, expected_leadfield_path, output_dir,
+                n_electrodes, total_current, step_size, roi_center, roi_radius, 
+                channel_limit, logger
+            )
+            
+            result = result_data["result"]
+            all_results.append(result)
+            
+            print_benchmark_result(result)
+            
+            # Save individual result
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            leadfield_name = leadfield_path.stem.replace('_leadfield', '')
+            result_file = output_dir / f"ex_search_benchmark_{subject_id}_n{n_electrodes}_{timestamp}.json"
+            save_benchmark_result(result, result_file)
         
-        latest_file = output_dir / f"ex_search_benchmark_{subject_id}_{leadfield_name}_latest.json"
-        save_benchmark_result(result, latest_file)
+        # Save summary
+        summary = {
+            "subject_id": subject_id,
+            "electrode_counts": n_electrodes_list,
+            "parameters": {
+                "total_current": total_current,
+                "step_size": step_size,
+                "channel_limit": channel_limit,
+                "roi_center": list(roi_center),
+                "roi_radius": roi_radius
+            },
+            "results": [
+                {
+                    "n_electrodes": n,
+                    "duration_seconds": r.duration_seconds,
+                    "duration_formatted": r.duration_formatted,
+                    "success": r.success,
+                    "total_iterations": r.metadata.get('performance', {}).get('total_iterations') if r.success else None,
+                    "iterations_per_second": r.metadata.get('performance', {}).get('iterations_per_second') if r.success else None,
+                    "total_montages_tested": r.metadata.get('electrode_configuration', {}).get('total_montages_tested') if r.success else None
+                }
+                for n, r in zip(n_electrodes_list, all_results)
+            ]
+        }
         
-        logger.info(f"Benchmark results saved: {result_file}")
+        summary_file = output_dir / f"ex_search_benchmark_{subject_id}_summary_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+        with open(summary_file, 'w') as f:
+            json.dump(summary, f, indent=2)
+        
+        logger.separator("=", 70)
+        logger.info("BENCHMARK SUMMARY")
+        logger.separator("=", 70)
+        for n, r in zip(n_electrodes_list, all_results):
+            status = "SUCCESS" if r.success else "FAILED"
+            if r.success:
+                iterations = r.metadata.get('performance', {}).get('total_iterations', 'N/A')
+                iter_per_sec = r.metadata.get('performance', {}).get('iterations_per_second', 'N/A')
+                logger.info(f"n_electrodes={n}: {r.duration_formatted} - {status}")
+                logger.info(f"  Total iterations: {iterations} | Throughput: {iter_per_sec} iter/sec")
+            else:
+                logger.info(f"n_electrodes={n}: {r.duration_formatted} - {status}")
+        logger.info(f"Summary: {summary_file}")
         
     except KeyboardInterrupt:
         logger.warning("Benchmark interrupted by user")

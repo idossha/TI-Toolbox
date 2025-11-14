@@ -144,10 +144,11 @@ ex_search:
   leadfield: /mnt/TIT_benchmarking/sub-101/leadfields/101_leadfield_EEG10-10_UI_Jurak_2007.hdf5
   
   # Optimization parameters
-  n_electrodes: 2                                    # Number of electrodes per channel (E1+, E1-, E2+, E2-)
-  total_current: 1.0                                 # Total current in mA
+  n_electrodes: [2, 4, 6]                            # Number of electrodes per channel (E1+, E1-, E2+, E2-) - can be single value or list
+  total_current: 2.0                                 # Total current in mA
   step_size: 0.2                                     # Current step size in mA
-  
+  channel_limit: 1.6                                 # Channel current limit in mA (null = total_current/2)
+
   # ROI configuration
   roi_center: [0, 0, 0]                             # ROI center coordinates (x, y, z) in mm
   roi_radius: 10.0                                   # ROI radius in mm
