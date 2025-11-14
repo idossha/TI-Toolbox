@@ -228,9 +228,12 @@ def process_leadfield(E1_plus, E1_minus, E2_plus, E2_minus, subject_name, total_
         json.dump(all_results, f, indent=4)
     logger.info(f"\nResults saved to: {json_output_path}")
     
-    # Create CSV output
-    csv_data = [['Montage', 'Current_Ch1_mA', 'Current_Ch2_mA', 'TImax_ROI', 'TImean_ROI', 'TImean_GM', 'Focality', 'n_elements']]
+    # Create CSV output (including composite intensity–focality index)
+    csv_data = [['Montage', 'Current_Ch1_mA', 'Current_Ch2_mA',
+                 'TImax_ROI', 'TImean_ROI', 'TImean_GM',
+                 'Focality', 'Composite_Index', 'n_elements']]
     timax_values, timean_values, focality_values = [], [], []
+    composite_values = []
     
     for mesh_name, data in all_results.items():
         formatted_name = re.sub(r"TI_field_(.*?)\.msh", r"\1", mesh_name).replace("_and_", " <> ")
@@ -239,6 +242,11 @@ def process_leadfield(E1_plus, E1_minus, E2_plus, E2_minus, subject_name, total_
         ti_mean = data.get(f'{roi_name}_TImean_ROI')
         ti_mean_gm = data.get(f'{roi_name}_TImean_GM')
         focality = data.get(f'{roi_name}_Focality')
+
+        # Composite metric: focality-weighted intensity at target
+        composite_index = None
+        if ti_mean is not None and focality is not None:
+            composite_index = ti_mean * focality
         
         csv_data.append([
             formatted_name,
@@ -248,13 +256,19 @@ def process_leadfield(E1_plus, E1_minus, E2_plus, E2_minus, subject_name, total_
             f"{ti_mean:.4f}" if ti_mean is not None else '',
             f"{ti_mean_gm:.4f}" if ti_mean_gm is not None else '',
             f"{focality:.4f}" if focality is not None else '',
+            f"{composite_index:.4f}" if composite_index is not None else '',
             data.get(f'{roi_name}_n_elements', 0)
         ])
         
         # Collect histogram data
-        if ti_max is not None: timax_values.append(ti_max)
-        if ti_mean is not None: timean_values.append(ti_mean)
-        if focality is not None: focality_values.append(focality)
+        if ti_max is not None:
+            timax_values.append(ti_max)
+        if ti_mean is not None:
+            timean_values.append(ti_mean)
+        if focality is not None:
+            focality_values.append(focality)
+        if composite_index is not None:
+            composite_values.append(composite_index)
     
     # Write CSV
     csv_output_path = os.path.join(output_dir, 'final_output.csv')
@@ -262,14 +276,15 @@ def process_leadfield(E1_plus, E1_minus, E2_plus, E2_minus, subject_name, total_
         csv.writer(f).writerows(csv_data)
     logger.info(f"CSV output created: {csv_output_path}")
     
-    # Generate histogram visualizations
+    # Generate histogram and scatter visualizations
     if timax_values or timean_values or focality_values:
-        logger.info("Generating histogram visualizations...")
+        logger.info("Generating histogram and scatter visualizations...")
         try:
             import matplotlib
             matplotlib.use('Agg')
             import matplotlib.pyplot as plt
             
+            # Histograms: TImax, TImean, Focality
             fig, axes = plt.subplots(1, 3, figsize=(15, 4))
             hist_configs = [
                 (timax_values, axes[0], 'TImax (V/m)', 'TImax Distribution', '#2196F3'),
@@ -290,8 +305,56 @@ def process_leadfield(E1_plus, E1_minus, E2_plus, E2_minus, subject_name, total_
             plt.savefig(histogram_path, dpi=300, bbox_inches='tight')
             plt.close()
             logger.info(f"Histogram visualization saved: {histogram_path}")
+
+            # Scatter plot: intensity vs focality, colored by composite index
+            # Reconstruct aligned lists from all_results to avoid any length mismatch
+            scatter_intensity, scatter_focality, scatter_composite = [], [], []
+            for data in all_results.values():
+                ti_mean = data.get(f'{roi_name}_TImean_ROI')
+                focality = data.get(f'{roi_name}_Focality')
+                comp = None
+                if ti_mean is not None and focality is not None:
+                    comp = ti_mean * focality
+                if ti_mean is not None and focality is not None:
+                    scatter_intensity.append(ti_mean)
+                    scatter_focality.append(focality)
+                    scatter_composite.append(comp)
+
+            if scatter_intensity and scatter_focality:
+                fig2, ax = plt.subplots(figsize=(6, 5))
+                if any(c is not None for c in scatter_composite):
+                    sc = ax.scatter(
+                        scatter_intensity,
+                        scatter_focality,
+                        c=scatter_composite,
+                        cmap='viridis',
+                        s=40,
+                        edgecolor='black',
+                        alpha=0.7
+                    )
+                    cbar = plt.colorbar(sc, ax=ax)
+                    cbar.set_label('Composite Index (TImean_ROI × Focality)', fontsize=12)
+                else:
+                    ax.scatter(
+                        scatter_intensity,
+                        scatter_focality,
+                        s=40,
+                        edgecolor='black',
+                        alpha=0.7
+                    )
+
+                ax.set_xlabel('TImean_ROI (V/m)', fontsize=12)
+                ax.set_ylabel('Focality (TImean_ROI/TImean_GM)', fontsize=12)
+                ax.set_title('Intensity vs Focality', fontsize=14, fontweight='bold')
+                ax.grid(alpha=0.3)
+
+                scatter_path = os.path.join(output_dir, 'intensity_vs_focality_scatter.png')
+                plt.tight_layout()
+                plt.savefig(scatter_path, dpi=300, bbox_inches='tight')
+                plt.close()
+                logger.info(f"Scatter visualization saved: {scatter_path}")
         except Exception as e:
-            logger.warning(f"Could not generate histogram: {e}")
+            logger.warning(f"Could not generate visualizations: {e}")
     
     # Final summary
     total_time = time.time() - start_time
