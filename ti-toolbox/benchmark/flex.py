@@ -104,6 +104,11 @@ def run_flex_optimization(subject_id, project_dir, n_multistart, logger, **param
             "--cpus", str(params['cpus'])
         ]
         
+        # Add final simulation control
+        # Default in SimNIBS is True, so we need to explicitly skip if we want False
+        if not params.get('run_final_simulation', False):
+            cmd.append("--skip-final-electrode-simulation")
+        
         logger.info(f"Running flex-search: multistart={n_multistart}, goal={params['opt_goal']}")
         
         process = subprocess.Popen(
@@ -146,6 +151,8 @@ def main():
     parser.add_argument("--popsize", type=int)
     parser.add_argument("--cpus", type=int)
     parser.add_argument("--no-debug", action="store_true")
+    parser.add_argument("--run-final-simulation", action="store_true", 
+                        help="Run final electrode simulation (default: False)")
     
     args = parser.parse_args()
     
@@ -195,7 +202,8 @@ def main():
             'max_iterations': merged.get('iterations', 500),
             'population_size': merged.get('popsize', 13),
             'cpus': merged.get('cpus', 1),
-            'debug_mode': debug_mode
+            'debug_mode': debug_mode,
+            'run_final_simulation': merged.get('run_final_simulation', False) or args.run_final_simulation
         }
         
         print_hardware_info()

@@ -117,7 +117,7 @@ flex:
   multistart: [1, 2]                                 # Multi-start values to test
   iterations: 500                                    # Max iterations for differential_evolution
   popsize: 13                                        # Population size for differential_evolution
-  cpus: 9                                            # Number of CPU cores to use
+  cpus: 12                                            # Number of CPU cores to use
   
   # Optional: Focality-specific parameters (only used if opt_goal: focality)
   # thresholds: 0.5                                  # Single value or comma-separated values
@@ -128,8 +128,7 @@ flex:
   # disable_mapping_simulation: false                # Skip simulation with mapped electrodes
   
   # Optional: Output control
-  # run_final_electrode_simulation: false            # Run final simulation with optimal electrodes
-  # skip_final_electrode_simulation: false           # Skip final simulation
+  run_final_simulation: false                        # Run final simulation with optimal electrodes (default: false)
   
   # Output: /mnt/TIT_benchmarking/sub-101/flex_results/
 
