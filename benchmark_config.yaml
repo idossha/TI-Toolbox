@@ -25,12 +25,12 @@ dicom:
   
   # Input data - Raw DICOM files
   subject_source: /mnt/TIT_benchmarking/sourcedata/sub-101/
-  subject_id: 'RS'
+  subject_id: 101
   
   # Script path
   dicom_script: /development/ti-toolbox/pre/dicom2nifti.sh
   
-  # Output: /mnt/TIT_benchmarking/sub-101/anat/*.nii.gz
+  Output: /mnt/TIT_benchmarking/sub-101/anat/*.nii.gz
 
 # ======================================================================
 # STEP 2: CHARM Benchmark - Head mesh (m2m) creation
@@ -89,9 +89,11 @@ leadfield:
   
   # Leadfield generation parameters
   electrode_csv: EEG10-10_UI_Jurak_2007.csv
+  electrode_csv: GSN-HydroCel-185.csv
   tissues: [1, 2]                                    # Tissue types to include (1=GM, 2=WM)
   
-  Output: /mnt/TIT_benchmarking/sub-101/leadfields/101_leadfield_EEG10-10_UI_Jurak_2007.hdf5
+  # Output: /mnt/TIT_benchmarking/sub-101/leadfields/101_leadfield_EEG10-10_UI_Jurak_2007.hdf5
+  Output: /mnt/TIT_benchmarking/sub-101/leadfields/101_leadfield_GSN-HydroCel-185.hdf5
 
 # ======================================================================
 # STEP 5: FLEX-SEARCH Benchmark - TI optimization with differential evolution
@@ -134,7 +136,7 @@ flex:
   # Optional: Output control
   run_final_simulation: false                        # Run final simulation with optimal electrodes (default: false)
   
-  # Output: /mnt/TIT_benchmarking/sub-101/flex_results/
+  Output: /mnt/TIT_benchmarking/derivatives/SimNIBS/sub-101/flex_search/
 
 # ======================================================================
 # STEP 6: EX-SEARCH Benchmark - Exhaustive TI electrode search
@@ -157,7 +159,7 @@ ex_search:
   roi_center: [0, 0, 0]                             # ROI center coordinates (x, y, z) in mm
   roi_radius: 10.0                                   # ROI radius in mm
   
-  # Output: /mnt/TIT_benchmarking/sub-101/ex_search_results/
+  Output: /mnt/TIT_benchmarking/derivatives/SimNIBS/sub-101/ex-search/
 
 # ======================================================================
 # STEP 7: SIMULATOR Benchmark - TI/mTI simulation execution
@@ -183,7 +185,7 @@ simulator:
   dimensions: 8,8                              # Electrode dimensions in mm
   thickness: 4                                   # Electrode thickness in mm
   
-  # Output: /mnt/TIT_benchmarking/sub-101/Simulations/
+  Output: /mnt/TIT_benchmarking/derivatives/SimNIBS/sub-101/Simulations/
 
 # ======================================================================
 # Pipeline Summary:
