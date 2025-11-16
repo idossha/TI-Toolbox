@@ -1707,7 +1707,7 @@ class FlexSearchTab(QtWidgets.QWidget):
             return
         # Run read_annot.py and show output
         script_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        utils_dir = os.path.join(script_dir, "utils")
+        utils_dir = os.path.join(script_dir, "tools")
         read_annot_py = os.path.join(utils_dir, "read_annot.py")
         if not os.path.isfile(read_annot_py):
             QtWidgets.QMessageBox.warning(self, "read_annot.py Not Found", f"Could not find read_annot.py at {read_annot_py}")
