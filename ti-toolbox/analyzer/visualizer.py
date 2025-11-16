@@ -12,33 +12,21 @@ Inputs:
     - Region specifications
 
 Outputs:
-    - Distribution plots
-    - Scatter plots
+    - Focality histograms (PDF)
     - ROI visualizations
     - Surface overlays
-    - Statistical summaries
+    - Statistical summaries (CSV)
 
 Example Usage:
     ```python
     # Initialize visualizer
     visualizer = VoxelVisualizer(output_dir="/path/to/output")
-    
-    # Generate distribution plot
-    visualizer.generate_value_distribution_plot(
-        values=field_values,
-        region_name="Left-Hippocampus",
-        atlas_type="DK40",
-        mean_value=0.5,
-        max_value=1.0,
-        min_value=0.1,
-        data_type='voxel'
-    )
-    
-    # Generate scatter plot
-    visualizer.generate_cortex_scatter_plot(
-        results=analysis_results,
-        atlas_type="DK40",
-        data_type='voxel'
+
+    # Generate focality histogram
+    visualizer.generate_focality_histogram(
+        whole_head_field_data=whole_head_data,
+        roi_field_data=roi_data,
+        region_name="Left-Hippocampus"
     )
     ```
 
@@ -437,12 +425,9 @@ class BaseVisualizer:
             stats_text += f'{data_type.capitalize()}s: {len(whole_head_field_data):,}\n'
             
             stats_text += f'\nROI:\n'
-            stats_text += f'Max: {np.max(roi_field_data):.2f} V/m\n'
             stats_text += f'Mean: {np.mean(roi_field_data):.2f} V/m\n'
-            stats_text += f'{data_type.capitalize()}s: {len(roi_field_data):,}'
-            
-            if roi_field_value is not None:
-                stats_text += f'\nROI Field: {roi_field_value:.2f} V/m'
+            stats_text += f'Max: {np.max(roi_field_data):.2f} V/m\n'
+            stats_text += f'Nodes: {len(roi_field_data):,}'
             
             # Position stats box on the right side of the plot
             ax.text(0.98, 0.98, stats_text, transform=ax.transAxes, fontsize=9,
@@ -460,7 +445,7 @@ class BaseVisualizer:
             # Save histogram with tight layout
             hist_file = os.path.join(self.output_dir, f'{base_name}_histogram.png')
             plt.tight_layout()
-            plt.savefig(hist_file, dpi=150, bbox_inches='tight')
+            plt.savefig(hist_file, dpi=300, bbox_inches='tight')
             plt.close(fig)
             
             self.logger.info(f"Generated whole-head ROI histogram: {hist_file}")
@@ -491,278 +476,8 @@ class Visualizer(BaseVisualizer):
         # We'll create these directories on demand in the specific methods that need them
         # instead of creating them all at initialization
     
-    def generate_cortex_scatter_plot(self, results, atlas_type, data_type='voxel'):
-        """Generate a sorted scatter plot of median values for all cortical regions."""
-        if plt is None:
-            self.logger.warning("matplotlib not available. Cannot generate scatter plot.")
-            return
-            
-        self.logger.info(f"Generating cortex scatter plot for {atlas_type} atlas with {len(results)} regions")
-        
-        # Filter out regions with None values
-        valid_results = {name: res for name, res in results.items() if res['mean_value'] is not None}
-        
-        if not valid_results:
-            self.logger.warning("No valid results to plot")
-            return
-        
-        self.logger.info(f"Found {len(valid_results)} valid regions for plotting")
-        
-        # Save results to CSV
-        self.save_whole_head_results_to_csv(results, atlas_type, data_type)
-        
-        # Prepare data for plotting
-        regions = list(valid_results.keys())
-        mean_values = [res['mean_value'] for res in valid_results.values()]
-        counts = [res[f'{data_type}s_in_roi'] for res in valid_results.values()]
-        
-        # Create figure with larger size
-        fig, ax = plt.subplots(figsize=(15, 10))
-        
-        # Sort regions by mean value
-        sorted_indices = np.argsort(mean_values)
-        sorted_regions = [regions[i] for i in sorted_indices]
-        sorted_values = [mean_values[i] for i in sorted_indices]
-        sorted_counts = [counts[i] for i in sorted_indices]
-        
-        # Create sorted scatter plot with enhanced styling
-        scatter = ax.scatter(range(len(sorted_regions)), sorted_values,
-                           c=sorted_counts,
-                           cmap='viridis',
-                           s=100,
-                           alpha=0.6,
-                           edgecolors='black',
-                           linewidths=1)
-        
-        # Add colorbar with enhanced styling
-        cbar = plt.colorbar(scatter, ax=ax)
-        cbar.set_label(f'Number of {data_type.capitalize()}s', fontsize=12, fontweight='bold')
-        
-        # Customize plot
-        ax.set_title(f'Cortical Region Analysis - {atlas_type}', 
-                    pad=20, 
-                    fontsize=14, 
-                    fontweight='bold')
-        ax.set_xlabel('Region Index (sorted by mean value)', 
-                     fontsize=12, 
-                     fontweight='bold')
-        ax.set_ylabel('Mean Field Value', 
-                     fontsize=12, 
-                     fontweight='bold')
-        
-        # Add grid
-        ax.grid(True, linestyle='--', alpha=0.3)
-        
-        # Set x-ticks to show region names at the bottom
-        ax.set_xticks(range(len(sorted_regions)))
-        ax.set_xticklabels(sorted_regions, rotation=45, ha='right', fontsize=8)
-        
-        # Adjust layout to prevent label cutoff
-        plt.tight_layout()
-        
-        # Save plot directly in the output directory (not in a subdirectory)
-        output_file = os.path.join(self.output_dir, f'cortex_analysis_{atlas_type}.png')
-        plt.savefig(output_file, dpi=300, bbox_inches='tight')
-        plt.close()
-        
-        self.logger.info(f"Generated sorted scatter plot: {output_file}")
 
-    def generate_value_distribution_plot(self, field_values, region_name, atlas_type, mean_value, max_value, min_value, data_type='voxel'):
-        """Generate a raincloud plot showing the distribution of individual values within a region."""
-        if plt is None:
-            self.logger.warning("matplotlib not available. Cannot generate distribution plot.")
-            return None
-            
-        # Check for empty field values
-        if len(field_values) == 0:
-            self.logger.warning("No field values provided. Cannot generate distribution plot.")
-            return None
-            
-        self.logger.info(f"Generating value distribution plot for region: {region_name}")
-        self.logger.info(f"Data: {len(field_values)} {data_type}s, mean={mean_value:.6f}, max={max_value:.6f}, min={min_value:.6f}")
-        # Create figure with subplots
-        fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 10), 
-                                      gridspec_kw={'height_ratios': [3, 1]})
-        
-        # Calculate adaptive jitter based on local density
-        n_bins = 50
-        hist, bin_edges = np.histogram(field_values, bins=n_bins)
-        bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2
-        
-        # Calculate density for each point
-        point_densities = np.zeros_like(field_values)
-        for i, value in enumerate(field_values):
-            bin_idx = np.digitize(value, bin_edges) - 1
-            if bin_idx >= 0 and bin_idx < len(hist):
-                point_densities[i] = hist[bin_idx]
-        
-        # Normalize densities to get jitter scale
-        max_density = np.max(point_densities)
-        jitter_scales = 0.4 * (point_densities / max_density)
-        
-        # Create the raincloud plot in the top subplot
-        violin = ax1.violinplot(field_values, vert=True, showextrema=True, 
-                              positions=[0], widths=0.8)
-        
-        # Customize violin plot
-        violin['bodies'][0].set_facecolor('skyblue')
-        violin['bodies'][0].set_alpha(0.3)
-        violin['cmaxes'].set_color('black')
-        violin['cmins'].set_color('black')
-        violin['cbars'].set_color('black')
-        
-        # Add scatter plot with adaptive jitter
-        jitter = np.random.normal(0, jitter_scales, len(field_values))
-        scatter = ax1.scatter(jitter, 
-                            field_values,
-                            c=field_values,
-                            cmap='viridis',
-                            s=20,
-                            alpha=0.6,
-                            edgecolors='black',
-                            linewidths=0.5)
-        
-        # Add mean, max, and min lines
-        ax1.axhline(y=mean_value, color='r', linestyle='--', alpha=0.7, label=f'Mean: {mean_value:.6f}')
-        ax1.axhline(y=max_value, color='g', linestyle='--', alpha=0.7, label=f'Max: {max_value:.6f}')
-        ax1.axhline(y=min_value, color='b', linestyle='--', alpha=0.7, label=f'Min: {min_value:.6f}')
-        
-        # Add colorbar
-        cbar = plt.colorbar(scatter, ax=ax1)
-        cbar.set_label('Field Value', fontsize=10, fontweight='bold')
-        
-        # Customize main plot
-        ax1.set_title(f'{data_type.capitalize()} Value Distribution - {region_name}\n({atlas_type} Atlas)', 
-                     pad=20, 
-                     fontsize=12, 
-                     fontweight='bold')
-        ax1.set_ylabel('Field Value', fontsize=10, fontweight='bold')
-        ax1.grid(True, linestyle='--', alpha=0.3)
-        ax1.legend(loc='upper left')
-        ax1.set_xlim(-0.5, 0.5)
-        ax1.set_xticks([])
-        
-        # Histogram in the bottom subplot
-        ax2.hist(field_values, bins=50, color='skyblue', edgecolor='black', alpha=0.7)
-        ax2.axvline(x=mean_value, color='r', linestyle='--', alpha=0.7, label=f'Mean: {mean_value:.6f}')
-        ax2.axvline(x=max_value, color='g', linestyle='--', alpha=0.7, label=f'Max: {max_value:.6f}')
-        ax2.axvline(x=min_value, color='b', linestyle='--', alpha=0.7, label=f'Min: {min_value:.6f}')
-        
-        # Customize histogram
-        ax2.set_title('Value Distribution Histogram', fontsize=10, fontweight='bold')
-        ax2.set_xlabel('Field Value', fontsize=10, fontweight='bold')
-        ax2.set_ylabel(f'Number of {data_type.capitalize()}s', fontsize=10, fontweight='bold')
-        ax2.grid(True, linestyle='--', alpha=0.3)
-        ax2.legend(loc='upper right')
-        
-        # Adjust layout
-        plt.tight_layout()
-        
-        # Save plot directly to the output directory
-        output_file = os.path.join(self.output_dir, f'{data_type}_distribution_{region_name}.png')
-        plt.savefig(output_file, dpi=300, bbox_inches='tight')
-        plt.close()
-        
-        self.logger.info(f"Generated {data_type} value distribution plot: {output_file}")
-        
-        return output_file
 
-    def _generate_whole_head_plots(self, results, atlas_type, data_type='voxel'):
-        """Generate a sorted scatter plot for whole head analysis directly in the main output directory."""
-        if plt is None:
-            self.logger.warning("matplotlib not available. Cannot generate whole head plots.")
-            return
-            
-        # Filter out regions with None values
-        valid_results = {name: res for name, res in results.items() if res['mean_value'] is not None}
-        
-        if not valid_results:
-            self.logger.warning("Warning: No valid results to plot")
-            return
-        
-        try:
-            # Prepare data for plotting
-            regions = list(valid_results.keys())
-            mean_values = [res['mean_value'] for res in valid_results.values()]
-            
-            # Check if voxel count data is available, and use it if possible
-            try:
-                # Attempt to get voxel counts if they're in the data
-                counts = [res.get(f'{data_type}s_in_roi', 1) for res in valid_results.values()]
-                use_counts_for_color = True
-            except (KeyError, AttributeError):
-                # If not available, use a default color
-                self.logger.info(f"Note: '{data_type}s_in_roi' not found in results, using default coloring")
-                counts = [1 for _ in valid_results.values()]
-                use_counts_for_color = False
-            
-            # Create output directory if it doesn't exist
-            os.makedirs(self.output_dir, exist_ok=True)
-            
-            # Create figure with larger size for all regions
-            fig, ax = plt.subplots(figsize=(15, 10))
-            
-            # Sort regions by mean value
-            sorted_indices = np.argsort(mean_values)
-            sorted_regions = [regions[i] for i in sorted_indices]
-            sorted_values = [mean_values[i] for i in sorted_indices]
-            
-            # Use the coloring approach based on availability of count data
-            if use_counts_for_color:
-                sorted_counts = [counts[i] for i in sorted_indices]
-                scatter = ax.scatter(range(len(sorted_regions)), sorted_values,
-                                c=sorted_counts,
-                                cmap='viridis',
-                                s=100,
-                                alpha=0.6,
-                                edgecolors='black',
-                                linewidths=1)
-                
-                # Add colorbar with enhanced styling
-                cbar = plt.colorbar(scatter, ax=ax)
-                cbar.set_label(f'Number of {data_type.capitalize()}s', fontsize=12, fontweight='bold')
-            else:
-                scatter = ax.scatter(range(len(sorted_regions)), sorted_values,
-                                c='royalblue',
-                                s=100,
-                                alpha=0.6,
-                                edgecolors='black',
-                                linewidths=1)
-            
-            # Customize plot
-            ax.set_title(f'Cortical Region Analysis - {atlas_type}', 
-                    pad=20, 
-                    fontsize=14, 
-                    fontweight='bold')
-            ax.set_xlabel('Region Index (sorted by mean value)', 
-                        fontsize=12, 
-                        fontweight='bold')
-            ax.set_ylabel('Mean Field Value', 
-                        fontsize=12, 
-                        fontweight='bold')
-            
-            # Add grid
-            ax.grid(True, linestyle='--', alpha=0.3)
-            
-            # Set x-ticks to show region names at the bottom
-            ax.set_xticks(range(len(sorted_regions)))
-            ax.set_xticklabels(sorted_regions, rotation=45, ha='right', fontsize=8)
-            
-            # Adjust layout to prevent label cutoff
-            plt.tight_layout()
-            
-            # Save plot directly in the main output directory
-            output_file = os.path.join(self.output_dir, f'cortex_analysis_{atlas_type}.png')
-            plt.savefig(output_file, dpi=300, bbox_inches='tight')
-            plt.close()
-            
-            self.logger.info(f"Generated sorted scatter plot: {output_file}")
-        except Exception as e:
-            # If there's any error during plotting, log it but don't stop the overall analysis
-            import traceback
-            self.logger.warning(f"Warning: Failed to generate plots: {str(e)}")
-            self.logger.error(f"Error details: {traceback.format_exc()}")
-            self.logger.info("Continuing with analysis without visualizations.")
 
 
 class MeshVisualizer(Visualizer):
