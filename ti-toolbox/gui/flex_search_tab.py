@@ -195,9 +195,6 @@ class FlexSearchTab(QtWidgets.QWidget):
 
         # Initialize checkboxes
 
-        self.enable_mapping_checkbox = QtWidgets.QCheckBox("✓ Enable electrode mapping")
-        self.enable_mapping_checkbox.setChecked(False)
-        
         self.run_mapped_simulation_checkbox = QtWidgets.QCheckBox("Run simulation with mapped electrodes")
         self.run_mapped_simulation_checkbox.setChecked(False)
         
@@ -335,7 +332,7 @@ class FlexSearchTab(QtWidgets.QWidget):
 
         self.goal_combo.currentIndexChanged.connect(self._update_focality_visibility)
         self.adaptive_focality_checkbox.toggled.connect(self._update_adaptive_focality_controls)
-        self.enable_mapping_checkbox.toggled.connect(self._update_mapping_options)
+        self.run_mapped_simulation_checkbox.toggled.connect(self._update_mapping_options)
         self.subject_list.itemSelectionChanged.connect(self.on_subject_changed)
         self.nonroi_method_combo.currentIndexChanged.connect(self._update_nonroi_stacked)
         self.roi_method_spherical.toggled.connect(self.update_roi_method)
@@ -388,27 +385,29 @@ class FlexSearchTab(QtWidgets.QWidget):
         
         self.postproc_combo.setMaximumWidth(320)
         basic_params_layout.addRow(self.postproc_label, self.postproc_combo)
-        
-        # Add final electrode simulation checkbox under post-processing
-        basic_params_layout.addRow(self.run_final_electrode_simulation_checkbox)
-        
+
         top_row_layout.addWidget(basic_params_group, 1)
 
-        # Right column: Mapping (top) + Electrode Parameters (bottom)
+        # Right column: Automatic Simulations (top) + Electrode Parameters (bottom)
         right_column_widget = QtWidgets.QWidget()
         right_column_layout = QtWidgets.QVBoxLayout(right_column_widget)
         right_column_layout.setContentsMargins(0, 0, 0, 0)
-        
-        # Electrode Mapping Options (compact, no warning text)
-        self.mapping_group = QtWidgets.QGroupBox("Electrode Mapping (Optional)")
-        self.mapping_group.setMaximumHeight(115)  # Limit maximum height to prevent UI stretching
-        mapping_layout = QtWidgets.QFormLayout(self.mapping_group)
-        mapping_layout.setVerticalSpacing(0)  # Minimal vertical spacing between rows
-        mapping_layout.setContentsMargins(4, 2, 4, 2)  # Minimal top/bottom margins
-        mapping_layout.setFieldGrowthPolicy(QtWidgets.QFormLayout.FieldsStayAtSizeHint)  # Prevent fields from growing
-        
-        mapping_layout.addRow(self.enable_mapping_checkbox)
 
+        # Automatic Simulations Options (formerly Electrode Mapping)
+        self.mapping_group = QtWidgets.QGroupBox("Automatic Simulations (Optional)")
+        self.mapping_group.setMaximumHeight(140)  # Increased height to accommodate both checkboxes
+        mapping_layout = QtWidgets.QFormLayout(self.mapping_group)
+        mapping_layout.setVerticalSpacing(2)  # Minimal vertical spacing between rows
+        mapping_layout.setContentsMargins(4, 4, 4, 4)  # Minimal margins
+        mapping_layout.setFieldGrowthPolicy(QtWidgets.QFormLayout.FieldsStayAtSizeHint)  # Prevent fields from growing
+
+        # Add final electrode simulation checkbox
+        mapping_layout.addRow(self.run_final_electrode_simulation_checkbox)
+
+        # Add mapped electrodes simulation checkbox
+        mapping_layout.addRow(self.run_mapped_simulation_checkbox)
+
+        # EEG net selection (only visible when run_mapped_simulation is checked)
         eeg_net_controls_inner_layout = QtWidgets.QHBoxLayout()
         eeg_net_controls_inner_layout.setContentsMargins(0, 0, 0, 0)  # Remove margins
         self.eeg_net_combo.setFixedWidth(195)  # Force width to be 2.5x larger
@@ -418,16 +417,7 @@ class FlexSearchTab(QtWidgets.QWidget):
         self.eeg_net_widget.setVisible(False)
         self.eeg_net_label.setVisible(False)
         mapping_layout.addRow(self.eeg_net_label, self.eeg_net_widget)
-        
-        # Wrap checkbox in container with minimal margins to reduce spacing
-        run_mapped_sim_container = QtWidgets.QWidget()
-        run_mapped_sim_layout = QtWidgets.QVBoxLayout(run_mapped_sim_container)
-        run_mapped_sim_layout.setContentsMargins(20, 0, 2, 2)  # No margins
-        run_mapped_sim_layout.setSpacing(0)  # No spacing
-        run_mapped_sim_layout.addWidget(self.run_mapped_simulation_checkbox)
-        run_mapped_sim_container.setVisible(False)  # Container visibility controls everything
-        self.run_mapped_sim_container = run_mapped_sim_container  # Store reference for visibility control
-        mapping_layout.addRow(run_mapped_sim_container)
+
         right_column_layout.addWidget(self.mapping_group)
         
         # Electrode Parameters
@@ -1192,10 +1182,10 @@ class FlexSearchTab(QtWidgets.QWidget):
             ]
 
             # Mapping options
-            if self.enable_mapping_checkbox.isChecked():
+            if self.run_mapped_simulation_checkbox.isChecked():
                 cmd.append("--enable-mapping")
-                if not self.run_mapped_simulation_checkbox.isChecked():
-                    cmd.append("--disable-mapping-simulation")
+                # When run_mapped_simulation is checked, we always run the mapping simulation
+                # (no need for --disable-mapping-simulation)
 
             # Focality options
             if goal == "focality":
@@ -1330,12 +1320,8 @@ class FlexSearchTab(QtWidgets.QWidget):
             details += (f"• Volume Atlas: {roi_params['volume_atlas']}\n" +
                         f"• Volume Region Label: {roi_params['volume_region']}\n")
         
-        if self.enable_mapping_checkbox.isChecked():
-            details += f"• Electrode Mapping: ✓ ENABLED\n"
-            if self.run_mapped_simulation_checkbox.isChecked():
-                details += f"• Mapping Simulation: ✓ ENABLED (runs additional simulation with mapped electrodes)\n"
-            else:
-                details += f"• Mapping Simulation: ✗ DISABLED (analysis only for mapped)\n"
+        if self.run_mapped_simulation_checkbox.isChecked():
+            details += f"• Electrode Mapping & Simulation: ✓ ENABLED (runs simulation with mapped electrodes)\n"
         else:
             details += f"• Electrode Mapping: ✗ DISABLED (continuous optimization)\n"
 
@@ -1597,13 +1583,10 @@ class FlexSearchTab(QtWidgets.QWidget):
             QtWidgets.QMessageBox.warning(self, "Error", f"Error loading image in Freeview: {str(e)}")
 
     def _update_mapping_options(self):
-        """Update visibility of mapping simulation options based on mapping checkbox."""
-        is_mapping_enabled = self.enable_mapping_checkbox.isChecked()
+        """Update visibility of EEG net selector based on mapped simulation checkbox."""
+        is_mapping_enabled = self.run_mapped_simulation_checkbox.isChecked()
         self.eeg_net_widget.setVisible(is_mapping_enabled)
         self.eeg_net_label.setVisible(is_mapping_enabled)
-        self.run_mapped_sim_container.setVisible(is_mapping_enabled)
-        if not is_mapping_enabled:
-            self.run_mapped_simulation_checkbox.setChecked(False)
 
     def _update_focality_visibility(self):
         is_focality = self.goal_combo.currentData() == "focality"
@@ -1866,8 +1849,8 @@ class FlexSearchTab(QtWidgets.QWidget):
         self.radius_input.setEnabled(False)
         self.current_input.setEnabled(False)
         
-        # Disable mapping options
-        self.enable_mapping_checkbox.setEnabled(False)
+        # Disable simulation options
+        self.run_final_electrode_simulation_checkbox.setEnabled(False)
         self.run_mapped_simulation_checkbox.setEnabled(False)
         
         # Disable ROI method selection
@@ -1944,8 +1927,8 @@ class FlexSearchTab(QtWidgets.QWidget):
         self.radius_input.setEnabled(True)
         self.current_input.setEnabled(True)
         
-        # Enable mapping options
-        self.enable_mapping_checkbox.setEnabled(True)
+        # Enable simulation options
+        self.run_final_electrode_simulation_checkbox.setEnabled(True)
         self.run_mapped_simulation_checkbox.setEnabled(True)
         
         # Enable ROI method selection
@@ -2042,10 +2025,9 @@ class FlexSearchTab(QtWidgets.QWidget):
             ]
             
             # Add mapping options to mean command
-            if self.enable_mapping_checkbox.isChecked():
+            if self.run_mapped_simulation_checkbox.isChecked():
                 mean_cmd.append("--enable-mapping")
-                if not self.run_mapped_simulation_checkbox.isChecked():
-                    mean_cmd.append("--disable-mapping-simulation")
+                # When run_mapped_simulation is checked, we always run the mapping simulation
             
             # Run mean optimization with enhanced output monitoring
             self.optimization_thread = FlexSearchThread(mean_cmd, env)
@@ -2155,10 +2137,9 @@ class FlexSearchTab(QtWidgets.QWidget):
             ]
             
             # Add mapping options to focality command
-            if self.enable_mapping_checkbox.isChecked():
+            if self.run_mapped_simulation_checkbox.isChecked():
                 focality_cmd.append("--enable-mapping")
-                if not self.run_mapped_simulation_checkbox.isChecked():
-                    focality_cmd.append("--disable-mapping-simulation")
+                # When run_mapped_simulation is checked, we always run the mapping simulation
                     
             # Add non-ROI specific parameters if needed
             if nonroi_method == "specific":
@@ -2252,10 +2233,9 @@ class FlexSearchTab(QtWidgets.QWidget):
             ]
             
             # Add mapping options to focality command
-            if self.enable_mapping_checkbox.isChecked():
+            if self.run_mapped_simulation_checkbox.isChecked():
                 focality_cmd.append("--enable-mapping")
-                if not self.run_mapped_simulation_checkbox.isChecked():
-                    focality_cmd.append("--disable-mapping-simulation")
+                # When run_mapped_simulation is checked, we always run the mapping simulation
                     
             # Add non-ROI specific parameters if needed
             if nonroi_method == "specific":
