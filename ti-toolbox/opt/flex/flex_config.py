@@ -20,6 +20,13 @@ from simnibs import opt_struct
 if TYPE_CHECKING:
     pass
 
+# Add project root to path for core imports
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '../..'))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+
+from core import constants as const
+
 # Import local roi module (flex-specific)
 from . import roi
 
@@ -109,7 +116,7 @@ def build_optimization(args: argparse.Namespace) -> opt_struct.TesFlexOptimizati
     )
     opt.output_folder = os.path.join(
         proj_dir, "derivatives", "SimNIBS",
-        f"sub-{args.subject}", "flex_search", roi.roi_dirname(args)
+        f"sub-{args.subject}", const.DIR_FLEX_SEARCH, roi.roi_dirname(args)
     )
     os.makedirs(opt.output_folder, exist_ok=True)
 

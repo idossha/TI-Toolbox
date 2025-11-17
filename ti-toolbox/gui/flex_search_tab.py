@@ -21,7 +21,7 @@ from components.action_buttons import RunStopButtons
 # Import path manager from core
 import sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
-from core import get_path_manager
+from core import get_path_manager, constants as const
 
 
 
@@ -2319,7 +2319,7 @@ class FlexSearchTab(QtWidgets.QWidget):
                 return None
             
             # Look for optimization summary file
-            results_dir = os.path.join(project_dir, 'derivatives', 'SimNIBS', f'sub-{subject_id}', 'flex_search', roi_dirname)
+            results_dir = os.path.join(project_dir, 'derivatives', 'SimNIBS', f'sub-{subject_id}', const.DIR_FLEX_SEARCH, roi_dirname)
             summary_file = os.path.join(results_dir, 'optimization_summary.txt')
             
             self.update_output(f"🔍 Looking for summary file: {summary_file}", 'info')
