@@ -28,7 +28,7 @@ from confirmation_dialog import ConfirmationDialog
 from utils import confirm_overwrite, is_verbose_message, is_important_message
 from components.console import ConsoleWidget
 from components.action_buttons import RunStopButtons
-from core import get_path_manager
+from core import get_path_manager, constants as const
 from tools.report_util import get_simulation_report_generator
 
 # Utility: strip ANSI/VT100 escape sequences from text (e.g., "\x1b[0;32m")
@@ -405,6 +405,7 @@ class SimulatorTab(QtWidgets.QWidget):
         self.subject_list.setMinimumHeight(90)  # Reduced by 10% (100 * 0.9 = 90)
         self.subject_list.itemSelectionChanged.connect(self.refresh_flex_search_list)  # Refresh flex-search when subjects change
         self.subject_list.itemSelectionChanged.connect(self.update_freehand_configs)  # Refresh free-hand configs when subjects change
+        self.subject_list.itemSelectionChanged.connect(self.populate_flex_eeg_nets)  # Populate flex EEG nets when subjects change
         subject_content_layout.addWidget(self.subject_list)
         
         # Subject control buttons in vertical layout on the right
@@ -492,17 +493,33 @@ class SimulatorTab(QtWidgets.QWidget):
         flex_list_and_options.addWidget(self.flex_search_list)
         
         # Flex-search options
-        flex_options_layout = QtWidgets.QHBoxLayout()
+        flex_options_layout = QtWidgets.QVBoxLayout()
+
+        # Electrode type checkboxes
+        electrode_type_layout = QtWidgets.QHBoxLayout()
         self.flex_use_mapped = QtWidgets.QCheckBox("Use Mapped")
         self.flex_use_optimized = QtWidgets.QCheckBox("Use Optimized")
         self.flex_use_mapped.setChecked(True)  # Default to mapped
-        
-        # No button group - checkboxes are independent
-        
-        flex_options_layout.addWidget(QtWidgets.QLabel("Electrode Type:"))
-        flex_options_layout.addWidget(self.flex_use_mapped)
-        flex_options_layout.addWidget(self.flex_use_optimized)
-        flex_options_layout.addStretch()
+
+        # Connect to update EEG net visibility
+        self.flex_use_mapped.stateChanged.connect(self.on_flex_mapped_changed)
+
+        electrode_type_layout.addWidget(QtWidgets.QLabel("Electrode Type:"))
+        electrode_type_layout.addWidget(self.flex_use_mapped)
+        electrode_type_layout.addWidget(self.flex_use_optimized)
+        electrode_type_layout.addStretch()
+        flex_options_layout.addLayout(electrode_type_layout)
+
+        # EEG net selection for flex-mapped mode
+        flex_eeg_net_layout = QtWidgets.QHBoxLayout()
+        self.flex_eeg_net_label = QtWidgets.QLabel("EEG Net:")
+        self.flex_eeg_net_combo = QtWidgets.QComboBox()
+        self.flex_eeg_net_combo.setMinimumWidth(200)
+        flex_eeg_net_layout.addWidget(self.flex_eeg_net_label)
+        flex_eeg_net_layout.addWidget(self.flex_eeg_net_combo)
+        flex_eeg_net_layout.addStretch()
+        flex_options_layout.addLayout(flex_eeg_net_layout)
+
         flex_list_and_options.addLayout(flex_options_layout)
         
         flex_content_layout.addLayout(flex_list_and_options)
@@ -982,38 +999,35 @@ class SimulatorTab(QtWidgets.QWidget):
                     subject_path = os.path.join(simnibs_dir, subject_dir)
                     
                     if os.path.exists(subject_path):
-                        flex_search_dir = os.path.join(subject_path, 'flex-search')
-                        
+                        flex_search_dir = os.path.join(subject_path, const.DIR_FLEX_SEARCH)
+
                         if os.path.exists(flex_search_dir):
                             # Look for search directories
                             for search_name in os.listdir(flex_search_dir):
                                 search_dir = os.path.join(flex_search_dir, search_name)
-                                mapping_file = os.path.join(search_dir, 'electrode_mapping.json')
-                                
-                                if os.path.isdir(search_dir) and os.path.exists(mapping_file):
-                                    # Read the mapping file to get details
+                                positions_file = os.path.join(search_dir, 'electrode_positions.json')
+
+                                if os.path.isdir(search_dir) and os.path.exists(positions_file):
+                                    # Read the positions file to get details
                                     try:
-                                        with open(mapping_file, 'r') as f:
-                                            mapping_data = json.load(f)
-                                        
-                                        # Get EEG net if available
-                                        eeg_net = mapping_data.get('eeg_net', 'Unknown Net')
-                                        
-                                        # Create display label
-                                        label = f"{subject_id} | {search_name} | {eeg_net}"
-                                        
+                                        with open(positions_file, 'r') as f:
+                                            positions_data = json.load(f)
+
+                                        # Create display label (no EEG net shown until mapped)
+                                        label = f"{subject_id} | {search_name}"
+
                                         # Add item to list
                                         item = QtWidgets.QListWidgetItem(label)
                                         item.setData(QtCore.Qt.UserRole, {
                                             'subject_id': subject_id,
                                             'search_name': search_name,
-                                            'mapping_file': mapping_file,
-                                            'mapping_data': mapping_data
+                                            'positions_file': positions_file,
+                                            'positions_data': positions_data
                                         })
                                         self.flex_search_list.addItem(item)
-                                        
+
                                     except Exception as e:
-                                        print(f"Error reading flex-search mapping file {mapping_file}: {e}")
+                                        print(f"Error reading flex-search positions file {positions_file}: {e}")
                                         
         except Exception as e:
             print(f"Error refreshing flex-search list: {str(e)}")
@@ -1021,7 +1035,47 @@ class SimulatorTab(QtWidgets.QWidget):
     def clear_flex_search_selection(self):
         """Clear all flex-search selections."""
         self.flex_search_list.clearSelection()
-    
+
+    def populate_flex_eeg_nets(self):
+        """Populate the flex EEG net dropdown with available EEG nets from selected subjects."""
+        try:
+            self.flex_eeg_net_combo.clear()
+
+            # Get selected subjects
+            selected_subjects = [item.text() for item in self.subject_list.selectedItems()]
+
+            if not selected_subjects:
+                return
+
+            # Collect unique EEG nets from all selected subjects
+            unique_nets = set()
+            for subject_id in selected_subjects:
+                eeg_caps = self.pm.list_eeg_caps(subject_id)
+                for net_file in eeg_caps:
+                    unique_nets.add(net_file)
+
+            # Add sorted nets to combo box
+            for net in sorted(unique_nets):
+                self.flex_eeg_net_combo.addItem(net)
+
+            # If no nets found, add default
+            if self.flex_eeg_net_combo.count() == 0:
+                self.flex_eeg_net_combo.addItem("EGI_template.csv")
+
+        except Exception as e:
+            print(f"Error populating flex EEG nets: {str(e)}")
+
+    def on_flex_mapped_changed(self):
+        """Handle changes to the 'Use Mapped' checkbox."""
+        # Show/hide EEG net selection based on checkbox state
+        is_mapped = self.flex_use_mapped.isChecked()
+        self.flex_eeg_net_label.setVisible(is_mapped)
+        self.flex_eeg_net_combo.setVisible(is_mapped)
+
+        # Populate EEG nets when checkbox is enabled
+        if is_mapped:
+            self.populate_flex_eeg_nets()
+
     def on_simulation_type_changed(self):
         """Handle changes between Montage, Flex, and Free-hand simulation modes."""
         is_montage_mode = self.sim_type_montage.isChecked()
@@ -1047,6 +1101,7 @@ class SimulatorTab(QtWidgets.QWidget):
         elif is_flex_mode:
             self.update_output("Switched to Flex-Search Simulation mode", 'info')
             self.refresh_flex_search_list()  # Refresh flex-search list
+            self.populate_flex_eeg_nets()  # Populate EEG nets for flex-mapped mode
         elif is_freehand_mode:
             self.update_output("Switched to Free-hand Simulation mode", 'info')
             self.update_freehand_configs()  # Refresh free-hand configs
@@ -1054,18 +1109,23 @@ class SimulatorTab(QtWidgets.QWidget):
     def initialize_ui_state(self):
         """Initialize UI state without printing messages."""
         is_montage_mode = self.sim_type_montage.isChecked()
-        
+
         # Show/hide montage-related UI elements
         self.montage_container.setVisible(is_montage_mode)
-        
+
         # Enable/disable (grey out) simulation mode and EEG net controls instead of hiding
         for widget in self.sim_mode_layout_widgets:
             widget.setEnabled(is_montage_mode)
         self.eeg_net_combo.setEnabled(is_montage_mode)
         self.eeg_net_label.setEnabled(is_montage_mode)
-        
+
         # Show/hide flex-search-related UI elements
         self.flex_search_container.setVisible(not is_montage_mode)
+
+        # Initialize flex EEG net dropdown visibility based on checkbox state
+        is_mapped = self.flex_use_mapped.isChecked()
+        self.flex_eeg_net_label.setVisible(is_mapped)
+        self.flex_eeg_net_combo.setVisible(is_mapped)
 
     def ensure_montage_file_exists(self, project_dir):
         """Ensure the montage file exists with proper structure."""
@@ -1337,41 +1397,85 @@ class SimulatorTab(QtWidgets.QWidget):
                 for flex_data in selected_flex_searches:
                     subject_id = flex_data['subject_id']
                     search_name = flex_data['search_name']
-                    mapping_data = flex_data['mapping_data']
-                    
+                    positions_data = flex_data['positions_data']
+
                     # Create individual montage configurations based on selection
                     if use_mapped:
-                        # Read electrode_mapping.json for this flex-search
-                        flex_search_dir = self.pm.get_flex_search_dir(subject_id, search_name)
-                        mapping_file = os.path.join(flex_search_dir, 'electrode_mapping.json') if flex_search_dir else None
-                        
-                        if not os.path.exists(mapping_file):
-                            self.update_output(f"Error: Could not find electrode mapping file: {mapping_file}", 'error')
+                        # Get selected EEG net
+                        eeg_net = self.flex_eeg_net_combo.currentText()
+                        if not eeg_net:
+                            self.update_output(f"Error: No EEG net selected for mapping", 'error')
                             continue
-                            
+
+                        # Get paths
+                        flex_search_dir = self.pm.get_flex_search_dir(subject_id, search_name)
+                        positions_file = os.path.join(flex_search_dir, 'electrode_positions.json')
+                        m2m_dir = self.pm.get_m2m_dir(subject_id)
+
+                        # Get EEG net CSV path
+                        eeg_positions_dir = os.path.join(m2m_dir, const.DIR_EEG_POSITIONS)
+                        eeg_net_path = os.path.join(eeg_positions_dir, eeg_net)
+
+                        if not os.path.exists(eeg_net_path):
+                            self.update_output(f"Error: EEG net file not found: {eeg_net_path}", 'error')
+                            continue
+
+                        # Create temporary mapping file path
+                        mapping_file = os.path.join(flex_search_dir, f'electrode_mapping_{eeg_net.replace(".csv", "")}.json')
+
+                        # Run map_electrodes.py to generate mapping
+                        self.update_output(f"Mapping electrodes for {subject_id} | {search_name} to {eeg_net}...", 'info')
+
+                        try:
+                            # Get path to map_electrodes.py
+                            map_electrodes_path = os.path.join(
+                                os.path.dirname(os.path.dirname(__file__)),
+                                'tools', 'map_electrodes.py'
+                            )
+
+                            # Run map_electrodes.py
+                            result = subprocess.run(
+                                ['simnibs_python', map_electrodes_path,
+                                 '-i', positions_file,
+                                 '-n', eeg_net_path,
+                                 '-o', mapping_file],
+                                capture_output=True,
+                                text=True,
+                                check=True
+                            )
+
+                            self.update_output(f"Electrode mapping completed for {search_name}", 'info')
+
+                        except subprocess.CalledProcessError as e:
+                            self.update_output(f"Error running map_electrodes.py: {e.stderr}", 'error')
+                            continue
+                        except Exception as e:
+                            self.update_output(f"Error during electrode mapping: {str(e)}", 'error')
+                            continue
+
+                        # Read the generated mapping file
+                        if not os.path.exists(mapping_file):
+                            self.update_output(f"Error: Mapping file was not created: {mapping_file}", 'error')
+                            continue
+
                         with open(mapping_file, 'r') as f:
                             mapping_data_from_file = json.load(f)
-                            
+
                         if 'mapped_positions' not in mapping_data_from_file or 'mapped_labels' not in mapping_data_from_file:
                             self.update_output(f"Error: Invalid electrode mapping file format: {mapping_file}", 'error')
                             continue
-                            
+
                         mapped_positions = mapping_data_from_file['mapped_positions']
                         mapped_labels = mapping_data_from_file['mapped_labels']
-                        eeg_net = mapping_data_from_file.get('eeg_net')
-                        
-                        if not eeg_net:
-                            self.update_output("Error: No EEG net specified in electrode mapping file", 'error')
-                            continue
-                        
+
                         # Create individual montage configuration for mapped electrodes
                         if len(mapped_positions) >= 4 and len(mapped_labels) >= 4:  # Need at least 4 electrodes for TI
                             # Parse search_name to extract components for new naming format
                             montage_name = self._parse_flex_search_name(search_name, 'mapped')
-                            
+
                             # Use the first 4 electrode labels for TI simulation
                             electrodes_for_ti = mapped_labels[:4]
-                            
+
                             # Validate montage name doesn't conflict with existing directories
                             if montage_name.startswith('flex_'):
                                 # Create individual configuration for this subject-montage combination
@@ -1395,13 +1499,13 @@ class SimulatorTab(QtWidgets.QWidget):
                             self.update_output(f"Error: Not enough electrodes for TI simulation in {search_name} (need at least 4)", 'error')
                     
                     if use_optimized:
-                        optimized_positions = mapping_data['optimized_positions']
-                        
+                        optimized_positions = positions_data['optimized_positions']
+
                         # Create individual montage configuration for optimized electrodes
                         if len(optimized_positions) >= 4:  # Need at least 4 electrodes for TI
                             # Parse search_name to extract components for new naming format
                             montage_name = self._parse_flex_search_name(search_name, 'optimized')
-                            
+
                             # Use the first 4 electrode positions for TI simulation
                             positions_for_ti = optimized_positions[:4]
 
@@ -1416,7 +1520,7 @@ class SimulatorTab(QtWidgets.QWidget):
                                         'type': 'flex_optimized',
                                         'search_name': search_name,
                                         'electrode_positions': positions_for_ti,
-                                        'pairs': [[positions_for_ti[0], positions_for_ti[1]], 
+                                        'pairs': [[positions_for_ti[0], positions_for_ti[1]],
                                                  [positions_for_ti[2], positions_for_ti[3]]]
                                     }
                                 }
