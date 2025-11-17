@@ -1044,6 +1044,40 @@ class TesFlexOptimization:
         self.electrode.append(electrode)
         return electrode
 
+    def _save_optimized_positions(self):
+        """
+        Saves the optimized electrode positions to a JSON file.
+        Creates electrode_positions.json with optimized positions and channel/array indices.
+        """
+        if not hasattr(self, 'electrode') or self.electrode is None:
+            logger.warning("No electrode data available to save")
+            return
+
+        # Extract electrode positions from the optimized electrodes
+        optimized_positions = []
+        channel_array_indices = []
+
+        for i_channel_stim in range(len(self.electrode)):
+            for i_array, electrode_array in enumerate(self.electrode[i_channel_stim]._electrode_arrays):
+                # Get the center position from the first electrode's posmat (4x4 transformation matrix)
+                # posmat[:3, 3] contains the [x, y, z] coordinates of the electrode center
+                actual_pos = electrode_array.electrodes[0].posmat[:3, 3].copy()
+                optimized_positions.append(actual_pos.tolist())
+                channel_array_indices.append([i_channel_stim, i_array])
+
+        # Create the JSON data structure
+        json_data = {
+            'optimized_positions': optimized_positions,
+            'channel_array_indices': channel_array_indices
+        }
+
+        # Save to file
+        positions_file = os.path.join(self.output_folder, "electrode_positions.json")
+        with open(positions_file, 'w') as f:
+            json.dump(json_data, f, indent=2)
+
+        logger.info(f"Optimized electrode positions saved to: {positions_file}")
+
     def map_to_nearest_net_electrodes(self, net_csv_path=None):
         """
         Maps optimized electrode positions to the nearest available positions in a
@@ -1245,10 +1279,13 @@ class TesFlexOptimization:
                 
         # transform optimal electrode pos from array to list of list
         self.electrode_pos_opt = self.get_electrode_pos_from_array(optim_x)
-        
+
         # internally update electrodes to correspond to optimal electrode pos
         self.get_nodes_electrode(electrode_pos=self.electrode_pos_opt)
-        
+
+        # Save optimized electrode positions to JSON file
+        self._save_optimized_positions()
+
         logger.log(26, f"Total number of function evaluations:                   {self.n_test}")
         logger.log(26, f"Total number of FEM evaluations:                        {self.n_sim}")
         logger.log(26, f"Final goal function value:                              {self.optim_funvalue}")
