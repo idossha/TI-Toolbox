@@ -28,24 +28,36 @@ import yaml
 
 # Available benchmarks and their main functions
 BENCHMARKS = {
+    # Preprocessing & Mesh Generation
     'dicom': ('benchmark.dicom', 'main'),
     'charm': ('benchmark.charm', 'main'),
     'recon': ('benchmark.recon', 'main'),
+    # Optimization & Simulation
     'leadfield': ('benchmark.leadfield', 'main'),
     'flex': ('benchmark.flex', 'main'),
     'ex_search': ('benchmark.ex_search', 'main'),
     'simulator': ('benchmark.simulator', 'main'),
+    # Analysis Tools
+    'tissue_analyzer': ('benchmark.tissue_analyzer', 'main'),
+    'mesh_analyzer': ('benchmark.mesh_analyzer', 'main'),
+    'voxel_analyzer': ('benchmark.voxel_analyzer', 'main'),
 }
 
 # Benchmark descriptions for better UX
 BENCHMARK_DESCRIPTIONS = {
+    # Preprocessing & Mesh Generation
     'dicom': 'DICOM to NIfTI conversion',
     'charm': 'Headreco (charm) mesh generation',
     'recon': 'FreeSurfer recon-all surface reconstruction',
+    # Optimization & Simulation
     'leadfield': 'Leadfield matrix computation',
     'flex': 'Flexible electrode position optimization',
     'ex_search': 'Exhaustive electrode search optimization',
     'simulator': 'TI/mTI electrode montage simulation',
+    # Analysis Tools
+    'tissue_analyzer': 'Tissue volume and thickness analysis (CSF, bone, skin)',
+    'mesh_analyzer': 'Surface-based field analysis (mesh)',
+    'voxel_analyzer': 'Volumetric field analysis (NIfTI)',
 }
 
 
@@ -83,6 +95,13 @@ def parse_benchmark_result(output_dir: Path, benchmark_name: str) -> Tuple[Optio
             # flex saves: flex_benchmark_{subject_id}_summary_{timestamp}.json
             # Find the most recent summary file
             pattern = "flex_benchmark_*_summary_*.json"
+        elif benchmark_name == 'tissue_analyzer':
+            # tissue_analyzer saves multiple files per tissue type
+            # Look for summary file: tissue_analyzer_benchmark_{subject_id}_summary_{timestamp}.json
+            pattern = "tissue_analyzer_benchmark_*_summary_*.json"
+        elif benchmark_name in ['mesh_analyzer', 'voxel_analyzer']:
+            # These analyzers save: {analyzer}_benchmark_{subject_id}_{analysis_type}_latest.json
+            pattern = f"{benchmark_name}_benchmark_*_latest.json"
         elif benchmark_name in ['dicom', 'charm', 'recon', 'leadfield', 'simulator']:
             # These benchmarks use the standard benchmark result format
             pattern = f"{benchmark_name}_benchmark_*_latest.json"
@@ -108,6 +127,15 @@ def parse_benchmark_result(output_dir: Path, benchmark_name: str) -> Tuple[Optio
             success = any(r.get('success', False) for r in results)
             if not success and results:
                 error_message = "All optimization runs failed"
+            else:
+                error_message = None
+        elif benchmark_name == 'tissue_analyzer':
+            # For tissue_analyzer, check if all tissue types succeeded
+            results = result_data.get('results', [])
+            success = all(r.get('success', False) for r in results) if results else False
+            if not success and results:
+                failed_tissues = [r.get('tissue_type', 'unknown') for r in results if not r.get('success', False)]
+                error_message = f"Failed tissue types: {', '.join(failed_tissues)}"
             else:
                 error_message = None
         else:
@@ -265,7 +293,10 @@ Examples:
   # List available benchmarks
   python bench_runner.py --list
 
-Available benchmarks: charm, recon, dicom, flex, leadfield, ex_search
+Available benchmarks: 
+  Preprocessing: dicom, charm, recon
+  Optimization: leadfield, flex, ex_search, simulator
+  Analysis: tissue_analyzer, mesh_analyzer, voxel_analyzer
         """
     )
 

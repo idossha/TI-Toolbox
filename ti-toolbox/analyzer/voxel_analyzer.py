@@ -74,7 +74,7 @@ if project_root not in sys.path:
 
 # Local imports
 from tools import logging_util
-from visualizer import VoxelVisualizer
+from analyzer.visualizer import VoxelVisualizer
 
 
 class VoxelAnalyzer:

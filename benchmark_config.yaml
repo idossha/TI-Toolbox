@@ -2,7 +2,7 @@
 # TI-Toolbox Benchmark Configuration - Pipeline Setup
 # ======================================================================
 # Global benchmark settings
-output_dir: /mnt/TIT_benchmarking/benchmark_results  # Main directory for benchmark results and logs
+output_dir: /mnt/BIDS_new/benchmark_results  # Main directory for benchmark results and logs
 keep_project: true                                   # Keep temporary project directories after completion
 debug_mode: true                                     # Enable verbose debug logging
 
@@ -188,17 +188,102 @@ simulator:
   Output: /mnt/TIT_benchmarking/derivatives/SimNIBS/sub-101/Simulations/
 
 # ======================================================================
+# STEP 8: TISSUE ANALYZER Benchmark - Tissue volume and thickness analysis
+# ======================================================================
+tissue_analyzer:
+  # Project setup - Use shared pipeline directory
+  project_dir: /mnt/BIDS_new/
+  
+  # Input - From CHARM step output (segmented tissue file)
+  nifti_path: /mnt/BIDS_new/derivatives/SimNIBS/sub-101/m2m_101/segmentation/labeling.nii.gz
+  subject_id: 101
+  
+  # Script path
+  tissue_script: /development/ti-toolbox/tools/tissue_analyzer.py
+  
+  # Tissue types to analyze
+  tissues: [csf, bone, skin]                         # Options: csf, bone, skin
+  
+  Output: /mnt/BIDS_new/derivatives/ti-toolbox/tissue_analysis/sub-101/
+
+# ======================================================================
+# STEP 9: MESH ANALYZER Benchmark - Surface-based field analysis
+# ======================================================================
+mesh_analyzer:
+  # Project setup - Use shared pipeline directory
+  project_dir: /mnt/BIDS_new/
+  
+  # Input - From SIMULATOR step output (mesh field file)
+  field_mesh: /mnt/BIDS_new/derivatives/SimNIBS/sub-101/Simulations/test/TI/mesh/test_TI.msh
+  field_name: TI_max                                  # Options: normE, TI_max, E_normal, etc.
+  subject_dir: /mnt/BIDS_new/derivatives/SimNIBS/sub-101/m2m_101
+  subject_id: 101
+  
+  # Analysis type
+  analysis_type: sphere                              # Options: sphere, cortex, whole_head
+  
+  # Sphere analysis parameters (if analysis_type: sphere)
+  roi_center: [0, 0, 0]                             # ROI center coordinates (x, y, z) in mm
+  roi_radius: 10.0                                   # ROI radius in mm
+  
+  # Cortical analysis parameters (if analysis_type: cortex)
+  # atlas_type: DK40                                 # Options: DK40, HCP_MMP1, FreeSurfer
+  # target_region: superiorfrontal                   # Region name from atlas
+  
+  # Whole head analysis parameters (if analysis_type: whole_head)
+  # atlas_type: DK40                                 # Options: DK40, HCP_MMP1, FreeSurfer
+  
+  # Visualization
+  visualize: false                                   # Generate visualization files
+  
+  # Output: /mnt/TIT_benchmarking/benchmark_results/mesh_analysis/
+
+# ======================================================================
+# STEP 10: VOXEL ANALYZER Benchmark - Volumetric NIfTI-based field analysis
+# ======================================================================
+voxel_analyzer:
+  # Project setup - Use shared pipeline directory
+  project_dir: /mnt/BIDS_new/
+  
+  # Input - From SIMULATOR step output (NIfTI field file)
+  field_nifti: /mnt/BIDS_new/derivatives/SimNIBS/sub-101/Simulations/test/TI/niftis/grey_test_TI_subject_TI_max.nii.gz
+  subject_dir: /mnt/BIDS_new/derivatives/SimNIBS/sub-101/m2m_101
+  subject_id: 101
+  
+  # Analysis type
+  analysis_type: sphere                              # Options: sphere, cortex, whole_head
+  
+  # Sphere analysis parameters (if analysis_type: sphere)
+  roi_center: [0, 0, 0]                             # ROI center coordinates (x, y, z) in mm
+  roi_radius: 10.0                                   # ROI radius in mm
+  
+  # Cortical analysis parameters (if analysis_type: cortex)
+  # atlas_file: /mnt/TIT_benchmarking/derivatives/SimNIBS/sub-101/m2m_101/mri/aparc+aseg.mgz
+  # target_region: Left-Hippocampus                  # Region name from atlas
+  
+  # Whole head analysis parameters (if analysis_type: whole_head)
+  # atlas_file: /mnt/TIT_benchmarking/derivatives/SimNIBS/sub-101/m2m_101/mri/aparc+aseg.mgz
+  
+  # Visualization
+  visualize: false                                   # Generate visualization files
+  
+  # Output: /mnt/TIT_benchmarking/benchmark_results/voxel_analysis/
+
+# ======================================================================
 # Pipeline Summary:
 # ======================================================================
 # All benchmarks share the base directory: /mnt/TIT_benchmarking/
 # 
 # Data flow:
-# sourcedata/sub-101/          → [DICOM]     → sub-101/anat/*.nii.gz
-# sub-101/anat/*.nii.gz        → [CHARM]     → derivatives/SimNIBS/sub-101/m2m_101/
-# sub-101/anat/*.nii.gz        → [RECON]     → derivatives/freesurfer/sub-101/
-# derivatives/.../m2m_101/     → [LEADFIELD] → sub-101/leadfields/*.hdf5
-# derivatives/.../m2m_101/     → [FLEX]      → sub-101/flex_results/
-# sub-101/leadfields/*.hdf5    → [EX_SEARCH] → sub-101/ex_search_results/
-# derivatives/.../m2m_101/     → [SIMULATOR] → derivatives/SimNIBS/sub-101/Simulations/
+# sourcedata/sub-101/          → [DICOM]          → sub-101/anat/*.nii.gz
+# sub-101/anat/*.nii.gz        → [CHARM]          → derivatives/SimNIBS/sub-101/m2m_101/
+# sub-101/anat/*.nii.gz        → [RECON]          → derivatives/freesurfer/sub-101/
+# derivatives/.../m2m_101/     → [LEADFIELD]      → sub-101/leadfields/*.hdf5
+# derivatives/.../m2m_101/     → [FLEX]           → sub-101/flex_results/
+# sub-101/leadfields/*.hdf5    → [EX_SEARCH]      → sub-101/ex_search_results/
+# derivatives/.../m2m_101/     → [SIMULATOR]      → derivatives/SimNIBS/sub-101/Simulations/
+# derivatives/.../m2m_101/     → [TISSUE_ANALYZER] → benchmark_results/{tissue}_analysis/
+# Simulations/.../mesh/*.msh   → [MESH_ANALYZER]  → benchmark_results/mesh_analysis/
+# Simulations/.../nifti/*.nii  → [VOXEL_ANALYZER] → benchmark_results/voxel_analysis/
 
 # ======================================================================
