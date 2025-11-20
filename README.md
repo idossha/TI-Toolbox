@@ -8,9 +8,6 @@
 
 
 
-
-
-
 Releases, guides, and wiki please see: [https://idossha.github.io/TI-Toolbox/](https://idossha.github.io/TI-Toolbox/)
 
 Reference: https://www.biorxiv.org/content/10.1101/2025.10.06.680781v3
@@ -20,4 +17,4 @@ Reference: https://www.biorxiv.org/content/10.1101/2025.10.06.680781v3
 For inquiries regarding the TI-Toolbox, please contact:
 
 - **Ido Haber**
-=31;OK\- Email: ihaber@wisc.edu
+- Email: ihaber@wisc.edu
