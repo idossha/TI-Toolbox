@@ -2,6 +2,7 @@ const { ipcRenderer } = require('electron');
 
 const projectPathInput = document.getElementById('project-path');
 const browseBtn = document.getElementById('browse-btn');
+const newProjectBtn = document.getElementById('new-project-btn');
 const launchBtn = document.getElementById('launch-btn');
 const launchText = document.getElementById('launch-text');
 const launchSpinner = document.getElementById('launch-spinner');
@@ -136,6 +137,110 @@ browseBtn.addEventListener('click', async () => {
     hideStatus();
   }
 });
+
+newProjectBtn.addEventListener('click', async () => {
+  // Show dialog to select where to create the new project
+  const selected = await ipcRenderer.invoke('select-directory');
+  if (!selected) {
+    return;
+  }
+
+  // Ask if user wants example data
+  const includeExampleData = await showExampleDataDialog();
+  
+  showProgress('Creating new project...');
+  
+  try {
+    const result = await ipcRenderer.invoke('create-new-project', selected, includeExampleData);
+    
+    if (result.success) {
+      projectPathInput.value = result.projectDir;
+      refreshLaunchButton();
+      
+      let message = 'New project created successfully!';
+      if (result.exampleDataCopied) {
+        message += ' Example data (sub-ernie and sub-MNI152) has been copied to your project.';
+      }
+      
+      showStatus(message, 'success');
+      appendActivity({ 
+        stage: 'project', 
+        message: 'Created new project with BIDS structure', 
+        timestamp: new Date().toISOString() 
+      });
+    } else {
+      throw new Error(result.error);
+    }
+  } catch (error) {
+    showStatus(`Failed to create project: ${error.message}`, 'error');
+  } finally {
+    hideProgress();
+  }
+});
+
+function showExampleDataDialog() {
+  return new Promise((resolve) => {
+    // Create modal overlay
+    const overlay = document.createElement('div');
+    overlay.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.5);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+    `;
+    
+    // Create dialog box
+    const dialogBox = document.createElement('div');
+    dialogBox.style.cssText = `
+      background: white;
+      border-radius: 12px;
+      padding: 30px;
+      max-width: 500px;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+    `;
+    
+    dialogBox.innerHTML = `
+      <h2 style="margin: 0 0 15px 0; color: #333; font-size: 22px;">Include Example Data?</h2>
+      <p style="margin: 0 0 20px 0; color: #666; line-height: 1.6;">
+        Would you like to include example data (sub-ernie and sub-MNI152) in your new project?
+        <br><br>
+        This is recommended for first-time users to explore the toolbox functionality.
+      </p>
+      <div style="display: flex; gap: 10px; justify-content: flex-end;">
+        <button id="dialog-no" class="btn btn-secondary" style="min-width: 100px;">No, Skip</button>
+        <button id="dialog-yes" class="btn btn-primary" style="min-width: 100px;">Yes, Include</button>
+      </div>
+    `;
+    
+    overlay.appendChild(dialogBox);
+    document.body.appendChild(overlay);
+    
+    // Handle button clicks
+    document.getElementById('dialog-yes').addEventListener('click', () => {
+      document.body.removeChild(overlay);
+      resolve(true);
+    });
+    
+    document.getElementById('dialog-no').addEventListener('click', () => {
+      document.body.removeChild(overlay);
+      resolve(false);
+    });
+    
+    // Handle clicking outside the dialog
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) {
+        document.body.removeChild(overlay);
+        resolve(false);
+      }
+    });
+  });
+}
 
 projectPathInput.addEventListener('input', () => {
   refreshLaunchButton();

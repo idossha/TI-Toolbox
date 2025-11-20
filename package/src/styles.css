@@ -76,6 +76,7 @@ label {
   display: flex;
   gap: 10px;
   margin-bottom: 8px;
+  flex-wrap: wrap;
 }
 
 input[type="text"] {
