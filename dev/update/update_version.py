@@ -1,4 +1,4 @@
-#!/usr/bin/env simnibs_python
+#!/usr/bin/env python3
 """
 Version Update Script for Temporal Interference Toolbox
 This script updates version information across all project files.
@@ -53,26 +53,31 @@ def update_version(new_version):
             (r'"tag": "idossha/simnibs:[^"]*"', f'"tag": "idossha/simnibs:v{new_version}"'),
         ],
         
-        "launcher/executable/src/ti_csc_launcher.py": [
-            (r'__version__ = "[^"]*"', f'__version__ = "{new_version}"'),
-        ],
-        
-        "launcher/executable/src/dialogs.py": [
-            (r'__version__ = "[^"]*"', f'__version__ = "{new_version}"'),
-        ],
-        
         "docs/_config.yml": [
             (r'version: "[^"]*"', f'version: "{new_version}"'),
         ],
 
-        "launcher/bash/docker-compose.yml": [
+        "docker-compose.yml": [
             (r'image: idossha/simnibs:[\S]+', f'image: idossha/simnibs:v{new_version}'),
+            (r'TI_TOOLBOX_VERSION: "[\S]+"', f'TI_TOOLBOX_VERSION: "v{new_version}"'),
         ],
-        "launcher/executable/docker-compose.yml": [
+        
+        "dev/bash_dev/docker-compose.dev.yml": [
             (r'image: idossha/simnibs:[\S]+', f'image: idossha/simnibs:v{new_version}')
         ],
-        "development/bash_dev/docker-compose.dev.yml": [
-            (r'image: idossha/simnibs:[\S]+', f'image: idossha/simnibs:v{new_version}')
+        
+        # Electron Desktop App files
+        "package/package.json": [
+            (r'"version": "\d+\.\d+\.\d+"', f'"version": "{new_version}"'),
+        ],
+        
+        "package/src/index.html": [
+            (r'Version \d+\.\d+\.\d+', f'Version {new_version}'),
+        ],
+        
+        "package/docker/docker-compose.yml": [
+            (r'image: idossha/simnibs:v[\d\.]+', f'image: idossha/simnibs:v{new_version}'),
+            (r'TI_TOOLBOX_VERSION: "v[\d\.]+"', f'TI_TOOLBOX_VERSION: "v{new_version}"'),
         ]
     }
     
@@ -98,6 +103,7 @@ def update_version(new_version):
     print(f"   • Updated releases sidebar navigation (docs/_layouts/releases.html)")
     print(f"   • Updated previous release titles")
     print(f"   • Updated dataset description JSON files with new SimNIBS Docker image version")
+    print(f"   • Updated Electron Desktop App (package.json, index.html, docker-compose.yml)")
 
 def update_dataset_descriptions(new_version):
     """Update Docker image versions in dataset description JSON files"""
@@ -177,11 +183,10 @@ def update_releases_page(version, release_notes, release_date):
 {release_notes}
 
 #### Download Links
-- [Windows Installer](https://github.com/idossha/TI-Toolbox/releases/download/v{version}/TI-Toolbox-Windows.exe)
-- [macOS Universal](https://github.com/idossha/TI-Toolbox/releases/download/v{version}/TemporalInterferenceToolbox-macOS-universal.zip)
-- [Linux AppImage](https://github.com/idossha/TI-Toolbox/releases/download/v{version}/TemporalInterferenceToolbox-Linux-x86_64.AppImage)
+- Docker Image: `docker pull idossha/simnibs:v{version}`
+- Source Code: [GitHub Repository](https://github.com/idossha/TI-Toolbox)
 
-For installation instructions, see the [Installation Guide]({{ site.baseurl }}/installation/)."""
+For installation instructions, see the [Installation Guide]({{{{ site.baseurl }}}}/installation/)."""
     
     try:
         with open(releases_file, 'r', encoding='utf-8') as f:
@@ -218,9 +223,8 @@ def update_changelog_file(version, release_notes, release_date):
 {release_notes}
 
 #### Download Links
-- [Windows Installer](https://github.com/idossha/TI-Toolbox/releases/download/v{version}/TI-Toolbox-Windows.exe)
-- [macOS Universal](https://github.com/idossha/TI-Toolbox/releases/download/v{version}/TemporalInterferenceToolbox-macOS-universal.zip)
-- [Linux AppImage](https://github.com/idossha/TI-Toolbox/releases/download/v{version}/TemporalInterferenceToolbox-Linux-x86_64.AppImage)
+- Docker Image: `docker pull idossha/simnibs:v{version}`
+- Source Code: [GitHub Repository](https://github.com/idossha/TI-Toolbox)
 
 ---
 
@@ -276,11 +280,10 @@ sitemap: false
 {release_notes}
 
 #### Download Links
-- [Windows Installer](https://github.com/idossha/TI-Toolbox/releases/download/v{version}/TI-Toolbox-Windows.exe)
-- [macOS Universal](https://github.com/idossha/TI-Toolbox/releases/download/v{version}/TemporalInterferenceToolbox-macOS-universal.zip)
-- [Linux AppImage](https://github.com/idossha/TI-Toolbox/releases/download/v{version}/TemporalInterferenceToolbox-Linux-x86_64.AppImage)
+- Docker Image: `docker pull idossha/simnibs:v{version}`
+- Source Code: [GitHub Repository](https://github.com/idossha/TI-Toolbox)
 
-For installation instructions, see the [Installation Guide]({{ site.baseurl }}/installation/).
+For installation instructions, see the [Installation Guide]({{{{ site.baseurl }}}}/installation/).
 
 ---
 
@@ -288,8 +291,8 @@ For installation instructions, see the [Installation Guide]({{ site.baseurl }}/i
 
 If you encounter issues with this release:
 
-1. Check the [Installation Guide]({{ site.baseurl }}/installation/) for setup instructions
-2. Review the [Troubleshooting]({{ site.baseurl }}/installation/#troubleshooting) section
+1. Check the [Installation Guide]({{{{ site.baseurl }}}}/installation/) for setup instructions
+2. Review the [Troubleshooting]({{{{ site.baseurl }}}}/installation/#troubleshooting) section
 3. Search [existing issues](https://github.com/idossha/TI-Toolbox/issues)
 4. Ask in [GitHub Discussions](https://github.com/idossha/TI-Toolbox/discussions)
 """
@@ -433,7 +436,7 @@ def get_release_info():
 def main():
     """Main function"""
     if len(sys.argv) > 1 and sys.argv[1] in ['--help', '-h', 'help']:
-        print("Usage: python update_version.py")
+        print("Usage: python update_version_new.py")
         print("\nThis script will guide you through the version update process:")
         print("  1. Enter the new version number")
         print("  2. List additions (one per line)")
@@ -445,7 +448,7 @@ def main():
     new_version, release_notes = get_release_info()
     
     # Change to script directory
-    script_dir = Path(__file__).parent.parent.parent  # Go up one more level to reach project root
+    script_dir = Path(__file__).parent.parent.parent  # Go up to project root (dev/update/ -> dev/ -> root)
     os.chdir(script_dir)
     
     # Update version in all files
@@ -459,7 +462,7 @@ def main():
     print(f"   2. Commit the changes: git add . && git commit -m 'Release v{new_version}'")
     print(f"   3. Create a release tag: git tag v{new_version}")
     print(f"   4. Push changes: git push && git push --tags")
-    print(f"   5. Build and upload binaries to GitHub release")
+    print(f"   5. Build and push Docker image to Docker Hub")
     print(f"   6. Create GitHub release at: https://github.com/idossha/TI-Toolbox/releases/new")
     print(f"\n🚀 Release documentation automatically updated:")
     print(f"   • Main releases page shows v{new_version} as latest")
@@ -467,6 +470,9 @@ def main():
     print(f"   • Releases sidebar updated with v{new_version} in version history")
     print(f"   • Individual release page created with proper links")
     print(f"   • Dataset description JSON files updated with new SimNIBS Docker image version")
+    print(f"   • Docker Compose files updated with new image tags")
+    print(f"   • Electron Desktop App files updated (package.json, index.html, docker-compose.yml)")
 
 if __name__ == "__main__":
-    main() 
+    main()
+
