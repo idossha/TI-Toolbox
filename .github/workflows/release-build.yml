@@ -1,0 +1,179 @@
+name: Build and Release Electron App
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:  # Allow manual trigger for testing
+
+jobs:
+  build:
+    name: Build ${{ matrix.os }} - ${{ matrix.arch }}
+    runs-on: ${{ matrix.os }}
+    
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # macOS builds
+          - os: macos-latest
+            arch: x64
+            platform: mac
+            name: macOS-Intel
+          - os: macos-latest
+            arch: arm64
+            platform: mac
+            name: macOS-Silicon
+          
+          # Windows build
+          - os: windows-latest
+            arch: x64
+            platform: win
+            name: Windows
+          
+          # Linux build
+          - os: ubuntu-latest
+            arch: x64
+            platform: linux
+            name: Linux
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: package/package-lock.json
+
+      - name: Install dependencies
+        working-directory: package
+        run: npm ci
+
+      - name: Build Electron app - macOS x64
+        if: matrix.platform == 'mac' && matrix.arch == 'x64'
+        working-directory: package
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npx electron-builder --mac --x64
+
+      - name: Build Electron app - macOS arm64
+        if: matrix.platform == 'mac' && matrix.arch == 'arm64'
+        working-directory: package
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npx electron-builder --mac --arm64
+
+      - name: Build Electron app - Windows
+        if: matrix.platform == 'win'
+        working-directory: package
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npx electron-builder --win --x64
+
+      - name: Build Electron app - Linux
+        if: matrix.platform == 'linux'
+        working-directory: package
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npx electron-builder --linux --x64
+
+      # Upload artifacts
+      - name: Upload macOS DMG artifacts
+        if: matrix.platform == 'mac'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.name }}-dmg
+          path: |
+            package/dist/*.dmg
+            package/dist/*.dmg.blockmap
+          retention-days: 5
+
+      - name: Upload macOS ZIP artifacts
+        if: matrix.platform == 'mac'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.name }}-zip
+          path: |
+            package/dist/*.zip
+            package/dist/*-mac.zip
+          retention-days: 5
+
+      - name: Upload Windows artifacts
+        if: matrix.platform == 'win'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.name }}
+          path: |
+            package/dist/*.exe
+            package/dist/*.exe.blockmap
+          retention-days: 5
+
+      - name: Upload Linux artifacts
+        if: matrix.platform == 'linux'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.name }}
+          path: |
+            package/dist/*.AppImage
+            package/dist/*.deb
+          retention-days: 5
+
+  release:
+    name: Upload to Release
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.event_name == 'release'
+    
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Display structure of downloaded files
+        run: ls -R artifacts
+
+      - name: Upload macOS Intel DMG to release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: artifacts/macOS-Intel-dmg/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload macOS Intel ZIP to release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: artifacts/macOS-Intel-zip/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload macOS Silicon DMG to release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: artifacts/macOS-Silicon-dmg/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload macOS Silicon ZIP to release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: artifacts/macOS-Silicon-zip/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload Windows to release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: artifacts/Windows/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload Linux to release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: artifacts/Linux/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+

@@ -1,9 +1,23 @@
-name: Release and Build
+# DISABLED - This workflow is kept as a backup
+# This was the old Python-based launcher build workflow
+# Now replaced by release-build.yml which builds the Electron app
+# To re-enable, remove the 'on: workflow_dispatch' line below and restore the original 'on: push' trigger
+
+name: Release and Build (DISABLED - Backup Only)
 
 on:
-  push:
-    tags:
-      - 'v*.*.*'  # Only run on version tag pushes
+  workflow_dispatch:  # Only manual trigger - disabled from automatic runs
+    inputs:
+      reason:
+        description: 'Reason for running this backup workflow'
+        required: true
+        default: 'Testing old Python launcher build'
+
+# Original trigger (now disabled):
+# on:
+#   push:
+#     tags:
+#       - 'v*.*.*'  # Only run on version tag pushes
 
 permissions:
   contents: write
