@@ -921,12 +921,6 @@ class ExSearchTab(QtWidgets.QWidget):
         channel_limit_layout.addWidget(self.channel_limit_spinbox)
         channel_limit_layout.addStretch()
         current_layout.addLayout(channel_limit_layout)
-
-        # Help text for current configuration
-        current_help_label = QtWidgets.QLabel("The optimizer will test different current ratios for each electrode configuration.\nExample: 2.0mA total, 0.2mA step, 1.6mA limit → Ch1:1.6mA/Ch2:0.4mA, 1.4mA/0.6mA, 1.2mA/0.8mA, ..., 0.4mA/1.6mA")
-        current_help_label.setWordWrap(True)
-        current_help_label.setStyleSheet("color: #666; font-size: 10px; padding: 5px;")
-        current_layout.addWidget(current_help_label)
         
         # Add stretch to push content to top
         current_layout.addStretch()
