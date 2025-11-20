@@ -3,8 +3,6 @@ layout: wiki
 title: Desktop Application
 ---
 
-# Desktop Application Architecture
-
 The TI-Toolbox Desktop Application is an Electron-based launcher that provides a user-friendly interface for running the Docker-based TI-Toolbox workflow across macOS, Windows, and Linux platforms.
 
 ## Architecture Overview
@@ -58,28 +56,6 @@ The app uses a dual approach for Docker integration:
 
 The `docker-compose.yml` file is bundled with the application in `package/docker/`, ensuring the launcher works independently of the source repository.
 
-### Container Stack
-
-**FreeSurfer Container:**
-- Anatomical MRI processing
-- Cortical surface reconstruction
-- Volumetric segmentation
-
-**SimNIBS Container:**
-- Head model generation
-- Electric field simulations
-- TI-Toolbox GUI (PyQt5)
-- X11 forwarding for GUI display
-
-### Project Directory
-
-All work is organized in a BIDS-compliant directory structure:
-- `sourcedata/` - Raw DICOM files
-- `sub-*/` - Subject-level NIfTI data
-- `derivatives/freesurfer/` - FreeSurfer outputs
-- `derivatives/SimNIBS/` - SimNIBS head models and simulations
-- `derivatives/ti-toolbox/` - TI-Toolbox results
-- `code/ti-toolbox/config/` - Configuration files
 
 ## Launch Workflow
 

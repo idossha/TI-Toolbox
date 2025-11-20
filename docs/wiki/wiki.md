@@ -6,8 +6,6 @@ permalink: /wiki/
 
 Welcome to the Temporal Interference Toolbox Wiki. Here you'll find detailed guides and documentation for all aspects of the toolbox.
 
-### Desktop Application
-- **[Desktop App](desktop-app)** - Electron-based launcher architecture and workflow
 
 ### Core Functionality
 - **[Pre-Processing](pre-processing)** - Data preparation and mesh generation workflows
@@ -36,6 +34,7 @@ templates
 ### Development & Testing
 - **[Testing Pipeline](testing-pipeline)** - Comprehensive CI/CD testing pipeline with CircleCI integration
 - **[Python Environment](python_env)** - Managing the SimNIBS Python environment and dependencies
+- **[Desktop App](desktop-app)** - Electron-based launcher architecture and workflow
 
 ## Support
 
