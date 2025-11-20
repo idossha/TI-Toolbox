@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TI-Toolbox Launcher</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <div class="header">
+      <img src="../assets/icon.png" alt="TI-Toolbox Logo" class="logo">
+      <h1>TI-Toolbox</h1>
+      <p class="subtitle">Temporal Interference Toolbox</p>
+    </div>
+
+    <!-- Main Content -->
+    <div class="content">
+      <!-- Status Messages -->
+      <div id="status-message" class="status-message hidden"></div>
+
+      <!-- Project Directory Selection -->
+      <div class="section">
+        <label for="project-path">Project Directory:</label>
+        <div class="input-group">
+          <input
+            type="text"
+            id="project-path"
+            placeholder="Select your project directory..."
+            readonly
+          >
+          <button id="browse-btn" class="btn btn-secondary">Browse</button>
+        </div>
+        <p class="hint">
+          Select an existing project directory or create a new one.
+          <br>The toolbox will initialize the required BIDS structure automatically.
+        </p>
+      </div>
+
+
+      <!-- Docker Status -->
+      <div id="docker-status" class="info hidden">
+        <strong>Docker Status:</strong> <span id="docker-status-text">Checking...</span>
+      </div>
+
+      <!-- Launch Button -->
+      <button id="launch-btn" class="btn btn-primary" disabled>
+        <span id="launch-text">Launch TI-Toolbox</span>
+        <span id="launch-spinner" class="spinner hidden"></span>
+      </button>
+
+      <!-- Progress Information -->
+      <div id="progress-info" class="progress-info hidden">
+        <p id="progress-text">Initializing...</p>
+      </div>
+
+      <!-- Stop Button -->
+      <button id="stop-btn" class="btn btn-secondary hidden">Stop TI-Toolbox & Docker</button>
+
+      <!-- Diagnostics -->
+      <div class="diagnostics">
+        <div class="diagnostics-row">
+          <div>
+            <strong>Log File</strong>
+            <p id="log-path" class="mono">Loading…</p>
+          </div>
+          <button id="open-logs-btn" class="btn btn-link" disabled>Show in Finder</button>
+        </div>
+
+        <div class="activity-header">
+          <div>
+            <strong>Activity</strong>
+            <p class="activity-hint">Latest launcher events</p>
+          </div>
+          <button id="clear-activity-btn" class="btn btn-link">Clear</button>
+        </div>
+        <ul id="activity-list" class="activity-list"></ul>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="footer">
+      <p>Center for Sleep and Consciousness</p>
+      <p class="version">Version 2.2.0</p>
+    </div>
+  </div>
+
+  <script src="renderer.js"></script>
+</body>
+</html>

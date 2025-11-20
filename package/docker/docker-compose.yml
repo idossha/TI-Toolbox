@@ -1,0 +1,53 @@
+services:
+
+  freesurfer:
+    image: idossha/ti-toolbox_freesurfer:v7.4.1
+    platform: linux/amd64
+    container_name: freesurfer_container
+    volumes:
+      - ti-toolbox_freesurfer_data:/usr/local/freesurfer/
+    networks:
+      - ti_network
+    restart: unless-stopped
+    command: ["tail", "-f", "/dev/null"]
+
+  simnibs:
+    image: idossha/simnibs:v2.2.0
+    platform: linux/amd64
+    container_name: simnibs_container
+    volumes:
+      - ti-toolbox_freesurfer_data:/usr/local/freesurfer/
+      - ${LOCAL_PROJECT_DIR}:/mnt/${PROJECT_DIR_NAME}
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+      - ${HOME}/.Xauthority:/root/.Xauthority:rw
+    environment:
+      USER: root
+      DISPLAY: ${DISPLAY}
+      MPLBACKEND: "Agg"
+      FREESURFER_HOME: /usr/local/freesurfer
+      SUBJECTS_DIR: /usr/local/freesurfer/subjects
+      FS_LICENSE: /usr/local/freesurfer/license.txt
+      LOCAL_PROJECT_DIR: ${LOCAL_PROJECT_DIR}
+      PROJECT_DIR_NAME: ${PROJECT_DIR_NAME}
+      TZ: ${TZ}
+      KMP_AFFINITY: "disabled"
+      TI_TOOLBOX_VERSION: "v2.2.0"
+    networks:
+      - ti_network
+    depends_on:
+      - freesurfer
+    tty: true
+    stdin_open: true
+    working_dir: /ti-toolbox
+    restart: unless-stopped
+    command: ["tail", "-f", "/dev/null"]
+
+networks:
+  ti_network:
+    driver: bridge
+
+volumes:
+  ti-toolbox_freesurfer_data:
+    external: true
+    name: ti-toolbox_freesurfer_data
+
