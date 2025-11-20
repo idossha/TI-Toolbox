@@ -21,7 +21,11 @@ services:
     environment:
       USER: root
       DISPLAY: ${DISPLAY}
- 
+      # LIBGL_ALWAYS_SOFTWARE: ${LIBGL_ALWAYS_SOFTWARE:-}
+      # LIBGL_ALWAYS_INDIRECT: ${LIBGL_ALWAYS_INDIRECT:-}
+      # QT_X11_NO_MITSHM: ${QT_X11_NO_MITSHM:-}
+      # QT_OPENGL: ${QT_OPENGL:-}
+      # TI_GUI_QGL_FALLBACK: ${TI_GUI_QGL_FALLBACK:-}
       # Matplotlib backend for headless plotting
       MPLBACKEND: "Agg"
 
