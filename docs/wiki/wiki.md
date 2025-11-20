@@ -6,6 +6,9 @@ permalink: /wiki/
 
 Welcome to the Temporal Interference Toolbox Wiki. Here you'll find detailed guides and documentation for all aspects of the toolbox.
 
+### Desktop Application
+- **[Desktop App](desktop-app)** - Electron-based launcher architecture and workflow
+
 ### Core Functionality
 - **[Pre-Processing](pre-processing)** - Data preparation and mesh generation workflows
 - **[MOVEA Optimization](movea-opt)** - Multi-objective evolutionary algorithm for TI electrode optimization

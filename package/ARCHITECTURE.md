@@ -12,13 +12,13 @@ The TI-Toolbox Desktop Application is an Electron-based launcher that encapsulat
 │                         (Electron)                              │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                 │
-│  ┌───────────────────┐         ┌──────────────────────┐        │
-│  │  Renderer Process │ ◄─IPC─► │   Main Process       │        │
-│  │  (UI Layer)       │         │   (Backend Logic)    │        │
-│  └───────────────────┘         └──────────────────────┘        │
+│  ┌───────────────────┐         ┌──────────────────────┐         │
+│  │  Renderer Process │ ◄─IPC─► │   Main Process       │         │
+│  │  (UI Layer)       │         │   (Backend Logic)    │         │
+│  └───────────────────┘         └──────────────────────┘         │
 │          │                              │                       │
 │          │                              ▼                       │
-│    [index.html]                  [Docker Client]               │
+│    [index.html]                  [Docker Client]                │
 │    [styles.css]                         │                       │
 │    [renderer.js]                        │                       │
 │                                         │                       │
