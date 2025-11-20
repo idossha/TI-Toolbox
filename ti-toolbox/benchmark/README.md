@@ -5,23 +5,41 @@ Comprehensive performance benchmarking for all TI-Toolbox pipeline components.
 ## Overview
 
 The benchmarking suite provides automated performance testing for:
+
+### Preprocessing & Mesh Generation
+- **DICOM** - DICOM to NIfTI conversion
 - **CHARM** - Head mesh (m2m) creation
 - **RECON** - FreeSurfer cortical reconstruction
-- **DICOM** - DICOM to NIfTI conversion  
+
+### Optimization & Simulation
 - **Leadfield** - Leadfield matrix generation
 - **Flex-Search** - TI optimization with differential evolution
 - **Ex-Search** - Exhaustive TI electrode search
+- **Simulator** - TI/mTI simulation execution
+
+### Analysis Tools
+- **Tissue Analyzer** - Tissue volume and thickness analysis (CSF, bone, skin)
+- **Mesh Analyzer** - Surface-based field analysis (spherical ROI, cortical, whole-head)
+- **Voxel Analyzer** - Volumetric NIfTI-based field analysis (spherical ROI, cortical, whole-head)
 
 ## Quick Start
 
 ```bash
-# Run all benchmarks with config file
+# Preprocessing & Mesh Generation
+python -m benchmark.dicom --config benchmark_config.yaml
 python -m benchmark.charm --config benchmark_config.yaml
 python -m benchmark.recon --config benchmark_config.yaml
-python -m benchmark.dicom --config benchmark_config.yaml
+
+# Optimization & Simulation
 python -m benchmark.leadfield --config benchmark_config.yaml
 python -m benchmark.flex --config benchmark_config.yaml
 python -m benchmark.ex_search --config benchmark_config.yaml
+python -m benchmark.simulator --config benchmark_config.yaml
+
+# Analysis Tools
+python -m benchmark.tissue_analyzer --config benchmark_config.yaml
+python -m benchmark.mesh_analyzer --config benchmark_config.yaml
+python -m benchmark.voxel_analyzer --config benchmark_config.yaml
 ```
 
 ## Configuration
@@ -41,12 +59,21 @@ debug_mode: true                              # Enable verbose logging
 
 Each benchmark has its own section in the config file:
 
+**Preprocessing & Mesh Generation:**
+- **dicom**: DICOM source directory, conversion script path
 - **charm**: T1/T2 images, subject ID, charm script path
 - **recon**: T1/T2 images, subject ID, recon-all script path, parallel option
-- **dicom**: DICOM source directory, conversion script path
+
+**Optimization & Simulation:**
 - **leadfield**: m2m directory, electrode CSV file, tissue types
 - **flex**: m2m directory, optimization parameters, ROI settings
 - **ex_search**: m2m directory, leadfield path, electrode counts, current parameters
+- **simulator**: m2m directory, montage configuration, simulation parameters
+
+**Analysis Tools:**
+- **tissue_analyzer**: segmented NIfTI path, tissue types (csf, bone, skin)
+- **mesh_analyzer**: field mesh path, analysis type (sphere, cortex, whole_head), ROI/atlas parameters
+- **voxel_analyzer**: field NIfTI path, analysis type (sphere, cortex, whole_head), ROI/atlas parameters
 
 See `benchmark_config.yaml` for all available options.
 
