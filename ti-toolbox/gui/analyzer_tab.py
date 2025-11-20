@@ -502,7 +502,7 @@ class AnalyzerTab(QtWidgets.QWidget):
                         sim_combo.setCurrentText(current_sim)
 
     def quick_add_pairs(self):
-        """Open dialog to quickly add the same simulation to multiple subjects."""
+        """Open dialog to quickly add the same simulation to all subjects."""
         dialog = QtWidgets.QDialog(self)
         dialog.setWindowTitle("Quick Add Subject-Simulation Pairs")
         dialog.setMinimumWidth(400)
@@ -516,26 +516,22 @@ class AnalyzerTab(QtWidgets.QWidget):
 
         # Get all unique simulations across all subjects
         all_sims = set()
-        for subject in self.get_all_subjects():
+        all_subjects = self.get_all_subjects()
+        for subject in all_subjects:
             all_sims.update(self.pm.list_simulations(subject))
         sim_combo.addItems(sorted(all_sims))
         sim_layout.addWidget(sim_combo)
         layout.addLayout(sim_layout)
 
-        # Subject list
-        layout.addWidget(QtWidgets.QLabel("Select Subjects:"))
-        subject_list = QtWidgets.QListWidget()
-        subject_list.setSelectionMode(QtWidgets.QAbstractItemView.MultiSelection)
-
-        all_subjects = self.get_all_subjects()
-        for subject in all_subjects:
-            subject_list.addItem(subject)
-
-        layout.addWidget(subject_list)
+        # Info label
+        info_label = QtWidgets.QLabel("This will add the selected simulation for all subjects that have it.")
+        info_label.setWordWrap(True)
+        info_label.setStyleSheet("color: gray; font-style: italic; padding: 10px;")
+        layout.addWidget(info_label)
 
         # Buttons
         button_layout = QtWidgets.QHBoxLayout()
-        add_btn = QtWidgets.QPushButton("Add Pairs")
+        add_btn = QtWidgets.QPushButton("Add All")
         cancel_btn = QtWidgets.QPushButton("Cancel")
 
         add_btn.clicked.connect(dialog.accept)
@@ -547,21 +543,14 @@ class AnalyzerTab(QtWidgets.QWidget):
 
         if dialog.exec_() == QtWidgets.QDialog.Accepted:
             selected_simulation = sim_combo.currentText()
-            selected_items = subject_list.selectedItems()
 
-            if not selected_items:
-                QtWidgets.QMessageBox.warning(self, "Warning", "Please select at least one subject")
-                return
-
-            # Add pairs for each selected subject
+            # Add pairs for all subjects that have this simulation
             added_count = 0
-            for item in selected_items:
-                subject_id = item.text()
-
+            skipped_count = 0
+            for subject_id in all_subjects:
                 # Check if this subject has the selected simulation
                 available_sims = self.pm.list_simulations(subject_id)
                 if selected_simulation not in available_sims:
-                    self.update_output(f"\nWarning: Subject {subject_id} does not have simulation {selected_simulation}")
                     continue
 
                 # Check for duplicates
@@ -574,6 +563,7 @@ class AnalyzerTab(QtWidgets.QWidget):
                         break
 
                 if duplicate:
+                    skipped_count += 1
                     continue
 
                 # Add new row
@@ -601,7 +591,10 @@ class AnalyzerTab(QtWidgets.QWidget):
 
                 added_count += 1
 
-            self.update_output(f"\nAdded {added_count} subject-simulation pairs")
+            message = f"\nAdded {added_count} subject-simulation pairs"
+            if skipped_count > 0:
+                message += f" ({skipped_count} skipped - already exist)"
+            self.update_output(message)
 
             # Update UI after adding pairs
             self.on_pairs_changed()

@@ -326,12 +326,9 @@ class PreProcessTab(QtWidgets.QWidget):
         
         # Options section
         options_widget = QtWidgets.QWidget()
-        options_widget.setFixedWidth(350)  # Fixed width for options
+        options_widget.setFixedWidth(402)  # Fixed width for options (increased by 15% from 350)
         options_layout = QtWidgets.QVBoxLayout(options_widget)
-        options_layout.setContentsMargins(10, 10, 10, 10)  # Add some padding
-        
-        # Add some top margin to move options up
-        options_layout.setContentsMargins(10, 0, 10, 10)  # Remove top margin
+        options_layout.setContentsMargins(10, 23, 10, 10)  # Add top margin to align with subject selection label
         
         # Pre-processing options group
         self.options_group = QtWidgets.QGroupBox("Processing Options")
@@ -340,7 +337,7 @@ class PreProcessTab(QtWidgets.QWidget):
                 font-weight: bold;
                 border: 1px solid #cccccc;
                 border-radius: 5px;
-                margin-top: 10px;
+                margin-top: 0px;
                 padding-top: 10px;
             }
             QGroupBox::title {
@@ -353,7 +350,7 @@ class PreProcessTab(QtWidgets.QWidget):
         options_group_layout.setSpacing(10)  # Consistent spacing between options
         
         # DICOM conversion options
-        self.convert_dicom_cb = QtWidgets.QCheckBox("Convert DICOM files to NIfTI)")
+        self.convert_dicom_cb = QtWidgets.QCheckBox("Convert DICOM files to NIfTI")
         self.convert_dicom_cb.setChecked(True)
         options_group_layout.addWidget(self.convert_dicom_cb)
         
@@ -362,22 +359,26 @@ class PreProcessTab(QtWidgets.QWidget):
         self.run_recon_cb.setChecked(True)
         options_group_layout.addWidget(self.run_recon_cb)
         
-        self.parallel_cb = QtWidgets.QCheckBox("Run FreeSurfer reconstruction in parallel")
-        self.parallel_cb.setEnabled(True)
-        # Add layout for parallel options
+        # Parallel processing with checkbox and cores input on same line
         parallel_layout = QtWidgets.QHBoxLayout()
+        self.parallel_cb = QtWidgets.QCheckBox("Run recon-all in parallel")
+        self.parallel_cb.setEnabled(True)
         parallel_layout.addWidget(self.parallel_cb, 0)
-        self.cores_label = QtWidgets.QLabel("Cores:")
-        parallel_layout.addWidget(self.cores_label, 0)
+        
         available_cores = multiprocessing.cpu_count()
         self.cores_spin = QtWidgets.QSpinBox()
         self.cores_spin.setRange(1, available_cores)
         self.cores_spin.setValue(available_cores)
+        self.cores_spin.setFixedWidth(60)
         parallel_layout.addWidget(self.cores_spin, 0)
-        self.available_label = QtWidgets.QLabel(f"{available_cores} cores available")
-        parallel_layout.addWidget(self.available_label, 0)
         parallel_layout.addStretch(1)
         options_group_layout.addLayout(parallel_layout)
+        
+        # Add small comment below
+        parallel_comment = QtWidgets.QLabel(f"   {available_cores} cores available on this system")
+        parallel_comment.setStyleSheet("color: #888888; font-size: 10px;")
+        options_group_layout.addWidget(parallel_comment)
+        
         # Enable spinbox based on checkbox
         self.parallel_cb.toggled.connect(lambda checked: self.cores_spin.setEnabled(checked))
         self.cores_spin.setEnabled(self.parallel_cb.isChecked())

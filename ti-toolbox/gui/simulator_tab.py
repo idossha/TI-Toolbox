@@ -504,7 +504,7 @@ class SimulatorTab(QtWidgets.QWidget):
         # Connect to update EEG net visibility
         self.flex_use_mapped.stateChanged.connect(self.on_flex_mapped_changed)
 
-        electrode_type_layout.addWidget(QtWidgets.QLabel("Electrode Type:"))
+        electrode_type_layout.addWidget(QtWidgets.QLabel("Type:"))
         electrode_type_layout.addWidget(self.flex_use_mapped)
         electrode_type_layout.addWidget(self.flex_use_optimized)
         electrode_type_layout.addStretch()
