@@ -1,6 +1,7 @@
 ---
 layout: wiki
 title: Desktop Application
+permalink: /wiki/desktop-app/
 ---
 
 The TI-Toolbox Desktop Application is an Electron-based launcher that provides a user-friendly interface for running the Docker-based TI-Toolbox workflow across macOS, Windows, and Linux platforms.
