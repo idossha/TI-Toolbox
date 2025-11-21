@@ -14,7 +14,7 @@ Supports:
 
 # Extension metadata (required)
 EXTENSION_NAME = "Electrode Placement"
-EXTENSION_DESCRIPTION = "Place electrode markers on head surfaces for stimulation planning."
+EXTENSION_DESCRIPTION = "Free placement of electrodes on head surfaces"
 
 # Extension configuration
 ALLOW_TAB_INTEGRATION = False  # This extension can only be launched in a separate window

@@ -13,7 +13,7 @@ from PyQt5 import QtWidgets, QtCore, QtGui
 
 # Extension metadata (required)
 EXTENSION_NAME = "Subject Info Viewer"
-EXTENSION_DESCRIPTION = "View processing status and details for subjects in your project directory."
+EXTENSION_DESCRIPTION = "View details for subjects in your project directory."
 
 # Add TI-Toolbox to path
 ti_toolbox_path = Path(__file__).parent.parent.parent

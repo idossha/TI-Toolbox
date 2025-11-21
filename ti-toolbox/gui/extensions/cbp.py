@@ -16,7 +16,7 @@ import json
 
 # Extension metadata (required)
 EXTENSION_NAME = "Cluster-Based Permutation Testing"
-EXTENSION_DESCRIPTION = "Non-parametric statistical analysis using cluster-based permutation correction."
+EXTENSION_DESCRIPTION = "cluster-based permutation testing."
 
 
 # Add TI-Toolbox to path

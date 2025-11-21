@@ -3,7 +3,7 @@
 
 """
 Extension: 3D Visual Exporter
-Export STL/PLY cortical regions and vector clouds for a selected subject/simulation.
+Export STL/PLY cortical regions & vector clouds of simulation results.
 """
 
 import os
@@ -17,7 +17,7 @@ from PyQt5 import QtWidgets, QtCore
 
 # Extension metadata (required)
 EXTENSION_NAME = "3D Visual Exporter"
-EXTENSION_DESCRIPTION = "Export STL/PLY surfaces and vector clouds for a selected subject/simulation."
+EXTENSION_DESCRIPTION = "Export STL/PLY cortical regions & vector clouds of simulations"
 
 # Add TI-Toolbox to path
 ti_toolbox_path = Path(__file__).parent.parent.parent

@@ -17,7 +17,7 @@ import gc
 
 # Extension metadata (required)
 EXTENSION_NAME = "NIfTI Group Averaging"
-EXTENSION_DESCRIPTION = "Compute group averages of NIfTI files and differences between groups."
+EXTENSION_DESCRIPTION = "Compute group averages of NIfTI files"
 
 
 # Add TI-Toolbox to path
