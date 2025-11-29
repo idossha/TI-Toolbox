@@ -1,3 +1,9 @@
+---
+layout: wiki
+title: Electrode Mapping
+permalink: /wiki/electrode-mapping/
+---
+
 # Electrode Mapping Tool
 
 ## Overview
