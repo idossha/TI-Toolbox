@@ -12,13 +12,7 @@ The `map_electrodes.py` tool maps optimized electrode positions to the nearest a
 
 ## Usage
 
-### Using the Bash Wrapper (Recommended)
-
-```bash
-./map_electrodes.sh -i electrode_positions.json -n EGI_template.csv -o electrode_mapping.json
-```
-
-### Direct Python Invocation
+### Basic Usage
 
 ```bash
 simnibs_python map_electrodes.py -i electrode_positions.json -n EGI_template.csv -o electrode_mapping.json
@@ -27,7 +21,7 @@ simnibs_python map_electrodes.py -i electrode_positions.json -n EGI_template.csv
 ### With Verbose Output
 
 ```bash
-./map_electrodes.sh -i electrode_positions.json -n EGI_template.csv -o electrode_mapping.json -v
+simnibs_python map_electrodes.py -i electrode_positions.json -n EGI_template.csv -o electrode_mapping.json -v
 ```
 
 **Note:** This tool requires `simnibs_python` (SimNIBS's bundled Python environment). If running outside Docker, ensure SimNIBS is properly installed and in your PATH.
@@ -58,21 +52,27 @@ simnibs_python map_electrodes.py -i electrode_positions.json -n EGI_template.csv
 
 ### EEG Net CSV
 
-The EEG net CSV file should follow the SimNIBS format:
+The tool supports multiple CSV formats commonly used in neuroimaging:
 
+**SimNIBS format:**
 ```csv
 Type,X,Y,Z,Name,Extra
 Electrode,-85.5,-28.9,-8.4,E1,
-Electrode,72.9,-44.5,-17.1,E2,
+ReferenceElectrode,0.0,85.0,0.0,REF,
 ```
 
-Or the simpler format:
-
+**Simple format:**
 ```csv
 Label,X,Y,Z
 E1,-85.5,-28.9,-8.4
 E2,72.9,-44.5,-17.1
+REF,0.0,85.0,0.0
 ```
+
+**Notes:**
+- The tool automatically detects the format based on the first column
+- Only `Electrode` and `ReferenceElectrode` types are included (Fiducials are ignored)
+- Empty lines and lines starting with `#` are skipped
 
 ## Output Format
 
@@ -113,7 +113,7 @@ This tool is automatically called by the flex-search optimization when the "Run 
    ```bash
    simnibs_python map_electrodes.py \
      -i output/electrode_positions.json \
-     -n path/to/your/EGI_net.csv \
+     -n path/to/your/EEG_net.csv \
      -o output/electrode_mapping.json \
      -v
    ```
@@ -121,6 +121,6 @@ This tool is automatically called by the flex-search optimization when the "Run 
 
 ## Notes
 
-- If there are more optimized electrodes than available net positions, the tool will still work but some positions may not be optimally mapped
+- If there are more optimized electrodes than available net positions, only the first N electrodes (where N = number of net positions) will be optimally mapped. Extra optimized electrodes will be ignored.
 - Distances are reported in millimeters
 - The tool preserves the channel and array indices from the optimization for downstream processing
