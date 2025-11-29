@@ -8,8 +8,12 @@ import logging
 import sys
 import nibabel
 import json
+import matplotlib
+matplotlib.use('Agg')  # Use non-interactive backend
+import matplotlib.pyplot as plt
 
 import numpy as np
+import pandas as pd
 import scipy.spatial
 from scipy.optimize import (
     direct,
@@ -128,6 +132,8 @@ class TesFlexOptimization:
         starting values for optimization (will be automatically determined per default)
     detailed_results : bool, optional, default: False
         write detailed results into subfolder of output folder for visualization and control
+    visualize_valid_skin_region : bool, optional, default: False
+        create visualizations of valid skin region for electrode placement (requires detailed_results=True)
     track_focality : bool, optional, default: False
         Tracks focality for each goal function value (requires ROI and non-ROI definition)
 
@@ -142,6 +148,7 @@ class TesFlexOptimization:
         self.run_final_electrode_simulation = True
         self.open_in_gmsh = True
         self.detailed_results = False
+        self.visualize_valid_skin_region = False
         self._detailed_results_folder = None
         self.fn_final_sim = []
         self._prepared = False
@@ -295,6 +302,8 @@ class TesFlexOptimization:
 
         # make final skin surface including some additional distance
         self._skin_surface = surface.Surface(mesh=self._mesh_relabel, labels=1005)
+        # save original skin surface nodes before filtering for valid regions
+        self._original_skin_nodes = self._skin_surface.nodes.copy()
         self._skin_surface = valid_skin_region(
             skin_surface=self._skin_surface,
             fn_electrode_mask=self._fn_electrode_mask,
@@ -691,6 +700,17 @@ class TesFlexOptimization:
             self._skin_surface.tr_nodes,
         )
 
+        # save valid and invalid skin nodes for visualization
+        if hasattr(self, '_original_skin_nodes') and hasattr(self._skin_surface, 'mask_valid_nodes'):
+            np.savetxt(
+                os.path.join(self._detailed_results_folder, "valid_skin_nodes.txt"),
+                self._original_skin_nodes[self._skin_surface.mask_valid_nodes],
+            )
+            np.savetxt(
+                os.path.join(self._detailed_results_folder, "invalid_skin_nodes.txt"),
+                self._original_skin_nodes[~self._skin_surface.mask_valid_nodes],
+            )
+
         # save fitted ellipsoid
         beta = np.linspace(-np.pi / 2, np.pi / 2, 180)
         lam = np.linspace(0, 2 * np.pi, 360)
@@ -736,7 +756,16 @@ class TesFlexOptimization:
                np.savetxt(
                     os.path.join(self._detailed_results_folder, f"coords_region_{i}.txt"), coords_region
                 )
-  
+
+        # Create 2D visualization of valid skin region if requested
+        # This is called here to ensure it happens together with the text file output
+        if self.visualize_valid_skin_region:
+            logger.info("Creating 2D visualization of valid skin region...")
+            self._create_valid_skin_visualizations_from_data(
+                original_nodes=self._original_skin_nodes,
+                skin_surface=self._skin_surface
+            )
+
     def _write_detailed_results_postopt(self, fopt=None):
         ''' write out some more results after to optimization
         
@@ -1164,18 +1193,20 @@ class TesFlexOptimization:
         logger.info(f"Mapping data saved to: {mapping_file}")
         return mapping_result
 
-    def run(self, cpus=None, save_mat=True):
+    def run(self, cpus=None, save_mat=True, prepare_only=False):
         """
         Runs the tes optimization
 
         Parameters
         ----------
         cpus : int, optional, default: None
-            Number of CPU cores to use (so far used only during ellipsoid-fitting; 
+            Number of CPU cores to use (so far used only during ellipsoid-fitting;
                                         still ignored during FEM)
         save_mat: bool, optional, default: True
             Save the ".mat" file of this structure
-            
+        prepare_only: bool, optional, default: False
+            If True, only run preparation phase (setup mesh, create visualizations) without optimization
+
         Returns
         --------
         <files>: Results files (.hdf5) in self.output_folder.
@@ -1190,6 +1221,12 @@ class TesFlexOptimization:
 
         if not self._prepared:
             self._prepare()
+
+        # If prepare_only is True, finish logger and return early
+        if prepare_only:
+            logger.info("Preparation complete. Skipping optimization as requested.")
+            self._finish_logger()
+            return
 
         if not cpus is None:
             from numba import set_num_threads
@@ -1398,10 +1435,194 @@ class TesFlexOptimization:
         # write results details (final fields via onlineFEM with dirichlet_corrections as txt and hdf5)
         if self.detailed_results:
             self._write_detailed_results_postopt(self.optim_funvalue)
-        
+
+        # Note: valid skin visualizations are now created during _prepare() phase
+        # No longer need to create them here after optimization
+
         self._finish_logger()
 
-    
+    def _create_valid_skin_visualizations_from_data(self, original_nodes, skin_surface):
+        """
+        Create 2D visualization of valid skin region for electrode placement.
+
+        This method works directly with in-memory data and is automatically called during
+        preparation phase, before optimization runs.
+
+        Parameters
+        ----------
+        original_nodes : np.ndarray
+            Original skin surface nodes before filtering (N x 3 array)
+        skin_surface : Surface
+            Filtered skin surface with mask_valid_nodes attribute
+        """
+        logger.info("Creating valid skin region visualization...")
+
+        # Extract valid and invalid nodes from the mask
+        data = {}
+
+        if hasattr(skin_surface, 'mask_valid_nodes'):
+            mask = skin_surface.mask_valid_nodes
+            data['valid_nodes'] = original_nodes[mask]
+            data['invalid_nodes'] = original_nodes[~mask]
+            logger.info(f"Extracted {len(data['valid_nodes'])} valid skin nodes")
+            logger.info(f"Extracted {len(data['invalid_nodes'])} invalid skin nodes")
+        else:
+            # Fallback: all current nodes are valid
+            data['valid_nodes'] = skin_surface.nodes
+            logger.info(f"Using all {len(data['valid_nodes'])} nodes as valid (no mask found)")
+
+        if not data:
+            logger.warning("No skin data available for visualization")
+            return
+
+        # Create output directory for plots
+        vis_dir = os.path.join(self._detailed_results_folder, "skin_visualization")
+        os.makedirs(vis_dir, exist_ok=True)
+
+        # Load electrode positions if available and check if they're in valid region
+        electrodes_data = None
+        if hasattr(self, 'net_electrode_file') and self.net_electrode_file and os.path.exists(self.net_electrode_file):
+            try:
+                # Read first to detect if header exists (check if first row has non-numeric x,y,z values)
+                df_test = pd.read_csv(self.net_electrode_file, header=None, sep=',', nrows=1)
+                has_header = False
+                try:
+                    # Try to convert x, y, z columns (indices 1, 2, 3) to float
+                    float(df_test.iloc[0, 1])
+                    float(df_test.iloc[0, 2])
+                    float(df_test.iloc[0, 3])
+                except (ValueError, TypeError):
+                    has_header = True
+
+                # Read the full file, skipping header if it exists
+                skiprows = 1 if has_header else 0
+                df = pd.read_csv(self.net_electrode_file, header=None, sep=',', skiprows=skiprows)
+                df.columns = ['type', 'x', 'y', 'z', 'label']
+                electrodes = df[df['type'] == 'Electrode']
+                if len(electrodes) > 0:
+                    positions = electrodes[['x', 'y', 'z']].values
+                    labels = electrodes['label'].values
+
+                    # Check which electrodes are in valid vs invalid regions
+                    # Find nearest skin node for each electrode using simple distance threshold
+                    valid_mask = np.zeros(len(positions), dtype=bool)
+                    distance_threshold = 10.0  # mm - electrodes within this distance are considered "on" that region
+
+                    for i, elec_pos in enumerate(positions):
+                        # Calculate distances to valid nodes
+                        if 'valid_nodes' in data and len(data['valid_nodes']) > 0:
+                            distances_valid = np.linalg.norm(data['valid_nodes'] - elec_pos, axis=1)
+                            min_dist_valid = np.min(distances_valid)
+
+                            # Calculate distances to invalid nodes
+                            min_dist_invalid = np.inf
+                            if 'invalid_nodes' in data and len(data['invalid_nodes']) > 0:
+                                distances_invalid = np.linalg.norm(data['invalid_nodes'] - elec_pos, axis=1)
+                                min_dist_invalid = np.min(distances_invalid)
+
+                            # Electrode is valid if it's closer to valid region than invalid region
+                            valid_mask[i] = min_dist_valid < min_dist_invalid and min_dist_valid < distance_threshold
+
+                    # Separate valid and compromised electrodes
+                    valid_electrodes = valid_mask
+                    compromised_electrodes = ~valid_mask
+
+                    electrodes_data = {
+                        'positions': positions,
+                        'labels': labels,
+                        'valid_mask': valid_electrodes,
+                        'compromised_mask': compromised_electrodes
+                    }
+
+                    n_valid = np.sum(valid_electrodes)
+                    n_compromised = np.sum(compromised_electrodes)
+
+                    logger.info(f"Loaded {len(positions)} electrode positions from: {self.net_electrode_file}")
+                    logger.info(f"Valid electrodes: {n_valid}, Compromised electrodes: {n_compromised}")
+
+                    # Log compromised electrodes
+                    if n_compromised > 0:
+                        logger.warning(f"Found {n_compromised} electrodes outside valid skin region:")
+                        for label in labels[compromised_electrodes]:
+                            logger.warning(f"  - Compromised electrode: {label}")
+
+            except Exception as e:
+                logger.warning(f"Error loading electrode positions: {e}")
+
+        # Create 2D projections with 4 panels
+        fig, axes = plt.subplots(2, 2, figsize=(16, 12))
+
+        projections = [
+            ('X-Y (top)', 0, 1, 'Z'),
+            ('X-Z (sagittal)', 0, 2, 'Y'),
+            ('Y-Z (coronal right)', 1, 2, 'X'),
+            ('Y-Z (coronal left)', 1, 2, 'X')  # Same axes, will flip for left view
+        ]
+
+        for i, (title, x_idx, y_idx, z_label) in enumerate(projections):
+            ax = axes[i//2, i%2]
+
+            # For the fourth panel (coronal left), we'll flip the x-axis direction
+            is_left_coronal = (i == 3)
+
+            # Plot invalid nodes first (in background) in grey - opaque
+            if 'invalid_nodes' in data:
+                ax.scatter(data['invalid_nodes'][:, x_idx], data['invalid_nodes'][:, y_idx],
+                          c='grey', alpha=1.0, s=1, label='Invalid', rasterized=True)
+
+            # Plot valid nodes on top in green - opaque
+            if 'valid_nodes' in data:
+                ax.scatter(data['valid_nodes'][:, x_idx], data['valid_nodes'][:, y_idx],
+                          c='green', alpha=1.0, s=1, label='Valid', rasterized=True)
+
+            # Plot electrodes if available
+            if electrodes_data:
+                positions = electrodes_data['positions']
+                labels = electrodes_data['labels']
+                valid_mask = electrodes_data['valid_mask']
+                compromised_mask = electrodes_data['compromised_mask']
+
+                # Plot valid electrodes in blue
+                if np.any(valid_mask):
+                    ax.scatter(positions[valid_mask, x_idx], positions[valid_mask, y_idx],
+                              c='blue', s=50, marker='o', label='Valid Electrodes',
+                              edgecolors='black', linewidth=1, zorder=10)
+
+                    # Add labels for valid electrodes
+                    for pos, label in zip(positions[valid_mask], labels[valid_mask]):
+                        ax.annotate(label, (pos[x_idx], pos[y_idx]), fontsize=6,
+                                   ha='center', va='center', zorder=11)
+
+                # Plot compromised electrodes in orange
+                if np.any(compromised_mask):
+                    ax.scatter(positions[compromised_mask, x_idx], positions[compromised_mask, y_idx],
+                              c='orange', s=50, marker='X', label='Compromised Electrodes',
+                              edgecolors='red', linewidth=1.5, zorder=10)
+
+                    # Add labels for compromised electrodes
+                    for pos, label in zip(positions[compromised_mask], labels[compromised_mask]):
+                        ax.annotate(label, (pos[x_idx], pos[y_idx]), fontsize=6,
+                                   ha='center', va='center', color='red', fontweight='bold', zorder=11)
+
+            ax.set_xlabel(f'{title.split()[0]} (mm)')
+            ax.set_ylabel(f'{title.split()[1]} (mm)')
+            ax.set_title(title)
+            ax.legend()
+            ax.axis('equal')
+
+            # Flip x-axis for left coronal view to show the other side
+            if is_left_coronal:
+                ax.invert_xaxis()
+
+        plt.tight_layout()
+
+        # Save as PDF at 600 DPI
+        pdf_path = os.path.join(vis_dir, "skin_surface_2d.pdf")
+        plt.savefig(pdf_path, dpi=600, bbox_inches='tight', format='pdf')
+        plt.close()
+
+        logger.info(f"Visualization complete. Plot saved as: {pdf_path}")
+
     def add_roi(self, roi=None):
         """
         Adds an ROI to the current TESoptimize
@@ -3096,4 +3317,5 @@ def check_electrode_distance(node_coords_list, electrode_pos_valid, n_ele_free, 
         )
     else:
         return True, electrode_pos_valid
+
 

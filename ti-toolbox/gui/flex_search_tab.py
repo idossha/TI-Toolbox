@@ -200,7 +200,7 @@ class FlexSearchTab(QtWidgets.QWidget):
         self.run_mapped_simulation_checkbox = QtWidgets.QCheckBox("Run simulation with mapped electrodes")
         self.run_mapped_simulation_checkbox.setChecked(False)
         
-        self.run_final_electrode_simulation_checkbox = QtWidgets.QCheckBox("✓ Run final electrode simulation")
+        self.run_final_electrode_simulation_checkbox = QtWidgets.QCheckBox("Run final electrode simulation")
         self.run_final_electrode_simulation_checkbox.setChecked(True)
         
         # Initialize radio buttons
@@ -271,6 +271,18 @@ class FlexSearchTab(QtWidgets.QWidget):
         self.detailed_results_checkbox = QtWidgets.QCheckBox("Enable detailed results output")
         self.detailed_results_checkbox.setChecked(False)
         self.detailed_results_checkbox.setToolTip("Enable detailed results output (creates additional visualization and debug files)")
+
+        # Visualize valid skin region checkbox
+        self.visualize_skin_checkbox = QtWidgets.QCheckBox("Visualize valid skin region")
+        self.visualize_skin_checkbox.setChecked(False)
+        self.visualize_skin_checkbox.setToolTip("Create 2D visualizations of valid skin region for electrode placement (requires detailed results)")
+        self.visualize_skin_checkbox.setEnabled(False)  # Initially disabled until detailed results is checked
+
+        # EEG net selection for skin visualization
+        self.skin_net_combo = QtWidgets.QComboBox()
+        self.skin_net_combo.setEnabled(False)  # Initially disabled until skin visualization is checked
+        self.skin_net_combo.setToolTip("Select EEG net to visualize electrode positions on skin surface")
+        self.skin_net_label = QtWidgets.QLabel("Visualization EEG Net:")
         
         self.roi_x_input = QtWidgets.QDoubleSpinBox(); self.roi_x_input.setRange(-150, 150); self.roi_x_input.setValue(0); self.roi_x_input.setDecimals(2)
         self.roi_y_input = QtWidgets.QDoubleSpinBox(); self.roi_y_input.setRange(-150, 150); self.roi_y_input.setValue(0); self.roi_y_input.setDecimals(2)
@@ -381,6 +393,8 @@ class FlexSearchTab(QtWidgets.QWidget):
         self.adaptive_focality_checkbox.toggled.connect(self._update_adaptive_focality_controls)
         self.run_mapped_simulation_checkbox.toggled.connect(self._update_mapping_options)
         self.subject_list.itemSelectionChanged.connect(self.on_subject_changed)
+        self.detailed_results_checkbox.toggled.connect(self._on_detailed_results_toggled)
+        self.visualize_skin_checkbox.toggled.connect(self._on_visualize_skin_toggled)
         self.nonroi_method_combo.currentIndexChanged.connect(self._update_nonroi_stacked)
         self.roi_method_spherical.toggled.connect(self.update_roi_method)
         self.roi_method_cortical.toggled.connect(self.update_roi_method)
@@ -702,6 +716,15 @@ class FlexSearchTab(QtWidgets.QWidget):
         row += 1
         stability_layout.addWidget(self.detailed_results_checkbox, row, 2, 1, 2)
 
+        # Visualize skin region checkbox
+        row += 1
+        stability_layout.addWidget(self.visualize_skin_checkbox, row, 2, 1, 2)
+
+        # Skin net selection (only visible when skin visualization is enabled)
+        row += 1
+        stability_layout.addWidget(self.skin_net_label, row, 2)
+        stability_layout.addWidget(self.skin_net_combo, row, 3)
+
         # Add some spacing between columns
         stability_layout.setColumnMinimumWidth(1, 120)
         stability_layout.setColumnMinimumWidth(3, 120)
@@ -806,6 +829,7 @@ class FlexSearchTab(QtWidgets.QWidget):
         
         self.eeg_nets = {}
         self.eeg_net_combo.clear()
+        self.skin_net_combo.clear()
         
         # Get the first selected subject (for consistency when multiple are selected)
         selected_items = self.subject_list.selectedItems()
@@ -828,18 +852,28 @@ class FlexSearchTab(QtWidgets.QWidget):
                     net_name = os.path.splitext(os.path.basename(eeg_file))[0]
                     self.eeg_nets[net_name] = eeg_file
                     self.eeg_net_combo.addItem(net_name)
-                
-                if self.eeg_nets:
-                    if self.debug_mode:
-                        self.output_text.append(f"Found {len(self.eeg_nets)} EEG net templates for subject {subject_id}.")
+                    self.skin_net_combo.addItem(net_name)
+
+                # Set default for skin visualization combo
+                if "GSN-HydroCel-185" in self.eeg_nets:
+                    # If GSN-HydroCel-185 exists, select it as default
+                    index = self.skin_net_combo.findText("GSN-HydroCel-185")
+                    if index >= 0:
+                        self.skin_net_combo.setCurrentIndex(index)
+                elif self.eeg_nets:
+                    # If GSN-HydroCel-185 doesn't exist but other nets do, select first one
+                    self.skin_net_combo.setCurrentIndex(0)
                 else:
+                    # No nets found, add default
                     if self.debug_mode:
                         self.output_text.append(f"No EEG net templates found for subject {subject_id}.")
                     self.eeg_net_combo.addItem("EGI_256")  # Default option
+                    self.skin_net_combo.addItem("GSN-HydroCel-185")  # Default option for skin visualization
             else:
                 if self.debug_mode:
                     self.output_text.append(f"EEG positions directory not found for subject {subject_id}.")
                 self.eeg_net_combo.addItem("EGI_256")  # Default option
+                self.skin_net_combo.addItem("GSN-HydroCel-185")  # Default option for skin visualization
         
         except Exception as e:
             self.output_text.append(f"Error scanning for EEG nets: {str(e)}")
@@ -1023,6 +1057,15 @@ class FlexSearchTab(QtWidgets.QWidget):
             QtWidgets.QMessageBox.warning(self, "Warning", "Please select an EEG net.")
             return
         
+        # Check if visualize skin region is enabled but no skin net is selected
+        if self.visualize_skin_checkbox.isChecked() and not self.skin_net_combo.currentText():
+            QtWidgets.QMessageBox.warning(
+                self, "Warning",
+                "Visualizing valid skin region requires selecting an EEG net for visualization.\n\n"
+                "Please select a visualization EEG net."
+            )
+            return
+
         # Check coordinate space for spherical ROI with MNI space selected
         if self.roi_method_spherical.isChecked() and self.roi_space_mni.isChecked():
             # Show info about MNI coordinate usage
@@ -1407,6 +1450,22 @@ class FlexSearchTab(QtWidgets.QWidget):
             if self.detailed_results_checkbox.isChecked():
                 cmd.append("--detailed-results")
 
+            # Visualize valid skin region flag
+            if self.visualize_skin_checkbox.isChecked():
+                cmd.append("--visualize-valid-skin-region")
+                # Add skin visualization net if selected
+                skin_net = self.skin_net_combo.currentText()
+                if skin_net:
+                    skin_net_path = self.eeg_nets.get(skin_net)
+                    if skin_net_path:
+                        cmd.extend(["--skin-visualization-net", skin_net_path])
+                    else:
+                        # Fallback for default nets that don't have a file path
+                        default_path = os.path.join(script_project_dir, 'derivatives', 'SimNIBS',
+                                                  f'sub-{subject_id}', f'm2m_{subject_id}',
+                                                  'eeg_positions', f'{skin_net}.csv')
+                        cmd.extend(["--skin-visualization-net", default_path])
+
             # Only show setup messages in debug mode
             if self.debug_mode:
                 self.output_text.append(f"Running optimization for subject {subject_id} (this may take a while)...")
@@ -1736,6 +1795,23 @@ class FlexSearchTab(QtWidgets.QWidget):
         self.eeg_net_widget.setVisible(is_mapping_enabled)
         self.eeg_net_label.setVisible(is_mapping_enabled)
 
+    def _on_detailed_results_toggled(self):
+        """Handle detailed results checkbox state change."""
+        is_detailed_results = self.detailed_results_checkbox.isChecked()
+        self.visualize_skin_checkbox.setEnabled(is_detailed_results)
+        if not is_detailed_results:
+            self.visualize_skin_checkbox.setChecked(False)
+            # Also disable skin net combo when detailed results is disabled
+            self.skin_net_combo.setEnabled(False)
+
+    def _on_visualize_skin_toggled(self):
+        """Handle visualize skin checkbox state change."""
+        is_visualize_skin = self.visualize_skin_checkbox.isChecked()
+        self.skin_net_combo.setEnabled(is_visualize_skin)
+        # Clear selection if disabled
+        if not is_visualize_skin:
+            self.skin_net_combo.setCurrentIndex(-1)
+
     def _update_focality_visibility(self):
         is_focality = self.goal_combo.currentData() == "focality"
         self.focality_group.setVisible(is_focality)
@@ -2060,6 +2136,7 @@ class FlexSearchTab(QtWidgets.QWidget):
         self.mutation_max_input.setEnabled(False)
         self.recombination_input.setEnabled(False)
         self.detailed_results_checkbox.setEnabled(False)
+        self.visualize_skin_checkbox.setEnabled(False)
         
         # Keep debug checkbox enabled during processing
         if hasattr(self, 'console_widget') and hasattr(self.console_widget, 'debug_checkbox'):
@@ -2146,6 +2223,7 @@ class FlexSearchTab(QtWidgets.QWidget):
         self.mutation_max_input.setEnabled(True)
         self.recombination_input.setEnabled(True)
         self.detailed_results_checkbox.setEnabled(True)
+        self.visualize_skin_checkbox.setEnabled(True)
 
     def optimization_finished_early_due_to_error(self):
         """Resets UI controls if optimization cannot start due to an error."""

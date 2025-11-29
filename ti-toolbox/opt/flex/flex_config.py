@@ -103,6 +103,10 @@ def parse_arguments() -> argparse.Namespace:
     # Output control
     p.add_argument("--detailed-results", action="store_true",
                    help="Enable detailed results output (creates additional visualization and debug files)")
+    p.add_argument("--visualize-valid-skin-region", action="store_true",
+                   help="Create visualizations of valid skin region for electrode placement (requires --detailed-results)")
+    p.add_argument("--skin-visualization-net",
+                   help="EEG net CSV file to use for skin visualization (shows electrode positions on valid/invalid skin regions)")
 
     return p.parse_args()
 
@@ -160,6 +164,10 @@ def build_optimization(args: argparse.Namespace) -> opt_struct.TesFlexOptimizati
     if hasattr(args, 'detailed_results') and args.detailed_results:
         opt.detailed_results = True
 
+    # Skin visualization control
+    if hasattr(args, 'visualize_valid_skin_region') and args.visualize_valid_skin_region:
+        opt.visualize_valid_skin_region = True
+
     # Configure mapping
     if args.enable_mapping:
         opt.map_to_net_electrodes = True
@@ -174,6 +182,12 @@ def build_optimization(args: argparse.Namespace) -> opt_struct.TesFlexOptimizati
         # Initialize electrode_mapping to None when mapping is disabled
         # This prevents AttributeError in SimNIBS logging code
         opt.electrode_mapping = None
+
+    # Configure skin visualization net file (separate from mapping)
+    if hasattr(args, 'skin_visualization_net') and args.skin_visualization_net:
+        opt.net_electrode_file = args.skin_visualization_net
+        if not os.path.isfile(opt.net_electrode_file):
+            raise SystemExit(f"Skin visualization EEG net file not found: {opt.net_electrode_file}")
 
     # Configure electrodes
     c_A = args.current / 1000.0  # mA → A
