@@ -51,8 +51,8 @@ def parse_arguments() -> argparse.Namespace:
                    help="Optimization goal")
     p.add_argument("--postproc", choices=["max_TI", "dir_TI_normal", "dir_TI_tangential"],
                    required=True, help="Post-processing method")
-    p.add_argument("--eeg-net", required=True,
-                   help="CSV filename in eeg_positions (without .csv)")
+    p.add_argument("--eeg-net",
+                   help="CSV filename in eeg_positions (without .csv). Required when --enable-mapping is used.")
     p.add_argument("--current", type=float, required=True,
                    help="Electrode current in mA")
     p.add_argument("--electrode-shape", choices=["rect", "ellipse"], required=True,

@@ -65,8 +65,8 @@ class OptimizerTab(QtWidgets.QWidget):
         
         main_layout.addWidget(self.stacked_widget)
         
-        # Set default to Ex-Search (index 0)
-        self.stacked_widget.setCurrentIndex(0)
+        # Set default to Flex-Search (index 1)
+        self.stacked_widget.setCurrentIndex(1)
     
     def on_method_changed(self, index):
         """Handle optimization method change."""

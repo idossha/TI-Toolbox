@@ -201,7 +201,7 @@ class FlexSearchTab(QtWidgets.QWidget):
         self.run_mapped_simulation_checkbox.setChecked(False)
         
         self.run_final_electrode_simulation_checkbox = QtWidgets.QCheckBox("Run final electrode simulation")
-        self.run_final_electrode_simulation_checkbox.setChecked(True)
+        self.run_final_electrode_simulation_checkbox.setChecked(False)
         
         # Initialize radio buttons
         self.roi_method_spherical = QtWidgets.QRadioButton("Spherical (coordinates and radius)")
@@ -1052,8 +1052,9 @@ class FlexSearchTab(QtWidgets.QWidget):
         if not selected_items:
             QtWidgets.QMessageBox.warning(self, "Warning", "Please select at least one subject.")
             return
-            
-        if not self.eeg_net_combo.currentText():
+
+        # Only require EEG net when mapping is enabled
+        if self.run_mapped_simulation_checkbox.isChecked() and not self.eeg_net_combo.currentText():
             QtWidgets.QMessageBox.warning(self, "Warning", "Please select an EEG net.")
             return
         
@@ -1341,7 +1342,6 @@ class FlexSearchTab(QtWidgets.QWidget):
                 "--subject", subject_id,
                 "--goal", goal,
                 "--postproc", postproc,
-                "--eeg-net", eeg_net,
                 "--current", str(electrode_current),
                 "--electrode-shape", electrode_shape,
                 "--dimensions", dimensions,
@@ -1351,7 +1351,7 @@ class FlexSearchTab(QtWidgets.QWidget):
 
             # Mapping options
             if self.run_mapped_simulation_checkbox.isChecked():
-                cmd.append("--enable-mapping")
+                cmd.extend(["--enable-mapping", "--eeg-net", eeg_net])
                 # When run_mapped_simulation is checked, we always run the mapping simulation
                 # (no need for --disable-mapping-simulation)
 
@@ -2270,7 +2270,7 @@ class FlexSearchTab(QtWidgets.QWidget):
             
             # Add mapping options to mean command
             if self.run_mapped_simulation_checkbox.isChecked():
-                mean_cmd.append("--enable-mapping")
+                mean_cmd.extend(["--enable-mapping", "--eeg-net", eeg_net])
                 # When run_mapped_simulation is checked, we always run the mapping simulation
             
             # Run mean optimization with enhanced output monitoring
@@ -2384,7 +2384,7 @@ class FlexSearchTab(QtWidgets.QWidget):
             
             # Add mapping options to focality command
             if self.run_mapped_simulation_checkbox.isChecked():
-                focality_cmd.append("--enable-mapping")
+                focality_cmd.extend(["--enable-mapping", "--eeg-net", eeg_net])
                 # When run_mapped_simulation is checked, we always run the mapping simulation
                     
             # Add non-ROI specific parameters if needed
@@ -2480,7 +2480,7 @@ class FlexSearchTab(QtWidgets.QWidget):
             
             # Add mapping options to focality command
             if self.run_mapped_simulation_checkbox.isChecked():
-                focality_cmd.append("--enable-mapping")
+                focality_cmd.extend(["--enable-mapping", "--eeg-net", eeg_net])
                 # When run_mapped_simulation is checked, we always run the mapping simulation
                     
             # Add non-ROI specific parameters if needed
