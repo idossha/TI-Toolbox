@@ -272,7 +272,7 @@ def compute_subject_output_dir(args, subject_args: List[str]) -> str:
         # Create descriptive analysis folder name based on parameters
         if args.analysis_type == 'spherical':
             coords_str = '_'.join([str(c) for c in args.coordinates])
-            analysis_name = f"sphere_x{args.coordinates[0]}_y{args.coordinates[1]}_z{args.coordinates[2]}_r{args.radius}"
+            analysis_name = f"sphere_x{args.coordinates[0]:.2f}_y{args.coordinates[1]:.2f}_z{args.coordinates[2]:.2f}_r{args.radius}"
         else:  # cortical
             if args.whole_head:
                 if args.space == 'mesh':

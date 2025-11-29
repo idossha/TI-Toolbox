@@ -713,7 +713,7 @@ class MeshVisualizer(Visualizer):
             output_dir = self.output_dir
             
         # Create sphere identifier for filename
-        sphere_id = f"sphere_x{center_coords[0]:.1f}_y{center_coords[1]:.1f}_z{center_coords[2]:.1f}_r{radius:.1f}"
+        sphere_id = f"sphere_x{center_coords[0]:.2f}_y{center_coords[1]:.2f}_z{center_coords[2]:.2f}_r{radius:.2f}"
         output_filename = os.path.join(output_dir, f"{sphere_id}.msh")
         
         # Save the modified mesh

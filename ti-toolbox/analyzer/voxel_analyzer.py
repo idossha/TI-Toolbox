@@ -495,7 +495,7 @@ class VoxelAnalyzer:
         
         # Generate visualization if requested
         if visualize:
-            region_name = f"sphere_x{center_coordinates[0]}_y{center_coordinates[1]}_z{center_coordinates[2]}_r{radius}"
+            region_name = f"sphere_x{center_coordinates[0]:.2f}_y{center_coordinates[1]:.2f}_z{center_coordinates[2]:.2f}_r{radius}"
             
             # Create visualization overlay (showing field values only within the sphere)
             vis_arr = np.zeros_like(field_data)
@@ -539,12 +539,12 @@ class VoxelAnalyzer:
         focality_info = self._calculate_focality_metrics(
             field_data,  # Use entire volume data
             np.prod(voxel_size),  # Voxel volume
-            f"sphere_x{center_coordinates[0]}_y{center_coordinates[1]}_z{center_coordinates[2]}_r{radius}"
+            f"sphere_x{center_coordinates[0]:.2f}_y{center_coordinates[1]:.2f}_z{center_coordinates[2]:.2f}_r{radius}"
         )
         
         # Save results to CSV if visualizer is available
         if self.visualizer is not None:
-            region_name = f"sphere_x{center_coordinates[0]}_y{center_coordinates[1]}_z{center_coordinates[2]}_r{radius}"
+            region_name = f"sphere_x{center_coordinates[0]:.2f}_y{center_coordinates[1]:.2f}_z{center_coordinates[2]:.2f}_r{radius}"
             self.visualizer.save_results_to_csv(results, 'spherical', region_name, 'voxel')
             
             # Save extra info CSV with focality data

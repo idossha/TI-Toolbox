@@ -741,7 +741,7 @@ class MeshAnalyzer:
                             roi_field_data=field_values_positive,
                             whole_head_element_sizes=node_areas,
                             roi_element_sizes=positive_node_areas,
-                            region_name=f"sphere_x{center_coordinates[0]}_y{center_coordinates[1]}_z{center_coordinates[2]}_r{radius}",
+                            region_name=f"sphere_x{center_coordinates[0]:.2f}_y{center_coordinates[1]:.2f}_z{center_coordinates[2]:.2f}_r{radius}",
                             roi_field_value=mean_value,
                             data_type='node'
                         )
@@ -770,12 +770,12 @@ class MeshAnalyzer:
             focality_info = self._calculate_focality_metrics(
                 field_values,  # Use entire surface data, not just ROI
                 node_areas,    # Use all node areas, not just ROI
-                f"sphere_x{center_coordinates[0]}_y{center_coordinates[1]}_z{center_coordinates[2]}_r{radius}"
+                f"sphere_x{center_coordinates[0]:.2f}_y{center_coordinates[1]:.2f}_z{center_coordinates[2]:.2f}_r{radius}"
             )
-            
+
             # Save results to CSV (only if save_results=True)
             if save_results and self.visualizer is not None:
-                region_name = f"sphere_x{center_coordinates[0]}_y{center_coordinates[1]}_z{center_coordinates[2]}_r{radius}"
+                region_name = f"sphere_x{center_coordinates[0]:.2f}_y{center_coordinates[1]:.2f}_z{center_coordinates[2]:.2f}_r{radius}"
                 self.visualizer.save_results_to_csv(results, 'spherical', region_name, 'node')
                 
                 # Save extra info CSV with focality data
