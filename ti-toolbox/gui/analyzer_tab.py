@@ -2396,10 +2396,6 @@ class AnalyzerTab(QtWidgets.QWidget):
             self.update_output(f"Error launching Gmsh: {e}")
 
 
-    # populate_subject_montages and populate_subject_fields methods removed - no longer using individual subject tabs
-
-    
-
     def build_single_analysis_command(self, subject_id, simulation_name):
         """Build command to run main_analyzer.py for a single subject."""
         try:
@@ -2413,7 +2409,8 @@ class AnalyzerTab(QtWidgets.QWidget):
                 coords = [c.text().strip() or "0" for c in [self.coord_x, self.coord_y, self.coord_z]]
                 radius_val = self.radius_input.text().strip() or "5"
                 coord_space_suffix = "_MNI" if self.coord_space_mni.isChecked() else "_subject"
-                target_info = f"sphere_x{coords[0]}_y{coords[1]}_z{coords[2]}_r{radius_val}{coord_space_suffix}"
+                formatted_coords = [f"{float(c):.2f}" for c in coords]
+                target_info = f"sphere_x{formatted_coords[0]}_y{formatted_coords[1]}_z{formatted_coords[2]}_r{radius_val}{coord_space_suffix}"
             else: # Cortical
                 atlas_name_cleaned = "unknown_atlas"
                 if self.space_mesh.isChecked():
