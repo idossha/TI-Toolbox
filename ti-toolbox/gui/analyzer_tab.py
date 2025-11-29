@@ -126,7 +126,6 @@ class AnalysisThread(QtCore.QThread):
                         except OSError:
                             pass # Process might have already exited
                 except Exception: # pylint: disable=broad-except
-                    # print("Note: Could not find/terminate child processes.")
                     pass # Ignore errors in finding/killing child processes
                 
                 # Kill the main process
@@ -2413,7 +2412,8 @@ class AnalyzerTab(QtWidgets.QWidget):
             if self.type_spherical.isChecked():
                 coords = [c.text().strip() or "0" for c in [self.coord_x, self.coord_y, self.coord_z]]
                 radius_val = self.radius_input.text().strip() or "5"
-                target_info = f"sphere_x{coords[0]}_y{coords[1]}_z{coords[2]}_r{radius_val}"
+                coord_space_suffix = "_MNI" if self.coord_space_mni.isChecked() else "_subject"
+                target_info = f"sphere_x{coords[0]}_y{coords[1]}_z{coords[2]}_r{radius_val}{coord_space_suffix}"
             else: # Cortical
                 atlas_name_cleaned = "unknown_atlas"
                 if self.space_mesh.isChecked():
@@ -2492,6 +2492,10 @@ class AnalyzerTab(QtWidgets.QWidget):
                 coords_str = [self.coord_x.text().strip() or "0", self.coord_y.text().strip() or "0", self.coord_z.text().strip() or "0"]
                 cmd.extend(['--coordinates'] + coords_str)
                 cmd.extend(['--radius', self.radius_input.text().strip() or "5"])
+
+                # Add MNI coordinates flag when MNI space is selected
+                if self.coord_space_mni.isChecked():
+                    cmd.append('--use-mni-coords')
             else: # Cortical
                 if self.space_mesh.isChecked():
                     cmd.extend(['--atlas_name', self.atlas_name_combo.currentText()])

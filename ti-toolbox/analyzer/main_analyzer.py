@@ -67,10 +67,17 @@ Example Usage:
 import argparse
 import functools
 import logging
+import math
 import os
 import sys
 import time
 from pathlib import Path
+
+# SIMNIBS imports (with fallback for MNI coordinate transformation)
+try:
+    from simnibs import mni2subject_coords
+except ImportError:
+    mni2subject_coords = None
 
 # Local imports
 from mesh_analyzer import MeshAnalyzer
@@ -246,7 +253,8 @@ def create_roi_description(args):
     """Create a human-readable ROI description for summary logging."""
     if args.analysis_type == 'spherical':
         coords = args.coordinates
-        return f"Spherical: ({coords[0]},{coords[1]},{coords[2]}) r{args.radius}mm"
+        formatted_coords = [f"{c:.2f}" for c in coords]
+        return f"Spherical: ({formatted_coords[0]},{formatted_coords[1]},{formatted_coords[2]}) r{args.radius}mm"
     elif args.analysis_type == 'cortical':
         if args.whole_head:
             if args.space == 'mesh':
@@ -410,6 +418,8 @@ def setup_parser():
                       help="Path to atlas file for voxel-based cortical analysis")
     parser.add_argument("--coordinates", nargs=3,
                       help="x y z coordinates for spherical analysis")
+    parser.add_argument("--use-mni-coords", action="store_true",
+                      help="Treat coordinates as MNI space and transform to subject's native space")
     parser.add_argument("--radius", type=float,
                       help="Radius for spherical analysis")
     parser.add_argument("--region",
@@ -550,6 +560,36 @@ def main():
         validate_args(args)
         logger.debug("Arguments validated successfully")
         flush_output()
+
+        # Transform MNI coordinates to subject space if requested
+        if hasattr(args, 'use_mni_coords') and args.use_mni_coords and args.analysis_type == 'spherical':
+            if mni2subject_coords is None:
+                raise RuntimeError("MNI coordinate transformation requested but simnibs.mni2subject_coords is not available. Please install simnibs.")
+
+            formatted_orig_coords = [f"{float(c):.2f}" for c in args.coordinates]
+            logger.info(f"Transforming MNI coordinates [{', '.join(formatted_orig_coords)}] to subject {subject_id} space")
+            flush_output()
+
+            try:
+                mni_coords = [float(c) for c in args.coordinates]
+                subject_coords = mni2subject_coords(mni_coords, args.m2m_subject_path)
+
+                # Validate transformation result
+                if subject_coords is None or len(subject_coords) != 3:
+                    raise ValueError(f"MNI transformation failed: returned {subject_coords}")
+
+                # Ensure all coordinates are valid finite numbers
+                for i, c in enumerate(subject_coords):
+                    if c is None or not math.isfinite(float(c)):
+                        raise ValueError(f"Invalid coordinate {i}: {c}")
+
+                args.coordinates = subject_coords
+                formatted_coords = [f"{c:.2f}" for c in subject_coords]
+                logger.info(f"Transformed MNI coordinates for {subject_id}: [{', '.join(formatted_coords)}]")
+                flush_output()
+            except Exception as e:
+                logger.error(f"MNI transformation failed for {subject_id}: {e}")
+                raise RuntimeError(f"Failed to transform MNI coordinates: {e}")
         
         # Start summary logging if in quiet mode
         roi_description = create_roi_description(args)
