@@ -1,4 +1,5 @@
 services:
+
   freesurfer:
     image: idossha/ti-toolbox_freesurfer:v7.4.1
     platform: linux/amd64
@@ -36,7 +37,6 @@ services:
       PROJECT_DIR_NAME: ${PROJECT_DIR_NAME}
       DEV_CODEBASE_DIR: ${DEV_CODEBASE_DIR}
       DEV_CODEBASE_NAME: ${DEV_CODEBASE_NAME}
-      # Host machine timestamp for notes and logging
       TZ: ${TZ}
       KMP_AFFINITY: "disabled"
     networks:

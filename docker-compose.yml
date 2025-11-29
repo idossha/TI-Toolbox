@@ -12,48 +12,26 @@ services:
     command: ["tail", "-f", "/dev/null"]
 
   simnibs:
-    image: idossha/simnibs:v2.2.0
     platform: linux/amd64
+    image: idossha/simnibs:v2.2.0
     container_name: simnibs_container
     volumes:
       - ti-toolbox_freesurfer_data:/usr/local/freesurfer/
       - ${LOCAL_PROJECT_DIR}:/mnt/${PROJECT_DIR_NAME}
-      
-      # X11 socket mount for Linux/macOS
-      - /tmp/.X11-unix:/tmp/.X11-unix:rw
-      
-      # Additional mount for macOS XQuartz compatibility
-      - ${HOME}/.Xauthority:/root/.Xauthority:rw
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw      # X11 socket mount for Linux/macOS
+      - ${HOME}/.Xauthority:/root/.Xauthority:rw       # Additional mount for macOS XQuartz compatibility
     environment:
-      # User environment
       USER: root
-      # Display configuration
       DISPLAY: ${DISPLAY}
- 
-      # Matplotlib backend for headless plotting
       MPLBACKEND: "Agg"
-
-      # FreeSurfer environment
       FREESURFER_HOME: /usr/local/freesurfer
       SUBJECTS_DIR: /usr/local/freesurfer/subjects
       FS_LICENSE: /usr/local/freesurfer/license.txt
-      
-      # Project paths
       LOCAL_PROJECT_DIR: ${LOCAL_PROJECT_DIR}
       PROJECT_DIR_NAME: ${PROJECT_DIR_NAME}
-      
-      # Host machine timestamp for notes and logging
       TZ: ${TZ}
-      
-      # Performance settings
       KMP_AFFINITY: "disabled"
-      
-      # TI-Toolbox version from image tag
       TI_TOOLBOX_VERSION: "v2.2.0"
-
-      # FreeSurfer and SimNIBS PATH
-      PATH: /usr/local/freesurfer/bin:/root/SimNIBS-4.5/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
-
     networks:
       - ti_network
     depends_on:
