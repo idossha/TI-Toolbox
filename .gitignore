@@ -39,8 +39,8 @@ TI-Toolbox_*_*/
 .pytest_cache/
 
 # Development-specific
-.default_paths.user
-.default_paths.dev
+**/.default_paths.user
+**/.default_paths.dev
 
 # Claude
 CLAUDE.md
