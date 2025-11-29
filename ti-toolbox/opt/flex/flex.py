@@ -102,8 +102,8 @@ def main() -> int:
                 logger.debug(f"Starting optimization run {i_opt + 1}/{n_multistart}...")
             else:
                 logger.debug("Starting optimization...")
-            
-            # Log optimization step start
+
+            # Define step name for logging
             step_name = f"Optimization run {i_opt + 1}/{n_multistart}" if n_multistart > 1 else "Optimization"
             flex_log.log_optimization_step_start(step_name, logger)
             

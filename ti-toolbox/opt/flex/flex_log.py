@@ -296,7 +296,9 @@ def log_optimization_config(
     logger.debug(f"  Post-processing: {args.postproc}")
     logger.debug(f"  ROI Method: {args.roi_method}")
     logger.debug(f"  EEG Net: {args.eeg_net}")
-    logger.debug(f"  Electrode Radius: {args.radius}mm")
+    logger.debug(f"  Electrode Shape: {args.electrode_shape}")
+    logger.debug(f"  Electrode Dimensions: {args.dimensions}mm")
+    logger.debug(f"  Electrode Thickness: {args.thickness}mm")
     logger.debug(f"  Electrode Current: {args.current}mA")
     logger.debug(f"  Run Final Electrode Simulation: {run_final_sim}")
     

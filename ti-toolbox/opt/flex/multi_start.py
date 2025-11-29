@@ -260,7 +260,9 @@ def create_multistart_summary_file(
         f.write(f"Post-processing: {args.postproc}\n")
         f.write(f"ROI Method: {args.roi_method}\n")
         f.write(f"EEG Net: {args.eeg_net}\n")
-        f.write(f"Electrode Radius: {args.radius}mm\n")
+        f.write(f"Electrode Shape: {args.electrode_shape}\n")
+        f.write(f"Electrode Dimensions: {args.dimensions}mm\n")
+        f.write(f"Electrode Thickness: {args.thickness}mm\n")
         f.write(f"Electrode Current: {args.current}mA\n")
         run_final_sim = args.run_final_electrode_simulation and not args.skip_final_electrode_simulation
         f.write(f"Run Final Electrode Simulation: {run_final_sim}\n")
@@ -481,7 +483,9 @@ def create_single_optimization_summary_file(
         f.write(f"Post-processing: {args.postproc}\n")
         f.write(f"ROI Method: {args.roi_method}\n")
         f.write(f"EEG Net: {args.eeg_net}\n")
-        f.write(f"Electrode Radius: {args.radius}mm\n")
+        f.write(f"Electrode Shape: {args.electrode_shape}\n")
+        f.write(f"Electrode Dimensions: {args.dimensions}mm\n")
+        f.write(f"Electrode Thickness: {args.thickness}mm\n")
         f.write(f"Electrode Current: {args.current}mA\n")
         run_final_sim = args.run_final_electrode_simulation and not args.skip_final_electrode_simulation
         f.write(f"Run Final Electrode Simulation: {run_final_sim}\n")

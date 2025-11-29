@@ -749,8 +749,8 @@ class SimulatorTab(QtWidgets.QWidget):
         thickness_layout = QtWidgets.QHBoxLayout()
         self.thickness_label = QtWidgets.QLabel("Thickness (mm):")
         self.thickness_input = QtWidgets.QLineEdit()
-        self.thickness_input.setPlaceholderText("8")
-        self.thickness_input.setText("8")  # Set default to 8mm
+        self.thickness_input.setPlaceholderText("4")
+        self.thickness_input.setText("4")  # Set default to 4mm
         thickness_layout.addWidget(self.thickness_label)
         thickness_layout.addWidget(self.thickness_input)
         electrode_params_layout.addLayout(thickness_layout)
@@ -1570,7 +1570,7 @@ class SimulatorTab(QtWidgets.QWidget):
             
             electrode_shape = "rect" if self.electrode_shape_rect.isChecked() else "ellipse"
             dimensions = self.dimensions_input.text() or "8,8"  # Default to 8,8 if empty
-            thickness = self.thickness_input.text() or "8"  # Default to 8 if empty
+            thickness = self.thickness_input.text() or "4"  # Default to 4 if empty
             
             # Validate parameters
             if not all([conductivity, sim_mode, eeg_net]):
@@ -2137,7 +2137,7 @@ class SimulatorTab(QtWidgets.QWidget):
                         report_generator.add_electrode_parameters(
                             shape="rect" if self.electrode_shape_rect.isChecked() else "ellipse",
                             dimensions=[float(dim_parts[0]), float(dim_parts[1])],
-                            thickness=float(self.thickness_input.text() or "8")
+                            thickness=float(self.thickness_input.text() or "4")
                         )
                         
                         # Add this specific subject
@@ -2854,7 +2854,7 @@ class SimulatorTab(QtWidgets.QWidget):
             
         # Validate thickness
         try:
-            thickness = float(self.thickness_input.text() or "8")
+            thickness = float(self.thickness_input.text() or "4")
             if thickness <= 0:
                 QtWidgets.QMessageBox.warning(self, "Warning", "Thickness must be greater than 0 mm.")
                 return False

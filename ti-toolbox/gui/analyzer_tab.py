@@ -305,34 +305,34 @@ class AnalyzerTab(QtWidgets.QWidget):
     
 
     def _update_coordinate_space_labels(self):
-        """Update coordinate space labels and tooltips based on analysis mode."""
+        """Update coordinate space labels and tooltips based on space selection."""
         if hasattr(self, 'coordinates_label') and hasattr(self, 'coord_x'):
-            if self.is_group_mode:
-                # Group mode: use MNI coordinates
+            if self.coord_space_mni.isChecked():
+                # MNI space selected
                 self.coordinates_label.setText("MNI RAS (x,y,z):")
                 self.coordinates_label.setToolTip("MNI space coordinates (will be transformed to subject space for each subject)")
                 self.coordinates_label.setStyleSheet("color: #007ACC; font-weight: bold;")
-                
+
                 # Update individual coordinate tooltips
                 self.coord_x.setToolTip("X coordinate in MNI space")
-                self.coord_y.setToolTip("Y coordinate in MNI space")  
+                self.coord_y.setToolTip("Y coordinate in MNI space")
                 self.coord_z.setToolTip("Z coordinate in MNI space")
-                
+
                 # Update Freeview button for MNI template
                 if hasattr(self, 'view_in_freeview_btn'):
                     self.view_in_freeview_btn.setText("View MNI Template")
                     self.view_in_freeview_btn.setToolTip("Open MNI152 template to find MNI coordinates")
             else:
-                # Single mode: use subject coordinates
+                # Subject space selected
                 self.coordinates_label.setText("Subject RAS (x,y,z):")
                 self.coordinates_label.setToolTip("Subject-specific RAS coordinates")
                 self.coordinates_label.setStyleSheet("")
-                
+
                 # Update individual coordinate tooltips
                 self.coord_x.setToolTip("X coordinate in subject RAS space")
                 self.coord_y.setToolTip("Y coordinate in subject RAS space")
                 self.coord_z.setToolTip("Z coordinate in subject RAS space")
-                
+
                 # Update Freeview button for subject T1
                 if hasattr(self, 'view_in_freeview_btn'):
                     self.view_in_freeview_btn.setText("View in Freeview")
@@ -644,6 +644,11 @@ class AnalyzerTab(QtWidgets.QWidget):
         self.type_cortical = QtWidgets.QRadioButton("Cortical")
         self.type_spherical.setChecked(True)
         self.type_group = QtWidgets.QButtonGroup(self)
+
+        # Coordinate space radio buttons (for spherical analysis)
+        self.coord_space_subject = QtWidgets.QRadioButton("Subject Space")
+        self.coord_space_mni = QtWidgets.QRadioButton("MNI Space")
+        self.coord_space_subject.setChecked(True)  # Default to subject space
         self.type_group.addButton(self.type_spherical)
         self.type_group.addButton(self.type_cortical)
         
@@ -728,7 +733,18 @@ class AnalyzerTab(QtWidgets.QWidget):
         analysis_params_layout.addLayout(atlas_row)
 
         # Spherical analysis parameters - split into separate rows
-        
+
+        # Row 2.5: Coordinate space selection (for spherical analysis)
+        coord_space_row = QtWidgets.QHBoxLayout()
+        coord_space_row.setSpacing(10)
+        self.coord_space_label = QtWidgets.QLabel("Coordinate Space:")
+        self.coord_space_label.setSizePolicy(QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed)
+        coord_space_row.addWidget(self.coord_space_label)
+        coord_space_row.addWidget(self.coord_space_subject)
+        coord_space_row.addWidget(self.coord_space_mni)
+        coord_space_row.addStretch()
+        analysis_params_layout.addLayout(coord_space_row)
+
         # Row 3: Coordinates
         coordinates_row = QtWidgets.QHBoxLayout()
         coordinates_row.setSpacing(10)
@@ -785,6 +801,10 @@ class AnalyzerTab(QtWidgets.QWidget):
         # Connect signals to update cortical button text based on space
         self.space_mesh.toggled.connect(self.update_cortical_button_text)
         self.space_voxel.toggled.connect(self.update_cortical_button_text)
+
+        # Connect coordinate space radio buttons
+        self.coord_space_subject.toggled.connect(self._update_coordinate_space_labels)
+        self.coord_space_mni.toggled.connect(self._update_coordinate_space_labels)
 
         self.update_atlas_visibility() # Initial call
         self.update_cortical_button_text() # Initial call
@@ -1093,6 +1113,15 @@ class AnalyzerTab(QtWidgets.QWidget):
             self.coord_z.setEnabled(coordinates_enabled)
         if hasattr(self, 'view_in_freeview_btn'):
             self.view_in_freeview_btn.setEnabled(coordinates_enabled)
+
+        # Coordinate space selection is only visible for spherical analysis
+        coord_space_visible = is_spherical
+        if hasattr(self, 'coord_space_subject'):
+            self.coord_space_subject.setVisible(coord_space_visible)
+            self.coord_space_mni.setVisible(coord_space_visible)
+        # Also hide/show the label we created for coordinate space
+        if hasattr(self, 'coord_space_label'):
+            self.coord_space_label.setVisible(coord_space_visible)
         
         if hasattr(self, 'radius_label'):
             self.radius_label.setEnabled(coordinates_enabled)
@@ -1532,8 +1561,9 @@ class AnalyzerTab(QtWidgets.QWidget):
                 cmd.extend(['--coordinates'] + coords)
                 cmd.extend(['--radius', radius])
                 
-                # Add MNI coordinates flag for group analysis (coordinates are treated as MNI space)
-                cmd.append('--use-mni-coords')
+                # Add MNI coordinates flag when MNI space is selected
+                if self.coord_space_mni.isChecked():
+                    cmd.append('--use-mni-coords')
             else:  # cortical
                 if self.space_mesh.isChecked():
                     atlas_name = self.atlas_name_combo.currentText()
@@ -1645,10 +1675,10 @@ class AnalyzerTab(QtWidgets.QWidget):
         if self.space_mesh.isChecked():
             details += f"- Field File: {mont}.msh (auto-selected)\n"
         if self.type_spherical.isChecked():
-            coord_space = "MNI" if self.is_group_mode else "RAS"
+            coord_space = "MNI" if self.coord_space_mni.isChecked() else "RAS"
             details += (f"- Coordinates ({coord_space}): ({self.coord_x.text() or '0'}, {self.coord_y.text() or '0'}, {self.coord_z.text() or '0'})\n"
                         f"- Radius: {self.radius_input.text() or '5'} mm\n")
-            if self.is_group_mode:
+            if self.coord_space_mni.isChecked():
                 details += f"- Coordinate Transformation: MNI → Subject space (automatic)\n"
         else: # Cortical
             if self.space_mesh.isChecked(): details += f"- Mesh Atlas: {self.atlas_name_combo.currentText()}\n"
@@ -1679,9 +1709,11 @@ class AnalyzerTab(QtWidgets.QWidget):
         # Shared analysis parameters
         details += "\n- Shared Analysis Parameters:\n"
         if self.type_spherical.isChecked():
-            details += f"- Coordinates (MNI): ({self.coord_x.text() or '0'}, {self.coord_y.text() or '0'}, {self.coord_z.text() or '0'})\n"
+            coord_space = "MNI" if self.coord_space_mni.isChecked() else "Subject RAS"
+            details += f"- Coordinates ({coord_space}): ({self.coord_x.text() or '0'}, {self.coord_y.text() or '0'}, {self.coord_z.text() or '0'})\n"
             details += f"- Radius: {self.radius_input.text() or '5'} mm\n"
-            details += f"- Coordinate Transformation: MNI → Subject space (automatic for each)\n"
+            if self.coord_space_mni.isChecked():
+                details += f"- Coordinate Transformation: MNI → Subject space (automatic for each)\n"
         else:  # cortical
             if self.space_mesh.isChecked(): 
                 details += f"- Shared Mesh Atlas: {self.atlas_name_combo.currentText()}\n"
@@ -2128,8 +2160,8 @@ class AnalyzerTab(QtWidgets.QWidget):
             selected_subjects = self.get_selected_subjects()
             if not selected_subjects: QtWidgets.QMessageBox.warning(self, "Warning", "Select subject."); return
             
-            if self.is_group_mode and self.type_spherical.isChecked():
-                # Group mode: load MNI template
+            if self.coord_space_mni.isChecked() and self.type_spherical.isChecked():
+                # MNI space selected: load MNI template
                 # Look for MNI template in common locations
                 mni_paths = [
                     '/usr/share/fsl/data/standard/MNI152_T1_1mm.nii.gz',
