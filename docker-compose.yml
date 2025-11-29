@@ -50,7 +50,10 @@ services:
       
       # TI-Toolbox version from image tag
       TI_TOOLBOX_VERSION: "v2.2.0"
-    
+
+      # FreeSurfer and SimNIBS PATH
+      PATH: /usr/local/freesurfer/bin:/root/SimNIBS-4.5/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
     networks:
       - ti_network
     depends_on:
