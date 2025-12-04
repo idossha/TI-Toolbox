@@ -87,12 +87,11 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '18'
-          cache: 'npm'
-          cache-dependency-path: package/package-lock.json
 
       - name: Install dependencies
         working-directory: package
-        run: npm ci
+        run: |
+          npm ci
 
       - name: Build Electron app - macOS x64
         if: matrix.platform == 'mac' && matrix.arch == 'x64'
