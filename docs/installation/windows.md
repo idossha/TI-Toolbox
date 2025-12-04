@@ -85,6 +85,35 @@ Download these files to your **Windows filesystem**:
 - **GUI not appearing**: Ensure VcXsrv is running and "Disable access control" is checked
 - **Connection refused**: Configure VcXsrv to allow connections from WSL2 (default settings usually work)
 
+## Desktop App Installation
+
+If you're using the desktop application (TI-Toolbox.exe), you may encounter a Windows SmartScreen warning when first opening it:
+
+### Authorizing the Desktop App
+
+When you first download and try to run TI-Toolbox from GitHub releases, Windows may show a SmartScreen warning:
+
+> Windows protected your PC - Windows Defender SmartScreen prevented an unrecognized app from starting
+
+**To authorize the app:**
+
+**Option 1: Run Anyway**
+1. Click the **"More info"** link in the warning dialog
+2. Click **"Run anyway"**
+3. The app will now open normally
+
+**Option 2: Add to Windows Defender Exclusions**
+1. Open Windows Security (search for it in Start menu)
+2. Go to **Virus & threat protection** → **Manage settings**
+3. Scroll down to **Exclusions** → **Add or remove exclusions**
+4. Click **"Add an exclusion"** → **Folder**
+5. Select the folder containing TI-Toolbox.exe
+6. The app will now run without warnings
+
+**Why this happens:**
+TI-Toolbox is an open-source application not signed with a Microsoft certificate. Windows SmartScreen protects against potentially harmful software by warning about unsigned executables from the internet. This authorization process ensures you can safely run the app.
+
+After authorizing once, the app will open normally in the future.
 
 ---
 

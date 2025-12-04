@@ -132,16 +132,6 @@ jobs:
             package/dist/*.dmg.blockmap
           retention-days: 5
 
-      - name: Upload macOS ZIP artifacts
-        if: matrix.platform == 'mac'
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ matrix.name }}-zip
-          path: |
-            package/dist/*.zip
-            package/dist/*-mac.zip
-          retention-days: 5
-
       - name: Upload Windows artifacts
         if: matrix.platform == 'win'
         uses: actions/upload-artifact@v4
@@ -183,24 +173,10 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Upload macOS Intel ZIP to release
-        uses: softprops/action-gh-release@v1
-        with:
-          files: artifacts/macOS-Intel-zip/*
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Upload macOS Silicon DMG to release
         uses: softprops/action-gh-release@v1
         with:
           files: artifacts/macOS-Silicon-dmg/*
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Upload macOS Silicon ZIP to release
-        uses: softprops/action-gh-release@v1
-        with:
-          files: artifacts/macOS-Silicon-zip/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
