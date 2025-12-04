@@ -20,7 +20,10 @@
     "simnibs",
     "neuroimaging"
   ],
-  "author": "Center for Sleep and Consciousness",
+  "author": {
+    "name": "Ido Haber",
+    "email": "ihaber@wisc.edu"
+  },
   "license": "MIT",
   "repository": "git+https://github.com/idossha/TI-toolbox.git",
   "devDependencies": {
