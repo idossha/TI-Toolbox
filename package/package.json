@@ -59,16 +59,10 @@
     "mac": {
       "category": "public.app-category.education",
       "icon": "assets/icon.icns",
+      "identity": "Developer ID Application",
       "target": [
         {
           "target": "dmg",
-          "arch": [
-            "x64",
-            "arm64"
-          ]
-        },
-        {
-          "target": "zip",
           "arch": [
             "x64",
             "arm64"
@@ -85,12 +79,6 @@
       "target": [
         {
           "target": "nsis",
-          "arch": [
-            "x64"
-          ]
-        },
-        {
-          "target": "portable",
           "arch": [
             "x64"
           ]
