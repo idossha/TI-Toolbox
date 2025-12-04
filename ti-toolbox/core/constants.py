@@ -31,7 +31,7 @@ DIR_EX_SEARCH = "ex-search"
 DIR_FLEX_SEARCH = "flex-search"
 DIR_MOVEA = "MOVEA"
 DIR_LEADFIELDS = "leadfields"
-DIR_ANALYSIS = "analysis"
+DIR_ANALYSIS = "Analyses"
 
 # Configuration directory
 DIR_CONFIG = "config"

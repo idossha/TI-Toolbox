@@ -30,7 +30,7 @@ class OptimizerTab(QtWidgets.QWidget):
         
         # Create dropdown menu
         self.method_combo = QtWidgets.QComboBox()
-        self.method_combo.addItems(["Ex-Search", "Flex-Search; Weise et. al. 2025", "MOVEA; Wang et. al. 2023"])
+        self.method_combo.addItems(["Flex-Search; Weise et. al. 2025", "Ex-Search", "MOVEA; Wang et. al. 2023"])
         self.method_combo.setMinimumWidth(200)
         self.method_combo.currentIndexChanged.connect(self.on_method_changed)
         selector_layout.addWidget(self.method_combo)
@@ -59,14 +59,13 @@ class OptimizerTab(QtWidgets.QWidget):
         self.movea_tab = MOVEATab(self.parent)
         
         # Add them to the stacked widget
-        self.stacked_widget.addWidget(self.ex_search_tab)
         self.stacked_widget.addWidget(self.flex_search_tab)
+        self.stacked_widget.addWidget(self.ex_search_tab)
         self.stacked_widget.addWidget(self.movea_tab)
         
         main_layout.addWidget(self.stacked_widget)
         
-        # Set default to Flex-Search (index 1)
-        self.stacked_widget.setCurrentIndex(1)
+        self.stacked_widget.setCurrentIndex(0)
     
     def on_method_changed(self, index):
         """Handle optimization method change."""
