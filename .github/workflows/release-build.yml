@@ -1,13 +1,56 @@
 name: Build and Release Electron App
 
 on:
-  release:
-    types: [published]
+  push:
+    tags:
+      - 'v*.*.*'  # Only run on version tag pushes
   workflow_dispatch:  # Allow manual trigger for testing
 
 jobs:
+  create-release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    outputs:
+      upload_url: ${{ steps.create_release.outputs.upload_url }}
+      version: ${{ steps.extract_version.outputs.version }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Extract version and release notes
+        id: extract_version
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/v}
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+          # Try to read release notes from docs/releases/v$VERSION.md
+          RELEASE_NOTES_FILE="docs/releases/v$VERSION.md"
+          if [ -f "$RELEASE_NOTES_FILE" ]; then
+            RELEASE_NOTES=$(cat "$RELEASE_NOTES_FILE")
+          else
+            # Fallback to latest commit message
+            RELEASE_NOTES=$(git log -1 --pretty=%B)
+          fi
+
+          echo "release_notes<<EOF" >> $GITHUB_OUTPUT
+          echo "$RELEASE_NOTES" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Create GitHub Release
+        id: create_release
+        uses: softprops/action-gh-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: Version ${{ steps.extract_version.outputs.version }}
+          body: ${{ steps.extract_version.outputs.release_notes }}
+          draft: false
+          prerelease: false
+
   build:
     name: Build ${{ matrix.os }} - ${{ matrix.arch }}
+    needs: create-release
     runs-on: ${{ matrix.os }}
     
     strategy:
@@ -124,7 +167,6 @@ jobs:
     name: Upload to Release
     needs: build
     runs-on: ubuntu-latest
-    if: github.event_name == 'release'
     
     steps:
       - name: Download all artifacts
