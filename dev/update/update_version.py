@@ -211,11 +211,11 @@ For installation instructions, see the [Installation Guide]({{{{ site.baseurl }}
 def update_changelog_file(version, release_notes, release_date):
     """Update the changelog file"""
     changelog_file = "docs/releases/changelog.md"
-    
+
     if not os.path.exists(changelog_file):
         print(f"⚠️  Warning: {changelog_file} not found")
         return
-    
+
     new_changelog_section = f"""### v{version} (Latest Release)
 
 **Release Date**: {release_date}
@@ -227,36 +227,37 @@ def update_changelog_file(version, release_notes, release_date):
 - Source Code: [GitHub Repository](https://github.com/idossha/TI-Toolbox)
 
 ---
+"""
 
-### v"""
-    
     try:
         with open(changelog_file, 'r', encoding='utf-8') as f:
             content = f.read()
-        
-        # Replace the current latest release and update the next version
-        # First remove "(Latest Release)" from the current latest
+
+        # Remove "(Latest Release)" from the current latest version to demote it
         content = re.sub(r'### v(\d+\.\d+\.\d+) \(Latest Release\)', r'### v\1', content)
-        
-        # Then add new release at the top after the first "---"
+
+        # Insert new release section after the front matter (after the first ---)
         lines = content.split('\n')
         insert_index = -1
         for i, line in enumerate(lines):
             if line.strip() == '---' and i > 5:  # Find the first --- after the front matter
                 insert_index = i + 1
                 break
-        
+
         if insert_index > 0:
-            lines.insert(insert_index, "")
-            lines.insert(insert_index + 1, new_changelog_section)
-            
+            # Split the new section into lines and insert them
+            new_lines = new_changelog_section.split('\n')
+            for i, new_line in enumerate(reversed(new_lines)):
+                if new_line.strip():  # Only insert non-empty lines
+                    lines.insert(insert_index, new_line)
+
             new_content = '\n'.join(lines)
             with open(changelog_file, 'w', encoding='utf-8') as f:
                 f.write(new_content)
             print(f"✅ Updated changelog in {changelog_file}")
         else:
             print(f"❌ Could not find insertion point in changelog")
-    
+
     except Exception as e:
         print(f"❌ Error updating changelog: {e}")
 

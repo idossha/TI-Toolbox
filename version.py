@@ -3,31 +3,31 @@ TI-Toolbox Version Information
 Contains version, tool, and system information for the TI-Toolbox application.
 """
 
-__version__ = "2.2.0"
+__version__ = "2.2.1"
 
 # TI-Toolbox Core Information
 TI_CSC_INFO = {
-    "version": "2.2.0",
-    "release_date": "November 07, 2025", 
+    "version": "2.2.1",
+    "release_date": "December 04, 2025", 
     "build": "stable"
 }
 
 # Docker Images Information
 DOCKER_IMAGES = {
     "core": {
-        "version": "2.2.0",
-        "tag": "idossha/simnibs:v2.2.0",
+        "version": "2.2.1",
+        "tag": "idossha/simnibs:v2.2.1",
         "description": "Core SimNIBS image with TI tools",
         "size": "~8GB"
     },
     "freesurfer": {
-        "version": "2.2.0",
+        "version": "2.2.1",
         "tag": "freesurfer/freesurfer:7.4.1",
         "description": "FreeSurfer - Brain Analysis and Segmentation",
         "size": "~9GB"
     },
     "fsl": {
-        "version": "2.2.0", 
+        "version": "2.2.1", 
         "tag": "brainlife/fsl:6.0.7.4",
         "description": "FSL - FMRIB Software Library",
         "size": "~4GB"
@@ -37,67 +37,67 @@ DOCKER_IMAGES = {
 # Neuroimaging Tools Information
 TOOLS_INFO = {
     "freesurfer": {
-        "version": "2.2.0",
+        "version": "2.2.1",
         "description": "Cortical reconstruction and brain segmentation",
         "website": "https://surfer.nmr.mgh.harvard.edu/",
         "license": "FreeSurfer License"
     },
     "simnibs": {
-        "version": "2.2.0", 
+        "version": "2.2.1", 
         "description": "Finite element method for brain stimulation",
         "website": "https://simnibs.github.io/simnibs/",
         "license": "GPL v3"
     },
     "fsl": {
-        "version": "2.2.0",
+        "version": "2.2.1",
         "description": "Comprehensive library of analysis tools for FMRI, MRI and DTI",
         "website": "https://fsl.fmrib.ox.ac.uk/",
         "license": "FSL License"
     },
     "dcm2niix": {
-        "version": "2.2.0",
+        "version": "2.2.1",
         "description": "DICOM to NIfTI converter",
         "website": "https://github.com/rordenlab/dcm2niix",
         "license": "BSD 2-Clause"
     },
     "nibabel": {
-        "version": "2.2.0",
+        "version": "2.2.1",
         "description": "Python library for neuroimaging data I/O",
         "website": "https://nipy.org/nibabel/",
         "license": "MIT"
     },
     "numpy": {
-        "version": "2.2.0",
+        "version": "2.2.1",
         "description": "Numerical computing library",
         "website": "https://numpy.org/",
         "license": "BSD"
     },
     "scipy": {
-        "version": "2.2.0",
+        "version": "2.2.1",
         "description": "Scientific computing library", 
         "website": "https://scipy.org/",
         "license": "BSD"
     },
     "matplotlib": {
-        "version": "2.2.0",
+        "version": "2.2.1",
         "description": "Plotting and visualization library",
         "website": "https://matplotlib.org/",
         "license": "PSF"
     },
     "pandas": {
-        "version": "2.2.0",
+        "version": "2.2.1",
         "description": "Data analysis and manipulation library",
         "website": "https://pandas.pydata.org/",
         "license": "BSD"
     },
     "vtk": {
-        "version": "2.2.0",
+        "version": "2.2.1",
         "description": "3D graphics and visualization toolkit",
         "website": "https://vtk.org/",
         "license": "BSD"
     },
     "gmsh": {
-        "version": "2.2.0",
+        "version": "2.2.1",
         "description": "3D finite element mesh generator",
         "website": "https://gmsh.info/",
         "license": "GPL"
