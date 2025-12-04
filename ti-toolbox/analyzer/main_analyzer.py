@@ -418,8 +418,8 @@ def setup_parser():
                       help="Path to atlas file for voxel-based cortical analysis")
     parser.add_argument("--coordinates", nargs=3,
                       help="x y z coordinates for spherical analysis")
-    parser.add_argument("--use-mni-coords", action="store_true",
-                      help="Treat coordinates as MNI space and transform to subject's native space")
+    parser.add_argument("--coordinate-space", choices=['MNI', 'subject'],
+                      help="Coordinate space of input coordinates (MNI or subject)")
     parser.add_argument("--radius", type=float,
                       help="Radius for spherical analysis")
     parser.add_argument("--region",
@@ -481,7 +481,12 @@ def validate_args(args):
         if args.radius is None:
             logger.error("Radius is required for spherical analysis")
             raise ValueError("Radius is required for spherical analysis")
-        
+
+        # Require coordinate space specification for spherical analysis
+        if not hasattr(args, 'coordinate_space') or not args.coordinate_space:
+            logger.error("Coordinate space is required for spherical analysis (--coordinate-space MNI or --coordinate-space subject)")
+            raise ValueError("Coordinate space is required for spherical analysis")
+
         args.coordinates = validate_coordinates(args.coordinates)
         args.radius = validate_radius(args.radius)
         
@@ -561,8 +566,8 @@ def main():
         logger.debug("Arguments validated successfully")
         flush_output()
 
-        # Transform MNI coordinates to subject space if requested
-        if hasattr(args, 'use_mni_coords') and args.use_mni_coords and args.analysis_type == 'spherical':
+        # Transform coordinates if needed for analysis space
+        if args.analysis_type == 'spherical' and args.coordinate_space == 'MNI':
             if mni2subject_coords is None:
                 raise RuntimeError("MNI coordinate transformation requested but simnibs.mni2subject_coords is not available. Please install simnibs.")
 

@@ -1553,16 +1553,16 @@ class AnalyzerTab(QtWidgets.QWidget):
 
             # Add analysis-specific parameters
             if self.type_spherical.isChecked():
-                coords = [self.coord_x.text().strip() or "0", 
-                         self.coord_y.text().strip() or "0", 
+                coords = [self.coord_x.text().strip() or "0",
+                         self.coord_y.text().strip() or "0",
                          self.coord_z.text().strip() or "0"]
                 radius = self.radius_input.text().strip() or "5"
                 cmd.extend(['--coordinates'] + coords)
                 cmd.extend(['--radius', radius])
-                
-                # Add MNI coordinates flag when MNI space is selected
-                if self.coord_space_mni.isChecked():
-                    cmd.append('--use-mni-coords')
+
+                # Add coordinate space specification
+                coord_space = 'MNI' if self.coord_space_mni.isChecked() else 'subject'
+                cmd.extend(['--coordinate-space', coord_space])
             else:  # cortical
                 if self.space_mesh.isChecked():
                     atlas_name = self.atlas_name_combo.currentText()
@@ -2490,9 +2490,9 @@ class AnalyzerTab(QtWidgets.QWidget):
                 cmd.extend(['--coordinates'] + coords_str)
                 cmd.extend(['--radius', self.radius_input.text().strip() or "5"])
 
-                # Add MNI coordinates flag when MNI space is selected
-                if self.coord_space_mni.isChecked():
-                    cmd.append('--use-mni-coords')
+                # Add coordinate space specification
+                coord_space = 'MNI' if self.coord_space_mni.isChecked() else 'subject'
+                cmd.extend(['--coordinate-space', coord_space])
             else: # Cortical
                 if self.space_mesh.isChecked():
                     cmd.extend(['--atlas_name', self.atlas_name_combo.currentText()])

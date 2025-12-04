@@ -147,9 +147,9 @@ def setup_parser():
     parser.add_argument("--atlas_name",
                         help="Atlas name for mesh-based cortical analysis (e.g., DK40)")
     parser.add_argument("--coordinates", nargs=3,
-                        help="x y z coordinates for spherical analysis (MNI space for group analysis)")
-    parser.add_argument("--use-mni-coords", action="store_true",
-                        help="Treat coordinates as MNI space and transform to each subject's native space")
+                        help="x y z coordinates for spherical analysis")
+    parser.add_argument("--coordinate-space", choices=['MNI', 'subject'], required=True,
+                        help="Coordinate space of the input coordinates (MNI or subject)")
     parser.add_argument("--radius", type=float,
                         help="Radius for spherical analysis")
     parser.add_argument("--region",
@@ -242,63 +242,49 @@ def validate_args(args):
 
 def compute_subject_output_dir(args, subject_args: List[str]) -> str:
     """
-    Create a descriptive output directory name based on analysis parameters,
-    matching the structure used in analyzer_tab.py:
-    derivatives/SimNIBS/<subject_id>/Simulations/<montage_name>/Analyses/<Mesh-or-Voxel>/<analysis_description>/
+    Create a consistent output directory structure for analysis results.
+    Structure: output_dir/sub-{subject_id}/Simulations/{montage_name}/Analyses/{Mesh|Voxel}/{analysis_name}
     """
     subject_id = subject_args[0]
-    field_path = subject_args[2]
 
-    try:
-        if args.space == 'mesh':
-            # For mesh analysis, field_path is the montage name directly
-            montage_name = field_path
-            # Build the expected path structure
-            base_montage_dir = os.path.join(args.output_dir, f'sub-{subject_id}', 'Simulations', montage_name)
-        else:
-            # For voxel analysis, parse the montage name from the field file path
+    # For mesh analysis, field_path is the montage name
+    # For voxel analysis, we need to extract montage name from field path
+    if args.space == 'mesh':
+        montage_name = subject_args[2]  # field_path is montage name for mesh
+    else:
+        # For voxel analysis, extract montage name from path structure
+        field_path = subject_args[2]
+        try:
             path_parts = Path(field_path).parts
-            # Locate "Simulations" in the file path
             sim_idx = path_parts.index('Simulations')
-            # Montage name is the folder immediately after "Simulations"
             montage_name = path_parts[sim_idx + 1]
-            # Build base up through: .../Simulations/<montage_name>
-            base_montage_dir = os.path.join(*path_parts[: sim_idx + 2])
+        except (ValueError, IndexError):
+            # If we can't parse the path, use a default montage name
+            montage_name = 'unknown_montage'
 
-        # Decide if this is a Mesh or Voxel subfolder
-        space_dir = 'Mesh' if args.space == 'mesh' else 'Voxel'
-        analyses_base = os.path.join(base_montage_dir, 'Analyses', space_dir)
+    # Build consistent directory structure
+    space_dir = 'Mesh' if args.space == 'mesh' else 'Voxel'
+    base_dir = os.path.join(args.output_dir, f'sub-{subject_id}', 'Simulations', montage_name, 'Analyses', space_dir)
 
-        # Create descriptive analysis folder name based on parameters
-        if args.analysis_type == 'spherical':
-            coords_str = '_'.join([str(c) for c in args.coordinates])
-            analysis_name = f"sphere_x{args.coordinates[0]:.2f}_y{args.coordinates[1]:.2f}_z{args.coordinates[2]:.2f}_r{args.radius}"
-        else:  # cortical
-            if args.whole_head:
-                if args.space == 'mesh':
-                    atlas_info = args.atlas_name
-                    analysis_name = f"whole_head_{atlas_info}"
-                else:  # voxel
-                    atlas_path = subject_args[3]
-                    atlas_name = os.path.basename(atlas_path).split('.')[0]
-                    analysis_name = f"whole_head_{atlas_name}"
+    # Create analysis-specific directory name
+    if args.analysis_type == 'spherical':
+        coord_space_suffix = f"_{args.coordinate_space}"
+        coords = [float(c) for c in args.coordinates]
+        analysis_name = f"sphere_x{coords[0]:.2f}_y{coords[1]:.2f}_z{coords[2]:.2f}_r{args.radius}{coord_space_suffix}"
+    else:  # cortical
+        if args.whole_head:
+            if args.space == 'mesh':
+                analysis_name = f"whole_head_{args.atlas_name}"
             else:
-                analysis_name = f"region_{args.region}"
-
-        output_dir = os.path.join(analyses_base, analysis_name)
-        os.makedirs(output_dir, exist_ok=True)
-        return output_dir
-
-    except (ValueError, IndexError):
-        # If parsing fails, fall back to a simple directory structure
-        if args.space == 'mesh':
-            # For mesh analysis, create fallback in the expected SimNIBS structure
-            fallback = os.path.join(args.output_dir, f'sub-{subject_id}', 'Simulations', field_path, 'Analyses', 'Mesh', 'fallback_analysis')
+                atlas_path = subject_args[3]
+                atlas_name = os.path.basename(atlas_path).split('.')[0]
+                analysis_name = f"whole_head_{atlas_name}"
         else:
-            # For voxel analysis, fall back to placing outputs next to the field file
-            fallback = os.path.join(os.path.dirname(field_path), f"fallback_{subject_id}")
-        os.makedirs(fallback, exist_ok=True)
-        return fallback
+            analysis_name = f"region_{args.region}"
+
+    output_dir = os.path.join(base_dir, analysis_name)
+    os.makedirs(output_dir, exist_ok=True)
+    return output_dir
 
 
 def build_main_analyzer_command(
@@ -337,30 +323,11 @@ def build_main_analyzer_command(
     cmd += ["--space", args.space]
     cmd += ["--analysis_type", args.analysis_type]
 
-    # Analysis-type-specific flags (matching analyzer_tab.py order):
+    # Analysis-type-specific flags
     if args.analysis_type == 'spherical':
-        # Check if MNI coordinates need transformation
-        if hasattr(args, 'use_mni_coords') and args.use_mni_coords and mni2subject_coords:
-            # Transform MNI coordinates to subject space
-            global group_logger
-            if group_logger:
-                group_logger.debug(f"Transforming MNI coordinates {args.coordinates} to subject {subject_id} space")
-            
-            try:
-                mni_coords = [float(c) for c in args.coordinates]
-                subject_coords = mni2subject_coords(mni_coords, m2m_path)
-                if group_logger:
-                    group_logger.debug(f"Transformed coordinates for {subject_id}: {subject_coords}")
-                cmd += ["--coordinates"] + [str(c) for c in subject_coords]
-            except Exception as e:
-                error_msg = f"Failed to transform MNI coordinates for subject {subject_id}: {e}"
-                if group_logger:
-                    group_logger.error(error_msg)
-                raise RuntimeError(error_msg)
-        else:
-            # Use coordinates as-is (subject space)
-            cmd += ["--coordinates"] + [str(c) for c in args.coordinates]
-        
+        # Pass coordinates and coordinate space - let main_analyzer.py handle transformation
+        cmd += ["--coordinates"] + [str(c) for c in args.coordinates]
+        cmd += ["--coordinate-space", args.coordinate_space]
         cmd += ["--radius", str(args.radius)]
 
     else:  # cortical
@@ -620,12 +587,12 @@ def main():
 
     try:
         validate_args(args)
-        
+
         # Set up summary mode if requested
         if args.quiet:
             global SUMMARY_MODE
             SUMMARY_MODE = True
-        
+
         # Create centralized group output directory based on first subject's path
         first_subject_path = args.subject[0][1]  # m2m_path from first subject
         centralized_group_dir = create_group_output_directory(first_subject_path)

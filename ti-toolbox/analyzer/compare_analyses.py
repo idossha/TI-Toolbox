@@ -133,13 +133,14 @@ def _extract_montage_and_region_info(analysis_dirs: List[str]) -> Tuple[str, str
         
         # Parse common analysis directory name patterns
         if analysis_dir_name.startswith('sphere_'):
-            # For spherical analysis: sphere_x{X}_y{Y}_z{Z}_r{R}
-            # Extract coordinates and radius for a cleaner name
+            # For spherical analysis: sphere_x{X}_y{Y}_z{Z}_r{R}_{MNI|subject}
+            # Extract coordinates, radius, and coordinate space for a complete name
             parts = analysis_dir_name.split('_')
             if len(parts) >= 4:
-                # Extract x, y, z, r values for a shorter name
+                # Extract x, y, z, r values and coordinate space
                 coords = []
                 radius = ""
+                coord_space = ""
                 for part in parts[1:]:
                     if part.startswith('x'):
                         coords.append(part)
@@ -147,10 +148,14 @@ def _extract_montage_and_region_info(analysis_dirs: List[str]) -> Tuple[str, str
                         coords.append(part)
                     elif part.startswith('z'):
                         coords.append(part)
-                    elif part.startswith('r'):
+                    elif part.startswith('r') and not radius:
                         radius = part
+                    elif part in ['MNI', 'subject']:
+                        coord_space = part
                         break
-                region_name = f"sphere_{'_'.join(coords)}_{radius}" if coords and radius else analysis_dir_name
+                # Build region name with coordinate space if available
+                base_name = f"sphere_{'_'.join(coords)}_{radius}" if coords and radius else analysis_dir_name
+                region_name = f"{base_name}_{coord_space}" if coord_space else base_name
             else:
                 region_name = analysis_dir_name
         elif analysis_dir_name.startswith('region_'):
@@ -691,14 +696,13 @@ def _get_grey_matter_statistics(analysis_path: str, subject_id: str, montage_nam
 def _compute_subject_stats(analysis_results: dict, region_name: str = None) -> pd.DataFrame:
     """
     Compute statistics including focality for each subject and aggregate statistics.
-    
+
     Args:
         analysis_results (dict): Dictionary with analysis data from _load_subject_data
         region_name (str, optional): Region name for ROI-specific column headers
-        
+
     Returns:
         pd.DataFrame: DataFrame with ROI-specific columns: Subject_ID, ROI_Mean, ROI_Max, ROI_Min, ROI_Focality,
-                     ROI_Mean_STD, ROI_Max_STD, ROI_Min_STD, ROI_Focality_STD,
                      Grey_Mean, Grey_Max, Grey_Min, plus row for averages
     """
     group_logger.info("Computing subject statistics and focality metrics...")
@@ -762,20 +766,7 @@ def _compute_subject_stats(analysis_results: dict, region_name: str = None) -> p
     averages = df[numeric_cols].mean()
     std_devs = df[numeric_cols].std(ddof=1)  # Sample standard deviation
     
-    # Calculate z-scores for each subject (how many std devs from group mean)
-    # Only for ROI and Normal metrics, not grey matter metrics
-    roi_cols = [f'ROI_Mean', f'ROI_Max', f'ROI_Min', f'ROI_Focality']
-    if has_normal_data:
-        roi_cols.extend([f'Normal_Mean', f'Normal_Max', f'Normal_Min', f'Normal_Focality'])
-        
-    for col in roi_cols:
-        std_col = col + '_STD'
-        if std_devs[col] > 0:
-            # Calculate z-score: (subject_value - group_mean) / group_std
-            df[std_col] = (df[col] - averages[col]) / std_devs[col]
-        else:
-            # If no variability, set z-score to 0
-            df[std_col] = 0.0
+    # STD columns removed - no longer calculating z-scores
     
     # Create average row
     avg_row = {
@@ -784,12 +775,6 @@ def _compute_subject_stats(analysis_results: dict, region_name: str = None) -> p
         'Analysis': 'SUMMARY',
         **averages.to_dict()
     }
-    
-    # Add standard deviation values to the average row (these are the group std devs)
-    # Only for ROI and Normal metrics, not grey matter metrics
-    for col in roi_cols:
-        std_col = col + '_STD'
-        avg_row[std_col] = std_devs[col]
     
     # Combine all data: subjects + average (no difference percentage rows)
     all_data = df.to_dict('records') + [avg_row]
@@ -812,25 +797,31 @@ def _compute_subject_stats(analysis_results: dict, region_name: str = None) -> p
 
 def _write_summary_csv(stats_df: pd.DataFrame, output_path: str, region_name: str = None) -> str:
     """
-    Write enhanced ROI-specific summary CSV with individual and aggregate statistics.
-    
+    Write main summary CSV with individual and aggregate statistics.
+
     Args:
         stats_df (pd.DataFrame): DataFrame with computed statistics
         output_path (str): Base output path for file naming
         region_name (str, optional): Region name for filename
-        
+
     Returns:
         str: Path to the saved CSV file
     """
     # Construct CSV output path with region information
     if region_name:
-        csv_filename = f"enhanced_roi_comparison_summary_{region_name}.csv"
+        # For spherical regions, simplify the naming
+        if region_name.startswith('sphere_'):
+            # Extract just the coordinates and radius part (remove 'sphere_' prefix)
+            coords_part = region_name.replace('sphere_', '')
+            csv_filename = f"main_summary_{coords_part}.csv"
+        else:
+            csv_filename = f"main_summary_{region_name}.csv"
     else:
-        csv_filename = "enhanced_roi_comparison_summary.csv"
+        csv_filename = "main_summary.csv"
     
     csv_path = os.path.join(output_path, csv_filename)
     
-    group_logger.info(f"Writing enhanced ROI-specific summary CSV to: {csv_path}")
+    group_logger.info(f"Writing main summary CSV to: {csv_path}")
     
     # Ensure output directory exists
     os.makedirs(output_path, exist_ok=True)

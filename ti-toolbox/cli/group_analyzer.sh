@@ -131,6 +131,11 @@ if [ ! -f "$config_file" ]; then
         "prompt": "enable",
         "default": 10
     },
+    "coordinate_space": {
+        "prompt": "enable",
+        "default": "MNI",
+        "options": ["MNI", "subject"]
+    },
     "atlas": {
         "prompt": "enable",
         "default": "DK40",
@@ -456,7 +461,42 @@ collect_spherical_params() {
     fi
     
     echo -e "${CYAN}Coordinates (x, y, z): ${coordinates[*]}${RESET}"
-    
+
+    # Collect coordinate space
+    if ! is_prompt_enabled "coordinate_space"; then
+        local default_coord_space=$(get_default_value "coordinate_space")
+        if [ -n "$default_coord_space" ]; then
+            coordinate_space="$default_coord_space"
+            echo -e "${CYAN}Using default coordinate space: $coordinate_space${RESET}"
+        else
+            coordinate_space="MNI"
+            echo -e "${CYAN}Using default coordinate space: MNI${RESET}"
+        fi
+    else
+        echo -e "${GREEN}Select coordinate space for the entered coordinates:${RESET}"
+        echo "1. MNI space"
+        echo "2. Subject space"
+        valid_choice=false
+        until $valid_choice; do
+            read -p "Enter choice (1-2): " coord_space_choice
+            case $coord_space_choice in
+                1)
+                    coordinate_space="MNI"
+                    valid_choice=true
+                    ;;
+                2)
+                    coordinate_space="subject"
+                    valid_choice=true
+                    ;;
+                *)
+                    echo -e "${RED}Invalid choice. Please enter 1 or 2.${RESET}"
+                    ;;
+            esac
+        done
+    fi
+
+    echo -e "${CYAN}Coordinate space: $coordinate_space${RESET}"
+
     # Collect radius
     if ! is_prompt_enabled "radius"; then
         local default_radius=$(get_default_value "radius")
@@ -968,8 +1008,8 @@ run_group_analysis() {
     # Add analysis-specific parameters
     if [ "$analysis_type" == "spherical" ]; then
         cmd+=(--coordinates "${coordinates[@]}")
+        cmd+=(--coordinate-space "$coordinate_space")
         cmd+=(--radius "$radius")
-        cmd+=(--use-mni-coords)
     else  # cortical
         if [ "$space_type" == "mesh" ]; then
             cmd+=(--atlas_name "$atlas_name")
