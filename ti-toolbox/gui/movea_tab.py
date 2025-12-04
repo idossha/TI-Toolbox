@@ -530,6 +530,24 @@ class MOVEATab(QtWidgets.QWidget):
         """Set up the user interface."""
         main_layout = QtWidgets.QVBoxLayout(self)
         
+        # Experimental warning label at top
+        self.experimental_label = QtWidgets.QLabel()
+        self.experimental_label.setText("⚠ EXPERIMENTAL INTEGRATION - Requires further validation")
+        self.experimental_label.setStyleSheet("""
+            QLabel {
+                background-color: #fff3cd;
+                color: #856404;
+                border: 1px solid #ffeaa7;
+                padding: 8px 12px;
+                border-radius: 4px;
+                font-weight: bold;
+                font-size: 12px;
+                margin-bottom: 5px;
+            }
+        """)
+        self.experimental_label.setAlignment(QtCore.Qt.AlignCenter)
+        main_layout.addWidget(self.experimental_label)
+
         # Status label at top (hidden initially)
         self.status_label = QtWidgets.QLabel()
         self.status_label.setText("Optimizing... Only the Stop button is available")
