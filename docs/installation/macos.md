@@ -71,6 +71,12 @@ When you first download and try to open TI-Toolbox from GitHub releases, macOS w
 3. Click "Open Anyway"
 4. The app will now open normally
 
+**Option 3: Terminal Command (Advanced)**
+If the above methods don't work, you can remove the quarantine flag using Terminal:
+1. Open Terminal
+2. Run: `xattr -d com.apple.quarantine /path/to/TI-Toolbox.dmg`
+3. Then double-click the DMG to open it
+
 **Why this happens:**
 TI-Toolbox is an open-source application not distributed through the Mac App Store. macOS Gatekeeper protects against potentially harmful software by blocking unsigned applications. This authorization process ensures you can safely run the app.
 

@@ -59,6 +59,10 @@
     "mac": {
       "category": "public.app-category.education",
       "icon": "assets/icon.icns",
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.inherit.plist",
       "target": [
         {
           "target": "dmg",
@@ -67,7 +71,10 @@
             "arm64"
           ]
         }
-      ]
+      ],
+      "notarize": {
+        "teamId": "3BMY24SA43"
+      }
     },
     "win": {
       "icon": "assets/icon.ico",
