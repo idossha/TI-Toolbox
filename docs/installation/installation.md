@@ -17,13 +17,15 @@ Download the pre-built desktop application for your platform from the **[Latest 
 
 Simply download, install, and launch — the app handles Docker management for you.
 
----
+<br>
 
 ## Option 2: Command Line (Bash)
 
 **Download the required files:**
 - **[loader.sh](https://github.com/idossha/TI-toolbox/blob/main/loader.sh)** - Main launch script
 - **[docker-compose.yml](https://github.com/idossha/TI-toolbox/blob/main/docker-compose.yml)** - Docker configuration
+
+<br>
 
 ---
 
