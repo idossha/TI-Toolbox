@@ -4,10 +4,6 @@ title: Latest Release
 permalink: /releases/
 ---
 
-Moved to support bash entrypoint only, see the [Bash Script & Compose YAML](https://github.com/idossha/TI-Toolbox/tree/main/launcher/bash).
-
----
-
 ### v2.2.1 (Latest Release)
 
 **Release Date**: December 04, 2025
