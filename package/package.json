@@ -27,8 +27,9 @@
   "license": "MIT",
   "repository": "git+https://github.com/idossha/TI-toolbox.git",
   "devDependencies": {
+    "@electron/notarize": "^3.1.1",
     "electron": "^28.0.0",
-    "electron-builder": "^24.9.1"
+    "electron-builder": "^26.0.12"
   },
   "dependencies": {
     "dockerode": "^4.0.9",
@@ -39,6 +40,7 @@
   "build": {
     "appId": "edu.wisc.ti-toolbox",
     "productName": "TI-Toolbox",
+    "afterSign": "build/notarize.js",
     "directories": {
       "output": "dist"
     },
@@ -50,7 +52,9 @@
       {
         "from": "docker",
         "to": "docker",
-        "filter": ["**/*"]
+        "filter": [
+          "**/*"
+        ]
       }
     ],
     "asarUnpack": [
@@ -59,10 +63,11 @@
     "mac": {
       "category": "public.app-category.education",
       "icon": "assets/icon.icns",
+      "type": "distribution",
       "hardenedRuntime": true,
       "gatekeeperAssess": false,
       "entitlements": "build/entitlements.mac.plist",
-      "entitlementsInherit": "build/entitlements.mac.inherit.plist",
+      "entitlementsInherit": "build/entitlements.mac.plist",
       "target": [
         {
           "target": "dmg",
@@ -71,10 +76,7 @@
             "arm64"
           ]
         }
-      ],
-      "notarize": {
-        "teamId": "3BMY24SA43"
-      }
+      ]
     },
     "win": {
       "icon": "assets/icon.ico",
