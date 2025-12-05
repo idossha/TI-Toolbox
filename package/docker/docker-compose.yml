@@ -32,7 +32,6 @@ services:
       TZ: ${TZ}
       KMP_AFFINITY: "disabled"
       TI_TOOLBOX_VERSION: "v2.2.1"
-      PATH: /usr/local/freesurfer/bin:$PATH
     networks:
       - ti_network
     depends_on:
