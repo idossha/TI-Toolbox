@@ -27,6 +27,15 @@ Complete changelog for all versions of the Temporal Interference Toolbox.
 - **Various Bug Fixes**: protection overwrites, documentation, output formatting, UI improvements, parallel processing, electrode management
 
 #### Download Links
+
+**Desktop App (v2.2.1):**
+[macOS Intel](https://github.com/idossha/TI-toolbox/releases/download/v2.2.1/TI-Toolbox-x64.dmg) ·
+[macOS Apple Silicon](https://github.com/idossha/TI-toolbox/releases/download/v2.2.1/TI-Toolbox-arm64.dmg) ·
+[Windows](https://github.com/idossha/TI-toolbox/releases/download/v2.2.1/TI-Toolbox-Setup.exe) ·
+[Linux AppImage](https://github.com/idossha/TI-toolbox/releases/download/v2.2.1/TI-Toolbox.AppImage) ·
+[Linux deb](https://github.com/idossha/TI-toolbox/releases/download/v2.2.1/ti-toolbox.deb)
+
+**Other:**
 - Docker Image: `docker pull idossha/simnibs:v2.2.1`
 - Source Code: [GitHub Repository](https://github.com/idossha/TI-Toolbox)
 

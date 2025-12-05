@@ -22,7 +22,16 @@ permalink: /releases/
 - **Various Bug Fixes**: protection overwrites, documentation, output formatting, UI improvements, parallel processing, electrode management
 
 #### Download Links
-- Docker Image: `docker pull idossha/simnibs:v2.2.1`
+
+**Desktop App (latest):**
+[macOS Intel](https://github.com/idossha/TI-toolbox/releases/latest/download/TI-Toolbox-x64.dmg) ·
+[macOS Apple Silicon](https://github.com/idossha/TI-toolbox/releases/latest/download/TI-Toolbox-arm64.dmg) ·
+[Windows](https://github.com/idossha/TI-toolbox/releases/latest/download/TI-Toolbox-Setup.exe) ·
+[Linux AppImage](https://github.com/idossha/TI-toolbox/releases/latest/download/TI-Toolbox.AppImage) ·
+[Linux deb](https://github.com/idossha/TI-toolbox/releases/latest/download/ti-toolbox.deb)
+
+**Other:**
+- Docker Image: `docker pull idossha/simnibs:latest`
 - Source Code: [GitHub Repository](https://github.com/idossha/TI-Toolbox)
 
 For installation instructions, see the [Installation Guide]({{ site.baseurl }}/installation/).
