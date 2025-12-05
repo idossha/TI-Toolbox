@@ -58,6 +58,7 @@ The Temporal Interference Toolbox started as a side project in early 2024 and ma
 We extend our gratitude to the developers and contributors of the tools integrated into the TI-Toolbox. 
 
 - [**Docker**](https://www.docker.com): A containerization platform for developing, shipping, and running distributed applications.
+- [**Electron**](https://electronjs.org): A framework for building cross-platform desktop applications using web technologies.
 - [**SimNIBS**:](https://simnibs.github.io/simnibs/build/html/index.html) A simulation environment for transcranial brain stimulation, enabling electric field modeling.
 - [**FreeSurfer**:](https://surfer.nmr.mgh.harvard.edu/) A software suite for the analysis and visualization of structural and functional neuroimaging data.
 - [**Gmsh**:](http://gmsh.info/) A three-dimensional finite element mesh generator with a built-in CAD engine and post-processor.  
