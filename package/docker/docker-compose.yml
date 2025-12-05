@@ -1,3 +1,4 @@
+
 services:
 
   freesurfer:
@@ -9,17 +10,16 @@ services:
     networks:
       - ti_network
     restart: unless-stopped
-    command: ["tail", "-f", "/dev/null"]
 
   simnibs:
-    image: idossha/simnibs:v2.2.1
     platform: linux/amd64
+    image: idossha/simnibs:v2.2.1
     container_name: simnibs_container
     volumes:
       - ti-toolbox_freesurfer_data:/usr/local/freesurfer/
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw      # X11 socket mount for Linux/macOS
       - ${LOCAL_PROJECT_DIR}:/mnt/${PROJECT_DIR_NAME}
-      - /tmp/.X11-unix:/tmp/.X11-unix:rw
-      - ${HOME}/.Xauthority:/root/.Xauthority:rw
+      - ${HOME}/.Xauthority:/root/.Xauthority:rw       # Additional mount for macOS XQuartz compatibility
     environment:
       USER: root
       DISPLAY: ${DISPLAY}
