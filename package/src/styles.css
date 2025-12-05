@@ -31,7 +31,7 @@ body {
 .header {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
-  padding: 30px 20px;
+  padding: 15px 20px;
   text-align: center;
 }
 
@@ -39,9 +39,6 @@ body {
   width: 80px;
   height: 80px;
   margin-bottom: 15px;
-  border-radius: 12px;
-  background: white;
-  padding: 10px;
 }
 
 .header h1 {

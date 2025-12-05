@@ -237,34 +237,63 @@ class DockerManager extends EventEmitter {
 
   async launchGui(env) {
     this.emitProgress('gui', 'Launching TI-Toolbox GUI inside simnibs_container…');
-    const container = this.docker.getContainer('simnibs_container');
     
-    // Log environment for debugging
-    logger.info('GUI Environment:', {
+    let container;
+    try {
+      container = this.docker.getContainer('simnibs_container');
+      // Verify container exists and is running
+      const containerInfo = await container.inspect();
+      if (!containerInfo.State.Running) {
+        throw new Error('simnibs_container is not running');
+      }
+    } catch (error) {
+      logger.error('Failed to get simnibs_container:', error);
+      throw new Error(`Cannot access simnibs_container: ${error.message}`);
+    }
+    
+    // Build environment with FreeSurfer and SimNIBS paths
+    const containerEnv = {
       DISPLAY: env.DISPLAY,
       LOCAL_PROJECT_DIR: env.LOCAL_PROJECT_DIR,
       PROJECT_DIR_NAME: env.PROJECT_DIR_NAME,
-      TZ: env.TZ
-    });
+      TZ: env.TZ,
+      // FreeSurfer environment (must match docker-compose.yml)
+      FREESURFER_HOME: '/usr/local/freesurfer',
+      SUBJECTS_DIR: '/usr/local/freesurfer/subjects',
+      FS_LICENSE: '/usr/local/freesurfer/license.txt',
+      // SimNIBS environment
+      SIMNIBSDIR: '/root/SimNIBS-4.5',
+      // Prevent OpenMP issues
+      KMP_AFFINITY: 'disabled',
+      // Explicitly set PATH to include FreeSurfer bin (for freeview, recon-all) and SimNIBS bin
+      PATH: '/usr/local/freesurfer/bin:/root/SimNIBS-4.5/bin:/ti-toolbox/ti-toolbox/cli:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'
+    };
+
+    // Log full environment for debugging
+    logger.info('GUI Container Environment:', containerEnv);
     
-    const execEnv = toExecEnv({
-      DISPLAY: env.DISPLAY,
-      LOCAL_PROJECT_DIR: env.LOCAL_PROJECT_DIR,
-      PROJECT_DIR_NAME: env.PROJECT_DIR_NAME,
-      TZ: env.TZ
-    });
+    const execEnv = toExecEnv(containerEnv);
+    logger.info('GUI Exec Env Array:', execEnv);
 
-    const exec = await container.exec({
-      Cmd: ['bash', '/ti-toolbox/ti-toolbox/cli/GUI.sh'],
-      AttachStdout: true,
-      AttachStderr: true,
-      AttachStdin: false,
-      Tty: true,
-      WorkingDir: '/ti-toolbox',
-      Env: execEnv
-    });
+    let exec;
+    let stream;
+    try {
+      exec = await container.exec({
+        Cmd: ['bash', '/ti-toolbox/ti-toolbox/cli/GUI.sh'],
+        AttachStdout: true,
+        AttachStderr: true,
+        AttachStdin: false,
+        Tty: true,
+        WorkingDir: '/ti-toolbox',
+        Env: execEnv
+      });
 
-    const stream = await exec.start({ hijack: true, stdin: false });
+      stream = await exec.start({ hijack: true, stdin: false });
+    } catch (error) {
+      logger.error('Failed to exec GUI in container:', error);
+      throw new Error(`Failed to launch GUI: ${error.message}`);
+    }
+
     this.guiRunning = true;
 
     stream.on('data', chunk => {
@@ -276,14 +305,22 @@ class DockerManager extends EventEmitter {
     stream.on('end', async () => {
       this.guiRunning = false;
       this.emitProgress('gui-exited', 'TI-Toolbox GUI closed. Cleaning up containers…');
-      await this.stop(env);
+      try {
+        await this.stop(env);
+      } catch (stopError) {
+        logger.error('Error during cleanup after GUI exit:', stopError);
+      }
       this.emit('gui-exited');
     });
 
     stream.on('error', async (error) => {
       this.guiRunning = false;
-      logger.error('GUI stream error', error);
-      await this.stop(env);
+      logger.error('GUI stream error:', error);
+      try {
+        await this.stop(env);
+      } catch (stopError) {
+        logger.error('Error during cleanup after GUI error:', stopError);
+      }
       this.emit('gui-error', error);
     });
 
