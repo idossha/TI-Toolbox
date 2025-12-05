@@ -25,6 +25,21 @@ Most Linux distributions come with X11 pre-installed. If you need to install it:
 - **Fedora/RHEL**: `sudo dnf install xorg-x11-server-Xorg` (or yum)
 - **Arch**: `sudo pacman -S xorg-server`
 
+## Option 1: Desktop App
+
+Download the pre-built desktop application for your Linux distribution from the **[Latest Release](https://github.com/idossha/TI-toolbox/releases/latest)**:
+
+| Format | Download |
+|--------|----------|
+| **AppImage** | `TI-Toolbox-{version}.AppImage` |
+| **Debian/Ubuntu** | `TI-Toolbox-{version}.deb` |
+
+Simply download and run the AppImage, or install the .deb package — the app handles Docker management for you.
+
+<br>
+
+## Option 2: Command Line
+
 ## Setup Steps
 
 ### Step 1: Download Required Files

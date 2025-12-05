@@ -32,6 +32,20 @@ permalink: /installation/windows/
 Install [VcXsrv](https://sourceforge.net/projects/vcxsrv/) for GUI display:
 - Download and install VcXsrv
 
+## Option 1: Desktop App
+
+Download the pre-built desktop application for Windows from the **[Latest Release](https://github.com/idossha/TI-toolbox/releases/latest)**:
+
+| Platform | Download |
+|----------|----------|
+| **Windows** | `TI-Toolbox-Setup-{version}.exe` |
+
+Simply download and run the installer — the app handles Docker management and WSL2 setup for you.
+
+<br>
+
+## Option 2: Command Line
+
 ---
 
 ## Setup Steps
