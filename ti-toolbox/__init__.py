@@ -2,12 +2,8 @@
 # -*- coding: utf-8 -*-
 
 """
-TI-Toolbox: Transcranial Current Stimulation Analysis and Optimization
-
-A comprehensive suite of tools for analyzing and optimizing transcranial current
-stimulation (TCS) protocols, including mesh and voxel-based analysis,
-optimization algorithms, and visualization tools.
+TI-Toolbox
 """
 
-__version__ = "2.2.0"
+__version__ = "2.2.1"
 __author__ = "TI-Toolbox Team"

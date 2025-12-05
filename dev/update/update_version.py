@@ -78,7 +78,17 @@ def update_version(new_version):
         "package/docker/docker-compose.yml": [
             (r'image: idossha/simnibs:v[\d\.]+', f'image: idossha/simnibs:v{new_version}'),
             (r'TI_TOOLBOX_VERSION: "v[\d\.]+"', f'TI_TOOLBOX_VERSION: "v{new_version}"'),
-        ]
+        ],
+        
+        # Python package version
+        "ti-toolbox/__init__.py": [
+            (r'__version__ = "[^"]*"', f'__version__ = "{new_version}"'),
+        ],
+        
+        # Electron app project metadata version
+        "package/src/main.js": [
+            (r"version: '[^']*'", f"version: '{new_version}'"),
+        ],
     }
     
     # Update dataset description JSON files
@@ -103,7 +113,8 @@ def update_version(new_version):
     print(f"   • Updated releases sidebar navigation (docs/_layouts/releases.html)")
     print(f"   • Updated previous release titles")
     print(f"   • Updated dataset description JSON files with new SimNIBS Docker image version")
-    print(f"   • Updated Electron Desktop App (package.json, index.html, docker-compose.yml)")
+    print(f"   • Updated Electron Desktop App (package.json, index.html, docker-compose.yml, main.js)")
+    print(f"   • Updated Python package version (ti-toolbox/__init__.py)")
 
 def update_dataset_descriptions(new_version):
     """Update Docker image versions in dataset description JSON files"""
