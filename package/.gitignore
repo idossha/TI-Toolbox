@@ -20,3 +20,7 @@ Thumbs.db
 
 # Package manager
 yarn.lock
+
+# Code signing (sensitive - do not commit!)
+certificate.p12
+build-mac-signed.sh

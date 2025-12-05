@@ -48,36 +48,21 @@ jobs:
           draft: false
           prerelease: false
 
-  build:
-    name: Build ${{ matrix.os }} - ${{ matrix.arch }}
+  build-mac:
+    name: Build macOS - ${{ matrix.arch }}
     needs: create-release
-    runs-on: ${{ matrix.os }}
+    runs-on: macos-latest
+    # Notarization can take time, especially first time (up to 30+ min)
+    timeout-minutes: 60
     
     strategy:
       fail-fast: false
       matrix:
         include:
-          # macOS builds
-          - os: macos-latest
-            arch: x64
-            platform: mac
+          - arch: x64
             name: macOS-Intel
-          - os: macos-latest
-            arch: arm64
-            platform: mac
+          - arch: arm64
             name: macOS-Silicon
-          
-          # Windows build
-          - os: windows-latest
-            arch: x64
-            platform: win
-            name: Windows
-          
-          # Linux build
-          - os: ubuntu-latest
-            arch: x64
-            platform: linux
-            name: Linux
 
     steps:
       - name: Checkout code
@@ -86,16 +71,16 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: '20'
 
       - name: Install dependencies
         working-directory: package
         run: |
           npm ci
+          # Ensure latest electron-builder and notarize for best compatibility
+          npm install --save-dev electron-builder@latest @electron/notarize@latest
 
-      # macOS Code Signing and Notarization
-      - name: Build Electron app - macOS x64 (Signed & Notarized)
-        if: matrix.platform == 'mac' && matrix.arch == 'x64'
+      - name: Build, Sign, and Notarize
         working-directory: package
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -106,56 +91,25 @@ jobs:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
           APPLE_TEAM_ID: 3BMY24SA43
-        run: npx electron-builder --mac --x64
+        run: npx electron-builder --mac --${{ matrix.arch }}
 
-      - name: Build Electron app - macOS arm64 (Signed & Notarized)
-        if: matrix.platform == 'mac' && matrix.arch == 'arm64'
-        working-directory: package
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # Code signing
-          CSC_LINK: ${{ secrets.CSC_LINK }}
-          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
-          # Notarization
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
-          APPLE_TEAM_ID: 3BMY24SA43
-        run: npx electron-builder --mac --arm64
-
-      - name: Verify macOS Code Signature
-        if: matrix.platform == 'mac'
+      - name: Verify Code Signature and Notarization
         working-directory: package
         run: |
           echo "=== Verifying Code Signature ==="
           APP_PATH=$(find dist -name "*.app" -type d | head -1)
           if [ -n "$APP_PATH" ]; then
             echo "Checking: $APP_PATH"
-            codesign -dv --verbose=4 "$APP_PATH" 2>&1 || echo "Signature check completed"
+            codesign -dv --verbose=4 "$APP_PATH" 2>&1 || true
             echo ""
-            echo "=== Verifying Notarization Stapling ==="
-            spctl -a -vvv -t install "$APP_PATH" 2>&1 || echo "Gatekeeper check completed"
+            echo "=== Verifying Gatekeeper Assessment ==="
+            spctl -a -vvv -t install "$APP_PATH" 2>&1 || true
             echo ""
-            echo "=== Checking Stapled Ticket ==="
-            stapler validate "$APP_PATH" 2>&1 || echo "Staple validation completed"
+            echo "=== Checking Notarization Staple ==="
+            stapler validate "$APP_PATH" 2>&1 || true
           fi
 
-      - name: Build Electron app - Windows
-        if: matrix.platform == 'win'
-        working-directory: package
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: npx electron-builder --win --x64
-
-      - name: Build Electron app - Linux
-        if: matrix.platform == 'linux'
-        working-directory: package
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: npx electron-builder --linux --x64
-
-      # Upload artifacts
       - name: Upload macOS DMG artifacts
-        if: matrix.platform == 'mac'
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.name }}-dmg
@@ -164,21 +118,69 @@ jobs:
             package/dist/*.dmg.blockmap
           retention-days: 5
 
+  build-windows:
+    name: Build Windows
+    needs: create-release
+    runs-on: windows-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        working-directory: package
+        run: npm ci
+
+      - name: Build Electron app
+        working-directory: package
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npx electron-builder --win --x64
+
       - name: Upload Windows artifacts
-        if: matrix.platform == 'win'
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.name }}
+          name: Windows
           path: |
             package/dist/*.exe
             package/dist/*.exe.blockmap
           retention-days: 5
 
+  build-linux:
+    name: Build Linux
+    needs: create-release
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        working-directory: package
+        run: npm ci
+
+      - name: Build Electron app
+        working-directory: package
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npx electron-builder --linux --x64
+
       - name: Upload Linux artifacts
-        if: matrix.platform == 'linux'
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.name }}
+          name: Linux
           path: |
             package/dist/*.AppImage
             package/dist/*.deb
@@ -186,7 +188,7 @@ jobs:
 
   release:
     name: Upload to Release
-    needs: build
+    needs: [build-mac, build-windows, build-linux]
     runs-on: ubuntu-latest
     
     steps:
