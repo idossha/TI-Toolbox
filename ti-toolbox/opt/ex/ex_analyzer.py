@@ -53,7 +53,6 @@ def analyze_ex_search(opt_directory, roi_directory, position_files, m2m_dir, log
     total_files = len(msh_files)
     
     logger.info(f"Found {total_files} mesh files to process")
-    logger.info("Using ROI-based field extraction (all elements within 3mm sphere)")
     
     # Process each mesh file
     for i, msh_file in enumerate(msh_files):
