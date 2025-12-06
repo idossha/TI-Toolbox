@@ -18,7 +18,7 @@ services:
       - ti-toolbox_freesurfer_data:/usr/local/freesurfer/
       - /tmp/.X11-unix:/tmp/.X11-unix
       - ${LOCAL_PROJECT_DIR}:/mnt/${PROJECT_DIR_NAME}
-      - ${DEV_CODEBASE_DIR}:/development
+      - ${DEV_CODEBASE_DIR}:/ti-toolbox
     environment:
       USER: root
       DISPLAY: ${DISPLAY}
@@ -45,7 +45,7 @@ services:
       - freesurfer
     tty: true
     stdin_open: true
-    working_dir: /development
+    working_dir: /ti-toolbox
     command: ["/bin/bash"]
     restart: unless-stopped
 
