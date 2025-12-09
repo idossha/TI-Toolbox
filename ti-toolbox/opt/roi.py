@@ -14,16 +14,17 @@ integrates directly with SimNIBS optimization structures.
 
 from __future__ import annotations
 
-import os
-import sys
-from typing import TYPE_CHECKING, Optional, Union, List, Tuple
 import numpy as np
 import numpy.typing as npt
-
-# SimNIBS imports - these are available in the docker container
 from simnibs.utils.region_of_interest import RegionOfInterest
 from simnibs.mesh_tools.mesh_io import Msh, read_msh, ElementTags
 from simnibs.utils.transformations import mni2subject_coords
+
+import os
+import sys
+from typing import TYPE_CHECKING, Optional, Union, List, Tuple
+
+
 
 if TYPE_CHECKING:
     from typing import Dict, Any

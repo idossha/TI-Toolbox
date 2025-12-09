@@ -47,14 +47,15 @@ VISIBLE_TAGS = [1002, 1006]  # Grey matter surface and white matter for visualiz
 # IMPORTS
 #=============================================================================
 
-import os
-import sys
-import glob
 import numpy as np
-from copy import deepcopy
-from simnibs import mesh_io
 import trimesh
 from scipy.spatial import cKDTree
+from simnibs import mesh_io
+
+import glob
+import os
+import sys
+from copy import deepcopy
 
 #=============================================================================
 # CORE FUNCTIONS

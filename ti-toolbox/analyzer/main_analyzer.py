@@ -17,53 +17,10 @@ Example Usage:
         --coordinates 10 20 30 \
         --radius 5
 
-    # For mesh-based cortical analysis (single region):
-    python main_analyzer.py \
-        --m2m_subject_path /path/to/m2m_folder \
-        --montage_name montage_name \
-        --space mesh \
-        --analysis_type cortical \
-        --atlas_name DK40 \
-        --region superiorfrontal
-
-    # For mesh-based cortical analysis (whole head):
-    python main_analyzer.py \
-        --m2m_subject_path /path/to/m2m_folder \
-        --montage_name montage_name \
-        --space mesh \
-        --analysis_type cortical \
-        --atlas_name DK40 \
-        --whole_head
-
-    # For voxel-based spherical analysis:
-    python main_analyzer.py \
-        --m2m_subject_path /path/to/m2m_folder \
-        --field_path field.nii.gz \
-        --space voxel \
-        --analysis_type spherical \
-        --coordinates 10 20 30 \
-        --radius 5
-
-    # For voxel-based cortical analysis (single region):
-    python main_analyzer.py \
-        --m2m_subject_path /path/to/m2m_folder \
-        --field_path field.nii.gz \
-        --space voxel \
-        --analysis_type cortical \
-        --atlas_path atlas.nii.gz \
-        --region Left-Hippocampus
-
-    # For voxel-based cortical analysis (whole head):
-    python main_analyzer.py \
-        --m2m_subject_path /path/to/m2m_folder \
-        --field_path field.nii.gz \
-        --space voxel \
-        --analysis_type cortical \
-        --atlas_path atlas.nii.gz \
-        --whole_head
 """
 
-# Standard library imports
+from simnibs import mni2subject_coords
+
 import argparse
 import functools
 import logging
@@ -73,13 +30,6 @@ import sys
 import time
 from pathlib import Path
 
-# SIMNIBS imports (with fallback for MNI coordinate transformation)
-try:
-    from simnibs import mni2subject_coords
-except ImportError:
-    mni2subject_coords = None
-
-# Local imports
 from mesh_analyzer import MeshAnalyzer
 from voxel_analyzer import VoxelAnalyzer
 

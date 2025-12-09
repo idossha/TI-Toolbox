@@ -1,10 +1,11 @@
-import os
+from PyQt5 import QtWidgets, QtCore
+
 import json
 import logging
-from datetime import datetime
-from PyQt5 import QtWidgets, QtCore
-import sys
+import os
 import os.path
+import sys
+from datetime import datetime
 
 # Add the root directory to the Python path to import version
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))

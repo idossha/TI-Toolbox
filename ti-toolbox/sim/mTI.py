@@ -1,16 +1,14 @@
-# Standard library imports
+
+import numpy as np
+from simnibs import mesh_io, run_simnibs, sim_struct
+from simnibs.utils import TI_utils as TI
+
 import json
 import os
 import sys
 import time
 from copy import deepcopy
 
-# Third-party imports
-import numpy as np
-from simnibs import mesh_io, run_simnibs, sim_struct
-from simnibs.utils import TI_utils as TI
-
-# Local imports
 # Add parent directory to path for module imports
 # This is needed both when running as script and when imported for testing
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))

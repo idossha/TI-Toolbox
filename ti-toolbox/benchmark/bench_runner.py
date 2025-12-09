@@ -12,19 +12,19 @@ Usage:
     python bench_runner.py --list  # Show available benchmarks
 """
 
-import sys
+import yaml
+
 import argparse
-import time
-import json
 import glob
-from pathlib import Path
-from typing import List, Dict, Any, Tuple, Optional
+import json
+import sys
+import time
 from datetime import datetime
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
 
 # Add parent directory to path to enable benchmark module imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
-
-import yaml
 
 # Available benchmarks and their main functions
 BENCHMARKS = {

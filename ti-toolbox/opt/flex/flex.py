@@ -11,12 +11,12 @@ temporal interference (TI) stimulation. It supports:
 
 from __future__ import annotations
 
+import numpy as np
+
 import os
+import shutil
 import sys
 import time
-import shutil
-
-import numpy as np
 
 # Add ti-toolbox directory to path
 script_dir = os.path.dirname(os.path.abspath(__file__))  # opt/flex/
@@ -25,7 +25,7 @@ toolbox_dir = os.path.dirname(opt_dir)  # ti-toolbox/
 if toolbox_dir not in sys.path:
     sys.path.insert(0, toolbox_dir)
 
-# Local imports
+# Local/relative imports + simnibs
 from tools.logging_util import configure_external_loggers
 
 # Import flex_search modules using relative imports

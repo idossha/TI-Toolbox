@@ -1,17 +1,9 @@
-import copy
-import csv
-import os
-import time
+
 import h5py
-import types
-import logging
-import sys
-import nibabel
-import json
 import matplotlib
 matplotlib.use('Agg')  # Use non-interactive backend
 import matplotlib.pyplot as plt
-
+import nibabel
 import numpy as np
 import pandas as pd
 import scipy.spatial
@@ -22,6 +14,15 @@ from scipy.optimize import (
     differential_evolution,
     linear_sum_assignment,
 )
+
+import copy
+import csv
+import json
+import logging
+import os
+import sys
+import time
+import types
 
 from simnibs import __version__
 from simnibs.mesh_tools import mesh_io, surface

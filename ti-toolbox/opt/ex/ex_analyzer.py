@@ -4,16 +4,17 @@ Ex-Search Field Analyzer
 Simplified analyzer specifically for ex-search that extracts all field values within ROI.
 """
 
+# Third-party imports
+import numpy as np
+from simnibs import mesh_io
+
+# Standard library imports
 import csv
 import json
 import os
 import re
 import sys
 import time
-
-# Third-party imports
-import numpy as np
-from simnibs import mesh_io
 
 # Add project root to path
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))

@@ -10,14 +10,14 @@ This module handles multi-start optimization logic, including:
 
 from __future__ import annotations
 
+import numpy as np
+
 import os
 import sys
 import shutil
 import time
 import traceback
 from typing import TYPE_CHECKING, Optional
-
-import numpy as np
 
 if TYPE_CHECKING:
     import argparse

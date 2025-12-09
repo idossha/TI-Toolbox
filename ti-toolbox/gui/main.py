@@ -6,13 +6,17 @@ TI-Toolbox GUI Main Entry Point
 This module provides a GUI interface for the TI-Toolbox toolbox.
 """
 
-import sys
-import os
-import subprocess
 import requests
-import warnings
-import signal
+from PyQt5 import QtWidgets, QtCore, QtGui
+
 import atexit
+import json
+import os
+import signal
+import subprocess
+import sys
+import warnings
+from pathlib import Path
 
 # Suppress specific SIP deprecation warning originating from PyQt/SIP internals
 warnings.filterwarnings(
@@ -31,10 +35,6 @@ if sys.platform.startswith('linux') and 'XDG_RUNTIME_DIR' not in os.environ:
     except Exception:
         # Fallback: set the env var even if directory ops fail; Qt will still stop warning
         os.environ['XDG_RUNTIME_DIR'] = '/tmp'
-
-from PyQt5 import QtWidgets, QtCore, QtGui
-import json
-from pathlib import Path
 
 # Add project root to path for version import (two levels up from gui/)
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))

@@ -10,13 +10,13 @@ This module handles:
 
 from __future__ import annotations
 
+from simnibs import opt_struct
+from simnibs.optimization.tes_flex_optimization.electrode_layout import ElectrodeArrayPair
+
 import argparse
 import os
 import sys
 from typing import TYPE_CHECKING
-
-from simnibs import opt_struct
-from simnibs.optimization.tes_flex_optimization.electrode_layout import ElectrodeArrayPair
 
 if TYPE_CHECKING:
     pass

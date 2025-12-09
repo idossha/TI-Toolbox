@@ -27,12 +27,12 @@ def create_mesh_opt_file(mesh_path, field_info=None):
 
     # Default visualization settings
     opt_content = """// Gmsh visualization settings for mesh fields
-Mesh.SurfaceFaces = 0;       // Hide surface faces
-Mesh.SurfaceEdges = 0;       // Hide surface edges
-Mesh.Points = 0;             // Hide mesh points
-Mesh.Lines = 0;              // Hide mesh lines
-
-"""
+                        Mesh.SurfaceFaces = 0;       // Hide surface faces
+                        Mesh.SurfaceEdges = 0;       // Hide surface edges
+                        Mesh.Points = 0;             // Hide mesh points
+                        Mesh.Lines = 0;              // Hide mesh lines
+                      
+                        """
 
     # Configure each field
     for i, field_name in enumerate(fields):
@@ -40,18 +40,18 @@ Mesh.Lines = 0;              // Hide mesh lines
         max_value = max_values.get(field_name, 1.0)  # Default max value
 
         opt_content += f"""// Make View[{view_index}] ({field_name}) visible
-View[{view_index}].Visible = 1;
-View[{view_index}].ColormapNumber = {i + 1};  // Use colormap {i + 1}
-View[{view_index}].RangeType = 2;       // Custom range
-View[{view_index}].CustomMin = 0;       // Minimum value
-View[{view_index}].CustomMax = {max_value};  // Maximum value
-View[{view_index}].ShowScale = 1;       // Show color scale
+                            View[{view_index}].Visible = 1;
+                            View[{view_index}].ColormapNumber = {i + 1};  // Use colormap {i + 1}
+                            View[{view_index}].RangeType = 2;       // Custom range
+                            View[{view_index}].CustomMin = 0;       // Minimum value
+                            View[{view_index}].CustomMax = {max_value};  // Maximum value
+                            View[{view_index}].ShowScale = 1;       // Show color scale
 
-// Add alpha/transparency based on value
-View[{view_index}].ColormapAlpha = 1;
-View[{view_index}].ColormapAlphaPower = 0.08;
+                            // Add alpha/transparency based on value
+                            View[{view_index}].ColormapAlpha = 1;
+                            View[{view_index}].ColormapAlphaPower = 0.08;
 
-"""
+                            """
 
     # Add field information comments
     opt_content += "// Field information:\n"

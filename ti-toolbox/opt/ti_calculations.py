@@ -5,7 +5,8 @@ Imports shared calculation utilities from core module and re-exports them
 This maintains backward compatibility for opt scripts
 """
 
-# Import calculation functions from core.calc
+import numpy as np
+
 from core.calc import (
     get_TI_vectors,
     envelope,
@@ -13,15 +14,11 @@ from core.calc import (
     create_stim_patterns
 )
 
-# Import utility functions from core.utils
 from core.utils import (
     find_sphere_element_indices as find_roi_element_indices,
     find_grey_matter_indices,
     calculate_roi_metrics
 )
-
-# Additional utility functions for optimization workflows
-import numpy as np
 
 
 def find_target_voxels(voxel_positions, center, radius):
