@@ -17,6 +17,7 @@ permalink: /releases/
 - **AMV**: Improved automatic montage visualization that now supports all available nets with a higher resolution image.
 - **Flex-search**: Added more control over electrode geometry now supporting rectengular and width control.
 - **Flex-search**: Exapnded hyper-parameter control. tolerance and mutation rate. 
+- **Ex-search**: Enhanced the tool with current ratio optimization, enabling more efficient exploration of electrode current distributions. The exhaustive search now evaluates possible electrode montages and current distributions according to the formula: $N_\text{total} = N_\text{elec}^4 \cdot N_\text{current}$, where $N_\text{current} = \{(I_1,I_2) \mid I_1+I_2=I_\text{total} \wedge I_\text{step} \leq I_1,I_2 \leq I_\text{limit}\}$.
 
 #### Fixes
 - **Various Bug Fixes**: protection overwrites, documentation, output formatting, UI improvements, parallel processing, electrode management
