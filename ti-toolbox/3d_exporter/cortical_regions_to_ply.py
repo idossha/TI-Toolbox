@@ -31,24 +31,23 @@ Examples:
         --keep-meshes
 """
 
-import argparse
-import os
-import sys
-from pathlib import Path
-import numpy as np
-import tempfile
-import subprocess
-import shutil
-import platform
+
 import nibabel as nib
 import simnibs
+import numpy as np
 
 from simnibs import read_msh
 from simnibs.utils.transformations import subject_atlas
 
-# Import shared mesh utilities
-import sys
+import argparse
 import os
+import sys
+from pathlib import Path
+import tempfile
+import subprocess
+import shutil
+import platform
+
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 from core.mesh import create_mesh_opt_file
 

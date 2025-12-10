@@ -13,6 +13,8 @@ Dependencies:
     - simnibs
     - subprocess (for msh2cortex operations)
 """
+import numpy as np
+import simnibs
 
 import argparse
 import os
@@ -22,12 +24,7 @@ import tempfile
 import time
 from pathlib import Path
 
-import numpy as np
-import simnibs
-
 # Import shared mesh utilities
-import sys
-import os
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 from core.mesh import create_mesh_opt_file
 
