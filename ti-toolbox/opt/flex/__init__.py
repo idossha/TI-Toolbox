@@ -10,7 +10,7 @@ Modules:
     flex: Main optimization orchestration script
 
 Note:
-    roi module is now located at opt.roi (shared across optimization approaches)
+    roi module is now located at core.roi (shared across optimization approaches)
 """
 
 from . import flex_config

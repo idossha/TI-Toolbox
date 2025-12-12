@@ -9,17 +9,12 @@ This module handles ROI setup for different methods:
 
 from __future__ import annotations
 
-import os
-import sys
-from typing import TYPE_CHECKING
-
 from simnibs import mni2subject_coords
 from simnibs.mesh_tools.mesh_io import ElementTags
 
-if TYPE_CHECKING:
-    import argparse
-    from simnibs import opt_struct
-
+import os
+import sys
+import argparse
 # Add parent directory to path
 script_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.dirname(script_dir)
