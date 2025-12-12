@@ -125,7 +125,6 @@ from opt import ti_calculations
 
 # Test that all expected functions are available
 assert hasattr(ti_calculations, 'get_TI_vectors')
-assert hasattr(ti_calculations, 'envelope')
 assert hasattr(ti_calculations, 'calculate_ti_field_from_leadfield')
 assert hasattr(ti_calculations, 'find_target_voxels')
 assert hasattr(ti_calculations, 'validate_ti_montage')
@@ -207,21 +206,6 @@ print('Invalid file handled correctly')
     [[ "$output" =~ "correctly" ]]
 }
 
-@test "Ex-Search: Backward compatibility aliases work" {
-    run simnibs_python -c "
-import sys
-sys.path.insert(0, '${BATS_TEST_DIRNAME}/../ti-toolbox')
-from opt.ti_calculations import calculate_ti_field, calculate_ti_field_from_leadfield
-
-# Should be the same function
-assert calculate_ti_field is calculate_ti_field_from_leadfield
-
-print('Backward compatibility maintained')
-"
-    [ "$status" -eq 0 ]
-    [[ "$output" =~ "maintained" ]]
-}
-
 @test "Ex-Search: All __all__ exports are available" {
     run simnibs_python -c "
 import sys
@@ -230,9 +214,7 @@ import opt.ti_calculations as tc
 
 expected_exports = [
     'get_TI_vectors',
-    'envelope',
     'calculate_ti_field_from_leadfield',
-    'calculate_ti_field',
     'create_stim_patterns',
     'find_roi_element_indices',
     'find_grey_matter_indices',

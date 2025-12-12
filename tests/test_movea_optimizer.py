@@ -15,7 +15,7 @@ ti_toolbox_dir = os.path.join(project_root, 'ti-toolbox')
 sys.path.insert(0, ti_toolbox_dir)
 
 from opt.movea.optimizer import TIOptimizer
-from opt.ti_calculations import find_target_voxels, validate_ti_montage
+from core.roi import find_target_voxels, validate_ti_montage
 
 
 class TestTIOptimizer:

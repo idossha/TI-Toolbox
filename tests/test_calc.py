@@ -15,7 +15,6 @@ sys.path.insert(0, ti_toolbox_dir)
 
 from core.calc import (
     get_TI_vectors,
-    envelope,
     calculate_ti_field_from_leadfield,
     create_stim_patterns
 )
@@ -110,105 +109,6 @@ class TestGetTIVectors:
         # Original arrays should not be modified
         np.testing.assert_array_equal(E1, E1_orig)
         np.testing.assert_array_equal(E2, E2_orig)
-
-
-class TestEnvelope:
-    """Test envelope function"""
-
-    def test_parallel_equal_vectors(self):
-        """Test envelope for parallel equal magnitude vectors"""
-        e1 = np.array([[1.0, 0.0, 0.0]])
-        e2 = np.array([[1.0, 0.0, 0.0]])
-
-        env = envelope(e1, e2)
-
-        # For equal vectors, envelope = 2 * magnitude
-        expected = 2.0
-        np.testing.assert_almost_equal(env[0], expected)
-
-    def test_perpendicular_vectors(self):
-        """Test envelope for perpendicular vectors"""
-        e1 = np.array([[1.0, 0.0, 0.0]])
-        e2 = np.array([[0.0, 1.0, 0.0]])
-
-        env = envelope(e1, e2)
-
-        # For perpendicular equal magnitude vectors, the envelope implementation
-        # returns 0 based on the geometric conditions in the algorithm
-        assert env[0] >= 0
-        assert not np.isnan(env[0])
-
-    def test_antiparallel_vectors(self):
-        """Test envelope for antiparallel vectors"""
-        e1 = np.array([[1.0, 0.0, 0.0]])
-        e2 = np.array([[-1.0, 0.0, 0.0]])
-
-        env = envelope(e1, e2)
-
-        # After flipping, should give valid result
-        assert env[0] >= 0
-        assert not np.isnan(env[0])
-
-    def test_different_magnitudes(self):
-        """Test envelope for vectors with different magnitudes"""
-        e1 = np.array([[2.0, 0.0, 0.0]])
-        e2 = np.array([[1.0, 0.0, 0.0]])
-
-        env = envelope(e1, e2)
-
-        # For parallel vectors with different magnitudes, the envelope
-        # depends on specific geometric conditions in the algorithm
-        assert env[0] >= 0
-        assert not np.isnan(env[0])
-
-    def test_zero_vectors(self):
-        """Test envelope with zero vectors"""
-        e1 = np.array([[0.0, 0.0, 0.0]])
-        e2 = np.array([[0.0, 0.0, 0.0]])
-
-        env = envelope(e1, e2)
-
-        # Should be zero
-        np.testing.assert_almost_equal(env[0], 0.0)
-
-    def test_one_zero_vector(self):
-        """Test envelope when one vector is zero"""
-        e1 = np.array([[1.0, 0.5, 0.3]])
-        e2 = np.array([[0.0, 0.0, 0.0]])
-
-        env = envelope(e1, e2)
-
-        # Should be zero (no TI when one field is zero)
-        np.testing.assert_almost_equal(env[0], 0.0)
-
-    def test_multiple_points(self):
-        """Test envelope for multiple spatial points"""
-        n_points = 50
-        e1 = np.random.rand(n_points, 3)
-        e2 = np.random.rand(n_points, 3)
-
-        env = envelope(e1, e2)
-
-        assert env.shape == (n_points,)
-        assert np.all(env >= 0)  # Envelope should be non-negative
-        assert not np.any(np.isnan(env))
-
-    def test_realistic_ti_fields(self):
-        """Test envelope with realistic TI field values"""
-        # Realistic E-field values in V/m
-        e1 = np.array([[0.5, 0.3, 0.1],
-                       [0.8, 0.2, 0.4],
-                       [0.3, 0.6, 0.2]])
-        e2 = np.array([[0.4, 0.2, 0.15],
-                       [0.7, 0.25, 0.35],
-                       [0.35, 0.5, 0.25]])
-
-        env = envelope(e1, e2)
-
-        assert env.shape == (3,)
-        assert np.all(env >= 0)
-        assert np.all(env <= 3.0)  # Reasonable upper bound
-        assert not np.any(np.isnan(env))
 
 
 class TestCalculateTIFieldFromLeadfield:
