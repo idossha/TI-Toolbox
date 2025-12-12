@@ -4,9 +4,9 @@ One-command exporter for TI/mTI (and optional CH1, CH2, SUM, TI_normal) vector a
 Vectors are placed at face barycenters of the central surface mesh.
 
 Examples:
-  simnibs_python vector_ply.py tdcs1.msh tdcs2.msh output_dir --central-surface central.msh
-  simnibs_python vector_ply.py tdcs1.msh tdcs2.msh output_dir --central-surface central.msh --export-ch1-ch2 --sum --ti-normal
-  simnibs_python vector_ply.py tdcs1.msh tdcs2.msh output_dir --central-surface central.msh --mti tdcs3.msh tdcs4.msh
+  simnibs_python vector_field_exporter.py tdcs1.msh tdcs2.msh output_dir --central-surface central.msh
+  simnibs_python vector_field_exporter.py tdcs1.msh tdcs2.msh output_dir --central-surface central.msh --export-ch1-ch2 --sum --ti-normal
+  simnibs_python vector_field_exporter.py tdcs1.msh tdcs2.msh output_dir --central-surface central.msh --mti tdcs3.msh tdcs4.msh
 """
 
 import os
@@ -17,7 +17,9 @@ import simnibs
 import trimesh
 from scipy.spatial.transform import Rotation
 
-from core.calc import get_TI_vectors as get_TI_vectors2, get_mTI_vectors
+# Import shared core utilities
+sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+from core.calc import get_TI_vectors, get_mTI_vectors
 
 # Baseline visualization scaling so that user-facing defaults of 1.00 produce
 # a practical visual size without requiring large/small numeric inputs.
@@ -518,7 +520,7 @@ def main():
         TI = get_mTI_vectors(E1, E2, E3, E4)
         E_sum = (E1 + E2 + E3 + E4) if args.do_sum else None
     else:
-        TI = get_TI_vectors2(E1, E2)
+        TI = get_TI_vectors(E1, E2)
         E_sum = (E1 + E2) if args.do_sum else None
 
     # Surface normals for TI_normal

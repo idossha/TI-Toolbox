@@ -11,20 +11,20 @@ Features:
 - Optional: global colormap normalization from NIfTI min/max
 
 Examples:
-    simnibs_python cortical_regions_to_ply.py \
+    simnibs_python region_ply_exporter.py \
         --mesh subject_central.msh \
         --m2m m2m_subject \
         --output-dir out \
         --atlas DKTatlas40 \
         --field-file subject_TI_max.nii.gz
 
-    simnibs_python cortical_regions_to_ply.py \
+    simnibs_python region_ply_exporter.py \
         --mesh subject_central.msh \
         --m2m m2m_subject \
         --output-dir out \
         --global-from-nifti subject_TI_max.nii.gz
 
-    simnibs_python cortical_regions_to_ply.py \
+    simnibs_python region_ply_exporter.py \
         --mesh subject_central.msh \
         --m2m m2m_subject \
         --output-dir out \

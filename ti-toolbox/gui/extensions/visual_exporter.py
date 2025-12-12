@@ -612,7 +612,7 @@ class VisualExporterWidget(QtWidgets.QWidget):
                     os.makedirs(stl_dir, exist_ok=True)
                     cmd_stl = [
                         "simnibs_python",
-                        str(ti_toolbox_path / "3d_exporter" / "cortical_regions_to_stl.py"),
+                        str(ti_toolbox_path / "3d_exporter" / "region_stl_exporter.py"),
                         "--mesh", central_surface,
                         "--m2m", self._m2m_dir(subject_id),
                         "--output-dir", stl_dir,
@@ -641,7 +641,7 @@ class VisualExporterWidget(QtWidgets.QWidget):
                     os.makedirs(ply_dir, exist_ok=True)
                     cmd_ply = [
                         "simnibs_python",
-                        str(ti_toolbox_path / "3d_exporter" / "cortical_regions_to_ply.py"),
+                        str(ti_toolbox_path / "3d_exporter" / "region_ply_exporter.py"),
                         "--mesh", central_surface,
                         "--m2m", self._m2m_dir(subject_id),
                         "--output-dir", ply_dir,
@@ -694,7 +694,7 @@ class VisualExporterWidget(QtWidgets.QWidget):
                 # Use output directory as prefix (vectors will be named TI.ply, CH1.ply, etc.)
                 cmd = [
                     "simnibs_python",
-                    str(ti_toolbox_path / "3d_exporter" / "vector_ply.py"),
+                    str(ti_toolbox_path / "3d_exporter" / "vector_field_exporter.py"),
                     m1,
                     m2,
                     mode_dir,  # Output directory
