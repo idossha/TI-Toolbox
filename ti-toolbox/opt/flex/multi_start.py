@@ -11,18 +11,17 @@ This module handles multi-start optimization logic, including:
 from __future__ import annotations
 
 import numpy as np
+from simnibs import opt_struct
 
 import os
 import sys
 import shutil
 import time
 import traceback
-from typing import TYPE_CHECKING, Optional
+from typing import Optional
+import argparse
 
-if TYPE_CHECKING:
-    import argparse
-    from simnibs import opt_struct
-    from logging import Logger
+from logging import Logger
 
 # Add parent directory to path
 script_dir = os.path.dirname(os.path.abspath(__file__))

@@ -13,10 +13,8 @@ from __future__ import annotations
 import os
 import sys
 import time
-from typing import TYPE_CHECKING, Optional
-
-if TYPE_CHECKING:
-    from logging import Logger
+from typing import Optional
+from logging import Logger
 
 # Add parent directory to path for tools imports
 script_dir = os.path.dirname(os.path.abspath(__file__))

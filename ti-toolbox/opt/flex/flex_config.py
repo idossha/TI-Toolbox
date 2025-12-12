@@ -16,10 +16,6 @@ from simnibs.optimization.tes_flex_optimization.electrode_layout import Electrod
 import argparse
 import os
 import sys
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    pass
 
 # Add project root to path for core imports
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '../..'))
@@ -28,8 +24,8 @@ if project_root not in sys.path:
 
 from core import constants as const
 
-# Import local roi module (flex-specific)
-from . import roi
+# Import local utils module (flex-specific)
+from . import utils
 
 
 def parse_arguments() -> argparse.Namespace:
@@ -137,7 +133,7 @@ def build_optimization(args: argparse.Namespace) -> opt_struct.TesFlexOptimizati
     )
     opt.output_folder = os.path.join(
         proj_dir, "derivatives", "SimNIBS",
-        f"sub-{args.subject}", const.DIR_FLEX_SEARCH, roi.roi_dirname(args)
+        f"sub-{args.subject}", const.DIR_FLEX_SEARCH, utils.roi_dirname(args)
     )
     os.makedirs(opt.output_folder, exist_ok=True)
 
@@ -223,7 +219,7 @@ def build_optimization(args: argparse.Namespace) -> opt_struct.TesFlexOptimizati
     opt.electrode = electrode_pairs
 
     # Configure ROI
-    roi.configure_roi(opt, args)
+    utils.configure_roi(opt, args)
 
     return opt
 
