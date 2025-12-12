@@ -17,7 +17,7 @@ import simnibs
 import trimesh
 from scipy.spatial.transform import Rotation
 
-from TI_quick_volumetic import get_TI_vectors2, get_mTI_vectors
+from core.calc import get_TI_vectors as get_TI_vectors2, get_mTI_vectors
 
 # Baseline visualization scaling so that user-facing defaults of 1.00 produce
 # a practical visual size without requiring large/small numeric inputs.
