@@ -21,8 +21,8 @@ if project_root not in sys.path:
 # Local imports
 from tools import logging_util
 from core import get_path_manager
-from opt.roi import ROICoordinateHelper
-from opt.ti_calculations import (
+from core.roi import ROICoordinateHelper
+from core.roi import (
     find_roi_element_indices,
     find_grey_matter_indices,
     calculate_roi_metrics

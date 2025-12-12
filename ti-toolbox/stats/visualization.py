@@ -8,10 +8,10 @@ This module contains functions for:
 
 import numpy as np
 import matplotlib
-# CRITICAL: Set backend BEFORE importing pyplot for Docker compatibility
 matplotlib.use('Agg')  # Use non-interactive backend for headless environments
 import matplotlib.pyplot as plt
 import seaborn as sns
+
 import os
 
 # Configure matplotlib for Docker/headless environments

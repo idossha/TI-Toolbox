@@ -15,10 +15,12 @@ Usage:
 
 For GUI usage, see gui/extentions/cbp.py
 """
+import nibabel as nib
+import pandas as pd
+import numpy as np
 
 import os
 import sys
-import numpy as np
 import warnings
 warnings.filterwarnings('ignore')
 import logging
@@ -27,21 +29,10 @@ import time
 from pathlib import Path
 import gc
 
-import nibabel as nib
-import pandas as pd
-
-
-try:
-    from .stats_utils import ttest_voxelwise, cluster_based_correction, cluster_analysis
-    from .atlas_utils import atlas_overlap_analysis
-    from .visualization import plot_permutation_null_distribution, plot_cluster_size_mass_correlation
-    from .reporting import generate_summary
-except ImportError:
-    # Fallback for direct execution
-    from stats_utils import ttest_voxelwise, cluster_based_correction, cluster_analysis
-    from atlas_utils import atlas_overlap_analysis
-    from visualization import plot_permutation_null_distribution, plot_cluster_size_mass_correlation
-    from reporting import generate_summary
+from .stats_utils import ttest_voxelwise, cluster_based_correction, cluster_analysis
+from .atlas_utils import atlas_overlap_analysis
+from .visualization import plot_permutation_null_distribution, plot_cluster_size_mass_correlation
+from .reporting import generate_summary
 
 # Import TI-Toolbox core modules
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -49,7 +40,6 @@ from core import get_path_manager
 from core import constants as const
 from core import nifti
 from tools import logging_util
-
 
 
 # ==============================================================================

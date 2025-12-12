@@ -24,8 +24,8 @@ if project_root not in sys.path:
 # Local imports
 from tools import logging_util
 from core import get_path_manager
-from opt.roi import ROICoordinateHelper
-from opt.ti_calculations import find_roi_element_indices
+from core.roi import ROICoordinateHelper
+from core.roi import find_roi_element_indices
 
 
 def analyze_ex_search(opt_directory, roi_directory, position_files, m2m_dir, logger):
