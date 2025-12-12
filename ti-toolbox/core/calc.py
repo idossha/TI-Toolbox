@@ -5,107 +5,175 @@ Used by both ex-search and MOVEA optimization tools
 """
 
 import numpy as np
-
+from simnibs.utils.TI_utils import get_maxTI
 
 def get_TI_vectors(E1_org, E2_org):
-    """Calculate modulation amplitude vectors for the TI envelope"""
-    assert E1_org.shape == E2_org.shape and E1_org.shape[1] == 3
-    
-    E1, E2 = E1_org.copy(), E2_org.copy()
-    
-    # Ensure E1>E2
-    idx = np.linalg.norm(E2, axis=1) > np.linalg.norm(E1, axis=1)
-    E1[idx], E2[idx] = E2[idx], E1_org[idx]
-    
-    # Ensure alpha < pi/2
-    idx = np.sum(E1 * E2, axis=1) < 0
-    E2[idx] = -E2[idx]
-    
-    # Calculate maximal amplitude of envelope
+    """
+    Calculate the temporal interference (TI) modulation amplitude vectors.
+
+    This function implements the Grossman et al. 2017 algorithm for computing
+    TI vectors that represent both the direction and magnitude of maximum
+    modulation amplitude when two sinusoidal electric fields interfere.
+
+    PHYSICAL INTERPRETATION:
+    When two electric fields E1(t) = E1*cos(2πf1*t) and E2(t) = E2*cos(2πf2*t)
+    with slightly different frequencies are applied simultaneously, they create
+    a beating pattern. The TI vector indicates:
+    - DIRECTION: Spatial direction of maximum envelope modulation
+    - MAGNITUDE: Maximum envelope amplitude = 2 * effective_amplitude
+
+    ALGORITHM (Grossman et al. 2017):
+    1. Preprocessing: Ensure |E1| ≥ |E2| and acute angle α < π/2
+    2. Regime selection based on geometric relationship:
+       - Regime 1 (parallel): |E2| ≤ |E1|cos(α) → TI = 2*E2
+       - Regime 2 (oblique): |E2| > |E1|cos(α) → TI = 2*E2_perpendicular_to_h
+       where h = E1 - E2
+
+    Parameters
+    ----------
+    E1_org : np.ndarray, shape (N, 3)
+        Electric field vectors from electrode pair 1 [V/m]
+    E2_org : np.ndarray, shape (N, 3)
+        Electric field vectors from electrode pair 2 [V/m]
+
+    Returns
+    -------
+    TI_vectors : np.ndarray, shape (N, 3)
+        TI modulation amplitude vectors [V/m]
+        Direction: Maximum modulation direction
+        Magnitude: Maximum envelope amplitude
+
+    References
+    ----------
+    Grossman, N. et al. (2017). Noninvasive Deep Brain Stimulation via
+    Temporally Interfering Electric Fields. Cell, 169(6), 1029-1041.
+    """
+    # Input validation
+    assert E1_org.shape == E2_org.shape, "E1 and E2 must have same shape"
+    assert E1_org.shape[1] == 3, "Vectors must be 3D"
+
+    # Work with copies to avoid modifying input arrays
+    E1 = E1_org.copy()
+    E2 = E2_org.copy()
+
+    # =================================================================
+    # PREPROCESSING STEP 1: Magnitude ordering |E1| ≥ |E2|
+    # =================================================================
+    # Ensures consistency by always treating E1 as the "stronger" field
+    # This simplifies the subsequent regime analysis
+    idx_swap = np.linalg.norm(E2, axis=1) > np.linalg.norm(E1, axis=1)
+    E1[idx_swap], E2[idx_swap] = E2[idx_swap], E1_org[idx_swap]
+
+    # =================================================================
+    # PREPROCESSING STEP 2: Acute angle constraint α < π/2
+    # =================================================================
+    # Ensures constructive interference by flipping E2 if dot product < 0
+    # This avoids destructive interference scenarios
+    idx_flip = np.sum(E1 * E2, axis=1) < 0
+    E2[idx_flip] = -E2[idx_flip]
+
+    # =================================================================
+    # GEOMETRIC PARAMETERS CALCULATION
+    # =================================================================
+    # Calculate field magnitudes and angle between vectors
     normE1 = np.linalg.norm(E1, axis=1)
     normE2 = np.linalg.norm(E2, axis=1)
-    cosalpha = np.sum(E1 * E2, axis=1) / (normE1 * normE2)
-    
-    idx = normE2 <= normE1 * cosalpha
+
+    # Safe cosine calculation to avoid division by zero and numerical errors
+    denom = normE1 * normE2
+    denom[denom == 0] = 1.0  # Prevent division by zero
+    cosalpha = np.clip(np.sum(E1 * E2, axis=1) / denom, -1.0, 1.0)
+
+    # =================================================================
+    # REGIME SELECTION CRITERION
+    # =================================================================
+    # Critical condition from Grossman 2017: |E2| ≤ |E1| * cos(α)
+    # This determines whether E2 is "small" relative to E1's projection
+    regime1_mask = normE2 <= normE1 * cosalpha
+
+    # Initialize output array
     TI_vectors = np.zeros_like(E1)
-    TI_vectors[idx] = 2 * E2[idx]
-    TI_vectors[~idx] = 2 * np.cross(E2[~idx], E1[~idx] - E2[~idx]) / np.linalg.norm(E1[~idx] - E2[~idx], axis=1)[:, None]
-    
+
+    # =================================================================
+    # REGIME 1: PARALLEL ALIGNMENT (|E2| ≤ |E1| cos(α))
+    # =================================================================
+    # Physical interpretation: E2 is effectively "contained" within E1's projection
+    # The TI amplitude is determined entirely by E2's magnitude and direction
+    # Formula: TI = 2 * E2
+    TI_vectors[regime1_mask] = 2.0 * E2[regime1_mask]
+
+    # =================================================================
+    # REGIME 2: OBLIQUE CONFIGURATION (|E2| > |E1| cos(α))
+    # =================================================================
+    # Physical interpretation: E2 has significant perpendicular component to E1
+    # The TI is determined by the component of E2 perpendicular to h = E1 - E2
+    # Formula: TI = 2 * E2_perpendicular_to_h
+    regime2_mask = ~regime1_mask
+    if np.any(regime2_mask):
+        # Calculate difference vector h = E1 - E2
+        h = E1[regime2_mask] - E2[regime2_mask]
+        h_norm = np.linalg.norm(h, axis=1)
+
+        # Handle degenerate case (h = 0) by setting unit norm
+        h_norm[h_norm == 0] = 1.0
+        e_h = h / h_norm[:, None]  # Unit vector along h
+
+        # Project E2 onto h, then subtract to get perpendicular component
+        # E2_perp = E2 - proj_h(E2) = E2 - (E2·ĥ)ĥ
+        E2_parallel_component = np.sum(E2[regime2_mask] * e_h, axis=1)[:, None] * e_h
+        E2_perp = E2[regime2_mask] - E2_parallel_component
+
+        # The TI vector in regime 2 is twice the perpendicular component
+        TI_vectors[regime2_mask] = 2.0 * E2_perp
+
     return TI_vectors
 
-def envelope(e1, e2):
+
+def get_mTI_vectors(E1_org, E2_org, E3_org, E4_org):
     """
-    TI envelope calculation using geometric method
-    
-    Args:
-        e1: Electric field from pair 1 [n_voxels, 3] in V/m
-        e2: Electric field from pair 2 [n_voxels, 3] in V/m
-    
-    Returns:
-        envelope: TI envelope amplitude [n_voxels] in V/m
+    Calculate multi-temporal interference (mTI) vectors from four channel E-fields.
+
+    This computes TI between channels 1 and 2 to get TI_A, TI between channels 3 and 4
+    to get TI_B, and finally TI between TI_A and TI_B to produce the mTI vector field.
+
+    Parameters
+    ----------
+    E1_org : np.ndarray, shape (N, 3)
+        Electric field vectors for channel 1
+    E2_org : np.ndarray, shape (N, 3)
+        Electric field vectors for channel 2
+    E3_org : np.ndarray, shape (N, 3)
+        Electric field vectors for channel 3
+    E4_org : np.ndarray, shape (N, 3)
+        Electric field vectors for channel 4
+
+    Returns
+    -------
+    mTI_vectors : np.ndarray, shape (N, 3)
+        Multi-TI modulation amplitude vectors
     """
-    # Calculate magnitudes
-    norm_e1 = np.linalg.norm(e1, axis=1)
-    norm_e2 = np.linalg.norm(e2, axis=1)
-    
-    # Calculate dot product
-    dot_product = np.einsum('ij,ij->i', e1, e2)
-    
-    # Avoid division by zero
-    valid = (norm_e1 > 1e-10) & (norm_e2 > 1e-10)
-    cos_angle = np.zeros(len(e1))
-    cos_angle[valid] = dot_product[valid] / (norm_e1[valid] * norm_e2[valid])
-    cos_angle = np.clip(cos_angle, -1, 1)
-    
-    # Flip e1 if angle > 90 degrees
-    mask = cos_angle < 0
-    e1_corrected = e1.copy()
-    e1_corrected[mask] = -e1_corrected[mask]
-    cos_angle[mask] = -cos_angle[mask]
-    
-    # Check for equal vectors
-    equal_vectors = np.all(np.abs(e1_corrected - e2) < 1e-10, axis=1)
-    
-    # Initialize envelope
-    envelope_result = np.zeros(len(e1))
-    
-    # Case 1: Equal vectors -> 2 * magnitude
-    envelope_result[equal_vectors] = 2 * norm_e1[equal_vectors]
-    
-    # Case 2: e2 < e1 AND e2 < e1 * cos_angle -> envelope = 2 * e2
-    not_equal = ~equal_vectors
-    mask2 = not_equal & (norm_e2 < norm_e1)
-    mask3 = not_equal & (norm_e1 < norm_e2 * cos_angle)
-    both_conditions = mask2 & mask3
-    envelope_result[both_conditions] = 2 * norm_e2[both_conditions]
-    
-    # Case 3: e2 < e1 but NOT (e1 < e2 * cos) -> use cross product
-    mask2_not3 = mask2 & ~mask3
-    if np.any(mask2_not3):
-        cross_prod = np.cross(e2[mask2_not3], e1_corrected[mask2_not3] - e2[mask2_not3])
-        diff_norm = np.linalg.norm(e1_corrected[mask2_not3] - e2[mask2_not3], axis=1)
-        valid_diff = diff_norm > 1e-10
-        temp_env = np.zeros(np.sum(mask2_not3))
-        temp_env[valid_diff] = 2 * np.linalg.norm(cross_prod[valid_diff], axis=1) / diff_norm[valid_diff]
-        envelope_result[mask2_not3] = temp_env
-    
-    # Case 4: e1 < e2 AND e1 < e2 * cos_angle -> envelope = 2 * e1
-    mask5 = not_equal & (norm_e1 < norm_e2)
-    mask4 = not_equal & (norm_e2 < norm_e1 * cos_angle)
-    both_conditions2 = mask5 & mask4
-    envelope_result[both_conditions2] = 2 * norm_e1[both_conditions2]
-    
-    # Case 5: e1 < e2 but NOT (e2 < e1 * cos) -> use cross product
-    mask5_not4 = mask5 & ~mask4
-    if np.any(mask5_not4):
-        cross_prod = np.cross(e1_corrected[mask5_not4], e2[mask5_not4] - e1_corrected[mask5_not4])
-        diff_norm = np.linalg.norm(e2[mask5_not4] - e1_corrected[mask5_not4], axis=1)
-        valid_diff = diff_norm > 1e-10
-        temp_env = np.zeros(np.sum(mask5_not4))
-        temp_env[valid_diff] = 2 * np.linalg.norm(cross_prod[valid_diff], axis=1) / diff_norm[valid_diff]
-        envelope_result[mask5_not4] = temp_env
-    
-    return envelope_result
+    # Validate shapes
+    for i, arr in enumerate([E1_org, E2_org, E3_org, E4_org], start=1):
+        if arr.ndim != 2 or arr.shape[1] != 3:
+            raise ValueError(f"E{i}_org must have shape (N, 3), got {arr.shape}")
+
+    if not (E1_org.shape == E2_org.shape == E3_org.shape == E4_org.shape):
+        raise ValueError(
+            "All input arrays must have identical shapes. "
+            f"Got: {[E1_org.shape, E2_org.shape, E3_org.shape, E4_org.shape]}"
+        )
+
+    # Step 1: TI between (E1, E2)
+    TI_A = get_TI_vectors(E1_org, E2_org)
+
+    # Step 2: TI between (E3, E4)
+    TI_B = get_TI_vectors(E3_org, E4_org)
+
+    # Step 3: TI between (TI_A, TI_B) → mTI
+    mTI_vectors = get_TI_vectors(TI_A, TI_B)
+
+    return mTI_vectors
+
 
 
 def calculate_ti_field_from_leadfield(leadfield, stim1, stim2, target_indices=None):
@@ -133,8 +201,14 @@ def calculate_ti_field_from_leadfield(leadfield, stim1, stim2, target_indices=No
         E2 = E2[target_indices]
     
     # Calculate TI envelope
-    ti_field = envelope(E1, E2)
-    
+    ti_field = get_maxTI(E1, E2)
+
+    # Handle case where both fields are zero (no stimulation)
+    norm_E1 = np.linalg.norm(E1, axis=1)
+    norm_E2 = np.linalg.norm(E2, axis=1)
+    zero_mask = (norm_E1 == 0) & (norm_E2 == 0)
+    ti_field[zero_mask] = 0.0
+
     return ti_field
 
 def create_stim_patterns(electrode_names, e1_plus, e1_minus, e2_plus, e2_minus, intensity=0.001):

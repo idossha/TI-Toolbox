@@ -2181,7 +2181,7 @@ class AddROIDialog(QtWidgets.QDialog):
                 
                 # Transform MNI coordinates to subject space
                 try:
-                    from opt.roi import ROICoordinateHelper
+                    from core.roi import ROICoordinateHelper
                     subject_coords = ROICoordinateHelper.transform_mni_to_subject(mni_coords, m2m_dir)
                     x, y, z = subject_coords[0], subject_coords[1], subject_coords[2]
                 except Exception as e:

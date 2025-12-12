@@ -19,15 +19,25 @@ import numpy.typing as npt
 from simnibs.utils.region_of_interest import RegionOfInterest
 from simnibs.mesh_tools.mesh_io import Msh, read_msh, ElementTags
 from simnibs.utils.transformations import mni2subject_coords
+from simnibs.utils.TI_utils import get_maxTI
 
 import os
 import sys
-from typing import TYPE_CHECKING, Optional, Union, List, Tuple
+from typing import Optional, Union, List, Tuple, Dict, Any
 
+from core.calc import (
+    get_TI_vectors,
+    get_mTI_vectors,
+    calculate_ti_field_from_leadfield,
+    create_stim_patterns
+)
 
+from core.utils import (
+    find_sphere_element_indices as find_roi_element_indices,
+    find_grey_matter_indices,
+    calculate_roi_metrics
+)
 
-if TYPE_CHECKING:
-    from typing import Dict, Any
 
 
 class ROIManager:
@@ -366,6 +376,8 @@ def create_roi_from_preset(
     import json
     preset_path = os.path.join(
         os.path.dirname(__file__),
+        "..",
+        "opt",
         "movea",
         "presets.json"
     )
@@ -481,6 +493,68 @@ def get_roi_voxel_indices(
     return indices
 
 
+def find_target_voxels(voxel_positions, center, radius):
+    """
+    Find voxel indices within a spherical ROI.
+    Used by MOVEA-style optimization.
+
+    Args:
+        voxel_positions: Array of voxel positions [N, 3]
+        center: Center coordinate [x, y, z]
+        radius: Radius in mm
+
+    Returns:
+        Array of voxel indices within the sphere
+    """
+    center = np.array(center)
+    distances = np.linalg.norm(voxel_positions - center, axis=1)
+    return np.where(distances <= radius)[0]
+
+
+def validate_ti_montage(electrodes, num_electrodes):
+    """
+    Validate TI montage electrode configuration.
+
+    Args:
+        electrodes: Array of 4 electrode indices
+        num_electrodes: Total number of available electrodes
+
+    Returns:
+        bool: True if valid, False otherwise
+    """
+    if len(electrodes) != 4:
+        return False
+    if len(set(electrodes)) != 4:  # Check for duplicates
+        return False
+    if any(e < 0 or e >= num_electrodes for e in electrodes):
+        return False
+    return True
+
+
+# Re-export all functions for convenience
+__all__ = [
+    # ROI classes and functions
+    'ROIManager',
+    'ROICoordinateHelper',
+    'create_roi_from_preset',
+    'roi_to_dict',
+    'roi_from_dict',
+    'create_spherical_roi_simple',
+    'get_roi_voxel_indices',
+    # TI calculation functions
+    'get_TI_vectors',
+    'get_mTI_vectors',
+    'calculate_ti_field_from_leadfield',
+    'create_stim_patterns',
+    # ROI utility functions
+    'find_roi_element_indices',
+    'find_grey_matter_indices',
+    'calculate_roi_metrics',
+    'find_target_voxels',
+    'validate_ti_montage'
+]
+
+
 # Example usage and documentation
 if __name__ == "__main__":
     print("ROI Module for ex-search and movea")
@@ -491,7 +565,7 @@ if __name__ == "__main__":
     print("Example 1: Create a spherical cortical ROI")
     print("-" * 50)
     print("""
-    from opt.roi import ROIManager
+    from core.roi import ROIManager
     
     manager = ROIManager("/path/to/m2m_subject")
     roi = manager.create_spherical_roi(
@@ -529,7 +603,7 @@ if __name__ == "__main__":
     print("\nExample 4: Use preset ROIs (MOVEA compatibility)")
     print("-" * 50)
     print("""
-    from opt.roi import create_roi_from_preset
+    from core.roi import create_roi_from_preset
     
     roi = create_roi_from_preset(
         preset_name="motor",
@@ -541,7 +615,7 @@ if __name__ == "__main__":
     print("\nExample 5: Coordinate transformation")
     print("-" * 50)
     print("""
-    from opt.roi import ROICoordinateHelper
+    from core.roi import ROICoordinateHelper
     
     # Transform MNI to subject space
     subject_coords = ROICoordinateHelper.transform_mni_to_subject(
@@ -549,4 +623,3 @@ if __name__ == "__main__":
         m2m_path="/path/to/m2m_subject"
     )
     """)
-
