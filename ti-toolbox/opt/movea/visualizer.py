@@ -159,16 +159,17 @@ class MOVEAVisualizer:
 
         return fig
     
-    def plot_pareto_front(self, pareto_solutions, save_path=None, target_name="ROI"):
+    def plot_pareto_front(self, pareto_solutions, all_solutions=None, save_path=None, target_name="ROI"):
         """
         Plot Pareto front for multi-objective optimization with enhanced visualization
-        Shows trade-off between intensity and focality, highlighting top solutions
-        
+        Shows all solutions as background and highlights the Pareto front
+
         Args:
-            pareto_solutions: List of solution dictionaries with 'intensity_field' and 'focality'
+            pareto_solutions: List of Pareto-optimal solution dictionaries with 'intensity_field' and 'focality'
+            all_solutions: List of all solution dictionaries (optional, shows all evaluated solutions)
             save_path: Path to save figure
             target_name: Name of the target region for labeling
-        
+
         Returns:
             fig: Matplotlib figure
         """
@@ -176,40 +177,53 @@ class MOVEAVisualizer:
             self._log("No Pareto solutions to plot", 'warning')
             return None
         
-        # Extract values and calculate focality ratio
-        intensity_values = np.array([s['intensity_field'] for s in pareto_solutions])
-        focality_values = np.array([s['focality'] for s in pareto_solutions])
-        focality_ratios = intensity_values / (focality_values + 1e-10)  # Avoid division by zero
-        
+        # Extract Pareto front values
+        pareto_intensity = np.array([s['intensity_field'] for s in pareto_solutions])
+        pareto_focality = np.array([s['focality'] for s in pareto_solutions])
+        pareto_focality_ratios = pareto_intensity / (pareto_focality + 1e-10)  # Avoid division by zero
+
         # Find top 5 solutions by focality ratio
-        top_indices = np.argsort(focality_ratios)[-5:]
-        
+        top_indices = np.argsort(pareto_focality_ratios)[-5:]
+
         self._log(f"Plotting Pareto front with {len(pareto_solutions)} solutions", 'info')
-        self._log(f"  Intensity range: {intensity_values.min():.6f} - {intensity_values.max():.6f} V/m", 'info')
-        self._log(f"  Focality range: {focality_values.min():.6f} - {focality_values.max():.6f} V/m", 'info')
-        self._log(f"  Best focality ratio: {focality_ratios.max():.4f}", 'info')
+        if all_solutions:
+            self._log(f"  Showing {len(all_solutions)} total evaluated solutions", 'info')
+        self._log(f"  Intensity range: {pareto_intensity.min():.6f} - {pareto_intensity.max():.6f} V/m", 'info')
+        self._log(f"  Focality range: {pareto_focality.min():.6f} - {pareto_focality.max():.6f} V/m", 'info')
+        self._log(f"  Best focality ratio: {pareto_focality_ratios.max():.4f}", 'info')
         
         # Create figure with seaborn styling
         fig, ax = plt.subplots(figsize=(12, 9))
-        
-        # Plot all solutions
-        scatter = ax.scatter(intensity_values, focality_values, 
-                           s=120, c=focality_ratios, cmap='viridis', 
-                           alpha=0.7, edgecolors='black', linewidths=1)
-        
-        # Highlight top 5 solutions with larger red markers
-        ax.scatter(intensity_values[top_indices], focality_values[top_indices],
-                  s=300, c='red', marker='*', 
-                  edgecolors='darkred', linewidths=2,
+
+        # Plot all solutions as background if provided
+        if all_solutions:
+            all_intensity = np.array([s['intensity_field'] for s in all_solutions])
+            all_focality = np.array([s['focality'] for s in all_solutions])
+            all_focality_ratios = all_intensity / (all_focality + 1e-10)
+
+            # Plot all solutions as small gray points
+            ax.scatter(all_intensity, all_focality,
+                      s=40, c='lightgray', alpha=0.6, edgecolors='none',
+                      label=f'All Solutions (n={len(all_solutions)})')
+
+        # Plot Pareto front solutions
+        scatter = ax.scatter(pareto_intensity, pareto_focality,
+                           s=120, c=pareto_focality_ratios, cmap='viridis',
+                           alpha=0.8, edgecolors='black', linewidths=1.5,
+                           label=f'Pareto Front (n={len(pareto_solutions)})')
+
+        # Highlight top 5 solutions with red circles around the points
+        ax.scatter(pareto_intensity[top_indices], pareto_focality[top_indices],
+                  s=400, facecolors='none', edgecolors='red', linewidths=3,
                   label='Top 5 Focality Ratio', zorder=5)
-        
+
         # Add text labels for top solutions
         for i, idx in enumerate(top_indices):
-            ax.annotate(f'#{i+1}', 
-                       (intensity_values[idx], focality_values[idx]),
-                       xytext=(5, 5), textcoords='offset points',
-                       fontsize=10, fontweight='bold')
-        
+            ax.annotate(f'#{i+1}',
+                       (pareto_intensity[idx], pareto_focality[idx]),
+                       xytext=(8, 8), textcoords='offset points',
+                       fontsize=11, fontweight='bold', color='darkred')
+
         # Add colorbar for focality ratio
         cbar = plt.colorbar(scatter, ax=ax)
         cbar.set_label('Focality Ratio (Intensity/Whole Brain)', fontsize=14)
@@ -217,44 +231,58 @@ class MOVEAVisualizer:
         # Enhanced labels and title
         ax.set_xlabel(f'{target_name} Electric Field (V/m)', fontsize=16, fontweight='bold')
         ax.set_ylabel('Whole-Brain Electric Field (V/m)', fontsize=16, fontweight='bold')
-        ax.set_title(f'Multi-Objective Optimization Results: {target_name}\n'
-                    f'Pareto Front Analysis (n={len(pareto_solutions)})', 
-                    fontsize=18, fontweight='bold', pad=20)
+
+        if all_solutions:
+            if len(pareto_solutions) == 1:
+                ax.set_title(f'Optimization Results: {target_name}\n'
+                            f'Best Solution vs All Evaluated Solutions (n={len(all_solutions)})',
+                            fontsize=18, fontweight='bold', pad=20)
+            else:
+                ax.set_title(f'Multi-Objective Optimization Results: {target_name}\n'
+                            f'Pareto Front (n={len(pareto_solutions)}) vs All Solutions (n={len(all_solutions)})',
+                            fontsize=18, fontweight='bold', pad=20)
+        else:
+            ax.set_title(f'Optimization Results: {target_name}\n'
+                        f'Pareto Front Analysis (n={len(pareto_solutions)})',
+                        fontsize=18, fontweight='bold', pad=20)
         
         # Add grid with custom style
         ax.grid(True, alpha=0.3, linestyle='--', linewidth=0.5)
         
-        # Set reasonable axis limits with padding
-        x_margin = (intensity_values.max() - intensity_values.min()) * 0.12
-        y_margin = (focality_values.max() - focality_values.min()) * 0.12
-        ax.set_xlim([intensity_values.min() - x_margin, intensity_values.max() + x_margin])
-        ax.set_ylim([focality_values.min() - y_margin, focality_values.max() + y_margin])
+        # Set reasonable axis limits with padding (use all solutions if available for bounds)
+        if all_solutions:
+            all_intensity = np.array([s['intensity_field'] for s in all_solutions])
+            all_focality = np.array([s['focality'] for s in all_solutions])
+            plot_intensity = all_intensity
+            plot_focality = all_focality
+        else:
+            plot_intensity = pareto_intensity
+            plot_focality = pareto_focality
+
+        x_margin = (plot_intensity.max() - plot_intensity.min()) * 0.12
+        y_margin = (plot_focality.max() - plot_focality.min()) * 0.12
+        ax.set_xlim([plot_intensity.min() - x_margin, plot_intensity.max() + x_margin])
+        ax.set_ylim([plot_focality.min() - y_margin, plot_focality.max() + y_margin])
         
         # Add legend with custom styling
-        legend = ax.legend(loc='upper right', fontsize=14, 
+        legend = ax.legend(loc='upper right', fontsize=14,
                           frameon=True, fancybox=True, shadow=True)
         legend.get_frame().set_alpha(0.9)
-        
-        # Add ideal point annotation
-        ax.annotate('Ideal Point →', 
-                   xy=(intensity_values.max(), focality_values.min()),
-                   xytext=(intensity_values.max() - x_margin*0.5, focality_values.min() + y_margin*0.5),
-                   arrowprops=dict(arrowstyle='->', lw=2, color='gray', alpha=0.5),
-                   fontsize=12, color='gray', style='italic')
-        
+
         # Improve layout
         plt.tight_layout()
         
         if save_path:
             plt.savefig(save_path, dpi=300, bbox_inches='tight', facecolor='white')
             self._log(f"Enhanced Pareto front saved to: {save_path}", 'success')
-            self._log(f"  Total solutions: {len(intensity_values)}", 'info')
-            self._log(f"  Top 5 focality ratios: {', '.join([f'{r:.3f}' for r in sorted(focality_ratios)[-5:]])}", 'info')
+            self._log(f"  Pareto front solutions: {len(pareto_solutions)}", 'info')
+            if all_solutions:
+                self._log(f"  Total evaluated solutions: {len(all_solutions)}", 'info')
+            self._log(f"  Top 5 focality ratios: {', '.join([f'{r:.3f}' for r in sorted(pareto_focality_ratios)[-5:]])}", 'info')
         
         plt.close(fig)  # Close to free memory
 
         return fig
-
 
 
 def visualize_complete_results(optimizer, result, output_dir='results', electrode_names=None):

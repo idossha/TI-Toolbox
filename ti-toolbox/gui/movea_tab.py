@@ -39,11 +39,7 @@ MOVEA_AVAILABLE = False
 try:
     import numpy as np
     from opt.leadfield import LeadfieldGenerator
-    from opt.movea import (
-        MOVEAVisualizer,
-        MontageFormatter,
-        TIOptimizer,
-    )
+    from opt.movea import run_optimization
     MOVEA_AVAILABLE = True
 except ImportError as e:
     # Will be handled in the thread if import fails
@@ -263,220 +259,79 @@ class MOVEAOptimizationThread(QtCore.QThread):
             if self.terminated:
                 return
             
-            # Create optimizer with progress callback
-            self.output_signal.emit("Initializing optimizer...", 'info')
+            # Prepare config for the main optimization function
             num_electrodes = lfm.shape[0]
-            
-            # Create callback to redirect optimizer output to GUI
+            config_for_optimization = {
+                'lfm': lfm,
+                'positions': positions,
+                'num_electrodes': num_electrodes,
+                'target': self.config['target'],
+                'roi_radius_mm': self.config['roi_radius_mm'],
+                'output_dir': self.config['output_dir'],
+                'target_name': self.config.get('target_name', 'ROI'),
+                'generations': self.config['generations'],
+                'population': self.config['population'],
+                'generate_pareto': self.config.get('generate_pareto', False),
+                'pareto_n_solutions': self.config.get('pareto_n_solutions', 20),
+                'pareto_max_iter': self.config.get('pareto_max_iter', 500),
+                'pareto_n_cores': self.config.get('pareto_n_cores', None),
+                'electrode_coords_file': self.config.get('electrode_coords_file'),
+                'opt_method': self.config.get('opt_method', 'differential_evolution'),
+                'subject_id': self.config['subject_id']
+            }
+
+            # Create progress callback
             def progress_callback(message, msg_type='info'):
                 self.output_signal.emit(message, msg_type)
-            
-            optimizer = TIOptimizer(lfm, positions, num_electrodes, progress_callback=progress_callback)
-            
-            # Set target
-            target = self.config['target']
-            roi_radius = self.config['roi_radius_mm']
-            
-            if isinstance(target, list):
-                target_str = f"[{', '.join(map(str, target))}]"
+
+            # Run the complete optimization workflow
+            results = run_optimization(config_for_optimization, progress_callback=progress_callback)
+
+            if results['success']:
+                self.output_signal.emit("", 'default')
+                self.output_signal.emit("="*60, 'default')
+                self.output_signal.emit("MOVEA OPTIMIZATION COMPLETE", 'success')
+                self.output_signal.emit("="*60, 'default')
+
+                # Print summary
+                montage = results['montage']
+                pair1 = montage['pair1']
+                pair2 = montage['pair2']
+                opt_info = montage['optimization']
+
+                self.output_signal.emit(f"Pair 1: {pair1['anode']['name']} (+{pair1['current_mA']}mA) ↔ {pair1['cathode']['name']} (-{pair1['current_mA']}mA)", 'default')
+                self.output_signal.emit(f"Pair 2: {pair2['anode']['name']} (+{pair2['current_mA']}mA) ↔ {pair2['cathode']['name']} (-{pair2['current_mA']}mA)", 'default')
+                self.output_signal.emit(f"Field Strength: {opt_info['field_strength_V/m']:.6f} V/m", 'default')
+                self.output_signal.emit(f"Optimization Cost: {opt_info['cost']:.6f}", 'default')
+                self.output_signal.emit("="*60, 'default')
+
+                # List all generated files
+                output_dir = self.config['output_dir']
+                self.output_signal.emit(f"Results saved to: {output_dir}", 'success')
+
+                generated_files = results.get('generated_files', {})
+                for name, path in generated_files.items():
+                    self.output_signal.emit(f"  • {os.path.basename(path)}", 'default')
+
+                # Check for additional files that might exist
+                additional_files = ['pareto_solutions.csv', 'solutions_plot.png', 'convergence.png']
+                for filename in additional_files:
+                    filepath = os.path.join(output_dir, filename)
+                    if os.path.exists(filepath) and filepath not in generated_files.values():
+                        self.output_signal.emit(f"  • {filename}", 'default')
+
+                self.output_signal.emit("="*60, 'default')
+
+                self.finished_signal.emit(True)
             else:
-                target_str = target
-                
-            self.output_signal.emit(f"Target: {target_str} (ROI radius: {roi_radius}mm)", 'info')
-            
-            try:
-                optimizer.set_target(target, roi_radius)
-            except Exception as e:
-                self.error_signal.emit(f"Failed to set target: {str(e)}")
+                self.error_signal.emit(f"Optimization failed: {results.get('error', 'Unknown error')}")
                 self.finished_signal.emit(False)
-                return
-            
-            if self.terminated:
-                return
-            
-            # Run optimization
-            opt_method = self.config.get('opt_method', 'differential_evolution')
-            generations = self.config['generations']
-            population = self.config['population']
-            
-            self.output_signal.emit(f"Starting optimization (Method: {opt_method}, Generations: {generations}, Population: {population})...", 'info')
-            self.output_signal.emit("This may take several minutes. Please wait...", 'info')
-            
-            opt_start = time.time()
-            
-            try:
-                result = optimizer.optimize(
-                    max_generations=generations,
-                    population_size=population
-                )
-            except Exception as e:
-                self.error_signal.emit(f"Optimization failed: {str(e)}")
-                self.finished_signal.emit(False)
-                return
-            
-            if self.terminated:
-                return
-            
-            opt_time = time.time() - opt_start
-            self.output_signal.emit(f"Optimization completed ({opt_time:.1f}s)", 'success')
-            
-            # Format results
-            self.output_signal.emit("Formatting results...", 'info')
-            
-            # Load electrode coordinates if available
-            electrode_csv = self.config.get('electrode_coords_file')
-            
-            # Create callback to redirect formatter output to GUI
-            def progress_callback(message, msg_type='info'):
-                self.output_signal.emit(message, msg_type)
-            
-            formatter = MontageFormatter(electrode_csv, progress_callback=progress_callback)
-            
-            # Check if names were loaded
-            if formatter.electrode_names:
-                self.output_signal.emit(f"✓ Loaded {len(formatter.electrode_names)} electrode names", 'success')
-            else:
-                self.output_signal.emit("⚠ Using generic electrode names (E0, E1, ...)", 'warning')
-            
-            montage = formatter.format_ti_montage(result, self.config['current_mA'])
-            
-            # Save outputs
-            output_dir = self.config['output_dir']
-            os.makedirs(output_dir, exist_ok=True)
-            
-            # Create visualizations
-            self.output_signal.emit("Creating visualizations...", 'info')
-            try:
-                visualizer = MOVEAVisualizer(output_dir, progress_callback=self.output_signal.emit)
-                
-                # 1. Generate Pareto front (like original MOVEA - OPTIONAL, can be slow)
-                generate_pareto = self.config.get('generate_pareto', False)
-                n_pareto_solutions = self.config.get('pareto_n_solutions', 20)
-                pareto_max_iter = self.config.get('pareto_max_iter', 500)
-                n_pareto_cores = self.config.get('pareto_n_cores', None)
-                
-                if generate_pareto:
-                    try:
-                        # Calculate generations for NSGA-II algorithm
-                        approx_generations = max(10, pareto_max_iter // n_pareto_solutions)
-                        total_evals = n_pareto_solutions * approx_generations
-                        
-                        # Estimate time (NSGA-II is more efficient than random search)
-                        est_time = max(1, total_evals // 500)
-                        self.output_signal.emit(f"  Generating Pareto front using NSGA-II algorithm", 'info')
-                        self.output_signal.emit(f"  Population size: {n_pareto_solutions}, Generations: {approx_generations}", 'info')
-                        if n_pareto_cores and n_pareto_cores > 1:
-                            self.output_signal.emit(f"  Parallel threads: {n_pareto_cores}", 'info')
-                        self.output_signal.emit(f"  Estimated evaluations: {total_evals:,} (est. {est_time} min)...", 'info')
-                        
-                        # Wrap in comprehensive error handling to prevent GUI crashes
-                        try:
-                            # Use new NSGA-II based multi-objective optimization
-                            # Convert iterations to generations (roughly 1 generation = population_size evaluations)
-                            approx_generations = max(10, pareto_max_iter // n_pareto_solutions)
-                            
-                            pareto_solutions = optimizer.generate_pareto_solutions(
-                                n_solutions=n_pareto_solutions,
-                                max_generations=approx_generations,
-                                n_cores=n_pareto_cores
-                            )
-                        except Exception as pareto_gen_err:
-                            # If Pareto generation fails completely, log but continue
-                            self.output_signal.emit(f"  ⚠ Pareto generation failed: {str(pareto_gen_err)}", 'error')
-                            self.output_signal.emit(f"  {traceback.format_exc()}", 'debug')
-                            pareto_solutions = []
-                        
-                        # Only create visualizations if we got valid solutions
-                        if pareto_solutions and len(pareto_solutions) > 0:
-                            # Plot Pareto front
-                            pareto_path = os.path.join(output_dir, 'pareto_front.png')
-                            target_name = self.config.get('target_name', 'ROI')
-                            visualizer.plot_pareto_front(pareto_solutions, save_path=pareto_path, target_name=target_name)
-                            self.output_signal.emit(f"  ✓ Pareto front plot: {os.path.basename(pareto_path)}", 'success')
-                            
-                            # Save Pareto solutions to CSV with electrode names and focality ratio
-                            pareto_csv = os.path.join(output_dir, 'pareto_solutions.csv')
-                            with open(pareto_csv, 'w') as f:
-                                f.write("Solution,Electrode1,Electrode2,Electrode3,Electrode4,ROI_Field_Vm,WholeBrain_Field_Vm,Focality_Ratio\n")
-                                for i, sol in enumerate(pareto_solutions):
-                                    # Get electrode names if available
-                                    e_indices = sol['electrodes']
-                                    if formatter.electrode_names and len(formatter.electrode_names) > max(e_indices):
-                                        e_names = [formatter.electrode_names[idx] for idx in e_indices]
-                                    else:
-                                        e_names = [f"E{idx}" for idx in e_indices]
-                                    
-                                    # Calculate focality ratio (ROI field / Whole brain field)
-                                    focality_ratio = sol['intensity_field'] / sol['focality'] if sol['focality'] > 0 else 0
-                                    
-                                    f.write(f"{i+1},{e_names[0]},{e_names[1]},{e_names[2]},{e_names[3]},{sol['intensity_field']:.6f},{sol['focality']:.6f},{focality_ratio:.4f}\n")
-                            self.output_signal.emit(f"  ✓ Pareto solutions: {os.path.basename(pareto_csv)}", 'success')
-                        else:
-                            self.output_signal.emit(f"  ⚠ Pareto generation returned no valid solutions", 'warning')
 
-                    except Exception as pareto_err:
-                        self.output_signal.emit(f"  ⚠ Pareto front generation failed: {str(pareto_err)}", 'warning')
-                        self.output_signal.emit(f"  {traceback.format_exc()}", 'debug')
-                else:
-                    self.output_signal.emit("  ⓘ Pareto front generation disabled (enable in GUI to generate)", 'info')
-
-                # 2. Generate convergence plot for optimization results
-                if hasattr(optimizer, 'optimization_results') and len(optimizer.optimization_results) > 0:
-                    try:
-                        conv_path = os.path.join(output_dir, 'convergence.png')
-                        visualizer.plot_convergence(optimizer.optimization_results, save_path=conv_path)
-                        self.output_signal.emit(f"  ✓ Convergence plot: {os.path.basename(conv_path)}", 'success')
-                    except Exception as conv_err:
-                        self.output_signal.emit(f"  ⚠ Convergence plot failed: {str(conv_err)}", 'warning')
-                        self.output_signal.emit(f"  {traceback.format_exc()}", 'debug')
-                
-            except Exception as viz_error:
-                self.output_signal.emit(f"Warning: Visualization failed: {str(viz_error)}", 'warning')
-                # Continue even if visualization fails
-            
-            output_csv = os.path.join(output_dir, 'movea_montage.csv')
-
-            formatter.save_montage_csv(montage, output_csv)
-            
-            # Print summary
-            self.output_signal.emit("", 'default')
-            self.output_signal.emit("="*60, 'default')
-            self.output_signal.emit("MOVEA OPTIMIZATION COMPLETE", 'success')
-            self.output_signal.emit("="*60, 'default')
-            
-            pair1 = montage['pair1']
-            pair2 = montage['pair2']
-            opt_info = montage['optimization']
-            
-            self.output_signal.emit(f"Pair 1: {pair1['anode']['name']} (+{pair1['current_mA']}mA) ↔ {pair1['cathode']['name']} (-{pair1['current_mA']}mA)", 'default')
-            self.output_signal.emit(f"Pair 2: {pair2['anode']['name']} (+{pair2['current_mA']}mA) ↔ {pair2['cathode']['name']} (-{pair2['current_mA']}mA)", 'default')
-            self.output_signal.emit(f"Field Strength: {opt_info['field_strength_V/m']:.6f} V/m", 'default')
-            self.output_signal.emit(f"Optimization Cost: {opt_info['cost']:.6f}", 'default')
-            self.output_signal.emit("="*60, 'default')
-            self.output_signal.emit(f"Results saved to: {output_dir}", 'success')
-            self.output_signal.emit(f"  • {os.path.basename(output_csv)}", 'default')
-            
-            # List visualization files
-            viz_files = [
-                'pareto_front.png',  # Like original MOVEA (optional)
-                'pareto_solutions.csv',  # (optional)
-                'convergence.png',  # Optimization progress (when multiple runs)
-                'montage_summary.png',  # Single run montage visualization
-            ]
-            for viz_file in viz_files:
-                viz_path = os.path.join(output_dir, viz_file)
-                if os.path.exists(viz_path):
-                    self.output_signal.emit(f"  • {viz_file}", 'default')
-            
-            self.output_signal.emit("="*60, 'default')
-            
-            self.finished_signal.emit(True)
-            
         except Exception as e:
             tb = traceback.format_exc()
             self.error_signal.emit(f"Error during optimization: {str(e)}\n{tb}")
             self.finished_signal.emit(False)
-    
+
     def terminate_process(self):
         """Terminate the optimization."""
         self.terminated = True
@@ -660,36 +515,44 @@ class MOVEATab(QtWidgets.QWidget):
         coordinate_layout.addWidget(self.coord_x)
         coordinate_layout.addWidget(self.coord_y)
         coordinate_layout.addWidget(self.coord_z)
-
-        self.roi_radius = QtWidgets.QSpinBox()
-        self.roi_radius.setRange(5, 50)
-        self.roi_radius.setValue(15)  # Standard for most brain regions
-        self.roi_radius.setSuffix(" mm")
-        self.roi_radius.setFixedWidth(80)
-        self.roi_radius.setToolTip(
-            "Target region radius for optimization\n"
-            "10-15 mm: Focal stimulation (recommended)\n"
-            "20-30 mm: Broader cortical areas\n"
-            "Larger radius = less focal but more coverage"
-        )
-        coordinate_layout.addWidget(self.roi_radius)
         coordinate_layout.addStretch()
 
         self.coordinate_widget = QtWidgets.QWidget()
         self.coordinate_widget.setLayout(coordinate_layout)
         target_layout.addWidget(self.coordinate_widget)
 
-        # Launch MNI button below coordinate selection
-        button_layout = QtWidgets.QHBoxLayout()
+        # ROI Radius and Launch MNI button on the same horizontal level
+        bottom_layout = QtWidgets.QHBoxLayout()
+
+        # ROI Radius section on the left
+        radius_label = QtWidgets.QLabel("ROI Radius:")
+        radius_label.setStyleSheet("font-weight: bold;")
+        bottom_layout.addWidget(radius_label)
+
+        self.roi_radius = QtWidgets.QSpinBox()
+        self.roi_radius.setRange(5, 50)
+        self.roi_radius.setValue(10)  # Standard for most brain regions
+        self.roi_radius.setSuffix(" mm")
+        self.roi_radius.setFixedWidth(80)
+        self.roi_radius.setToolTip(
+            "Target region radius for optimization (applies to both preset and MNI coordinate targets)"
+        )
+        bottom_layout.addWidget(self.roi_radius)
+
+        # Add spacing between sections
+        bottom_layout.addSpacing(30)
+
+        # Launch MNI button on the right
         self.launch_mni_btn = QtWidgets.QPushButton("Launch MNI Nifti")
         self.launch_mni_btn.setToolTip("Open MNI152 T1 template in external viewer")
         self.launch_mni_btn.clicked.connect(self.launch_mni_nifti)
-        button_layout.addWidget(self.launch_mni_btn)
-        button_layout.addStretch()
+        bottom_layout.addWidget(self.launch_mni_btn)
 
-        self.button_widget = QtWidgets.QWidget()
-        self.button_widget.setLayout(button_layout)
-        target_layout.addWidget(self.button_widget)
+        bottom_layout.addStretch()
+
+        self.bottom_widget = QtWidgets.QWidget()
+        self.bottom_widget.setLayout(bottom_layout)
+        target_layout.addWidget(self.bottom_widget)
 
         # Initialize the toggle state (preset selected by default)
         self.toggle_target_type()
@@ -738,7 +601,7 @@ class MOVEATab(QtWidgets.QWidget):
         opt_layout = QtWidgets.QFormLayout(opt_container)
         opt_layout.setContentsMargins(5, 2, 5, 2)
         opt_layout.setSpacing(2)
-        
+
         # Single-objective section
         single_obj_label = QtWidgets.QLabel("Single-Objective (Intensity Only):")
         single_obj_label.setStyleSheet("font-weight: bold;")
@@ -749,10 +612,7 @@ class MOVEATab(QtWidgets.QWidget):
         self.generations.setRange(10, 1000)
         self.generations.setValue(100)  # Balanced speed vs quality
         self.generations.setToolTip(
-            "Number of optimization iterations\n"
-            "50-100: Quick optimization (5-10 min)\n"
-            "200-500: Standard quality (15-30 min)\n"
-            "500+: Publication quality (30+ min)"
+            "Number of optimization iterations"
         )
         opt_layout.addRow("  Generations:", self.generations)
         
@@ -760,10 +620,7 @@ class MOVEATab(QtWidgets.QWidget):
         self.population.setRange(10, 200)
         self.population.setValue(50)  # Good exploration capability
         self.population.setToolTip(
-            "Population size for evolutionary algorithm\n"
-            "30-50: Standard (recommended)\n"
-            "100+: Thorough exploration (slower)\n"
-            "Larger populations find better solutions"
+            "Population size for evolutionary algorithm"
         )
         opt_layout.addRow("  Population:", self.population)
 
@@ -803,11 +660,7 @@ class MOVEATab(QtWidgets.QWidget):
         self.pareto_solutions.setValue(30)  # Good Pareto front coverage
         self.pareto_solutions.setEnabled(False)
         self.pareto_solutions.setToolTip(
-            "Number of Pareto-optimal solutions to generate\n"
-            "20-30: Quick exploration (recommended)\n"
-            "50-100: Detailed analysis\n"
-            "100+: Research/publication quality\n"
-            "More solutions = better trade-off visualization"
+            "Number of Pareto-optimal solutions to generate"
         )
         opt_layout.addRow("  Solutions:", self.pareto_solutions)
 
@@ -816,10 +669,7 @@ class MOVEATab(QtWidgets.QWidget):
         self.pareto_iterations.setValue(1000)  # Better quality solutions
         self.pareto_iterations.setEnabled(False)
         self.pareto_iterations.setToolTip(
-            "Generations for multi-objective evolution\n"
-            "500-1000: Quick results (recommended)\n"
-            "1500+: High-quality Pareto front\n"
-            "Higher values find better trade-offs"
+            "Generations for multi-objective evolution"
         )
         opt_layout.addRow("  Iterations/Sol:", self.pareto_iterations)
 
@@ -892,14 +742,17 @@ class MOVEATab(QtWidgets.QWidget):
         self.coord_x.setEnabled(not is_preset)
         self.coord_y.setEnabled(not is_preset)
         self.coord_z.setEnabled(not is_preset)
-        self.roi_radius.setEnabled(not is_preset)
-        self.button_widget.setEnabled(not is_preset)
+        # ROI radius is always enabled (shared for both modes)
+        self.roi_radius.setEnabled(True)
+        # MNI launch button only enabled for coordinate mode
+        self.launch_mni_btn.setEnabled(not is_preset)
         # Grey out only the input widgets, not the radio button
         coord_color = "color: black;" if not is_preset else "color: grey;"
         self.coord_x.setStyleSheet(coord_color)
         self.coord_y.setStyleSheet(coord_color)
         self.coord_z.setStyleSheet(coord_color)
-        self.roi_radius.setStyleSheet(coord_color)
+        # ROI radius is always enabled and visible for both modes
+        self.roi_radius.setStyleSheet("color: black;")
 
     def toggle_pareto_options(self):
         """Enable/disable Pareto solutions spinbox and cores based on checkbox."""
@@ -1244,7 +1097,7 @@ class MOVEATab(QtWidgets.QWidget):
             'opt_method': 'differential_evolution',
             'generations': self.generations.value(),
             'population': self.population.value(),
-            'current_mA': 1.0,
+            'current_mA': 2.0,  # Fixed total current across both channels
             'output_dir': output_dir,
             'electrode_coords_file': electrode_csv,
             'generate_pareto': self.enable_pareto.isChecked(),
@@ -1274,7 +1127,7 @@ class MOVEATab(QtWidgets.QWidget):
         self.update_console("  Method: Differential Evolution", 'default')
         self.update_console(f"  Generations: {self.generations.value()}", 'default')
         self.update_console(f"  Population: {self.population.value()}", 'default')
-        self.update_console("  Current: 1.0 mA", 'default')
+        self.update_console("  Current: 2.0 mA total (flexible distribution)", 'default')
         if self.enable_pareto.isChecked():
             self.update_console("", 'default')
             self.update_console("Pareto Front Generation:", 'info')
@@ -1369,16 +1222,27 @@ class MOVEATab(QtWidgets.QWidget):
         self.coord_x.setEnabled(enabled)
         self.coord_y.setEnabled(enabled)
         self.coord_z.setEnabled(enabled)
-        self.roi_radius.setEnabled(enabled)
-        self.button_widget.setEnabled(enabled)
+        # Handle ROI radius and MNI button enabling
+        if enabled:
+            # When re-enabling inputs, ROI radius is always enabled, MNI button follows toggle state
+            self.roi_radius.setEnabled(True)
+            is_preset = self.preset_radio.isChecked()
+            self.launch_mni_btn.setEnabled(not is_preset)
+        else:
+            # When disabling inputs during processing, disable both
+            self.roi_radius.setEnabled(False)
+            self.launch_mni_btn.setEnabled(False)
+        self.bottom_widget.setEnabled(enabled)
         self.generations.setEnabled(enabled)
         self.population.setEnabled(enabled)
         self.enable_pareto.setEnabled(enabled)
-        
+
         # Respect checkbox state when re-enabling inputs
         if enabled:
             # Re-apply the pareto options toggle to ensure correct state and styling
             self.toggle_pareto_options()
+            # Re-apply target type toggle to ensure correct state
+            self.toggle_target_type()
         else:
             # When disabling, just disable everything
             self.pareto_solutions.setEnabled(False)

@@ -5,7 +5,8 @@ TI electrode optimization using scipy's differential_evolution
 import numpy as np
 from scipy.optimize import differential_evolution
 from pathlib import Path
-from ..ti_calculations import calculate_ti_field_from_leadfield as calculate_ti_field, find_target_voxels, validate_ti_montage
+from core.roi import find_target_voxels, validate_ti_montage
+from core.calc import calculate_ti_field_from_leadfield
 import concurrent.futures
 import threading
 from functools import partial
@@ -41,7 +42,8 @@ def _evaluate_montage_parallel(args):
 class TIOptimizer:
     """TI electrode montage optimizer using scipy (no geatpy dependency)"""
 
-    def __init__(self, leadfield_matrix, voxel_positions, num_electrodes=75, progress_callback=None):
+    def __init__(self, leadfield_matrix, voxel_positions, num_electrodes=75, progress_callback=None,
+                 total_current=2.0, current_step=0.1, channel_limit=1.5):
         """
         Initialize TI optimizer with scipy backend
 
@@ -50,6 +52,9 @@ class TIOptimizer:
             voxel_positions: Voxel MNI coordinates [n_voxels, 3]
             num_electrodes: Number of electrodes in cap
             progress_callback: Optional callback function(message, type) for progress updates
+            total_current: Maximum combined current across both electrode pairs in mA (default: 2.0)
+            current_step: Minimum current increment in mA (default: 0.1)
+            channel_limit: Maximum current per electrode in mA (default: 1.5)
         """
         self.lfm = leadfield_matrix
         self.positions = voxel_positions
@@ -61,6 +66,71 @@ class TIOptimizer:
         self._best_cost = float('inf')
         self._best_solution = None
         self._generation_results = []
+
+        # Current constraints - using continuous optimization within safety limits
+        self.total_current = total_current
+        self.current_step = current_step  # Kept for compatibility but not used in continuous optimization
+        self.channel_limit = channel_limit
+
+    def _generate_valid_current_ratios(self):
+        """
+        Generate valid current ratio combinations based on safety constraints.
+
+        Similar to ex.ti_sim.generate_current_ratios but adapted for MOVEA's
+        asymmetric current distribution approach.
+        """
+        ratios = []
+        epsilon = self.current_step * 0.01
+
+        # For MOVEA, current_ratio affects the balance between pairs
+        # current_ratio ranges from -max_ratio to +max_ratio
+        # where max_ratio is based on total_current and channel_limit constraints
+
+        # Calculate maximum allowable current ratio
+        # Total current across both pairs must not exceed total_current
+        # Each pair starts with total_current/2, current_ratio adjusts the balance
+        base_current = self.total_current / 2.0
+        max_ratio = min(
+            self.channel_limit - base_current,  # Don't exceed channel limit
+            base_current,                      # Don't go negative
+            self.total_current - self.current_step  # Ensure some current in both pairs
+        )
+
+        if max_ratio < self.current_step - epsilon:
+            max_ratio = self.current_step
+            if self._progress_callback:
+                self._progress_callback(
+                    f"Warning: Channel limit ({self.channel_limit} mA) constrains current ratio to {max_ratio:.1f}",
+                    'warning'
+                )
+
+        # Generate valid current ratios
+        base_current = self.total_current / 2.0
+        current_ratio = -max_ratio
+        while current_ratio <= max_ratio + epsilon:
+            # Check if this ratio creates valid currents for both pairs
+            pair1_current = base_current + current_ratio  # First pair
+            pair2_current = base_current - current_ratio  # Second pair
+
+            # Both pairs must be within channel limits and above minimum
+            # Total current must not exceed total_current limit
+            total_current_used = pair1_current + pair2_current
+            if (pair1_current <= self.channel_limit + epsilon and
+                pair2_current <= self.channel_limit + epsilon and
+                pair1_current >= self.current_step - epsilon and
+                pair2_current >= self.current_step - epsilon and
+                total_current_used <= self.total_current + epsilon):
+
+                ratios.append(current_ratio)
+            current_ratio += self.current_step
+
+        self.valid_current_ratios = ratios
+
+        if self._progress_callback:
+            self._progress_callback(
+                f"Generated {len(ratios)} valid current ratios (range: {ratios[0]:.2f} to {ratios[-1]:.2f})",
+                'info'
+            )
 
     def _log(self, message, msg_type='info'):
         """Send log message through callback or fallback to print"""
@@ -98,6 +168,13 @@ class TIOptimizer:
         # Convert to integers and validate
         electrode_indices = np.round(electrode_indices).astype(int)
 
+        # Validate current ratio against continuous bounds
+        max_ratio = min(self.channel_limit - self.total_current/2.0, self.total_current/2.0)
+        if abs(current_ratio) > max_ratio + 1e-6:
+            if return_dual_objective:
+                return np.array([np.inf, np.inf])
+            return np.inf
+
         if not validate_ti_montage(electrode_indices, self.num_electrodes):
             if return_dual_objective:
                 return np.array([np.inf, np.inf])
@@ -112,17 +189,22 @@ class TIOptimizer:
             return np.inf
 
         # Create stimulation patterns (bipolar pairs)
+        # Each pair uses the allocated current for that pair
+        base_current = self.total_current / 2.0
+        pair1_current = base_current + current_ratio
+        pair2_current = base_current - current_ratio
+
         stim1 = np.zeros(self.num_electrodes)
-        stim1[e1] = 1 + current_ratio / self.num_electrodes
-        stim1[e2] = -(1 + current_ratio / self.num_electrodes)
+        stim1[e1] = pair1_current
+        stim1[e2] = -pair1_current
 
         stim2 = np.zeros(self.num_electrodes)
-        stim2[e3] = 1 - current_ratio / self.num_electrodes
-        stim2[e4] = -(1 - current_ratio / self.num_electrodes)
+        stim2[e3] = pair2_current
+        stim2[e4] = -pair2_current
 
         if return_dual_objective:
             # Calculate full brain field for focality
-            ti_field_full = calculate_ti_field(self.lfm, stim1, stim2, target_indices=None)
+            ti_field_full = calculate_ti_field_from_leadfield(self.lfm, stim1, stim2, target_indices=None)
             ti_field_target = ti_field_full[self.target_indices]
 
             # Objective 1: Maximize target field (minimize reciprocal)
@@ -135,7 +217,7 @@ class TIOptimizer:
             return np.array([obj1, obj2])
         else:
             # Single objective: maximize target field only
-            ti_field = calculate_ti_field(self.lfm, stim1, stim2, self.target_indices)
+            ti_field = calculate_ti_field_from_leadfield(self.lfm, stim1, stim2, self.target_indices)
             avg_field = np.average(ti_field)
             cost = 1.0 / (avg_field + 1e-10)
             return cost
@@ -147,24 +229,40 @@ class TIOptimizer:
             self._log(f"  Evaluations: {self._eval_count}", 'info')
 
         # x contains [e1, e2, e3, e4, current_ratio]
-        cost = self.evaluate_montage(x[:4], current_ratio=x[4] if len(x) > 4 else 0, return_dual_objective=False)
+        current_ratio = x[4] if len(x) > 4 else 0
+
+        # Evaluate dual objectives for visualization purposes
+        objectives = self.evaluate_montage(x[:4], current_ratio=current_ratio, return_dual_objective=True)
+        cost = objectives[0]  # Single objective for optimization
 
         # Track best solution found so far
         if cost < self._best_cost:
             self._best_cost = cost
             self._best_solution = x.copy()
 
-            # Store intermediate result for convergence plotting
+        # Store sample of evaluated solutions for visualization (every 20th evaluation to avoid too many)
+        if self._eval_count % 20 == 0:
             # Use evaluation count as generation number for plotting
             generation_num = self._eval_count // 50  # Approximate generations
             if generation_num >= len(self._generation_results):
+                # Calculate currents from current_ratio
+                current_ratio = float(x[4]) if len(x) > 4 else 0.0
+                base_current = self.total_current / 2.0
+                pair1_current = base_current + current_ratio
+                pair2_current = base_current - current_ratio
+
                 result = {
                     'electrodes': np.round(x[:4]).astype(int).tolist(),
                     'cost': float(cost),
                     'field_strength': 1.0 / cost if cost > 0 else 0,
-                    'current_ratio': int(x[4]) if len(x) > 4 else 0,
+                    'current_ratio': current_ratio,
+                    'pair1_current_mA': float(pair1_current),
+                    'pair2_current_mA': float(pair2_current),
+                    'total_current_mA': float(pair1_current + pair2_current),
                     'generation': generation_num,
-                    'evaluations': self._eval_count
+                    'evaluations': self._eval_count,
+                    'intensity_field': 1.0 / objectives[0] if objectives[0] > 0 else 0,
+                    'focality': float(objectives[1])
                 }
                 self._generation_results.append(result)
 
@@ -182,9 +280,11 @@ class TIOptimizer:
         population = np.zeros((population_size, num_params), dtype=int)
         
         # Generate diverse initial population
+        base_current = self.total_current / 2.0
+        max_ratio = min(self.channel_limit - base_current, base_current)
         for i in range(population_size):
             electrodes = np.random.choice(self.num_electrodes, size=4, replace=False)
-            current_ratio = np.random.randint(0, self.num_electrodes)
+            current_ratio = np.random.uniform(-max_ratio, max_ratio)
             population[i] = np.concatenate([electrodes, [current_ratio]])
 
         # Use threading for parallel evaluation
@@ -309,8 +409,13 @@ class TIOptimizer:
         self._log(f"Expected evaluations: ~{max_generations * actual_population}", 'info')
         self._log(f"{'='*60}\n", 'default')
 
-        # Define bounds: 4 electrodes + 1 current ratio
-        bounds = [(0, self.num_electrodes - 1)] * 4 + [(0, self.num_electrodes - 1)]
+        # Define bounds: 4 electrodes + 1 current ratio (continuous within safety limits)
+        base_current = self.total_current / 2.0  # Should be 1.0 mA
+        max_ratio = min(self.channel_limit - base_current, base_current)  # min(1.9-1.0, 1.0) = 0.9
+        current_bounds = (-max_ratio, max_ratio)  # (-0.9, 0.9)
+
+
+        bounds = [(0, self.num_electrodes - 1)] * 4 + [current_bounds]
 
         self._eval_count = 0
         self._best_cost = float('inf')
@@ -343,18 +448,27 @@ class TIOptimizer:
             result = self._manual_optimization_loop(bounds, max_generations, population_size)
 
         # Extract best solution
-        best_vars = np.round(result.x).astype(int)
-        best_electrodes = best_vars[:4]
+        # Round only electrode indices, keep current_ratio as float
+        best_electrodes = np.round(result.x[:4]).astype(int)
+        best_current_ratio = result.x[4] if len(result.x) > 4 else 0.0
         best_cost = result.fun
 
         # Ensure valid solution
         best_electrodes = np.clip(best_electrodes, 0, self.num_electrodes - 1)
 
+        # Calculate actual currents for each pair
+        base_current = self.total_current / 2.0
+        pair1_current = base_current + best_current_ratio
+        pair2_current = base_current - best_current_ratio
+
         solution = {
             'electrodes': best_electrodes.tolist(),
             'cost': float(best_cost),
             'field_strength': 1.0 / best_cost if best_cost > 0 else 0,
-            'current_ratio': int(best_vars[4]) if len(best_vars) > 4 else 0,
+            'current_ratio': float(best_current_ratio),
+            'pair1_current_mA': float(pair1_current),
+            'pair2_current_mA': float(pair2_current),
+            'total_current_mA': float(pair1_current + pair2_current),
             'generations': max_generations,
             'population': population_size,
             'method': 'differential_evolution' if hasattr(result, 'success') else 'manual_genetic',
@@ -367,6 +481,10 @@ class TIOptimizer:
 
         # Also store the final solution as the last result
         if not self.optimization_results or self.optimization_results[-1]['cost'] != solution['cost']:
+            # Add dual objectives to final solution for visualization
+            final_objectives = self.evaluate_montage(best_electrodes, best_current_ratio, return_dual_objective=True)
+            solution['intensity_field'] = 1.0 / final_objectives[0] if final_objectives[0] > 0 else 0
+            solution['focality'] = float(final_objectives[1])
             solution['generation'] = max_generations
             self.optimization_results.append(solution)
 
@@ -415,7 +533,9 @@ class TIOptimizer:
         for i in range(n_solutions):
             # Random electrode indices and current ratio
             electrodes = np.random.choice(self.num_electrodes, size=4, replace=False)
-            current_ratio = np.random.uniform(0, 100)
+            base_current = self.total_current / 2.0
+            max_ratio = min(self.channel_limit - base_current, base_current)
+            current_ratio = np.random.uniform(-max_ratio, max_ratio)
             individual = np.concatenate([electrodes, [current_ratio]])
             population.append(individual)
         
@@ -456,10 +576,17 @@ class TIOptimizer:
         self._log(f"Final Pareto front: {len(best_pareto_front)} solutions", 'info')
         self._log(f"{'='*60}\n", 'default')
         
-        # Sort by intensity field (descending)
+        # Create solution dicts for all final population members
+        all_solutions = []
+        final_objectives = self._evaluate_population_parallel(population, n_cores)
+        for i, (individual, objectives) in enumerate(zip(population, final_objectives)):
+            solution = self._create_solution_dict(individual, objectives)
+            all_solutions.append(solution)
+
+        # Sort Pareto front by intensity field (descending)
         best_pareto_front.sort(key=lambda x: x['intensity_field'], reverse=True)
-        
-        return best_pareto_front
+
+        return best_pareto_front, all_solutions
     
     def _evaluate_population_parallel(self, population, n_cores):
         """Evaluate population objectives in parallel using threads"""
@@ -556,8 +683,8 @@ class TIOptimizer:
         
         # Blend current ratios
         if len(parent1) > 4 and len(parent2) > 4:
-            alpha = np.random.random()
-            offspring[4] = alpha * parent1[4] + (1 - alpha) * parent2[4]
+            # Arithmetic crossover for continuous values
+            offspring[4] = (parent1[4] + parent2[4]) / 2.0
         
         return offspring
     
@@ -578,20 +705,29 @@ class TIOptimizer:
         
         # Mutate current ratio
         if len(mutated) > 4 and np.random.random() < mutation_rate:
-            # Add Gaussian noise
-            mutated[4] += np.random.normal(0, 10)
-            mutated[4] = np.clip(mutated[4], 0, 100)
+            # Mutate within continuous bounds
+            base_current = self.total_current / 2.0
+            max_ratio = min(self.channel_limit - base_current, base_current)
+            mutated[4] = np.random.uniform(-max_ratio, max_ratio)
         
         return mutated
     
     def _create_solution_dict(self, individual, objectives):
         """Create solution dictionary from individual and objectives"""
         electrodes = individual[:4].astype(int)
-        current_ratio = int(individual[4]) if len(individual) > 4 else 0
-        
+        current_ratio = float(individual[4]) if len(individual) > 4 else 0.0
+
+        # Calculate actual currents from current_ratio
+        base_current = self.total_current / 2.0
+        pair1_current = base_current + current_ratio
+        pair2_current = base_current - current_ratio
+
         return {
             'electrodes': electrodes.tolist(),
             'current_ratio': current_ratio,
+            'pair1_current_mA': float(pair1_current),
+            'pair2_current_mA': float(pair2_current),
+            'total_current_mA': float(pair1_current + pair2_current),
             'intensity_cost': float(objectives[0]),
             'intensity_field': 1.0 / objectives[0] if objectives[0] > 0 else 0,
             'focality': float(objectives[1]),

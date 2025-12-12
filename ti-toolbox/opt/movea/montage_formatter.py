@@ -97,35 +97,41 @@ class MontageFormatter:
         else:
             self._log(f"Warning: No electrodes loaded from {csv_file}", 'warning')
     
-    def format_ti_montage(self, optimization_result, current_mA=2.0):
+    def format_ti_montage(self, optimization_result, current_mA=None):
         """
         Format TI montage from optimization result
-        
+
         Args:
             optimization_result: Dictionary from TIOptimizer
-            current_mA: Current magnitude in mA
-        
+            current_mA: Current magnitude in mA (deprecated, use optimized currents)
+
         Returns:
             montage_dict: Formatted montage configuration
         """
         electrodes = optimization_result['electrodes']
         e1, e2, e3, e4 = electrodes
-        
+
+        # Use optimized currents if available, otherwise fall back to parameter
+        pair1_current = optimization_result.get('pair1_current_mA', current_mA or 2.0)
+        pair2_current = optimization_result.get('pair2_current_mA', current_mA or 2.0)
+
         montage = {
             'pair1': {
                 'anode': self._get_electrode_info(e1),
                 'cathode': self._get_electrode_info(e2),
-                'current_mA': current_mA,
+                'current_mA': pair1_current,
             },
             'pair2': {
                 'anode': self._get_electrode_info(e3),
                 'cathode': self._get_electrode_info(e4),
-                'current_mA': current_mA,
+                'current_mA': pair2_current,
             },
             'optimization': {
                 'method': 'MOVEA',
                 'field_strength_V/m': optimization_result.get('field_strength', 0),
                 'cost': optimization_result.get('cost', 0),
+                'current_ratio': optimization_result.get('current_ratio', 0),
+                'total_current_mA': optimization_result.get('total_current_mA', pair1_current + pair2_current),
                 'generations': optimization_result.get('generations', 0),
                 'population': optimization_result.get('population', 0),
             }
@@ -237,23 +243,26 @@ class MontageFormatter:
         self._log(f"  Method:         {opt['method']}", 'default')
         self._log(f"  Field Strength: {opt['field_strength_V/m']:.6f} V/m", 'default')
         self._log(f"  Cost:           {opt['cost']:.6f}", 'default')
+        if 'current_ratio' in opt:
+            self._log(f"  Current Ratio:  {opt['current_ratio']:.3f}", 'default')
+        if 'total_current_mA' in opt:
+            self._log(f"  Total Current:  {opt['total_current_mA']:.1f} mA", 'default')
         self._log(f"  Generations:    {opt['generations']}", 'default')
         self._log(f"  Population:     {opt['population']}", 'default')
         self._log("="*60 + "\n", 'default')
 
 
-def quick_save(optimization_result, output_path, electrode_coords_file=None, current_mA=2.0):
+def quick_save(optimization_result, output_path, electrode_coords_file=None):
     """
     Quick function to format and save optimization result
-    
+
     Args:
         optimization_result: Dictionary from TIOptimizer
         output_path: Output file path (CSV or TXT)
         electrode_coords_file: Optional electrode coordinates CSV
-        current_mA: Current magnitude in mA
     """
     formatter = MontageFormatter(electrode_coords_file)
-    montage = formatter.format_ti_montage(optimization_result, current_mA)
+    montage = formatter.format_ti_montage(optimization_result)
     
     output_path = Path(output_path)
     # Always save as CSV format, regardless of file extension

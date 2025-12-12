@@ -287,7 +287,7 @@ def main():
             break
     
     formatter = MontageFormatter(electrode_csv)
-    montage = formatter.format_ti_montage(result, current_mA)
+    montage = formatter.format_ti_montage(result)
     
     # Save outputs
     output_csv = os.path.join(output_dir, 'movea_montage.csv')
