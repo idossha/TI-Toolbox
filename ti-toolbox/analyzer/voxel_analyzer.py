@@ -48,8 +48,12 @@ Dependencies:
     - nibabel
     - subprocess (for FreeSurfer operations)
 """
+import matplotlib
+matplotlib.use('Agg')  # Use non-interactive backend
+import matplotlib.pyplot as plt
+import nibabel as nib
+import numpy as np
 
-# Standard library imports
 import csv
 import os
 import subprocess
@@ -59,13 +63,6 @@ import time
 import traceback
 from datetime import datetime
 from pathlib import Path
-
-# Third-party imports
-import matplotlib
-matplotlib.use('Agg')  # Use non-interactive backend
-import matplotlib.pyplot as plt
-import nibabel as nib
-import numpy as np
 
 # Add project root to path
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))

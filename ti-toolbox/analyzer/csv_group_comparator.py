@@ -23,18 +23,14 @@ Expected CSV structure:
 simnibs_python csv_group_comparator.py /Volumes/Ido/000_strength/derivatives/SimNIBS/group_analysis/cortical_maxTI/DK40_24_ernie_lh.precentral/enhanced_roi_comparison_summary_lh.precentral.csv /Volumes/Ido/000_strength/derivatives/SimNIBS/group_analysis/cortical_maxTI/flex_lh_DK40_24_mean_maxTI_..._lh.precentral/enhanced_roi_comparison_summary_lh.precentral.csv -o /Users/idohaber/Desktop/GA
 """
 
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+
 import os
 import sys
-import argparse
-try:
-    import pandas as pd
-    import numpy as np
-    import matplotlib.pyplot as plt
-    import seaborn as sns
-except ImportError as e:
-    print(f"Required packages not installed: {e}")
-    print("Please install required packages with: pip install pandas numpy matplotlib seaborn")
-    sys.exit(1)
+import argpars  
 from pathlib import Path
 import json
 from typing import List, Dict, Tuple, Optional

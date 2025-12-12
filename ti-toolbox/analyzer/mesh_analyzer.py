@@ -51,8 +51,10 @@ Dependencies:
     - simnibs
     - subprocess (for msh2cortex operations)
 """
+import matplotlib.pyplot as plt
+import numpy as np
+import simnibs
 
-# Standard library imports
 import csv
 import os
 import subprocess
@@ -61,11 +63,6 @@ import tempfile
 import time
 from datetime import datetime
 from pathlib import Path
-
-# Third-party imports
-import matplotlib.pyplot as plt
-import numpy as np
-import simnibs
 
 # Add project root to path
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))

@@ -37,13 +37,6 @@ Dependencies:
     - simnibs (for MeshVisualizer)
 """
 
-# Standard library imports
-import csv
-import os
-import sys
-from pathlib import Path
-
-# Third-party imports
 import matplotlib.pyplot as plt
 from matplotlib import cm
 from matplotlib.colors import Normalize
@@ -52,6 +45,10 @@ import numpy as np
 import seaborn as sns
 import simnibs
 
+import csv
+import os
+import sys
+from pathlib import Path
 # Add project root to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
