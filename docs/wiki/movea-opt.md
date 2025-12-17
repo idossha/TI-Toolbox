@@ -4,7 +4,7 @@ title: MOVEA Optimization
 permalink: /wiki/movea-opt/
 ---
 
-**THis is an experimental feature and may not work as expected, still a work in progress**
+**This is an experimental feature and may not work as expected, still a work in progress**
 
 MOVEA (Multi-Objective Optimization via Evolutionary Algorithm) is an advanced optimization method for finding optimal electrode montages for Temporal Interference (TI) stimulation. This implementation is based on the original MOVEA algorithm developed by the Neural Control and Computation Lab at SUSTech.
 
