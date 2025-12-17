@@ -25,6 +25,8 @@ layout: home
 - **[loader.sh](https://github.com/idossha/TI-toolbox/blob/main/loader.sh)** - Main launch script
 - **[docker-compose.yml](https://github.com/idossha/TI-toolbox/blob/main/docker-compose.yml)** - Docker configuration
 
+or download the executable version of the latest release [here](https://github.com/idossha/TI-toolbox/releases/latest)
+
 ```bash
 # Run the script
 bash loader.sh
