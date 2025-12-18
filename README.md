@@ -12,7 +12,8 @@ Reference: https://www.biorxiv.org/content/10.1101/2025.10.06.680781v3
 
 ## Contact
 
-For inquiries regarding the TI-Toolbox, please contact:
+The TI-Toolbox goes through rapid development and we appreciate any feedback from our users.  
 
-- **Ido Haber**
-- Email: ihaber@wisc.edu
+Please contact us via our [GitHub Issues](https://github.com/idossha/TI-toolbox/issues), [GitHub Discussions](https://github.com/idossha/TI-toolbox/discussions), or [email](mailto:ihaber@wisc.edu).
+
+
