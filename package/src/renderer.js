@@ -71,6 +71,7 @@ async function checkXServer() {
     return true;
   }
 
+  // Always perform the check dynamically on Windows
   const result = await ipcRenderer.invoke('check-xserver');
 
   if (result.available) {
@@ -78,6 +79,7 @@ async function checkXServer() {
     return true;
   }
 
+  // Show warning if X server is not available
   xserverStatus.classList.remove('hidden');
   return false;
 }
@@ -382,3 +384,11 @@ ipcRenderer.on('launcher-log', (_event, payload) => {
   await checkDocker();
   await hydrateLogPath();
 })();
+
+// Re-check X server on Windows when window regains focus
+window.addEventListener('focus', async () => {
+  const platform = await ipcRenderer.invoke('get-platform');
+  if (platform === 'win32') {
+    await checkXServer();
+  }
+});

@@ -92,21 +92,37 @@ function convertWindowsPathToWSL(winPath) {
   // This conversion should happen regardless of the current platform since
   // the paths are passed to Docker containers running in WSL
 
-  // Check if it's already a WSL-style path or Unix path
-  if (winPath.startsWith('/') || winPath.startsWith('\\')) {
+  logger.info(`Converting path to WSL format: ${winPath}`);
+
+  // If already a WSL-style path (starts with /mnt/), return as-is
+  if (winPath.startsWith('/mnt/')) {
+    logger.info(`Path already in WSL format: ${winPath}`);
     return winPath;
   }
 
-  // Match Windows drive letter pattern (e.g., C:\, D:\, etc.)
-  const driveMatch = winPath.match(/^([A-Za-z]):\\(.*)$/);
+  // If it's a Unix-style path (starts with / but not /mnt/), return as-is
+  if (winPath.startsWith('/') && !winPath.startsWith('\\')) {
+    logger.info(`Path is Unix-style, returning as-is: ${winPath}`);
+    return winPath;
+  }
+
+  // Convert backslashes to forward slashes first for normalization
+  const normalizedPath = winPath.replace(/\\/g, '/');
+
+  // Match Windows drive letter pattern (e.g., C:/ or C:\, D:/, etc.)
+  const driveMatch = normalizedPath.match(/^([A-Za-z]):\/(.*)$/);
   if (!driveMatch) {
+    logger.warn(`Path does not match Windows drive pattern, returning as-is: ${winPath}`);
     return winPath; // Not a Windows drive path, return as-is
   }
 
   const driveLetter = driveMatch[1].toLowerCase();
-  const pathPart = driveMatch[2].replace(/\\/g, '/'); // Convert backslashes to forward slashes
+  const pathPart = driveMatch[2];
 
-  return `/mnt/${driveLetter}/${pathPart}`;
+  const wslPath = `/mnt/${driveLetter}/${pathPart}`;
+  logger.info(`Converted to WSL path: ${wslPath}`);
+
+  return wslPath;
 }
 
 function getTimezone() {
@@ -122,10 +138,18 @@ function buildRuntimeEnv(projectDir) {
   const absoluteProjectDir = path.resolve(projectDir);
   const projectDirName = path.basename(absoluteProjectDir);
 
-  // Convert Windows paths to WSL paths for Docker compatibility
-  const dockerProjectDir = convertWindowsPathToWSL(absoluteProjectDir);
+  logger.info(`Building runtime environment...`);
+  logger.info(`  Original project path: ${projectDir}`);
+  logger.info(`  Absolute project path: ${absoluteProjectDir}`);
+  logger.info(`  Project directory name: ${projectDirName}`);
 
-  logger.info(`Building runtime env for project: ${absoluteProjectDir} (Docker path: ${dockerProjectDir})`);
+  // Convert Windows paths to WSL paths for Docker compatibility
+  const dockerProjectDir = process.platform === 'win32'
+    ? convertWindowsPathToWSL(absoluteProjectDir)
+    : absoluteProjectDir;
+
+  logger.info(`  Docker-compatible path: ${dockerProjectDir}`);
+  logger.info(`  Platform: ${process.platform}`);
 
   const baseEnv = {
     ...process.env,
@@ -144,10 +168,11 @@ function buildRuntimeEnv(projectDir) {
     env
   };
 
-  logger.info(`Runtime env built successfully:`, {
-    hasEnv: !!result.env,
-    envKeys: result.env ? Object.keys(result.env).length : 0
-  });
+  logger.info(`Runtime environment built successfully`);
+  logger.info(`  Environment variables set: ${Object.keys(result.env).length}`);
+  logger.info(`  LOCAL_PROJECT_DIR=${result.env.LOCAL_PROJECT_DIR}`);
+  logger.info(`  PROJECT_DIR_NAME=${result.env.PROJECT_DIR_NAME}`);
+  logger.info(`  DISPLAY=${result.env.DISPLAY}`);
 
   return result;
 }
@@ -225,12 +250,15 @@ async function ensureDisplayAccess() {
     }
     await allowXHost(['+local:']);
   } else if (platform === 'win32') {
-    // Check if X server is running on Windows
+    // Always check if X server is running on Windows before launching
+    logger.info('Performing X server check on Windows...');
     const xServerStatus = await checkWindowsXServer();
     if (!xServerStatus.available) {
-      throw new Error(`X server issue: ${xServerStatus.error}`);
+      const errorMsg = xServerStatus.error || 'X server not detected';
+      logger.error(`X server check failed: ${errorMsg}`);
+      throw new Error(`X server is not running. Please start VcXsrv or another X server and try again. Details: ${errorMsg}`);
     }
-    logger.info(`Windows X server check passed: ${xServerStatus.server}`);
+    logger.info(`X server detected and running: ${xServerStatus.server || 'unknown'}`);
   }
 }
 
