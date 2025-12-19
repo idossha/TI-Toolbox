@@ -295,6 +295,11 @@ ipcMain.handle('start-toolbox', async (_event, projectDir) => {
 
     const initResult = await initializeProject(validatedDir);
     runtimeEnv = buildRuntimeEnv(validatedDir);
+    logger.info(`Runtime env set:`, { runtimeEnv: !!runtimeEnv, hasEnv: !!(runtimeEnv && runtimeEnv.env) });
+
+    if (!runtimeEnv || !runtimeEnv.env) {
+      throw new Error('Failed to build runtime environment for Windows');
+    }
 
     await ensureDisplayAccess();
     await dockerManager.prepareStack(runtimeEnv.env);

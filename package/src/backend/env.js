@@ -20,6 +20,11 @@ const DEFAULT_PATHS = [
 ];
 
 function ensurePathEnv(env = process.env) {
+  if (!env) {
+    logger.error('ensurePathEnv: env is null or undefined');
+    env = process.env || {};
+  }
+
   const separator = process.platform === 'win32' ? ';' : ':';
   const pathKeys = process.platform === 'win32' ? ['Path', 'PATH'] : ['PATH'];
   const currentValue = pathKeys.map(key => env[key]).find(Boolean) || '';
@@ -40,11 +45,14 @@ function ensurePathEnv(env = process.env) {
   });
 
   const updatedValue = segments.join(separator);
-  const nextEnv = { ...env, PATH: updatedValue };
+
+  // Create a new object to avoid mutating the original
+  const nextEnv = Object.assign({}, env);
+  nextEnv.PATH = updatedValue;
   if (process.platform === 'win32') {
     nextEnv.Path = updatedValue;
   }
-  
+
   logger.info(`Updated PATH: ${updatedValue}`);
   return nextEnv;
 }
@@ -92,18 +100,31 @@ function buildRuntimeEnv(projectDir) {
   const absoluteProjectDir = path.resolve(projectDir);
   const projectDirName = path.basename(absoluteProjectDir);
 
-  return {
+  logger.info(`Building runtime env for project: ${absoluteProjectDir}`);
+
+  const baseEnv = {
+    ...process.env,
+    LOCAL_PROJECT_DIR: absoluteProjectDir,
+    PROJECT_DIR_NAME: projectDirName,
+    DISPLAY: getDisplayEnv(),
+    TZ: getTimezone(),
+    COMPOSE_PROJECT_NAME: 'ti-toolbox'
+  };
+
+  const env = ensurePathEnv(baseEnv);
+
+  const result = {
     absoluteProjectDir,
     projectDirName,
-    env: ensurePathEnv({
-      ...process.env,
-      LOCAL_PROJECT_DIR: absoluteProjectDir,
-      PROJECT_DIR_NAME: projectDirName,
-      DISPLAY: getDisplayEnv(),
-      TZ: getTimezone(),
-      COMPOSE_PROJECT_NAME: 'ti-toolbox'
-    })
+    env
   };
+
+  logger.info(`Runtime env built successfully:`, {
+    hasEnv: !!result.env,
+    envKeys: result.env ? Object.keys(result.env).length : 0
+  });
+
+  return result;
 }
 
 async function ensureDisplayAccess() {
