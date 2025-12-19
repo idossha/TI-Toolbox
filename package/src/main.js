@@ -7,7 +7,8 @@ const {
   buildRuntimeEnv,
   ensureDisplayAccess,
   resetDisplayAccess,
-  patchProcessPathEnv
+  patchProcessPathEnv,
+  checkWindowsXServer
 } = require('./backend/env');
 const { validateProjectDirectory, initializeProject } = require('./backend/project-service');
 const DockerManager = require('./backend/docker-manager');
@@ -332,6 +333,20 @@ ipcMain.handle('stop-toolbox', async () => {
 });
 
 ipcMain.handle('get-platform', () => os.platform());
+
+ipcMain.handle('check-xserver', async () => {
+  if (os.platform() !== 'win32') {
+    return { available: true, message: 'X server check not needed on this platform' };
+  }
+
+  try {
+    const result = await checkWindowsXServer();
+    return result;
+  } catch (error) {
+    logger.error('X server check failed:', error);
+    return { available: false, error: error.message };
+  }
+});
 
 ipcMain.handle('get-log-path', () => {
   const logFile = logger?.transports?.file?.getFile?.();

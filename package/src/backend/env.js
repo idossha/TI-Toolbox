@@ -152,6 +152,58 @@ function buildRuntimeEnv(projectDir) {
   return result;
 }
 
+async function checkWindowsXServer() {
+  try {
+    const execa = await getExeca();
+    const env = ensurePathEnv(process.env);
+
+    // Check for common X servers on Windows
+    const xServerProcesses = [
+      'vcxsrv', 'VcXsrv', 'XWin', 'xwin', 'Xming', 'xming'
+    ];
+
+    for (const processName of xServerProcesses) {
+      try {
+        // Use tasklist on Windows to check for running processes
+        const { stdout } = await execa('tasklist', ['/FI', `IMAGENAME eq ${processName}.exe`, '/NH'], {
+          env,
+          reject: false,
+          timeout: 5000
+        });
+
+        if (stdout && stdout.includes(`${processName}.exe`)) {
+          logger.info(`Found running X server: ${processName}`);
+          return { available: true, server: processName };
+        }
+      } catch (error) {
+        // Continue checking other processes
+        logger.debug(`Failed to check for ${processName}:`, error.message);
+      }
+    }
+
+    // Try to check if we can connect to the display
+    try {
+      const { stdout } = await execa('powershell', [
+        '-Command',
+        'try { $client = New-Object System.Net.Sockets.TcpClient; $client.Connect("localhost", 6000); $client.Close(); "success" } catch { "failed" }'
+      ], { env, reject: false, timeout: 3000 });
+
+      if (stdout && stdout.trim() === 'success') {
+        logger.info('X server connection test successful');
+        return { available: true, server: 'unknown' };
+      }
+    } catch (error) {
+      logger.debug('X server connection test failed:', error.message);
+    }
+
+    logger.warn('No X server detected on Windows');
+    return { available: false, error: 'No X server (VcXsrv, Xming, etc.) appears to be running' };
+  } catch (error) {
+    logger.error('Failed to check Windows X server:', error);
+    return { available: false, error: `Failed to check X server: ${error.message}` };
+  }
+}
+
 async function ensureDisplayAccess() {
   const platform = os.platform();
 
@@ -160,18 +212,25 @@ async function ensureDisplayAccess() {
     if (!process.env.DISPLAY) {
       await detectMacOSDisplay();
     }
-    
+
     await ensureXQuartz();
-    
+
     // Allow X11 connections - use simpler approach with timeout
     // Docker containers will use host.docker.internal:0 so we just need to allow network connections
     await allowXHost(['+']);
-    
+
   } else if (platform === 'linux') {
     if (!process.env.DISPLAY) {
       process.env.DISPLAY = ':0';
     }
     await allowXHost(['+local:']);
+  } else if (platform === 'win32') {
+    // Check if X server is running on Windows
+    const xServerStatus = await checkWindowsXServer();
+    if (!xServerStatus.available) {
+      throw new Error(`X server issue: ${xServerStatus.error}`);
+    }
+    logger.info(`Windows X server check passed: ${xServerStatus.server}`);
   }
 }
 
@@ -277,6 +336,7 @@ module.exports = {
   resetDisplayAccess,
   ensurePathEnv,
   patchProcessPathEnv,
-  convertWindowsPathToWSL
+  convertWindowsPathToWSL,
+  checkWindowsXServer
 };
 

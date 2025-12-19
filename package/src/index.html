@@ -38,6 +38,22 @@
       </div>
 
 
+      <!-- X Server Status (Windows only) -->
+      <div id="xserver-status" class="warning hidden">
+        <div class="warning-icon">⚠️</div>
+        <div class="warning-content">
+          <strong>X Server Required:</strong>
+          <p id="xserver-status-text">
+            TI-Toolbox requires an X server to display the graphical interface on Windows.
+            Please ensure VcXsrv or another X server is running and configured correctly.
+          </p>
+          <div class="warning-actions">
+            <button id="check-xserver-btn" class="btn btn-small">Check Again</button>
+            <a href="https://sourceforge.net/projects/vcxsrv/" target="_blank" class="btn btn-link btn-small">Download VcXsrv</a>
+          </div>
+        </div>
+      </div>
+
       <!-- Docker Status -->
       <div id="docker-status" class="info hidden">
         <strong>Docker Status:</strong> <span id="docker-status-text">Checking...</span>
