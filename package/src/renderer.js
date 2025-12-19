@@ -10,8 +10,6 @@ const statusMessage = document.getElementById('status-message');
 const dockerStatus = document.getElementById('docker-status');
 const dockerStatusText = document.getElementById('docker-status-text');
 const xserverStatus = document.getElementById('xserver-status');
-const xserverStatusText = document.getElementById('xserver-status-text');
-const checkXserverBtn = document.getElementById('check-xserver-btn');
 const progressInfo = document.getElementById('progress-info');
 const progressText = document.getElementById('progress-text');
 const stopBtn = document.getElementById('stop-btn');
@@ -73,9 +71,6 @@ async function checkXServer() {
     return true;
   }
 
-  xserverStatus.classList.remove('hidden');
-  xserverStatusText.textContent = 'Checking for X server...';
-
   const result = await ipcRenderer.invoke('check-xserver');
 
   if (result.available) {
@@ -83,8 +78,7 @@ async function checkXServer() {
     return true;
   }
 
-  xserverStatusText.textContent = result.error || 'X server not detected. Please ensure VcXsrv or another X server is running.';
-  showStatus('X server issue detected. TI-Toolbox requires an X server to display the graphical interface.', 'warning');
+  xserverStatus.classList.remove('hidden');
   return false;
 }
 
@@ -283,6 +277,13 @@ launchBtn.addEventListener('click', async () => {
     return;
   }
 
+  // Check X server on Windows before proceeding
+  const xserverOk = await checkXServer();
+  if (!xserverOk) {
+    showStatus('X server not detected. Please ensure VcXsrv or another X server is running on Windows.', 'error');
+    return;
+  }
+
   const dockerOk = await checkDocker();
   if (!dockerOk) {
     return;
@@ -335,14 +336,6 @@ openLogsBtn.addEventListener('click', async () => {
 
 clearActivityBtn.addEventListener('click', () => {
   activityList.innerHTML = '';
-});
-
-checkXserverBtn.addEventListener('click', async () => {
-  checkXserverBtn.disabled = true;
-  checkXserverBtn.textContent = 'Checking...';
-  await checkXServer();
-  checkXserverBtn.disabled = false;
-  checkXserverBtn.textContent = 'Check Again';
 });
 
 ipcRenderer.on('launcher-progress', (_event, payload) => {

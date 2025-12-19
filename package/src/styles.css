@@ -199,59 +199,6 @@ input[type="text"]:focus {
   font-size: 13px;
 }
 
-.warning {
-  background: #fff3cd;
-  color: #856404;
-  border: 1px solid #ffeaa7;
-  padding: 15px;
-  border-radius: 6px;
-  margin-bottom: 20px;
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-}
-
-.warning-icon {
-  font-size: 20px;
-  flex-shrink: 0;
-  margin-top: 2px;
-}
-
-.warning-content {
-  flex: 1;
-}
-
-.warning-content p {
-  margin: 8px 0;
-  font-size: 14px;
-  line-height: 1.5;
-}
-
-.warning-actions {
-  display: flex;
-  gap: 10px;
-  margin-top: 12px;
-}
-
-.btn-small {
-  padding: 6px 12px;
-  font-size: 12px;
-  border-radius: 4px;
-}
-
-.btn-link {
-  background: none;
-  border: none;
-  color: #007bff;
-  text-decoration: underline;
-  cursor: pointer;
-  padding: 0;
-}
-
-.btn-link:hover {
-  color: #0056b3;
-}
-
 .progress-info {
   background: #f8f9fa;
   padding: 15px;
