@@ -9,6 +9,7 @@ const launchSpinner = document.getElementById('launch-spinner');
 const statusMessage = document.getElementById('status-message');
 const dockerStatus = document.getElementById('docker-status');
 const dockerStatusText = document.getElementById('docker-status-text');
+const xserverStatus = document.getElementById('xserver-status');
 const progressInfo = document.getElementById('progress-info');
 const progressText = document.getElementById('progress-text');
 const stopBtn = document.getElementById('stop-btn');
@@ -61,6 +62,27 @@ function setLaunchingState(launching) {
   refreshLaunchButton();
 }
 
+
+async function checkXServer() {
+  const platform = await ipcRenderer.invoke('get-platform');
+
+  if (platform !== 'win32') {
+    xserverStatus.classList.add('hidden');
+    return true;
+  }
+
+  // Always perform the check dynamically on Windows
+  const result = await ipcRenderer.invoke('check-xserver');
+
+  if (result.available) {
+    xserverStatus.classList.add('hidden');
+    return true;
+  }
+
+  // Show warning if X server is not available
+  xserverStatus.classList.remove('hidden');
+  return false;
+}
 
 async function checkDocker() {
   dockerStatus.classList.remove('hidden');
@@ -257,6 +279,13 @@ launchBtn.addEventListener('click', async () => {
     return;
   }
 
+  // Check X server on Windows before proceeding
+  const xserverOk = await checkXServer();
+  if (!xserverOk) {
+    showStatus('X server not detected. Please ensure VcXsrv or another X server is running on Windows.', 'error');
+    return;
+  }
+
   const dockerOk = await checkDocker();
   if (!dockerOk) {
     return;
@@ -351,6 +380,15 @@ ipcRenderer.on('launcher-log', (_event, payload) => {
 
 (async () => {
   await loadSavedPath();
+  await checkXServer();
   await checkDocker();
   await hydrateLogPath();
 })();
+
+// Re-check X server on Windows when window regains focus
+window.addEventListener('focus', async () => {
+  const platform = await ipcRenderer.invoke('get-platform');
+  if (platform === 'win32') {
+    await checkXServer();
+  }
+});

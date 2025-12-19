@@ -20,6 +20,11 @@ const DEFAULT_PATHS = [
 ];
 
 function ensurePathEnv(env = process.env) {
+  if (!env) {
+    logger.error('ensurePathEnv: env is null or undefined');
+    env = process.env || {};
+  }
+
   const separator = process.platform === 'win32' ? ';' : ':';
   const pathKeys = process.platform === 'win32' ? ['Path', 'PATH'] : ['PATH'];
   const currentValue = pathKeys.map(key => env[key]).find(Boolean) || '';
@@ -40,11 +45,14 @@ function ensurePathEnv(env = process.env) {
   });
 
   const updatedValue = segments.join(separator);
-  const nextEnv = { ...env, PATH: updatedValue };
+
+  // Create a new object to avoid mutating the original
+  const nextEnv = Object.assign({}, env);
+  nextEnv.PATH = updatedValue;
   if (process.platform === 'win32') {
     nextEnv.Path = updatedValue;
   }
-  
+
   logger.info(`Updated PATH: ${updatedValue}`);
   return nextEnv;
 }
@@ -79,6 +87,47 @@ function getDisplayEnv() {
   }
 }
 
+function convertWindowsPathToDockerFormat(winPath) {
+  // Convert Windows paths to Docker Desktop format
+  // Docker Desktop on Windows supports: C:/Users/name/project (preferred)
+  // This is more reliable than WSL2 format /mnt/c/path
+  // Reference: launcher/executable/src/ti_csc_launcher.py lines 900-912
+
+  if (!winPath) {
+    logger.error('convertWindowsPathToDockerFormat: received null/undefined path');
+    return winPath;
+  }
+
+  logger.info(`[Path Conversion] Input: ${winPath}`);
+
+  // If it's a Unix-style path (starts with / but not backslash), return as-is
+  if (winPath.startsWith('/') && !winPath.includes('\\')) {
+    logger.info(`[Path Conversion] Unix-style path, returning as-is: ${winPath}`);
+    return winPath;
+  }
+
+  // Normalize: convert all backslashes to forward slashes
+  // C:\Users\name\project -> C:/Users/name/project
+  let normalizedPath = winPath.replace(/\\/g, '/');
+  logger.info(`[Path Conversion] After normalization: ${normalizedPath}`);
+
+  // Match Windows drive letter pattern: C:/ or C:
+  const driveMatch = normalizedPath.match(/^([A-Za-z]):(.*)$/);
+
+  if (!driveMatch) {
+    logger.warn(`[Path Conversion] Does not match Windows drive pattern: ${winPath}`);
+    logger.warn(`[Path Conversion] Returning normalized path`);
+    return normalizedPath;
+  }
+
+  // Docker Desktop on Windows supports C:/path format directly
+  const dockerPath = normalizedPath;
+
+  logger.info(`[Path Conversion] Final Docker path: ${dockerPath}`);
+
+  return dockerPath;
+}
+
 function getTimezone() {
   try {
     return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
@@ -92,18 +141,107 @@ function buildRuntimeEnv(projectDir) {
   const absoluteProjectDir = path.resolve(projectDir);
   const projectDirName = path.basename(absoluteProjectDir);
 
-  return {
+  logger.info('═══════════════════════════════════════════════════════');
+  logger.info('Building Runtime Environment for Docker');
+  logger.info('═══════════════════════════════════════════════════════');
+  logger.info(`Platform: ${process.platform}`);
+  logger.info(`Node.js Path Module: ${path.sep === '\\' ? 'Windows' : 'POSIX'}`);
+  logger.info(`Original input path: ${projectDir}`);
+  logger.info(`Absolute project path: ${absoluteProjectDir}`);
+  logger.info(`Project directory name: ${projectDirName}`);
+
+  // Convert Windows paths to Docker Desktop format for compatibility
+  let dockerProjectDir;
+  if (process.platform === 'win32') {
+    logger.info('Windows detected - converting path for Docker Desktop...');
+    dockerProjectDir = convertWindowsPathToDockerFormat(absoluteProjectDir);
+  } else {
+    logger.info('Non-Windows platform - using path as-is');
+    dockerProjectDir = absoluteProjectDir;
+  }
+
+  logger.info(`Docker mount path (LOCAL_PROJECT_DIR): ${dockerProjectDir}`);
+  logger.info(`Container path will be: /mnt/${projectDirName}`);
+
+  const baseEnv = {
+    ...process.env,
+    LOCAL_PROJECT_DIR: dockerProjectDir,
+    PROJECT_DIR_NAME: projectDirName,
+    DISPLAY: getDisplayEnv(),
+    TZ: getTimezone(),
+    COMPOSE_PROJECT_NAME: 'ti-toolbox'
+  };
+
+  const env = ensurePathEnv(baseEnv);
+
+  const result = {
     absoluteProjectDir,
     projectDirName,
-    env: ensurePathEnv({
-      ...process.env,
-      LOCAL_PROJECT_DIR: absoluteProjectDir,
-      PROJECT_DIR_NAME: projectDirName,
-      DISPLAY: getDisplayEnv(),
-      TZ: getTimezone(),
-      COMPOSE_PROJECT_NAME: 'ti-toolbox'
-    })
+    env
   };
+
+  logger.info('───────────────────────────────────────────────────────');
+  logger.info('Environment Variables Summary:');
+  logger.info(`  LOCAL_PROJECT_DIR = ${result.env.LOCAL_PROJECT_DIR}`);
+  logger.info(`  PROJECT_DIR_NAME = ${result.env.PROJECT_DIR_NAME}`);
+  logger.info(`  DISPLAY = ${result.env.DISPLAY}`);
+  logger.info(`  TZ = ${result.env.TZ}`);
+  logger.info(`  Docker volume mount: ${result.env.LOCAL_PROJECT_DIR}:/mnt/${result.env.PROJECT_DIR_NAME}`);
+  logger.info('═══════════════════════════════════════════════════════');
+
+  return result;
+}
+
+async function checkWindowsXServer() {
+  try {
+    const execa = await getExeca();
+    const env = ensurePathEnv(process.env);
+
+    // Check for common X servers on Windows
+    const xServerProcesses = [
+      'vcxsrv', 'VcXsrv', 'XWin', 'xwin', 'Xming', 'xming'
+    ];
+
+    for (const processName of xServerProcesses) {
+      try {
+        // Use tasklist on Windows to check for running processes
+        const { stdout } = await execa('tasklist', ['/FI', `IMAGENAME eq ${processName}.exe`, '/NH'], {
+          env,
+          reject: false,
+          timeout: 5000
+        });
+
+        if (stdout && stdout.includes(`${processName}.exe`)) {
+          logger.info(`Found running X server: ${processName}`);
+          return { available: true, server: processName };
+        }
+      } catch (error) {
+        // Continue checking other processes
+        logger.debug(`Failed to check for ${processName}:`, error.message);
+      }
+    }
+
+    // Try to check if we can connect to the display
+    try {
+      const { stdout } = await execa('powershell', [
+        '-Command',
+        'try { $client = New-Object System.Net.Sockets.TcpClient; $client.Connect("localhost", 6000); $client.Close(); "success" } catch { "failed" }'
+      ], { env, reject: false, timeout: 3000 });
+
+      if (stdout && stdout.trim() === 'success') {
+        logger.info('X server connection test successful');
+        return { available: true, server: 'unknown' };
+      }
+    } catch (error) {
+      logger.debug('X server connection test failed:', error.message);
+    }
+
+    logger.warn('No X server detected on Windows');
+    return { available: false, error: 'No X server (VcXsrv, Xming, etc.) appears to be running' };
+  } catch (error) {
+    logger.error('Failed to check Windows X server:', error);
+    return { available: false, error: `Failed to check X server: ${error.message}` };
+  }
 }
 
 async function ensureDisplayAccess() {
@@ -114,18 +252,28 @@ async function ensureDisplayAccess() {
     if (!process.env.DISPLAY) {
       await detectMacOSDisplay();
     }
-    
+
     await ensureXQuartz();
-    
+
     // Allow X11 connections - use simpler approach with timeout
     // Docker containers will use host.docker.internal:0 so we just need to allow network connections
     await allowXHost(['+']);
-    
+
   } else if (platform === 'linux') {
     if (!process.env.DISPLAY) {
       process.env.DISPLAY = ':0';
     }
     await allowXHost(['+local:']);
+  } else if (platform === 'win32') {
+    // Always check if X server is running on Windows before launching
+    logger.info('Performing X server check on Windows...');
+    const xServerStatus = await checkWindowsXServer();
+    if (!xServerStatus.available) {
+      const errorMsg = xServerStatus.error || 'X server not detected';
+      logger.error(`X server check failed: ${errorMsg}`);
+      throw new Error(`X server is not running. Please start VcXsrv or another X server and try again. Details: ${errorMsg}`);
+    }
+    logger.info(`X server detected and running: ${xServerStatus.server || 'unknown'}`);
   }
 }
 
@@ -230,6 +378,8 @@ module.exports = {
   ensureDisplayAccess,
   resetDisplayAccess,
   ensurePathEnv,
-  patchProcessPathEnv
+  patchProcessPathEnv,
+  convertWindowsPathToDockerFormat,
+  checkWindowsXServer
 };
 

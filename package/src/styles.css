@@ -178,6 +178,12 @@ input[type="text"]:focus {
   border: 1px solid #bee5eb;
 }
 
+.status-message.warning {
+  background: #fff3cd;
+  color: #856404;
+  border: 1px solid #ffeaa7;
+}
+
 .hidden {
   display: none !important;
 }
