@@ -87,6 +87,28 @@ function getDisplayEnv() {
   }
 }
 
+function convertWindowsPathToWSL(winPath) {
+  // Convert Windows paths like C:\path\to\dir to /mnt/c/path/to/dir for WSL
+  // This conversion should happen regardless of the current platform since
+  // the paths are passed to Docker containers running in WSL
+
+  // Check if it's already a WSL-style path or Unix path
+  if (winPath.startsWith('/') || winPath.startsWith('\\')) {
+    return winPath;
+  }
+
+  // Match Windows drive letter pattern (e.g., C:\, D:\, etc.)
+  const driveMatch = winPath.match(/^([A-Za-z]):\\(.*)$/);
+  if (!driveMatch) {
+    return winPath; // Not a Windows drive path, return as-is
+  }
+
+  const driveLetter = driveMatch[1].toLowerCase();
+  const pathPart = driveMatch[2].replace(/\\/g, '/'); // Convert backslashes to forward slashes
+
+  return `/mnt/${driveLetter}/${pathPart}`;
+}
+
 function getTimezone() {
   try {
     return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
@@ -100,11 +122,14 @@ function buildRuntimeEnv(projectDir) {
   const absoluteProjectDir = path.resolve(projectDir);
   const projectDirName = path.basename(absoluteProjectDir);
 
-  logger.info(`Building runtime env for project: ${absoluteProjectDir}`);
+  // Convert Windows paths to WSL paths for Docker compatibility
+  const dockerProjectDir = convertWindowsPathToWSL(absoluteProjectDir);
+
+  logger.info(`Building runtime env for project: ${absoluteProjectDir} (Docker path: ${dockerProjectDir})`);
 
   const baseEnv = {
     ...process.env,
-    LOCAL_PROJECT_DIR: absoluteProjectDir,
+    LOCAL_PROJECT_DIR: dockerProjectDir,
     PROJECT_DIR_NAME: projectDirName,
     DISPLAY: getDisplayEnv(),
     TZ: getTimezone(),
@@ -251,6 +276,7 @@ module.exports = {
   ensureDisplayAccess,
   resetDisplayAccess,
   ensurePathEnv,
-  patchProcessPathEnv
+  patchProcessPathEnv,
+  convertWindowsPathToWSL
 };
 
