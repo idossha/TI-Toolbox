@@ -88,39 +88,56 @@ function getDisplayEnv() {
 }
 
 function convertWindowsPathToWSL(winPath) {
-  // Convert Windows paths like C:\path\to\dir to /mnt/c/path/to/dir for WSL
-  // This conversion should happen regardless of the current platform since
-  // the paths are passed to Docker containers running in WSL
+  // Convert Windows paths like C:\path\to\dir to /mnt/c/path/to/dir for Docker/WSL2
+  // This is critical for Windows users where Docker runs in WSL2
 
-  logger.info(`Converting path to WSL format: ${winPath}`);
+  if (!winPath) {
+    logger.error('convertWindowsPathToWSL: received null/undefined path');
+    return winPath;
+  }
+
+  logger.info(`[Path Conversion] Input: ${winPath}`);
 
   // If already a WSL-style path (starts with /mnt/), return as-is
   if (winPath.startsWith('/mnt/')) {
-    logger.info(`Path already in WSL format: ${winPath}`);
+    logger.info(`[Path Conversion] Already WSL format: ${winPath}`);
     return winPath;
   }
 
-  // If it's a Unix-style path (starts with / but not /mnt/), return as-is
-  if (winPath.startsWith('/') && !winPath.startsWith('\\')) {
-    logger.info(`Path is Unix-style, returning as-is: ${winPath}`);
+  // If it's a Unix-style path (starts with / but not backslash), return as-is
+  if (winPath.startsWith('/') && !winPath.includes('\\')) {
+    logger.info(`[Path Conversion] Unix-style path, returning as-is: ${winPath}`);
     return winPath;
   }
 
-  // Convert backslashes to forward slashes first for normalization
-  const normalizedPath = winPath.replace(/\\/g, '/');
+  // Normalize: convert all backslashes to forward slashes
+  let normalizedPath = winPath.replace(/\\/g, '/');
+  logger.info(`[Path Conversion] After normalization: ${normalizedPath}`);
 
-  // Match Windows drive letter pattern (e.g., C:/ or C:\, D:/, etc.)
-  const driveMatch = normalizedPath.match(/^([A-Za-z]):\/(.*)$/);
+  // Match Windows drive letter pattern: C:/ or C:
+  // Patterns to match: C:/path, C:\path (after normalization), c:/path, etc.
+  const driveMatch = normalizedPath.match(/^([A-Za-z]):(.*)$/);
+
   if (!driveMatch) {
-    logger.warn(`Path does not match Windows drive pattern, returning as-is: ${winPath}`);
-    return winPath; // Not a Windows drive path, return as-is
+    logger.warn(`[Path Conversion] Does not match Windows drive pattern: ${winPath}`);
+    logger.warn(`[Path Conversion] Returning original path`);
+    return winPath;
   }
 
   const driveLetter = driveMatch[1].toLowerCase();
-  const pathPart = driveMatch[2];
+  let pathPart = driveMatch[2];
 
+  // Remove leading slash if present (C:/path -> path)
+  if (pathPart.startsWith('/')) {
+    pathPart = pathPart.substring(1);
+  }
+
+  // Construct WSL2 path: /mnt/c/path
   const wslPath = `/mnt/${driveLetter}/${pathPart}`;
-  logger.info(`Converted to WSL path: ${wslPath}`);
+
+  logger.info(`[Path Conversion] Drive letter: ${driveLetter}`);
+  logger.info(`[Path Conversion] Path part: ${pathPart}`);
+  logger.info(`[Path Conversion] Final WSL path: ${wslPath}`);
 
   return wslPath;
 }
@@ -138,18 +155,27 @@ function buildRuntimeEnv(projectDir) {
   const absoluteProjectDir = path.resolve(projectDir);
   const projectDirName = path.basename(absoluteProjectDir);
 
-  logger.info(`Building runtime environment...`);
-  logger.info(`  Original project path: ${projectDir}`);
-  logger.info(`  Absolute project path: ${absoluteProjectDir}`);
-  logger.info(`  Project directory name: ${projectDirName}`);
+  logger.info('═══════════════════════════════════════════════════════');
+  logger.info('Building Runtime Environment for Docker');
+  logger.info('═══════════════════════════════════════════════════════');
+  logger.info(`Platform: ${process.platform}`);
+  logger.info(`Node.js Path Module: ${path.sep === '\\' ? 'Windows' : 'POSIX'}`);
+  logger.info(`Original input path: ${projectDir}`);
+  logger.info(`Absolute project path: ${absoluteProjectDir}`);
+  logger.info(`Project directory name: ${projectDirName}`);
 
   // Convert Windows paths to WSL paths for Docker compatibility
-  const dockerProjectDir = process.platform === 'win32'
-    ? convertWindowsPathToWSL(absoluteProjectDir)
-    : absoluteProjectDir;
+  let dockerProjectDir;
+  if (process.platform === 'win32') {
+    logger.info('Windows detected - converting path for WSL2/Docker...');
+    dockerProjectDir = convertWindowsPathToWSL(absoluteProjectDir);
+  } else {
+    logger.info('Non-Windows platform - using path as-is');
+    dockerProjectDir = absoluteProjectDir;
+  }
 
-  logger.info(`  Docker-compatible path: ${dockerProjectDir}`);
-  logger.info(`  Platform: ${process.platform}`);
+  logger.info(`Docker mount path (LOCAL_PROJECT_DIR): ${dockerProjectDir}`);
+  logger.info(`Container path will be: /mnt/${projectDirName}`);
 
   const baseEnv = {
     ...process.env,
@@ -168,11 +194,14 @@ function buildRuntimeEnv(projectDir) {
     env
   };
 
-  logger.info(`Runtime environment built successfully`);
-  logger.info(`  Environment variables set: ${Object.keys(result.env).length}`);
-  logger.info(`  LOCAL_PROJECT_DIR=${result.env.LOCAL_PROJECT_DIR}`);
-  logger.info(`  PROJECT_DIR_NAME=${result.env.PROJECT_DIR_NAME}`);
-  logger.info(`  DISPLAY=${result.env.DISPLAY}`);
+  logger.info('───────────────────────────────────────────────────────');
+  logger.info('Environment Variables Summary:');
+  logger.info(`  LOCAL_PROJECT_DIR = ${result.env.LOCAL_PROJECT_DIR}`);
+  logger.info(`  PROJECT_DIR_NAME = ${result.env.PROJECT_DIR_NAME}`);
+  logger.info(`  DISPLAY = ${result.env.DISPLAY}`);
+  logger.info(`  TZ = ${result.env.TZ}`);
+  logger.info(`  Docker volume mount: ${result.env.LOCAL_PROJECT_DIR}:/mnt/${result.env.PROJECT_DIR_NAME}`);
+  logger.info('═══════════════════════════════════════════════════════');
 
   return result;
 }
