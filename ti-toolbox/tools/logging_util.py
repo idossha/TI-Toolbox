@@ -148,15 +148,16 @@ def _copy_handler(handler: logging.Handler) -> logging.Handler:
 # ----------------------------------------------------------------------------
 def get_logger(name: str,
                log_file: Optional[str] = None,
-               overwrite: bool = True) -> logging.Logger:
+               overwrite: bool = True,
+               console: bool = True) -> logging.Logger:
     """
-    Create or retrieve a named logger configured with a console handler and
-    an optional file handler.
+    Create or retrieve a named logger configured with optional console and file handlers.
 
     Args:
         name:      the logger's name/name-space
         log_file:  path to a file to log into; if None, no file handler is added
         overwrite: if True, open the file in 'w' mode; otherwise append
+        console:   if True, add a console handler; if False, log only to file
 
     Returns:
         A logging.Logger instance, with propagation disabled.
@@ -169,13 +170,14 @@ def get_logger(name: str,
     # clean out any existing handlers
     _cleanup_handlers(logger)
 
-    # console handler
-    console_handler = FlushingStreamHandler(sys.stdout)
-    console_handler.setLevel(CONSOLE_LOG_LEVEL)
-    console_handler.setFormatter(logging.Formatter(CONSOLE_FORMAT))
-    # Force immediate flushing for real-time GUI updates
-    console_handler.stream.reconfigure(line_buffering=True) if hasattr(console_handler.stream, 'reconfigure') else None
-    logger.addHandler(console_handler)
+    # console handler (optional)
+    if console:
+        console_handler = FlushingStreamHandler(sys.stdout)
+        console_handler.setLevel(CONSOLE_LOG_LEVEL)
+        console_handler.setFormatter(logging.Formatter(CONSOLE_FORMAT))
+        # Force immediate flushing for real-time GUI updates
+        console_handler.stream.reconfigure(line_buffering=True) if hasattr(console_handler.stream, 'reconfigure') else None
+        logger.addHandler(console_handler)
 
     # optional file handler
     if log_file:
