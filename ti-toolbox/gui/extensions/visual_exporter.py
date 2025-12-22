@@ -1021,8 +1021,8 @@ class VisualExporterWidget(QtWidgets.QWidget):
                 blender_available = any(shutil.which(cmd) for cmd in ["blender", "simnibs_blender"])
                 if not blender_available:
                     raise ValueError(
-                        "Blender not found. Electrode placement requires Blender.\n"
-                        "Install with: apt-get install -y blender"
+                        "Blender is not installed by default. Electrode placement feature requires Blender.\n"
+                        "Install Blender by running: bash ti-toolbox/3d_exporter/install_blender_docker.sh\n"
                     )
                 
                 net_name = self.electrode_net_combo.currentText().strip()
