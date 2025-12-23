@@ -224,39 +224,29 @@ class VisualExporterWidget(QtWidgets.QWidget):
         # Regions selector
         regions_box = QtWidgets.QGroupBox("Cortical regions")
         rb_layout = QtWidgets.QVBoxLayout(regions_box)
+
         btns = QtWidgets.QHBoxLayout()
         self.btn_regions_sel_all = QtWidgets.QPushButton("Select all")
         self.btn_regions_clear = QtWidgets.QPushButton("Clear")
         btns.addWidget(self.btn_regions_sel_all)
         btns.addWidget(self.btn_regions_clear)
-        btns.addStretch()
+        # Search input
+        btns.addWidget(QtWidgets.QLabel("Search:"))
+        self.cort_regions_search = QtWidgets.QLineEdit()
+        self.cort_regions_search.setPlaceholderText("Filter regions...")
+        self.cort_regions_search.textChanged.connect(self._filter_regions)
+        btns.addWidget(self.cort_regions_search)
         rb_layout.addLayout(btns)
         self.cort_regions_list = QtWidgets.QListWidget()
         self.cort_regions_list.setSelectionMode(QtWidgets.QAbstractItemView.MultiSelection)
+        # Increase height of the regions list
+        self.cort_regions_list.setMinimumHeight(200)
         rb_layout.addWidget(self.cort_regions_list)
-        self.cort_whole_gm = QtWidgets.QCheckBox("Include Whole GM")
-        self.cort_whole_gm.setChecked(True)
-        rb_layout.addWidget(self.cort_whole_gm)
         gl.addWidget(regions_box, r, 0, 1, 4)
-        r += 1
-        # Output format
-        fmt_box = QtWidgets.QGroupBox("Output formats")
-        fmt_layout = QtWidgets.QHBoxLayout(fmt_box)
-        self.cort_fmt_stl = QtWidgets.QCheckBox("STL")
-        self.cort_fmt_ply = QtWidgets.QCheckBox("PLY")
-        # Default to both formats enabled
-        self.cort_fmt_stl.setChecked(True)
-        self.cort_fmt_ply.setChecked(True)
-        fmt_layout.addWidget(self.cort_fmt_stl)
-        fmt_layout.addWidget(self.cort_fmt_ply)
-        gl.addWidget(fmt_box, r, 0, 1, 4)
         r += 1
         # Wire buttons
         self.btn_regions_sel_all.clicked.connect(lambda: self._regions_select_all(True))
         self.btn_regions_clear.clicked.connect(lambda: self._regions_select_all(False))
-        # Keep meshes option (applies if supported by backend)
-        self.stl_keep_meshes = QtWidgets.QCheckBox("Keep ROI meshes (.msh)")
-        gl.addWidget(self.stl_keep_meshes, r, 0)
         self.stack.addWidget(w)
 
     def _build_ply_panel(self):
@@ -489,6 +479,12 @@ class VisualExporterWidget(QtWidgets.QWidget):
         gl.addWidget(self.subcort_clean, r, 0, 1, 2)
         r += 1
 
+        # Label lookup table button
+        self.subcort_lut_button = QtWidgets.QPushButton("Show Label Lookup Table")
+        self.subcort_lut_button.clicked.connect(self._show_lut_table)
+        gl.addWidget(self.subcort_lut_button, r, 0, 1, 2)
+        r += 1
+
         # Note: Always exports both STL and MSH formats
 
         self.stack.addWidget(w)
@@ -551,6 +547,20 @@ class VisualExporterWidget(QtWidgets.QWidget):
         except Exception:
             pass
 
+    def _filter_regions(self, text: str):
+        # Filter regions list based on search text
+        try:
+            if not hasattr(self, '_all_regions'):
+                return
+            self.cort_regions_list.clear()
+            filter_text = text.lower().strip()
+            for name in self._all_regions:
+                if not filter_text or filter_text in name.lower():
+                    item = QtWidgets.QListWidgetItem(name)
+                    self.cort_regions_list.addItem(item)
+        except Exception:
+            pass
+
     def _refresh_regions(self):
         # Load region names for current atlas and subject m2m
         try:
@@ -572,6 +582,8 @@ class VisualExporterWidget(QtWidgets.QWidget):
             if not atlas_map:
                 return
             names = sorted(list(atlas_map.keys()))
+            # Store all regions for filtering
+            self._all_regions = names
             # Populate list
             self.cort_regions_list.clear()
             for name in names:
@@ -616,6 +628,117 @@ class VisualExporterWidget(QtWidgets.QWidget):
         path, _ = QtWidgets.QFileDialog.getOpenFileName(self, "Select NIfTI file", init_dir, "NIfTI Files (*.nii *.nii.gz)")
         if path:
             self.subcort_nifti_edit.setText(path)
+
+    def _show_lut_table(self):
+        """Show a popup dialog with the labeling lookup table."""
+        # Close any existing LUT dialog
+        if hasattr(self, '_lut_dialog') and self._lut_dialog:
+            self._lut_dialog.close()
+
+        subject_id = self.subject_combo.currentText().strip()
+        if not subject_id:
+            QtWidgets.QMessageBox.warning(self, "No Subject Selected",
+                                        "Please select a subject first.")
+            return
+
+        # Find the labeling_LUT.txt file
+        lut_path = None
+        if self.pm:
+            m2m_dir = self.pm.get_m2m_dir(subject_id)
+            if m2m_dir:
+                potential_path = Path(m2m_dir) / "segmentation" / "labeling_LUT.txt"
+                if potential_path.exists():
+                    lut_path = potential_path
+
+        if not lut_path:
+            QtWidgets.QMessageBox.warning(self, "LUT File Not Found",
+                                        f"Could not find labeling_LUT.txt for subject {subject_id}.\n"
+                                        f"Expected location: {potential_path if 'potential_path' in locals() else 'm2m/segmentation/labeling_LUT.txt'}")
+            return
+
+        # Load and parse the LUT file
+        label_data = []
+        try:
+            with open(lut_path, 'r', encoding='utf-8', errors='ignore') as f:
+                for line_num, line in enumerate(f, 1):
+                    line = line.strip()
+                    if line and not line.startswith('#'):
+                        parts = line.split('\t')
+                        if len(parts) >= 2:
+                            try:
+                                label_id = int(parts[0].strip())
+                                label_name = parts[1].strip()
+                                # Clean up the label name - extract only the name part before any numbers
+                                import re
+                                # Split on whitespace and take only the non-numeric parts at the beginning
+                                name_parts = re.split(r'\s+', label_name)
+                                clean_parts = []
+                                for part in name_parts:
+                                    # Stop when we hit a number
+                                    if re.match(r'^\d+$', part):
+                                        break
+                                    clean_parts.append(part)
+                                label_name = ' '.join(clean_parts).rstrip(':')
+                                label_data.append((label_id, label_name))
+                            except (ValueError, IndexError):
+                                continue
+        except Exception as e:
+            QtWidgets.QMessageBox.critical(self, "Error Loading LUT",
+                                         f"Failed to load labeling_LUT.txt: {str(e)}")
+            return
+
+        if not label_data:
+            QtWidgets.QMessageBox.warning(self, "Empty LUT",
+                                        "The labeling_LUT.txt file appears to be empty or malformed.")
+            return
+
+        # Create popup dialog
+        dialog = QtWidgets.QDialog(self)
+        dialog.setWindowTitle(f"Label Lookup Table - {subject_id}")
+        dialog.setMinimumSize(500, 400)
+
+        layout = QtWidgets.QVBoxLayout(dialog)
+
+        # Add header
+        header = QtWidgets.QLabel(f"<h3>Label Lookup Table</h3><p>Subject: {subject_id}</p>")
+        header.setWordWrap(True)
+        layout.addWidget(header)
+
+        # Create table
+        table = QtWidgets.QTableWidget()
+        table.setColumnCount(2)
+        table.setHorizontalHeaderLabels(["Label ID", "Label Name"])
+        table.setRowCount(len(label_data))
+
+        # Sort by label ID
+        label_data.sort(key=lambda x: x[0])
+
+        for row, (label_id, label_name) in enumerate(label_data):
+            table.setItem(row, 0, QtWidgets.QTableWidgetItem(str(label_id)))
+            table.setItem(row, 1, QtWidgets.QTableWidgetItem(label_name))
+
+        # Configure table
+        table.resizeColumnsToContents()
+        table.setAlternatingRowColors(True)
+        table.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectRows)
+
+        layout.addWidget(table)
+
+        # Add close button
+        button_box = QtWidgets.QHBoxLayout()
+        button_box.addStretch()
+        close_button = QtWidgets.QPushButton("Close")
+        close_button.clicked.connect(dialog.close)
+        button_box.addWidget(close_button)
+        layout.addLayout(button_box)
+
+        # Make dialog non-modal so user can interact with main GUI
+        dialog.setModal(False)
+        dialog.show()
+
+        # Keep reference to prevent garbage collection and clean up when closed
+        self._lut_dialog = dialog
+        dialog.finished.connect(lambda: setattr(self, '_lut_dialog', None))
 
 
     # Mode switching
@@ -877,70 +1000,67 @@ class VisualExporterWidget(QtWidgets.QWidget):
                 atlas = self.stl_atlas_combo.currentText().strip() if hasattr(self, 'stl_atlas_combo') else const.ATLAS_DK40
                 field = self.stl_field_edit.text().strip() or "TI_max"
                 central_surface = self._ensure_central_surface(subject_id, simulation_name)
-                # Build commands for selected formats (STL/PLY)
+                # Build commands for all formats (STL/PLY/MSH)
                 self._prune_infos = []
                 # Store selected region names once
                 selected = [self.cort_regions_list.item(i).text() for i in range(self.cort_regions_list.count()) if self.cort_regions_list.item(i).isSelected()]
                 self._selected_regions = selected
-                include_whole = self.cort_whole_gm.isChecked()
-                if self.cort_fmt_stl.isChecked():
-                    stl_dir = os.path.join(out_base, "stl")
-                    os.makedirs(stl_dir, exist_ok=True)
-                    cmd_stl = [
-                        "simnibs_python",
-                        str(ti_toolbox_path / "3d_exporter" / "region_stl_exporter.py"),
-                        "--mesh", central_surface,
-                        "--m2m", self._m2m_dir(subject_id),
-                        "--output-dir", stl_dir,
-                        "--atlas", atlas,
-                        "--field", field,
-                    ]
-                    # Region selection handling
-                    if selected:
-                        cmd_stl.extend(["--regions", ",".join(selected)])
-                    else:
-                        cmd_stl.append("--skip-regions")
-                    # Whole GM handling
-                    if not include_whole:
-                        cmd_stl.append("--skip-whole-gm")
-                    if self.stl_keep_meshes.isChecked():
-                        cmd_stl.append("--keep-meshes")
-                    commands.append((cmd_stl, None))
-                    self._prune_infos.append({
-                        'format': 'stl',
-                        'mode_dir': stl_dir,
-                        'include_whole': self.cort_whole_gm.isChecked(),
-                        'simulation': simulation_name,
-                    })
-                if self.cort_fmt_ply.isChecked():
-                    ply_dir = os.path.join(out_base, "ply")
-                    os.makedirs(ply_dir, exist_ok=True)
-                    cmd_ply = [
-                        "simnibs_python",
-                        str(ti_toolbox_path / "3d_exporter" / "region_ply_exporter.py"),
-                        "--mesh", central_surface,
-                        "--m2m", self._m2m_dir(subject_id),
-                        "--output-dir", ply_dir,
-                        "--atlas", atlas,
-                        "--field", field,
-                    ]
-                    # Region selection handling
-                    if selected:
-                        cmd_ply.extend(["--regions", ",".join(selected)])
-                    else:
-                        cmd_ply.append("--skip-regions")
-                    # Whole GM handling
-                    if not include_whole:
-                        cmd_ply.append("--skip-whole-gm")
-                    if self.stl_keep_meshes.isChecked():
-                        cmd_ply.append("--keep-meshes")
-                    commands.append((cmd_ply, None))
-                    self._prune_infos.append({
-                        'format': 'ply',
-                        'mode_dir': ply_dir,
-                        'include_whole': self.cort_whole_gm.isChecked(),
-                        'simulation': simulation_name,
-                    })
+                # Always include whole GM
+                include_whole = True
+
+                # Always export STL
+                stl_dir = os.path.join(out_base, "stl")
+                os.makedirs(stl_dir, exist_ok=True)
+                cmd_stl = [
+                    "simnibs_python",
+                    str(ti_toolbox_path / "3d_exporter" / "region_stl_exporter.py"),
+                    "--mesh", central_surface,
+                    "--m2m", self._m2m_dir(subject_id),
+                    "--output-dir", stl_dir,
+                    "--atlas", atlas,
+                    "--field", field,
+                ]
+                # Region selection handling
+                if selected:
+                    cmd_stl.extend(["--regions", ",".join(selected)])
+                else:
+                    cmd_stl.append("--skip-regions")
+                # Always keep meshes for MSH format
+                cmd_stl.append("--keep-meshes")
+                commands.append((cmd_stl, None))
+                self._prune_infos.append({
+                    'format': 'stl',
+                    'mode_dir': stl_dir,
+                    'include_whole': True,
+                    'simulation': simulation_name,
+                })
+
+                # Always export PLY
+                ply_dir = os.path.join(out_base, "ply")
+                os.makedirs(ply_dir, exist_ok=True)
+                cmd_ply = [
+                    "simnibs_python",
+                    str(ti_toolbox_path / "3d_exporter" / "region_ply_exporter.py"),
+                    "--mesh", central_surface,
+                    "--m2m", self._m2m_dir(subject_id),
+                    "--output-dir", ply_dir,
+                    "--atlas", atlas,
+                    "--field", field,
+                ]
+                # Region selection handling
+                if selected:
+                    cmd_ply.extend(["--regions", ",".join(selected)])
+                else:
+                    cmd_ply.append("--skip-regions")
+                # Always keep meshes for MSH format
+                cmd_ply.append("--keep-meshes")
+                commands.append((cmd_ply, None))
+                self._prune_infos.append({
+                    'format': 'ply',
+                    'mode_dir': ply_dir,
+                    'include_whole': True,
+                    'simulation': simulation_name,
+                })
                 
 
 
@@ -1248,11 +1368,6 @@ class VisualExporterWidget(QtWidgets.QWidget):
                                         os.remove(os.path.join(regions_dir, f))
                                     except Exception:
                                         pass
-                    if not info.get('include_whole'):
-                        try:
-                            os.remove(os.path.join(info['mode_dir'], 'cortical_stls', 'whole_gm.stl'))
-                        except Exception:
-                            pass
                 else:
                     regions_dir = os.path.join(info['mode_dir'], 'cortical_plys', 'regions')
                     if os.path.isdir(regions_dir):
@@ -1264,11 +1379,6 @@ class VisualExporterWidget(QtWidgets.QWidget):
                                         os.remove(os.path.join(regions_dir, f))
                                     except Exception:
                                         pass
-                    if not info.get('include_whole'):
-                        try:
-                            os.remove(os.path.join(info['mode_dir'], 'cortical_plys', 'whole_gm.ply'))
-                        except Exception:
-                            pass
         except Exception:
             pass
 
