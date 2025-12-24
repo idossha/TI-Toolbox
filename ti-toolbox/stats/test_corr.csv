@@ -1,0 +1,4 @@
+subject_id,simulation_name,effect_size,weight
+070,ICP_RHIPPO,0.45,25.0
+071,ICP_RHIPPO,0.32,30.0
+072,ICP_RHIPPO,0.67,20.0

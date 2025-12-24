@@ -15,8 +15,8 @@ from PyQt5 import QtWidgets, QtCore, QtGui
 import json
 
 # Extension metadata (required)
-EXTENSION_NAME = "Cluster-Based Permutation Testing"
-EXTENSION_DESCRIPTION = "cluster-based permutation testing."
+EXTENSION_NAME = "Permutation Analysis"
+EXTENSION_DESCRIPTION = "unified cluster-based permutation testing for group comparisons and correlations."
 
 
 # Add TI-Toolbox to path
@@ -37,35 +37,42 @@ from components.action_buttons import RunStopButtons
 
 class SubjectRow(QtWidgets.QWidget):
     """Widget for a single subject configuration row"""
-    
+
     remove_requested = QtCore.pyqtSignal(object)  # Signal to remove this row
-    
-    def __init__(self, parent=None, subjects_list=None, simulations_dict=None):
+
+    def __init__(self, parent=None, subjects_list=None, simulations_dict=None, mode='classification'):
         super(SubjectRow, self).__init__(parent)
         self.subjects_list = subjects_list or []
         self.simulations_dict = simulations_dict or {}
+        self.mode = mode
         self.setup_ui()
     
     def setup_ui(self):
         """Set up the subject row UI"""
         layout = QtWidgets.QHBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
-        
+
         # Subject selection
         self.subject_combo = QtWidgets.QComboBox()
         self.subject_combo.addItems(self.subjects_list)
         self.subject_combo.currentTextChanged.connect(self.on_subject_changed)
         layout.addWidget(self.subject_combo, 2)
-        
+
         # Simulation selection
         self.simulation_combo = QtWidgets.QComboBox()
         layout.addWidget(self.simulation_combo, 3)
-        
-        # Response classification
-        self.response_combo = QtWidgets.QComboBox()
-        self.response_combo.addItems(['Responder', 'Non-Responder'])
-        layout.addWidget(self.response_combo, 2)
-        
+
+        # Mode-specific input (classification vs correlation)
+        if self.mode == 'classification':
+            self.response_combo = QtWidgets.QComboBox()
+            self.response_combo.addItems(['Responder', 'Non-Responder'])
+            layout.addWidget(self.response_combo, 2)
+        else:  # correlation
+            self.effect_size_edit = QtWidgets.QLineEdit()
+            self.effect_size_edit.setPlaceholderText("e.g., 0.85")
+            self.effect_size_edit.setValidator(QtGui.QDoubleValidator())
+            layout.addWidget(self.effect_size_edit, 2)
+
         # Remove button
         self.remove_btn = QtWidgets.QPushButton("✕")
         self.remove_btn.setFixedWidth(30)
@@ -82,7 +89,7 @@ class SubjectRow(QtWidgets.QWidget):
         """)
         self.remove_btn.clicked.connect(lambda: self.remove_requested.emit(self))
         layout.addWidget(self.remove_btn)
-        
+
         # Initialize simulations
         self.on_subject_changed(self.subject_combo.currentText())
     
@@ -94,23 +101,35 @@ class SubjectRow(QtWidgets.QWidget):
     
     def get_config(self):
         """Get the configuration for this subject"""
-        return {
+        config = {
             'subject_id': self.subject_combo.currentText(),
-            'simulation_name': self.simulation_combo.currentText(),
-            'response': 1 if self.response_combo.currentText() == 'Responder' else 0
+            'simulation_name': self.simulation_combo.currentText()
         }
+
+        if self.mode == 'classification':
+            config['response'] = 1 if self.response_combo.currentText() == 'Responder' else 0
+        else:  # correlation
+            try:
+                config['effect_size'] = float(self.effect_size_edit.text())
+            except ValueError:
+                config['effect_size'] = 0.0
+
+        return config
     
     def set_config(self, config):
         """Set the configuration for this subject"""
         idx = self.subject_combo.findText(config['subject_id'])
         if idx >= 0:
             self.subject_combo.setCurrentIndex(idx)
-        
+
         idx = self.simulation_combo.findText(config['simulation_name'])
         if idx >= 0:
             self.simulation_combo.setCurrentIndex(idx)
-        
-        self.response_combo.setCurrentIndex(0 if config['response'] == 1 else 1)
+
+        if self.mode == 'classification':
+            self.response_combo.setCurrentIndex(0 if config['response'] == 1 else 1)
+        else:  # correlation
+            self.effect_size_edit.setText(str(config.get('effect_size', 0.0)))
 
 class ClusterPermutationWidget(QtWidgets.QWidget):
     """Main widget for cluster-based permutation testing"""
@@ -154,33 +173,45 @@ class ClusterPermutationWidget(QtWidgets.QWidget):
         # === Subject Configuration ===
         self.subjects_group = QtWidgets.QGroupBox("Subject Configuration")
         subjects_layout = QtWidgets.QVBoxLayout(self.subjects_group)
-        
+
         # Toolbar
         toolbar_layout = QtWidgets.QHBoxLayout()
-        
+
+        # Analysis mode selection
+        self.mode_group = QtWidgets.QButtonGroup(self)
+        self.classification_radio = QtWidgets.QRadioButton("Classification")
+        self.correlation_radio = QtWidgets.QRadioButton("Correlation")
+        self.mode_group.addButton(self.classification_radio)
+        self.mode_group.addButton(self.correlation_radio)
+
+        # Connect mode change signal (do this after UI setup to avoid triggering during init)
+        # self.classification_radio.toggled.connect(self.on_mode_changed)
+        # self.correlation_radio.toggled.connect(self.on_mode_changed)
+
+        toolbar_layout.addWidget(self.classification_radio)
+        toolbar_layout.addWidget(self.correlation_radio)
+        toolbar_layout.addSpacing(20)  # Add some space between mode selection and buttons
+
         add_subject_btn = QtWidgets.QPushButton("+ Add Subject")
         add_subject_btn.clicked.connect(self.add_subject_row)
         toolbar_layout.addWidget(add_subject_btn)
-        
+
         import_csv_btn = QtWidgets.QPushButton("Import CSV")
         import_csv_btn.clicked.connect(self.import_from_csv)
         toolbar_layout.addWidget(import_csv_btn)
-        
+
         export_csv_btn = QtWidgets.QPushButton("Export CSV")
         export_csv_btn.clicked.connect(self.export_to_csv)
         toolbar_layout.addWidget(export_csv_btn)
-        
+
         toolbar_layout.addStretch()
         subjects_layout.addLayout(toolbar_layout)
-        
-        # Subject list header
-        header_layout = QtWidgets.QHBoxLayout()
-        header_layout.addWidget(QtWidgets.QLabel("<b>Subject</b>"), 2)
-        header_layout.addWidget(QtWidgets.QLabel("<b>Simulation</b>"), 3)
-        header_layout.addWidget(QtWidgets.QLabel("<b>Classification</b>"), 2)
-        header_layout.addWidget(QtWidgets.QLabel(""), 0)  # For remove button
+
+        # Subject list header (will be updated based on mode)
+        self.header_layout = QtWidgets.QHBoxLayout()
+        self.update_subject_header()
         header_widget = QtWidgets.QWidget()
-        header_widget.setLayout(header_layout)
+        header_widget.setLayout(self.header_layout)
         subjects_layout.addWidget(header_widget)
         
         # Scrollable subject list
@@ -198,100 +229,14 @@ class ClusterPermutationWidget(QtWidgets.QWidget):
         layout.addWidget(self.subjects_group)
         
         # === Analysis Configuration ===
-        config_group = QtWidgets.QGroupBox("Analysis Configuration")
-        config_layout = QtWidgets.QGridLayout(config_group)
+        self.config_group = QtWidgets.QGroupBox("Analysis Configuration")
+        self.config_layout = QtWidgets.QGridLayout(self.config_group)
 
-        row = 0
+        # Initialize UI components (will be populated based on mode)
+        self.setup_config_ui()
 
-        # Left column - Analysis name
-        config_layout.addWidget(QtWidgets.QLabel("Analysis Name:"), row, 0)
-        self.analysis_name_edit = QtWidgets.QLineEdit()
-        self.analysis_name_edit.setPlaceholderText("e.g., hippocampus_responders_vs_nonresponders")
-        config_layout.addWidget(self.analysis_name_edit, row, 1)
+        layout.addWidget(self.config_group)
 
-        # Right column - NIfTI file pattern
-        config_layout.addWidget(QtWidgets.QLabel("NIfTI Pattern:"), row, 2)
-        self.nifti_pattern_edit = QtWidgets.QLineEdit()
-        self.nifti_pattern_edit.setText("grey_{simulation_name}_TI_MNI_MNI_TI_max.nii.gz")
-        self.nifti_pattern_edit.setToolTip("Use {simulation_name} as a variable (subject is in directory path)")
-        config_layout.addWidget(self.nifti_pattern_edit, row, 3)
-        row += 1
-
-        # Left column
-        # Test type
-        config_layout.addWidget(QtWidgets.QLabel("Test Type:"), row, 0)
-        self.test_type_combo = QtWidgets.QComboBox()
-        self.test_type_combo.addItems(['Unpaired', 'Paired'])
-        config_layout.addWidget(self.test_type_combo, row, 1)
-
-        # Right column
-        # Alternative hypothesis
-        config_layout.addWidget(QtWidgets.QLabel("Alternative:"), row, 2)
-        self.alternative_combo = QtWidgets.QComboBox()
-        self.alternative_combo.addItems(['Two-sided', 'Greater', 'Less'])
-        self.alternative_combo.setToolTip("Two-sided: ≠, Greater: Resp > Non-Resp, Less: Resp < Non-Resp")
-        config_layout.addWidget(self.alternative_combo, row, 3)
-        row += 1
-
-        # Left column
-        # Cluster threshold
-        config_layout.addWidget(QtWidgets.QLabel("Cluster Threshold:"), row, 0)
-        self.cluster_threshold_spin = QtWidgets.QDoubleSpinBox()
-        self.cluster_threshold_spin.setRange(0.001, 0.1)
-        self.cluster_threshold_spin.setValue(0.05)
-        self.cluster_threshold_spin.setSingleStep(0.01)
-        self.cluster_threshold_spin.setDecimals(3)
-        config_layout.addWidget(self.cluster_threshold_spin, row, 1)
-
-        # Right column
-        # Cluster statistic
-        config_layout.addWidget(QtWidgets.QLabel("Cluster Statistic:"), row, 2)
-        self.cluster_stat_combo = QtWidgets.QComboBox()
-        self.cluster_stat_combo.addItems(['Mass', 'Size'])
-        self.cluster_stat_combo.setToolTip("Mass: sum of t-values, Size: voxel count")
-        config_layout.addWidget(self.cluster_stat_combo, row, 3)
-        row += 1
-
-        # Left column
-        # Number of permutations
-        config_layout.addWidget(QtWidgets.QLabel("Permutations:"), row, 0)
-        self.n_permutations_spin = QtWidgets.QSpinBox()
-        self.n_permutations_spin.setRange(10, 10000)
-        self.n_permutations_spin.setValue(1000)
-        config_layout.addWidget(self.n_permutations_spin, row, 1)
-
-        # Right column
-        # Alpha level
-        config_layout.addWidget(QtWidgets.QLabel("Alpha Level:"), row, 2)
-        self.alpha_spin = QtWidgets.QDoubleSpinBox()
-        self.alpha_spin.setRange(0.001, 0.1)
-        self.alpha_spin.setValue(0.05)
-        self.alpha_spin.setSingleStep(0.01)
-        self.alpha_spin.setDecimals(3)
-        config_layout.addWidget(self.alpha_spin, row, 3)
-        row += 1
-
-        # Left column (full width for parallel jobs)
-        config_layout.addWidget(QtWidgets.QLabel("Parallel Jobs:"), row, 0)
-        self.n_jobs_edit = QtWidgets.QLineEdit()
-        import multiprocessing
-        max_cores = multiprocessing.cpu_count()
-        self.n_jobs_edit.setPlaceholderText(f"available cores: 1 to {max_cores} (all cores)")
-        # Set up input validation - only integers from 1 to max_cores
-        self.n_jobs_edit.setValidator(QtGui.QIntValidator(1, max_cores, self.n_jobs_edit))
-        self.n_jobs_edit.setToolTip(
-            "Number of CPU cores to use for parallel processing.\n"
-            f"Accepted input: 1 to {max_cores} (all cores)\n"
-            "No characters or negative numbers accepted.\n\n"
-            "Note: In Docker containers, this may be automatically limited\n"
-            "to 75% of available cores to prevent memory exhaustion.\n"
-            "Threading libraries are set to single-threaded mode per worker\n"
-            "to avoid CPU oversubscription."
-        )
-        config_layout.addWidget(self.n_jobs_edit, row, 1, 1, 3)
-
-        layout.addWidget(config_group)
-        
         # === Output Console (using reusable component) ===
         if ConsoleWidget and RunStopButtons:
             # Create action buttons for the console
@@ -335,7 +280,12 @@ class ClusterPermutationWidget(QtWidgets.QWidget):
             button_layout.addWidget(self.run_btn)
             
             layout.addLayout(button_layout)
-    
+
+        # Connect mode change signals after UI is fully set up
+        self.classification_radio.toggled.connect(self.on_mode_changed)
+        self.correlation_radio.toggled.connect(self.on_mode_changed)
+        self.classification_radio.setChecked(True)  # Default to classification (after connecting signals)
+
     def update_output(self, message, msg_type='default'):
         """Update output console with message"""
         if hasattr(self, 'console_widget') and self.console_widget:
@@ -343,6 +293,170 @@ class ClusterPermutationWidget(QtWidgets.QWidget):
         elif hasattr(self, 'output_text') and self.output_text:
             self.output_text.append(message)
     
+    def on_mode_changed(self):
+        """Handle mode change between classification and correlation"""
+        # Update header
+        self.update_subject_header()
+
+        # Update config UI
+        self.setup_config_ui()
+
+        # Convert existing subject rows to new mode
+        for row in self.subject_rows[:]:  # Copy list to avoid issues during iteration
+            # Remove and re-add row to update its UI
+            self.subjects_container_layout.removeWidget(row)
+            row.deleteLater()
+            self.subject_rows.remove(row)
+
+            # Create new row with updated mode
+            new_row = SubjectRow(
+                parent=self,
+                subjects_list=self.subjects_list,
+                simulations_dict=self.simulations_dict,
+                mode=self.get_current_mode()
+            )
+            new_row.remove_requested.connect(self.remove_subject_row)
+
+            # Insert at the end (before stretch)
+            self.subjects_container_layout.insertWidget(
+                len(self.subject_rows), new_row
+            )
+            self.subject_rows.append(new_row)
+
+    def setup_config_ui(self):
+        """Set up the analysis configuration UI based on current mode"""
+        # Clear existing config layout
+        while self.config_layout.count():
+            item = self.config_layout.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+
+        row = 0
+        mode = self.get_current_mode()
+
+        # Left column - Analysis name
+        self.config_layout.addWidget(QtWidgets.QLabel("Analysis Name:"), row, 0)
+        self.analysis_name_edit = QtWidgets.QLineEdit()
+        if mode == 'classification':
+            self.analysis_name_edit.setPlaceholderText("e.g., hippocampus_responders_vs_nonresponders")
+        else:
+            self.analysis_name_edit.setPlaceholderText("e.g., hippocampus_effect_size_correlation")
+        self.config_layout.addWidget(self.analysis_name_edit, row, 1)
+
+        # Right column - NIfTI file pattern
+        self.config_layout.addWidget(QtWidgets.QLabel("NIfTI Pattern:"), row, 2)
+        self.nifti_pattern_edit = QtWidgets.QLineEdit()
+        self.nifti_pattern_edit.setText("grey_{simulation_name}_TI_MNI_MNI_TI_max.nii.gz")
+        self.nifti_pattern_edit.setToolTip("Use {simulation_name} as a variable (subject is in directory path)")
+        self.config_layout.addWidget(self.nifti_pattern_edit, row, 3)
+        row += 1
+
+        if mode == 'classification':
+            # Test type
+            self.config_layout.addWidget(QtWidgets.QLabel("Test Type:"), row, 0)
+            self.test_type_combo = QtWidgets.QComboBox()
+            self.test_type_combo.addItems(['Unpaired', 'Paired'])
+            self.config_layout.addWidget(self.test_type_combo, row, 1)
+
+            # Alternative hypothesis
+            self.config_layout.addWidget(QtWidgets.QLabel("Alternative:"), row, 2)
+            self.alternative_combo = QtWidgets.QComboBox()
+            self.alternative_combo.addItems(['Two-sided', 'Greater', 'Less'])
+            self.alternative_combo.setToolTip("Two-sided: ≠, Greater: Resp > Non-Resp, Less: Resp < Non-Resp")
+            self.config_layout.addWidget(self.alternative_combo, row, 3)
+            row += 1
+        else:  # correlation
+            # Correlation type
+            self.config_layout.addWidget(QtWidgets.QLabel("Correlation Type:"), row, 0)
+            self.correlation_type_combo = QtWidgets.QComboBox()
+            self.correlation_type_combo.addItems(['Pearson', 'Spearman'])
+            self.config_layout.addWidget(self.correlation_type_combo, row, 1)
+
+            # Use weights
+            self.config_layout.addWidget(QtWidgets.QLabel("Use Weights:"), row, 2)
+            self.use_weights_check = QtWidgets.QCheckBox()
+            self.use_weights_check.setChecked(True)
+            self.use_weights_check.setToolTip("Use weights from CSV if available")
+            self.config_layout.addWidget(self.use_weights_check, row, 3)
+            row += 1
+
+        # Common configuration options for both modes
+        # Left column - Cluster threshold
+        self.config_layout.addWidget(QtWidgets.QLabel("Cluster Threshold:"), row, 0)
+        self.cluster_threshold_spin = QtWidgets.QDoubleSpinBox()
+        self.cluster_threshold_spin.setRange(0.001, 0.1)
+        self.cluster_threshold_spin.setValue(0.05)
+        self.cluster_threshold_spin.setSingleStep(0.01)
+        self.cluster_threshold_spin.setDecimals(3)
+        self.config_layout.addWidget(self.cluster_threshold_spin, row, 1)
+
+        # Right column - Cluster statistic
+        self.config_layout.addWidget(QtWidgets.QLabel("Cluster Statistic:"), row, 2)
+        self.cluster_stat_combo = QtWidgets.QComboBox()
+        self.cluster_stat_combo.addItems(['Mass', 'Size'])
+        self.cluster_stat_combo.setToolTip("Mass: sum of t-values, Size: voxel count")
+        self.config_layout.addWidget(self.cluster_stat_combo, row, 3)
+        row += 1
+
+        # Left column - Number of permutations
+        self.config_layout.addWidget(QtWidgets.QLabel("Permutations:"), row, 0)
+        self.n_permutations_spin = QtWidgets.QSpinBox()
+        self.n_permutations_spin.setRange(10, 10000)
+        self.n_permutations_spin.setValue(1000)
+        self.config_layout.addWidget(self.n_permutations_spin, row, 1)
+
+        # Right column - Alpha level
+        self.config_layout.addWidget(QtWidgets.QLabel("Alpha Level:"), row, 2)
+        self.alpha_spin = QtWidgets.QDoubleSpinBox()
+        self.alpha_spin.setRange(0.001, 0.1)
+        self.alpha_spin.setValue(0.05)
+        self.alpha_spin.setSingleStep(0.01)
+        self.alpha_spin.setDecimals(3)
+        self.config_layout.addWidget(self.alpha_spin, row, 3)
+        row += 1
+
+        # Left column (full width for parallel jobs)
+        self.config_layout.addWidget(QtWidgets.QLabel("Parallel Jobs:"), row, 0)
+        self.n_jobs_edit = QtWidgets.QLineEdit()
+        import multiprocessing
+        max_cores = multiprocessing.cpu_count()
+        self.n_jobs_edit.setPlaceholderText(f"available cores: 1 to {max_cores} (all cores)")
+        # Set up input validation - only integers from 1 to max_cores
+        self.n_jobs_edit.setValidator(QtGui.QIntValidator(1, max_cores, self.n_jobs_edit))
+        self.n_jobs_edit.setToolTip(
+            "Number of CPU cores to use for parallel processing.\n"
+            f"Accepted input: 1 to {max_cores} (all cores)\n"
+            "No characters or negative numbers accepted.\n\n"
+            "Note: In Docker containers, this may be automatically limited\n"
+            "to 75% of available cores to prevent memory exhaustion.\n"
+            "Threading libraries are set to single-threaded mode per worker\n"
+            "to avoid CPU oversubscription."
+        )
+        self.config_layout.addWidget(self.n_jobs_edit, row, 1, 1, 3)
+
+    def update_subject_header(self):
+        """Update the subject list header based on current mode"""
+        # Clear existing header widgets
+        while self.header_layout.count():
+            item = self.header_layout.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+
+        # Add new header based on mode
+        self.header_layout.addWidget(QtWidgets.QLabel("<b>Subject</b>"), 2)
+        self.header_layout.addWidget(QtWidgets.QLabel("<b>Simulation</b>"), 3)
+
+        if self.get_current_mode() == 'classification':
+            self.header_layout.addWidget(QtWidgets.QLabel("<b>Classification</b>"), 2)
+        else:  # correlation
+            self.header_layout.addWidget(QtWidgets.QLabel("<b>Effect Size</b>"), 2)
+
+        self.header_layout.addWidget(QtWidgets.QLabel(""), 0)  # For remove button
+
+    def get_current_mode(self):
+        """Get current analysis mode"""
+        return 'correlation' if self.correlation_radio.isChecked() else 'classification'
+
     def load_subjects(self):
         """Load available subjects and their simulations"""
         if not self.pm:
@@ -373,8 +487,8 @@ class ClusterPermutationWidget(QtWidgets.QWidget):
     
     def add_subject_row(self):
         """Add a new subject configuration row"""
-        row = SubjectRow(parent=self, subjects_list=self.subjects_list, 
-                        simulations_dict=self.simulations_dict)
+        row = SubjectRow(parent=self, subjects_list=self.subjects_list,
+                        simulations_dict=self.simulations_dict, mode=self.get_current_mode())
         row.remove_requested.connect(self.remove_subject_row)
         
         # Insert before the stretch
@@ -411,18 +525,42 @@ class ClusterPermutationWidget(QtWidgets.QWidget):
             # Read CSV
             with open(file_path, 'r') as f:
                 reader = csv.DictReader(f)
+                mode = self.get_current_mode()
+
+                # Validate CSV format based on mode
+                if mode == 'classification':
+                    required_cols = ['subject_id', 'simulation_name', 'response']
+                else:  # correlation
+                    required_cols = ['subject_id', 'simulation_name', 'effect_size']
+
+                missing_cols = [col for col in required_cols if col not in reader.fieldnames]
+                if missing_cols:
+                    QtWidgets.QMessageBox.critical(
+                        self,
+                        "Invalid CSV Format",
+                        f"CSV file missing required columns for {mode} analysis: {', '.join(missing_cols)}"
+                    )
+                    return
+
                 for row_data in reader:
                     # Create new row
                     row = SubjectRow(parent=self, subjects_list=self.subjects_list,
-                                   simulations_dict=self.simulations_dict)
+                                   simulations_dict=self.simulations_dict, mode=mode)
                     row.remove_requested.connect(self.remove_subject_row)
-                    
-                    # Set configuration
-                    config = {
-                        'subject_id': row_data['subject_id'].replace('sub-', ''),
-                        'simulation_name': row_data['simulation_name'],
-                        'response': int(row_data['response'])
-                    }
+
+                    # Set configuration based on mode
+                    if mode == 'classification':
+                        config = {
+                            'subject_id': row_data['subject_id'].replace('sub-', ''),
+                            'simulation_name': row_data['simulation_name'],
+                            'response': int(row_data['response'])
+                        }
+                    else:  # correlation
+                        config = {
+                            'subject_id': row_data['subject_id'].replace('sub-', ''),
+                            'simulation_name': row_data['simulation_name'],
+                            'effect_size': float(row_data['effect_size'])
+                        }
                     row.set_config(config)
                     
                     # Add to layout
@@ -462,11 +600,17 @@ class ClusterPermutationWidget(QtWidgets.QWidget):
         
         try:
             import csv
-            
+
+            mode = self.get_current_mode()
+            if mode == 'classification':
+                fieldnames = ['subject_id', 'simulation_name', 'response']
+            else:  # correlation
+                fieldnames = ['subject_id', 'simulation_name', 'effect_size']
+
             with open(file_path, 'w', newline='') as f:
-                writer = csv.DictWriter(f, fieldnames=['subject_id', 'simulation_name', 'response'])
+                writer = csv.DictWriter(f, fieldnames=fieldnames)
                 writer.writeheader()
-                
+
                 for row in self.subject_rows:
                     config = row.get_config()
                     writer.writerow(config)
@@ -490,40 +634,58 @@ class ClusterPermutationWidget(QtWidgets.QWidget):
                 "Please enter an analysis name."
             )
             return
-        
+
         if len(self.subject_rows) < 2:
             QtWidgets.QMessageBox.warning(
                 self,
                 "Insufficient Data",
-                "Please add at least 2 subjects (with at least one responder and one non-responder)."
+                "Please add at least 2 subjects."
             )
             return
-        
-        # Collect subject configurations
+
+        # Get current mode
+        mode = self.get_current_mode()
+
+        # Collect and validate subject configurations
         subject_configs = []
-        n_responders = 0
-        n_non_responders = 0
-        
-        for row in self.subject_rows:
-            config = row.get_config()
-            subject_configs.append(config)
-            if config['response'] == 1:
-                n_responders += 1
-            else:
-                n_non_responders += 1
-        
-        if n_responders == 0 or n_non_responders == 0:
-            QtWidgets.QMessageBox.warning(
-                self,
-                "Invalid Configuration",
-                "You need at least one responder and one non-responder."
-            )
-            return
+        if mode == 'classification':
+            n_responders = 0
+            n_non_responders = 0
+
+            for row in self.subject_rows:
+                config = row.get_config()
+                subject_configs.append(config)
+                if config['response'] == 1:
+                    n_responders += 1
+                else:
+                    n_non_responders += 1
+
+            if n_responders == 0 or n_non_responders == 0:
+                QtWidgets.QMessageBox.warning(
+                    self,
+                    "Invalid Configuration",
+                    "You need at least one responder and one non-responder."
+                )
+                return
+        else:  # correlation
+            # Validate effect sizes are numeric and varied
+            effect_sizes = []
+            for row in self.subject_rows:
+                config = row.get_config()
+                subject_configs.append(config)
+                effect_sizes.append(config['effect_size'])
+
+            if len(set(effect_sizes)) < 2:  # All effect sizes are the same
+                QtWidgets.QMessageBox.warning(
+                    self,
+                    "Invalid Configuration",
+                    "Effect sizes must vary across subjects for correlation analysis."
+                )
+                return
         
         # Build configuration
         config = {
-            'test_type': self.test_type_combo.currentText().lower(),
-            'alternative': self.alternative_combo.currentText().lower(),  # 'two-sided', 'greater', or 'less'
+            'analysis_type': 'group_comparison' if mode == 'classification' else mode,
             'cluster_threshold': self.cluster_threshold_spin.value(),
             'cluster_stat': self.cluster_stat_combo.currentText().lower(),
             'n_permutations': self.n_permutations_spin.value(),
@@ -531,15 +693,36 @@ class ClusterPermutationWidget(QtWidgets.QWidget):
             'n_jobs': int(self.n_jobs_edit.text()) if self.n_jobs_edit.text() else 1,
             'nifti_file_pattern': self.nifti_pattern_edit.text()
         }
+
+        if mode == 'classification':
+            config.update({
+                'test_type': self.test_type_combo.currentText().lower(),
+                'alternative': self.alternative_combo.currentText().lower(),  # 'two-sided', 'greater', or 'less'
+            })
+        else:  # correlation
+            config.update({
+                'correlation_type': self.correlation_type_combo.currentText().lower(),
+                'use_weights': self.use_weights_check.isChecked(),
+            })
         
         analysis_name = self.analysis_name_edit.text().strip()
         
         # Show confirmation
+        if mode == 'classification':
+            subject_info = f"  • {len(subject_configs)} subjects ({n_responders} responders, {n_non_responders} non-responders)\n"
+            analysis_info = f"  • Test type: {config['test_type']}\n"
+            analysis_info += f"  • Alternative: {config['alternative']}\n"
+        else:  # correlation
+            subject_info = f"  • {len(subject_configs)} subjects\n"
+            analysis_info = f"  • Correlation type: {config['correlation_type']}\n"
+            analysis_info += f"  • Use weights: {config['use_weights']}\n"
+
         reply = QtWidgets.QMessageBox.question(
             self,
             "Run Analysis",
-            f"Run cluster-based permutation testing with:\n\n"
-            f"  • {len(subject_configs)} subjects ({n_responders} responders, {n_non_responders} non-responders)\n"
+            f"Run {mode} analysis with:\n\n"
+            f"{subject_info}"
+            f"{analysis_info}"
             f"  • {config['n_permutations']} permutations\n"
             f"  • Analysis name: {analysis_name}\n\n"
             f"This may take several minutes. Continue?",
@@ -679,11 +862,22 @@ class ClusterPermutationWidget(QtWidgets.QWidget):
 
     def disable_controls(self):
         """Disable all input controls during analysis."""
+        # Disable mode selection
+        self.classification_radio.setEnabled(False)
+        self.correlation_radio.setEnabled(False)
+
         # Disable analysis configuration inputs
         self.analysis_name_edit.setEnabled(False)
         self.nifti_pattern_edit.setEnabled(False)
-        self.test_type_combo.setEnabled(False)
-        self.alternative_combo.setEnabled(False)
+
+        mode = self.get_current_mode()
+        if mode == 'classification':
+            self.test_type_combo.setEnabled(False)
+            self.alternative_combo.setEnabled(False)
+        else:  # correlation
+            self.correlation_type_combo.setEnabled(False)
+            self.use_weights_check.setEnabled(False)
+
         self.cluster_threshold_spin.setEnabled(False)
         self.cluster_stat_combo.setEnabled(False)
         self.n_permutations_spin.setEnabled(False)
@@ -694,7 +888,10 @@ class ClusterPermutationWidget(QtWidgets.QWidget):
         for row in self.subject_rows:
             row.subject_combo.setEnabled(False)
             row.simulation_combo.setEnabled(False)
-            row.response_combo.setEnabled(False)
+            if hasattr(row, 'response_combo'):
+                row.response_combo.setEnabled(False)
+            if hasattr(row, 'effect_size_edit'):
+                row.effect_size_edit.setEnabled(False)
             row.remove_btn.setEnabled(False)
 
         # Disable toolbar buttons (store references for re-enabling)
@@ -712,11 +909,22 @@ class ClusterPermutationWidget(QtWidgets.QWidget):
 
     def enable_controls(self):
         """Enable all input controls after analysis."""
+        # Enable mode selection
+        self.classification_radio.setEnabled(True)
+        self.correlation_radio.setEnabled(True)
+
         # Enable analysis configuration inputs
         self.analysis_name_edit.setEnabled(True)
         self.nifti_pattern_edit.setEnabled(True)
-        self.test_type_combo.setEnabled(True)
-        self.alternative_combo.setEnabled(True)
+
+        mode = self.get_current_mode()
+        if mode == 'classification':
+            self.test_type_combo.setEnabled(True)
+            self.alternative_combo.setEnabled(True)
+        else:  # correlation
+            self.correlation_type_combo.setEnabled(True)
+            self.use_weights_check.setEnabled(True)
+
         self.cluster_threshold_spin.setEnabled(True)
         self.cluster_stat_combo.setEnabled(True)
         self.n_permutations_spin.setEnabled(True)
@@ -727,7 +935,10 @@ class ClusterPermutationWidget(QtWidgets.QWidget):
         for row in self.subject_rows:
             row.subject_combo.setEnabled(True)
             row.simulation_combo.setEnabled(True)
-            row.response_combo.setEnabled(True)
+            if hasattr(row, 'response_combo'):
+                row.response_combo.setEnabled(True)
+            if hasattr(row, 'effect_size_edit'):
+                row.effect_size_edit.setEnabled(True)
             row.remove_btn.setEnabled(True)
 
         # Enable toolbar buttons
@@ -758,8 +969,8 @@ class AnalysisThread(QtCore.QThread):
     def run(self):
         """Run the analysis"""
         try:
-            # Import cluster_permutation module
-            from stats import cluster_permutation
+            # Import unified permutation_analysis module
+            from stats import permutation_analysis
 
             # Set up callback handler for GUI console integration
             callback_handler = None
@@ -784,8 +995,12 @@ class AnalysisThread(QtCore.QThread):
 
                 callback_handler = GUILogHandler(emit_output_signal)
 
+            # Ensure analysis type is set in config (default to group_comparison for backward compatibility)
+            if 'analysis_type' not in self.config:
+                self.config['analysis_type'] = 'group_comparison'
+
             # Run analysis with callback handler for logging integration
-            results = cluster_permutation.run_analysis(
+            results = permutation_analysis.run_analysis(
                 subject_configs=self.subject_configs,
                 analysis_name=self.analysis_name,
                 config=self.config,
