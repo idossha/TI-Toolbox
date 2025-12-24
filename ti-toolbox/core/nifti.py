@@ -56,7 +56,7 @@ def load_subject_nifti_ti_toolbox(
     
     # Construct file path using TI-Toolbox path structure
 
-    project_dir = pm.get_project_dir()
+    project_dir = pm.project_dir
     if not project_dir:
         raise ValueError("Project directory not found. Is PROJECT_DIR_NAME set?")
     

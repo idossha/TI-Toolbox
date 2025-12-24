@@ -516,7 +516,7 @@ class ExSearchTab(QtWidgets.QWidget):
             time_stamp = time.strftime('%Y%m%d_%H%M%S')
             
             # Get project directory structure
-            project_dir = self.pm.get_project_dir() if hasattr(self, 'pm') else get_path_manager().get_project_dir()
+            project_dir = self.pm.project_dir if hasattr(self, 'pm') else get_path_manager().project_dir
             derivatives_dir = os.path.join(project_dir, 'derivatives')
             log_dir = os.path.join(derivatives_dir, 'ti-toolbox', 'logs', f'sub-{subject_id}')
             os.makedirs(log_dir, exist_ok=True)
@@ -652,7 +652,7 @@ class ExSearchTab(QtWidgets.QWidget):
                 return
                 
             # Create log file path same way as before
-            project_dir = self.pm.get_project_dir() if hasattr(self, 'pm') else get_path_manager().get_project_dir()
+            project_dir = self.pm.project_dir if hasattr(self, 'pm') else get_path_manager().project_dir
             derivatives_dir = os.path.join(project_dir, 'derivatives')
             log_dir = os.path.join(derivatives_dir, 'ti-toolbox', 'logs', f'sub-{subject_id}')
             
@@ -1174,7 +1174,7 @@ class ExSearchTab(QtWidgets.QWidget):
             return
         
         # Get project directory
-        project_dir = self.pm.get_project_dir()
+        project_dir = self.pm.project_dir
         if not project_dir or not os.path.exists(project_dir):
             QtWidgets.QMessageBox.warning(self, "No Project", "Project directory not found")
             return
@@ -1259,7 +1259,7 @@ class ExSearchTab(QtWidgets.QWidget):
     def list_subjects(self):
         """List available subjects in the combo box."""
         self.subject_combo.clear()
-        project_dir = self.pm.get_project_dir() if hasattr(self, 'pm') else get_path_manager().get_project_dir()
+        project_dir = self.pm.project_dir if hasattr(self, 'pm') else get_path_manager().project_dir
         if not project_dir or not os.path.exists(project_dir):
             self.update_status("No project directory selected", error=True)
             return
@@ -1456,7 +1456,7 @@ class ExSearchTab(QtWidgets.QWidget):
             return
             
         subject_id = self.subject_combo.currentText()
-        project_dir = self.pm.get_project_dir() if hasattr(self, 'pm') else get_path_manager().get_project_dir()
+        project_dir = self.pm.project_dir if hasattr(self, 'pm') else get_path_manager().project_dir
         pm = self.pm if hasattr(self, 'pm') else get_path_manager()
         ex_search_dir = pm.get_ex_search_dir(subject_id)
         
@@ -1817,7 +1817,7 @@ class ExSearchTab(QtWidgets.QWidget):
         # Log final completion with summary
         subject_id = self.subject_combo.currentText()
         total_rois = len(self.roi_processing_queue)
-        project_dir = self.pm.get_project_dir() if hasattr(self, 'pm') else get_path_manager().get_project_dir()
+        project_dir = self.pm.project_dir if hasattr(self, 'pm') else get_path_manager().project_dir
         pm = self.pm if hasattr(self, 'pm') else get_path_manager()
         ex_search_dir = pm.get_ex_search_dir(subject_id)
         
@@ -2132,7 +2132,7 @@ class AddROIDialog(QtWidgets.QDialog):
             if not subject_id:
                 QtWidgets.QMessageBox.warning(self, "Error", "Please select a subject first")
                 return
-            project_dir = self.pm.get_project_dir() if hasattr(self, 'pm') else get_path_manager().get_project_dir()
+            project_dir = self.pm.project_dir if hasattr(self, 'pm') else get_path_manager().project_dir
             pm = self.pm if hasattr(self, 'pm') else get_path_manager()
             t1_path = pm.get_t1_path(subject_id)
             if not os.path.exists(t1_path):

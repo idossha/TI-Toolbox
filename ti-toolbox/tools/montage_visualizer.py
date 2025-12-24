@@ -248,7 +248,8 @@ class MontageVisualizer:
                  eeg_net: str,
                  sim_mode: str,
                  output_directory: str,
-                 verbose: bool = True):
+                 verbose: bool = True,
+                 montage_data: Optional[Dict[str, List[List[str]]]] = None):
         """
         Initialize montage visualizer.
 
@@ -266,6 +267,7 @@ class MontageVisualizer:
         self.sim_mode = sim_mode
         self.output_directory = output_directory
         self.verbose = verbose
+        self.montage_data = montage_data
 
         # Check if this is a freehand/flex mode that doesn't use predefined coordinates
         self.skip_visualization = eeg_net in ["freehand", "flex_mode"]
@@ -451,19 +453,21 @@ class MontageVisualizer:
         Returns:
             True if successful, False otherwise
         """
-        # Skip visualization for freehand/flex modes
-        if self.skip_visualization:
+        # Skip visualization for freehand/flex modes (unless we have direct montage data)
+        if self.skip_visualization and not self.montage_data:
             if self.verbose:
                 print(f"Montage visualization skipped for {self.eeg_net} mode - arbitrary electrode positions cannot be visualized on standard templates")
             return True
 
-        # Load montage configuration
-        try:
-            with open(self.montage_file, 'r') as f:
-                montage_config = json.load(f)
-        except Exception as e:
-            print(f"Error: Failed to load montage file '{self.montage_file}': {e}")
-            return False
+        # Load montage configuration if not using direct data
+        montage_config = None
+        if not self.montage_data:
+            try:
+                with open(self.montage_file, 'r') as f:
+                    montage_config = json.load(f)
+            except Exception as e:
+                print(f"Error: Failed to load montage file '{self.montage_file}': {e}")
+                return False
         
         self._log(f"Using coordinate file: {self.coord_reader.coordinate_file} for EEG net: {self.eeg_net}")
         self._log(f"Simulation Mode (sim_mode): {self.sim_mode}")
@@ -478,13 +482,20 @@ class MontageVisualizer:
         
         # Process each montage
         for montage_name in montage_names:
-            self._log(f"Retrieving pairs for montage '{montage_name}' of type '{self.montage_type}' from net '{self.eeg_net}' in '{self.montage_file}'")
+            self._log(f"Retrieving pairs for montage '{montage_name}'")
             
-            # Extract pairs from JSON
-            try:
-                pairs = montage_config['nets'][self.eeg_net][self.montage_type][montage_name]
-            except KeyError as e:
-                print(f"Error: Failed to find montage '{montage_name}' in configuration: {e}")
+            # Get pairs either from direct data or from JSON
+            if self.montage_data and montage_name in self.montage_data:
+                pairs = self.montage_data[montage_name]
+            elif montage_config:
+                # Extract pairs from JSON
+                try:
+                    pairs = montage_config['nets'][self.eeg_net][self.montage_type][montage_name]
+                except KeyError as e:
+                    print(f"Error: Failed to find montage '{montage_name}' in configuration: {e}")
+                    continue
+            else:
+                print(f"Error: No montage data available for '{montage_name}'")
                 continue
             
             self._log(f"Retrieved pairs for montage '{montage_name}':")
@@ -539,8 +550,8 @@ def main():
     
     parser.add_argument(
         'montages',
-        nargs='+',
-        help='List of montage names to visualize'
+        nargs='*',
+        help='List of montage names to visualize (not used if --pairs is provided)'
     )
     
     parser.add_argument(
@@ -578,6 +589,11 @@ def main():
     )
     
     parser.add_argument(
+        '--pairs',
+        help='Montage pairs in format "montage_name:electrode1-electrode2,electrode3-electrode4"'
+    )
+
+    parser.add_argument(
         '--quiet',
         '-q',
         action='store_true',
@@ -585,7 +601,25 @@ def main():
     )
     
     args = parser.parse_args()
-    
+
+    # Handle pairs argument
+    if args.pairs:
+        # Parse pairs format: "montage_name:electrode1-electrode2,electrode3-electrode4"
+        try:
+            montage_name, pairs_str = args.pairs.split(':', 1)
+            pair_strings = pairs_str.split(',')
+            pairs = []
+            for pair_str in pair_strings:
+                electrode1, electrode2 = pair_str.split('-')
+                pairs.append([electrode1.strip(), electrode2.strip()])
+            montage_data = {montage_name: pairs}
+        except ValueError as e:
+            print(f"Error parsing --pairs argument: {e}")
+            print("Expected format: --pairs 'montage_name:electrode1-electrode2,electrode3-electrode4'")
+            return 1
+    else:
+        montage_data = None
+
     # Auto-detect montage file if not provided
     if args.montage_file is None:
         project_dir_name = args.project_dir_name or os.environ.get('PROJECT_DIR_NAME')
@@ -617,11 +651,13 @@ def main():
             eeg_net=args.eeg_net,
             sim_mode=args.sim_mode,
             output_directory=args.output_dir,
-            verbose=not args.quiet
+            verbose=not args.quiet,
+            montage_data=montage_data if args.pairs else None
         )
-        
+
         # Generate visualizations
-        success = visualizer.visualize_montages(args.montages)
+        montage_names = [montage_name] if args.pairs else args.montages
+        success = visualizer.visualize_montages(montage_names)
         
         return 0 if success else 1
         

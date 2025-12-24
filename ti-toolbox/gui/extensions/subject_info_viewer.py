@@ -37,7 +37,7 @@ class SubjectInfoWindow(QtWidgets.QDialog):
         self.pm = get_path_manager() if get_path_manager else None
         self.project_dir = None
         if self.pm:
-            project_path = self.pm.get_project_dir()
+            project_path = self.pm.project_dir
             if project_path and os.path.exists(project_path):
                 self.project_dir = Path(project_path)
         

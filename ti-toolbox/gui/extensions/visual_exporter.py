@@ -756,7 +756,7 @@ class VisualExporterWidget(QtWidgets.QWidget):
     def _get_project_dir(self):
         if not self.pm:
             return None
-        return self.pm.get_project_dir()
+        return self.pm.project_dir
 
     def _simulation_dir(self, subject_id: str, simulation_name: str):
         if not self.pm:

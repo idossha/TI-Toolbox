@@ -41,62 +41,61 @@ class PathManager:
     - Subject listing and validation
     - Common path patterns (derivatives, SimNIBS, m2m, etc.)
     - BIDS-compliant directory structure handling
+    
+    Usage:
+        pm = PathManager()
+        pm.project_dir = "/path/to/project"  # Explicit set
+        print(pm.project_dir)                # Get current
+        print(pm.project_dir_name)           # Just the name
     """
     
-    def __init__(self):
-        """Initialize the path manager."""
+    def __init__(self, project_dir: Optional[str] = None):
+        """
+        Initialize the path manager.
+        
+        Args:
+            project_dir: Optional explicit project directory. If not provided,
+                        auto-detection from environment variables is attempted
+                        on first access of project_dir property.
+        """
         self._project_dir: Optional[str] = None
-        self._project_dir_name: Optional[str] = None
-        self._refresh()
+        
+        if project_dir:
+            self.project_dir = project_dir  # Use setter for validation
     
-    def _refresh(self):
-        """Refresh project directory information."""
-        self._project_dir = self.detect_project_dir()
-        if self._project_dir:
-            self._project_dir_name = os.path.basename(self._project_dir)
-        else:
-            self._project_dir_name = os.environ.get(const.ENV_PROJECT_DIR_NAME)
-    
-    def detect_project_dir(self) -> Optional[str]:
+    @property
+    def project_dir(self) -> Optional[str]:
         """
-        Detect the project directory using multiple strategies.
+        Get/set the project directory path.
         
-        Check PROJECT_DIR_NAME with /mnt prefix (Docker)
+        Auto-detects from environment on first access if not set.
+        Setting validates the path exists.
         
-        Returns:
-            Path to project directory or None if not found
+        Usage:
+            pm.project_dir = "/path/to/project"  # set
+            path = pm.project_dir                # get
         """
-        
-        # Check PROJECT_DIR_NAME with /mnt prefix (Docker)
-        project_dir_name = os.environ.get(const.ENV_PROJECT_DIR_NAME)
-        if project_dir_name:
-            mnt_path = os.path.join(const.DOCKER_MOUNT_PREFIX, project_dir_name)
-            if os.path.isdir(mnt_path):
-                return mnt_path
-        
-        return None
-    
-    def get_project_dir(self) -> Optional[str]:
-        """
-        Get the project directory path.
-        
-        Returns:
-            Path to project directory or None if not found
-        """
-        if not self._project_dir:
-            self._refresh()
+        if self._project_dir is None:
+            # Auto-detect from environment
+            project_dir_name = os.environ.get(const.ENV_PROJECT_DIR_NAME)
+            if project_dir_name:
+                mnt_path = os.path.join(const.DOCKER_MOUNT_PREFIX, project_dir_name)
+                if os.path.isdir(mnt_path):
+                    self._project_dir = mnt_path
         return self._project_dir
     
-    def get_project_dir_name(self) -> Optional[str]:
-        """
-        Get the project directory name.
-        
-        Returns:
-            Project directory name or None if not found
-        """
-        if not self._project_dir_name:
-            self._refresh()
-        return self._project_dir_name
+    @project_dir.setter
+    def project_dir(self, path: str) -> None:
+        if not os.path.isdir(path):
+            raise ValueError(f"Project directory does not exist: {path}")
+        self._project_dir = path
+    
+    @property
+    def project_dir_name(self) -> Optional[str]:
+        """Get the project directory name (basename of project_dir)."""
+        if self._project_dir:
+            return os.path.basename(self._project_dir)
+        return os.environ.get(const.ENV_PROJECT_DIR_NAME)
     
     def get_derivatives_dir(self) -> Optional[str]:
         """
@@ -105,9 +104,8 @@ class PathManager:
         Returns:
             Path to derivatives directory or None if project not found
         """
-        project_dir = self.get_project_dir()
-        if project_dir:
-            return os.path.join(project_dir, const.DIR_DERIVATIVES)
+        if self.project_dir:
+            return os.path.join(self.project_dir, const.DIR_DERIVATIVES)
         return None
     
     def get_simnibs_dir(self) -> Optional[str]:
@@ -164,14 +162,13 @@ class PathManager:
         Returns:
             Path to sourcedata directory or None
         """
-        project_dir = self.get_project_dir()
-        if not project_dir:
+        if not self.project_dir:
             return None
         
         if subject_id:
-            return os.path.join(project_dir, const.DIR_SOURCEDATA, 
+            return os.path.join(self.project_dir, const.DIR_SOURCEDATA, 
                               f"{const.PREFIX_SUBJECT}{subject_id}")
-        return os.path.join(project_dir, const.DIR_SOURCEDATA)
+        return os.path.join(self.project_dir, const.DIR_SOURCEDATA)
     
     def list_subjects(self) -> List[str]:
         """
@@ -571,7 +568,7 @@ def reset_path_manager():
 
 def get_project_dir() -> Optional[str]:
     """Get the project directory path."""
-    return get_path_manager().get_project_dir()
+    return get_path_manager().project_dir
 
 
 def get_subject_dir(subject_id: str) -> Optional[str]:

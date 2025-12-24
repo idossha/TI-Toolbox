@@ -1553,7 +1553,7 @@ class AnalyzerTab(QtWidgets.QWidget):
                 return None
 
             # Build base command with temporary output directory (group_analyzer.py will create the actual organized directories)
-            project_dir = self.pm.get_project_dir()
+            project_dir = self.pm.project_dir
             if not project_dir:
                 self.update_output("Error: Could not determine project directory")
                 return None
@@ -2414,7 +2414,7 @@ class AnalyzerTab(QtWidgets.QWidget):
     def build_single_analysis_command(self, subject_id, simulation_name):
         """Build command to run main_analyzer.py for a single subject."""
         try:
-            project_dir = self.pm.get_project_dir()
+            project_dir = self.pm.project_dir
             if not project_dir:
                 self.update_output("Error: Could not determine project directory")
                 return None

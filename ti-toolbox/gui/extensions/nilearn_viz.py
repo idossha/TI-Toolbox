@@ -118,7 +118,7 @@ class PublicationImageWorker(QtCore.QThread):
 
             # Create output directory: derivatives/ti-toolbox/[subdir_name]/
             pm = get_path_manager()
-            project_dir = pm.get_project_dir()
+            project_dir = pm.project_dir
 
             output_base_dir = os.path.join(project_dir, "derivatives", "ti-toolbox", "nilearn_visuals", self.subdir_name)
             os.makedirs(output_base_dir, exist_ok=True)

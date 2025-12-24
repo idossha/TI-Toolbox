@@ -776,7 +776,7 @@ class FlexSearchTab(QtWidgets.QWidget):
         
         # Use path_manager to find subjects
         pm = get_path_manager()
-        project_dir = pm.get_project_dir()
+        project_dir = pm.project_dir
         
         if not project_dir:
             self.output_text.append("Error: Could not detect project directory")
@@ -1561,7 +1561,9 @@ class FlexSearchTab(QtWidgets.QWidget):
             is_start = lower.startswith('beginning ') or ': starting' in lower
             is_complete = ('✓ complete' in lower) or ('results available in:' in lower) or ('saved to' in lower)
             color = '#55ff55' if is_final else ('#55aaff' if is_start else '#ffffff')
-            formatted_text = f'<span style="color: {color};">{text}</span>'
+            # Preserve line breaks and spacing by converting to HTML
+            text_html = text.replace('\n', '<br>').replace(' ', '&nbsp;')
+            formatted_text = f'<span style="color: {color};">{text_html}</span>'
             scrollbar = self.output_text.verticalScrollBar()
             at_bottom = scrollbar.value() >= scrollbar.maximum() - 5
             self.output_text.append(formatted_text)
@@ -1569,8 +1571,8 @@ class FlexSearchTab(QtWidgets.QWidget):
                 self.output_text.ensureCursorVisible()
             QtWidgets.QApplication.processEvents()
             return
-            
-            # Additional filtering for setup/configuration messages that shouldn't appear in non-debug mode
+
+        # Additional filtering for setup/configuration messages that shouldn't appear in debug mode
             setup_patterns = [
                 "Looking for subjects in:",
                 "=== Subjects Found ===",
@@ -1596,28 +1598,32 @@ class FlexSearchTab(QtWidgets.QWidget):
             if any(pattern in text for pattern in setup_patterns):
                 return
         
+        # Preserve line breaks and spacing in the text by converting to HTML
+        # Replace newlines with <br> and spaces with &nbsp; to maintain formatting
+        text_html = text.replace('\n', '<br>').replace(' ', '&nbsp;')
+        
         # Format the output based on message type from thread
         if message_type == 'error':
-            formatted_text = f'<span style="color: #ff5555;"><b>{text}</b></span>'
+            formatted_text = f'<span style="color: #ff5555;"><b>{text_html}</b></span>'
         elif message_type == 'warning':
-            formatted_text = f'<span style="color: #ffff55;">{text}</span>'
+            formatted_text = f'<span style="color: #ffff55;">{text_html}</span>'
         elif message_type == 'debug':
-            formatted_text = f'<span style="color: #7f7f7f;">{text}</span>'
+            formatted_text = f'<span style="color: #7f7f7f;">{text_html}</span>'
         elif message_type == 'command':
-            formatted_text = f'<span style="color: #55aaff;">{text}</span>'
+            formatted_text = f'<span style="color: #55aaff;">{text_html}</span>'
         elif message_type == 'success':
-            formatted_text = f'<span style="color: #55ff55;"><b>{text}</b></span>'
+            formatted_text = f'<span style="color: #55ff55;"><b>{text_html}</b></span>'
         elif message_type == 'info':
-            formatted_text = f'<span style="color: #55ffff;">{text}</span>'
+            formatted_text = f'<span style="color: #55ffff;">{text_html}</span>'
         else:
             # Fallback to content-based formatting for backward compatibility
             if "Processing... Only the Stop button is available" in text:
-                formatted_text = f'<div style="background-color: #2a2a2a; padding: 10px; margin: 10px 0; border-radius: 5px;"><span style="color: #ffff55; font-weight: bold;">{text}</span></div>'
+                formatted_text = f'<div style="background-color: #2a2a2a; padding: 10px; margin: 10px 0; border-radius: 5px;"><span style="color: #ffff55; font-weight: bold;">{text_html}</span></div>'
             elif text.strip().startswith("-"):
                 # Indented list items
-                formatted_text = f'<span style="color: #aaaaaa; margin-left: 20px;">  {text}</span>'
+                formatted_text = f'<span style="color: #aaaaaa; margin-left: 20px;">&nbsp;&nbsp;{text_html}</span>'
             else:
-                formatted_text = f'<span style="color: #ffffff;">{text}</span>'
+                formatted_text = f'<span style="color: #ffffff;">{text_html}</span>'
         
         # Check if user is at the bottom of the console before appending
         scrollbar = self.output_text.verticalScrollBar()

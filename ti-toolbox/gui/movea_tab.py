@@ -907,7 +907,7 @@ class MOVEATab(QtWidgets.QWidget):
             return
         
         # Get project directory
-        project_dir = self.pm.get_project_dir()
+        project_dir = self.pm.project_dir
         if not project_dir or not os.path.exists(project_dir):
             QtWidgets.QMessageBox.warning(self, "No Project", "Project directory not found")
             return

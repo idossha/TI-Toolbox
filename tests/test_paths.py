@@ -111,7 +111,7 @@ class TestProjectDetection:
         reset_path_manager()  # Reset singleton after patching
         # Create new PathManager instance
         pm = PathManager()
-        detected = pm.detect_project_dir()
+        detected = pm.project_dir
 
         assert detected == str(project_dir)
 
@@ -121,7 +121,7 @@ class TestProjectDetection:
         monkeypatch.delenv(const.ENV_PROJECT_DIR_NAME, raising=False)
 
         pm = PathManager()
-        detected = pm.detect_project_dir()
+        detected = pm.project_dir
 
         assert detected is None
 
@@ -131,7 +131,7 @@ class TestProjectDetection:
         monkeypatch.setenv(const.ENV_PROJECT_DIR_NAME, project_name)
 
         pm = PathManager()
-        name = pm.get_project_dir_name()
+        name = pm.project_dir_name
 
         assert name == project_name
 
@@ -524,7 +524,7 @@ class TestEdgeCases:
         pm = PathManager()
 
         # Should not crash, but return None for project-dependent operations
-        assert pm.get_project_dir() is None
+        assert pm.project_dir is None
         assert pm.list_subjects() == []
 
 

@@ -148,7 +148,7 @@ class TestEnvironmentConfiguration:
         monkeypatch.setattr(const, 'DOCKER_MOUNT_PREFIX', str(tmp_path / "mnt"))
 
         pm = PathManager()
-        detected = pm.get_project_dir()
+        detected = pm.project_dir
 
         assert detected == str(project_dir)
 
@@ -201,7 +201,7 @@ class TestErrorHandling:
         pm = PathManager()
 
         # Should not crash, but return None
-        assert pm.get_project_dir() is None
+        assert pm.project_dir is None
         assert pm.list_subjects() == []
 
     def test_invalid_env_var_handling(self, monkeypatch):
@@ -214,7 +214,7 @@ class TestErrorHandling:
         pm = PathManager()
 
         # Should detect as None since directory doesn't exist
-        result = pm.detect_project_dir()
+        result = pm.project_dir
         assert result is None
 
 
@@ -249,8 +249,8 @@ class TestDataTypeConsistency:
         pm = PathManager()
 
         # String returns
-        assert isinstance(pm.get_project_dir(), (str, type(None)))
-        assert isinstance(pm.get_project_dir_name(), (str, type(None)))
+        assert isinstance(pm.project_dir, (str, type(None)))
+        assert isinstance(pm.project_dir_name, (str, type(None)))
 
         # List returns
         assert isinstance(pm.list_subjects(), list)

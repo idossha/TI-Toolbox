@@ -32,7 +32,6 @@ from utils import confirm_overwrite, is_verbose_message, is_important_message
 from components.console import ConsoleWidget
 from components.action_buttons import RunStopButtons
 from core import get_path_manager
-from tools.report_util import get_preprocessing_report_generator
 
 class PreProcessThread(QtCore.QThread):
     """Thread to run pre-processing in background to prevent GUI freezing."""
@@ -234,13 +233,12 @@ class PreProcessTab(QtWidgets.QWidget):
         self.pm = get_path_manager()
         
         # Get the project directory using PathManager
-        self.project_dir = self.pm.get_project_dir()
+        self.project_dir = self.pm.project_dir
         if not self.project_dir:
             raise RuntimeError("Could not detect project directory. Please ensure the environment is properly set up.")
             
         self.processing_running = False
         self.processing_thread = None
-        self.report_generators = {}  # Store report generators for each subject
         # Initialize debug mode (default to False)
         self.debug_mode = False
         # Initialize summary mode state and timers for non-debug summaries
@@ -450,9 +448,9 @@ class PreProcessTab(QtWidgets.QWidget):
         """Detect the project directory using PathManager.
         
         Note: This method is deprecated and kept for backward compatibility.
-        Use self.pm.get_project_dir() instead.
+        Use self.pm.project_dir instead.
         """
-        return self.pm.get_project_dir()
+        return self.pm.project_dir
 
     def update_available_subjects(self):
         """Update the list of available subjects."""
@@ -662,21 +660,6 @@ class PreProcessTab(QtWidgets.QWidget):
         ):
             return
         
-        # Initialize report generators for selected subjects
-        for subject_id in selected_subjects:
-            self.report_generators[subject_id] = get_preprocessing_report_generator(self.project_dir, subject_id)
-            
-            # Add processing parameters to report
-            parameters = {
-                'convert_dicom': self.convert_dicom_cb.isChecked(),
-                'run_recon_all': self.run_recon_cb.isChecked(),
-                'parallel_processing': self.parallel_cb.isChecked(),
-                'create_m2m': self.create_m2m_cb.isChecked(),
-                'create_atlas': self.create_atlas_cb.isChecked(),
-                'run_tissue_analyzer': self.run_tissue_analyzer_cb.isChecked(),
-                'debug_mode': self.debug_mode
-            }
-            self.report_generators[subject_id].report_data['parameters'] = parameters
         
         # Set processing state
         self.set_processing_state(True)
@@ -746,42 +729,6 @@ class PreProcessTab(QtWidgets.QWidget):
         """Handle the completion of the preprocessing process."""
         self.set_processing_state(False)
         
-        # Add completion information to reports
-        selected_subjects = [item.text() for item in self.subject_list.selectedItems()]
-        for subject_id in selected_subjects:
-            if subject_id in self.report_generators:
-                # Add main processing steps based on what was enabled
-                if self.convert_dicom_cb.isChecked():
-                    self.report_generators[subject_id].add_processing_step(
-                        'DICOM Conversion',
-                        'Converted DICOM files to NIfTI format with automatic T1w/T2w detection',
-                        {'tool': 'dcm2niix', 'auto_detect': True},
-                        'completed'
-                    )
-                
-                if self.run_recon_cb.isChecked():
-                    self.report_generators[subject_id].add_processing_step(
-                        'FreeSurfer Reconstruction',
-                        'Performed cortical surface reconstruction and tissue segmentation',
-                        {'tool': 'recon-all', 'parallel': self.parallel_cb.isChecked()},
-                        'completed'
-                    )
-                
-                if self.create_m2m_cb.isChecked():
-                    self.report_generators[subject_id].add_processing_step(
-                        'SimNIBS m2m Creation',
-                        'Created head model for electromagnetic field simulations',
-                        {'tool': 'charm', 'segmentation_method': 'charm'},
-                        'completed'
-                    )
-                
-                if self.run_tissue_analyzer_cb.isChecked():
-                    self.report_generators[subject_id].add_processing_step(
-                        'Tissue Analysis',
-                        'Analyzed tissue volume and thickness using unified tissue analyzer',
-                        {'tools': ['tissue-analyzer.sh'], 'tissue_types': ['multiple']},
-                        'completed'
-                    )
 
         # --- Atlas Segmentation: Run if requested ---
         if self.create_atlas_cb.isChecked():
@@ -840,26 +787,10 @@ class PreProcessTab(QtWidgets.QWidget):
                                 self.update_output(f"[Atlas] {subject_id}: Atlas {atlas} segmentation completed but some files missing. Created: {', '.join(created_files)}", 'warning')
                         else:
                             self.update_output(f"[Atlas] {subject_id}: Atlas {atlas} segmentation failed.\n{proc.stderr}", 'error')
-                            if subject_id in self.report_generators:
-                                self.report_generators[subject_id].add_error(f"Atlas {atlas} segmentation failed: {proc.stderr}", 'Atlas Segmentation')
                     except Exception as e:
                         self.update_output(f"[Atlas] {subject_id}: Error running subject_atlas: {e}", 'error')
-                        if subject_id in self.report_generators:
-                            self.report_generators[subject_id].add_error(f"Error running subject_atlas for {atlas}: {e}", 'Atlas Segmentation')
             
-            # Add atlas segmentation step to report if it was requested
-            if self.create_atlas_cb.isChecked():
-                for subject_id in selected_subjects:
-                    if subject_id in self.report_generators:
-                                                 self.report_generators[subject_id].add_processing_step(
-                             'Atlas Segmentation',
-                             'Created cortical parcellation using multiple atlases (a2009s, DK40, HCP_MMP1)',
-                             {'atlases': ['a2009s', 'DK40', 'HCP_MMP1'], 'tool': 'subject_atlas'},
-                             'completed'
-                         )
         
-        # Automatically generate reports for all processed subjects
-        self.auto_generate_reports()
 
     def stop_preprocessing(self):
         """Stop the running preprocessing process."""
@@ -879,48 +810,6 @@ class PreProcessTab(QtWidgets.QWidget):
         """Clear the output console."""
         self.output_text.clear()
     
-    def auto_generate_reports(self):
-        """Automatically generate HTML reports for all processed subjects."""
-        if not self.report_generators:
-            return
-        
-        self.update_output("\n=== Generating preprocessing reports ===", 'debug')
-        
-        generated_reports = []
-        failed_reports = []
-        
-        for subject_id, generator in self.report_generators.items():
-            try:
-                self.update_output(f"Generating report for {subject_id}...", 'debug')
-                report_path = generator.generate_html_report()
-                generated_reports.append((subject_id, report_path))
-                self.update_output(f"Report generated: {os.path.basename(report_path)}", 'debug')
-            except Exception as e:
-                failed_reports.append((subject_id, str(e)))
-                self.update_output(f"Failed to generate report for {subject_id}: {e}", 'error')
-        
-        # Summary of report generation
-        if generated_reports:
-            reports_dir = os.path.join(self.project_dir, "derivatives", "reports")
-            self.update_output(f"\nSuccessfully generated {len(generated_reports)} preprocessing report(s)", 'debug')
-            self.update_output(f"Reports location: {reports_dir}", 'debug')
-            
-            for subject_id, report_path in generated_reports:
-                self.update_output(f"   - {os.path.basename(report_path)}", 'debug')
-            
-            self.update_output(f"\nOpen the HTML files in your web browser to view detailed preprocessing reports.", 'debug')
-        
-        if failed_reports:
-            self.update_output(f"\nFailed to generate {len(failed_reports)} report(s):", 'error')
-            for subject_id, error in failed_reports:
-                self.update_output(f"  - {subject_id}: {error}", 'error')
-        
-        # Only show report generation message in debug mode (summary system handles this)
-        if self.debug_mode:
-            if generated_reports:
-                self.update_output("Report generation completed", 'success')
-            else:
-                self.update_output("Report generation completed", 'info')
     
 
     

@@ -148,8 +148,8 @@ def setup_parser():
                         help="Atlas name for mesh-based cortical analysis (e.g., DK40)")
     parser.add_argument("--coordinates", nargs=3,
                         help="x y z coordinates for spherical analysis")
-    parser.add_argument("--coordinate-space", choices=['MNI', 'subject'], required=True,
-                        help="Coordinate space of the input coordinates (MNI or subject)")
+    parser.add_argument("--coordinate-space", choices=['MNI', 'subject'],
+                        help="Coordinate space of the input coordinates (MNI or subject) - required for spherical analysis")
     parser.add_argument("--radius", type=float,
                         help="Radius for spherical analysis")
     parser.add_argument("--region",
@@ -186,6 +186,8 @@ def validate_args(args):
             raise ValueError("Coordinates are required for spherical analysis")
         if args.radius is None:
             raise ValueError("Radius is required for spherical analysis")
+        if not args.coordinate_space:
+            raise ValueError("Coordinate space (--coordinate-space) is required for spherical analysis")
 
         # Spherical: each subject must supply exactly (id, m2m_path, field_path)
         for i, subject_args in enumerate(args.subject):

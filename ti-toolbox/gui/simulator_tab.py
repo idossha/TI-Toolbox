@@ -10,9 +10,9 @@ import os
 import json
 import re
 import subprocess
+import signal
 import sys
 import time
-import threading
 from pathlib import Path
 import datetime
 import tempfile
@@ -25,11 +25,22 @@ if project_root not in sys.path:
 
 from PyQt5 import QtWidgets, QtCore, QtGui
 from confirmation_dialog import ConfirmationDialog
-from utils import confirm_overwrite, is_verbose_message, is_important_message
+from utils import is_important_message
 from components.console import ConsoleWidget
 from components.action_buttons import RunStopButtons
+from components.base_thread import detect_message_type_from_content
 from core import get_path_manager, constants as const
 from tools.report_util import get_simulation_report_generator
+
+# Import the refactored simulation dataclasses
+from sim import (
+    SimulationConfig,
+    ElectrodeConfig,
+    IntensityConfig,
+    MontageConfig,
+    ConductivityType,
+    ParallelConfig,
+)
 
 # Utility: strip ANSI/VT100 escape sequences from text (e.g., "\x1b[0;32m")
 ANSI_ESCAPE_PATTERN = re.compile(r"\x1B\[[0-?]*[ -/]*[@-~]")
@@ -44,307 +55,166 @@ def strip_ansi_codes(text: str) -> str:
     cleaned = cleaned.replace('\x1b', '')
     return cleaned
 
-class SimulationThread(QtCore.QThread):
-    """Thread to run simulation in background to prevent GUI freezing."""
-    
-    # Signal to emit output text with message type
+class SubprocessSimulationProcess(QtCore.QObject):
+    """
+    Run the simulation pipeline in a separate process (QProcess) so it can be hard-killed.
+
+    Interface intentionally mirrors the old thread usage:
+    - output_signal(str, str)
+    - error_signal(str)
+    - finished (Qt signal)
+    - start()
+    - terminate_simulation() / terminate_process()
+    - get_results()
+    """
+
     output_signal = QtCore.pyqtSignal(str, str)
     error_signal = QtCore.pyqtSignal(str)
-    
-    def __init__(self, cmd, env=None):
-        """Initialize the thread with the command to run and environment variables."""
-        super(SimulationThread, self).__init__()
-        self.cmd = cmd
-        self.env = env or os.environ.copy()
-        self.process = None
-        self.terminated = False
-        
-    def run(self):
-        """Run the simulation command in a separate thread."""
-        try:
-            # Create process in its own process group for proper termination
-            if os.name == 'nt':  # Windows
-                self.process = subprocess.Popen(
-                    self.cmd, 
-                    stdout=subprocess.PIPE, 
-                    stderr=subprocess.STDOUT,
-                    universal_newlines=True,
-                    bufsize=1,
-                    creationflags=subprocess.CREATE_NEW_PROCESS_GROUP,
-                    env=self.env
-                )
-            else:  # Unix/Linux/Mac
-                self.process = subprocess.Popen(
-                    self.cmd, 
-                    stdout=subprocess.PIPE, 
-                    stderr=subprocess.STDOUT,
-                    universal_newlines=True,
-                    bufsize=1,
-                    preexec_fn=os.setsid,  # Create new process group
-                    env=self.env
-                )
-            
-            # Real-time output display with message type detection
-            if self.process.stdout:
-                for line in iter(self.process.stdout.readline, ''):
-                    if self.terminated:
-                        break
-                    if line:
-                        # Strip ANSI escape sequences and detect message type based on content
-                        raw_line = line.rstrip('\n')
-                        line_clean = strip_ansi_codes(raw_line)
-                        line_stripped = line_clean.strip()
-                        lowered = line_stripped.lower()
-                        # Detect error messages from bracketed message types (including timestamped format)
-                        # Format: [2025-08-18 18:32:19] [main-TI] [ERROR] Message...
-                        is_error_tag = (
-                            '[ERROR]' in line_stripped or 
-                            'ERROR:' in line_stripped
-                        )
-                        if is_error_tag:
-                            message_type = 'error'
-                        elif ('[WARNING]' in line_stripped) or ('Warning:' in line_stripped):
-                            message_type = 'warning'
-                        elif '[INFO]' in line_stripped:
-                            message_type = 'info'
-                        elif '[DEBUG]' in line_stripped:
-                            message_type = 'debug'
-                        elif any(keyword in lowered for keyword in ['executing:', 'running', 'command']):
-                            message_type = 'command'
-                        # Be conservative about success: allow explicit [SUCCESS] or clear non-debug "completed successfully"
-                        elif line_stripped.startswith('[SUCCESS]') or ('completed successfully' in lowered and 'debug' not in lowered):
-                            message_type = 'success'
-                        elif any(keyword in lowered for keyword in ['processing', 'starting']):
-                            message_type = 'info'
-                        else:
-                            message_type = 'default'
-                        
-                        self.output_signal.emit(line_stripped, message_type)
-            
-            # Check process completion
-            if not self.terminated:
-                returncode = self.process.wait()
-                if returncode != 0:
-                    self.error_signal.emit(f"Process returned non-zero exit code ({returncode})")
-                    
-        except Exception as e:
-            self.error_signal.emit(f"Error running simulation: {str(e)}")
-    
-    def terminate_process(self):
-        """Terminate the running process and all its children."""
-        if self.process and self.process.poll() is None:  # Process is still running
-            self.terminated = True
-            import signal
-            
-            if os.name == 'nt':  # Windows
-                # Use taskkill with /T flag to kill entire process tree
-                try:
-                    subprocess.call(['taskkill', '/F', '/T', '/PID', str(self.process.pid)], 
-                                    stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
-                except:
-                    pass
-            else:  # Unix/Linux/Mac
-                try:
-                    # Kill the entire process group using SIGTERM first
-                    pgid = os.getpgid(self.process.pid)
-                    os.killpg(pgid, signal.SIGTERM)
-                    
-                    # Wait briefly for graceful termination
-                    try:
-                        self.process.wait(timeout=1)
-                    except subprocess.TimeoutExpired:
-                        # If still running, force kill with SIGKILL
-                        try:
-                            os.killpg(pgid, signal.SIGKILL)
-                        except:
-                            pass
-                        # Force kill the main process as backup
-                        try:
-                            self.process.kill()
-                        except:
-                            pass
-                except Exception as e:
-                    # Fallback: try to kill the main process directly
-                    try:
-                        self.process.kill()
-                    except:
-                        pass
-            
-            # Final cleanup - ensure process is terminated
-            try:
-                self.process.wait(timeout=1)
-            except:
-                pass
-            
-            return True
-        return False
+    finished = QtCore.pyqtSignal()
 
-    def _parse_flex_search_name(self, search_name, electrode_type):
-        """
-        Parse flex-search name and create proper naming format.
-        
-        Args:
-            search_name: Search directory name with format:
-                        - Atlas: {hemisphere}_{atlas}_{region}_{goal}_{postprocess}
-                        - Spherical: sphere_x{X}y{Y}z{Z}r{radius}_{goal}_{postprocess}
-                        - Subcortical: subcortical_{volume_atlas}_{region}_{goal}_{postprocess}
-                        - Legacy cortical: {hemisphere}.{region}_{atlas}_{goal}_{postprocess}
-            electrode_type: 'mapped' or 'optimized'
-            
-        Returns:
-            str: Formatted name following flex_{hemisphere}_{atlas}_{region}_{goal}_{postproc}_{electrode_type}
-        """
+    def __init__(self, payload: dict, runner_path: str, parent_tab=None):
+        super().__init__(parent_tab)
+        self.parent_tab = parent_tab
+        self.payload = payload
+        self.runner_path = runner_path
+
+        self._temp_dir = tempfile.mkdtemp(prefix="ti_sim_qprocess_")
+        self._config_path = os.path.join(self._temp_dir, "sim_config.json")
+        self._results_path = os.path.join(self._temp_dir, "sim_results.json")
+
+        self._results = []
+        self._log_file = None
+        self._terminated = False
+        self._buffer = ""
+
+        self.qprocess = QtCore.QProcess(self)
+        self.qprocess.setProcessChannelMode(QtCore.QProcess.MergedChannels)
+        self.qprocess.readyReadStandardOutput.connect(self._on_ready_read)
+        self.qprocess.errorOccurred.connect(self._on_error)
+        self.qprocess.finished.connect(self._on_finished)
+
+        # Ensure unbuffered python output for real-time GUI streaming
+        env = QtCore.QProcessEnvironment.systemEnvironment()
+        env.insert("PYTHONUNBUFFERED", "1")
+        env.insert("PYTHONFAULTHANDLER", "1")
+        self.qprocess.setProcessEnvironment(env)
+
+    def start(self):
+        """Start the subprocess simulation."""
         try:
-            # Clean the search name first
-            search_name = search_name.strip()
-            
-            # Handle new naming convention first
-            
-            # Handle spherical search names: sphere_x{X}y{Y}z{Z}r{radius}_{goal}_{postprocess}
-            if search_name.startswith('sphere_'):
-                parts = search_name.split('_')
-                if len(parts) >= 3:
-                    hemisphere = 'spherical'
-                    # Extract coordinate part (e.g., x10y-5z20r5)
-                    coords_part = parts[1] if len(parts) > 1 else 'coords'
-                    goal = parts[-2] if len(parts) >= 3 else 'optimization'
-                    post_proc = parts[-1] if len(parts) >= 3 else 'maxTI'
-                    
-                    return f"flex_{hemisphere}_{coords_part}_{goal}_{post_proc}_{electrode_type}"
-            
-            # Handle subcortical search names: subcortical_{volume_atlas}_{region}_{goal}_{postprocess}
-            elif search_name.startswith('subcortical_'):
-                parts = search_name.split('_')
-                if len(parts) >= 5:
-                    hemisphere = 'subcortical'
-                    atlas = parts[1]
-                    region = parts[2]
-                    goal = parts[3]
-                    post_proc = parts[4]
-                    
-                    return f"flex_{hemisphere}_{atlas}_{region}_{goal}_{post_proc}_{electrode_type}"
-            
-            # Handle cortical search names: {hemisphere}_{atlas}_{region}_{goal}_{postprocess}
-            elif '_' in search_name and len(search_name.split('_')) >= 5:
-                parts = search_name.split('_')
-                if len(parts) >= 5 and parts[0] in ['lh', 'rh']:
-                    hemisphere = parts[0]
-                    atlas = parts[1]
-                    region = parts[2]
-                    goal = parts[3]
-                    post_proc = parts[4]
-                    
-                    return f"flex_{hemisphere}_{atlas}_{region}_{goal}_{post_proc}_{electrode_type}"
-            
-            # Fallback: Handle legacy formats for backward compatibility
-            
-            # Legacy cortical search names: lh.101_DK40_14_mean
-            elif search_name.startswith(('lh.', 'rh.')):
-                parts = search_name.split('_')
-                if len(parts) >= 3:
-                    hemisphere_region = parts[0]  # e.g., 'lh.101'
-                    atlas = parts[1]  # e.g., 'DK40'
-                    goal_postproc = '_'.join(parts[2:])  # e.g., '14_mean'
-                    
-                    # Extract hemisphere and region
-                    if '.' in hemisphere_region:
-                        hemisphere, region = hemisphere_region.split('.', 1)
-                    else:
-                        hemisphere = 'unknown'
-                        region = hemisphere_region
-                    
-                    # Split goal and postProc if possible
-                    if '_' in goal_postproc:
-                        goal_parts = goal_postproc.split('_')
-                        region = goal_parts[0]  # First part is actually the region
-                        goal = goal_parts[1] if len(goal_parts) > 1 else 'optimization'
-                        post_proc = '_'.join(goal_parts[2:]) if len(goal_parts) > 2 else 'maxTI'
-                    else:
-                        goal = goal_postproc
-                        post_proc = 'maxTI'
-                    
-                    return f"flex_{hemisphere}_{atlas}_{region}_{goal}_{post_proc}_{electrode_type}"
-            
-            # Legacy subcortical search names: subcortical_atlas_region_goal
-            elif search_name.startswith('subcortical_') and len(search_name.split('_')) == 4:
-                parts = search_name.split('_')
-                if len(parts) >= 4:
-                    hemisphere = 'subcortical'
-                    atlas = parts[1]
-                    region = parts[2]
-                    goal = parts[3]
-                    post_proc = 'maxTI'  # Default for legacy
-                    
-                    return f"flex_{hemisphere}_{atlas}_{region}_{goal}_{post_proc}_{electrode_type}"
-            
-            # Legacy spherical coordinates: assume any other format with underscores
-            elif '_' in search_name:
-                parts = search_name.split('_')
-                hemisphere = 'spherical'
-                atlas = 'coordinates'
-                region = '_'.join(parts[:-1]) if len(parts) > 1 else search_name
-                goal = parts[-1] if parts else 'optimization'
-                post_proc = 'maxTI'
-                
-                return f"flex_{hemisphere}_{atlas}_{region}_{goal}_{post_proc}_{electrode_type}"
-            
-            # Fallback for unrecognized formats
+            with open(self._config_path, "w") as f:
+                json.dump(self.payload, f)
+
+            program = "simnibs_python"
+            args = [self.runner_path, "--config", self._config_path, "--results", self._results_path]
+            self.qprocess.start(program, args)
+        except Exception as e:
+            self.error_signal.emit(f"Failed to start simulation subprocess: {e}")
+            self.finished.emit()
+
+    def _emit_line(self, line: str):
+        line = strip_ansi_codes(line)
+        if not line.strip():
+            return
+        msg_type = detect_message_type_from_content(line)
+        self.output_signal.emit(line, msg_type)
+
+    def _on_ready_read(self):
+        try:
+            data = bytes(self.qprocess.readAllStandardOutput()).decode(errors="replace")
+        except Exception:
+            data = ""
+        if not data:
+            return
+        self._buffer += data
+        while "\n" in self._buffer:
+            line, self._buffer = self._buffer.split("\n", 1)
+            self._emit_line(line)
+
+    def _on_error(self, _err):
+        try:
+            msg = f"Subprocess error occurred (state={self.qprocess.state()} code={_err})"
+        except Exception:
+            msg = "Subprocess error occurred"
+        self.error_signal.emit(msg)
+
+    def _read_results_file(self):
+        if not os.path.exists(self._results_path):
+            return None
+        try:
+            with open(self._results_path, "r") as f:
+                return json.load(f)
+        except Exception:
+            return None
+
+    def _cleanup_temp(self):
+        try:
+            shutil.rmtree(self._temp_dir, ignore_errors=True)
+        except Exception:
+            pass
+
+    def _on_finished(self, exit_code, exit_status):
+        # Flush any remaining buffered output
+        if self._buffer.strip():
+            for line in self._buffer.splitlines():
+                self._emit_line(line)
+        self._buffer = ""
+
+        payload = self._read_results_file() or {}
+        self._log_file = payload.get("log_file")
+
+        results = payload.get("results")
+        if isinstance(results, list):
+            self._results = results
+        else:
+            # Fall back to a single failed result if process ended unexpectedly
+            if exit_code != 0 or exit_status != QtCore.QProcess.NormalExit or payload.get("status") == "failed":
+                err = payload.get("error") or f"Simulation subprocess failed (exit_code={exit_code})"
+                self._results = [{"montage_name": "unknown", "status": "failed", "error": err}]
             else:
-                return f"flex_unknown_unknown_{search_name}_optimization_maxTI_{electrode_type}"
-                
-        except Exception as e:
-            self.update_output(f"Warning: Could not parse flex search name '{search_name}': {e}", 'warning')
-            return f"flex_unknown_unknown_{search_name}_optimization_maxTI_{electrode_type}"
-            
-    def cleanup_old_simulation_directories(self, subject_id):
+                self._results = []
+
+        # Clean temp files after parsing results
+        self._cleanup_temp()
+        self.finished.emit()
+
+    def get_results(self):
+        return self._results
+
+    def get_log_file(self):
+        return self._log_file
+
+    def terminate_process(self):
+        """Alias used by some error-abort code paths."""
+        return self.terminate_simulation()
+
+    def terminate_simulation(self):
         """
-        Clean up old simulation directories that might interfere with flex-search discovery.
-        Only removes directories that don't have recent simulation results.
+        Hard-stop the simulation.
+
+        We SIGKILL the *process group* (Linux container), ensuring child workers die too.
+        The runner sets its own pgid = pid, so killpg(pid) targets the full tree.
         """
+        self._terminated = True
         try:
-            # Get simulation directory using path manager
-            simulation_dir = self.pm.get_simulation_dir(subject_id, 'Simulations')
-            
-            if not simulation_dir or not os.path.exists(simulation_dir):
-                return
-            
-            # Get current time
-            current_time = time.time()
-            cutoff_time = current_time - (24 * 60 * 60)  # 24 hours ago
-            
-            for item in os.listdir(simulation_dir):
-                item_path = os.path.join(simulation_dir, item)
-                
-                # Skip tmp directory and files
-                if not os.path.isdir(item_path) or item == 'tmp':
-                    continue
-                
-                # Check if directory is old and potentially stale
-                try:
-                    dir_mtime = os.path.getmtime(item_path)
-                    
-                    # If directory is older than cutoff and doesn't have recent TI results, consider removing
-                    if dir_mtime < cutoff_time:
-                        ti_mesh_path = os.path.join(item_path, 'TI', 'mesh')
-                        
-                        # Check if it has valid TI results
-                        has_valid_results = False
-                        if os.path.exists(ti_mesh_path):
-                            for file in os.listdir(ti_mesh_path):
-                                if file.endswith('_TI.msh') and os.path.getmtime(os.path.join(ti_mesh_path, file)) > cutoff_time:
-                                    has_valid_results = True
-                                    break
-                        
-                        # If no valid recent results, ask user if they want to clean up
-                        if not has_valid_results:
-                            self.update_output(f"Found old simulation directory: {item} (last modified: {datetime.datetime.fromtimestamp(dir_mtime).strftime('%Y-%m-%d %H:%M')})", 'info')
-                            # For now, just warn - in the future could add cleanup logic
-                            
-                except Exception as e:
-                    self.update_output(f"Warning: Could not check directory {item}: {e}", 'warning')
-                    
-        except Exception as e:
-            self.update_output(f"Warning: Could not clean up old directories: {e}", 'warning')
+            pid = int(self.qprocess.processId())
+        except Exception:
+            pid = 0
+
+        # Hard kill process group first (best-effort)
+        if pid > 0 and os.name != "nt":
+            try:
+                os.killpg(pid, signal.SIGKILL)
+            except Exception:
+                pass
+
+        # Also kill the main process
+        try:
+            if self.qprocess.state() != QtCore.QProcess.NotRunning:
+                self.qprocess.kill()
+        except Exception:
+            pass
+        return True
 
 class SimulatorTab(QtWidgets.QWidget):
     """Tab for simulator functionality."""
@@ -362,6 +232,11 @@ class SimulatorTab(QtWidgets.QWidget):
         self._current_run_subjects = []
         self._current_run_is_montage = True
         self._current_run_montages = []
+        # Job-based execution (simulation = subject × montage/config)
+        self._job_queue = []
+        self._active_processes = set()
+        self._process_to_job = {}
+        self._max_concurrent_jobs = 1
         self._run_start_time = None
         self._project_dir_path_current = None
         # Initialize debug mode (default to False)
@@ -561,26 +436,8 @@ class SimulatorTab(QtWidgets.QWidget):
         self.sim_type_combo.addItem("Anisotropic (dir)", "dir")
         self.sim_type_combo.addItem("Anisotropic (mc)", "mc")
         
-        # Add help button
-        self.sim_type_help_btn = QtWidgets.QPushButton("?")
-        self.sim_type_help_btn.setFixedWidth(20)
-        self.sim_type_help_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #4a4a4a;
-                color: white;
-                border: none;
-                border-radius: 10px;
-                font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: #5a5a5a;
-            }
-        """)
-        self.sim_type_help_btn.clicked.connect(self.show_sim_type_help)
-        
         sim_type_layout.addWidget(self.sim_type_label)
         sim_type_layout.addWidget(self.sim_type_combo)
-        sim_type_layout.addWidget(self.sim_type_help_btn)
         
         # Add conductivity editor button on the same line
         self.conductivity_editor_btn = QtWidgets.QPushButton("Change Default Cond.")
@@ -618,28 +475,10 @@ class SimulatorTab(QtWidgets.QWidget):
         self.sim_type_group.addButton(self.sim_type_flex, 2)
         self.sim_type_group.addButton(self.sim_type_freehand, 3)
         
-        # Add help button for montage source
-        self.montage_source_help_btn = QtWidgets.QPushButton("?")
-        self.montage_source_help_btn.setFixedWidth(20)
-        self.montage_source_help_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #4a4a4a;
-                color: white;
-                border: none;
-                border-radius: 10px;
-                font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: #5a5a5a;
-            }
-        """)
-        self.montage_source_help_btn.clicked.connect(self.show_montage_source_help)
-        
         sim_type_selection_layout.addWidget(self.sim_type_selection_label)
         sim_type_selection_layout.addWidget(self.sim_type_montage)
         sim_type_selection_layout.addWidget(self.sim_type_flex)
         sim_type_selection_layout.addWidget(self.sim_type_freehand)
-        sim_type_selection_layout.addWidget(self.montage_source_help_btn)
         sim_type_selection_layout.addStretch()
         sim_params_layout.addLayout(sim_type_selection_layout)
         
@@ -757,6 +596,39 @@ class SimulatorTab(QtWidgets.QWidget):
         
         # Add electrode params group to simulation params
         sim_params_layout.addWidget(self.electrode_params_group)
+        
+        # Parallel Execution Options
+        parallel_layout = QtWidgets.QHBoxLayout()
+        self.parallel_checkbox = QtWidgets.QCheckBox("Parallel Execution")
+        self.parallel_checkbox.setToolTip("Run multiple montage simulations in parallel using multiple CPU cores")
+        self.parallel_checkbox.setChecked(False)
+        
+        self.parallel_workers_label = QtWidgets.QLabel("Workers:")
+        self.parallel_workers_label.setEnabled(False)
+        
+        # Get default worker count (half of CPUs)
+        import os as _os
+        default_workers = max(1, (_os.cpu_count() or 4) // 2)
+        
+        self.parallel_workers_spin = QtWidgets.QSpinBox()
+        self.parallel_workers_spin.setRange(1, _os.cpu_count() or 8)
+        self.parallel_workers_spin.setValue(default_workers)
+        self.parallel_workers_spin.setToolTip(f"Number of parallel workers (CPU cores: {_os.cpu_count() or 'unknown'})")
+        self.parallel_workers_spin.setEnabled(False)
+        self.parallel_workers_spin.setFixedWidth(60)
+        
+        # Connect checkbox to enable/disable worker spinbox
+        self.parallel_checkbox.toggled.connect(lambda checked: (
+            self.parallel_workers_label.setEnabled(checked),
+            self.parallel_workers_spin.setEnabled(checked)
+        ))
+        
+        parallel_layout.addWidget(self.parallel_checkbox)
+        parallel_layout.addWidget(self.parallel_workers_label)
+        parallel_layout.addWidget(self.parallel_workers_spin)
+        parallel_layout.addStretch()
+        
+        sim_params_layout.addLayout(parallel_layout)
         
         # Add simulation parameters to right layout
         right_layout.addWidget(sim_params_container)
@@ -1163,7 +1035,7 @@ class SimulatorTab(QtWidgets.QWidget):
         """Update the list of available montages."""
         try:
             # Get project directory using path manager
-            project_dir = self.pm.get_project_dir()
+            project_dir = self.pm.project_dir
             if not project_dir:
                 return
             # Clear existing items
@@ -1231,7 +1103,7 @@ class SimulatorTab(QtWidgets.QWidget):
         """List available montages from montage_list.json."""
         try:
             # Get project directory using path manager
-            project_dir = self.pm.get_project_dir()
+            project_dir = self.pm.project_dir
             if not project_dir:
                 return
             # Ensure and use the new location under code/ti-toolbox/config
@@ -1316,16 +1188,6 @@ class SimulatorTab(QtWidgets.QWidget):
         
         return ", ".join(formatted_pairs)
     
-    def browse_montage(self):
-        """Open file browser to select a montage file."""
-        file_name, _ = QtWidgets.QFileDialog.getOpenFileName(
-            self, "Select Montage File", "", "JSON Files (*.json);;All Files (*)"
-        )
-        
-        if file_name:
-            self.montage_list.addItem(file_name)
-            self.output_console.append(f"Selected montage file: {file_name}")
-    
     def run_simulation(self):
         """Run the simulation with the selected parameters."""
         
@@ -1342,7 +1204,7 @@ class SimulatorTab(QtWidgets.QWidget):
                     self.cleanup_old_simulation_directories(subject_id)
             
             # Get project directory using path manager
-            project_dir = self.pm.get_project_dir()
+            project_dir = self.pm.project_dir
             
             # Check simulation mode and validate selections
             is_montage_mode = self.sim_type_montage.isChecked()
@@ -1545,7 +1407,7 @@ class SimulatorTab(QtWidgets.QWidget):
             else:
                 eeg_net = "flex_mode"
             
-            # Get current values and convert to Amperes (from mA)
+            # Get current values in mA (IntensityConfig expects mA, session_builder converts to A)
             try:
                 current_ma_1 = float(self.current_input_1.text() or "1.0")
                 current_ma_2 = float(self.current_input_2.text() or "1.0")
@@ -1557,12 +1419,12 @@ class SimulatorTab(QtWidgets.QWidget):
                     if current_ma_1 <= 0 or current_ma_2 <= 0 or current_ma_3 <= 0 or current_ma_4 <= 0:
                         QtWidgets.QMessageBox.warning(self, "Warning", "All current values must be greater than 0 mA.")
                         return
-                    current = f"{current_ma_1/1000.0},{current_ma_2/1000.0},{current_ma_3/1000.0},{current_ma_4/1000.0}"
+                    current = f"{current_ma_1},{current_ma_2},{current_ma_3},{current_ma_4}"
                 else:
                     if current_ma_1 <= 0 or current_ma_2 <= 0:
                         QtWidgets.QMessageBox.warning(self, "Warning", "Current values must be greater than 0 mA.")
                         return
-                    current = f"{current_ma_1/1000.0},{current_ma_2/1000.0}"
+                    current = f"{current_ma_1},{current_ma_2}"
             except ValueError:
                 channels_text = "all channels" if self.sim_mode_multipolar.isChecked() else "both channels"
                 QtWidgets.QMessageBox.warning(self, "Warning", f"Please enter valid current values in mA for {channels_text}.")
@@ -1704,146 +1566,125 @@ class SimulatorTab(QtWidgets.QWidget):
                                 except Exception as e:
                                     self.update_output(f"  Warning: Could not remove {subject_id}/{montage_name}: {str(e)}", 'warning')
             
-            # Prepare environment variables
-            env = os.environ.copy()
-            env['DIRECT_MODE'] = 'true'
-            env['PROJECT_DIR_NAME'] = os.environ.get('PROJECT_DIR_NAME', 'BIDS_new')
-            
-            # Build command
-            cmd = [
-                'bash',
-                os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'cli', 'simulator.sh'),
-                '--run-direct'
-            ]
-            
-            
-            
-            # Set environment variables for simulator.sh (match CLI script expectations)
-            env['SUBJECT_CHOICES'] = ','.join(selected_subjects)  # CLI expects SUBJECT_CHOICES
-            env['SIM_TYPE'] = 'TI'  # CLI expects SIM_TYPE (always TI for this GUI)
-            env['CONDUCTIVITY'] = conductivity
-            env['SIM_MODE'] = sim_mode
-            env['EEG_NET'] = eeg_net
-            
-            # Pass debug mode setting to control summary output
-            env['DEBUG_MODE'] = 'true' if self.debug_mode else 'false'
-            
-            # For montage mode with multiple subjects, provide EEG_NETS (comma-separated)
-            if is_montage_mode:
-                # For now, use the same EEG net for all subjects
-                # In the future, this could be made more sophisticated to support different nets per subject
-                eeg_nets_list = [eeg_net] * len(selected_subjects)
-                env['EEG_NETS'] = ','.join(eeg_nets_list)
-            env['CURRENT'] = current  # Now in Amperes, comma-separated for two channels
-            env['ELECTRODE_SHAPE'] = electrode_shape
-            env['DIMENSIONS'] = dimensions
-            env['THICKNESS'] = thickness
+            # Build MontageConfig objects for the simulation
+            # NOTE: We will schedule per-simulation jobs (subject × montage/config).
+            # For montage mode we can cross product subjects × montages.
+            # For flex/freehand we keep subject-specific mapping if available.
+            montage_mode_montage_configs = []
+            freehand_subject_montage_pairs = []  # [(subject_id, MontageConfig)]
+            flex_subject_montage_pairs = []      # [(subject_id, MontageConfig)]
             
             if is_montage_mode:
-                # Montage simulation mode
-                env['SELECTED_MONTAGES'] = ','.join(selected_montages)  # Use comma-separated for CLI parsing
-                env['SIMULATION_FRAMEWORK'] = 'montage'  # CLI expects SIMULATION_FRAMEWORK
+                # Load regular montages from montage file
+                montage_file = self.ensure_montage_file_exists(project_dir)
+                try:
+                    with open(montage_file, 'r') as f:
+                        montage_data = json.load(f)
+                except Exception:
+                    montage_data = {"nets": {}}
+                
+                net_type = "uni_polar_montages" if sim_mode == 'U' else "multi_polar_montages"
+                
+                for montage_name in selected_montages:
+                    # Get electrode pairs from montage file
+                    electrode_pairs = None
+                    if ("nets" in montage_data and
+                        eeg_net in montage_data["nets"] and
+                        net_type in montage_data["nets"][eeg_net] and
+                        montage_name in montage_data["nets"][eeg_net][net_type]):
+                        electrode_pairs = montage_data["nets"][eeg_net][net_type][montage_name]
+                    
+                    if electrode_pairs:
+                        # Convert to tuple format for MontageConfig
+                        pairs_as_tuples = [(pair[0], pair[1]) for pair in electrode_pairs]
+                        montage_mode_montage_configs.append(MontageConfig(
+                            name=montage_name,
+                            electrode_pairs=pairs_as_tuples,
+                            is_xyz=False,
+                            eeg_net=eeg_net
+                        ))
+                        
             elif is_freehand_mode:
-                # Free-hand simulation mode
-                env['SELECTED_MONTAGES'] = ''  # No regular montages
-                # Use dedicated free-hand framework
-                env['SIMULATION_FRAMEWORK'] = 'freehand'
-                
-                # Create temporary JSON files for free-hand configs
-                import tempfile
-                temp_files = []
-                freehand_file_list = []  # List of temp file paths in processing order
-                
+                # Free-hand mode: XYZ coordinates
                 for config_data in freehand_configs:
                     config_name = config_data.get('name', 'unnamed')
-                    stim_type = config_data.get('type', 'U')
+                    config_subject_id = config_data.get('subject_id')
                     electrode_positions = config_data.get('electrode_positions', {})
                     
-                    # For each subject, create a config
-                    for subject_id in selected_subjects:
-                        with tempfile.NamedTemporaryFile(mode='w', suffix=f'_{subject_id}_{config_name}.json', delete=False) as tf:
-                            # Map dict to list of 4 XYZ coordinates in TI-expected order
-                            # Prefer E1+, E1-, E2+, E2-; otherwise take first 4 by sorted name
-                            ordered_keys = ['E1+', 'E1-', 'E2+', 'E2-']
-                            coords = []
-                            try:
-                                for k in ordered_keys:
-                                    if k in electrode_positions:
-                                        coords.append(electrode_positions[k])
-                                if len(coords) < 4:
-                                    # Fallback to first 4 entries sorted by key
-                                    for k in sorted(electrode_positions.keys()):
-                                        if k not in ordered_keys and len(coords) < 4:
-                                            coords.append(electrode_positions.get(k))
-                            except Exception:
-                                coords = []
-                            
-                            if len(coords) < 4:
-                                # Not enough electrodes; skip creating this file
-                                continue
-                            
-                            # Create config for free-hand pipeline
-                            freehand_config = {
-                                'subject_id': subject_id,
-                                'montage': {
-                                    'name': config_name,
-                                    'type': 'freehand_xyz',
-                                    'electrode_positions': coords[:4]
-                                }
-                            }
-                            json.dump(freehand_config, tf, indent=2)
-                            temp_file_path = tf.name
-                            temp_files.append(temp_file_path)
-                            freehand_file_list.append({
-                                'file_path': temp_file_path,
-                                'subject_id': subject_id,
-                                'montage_name': config_name,
-                                'eeg_net': 'freehand'
-                            })
-                
-                # Store the freehand file list for CLI to use
-                env['FREEHAND_MONTAGE_FILES'] = json.dumps(freehand_file_list)
-                self.update_output(f"--- Prepared {len(temp_files)} free-hand simulations for processing ---")
-                
-                # Store temp files for cleanup later
-                self.temp_flex_files = temp_files
-            else:
-                # Flex-search simulation mode
-                env['SELECTED_MONTAGES'] = ''  # No regular montages
-                env['SIMULATION_FRAMEWORK'] = 'flex'  # CLI expects SIMULATION_FRAMEWORK
-                
-                # Create separate temporary JSON files for each subject-montage combination
-                import tempfile
-                temp_files = []
-                montage_file_list = []  # List of temp file paths in processing order
-                
-                for config in flex_montage_configs:
-                    subject_id = config['subject_id']
-                    montage_name = config['montage']['name']
+                    # Map dict to list of 4 XYZ coordinates in TI-expected order
+                    ordered_keys = ['E1+', 'E1-', 'E2+', 'E2-']
+                    coords = []
+                    try:
+                        for k in ordered_keys:
+                            if k in electrode_positions:
+                                coords.append(electrode_positions[k])
+                        if len(coords) < 4:
+                            for k in sorted(electrode_positions.keys()):
+                                if k not in ordered_keys and len(coords) < 4:
+                                    coords.append(electrode_positions.get(k))
+                    except Exception:
+                        coords = []
                     
-                    # Create unique temp file for this subject-montage combination
-                    with tempfile.NamedTemporaryFile(mode='w', suffix=f'_{subject_id}_{montage_name}.json', delete=False) as tf:
-                        json.dump(config, tf, indent=2)
-                        temp_file_path = tf.name
-                        temp_files.append(temp_file_path)
-                        montage_file_list.append({
-                            'file_path': temp_file_path,
-                            'subject_id': subject_id,
-                            'montage_name': montage_name,
-                            'eeg_net': config['eeg_net']
-                        })
-                        # Temp file created (verbose output reduced)
+                    if len(coords) >= 4:
+                        mc = MontageConfig(
+                            name=config_name,
+                            electrode_pairs=[(coords[0], coords[1]), (coords[2], coords[3])],
+                            is_xyz=True,
+                            eeg_net='freehand'
+                        )
+                        # Freehand configs are subject-specific; schedule them for that subject only.
+                        if config_subject_id:
+                            freehand_subject_montage_pairs.append((str(config_subject_id), mc))
+                        else:
+                            # Fallback: apply to all selected subjects (shouldn't usually happen)
+                            for sid in selected_subjects:
+                                freehand_subject_montage_pairs.append((sid, mc))
+                self.update_output(f"--- Prepared {len(freehand_subject_montage_pairs)} free-hand simulations ---")
+                        
+            else:
+                # Flex-search mode: convert flex_montage_configs to MontageConfig objects
+                for config in flex_montage_configs:
+                    sid = str(config.get('subject_id')) if config.get('subject_id') else None
+                    montage = config['montage']
+                    montage_name = montage['name']
+                    montage_type = montage['type']
+                    
+                    if montage_type == 'flex_mapped':
+                        # Electrode names from EEG cap
+                        pairs = montage['pairs']
+                        mc = MontageConfig(
+                            name=montage_name,
+                            electrode_pairs=[(pairs[0][0], pairs[0][1]), (pairs[1][0], pairs[1][1])],
+                            is_xyz=False,
+                            eeg_net=config['eeg_net']
+                        )
+                    elif montage_type == 'flex_optimized':
+                        # XYZ coordinates
+                        positions = montage['electrode_positions']
+                        mc = MontageConfig(
+                            name=montage_name,
+                            electrode_pairs=[(positions[0], positions[1]), (positions[2], positions[3])],
+                            is_xyz=True,
+                            eeg_net=None
+                        )
+                    else:
+                        mc = None
+
+                    if mc and sid:
+                        flex_subject_montage_pairs.append((sid, mc))
                 
-                # Store the montage file list for CLI to use (sequential processing)
-                env['FLEX_MONTAGE_FILES'] = json.dumps(montage_file_list)
-                self.update_output(f"--- Prepared {len(temp_files)} flex simulations for processing ---")
-                
-                # Store temp files for cleanup later
-                self.temp_flex_files = temp_files
+                self.update_output(f"--- Prepared {len(flex_subject_montage_pairs)} flex simulations ---")
             
             # Persist run context for cleanup/termination decisions
             self._current_run_subjects = selected_subjects[:]
             self._current_run_is_montage = is_montage_mode
+            # Persist run mode so we can label per-job "Beginning simulation..." lines.
+            if is_montage_mode:
+                self._current_run_mode = "montage"
+            elif is_freehand_mode:
+                self._current_run_mode = "freehand"
+            else:
+                self._current_run_mode = "flex"
             if is_montage_mode:
                 self._current_run_montages = selected_montages[:]
             elif is_freehand_mode:
@@ -1851,16 +1692,63 @@ class SimulatorTab(QtWidgets.QWidget):
             else:
                 self._current_run_montages = [cfg['montage']['name'] for cfg in flex_montage_configs]
             self._run_start_time = time.time()
-            self._project_dir_path_current = self.pm.get_project_dir()
+            self._project_dir_path_current = self.pm.project_dir
+
+            # ------------------------------------------------------------------
+            # Build simulation job queue (simulation = subject × montage/config)
+            # ------------------------------------------------------------------
+            jobs = []
+            if is_montage_mode:
+                for sid in selected_subjects:
+                    for mc in montage_mode_montage_configs:
+                        jobs.append((sid, mc))
+            elif is_freehand_mode:
+                jobs = list(freehand_subject_montage_pairs)
+            else:
+                # Flex-search jobs already carry subject_id
+                # Optionally filter by selected_subjects (UI selection) for safety
+                selected_set = set(selected_subjects)
+                jobs = [(sid, mc) for (sid, mc) in flex_subject_montage_pairs if sid in selected_set]
+
+            total_simulations = len(jobs)
+            if total_simulations == 0:
+                QtWidgets.QMessageBox.warning(self, "Warning", "No valid simulations could be prepared (check montage/config selections).")
+                return
+
+            # Determine concurrency:
+            # - Parallel should kick in when 2+ simulations are selected (subject × montage/config).
+            # - We use the workers spinbox as the max concurrent jobs when enabled,
+            #   otherwise default to 2-way parallel once we have 2+ jobs.
+            if total_simulations >= 2:
+                if self.parallel_checkbox.isChecked():
+                    self._max_concurrent_jobs = max(1, int(self.parallel_workers_spin.value()))
+                else:
+                    self._max_concurrent_jobs = 2
+            else:
+                self._max_concurrent_jobs = 1
+
+            self._job_queue = jobs[:]
+            self._active_processes = set()
+            self._process_to_job = {}
 
             # Display simulation configuration
             self.update_output("--- SIMULATION CONFIGURATION ---")
-            self.update_output(f"Subjects: {env['SUBJECT_CHOICES']}")
-            self.update_output(f"Simulation type: {env['CONDUCTIVITY']}")
+            self.update_output(f"Subjects: {', '.join(selected_subjects)}")
+            self.update_output(f"Simulation type: {conductivity}")
+            self.update_output("Subprocess execution: enabled (terminable)")
+            # Debug-only: keep this for troubleshooting, but do not show in normal mode.
+            self.update_output(f"Total simulations (subject × montage): {total_simulations}", "debug")
+            if self._max_concurrent_jobs > 1:
+                self.update_output(
+                    f"Parallel job execution: enabled ({min(self._max_concurrent_jobs, total_simulations)} concurrent)",
+                    "debug",
+                )
+            else:
+                self.update_output("Parallel job execution: disabled (sequential)", "debug")
             
             if is_montage_mode:
                 self.update_output(f"Mode: {'Unipolar' if sim_mode == 'U' else 'Multipolar'}")
-                self.update_output(f"EEG Net: {env['EEG_NET']}")
+                self.update_output(f"EEG Net: {eeg_net}")
                 self.update_output(f"Montages: {', '.join(selected_montages)}")
             elif is_freehand_mode:
                 # Free-hand configuration display
@@ -1890,11 +1778,11 @@ class SimulatorTab(QtWidgets.QWidget):
             else:
                 self.update_output(f"Current Ch1/Ch2: {current_ma_1}/{current_ma_2} mA")
             self.update_output(f"Electrode: {electrode_shape} ({dimensions} mm, {thickness} mm thick)")
-            self.update_output("--- STARTING SIMULATION ---")
+            self.update_output("--- STARTING SIMULATION (Subprocess) ---")
             
             # Initialize report generator for this simulation session
             self.simulation_session_id = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-            project_dir_path = self.pm.get_project_dir()
+            project_dir_path = self.pm.project_dir
 
             self.report_generator = get_simulation_report_generator(project_dir_path, self.simulation_session_id)
 
@@ -1962,22 +1850,182 @@ class SimulatorTab(QtWidgets.QWidget):
 
             # Set tab as busy (with stop_btn parameter for proper state management)
             if hasattr(self, 'parent') and self.parent:
-                self.parent.set_tab_busy(self, True, stop_btn=self.stop_btn, keep_enabled=[self.console_widget.debug_checkbox])
+                keep_enabled_widgets = [self.console_widget.debug_checkbox] if hasattr(self, 'console_widget') else []
+                # Keep Clear Console available during runs
+                if hasattr(self, 'console_widget') and hasattr(self.console_widget, 'clear_btn'):
+                    keep_enabled_widgets.append(self.console_widget.clear_btn)
+                self.parent.set_tab_busy(
+                    self,
+                    True,
+                    message="A simulation is running...",
+                    stop_btn=self.stop_btn,
+                    keep_enabled=keep_enabled_widgets
+                )
 
             self.simulation_running = True
             
-            # Create and start the thread
-            self.simulation_process = SimulationThread(cmd, env)
+            # Parse electrode dimensions
+            dim_parts = dimensions.split(',')
+            electrode_dims = [float(dim_parts[0]), float(dim_parts[1])]
+            
+            # Run simulations as a job queue (each job is one subject × one montage/config)
             self._had_errors_during_run = False
             self._simulation_finished_called = False  # Reset flag for new simulation
-            self.simulation_process.output_signal.connect(self._handle_thread_output)
-            self.simulation_process.error_signal.connect(lambda msg: self._handle_thread_output(msg, 'error'))
-            self.simulation_process.finished.connect(lambda: self.simulation_finished() if not getattr(self, '_simulation_finished_called', False) else None)
-            self.simulation_process.start()
+            
+            # Store simulation parameters for use in thread
+            self._sim_params = {
+                'conductivity': conductivity,
+                'current': current,
+                'electrode_shape': electrode_shape,
+                'electrode_dims': electrode_dims,
+                'thickness': float(thickness),
+                'eeg_net': eeg_net,
+                'project_dir': project_dir,
+                'parallel_enabled': self.parallel_checkbox.isChecked(),
+                'parallel_workers': self.parallel_workers_spin.value()
+            }
+            
+            # Start processing jobs
+            self._start_next_simulation_jobs()
             
         except Exception as e:
-            self.update_output(f"Error starting simulation: {str(e)}")
+            self.update_output(f"Error starting simulation: {str(e)}", 'error')
+            import traceback
+            self.update_output(traceback.format_exc(), 'error')
             self.simulation_finished()
+    
+    def _start_next_simulation_jobs(self):
+        """Start as many simulation jobs as allowed by the concurrency limit."""
+        if not getattr(self, "simulation_running", False):
+            return
+
+        # Fill up to concurrency
+        while self._job_queue and len(self._active_processes) < self._max_concurrent_jobs:
+            subject_id, montage_cfg = self._job_queue.pop(0)
+            self._start_single_simulation_job(subject_id, montage_cfg)
+
+        # If nothing is running and queue is empty, we're done
+        if not self._job_queue and not self._active_processes:
+            self.simulation_finished()
+
+    def _start_single_simulation_job(self, subject_id: str, montage_cfg: MontageConfig):
+        """Start a single simulation job (one subject × one montage/config) in a subprocess."""
+        try:
+            # Normal-mode header (Flex-Search-like): show context once per job.
+            # NOTE: This runs in the GUI process, so it will appear before any subprocess logs.
+            run_mode = getattr(self, "_current_run_mode", None) or ("montage" if self.sim_type_montage.isChecked() else ("freehand" if self.sim_type_freehand.isChecked() else "flex"))
+            mode_label = {
+                "montage": "montage mode",
+                "freehand": "freehand mode",
+                "flex": "flex mode",
+            }.get(run_mode, str(run_mode))
+            self.update_output(
+                f"Beginning simulation for subject: {subject_id} | Simulation: {montage_cfg.name} ({mode_label})",
+                "info",
+            )
+
+            # Build SimulationConfig for this job
+            config = SimulationConfig(
+                subject_id=subject_id,
+                project_dir=self._sim_params['project_dir'],
+                conductivity_type=ConductivityType(self._sim_params['conductivity']),
+                intensities=IntensityConfig.from_string(self._sim_params['current']),
+                electrode=ElectrodeConfig(
+                    shape=self._sim_params['electrode_shape'],
+                    dimensions=self._sim_params['electrode_dims'],
+                    thickness=self._sim_params['thickness']
+                ),
+                eeg_net=self._sim_params['eeg_net'],
+                # IMPORTANT: now that we parallelize at the job level, we disable in-process montage parallelism.
+                parallel=ParallelConfig(enabled=False, max_workers=0),
+            )
+
+            runner_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "sim", "subprocess_runner.py")
+            payload = {
+                "debug": bool(getattr(self, "debug_mode", False)),
+                "config": {
+                    "subject_id": config.subject_id,
+                    "project_dir": config.project_dir,
+                    "conductivity_type": config.conductivity_type.value,
+                    "intensities": {
+                        "pair1_ch1": config.intensities.pair1_ch1,
+                        "pair1_ch2": config.intensities.pair1_ch2,
+                        "pair2_ch1": config.intensities.pair2_ch1,
+                        "pair2_ch2": config.intensities.pair2_ch2,
+                    },
+                    "electrode": {
+                        "shape": config.electrode.shape,
+                        "dimensions": list(config.electrode.dimensions),
+                        "thickness": config.electrode.thickness,
+                        "sponge_thickness": config.electrode.sponge_thickness,
+                    },
+                    "eeg_net": config.eeg_net,
+                    "parallel": {
+                        "enabled": False,
+                        "max_workers": 0,
+                    },
+                },
+                "montages": [
+                    {
+                        "name": montage_cfg.name,
+                        "electrode_pairs": [list(p) for p in montage_cfg.electrode_pairs],
+                        "is_xyz": bool(getattr(montage_cfg, "is_xyz", False)),
+                        "eeg_net": montage_cfg.eeg_net,
+                    }
+                ],
+            }
+
+            proc = SubprocessSimulationProcess(
+                payload=payload,
+                runner_path=runner_path,
+                parent_tab=self,
+            )
+            self._active_processes.add(proc)
+            self._process_to_job[proc] = (subject_id, montage_cfg.name)
+
+            # Announce job start (debug only to avoid spam)
+            if getattr(self, "debug_mode", False):
+                self.update_output(f"[DEBUG] Starting job: sub-{subject_id} × {montage_cfg.name}", "command")
+
+            proc.output_signal.connect(self._handle_thread_output)
+            proc.error_signal.connect(lambda msg: self._handle_thread_output(msg, "error"))
+            proc.finished.connect(lambda p=proc: self._on_simulation_job_finished(p))
+            proc.start()
+
+        except Exception as e:
+            self.update_output(f"Error starting simulation job for {subject_id} - {montage_cfg.name}: {e}", "error")
+            self._had_errors_during_run = True
+
+    def _on_simulation_job_finished(self, proc):
+        """Handle completion of a single simulation job subprocess."""
+        try:
+            if proc in self._active_processes:
+                self._active_processes.remove(proc)
+            job = self._process_to_job.pop(proc, None)
+
+            # If the run was aborted (user stop or error abort), do not continue.
+            if not getattr(self, "simulation_running", False) or getattr(self, "_aborting_due_to_error", False):
+                return
+
+            # Record whether job produced failures
+            try:
+                results = proc.get_results() or []
+                for r in results:
+                    if r.get("status") == "failed":
+                        self._had_errors_during_run = True
+                        break
+            except Exception:
+                self._had_errors_during_run = True
+
+            # Continue scheduling
+            self._start_next_simulation_jobs()
+
+        except Exception:
+            # If job completion handler fails, mark error and try to proceed.
+            self._had_errors_during_run = True
+            self._start_next_simulation_jobs()
+    
+    # NOTE: Old per-subject completion handler removed in favor of job-based scheduling.
     
     def simulation_finished(self):
         """Handle simulation completion."""
@@ -2043,7 +2091,7 @@ class SimulatorTab(QtWidgets.QWidget):
         """Auto-generate individual simulation reports for each subject-montage combination."""
         try:
             # Get project directory using path manager
-            project_dir = self.pm.get_project_dir()
+            project_dir = self.pm.project_dir
             
             # Get selected subjects and montages
             selected_subjects = [item.text() for item in self.subject_list.selectedItems()]
@@ -2291,19 +2339,37 @@ class SimulatorTab(QtWidgets.QWidget):
     
     def stop_simulation(self):
         """Stop the running simulation."""
+        # Mark as not running immediately to avoid triggering auto-abort logic from late output.
+        self.simulation_running = False
+
+        # Kill all active simulation subprocesses (hard stop)
+        try:
+            for proc in list(getattr(self, "_active_processes", set())):
+                try:
+                    proc.terminate_simulation()
+                except Exception:
+                    pass
+            self._active_processes = set()
+            self._process_to_job = {}
+            self._job_queue = []
+        except Exception:
+            pass
+
         if hasattr(self, 'simulation_process') and self.simulation_process:
+            # Mark as not running immediately to avoid triggering auto-abort logic from late output.
             # Show stopping message
             self.update_output("Stopping simulation...")
             self.output_console.append('<div style="margin: 10px 0;"><span style="color: #ff5555; font-weight: bold;">--- SIMULATION TERMINATED BY USER ---</span></div>')
 
-            # Terminate the process
-            if self.simulation_process.terminate_process():
+            # Terminate the simulation
+            terminated = self.simulation_process.terminate_simulation()
+            
+            if terminated:
                 self.update_output("Simulation process terminated successfully.")
             else:
                 self.update_output("Failed to terminate simulation process or process already completed.")
 
             # Reset UI state
-            self.simulation_running = False
             self.run_btn.setText("Run Simulation")
             self.action_buttons.set_running(False)
 
@@ -2328,6 +2394,15 @@ class SimulatorTab(QtWidgets.QWidget):
 
             # Re-enable all controls
             self.enable_controls()
+        else:
+            # If we were using job-based processes only, still show stop UI feedback + reset.
+            self.update_output("Stopping simulation...")
+            self.output_console.append('<div style="margin: 10px 0;"><span style="color: #ff5555; font-weight: bold;">--- SIMULATION TERMINATED BY USER ---</span></div>')
+            self.run_btn.setText("Run Simulation")
+            self.action_buttons.set_running(False)
+            if hasattr(self, 'parent') and self.parent:
+                self.parent.set_tab_busy(self, False, stop_btn=self.stop_btn)
+            self.enable_controls()
     
     def validate_electrode(self, electrode):
         """Validate electrode name is not empty."""
@@ -2342,7 +2417,7 @@ class SimulatorTab(QtWidgets.QWidget):
             return False
 
     def update_output(self, text, message_type='default'):
-        """Update the console output with colored text."""
+        """Update the console output with colored text, preserving original formatting."""
         if not text.strip():
             return
 
@@ -2351,16 +2426,36 @@ class SimulatorTab(QtWidgets.QWidget):
         
         # Filter messages based on debug mode
         if not self.debug_mode:
-            # In non-debug mode, only show important messages
+            # Format simulator progress output in a tree-like structure (Flex-Search-like).
+            # This runs before filtering so the prefixed text still matches the important patterns.
+            tree_step_prefixes = (
+                "Montage visualization:",
+                "SimNIBS simulation:",
+                "Results processing:",
+                "Field extraction:",
+                "NIfTI transformation:",
+            )
+            if (
+                text.startswith(tree_step_prefixes)
+                and not text.startswith("├─")
+                and not text.startswith("└─")
+            ):
+                text = f"├─ {text}"
+
+            # Match Flex-Search behavior: in non-debug mode, only show messages that
+            # utils.py classifies as important for the 'simulator' tab.
             if not is_important_message(text, message_type, 'simulator'):
                 return
+
             # Colorize summary lines: blue for starts, white for completes, green for final
             lower = text.lower()
             is_final = lower.startswith('└─') or 'completed successfully' in lower
             is_start = lower.startswith('beginning ') or ': starting' in lower
             is_complete = ('✓ complete' in lower) or ('results saved to' in lower) or ('saved to' in lower)
             color = '#55ff55' if is_final else ('#55aaff' if is_start else '#ffffff')
-            formatted_text = f'<span style="color: {color};">{text}</span>'
+            # Preserve line breaks and spacing by converting to HTML
+            text_html = text.replace('\n', '<br>').replace(' ', '&nbsp;')
+            formatted_text = f'<span style="color: {color};">{text_html}</span>'
             scrollbar = self.output_console.verticalScrollBar()
             at_bottom = scrollbar.value() >= scrollbar.maximum() - 5
             self.output_console.append(formatted_text)
@@ -2369,28 +2464,32 @@ class SimulatorTab(QtWidgets.QWidget):
             QtWidgets.QApplication.processEvents()
             return
             
+        # Preserve line breaks and spacing in the text by converting to HTML
+        # Replace newlines with <br> and spaces with &nbsp; to maintain formatting
+        text_html = text.replace('\n', '<br>').replace(' ', '&nbsp;')
+        
         # Format the output based on message type from thread
         if message_type == 'error':
-            formatted_text = f'<span style="color: #ff5555;"><b>{text}</b></span>'
+            formatted_text = f'<span style="color: #ff5555;"><b>{text_html}</b></span>'
         elif message_type == 'warning':
-            formatted_text = f'<span style="color: #ffff55;">{text}</span>'
+            formatted_text = f'<span style="color: #ffff55;">{text_html}</span>'
         elif message_type == 'debug':
-            formatted_text = f'<span style="color: #7f7f7f;">{text}</span>'
+            formatted_text = f'<span style="color: #7f7f7f;">{text_html}</span>'
         elif message_type == 'command':
-            formatted_text = f'<span style="color: #55aaff;">{text}</span>'
+            formatted_text = f'<span style="color: #55aaff;">{text_html}</span>'
         elif message_type == 'success':
-            formatted_text = f'<span style="color: #55ff55;"><b>{text}</b></span>'
+            formatted_text = f'<span style="color: #55ff55;"><b>{text_html}</b></span>'
         elif message_type == 'info':
-            formatted_text = f'<span style="color: #55ffff;">{text}</span>'
+            formatted_text = f'<span style="color: #55ffff;">{text_html}</span>'
         else:
             # Fallback to content-based formatting for backward compatibility
             if "Processing... Only the Stop button is available" in text:
-                formatted_text = f'<div style="background-color: #2a2a2a; padding: 10px; margin: 10px 0; border-radius: 5px;"><span style="color: #ffff55; font-weight: bold;">{text}</span></div>'
+                formatted_text = f'<div style="background-color: #2a2a2a; padding: 10px; margin: 10px 0; border-radius: 5px;"><span style="color: #ffff55; font-weight: bold;">{text_html}</span></div>'
             elif text.strip().startswith("-"):
                 # Indented list items
-                formatted_text = f'<span style="color: #aaaaaa; margin-left: 20px;">  {text}</span>'
+                formatted_text = f'<span style="color: #aaaaaa; margin-left: 20px;">&nbsp;&nbsp;{text_html}</span>'
             else:
-                formatted_text = f'<span style="color: #ffffff;">{text}</span>'
+                formatted_text = f'<span style="color: #ffffff;">{text_html}</span>'
         
         # Check if user is at the bottom of the console before appending
         scrollbar = self.output_console.verticalScrollBar()
@@ -2495,6 +2594,11 @@ class SimulatorTab(QtWidgets.QWidget):
 
     def _handle_thread_output(self, text, message_type='default'):
         """Internal handler to track errors and forward to UI update."""
+        # If user already stopped the run, don't trigger auto-abort or follow-up actions.
+        if not getattr(self, "simulation_running", False):
+            self.update_output(text, message_type)
+            return
+
         if message_type == 'error':
             # Allow process to continue, but mark that there were errors
             self._had_errors_during_run = True
@@ -2502,12 +2606,20 @@ class SimulatorTab(QtWidgets.QWidget):
             if not hasattr(self, '_first_error_line') or not getattr(self, '_first_error_line', None):
                 self._first_error_line = text
             # Abort immediately on first error
-            if not self._aborting_due_to_error and getattr(self, 'simulation_process', None):
+            if not self._aborting_due_to_error:
                 self._aborting_due_to_error = True
                 self.update_output("[ERROR] Error detected. Aborting simulation and cleaning up partial outputs...", 'error')
-                # Terminate the running process
+                # Terminate any running process(es)
                 try:
-                    self.simulation_process.terminate_process()
+                    # Job-based: kill all active procs and clear queue
+                    for proc in list(getattr(self, "_active_processes", set())):
+                        try:
+                            proc.terminate_simulation()
+                        except Exception:
+                            pass
+                    self._active_processes = set()
+                    self._process_to_job = {}
+                    self._job_queue = []
                 except Exception:
                     pass
                 # Perform cleanup of outputs generated so far
@@ -2591,7 +2703,7 @@ class SimulatorTab(QtWidgets.QWidget):
                     return
             
             # Get project directory using path manager
-            project_dir = self.pm.get_project_dir()
+            project_dir = self.pm.project_dir
             
             # Ensure montage file exists and get its path
             montage_file = self.ensure_montage_file_exists(project_dir)
@@ -2655,7 +2767,7 @@ class SimulatorTab(QtWidgets.QWidget):
             
             if reply == QtWidgets.QMessageBox.Yes:
                 # Get project directory using path manager
-                project_dir = self.pm.get_project_dir()
+                project_dir = self.pm.project_dir
                 
                 # Ensure montage file exists and get its path
                 montage_file = self.ensure_montage_file_exists(project_dir)
@@ -2690,184 +2802,6 @@ class SimulatorTab(QtWidgets.QWidget):
             QtWidgets.QMessageBox.critical(self, "Error", f"Error removing montage: {str(e)}")
             print(f"Detailed error: {str(e)}")  # For debugging
 
-    def show_sim_type_help(self):
-        """Show help information about simulation types."""
-        help_text = """
-        <h3>Simulation Types (Anisotropy Types)</h3>
-        
-        <b>Isotropic (scalar):</b><br>
-        - Uses uniform conductivity values for all tissue types<br>
-        - Faster computation but less accurate for anisotropic tissues<br>
-        - Recommended for initial testing and quick results<br>
-        - Default option for basic simulations<br><br>
-        
-        <b>Anisotropic (vn):</b><br>
-        - Uses volume-normalized anisotropic conductivities<br>
-        - Tensors are normalized to have the same trace and re-scaled according to their respective tissue conductivity<br>
-        - Recommended for simulations with anisotropic conductivities<br>
-        - Based on Opitz et al., 2011<br><br>
-        
-        <b>Anisotropic (dir):</b><br>
-        - Uses direct anisotropic conductivity<br>
-        - Does not normalize individual tensors<br>
-        - Re-scales tensors according to the mean gray and white matter conductivities<br>
-        - Based on Opitz et al., 2011<br><br>
-        
-        <b>Anisotropic (mc):</b><br>
-        - Uses isotropic, varying conductivities<br>
-        - Assigns to each voxel a conductivity value related to the volume of the tensors<br>
-        - Obtained from the direct approach<br>
-        - Based on Opitz et al., 2011<br><br>
-        
-        <i>Note: All options other than 'scalar' require conductivity tensors acquired from diffusion weighted images and processed with dwi2cond.</i><br><br>
-        
-        For full documentation, see the SimNIBS website.
-        """
-        
-        msg = QtWidgets.QMessageBox(self)
-        msg.setWindowTitle("Simulation Type Help")
-        msg.setTextFormat(QtCore.Qt.RichText)
-        msg.setText(help_text)
-        msg.setStyleSheet("""
-            QMessageBox {
-                background-color: #2a2a2a;
-                color: white;
-            }
-            QLabel {
-                min-width: 600px;
-                max-width: 800px;
-                color: white;
-            }
-        """)
-        
-        # Set the message box to be resizable
-        msg.setWindowFlags(msg.windowFlags() | QtCore.Qt.WindowMaximizeButtonHint)
-        
-        # Set a larger default size
-        msg.setMinimumSize(700, 600)
-        
-        # Enable text wrapping for the label
-        for child in msg.findChildren(QtWidgets.QLabel):
-            child.setWordWrap(True)
-        
-        # Adjust the size to fit content
-        msg.adjustSize()
-        
-        msg.exec_()
-
-    def show_montage_source_help(self):
-        """Show help information about montage source options."""
-        help_text = """
-        <h3>Montage Source Options</h3>
-        <br>
-        <br>
-        <b>Montage List:</b><br>
-        - Manually define electrode montages using the "Add New" button<br>
-        - Each montage is associated with a specific EEG net template<br>
-        - Ideal for testing specific montage configurations or traditional TES protocols<br>
-        <br>
-        <b>Flex-Search:</b><br>
-        - Uses results from a previously completed Flex-Search optimization<br>
-        - Automatically loads optimized electrode configurations from Flex-Search output<br>
-        - <b>Prerequisites:</b> You must have completed a Flex-Search optimization for the selected subject(s)<br>
-        - <b>Two simulation options available:</b><br>
-        &nbsp;&nbsp;&nbsp;1. <b>Mapped Electrodes:</b> If electrode mapping was enabled during Flex-Search, uses the optimized electrodes mapped to EEG net positions<br>
-        &nbsp;&nbsp;&nbsp;2. <b>Optimized Electrodes:</b> Uses the raw optimized electrode positions (not associated with any EEG net template)<br>
-        - The choice between mapped/optimized is automatically determined by your Flex-Search settings<br><br>
-        
-        """
-        
-        msg = QtWidgets.QMessageBox(self)
-        msg.setWindowTitle("Montage Source Help")
-        msg.setTextFormat(QtCore.Qt.RichText)
-        msg.setText(help_text)
-        msg.setStyleSheet("""
-            QMessageBox {
-                background-color: #2a2a2a;
-                color: white;
-            }
-            QLabel {
-                min-width: 600px;
-                max-width: 800px;
-                color: white;
-            }
-        """)
-        
-        # Set the message box to be resizable
-        msg.setWindowFlags(msg.windowFlags() | QtCore.Qt.WindowMaximizeButtonHint)
-        
-        # Set a larger default size
-        msg.setMinimumSize(700, 500)
-        
-        # Enable text wrapping for the label
-        for child in msg.findChildren(QtWidgets.QLabel):
-            child.setWordWrap(True)
-        
-        # Adjust the size to fit content
-        msg.adjustSize()
-        
-        msg.exec_()
-
-    def validate_inputs(self):
-        """Validate all input parameters before running the simulation."""
-        # Check if any subjects are selected
-        if not self.subject_list.selectedItems():
-            QtWidgets.QMessageBox.warning(self, "Warning", "Please select at least one subject.")
-            return False
-            
-        # Check if any montages are selected
-        if not self.montage_list.selectedItems():
-            QtWidgets.QMessageBox.warning(self, "Warning", "Please select at least one montage.")
-            return False
-            
-        # Validate current values
-        try:
-            current_1 = float(self.current_input_1.text() or "1.0")
-            current_2 = float(self.current_input_2.text() or "1.0")
-            
-            if self.sim_mode_multipolar.isChecked():
-                current_3 = float(self.current_input_3.text() or "1.0")
-                current_4 = float(self.current_input_4.text() or "1.0")
-                if current_1 <= 0 or current_2 <= 0 or current_3 <= 0 or current_4 <= 0:
-                    QtWidgets.QMessageBox.warning(self, "Warning", "All current values must be greater than 0 mA.")
-                    return False
-            else:
-                if current_1 <= 0 or current_2 <= 0:
-                    QtWidgets.QMessageBox.warning(self, "Warning", "Current values must be greater than 0 mA.")
-                    return False
-        except ValueError:
-            channels_text = "all channels" if self.sim_mode_multipolar.isChecked() else "both channels"
-            QtWidgets.QMessageBox.warning(self, "Warning", f"Please enter valid current values in mA for {channels_text}.")
-            return False
-            
-        # Validate dimensions
-        try:
-            dimensions = self.dimensions_input.text() or "8,8"
-            dim_parts = dimensions.split(',')
-            if len(dim_parts) != 2:
-                raise ValueError("Invalid dimensions format")
-            float(dim_parts[0])
-            float(dim_parts[1])
-        except ValueError:
-            QtWidgets.QMessageBox.warning(self, "Warning", "Please enter valid dimensions in format 'x,y' (e.g., '8,8').")
-            return False
-            
-        # Validate thickness
-        try:
-            thickness = float(self.thickness_input.text() or "4")
-            if thickness <= 0:
-                QtWidgets.QMessageBox.warning(self, "Warning", "Thickness must be greater than 0 mm.")
-                return False
-        except ValueError:
-            QtWidgets.QMessageBox.warning(self, "Warning", "Please enter a valid thickness value in mm.")
-            return False
-            
-        # Validate EEG net selection
-        if not self.eeg_net_combo.currentText():
-            QtWidgets.QMessageBox.warning(self, "Warning", "Please select an EEG net.")
-            return False
-            
-        return True
 
     def show_conductivity_editor(self):
         """Show the conductivity editor dialog."""
@@ -2911,7 +2845,7 @@ class SimulatorTab(QtWidgets.QWidget):
         """Clean up temporary simulation completion files after processing."""
         try:
             # Get project directory using path manager
-            project_dir = self.pm.get_project_dir()
+            project_dir = self.pm.project_dir
             derivatives_dir = self.pm.get_derivatives_dir()
             temp_dir = os.path.join(derivatives_dir, 'temp') if derivatives_dir else None
             if not temp_dir:
@@ -2957,129 +2891,6 @@ class SimulatorTab(QtWidgets.QWidget):
                 
         except Exception as e:
             self.update_output(f"[ERROR] Error during cleanup: {str(e)}", 'warning')
-
-    def _format_montage_label(self, montage_name, pairs, is_unipolar=True):
-        """Format montage label for the list widget: montage_name: ch1:X<->Y + ch2:A<->B (+ ch3/ch4...)"""
-        if not pairs or not isinstance(pairs, list):
-            return montage_name
-        channel_labels = []
-        for idx, pair in enumerate(pairs):
-            if isinstance(pair, list) and len(pair) == 2:
-                channel = f"ch{idx+1}:{pair[0]}<-> {pair[1]}"
-                channel_labels.append(channel)
-        return f"{montage_name}: " + " + ".join(channel_labels)
-
-    def check_simulation_completion_reports(self):
-        """Check for simulation completion reports and update the report generator."""
-        if not self.report_generator:
-            return
-        
-        try:
-            derivatives_dir = self.pm.get_derivatives_dir()
-            temp_dir = os.path.join(derivatives_dir, 'temp') if derivatives_dir else None
-            if not temp_dir:
-                return
-            
-            if not os.path.exists(temp_dir):
-                return
-            
-            # Look for completion report files
-            completion_files = [f for f in os.listdir(temp_dir) if f.startswith('simulation_completion_') and f.endswith('.json')]
-            
-            for completion_file in completion_files:
-                completion_path = os.path.join(temp_dir, completion_file)
-                try:
-                    with open(completion_path, 'r') as f:
-                        completion_data = json.load(f)
-                    
-                    # Check if this completion report matches our session
-                    if completion_data.get('session_id') == self.simulation_session_id:
-                        self.update_output(f"Processing completion report for session {self.simulation_session_id}")
-                        
-                        # Add simulation results for each completed simulation
-                        for sim in completion_data.get('completed_simulations', []):
-                            subject_id = completion_data['subject_id']
-                            montage_name = sim['montage_name']
-                            
-                            # Determine final output files after main-TI.sh processing
-                            final_output_files = self._get_expected_output_files(
-                                completion_data['project_dir'], 
-                                subject_id, 
-                                montage_name
-                            )
-                            
-                            # Add the simulation result
-                            self.report_generator.add_simulation_result(
-                                subject_id=subject_id,
-                                montage_name=montage_name,
-                                output_files=final_output_files,
-                                duration=None,  # Duration not tracked yet
-                                status='completed'
-                            )
-                            
-                            self.update_output(f"Recorded simulation result for {subject_id} - {montage_name}")
-                        
-                        # Update subject status to completed
-                        self.report_generator.update_subject_status(completion_data['subject_id'], 'completed')
-                        
-                        # Clean up the completion report file
-                        os.remove(completion_path)
-                        self.update_output(f"Processed and removed completion report: {completion_file}")
-                        
-                except json.JSONDecodeError:
-                    self.update_output(f"Error: Invalid JSON in completion report {completion_file}")
-                except Exception as e:
-                    self.update_output(f"Error processing completion report {completion_file}: {str(e)}")
-                    
-        except Exception as e:
-            self.update_output(f"Error checking completion reports: {str(e)}")
-    
-    def _get_expected_output_files(self, project_dir, subject_id, montage_name):
-        """Get expected output files for a simulation."""
-        simulations_dir = self.pm.get_simulation_dir(subject_id, f"Simulations/{montage_name}")
-        ti_dir = os.path.join(simulations_dir, "TI")
-        nifti_dir = os.path.join(ti_dir, "niftis")
-        
-        output_files = {'TI': [], 'niftis': []}
-        if os.path.exists(nifti_dir):
-            # Add all NIfTI files
-            nifti_files = [f for f in os.listdir(nifti_dir) if f.endswith('.nii.gz')]
-            output_files['niftis'] = [os.path.join(nifti_dir, f) for f in nifti_files]
-            
-            # Add TI files specifically
-            ti_files = [f for f in nifti_files if 'TI_max' in f]
-            output_files['TI'] = [os.path.join(nifti_dir, f) for f in ti_files]
-        
-        return output_files
-
-    def on_worker_finished(self, worker_id, output):
-        """Handle completion of simulation worker."""
-        try:
-            # Set tab as not busy
-            if hasattr(self, 'parent') and self.parent:
-                self.parent.set_tab_busy(self, False, stop_btn=self.stop_btn)
-            
-            # Update subjects status
-            if not self.report_generator:
-                self.update_output("Warning: No report generator available")
-                return
-            
-            # Check for completion reports and update simulation results
-            self.check_simulation_completion_reports()
-            
-            # Generate individual simulation report
-            self.update_output("Generating simulation report...")
-            report_path = self.report_generator.generate_report()
-            self.update_output(f"[SUCCESS] Simulation report generated: {report_path}")
-            
-            # Open report in browser
-            self._open_file_safely(report_path)
-            
-        except Exception as e:
-            self.update_output(f"[ERROR] Error in simulation completion: {str(e)}")
-            # Still set tab as not busy even if there's an error
-            if hasattr(self, 'parent') and self.parent:
-                self.parent.set_tab_busy(self, False, stop_btn=self.stop_btn)
 
     def _parse_flex_search_name(self, search_name, electrode_type):
         """

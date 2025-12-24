@@ -56,7 +56,7 @@ class NotesWindow(QtWidgets.QDialog):
         if not self.pm:
             return
         
-        project_dir = self.pm.get_project_dir()
+        project_dir = self.pm.project_dir
         if not project_dir:
             return
         
@@ -137,7 +137,7 @@ class NotesWindow(QtWidgets.QDialog):
         layout.addWidget(header_label)
         
         # Info label
-        project_dir_name = self.pm.get_project_dir_name() if self.pm else None
+        project_dir_name = self.pm.project_dir_name if self.pm else None
         info_text = f"<i>Notes are saved to: /mnt/{project_dir_name}/derivatives/ti-toolbox/notes.txt</i>"
         
         info_label = QtWidgets.QLabel(info_text)

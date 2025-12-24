@@ -36,7 +36,7 @@ class NiftiViewerTab(QtWidgets.QWidget):
         """Find the base directory for data (look for BIDS-format data)."""
         # Get project directory using path manager
         pm = get_path_manager()
-        base_dir = pm.get_project_dir()
+        base_dir = pm.project_dir
         
         # Check if the directory exists
         if base_dir and os.path.isdir(base_dir):

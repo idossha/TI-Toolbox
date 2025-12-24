@@ -60,6 +60,15 @@ def is_important_message(text, message_type, tab_type='general'):
         'simulator': [
             # Summary headings and starts
             'beginning simulation for subject:',
+            '=== simulation started ===',
+            '=== simulation finished ===',
+            'starting parallel simulation',
+            'starting sequential simulation',
+            # Processing and progress messages
+            'processing:',
+            '✓ completed:',
+            '✗ failed:',
+            'simulation complete:',
             # Major step starts/completions (must be exact matches with ': Started' or ': Complete')
             'montage visualization: started',
             'montage visualization: ✓ complete',
@@ -76,7 +85,10 @@ def is_important_message(text, message_type, tab_type='general'):
             '└─ simulation failed for subject:',
             # Result output locations (must start with spaces)
             '   results saved to:',
-            '   simulation completion report written to:'
+            '   simulation completion report written to:',
+            'full log available at:',
+            # Subject processing
+            '--- processing subject:'
         ],
         'analyzer': [
             # Summary headline and steps

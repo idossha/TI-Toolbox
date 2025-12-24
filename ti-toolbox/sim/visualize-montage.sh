@@ -22,19 +22,43 @@ if [[ ! -f "$PYTHON_SCRIPT" ]]; then
 fi
 
 # Parse arguments (maintaining backward compatibility)
-# Expected format: montage1 [montage2 ...] sim_mode eeg_net output_directory
-sim_mode="${@: -3:1}"  # Third-to-last argument is the simulation mode (U or M)
-eeg_net="${@: -2:1}"   # Second-to-last argument is the EEG net name
-output_directory="${@: -1}"  # The last argument is the output directory
-selected_montages=("${@:1:$(($#-3))}")  # All but the last three arguments are the selected montages
+# Expected format: sim_mode eeg_net output_directory [montage1 [montage2 ...]] [--pairs "montage:pair1-pair2,pair3-pair4"]
+sim_mode="$1"         # First argument is the simulation mode (U or M)
+eeg_net="$2"          # Second argument is the EEG net name
+output_directory="$3" # Third argument is the output directory
+
+# Check if --pairs is provided
+pairs_arg=""
+selected_montages=()
+shift 3  # Remove the first three arguments
+
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --pairs)
+            pairs_arg="$2"
+            shift 2
+            ;;
+        *)
+            selected_montages+=("$1")
+            shift
+            ;;
+    esac
+done
 
 # Call the Python script with the parsed arguments
-simnibs_python "$PYTHON_SCRIPT" \
-    "${selected_montages[@]}" \
+cmd=(simnibs_python "$PYTHON_SCRIPT" \
     --sim-mode "$sim_mode" \
     --eeg-net "$eeg_net" \
     --output-dir "$output_directory" \
-    --project-dir-name "$PROJECT_DIR_NAME"
+    --project-dir-name "$PROJECT_DIR_NAME")
+
+if [[ -n "$pairs_arg" ]]; then
+    cmd+=(--pairs "$pairs_arg")
+else
+    cmd+=("${selected_montages[@]}")
+fi
+
+"${cmd[@]}"
 
 # Exit with the same status as the Python script
 exit $?

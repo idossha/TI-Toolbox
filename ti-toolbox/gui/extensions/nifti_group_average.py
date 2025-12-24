@@ -613,7 +613,7 @@ class AnalysisThread(QtCore.QThread):
             if not pm:
                 raise ValueError("Path manager not available")
             
-            project_dir = pm.get_project_dir()
+            project_dir = pm.project_dir
             if not project_dir:
                 raise ValueError("Project directory not found")
             
