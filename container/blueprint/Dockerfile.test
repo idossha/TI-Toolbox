@@ -1,6 +1,10 @@
 # Dockerfile.simnibs
 ## 22.04 LTS is a new test to check for simnibs solution.
 
+# docker build --no-cache --platform linux/amd64 \
+#   -f Dockerfile.test \
+#   -t idossha/ti-toolbox-test:latest .
+
 FROM ubuntu:22.04
 
 # Set noninteractive mode for apt-get
