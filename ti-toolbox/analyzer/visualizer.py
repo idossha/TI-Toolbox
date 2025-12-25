@@ -42,7 +42,10 @@ from matplotlib import cm
 from matplotlib.colors import Normalize
 import nibabel as nib
 import numpy as np
-import seaborn as sns
+try:
+    import seaborn as sns
+except ImportError:
+    sns = None
 import simnibs
 
 import csv
@@ -318,7 +321,8 @@ class BaseVisualizer:
             })
 
             fig, ax = plt.subplots(figsize=(14, 10))
-            sns.set_style('whitegrid')
+            if sns is not None:
+                sns.set_style('whitegrid')
             
             # Determine if we're doing volume-weighted or frequency histogram
             use_volume_weighting = (whole_head_element_sizes is not None and 
