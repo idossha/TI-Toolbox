@@ -32,6 +32,7 @@ jobs:
       - prepare-test-image
       - run:
           name: Run complete test suite with coverage
+          no_output_timeout: 30m
           command: |
             set -euo pipefail
 
@@ -49,9 +50,10 @@ jobs:
             echo "Test image: ti-test:latest"
             echo ""
 
-            # Run all tests with coverage
+            # Run all tests with coverage and verbose output
             # - Mounts PR code at /ti-toolbox (matches production environment)
             # - Script copies ElectrodeCaps and tes_flex to SimNIBS
+            # - Verbose mode ensures continuous output to prevent timeout
             docker run --rm \
               -v "${WORKSPACE}:/ti-toolbox" \
               -v /tmp/test_projectdir:/mnt/test_projectdir \

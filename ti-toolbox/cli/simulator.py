@@ -814,6 +814,23 @@ def run(ctx, subject, montage, eeg_net, conductivity, intensity,
             echo_warning(f"No valid montages found for subject {subject_id}")
             continue
 
+        # Setup logger with console output for integration tests/CI
+        from tools import logging_util
+
+        # Create log directory
+        pm = get_path_manager()
+        derivatives_dir = pm.get_derivatives_dir()
+        log_dir = os.path.join(derivatives_dir, 'ti-toolbox', 'logs', f'sub-{subject_id}')
+        os.makedirs(log_dir, exist_ok=True)
+        log_file = os.path.join(log_dir, f'Simulator_{int(time.time())}.log')
+
+        # Create logger with BOTH console and file output
+        # This ensures SimNIBS output is visible in CircleCI/integration tests
+        logger = logging_util.get_logger('TI-Simulator-CLI', log_file, overwrite=False, console=True)
+
+        # Configure external loggers (SimNIBS) to also output to console and file
+        logging_util.configure_external_loggers(['simnibs', 'mesh_io', 'sim_struct', 'TI'], logger)
+
         # Progress callback for console output
         def progress_callback(current, total, name):
             click.echo(f"  [{current+1}/{total}] {name}")
@@ -830,7 +847,7 @@ def run(ctx, subject, montage, eeg_net, conductivity, intensity,
                     'duration': 0.1
                 } for i, m in enumerate(montages)]
             else:
-                results = run_simulation(config, montages, progress_callback=progress_callback)
+                results = run_simulation(config, montages, logger=logger, progress_callback=progress_callback)
             all_results.extend(results)
             
             completed = sum(1 for r in results if r.get('status') == 'completed')
