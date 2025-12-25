@@ -110,7 +110,7 @@ ENV SIMNIBSDIR="/root/SimNIBS-4.5"
 
 # Install additional Python packages to simnibs_python
 # Base packages for TI-Toolbox functionality
-RUN simnibs_python -m pip install meshio nilearn PyOpenGL-accelerate trimesh seaborn pytest-cov seaborn
+RUN simnibs_python -m pip install meshio nilearn PyOpenGL-accelerate trimesh seaborn pytest-cov seaborn scikit-image numpy-stl click bpy
 
 # Note: Electrode caps will be copied from mounted ti-toolbox/resources/ElectrodeCaps_MNI/
 # at runtime by entrypoint_test.sh (no need to download during build)
