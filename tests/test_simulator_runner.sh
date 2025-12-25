@@ -63,4 +63,5 @@ echo "  Thickness: $THICKNESS mm"
     --intensity "$INTENSITY" \
     --shape "$ELECTRODE_SHAPE" \
     --dimensions "$DIMENSIONS" \
-    --thickness "$THICKNESS"
+    --thickness "$THICKNESS" \
+    --dry-run

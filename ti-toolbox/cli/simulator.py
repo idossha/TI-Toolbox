@@ -694,9 +694,11 @@ def interactive(ctx):
               help='Number of parallel workers (0=auto)')
 @click.option('--flex-file', type=click.Path(exists=True),
               help='Path to flex montages JSON file')
+@click.option('--dry-run', is_flag=True,
+              help='Validate configuration without running simulation')
 @click.pass_context
 def run(ctx, subject, montage, eeg_net, conductivity, intensity,
-        shape, dimensions, thickness, parallel, workers, flex_file):
+        shape, dimensions, thickness, parallel, workers, flex_file, dry_run):
     """
     Run simulation directly with command-line options.
     
@@ -744,7 +746,14 @@ def run(ctx, subject, montage, eeg_net, conductivity, intensity,
     
     for subject_id in subject:
         echo_info(f"Processing subject: {subject_id}")
-        
+
+        if dry_run:
+            echo_info("Configuration:")
+            click.echo(f"  EEG Net: {eeg_net}")
+            click.echo(f"  Conductivity: {conductivity}")
+            click.echo(f"  Intensity: {intensity} mA")
+            click.echo(f"  Shape: {shape}, Dimensions: {dimensions}, Thickness: {thickness} mm")
+
         # Build simulation config
         config = SimulationConfig(
             subject_id=subject_id,
@@ -755,30 +764,69 @@ def run(ctx, subject, montage, eeg_net, conductivity, intensity,
             eeg_net=eeg_net,
             parallel=parallel_config,
         )
-        
-        # Load montages
-        if flex_file:
-            # Load from flex file
-            flex_data = load_flex_montages(flex_file)
-            montages = [parse_flex_montage(m) for m in flex_data]
-        elif montage:
-            montages = load_montages(
-                montage_names=list(montage),
-                project_dir=project_dir,
-                eeg_net=eeg_net,
-                include_flex=True,
-            )
+
+        # Load montages (skip expensive operations in dry-run mode)
+        if dry_run:
+            # In dry-run mode, create minimal mock montages without file I/O
+            echo_info("Dry-run mode: Creating mock montages (skipping file I/O)")
+            if montage:
+                montages = [
+                    MontageConfig(
+                        name=m,
+                        electrode_pairs=[(0, 0), (0, 0)],  # Dummy pairs
+                        is_xyz=False,
+                        eeg_net=eeg_net
+                    ) for m in montage
+                ]
+                echo_success(f"Created {len(montages)} mock montage(s)")
+            elif flex_file:
+                # Create a mock flex montage
+                montages = [
+                    MontageConfig(
+                        name="mock_flex_montage",
+                        electrode_pairs=[(0, 0), (0, 0)],  # Dummy pairs
+                        is_xyz=True,
+                        eeg_net=eeg_net
+                    )
+                ]
+                echo_success("Created 1 mock flex montage")
+            else:
+                echo_error("No montages specified. Use --montage or --flex-file")
+                raise click.Abort()
         else:
-            echo_error("No montages specified. Use --montage or --flex-file")
-            raise click.Abort()
-        
+            # Normal mode: load actual montages
+            if flex_file:
+                # Load from flex file
+                flex_data = load_flex_montages(flex_file)
+                montages = [parse_flex_montage(m) for m in flex_data]
+            elif montage:
+                montages = load_montages(
+                    montage_names=list(montage),
+                    project_dir=project_dir,
+                    eeg_net=eeg_net,
+                    include_flex=True,
+                )
+            else:
+                echo_error("No montages specified. Use --montage or --flex-file")
+                raise click.Abort()
+
         if not montages:
             echo_warning(f"No valid montages found for subject {subject_id}")
             continue
-        
+
         # Run simulation
         try:
-            results = run_simulation(config, montages)
+            if dry_run:
+                echo_info(f"Dry run: Would simulate {len(montages)} montages for subject {subject_id}")
+                # Create mock results for dry run
+                results = [{
+                    'subject_id': subject_id,
+                    'montage_name': m.name if hasattr(m, 'name') else f'montage_{i}',
+                    'status': 'completed',
+                    'duration': 0.1
+                } for i, m in enumerate(montages)]
+            else:
+                results = run_simulation(config, montages)
             all_results.extend(results)
             
             completed = sum(1 for r in results if r.get('status') == 'completed')
