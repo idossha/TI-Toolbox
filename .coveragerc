@@ -1,0 +1,102 @@
+# Coverage.py configuration for TI-Toolbox
+# This file configures how coverage.py measures code coverage
+
+[run]
+# Source packages to measure
+source = ti-toolbox
+
+# Files to omit from coverage measurement
+omit =
+    */tests/*
+    */test_*.py
+    */__pycache__/*
+    */gui/*
+    */pre/*
+    */__init__.py
+    setup.py
+    version.py
+    */site-packages/*
+    */dist-packages/*
+
+# Enable branch coverage (measures if-else branches)
+branch = True
+
+# Parallel mode for multiprocessing support
+parallel = False
+
+# Data file location
+data_file = .coverage
+
+[report]
+# Precision of coverage percentage
+precision = 2
+
+# Show lines that weren't covered
+show_missing = True
+
+# Skip files with 100% coverage in reports
+skip_covered = False
+
+# Skip empty files
+skip_empty = True
+
+# Sort output by coverage percentage
+sort = Cover
+
+# Exclude lines from coverage measurement
+exclude_lines =
+    # Standard pragma
+    pragma: no cover
+
+    # Don't complain about missing debug code
+    def __repr__
+    def __str__
+
+    # Don't complain if tests don't hit defensive assertion code
+    raise AssertionError
+    raise NotImplementedError
+    raise ValueError
+
+    # Don't complain if non-runnable code isn't run
+    if __name__ == .__main__.:
+    if TYPE_CHECKING:
+    if typing.TYPE_CHECKING:
+
+    # Don't complain about abstract methods
+    @(abc\.)?abstractmethod
+    @abstractmethod
+
+    # Don't complain about deprecation warnings
+    warnings.warn
+
+    # Don't complain about pass statements
+    ^\s*pass\s*$
+
+    # Don't complain about ellipsis in protocols/stubs
+    ^\s*\.\.\.\s*$
+
+    # Don't complain about debug logging
+    logger\.debug
+
+    # Don't complain about type checking imports
+    from typing import
+    import typing
+
+# Ignore errors from missing source files
+ignore_errors = False
+
+[html]
+# Directory for HTML coverage report
+directory = htmlcov
+
+# Title for HTML report
+title = TI-Toolbox Coverage Report
+
+[xml]
+# Output file for XML coverage report (for Codecov)
+output = coverage.xml
+
+[json]
+# Output file for JSON coverage report
+output = coverage.json
+pretty_print = True

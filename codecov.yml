@@ -1,0 +1,102 @@
+# Codecov Configuration for TI-Toolbox
+# Documentation: https://docs.codecov.com/docs/codecov-yaml
+
+# Coverage report settings
+codecov:
+  require_ci_to_pass: yes
+  notify:
+    wait_for_ci: yes
+
+# Coverage targets and thresholds
+coverage:
+  precision: 2
+  round: down
+  range: "60...100"
+
+  status:
+    # Overall project coverage
+    project:
+      default:
+        target: 70%
+        threshold: 2%
+        base: auto
+        if_ci_failed: error
+
+    # Coverage for individual patches/PRs
+    patch:
+      default:
+        target: 65%
+        threshold: 5%
+        base: auto
+        if_ci_failed: error
+
+# Component-specific coverage flags
+# These match the flags passed in CircleCI: -F unittests,core,simulator,analyzer,optimizer
+flags:
+  unittests:
+    paths:
+      - tests/
+    carryforward: false
+
+  core:
+    paths:
+      - ti-toolbox/core/
+    carryforward: false
+    target: 80%
+
+  simulator:
+    paths:
+      - ti-toolbox/sim/
+    carryforward: false
+    target: 70%
+
+  analyzer:
+    paths:
+      - ti-toolbox/analyzer/
+    carryforward: false
+    target: 75%
+
+  optimizer:
+    paths:
+      - ti-toolbox/opt/
+    carryforward: false
+    target: 65%
+
+  stats:
+    paths:
+      - ti-toolbox/stats/
+    carryforward: false
+    target: 60%
+
+  viz:
+    paths:
+      - ti-toolbox/viz/
+    carryforward: false
+    target: 60%
+
+# Files to ignore in coverage reports
+ignore:
+  - "**/__pycache__"
+  - "**/*.pyc"
+  - "**/test_*.py"
+  - "tests/**"
+  - "setup.py"
+  - "version.py"
+  - "**/gui/**"  # GUI code is harder to test in headless environments
+  - "**/pre/**"  # Pre-processing scripts are mostly bash
+  - "**/__init__.py"  # Init files are often just imports
+
+# Comment configuration for pull requests
+comment:
+  layout: "reach,diff,flags,tree,footer"
+  behavior: default
+  require_changes: false
+  require_base: no
+  require_head: yes
+  branches:
+    - main
+    - master
+
+# GitHub status checks configuration
+github_checks:
+  annotations: true
