@@ -29,7 +29,7 @@ teardown() {
 }
 
 @test "Ex-Search: ROICoordinateHelper can be imported" {
-    run simnibs_python -c "import sys; sys.path.insert(0, '${BATS_TEST_DIRNAME}/../ti-toolbox'); from opt.roi import ROICoordinateHelper; print('OK')"
+    run simnibs_python -c "import sys; sys.path.insert(0, '${BATS_TEST_DIRNAME}/../ti-toolbox'); from core.roi import ROICoordinateHelper; print('OK')"
     [ "$status" -eq 0 ]
     [[ "$output" =~ "OK" ]]
 }
@@ -44,7 +44,7 @@ EOF
     run simnibs_python -c "
 import sys
 sys.path.insert(0, '${BATS_TEST_DIRNAME}/../ti-toolbox')
-from opt.roi import ROICoordinateHelper
+from core.roi import ROICoordinateHelper
 
 coords = ROICoordinateHelper.load_roi_from_csv('${TEST_DIR}/roi/test_roi.csv')
 assert coords is not None
@@ -107,10 +107,9 @@ print('Analysis directory created')
 import sys
 import numpy as np
 sys.path.insert(0, '${BATS_TEST_DIRNAME}/../ti-toolbox')
-from opt.ti_calculations import find_roi_element_indices
+from core.roi import find_target_voxels
 
-# This function is imported from core.utils
-# Test that import chain works
+# Test that import works
 print('Import successful')
 "
     [ "$status" -eq 0 ]
@@ -121,13 +120,12 @@ print('Import successful')
     run simnibs_python -c "
 import sys
 sys.path.insert(0, '${BATS_TEST_DIRNAME}/../ti-toolbox')
-from opt import ti_calculations
+from core import calc, roi
 
 # Test that all expected functions are available
-assert hasattr(ti_calculations, 'get_TI_vectors')
-assert hasattr(ti_calculations, 'calculate_ti_field_from_leadfield')
-assert hasattr(ti_calculations, 'find_target_voxels')
-assert hasattr(ti_calculations, 'validate_ti_montage')
+assert hasattr(calc, 'get_TI_vectors')
+assert hasattr(roi, 'find_target_voxels')
+assert hasattr(roi, 'validate_ti_montage')
 
 print('All functions available')
 "
@@ -140,7 +138,7 @@ print('All functions available')
 import sys
 import numpy as np
 sys.path.insert(0, '${BATS_TEST_DIRNAME}/../ti-toolbox')
-from opt.ti_calculations import find_target_voxels
+from core.roi import find_target_voxels
 
 # Create test voxel positions
 positions = np.array([
@@ -166,7 +164,7 @@ print(f'Found {len(indices)} voxels')
     run simnibs_python -c "
 import sys
 sys.path.insert(0, '${BATS_TEST_DIRNAME}/../ti-toolbox')
-from opt.ti_calculations import validate_ti_montage
+from core.roi import validate_ti_montage
 
 # Valid montage
 assert validate_ti_montage([0, 1, 2, 3], 75) == True
@@ -194,7 +192,7 @@ print('All validation tests passed')
     run simnibs_python -c "
 import sys
 sys.path.insert(0, '${BATS_TEST_DIRNAME}/../ti-toolbox')
-from opt.roi import ROICoordinateHelper
+from core.roi import ROICoordinateHelper
 
 # Non-existent file
 coords = ROICoordinateHelper.load_roi_from_csv('/nonexistent/file.csv')
@@ -210,21 +208,17 @@ print('Invalid file handled correctly')
     run simnibs_python -c "
 import sys
 sys.path.insert(0, '${BATS_TEST_DIRNAME}/../ti-toolbox')
-import opt.ti_calculations as tc
+from core import calc, roi
 
-expected_exports = [
-    'get_TI_vectors',
-    'calculate_ti_field_from_leadfield',
-    'create_stim_patterns',
-    'find_roi_element_indices',
-    'find_grey_matter_indices',
-    'calculate_roi_metrics',
-    'find_target_voxels',
-    'validate_ti_montage'
-]
+# Check calc module exports
+calc_exports = ['get_TI_vectors']
+for export in calc_exports:
+    assert hasattr(calc, export), f'Missing calc export: {export}'
 
-for export in expected_exports:
-    assert hasattr(tc, export), f'Missing export: {export}'
+# Check roi module exports
+roi_exports = ['find_target_voxels', 'validate_ti_montage', 'ROICoordinateHelper']
+for export in roi_exports:
+    assert hasattr(roi, export), f'Missing roi export: {export}'
 
 print('All exports available')
 "

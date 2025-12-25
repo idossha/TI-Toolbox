@@ -120,7 +120,7 @@ print('Evaluation successful')
     run simnibs_python -c "
 import sys
 sys.path.insert(0, '${BATS_TEST_DIRNAME}/../ti-toolbox')
-from opt.ti_calculations import validate_ti_montage
+from core.roi import validate_ti_montage
 
 # Valid montage
 assert validate_ti_montage([0, 1, 2, 3], 10) == True
@@ -142,7 +142,7 @@ print('Validation tests passed')
 import sys
 import numpy as np
 sys.path.insert(0, '${BATS_TEST_DIRNAME}/../ti-toolbox')
-from opt.ti_calculations import find_target_voxels
+from core.roi import find_target_voxels
 
 positions = np.array([
     [0, 0, 0],
