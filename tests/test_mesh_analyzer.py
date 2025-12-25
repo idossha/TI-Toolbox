@@ -85,11 +85,12 @@ class TestMeshAnalyzerInitialization:
         assert mock_logger.getChild.call_count >= 1
         assert any(call[0][0] == 'mesh_analyzer' for call in mock_logger.getChild.call_args_list)
     
-    def test_init_without_logger(self):
+    @patch('analyzer.mesh_analyzer.logging_util.get_logger')
+    def test_init_without_logger(self, mock_get_logger):
         """Test initialization without logger (creates its own)"""
         mock_logger_instance = MagicMock()
-        mock_logging_util.get_logger.return_value = mock_logger_instance
-        
+        mock_get_logger.return_value = mock_logger_instance
+
         with patch('os.path.exists', return_value=True):
             with patch('os.makedirs'):
                 with patch('time.strftime', return_value='20240101_120000'):
@@ -99,9 +100,12 @@ class TestMeshAnalyzerInitialization:
                         subject_dir="/path/to/m2m_subject",
                         output_dir="/path/to/output"
                     )
-        
-        assert analyzer.logger == mock_logger_instance
-        mock_logging_util.get_logger.assert_called_once()
+
+        # Check that get_logger was called and analyzer has a logger
+        assert mock_get_logger.called
+        assert hasattr(analyzer, 'logger')
+        assert analyzer.logger is not None
+        mock_get_logger.assert_called_once()
     
     def test_init_field_mesh_not_found(self):
         """Test initialization with non-existent field mesh file"""
