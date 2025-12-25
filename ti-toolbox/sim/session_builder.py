@@ -86,6 +86,9 @@ class SessionBuilder:
         """
         Add 2 electrode pairs for standard TI.
 
+        Each pair gets equal and opposite currents from a single intensity value.
+        For example: pair1=2.0mA means [+2.0mA, -2.0mA] for the two electrodes.
+
         Args:
             S: SESSION object to modify
             montage: Montage configuration
@@ -93,13 +96,13 @@ class SessionBuilder:
         intensities = self.config.intensities
 
         # Convert mA to Amperes for SimNIBS (SimNIBS expects currents in Amperes)
-        current1_A = intensities.pair1_ch1 / 1000.0
-        current2_A = intensities.pair1_ch2 / 1000.0
+        pair1_current_A = intensities.pair1 / 1000.0
+        pair2_current_A = intensities.pair2 / 1000.0
 
         # First pair
         tdcs1 = S.add_tdcslist()
         tdcs1.anisotropy_type = self.config.conductivity_type.value
-        tdcs1.currents = [current1_A, -current1_A]
+        tdcs1.currents = [pair1_current_A, -pair1_current_A]
         self._apply_tissue_conductivities(tdcs1)
 
         for idx, pos in enumerate(montage.electrode_pairs[0]):
@@ -108,9 +111,9 @@ class SessionBuilder:
             electrode.centre = pos
             self._configure_electrode(electrode)
 
-        # Second pair
+        # Second pair (use deepcopy as shown in SimNIBS example)
         tdcs2 = S.add_tdcslist(deepcopy(tdcs1))
-        tdcs2.currents = [current2_A, -current2_A]
+        tdcs2.currents = [pair2_current_A, -pair2_current_A]
         tdcs2.electrode[0].centre = montage.electrode_pairs[1][0]
         tdcs2.electrode[1].centre = montage.electrode_pairs[1][1]
 
@@ -118,25 +121,29 @@ class SessionBuilder:
         """
         Add 4 electrode pairs for multipolar TI.
 
+        Each pair gets equal and opposite currents from a single intensity value.
+        For example: pair1=2.0mA means [+2.0mA, -2.0mA] for the two electrodes.
+
         Args:
             S: SESSION object to modify
             montage: Montage configuration
         """
         intensities = self.config.intensities
-        
+
         # Convert mA to Amperes for SimNIBS (SimNIBS expects currents in Amperes)
-        currents_A = [
-            intensities.pair1_ch1 / 1000.0,
-            intensities.pair1_ch2 / 1000.0,
-            intensities.pair2_ch1 / 1000.0,
-            intensities.pair2_ch2 / 1000.0
+        pair_currents_A = [
+            intensities.pair1 / 1000.0,
+            intensities.pair2 / 1000.0,
+            intensities.pair3 / 1000.0,
+            intensities.pair4 / 1000.0
         ]
 
         # Add 4 pairs
-        for i in range(min(4, len(montage.electrode_pairs))):
+        num_pairs = min(4, len(montage.electrode_pairs))
+        for i in range(num_pairs):
             tdcs = S.add_tdcslist()
             tdcs.anisotropy_type = self.config.conductivity_type.value
-            tdcs.currents = [currents_A[i], -currents_A[i]]
+            tdcs.currents = [pair_currents_A[i], -pair_currents_A[i]]
             self._apply_tissue_conductivities(tdcs)
 
             for idx, pos in enumerate(montage.electrode_pairs[i]):

@@ -136,8 +136,8 @@ class TestSessionBuilderTIMode:
             project_dir="/test/project",
             conductivity_type=ConductivityType.DIR,
             intensities=IntensityConfig(
-                pair1_ch1=2.0, pair1_ch2=2.0,
-                pair2_ch1=2.0, pair2_ch2=2.0
+                pair1=2.0, pair2=2.0,
+                pair3=2.0, pair4=2.0
             ),
             electrode=ElectrodeConfig()
         )
@@ -314,10 +314,10 @@ class TestSessionBuilderTIMode:
             project_dir="/test/project",
             conductivity_type=ConductivityType.DIR,
             intensities=IntensityConfig(
-                pair1_ch1=2000.0,  # TI pair 1: 2000 mA = 2.0 A
-                pair1_ch2=1500.0,  # TI pair 2: 1500 mA = 1.5 A
-                pair2_ch1=1000.0,  # Not used in TI mode
-                pair2_ch2=500.0    # Not used in TI mode
+                pair1=2000.0,  # TI pair 1: 2000 mA = 2.0 A
+                pair2=1500.0,  # TI pair 2: 1500 mA = 1.5 A
+                pair3=1000.0,  # Not used in TI mode
+                pair4=500.0    # Not used in TI mode
             ),
             electrode=ElectrodeConfig()
         )
@@ -330,9 +330,9 @@ class TestSessionBuilderTIMode:
         builder = SessionBuilder(config)
         session = builder.build_session(montage, "/output/dir")
 
-        # TI pair 1 uses pair1_ch1: 2000 mA -> 2.0 A
+        # TI pair 1 uses pair1: 2000 mA -> 2.0 A
         assert session.poslists[0].currents == [2.0, -2.0]
-        # TI pair 2 uses pair1_ch2: 1500 mA -> 1.5 A
+        # TI pair 2 uses pair2: 1500 mA -> 1.5 A
         assert session.poslists[1].currents == [1.5, -1.5]
 
 
@@ -415,10 +415,10 @@ class TestSessionBuilderMTIMode:
             project_dir="/test/project",
             conductivity_type=ConductivityType.DIR,
             intensities=IntensityConfig(
-                pair1_ch1=2000.0,  # Pair A
-                pair1_ch2=1500.0,  # Pair B
-                pair2_ch1=1000.0,  # Pair C
-                pair2_ch2=500.0    # Pair D
+                pair1=2000.0,  # Pair 1
+                pair2=1500.0,  # Pair 2
+                pair3=1000.0,  # Pair 3
+                pair4=500.0    # Pair 4
             ),
             electrode=ElectrodeConfig()
         )

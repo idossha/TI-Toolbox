@@ -142,10 +142,10 @@ def main(argv=None) -> int:
             project_dir=project_dir,
             conductivity_type=ConductivityType(cfg.get("conductivity_type")),
             intensities=IntensityConfig(
-                pair1_ch1=float(intensities.get("pair1_ch1")),
-                pair1_ch2=float(intensities.get("pair1_ch2")),
-                pair2_ch1=float(intensities.get("pair2_ch1")),
-                pair2_ch2=float(intensities.get("pair2_ch2")),
+                pair1=float(intensities.get("pair1", 1.0)),
+                pair2=float(intensities.get("pair2", 1.0)),
+                pair3=float(intensities.get("pair3", 1.0)),
+                pair4=float(intensities.get("pair4", 1.0)),
             ),
             electrode=ElectrodeConfig(
                 shape=str(electrode.get("shape", "ellipse")),

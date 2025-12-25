@@ -123,69 +123,69 @@ class TestIntensityConfig:
         """Test IntensityConfig with default values."""
         config = IntensityConfig()
 
-        assert config.pair1_ch1 == 1.0
-        assert config.pair1_ch2 == 1.0
-        assert config.pair2_ch1 == 1.0
-        assert config.pair2_ch2 == 1.0
+        assert config.pair1 == 1.0
+        assert config.pair2 == 1.0
+        assert config.pair3 == 1.0
+        assert config.pair4 == 1.0
 
     def test_custom_values(self):
         """Test IntensityConfig with custom values."""
         config = IntensityConfig(
-            pair1_ch1=2.0,
-            pair1_ch2=2.0,
-            pair2_ch1=1.5,
-            pair2_ch2=1.5
+            pair1=2.0,
+            pair2=1.5,
+            pair3=1.0,
+            pair4=0.5
         )
 
-        assert config.pair1_ch1 == 2.0
-        assert config.pair1_ch2 == 2.0
-        assert config.pair2_ch1 == 1.5
-        assert config.pair2_ch2 == 1.5
+        assert config.pair1 == 2.0
+        assert config.pair2 == 1.5
+        assert config.pair3 == 1.0
+        assert config.pair4 == 0.5
 
     def test_from_string_single_value(self):
-        """Test parsing single value (all channels same)."""
+        """Test parsing single value (all pairs same)."""
         config = IntensityConfig.from_string("2.0")
 
-        assert config.pair1_ch1 == 2.0
-        assert config.pair1_ch2 == 2.0
-        assert config.pair2_ch1 == 2.0
-        assert config.pair2_ch2 == 2.0
+        assert config.pair1 == 2.0
+        assert config.pair2 == 2.0
+        assert config.pair3 == 2.0
+        assert config.pair4 == 2.0
 
     def test_from_string_two_values(self):
-        """Test parsing two values (pair1, pair2)."""
+        """Test parsing two values (pair1, pair2 for TI mode)."""
         config = IntensityConfig.from_string("2.0,1.5")
 
-        assert config.pair1_ch1 == 2.0
-        assert config.pair1_ch2 == 2.0
-        assert config.pair2_ch1 == 1.5
-        assert config.pair2_ch2 == 1.5
+        assert config.pair1 == 2.0
+        assert config.pair2 == 1.5
+        assert config.pair3 == 1.0  # Default
+        assert config.pair4 == 1.0  # Default
 
     def test_from_string_four_values(self):
-        """Test parsing four values (all channels specified)."""
-        config = IntensityConfig.from_string("2.0,2.0,1.5,1.5")
+        """Test parsing four values (all pairs specified for mTI mode)."""
+        config = IntensityConfig.from_string("2.0,1.5,1.0,0.5")
 
-        assert config.pair1_ch1 == 2.0
-        assert config.pair1_ch2 == 2.0
-        assert config.pair2_ch1 == 1.5
-        assert config.pair2_ch2 == 1.5
+        assert config.pair1 == 2.0
+        assert config.pair2 == 1.5
+        assert config.pair3 == 1.0
+        assert config.pair4 == 0.5
 
     def test_from_string_with_spaces(self):
         """Test parsing with spaces around values."""
         config = IntensityConfig.from_string("2.0 , 1.5")
 
-        assert config.pair1_ch1 == 2.0
-        assert config.pair1_ch2 == 2.0
-        assert config.pair2_ch1 == 1.5
-        assert config.pair2_ch2 == 1.5
+        assert config.pair1 == 2.0
+        assert config.pair2 == 1.5
+        assert config.pair3 == 1.0  # Default
+        assert config.pair4 == 1.0  # Default
 
     def test_from_string_float_values(self):
         """Test parsing with decimal values."""
         config = IntensityConfig.from_string("1.75,1.25,0.5,0.75")
 
-        assert config.pair1_ch1 == 1.75
-        assert config.pair1_ch2 == 1.25
-        assert config.pair2_ch1 == 0.5
-        assert config.pair2_ch2 == 0.75
+        assert config.pair1 == 1.75
+        assert config.pair2 == 1.25
+        assert config.pair3 == 0.5
+        assert config.pair4 == 0.75
 
     def test_from_string_invalid_three_values(self):
         """Test that three values raises ValueError."""

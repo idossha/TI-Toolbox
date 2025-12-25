@@ -34,11 +34,20 @@ class ElectrodeConfig:
 
 @dataclass
 class IntensityConfig:
-    """Configuration for current intensities."""
-    pair1_ch1: float = 1.0  # mA
-    pair1_ch2: float = 1.0  # mA
-    pair2_ch1: float = 1.0  # mA
-    pair2_ch2: float = 1.0  # mA
+    """
+    Configuration for current intensities in TI simulations.
+
+    Each pair requires one intensity value (in mA). SimNIBS automatically
+    applies equal and opposite currents to the two electrodes in each pair.
+    For example: pair1=2.0 means electrode1=+2.0mA and electrode2=-2.0mA
+
+    TI mode (2 pairs): Uses pair1 and pair2
+    mTI mode (4 pairs): Uses pair1, pair2, pair3, and pair4
+    """
+    pair1: float = 1.0  # mA - intensity for first electrode pair
+    pair2: float = 1.0  # mA - intensity for second electrode pair
+    pair3: float = 1.0  # mA - intensity for third electrode pair (mTI only)
+    pair4: float = 1.0  # mA - intensity for fourth electrode pair (mTI only)
 
     @classmethod
     def from_string(cls, intensity_str: str) -> 'IntensityConfig':
@@ -46,24 +55,33 @@ class IntensityConfig:
         Parse intensity from string format.
 
         Formats:
-        - "2.0" -> all channels 2.0 mA
-        - "2.0,2.0" -> pair1: 2.0, pair2: 2.0
-        - "2.0,2.0,1.5,1.5" -> all channels specified
+        - "2.0" -> all pairs: 2.0 mA
+        - "2.0,1.5" -> pair1: 2.0, pair2: 1.5 (both set to 1.0 for pair3/pair4)
+        - "2.0,1.5,1.0,0.5" -> pair1: 2.0, pair2: 1.5, pair3: 1.0, pair4: 0.5
+
+        Args:
+            intensity_str: Comma-separated intensity values
+
+        Returns:
+            IntensityConfig object
         """
         intensities = [float(x.strip()) for x in intensity_str.split(',')]
 
         if len(intensities) == 1:
-            # Single value: use for all channels
+            # Single value: use for all pairs
             val = intensities[0]
             return cls(val, val, val, val)
         elif len(intensities) == 2:
-            # Two values: pair1, pair2
-            return cls(intensities[0], intensities[0], intensities[1], intensities[1])
+            # Two values: pair1, pair2 (TI mode)
+            return cls(intensities[0], intensities[1], 1.0, 1.0)
         elif len(intensities) == 4:
-            # Four values: all specified
+            # Four values: all pairs specified (mTI mode)
             return cls(*intensities)
         else:
-            raise ValueError(f"Invalid intensity format: {intensity_str}")
+            raise ValueError(
+                f"Invalid intensity format: {intensity_str}. "
+                f"Expected 1, 2, or 4 comma-separated values."
+            )
 
 
 @dataclass

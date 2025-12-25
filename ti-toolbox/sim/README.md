@@ -187,18 +187,24 @@ Main configuration dataclass for simulations.
 
 ### IntensityConfig
 
-Current intensity configuration with per-channel control.
+Current intensity configuration for TI/mTI simulations.
+
+Each electrode pair requires one intensity value (in mA). SimNIBS automatically applies equal and opposite currents to the two electrodes within each pair. For example: `pair1=2.0` means electrode 1 gets +2.0mA and electrode 2 gets -2.0mA.
 
 **Fields:**
-- `pair1_ch1`: First channel of first pair (mA)
-- `pair1_ch2`: Second channel of first pair (mA)
-- `pair2_ch1`: First channel of second pair (mA)
-- `pair2_ch2`: Second channel of second pair (mA)
+- `pair1`: Intensity for first electrode pair (mA)
+- `pair2`: Intensity for second electrode pair (mA)
+- `pair3`: Intensity for third electrode pair (mA) - mTI only
+- `pair4`: Intensity for fourth electrode pair (mA) - mTI only
+
+**Usage:**
+- TI mode (2 pairs): Uses `pair1` and `pair2`
+- mTI mode (4 pairs): Uses `pair1`, `pair2`, `pair3`, and `pair4`
 
 **Parsing from string:**
-- `"2.0"` → All channels 2.0 mA
-- `"2.0,1.5"` → Pair 1: 2.0 mA, Pair 2: 1.5 mA
-- `"2.0,2.0,1.5,1.5"` → Individual channel control
+- `"2.0"` → All pairs: 2.0 mA
+- `"2.0,1.5"` → Pair 1: 2.0 mA, Pair 2: 1.5 mA (TI mode)
+- `"2.0,1.5,1.0,0.5"` → All pairs individually specified (mTI mode)
 
 ### ElectrodeConfig
 

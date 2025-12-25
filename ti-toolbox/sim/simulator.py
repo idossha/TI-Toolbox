@@ -483,10 +483,10 @@ def _run_parallel(
         'project_dir': config.project_dir,
         'conductivity_type': config.conductivity_type.value,
         'intensities': {
-            'pair1_ch1': config.intensities.pair1_ch1,
-            'pair1_ch2': config.intensities.pair1_ch2,
-            'pair2_ch1': config.intensities.pair2_ch1,
-            'pair2_ch2': config.intensities.pair2_ch2,
+            'pair1': config.intensities.pair1,
+            'pair2': config.intensities.pair2,
+            'pair3': config.intensities.pair3,
+            'pair4': config.intensities.pair4,
         },
         'electrode': {
             'shape': config.electrode.shape,
