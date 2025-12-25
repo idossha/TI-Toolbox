@@ -15,6 +15,7 @@ sys.path.insert(0, ti_toolbox_dir)
 
 from core.calc import (
     get_TI_vectors,
+    get_mTI_vectors,
     calculate_ti_field_from_leadfield,
     create_stim_patterns
 )
@@ -109,6 +110,116 @@ class TestGetTIVectors:
         # Original arrays should not be modified
         np.testing.assert_array_equal(E1, E1_orig)
         np.testing.assert_array_equal(E2, E2_orig)
+
+
+class TestGetMTIVectors:
+    """Test get_mTI_vectors function"""
+
+    def test_basic_mti_calculation(self):
+        """Test basic mTI vectors calculation with four channels"""
+        # Create simple parallel fields for all four channels
+        E1 = np.array([[1.0, 0.0, 0.0],
+                       [0.0, 1.0, 0.0]])
+        E2 = np.array([[1.0, 0.0, 0.0],
+                       [0.0, 1.0, 0.0]])
+        E3 = np.array([[1.0, 0.0, 0.0],
+                       [0.0, 1.0, 0.0]])
+        E4 = np.array([[1.0, 0.0, 0.0],
+                       [0.0, 1.0, 0.0]])
+
+        mTI_vectors = get_mTI_vectors(E1, E2, E3, E4)
+
+        # Should produce valid result
+        assert mTI_vectors.shape == (2, 3)
+        assert not np.any(np.isnan(mTI_vectors))
+        assert not np.any(np.isinf(mTI_vectors))
+
+    def test_mti_different_channel_pairs(self):
+        """Test mTI with different field patterns for channel pairs"""
+        # Channel pair 1: fields in x direction
+        E1 = np.array([[1.0, 0.0, 0.0]])
+        E2 = np.array([[0.8, 0.0, 0.0]])
+
+        # Channel pair 2: fields in y direction
+        E3 = np.array([[0.0, 1.0, 0.0]])
+        E4 = np.array([[0.0, 0.8, 0.0]])
+
+        mTI_vectors = get_mTI_vectors(E1, E2, E3, E4)
+
+        assert mTI_vectors.shape == (1, 3)
+        assert not np.any(np.isnan(mTI_vectors))
+
+    def test_mti_multiple_points(self):
+        """Test mTI calculation for multiple spatial points"""
+        n_points = 50
+        E1 = np.random.rand(n_points, 3) * 2.0
+        E2 = np.random.rand(n_points, 3) * 2.0
+        E3 = np.random.rand(n_points, 3) * 2.0
+        E4 = np.random.rand(n_points, 3) * 2.0
+
+        mTI_vectors = get_mTI_vectors(E1, E2, E3, E4)
+
+        assert mTI_vectors.shape == (n_points, 3)
+        assert not np.any(np.isnan(mTI_vectors))
+
+    def test_mti_with_zero_channels(self):
+        """Test mTI when some channels are zero"""
+        E1 = np.array([[1.0, 0.0, 0.0]])
+        E2 = np.array([[0.5, 0.0, 0.0]])
+        E3 = np.array([[0.0, 0.0, 0.0]])  # Zero field
+        E4 = np.array([[0.0, 0.0, 0.0]])  # Zero field
+
+        mTI_vectors = get_mTI_vectors(E1, E2, E3, E4)
+
+        # Should handle zero fields gracefully
+        assert mTI_vectors.shape == (1, 3)
+        assert not np.any(np.isnan(mTI_vectors))
+
+    def test_mti_shape_validation(self):
+        """Test that mTI validates input shapes"""
+        # Mismatched shapes should raise ValueError
+        E1 = np.array([[1.0, 0.0, 0.0]])
+        E2 = np.array([[1.0, 0.0, 0.0], [0.5, 0.0, 0.0]])  # Different shape
+        E3 = np.array([[1.0, 0.0, 0.0]])
+        E4 = np.array([[1.0, 0.0, 0.0]])
+
+        with pytest.raises(ValueError, match="identical shapes"):
+            get_mTI_vectors(E1, E2, E3, E4)
+
+    def test_mti_dimension_validation(self):
+        """Test that mTI validates 3D vector requirement"""
+        # 2D vectors should raise ValueError
+        E1 = np.array([[1.0, 0.0]])  # Only 2D
+        E2 = np.array([[1.0, 0.0]])
+        E3 = np.array([[1.0, 0.0]])
+        E4 = np.array([[1.0, 0.0]])
+
+        with pytest.raises(ValueError, match="must have shape \\(N, 3\\)"):
+            get_mTI_vectors(E1, E2, E3, E4)
+
+    def test_mti_realistic_fields(self):
+        """Test with realistic electric field values"""
+        # Realistic E-fields in V/m from simulation
+        n = 10
+        E1 = np.random.rand(n, 3) * 0.5 + 0.1  # 0.1-0.6 V/m
+        E2 = np.random.rand(n, 3) * 0.4 + 0.1  # 0.1-0.5 V/m
+        E3 = np.random.rand(n, 3) * 0.5 + 0.1
+        E4 = np.random.rand(n, 3) * 0.4 + 0.1
+
+        mTI_vectors = get_mTI_vectors(E1, E2, E3, E4)
+
+        # mTI magnitude should be reasonable (typically < 2x max input)
+        mti_magnitudes = np.linalg.norm(mTI_vectors, axis=1)
+        max_input_mag = np.max([
+            np.linalg.norm(E1, axis=1).max(),
+            np.linalg.norm(E2, axis=1).max(),
+            np.linalg.norm(E3, axis=1).max(),
+            np.linalg.norm(E4, axis=1).max()
+        ])
+
+        # mTI should be bounded
+        assert np.all(mti_magnitudes < 4 * max_input_mag)
+        assert np.all(mti_magnitudes >= 0)
 
 
 class TestCalculateTIFieldFromLeadfield:

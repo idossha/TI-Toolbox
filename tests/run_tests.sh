@@ -193,114 +193,122 @@ if [ "$RUN_UNIT_TESTS" = true ]; then
     # Setup coverage flags if enabled
     if [ "$ENABLE_COVERAGE" = true ]; then
         PYTEST_FLAGS="--cov=ti-toolbox --cov-report=xml:/tmp/coverage/coverage.xml --cov-report=term"
-        echo -e "${CYAN}Coverage reporting enabled${NC}"
+        echo -e "${CYAN}Coverage reporting enabled - running all tests together${NC}"
         mkdir -p /tmp/coverage
+
+        # Run ALL unit tests in a single command for accurate coverage measurement
+        # This ensures coverage data is collected across all modules in one run
+        run_test "All Unit Tests (with coverage)" \
+            "simnibs_python -m pytest $PYTEST_FLAGS tests/test_*.py" || true
+
+        echo ""
     else
+        # Without coverage, run tests in groups for better output organization
         if [ "$VERBOSE" = true ]; then
             PYTEST_FLAGS="-v"
         else
             PYTEST_FLAGS="-q"
         fi
+
+        # Analyzer unit tests
+        run_test "Analyzer Tests" \
+            "simnibs_python -m pytest $PYTEST_FLAGS tests/test_analyzer.py tests/test_mesh_analyzer.py tests/test_voxel_analyzer.py tests/test_group_analyzer.py" || true
+
+        echo ""
+
+        # Simulator unit tests (including new comprehensive sim module tests)
+        run_test "Simulator Tests" \
+            "simnibs_python -m pytest $PYTEST_FLAGS tests/test_sim_config.py tests/test_session_builder.py tests/test_post_processor.py tests/test_montage_loader.py tests/test_subprocess_runner.py tests/test_simulator.py" || true
+
+        echo ""
+
+        # Flex-search unit tests
+        run_test "Flex-Search Tests" \
+            "simnibs_python -m pytest $PYTEST_FLAGS tests/test_flex_search.py" || true
+
+        echo ""
+
+        # Ex-search unit tests
+        run_test "Ex-Search Analyzer Tests" \
+            "simnibs_python -m pytest $PYTEST_FLAGS tests/test_ex_analyzer.py" || true
+
+        echo ""
+
+        # MOVEA optimizer unit tests
+        run_test "MOVEA Optimizer Tests" \
+            "simnibs_python -m pytest $PYTEST_FLAGS tests/test_movea_optimizer.py" || true
+
+        echo ""
+
+        # Stats module tests
+        run_test "Stats Module Tests" \
+            "simnibs_python -m pytest $PYTEST_FLAGS tests/test_stats.py" || true
+
+        echo ""
+
+        # Viz module tests
+        run_test "Viz Module Tests" \
+            "simnibs_python -m pytest $PYTEST_FLAGS tests/test_viz.py" || true
+
+        echo ""
+
+        # Leadfield tests
+        run_test "Leadfield Tests" \
+            "simnibs_python -m pytest $PYTEST_FLAGS tests/test_leadfield.py" || true
+
+        echo ""
+
+        # New core module tests
+        run_test "Core Errors Tests" \
+            "simnibs_python -m pytest $PYTEST_FLAGS tests/test_errors.py" || true
+
+        echo ""
+
+        run_test "Core Process Tests" \
+            "simnibs_python -m pytest $PYTEST_FLAGS tests/test_process.py" || true
+
+        echo ""
+
+        run_test "Core Mesh Tests" \
+            "simnibs_python -m pytest $PYTEST_FLAGS tests/test_core_mesh.py" || true
+
+        echo ""
+
+        run_test "Core Calc Tests" \
+            "simnibs_python -m pytest $PYTEST_FLAGS tests/test_calc.py" || true
+
+        echo ""
+
+        # Core paths tests
+        run_test "Core Paths Tests" \
+            "simnibs_python -m pytest $PYTEST_FLAGS tests/test_paths.py" || true
+
+        echo ""
+
+        # Core constants tests
+        run_test "Core Constants Tests" \
+            "simnibs_python -m pytest $PYTEST_FLAGS tests/test_constants.py" || true
+
+        echo ""
+
+        # Core nifti tests
+        run_test "Core NIfTI Tests" \
+            "simnibs_python -m pytest $PYTEST_FLAGS tests/test_nifti.py" || true
+
+        echo ""
+
+        # Core utils tests
+        run_test "Core Utils Tests" \
+            "simnibs_python -m pytest $PYTEST_FLAGS tests/test_utils.py" || true
+
+        echo ""
+
+        # Core integration tests
+        run_test "Core Integration Tests" \
+            "simnibs_python -m pytest $PYTEST_FLAGS tests/test_core_integration.py" || true
+
+        echo ""
     fi
-
-    # Analyzer unit tests
-    run_test "Analyzer Tests" \
-        "simnibs_python -m pytest $PYTEST_FLAGS tests/test_analyzer.py tests/test_mesh_analyzer.py tests/test_voxel_analyzer.py tests/test_group_analyzer.py" || true
-
-    echo ""
-
-    # Simulator unit tests (including new comprehensive sim module tests)
-    run_test "Simulator Tests" \
-        "simnibs_python -m pytest $PYTEST_FLAGS tests/test_sim_config.py tests/test_session_builder.py tests/test_post_processor.py tests/test_montage_loader.py tests/test_subprocess_runner.py tests/test_simulator.py" || true
-
-    echo ""
-
-    # Flex-search unit tests
-    run_test "Flex-Search Tests" \
-        "simnibs_python -m pytest $PYTEST_FLAGS tests/test_flex_search.py" || true
-
-    echo ""
-
-    # Ex-search unit tests
-    run_test "Ex-Search Analyzer Tests" \
-        "simnibs_python -m pytest $PYTEST_FLAGS tests/test_ex_analyzer.py" || true
-
-    echo ""
-
-    # MOVEA optimizer unit tests
-    run_test "MOVEA Optimizer Tests" \
-        "simnibs_python -m pytest $PYTEST_FLAGS tests/test_movea_optimizer.py" || true
-
-    echo ""
-
-    # Stats module tests
-    run_test "Stats Module Tests" \
-        "simnibs_python -m pytest $PYTEST_FLAGS tests/test_stats.py" || true
-
-    echo ""
-
-    # Viz module tests
-    run_test "Viz Module Tests" \
-        "simnibs_python -m pytest $PYTEST_FLAGS tests/test_viz.py" || true
-
-    echo ""
-
-    # Leadfield tests
-    run_test "Leadfield Tests" \
-        "simnibs_python -m pytest $PYTEST_FLAGS tests/test_leadfield.py" || true
-
-    echo ""
-
-    # New core module tests
-    run_test "Core Errors Tests" \
-        "simnibs_python -m pytest $PYTEST_FLAGS tests/test_errors.py" || true
-
-    echo ""
-
-    run_test "Core Process Tests" \
-        "simnibs_python -m pytest $PYTEST_FLAGS tests/test_process.py" || true
-
-    echo ""
-
-    run_test "Core Mesh Tests" \
-        "simnibs_python -m pytest $PYTEST_FLAGS tests/test_core_mesh.py" || true
-
-    echo ""
-
-    run_test "Core Calc Tests" \
-        "simnibs_python -m pytest $PYTEST_FLAGS tests/test_calc.py" || true
-
-    echo ""
-
-    # Core paths tests
-    run_test "Core Paths Tests" \
-        "simnibs_python -m pytest $PYTEST_FLAGS tests/test_paths.py" || true
-
-    echo ""
-
-    # Core constants tests
-    run_test "Core Constants Tests" \
-        "simnibs_python -m pytest $PYTEST_FLAGS tests/test_constants.py" || true
-
-    echo ""
-
-    # Core nifti tests
-    run_test "Core NIfTI Tests" \
-        "simnibs_python -m pytest $PYTEST_FLAGS tests/test_nifti.py" || true
-
-    echo ""
-
-    # Core utils tests
-    run_test "Core Utils Tests" \
-        "simnibs_python -m pytest $PYTEST_FLAGS tests/test_utils.py" || true
-
-    echo ""
-
-    # Core integration tests
-    run_test "Core Integration Tests" \
-        "simnibs_python -m pytest $PYTEST_FLAGS tests/test_core_integration.py" || true
-
-    echo ""
 fi
 
 # Integration Tests
