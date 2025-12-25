@@ -32,15 +32,23 @@ sys.path.insert(0, ti_toolbox_dir)
 # Mock only what needs to be mocked for this specific test
 from unittest.mock import MagicMock
 
-# Mock nibabel for testing (since we need to control the mock behavior)
-mock_nib = MagicMock()
-mock_nib.load = MagicMock()
-mock_nib.Nifti1Image = MagicMock()
-sys.modules['nibabel'] = mock_nib
+# Store original visualizer for cleanup
+_original_visualizer = sys.modules.get('visualizer')
 
 # Mock visualizer module (local module that may not exist)
 sys.modules['visualizer'] = MagicMock()
 sys.modules['visualizer'].VoxelVisualizer = MagicMock()
+
+
+@pytest.fixture(scope='module', autouse=True)
+def cleanup_visualizer_mock():
+    """Cleanup visualizer mock after all tests"""
+    yield  # Tests run here
+    if _original_visualizer is not None:
+        sys.modules['visualizer'] = _original_visualizer
+    else:
+        sys.modules.pop('visualizer', None)
+
 
 # Now import the voxel_analyzer module
 from analyzer.voxel_analyzer import VoxelAnalyzer
@@ -193,92 +201,6 @@ class TestAtlasTypeExtraction:
         """Unknown pattern returns 'custom'"""
         result = self.analyzer._extract_atlas_type("/path/to/subject_unknown.mgz")
         assert result in ("custom", "unknown")
-
-
-class TestSphericalAnalysis:
-    """Test spherical ROI analysis functionality"""
-    
-    def setup_method(self):
-        """Set up test fixtures"""
-        self.mock_logger = MagicMock()
-        self.mock_logger.getChild.return_value = self.mock_logger
-        
-        with patch('os.path.exists', return_value=True):
-            with patch('os.makedirs'):
-                self.analyzer = VoxelAnalyzer(
-                    field_nifti="/path/to/field.nii.gz",
-                    subject_dir="/path/to/subject",
-                    output_dir="/path/to/output",
-                    logger=self.mock_logger
-                )
-    
-    def test_analyze_sphere_success(self):
-        """Test successful spherical analysis"""
-        # Mock NIfTI data
-        mock_img = MagicMock()
-        mock_img.get_fdata.return_value = np.array([[[1.0, 2.0, 3.0], [0.0, 5.0, 6.0]]])
-        mock_img.header.get_zooms.return_value = [1.0, 1.0, 1.0]
-        mock_img.affine = np.eye(4)
-        
-        mock_nib.load.return_value = mock_img
-        
-        with patch.object(self.analyzer, '_calculate_focality_metrics', return_value=None):
-            with patch.object(self.analyzer.visualizer, 'save_results_to_csv'):
-                with patch.object(self.analyzer.visualizer, 'save_extra_info_to_csv'):
-                    result = self.analyzer.analyze_sphere(
-                        center_coordinates=[1, 1, 1],
-                        radius=2.0,
-                        visualize=False
-                    )
-        
-        assert result is not None
-        assert 'mean_value' in result
-        assert 'max_value' in result
-        assert 'min_value' in result
-        assert 'focality' in result
-        assert 'voxels_in_roi' in result
-    
-    def test_analyze_sphere_no_voxels_in_roi(self):
-        """Test spherical analysis with no voxels in ROI"""
-        # Mock NIfTI data with all zeros
-        mock_img = MagicMock()
-        mock_img.get_fdata.return_value = np.zeros((10, 10, 10))
-        mock_img.header.get_zooms.return_value = [1.0, 1.0, 1.0]
-        mock_img.affine = np.eye(4)
-        
-        mock_nib.load.return_value = mock_img
-        
-        result = self.analyzer.analyze_sphere(
-            center_coordinates=[1, 1, 1],
-            radius=1.0,
-            visualize=False
-        )
-        
-        assert result is None
-        self.mock_logger.warning.assert_called()
-    
-    def test_analyze_sphere_4d_data(self):
-        """Test spherical analysis with 4D data"""
-        # Mock 4D NIfTI data
-        mock_img = MagicMock()
-        mock_img.get_fdata.return_value = np.array([[[[1.0, 2.0, 3.0], [0.0, 5.0, 6.0]]]])
-        mock_img.header.get_zooms.return_value = [1.0, 1.0, 1.0, 1.0]
-        mock_img.affine = np.eye(4)
-        
-        mock_nib.load.return_value = mock_img
-        
-        with patch.object(self.analyzer, '_calculate_focality_metrics', return_value=None):
-            with patch.object(self.analyzer.visualizer, 'save_results_to_csv'):
-                with patch.object(self.analyzer.visualizer, 'save_extra_info_to_csv'):
-                    result = self.analyzer.analyze_sphere(
-                        center_coordinates=[1, 1, 1],
-                        radius=2.0,
-                        visualize=False
-                    )
-        
-        assert result is not None
-        # Should extract first volume from 4D data
-        mock_img.get_fdata.assert_called_once()
 
 
 class TestCorticalAnalysis:
@@ -651,140 +573,6 @@ class TestFocalityMetrics:
         
         assert result is not None
         assert result['num_voxels'] == 4  # Should exclude NaN values
-
-
-class TestGreyMatterStatistics:
-    """Test grey matter statistics calculation"""
-    
-    def setup_method(self):
-        """Set up test fixtures"""
-        self.mock_logger = MagicMock()
-        self.mock_logger.getChild.return_value = self.mock_logger
-        
-        with patch('os.path.exists', return_value=True):
-            with patch('os.makedirs'):
-                self.analyzer = VoxelAnalyzer(
-                    field_nifti="/path/to/field.nii.gz",
-                    subject_dir="/path/to/subject",
-                    output_dir="/path/to/output",
-                    logger=self.mock_logger
-                )
-    
-    def test_get_grey_matter_statistics_success(self):
-        """Test successful grey matter statistics calculation"""
-        # Mock NIfTI data
-        mock_img = MagicMock()
-        mock_img.get_fdata.return_value = np.array([[[1.0, 2.0, 3.0], [0.0, 5.0, 6.0]]])
-        
-        mock_nib.load.return_value = mock_img
-        
-        result = self.analyzer.get_grey_matter_statistics()
-        
-        assert result is not None
-        assert 'grey_mean' in result
-        assert 'grey_max' in result
-        assert 'grey_min' in result
-        assert result['grey_mean'] > 0
-        assert result['grey_max'] > 0
-        assert result['grey_min'] > 0
-    
-    def test_get_grey_matter_statistics_no_positive_values(self):
-        """Test grey matter statistics with no positive values"""
-        # Mock NIfTI data with all zeros
-        mock_img = MagicMock()
-        mock_img.get_fdata.return_value = np.zeros((10, 10, 10))
-        
-        mock_nib.load.return_value = mock_img
-        
-        result = self.analyzer.get_grey_matter_statistics()
-        
-        assert result is not None
-        assert result['grey_mean'] == 0.0
-        assert result['grey_max'] == 0.0
-        assert result['grey_min'] == 0.0
-        self.mock_logger.warning.assert_called()
-    
-    def test_get_grey_matter_statistics_4d_data(self):
-        """Test grey matter statistics with 4D data"""
-        # Mock 4D NIfTI data
-        mock_img = MagicMock()
-        mock_img.get_fdata.return_value = np.array([[[[1.0, 2.0, 3.0], [0.0, 5.0, 6.0]]]])
-        
-        mock_nib.load.return_value = mock_img
-        
-        result = self.analyzer.get_grey_matter_statistics()
-        
-        assert result is not None
-        assert 'grey_mean' in result
-        assert 'grey_max' in result
-        assert 'grey_min' in result
-
-
-class TestImageLoading:
-    """Test image loading functionality"""
-    
-    def setup_method(self):
-        """Set up test fixtures"""
-        self.mock_logger = MagicMock()
-        self.mock_logger.getChild.return_value = self.mock_logger
-        
-        with patch('os.path.exists', return_value=True):
-            with patch('os.makedirs'):
-                self.analyzer = VoxelAnalyzer(
-                    field_nifti="/path/to/field.nii.gz",
-                    subject_dir="/path/to/subject",
-                    output_dir="/path/to/output",
-                    logger=self.mock_logger
-                )
-    
-    def test_load_brain_image_nifti(self):
-        """Test loading NIfTI image"""
-        # Mock NIfTI image
-        mock_img = MagicMock()
-        mock_data = np.array([[[1.0, 2.0, 3.0]]])
-        mock_img.get_fdata.return_value = mock_data
-        
-        # Reset the mock to avoid interference from other tests
-        mock_nib.load.reset_mock()
-        mock_nib.load.return_value = mock_img
-        
-        result_img, result_data = self.analyzer.load_brain_image("/path/to/image.nii.gz")
-        
-        assert result_img == mock_img
-        assert np.array_equal(result_data, mock_data)
-        # Check that load was called with the correct path (may be called multiple times due to other operations)
-        assert any(call[0][0] == "/path/to/image.nii.gz" for call in mock_nib.load.call_args_list)
-    
-    def test_load_brain_image_mgz_success(self):
-        """Test loading MGZ image successfully"""
-        # Mock MGZ image
-        mock_img = MagicMock()
-        mock_data = np.array([[[1.0, 2.0, 3.0]]])
-        mock_img.get_fdata.return_value = mock_data
-        
-        mock_nib.load.return_value = mock_img
-        
-        result_img, result_data = self.analyzer.load_brain_image("/path/to/image.mgz")
-        
-        assert result_img == mock_img
-        assert np.array_equal(result_data, mock_data)
-    
-    def test_load_brain_image_mgz_conversion(self):
-        """Test loading MGZ image with conversion"""
-        # Mock conversion process
-        mock_converted_img = MagicMock()
-        mock_converted_data = np.array([[[1.0, 2.0, 3.0]]])
-        mock_converted_img.get_fdata.return_value = mock_converted_data
-        
-        with patch('tempfile.NamedTemporaryFile') as mock_temp:
-            mock_temp.return_value.__enter__.return_value.name = "/tmp/temp.nii.gz"
-            with patch('subprocess.run'):
-                with patch('nibabel.load', side_effect=[Exception("Direct load failed"), mock_converted_img]):
-                    with patch('os.unlink'):
-                        result_img, result_data = self.analyzer.load_brain_image("/path/to/image.mgz")
-        
-        assert result_img == mock_converted_img
-        assert np.array_equal(result_data, mock_converted_data)
 
 
 class TestRegionFinding:

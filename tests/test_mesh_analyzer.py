@@ -29,30 +29,40 @@ project_root = str(Path(__file__).resolve().parent.parent)
 ti_toolbox_dir = str(Path(project_root) / 'ti-toolbox')
 sys.path.insert(0, ti_toolbox_dir)
 
-# Mock external dependencies before importing mesh_analyzer
+# Mock only local modules (simnibs and matplotlib.pyplot are available in SimNIBS environment)
 from unittest.mock import MagicMock
 
-# Mock simnibs
-mock_simnibs = MagicMock()
-mock_simnibs.read_msh = MagicMock()
-mock_simnibs.subject_atlas = MagicMock()
+# Store original modules for cleanup
+_original_viz = sys.modules.get('visualizer')
+_original_tools = sys.modules.get('tools')
 
-# Mock matplotlib
-mock_plt = MagicMock()
+# Mock visualizer module (local module that may not exist)
+mock_visualizer_mod = MagicMock()
+mock_visualizer_mod.MeshVisualizer = MagicMock()
+sys.modules['visualizer'] = mock_visualizer_mod
 
-# Mock visualizer
-mock_visualizer = MagicMock()
+# Mock tools module (for logging_util)
+mock_tools = MagicMock()
+mock_tools.logging_util = MagicMock()
+sys.modules['tools'] = mock_tools
 
-# Mock logging_util
-mock_logging_util = MagicMock()
 
-# Apply mocks
-sys.modules['simnibs'] = mock_simnibs
-sys.modules['matplotlib.pyplot'] = mock_plt
-sys.modules['visualizer'] = MagicMock()
-sys.modules['visualizer'].MeshVisualizer = mock_visualizer
-sys.modules['tools'] = MagicMock()
-sys.modules['tools'].logging_util = mock_logging_util
+@pytest.fixture(scope='module', autouse=True)
+def cleanup_mesh_mocks():
+    """Cleanup mock dependencies after all tests"""
+    yield  # Tests run here
+
+    # Cleanup: restore original modules or remove mocks
+    if _original_viz is not None:
+        sys.modules['visualizer'] = _original_viz
+    else:
+        sys.modules.pop('visualizer', None)
+
+    if _original_tools is not None:
+        sys.modules['tools'] = _original_tools
+    else:
+        sys.modules.pop('tools', None)
+
 
 # Now import the mesh_analyzer module
 from analyzer.mesh_analyzer import MeshAnalyzer

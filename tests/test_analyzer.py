@@ -29,6 +29,10 @@ sys.path.insert(0, ti_toolbox_dir)
 # Mock the analyzer modules before importing main_analyzer
 from unittest.mock import MagicMock
 
+# Store original modules for cleanup
+_original_mesh_analyzer = sys.modules.get('mesh_analyzer')
+_original_voxel_analyzer = sys.modules.get('voxel_analyzer')
+
 # Create mock modules for the analyzer dependencies
 mock_mesh_analyzer = MagicMock()
 mock_voxel_analyzer = MagicMock()
@@ -37,7 +41,25 @@ mock_voxel_analyzer = MagicMock()
 sys.modules['mesh_analyzer'] = mock_mesh_analyzer
 sys.modules['voxel_analyzer'] = mock_voxel_analyzer
 
-# Now import the main_analyzer module
+
+@pytest.fixture(scope='module', autouse=True)
+def cleanup_analyzer_mocks():
+    """Cleanup mock dependencies after all tests"""
+    yield  # Tests run here
+
+    # Cleanup: restore original modules or remove mocks
+    if _original_mesh_analyzer is not None:
+        sys.modules['mesh_analyzer'] = _original_mesh_analyzer
+    else:
+        sys.modules.pop('mesh_analyzer', None)
+
+    if _original_voxel_analyzer is not None:
+        sys.modules['voxel_analyzer'] = _original_voxel_analyzer
+    else:
+        sys.modules.pop('voxel_analyzer', None)
+
+
+# Now import the main_analyzer module (after mocks are set up)
 from analyzer.main_analyzer import (
     format_duration,
     validate_file_extension,
