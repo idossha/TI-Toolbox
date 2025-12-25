@@ -36,6 +36,7 @@ export ANALYSIS_TYPE="spherical"
 export FIELD_PATH="$PROJECT_DIR/derivatives/SimNIBS/sub-ernie_extended/Simulations/test_montage/TI/mesh/grey_test_montage_TI.msh"
 export COORDINATES="-50 0 0"
 export RADIUS="5"
+export COORDINATE_SPACE="subject"
 export VISUALIZE="true"
 
 # Run analyzer in non-interactive mode

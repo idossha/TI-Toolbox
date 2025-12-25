@@ -209,9 +209,9 @@ if [ "$RUN_UNIT_TESTS" = true ]; then
 
     echo ""
 
-    # Simulator unit tests
+    # Simulator unit tests (including new comprehensive sim module tests)
     run_test "Simulator Tests" \
-        "simnibs_python -m pytest $PYTEST_FLAGS tests/test_ti_simulator.py tests/test_mti_simulator.py" || true
+        "simnibs_python -m pytest $PYTEST_FLAGS tests/test_sim_config.py tests/test_session_builder.py tests/test_post_processor.py tests/test_montage_loader.py tests/test_subprocess_runner.py tests/test_simulator.py" || true
 
     echo ""
 
@@ -230,6 +230,24 @@ if [ "$RUN_UNIT_TESTS" = true ]; then
     # MOVEA optimizer unit tests
     run_test "MOVEA Optimizer Tests" \
         "simnibs_python -m pytest $PYTEST_FLAGS tests/test_movea_optimizer.py" || true
+
+    echo ""
+
+    # Stats module tests
+    run_test "Stats Module Tests" \
+        "simnibs_python -m pytest $PYTEST_FLAGS tests/test_stats.py" || true
+
+    echo ""
+
+    # Viz module tests
+    run_test "Viz Module Tests" \
+        "simnibs_python -m pytest $PYTEST_FLAGS tests/test_viz.py" || true
+
+    echo ""
+
+    # Leadfield tests
+    run_test "Leadfield Tests" \
+        "simnibs_python -m pytest $PYTEST_FLAGS tests/test_leadfield.py" || true
 
     echo ""
 

@@ -65,21 +65,23 @@ class TestVoxelAnalyzerInitialization:
     def test_init_with_logger(self):
         """Test initialization with provided logger"""
         mock_logger = MagicMock()
-        mock_logger.getChild.return_value = mock_logger
+        mock_child_logger = MagicMock()
+        mock_logger.getChild.return_value = mock_child_logger
         
         with patch('os.path.exists', return_value=True):
             with patch('os.makedirs'):
-                analyzer = VoxelAnalyzer(
-                    field_nifti="/path/to/field.nii.gz",
-                    subject_dir="/path/to/subject",
-                    output_dir="/path/to/output",
-                    logger=mock_logger
-                )
+                with patch('analyzer.voxel_analyzer.VoxelVisualizer'):
+                    analyzer = VoxelAnalyzer(
+                        field_nifti="/path/to/field.nii.gz",
+                        subject_dir="/path/to/subject",
+                        output_dir="/path/to/output",
+                        logger=mock_logger
+                    )
         
         assert analyzer.field_nifti == "/path/to/field.nii.gz"
         assert analyzer.subject_dir == "/path/to/subject"
         assert analyzer.output_dir == "/path/to/output"
-        assert analyzer.logger == mock_logger
+        assert analyzer.logger == mock_child_logger
         mock_logger.getChild.assert_called_once_with('voxel_analyzer')
     
     def test_init_without_logger(self):
@@ -115,17 +117,25 @@ class TestVoxelAnalyzerInitialization:
         """Test that initialization creates output directory if it doesn't exist"""
         mock_logger = MagicMock()
         mock_logger.getChild.return_value = mock_logger
-        
-        with patch('os.path.exists') as mock_exists:
-            mock_exists.side_effect = lambda path: path != "/path/to/output"
+
+        def path_exists_side_effect(path):
+            # Field file exists, but output directory doesn't
+            if path == "/path/to/field.nii.gz":
+                return True
+            elif path == "/path/to/output":
+                return False
+            return True
+
+        with patch('os.path.exists', side_effect=path_exists_side_effect):
             with patch('os.makedirs') as mock_makedirs:
-                analyzer = VoxelAnalyzer(
-                    field_nifti="/path/to/field.nii.gz",
-                    subject_dir="/path/to/subject",
-                    output_dir="/path/to/output",
-                    logger=mock_logger
-                )
-        
+                with patch('analyzer.voxel_analyzer.VoxelVisualizer'):
+                    analyzer = VoxelAnalyzer(
+                        field_nifti="/path/to/field.nii.gz",
+                        subject_dir="/path/to/subject",
+                        output_dir="/path/to/output",
+                        logger=mock_logger
+                    )
+
         mock_makedirs.assert_called_once_with("/path/to/output")
     
     def test_init_with_quiet_mode(self):

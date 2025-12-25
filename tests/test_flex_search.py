@@ -29,20 +29,22 @@ class TestParseArguments:
             '--subject', 'subj001',
             '--goal', 'mean',
             '--postproc', 'max_TI',
-            '--eeg-net', 'EGI_template',
-            '--radius', '5',
             '--current', '1',
-            '--roi-method', 'spherical'
+            '--roi-method', 'spherical',
+            '--electrode-shape', 'rect',
+            '--dimensions', '8,8',
+            '--thickness', '4.0'
         ]
         monkeypatch.setattr(sys, 'argv', argv)
         args = mod.parse_arguments()
         assert args.subject == 'subj001'
         assert args.goal == 'mean'
         assert args.postproc == 'max_TI'
-        assert args.eeg_net == 'EGI_template'
-        assert args.radius == 5
         assert args.current == 1
         assert args.roi_method == 'spherical'
+        assert args.electrode_shape == 'rect'
+        assert args.dimensions == '8,8'
+        assert args.thickness == 4.0
 
 
 class TestRoiDirname:

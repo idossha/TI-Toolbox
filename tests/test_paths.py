@@ -88,7 +88,7 @@ class TestPathManagerBasics:
         pm = PathManager()
         assert pm is not None
         assert hasattr(pm, '_project_dir')
-        assert hasattr(pm, '_project_dir_name')
+        assert hasattr(pm, 'project_dir_name')
 
 
 class TestProjectDetection:

@@ -53,7 +53,7 @@ class TestDirectoryConstants:
         assert const.DIR_M2M_PREFIX == "m2m_"
         assert const.DIR_EEG_POSITIONS == "eeg_positions"
         assert const.DIR_ROIS == "ROIs"
-        assert const.DIR_ANALYSIS == "analysis"
+        assert const.DIR_ANALYSIS == "Analyses"
 
     def test_no_hardcoded_paths(self):
         """Test that directory constants don't contain absolute paths"""

@@ -652,8 +652,8 @@ class LeadfieldGenerator:
         with open(eeg_cap_path, 'r') as f:
             for line in f:
                 parts = line.strip().split(',')
-                if len(parts) >= 5 and parts[0] == 'Electrode':
-                    electrode_label = parts[4].strip()  # 5th column (index 4) is the label
+                if len(parts) >= 4 and parts[0] not in ['Label', 'Electrode', '']:  # Skip header and empty lines
+                    electrode_label = parts[0].strip()  # First column is the label
                     if electrode_label and not electrode_label.replace('.', '').replace('-', '').isdigit():  # Skip numeric values
                         electrodes.append(electrode_label)
 

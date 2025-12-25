@@ -19,7 +19,7 @@ ti_toolbox_dir = os.path.join(project_root, 'ti-toolbox')
 sys.path.insert(0, ti_toolbox_dir)
 
 from opt.ex.ex_analyzer import analyze_ex_search
-from opt.roi import ROICoordinateHelper
+from core.roi import ROICoordinateHelper
 
 
 class TestAnalyzeExSearch:

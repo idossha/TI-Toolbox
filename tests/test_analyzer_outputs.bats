@@ -24,11 +24,11 @@
     [ -d "$analyses_mesh" ]
 
     # Spherical outputs
-    spherical_dir="$analyses_mesh/sphere_x-50_y0_z0_r5"
+    spherical_dir="$analyses_mesh/sphere_x-50.00_y0.00_z0.00_r5.0"
     [ -d "$spherical_dir" ]
-    [ -f "$spherical_dir/spherical_sphere_x-50.0_y0.0_z0.0_r5.0.csv" ]
-    [ -f "$spherical_dir/spherical_sphere_x-50.0_y0.0_z0.0_r5.0_extra_info.csv" ]
-    [ -s "$spherical_dir/spherical_sphere_x-50.0_y0.0_z0.0_r5.0.csv" ]
+    [ -f "$spherical_dir/spherical_sphere_x-50.00_y0.00_z0.00_r5.0.csv" ]
+    [ -f "$spherical_dir/spherical_sphere_x-50.00_y0.00_z0.00_r5.0_extra_info.csv" ]
+    [ -s "$spherical_dir/spherical_sphere_x-50.00_y0.00_z0.00_r5.0.csv" ]
 }
 
 

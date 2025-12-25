@@ -298,7 +298,7 @@ class TestROIDescription:
 
         description = create_roi_description(args)
         # Updated to match actual implementation format
-        assert description == "Spherical: (10.0,20.0,30.0) r5.0mm"
+        assert description == "Spherical: (10.00,20.00,30.00) r5.0mm"
     
     def test_create_roi_description_cortical_mesh_whole_head(self):
         """Test ROI description for cortical mesh analysis (whole head)"""

@@ -310,7 +310,7 @@ class TestOutputDirectoryComputation:
             assert 'montage1' in result
             assert 'Analyses' in result
             assert 'Mesh' in result
-            assert 'sphere_x10_y20_z30_r5.0' in result
+            assert 'sphere_x10.00_y20.00_z30.00_r5.0' in result
             mock_makedirs.assert_called_once()
     
     def test_compute_subject_output_dir_cortical_voxel_whole_head(self):
@@ -350,8 +350,8 @@ class TestOutputDirectoryComputation:
              patch('os.path.dirname', return_value='/path/to'):
             result = group_analyzer.compute_subject_output_dir(args, subject_args)
 
-            # For voxel fallback, should use os.path.dirname(field_path) + "fallback_{subject_id}"
-            assert 'fallback_subj001' in result
+            # For voxel fallback, should use 'unknown_montage' when Simulations not found in path
+            assert 'unknown_montage' in result
             mock_makedirs.assert_called()
 
     def test_compute_subject_output_dir_voxel_region(self):
@@ -442,64 +442,6 @@ class TestCommandBuilding:
             assert '--region' in cmd
             assert 'prefrontal' in cmd
     
-    def test_build_main_analyzer_command_with_mni_coords(self):
-        """Test build_main_analyzer_command with MNI coordinate transformation."""
-        args = MagicMock()
-        args.space = 'mesh'
-        args.analysis_type = 'spherical'
-        args.coordinates = [10, 20, 30]
-        args.radius = 5.0
-        args.use_mni_coords = True
-        args.quiet = False
-        
-        subject_args = ['subj001', '/path/to/m2m', '/path/to/field.msh']
-        subject_output_dir = '/path/to/output'
-        
-        mock_mni2subject_coords = MagicMock(return_value=[15, 25, 35])
-        
-        with patch('group_analyzer.group_logger', None), \
-             patch('group_analyzer.mni2subject_coords', mock_mni2subject_coords), \
-             patch('group_analyzer.Path') as mock_path:
-            mock_path.return_value.parent = Path('/path/to/analyzer')
-            mock_path.return_value.__truediv__ = lambda self, other: Path(f'/path/to/analyzer/{other}')
-            mock_path.return_value.parts = ('/path/to/Simulations/montage1/TI/mesh/field.msh').split('/')
-            
-            cmd = group_analyzer.build_main_analyzer_command(args, subject_args, subject_output_dir)
-            
-            # Should use transformed coordinates
-            assert '--coordinates' in cmd
-            assert '15' in cmd
-            assert '25' in cmd
-            assert '35' in cmd
-            mock_mni2subject_coords.assert_called_once_with([10, 20, 30], '/path/to/m2m')
-    
-    def test_build_main_analyzer_command_mni_coords_error(self):
-        """Test build_main_analyzer_command with MNI coordinate transformation error."""
-        args = MagicMock()
-        args.space = 'mesh'
-        args.analysis_type = 'spherical'
-        args.coordinates = [10, 20, 30]
-        args.radius = 5.0
-        args.use_mni_coords = True
-        args.quiet = False
-        
-        subject_args = ['subj001', '/path/to/m2m', '/path/to/field.msh']
-        subject_output_dir = '/path/to/output'
-        
-        mock_mni2subject_coords = MagicMock(side_effect=Exception("Transformation failed"))
-        mock_logger = MagicMock()
-        
-        with patch('group_analyzer.group_logger', mock_logger), \
-             patch('group_analyzer.mni2subject_coords', mock_mni2subject_coords), \
-             patch('group_analyzer.Path') as mock_path:
-            mock_path.return_value.parent = Path('/path/to/analyzer')
-            mock_path.return_value.__truediv__ = lambda self, other: Path(f'/path/to/analyzer/{other}')
-            mock_path.return_value.parts = ('/path/to/Simulations/montage1/TI/mesh/field.msh').split('/')
-            
-            with pytest.raises(RuntimeError, match="Failed to transform MNI coordinates for subject subj001"):
-                group_analyzer.build_main_analyzer_command(args, subject_args, subject_output_dir)
-            
-            mock_logger.error.assert_called_once()
 
 
 class TestSubjectAnalysis:

@@ -128,6 +128,11 @@ if [ ! -f "$config_file" ]; then
         "prompt": "enable",
         "default": 10
     },
+    "coordinate_space": {
+        "prompt": "enable",
+        "default": "subject",
+        "options": ["MNI", "subject"]
+    },
     "atlas": {
         "prompt": "enable",
         "default": "DK40",
@@ -489,6 +494,38 @@ collect_spherical_params() {
     fi
     
     echo -e "${CYAN}Radius: $radius mm${RESET}"
+
+    # Collect coordinate space
+    if ! is_prompt_enabled "coordinate_space"; then
+        local default_space=$(get_default_value "coordinate_space")
+        if [ -n "$default_space" ]; then
+            if validate_option "$default_space" "coordinate_space"; then
+                coordinate_space="$default_space"
+                echo -e "${CYAN}Using default coordinate space: $coordinate_space${RESET}"
+            else
+                echo -e "${RED}Invalid default coordinate space in configuration: $default_space${RESET}"
+            fi
+        fi
+    else
+        echo -e "${GREEN}Choose coordinate space:${RESET}"
+        echo "1. MNI (standardized brain space)"
+        echo "2. Subject (native subject space)"
+        valid_space=false
+        until $valid_space; do
+            read -p "Enter your choice (1 or 2): " space_choice
+            if [ "$space_choice" == "1" ]; then
+                coordinate_space="MNI"
+                valid_space=true
+            elif [ "$space_choice" == "2" ]; then
+                coordinate_space="subject"
+                valid_space=true
+            else
+                echo -e "${RED}Invalid choice. Please enter 1 or 2.${RESET}"
+            fi
+        done
+    fi
+
+    echo -e "${CYAN}Coordinate space: $coordinate_space${RESET}"
 }
 
 # Function to collect cortical analysis parameters
@@ -1211,6 +1248,7 @@ show_confirmation_dialog() {
         echo -e "\n${BOLD_CYAN}Spherical Analysis Parameters:${RESET}"
         echo -e "Coordinates: ${CYAN}(${coordinates[0]}, ${coordinates[1]}, ${coordinates[2]})${RESET}"
         echo -e "Radius: ${CYAN}$radius mm${RESET}"
+        echo -e "Coordinate Space: ${CYAN}$coordinate_space${RESET}"
     else
         echo -e "\n${BOLD_CYAN}Cortical Analysis Parameters:${RESET}"
         if [ "$space_type" == "mesh" ]; then
@@ -1252,6 +1290,7 @@ run_analysis() {
     if [ "$analysis_type" == "spherical" ]; then
         cmd+=(--coordinates "${coordinates[@]}")
         cmd+=(--radius "$radius")
+        cmd+=(--coordinate-space "$coordinate_space")
     else  # cortical
         if [ "$space_type" == "mesh" ]; then
             cmd+=(--atlas_name "$atlas_name")
@@ -1324,14 +1363,15 @@ if [[ "$1" == "--run-direct" ]]; then
     
     # Set analysis-specific variables
     if [ "$analysis_type" == "spherical" ]; then
-        if [[ -z "$COORDINATES" || -z "$RADIUS" ]]; then
+        if [[ -z "$COORDINATES" || -z "$RADIUS" || -z "$COORDINATE_SPACE" ]]; then
             echo -e "${RED}Error: Missing required variables for spherical analysis.${RESET}"
-            echo "Required: COORDINATES, RADIUS"
+            echo "Required: COORDINATES, RADIUS, COORDINATE_SPACE"
             exit 1
         fi
         # Parse coordinates as array
         IFS=' ' read -ra coordinates <<< "$COORDINATES"
         radius="$RADIUS"
+        coordinate_space="$COORDINATE_SPACE"
     else  # cortical
         if [ "$space_type" == "mesh" ]; then
             if [[ -z "$ATLAS_NAME" ]]; then
