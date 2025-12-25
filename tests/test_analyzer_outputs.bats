@@ -23,8 +23,8 @@
     [ -d "$analyses_root" ]
     [ -d "$analyses_mesh" ]
 
-    # Spherical outputs
-    spherical_dir="$analyses_mesh/sphere_x-50.00_y0.00_z0.00_r5.0"
+    # Spherical outputs (integer format without decimals)
+    spherical_dir="$analyses_mesh/sphere_x-50_y0_z0_r5"
     [ -d "$spherical_dir" ]
     [ -f "$spherical_dir/spherical_sphere_x-50.00_y0.00_z0.00_r5.0.csv" ]
     [ -f "$spherical_dir/spherical_sphere_x-50.00_y0.00_z0.00_r5.0_extra_info.csv" ]
