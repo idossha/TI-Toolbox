@@ -814,6 +814,10 @@ def run(ctx, subject, montage, eeg_net, conductivity, intensity,
             echo_warning(f"No valid montages found for subject {subject_id}")
             continue
 
+        # Progress callback for console output
+        def progress_callback(current, total, name):
+            click.echo(f"  [{current+1}/{total}] {name}")
+
         # Run simulation
         try:
             if dry_run:
@@ -826,7 +830,7 @@ def run(ctx, subject, montage, eeg_net, conductivity, intensity,
                     'duration': 0.1
                 } for i, m in enumerate(montages)]
             else:
-                results = run_simulation(config, montages)
+                results = run_simulation(config, montages, progress_callback=progress_callback)
             all_results.extend(results)
             
             completed = sum(1 for r in results if r.get('status') == 'completed')
