@@ -729,10 +729,10 @@ def run(ctx, subject, montage, eeg_net, conductivity, intensity,
     
     # Build intensity config
     intensity_config = IntensityConfig(
-        pair1_ch1=intensity,
-        pair1_ch2=intensity,
-        pair2_ch1=intensity,
-        pair2_ch2=intensity,
+        pair1=intensity,
+        pair2=intensity,
+        pair3=intensity,
+        pair4=intensity,
     )
     
     # Build parallel config

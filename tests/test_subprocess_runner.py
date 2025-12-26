@@ -188,10 +188,10 @@ class TestMain:
                 "project_dir": "/test/project",
                 "conductivity_type": "dir",
                 "intensities": {
-                    "pair1_ch1": 1.0,
-                    "pair1_ch2": -1.0,
-                    "pair2_ch1": 1.0,
-                    "pair2_ch2": -1.0
+                    "pair1": 1.0,
+                    "pair2": 1.0,
+                    "pair3": 1.0,
+                    "pair4": 1.0
                 },
                 "electrode": {
                     "shape": "ellipse",
@@ -269,10 +269,10 @@ class TestMain:
                 "project_dir": "/test/project",
                 "conductivity_type": "dir",
                 "intensities": {
-                    "pair1_ch1": 1.0,
-                    "pair1_ch2": -1.0,
-                    "pair2_ch1": 1.0,
-                    "pair2_ch2": -1.0
+                    "pair1": 1.0,
+                    "pair2": 1.0,
+                    "pair3": 1.0,
+                    "pair4": 1.0
                 },
                 "electrode": {
                     "shape": "ellipse",
@@ -331,10 +331,10 @@ class TestMain:
                 "project_dir": "/test/project",
                 "conductivity_type": "dir",
                 "intensities": {
-                    "pair1_ch1": 1.0,
-                    "pair1_ch2": -1.0,
-                    "pair2_ch1": 1.0,
-                    "pair2_ch2": -1.0
+                    "pair1": 1.0,
+                    "pair2": 1.0,
+                    "pair3": 1.0,
+                    "pair4": 1.0
                 },
                 "electrode": {
                     "shape": "ellipse",
@@ -390,10 +390,10 @@ class TestMain:
                 "project_dir": "/test/project",
                 "conductivity_type": "dir",
                 "intensities": {
-                    "pair1_ch1": 1.0,
-                    "pair1_ch2": -1.0,
-                    "pair2_ch1": 1.0,
-                    "pair2_ch2": -1.0
+                    "pair1": 1.0,
+                    "pair2": 1.0,
+                    "pair3": 1.0,
+                    "pair4": 1.0
                 },
                 "electrode": {
                     "shape": "ellipse",
@@ -450,10 +450,10 @@ class TestMain:
                 "project_dir": "/test/project",
                 "conductivity_type": "dir",
                 "intensities": {
-                    "pair1_ch1": 1.0,
-                    "pair1_ch2": -1.0,
-                    "pair2_ch1": 1.0,
-                    "pair2_ch2": -1.0
+                    "pair1": 1.0,
+                    "pair2": 1.0,
+                    "pair3": 1.0,
+                    "pair4": 1.0
                 },
                 "electrode": {
                     "shape": "ellipse",
