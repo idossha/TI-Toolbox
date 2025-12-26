@@ -8,8 +8,31 @@ Complete changelog for all versions of the Temporal Interference Toolbox.
 
 
 ---
+### v2.2.2 (Latest Release)
+**Release Date**: December 25, 2025
+#### Additions
+- - **Simulator Refactoring**: Complete rewrite from bash to Python with modular architecture including progress callbacks, better error handling, and improved logging.
+- - **Enhanced Cluster Permutation Testing**: New ACES-like correlation investigation, support for continuous variables, enhanced reporting, and improved GUI integration.
+- - **Comprehensive Testing Infrastructure**: new test files with code coverage integration, headless operation support, and improved CI/CD pipeline.
+- - **Improved 3D Visualization**: Enhanced visual exporter with automatic electrode placement, metadata extraction, GLB format export, and Docker-based Blender integration.
+- - **Pythonic CLI Migration**: New Click-based command-line interfaces for simulator and cluster permutation tools with better argument validation.
+- - **GUI Enhancements**: Improved threading across all tabs with real-time progress updates, better error handling, and enhanced responsiveness.
+#### Fixes
+- - **Various Bug Fixes**: Fixed silent timeout issues in CI, corrected coverage integration, improved error handling in all major modules, better cleanup of temporary files, and enhanced logging.
+- - **Windows Electron**: A more robust executable delivery on Windows.
+#### Download Links
+**Desktop App (v2.2.2):**
+[macOS Intel](https://github.com/idossha/TI-toolbox/releases/download/v2.2.2/TI-Toolbox-x64.dmg) ·
+[macOS Apple Silicon](https://github.com/idossha/TI-toolbox/releases/download/v2.2.2/TI-Toolbox-arm64.dmg) ·
+[Windows](https://github.com/idossha/TI-toolbox/releases/download/v2.2.2/TI-Toolbox-Setup.exe) ·
+[Linux AppImage](https://github.com/idossha/TI-toolbox/releases/download/v2.2.2/TI-Toolbox.AppImage) ·
+[Linux deb](https://github.com/idossha/TI-toolbox/releases/download/v2.2.2/ti-toolbox.deb)
+**Other:**
+- Docker Image: `docker pull idossha/simnibs:v2.2.2`
+- Source Code: [GitHub Repository](https://github.com/idossha/TI-Toolbox)
+---
 
-### v2.2.1 (Latest Release)
+### v2.2.1
 
 **Release Date**: December 04, 2025
 

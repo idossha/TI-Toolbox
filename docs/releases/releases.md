@@ -4,10 +4,36 @@ title: Latest Release
 permalink: /releases/
 ---
 
-### v2.2.1 (Latest Release)
+### v2.2.2 (Latest Release)
 
-**Release Date**: December 04, 2025
+**Release Date**: December 25, 2025
 
+#### Additions
+- - **Simulator Refactoring**: Complete rewrite from bash to Python with modular architecture including progress callbacks, better error handling, and improved logging.
+- - **Enhanced Cluster Permutation Testing**: New ACES-like correlation investigation, support for continuous variables, enhanced reporting, and improved GUI integration.
+- - **Comprehensive Testing Infrastructure**: new test files with code coverage integration, headless operation support, and improved CI/CD pipeline.
+- - **Improved 3D Visualization**: Enhanced visual exporter with automatic electrode placement, metadata extraction, GLB format export, and Docker-based Blender integration.
+- - **Pythonic CLI Migration**: New Click-based command-line interfaces for simulator and cluster permutation tools with better argument validation.
+- - **GUI Enhancements**: Improved threading across all tabs with real-time progress updates, better error handling, and enhanced responsiveness.
+
+#### Fixes
+- - **Various Bug Fixes**: Fixed silent timeout issues in CI, corrected coverage integration, improved error handling in all major modules, better cleanup of temporary files, and enhanced logging.
+- - **Windows Electron**: A more robust executable delivery on Windows.
+
+#### Download Links
+
+**Desktop App (latest):**
+[macOS Intel](https://github.com/idossha/TI-toolbox/releases/latest/download/TI-Toolbox-x64.dmg) ·
+[macOS Apple Silicon](https://github.com/idossha/TI-toolbox/releases/latest/download/TI-Toolbox-arm64.dmg) ·
+[Windows](https://github.com/idossha/TI-toolbox/releases/latest/download/TI-Toolbox-Setup.exe) ·
+[Linux AppImage](https://github.com/idossha/TI-toolbox/releases/latest/download/TI-Toolbox.AppImage) ·
+[Linux deb](https://github.com/idossha/TI-toolbox/releases/latest/download/ti-toolbox.deb)
+
+**Other:**
+- Docker Image: `docker pull idossha/simnibs:latest`
+- Source Code: [GitHub Repository](https://github.com/idossha/TI-Toolbox)
+
+For installation instructions, see the [Installation Guide]({{ site.baseurl }}/installation/).
 #### Backward compatibility change to be aware:
 - **Electode Mapping**: We changed the mapping functionality from the **flex-seach** to the **simulator**. This to provide a more flexible and dynamic framework. Now, the flex-search outputs the: `electrode_positions.json` file and the mapping functionality happeneds on the simulator side using the new method `ti-toolbox/tools/map_electrodes.py`. Thus, one can use a single flex-search to conveniently map to multiple nets. 
 
