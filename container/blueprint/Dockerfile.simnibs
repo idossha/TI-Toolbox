@@ -3,7 +3,7 @@
 
 # docker build --no-cache --platform linux/amd64 \
 #   -f Dockerfile.simnibs \
-#   -t idossha/ti-toolbox-simnibs:{version} .
+#   -t idossha/simnibs:{version} .
 
 FROM ubuntu:22.04
 
