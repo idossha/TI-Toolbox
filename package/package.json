@@ -1,7 +1,7 @@
 {
   "name": "ti-toolbox",
   "productName": "TI-Toolbox",
-  "version": "2.2.1",
+  "version": "2.2.2",
   "description": "Temporal Interference Toolbox - Desktop Application",
   "main": "src/main.js",
   "scripts": {
