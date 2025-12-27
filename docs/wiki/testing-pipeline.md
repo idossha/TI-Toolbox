@@ -8,14 +8,24 @@ permalink: /wiki/testing-pipeline/
 
 The TI-Toolbox uses a multi-layered testing approach that combines unit tests, integration tests, and automated CI/CD through CircleCI. The testing pipeline ensures code quality, functionality, and reliability across all components of the toolbox.
 
-<div class="image-row-natural">
-  <div class="image-container-natural">
-    <img src="{{ site.baseurl }}/assets/imgs/wiki/testing-pipeline/testing_graphical_abstract_revised.png" alt="Complete TI-Toolbox Tech-stack">
-    <em>Complete TI-Toolbox Tech-stack</em>
-  </div>
-  <div class="image-container-natural">
-    <img src="{{ site.baseurl }}/assets/imgs/wiki/testing-pipeline/testing_Ti-ToolboxCICD.png" alt="TI-Toolbox CI/CD Pipeline">
-    <em>TI-Toolbox CI/CD Pipeline</em>
+<div class="carousel-container">
+  <div class="carousel-wrapper">
+    <div class="carousel-images">
+      <div class="carousel-slide active">
+        <img src="{{ site.baseurl }}/assets/imgs/wiki/testing-pipeline/testing_graphical_abstract_revised.png" alt="Complete TI-Toolbox Tech-stack">
+        <p>Complete TI-Toolbox Tech-stack</p>
+      </div>
+      <div class="carousel-slide">
+        <img src="{{ site.baseurl }}/assets/imgs/wiki/testing-pipeline/testing_Ti-ToolboxCICD.png" alt="TI-Toolbox CI/CD Pipeline">
+        <p>TI-Toolbox CI/CD Pipeline</p>
+      </div>
+    </div>
+    <button class="carousel-btn prev" onclick="changeSlide(this, -1)">&#10094;</button>
+    <button class="carousel-btn next" onclick="changeSlide(this, 1)">&#10095;</button>
+    <div class="carousel-dots">
+      <span class="dot active" onclick="currentSlide(this, 0)"></span>
+      <span class="dot" onclick="currentSlide(this, 1)"></span>
+    </div>
   </div>
 </div>
 
@@ -189,5 +199,3 @@ Creates a complete BIDS-compliant test project structure:
 ```
 
 ---
-
-
