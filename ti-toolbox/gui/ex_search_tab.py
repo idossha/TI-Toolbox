@@ -623,8 +623,7 @@ class ExSearchTab(QtWidgets.QWidget):
             
             # Pipeline steps
             config_logger.info("Pipeline Steps:")
-            config_logger.info("  1. TI Simulation (ti_sim.py)")
-            config_logger.info("  2. ROI Analysis (ex_analyzer.py with integrated field analysis)")
+            config_logger.info("  1. TI Simulation & Analysis (main.py - integrated)")
             
             config_logger.info("="*80)
             
@@ -1593,7 +1592,7 @@ class ExSearchTab(QtWidgets.QWidget):
                 return
 
             # Pass same electrode pool to all positions (backend will handle combinations)
-            # The ti_sim.py script uses --all-combinations flag to generate all valid
+            # The main.py script uses --all-combinations flag to generate all valid
             # 4-electrode assignments from this pool
             e1_plus = e1_minus = e2_plus = e2_minus = all_electrodes
             self.use_all_combinations = True
@@ -1771,7 +1770,7 @@ class ExSearchTab(QtWidgets.QWidget):
         
         if self.debug_mode:
             self.update_output(f"ROI coordinates: {x}, {y}, {z}")
-            self.update_output(f"[DEBUG] Step 1 command: simnibs_python {os.path.join(ex_search_scripts_dir, 'ti_sim.py')}", 'debug')
+            self.update_output(f"[DEBUG] Step 1 command: simnibs_python {os.path.join(ex_search_scripts_dir, 'main.py')}", 'debug')
             self.update_output(f"[DEBUG] Env highlights: {{'LEADFIELD_HDF': env.get('LEADFIELD_HDF'), 'SELECTED_EEG_NET': env.get('SELECTED_EEG_NET'), 'TI_LOG_FILE': env.get('TI_LOG_FILE'), 'ROI_NAME': env.get('ROI_NAME')}}", 'debug')
         
         # Log ROI-specific configuration
@@ -1800,8 +1799,8 @@ class ExSearchTab(QtWidgets.QWidget):
         self.log_step_start("TI simulation")
         if self.debug_mode:
             self.update_output("Step 1: Running TI simulation...")
-        ti_sim_script = os.path.join(ex_search_scripts_dir, "ti_sim.py")
-        
+        ti_sim_script = os.path.join(ex_search_scripts_dir, "main.py")
+
         # Prepare input data for the script
         input_data = [
             " ".join(self.e1_plus),
@@ -1812,8 +1811,8 @@ class ExSearchTab(QtWidgets.QWidget):
             str(self.current_step_spinbox.value()),   # Current step
             str(self.channel_limit_spinbox.value())   # Channel limit
         ]
-        
-        # Command to run ti_sim.py
+
+        # Command to run main.py
         cmd = ["simnibs_python", ti_sim_script]
         if self.use_all_combinations:
             cmd.append("--all-combinations")
@@ -1835,9 +1834,9 @@ class ExSearchTab(QtWidgets.QWidget):
         """Handle completion of TI simulation step."""
         # Log step completion
         self.log_step_complete("TI simulation", success=True)
-        
-        # Continue to ROI analysis
-        self.run_current_roi_analysis(subject_id, project_dir, ex_search_dir, env)
+
+        # Analysis is now integrated into main.py, so go directly to completion
+        self.current_roi_completed(subject_id, project_dir, ex_search_dir, env)
     
     def run_current_roi_analysis(self, subject_id, project_dir, ex_search_dir, env):
         """Run ROI analysis for the current ROI."""
@@ -1922,8 +1921,7 @@ class ExSearchTab(QtWidgets.QWidget):
     def run_current_roi_mesh_processing(self, subject_id, project_dir, ex_search_dir, env):
         """Handle completion of mesh processing (integrated into ROI analysis).
         
-        Note: Step 3 (mesh_field_analyzer.py) has been integrated into Step 2 (ex_analyzer.py).
-        The new ex_analyzer.py uses the unified analyzer module which handles all field analysis.
+        Note: Analysis is now fully integrated into main.py.
         This method now just logs completion and moves to the next ROI.
         """
         current_roi = self.roi_processing_queue[self.current_roi_index]

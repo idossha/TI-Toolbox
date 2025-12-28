@@ -6,7 +6,6 @@ Integrates with SimNIBS to create leadfield matrices
 import os
 import sys
 import shutil
-import numpy as np
 import h5py
 from pathlib import Path
 
@@ -38,9 +37,6 @@ class LeadfieldGenerator:
         """
         self.subject_dir = Path(subject_dir)
         self.electrode_cap = electrode_cap
-        self.lfm = None
-        self.positions = None
-        self.electrode_names = None
         self._progress_callback = progress_callback
         self._termination_flag = termination_flag
         self._simnibs_process = None
@@ -155,7 +151,7 @@ class LeadfieldGenerator:
             cleanup: Whether to clean up old simulation files before running (default: True)
 
         Returns:
-            dict: Dictionary with paths {'hdf5': hdf5_path, 'npy_leadfield': lfm_path, 'npy_positions': pos_path}
+            dict: Dictionary with path {'hdf5': hdf5_path}
         """
         from simnibs import sim_struct
         import simnibs
@@ -235,6 +231,7 @@ class LeadfieldGenerator:
         self._log(f"Electrode cap: {self.electrode_cap if self.electrode_cap else 'Default'}", 'info')
         self._log(f"Tissues: {tissues} (1=GM, 2=WM)", 'info')
         self._log(f"Mesh file: {mesh_file.name}", 'info')
+        self._log("Setting up SimNIBS leadfield calculation...", 'info')
 
         # Redirect SimNIBS output to GUI console via callback (not terminal)
         import sys
@@ -306,7 +303,10 @@ class LeadfieldGenerator:
         if simnibs_error:
             raise simnibs_error
 
+        self._log("SimNIBS leadfield computation completed", 'info')
+
         # Find generated HDF5 file
+        self._log("Processing generated leadfield files...", 'info')
         hdf5_files = list(output_dir.glob('*.hdf5'))
         if not hdf5_files:
             raise FileNotFoundError(f"No HDF5 leadfield file found in {output_dir}")
@@ -316,138 +316,9 @@ class LeadfieldGenerator:
         # Use the filename that SimNIBS generated (simplified naming - no renaming)
         self._log(f"Leadfield generated: {hdf5_path}", 'success')
 
-        result = {'hdf5': str(hdf5_path), 'npy_leadfield': None, 'npy_positions': None}
+        result = {'hdf5': str(hdf5_path)}
 
-        # Always generate NPY files
-        self._log("Converting to NPY format...", 'info')
-        try:
-            # Load from HDF5
-            lfm, positions = self.load_from_hdf5(hdf5_path, compute_centroids=True)
-
-            # Save as NPY with consistent naming based on actual HDF5 filename
-            hdf5_stem = Path(hdf5_path).stem.replace('_leadfield', '')
-            net_name = self.electrode_cap if self.electrode_cap else hdf5_stem
-            lfm_path, pos_path = self.save_numpy(output_dir, net_name=net_name)
-
-            result['npy_leadfield'] = str(lfm_path)
-            result['npy_positions'] = str(pos_path)
-            self._log("NPY files generated successfully", 'success')
-        except Exception as e:
-            self._log(f"Error: Failed to generate NPY files: {str(e)}", 'error')
-            raise
-        
         return result
-
-    def load_from_hdf5(self, hdf5_path, compute_centroids=True):
-        """
-        Load leadfield matrix from SimNIBS HDF5 file
-
-        Args:
-            hdf5_path: Path to HDF5 leadfield file
-            compute_centroids: If True, compute tetrahedral centroids for positions
-
-        Returns:
-            tuple: (leadfield_matrix, positions, electrode_names)
-        """
-        hdf5_path = Path(hdf5_path)
-        if not hdf5_path.exists():
-            raise FileNotFoundError(f"HDF5 file not found: {hdf5_path}")
-
-        self._log(f"Loading leadfield from: {hdf5_path}", 'info')
-
-        with h5py.File(hdf5_path, 'r') as f:
-            # Load leadfield matrix
-            self.lfm = np.array(f['mesh_leadfield']['leadfields']['tdcs_leadfield'])
-
-            # Load node coordinates
-            node_coords = np.array(f['mesh_leadfield']['nodes']['node_coord'])
-
-            if compute_centroids:
-                # Compute tetrahedral centroids (better for volume representation)
-                index = np.array(f['mesh_leadfield']['elm']['node_number_list'])
-                self.positions = np.zeros([self.lfm.shape[1], 3])
-                for i in range(self.positions.shape[0]):
-                    # Average of 4 tetrahedral vertices (indices are 1-based)
-                    self.positions[i] = (
-                        node_coords[index[i, 0] - 1] +
-                        node_coords[index[i, 1] - 1] +
-                        node_coords[index[i, 2] - 1] +
-                        node_coords[index[i, 3] - 1]
-                    ) / 4
-            else:
-                # Use node coordinates directly
-                self.positions = node_coords[:self.lfm.shape[1]]
-
-        self._log(f"Leadfield shape: {self.lfm.shape}", 'info')
-        self._log(f"  Electrodes: {self.lfm.shape[0]}", 'info')
-        self._log(f"  Voxels: {self.lfm.shape[1]}", 'info')
-        self._log(f"  Components: {self.lfm.shape[2]} (x, y, z)", 'info')
-        self._log(f"Position shape: {self.positions.shape}", 'info')
-
-        return self.lfm, self.positions
-
-    def save_numpy(self, output_dir, net_name=None):
-        """
-        Save leadfield and positions as numpy files
-
-        Args:
-            output_dir: Directory to save .npy files
-            net_name: Network name for consistent naming (optional)
-
-        Returns:
-            tuple: (lfm_path, pos_path)
-        """
-        output_dir = Path(output_dir)
-        output_dir.mkdir(parents=True, exist_ok=True)
-
-        if self.lfm is None or self.positions is None:
-            raise ValueError("Leadfield not loaded. Call load_from_hdf5 first.")
-
-        if net_name:
-            lfm_path = output_dir / f"{net_name}_leadfield.npy"
-            pos_path = output_dir / f"{net_name}_positions.npy"
-        elif self.electrode_cap:
-            # Use electrode_cap for consistent naming
-            lfm_path = output_dir / f"{self.electrode_cap}_leadfield.npy"
-            pos_path = output_dir / f"{self.electrode_cap}_positions.npy"
-        else:
-            lfm_path = output_dir / 'leadfield.npy'
-            pos_path = output_dir / 'positions.npy'
-
-        np.save(lfm_path, self.lfm)
-        np.save(pos_path, self.positions)
-
-        self._log(f"Saved leadfield to: {lfm_path}", 'success')
-        self._log(f"Saved positions to: {pos_path}", 'success')
-
-        return lfm_path, pos_path
-
-    def load_numpy(self, lfm_path, pos_path):
-        """
-        Load leadfield and positions from numpy files
-
-        Args:
-            lfm_path: Path to leadfield .npy file
-            pos_path: Path to positions .npy file
-
-        Returns:
-            tuple: (leadfield_matrix, positions)
-        """
-        lfm_path = Path(lfm_path)
-        pos_path = Path(pos_path)
-
-        if not lfm_path.exists():
-            raise FileNotFoundError(f"Leadfield file not found: {lfm_path}")
-        if not pos_path.exists():
-            raise FileNotFoundError(f"Positions file not found: {pos_path}")
-
-        self.lfm = np.load(lfm_path)
-        self.positions = np.load(pos_path)
-
-        self._log(f"Loaded leadfield: {self.lfm.shape}", 'info')
-        self._log(f"Loaded positions: {self.positions.shape}", 'info')
-
-        return self.lfm, self.positions
 
     def list_available_leadfields(self, subject_id=None):
         """
@@ -546,84 +417,10 @@ class LeadfieldGenerator:
 
         return sorted(leadfields, key=lambda x: x[0])
 
-    def list_available_leadfields_npy(self, subject_id=None):
-        """
-        List available leadfield NPY files for a subject.
-
-        Args:
-            subject_id: Subject ID (optional, will use self.subject_id if not provided)
-
-        Returns:
-            list: List of tuples (net_name, npy_leadfield_path, npy_positions_path, file_size_gb)
-        """
-        if subject_id is None:
-            subject_id = self.subject_id
-
-        # Use PathManager to get leadfield directory
-        leadfields_dir = self.pm.get_leadfield_dir(subject_id)
-
-        leadfields = []
-        if leadfields_dir and os.path.exists(leadfields_dir):
-            leadfields_dir = Path(leadfields_dir)
-            for item in leadfields_dir.iterdir():
-                # Look for NPY files that contain "leadfield" in the name (flexible naming)
-                if item.is_file() and item.name.endswith(".npy") and "leadfield" in item.name.lower():
-                    npy_leadfield_file = item
-                    if npy_leadfield_file.exists():
-                        # Extract net name more flexibly - try different patterns
-                        filename = item.name
-
-                        # Try to extract net_name from various naming patterns
-                        if "_leadfield_" in filename:
-                            # Split by "_leadfield_" and take the part before it
-                            parts = filename.split("_leadfield_")
-                            net_name = parts[0]
-                        elif filename.endswith("_leadfield.npy"):
-                            # Standard pattern: {net_name}_leadfield.npy
-                            net_name = filename.replace("_leadfield.npy", "")
-                        else:
-                            # Fallback: remove .npy and try to clean up
-                            net_name = filename.replace(".npy", "")
-
-                        # Clean up the net_name (remove subject_id prefix if present)
-                        if net_name.startswith(f"{subject_id}_"):
-                            net_name = net_name.replace(f"{subject_id}_", "", 1)
-                        elif net_name.startswith(f"{subject_id}"):
-                            net_name = net_name.replace(f"{subject_id}", "", 1)
-
-                        # Clean up extra underscores
-                        net_name = net_name.strip("_")
-                        if not net_name:
-                            net_name = "unknown"
-
-                        # Check for corresponding positions file (try multiple patterns)
-                        positions_candidates = [
-                            leadfields_dir / f"{net_name}_positions.npy",
-                            leadfields_dir / f"{filename.replace('_leadfield.npy', '_positions.npy')}",
-                            leadfields_dir / f"{filename.replace('.npy', '_positions.npy')}"
-                        ]
-
-                        positions_file = None
-                        for candidate in positions_candidates:
-                            if candidate.exists():
-                                positions_file = candidate
-                                break
-
-                        if positions_file:
-                            # Get file size in GB (sum of both files)
-                            try:
-                                leadfield_size = npy_leadfield_file.stat().st_size / (1024**3)  # GB
-                                positions_size = positions_file.stat().st_size / (1024**3)  # GB
-                                file_size = leadfield_size + positions_size
-                            except OSError:
-                                file_size = 0.0
-                            leadfields.append((net_name, str(npy_leadfield_file), str(positions_file), file_size))
-
-        return sorted(leadfields, key=lambda x: x[0])
 
     def get_electrode_names_from_cap(self, eeg_cap_path=None, cap_name=None):
         """
-        Extract electrode names from an EEG cap CSV file using SimNIBS utilities.
+        Extract electrode names from an EEG cap CSV file.
 
         Args:
             eeg_cap_path: Path to EEG cap CSV file (optional)
@@ -632,15 +429,13 @@ class LeadfieldGenerator:
         Returns:
             list: List of electrode names
         """
-        from simnibs.utils.csv_reader import read_csv_positions
-
         if eeg_cap_path is None and cap_name is None:
             cap_name = self.electrode_cap
 
         if eeg_cap_path is None:
             if cap_name is None:
                 raise ValueError("Either eeg_cap_path or cap_name must be provided")
-
+            
             # Try to find matching cap file
             eeg_cap_path = self._find_eeg_cap_file(cap_name)
             if eeg_cap_path is None:
@@ -650,14 +445,14 @@ class LeadfieldGenerator:
         if not eeg_cap_path.exists():
             raise FileNotFoundError(f"EEG cap file not found: {eeg_cap_path}")
 
-        # Use SimNIBS's CSV reader
-        type_, coordinates, extra, name, extra_cols, header = read_csv_positions(str(eeg_cap_path))
-
-        # Extract electrode names from types that are actual electrodes
         electrodes = []
-        for t, n in zip(type_, name):
-            if t in ['Electrode', 'ReferenceElectrode'] and n:
-                electrodes.append(n)
+        with open(eeg_cap_path, 'r') as f:
+            for line in f:
+                parts = line.strip().split(',')
+                if len(parts) >= 4 and parts[0] not in ['Label', 'Electrode', '']:  # Skip header and empty lines
+                    electrode_label = parts[0].strip()  # First column is the label
+                    if electrode_label and not electrode_label.replace('.', '').replace('-', '').isdigit():  # Skip numeric values
+                        electrodes.append(electrode_label)
 
         return sorted(electrodes)
 
@@ -684,74 +479,7 @@ class LeadfieldGenerator:
         
         return None
 
-    def generate_and_save_numpy(self, output_dir, eeg_cap_file, cleanup_intermediate=True):
-        """
-        Complete workflow: Generate leadfield, convert to numpy, cleanup.
-
-        This is a convenience method that generates both HDF5 and NPY files.
-
-        Args:
-            output_dir: Directory to save final .npy files
-            eeg_cap_file: EEG cap filename (will look in subject_dir/eeg_positions/)
-            cleanup_intermediate: Whether to remove intermediate HDF5 files (default: True)
-
-        Returns:
-            tuple: (lfm_path, pos_path, lfm_shape)
-        """
-        # Extract net name from EEG cap file (remove .csv extension)
-        net_name = eeg_cap_file.replace('.csv', '') if eeg_cap_file.endswith('.csv') else eeg_cap_file
-
-        # Get EEG cap path using PathManager
-        eeg_positions_dir = self.pm.get_eeg_positions_dir(self.subject_id)
-        if not eeg_positions_dir:
-            raise FileNotFoundError(f"EEG positions directory not found for subject {self.subject_id}")
-        
-        eeg_cap_path = Path(eeg_positions_dir) / eeg_cap_file
-        if not eeg_cap_path.exists():
-            raise FileNotFoundError(f"EEG cap file not found: {eeg_cap_path}")
-
-        # Update electrode_cap to match the net name
-        self.electrode_cap = net_name
-
-        # Generate leadfield with SimNIBS
-        self._log("", 'info')
-        self._log("Generating leadfield with SimNIBS...", 'info')
-        self._log("This may take 5-15 minutes depending on mesh size and electrode count", 'info')
-        self._log("", 'info')
-
-        # Convert output_dir to Path object for pathlib operations
-        output_dir = Path(output_dir)
-        output_dir.mkdir(parents=True, exist_ok=True)
-
-        # Generate HDF5 file and convert to NPY files
-        result = self.generate_leadfield(
-            output_dir=output_dir,
-            tissues=[1, 2],
-            eeg_cap_path=str(eeg_cap_path)
-        )
-
-        if result['npy_leadfield'] is None or result['npy_positions'] is None:
-            raise RuntimeError("Failed to generate NPY files")
-
-        # Clean up intermediate HDF5 file (only keep final NPY files)
-        if result['hdf5'] and Path(result['hdf5']).exists():
-            try:
-                Path(result['hdf5']).unlink()
-                self._log(f"Cleaned up intermediate HDF5 file: {Path(result['hdf5']).name}", 'info')
-            except Exception as e:
-                self._log(f"Warning: Could not remove intermediate HDF5 file: {e}", 'warning')
-
-        # Get shape for return value
-        if self.lfm is not None:
-            lfm_shape = self.lfm.shape
-        else:
-            # Load to get shape if not already loaded
-            lfm = np.load(result['npy_leadfield'])
-            lfm_shape = lfm.shape
-
-        return result['npy_leadfield'], result['npy_positions'], lfm_shape
-
-
+ 
 if __name__ == '__main__':
     """
     Command line interface for leadfield generation.
