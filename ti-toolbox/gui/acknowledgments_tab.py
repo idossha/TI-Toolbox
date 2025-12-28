@@ -62,12 +62,6 @@ class AcknowledgmentsTab(QtWidgets.QWidget):
 
         self.add_acknowledgment_section(
             scroll_layout, 
-            "MOVEA Optimization Algorithm",
-            "Wang, Kexin Lou, Zeming Liu, Pengfei Wei, Quanying Liu,Multi-objective optimization via evolutionary algorithm (MOVEA) for high-definition transcranial electrical stimulation of the human brain,NeuroImage, https://doi.org/10.1016/j.neuroimage.2023.120331."
-        )
-        
-        self.add_acknowledgment_section(
-            scroll_layout, 
             "Noninvasive Deep Brain Stimulation via Temporally Interfering Electric Fields",
             "Grossman N, Bono D, Dedic N, Kodandaramaiah SB, Rudenko A, Suk HJ, Cassara AM, Neufeld E, Kuster N, Tsai LH, Pascual-Leone A, Boyden ES. Noninvasive Deep Brain Stimulation via Temporally Interfering Electric Fields. Cell. 2017 Jun 1;169(6):1029-1041.e16. doi: 10.1016/j.cell.2017.05.024. PMID: 28575667; PMCID: PMC5520675."
         )

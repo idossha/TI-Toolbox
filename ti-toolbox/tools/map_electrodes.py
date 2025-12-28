@@ -19,15 +19,12 @@ from scipy.optimize import linear_sum_assignment
 
 def read_csv_positions(csv_path):
     """
-    Read electrode positions from a CSV file.
-
-    Simplified version that reads the basic CSV format used by SimNIBS.
-    Expected format: Label,X,Y,Z or Type,X,Y,Z,Name,...
+    Read electrode positions from a CSV file using SimNIBS utilities.
 
     Parameters
     ----------
     csv_path : str
-        Path to the CSV file containing electrode positions.
+        Path to the file containing electrode positions.
 
     Returns
     -------
@@ -36,48 +33,19 @@ def read_csv_positions(csv_path):
     labels : list
         List of electrode labels/names.
     """
+    from simnibs.utils.csv_reader import read_csv_positions as simnibs_read_csv
+
+    # Use SimNIBS's CSV reader
+    type_, coordinates, extra, name, extra_cols, header = simnibs_read_csv(csv_path)
+
+    # Extract positions and names for electrodes only
     positions = []
     labels = []
 
-    with open(csv_path, 'r') as f:
-        lines = f.readlines()
-
-    # Skip header if present
-    start_idx = 0
-    if lines and not lines[0][0].replace('-', '').replace('.', '').replace(',', '').replace(' ', '').isdigit():
-        start_idx = 1
-
-    for line in lines[start_idx:]:
-        line = line.strip()
-        if not line or line.startswith('#'):
-            continue
-
-        parts = [p.strip() for p in line.split(',')]
-
-        if len(parts) < 4:
-            continue
-
-        # Try to parse as: Type,X,Y,Z,Name,... or Label,X,Y,Z
-        try:
-            # Check if first element is a type (Electrode, ReferenceElectrode, etc.)
-            if parts[0] in ['Electrode', 'ReferenceElectrode', 'Fiducial']:
-                # Format: Type,X,Y,Z,Name,...
-                x, y, z = float(parts[1]), float(parts[2]), float(parts[3])
-                label = parts[4] if len(parts) > 4 else f"E{len(positions)}"
-
-                # Only add actual electrodes, not fiducials
-                if parts[0] in ['Electrode', 'ReferenceElectrode']:
-                    positions.append([x, y, z])
-                    labels.append(label)
-            else:
-                # Format: Label,X,Y,Z
-                label = parts[0]
-                x, y, z = float(parts[1]), float(parts[2]), float(parts[3])
-                positions.append([x, y, z])
-                labels.append(label)
-        except (ValueError, IndexError):
-            # Skip malformed lines
-            continue
+    for t, coord, n in zip(type_, coordinates, name):
+        if t in ['Electrode', 'ReferenceElectrode']:
+            positions.append(coord)
+            labels.append(n if n else f"E{len(positions)}")
 
     return np.array(positions), labels
 

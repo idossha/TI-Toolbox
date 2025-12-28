@@ -433,32 +433,14 @@ class PathManager:
         caps.sort()
         return caps
     
-    def get_movea_dir(self, subject_id: str) -> Optional[str]:
-        """
-        Get the MOVEA directory for a subject.
-        Creates the directory if it doesn't exist.
-        
-        Args:
-            subject_id: Subject ID
-            
-        Returns:
-            Path to MOVEA directory or None
-        """
-        subject_dir = self.get_subject_dir(subject_id)
-        if subject_dir:
-            movea_dir = os.path.join(subject_dir, const.DIR_MOVEA)
-            os.makedirs(movea_dir, exist_ok=True)
-            return movea_dir
-        return None
-    
     def get_leadfield_dir(self, subject_id: str) -> Optional[str]:
         """
-        Get the leadfield directory for a subject (under MOVEA).
+        Get the leadfield directory for a subject.
         Creates the directory if it doesn't exist.
-        
+
         Args:
             subject_id: Subject ID
-            
+
         Returns:
             Path to leadfield directory or None
         """
@@ -473,12 +455,12 @@ class PathManager:
                          timestamp: Optional[str] = None) -> Optional[str]:
         """
         Create a timestamped output directory for a tool.
-        
+
         Args:
             subject_id: Subject ID
-            tool_name: Name of the tool (e.g., "MOVEA", "Analyzer")
+            tool_name: Name of the tool (e.g., "Analyzer", "Optimizer")
             timestamp: Optional timestamp string (generated if None)
-            
+
         Returns:
             Path to created output directory or None
         """

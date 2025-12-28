@@ -161,42 +161,23 @@ class GLSurfaceWidget(OpenGLWidgetBase):
     
     def loadEEGCap(self, csv_file):
         """
-        Load EEG cap positions from CSV file.
-        Expected format (no header): electrode_type, X, Y, Z, electrode_name
+        Load EEG cap positions from CSV file using SimNIBS utilities.
         """
         try:
+            from simnibs.utils.csv_reader import read_csv_positions
+
             self.eeg_positions = []
             self.eeg_names = []
-            
-            with open(csv_file, 'r') as f:
-                # Check if it's comma or tab-separated
-                first_line = f.readline().strip()
-                f.seek(0)
-                delimiter = '\t' if '\t' in first_line else ','
-                
-                reader = csv.reader(f, delimiter=delimiter)
-                
-                for row in reader:
-                    # Skip empty rows
-                    if not row or len(row) < 5:
-                        continue
-                    
-                    try:
-                        # Columns: electrode_type, X, Y, Z, electrode_name
-                        electrode_type = row[0].strip()
-                        x_val = float(row[1])
-                        y_val = float(row[2])
-                        z_val = float(row[3])
-                        electrode_name = row[4].strip()
-                        
-                        # Add position and name
-                        self.eeg_positions.append([x_val, y_val, z_val])
-                        self.eeg_names.append(electrode_name)
-                        
-                    except (ValueError, IndexError) as e:
-                        print(f"Skipping invalid row: {row} - {e}")
-                        continue
-            
+
+            # Use SimNIBS's CSV reader
+            type_, coordinates, extra, name, extra_cols, header = read_csv_positions(csv_file)
+
+            # Extract positions and names for electrodes only
+            for t, coord, n in zip(type_, coordinates, name):
+                if t in ['Electrode', 'ReferenceElectrode'] and n:
+                    self.eeg_positions.append(coord.tolist())
+                    self.eeg_names.append(n)
+
             if len(self.eeg_positions) > 0:
                 self.show_eeg_markers = True
                 self.update()

@@ -1,5 +1,5 @@
 """
-Leadfield matrix generator for MOVEA optimization and other applications
+Leadfield matrix generator for optimization and other applications
 Integrates with SimNIBS to create leadfield matrices
 """
 
@@ -623,7 +623,7 @@ class LeadfieldGenerator:
 
     def get_electrode_names_from_cap(self, eeg_cap_path=None, cap_name=None):
         """
-        Extract electrode names from an EEG cap CSV file.
+        Extract electrode names from an EEG cap CSV file using SimNIBS utilities.
 
         Args:
             eeg_cap_path: Path to EEG cap CSV file (optional)
@@ -632,13 +632,15 @@ class LeadfieldGenerator:
         Returns:
             list: List of electrode names
         """
+        from simnibs.utils.csv_reader import read_csv_positions
+
         if eeg_cap_path is None and cap_name is None:
             cap_name = self.electrode_cap
 
         if eeg_cap_path is None:
             if cap_name is None:
                 raise ValueError("Either eeg_cap_path or cap_name must be provided")
-            
+
             # Try to find matching cap file
             eeg_cap_path = self._find_eeg_cap_file(cap_name)
             if eeg_cap_path is None:
@@ -648,14 +650,14 @@ class LeadfieldGenerator:
         if not eeg_cap_path.exists():
             raise FileNotFoundError(f"EEG cap file not found: {eeg_cap_path}")
 
+        # Use SimNIBS's CSV reader
+        type_, coordinates, extra, name, extra_cols, header = read_csv_positions(str(eeg_cap_path))
+
+        # Extract electrode names from types that are actual electrodes
         electrodes = []
-        with open(eeg_cap_path, 'r') as f:
-            for line in f:
-                parts = line.strip().split(',')
-                if len(parts) >= 4 and parts[0] not in ['Label', 'Electrode', '']:  # Skip header and empty lines
-                    electrode_label = parts[0].strip()  # First column is the label
-                    if electrode_label and not electrode_label.replace('.', '').replace('-', '').isdigit():  # Skip numeric values
-                        electrodes.append(electrode_label)
+        for t, n in zip(type_, name):
+            if t in ['Electrode', 'ReferenceElectrode'] and n:
+                electrodes.append(n)
 
         return sorted(electrodes)
 
@@ -685,9 +687,8 @@ class LeadfieldGenerator:
     def generate_and_save_numpy(self, output_dir, eeg_cap_file, cleanup_intermediate=True):
         """
         Complete workflow: Generate leadfield, convert to numpy, cleanup.
-        
+
         This is a convenience method that generates both HDF5 and NPY files.
-        For MOVEA tab compatibility.
 
         Args:
             output_dir: Directory to save final .npy files
@@ -766,7 +767,7 @@ if __name__ == '__main__':
     eeg_cap_path = sys.argv[2]
     net_name = sys.argv[3]
 
-    # Create output directory (same as MOVEA: project_dir/derivatives/SimNIBS/sub-{subject_id}/leadfields/)
+    # Create output directory: project_dir/derivatives/SimNIBS/sub-{subject_id}/leadfields/
     from pathlib import Path
     m2m_path = Path(m2m_dir)
     # Go up to subject directory, then down to leadfields
