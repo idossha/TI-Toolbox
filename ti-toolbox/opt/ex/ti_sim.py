@@ -1,6 +1,7 @@
 #!/usr/bin/env simnibs_python
 
 # Standard library imports
+import argparse
 import csv
 import json
 import os
@@ -84,7 +85,7 @@ def generate_current_ratios(total_current, current_step, channel_limit):
     
     return ratios
 
-def process_leadfield(E1_plus, E1_minus, E2_plus, E2_minus, subject_name, total_current, current_step, channel_limit=None):
+def process_leadfield(E1_plus, E1_minus, E2_plus, E2_minus, subject_name, total_current, current_step, channel_limit=None, all_combinations=False):
     """Process leadfield and run TI simulations using fast in-memory approach."""
     
     # Validate environment and get parameters
@@ -147,27 +148,58 @@ def process_leadfield(E1_plus, E1_minus, E2_plus, E2_minus, subject_name, total_
     logger.info(f"Current ratios (Ch1, Ch2) in mA: {current_ratios}")
     
     # Calculate total combinations
-    total_combinations = len(E1_plus) * len(E1_minus) * len(E2_plus) * len(E2_minus) * len(current_ratios)
-    
-    logger.info(f"\n{'='*80}")
-    logger.info(f"Starting TI Calculations")
-    logger.info(f"{'='*80}")
-    logger.info(f"Total combinations: {total_combinations}")
-    logger.info(f"E1+: {len(E1_plus)}, E1-: {len(E1_minus)}, E2+: {len(E2_plus)}, E2-: {len(E2_minus)}")
-    logger.info(f"Current ratios: {len(current_ratios)}")
-    logger.info(f"{'='*80}\n")
+    if all_combinations:
+        # All combinations mode: any electrode can be in any position
+        # Generate all possible 4-electrode assignments using Cartesian product
+        # This creates all permutations where order matters (E1+, E1-, E2+, E2- are different positions)
+        electrode_combinations = list(product(E1_plus, repeat=4))
+
+        # Filter to only valid combinations: all 4 electrodes must be unique
+        # (no electrode can appear more than once in a montage)
+        electrode_combinations = [(e1p, e1m, e2p, e2m)
+                                 for (e1p, e1m, e2p, e2m) in electrode_combinations
+                                 if len(set([e1p, e1m, e2p, e2m])) == 4]
+
+        total_combinations = len(electrode_combinations) * len(current_ratios)
+        logger.info(f"\n{'='*80}")
+        logger.info(f"Starting TI Calculations (All Combinations Mode)")
+        logger.info(f"{'='*80}")
+        logger.info(f"Total combinations: {total_combinations}")
+        logger.info(f"Available electrodes: {len(E1_plus)} ({E1_plus})")
+        logger.info(f"Valid electrode combinations: {len(electrode_combinations)} (4 unique electrodes per montage)")
+        logger.info(f"Current ratios: {len(current_ratios)}")
+        logger.info(f"{'='*80}\n")
+    else:
+        # Bucketed mode: cartesian product of electrode groups
+        total_combinations = len(E1_plus) * len(E1_minus) * len(E2_plus) * len(E2_minus) * len(current_ratios)
+        logger.info(f"\n{'='*80}")
+        logger.info(f"Starting TI Calculations (Bucketed Mode)")
+        logger.info(f"{'='*80}")
+        logger.info(f"Total combinations: {total_combinations}")
+        logger.info(f"E1+: {len(E1_plus)}, E1-: {len(E1_minus)}, E2+: {len(E2_plus)}, E2-: {len(E2_minus)}")
+        logger.info(f"Current ratios: {len(current_ratios)}")
+        logger.info(f"{'='*80}\n")
     
     # Setup signal handler for graceful termination
     stop_flag = {"value": False}
     signal.signal(signal.SIGINT, lambda s, f: stop_flag.update({"value": True}))
     signal.signal(signal.SIGTERM, lambda s, f: stop_flag.update({"value": True}))
     
-    # Process all combinations using itertools.product
+    # Process all combinations
     all_results = {}
     start_time = time.time()
-    
+
+    if all_combinations:
+        # All combinations mode: iterate over electrode combinations with replacement
+        combinations_iter = ((e1_plus, e1_minus, e2_plus, e2_minus, (current_ch1_mA, current_ch2_mA))
+                            for (e1_plus, e1_minus, e2_plus, e2_minus) in electrode_combinations
+                            for (current_ch1_mA, current_ch2_mA) in current_ratios)
+    else:
+        # Bucketed mode: cartesian product of electrode groups
+        combinations_iter = product(E1_plus, E1_minus, E2_plus, E2_minus, current_ratios)
+
     for processed, (e1_plus, e1_minus, e2_plus, e2_minus, (current_ch1_mA, current_ch2_mA)) in \
-            enumerate(product(E1_plus, E1_minus, E2_plus, E2_minus, current_ratios), 1):
+            enumerate(combinations_iter, 1):
         
         if stop_flag["value"]:
             logger.warning("Stopping calculation due to interrupt signal")
@@ -400,7 +432,13 @@ def get_current_parameter(name, default, validation_fn=None):
 def main():
     """Main function."""
     global logger
-    
+
+    # Parse command line arguments
+    parser = argparse.ArgumentParser(description='TI Exhaustive Search - Simulation Module')
+    parser.add_argument('--all-combinations', action='store_true',
+                       help='Search all possible electrode combinations instead of bucketing into E1+/- and E2+/- groups')
+    args = parser.parse_args()
+
     # Validate required environment variables
     project_dir = os.getenv('PROJECT_DIR')
     subject_name = os.getenv('SUBJECT_NAME')
@@ -422,12 +460,21 @@ def main():
     
     # Get electrode lists
     print(f"\n{BOLD_CYAN}=== TI Electrode Configuration ==={RESET}")
-    print(f"{CYAN}Please enter electrode lists for each channel{RESET}\n")
 
-    E1_plus = get_electrode_list("E1+ electrodes (space or comma separated): ")
-    E1_minus = get_electrode_list("E1- electrodes (space or comma separated): ")
-    E2_plus = get_electrode_list("E2+ electrodes (space or comma separated): ")
-    E2_minus = get_electrode_list("E2- electrodes (space or comma separated): ")
+    if args.all_combinations:
+        print(f"{CYAN}All combinations mode: Search all possible electrode assignments{RESET}")
+        print(f"{CYAN}Enter all available electrodes - any electrode can be assigned to any position{RESET}\n")
+        all_electrodes = get_electrode_list("All electrodes (space or comma separated): ")
+        # For all combinations mode, we'll generate all possible 4-electrode combinations
+        # Each electrode can be used multiple times (with replacement)
+        E1_plus = E1_minus = E2_plus = E2_minus = all_electrodes
+    else:
+        print(f"{CYAN}Bucketed mode: Electrodes grouped into E1+/- and E2+/- channels{RESET}")
+        print(f"{CYAN}Please enter electrode lists for each channel{RESET}\n")
+        E1_plus = get_electrode_list("E1+ electrodes (space or comma separated): ")
+        E1_minus = get_electrode_list("E1- electrodes (space or comma separated): ")
+        E2_plus = get_electrode_list("E2+ electrodes (space or comma separated): ")
+        E2_minus = get_electrode_list("E2- electrodes (space or comma separated): ")
 
     # Get current parameters
     print(f"\n{BOLD_CYAN}=== Current Configuration ==={RESET}")
@@ -452,7 +499,8 @@ def main():
         subject_name,
         total_current,
         current_step,
-        channel_limit
+        channel_limit,
+        all_combinations=args.all_combinations
     )
 
 if __name__ == "__main__":
