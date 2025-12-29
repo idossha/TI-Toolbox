@@ -7,11 +7,16 @@ with unique configurations per simulation. Edit the BATCH_CONFIG section
 below to customize your batch run.
 
 Usage:
-    simnibs_python batch_simulate.py
+    simnibs_python batch_simulate.py [--verbose]
+
+Options:
+    --verbose, -v    Enable verbose logging to console
 
 The script interfaces directly with the simulator module - no GUI required.
 """
 
+import argparse
+import logging
 import os
 import sys
 import time
@@ -30,6 +35,7 @@ from sim import (
 )
 from sim.montage_loader import load_montages
 from core import get_path_manager
+from tools import logging_util
 
 # =============================================================================
 # BATCH CONFIGURATION - EDIT THIS SECTION
@@ -79,32 +85,32 @@ SIMULATIONS = [
     {
         "montages": ["test"],
         "intensity": IntensityConfig(
-            pair1_ch1=1.0,  # mA
-            pair1_ch2=1.0,
-            pair2_ch1=1.0,
-            pair2_ch2=1.0
+            pair1=1.0,  # mA for electrode pair 1
+            pair2=1.0,  # mA for electrode pair 2
+            pair3=1.0,  # mA for electrode pair 3 (mTI mode)
+            pair4=1.0   # mA for electrode pair 4 (mTI mode)
         ),
     },
     
-    # Simulation 2: Higher intensity
-    {
-        "montages": ["test2"],
-        "intensity": IntensityConfig(
-            pair1_ch1=2.0,  # mA
-            pair1_ch2=2.0,
-            pair2_ch1=2.0,
-            pair2_ch2=2.0
-        ),
-    },
+    # # Simulation 2: Higher intensity
+    # {
+    #     "montages": ["test2"],
+    #     "intensity": IntensityConfig(
+    #         pair1=2.0,  # mA for electrode pair 1
+    #         pair2=2.0,  # mA for electrode pair 2
+    #         pair3=2.0,  # mA for electrode pair 3 (mTI mode)
+    #         pair4=2.0   # mA for electrode pair 4 (mTI mode)
+    #     ),
+    # },
     
     # Simulation 3: Asymmetric intensity
     # {
     #     "montages": ["montage3"],
     #     "intensity": IntensityConfig(
-    #         pair1_ch1=1.5,
-    #         pair1_ch2=1.5,
-    #         pair2_ch1=2.0,
-    #         pair2_ch2=2.0
+    #         pair1=1.5,  # mA for electrode pair 1
+    #         pair2=2.0,  # mA for electrode pair 2
+    #         pair3=1.0,  # mA for electrode pair 3 (mTI mode)
+    #         pair4=1.0   # mA for electrode pair 4 (mTI mode)
     #     ),
     #     # Optional: different electrode for this simulation
     #     "electrode": ElectrodeConfig(
@@ -126,9 +132,16 @@ SIMULATIONS = [
 # =============================================================================
 
 
-def run_batch():
+def run_batch(logger=None):
     """Run the batch simulation."""
-    
+
+    if logger:
+        logger.info("Starting TI Batch Simulation")
+        logger.debug(f"Project directory: {PROJECT_DIR}")
+        logger.debug(f"Subjects: {SUBJECTS}")
+        logger.debug(f"Number of simulations: {len(SIMULATIONS)}")
+        logger.debug(f"Parallel enabled: {PARALLEL.enabled} ({PARALLEL.effective_workers} workers)")
+
     print("=" * 60)
     print("TI BATCH SIMULATION")
     print("=" * 60)
@@ -166,7 +179,7 @@ def run_batch():
                 montages = montage_input
             
             print(f"  Montages: {[m.name for m in montages]}")
-            print(f"  Intensity: {sim_config['intensity'].pair1_ch1} mA")
+            print(f"  Intensity: {sim_config['intensity'].pair1} mA")
             
             # Build config
             config = SimulationConfig(
@@ -180,7 +193,7 @@ def run_batch():
             )
             
             # Run simulation
-            results = run_simulation(config, montages)
+            results = run_simulation(config, montages, logger=logger)
             all_results.extend(results)
             
             # Report
@@ -212,6 +225,49 @@ def run_batch():
     return all_results
 
 
+def main():
+    """Main entry point with command line argument parsing."""
+    parser = argparse.ArgumentParser(
+        description="Batch TI Simulation Script",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+    %(prog)s                           # Run with default settings
+    %(prog)s --verbose                 # Run with verbose logging
+    %(prog)s -v                        # Same as --verbose
+        """
+    )
+    parser.add_argument(
+        '--verbose', '-v',
+        action='store_true',
+        help='Enable verbose logging to console'
+    )
+
+    args = parser.parse_args()
+
+    # Set up logging based on verbose flag
+    if args.verbose:
+        # Verbose mode: show DEBUG level logs on console
+        logger = logging_util.get_logger('batch-simulate', console=True)
+        logger.setLevel(logging.DEBUG)
+        console_level = logging.DEBUG
+    else:
+        # Normal mode: show INFO level logs on console
+        logger = logging_util.get_logger('batch-simulate', console=True)
+        logger.setLevel(logging.INFO)
+        console_level = logging.INFO
+
+    # Update console handler level
+    for handler in logger.handlers:
+        if isinstance(handler, logging.StreamHandler):
+            handler.setLevel(console_level)
+
+    # Configure external loggers (simnibs, etc.) to use our logger's handlers
+    logging_util.configure_external_loggers(['simnibs', 'mesh_io', 'sim_struct', 'TI'], logger)
+
+    run_batch(logger)
+
+
 if __name__ == "__main__":
-    run_batch()
+    main()
 
