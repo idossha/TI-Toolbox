@@ -420,7 +420,7 @@ class LeadfieldGenerator:
 
     def get_electrode_names_from_cap(self, eeg_cap_path=None, cap_name=None):
         """
-        Extract electrode names from an EEG cap CSV file.
+        Extract electrode names from an EEG cap CSV file using simnibs csv_reader.
 
         Args:
             eeg_cap_path: Path to EEG cap CSV file (optional)
@@ -429,57 +429,20 @@ class LeadfieldGenerator:
         Returns:
             list: List of electrode names
         """
-        if eeg_cap_path is None and cap_name is None:
-            cap_name = self.electrode_cap
+        # Determine cap name
+        if cap_name is None:
+            if eeg_cap_path is not None:
+                cap_name = Path(eeg_cap_path).name
+            else:
+                cap_name = self.electrode_cap
 
-        if eeg_cap_path is None:
-            if cap_name is None:
-                raise ValueError("Either eeg_cap_path or cap_name must be provided")
-            
-            # Try to find matching cap file
-            eeg_cap_path = self._find_eeg_cap_file(cap_name)
-            if eeg_cap_path is None:
-                raise FileNotFoundError(f"EEG cap file not found for: {cap_name}")
-
-        eeg_cap_path = Path(eeg_cap_path)
-        if not eeg_cap_path.exists():
-            raise FileNotFoundError(f"EEG cap file not found: {eeg_cap_path}")
-
-        electrodes = []
-        with open(eeg_cap_path, 'r') as f:
-            for line in f:
-                parts = line.strip().split(',')
-                if len(parts) >= 4 and parts[0] not in ['Label', 'Electrode', '']:  # Skip header and empty lines
-                    electrode_label = parts[0].strip()  # First column is the label
-                    if electrode_label and not electrode_label.replace('.', '').replace('-', '').isdigit():  # Skip numeric values
-                        electrodes.append(electrode_label)
-
+        # Use simnibs csv_reader to get electrode positions
+        from simnibs.utils.csv_reader import eeg_positions
+        eeg_pos = eeg_positions(str(self.subject_dir), cap_name=cap_name)
+        electrodes = list(eeg_pos.keys())
         return sorted(electrodes)
 
-    def _find_eeg_cap_file(self, cap_name):
-        """
-        Find EEG cap file with flexible name matching using PathManager.
-        
-        Args:
-            cap_name: Name of the cap to find
-            
-        Returns:
-            Path to the found cap file or None
-        """
-        # Look in subject's eeg_positions directory first using PathManager
-        eeg_positions_dir = self.pm.get_eeg_positions_dir(self.subject_id)
-        
-        if eeg_positions_dir and os.path.exists(eeg_positions_dir):
-            eeg_positions_dir = Path(eeg_positions_dir)
-            
-            # Try exact match first
-            exact_match = eeg_positions_dir / f"{cap_name}.csv"
-            if exact_match.exists():
-                return exact_match
-        
-        return None
 
- 
 if __name__ == '__main__':
     """
     Command line interface for leadfield generation.
