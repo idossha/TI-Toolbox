@@ -34,14 +34,15 @@ echo "   Local URL: http://localhost:4000/TI-Toolbox/"
 echo "   Press Ctrl+C to stop"
 echo ""
 echo "💡 Tip: Google Analytics is enabled by default. To disable, run:"
-echo "   ENABLE_ANALYTICS=false bundle exec jekyll serve --livereload"
+echo "   ENABLE_ANALYTICS=false bundle exec jekyll serve"
+echo "   To enable live reload: bundle exec jekyll serve --livereload"
 echo ""
 
 # Check if analytics should be disabled
 if [ "$ENABLE_ANALYTICS" = "false" ]; then
   echo "📊 Google Analytics disabled"
-  ENABLE_ANALYTICS=false bundle exec jekyll serve --livereload
+  ENABLE_ANALYTICS=false bundle exec jekyll serve
 else
   echo "📊 Google Analytics enabled (default)"
-  bundle exec jekyll serve --livereload
+  bundle exec jekyll serve
 fi 

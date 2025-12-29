@@ -15,20 +15,19 @@ layout: home
 </div>
 
 
-1. **Set up your BIDS project directory**
-   - Organize your data in BIDS format. Place DICOM files in `{project-name}/sourcedata/sub-{subjectID}/T1w/dicom/` (and optionally T2w).
-2. **Install Docker**
-   - Required for running the toolbox environment.
-3. **Install TI-Toolbox:**<br>
-   **A. Desktop Executable:**
-   Download and run the executable version of the latest release [here](https://github.com/idossha/TI-toolbox/releases/latest).<br> 
-    **B. CLI Entry:** Download the two files below to a designated directory.
+1. **Install Dependencies** Docker required for running the toolbox environment and optional X11 server.
+2. **Install TI-Toolbox:**<br>
+  A. Desktop Executable:
+   Download and run the executable version of the latest release [here](https://github.com/idossha/TI-toolbox/releases/latest).<br>
+  B. CLI Entry:
+    Download the two files below to a designated directory.
    - **[loader.sh](https://github.com/idossha/TI-toolbox/blob/main/loader.sh)** - Main launch script
    - **[docker-compose.yml](https://github.com/idossha/TI-toolbox/blob/main/docker-compose.yml)** - Docker configuration
-
    ```bash
    bash loader.sh
    ```
+  3. **Set up your BIDS project directory**
+   - Use our example dataset to get familiar with the software or organize your data in BIDS format.<br> `{project-name}/sourcedata/sub-{subjectID}/T1w/dicom/` 
 
 <div class="carousel-container">
   <div class="carousel-wrapper">

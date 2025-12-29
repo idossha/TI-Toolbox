@@ -109,24 +109,103 @@ lsof -ti:4000 | xargs kill
 - Try accessing http://localhost:4000/TI-Toolbox/ instead
 - Clear browser cache
 
+## Site Architecture
+
+### Visual Overview
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                        JEKYLL BUILD                             │
+│                                                                 │
+│  ┌─────────────┐     ┌─────────────┐     ┌─────────────┐       │
+│  │  Markdown   │ ──▶ │   Layouts   │ ──▶ │    HTML     │       │
+│  │   Files     │     │  (default)  │     │   Output    │       │
+│  └─────────────┘     └─────────────┘     └─────────────┘       │
+│                             │                                   │
+│                             ▼                                   │
+│                      ┌─────────────┐                           │
+│                      │  style.scss │ ──▶ style.css             │
+│                      │  (unified)  │                           │
+│                      └─────────────┘                           │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Layout Hierarchy
+
+```
+_layouts/default.html          ◀── Base template (includes head.html, header.html)
+       │
+       ├── _layouts/home.html      ◀── Index page (page-layout)
+       ├── _layouts/about.html     ◀── About page (page-layout)
+       ├── _layouts/wiki.html      ◀── Wiki pages (wiki-layout + sidebar)
+       ├── _layouts/installation.html
+       ├── _layouts/gallery.html
+       └── _layouts/releases.html
+```
+
+### Stylesheet Flow
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│                    assets/css/style.scss                      │
+├──────────────────────────────────────────────────────────────┤
+│  1. @import "minima"     ──▶  Base Jekyll theme styles       │
+│  2. Variables            ──▶  $primary-color, $dark-bg, etc  │
+│  3. Wrapper styles       ──▶  max-width: 1050px (all pages)  │
+│  4. Header styles        ──▶  Flexbox nav + search           │
+│  5. Page layouts         ──▶  .page-layout, .wiki-layout     │
+│  6. Components           ──▶  .hero, .features, .carousel    │
+│  7. Wiki styles          ──▶  Sidebar, content, images       │
+│  8. Carousel styles      ──▶  Image slider component         │
+│  9. Responsive           ──▶  Mobile breakpoints             │
+└──────────────────────────────────────────────────────────────┘
+```
+
+### Key Design Decisions
+
+| Aspect | Choice | Reason |
+|--------|--------|--------|
+| **Single CSS file** | `style.scss` only | Reduced complexity, no conflicts |
+| **Unified width** | 1050px max-width | Consistent reading experience |
+| **Custom layouts** | home, page, wiki | Override minima defaults |
+| **Flexbox header** | `display: flex` | Search box inline with nav |
+
+### Developer Protocol
+
+1. **Edit styles** → Only modify `assets/css/style.scss`
+2. **Add pages** → Create `.md` file with appropriate `layout:` frontmatter
+3. **Test locally** → `./serve.sh` then check http://127.0.0.1:4000/TI-Toolbox/
+4. **Build** → `bundle exec jekyll build`
+5. **Deploy** → Push to main branch (GitHub Pages auto-deploys)
+
 ## File Structure
 
 ```
 docs/
 ├── _config.yml          # Jekyll configuration
-├── _layouts/            # Custom page layouts
-│   └── wiki.html       # Wiki sidebar layout
+├── _includes/
+│   ├── head.html        # <head> with single style.css link
+│   └── header.html      # Navigation + search box
+├── _layouts/
+│   ├── default.html     # Base layout (all pages inherit)
+│   ├── home.html        # Index page layout
+│   ├── about.html       # About/simple pages
+│   ├── wiki.html        # Wiki with sidebar
+│   ├── installation.html
+│   ├── gallery.html
+│   └── releases.html
 ├── assets/
 │   └── css/
-│       ├── style.scss  # Main site styles
-│       └── wiki.css    # Wiki-specific styles
-├── wiki/               # Wiki documentation
-│   ├── wiki.md        # Main wiki page
-│   ├── flex-search.md # Guide pages
-│   └── assets/        # Wiki images
-├── Gemfile             # Ruby dependencies
-├── serve.sh           # Development server script
-└── README.md          # This file
+│       └── style.scss   # SINGLE unified stylesheet
+├── wiki/                # Wiki documentation
+├── installation/        # Installation guides
+├── gallery/             # Gallery pages
+├── releases/            # Release notes
+├── about/               # About page
+├── index.md             # Homepage
+├── Gemfile              # Ruby dependencies
+├── serve.sh             # Development server script
+└── README.md            # This file
 ```
 
 ## Development Workflow

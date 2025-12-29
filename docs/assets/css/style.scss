@@ -17,77 +17,102 @@ $spacing-lg: 25px;
 $border-radius: 8px;
 $border-radius-lg: 10px;
 
-// Override default container width (make 50% wider)
+// Simplify wrapper styles
 .wrapper {
-  max-width: calc(1000px * 1.5);
-  margin-right: auto;
-  margin-left: auto;
-  padding-right: $spacing-lg + 5px;
-  padding-left: $spacing-lg + 5px;
-  
-  @media screen and (max-width: 800px) {
-    max-width: calc(800px * 1.5);
-    padding-right: $spacing-md;
-    padding-left: $spacing-md;
-  }
+  max-width: 1050px;
+  margin: 0 auto;
+  padding: 0 30px;
 }
 
-// Make the page content container wider as well
-.page-content {
-  .wrapper {
-    max-width: calc(1000px * 1.5);
-  }
-}
-
-// Ensure site header spans full width
 .site-header .wrapper {
-  max-width: calc(1000px * 1.5);
+  max-width: 1050px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
-// Override minima defaults
+.page-content {
+  padding: 10px 0;
+}
+
+.page-content .wrapper {
+  max-width: 1050px;
+}
+
+
+// Simplify header styles
 .site-header {
-  background-color: $dark-bg;
+  background-color: transparent;
   border-top: 5px solid $primary-color;
-  border-bottom: none;
-  min-height: 70px;
-  
+  border-bottom: 1px solid #e8e8e8;
+  min-height: 56px;
+
   .site-title {
-    color: #fff !important;
-    font-weight: 600;
+    color: #424242;
+    font-weight: 300;
     font-size: 26px;
-    
-    &:hover {
-      text-decoration: none;
-      color: $primary-color !important;
-    }
-  }
-  
-  .site-nav .page-link {
-    color: #fff;
-    
+    line-height: 56px;
+    float: none; // Override minima's float: left
+
     &:hover {
       color: $primary-color;
+      text-decoration: none;
+    }
+  }
+
+  .site-nav {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 8px;
+    float: none; // Override minima's float: right
+    line-height: 56px;
+
+    label[for="nav-trigger"],
+    .nav-trigger {
+      display: none;
+    }
+
+    .trigger {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .page-link {
+      color: #111;
+      line-height: 1.5;
+
+      &:hover {
+        color: $primary-color;
+        text-decoration: none;
+      }
+    }
+
+    .search-container {
+      margin-left: 12px;
     }
   }
 }
 
 // Hero section
 .hero {
-  background: linear-gradient(135deg, $primary-color 0%, $secondary-color 100%);
-  color: white;
-  padding: $spacing-lg * 2 0;
-  text-align: center;
-  margin-bottom: $spacing-lg;
+  background: none;
+  color: inherit;
+  padding: 10px 0;
+  text-align: left;
+  margin: 0;
   
   h1 {
-    font-size: 3em;
-    margin-bottom: $spacing-sm;
-    font-weight: 700;
+    font-size: 1.5em;
+    margin: 0 0 0 0;
+    font-weight: 400;
   }
 
   p {
-    font-size: 1.3em;
-    max-width: 1200px;
+    font-size: 1em;
+    max-width: none;
+    margin: 0;
     margin: 0 auto $spacing-md;
     opacity: 0.95;
   }
@@ -130,7 +155,7 @@ $border-radius-lg: 10px;
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
   gap: $spacing-lg;
-  margin: $spacing-lg 0;
+  margin: 10px 0;
 
   .feature-card {
     background: $light-bg;
@@ -249,67 +274,25 @@ $border-radius-lg: 10px;
 
 // Code blocks
 pre {
-  background-color: $dark-bg;
-  border: none;
+  background-color: $light-bg;
+  border: 1px solid #e8e8e8;
   border-radius: $border-radius;
   padding: $spacing-sm;
   overflow-x: auto;
   
   code {
-    color: #f8f8f2;
+    color: #111;
+    background-color: transparent;
   }
 }
 
-// Wiki sidebar
-.wiki-layout {
-  display: flex;
-  gap: $spacing-md;
-  
-  .wiki-sidebar {
-    flex: 0 0 $spacing-md;
-    
-    .wiki-nav {
-      background: $light-bg;
-      padding: $spacing-sm;
-      border-radius: $border-radius;
-      position: sticky;
-      top: $spacing-md;
-      
-      h3 {
-        margin-top: 0;
-        color: $primary-color;
-      }
-      
-      ul {
-        list-style: none;
-        padding: 0;
-        
-        li {
-          margin: 6px 0;
-          
-          a {
-            color: #333;
-            text-decoration: none;
-            
-            &:hover {
-              color: $primary-color;
-            }
-            
-            &.active {
-              font-weight: 600;
-              color: $primary-color;
-            }
-          }
-        }
-      }
-    }
-  }
-  
-  .wiki-content {
-    flex: 1;
-    min-width: 0;
-  }
+code {
+  color: #111;
+  background-color: rgba(0, 0, 0, 0.05);
+  padding: 2px 4px;
+  border-radius: 3px;
 }
+
 
 // Release notes
 .release {
@@ -355,15 +338,15 @@ pre {
   }
 }
 
-// Responsive
-@media (max-width: 768px) {
+// Responsive - General
+@media screen and (max-width: 600px) {
   .hero h1 {
     font-size: 2em;
   }
-  
+
   .wiki-layout {
     flex-direction: column;
-    
+
     .wiki-sidebar {
       flex: 1;
       position: static;
@@ -371,20 +354,698 @@ pre {
   }
 }
 
+
+// Simplified header search styles
+.site-header .search-input {
+  padding: 5px 10px;
+  border: 1px solid #e8e8e8;
+  border-radius: 4px;
+  font-size: 13px;
+  width: 140px;
+  background-color: #fff;
+  color: #111;
+  transition: all 0.2s ease;
+
+  &::placeholder {
+    color: #888;
+  }
+
+  &:focus {
+    border-color: $primary-color;
+    outline: none;
+    width: 160px;
+  }
+
+  &:hover {
+    border-color: #ccc;
+  }
+}
+
+.site-header .search-button {
+  background: none !important;
+  border: none !important;
+  color: #424242 !important;
+  cursor: pointer !important;
+  padding: 8px !important;
+  border-radius: 5px !important;
+  font-size: 16px !important;
+  transition: background-color 0.2s !important;
+
+  &:hover {
+    background-color: rgba(0, 0, 0, 0.05) !important;
+  }
+
+  &:focus {
+    outline: none !important;
+    background-color: rgba(46, 134, 171, 0.1) !important;
+  }
+}
+
+// Search results page
+.search-page {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: $spacing-lg;
+
+  .search-header {
+    text-align: center;
+    margin-bottom: $spacing-lg * 2;
+
+    h1 {
+      color: $primary-color;
+      margin-bottom: $spacing-lg;
+      font-size: 2.5em;
+    }
+
+    .search-input-container {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      max-width: 600px;
+      margin: 0 auto;
+
+      .search-input-large {
+        flex: 1;
+        padding: 12px 16px;
+        border: 2px solid #e0e0e0;
+        border-radius: $border-radius;
+        font-size: 16px;
+        transition: border-color 0.3s;
+
+        &:focus {
+          outline: none;
+          border-color: $primary-color;
+          box-shadow: 0 0 0 3px rgba($primary-color, 0.1);
+        }
+
+        &::placeholder {
+          color: #999;
+        }
+      }
+
+      .search-button {
+        padding: 12px 24px;
+        background-color: $primary-color;
+        color: white;
+        border: none;
+        border-radius: $border-radius;
+        font-size: 16px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background-color 0.3s;
+
+        &:hover {
+          background-color: darken($primary-color, 10%);
+        }
+
+        &:focus {
+          outline: none;
+          box-shadow: 0 0 0 3px rgba($primary-color, 0.3);
+        }
+      }
+    }
+  }
+
+  .search-results-container {
+    .search-stats {
+      margin-bottom: $spacing-lg;
+      font-size: 18px;
+      color: #666;
+
+      p {
+        margin: 0;
+      }
+    }
+
+    .search-results-list {
+      .search-result-item {
+        background: white;
+        border: 1px solid #e0e0e0;
+        border-radius: $border-radius;
+        padding: $spacing-lg;
+        margin-bottom: $spacing-md;
+        transition: box-shadow 0.3s;
+
+        &:hover {
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        h3 {
+          margin: 0 0 $spacing-sm 0;
+
+          .search-result-link {
+            color: $primary-color;
+            text-decoration: none;
+            font-size: 1.3em;
+            font-weight: 600;
+
+            &:hover {
+              text-decoration: underline;
+            }
+          }
+        }
+
+        .search-result-content {
+          color: #555;
+          line-height: 1.6;
+          margin: 0;
+
+          mark {
+            background-color: #fff3cd;
+            color: #856404;
+            padding: 2px 4px;
+            border-radius: 2px;
+            font-weight: bold;
+          }
+        }
+      }
+    }
+
+    .no-results {
+      text-align: center;
+      padding: $spacing-lg * 2;
+      background: white;
+      border-radius: $border-radius;
+      border: 1px solid #e0e0e0;
+
+      p {
+        margin: $spacing-sm 0;
+        color: #666;
+        font-size: 16px;
+      }
+    }
+  }
+}
+
+// Desktop - ensure flex layout always shows
+@media screen and (min-width: 601px) {
+  .site-header .site-nav {
+    input ~ .trigger,
+    .trigger {
+      display: flex !important;
+    }
+  }
+}
+
+// Responsive navigation
+@media screen and (max-width: 600px) {
+  .site-header {
+    .wrapper {
+      flex-direction: column !important;
+      align-items: flex-start !important;
+    }
+
+    .site-title {
+      margin-bottom: 10px !important;
+    }
+
+    .site-nav {
+      width: 100% !important;
+      flex-direction: column !important;
+      align-items: flex-start !important;
+
+      label[for="nav-trigger"] {
+        display: block !important;
+      }
+
+      .nav-trigger:checked ~ .trigger {
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: flex-start !important;
+      }
+
+      .trigger {
+        display: none !important;
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        width: 100% !important;
+      }
+
+      .page-link {
+        padding: 8px 0 !important;
+      }
+
+      .search-container {
+        margin-top: 10px !important;
+        width: 100% !important;
+        margin-left: 0 !important;
+
+        .search-input {
+          width: calc(100% - 60px) !important;
+        }
+      }
+    }
+  }
+}
+
+@media (max-width: 768px) {
+  .search-page {
+    padding: $spacing-md;
+
+    .search-header {
+      h1 {
+        font-size: 2em;
+      }
+
+      .search-input-container {
+        flex-direction: column;
+
+        .search-input-large,
+        .search-button {
+          width: 100%;
+        }
+      }
+    }
+  }
+}
+
+// Simplified responsive header
+@media screen and (max-width: 600px) {
+  .site-header .site-nav label[for="nav-trigger"],
+  .site-header .site-nav .nav-trigger {
+    display: block;
+  }
+
+  .site-header .site-nav .trigger {
+    display: none;
+  }
+}
+
 // Footer
 .site-footer {
   background-color: $dark-bg;
   color: #fff;
-  
+
   .footer-heading {
     color: #fff;
   }
-  
+
   a {
     color: $primary-color;
-    
+
     &:hover {
       color: lighten($primary-color, 15%);
     }
+  }
+}
+
+// =============================================================================
+// PAGE LAYOUT (for home, about, and other single-column pages)
+// =============================================================================
+
+.page-layout {
+  max-width: 1050px;
+  margin: 0 auto;
+  padding: 0 30px;
+}
+
+.page-content-inner {
+  width: 100%;
+}
+
+// =============================================================================
+// WIKI STYLES
+// =============================================================================
+
+.wiki-layout {
+  position: relative;
+  max-width: 1050px;
+  margin: 0 auto;
+  padding: 0 30px;
+  display: flex;
+  gap: 20px;
+}
+
+.wiki-sidebar {
+  position: relative;
+  width: 200px;
+  flex-shrink: 0;
+}
+
+.wiki-nav {
+  background: $light-bg;
+  padding: 15px;
+  border-radius: $border-radius;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+  position: sticky;
+  top: 80px;
+  max-height: calc(100vh - 100px);
+  overflow-y: auto;
+
+  h3 {
+    margin-top: 0;
+    margin-bottom: 15px;
+    color: $primary-color;
+    font-size: 1.1em;
+    font-weight: 600;
+  }
+
+  h4 {
+    margin-top: 20px;
+    margin-bottom: 10px;
+    color: $primary-color;
+    font-size: 1em;
+    font-weight: 600;
+  }
+
+  ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+
+  li {
+    margin: 6px 0;
+  }
+
+  a {
+    color: #333;
+    text-decoration: none;
+    display: block;
+    padding: 8px 12px;
+    border-radius: 4px;
+    transition: all 0.3s ease;
+
+    &:hover {
+      color: $primary-color;
+      background-color: rgba($primary-color, 0.1);
+    }
+
+    &.active {
+      font-weight: 600;
+      color: $primary-color;
+      background-color: rgba($primary-color, 0.15);
+    }
+  }
+}
+
+.wiki-content {
+  flex: 1;
+  min-width: 0;
+}
+
+// Width overrides for wiki content (scoped to wiki-layout only)
+.wiki-layout .wrapper,
+.wiki-layout .page-content,
+.wiki-layout .page-content .wrapper,
+.wiki-content,
+.wiki-content .post,
+.wiki-content .post-content,
+.wiki-content article,
+.wiki-content .wrapper {
+  max-width: none !important;
+  width: 100% !important;
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+}
+
+.wiki-content h1,
+.wiki-content h2,
+.wiki-content h3,
+.wiki-content h4,
+.wiki-content p,
+.wiki-content ul,
+.wiki-content ol,
+.wiki-content table,
+.wiki-content pre,
+.wiki-content blockquote,
+.wiki-content .highlight {
+  max-width: 100% !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+  overflow-x: auto !important;
+}
+
+.wiki-content-inner {
+  padding: 20px;
+  max-width: none !important;
+  width: 100% !important;
+  box-sizing: border-box;
+}
+
+.wiki-content img {
+  width: auto !important;
+  height: auto !important;
+  display: block;
+  margin: 20px auto;
+  border-radius: $border-radius;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  object-fit: contain;
+}
+
+.wiki-content img + img {
+  margin-top: 0 !important;
+}
+
+// Image row layouts
+.image-row {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 40px;
+  flex-wrap: wrap;
+  margin: 30px 0;
+  text-align: center;
+
+  .image-container {
+    flex: 0 1 auto;
+    max-width: calc(50% - 25px);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 0 5px;
+    box-sizing: border-box;
+
+    img {
+      margin: 0 !important;
+      width: 100%;
+      height: auto !important;
+      object-fit: contain;
+      border-radius: $border-radius;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+
+    em {
+      margin-top: 10px;
+      font-style: italic;
+      color: #666;
+      font-size: 0.9em;
+      line-height: 1.4;
+      text-align: center;
+      display: block;
+    }
+  }
+}
+
+.image-row-natural {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 40px;
+  flex-wrap: wrap;
+  margin: 30px 0;
+  text-align: center;
+
+  .image-container-natural {
+    flex: 0 0 auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    max-width: calc(50% - 20px);
+
+    img {
+      margin: 0 !important;
+      width: auto;
+      max-width: 100% !important;
+      max-height: 500px !important;
+      height: auto !important;
+      object-fit: contain;
+      border-radius: $border-radius;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+
+    em {
+      margin-top: 10px;
+      font-style: italic;
+      color: #666;
+      font-size: 0.9em;
+      line-height: 1.4;
+      text-align: center;
+      display: block;
+    }
+  }
+}
+
+// Wiki responsive
+@media (max-width: 1200px) {
+  .wiki-layout {
+    flex-direction: column;
+    max-width: 90%;
+  }
+
+  .wiki-sidebar {
+    width: 100%;
+  }
+
+  .wiki-nav {
+    position: static;
+    max-height: none;
+    overflow-y: visible;
+  }
+
+  .wiki-content-inner {
+    padding: 20px;
+  }
+
+  .wiki-content img {
+    max-width: 100% !important;
+    max-height: 600px !important;
+  }
+
+  .image-row {
+    flex-direction: column;
+    align-items: center;
+    gap: 25px;
+
+    .image-container {
+      max-width: 100% !important;
+      padding: 0 !important;
+    }
+  }
+
+  .image-row-natural {
+    flex-direction: column;
+    align-items: center;
+    gap: 25px;
+
+    .image-container-natural {
+      max-width: 100% !important;
+    }
+  }
+}
+
+// =============================================================================
+// CAROUSEL STYLES
+// =============================================================================
+
+.carousel-container {
+  position: relative;
+  max-width: 788px;
+  margin: 30px auto;
+  overflow: hidden;
+  border-radius: $border-radius;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  background: $light-bg;
+  padding: 10px;
+}
+
+.carousel-wrapper {
+  position: relative;
+  width: 100%;
+}
+
+.carousel-images {
+  position: relative;
+  width: 100%;
+  height: auto;
+  min-height: 375px;
+  overflow: hidden;
+}
+
+.carousel-slide {
+  display: none;
+  text-align: center;
+  width: 100%;
+  padding: 10px 0;
+
+  &.active {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+  }
+
+  img {
+    max-width: 100%;
+    max-height: 338px;
+    width: auto;
+    height: auto;
+    object-fit: contain;
+    border-radius: $border-radius;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    margin: 0 auto;
+  }
+
+  p {
+    margin-top: 10px;
+    color: #666;
+    font-style: italic;
+    font-size: 0.9em;
+    text-align: center;
+  }
+}
+
+.carousel-btn {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  background-color: rgba($primary-color, 0.8);
+  color: white;
+  border: none;
+  padding: 10px 15px;
+  font-size: 18px;
+  cursor: pointer;
+  border-radius: 4px;
+  z-index: 10;
+  transition: background-color 0.3s ease;
+
+  &:hover {
+    background-color: $primary-color;
+  }
+
+  &.prev {
+    left: 0;
+  }
+
+  &.next {
+    right: 0;
+  }
+}
+
+.carousel-dots {
+  text-align: center;
+  padding: 0;
+}
+
+.dot {
+  cursor: pointer;
+  height: 12px;
+  width: 12px;
+  margin: 0 5px;
+  background-color: #bbb;
+  border-radius: 50%;
+  display: inline-block;
+  transition: background-color 0.3s ease;
+
+  &.active,
+  &:hover {
+    background-color: $primary-color;
+  }
+}
+
+@media (max-width: 768px) {
+  .carousel-images {
+    min-height: 300px;
+  }
+
+  .carousel-slide img {
+    max-height: 263px;
+  }
+
+  .carousel-btn {
+    padding: 8px 12px;
+    font-size: 16px;
   }
 } 
