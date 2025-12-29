@@ -71,7 +71,7 @@ class ResourcePathManager:
             f"  3. /ti-toolbox/resources/amv"
         )
     
-    def get_coordinate_file(self, eeg_net: str) -> str:
+    def get_coordinate_file(self, eeg_net: str) -> Optional[str]:
         """
         Get the coordinate file path for a specific EEG net.
 
@@ -79,13 +79,19 @@ class ResourcePathManager:
             eeg_net: Name of the EEG net (e.g., "EGI_template.csv")
 
         Returns:
-            Path to coordinate CSV file, or None for freehand/flex modes that don't use predefined coordinates
-
-        Raises:
-            ValueError: If EEG net is not supported
+            Path to coordinate CSV file, or None for freehand/flex modes or unsupported nets
         """
         # Freehand and flex modes don't use predefined coordinate files
         if eeg_net in ["freehand", "flex_mode"]:
+            return None
+
+        # Unsupported nets that don't have visualization support
+        unsupported_nets = [
+            "easycap_BC_TMS64_X21.csv",
+            "EEG10-20_extended_SPM12"
+        ]
+
+        if eeg_net in unsupported_nets:
             return None
 
         # GSN-HD compatible nets
@@ -108,7 +114,8 @@ class ResourcePathManager:
         elif eeg_net in ten_ten_nets:
             return os.path.join(self.resources_dir, "10-10.csv")
         else:
-            raise ValueError(f"Unsupported EEG net: {eeg_net}")
+            # Unknown net, return None and skip visualization
+            return None
     
     def get_template_image(self, eeg_net: str) -> str:
         """
@@ -269,7 +276,7 @@ class MontageVisualizer:
         self.verbose = verbose
         self.montage_data = montage_data
 
-        # Check if this is a freehand/flex mode that doesn't use predefined coordinates
+        # Check if this is a freehand/flex mode or unsupported EEG net
         self.skip_visualization = eeg_net in ["freehand", "flex_mode"]
 
         if self.skip_visualization:
@@ -279,6 +286,14 @@ class MontageVisualizer:
 
         # Set up coordinate reader
         coord_file = resource_manager.get_coordinate_file(eeg_net)
+
+        # Check if EEG net is unsupported (coord_file is None)
+        if coord_file is None:
+            self.skip_visualization = True
+            if self.verbose:
+                print(f"Skipping montage visualization for {eeg_net} (unsupported EEG net)")
+            return
+
         self.coord_reader = ElectrodeCoordinateReader(coord_file)
 
         # Cache base ring path for efficiency
@@ -453,10 +468,10 @@ class MontageVisualizer:
         Returns:
             True if successful, False otherwise
         """
-        # Skip visualization for freehand/flex modes (unless we have direct montage data)
-        if self.skip_visualization and not self.montage_data:
+        # Skip visualization for freehand/flex modes or unsupported nets
+        if self.skip_visualization:
             if self.verbose:
-                print(f"Montage visualization skipped for {self.eeg_net} mode - arbitrary electrode positions cannot be visualized on standard templates")
+                print(f"Montage visualization skipped for {self.eeg_net} mode")
             return True
 
         # Load montage configuration if not using direct data
@@ -468,14 +483,18 @@ class MontageVisualizer:
             except Exception as e:
                 print(f"Error: Failed to load montage file '{self.montage_file}': {e}")
                 return False
-        
-        self._log(f"Using coordinate file: {self.coord_reader.coordinate_file} for EEG net: {self.eeg_net}")
+
+        # Only log coordinate file info if coord_reader was created (not skipped)
+        if hasattr(self, 'coord_reader') and self.coord_reader:
+            self._log(f"Using coordinate file: {self.coord_reader.coordinate_file} for EEG net: {self.eeg_net}")
         self._log(f"Simulation Mode (sim_mode): {self.sim_mode}")
         self._log(f"EEG Net: {self.eeg_net}")
-        self._log(f"Montage Type: {self.montage_type}")
+        if hasattr(self, 'montage_type'):
+            self._log(f"Montage Type: {self.montage_type}")
         self._log(f"Selected Montages: {montage_names}")
         self._log(f"Output Directory: {self.output_directory}")
-        self._log(f"Using template image: {self.template_image} for EEG net: {self.eeg_net}")
+        if hasattr(self, 'template_image') and self.template_image:
+            self._log(f"Using template image: {self.template_image} for EEG net: {self.eeg_net}")
         
         # Global pair index across all montages
         global_pair_index = 0
