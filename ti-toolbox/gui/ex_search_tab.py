@@ -1088,6 +1088,8 @@ class ExSearchTab(QtWidgets.QWidget):
         # Create single input field for all electrodes
         self.all_electrodes_input = QtWidgets.QLineEdit()
 
+        layout.addRow("All electrodes:", self.all_electrodes_input)
+
         self.electrode_stack.addWidget(panel)
 
     def _on_electrode_mode_changed(self):
@@ -1718,6 +1720,19 @@ class ExSearchTab(QtWidgets.QWidget):
         env["TOTAL_CURRENT"] = str(self.total_current_spinbox.value())  # Total current from UI
         env["CURRENT_STEP"] = str(self.current_step_spinbox.value())    # Current step from UI
         env["CHANNEL_LIMIT"] = str(self.channel_limit_spinbox.value())  # Channel limit from UI
+
+        # Set electrode environment variables (space-separated)
+        if self.e1_plus:
+            env["E1_PLUS"] = ' '.join(self.e1_plus)
+        if self.e1_minus:
+            env["E1_MINUS"] = ' '.join(self.e1_minus)
+        if self.e2_plus:
+            env["E2_PLUS"] = ' '.join(self.e2_plus)
+        if self.e2_minus:
+            env["E2_MINUS"] = ' '.join(self.e2_minus)
+
+        # Set all combinations mode
+        env["ALL_COMBINATIONS"] = '1' if self.use_all_combinations else '0'
         
         # Create shared log file for the entire ex-search pipeline (only on first ROI)
         if self.current_roi_index == 0:
