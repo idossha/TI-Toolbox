@@ -2,9 +2,10 @@
 """
 Batch TI Simulation Script
 
-This script allows running multiple simulations across multiple subjects
-with subject-montage-intensity specific configurations. Edit the BATCH_CONFIG
-section below to customize your batch run.
+This script allows running multiple TI simulations with flexible parallelization.
+Simulations are executed at the individual simulation level, allowing maximum
+parallelism regardless of subject grouping. Edit the BATCH_CONFIG section below
+to customize your batch run.
 
 Usage:
     simnibs_python batch_simulate.py [--verbose]
@@ -15,6 +16,12 @@ Options:
 Configuration:
     Define simulations in the SIMULATIONS list with subject-specific entries.
     Each simulation specifies which subject, montages, and intensity to use.
+    Simulations run in parallel when PARALLEL.enabled=True and multiple workers available.
+
+Parallelization:
+    - Simulation-level: Each individual simulation runs in parallel (recommended)
+    - Montage-level: Multiple montages within a simulation run in parallel
+    - Combined: Both levels of parallelism work together for maximum throughput
 
 The script interfaces directly with the simulator module - no GUI required.
 """
@@ -24,6 +31,7 @@ import logging
 import os
 import sys
 import time
+from concurrent.futures import ProcessPoolExecutor, as_completed
 
 # Add parent directory to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
@@ -40,6 +48,70 @@ from sim import (
 from sim.montage_loader import load_montages
 from core import get_path_manager
 from tools import logging_util
+
+# =============================================================================
+# INTERNAL FUNCTIONS
+# =============================================================================
+
+def _process_single_simulation(sim_idx, sim_config, project_dir, eeg_net,
+                              conductivity, default_electrode, parallel_config):
+    """Process a single simulation. Used for parallel execution."""
+    try:
+        subject_id = sim_config["subject"]
+
+        # Set up per-simulation logger (file-only to avoid console conflicts)
+        log_dir = os.path.join(project_dir, 'derivatives', 'ti-toolbox', f'sub-{subject_id}', 'logs')
+        os.makedirs(log_dir, exist_ok=True)
+
+        sim_logger = logging_util.get_file_only_logger(
+            f'batch-simulate-sim{sim_idx + 1}',
+            os.path.join(log_dir, f'simulation_{sim_idx + 1}.log'),
+            level=logging.DEBUG
+        )
+
+        sim_logger.info(f"Processing simulation {sim_idx + 1} for subject {subject_id}")
+
+        # Get montages
+        montage_input = sim_config["montages"]
+        if isinstance(montage_input[0], str):
+            # Load montages from names
+            montages = load_montages(
+                montage_names=montage_input,
+                project_dir=project_dir,
+                eeg_net=eeg_net,
+                include_flex=True
+            )
+        else:
+            # Already MontageConfig objects
+            montages = montage_input
+
+        sim_logger.info(f"Running {len(montages)} montage(s) with intensity {sim_config['intensity'].pair1} mA")
+
+        # Build config
+        config = SimulationConfig(
+            subject_id=subject_id,
+            project_dir=project_dir,
+            conductivity_type=sim_config.get("conductivity", conductivity),
+            intensities=sim_config["intensity"],
+            electrode=sim_config.get("electrode", default_electrode),
+            eeg_net=eeg_net,
+            parallel=parallel_config
+        )
+
+        # Run simulation
+        results = run_simulation(config, montages, logger=sim_logger)
+
+        # Log results
+        completed = sum(1 for r in results if r.get('status') == 'completed')
+        failed = sum(1 for r in results if r.get('status') == 'failed')
+        sim_logger.info(f"Simulation {sim_idx + 1} results: {completed} completed, {failed} failed")
+
+        return results
+
+    except Exception as e:
+        # Re-raise with simulation context
+        raise Exception(f"Simulation {sim_idx + 1} (subject {subject_id}) failed: {str(e)}")
+
 
 # =============================================================================
 # BATCH CONFIGURATION - EDIT THIS SECTION
@@ -103,17 +175,41 @@ SIMULATIONS = [
     #     ),
     # },
 
-    #     # Simulation 3: Subject2 - Different montage and intensity
-    # {
-    #     "subject": "subject2",
-    #     "montages": ["test"],
-    #     "intensity": IntensityConfig(
-    #         pair1=1.5,  # mA for electrode pair 1
-    #         pair2=2.5,  # mA for electrode pair 2
-    #         pair3=1.0,  # mA for electrode pair 3 (mTI mode)
-    #         pair4=1.0   # mA for electrode pair 4 (mTI mode)
-    #     ),
-    # },
+    #     # Simulation 2: Ernie - Higher intensity (different montage)
+    {
+        "subject": "ernie",
+        "montages": ["test"],
+        "intensity": IntensityConfig(
+            pair1=2.0,  # mA for electrode pair 1
+            pair2=2.0,  # mA for electrode pair 2
+            pair3=2.0,  # mA for electrode pair 3 (mTI mode)
+            pair4=2.0   # mA for electrode pair 4 (mTI mode)
+        ),
+    },
+
+    # Simulation 3: Subject2 - Different montage and intensity
+    {
+        "subject": "subject2",
+        "montages": ["test"],
+        "intensity": IntensityConfig(
+            pair1=1.5,  # mA for electrode pair 1
+            pair2=2.5,  # mA for electrode pair 2
+            pair3=1.0,  # mA for electrode pair 3 (mTI mode)
+            pair4=1.0   # mA for electrode pair 4 (mTI mode)
+        ),
+    },
+
+    # Simulation 4: Ernie - Another configuration
+    {
+        "subject": "ernie",
+        "montages": ["test"],
+        "intensity": IntensityConfig(
+            pair1=0.5,  # mA for electrode pair 1
+            pair2=1.0,  # mA for electrode pair 2
+            pair3=0.5,  # mA for electrode pair 3 (mTI mode)
+            pair4=1.0   # mA for electrode pair 4 (mTI mode)
+        ),
+    },
     
     # # Simulation 2: Ernie - Higher intensity
     # {
@@ -187,6 +283,13 @@ def run_batch(logger=None):
         # Auto-detect subjects from simulations
         subjects_to_process = sorted(list(simulations_by_subject.keys()))
 
+    # Check if we should run simulations in parallel
+    run_simulations_parallel = (
+        PARALLEL.enabled and
+        len(SIMULATIONS) > 1 and
+        PARALLEL.effective_workers > 1
+    )
+
     if logger:
         logger.info("Starting TI Batch Simulation")
         logger.debug(f"Project directory: {PROJECT_DIR}")
@@ -196,6 +299,10 @@ def run_batch(logger=None):
         logger.debug(f"Total simulations: {len(SIMULATIONS)}")
         logger.debug(f"Simulations by subject: {dict((k, len(v)) for k, v in simulations_by_subject.items())}")
         logger.debug(f"Parallel enabled: {PARALLEL.enabled} ({PARALLEL.effective_workers} workers)")
+        if run_simulations_parallel:
+            logger.info(f"Will run simulations in parallel with {PARALLEL.effective_workers} workers")
+        else:
+            logger.info("Will run simulations sequentially")
 
     print("=" * 60)
     print("TI BATCH SIMULATION")
@@ -203,7 +310,10 @@ def run_batch(logger=None):
     print(f"Project: {PROJECT_DIR}")
     print(f"Subjects: {subjects_to_process}")
     print(f"Simulations: {len(SIMULATIONS)}")
-    print(f"Parallel: {PARALLEL.enabled} ({PARALLEL.effective_workers} workers)")
+    if run_simulations_parallel:
+        print(f"Parallel: Simulation-level ({PARALLEL.effective_workers} workers)")
+    else:
+        print(f"Parallel: {PARALLEL.enabled} ({PARALLEL.effective_workers} workers)")
     print("=" * 60)
 
     # Initialize path manager
@@ -213,19 +323,65 @@ def run_batch(logger=None):
     all_results = []
     start_time = time.time()
 
-    for subject_id in subjects_to_process:
-        subject_simulations = simulations_by_subject.get(subject_id, [])
-        if not subject_simulations:
-            if logger:
-                logger.warning(f"No simulations configured for subject: {subject_id}")
-            continue
+    if run_simulations_parallel:
+        if logger:
+            logger.info(f"Running {len(SIMULATIONS)} simulations in parallel with {PARALLEL.effective_workers} workers")
 
-        print(f"\n>>> Processing subject: {subject_id} ({len(subject_simulations)} simulation(s))")
+        # Run simulations in parallel
+        with ProcessPoolExecutor(max_workers=PARALLEL.effective_workers) as executor:
+            # Submit all simulation tasks
+            future_to_sim = {}
+            for sim_idx, sim_config in enumerate(SIMULATIONS):
+                subject_id = sim_config["subject"]
 
-        for sim_idx, sim_config in enumerate(subject_simulations):
-            global_sim_idx = sum(len(simulations_by_subject[s]) for s in subjects_to_process[:subjects_to_process.index(subject_id)]) + sim_idx + 1
-            print(f"\n  Simulation {global_sim_idx}/{len(SIMULATIONS)} (subject {subject_id})")
-            
+                future = executor.submit(
+                    _process_single_simulation,
+                    sim_idx,
+                    sim_config,
+                    PROJECT_DIR,
+                    EEG_NET,
+                    CONDUCTIVITY,
+                    DEFAULT_ELECTRODE,
+                    PARALLEL
+                )
+                future_to_sim[future] = (sim_idx, subject_id)
+
+            # Collect results as they complete
+            for future in as_completed(future_to_sim):
+                sim_idx, subject_id = future_to_sim[future]
+                try:
+                    sim_results = future.result()
+
+                    # Add global simulation index to results for reporting
+                    for result in sim_results:
+                        result['_global_sim_idx'] = sim_idx + 1
+
+                    all_results.extend(sim_results)
+
+                    # Report simulation completion
+                    completed = sum(1 for r in sim_results if r.get('status') == 'completed')
+                    failed = sum(1 for r in sim_results if r.get('status') == 'failed')
+                    total = len(sim_results)
+                    montage_names = [r.get('montage_name', 'unknown') for r in sim_results]
+                    print(f"\n>>> Simulation {sim_idx + 1}/{len(SIMULATIONS)} (subject {subject_id}) complete: {completed}/{total} montages successful")
+                    if montage_names:
+                        print(f"    Montages: {', '.join(montage_names[:3])}{'...' if len(montage_names) > 3 else ''}")
+
+                except Exception as exc:
+                    print(f"\n>>> Simulation {sim_idx + 1} (subject {subject_id}) generated an exception: {exc}")
+                    if logger:
+                        logger.error(f"Simulation {sim_idx + 1} (subject {subject_id}) failed with exception: {exc}")
+
+    else:
+        # Run simulations sequentially
+        if logger and len(SIMULATIONS) > 1:
+            logger.info(f"Running {len(SIMULATIONS)} simulations sequentially")
+
+        for sim_idx, sim_config in enumerate(SIMULATIONS):
+            subject_id = sim_config["subject"]
+
+            print(f"\n>>> Simulation {sim_idx + 1}/{len(SIMULATIONS)} (subject {subject_id})")
+
             # Get montages
             montage_input = sim_config["montages"]
             if isinstance(montage_input[0], str):
@@ -239,10 +395,10 @@ def run_batch(logger=None):
             else:
                 # Already MontageConfig objects
                 montages = montage_input
-            
+
             print(f"  Montages: {[m.name for m in montages]}")
             print(f"  Intensity: {sim_config['intensity'].pair1} mA")
-            
+
             # Build config
             config = SimulationConfig(
                 subject_id=subject_id,
@@ -253,11 +409,16 @@ def run_batch(logger=None):
                 eeg_net=EEG_NET,
                 parallel=PARALLEL
             )
-            
+
             # Run simulation
             results = run_simulation(config, montages, logger=logger)
+
+            # Add global simulation index to results for reporting
+            for result in results:
+                result['_global_sim_idx'] = sim_idx + 1
+
             all_results.extend(results)
-            
+
             # Report
             completed = sum(1 for r in results if r.get('status') == 'completed')
             failed = sum(1 for r in results if r.get('status') == 'failed')
@@ -267,11 +428,20 @@ def run_batch(logger=None):
     elapsed = time.time() - start_time
     total_completed = sum(1 for r in all_results if r.get('status') == 'completed')
     total_failed = sum(1 for r in all_results if r.get('status') == 'failed')
-    
+
+    # Group results by simulation for better reporting
+    sim_results = {}
+    for result in all_results:
+        sim_idx = result.get('_global_sim_idx', 0)
+        if sim_idx not in sim_results:
+            sim_results[sim_idx] = []
+        sim_results[sim_idx].append(result)
+
     print("\n" + "=" * 60)
     print("BATCH COMPLETE")
     print("=" * 60)
-    print(f"Total simulations: {len(all_results)}")
+    print(f"Total simulations: {len(SIMULATIONS)}")
+    print(f"Total montages: {len(all_results)}")
     print(f"Completed: {total_completed}")
     print(f"Failed: {total_failed}")
     print(f"Time: {elapsed:.1f} seconds ({elapsed/60:.1f} minutes)")
@@ -300,9 +470,17 @@ Examples:
 
 Configuration Example:
     SIMULATIONS = [
+        # Different subjects, same montage
         {"subject": "ernie", "montages": ["montage1"], "intensity": IntensityConfig(pair1=1.0, pair2=1.0)},
-        {"subject": "ernie", "montages": ["montage2"], "intensity": IntensityConfig(pair1=2.0, pair2=2.0)},
-        {"subject": "subject2", "montages": ["montage3"], "intensity": IntensityConfig(pair1=1.5, pair2=1.5)}
+        {"subject": "subject2", "montages": ["montage1"], "intensity": IntensityConfig(pair1=1.0, pair2=1.0)},
+
+        # Same subject, different intensities
+        {"subject": "ernie", "montages": ["montage1"], "intensity": IntensityConfig(pair1=2.0, pair2=2.0)},
+        {"subject": "ernie", "montages": ["montage2"], "intensity": IntensityConfig(pair1=1.5, pair2=1.5)},
+
+        # Same subject, different montages
+        {"subject": "ernie", "montages": ["montage2"], "intensity": IntensityConfig(pair1=1.0, pair2=1.0)},
+        {"subject": "ernie", "montages": ["montage3"], "intensity": IntensityConfig(pair1=1.0, pair2=1.0)}
     ]
         """
     )
