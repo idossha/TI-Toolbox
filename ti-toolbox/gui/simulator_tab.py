@@ -3267,45 +3267,47 @@ class AddMontageDialog(QtWidgets.QDialog):
         try:
             self.electrode_list.clear()
             net_file = self.net_combo.currentText()
-            
+
+            if not net_file:
+                return
+
             # Get SimNIBS directory using path manager
             simnibs_dir = self.pm.get_simnibs_dir()
             if not simnibs_dir:
                 return
+
             subject_found = False
-            
+
             # Look through all subject directories
             for subject_dir in os.listdir(simnibs_dir):
                 if subject_dir.startswith('sub-'):
                     subject_id = subject_dir[4:]  # Remove 'sub-' prefix
                     m2m_dir = self.pm.get_m2m_dir(subject_id)
                     if m2m_dir and os.path.isdir(m2m_dir):
-                        eeg_file = os.path.join(m2m_dir, 'eeg_positions', net_file)
-                        if os.path.exists(eeg_file):
-                            subject_found = True
-                            # Read the CSV file
-                            with open(eeg_file, 'r') as f:
-                                lines = f.readlines()
-                                electrodes = []
-                                for line in lines:
-                                    parts = line.strip().split(',')
-                                    if len(parts) >= 5:  # Ensure we have enough columns
-                                        electrode_type = parts[0]
-                                        electrode_name = parts[4]
-                                        if electrode_type in ["Electrode", "ReferenceElectrode"]:
-                                            electrodes.append(electrode_name)
-                            
-                            # Sort electrodes alphabetically
-                            electrodes.sort()
-                            
-                            # Add to list widget
-                            for electrode in electrodes:
-                                self.electrode_list.addItem(electrode)
-                            break
-            
+                        # Use LeadfieldGenerator to get electrode names (handles both formats)
+                        try:
+                            from opt.leadfield import LeadfieldGenerator
+                            gen = LeadfieldGenerator(m2m_dir)
+
+                            # Clean net file name (remove .csv extension if present)
+                            clean_net_name = net_file.replace('.csv', '') if net_file.endswith('.csv') else net_file
+
+                            # Get electrodes using the fixed method
+                            electrodes = gen.get_electrode_names_from_cap(cap_name=clean_net_name)
+
+                            if electrodes:
+                                subject_found = True
+                                # Add to list widget (already sorted by get_electrode_names_from_cap)
+                                for electrode in electrodes:
+                                    self.electrode_list.addItem(electrode)
+                                break
+                        except (FileNotFoundError, ValueError):
+                            # Try next subject
+                            continue
+
             if not subject_found:
                 self.electrode_list.addItem("No electrode positions found")
-        
+
         except Exception as e:
             self.electrode_list.addItem(f"Error loading electrodes: {str(e)}")
     

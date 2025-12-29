@@ -1,7 +1,7 @@
 #!/usr/bin/env simnibs_python
 """
 Shared TI Field Calculation Utilities
-Used by both ex-search and MOVEA optimization tools
+Used by optimization tools
 """
 
 import numpy as np

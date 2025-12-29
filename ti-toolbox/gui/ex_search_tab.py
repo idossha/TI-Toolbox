@@ -264,12 +264,19 @@ class ExSearchThread(QtCore.QThread):
             # If input data is provided, send it to the process
             if self.input_data:
                 self.output_signal.emit("[DEBUG] Sending stdin to child process", 'debug')
-                for line in self.input_data:
-                    if self.terminated:
-                        break
-                    self.process.stdin.write(line + '\n')
+                # Send all input data at once as a single string
+                input_string = '\n'.join(self.input_data) + '\n'
+                try:
+                    self.process.stdin.write(input_string)
                     self.process.stdin.flush()
-                self.process.stdin.close()
+                except (BrokenPipeError, OSError):
+                    # Process may have exited or closed stdin
+                    pass
+                finally:
+                    try:
+                        self.process.stdin.close()
+                    except (BrokenPipeError, OSError):
+                        pass
             
             # Real-time output display with message type detection
             for line in iter(self.process.stdout.readline, ''):
@@ -567,12 +574,34 @@ class ExSearchTab(QtWidgets.QWidget):
             config_logger.info(f"ROI files: {', '.join(self.roi_processing_queue)}")
             
             # Electrode configuration
+            config_logger.info("")
             config_logger.info("Electrode Configuration:")
-            config_logger.info(f"  E1+ electrodes: {', '.join(self.e1_plus)}")
-            config_logger.info(f"  E1- electrodes: {', '.join(self.e1_minus)}")
-            config_logger.info(f"  E2+ electrodes: {', '.join(self.e2_plus)}")
-            config_logger.info(f"  E2- electrodes: {', '.join(self.e2_minus)}")
-            config_logger.info(f"  Total electrode combinations: {len(self.e1_plus)} per category")
+            config_logger.info("-" * 40)
+            if self.use_all_combinations:
+                config_logger.info(f"  Mode: All-Combinations (Exhaustive Search)")
+                config_logger.info(f"  Electrode Pool: {', '.join(self.e1_plus)}")
+                config_logger.info(f"  Total Electrodes: {len(self.e1_plus)}")
+
+                # Calculate valid combinations (4 unique electrodes)
+                from itertools import combinations
+                n_choose_4 = len(list(combinations(range(len(self.e1_plus)), 4)))
+                valid_combos = n_choose_4 * 24  # C(n,4) × 4!
+
+                config_logger.info(f"  Search Strategy: All valid 4-electrode assignments")
+                config_logger.info(f"  Constraint: Each electrode used at most once per montage")
+                config_logger.info(f"  Valid Combinations: {valid_combos:,} (C({len(self.e1_plus)},4) × 4!)")
+                config_logger.info(f"  Formula: Choose 4 from {len(self.e1_plus)}, then assign to positions")
+            else:
+                config_logger.info(f"  Mode: Bucketed (Group-Constrained Search)")
+                config_logger.info(f"  E1+ electrodes ({len(self.e1_plus)}): {', '.join(self.e1_plus)}")
+                config_logger.info(f"  E1- electrodes ({len(self.e1_minus)}): {', '.join(self.e1_minus)}")
+                config_logger.info(f"  E2+ electrodes ({len(self.e2_plus)}): {', '.join(self.e2_plus)}")
+                config_logger.info(f"  E2- electrodes ({len(self.e2_minus)}): {', '.join(self.e2_minus)}")
+
+                total_combos = len(self.e1_plus) * len(self.e1_minus) * len(self.e2_plus) * len(self.e2_minus)
+                config_logger.info(f"  Search Strategy: Cartesian product of groups")
+                config_logger.info(f"  Total Combinations: {total_combos:,}")
+                config_logger.info(f"  Formula: {len(self.e1_plus)} × {len(self.e1_minus)} × {len(self.e2_plus)} × {len(self.e2_minus)}")
             
             # Environment variables (important ones)
             config_logger.info("Key Environment Variables:")
@@ -594,8 +623,7 @@ class ExSearchTab(QtWidgets.QWidget):
             
             # Pipeline steps
             config_logger.info("Pipeline Steps:")
-            config_logger.info("  1. TI Simulation (ti_sim.py)")
-            config_logger.info("  2. ROI Analysis (ex_analyzer.py with integrated field analysis)")
+            config_logger.info("  1. TI Simulation & Analysis (main.py - integrated)")
             
             config_logger.info("="*80)
             
@@ -783,38 +811,37 @@ class ExSearchTab(QtWidgets.QWidget):
         # ============================================================
         electrode_container = QtWidgets.QGroupBox("Electrode Selection")
         electrode_container.setFixedHeight(180)  # Fixed height for balance
-        electrode_layout = QtWidgets.QFormLayout(electrode_container)
-        electrode_layout.setContentsMargins(10, 10, 10, 10)
-        electrode_layout.setSpacing(8)
-        
-        # Create input fields for each electrode category
-        self.e1_plus_input = QtWidgets.QLineEdit()
-        self.e1_minus_input = QtWidgets.QLineEdit()
-        self.e2_plus_input = QtWidgets.QLineEdit()
-        self.e2_minus_input = QtWidgets.QLineEdit()
-        
-        # Set fixed height for input fields
-        for input_field in [self.e1_plus_input, self.e1_minus_input, self.e2_plus_input, self.e2_minus_input]:
-            input_field.setFixedHeight(30)
-        
-        # Set placeholders
-        self.e1_plus_input.setPlaceholderText("E.g., O1, F7")
-        self.e1_minus_input.setPlaceholderText("E.g., Fp1, T7")
-        self.e2_plus_input.setPlaceholderText("E.g., T8, P4")
-        self.e2_minus_input.setPlaceholderText("E.g., Fz, Cz")
-        
-        # Add input fields to layout with labels
-        electrode_layout.addRow("E1+ electrodes:", self.e1_plus_input)
-        electrode_layout.addRow("E1- electrodes:", self.e1_minus_input)
-        electrode_layout.addRow("E2+ electrodes:", self.e2_plus_input)
-        electrode_layout.addRow("E2- electrodes:", self.e2_minus_input)
-        
-        # Add help text
-        help_label = QtWidgets.QLabel("Enter electrode names separated by commas. All categories must have the same number of electrodes.")
-        help_label.setWordWrap(True)
-        help_label.setStyleSheet("color: #666; font-size: 11px; padding: 5px;")
-        electrode_layout.addRow(help_label)
-        
+        electrode_main_layout = QtWidgets.QVBoxLayout(electrode_container)
+        electrode_main_layout.setContentsMargins(10, 10, 10, 10)
+        electrode_main_layout.setSpacing(8)
+
+        # Radio buttons for mode selection
+        radio_layout = QtWidgets.QHBoxLayout()
+        self.rb_bucketed = QtWidgets.QRadioButton("Bucketed Mode")
+        self.rb_bucketed.setToolTip("Search electrode combinations within separate E1+/-, E2+/- groups")
+        self.rb_all_combinations = QtWidgets.QRadioButton("All Combinations Mode")
+        self.rb_all_combinations.setToolTip("Search all possible electrode assignments (any electrode can be in any position)")
+        self.rb_bucketed.setChecked(True)  # Default to bucketed mode
+
+        radio_layout.addWidget(self.rb_bucketed)
+        radio_layout.addSpacing(12)
+        radio_layout.addWidget(self.rb_all_combinations)
+        radio_layout.addStretch()
+        electrode_main_layout.addLayout(radio_layout)
+
+        # Stacked widget to hold different electrode input panels
+        self.electrode_stack = QtWidgets.QStackedWidget()
+        electrode_main_layout.addWidget(self.electrode_stack)
+
+        # Build the two panels
+        self._build_bucketed_panel()
+        self._build_all_combinations_panel()
+
+        # Connect radio buttons to mode switching
+        self.rb_bucketed.toggled.connect(lambda v: self._on_electrode_mode_changed())
+        self.rb_all_combinations.toggled.connect(lambda v: self._on_electrode_mode_changed())
+        self._on_electrode_mode_changed()  # Initialize to correct panel
+
         # Add electrode container to grid - Row 0, Column 1
         main_grid_layout.addWidget(electrode_container, 0, 1)
         
@@ -1010,13 +1037,68 @@ class ExSearchTab(QtWidgets.QWidget):
         
         # Connect the debug checkbox to set_debug_mode method
         self.console_widget.debug_checkbox.toggled.connect(self.set_debug_mode)
-        
+
         # Reference to underlying console for backward compatibility
         self.console_output = self.console_widget.get_console_widget()
-        
+
         # After self.subject_combo is created and added:
         self.subject_combo.currentTextChanged.connect(self.on_subject_selection_changed)
-    
+
+    def _build_bucketed_panel(self):
+        """Build the bucketed mode electrode input panel (original mode)."""
+        panel = QtWidgets.QWidget()
+        layout = QtWidgets.QFormLayout(panel)
+        layout.setContentsMargins(5, 5, 5, 5)
+        layout.setSpacing(8)
+
+        # Create input fields for each electrode category
+        self.e1_plus_input = QtWidgets.QLineEdit()
+        self.e1_minus_input = QtWidgets.QLineEdit()
+        self.e2_plus_input = QtWidgets.QLineEdit()
+        self.e2_minus_input = QtWidgets.QLineEdit()
+
+        # Set fixed height, placeholders, and tooltips
+        for input_field in [self.e1_plus_input, self.e1_minus_input, self.e2_plus_input, self.e2_minus_input]:
+            input_field.setFixedHeight(30)
+
+        self.e1_plus_input.setPlaceholderText("E.g., O1, F7")
+        self.e1_plus_input.setToolTip("Electrodes for Channel 1 positive pole (anodes)")
+        self.e1_minus_input.setPlaceholderText("E.g., Fp1, T7")
+        self.e1_minus_input.setToolTip("Electrodes for Channel 1 negative pole (cathodes)")
+        self.e2_plus_input.setPlaceholderText("E.g., T8, P4")
+        self.e2_plus_input.setToolTip("Electrodes for Channel 2 positive pole (anodes)")
+        self.e2_minus_input.setPlaceholderText("E.g., Fz, Cz")
+        self.e2_minus_input.setToolTip("Electrodes for Channel 2 negative pole (cathodes)")
+
+        # Add input fields to layout with labels
+        layout.addRow("E1+ electrodes:", self.e1_plus_input)
+        layout.addRow("E1- electrodes:", self.e1_minus_input)
+        layout.addRow("E2+ electrodes:", self.e2_plus_input)
+        layout.addRow("E2- electrodes:", self.e2_minus_input)
+
+        self.electrode_stack.addWidget(panel)
+
+    def _build_all_combinations_panel(self):
+        """Build the all-combinations mode electrode input panel (new mode)."""
+        panel = QtWidgets.QWidget()
+        layout = QtWidgets.QFormLayout(panel)
+        layout.setContentsMargins(5, 5, 5, 5)
+        layout.setSpacing(8)
+
+        # Create single input field for all electrodes
+        self.all_electrodes_input = QtWidgets.QLineEdit()
+
+        layout.addRow("All electrodes:", self.all_electrodes_input)
+
+        self.electrode_stack.addWidget(panel)
+
+    def _on_electrode_mode_changed(self):
+        """Switch between bucketed and all-combinations electrode input panels."""
+        if self.rb_bucketed.isChecked():
+            self.electrode_stack.setCurrentIndex(0)  # Bucketed panel
+        elif self.rb_all_combinations.isChecked():
+            self.electrode_stack.setCurrentIndex(1)  # All combinations panel
+
     def initial_setup(self):
         """Initial setup when the tab is first loaded."""
         self.list_subjects()
@@ -1434,19 +1516,30 @@ class ExSearchTab(QtWidgets.QWidget):
             self.update_status("Please select at least one ROI from the list", error=True)
             return False
             
-        # Validate electrode inputs
-        e1_plus = self.parse_electrode_input(self.e1_plus_input.text())
-        e1_minus = self.parse_electrode_input(self.e1_minus_input.text())
-        e2_plus = self.parse_electrode_input(self.e2_plus_input.text())
-        e2_minus = self.parse_electrode_input(self.e2_minus_input.text())
-        
-        if not all([e1_plus, e1_minus, e2_plus, e2_minus]):
-            self.update_status("Please enter valid electrode names for all categories", error=True)
-            return False
-            
-        if not (len(e1_plus) == len(e1_minus) == len(e2_plus) == len(e2_minus)):
-            self.update_status("All electrode categories must have the same number of electrodes", error=True)
-            return False
+        # Validate electrode inputs based on mode
+        if self.rb_all_combinations.isChecked():
+            # All-combinations mode: validate single electrode list
+            all_electrodes = self.parse_electrode_input(self.all_electrodes_input.text())
+            if not all_electrodes:
+                self.update_status("Please enter valid electrode names", error=True)
+                return False
+            if len(all_electrodes) < 4:
+                self.update_status("At least 4 electrodes are required for all-combinations mode", error=True)
+                return False
+        else:
+            # Bucketed mode: validate four electrode categories
+            e1_plus = self.parse_electrode_input(self.e1_plus_input.text())
+            e1_minus = self.parse_electrode_input(self.e1_minus_input.text())
+            e2_plus = self.parse_electrode_input(self.e2_plus_input.text())
+            e2_minus = self.parse_electrode_input(self.e2_minus_input.text())
+
+            if not all([e1_plus, e1_minus, e2_plus, e2_minus]):
+                self.update_status("Please enter valid electrode names for all categories", error=True)
+                return False
+
+            if not (len(e1_plus) == len(e1_minus) == len(e2_plus) == len(e2_minus)):
+                self.update_status("All electrode categories must have the same number of electrodes", error=True)
+                return False
             
         return True
     
@@ -1459,12 +1552,55 @@ class ExSearchTab(QtWidgets.QWidget):
         project_dir = self.pm.project_dir if hasattr(self, 'pm') else get_path_manager().project_dir
         pm = self.pm if hasattr(self, 'pm') else get_path_manager()
         ex_search_dir = pm.get_ex_search_dir(subject_id)
-        
-        # Show confirmation dialog
+
+        # Get electrode configurations based on mode (needed for confirmation dialog)
+        if self.rb_all_combinations.isChecked():
+            # All-combinations mode: all electrodes available for any position
+            all_electrodes = self.parse_electrode_input(self.all_electrodes_input.text())
+
+            # Validate uniqueness
+            if len(all_electrodes) != len(set(all_electrodes)):
+                self.update_status("Error: Duplicate electrodes found. Each electrode must be unique.", error=True)
+                return
+
+            # Pass same electrode pool to all positions (backend will handle combinations)
+            # The main.py script uses --all-combinations flag to generate all valid
+            # 4-electrode assignments from this pool
+            e1_plus = e1_minus = e2_plus = e2_minus = all_electrodes
+            self.use_all_combinations = True
+        else:
+            # Bucketed mode: separate electrode groups for each position
+            e1_plus = self.parse_electrode_input(self.e1_plus_input.text())
+            e1_minus = self.parse_electrode_input(self.e1_minus_input.text())
+            e2_plus = self.parse_electrode_input(self.e2_plus_input.text())
+            e2_minus = self.parse_electrode_input(self.e2_minus_input.text())
+            self.use_all_combinations = False
+
+        # Show confirmation dialog with mode and electrode information
         selected_rois = self.roi_list.selectedItems()
         roi_names = [item.text().split(':')[0].strip() for item in selected_rois]
-        details = f"Subject: {subject_id}\nROIs: {', '.join(roi_names)}\nNumber of ROIs: {len(roi_names)}"
-        
+
+        # Build configuration details
+        if self.use_all_combinations:
+            mode_str = "All-Combinations Mode"
+            electrode_info = f"Electrode Pool: {', '.join(e1_plus[:8])}{'...' if len(e1_plus) > 8 else ''}\n"
+            electrode_info += f"Total Electrodes: {len(e1_plus)}\n"
+            from itertools import combinations
+            n_combos = len(list(combinations(range(len(e1_plus)), 4))) * 24  # C(n,4) * 4!
+            electrode_info += f"Search Space: ~{n_combos:,} unique 4-electrode combinations"
+        else:
+            mode_str = "Bucketed Mode"
+            electrode_info = f"E1+: {len(e1_plus)} electrodes, E1-: {len(e1_minus)}\n"
+            electrode_info += f"E2+: {len(e2_plus)} electrodes, E2-: {len(e2_minus)}\n"
+            n_combos = len(e1_plus) * len(e1_minus) * len(e2_plus) * len(e2_minus)
+            electrode_info += f"Search Space: {n_combos:,} electrode combinations"
+
+        details = (f"Subject: {subject_id}\n"
+                  f"Mode: {mode_str}\n"
+                  f"{electrode_info}\n"
+                  f"ROIs: {', '.join(roi_names)}\n"
+                  f"Total ROIs: {len(roi_names)}")
+
         if not ConfirmationDialog.confirm(
             self,
             title="Confirm Ex-Search Optimization",
@@ -1475,12 +1611,6 @@ class ExSearchTab(QtWidgets.QWidget):
         
         # Create ex_search directory if it doesn't exist
         os.makedirs(ex_search_dir, exist_ok=True)
-        
-        # Get electrode configurations
-        e1_plus = self.parse_electrode_input(self.e1_plus_input.text())
-        e1_minus = self.parse_electrode_input(self.e1_minus_input.text())
-        e2_plus = self.parse_electrode_input(self.e2_plus_input.text())
-        e2_minus = self.parse_electrode_input(self.e2_minus_input.text())
         
         # Get selected ROI(s)
         selected_rois = self.roi_list.selectedItems()
@@ -1590,6 +1720,19 @@ class ExSearchTab(QtWidgets.QWidget):
         env["TOTAL_CURRENT"] = str(self.total_current_spinbox.value())  # Total current from UI
         env["CURRENT_STEP"] = str(self.current_step_spinbox.value())    # Current step from UI
         env["CHANNEL_LIMIT"] = str(self.channel_limit_spinbox.value())  # Channel limit from UI
+
+        # Set electrode environment variables (space-separated)
+        if self.e1_plus:
+            env["E1_PLUS"] = ' '.join(self.e1_plus)
+        if self.e1_minus:
+            env["E1_MINUS"] = ' '.join(self.e1_minus)
+        if self.e2_plus:
+            env["E2_PLUS"] = ' '.join(self.e2_plus)
+        if self.e2_minus:
+            env["E2_MINUS"] = ' '.join(self.e2_minus)
+
+        # Set all combinations mode
+        env["ALL_COMBINATIONS"] = '1' if self.use_all_combinations else '0'
         
         # Create shared log file for the entire ex-search pipeline (only on first ROI)
         if self.current_roi_index == 0:
@@ -1612,7 +1755,7 @@ class ExSearchTab(QtWidgets.QWidget):
         
         if self.debug_mode:
             self.update_output(f"ROI coordinates: {x}, {y}, {z}")
-            self.update_output(f"[DEBUG] Step 1 command: simnibs_python {os.path.join(ex_search_scripts_dir, 'ti_sim.py')}", 'debug')
+            self.update_output(f"[DEBUG] Step 1 command: simnibs_python {os.path.join(ex_search_scripts_dir, 'main.py')}", 'debug')
             self.update_output(f"[DEBUG] Env highlights: {{'LEADFIELD_HDF': env.get('LEADFIELD_HDF'), 'SELECTED_EEG_NET': env.get('SELECTED_EEG_NET'), 'TI_LOG_FILE': env.get('TI_LOG_FILE'), 'ROI_NAME': env.get('ROI_NAME')}}", 'debug')
         
         # Log ROI-specific configuration
@@ -1641,8 +1784,8 @@ class ExSearchTab(QtWidgets.QWidget):
         self.log_step_start("TI simulation")
         if self.debug_mode:
             self.update_output("Step 1: Running TI simulation...")
-        ti_sim_script = os.path.join(ex_search_scripts_dir, "ti_sim.py")
-        
+        ti_sim_script = os.path.join(ex_search_scripts_dir, "main.py")
+
         # Prepare input data for the script
         input_data = [
             " ".join(self.e1_plus),
@@ -1653,9 +1796,11 @@ class ExSearchTab(QtWidgets.QWidget):
             str(self.current_step_spinbox.value()),   # Current step
             str(self.channel_limit_spinbox.value())   # Channel limit
         ]
-        
-        # Command to run ti_sim.py
+
+        # Command to run main.py
         cmd = ["simnibs_python", ti_sim_script]
+        if self.use_all_combinations:
+            cmd.append("--all-combinations")
         
         # Create and start thread for step 1
         self.optimization_process = ExSearchThread(cmd, env)
@@ -1674,9 +1819,9 @@ class ExSearchTab(QtWidgets.QWidget):
         """Handle completion of TI simulation step."""
         # Log step completion
         self.log_step_complete("TI simulation", success=True)
-        
-        # Continue to ROI analysis
-        self.run_current_roi_analysis(subject_id, project_dir, ex_search_dir, env)
+
+        # Analysis is now integrated into main.py, so go directly to completion
+        self.current_roi_completed(subject_id, project_dir, ex_search_dir, env)
     
     def run_current_roi_analysis(self, subject_id, project_dir, ex_search_dir, env):
         """Run ROI analysis for the current ROI."""
@@ -1761,8 +1906,7 @@ class ExSearchTab(QtWidgets.QWidget):
     def run_current_roi_mesh_processing(self, subject_id, project_dir, ex_search_dir, env):
         """Handle completion of mesh processing (integrated into ROI analysis).
         
-        Note: Step 3 (mesh_field_analyzer.py) has been integrated into Step 2 (ex_analyzer.py).
-        The new ex_analyzer.py uses the unified analyzer module which handles all field analysis.
+        Note: Analysis is now fully integrated into main.py.
         This method now just logs completion and moves to the next ROI.
         """
         current_roi = self.roi_processing_queue[self.current_roi_index]
@@ -1968,6 +2112,9 @@ class ExSearchTab(QtWidgets.QWidget):
         self.e1_minus_input.setEnabled(False)
         self.e2_plus_input.setEnabled(False)
         self.e2_minus_input.setEnabled(False)
+        self.all_electrodes_input.setEnabled(False)
+        self.rb_bucketed.setEnabled(False)
+        self.rb_all_combinations.setEnabled(False)
         self.total_current_spinbox.setEnabled(False)
         self.current_step_spinbox.setEnabled(False)
         self.channel_limit_spinbox.setEnabled(False)
@@ -2003,6 +2150,9 @@ class ExSearchTab(QtWidgets.QWidget):
         self.e1_minus_input.setEnabled(True)
         self.e2_plus_input.setEnabled(True)
         self.e2_minus_input.setEnabled(True)
+        self.all_electrodes_input.setEnabled(True)
+        self.rb_bucketed.setEnabled(True)
+        self.rb_all_combinations.setEnabled(True)
         self.total_current_spinbox.setEnabled(True)
         self.current_step_spinbox.setEnabled(True)
         self.channel_limit_spinbox.setEnabled(True)

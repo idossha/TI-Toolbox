@@ -67,7 +67,7 @@ if console_widget.is_debug_mode():
 
 ## Implementation Status
 
-✅ **ConsoleWidget** - Implemented and integrated into MOVEA tab
+✅ **ConsoleWidget** - Implemented and integrated into tabs
 ⏸️  Other tabs (Simulator, Ex-Search, Flex-Search, Analyzer, etc.) - Ready to migrate when requested
 
 ## Benefits

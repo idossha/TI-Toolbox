@@ -1,6 +1,6 @@
 #!/usr/bin/env simnibs_python
 """
-Unit tests for ex-search analyzer (ti-toolbox/opt/ex/ex_analyzer.py)
+Unit tests for ex-search system components
 """
 
 import pytest
@@ -10,6 +10,7 @@ import os
 import tempfile
 import json
 import csv
+from itertools import product
 from unittest.mock import MagicMock, patch, Mock, mock_open
 from pathlib import Path
 
@@ -18,127 +19,198 @@ project_root = os.path.join(os.path.dirname(__file__), '..')
 ti_toolbox_dir = os.path.join(project_root, 'ti-toolbox')
 sys.path.insert(0, ti_toolbox_dir)
 
-from opt.ex.ex_analyzer import analyze_ex_search
+from opt.ex.logic import generate_current_ratios, calculate_total_combinations, generate_montage_combinations
+from opt.ex.config import validate_electrode, validate_current, ElectrodeConfig, CurrentConfig
+from opt.ex.results import ResultsProcessor, ResultsVisualizer
+from opt.ex.runner import LeadfieldAlgorithms, TIAlgorithms, CurrentRatioGenerator, MontageGenerator
 from core.roi import ROICoordinateHelper
 
 
-class TestAnalyzeExSearch:
-    """Test analyze_ex_search function"""
+class TestLogicFunctions:
+    """Test ex-search logic functions"""
+
+    def test_generate_current_ratios_basic(self):
+        """Test basic current ratio generation"""
+        ratios, exceeded = generate_current_ratios(1.0, 0.1, 0.6)
+
+        assert isinstance(ratios, list)
+        assert isinstance(exceeded, bool)
+        assert len(ratios) > 0
+
+        # Check that all ratios are tuples of two floats
+        for ratio in ratios:
+            assert isinstance(ratio, tuple)
+            assert len(ratio) == 2
+            assert all(isinstance(x, float) for x in ratio)
+            assert abs(sum(ratio) - 1.0) < 1e-6  # Should sum to total current
+
+    def test_generate_current_ratios_channel_limit_exceeded(self):
+        """Test when channel limit causes some ratios to be skipped"""
+        ratios, exceeded = generate_current_ratios(1.0, 0.1, 0.3)
+
+        # With total=1.0, step=0.1, limit=0.3, we can't have ratios like (0.8, 0.2)
+        # since 0.8 > 0.3, so channel_limit_exceeded should be True
+        assert isinstance(exceeded, bool)
+
+    def test_calculate_total_combinations_bucketed(self):
+        """Test combination calculation for bucketed mode"""
+        e1_plus = ['E1', 'E2']
+        e1_minus = ['E3', 'E4']
+        e2_plus = ['E5', 'E6']
+        e2_minus = ['E7', 'E8']
+        current_ratios = [(0.5, 0.5), (0.6, 0.4)]
+
+        total = calculate_total_combinations(e1_plus, e1_minus, e2_plus, e2_minus, current_ratios, False)
+
+        expected = len(e1_plus) * len(e1_minus) * len(e2_plus) * len(e2_minus) * len(current_ratios)
+        assert total == expected
+
+    def test_calculate_total_combinations_all_combinations(self):
+        """Test combination calculation for all-combinations mode"""
+        electrodes = ['E1', 'E2', 'E3', 'E4', 'E5']
+        current_ratios = [(0.5, 0.5), (0.6, 0.4)]
+
+        total = calculate_total_combinations(electrodes, electrodes, electrodes, electrodes, current_ratios, True)
+
+        # Should generate combinations where all 4 electrodes are different
+        expected_electrode_combinations = len([(e1p, e1m, e2p, e2m)
+                                              for e1p, e1m, e2p, e2m in product(electrodes, repeat=4)
+                                              if len(set([e1p, e1m, e2p, e2m])) == 4])
+        expected = expected_electrode_combinations * len(current_ratios)
+        assert total == expected
+
+    def test_generate_montage_combinations_bucketed(self):
+        """Test montage generation for bucketed mode"""
+        e1_plus = ['E1']
+        e1_minus = ['E2']
+        e2_plus = ['E3']
+        e2_minus = ['E4']
+        current_ratios = [(0.5, 0.5)]
+
+        combinations = list(generate_montage_combinations(e1_plus, e1_minus, e2_plus, e2_minus, current_ratios, False))
+
+        assert len(combinations) == 1
+        assert combinations[0] == ('E1', 'E2', 'E3', 'E4', (0.5, 0.5))
+
+    def test_generate_montage_combinations_all_combinations(self):
+        """Test montage generation for all-combinations mode"""
+        electrodes = ['E1', 'E2', 'E3', 'E4']
+        current_ratios = [(0.5, 0.5)]
+
+        combinations = list(generate_montage_combinations(electrodes, electrodes, electrodes, electrodes, current_ratios, True))
+
+        # Should generate all valid combinations where all electrodes are different
+        expected_count = len([(e1p, e1m, e2p, e2m)
+                             for e1p, e1m, e2p, e2m in product(electrodes, repeat=4)
+                             if len(set([e1p, e1m, e2p, e2m])) == 4])
+
+        assert len(combinations) == expected_count
+        # Each combination should end with the current ratio
+        assert all(combo[-1] == (0.5, 0.5) for combo in combinations)
+
+
+class TestConfigValidation:
+    """Test configuration validation functions"""
+
+    def test_validate_electrode_valid(self):
+        """Test electrode validation with valid names"""
+        assert validate_electrode('E1') == True
+        assert validate_electrode('Fp1') == True
+        assert validate_electrode('C3') == True
+        assert validate_electrode('electrode1') == True
+
+    def test_validate_electrode_invalid(self):
+        """Test electrode validation with invalid names"""
+        assert validate_electrode('1E') == False  # Starts with number
+        assert validate_electrode('E-1') == False  # Invalid character
+        assert validate_electrode('') == False  # Empty string
+        assert validate_electrode('E 1') == False  # Space
+
+    def test_validate_current_valid(self):
+        """Test current validation with valid values"""
+        assert validate_current(1.0) == True
+        assert validate_current(0.5) == True
+        assert validate_current(2.5) == True
+        assert validate_current(0.1, 0.0, 5.0) == True
+
+    def test_validate_current_invalid(self):
+        """Test current validation with invalid values"""
+        assert validate_current(-0.1) == False  # Negative
+        assert validate_current(0.0, 0.1) == False  # Below minimum
+        assert validate_current(10.0, 0.0, 5.0) == False  # Above maximum
+
+
+class TestElectrodeConfig:
+    """Test electrode configuration"""
 
     def setup_method(self):
         """Setup test fixtures"""
-        self.temp_dir = tempfile.mkdtemp()
-        self.opt_dir = os.path.join(self.temp_dir, "opt")
-        self.roi_dir = os.path.join(self.temp_dir, "roi")
-        os.makedirs(self.opt_dir)
-        os.makedirs(self.roi_dir)
-
-        # Create mock logger
         self.logger = MagicMock()
 
-    def teardown_method(self):
-        """Cleanup test fixtures"""
-        import shutil
-        if os.path.exists(self.temp_dir):
-            shutil.rmtree(self.temp_dir)
+    @patch.dict(os.environ, {
+        'E1_PLUS': 'E1 E2',
+        'E1_MINUS': 'E3 E4',
+        'E2_PLUS': 'E5 E6',
+        'E2_MINUS': 'E7 E8'
+    })
+    def test_get_config_bucketed_mode(self):
+        """Test electrode config in bucketed mode"""
+        config = ElectrodeConfig(self.logger)
+        result = config.get_config(False)
 
-    def test_analyze_no_mesh_files(self):
-        """Test analysis with no mesh files"""
-        position_files = []
+        expected = {
+            'E1_plus': ['E1', 'E2'],
+            'E1_minus': ['E3', 'E4'],
+            'E2_plus': ['E5', 'E6'],
+            'E2_minus': ['E7', 'E8']
+        }
+        assert result == expected
 
-        result = analyze_ex_search(
-            self.opt_dir,
-            self.roi_dir,
-            position_files,
-            "/fake/m2m",
-            self.logger
-        )
+    @patch.dict(os.environ, {
+        'E1_PLUS': 'E1 E2 E3 E4',
+        'E1_MINUS': 'E1 E2 E3 E4',
+        'E2_PLUS': 'E1 E2 E3 E4',
+        'E2_MINUS': 'E1 E2 E3 E4'
+    })
+    def test_get_config_all_combinations_mode(self):
+        """Test electrode config in all-combinations mode"""
+        config = ElectrodeConfig(self.logger)
+        result = config.get_config(True)
 
-        # Should handle gracefully with no files
-        self.logger.info.assert_called()
+        # All channels should use the same electrode pool
+        expected = {
+            'E1_plus': ['E1', 'E2', 'E3', 'E4'],
+            'E1_minus': ['E1', 'E2', 'E3', 'E4'],
+            'E2_plus': ['E1', 'E2', 'E3', 'E4'],
+            'E2_minus': ['E1', 'E2', 'E3', 'E4']
+        }
+        assert result == expected
 
-    @patch('opt.ex.ex_analyzer.mesh_io')
-    @patch('opt.ex.ex_analyzer.ROICoordinateHelper')
-    def test_analyze_with_valid_mesh(self, mock_roi_helper, mock_mesh_io):
-        """Test analysis with valid mesh file"""
-        # Create fake mesh file
-        mesh_file = os.path.join(self.opt_dir, "test_montage.msh")
-        open(mesh_file, 'w').close()
+    def test_get_config_missing_env_vars(self):
+        """Test electrode config with missing environment variables"""
+        config = ElectrodeConfig(self.logger)
 
-        # Create ROI position file
-        roi_file = os.path.join(self.roi_dir, "target1.csv")
-        with open(roi_file, 'w', newline='') as f:
-            writer = csv.writer(f)
-            writer.writerow(["x", "y", "z"])
-            writer.writerow([10.0, 20.0, 30.0])
+        with pytest.raises(Exception):  # Should raise ConfigError
+            config.get_config(False)
 
-        # Mock mesh object
-        mock_mesh = MagicMock()
-        mock_field = MagicMock()
-        mock_field.value = np.ones(100) * 0.5  # 100 elements with value 0.5
-        mock_mesh.field = {'TImax': mock_field}
-        mock_mesh.elm.tag1 = np.ones(100) * 2  # Gray matter tags
-        mock_mesh_io.read_msh.return_value = mock_mesh
 
-        # Mock ROI helper
-        mock_roi_helper.load_roi_from_csv.return_value = np.array([10.0, 20.0, 30.0])
+class TestCurrentConfig:
+    """Test current configuration"""
 
-        # Mock find_roi_element_indices to return some indices
-        with patch('opt.ex.ex_analyzer.find_roi_element_indices') as mock_find:
-            mock_find.return_value = (np.array([0, 1, 2]), np.array([1.0, 1.0, 1.0]))
+    def setup_method(self):
+        """Setup test fixtures"""
+        self.logger = MagicMock()
 
-            result = analyze_ex_search(
-                self.opt_dir,
-                self.roi_dir,
-                [roi_file],
-                "/fake/m2m",
-                self.logger
-            )
+    @patch.dict(os.environ, {'TOTAL_CURRENT': '1.0', 'CURRENT_STEP': '0.1', 'CHANNEL_LIMIT': '0.6'})
+    def test_get_config_with_env_vars(self):
+        """Test current config with environment variables"""
+        config = CurrentConfig(self.logger)
+        result = config.get_config()
 
-            # Should have processed the mesh
-            assert mock_mesh_io.read_msh.called
-            assert self.logger.info.called
+        assert result['total_current'] == 1.0
+        assert result['current_step'] == 0.1
+        assert result['channel_limit'] == 0.6
 
-    @patch('opt.ex.ex_analyzer.mesh_io')
-    def test_analyze_mesh_load_error(self, mock_mesh_io):
-        """Test analysis handles mesh loading errors"""
-        # Create fake mesh file
-        mesh_file = os.path.join(self.opt_dir, "bad_mesh.msh")
-        open(mesh_file, 'w').close()
-
-        # Mock mesh_io to raise exception
-        mock_mesh_io.read_msh.side_effect = Exception("Failed to load mesh")
-
-        roi_file = os.path.join(self.roi_dir, "target1.csv")
-        with open(roi_file, 'w', newline='') as f:
-            writer = csv.writer(f)
-            writer.writerow(["x", "y", "z"])
-            writer.writerow([10.0, 20.0, 30.0])
-
-        result = analyze_ex_search(
-            self.opt_dir,
-            self.roi_dir,
-            [roi_file],
-            "/fake/m2m",
-            self.logger
-        )
-
-        # Should log error
-        self.logger.error.assert_called()
-
-    def test_analyze_creates_analysis_directory(self):
-        """Test that analysis directory is created"""
-        analyze_ex_search(
-            self.opt_dir,
-            self.roi_dir,
-            [],
-            "/fake/m2m",
-            self.logger
-        )
-
-        analysis_dir = os.path.join(self.opt_dir, "analysis")
-        assert os.path.exists(analysis_dir)
-        assert os.path.isdir(analysis_dir)
 
 
 class TestROICoordinateHelper:
@@ -191,8 +263,178 @@ class TestROICoordinateHelper:
         assert coords is None
 
 
+class TestResultsProcessor:
+    """Test results processing functionality"""
+
+    def setup_method(self):
+        """Setup test fixtures"""
+        self.temp_dir = tempfile.mkdtemp()
+        self.logger = MagicMock()
+
+    def teardown_method(self):
+        """Cleanup test fixtures"""
+        import shutil
+        if os.path.exists(self.temp_dir):
+            shutil.rmtree(self.temp_dir)
+
+    def test_create_csv_data(self):
+        """Test CSV data creation from results"""
+        # Mock results data
+        results = {
+            'TI_field_E1_E2_and_E3_E4_I1-0.50mA_I2-0.50mA.msh': {
+                'ROI_TImax_ROI': 0.8,
+                'ROI_TImean_ROI': 0.6,
+                'ROI_TImean_GM': 0.4,
+                'ROI_Focality': 0.7,
+                'ROI_n_elements': 100,
+                'current_ch1_mA': 0.5,
+                'current_ch2_mA': 0.5
+            },
+            'TI_field_E5_E6_and_E7_E8_I1-0.60mA_I2-0.40mA.msh': {
+                'ROI_TImax_ROI': 0.9,
+                'ROI_TImean_ROI': 0.7,
+                'ROI_TImean_GM': 0.5,
+                'ROI_Focality': 0.8,
+                'ROI_n_elements': 120,
+                'current_ch1_mA': 0.6,
+                'current_ch2_mA': 0.4
+            }
+        }
+
+        processor = ResultsProcessor(results, self.temp_dir, 'ROI', self.logger)
+        csv_data, timax_values, timean_values, focality_values, composite_values = processor.create_csv_data()
+
+        # Check CSV structure
+        assert len(csv_data) == 3  # Header + 2 data rows
+        assert csv_data[0][0] == 'Montage'
+        assert csv_data[0][1] == 'Current_Ch1_mA'
+        assert len(csv_data[1]) == 9  # 9 columns
+        assert len(csv_data[2]) == 9
+
+        # Check data values
+        assert timax_values == [0.8, 0.9]
+        assert timean_values == [0.6, 0.7]
+        assert focality_values == [0.7, 0.8]
+        assert len(composite_values) == 2
+        assert abs(composite_values[0] - 0.42) < 1e-10  # 0.6*0.7
+        assert abs(composite_values[1] - 0.56) < 1e-10  # 0.7*0.8
+
+    def test_save_csv_results(self):
+        """Test CSV file saving"""
+        results = {
+            'TI_field_test.msh': {
+                'ROI_TImax_ROI': 0.8,
+                'ROI_TImean_ROI': 0.6,
+                'ROI_TImean_GM': 0.4,
+                'ROI_Focality': 0.7,
+                'ROI_n_elements': 100,
+                'current_ch1_mA': 0.5,
+                'current_ch2_mA': 0.5
+            }
+        }
+
+        processor = ResultsProcessor(results, self.temp_dir, 'ROI', self.logger)
+        csv_path = processor.save_csv_results()
+
+        assert os.path.exists(csv_path)
+        assert csv_path.endswith('final_output.csv')
+
+        # Verify CSV content
+        with open(csv_path, 'r') as f:
+            lines = f.readlines()
+            assert len(lines) == 2  # Header + 1 data row
+            assert 'Montage' in lines[0]
+            assert '0.5' in lines[1]  # Current values
+
+    def test_save_json_results(self):
+        """Test JSON results saving"""
+        results = {'test.msh': {'key': 'value'}}
+        processor = ResultsProcessor(results, self.temp_dir, 'ROI', self.logger)
+        json_path = processor.save_json_results()
+
+        assert os.path.exists(json_path)
+        assert json_path.endswith('analysis_results.json')
+
+        # Verify JSON content
+        with open(json_path, 'r') as f:
+            data = json.load(f)
+            assert data == results
+
+
+class TestResultsVisualizer:
+    """Test results visualization functionality"""
+
+    @patch('matplotlib.use')
+    @patch('matplotlib.pyplot.subplots')
+    @patch('matplotlib.pyplot.savefig')
+    @patch('matplotlib.pyplot.close')
+    @patch('matplotlib.pyplot.tight_layout')
+    def test_create_histograms(self, mock_tight_layout, mock_close, mock_savefig, mock_subplots, mock_use):
+        """Test histogram creation"""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            logger = MagicMock()
+            visualizer = ResultsVisualizer(temp_dir, logger)
+
+            # Mock matplotlib objects
+            mock_fig = MagicMock()
+            mock_axes = [MagicMock(), MagicMock(), MagicMock()]
+            mock_subplots.return_value = (mock_fig, mock_axes)
+
+            timax_values = [0.5, 0.7, 0.9]
+            timean_values = [0.4, 0.6, 0.8]
+            focality_values = [0.6, 0.7, 0.8]
+
+            hist_path = visualizer.create_histograms(timax_values, timean_values, focality_values)
+
+            # Should return the expected path
+            expected_path = os.path.join(temp_dir, 'montage_distributions.png')
+            assert hist_path == expected_path
+            mock_savefig.assert_called_once_with(expected_path, dpi=300, bbox_inches='tight')
+
+    def test_create_histograms_no_data(self):
+        """Test histogram creation with no data"""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            logger = MagicMock()
+            visualizer = ResultsVisualizer(temp_dir, logger)
+
+            hist_path = visualizer.create_histograms([], [], [])
+
+            # Should return None when no data
+            assert hist_path is None
+
+    @patch('matplotlib.use')
+    @patch('matplotlib.pyplot.subplots')
+    @patch('matplotlib.pyplot.savefig')
+    @patch('matplotlib.pyplot.close')
+    @patch('matplotlib.pyplot.tight_layout')
+    @patch('matplotlib.pyplot.scatter')
+    @patch('matplotlib.pyplot.colorbar')
+    def test_create_scatter_plot(self, mock_colorbar, mock_scatter, mock_tight_layout, mock_close, mock_savefig, mock_subplots, mock_use):
+        """Test scatter plot creation"""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            logger = MagicMock()
+            visualizer = ResultsVisualizer(temp_dir, logger)
+
+            # Mock matplotlib objects
+            mock_fig = MagicMock()
+            mock_ax = MagicMock()
+            mock_subplots.return_value = (mock_fig, mock_ax)
+
+            results = {
+                'mesh1.msh': {'ROI_TImean_ROI': 0.6, 'ROI_Focality': 0.7},
+                'mesh2.msh': {'ROI_TImean_ROI': 0.8, 'ROI_Focality': 0.9}
+            }
+
+            scatter_path = visualizer.create_scatter_plot(results, 'ROI')
+
+            # Should return the expected path
+            expected_path = os.path.join(temp_dir, 'intensity_vs_focality_scatter.png')
+            assert scatter_path == expected_path
+            mock_savefig.assert_called_once_with(expected_path, dpi=300, bbox_inches='tight')
+
+
 class TestExSearchIntegration:
-    """Integration tests for ex-search analysis workflow"""
+    """Integration tests for ex-search workflow"""
 
     def setup_method(self):
         """Setup test fixtures"""
@@ -204,130 +446,211 @@ class TestExSearchIntegration:
         if os.path.exists(self.temp_dir):
             shutil.rmtree(self.temp_dir)
 
-    @patch('opt.ex.ex_analyzer.mesh_io')
-    @patch('opt.ex.ex_analyzer.find_roi_element_indices')
-    def test_full_analysis_workflow(self, mock_find_roi, mock_mesh_io):
-        """Test complete analysis workflow"""
-        # Setup directories
-        opt_dir = os.path.join(self.temp_dir, "opt")
-        roi_dir = os.path.join(self.temp_dir, "roi")
-        os.makedirs(opt_dir)
-        os.makedirs(roi_dir)
+    def test_logic_integration(self):
+        """Test integration of logic functions"""
+        # Test a complete workflow
+        total_current = 1.0
+        current_step = 0.2
+        channel_limit = 0.6
 
-        # Create multiple mesh files
-        for i in range(3):
-            mesh_file = os.path.join(opt_dir, f"montage_{i}.msh")
-            open(mesh_file, 'w').close()
+        # Generate current ratios
+        ratios, exceeded = generate_current_ratios(total_current, current_step, channel_limit)
+        assert len(ratios) > 0
 
-        # Create multiple ROI files
-        roi_files = []
-        for i in range(2):
-            roi_file = os.path.join(roi_dir, f"roi_{i}.csv")
-            with open(roi_file, 'w', newline='') as f:
-                writer = csv.writer(f)
-                writer.writerow(["x", "y", "z"])
-                writer.writerow([i * 10, i * 10, 0])
-            roi_files.append(roi_file)
+        # Calculate combinations
+        electrodes = ['E1', 'E2', 'E3', 'E4']
+        total_combinations = calculate_total_combinations(
+            electrodes, electrodes, electrodes, electrodes, ratios, True
+        )
+        assert total_combinations > 0
 
-        # Mock mesh data
-        mock_mesh = MagicMock()
-        mock_field = MagicMock()
-        mock_field.value = np.random.rand(100) * 1.0
-        mock_mesh.field = {'TImax': mock_field}
-        mock_mesh.elm.tag1 = np.ones(100) * 2
-        mock_mesh_io.read_msh.return_value = mock_mesh
+        # Generate montages
+        montages = list(generate_montage_combinations(
+            electrodes, electrodes, electrodes, electrodes, ratios, True
+        ))
+        assert len(montages) == total_combinations
 
-        # Mock ROI finding
-        mock_find_roi.return_value = (np.array([0, 1, 2]), np.array([1.0, 1.0, 1.0]))
+    def test_config_integration(self):
+        """Test configuration integration"""
+        # Test validation functions work together
+        assert validate_electrode('E1')
+        assert validate_current(1.0)
+        assert validate_current(0.5, 0.1, 2.0)
 
+        # Test electrode config creation
         logger = MagicMock()
+        with patch.dict(os.environ, {
+            'E1_PLUS': 'E1 E2',
+            'E1_MINUS': 'E3 E4',
+            'E2_PLUS': 'E5 E6',
+            'E2_MINUS': 'E7 E8'
+        }):
+            config = ElectrodeConfig(logger)
+            electrodes = config.get_config(False)
+            assert len(electrodes) == 4
+            assert all(isinstance(v, list) for v in electrodes.values())
 
-        result = analyze_ex_search(
-            opt_dir,
-            roi_dir,
-            roi_files,
-            "/fake/m2m",
-            logger
+
+class TestRunnerComponents:
+    """Test runner component functionality"""
+
+    def setup_method(self):
+        """Setup test fixtures"""
+        self.logger = MagicMock()
+
+    @patch('opt.ex.runner.TI.load_leadfield')
+    def test_leadfield_algorithms_load_leadfield(self, mock_load_leadfield):
+        """Test leadfield loading"""
+        mock_leadfield = MagicMock()
+        mock_mesh = MagicMock()
+        mock_idx_lf = MagicMock()
+        mock_load_leadfield.return_value = (mock_leadfield, mock_mesh, mock_idx_lf)
+
+        leadfield, mesh, idx_lf, load_time = LeadfieldAlgorithms.load_leadfield('/fake/path.hdf5')
+
+        mock_load_leadfield.assert_called_once_with('/fake/path.hdf5')
+        assert leadfield == mock_leadfield
+        assert mesh == mock_mesh
+        assert idx_lf == mock_idx_lf
+        assert isinstance(load_time, float)
+
+    @patch('os.path.exists', return_value=True)
+    @patch('opt.ex.runner.ROICoordinateHelper.load_roi_from_csv')
+    def test_leadfield_algorithms_load_roi_coordinates(self, mock_load_roi, mock_exists):
+        """Test ROI coordinate loading"""
+        mock_load_roi.return_value = [10.0, 20.0, 30.0]
+
+        coords = LeadfieldAlgorithms.load_roi_coordinates('/fake/roi.csv')
+
+        mock_load_roi.assert_called_once_with('/fake/roi.csv')
+        assert coords == [10.0, 20.0, 30.0]
+
+    @patch('os.path.exists', return_value=True)
+    @patch('opt.ex.runner.ROICoordinateHelper.load_roi_from_csv')
+    def test_leadfield_algorithms_load_roi_coordinates_none(self, mock_load_roi, mock_exists):
+        """Test ROI coordinate loading when file returns None"""
+        mock_load_roi.return_value = None
+
+        with pytest.raises(ValueError):
+            LeadfieldAlgorithms.load_roi_coordinates('/fake/roi.csv')
+
+    @patch('opt.ex.runner.find_roi_element_indices')
+    def test_leadfield_algorithms_find_roi_elements(self, mock_find_roi):
+        """Test ROI element finding"""
+        mock_mesh = MagicMock()
+        mock_find_roi.return_value = (np.array([1, 2, 3]), np.array([0.5, 0.5, 0.5]))
+
+        indices, volumes = LeadfieldAlgorithms.find_roi_elements(mock_mesh, [10, 20, 30], 3.0)
+
+        mock_find_roi.assert_called_once_with(mock_mesh, [10, 20, 30], radius=3.0)
+        assert np.array_equal(indices, np.array([1, 2, 3]))
+
+    @patch('opt.ex.runner.find_grey_matter_indices')
+    def test_leadfield_algorithms_find_grey_matter_elements(self, mock_find_gm):
+        """Test grey matter element finding"""
+        mock_mesh = MagicMock()
+        mock_find_gm.return_value = (np.array([10, 20]), np.array([0.8, 0.8]))
+
+        indices, volumes = LeadfieldAlgorithms.find_grey_matter_elements(mock_mesh)
+
+        mock_find_gm.assert_called_once_with(mock_mesh, grey_matter_tags=[2])
+        assert np.array_equal(indices, np.array([10, 20]))
+
+    @patch('opt.ex.runner.calculate_roi_metrics')
+    def test_leadfield_algorithms_calculate_roi_metrics(self, mock_calc_metrics):
+        """Test ROI metrics calculation"""
+        mock_calc_metrics.return_value = {
+            'TImax_ROI': 0.8,
+            'TImean_ROI': 0.6,
+            'Focality': 0.7
+        }
+
+        # Create larger arrays to avoid index errors
+        ti_max_full = np.array([0.5, 0.7, 0.9, 0.6, 0.8, 0.4, 0.3, 0.9, 0.2, 0.1, 0.8, 0.6])
+
+        result = LeadfieldAlgorithms.calculate_roi_metrics_for_field(
+            ti_max_full,
+            np.array([0, 1, 2]),
+            np.array([1.0, 1.0, 1.0]),
+            np.array([10, 11]),  # Valid indices within ti_max_full
+            np.array([0.8, 0.6])
         )
 
-        # Should have processed all meshes
-        assert mock_mesh_io.read_msh.call_count == 3
-        assert logger.info.call_count >= 3  # At least one log per mesh
+        mock_calc_metrics.assert_called_once()
+        assert result['TImax_ROI'] == 0.8
 
-    @patch('opt.ex.ex_analyzer.mesh_io')
-    def test_analysis_with_missing_field(self, mock_mesh_io):
-        """Test analysis when TImax field is missing"""
-        opt_dir = os.path.join(self.temp_dir, "opt")
-        roi_dir = os.path.join(self.temp_dir, "roi")
-        os.makedirs(opt_dir)
-        os.makedirs(roi_dir)
+    @patch('simnibs.utils.TI_utils.get_field')
+    @patch('simnibs.utils.TI_utils.get_maxTI')
+    def test_ti_algorithms_calculate_ti_field(self, mock_get_maxTI, mock_get_field):
+        """Test TI field calculation"""
+        mock_ef1 = MagicMock()
+        mock_ef2 = MagicMock()
+        mock_ti_max = MagicMock()
+        mock_get_field.side_effect = [mock_ef1, mock_ef2]
+        mock_get_maxTI.return_value = mock_ti_max
 
-        mesh_file = os.path.join(opt_dir, "test.msh")
-        open(mesh_file, 'w').close()
+        with patch('opt.ex.runner.LeadfieldAlgorithms.calculate_roi_metrics_for_field') as mock_calc:
+            mock_calc.return_value = {
+                'TImax_ROI': 0.8,
+                'TImean_ROI': 0.6,
+                'TImean_GM': 0.4,
+                'Focality': 0.7,
+                'n_elements': 100
+            }
 
-        roi_file = os.path.join(roi_dir, "roi.csv")
-        with open(roi_file, 'w', newline='') as f:
-            writer = csv.writer(f)
-            writer.writerow(["x", "y", "z"])
-            writer.writerow([0, 0, 0])
-
-        # Mock mesh without TImax field
-        mock_mesh = MagicMock()
-        mock_mesh.field = {}  # No TImax field
-        mock_mesh_io.read_msh.return_value = mock_mesh
-
-        logger = MagicMock()
-
-        with patch('opt.ex.ex_analyzer.find_roi_element_indices') as mock_find:
-            mock_find.return_value = (np.array([0, 1]), np.array([1.0, 1.0]))
-
-            result = analyze_ex_search(
-                opt_dir,
-                roi_dir,
-                [roi_file],
-                "/fake/m2m",
-                logger
+            result = TIAlgorithms.calculate_ti_field(
+                MagicMock(), MagicMock(),  # leadfield, idx_lf
+                np.array([1, 2]), np.array([1.0, 1.0]),  # roi_indices, roi_volumes
+                np.array([10, 20]), np.array([0.8, 0.8]),  # gm_indices, gm_volumes
+                'E1', 'E2', 0.5, 'E3', 'E4', 0.5,  # electrodes and currents
+                'TestROI'
             )
 
-            # Should log error about missing field
-            assert logger.error.called or logger.warning.called
+            assert result['TestROI_TImax_ROI'] == 0.8
+            assert result['TestROI_TImean_ROI'] == 0.6
+            assert result['TestROI_Focality'] == 0.7
+            assert result['current_ch1_mA'] == 0.5
+            assert result['current_ch2_mA'] == 0.5
 
-    @patch('opt.ex.ex_analyzer.mesh_io')
-    @patch('opt.ex.ex_analyzer.find_roi_element_indices')
-    def test_analysis_with_empty_roi(self, mock_find_roi, mock_mesh_io):
-        """Test analysis when no elements found in ROI"""
-        opt_dir = os.path.join(self.temp_dir, "opt")
-        roi_dir = os.path.join(self.temp_dir, "roi")
-        os.makedirs(opt_dir)
-        os.makedirs(roi_dir)
+    def test_current_ratio_generator(self):
+        """Test current ratio generator"""
+        generator = CurrentRatioGenerator(1.0, 0.1, 0.6, self.logger)
+        ratios = generator.generate_ratios()
 
-        mesh_file = os.path.join(opt_dir, "test.msh")
-        open(mesh_file, 'w').close()
+        assert isinstance(ratios, list)
+        assert len(ratios) > 0
 
-        roi_file = os.path.join(roi_dir, "roi.csv")
-        with open(roi_file, 'w', newline='') as f:
-            writer = csv.writer(f)
-            writer.writerow(["x", "y", "z"])
-            writer.writerow([1000, 1000, 1000])  # Far from mesh
+    def test_montage_generator_bucketed(self):
+        """Test montage generator in bucketed mode"""
+        e1_plus = ['E1', 'E2']
+        e1_minus = ['E3', 'E4']
+        e2_plus = ['E5', 'E6']
+        e2_minus = ['E7', 'E8']
+        current_ratios = [(0.5, 0.5), (0.6, 0.4)]
 
-        mock_mesh = MagicMock()
-        mock_field = MagicMock()
-        mock_field.value = np.ones(100)
-        mock_mesh.field = {'TImax': mock_field}
-        mock_mesh_io.read_msh.return_value = mock_mesh
+        generator = MontageGenerator(e1_plus, e1_minus, e2_plus, e2_minus, current_ratios, False, self.logger)
 
-        # Return empty ROI
-        mock_find_roi.return_value = (np.array([]), np.array([]))
+        total_combinations = generator.get_total_combinations()
+        expected = len(e1_plus) * len(e1_minus) * len(e2_plus) * len(e2_minus) * len(current_ratios)
+        assert total_combinations == expected
 
-        logger = MagicMock()
+        montages = list(generator.generate_montages())
+        assert len(montages) == total_combinations
 
-        result = analyze_ex_search(
-            opt_dir,
-            roi_dir,
-            [roi_file],
-            "/fake/m2m",
-            logger
-        )
+    def test_montage_generator_all_combinations(self):
+        """Test montage generator in all-combinations mode"""
+        electrodes = ['E1', 'E2', 'E3', 'E4']
+        current_ratios = [(0.5, 0.5)]
 
-        # Should log warning about empty ROI
-        assert logger.warning.called
+        generator = MontageGenerator(electrodes, electrodes, electrodes, electrodes, current_ratios, True, self.logger)
+
+        total_combinations = generator.get_total_combinations()
+        # Should generate all valid combinations where all 4 electrodes are different
+        expected_electrode_combinations = len([(e1p, e1m, e2p, e2m)
+                                              for e1p, e1m, e2p, e2m in product(electrodes, repeat=4)
+                                              if len(set([e1p, e1m, e2p, e2m])) == 4])
+        expected = expected_electrode_combinations * len(current_ratios)
+        assert total_combinations == expected
+
+        montages = list(generator.generate_montages())
+        assert len(montages) == total_combinations

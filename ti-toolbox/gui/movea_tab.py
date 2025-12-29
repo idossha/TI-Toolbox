@@ -48,12 +48,12 @@ except ImportError as e:
 
 
 class LeadfieldGenerationThread(QtCore.QThread):
-    """Thread to run leadfield generation for MOVEA (generates both HDF5 and NPY files)."""
-    
+    """Thread to run leadfield generation for MOVEA (generates HDF5 files only)."""
+
     # Signals
     output_signal = QtCore.pyqtSignal(str, str)  # message, type
     error_signal = QtCore.pyqtSignal(str)
-    finished_signal = QtCore.pyqtSignal(bool, str, str)  # success, lfm_path, pos_path
+    finished_signal = QtCore.pyqtSignal(bool, str)  # success, hdf5_path
     
     def __init__(self, subject_id, eeg_net_file, project_dir, parent=None):
         super(LeadfieldGenerationThread, self).__init__(parent)
@@ -143,29 +143,20 @@ class LeadfieldGenerationThread(QtCore.QThread):
                     self.finished_signal.emit(False, "", "")
                     return
                 
-                # Check if NPY files were generated successfully
-                if result['npy_leadfield'] and result['npy_positions']:
-                    lfm_path = result['npy_leadfield']
-                    pos_path = result['npy_positions']
-                    
-                    # Get shape info for logging
-                    lfm_shape = self.generator.lfm.shape if self.generator.lfm is not None else None
-                    
+                # Check if HDF5 file was generated successfully
+                if result['hdf5']:
+                    hdf5_path = result['hdf5']
                     self.output_signal.emit("", 'default')
                     self.output_signal.emit("="*60, 'default')
                     self.output_signal.emit("LEADFIELD GENERATION COMPLETE!", 'success')
                     self.output_signal.emit("="*60, 'default')
-                    self.output_signal.emit(f"Saved: {os.path.basename(lfm_path)}", 'success')
-                    self.output_signal.emit(f"Saved: {os.path.basename(pos_path)}", 'success')
-                    if lfm_shape:
-                        self.output_signal.emit(f"Electrodes: {lfm_shape[0]}", 'info')
-                        self.output_signal.emit(f"Voxels: {lfm_shape[1]}", 'info')
+                    self.output_signal.emit(f"Saved: {os.path.basename(hdf5_path)}", 'success')
                     self.output_signal.emit("="*60, 'default')
-                    
-                    self.finished_signal.emit(True, lfm_path, pos_path)
+
+                    self.finished_signal.emit(True, hdf5_path)
                 else:
-                    self.error_signal.emit("Failed to generate NPY files")
-                    self.finished_signal.emit(False, "", "")
+                    self.error_signal.emit("Failed to generate HDF5 file")
+                    self.finished_signal.emit(False, "")
                     
             except ImportError as e:
                 self.error_signal.emit(f"Failed to import LeadfieldGenerator: {str(e)}")

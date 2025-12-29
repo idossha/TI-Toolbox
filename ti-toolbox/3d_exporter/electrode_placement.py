@@ -326,39 +326,22 @@ class ElectrodePlacer:
         return ele_template, txt_template
 
     def _read_electrodes(self):
-        """Read electrode positions from CSV file."""
-        import csv
-        
+        """Read electrode positions from CSV file using SimNIBS utilities."""
+        from simnibs.utils.csv_reader import read_csv_positions
+
         self.logger.info(f"Reading electrodes: {self.config.electrode_csv_path}")
-        
-        with open(self.config.electrode_csv_path, 'r') as f:
-            first_line = f.readline().strip()
-            has_header = 'Label' in first_line or ('X' in first_line and 'Y' in first_line)
-            f.seek(0)
-            
-            if has_header:
-                reader = csv.DictReader(f)
-                for row in reader:
-                    label = row.get("Label", row.get("label", "Electrode"))
-                    x = float(row.get("X", row.get("x", 0)))
-                    y = float(row.get("Y", row.get("y", 0)))
-                    z = float(row.get("Z", row.get("z", 0)))
-                    yield label, x, y, z
-            else:
-                reader = csv.reader(f)
-                for row in reader:
-                    if len(row) < 3:
-                        continue
-                    try:
-                        if len(row) >= 5:
-                            label, x, y, z = row[4], float(row[1]), float(row[2]), float(row[3])
-                        elif len(row) == 4:
-                            label, x, y, z = row[0], float(row[1]), float(row[2]), float(row[3])
-                        else:
-                            label, x, y, z = "Electrode", float(row[0]), float(row[1]), float(row[2])
-                        yield label, x, y, z
-                    except (ValueError, IndexError):
-                        continue
+
+        # Use SimNIBS's CSV reader
+        type_, coordinates, extra, name, extra_cols, header = read_csv_positions(
+            self.config.electrode_csv_path
+        )
+
+        # Yield electrode data for types that are actual electrodes
+        for t, coord, n in zip(type_, coordinates, name):
+            if t in ['Electrode', 'ReferenceElectrode']:
+                label = n if n else "Electrode"
+                x, y, z = coord
+                yield label, x, y, z
 
     def _calculate_orientation(self, surface_normal):
         """Calculate electrode rotation to align with surface normal."""

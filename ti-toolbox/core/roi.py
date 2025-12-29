@@ -1,5 +1,5 @@
 #!/usr/bin/env simnibs_python
-"""Shared ROI (Region of Interest) module for ex-search and movea.
+"""Shared ROI (Region of Interest) module for optimization tools.
 
 This module provides a unified interface for ROI operations using SimNIBS's
 RegionOfInterest class. It supports:
@@ -42,8 +42,8 @@ from core.utils import (
 
 class ROIManager:
     """High-level interface for creating and managing ROIs using SimNIBS RegionOfInterest.
-    
-    This class simplifies ROI creation for common use cases in ex-search and movea.
+
+    This class simplifies ROI creation for common use cases in optimization tools.
     """
     
     def __init__(self, m2m_path: str, mesh_path: Optional[str] = None):
@@ -230,8 +230,8 @@ class ROIManager:
 
 class ROICoordinateHelper:
     """Helper functions for coordinate transformation and ROI specification.
-    
-    These utilities are useful for both ex-search and movea workflows.
+
+    These utilities are useful for optimization workflows.
     """
     
     @staticmethod
@@ -257,15 +257,15 @@ class ROICoordinateHelper:
         radius: float
     ) -> npt.NDArray[np.int_]:
         """Find voxel indices within a spherical ROI.
-        
-        Useful for MOVEA-style optimization where you need to identify
+
+        Useful for optimization where you need to identify
         target voxels in a leadfield matrix.
-        
+
         Args:
             voxel_positions: Array of voxel positions [N, 3]
             center: Center coordinate [x, y, z]
             radius: Radius in mm
-        
+
         Returns:
             Array of voxel indices within the sphere
         """
@@ -355,59 +355,6 @@ class ROICoordinateHelper:
             writer.writerow(coordinates)
 
 
-def create_roi_from_preset(
-    preset_name: str,
-    m2m_path: str,
-    radius: float = 10.0,
-    roi_type: str = "surface"
-) -> RegionOfInterest:
-    """Create an ROI from a preset target (for MOVEA compatibility).
-    
-    Args:
-        preset_name: Name of preset region (e.g., "motor", "dlpfc", "hippocampus")
-        m2m_path: Path to m2m folder
-        radius: Radius in mm (default: 10)
-        roi_type: "surface" or "volume"
-    
-    Returns:
-        Configured RegionOfInterest object
-    """
-    # Load presets from movea
-    import json
-    preset_path = os.path.join(
-        os.path.dirname(__file__),
-        "..",
-        "opt",
-        "movea",
-        "presets.json"
-    )
-    
-    if not os.path.exists(preset_path):
-        raise ValueError(f"Presets file not found: {preset_path}")
-    
-    with open(preset_path, 'r') as f:
-        presets = json.load(f)
-    
-    if preset_name not in presets.get("regions", {}):
-        available = ", ".join(presets.get("regions", {}).keys())
-        raise ValueError(
-            f"Unknown preset: {preset_name}. Available presets: {available}"
-        )
-    
-    mni_coords = presets["regions"][preset_name]["mni"]
-    
-    # Create ROI manager and build spherical ROI
-    manager = ROIManager(m2m_path)
-    roi = manager.create_spherical_roi(
-        center=mni_coords,
-        radius=radius,
-        coordinate_space="mni",
-        roi_type=roi_type
-    )
-    
-    return roi
-
-
 def roi_to_dict(roi: RegionOfInterest) -> Dict[str, Any]:
     """Convert RegionOfInterest to dictionary for serialization.
     
@@ -468,35 +415,35 @@ def get_roi_voxel_indices(
     voxel_positions: npt.NDArray
 ) -> npt.NDArray[np.int_]:
     """Get indices of voxels that fall within an ROI.
-    
-    Useful for MOVEA leadfield-based optimization.
-    
+
+    Useful for leadfield-based optimization.
+
     Args:
         roi: RegionOfInterest object
         voxel_positions: Array of all voxel positions [N, 3]
-    
+
     Returns:
         Array of indices of voxels within the ROI
     """
     roi_coords = roi.get_nodes()
-    
+
     # For each ROI coordinate, find closest voxels
     from scipy.spatial import cKDTree
     tree = cKDTree(voxel_positions)
-    
+
     # Find voxels within 1mm of any ROI coordinate
     indices_list = tree.query_ball_point(roi_coords, r=1.0)
-    
+
     # Flatten and get unique indices
     indices = np.unique(np.concatenate([np.array(idx_list) for idx_list in indices_list if len(idx_list) > 0]))
-    
+
     return indices
 
 
 def find_target_voxels(voxel_positions, center, radius):
     """
     Find voxel indices within a spherical ROI.
-    Used by MOVEA-style optimization.
+    Used by optimization tools.
 
     Args:
         voxel_positions: Array of voxel positions [N, 3]
@@ -536,7 +483,6 @@ __all__ = [
     # ROI classes and functions
     'ROIManager',
     'ROICoordinateHelper',
-    'create_roi_from_preset',
     'roi_to_dict',
     'roi_from_dict',
     'create_spherical_roi_simple',
@@ -557,16 +503,16 @@ __all__ = [
 
 # Example usage and documentation
 if __name__ == "__main__":
-    print("ROI Module for ex-search and movea")
+    print("ROI Module for optimization tools")
     print("=" * 50)
     print("\nThis module provides a unified interface for ROI operations")
     print("using SimNIBS's RegionOfInterest class.\n")
-    
+
     print("Example 1: Create a spherical cortical ROI")
     print("-" * 50)
     print("""
     from core.roi import ROIManager
-    
+
     manager = ROIManager("/path/to/m2m_subject")
     roi = manager.create_spherical_roi(
         center=[47, -13, 52],  # Motor cortex in MNI
@@ -574,12 +520,12 @@ if __name__ == "__main__":
         coordinate_space="mni",
         roi_type="surface"
     )
-    
+
     # Get ROI coordinates
     coords = manager.get_roi_coordinates(roi)
     print(f"ROI contains {len(coords)} nodes")
     """)
-    
+
     print("\nExample 2: Create an atlas-based ROI")
     print("-" * 50)
     print("""
@@ -589,7 +535,7 @@ if __name__ == "__main__":
         hemisphere="lh"
     )
     """)
-    
+
     print("\nExample 3: Create a volume ROI for subcortical structures")
     print("-" * 50)
     print("""
@@ -599,24 +545,12 @@ if __name__ == "__main__":
         coordinate_space="subject"
     )
     """)
-    
-    print("\nExample 4: Use preset ROIs (MOVEA compatibility)")
-    print("-" * 50)
-    print("""
-    from core.roi import create_roi_from_preset
-    
-    roi = create_roi_from_preset(
-        preset_name="motor",
-        m2m_path="/path/to/m2m_subject",
-        radius=10.0
-    )
-    """)
-    
-    print("\nExample 5: Coordinate transformation")
+
+    print("\nExample 4: Coordinate transformation")
     print("-" * 50)
     print("""
     from core.roi import ROICoordinateHelper
-    
+
     # Transform MNI to subject space
     subject_coords = ROICoordinateHelper.transform_mni_to_subject(
         mni_coords=[47, -13, 52],

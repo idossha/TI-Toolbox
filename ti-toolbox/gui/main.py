@@ -129,7 +129,6 @@ class MainWindow(QtWidgets.QMainWindow):
         # Create aliases for backward compatibility - access to individual optimization tabs
         self.flex_search_tab = self.optimizer_tab.flex_search_tab
         self.ex_search_tab = self.optimizer_tab.ex_search_tab
-        self.movea_tab = self.optimizer_tab.movea_tab
 
         # Connect analyzer tab signals
         self.analyzer_tab.analysis_completed.connect(self.on_analysis_completed)
@@ -157,6 +156,7 @@ class MainWindow(QtWidgets.QMainWindow):
         
         # Set window properties and center on screen
         self.resize(1000, 800)
+        self.setMinimumWidth(1050)  # 1000 * 1.05 = 1050
         self.center_on_screen()
         
     def center_on_screen(self):
@@ -359,7 +359,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 tab._busy_overlay.setGeometry(tab.rect())
         # Also check the sub-tabs within optimize_tab
         if hasattr(self, 'optimizer_tab'):
-            for sub_tab in [self.optimizer_tab.flex_search_tab, self.optimizer_tab.ex_search_tab,  self.optimizer_tab.movea_tab]:
+            for sub_tab in [self.optimizer_tab.flex_search_tab, self.optimizer_tab.ex_search_tab]:
                 if hasattr(sub_tab, '_busy_overlay'):
                     sub_tab._busy_overlay.setGeometry(sub_tab.rect())
         super().resizeEvent(event)

@@ -48,7 +48,7 @@ class TestDirectoryConstants:
         assert hasattr(const, 'DIR_ROIS')
         assert hasattr(const, 'DIR_ANALYSIS')
         assert hasattr(const, 'DIR_FLEX_SEARCH')
-        assert hasattr(const, 'DIR_MOVEA')
+        assert hasattr(const, 'DIR_EX_SEARCH')
 
         assert const.DIR_M2M_PREFIX == "m2m_"
         assert const.DIR_EEG_POSITIONS == "eeg_positions"
