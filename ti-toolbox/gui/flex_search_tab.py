@@ -1378,7 +1378,7 @@ class FlexSearchTab(QtWidgets.QWidget):
                     # Run adaptive focality optimization
                     return self._run_adaptive_focality_optimization(
                         subject_id, roi_params, postproc, eeg_net,
-                        electrode_current, electrode_shape, dimensions, thickness, env, cmd[:-1]  # Remove roi-method from base cmd
+                        electrode_current, electrode_shape, dimensions, thickness, env, cmd[:-2]  # Remove roi-method and its value from base cmd
                     )
                 else:
                     # Standard focality optimization
