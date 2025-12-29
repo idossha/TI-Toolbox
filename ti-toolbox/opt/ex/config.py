@@ -21,36 +21,66 @@ def validate_env():
 class ElectrodeConfig:
     def __init__(self, logger): self.logger = logger
 
-    def get_electrodes(self, prompt):
-        while True:
-            try:
-                electrodes = input(f"[INPUT] {prompt}").strip().replace(',', ' ').split()
-                if all(validate_electrode(e) for e in electrodes):
-                    self.logger.info(f"Accepted: {electrodes}")
-                    return electrodes
-                invalid = [e for e in electrodes if not validate_electrode(e)]
-                self.logger.error(f"Invalid: {invalid}")
-            except (EOFError, KeyboardInterrupt):
-                self.logger.error("Input cancelled")
-                sys.exit(1)
-            self.logger.error("Enter valid electrode names")
-
     def get_config(self, all_combinations):
+        # Require electrode config via environment variables
+        e1_plus_env = os.getenv('E1_PLUS')
+        e1_minus_env = os.getenv('E1_MINUS')
+        e2_plus_env = os.getenv('E2_PLUS')
+        e2_minus_env = os.getenv('E2_MINUS')
+
+        # Check if all required environment variables are set
+        missing_vars = []
+        if not e1_plus_env: missing_vars.append('E1_PLUS')
+        if not e1_minus_env: missing_vars.append('E1_MINUS')
+        if not e2_plus_env: missing_vars.append('E2_PLUS')
+        if not e2_minus_env: missing_vars.append('E2_MINUS')
+
+        if missing_vars:
+            raise ConfigError(f"Missing required environment variables: {', '.join(missing_vars)}")
+
+        # Parse electrodes from environment variables
+        electrodes = {
+            'E1_plus': e1_plus_env.replace(',', ' ').split(),
+            'E1_minus': e1_minus_env.replace(',', ' ').split(),
+            'E2_plus': e2_plus_env.replace(',', ' ').split(),
+            'E2_minus': e2_minus_env.replace(',', ' ').split()
+        }
+
+        # Validate all electrodes
+        all_valid = all(
+            validate_electrode(e)
+            for channel in electrodes.values()
+            for e in channel
+        )
+
+        if not all_valid:
+            invalid_electrodes = [
+                e for channel in electrodes.values()
+                for e in channel
+                if not validate_electrode(e)
+            ]
+            raise ConfigError(f"Invalid electrode names: {invalid_electrodes}")
+
+        self.logger.info("Using electrode configuration from environment variables")
+
+        # Handle all combinations mode
         if all_combinations:
-            print("\n\033[1;36m=== All Combinations Mode ===\033[0m")
-            print("\033[0;36mSearch all possible electrode assignments\033[0m")
-            all_electrodes = self.get_electrodes("All electrodes (space/comma separated): ")
-            return {'E1_plus': all_electrodes, 'E1_minus': all_electrodes,
-                   'E2_plus': all_electrodes, 'E2_minus': all_electrodes}
-        else:
-            print("\n\033[1;36m=== Bucketed Mode ===\033[0m")
-            print("\033[0;36mElectrodes grouped into E1+/- and E2+/- channels\033[0m")
+            # In all combinations mode, all channels should use the same electrode pool
+            # Check that all channels have the same electrodes
+            all_electrodes = electrodes['E1_plus']
+            if not all(
+                electrodes[channel] == all_electrodes
+                for channel in ['E1_minus', 'E2_plus', 'E2_minus']
+            ):
+                self.logger.warning("All combinations mode: using E1_PLUS electrodes for all channels")
             return {
-                'E1_plus': self.get_electrodes("E1+ electrodes: "),
-                'E1_minus': self.get_electrodes("E1- electrodes: "),
-                'E2_plus': self.get_electrodes("E2+ electrodes: "),
-                'E2_minus': self.get_electrodes("E2- electrodes: ")
+                'E1_plus': all_electrodes,
+                'E1_minus': all_electrodes,
+                'E2_plus': all_electrodes,
+                'E2_minus': all_electrodes
             }
+
+        return electrodes
 
 class CurrentConfig:
     def __init__(self, logger): self.logger = logger
@@ -86,6 +116,15 @@ class CurrentConfig:
         return {'total_current': total, 'current_step': step, 'channel_limit': limit}
 
 def parse_args():
+    # Check environment variable first
+    all_combinations_env = os.getenv('ALL_COMBINATIONS')
+    if all_combinations_env:
+        # Create a namespace with the value from environment
+        args = argparse.Namespace()
+        args.all_combinations = (all_combinations_env == '1' or all_combinations_env.lower() == 'true')
+        return args
+
+    # Fallback to command-line arguments
     parser = argparse.ArgumentParser(description='TI Exhaustive Search')
     parser.add_argument('--all-combinations', action='store_true',
                        help='Search all electrode combinations')
