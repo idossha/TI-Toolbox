@@ -34,8 +34,10 @@ import click
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from core import get_path_manager, list_subjects
-from opt.leadfield import LeadfieldGenerator
 from tools import logging_util
+
+# Lazy import to avoid loading simnibs at module level
+# from opt.leadfield import LeadfieldGenerator
 
 
 # =============================================================================
@@ -194,6 +196,8 @@ def prompt_eeg_caps(subject_id: str) -> List[str]:
 
 def list_existing_leadfields(subject_id: str) -> List[Tuple[str, str, float]]:
     """List existing leadfields for a subject."""
+    from opt.leadfield import LeadfieldGenerator
+
     pm = get_path_manager()
     m2m_dir = pm.get_m2m_dir(subject_id)
     if not m2m_dir:
@@ -513,6 +517,8 @@ def build_leadfield_for_subject(
     Returns:
         True if successful, False otherwise
     """
+    from opt.leadfield import LeadfieldGenerator
+
     try:
         # Get paths
         m2m_dir = pm.get_m2m_dir(subject_id)
