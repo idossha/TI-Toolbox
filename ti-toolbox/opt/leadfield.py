@@ -47,6 +47,10 @@ class LeadfieldGenerator:
         # Extract subject_id from subject_dir path
         self.subject_id = self.subject_dir.name.replace('m2m_', '')
 
+        # Initialize leadfield data attributes
+        self.lfm = None  # Leadfield matrix
+        self.positions = None  # Electrode positions
+
         # Setup logger
         if progress_callback is None:
             log_file = os.path.join(os.path.expanduser("~"), ".ti_toolbox", "logs", "leadfield_generator.log")
