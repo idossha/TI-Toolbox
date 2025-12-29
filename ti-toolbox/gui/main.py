@@ -156,6 +156,7 @@ class MainWindow(QtWidgets.QMainWindow):
         
         # Set window properties and center on screen
         self.resize(1000, 800)
+        self.setMinimumWidth(1050)  # 1000 * 1.05 = 1050
         self.center_on_screen()
         
     def center_on_screen(self):

@@ -1076,16 +1076,6 @@ class ExSearchTab(QtWidgets.QWidget):
         layout.addRow("E2+ electrodes:", self.e2_plus_input)
         layout.addRow("E2- electrodes:", self.e2_minus_input)
 
-        # Add help text
-        help_label = QtWidgets.QLabel(
-            "💡 Bucketed Mode: Electrodes are grouped by position (E1+, E1-, E2+, E2-).\n"
-            "All categories must have the same number of electrodes.\n"
-            "Search space: n × n × n × n combinations (Cartesian product)"
-        )
-        help_label.setWordWrap(True)
-        help_label.setStyleSheet("color: #666; font-size: 10px; padding: 5px; background-color: #f0f0f0; border-radius: 3px;")
-        layout.addRow(help_label)
-
         self.electrode_stack.addWidget(panel)
 
     def _build_all_combinations_panel(self):
@@ -1097,26 +1087,6 @@ class ExSearchTab(QtWidgets.QWidget):
 
         # Create single input field for all electrodes
         self.all_electrodes_input = QtWidgets.QLineEdit()
-        self.all_electrodes_input.setPlaceholderText("E.g., O1, F7, Fp1, T7, T8, P4, Fz, Cz")
-        self.all_electrodes_input.setFixedHeight(30)
-        self.all_electrodes_input.setToolTip(
-            "Enter electrode pool for exhaustive search.\n"
-            "Each electrode can be assigned to any position (E1+, E1-, E2+, E2-).\n"
-            "Constraint: Each electrode used at most once per montage."
-        )
-
-        layout.addRow("Electrode pool:", self.all_electrodes_input)
-
-        # Add help text with formula
-        help_label = QtWidgets.QLabel(
-            "🔍 All-Combinations Mode: Exhaustive search of all valid 4-electrode montages.\n"
-            "Constraint: Each electrode appears at most once (all 4 must be unique).\n"
-            "Search space: C(n,4) × 4! combinations where n = electrode count\n"
-            "Example: 12 electrodes → C(12,4) × 24 = 11,880 combinations"
-        )
-        help_label.setWordWrap(True)
-        help_label.setStyleSheet("color: #666; font-size: 10px; padding: 5px; background-color: #fff3cd; border-radius: 3px;")
-        layout.addRow(help_label)
 
         self.electrode_stack.addWidget(panel)
 
