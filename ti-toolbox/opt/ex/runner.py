@@ -94,7 +94,9 @@ class LeadfieldProcessor:
     def initialize(self):
         self.load_leadfield()
         self.load_roi_coordinates()
-        self.find_roi_elements()
+        # Read ROI radius from environment variable, default to 3.0mm
+        roi_radius = float(os.getenv('ROI_RADIUS', '3.0'))
+        self.find_roi_elements(roi_radius)
         self.find_grey_matter_elements()
 
 class CurrentRatioGenerator:

@@ -161,8 +161,8 @@ def list_available_rois(subject_id: str) -> List[str]:
     return sorted(rois)
 
 
-def prompt_roi_selection(subject_id: str) -> str:
-    """Prompt user to select or create an ROI."""
+def prompt_roi_selection(subject_id: str) -> Tuple[str, float]:
+    """Prompt user to select or create an ROI. Returns (roi_name, radius)."""
     rois = list_available_rois(subject_id)
 
     if rois:
@@ -177,12 +177,21 @@ def prompt_roi_selection(subject_id: str) -> str:
         )
 
         if choice.lower() == 'new':
-            return prompt_new_roi()
+            roi_name, sphere_radius, center_coords = prompt_new_roi()
+            create_roi_csv(subject_id, roi_name, center_coords)
+            return roi_name, sphere_radius
 
         try:
             num = int(choice)
             if 1 <= num <= len(rois):
-                return rois[num - 1]
+                roi_name = rois[num - 1]
+                # For existing ROIs, prompt for radius to use
+                sphere_radius = click.prompt(
+                    click.style(f"Radius for ROI '{roi_name}' (mm)", fg='white'),
+                    type=float,
+                    default=10.0
+                )
+                return roi_name, sphere_radius
         except ValueError:
             pass
 
@@ -190,16 +199,64 @@ def prompt_roi_selection(subject_id: str) -> str:
         raise click.Abort()
     else:
         echo_warning("No existing ROIs found")
-        return prompt_new_roi()
+        roi_name, sphere_radius, center_coords = prompt_new_roi()
+        create_roi_csv(subject_id, roi_name, center_coords)
+        return roi_name, sphere_radius
 
 
-def prompt_new_roi() -> str:
+def prompt_new_roi() -> Tuple[str, float]:
     """Prompt user to create a new ROI."""
     roi_name = click.prompt(
         click.style("Enter ROI name", fg='white'),
         type=str
     )
-    return roi_name
+
+    # Prompt for center coordinates
+    click.echo()
+    click.echo("Enter sphere center coordinates (in mm):")
+    center_x = click.prompt(
+        click.style("Center X coordinate", fg='white'),
+        type=float,
+        default=0.0
+    )
+    center_y = click.prompt(
+        click.style("Center Y coordinate", fg='white'),
+        type=float,
+        default=0.0
+    )
+    center_z = click.prompt(
+        click.style("Center Z coordinate", fg='white'),
+        type=float,
+        default=0.0
+    )
+
+    # Prompt for sphere radius
+    sphere_radius = click.prompt(
+        click.style("Sphere radius (mm)", fg='white'),
+        type=float,
+        default=10.0
+    )
+
+    return roi_name, sphere_radius, [center_x, center_y, center_z]
+
+
+def create_roi_csv(subject_id: str, roi_name: str, center_coords: List[float]) -> str:
+    """Create a new ROI CSV file with the given center coordinates."""
+    from core.roi import ROICoordinateHelper
+
+    pm = get_path_manager()
+    roi_dir = os.path.join(pm.get_m2m_dir(subject_id), 'ROIs')
+    os.makedirs(roi_dir, exist_ok=True)
+
+    roi_file_path = os.path.join(roi_dir, f"{roi_name}.csv")
+
+    # Save the coordinates to CSV
+    ROICoordinateHelper.save_roi_to_csv(center_coords, roi_file_path)
+
+    echo_success(f"Created ROI file: {roi_file_path}")
+    echo_info(f"Center coordinates: [{center_coords[0]}, {center_coords[1]}, {center_coords[2]}] mm")
+
+    return roi_file_path
 
 
 def list_available_leadfields(subject_id: str) -> List[Tuple[str, str, float]]:
@@ -410,6 +467,7 @@ def show_confirmation(
     channel_limit: float,
     all_combinations: bool,
     electrodes: dict,
+    roi_radius: float,
 ) -> bool:
     """Show configuration summary and get confirmation."""
     echo_header("Configuration Summary")
@@ -420,6 +478,7 @@ def show_confirmation(
 
     echo_section("Optimization Parameters")
     click.echo(f"  ROI:           {roi_name}")
+    click.echo(f"  ROI Radius:    {roi_radius} mm")
     click.echo(f"  EEG Net:       {net_name}")
     click.echo(f"  Mode:          {'All Combinations' if all_combinations else 'Bucketed'}")
 
@@ -511,8 +570,8 @@ def interactive(ctx):
         echo_info(f"Processing subject: {subject_id}")
 
         # ROI selection/creation
-        roi_name = prompt_roi_selection(subject_id)
-        echo_success(f"ROI: {roi_name}")
+        roi_name, roi_radius = prompt_roi_selection(subject_id)
+        echo_success(f"ROI: {roi_name} (radius: {roi_radius} mm)")
 
         # Leadfield selection/creation
         net_name, hdf5_path = prompt_leadfield_selection(subject_id)
@@ -544,6 +603,7 @@ def interactive(ctx):
             channel_limit=channel_limit,
             all_combinations=all_combinations,
             electrodes=electrodes,
+            roi_radius=roi_radius,
         ):
             echo_warning("Ex-search cancelled")
             continue
@@ -560,6 +620,7 @@ def interactive(ctx):
             all_combinations=all_combinations,
             electrodes=electrodes,
             project_dir=project_dir,
+            roi_radius=roi_radius,
         )
 
 
@@ -578,13 +639,15 @@ def interactive(ctx):
               help='Current step size in mA')
 @click.option('--channel-limit', type=float,
               help='Channel limit in mA (default: total_current/2)')
+@click.option('--roi-radius', type=float, default=10.0,
+              help='ROI sphere radius in mm')
 @click.option('--all-combinations', is_flag=True,
               help='Use all combinations mode')
 @click.option('--electrodes', '-e', multiple=True,
               help='Electrodes (for all-combinations mode, specify once with all electrodes; for bucketed mode, specify 4 times: E1+, E1-, E2+, E2-)')
 @click.pass_context
 def run(ctx, subject, roi_name, net_name, leadfield_hdf, total_current,
-        current_step, channel_limit, all_combinations, electrodes):
+        current_step, channel_limit, all_combinations, electrodes, roi_radius):
     """
     Run ex-search directly with command-line options.
 
@@ -627,7 +690,7 @@ def run(ctx, subject, roi_name, net_name, leadfield_hdf, total_current,
             net_name = "unknown"
 
     echo_info(f"Processing subject: {subject}")
-    echo_info(f"ROI: {roi_name}")
+    echo_info(f"ROI: {roi_name} (radius: {roi_radius} mm)")
     echo_info(f"EEG Net: {net_name}")
     echo_info(f"Current: {total_current} mA (step: {current_step} mA, limit: {channel_limit} mA)")
 
@@ -682,6 +745,7 @@ def run(ctx, subject, roi_name, net_name, leadfield_hdf, total_current,
         all_combinations=all_combinations,
         electrodes=electrodes_dict,
         project_dir=project_dir,
+        roi_radius=roi_radius,
     )
 
 
@@ -761,6 +825,7 @@ def run_ex_search(
     all_combinations: bool,
     electrodes: dict,
     project_dir: str,
+    roi_radius: float = 3.0,
 ):
     """Execute ex-search optimization for a subject."""
     from opt.ex import main as ex_main
@@ -773,6 +838,7 @@ def run_ex_search(
     os.environ['SELECTED_EEG_NET'] = net_name
     os.environ['LEADFIELD_HDF'] = hdf5_path
     os.environ['ROI_NAME'] = roi_name
+    os.environ['ROI_RADIUS'] = str(roi_radius)
     os.environ['TOTAL_CURRENT'] = str(total_current)
     os.environ['CURRENT_STEP'] = str(current_step)
     os.environ['CHANNEL_LIMIT'] = str(channel_limit)
