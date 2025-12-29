@@ -4,6 +4,13 @@ TI Exhaustive Search Module
 A streamlined implementation for TI exhaustive search simulations.
 """
 
+import os, sys
+
+# Add project root to path for imports
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+
 from .config import get_full_config
 from .logic import generate_current_ratios, calculate_total_combinations, generate_montage_combinations
 from .runner import LeadfieldProcessor, CurrentRatioGenerator, MontageGenerator, SimulationRunner

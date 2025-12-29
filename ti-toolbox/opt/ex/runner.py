@@ -6,7 +6,7 @@ project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..
 if project_root not in os.path.sys.path: os.path.sys.path.insert(0, project_root)
 
 from core.roi import ROICoordinateHelper, find_roi_element_indices, find_grey_matter_indices, calculate_roi_metrics
-from logic import generate_current_ratios, calculate_total_combinations, generate_montage_combinations
+from .logic import generate_current_ratios, calculate_total_combinations, generate_montage_combinations
 
 class LeadfieldAlgorithms:
     @staticmethod

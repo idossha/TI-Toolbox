@@ -10,9 +10,9 @@ if project_root not in sys.path: sys.path.insert(0, project_root)
 
 from tools import logging_util
 from core import get_path_manager
-from config import get_full_config
-from runner import LeadfieldProcessor, CurrentRatioGenerator, MontageGenerator, SimulationRunner
-from results import ResultsManager
+from .config import get_full_config
+from .runner import LeadfieldProcessor, CurrentRatioGenerator, MontageGenerator, SimulationRunner
+from .results import ResultsManager
 
 def main():
     project_dir = os.getenv('PROJECT_DIR')
