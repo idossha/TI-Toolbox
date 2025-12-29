@@ -3,14 +3,18 @@
 Batch TI Simulation Script
 
 This script allows running multiple simulations across multiple subjects
-with unique configurations per simulation. Edit the BATCH_CONFIG section
-below to customize your batch run.
+with subject-montage-intensity specific configurations. Edit the BATCH_CONFIG
+section below to customize your batch run.
 
 Usage:
     simnibs_python batch_simulate.py [--verbose]
 
 Options:
     --verbose, -v    Enable verbose logging to console
+
+Configuration:
+    Define simulations in the SIMULATIONS list with subject-specific entries.
+    Each simulation specifies which subject, montages, and intensity to use.
 
 The script interfaces directly with the simulator module - no GUI required.
 """
@@ -44,13 +48,6 @@ from tools import logging_util
 # Project directory (BIDS root)
 PROJECT_DIR = "/mnt/BIDS_new"
 
-# Subjects to process
-SUBJECTS = [
-    "ernie",
-    # "subject2",
-    # "subject3",
-]
-
 # EEG electrode cap file
 EEG_NET = "GSN-HydroCel-185.csv"
 
@@ -74,6 +71,7 @@ CONDUCTIVITY = ConductivityType.SCALAR
 # -----------------------------------------------------------------------------
 # SIMULATIONS - Define your simulations here
 # Each entry is a dict with:
+#   - subject: subject ID (required) - which subject to run this simulation on
 #   - montages: list of montage names OR list of MontageConfig objects
 #   - intensity: IntensityConfig (current in mA)
 #   - electrode: (optional) ElectrodeConfig override
@@ -81,8 +79,9 @@ CONDUCTIVITY = ConductivityType.SCALAR
 # -----------------------------------------------------------------------------
 
 SIMULATIONS = [
-    # Simulation 1: Standard intensity
+    # Simulation 1: Ernie - Standard intensity
     {
+        "subject": "ernie",
         "montages": ["test"],
         "intensity": IntensityConfig(
             pair1=1.0,  # mA for electrode pair 1
@@ -91,9 +90,34 @@ SIMULATIONS = [
             pair4=1.0   # mA for electrode pair 4 (mTI mode)
         ),
     },
-    
-    # # Simulation 2: Higher intensity
+
+    # # Simulation 2: Ernie - Higher intensity
     # {
+    #     "subject": "ernie",
+    #     "montages": ["test"],
+    #     "intensity": IntensityConfig(
+    #         pair1=2.0,  # mA for electrode pair 1
+    #         pair2=2.0,  # mA for electrode pair 2
+    #         pair3=2.0,  # mA for electrode pair 3 (mTI mode)
+    #         pair4=2.0   # mA for electrode pair 4 (mTI mode)
+    #     ),
+    # },
+
+    #     # Simulation 3: Subject2 - Different montage and intensity
+    # {
+    #     "subject": "subject2",
+    #     "montages": ["test"],
+    #     "intensity": IntensityConfig(
+    #         pair1=1.5,  # mA for electrode pair 1
+    #         pair2=2.5,  # mA for electrode pair 2
+    #         pair3=1.0,  # mA for electrode pair 3 (mTI mode)
+    #         pair4=1.0   # mA for electrode pair 4 (mTI mode)
+    #     ),
+    # },
+    
+    # # Simulation 2: Ernie - Higher intensity
+    # {
+    #     "subject": "ernie",
     #     "montages": ["test2"],
     #     "intensity": IntensityConfig(
     #         pair1=2.0,  # mA for electrode pair 1
@@ -103,8 +127,9 @@ SIMULATIONS = [
     #     ),
     # },
     
-    # Simulation 3: Asymmetric intensity
+    # Simulation 3: Subject2 - Asymmetric intensity
     # {
+    #     "subject": "subject2",
     #     "montages": ["montage3"],
     #     "intensity": IntensityConfig(
     #         pair1=1.5,  # mA for electrode pair 1
@@ -120,11 +145,20 @@ SIMULATIONS = [
     #     ),
     # },
     
-    # Simulation 4: Multiple montages with same config
+    # Simulation 4: Ernie - Multiple montages with same config
     # {
+    #     "subject": "ernie",
     #     "montages": ["montageA", "montageB", "montageC"],
     #     "intensity": IntensityConfig.from_string("1.0"),  # Shorthand
     # },
+]
+
+# Subjects to process (automatically determined from SIMULATIONS below)
+# SUBJECTS list is now optional - if not provided, subjects will be extracted from SIMULATIONS
+SUBJECTS = [
+    # "ernie",  # Uncomment to override automatic subject detection
+    # "subject2",
+    # "subject3",
 ]
 
 # =============================================================================
@@ -135,34 +169,62 @@ SIMULATIONS = [
 def run_batch(logger=None):
     """Run the batch simulation."""
 
+    # Group simulations by subject
+    simulations_by_subject = {}
+    for sim_config in SIMULATIONS:
+        subject = sim_config.get("subject")
+        if not subject:
+            raise ValueError(f"Simulation configuration missing required 'subject' field: {sim_config}")
+        if subject not in simulations_by_subject:
+            simulations_by_subject[subject] = []
+        simulations_by_subject[subject].append(sim_config)
+
+    # Determine subjects to process
+    if SUBJECTS:
+        # Use explicitly specified subjects
+        subjects_to_process = SUBJECTS
+    else:
+        # Auto-detect subjects from simulations
+        subjects_to_process = sorted(list(simulations_by_subject.keys()))
+
     if logger:
         logger.info("Starting TI Batch Simulation")
         logger.debug(f"Project directory: {PROJECT_DIR}")
-        logger.debug(f"Subjects: {SUBJECTS}")
-        logger.debug(f"Number of simulations: {len(SIMULATIONS)}")
+        logger.debug(f"SUBJECTS config: {SUBJECTS}")
+        logger.debug(f"Available subjects from simulations: {list(simulations_by_subject.keys())}")
+        logger.debug(f"Subjects to process: {subjects_to_process}")
+        logger.debug(f"Total simulations: {len(SIMULATIONS)}")
+        logger.debug(f"Simulations by subject: {dict((k, len(v)) for k, v in simulations_by_subject.items())}")
         logger.debug(f"Parallel enabled: {PARALLEL.enabled} ({PARALLEL.effective_workers} workers)")
 
     print("=" * 60)
     print("TI BATCH SIMULATION")
     print("=" * 60)
     print(f"Project: {PROJECT_DIR}")
-    print(f"Subjects: {SUBJECTS}")
+    print(f"Subjects: {subjects_to_process}")
     print(f"Simulations: {len(SIMULATIONS)}")
     print(f"Parallel: {PARALLEL.enabled} ({PARALLEL.effective_workers} workers)")
     print("=" * 60)
-    
+
     # Initialize path manager
     pm = get_path_manager()
     pm.project_dir = PROJECT_DIR
-    
+
     all_results = []
     start_time = time.time()
-    
-    for subject_id in SUBJECTS:
-        print(f"\n>>> Processing subject: {subject_id}")
-        
-        for sim_idx, sim_config in enumerate(SIMULATIONS):
-            print(f"\n  Simulation {sim_idx + 1}/{len(SIMULATIONS)}")
+
+    for subject_id in subjects_to_process:
+        subject_simulations = simulations_by_subject.get(subject_id, [])
+        if not subject_simulations:
+            if logger:
+                logger.warning(f"No simulations configured for subject: {subject_id}")
+            continue
+
+        print(f"\n>>> Processing subject: {subject_id} ({len(subject_simulations)} simulation(s))")
+
+        for sim_idx, sim_config in enumerate(subject_simulations):
+            global_sim_idx = sum(len(simulations_by_subject[s]) for s in subjects_to_process[:subjects_to_process.index(subject_id)]) + sim_idx + 1
+            print(f"\n  Simulation {global_sim_idx}/{len(SIMULATIONS)} (subject {subject_id})")
             
             # Get montages
             montage_input = sim_config["montages"]
@@ -235,6 +297,13 @@ Examples:
     %(prog)s                           # Run with default settings
     %(prog)s --verbose                 # Run with verbose logging
     %(prog)s -v                        # Same as --verbose
+
+Configuration Example:
+    SIMULATIONS = [
+        {"subject": "ernie", "montages": ["montage1"], "intensity": IntensityConfig(pair1=1.0, pair2=1.0)},
+        {"subject": "ernie", "montages": ["montage2"], "intensity": IntensityConfig(pair1=2.0, pair2=2.0)},
+        {"subject": "subject2", "montages": ["montage3"], "intensity": IntensityConfig(pair1=1.5, pair2=1.5)}
+    ]
         """
     )
     parser.add_argument(
