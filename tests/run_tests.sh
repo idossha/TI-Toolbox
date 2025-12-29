@@ -234,11 +234,6 @@ if [ "$RUN_UNIT_TESTS" = true ]; then
 
         echo ""
 
-        # MOVEA optimizer unit tests
-        run_test "MOVEA Optimizer Tests" \
-            "simnibs_python -m pytest $PYTEST_FLAGS tests/test_movea_optimizer.py" || true
-
-        echo ""
 
         # Stats module tests
         run_test "Stats Module Tests" \

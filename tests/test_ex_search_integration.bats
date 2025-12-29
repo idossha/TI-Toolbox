@@ -1,10 +1,10 @@
 #!/usr/bin/env bats
-# Integration tests for ex-search analyzer
+# Integration tests for ex-search system
 
 setup() {
     # Setup test environment
     export TEST_DIR="${BATS_TEST_DIRNAME}/../test_data/ex_search_integration"
-    export EX_ANALYZER="${BATS_TEST_DIRNAME}/../ti-toolbox/opt/ex/ex_analyzer.py"
+    export EX_MAIN="${BATS_TEST_DIRNAME}/../ti-toolbox/opt/ex/main.py"
 
     # Create test directories
     mkdir -p "${TEST_DIR}/opt"
@@ -18,18 +18,42 @@ teardown() {
     fi
 }
 
-@test "Ex-Search: Analyzer script exists" {
-    [ -f "${EX_ANALYZER}" ]
+@test "Ex-Search: Main script exists" {
+    [ -f "${EX_MAIN}" ]
 }
 
-@test "Ex-Search: Analyzer module can be imported" {
-    run simnibs_python -c "import sys; sys.path.insert(0, '${BATS_TEST_DIRNAME}/../ti-toolbox'); from opt.ex.ex_analyzer import analyze_ex_search; print('OK')"
+@test "Ex-Search: Main module can be imported" {
+    run simnibs_python -c "import sys; sys.path.insert(0, '${BATS_TEST_DIRNAME}/../ti-toolbox'); from opt.ex import main; print('OK')"
     [ "$status" -eq 0 ]
     [[ "$output" =~ "OK" ]]
 }
 
 @test "Ex-Search: ROICoordinateHelper can be imported" {
     run simnibs_python -c "import sys; sys.path.insert(0, '${BATS_TEST_DIRNAME}/../ti-toolbox'); from core.roi import ROICoordinateHelper; print('OK')"
+    [ "$status" -eq 0 ]
+    [[ "$output" =~ "OK" ]]
+}
+
+@test "Ex-Search: Config module can be imported" {
+    run simnibs_python -c "import sys; sys.path.insert(0, '${BATS_TEST_DIRNAME}/../ti-toolbox'); from opt.ex import config; print('OK')"
+    [ "$status" -eq 0 ]
+    [[ "$output" =~ "OK" ]]
+}
+
+@test "Ex-Search: Logic module can be imported" {
+    run simnibs_python -c "import sys; sys.path.insert(0, '${BATS_TEST_DIRNAME}/../ti-toolbox'); from opt.ex import logic; print('OK')"
+    [ "$status" -eq 0 ]
+    [[ "$output" =~ "OK" ]]
+}
+
+@test "Ex-Search: Runner module can be imported" {
+    run simnibs_python -c "import sys; sys.path.insert(0, '${BATS_TEST_DIRNAME}/../ti-toolbox'); from opt.ex import runner; print('OK')"
+    [ "$status" -eq 0 ]
+    [[ "$output" =~ "OK" ]]
+}
+
+@test "Ex-Search: Results module can be imported" {
+    run simnibs_python -c "import sys; sys.path.insert(0, '${BATS_TEST_DIRNAME}/../ti-toolbox'); from opt.ex import results; print('OK')"
     [ "$status" -eq 0 ]
     [[ "$output" =~ "OK" ]]
 }
@@ -55,51 +79,47 @@ print(f'Loaded coordinates: {coords}')
     [[ "$output" =~ "Loaded coordinates" ]]
 }
 
-@test "Ex-Search: analyze_ex_search handles empty directory" {
+@test "Ex-Search: Logic functions work correctly" {
     run simnibs_python -c "
 import sys
 sys.path.insert(0, '${BATS_TEST_DIRNAME}/../ti-toolbox')
-from opt.ex.ex_analyzer import analyze_ex_search
-from unittest.mock import MagicMock
+from opt.ex.logic import generate_current_ratios, calculate_total_combinations, generate_montage_combinations
 
-logger = MagicMock()
-result = analyze_ex_search(
-    '${TEST_DIR}/opt',
-    '${TEST_DIR}/roi',
-    [],
-    '/fake/m2m',
-    logger
-)
-print('Analysis completed')
+# Test current ratio generation
+ratios, exceeded = generate_current_ratios(1.0, 0.1, 0.6)
+print(f'Generated {len(ratios)} current ratios')
+
+# Test combination calculation
+total = calculate_total_combinations(['E1', 'E2'], ['E3', 'E4'], ['E5', 'E6'], ['E7', 'E8'], ratios, False)
+print(f'Calculated {total} combinations')
+
+print('Logic functions work')
 "
     [ "$status" -eq 0 ]
-    [[ "$output" =~ "completed" ]]
+    [[ "$output" =~ "Logic functions work" ]]
 }
 
-@test "Ex-Search: Creates analysis directory" {
+@test "Ex-Search: Config validation works" {
     run simnibs_python -c "
 import sys
 import os
 sys.path.insert(0, '${BATS_TEST_DIRNAME}/../ti-toolbox')
-from opt.ex.ex_analyzer import analyze_ex_search
-from unittest.mock import MagicMock
+from opt.ex.config import validate_electrode, validate_current
 
-logger = MagicMock()
-analyze_ex_search(
-    '${TEST_DIR}/opt',
-    '${TEST_DIR}/roi',
-    [],
-    '/fake/m2m',
-    logger
-)
+# Test electrode validation
+assert validate_electrode('E1') == True
+assert validate_electrode('e1') == True
+assert validate_electrode('1E') == False
 
-analysis_dir = os.path.join('${TEST_DIR}/opt', 'analysis')
-assert os.path.exists(analysis_dir), 'Analysis directory should be created'
-print('Analysis directory created')
+# Test current validation
+assert validate_current(1.0) == True
+assert validate_current(0.5, 0.1) == True
+assert validate_current(-0.1) == False
+
+print('Config validation works')
 "
     [ "$status" -eq 0 ]
-    [[ "$output" =~ "created" ]]
-    [ -d "${TEST_DIR}/opt/analysis" ]
+    [[ "$output" =~ "Config validation works" ]]
 }
 
 @test "Ex-Search: ROI utility functions work correctly" {
@@ -209,6 +229,7 @@ print('Invalid file handled correctly')
 import sys
 sys.path.insert(0, '${BATS_TEST_DIRNAME}/../ti-toolbox')
 from core import calc, roi
+from opt.ex import logic, config
 
 # Check calc module exports
 calc_exports = ['get_TI_vectors']
@@ -219,6 +240,16 @@ for export in calc_exports:
 roi_exports = ['find_target_voxels', 'validate_ti_montage', 'ROICoordinateHelper']
 for export in roi_exports:
     assert hasattr(roi, export), f'Missing roi export: {export}'
+
+# Check ex-search logic exports
+logic_exports = ['generate_current_ratios', 'calculate_total_combinations', 'generate_montage_combinations']
+for export in logic_exports:
+    assert hasattr(logic, export), f'Missing logic export: {export}'
+
+# Check ex-search config exports
+config_exports = ['validate_electrode', 'validate_current', 'get_full_config']
+for export in config_exports:
+    assert hasattr(config, export), f'Missing config export: {export}'
 
 print('All exports available')
 "

@@ -18,7 +18,25 @@ Ex-Search implements a true **exhaustive search** approach for Temporal Interfer
 - **High-Performance Processing**: Memory-efficient in-memory calculations with real-time progress tracking
 - **Comprehensive Metrics**: TImax, TImean, Focality analysis with automatic visualization
 
+## Search Modes
 
+Ex-Search supports two electrode assignment strategies:
+
+### Bucketed Mode (Original)
+Electrodes are pre-assigned to specific channels:
+- **E1+**: Electrodes for positive channel 1
+- **E1-**: Electrodes for negative channel 1
+- **E2+**: Electrodes for positive channel 2
+- **E2-**: Electrodes for negative channel 2
+
+**Combinations**: N₁ × N₂ × N₃ × N₄ (where N = electrodes per bucket)
+
+### Pooled Mode (New)
+All electrodes are pooled together and can be assigned to any channel position, with the constraint that each electrode is used only once per montage.
+
+**Combinations**: C(N,4) × 4! (where N = total electrodes, C = combinations)
+
+**Trade-off**: Larger search space and longer compute time but with absolute certainty to find optimal solution with given electrode space.
 
 ## User Interface
 
