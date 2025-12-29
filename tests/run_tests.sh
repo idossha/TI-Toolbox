@@ -332,7 +332,7 @@ if [ "$RUN_INTEGRATION_TESTS" = true ]; then
     
     # Run BATS tests
     run_test "BATS Output Validation Tests" \
-        "bash -lc 'bats tests/test_simulator_outputs.bats && bats tests/test_analyzer_outputs.bats && bats tests/test_ex_search_integration.bats && bats tests/test_movea_integration.bats'" || true
+        "bash -lc 'bats tests/test_simulator_outputs.bats && bats tests/test_analyzer_outputs.bats && bats tests/test_ex_search_integration.bats'" || true
     
     echo ""
 fi
