@@ -418,23 +418,19 @@ class LeadfieldGenerator:
         return sorted(leadfields, key=lambda x: x[0])
 
 
-    def get_electrode_names_from_cap(self, eeg_cap_path=None, cap_name=None):
+    def get_electrode_names_from_cap(self, cap_name=None):
         """
         Extract electrode names from an EEG cap CSV file using simnibs csv_reader.
 
         Args:
-            eeg_cap_path: Path to EEG cap CSV file (optional)
-            cap_name: Name of EEG cap (will look in subject_dir/eeg_positions/)
+            cap_name: Name of EEG cap (will look in subject_dir/eeg_positions/).
+                     If None, uses self.electrode_cap.
 
         Returns:
             list: List of electrode names
         """
-        # Determine cap name
         if cap_name is None:
-            if eeg_cap_path is not None:
-                cap_name = Path(eeg_cap_path).name
-            else:
-                cap_name = self.electrode_cap
+            cap_name = self.electrode_cap
 
         # Use simnibs csv_reader to get electrode positions
         from simnibs.utils.csv_reader import eeg_positions
