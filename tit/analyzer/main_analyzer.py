@@ -30,8 +30,14 @@ import sys
 import time
 from pathlib import Path
 
-from tit.analyzer.mesh_analyzer import MeshAnalyzer
-from tit.analyzer.voxel_analyzer import VoxelAnalyzer
+"""
+NOTE ON IMPORTS
+---------------
+`MeshAnalyzer` and `VoxelAnalyzer` are intentionally imported lazily (inside
+`main()`) to keep module import side-effects minimal and to avoid test-time
+cross-module contamination when pytest collects multiple test modules in a
+single process.
+"""
 
 # Global variables for summary mode and timing
 SUMMARY_MODE = False
@@ -468,6 +474,10 @@ def validate_args(args):
 
 def main():
     """Main function to run the analysis."""
+    # Lazy imports to avoid heavyweight side-effects at module import time.
+    from tit.analyzer.mesh_analyzer import MeshAnalyzer
+    from tit.analyzer.voxel_analyzer import VoxelAnalyzer
+
     # Set up and parse arguments
     parser = setup_parser()
     args = parser.parse_args()

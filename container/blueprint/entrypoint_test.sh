@@ -19,7 +19,7 @@ if [ -d "$SIMNIBSDIR" ] && [ -d "/ti-toolbox/resources/ElectrodeCaps_MNI" ]; the
 fi
 
 # Create montage_list.json with proper structure
-cat > /opt/test_projectdir/code/tit/config/montage_list.json << 'EOF'
+cat > /opt/test_projectdir/code/ti-toolbox/config/montage_list.json << 'EOF'
 {
     "nets": {
         "GSN-HydroCel-256.csv": {

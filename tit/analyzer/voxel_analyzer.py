@@ -104,6 +104,11 @@ class VoxelAnalyzer:
         self.subject_dir = subject_dir
         self.output_dir = output_dir
         self.quiet = quiet
+
+        # Validate early (before logger/file handlers) so missing input paths fail
+        # with the intended error rather than a secondary logging error.
+        if not os.path.exists(field_nifti):
+            raise FileNotFoundError(f"Field file not found: {field_nifti}")
         
         # Set up logger - use provided logger or create a new one
         if logger is not None:
@@ -131,11 +136,6 @@ class VoxelAnalyzer:
         if not os.path.exists(output_dir):
             self.logger.debug(f"Creating output directory: {output_dir}")
             os.makedirs(output_dir)
-        
-        # Validate that field_nifti exists
-        if not os.path.exists(field_nifti):
-            self.logger.error(f"Field file not found: {field_nifti}")
-            raise FileNotFoundError(f"Field file not found: {field_nifti}")
         
         self.logger.debug(f"Voxel analyzer initialized successfully")
         self.logger.debug(f"Field NIfTI path: {field_nifti}")

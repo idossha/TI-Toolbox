@@ -100,6 +100,11 @@ class MeshAnalyzer:
         self.field_name = field_name
         self.subject_dir = subject_dir
         self.output_dir = output_dir
+
+        # Validate early (before logger/file handlers) so missing input paths fail
+        # with the intended error rather than a secondary logging error.
+        if not os.path.exists(field_mesh_path):
+            raise FileNotFoundError(f"Field mesh file not found: {field_mesh_path}")
         
         # Set up logger - use provided logger or create a new one
         if logger is not None:
@@ -131,11 +136,6 @@ class MeshAnalyzer:
         if not os.path.exists(output_dir):
             self.logger.debug(f"Creating output directory: {output_dir}")
             os.makedirs(output_dir)
-        
-        # Validate that field mesh exists
-        if not os.path.exists(field_mesh_path):
-            self.logger.error(f"Field mesh file not found: {field_mesh_path}")
-            raise FileNotFoundError(f"Field mesh file not found: {field_mesh_path}")
         
         self.logger.debug(f"Mesh analyzer initialized successfully")
         self.logger.debug(f"Field mesh path: {field_mesh_path}")
