@@ -91,6 +91,11 @@ fi
 
 echo -e "${GREEN}✓ SimNIBS environment detected${NC}"
 
+# Install TI-Toolbox package in SimNIBS Python environment
+echo -e "${CYAN}Installing TI-Toolbox package...${NC}"
+simnibs_python -m pip install -e .
+echo -e "${GREEN}✓ TI-Toolbox package installed${NC}"
+
 # Find the TI-Toolbox directory
 # Priority: 1) /development/ti-toolbox (mounted dev code), 2) Current directory if it has tests/, 3) /ti-toolbox (baked-in)
 TOOLBOX_DIR=""

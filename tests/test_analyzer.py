@@ -26,40 +26,10 @@ project_root = Path(__file__).resolve().parent.parent
 if str(project_root) not in sys.path:
     sys.path.insert(0, str(project_root))
 
-# Mock the analyzer modules before importing main_analyzer
-from unittest.mock import MagicMock
-
-# Store original modules for cleanup (match new imports via `tit.analyzer.*`)
-_original_mesh_analyzer = sys.modules.get('tit.analyzer.mesh_analyzer')
-_original_voxel_analyzer = sys.modules.get('tit.analyzer.voxel_analyzer')
-
-# Create mock modules for the analyzer dependencies
-mock_mesh_analyzer = MagicMock()
-mock_voxel_analyzer = MagicMock()
-
-# Add the mock modules to sys.modules before importing
-sys.modules['tit.analyzer.mesh_analyzer'] = mock_mesh_analyzer
-sys.modules['tit.analyzer.voxel_analyzer'] = mock_voxel_analyzer
-
-
-@pytest.fixture(scope='module', autouse=True)
-def cleanup_analyzer_mocks():
-    """Cleanup mock dependencies after all tests"""
-    yield  # Tests run here
-
-    # Cleanup: restore original modules or remove mocks
-    if _original_mesh_analyzer is not None:
-        sys.modules['tit.analyzer.mesh_analyzer'] = _original_mesh_analyzer
-    else:
-        sys.modules.pop('tit.analyzer.mesh_analyzer', None)
-
-    if _original_voxel_analyzer is not None:
-        sys.modules['tit.analyzer.voxel_analyzer'] = _original_voxel_analyzer
-    else:
-        sys.modules.pop('tit.analyzer.voxel_analyzer', None)
-
-
-# Now import the main_analyzer module (after mocks are set up)
+# Import the main_analyzer module.
+# The analyzer classes it uses are imported lazily inside `main()`, so importing
+# this module in tests should not inject mocks into `sys.modules` or affect other
+# test modules collected in the same pytest process.
 from tit.analyzer.main_analyzer import (
     format_duration,
     validate_file_extension,
@@ -486,7 +456,7 @@ class TestArgumentValidation:
         self.mock_logger = Mock()
         
         # Patch the logger in the module
-        with patch('analyzer.main_analyzer.logger', self.mock_logger):
+        with patch('tit.analyzer.main_analyzer.logger', self.mock_logger):
             pass
     
     @patch('os.path.isdir')
@@ -508,10 +478,10 @@ class TestArgumentValidation:
         args.region = None
         args.whole_head = False
         
-        with patch('analyzer.main_analyzer.construct_mesh_field_path', return_value='/path/to/field.msh'):
-            with patch('analyzer.main_analyzer.validate_file_extension'):
-                with patch('analyzer.main_analyzer.validate_coordinates', return_value=[10.0, 20.0, 30.0]):
-                    with patch('analyzer.main_analyzer.validate_radius', return_value=5.0):
+        with patch('tit.analyzer.main_analyzer.construct_mesh_field_path', return_value='/path/to/field.msh'):
+            with patch('tit.analyzer.main_analyzer.validate_file_extension'):
+                with patch('tit.analyzer.main_analyzer.validate_coordinates', return_value=[10.0, 20.0, 30.0]):
+                    with patch('tit.analyzer.main_analyzer.validate_radius', return_value=5.0):
                         # Should not raise any exceptions
                         validate_args(args)
     
@@ -582,7 +552,7 @@ class TestArgumentValidation:
         args.coordinates = None
         args.radius = 5.0
 
-        with patch('analyzer.main_analyzer.construct_mesh_field_path', return_value='/path/to/field.msh'):
+        with patch('tit.analyzer.main_analyzer.construct_mesh_field_path', return_value='/path/to/field.msh'):
             with pytest.raises(ValueError, match="Coordinates are required for spherical analysis"):
                 validate_args(args)
     
@@ -602,7 +572,7 @@ class TestArgumentValidation:
         args.coordinates = [10, 20, 30]
         args.radius = None
 
-        with patch('analyzer.main_analyzer.construct_mesh_field_path', return_value='/path/to/field.msh'):
+        with patch('tit.analyzer.main_analyzer.construct_mesh_field_path', return_value='/path/to/field.msh'):
             with pytest.raises(ValueError, match="Radius is required for spherical analysis"):
                 validate_args(args)
     
@@ -623,7 +593,7 @@ class TestArgumentValidation:
         args.region = 'test_region'
         args.whole_head = False
 
-        with patch('analyzer.main_analyzer.construct_mesh_field_path', return_value='/path/to/field.msh'):
+        with patch('tit.analyzer.main_analyzer.construct_mesh_field_path', return_value='/path/to/field.msh'):
             with pytest.raises(ValueError, match="Atlas name is required for mesh-based cortical analysis"):
                 validate_args(args)
     
@@ -663,7 +633,7 @@ class TestArgumentValidation:
         args.region = None
         args.whole_head = False
 
-        with patch('analyzer.main_analyzer.construct_mesh_field_path', return_value='/path/to/field.msh'):
+        with patch('tit.analyzer.main_analyzer.construct_mesh_field_path', return_value='/path/to/field.msh'):
             with pytest.raises(ValueError, match="Either --whole_head flag or --region must be specified"):
                 validate_args(args)
 
@@ -729,8 +699,8 @@ class TestMainFunction:
         import shutil
         shutil.rmtree(self.temp_dir, ignore_errors=True)
     
-    @patch('tit.analyzer.main_analyzer.MeshAnalyzer')
-    @patch('tit.analyzer.main_analyzer.VoxelAnalyzer')
+    @patch('tit.analyzer.mesh_analyzer.MeshAnalyzer')
+    @patch('tit.analyzer.voxel_analyzer.VoxelAnalyzer')
     @patch('tit.analyzer.main_analyzer.logging_util.get_logger')
     @patch('tit.analyzer.main_analyzer.setup_parser')
     def test_main_mesh_spherical_analysis(self, mock_setup_parser, mock_get_logger, mock_voxel_analyzer, mock_mesh_analyzer):
@@ -769,7 +739,7 @@ class TestMainFunction:
         with patch('os.path.isdir', return_value=True):
             with patch('os.path.exists', return_value=True):
                 with patch('os.makedirs'):
-                    with patch('analyzer.main_analyzer.construct_mesh_field_path', return_value='/path/to/field.msh'):
+                    with patch('tit.analyzer.main_analyzer.construct_mesh_field_path', return_value='/path/to/field.msh'):
                         # Run main function
                         from tit.analyzer.main_analyzer import main
                         main()
@@ -782,8 +752,8 @@ class TestMainFunction:
             visualize=False
         )
     
-    @patch('tit.analyzer.main_analyzer.MeshAnalyzer')
-    @patch('tit.analyzer.main_analyzer.VoxelAnalyzer')
+    @patch('tit.analyzer.mesh_analyzer.MeshAnalyzer')
+    @patch('tit.analyzer.voxel_analyzer.VoxelAnalyzer')
     @patch('tit.analyzer.main_analyzer.logging_util.get_logger')
     @patch('tit.analyzer.main_analyzer.setup_parser')
     def test_main_voxel_cortical_analysis(self, mock_setup_parser, mock_get_logger, mock_voxel_analyzer, mock_mesh_analyzer):
@@ -833,8 +803,8 @@ class TestMainFunction:
             visualize=False
         )
 
-    @patch('tit.analyzer.main_analyzer.MeshAnalyzer')
-    @patch('tit.analyzer.main_analyzer.VoxelAnalyzer')
+    @patch('tit.analyzer.mesh_analyzer.MeshAnalyzer')
+    @patch('tit.analyzer.voxel_analyzer.VoxelAnalyzer')
     @patch('tit.analyzer.main_analyzer.logging_util.get_logger')
     @patch('tit.analyzer.main_analyzer.setup_parser')
     def test_main_voxel_cortical_whole_head(self, mock_setup_parser, mock_get_logger, mock_voxel_analyzer, mock_mesh_analyzer):
@@ -875,8 +845,8 @@ class TestMainFunction:
             visualize=False
         )
     
-    @patch('tit.analyzer.main_analyzer.MeshAnalyzer')
-    @patch('tit.analyzer.main_analyzer.VoxelAnalyzer')
+    @patch('tit.analyzer.mesh_analyzer.MeshAnalyzer')
+    @patch('tit.analyzer.voxel_analyzer.VoxelAnalyzer')
     @patch('tit.analyzer.main_analyzer.logging_util.get_logger')
     @patch('tit.analyzer.main_analyzer.setup_parser')
     def test_main_whole_head_analysis(self, mock_setup_parser, mock_get_logger, mock_voxel_analyzer, mock_mesh_analyzer):
@@ -913,7 +883,7 @@ class TestMainFunction:
         with patch('os.path.isdir', return_value=True):
             with patch('os.path.exists', return_value=True):
                 with patch('os.makedirs'):
-                    with patch('analyzer.main_analyzer.construct_mesh_field_path', return_value='/path/to/field.msh'):
+                    with patch('tit.analyzer.main_analyzer.construct_mesh_field_path', return_value='/path/to/field.msh'):
                         # Run main function
                         from tit.analyzer.main_analyzer import main
                         main()
@@ -925,8 +895,8 @@ class TestMainFunction:
             visualize=False
         )
     
-    @patch('tit.analyzer.main_analyzer.MeshAnalyzer')
-    @patch('tit.analyzer.main_analyzer.VoxelAnalyzer')
+    @patch('tit.analyzer.mesh_analyzer.MeshAnalyzer')
+    @patch('tit.analyzer.voxel_analyzer.VoxelAnalyzer')
     @patch('tit.analyzer.main_analyzer.logging_util.get_logger')
     @patch('tit.analyzer.main_analyzer.setup_parser')
     def test_main_quiet_mode(self, mock_setup_parser, mock_get_logger, mock_voxel_analyzer, mock_mesh_analyzer):
@@ -965,7 +935,7 @@ class TestMainFunction:
         with patch('os.path.isdir', return_value=True):
             with patch('os.path.exists', return_value=True):
                 with patch('os.makedirs'):
-                    with patch('analyzer.main_analyzer.construct_mesh_field_path', return_value='/path/to/field.msh'):
+                    with patch('tit.analyzer.main_analyzer.construct_mesh_field_path', return_value='/path/to/field.msh'):
                         with patch('builtins.print') as mock_print:
                             # Run main function
                             from tit.analyzer.main_analyzer import main
@@ -975,8 +945,8 @@ class TestMainFunction:
         # The print calls should include summary mode messages
         assert any('Beginning analysis for subject' in str(call) for call in mock_print.call_args_list)
     
-    @patch('tit.analyzer.main_analyzer.MeshAnalyzer')
-    @patch('tit.analyzer.main_analyzer.VoxelAnalyzer')
+    @patch('tit.analyzer.mesh_analyzer.MeshAnalyzer')
+    @patch('tit.analyzer.voxel_analyzer.VoxelAnalyzer')
     @patch('tit.analyzer.main_analyzer.logging_util.get_logger')
     @patch('tit.analyzer.main_analyzer.setup_parser')
     def test_main_analyzer_initialization_failure(self, mock_setup_parser, mock_get_logger, mock_voxel_analyzer, mock_mesh_analyzer):
@@ -1008,7 +978,7 @@ class TestMainFunction:
         with patch('os.path.isdir', return_value=True):
             with patch('os.path.exists', return_value=True):
                 with patch('os.makedirs'):
-                    with patch('analyzer.main_analyzer.construct_mesh_field_path', return_value='/path/to/field.msh'):
+                    with patch('tit.analyzer.main_analyzer.construct_mesh_field_path', return_value='/path/to/field.msh'):
                         with patch('sys.exit') as mock_exit:
                             # Run main function
                             from tit.analyzer.main_analyzer import main
@@ -1017,8 +987,8 @@ class TestMainFunction:
         # Verify that sys.exit was called with error code 1
         mock_exit.assert_called_once_with(1)
     
-    @patch('tit.analyzer.main_analyzer.MeshAnalyzer')
-    @patch('tit.analyzer.main_analyzer.VoxelAnalyzer')
+    @patch('tit.analyzer.mesh_analyzer.MeshAnalyzer')
+    @patch('tit.analyzer.voxel_analyzer.VoxelAnalyzer')
     @patch('tit.analyzer.main_analyzer.logging_util.get_logger')
     @patch('tit.analyzer.main_analyzer.setup_parser')
     def test_main_validation_error(self, mock_setup_parser, mock_get_logger, mock_voxel_analyzer, mock_mesh_analyzer):

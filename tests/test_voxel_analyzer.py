@@ -65,7 +65,7 @@ class TestVoxelAnalyzerInitialization:
         
         with patch('os.path.exists', return_value=True):
             with patch('os.makedirs'):
-                with patch('analyzer.voxel_analyzer.VoxelVisualizer'):
+                with patch('tit.analyzer.voxel_analyzer.VoxelVisualizer'):
                     analyzer = VoxelAnalyzer(
                         field_nifti="/path/to/field.nii.gz",
                         subject_dir="/path/to/subject",
@@ -127,7 +127,7 @@ class TestVoxelAnalyzerInitialization:
 
         with patch('os.path.exists', side_effect=path_exists_side_effect):
             with patch('os.makedirs') as mock_makedirs:
-                with patch('analyzer.voxel_analyzer.VoxelVisualizer'):
+                with patch('tit.analyzer.voxel_analyzer.VoxelVisualizer'):
                     analyzer = VoxelAnalyzer(
                         field_nifti="/path/to/field.nii.gz",
                         subject_dir="/path/to/subject",
