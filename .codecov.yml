@@ -37,9 +37,9 @@ ignore:
   - "*.pyc"
   - "setup.py"
   - "version.py"
-  - "ti-toolbox/gui/**"         # GUI code (requires X11, hard to test in CI)
-  - "ti-toolbox/blender/**"     # Blender scripts (require Blender)
-  - "ti-toolbox/tools/visualization_util.py"  # Visualization utilities
+  - "tit/gui/**"         # GUI code (requires X11, hard to test in CI)
+  - "tit/blender/**"     # Blender scripts (require Blender)
+  - "tit/tools/visualization_util.py"  # Visualization utilities
   - "dev/**"                    # Development utilities
   - "docs/**"                   # Documentation
 
@@ -47,22 +47,22 @@ ignore:
 flags:
   core:
     paths:
-      - ti-toolbox/core/
+      - tit/core/
     carryforward: true
 
   simulator:
     paths:
-      - ti-toolbox/sim/
+      - tit/sim/
     carryforward: true
 
   analyzer:
     paths:
-      - ti-toolbox/analyzer/
+      - tit/analyzer/
     carryforward: true
 
   optimizer:
     paths:
-      - ti-toolbox/opt/
+      - tit/opt/
     carryforward: true
 
 # GitHub PR comment formatting

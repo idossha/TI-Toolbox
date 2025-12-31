@@ -205,6 +205,16 @@ run_docker_compose() {
   echo "Waiting for services to initialize..."
   sleep 3
 
+  # Copy development codebase to replace existing ti-toolbox content
+  echo "Copying development codebase to container..."
+  if [ -d "$DEV_CODEBASE_DIR" ]; then
+    # Copy the entire development codebase directory content to replace ti-toolbox
+    docker cp "$DEV_CODEBASE_DIR/." simnibs_container:/ti-toolbox/
+    echo "✓ Development codebase copied to container"
+  else
+    echo "Warning: Development codebase directory $DEV_CODEBASE_DIR not found"
+  fi
+
   # Check if simnibs service is up
   if ! docker compose -f "$SCRIPT_DIR/docker-compose.dev.yml" ps | grep -q "simnibs"; then
     echo "Error: simnibs service is not running. Please check your docker-compose.dev.yml and container logs."
@@ -513,12 +523,12 @@ setup_example_data_if_new() {
   echo "Setting up example data for new project..."
 
   local toolbox_root="$SCRIPT_DIR/../.."
-  local example_data_manager="$toolbox_root/ti-toolbox/new_project/example_data_manager.py"
+  local example_data_manager="$toolbox_root/tit/new_project/example_data_manager.py"
   
   # Check if the example data manager exists
   if [ ! -f "$example_data_manager" ]; then
     echo "ERROR: Example data manager not found at $example_data_manager"
-    ls -la "$toolbox_root/ti-toolbox/new_project/" 2>&1 || echo "Directory does not exist"
+    ls -la "$toolbox_root/tit/new_project/" 2>&1 || echo "Directory does not exist"
     return 1
   fi
   
@@ -544,7 +554,7 @@ initialize_project_configs() {
 
   local project_ti_toolbox_dir="$LOCAL_PROJECT_DIR/code/ti-toolbox"
   local project_config_dir="$project_ti_toolbox_dir/config"
-  local new_project_configs_dir="$SCRIPT_DIR/../../ti-toolbox/new_project/configs"
+  local new_project_configs_dir="$SCRIPT_DIR/../../tit/new_project/configs"
   local is_new_project=false
   
   # Check if project directories exist

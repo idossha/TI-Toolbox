@@ -91,13 +91,22 @@ fi
 
 echo -e "${GREEN}✓ SimNIBS environment detected${NC}"
 
+# Install TI-Toolbox package in SimNIBS Python environment
+echo -e "${CYAN}Installing TI-Toolbox package...${NC}"
+simnibs_python -m pip install -e .
+echo -e "${GREEN}✓ TI-Toolbox package installed${NC}"
+
 # Find the TI-Toolbox directory
-# Priority: 1) /development (mounted dev code), 2) Current directory if it has tests/, 3) /ti-toolbox (baked-in)
+# Priority: 1) /development/ti-toolbox (mounted dev code), 2) Current directory if it has tests/, 3) /ti-toolbox (baked-in)
 TOOLBOX_DIR=""
 
-if [ -d "/development/tests" ] && [ -f "/development/tests/test_analyzer.py" ]; then
-    TOOLBOX_DIR="/development"
+if [ -d "/development/ti-toolbox/tests" ] && [ -f "/development/ti-toolbox/tests/test_analyzer.py" ]; then
+    TOOLBOX_DIR="/development/ti-toolbox"
     echo -e "${GREEN}✓ Using development mount: ${TOOLBOX_DIR}${NC}"
+elif [ -d "/development/tests" ] && [ -f "/development/tests/test_analyzer.py" ]; then
+    # Backward compatibility (older mounts)
+    TOOLBOX_DIR="/development"
+    echo -e "${YELLOW}⚠ Using legacy development mount: ${TOOLBOX_DIR}${NC}"
 elif [ -d "tests" ] && [ -f "tests/test_analyzer.py" ]; then
     TOOLBOX_DIR=$(pwd)
     echo -e "${GREEN}✓ Using current directory: ${TOOLBOX_DIR}${NC}"
@@ -109,7 +118,8 @@ else
     echo -e "${RED}Error: TI-Toolbox tests directory not found.${NC}"
     echo ""
     echo "Checked locations:"
-    echo "  - /development/tests (development mount)"
+    echo "  - /development/ti-toolbox/tests (development mount)"
+    echo "  - /development/tests (legacy dev mount)"
     echo "  - $(pwd)/tests"
     echo "  - /ti-toolbox/tests"
     echo ""
@@ -123,8 +133,8 @@ cd "$TOOLBOX_DIR"
 echo -e "${GREEN}✓ Working directory: ${TOOLBOX_DIR}${NC}"
 
 # Ensure CLI scripts have execute permissions (important for mounted volumes)
-if [ -d "ti-toolbox/cli" ]; then
-    chmod +x ti-toolbox/cli/*.sh 2>/dev/null || true
+if [ -d "tit/cli" ]; then
+    chmod +x tit/cli/*.sh 2>/dev/null || true
     echo -e "${GREEN}✓ CLI scripts made executable${NC}"
 fi
 
@@ -192,7 +202,7 @@ if [ "$RUN_UNIT_TESTS" = true ]; then
 
     # Setup coverage flags if enabled
     if [ "$ENABLE_COVERAGE" = true ]; then
-        PYTEST_FLAGS="--cov=ti-toolbox --cov-report=xml:/tmp/coverage/coverage.xml --cov-report=term"
+        PYTEST_FLAGS="--cov=tit --cov-report=xml:/tmp/coverage/coverage.xml --cov-report=term"
         echo -e "${CYAN}Coverage reporting enabled - running all tests together${NC}"
         mkdir -p /tmp/coverage
 

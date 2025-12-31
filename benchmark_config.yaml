@@ -28,7 +28,7 @@ dicom:
   subject_id: 101
   
   # Script path
-  dicom_script: /development/ti-toolbox/pre/dicom2nifti.sh
+  dicom_script: /development/tit/pre/dicom2nifti.sh
   
   Output: /mnt/TIT_benchmarking/sub-101/anat/*.nii.gz
 
@@ -45,7 +45,7 @@ charm:
   subject_id: 101
   
   # Script path
-  charm_script: /development/ti-toolbox/pre/charm.sh
+  charm_script: /development/tit/pre/charm.sh
   
   # Options
   clean: false                                       # Clean existing m2m directory before running
@@ -63,7 +63,7 @@ recon:
   subjects: [101, 'RS']                              # List of subject IDs to process (or single: 101)
   
   # Script path
-  recon_script: /development/ti-toolbox/pre/recon-all.sh
+  recon_script: /development/tit/pre/recon-all.sh
   
   # Parallelization options (leverages recon-all.sh's native capabilities)
   parallel: true                                     # Run multiple subjects in parallel (bash background jobs)
@@ -173,7 +173,7 @@ simulator:
   subject_id: 101
   
   # Script path
-  simulator_script: /development/ti-toolbox/cli/simulator.sh
+  simulator_script: /development/tit/cli/simulator.sh
   
   # Simulation parameters
   montage: test_montage                          # Name of montage to simulate
@@ -199,7 +199,7 @@ tissue_analyzer:
   subject_id: 101
   
   # Script path
-  tissue_script: /development/ti-toolbox/tools/tissue_analyzer.py
+  tissue_script: /development/tit/tools/tissue_analyzer.py
   
   # Tissue types to analyze
   tissues: [csf, bone, skin]                         # Options: csf, bone, skin

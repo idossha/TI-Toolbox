@@ -14,16 +14,11 @@ from itertools import product
 from unittest.mock import MagicMock, patch, Mock, mock_open
 from pathlib import Path
 
-# Add ti-toolbox directory to path
-project_root = os.path.join(os.path.dirname(__file__), '..')
-ti_toolbox_dir = os.path.join(project_root, 'ti-toolbox')
-sys.path.insert(0, ti_toolbox_dir)
-
-from opt.ex.logic import generate_current_ratios, calculate_total_combinations, generate_montage_combinations
-from opt.ex.config import validate_electrode, validate_current, ElectrodeConfig, CurrentConfig
-from opt.ex.results import ResultsProcessor, ResultsVisualizer
-from opt.ex.runner import LeadfieldAlgorithms, TIAlgorithms, CurrentRatioGenerator, MontageGenerator
-from core.roi import ROICoordinateHelper
+from tit.opt.ex.logic import generate_current_ratios, calculate_total_combinations, generate_montage_combinations
+from tit.opt.ex.config import validate_electrode, validate_current, ElectrodeConfig, CurrentConfig
+from tit.opt.ex.results import ResultsProcessor, ResultsVisualizer
+from tit.opt.ex.runner import LeadfieldAlgorithms, TIAlgorithms, CurrentRatioGenerator, MontageGenerator
+from tit.core.roi import ROICoordinateHelper
 
 
 class TestLogicFunctions:
@@ -498,7 +493,7 @@ class TestRunnerComponents:
         """Setup test fixtures"""
         self.logger = MagicMock()
 
-    @patch('opt.ex.runner.TI.load_leadfield')
+    @patch('tit.opt.ex.runner.TI.load_leadfield')
     def test_leadfield_algorithms_load_leadfield(self, mock_load_leadfield):
         """Test leadfield loading"""
         mock_leadfield = MagicMock()
@@ -515,7 +510,7 @@ class TestRunnerComponents:
         assert isinstance(load_time, float)
 
     @patch('os.path.exists', return_value=True)
-    @patch('opt.ex.runner.ROICoordinateHelper.load_roi_from_csv')
+    @patch('tit.opt.ex.runner.ROICoordinateHelper.load_roi_from_csv')
     def test_leadfield_algorithms_load_roi_coordinates(self, mock_load_roi, mock_exists):
         """Test ROI coordinate loading"""
         mock_load_roi.return_value = [10.0, 20.0, 30.0]
@@ -526,7 +521,7 @@ class TestRunnerComponents:
         assert coords == [10.0, 20.0, 30.0]
 
     @patch('os.path.exists', return_value=True)
-    @patch('opt.ex.runner.ROICoordinateHelper.load_roi_from_csv')
+    @patch('tit.opt.ex.runner.ROICoordinateHelper.load_roi_from_csv')
     def test_leadfield_algorithms_load_roi_coordinates_none(self, mock_load_roi, mock_exists):
         """Test ROI coordinate loading when file returns None"""
         mock_load_roi.return_value = None
@@ -534,7 +529,7 @@ class TestRunnerComponents:
         with pytest.raises(ValueError):
             LeadfieldAlgorithms.load_roi_coordinates('/fake/roi.csv')
 
-    @patch('opt.ex.runner.find_roi_element_indices')
+    @patch('tit.opt.ex.runner.find_roi_element_indices')
     def test_leadfield_algorithms_find_roi_elements(self, mock_find_roi):
         """Test ROI element finding"""
         mock_mesh = MagicMock()
@@ -545,7 +540,7 @@ class TestRunnerComponents:
         mock_find_roi.assert_called_once_with(mock_mesh, [10, 20, 30], radius=3.0)
         assert np.array_equal(indices, np.array([1, 2, 3]))
 
-    @patch('opt.ex.runner.find_grey_matter_indices')
+    @patch('tit.opt.ex.runner.find_grey_matter_indices')
     def test_leadfield_algorithms_find_grey_matter_elements(self, mock_find_gm):
         """Test grey matter element finding"""
         mock_mesh = MagicMock()
@@ -556,7 +551,7 @@ class TestRunnerComponents:
         mock_find_gm.assert_called_once_with(mock_mesh, grey_matter_tags=[2])
         assert np.array_equal(indices, np.array([10, 20]))
 
-    @patch('opt.ex.runner.calculate_roi_metrics')
+    @patch('tit.opt.ex.runner.calculate_roi_metrics')
     def test_leadfield_algorithms_calculate_roi_metrics(self, mock_calc_metrics):
         """Test ROI metrics calculation"""
         mock_calc_metrics.return_value = {
@@ -589,7 +584,7 @@ class TestRunnerComponents:
         mock_get_field.side_effect = [mock_ef1, mock_ef2]
         mock_get_maxTI.return_value = mock_ti_max
 
-        with patch('opt.ex.runner.LeadfieldAlgorithms.calculate_roi_metrics_for_field') as mock_calc:
+        with patch('tit.opt.ex.runner.LeadfieldAlgorithms.calculate_roi_metrics_for_field') as mock_calc:
             mock_calc.return_value = {
                 'TImax_ROI': 0.8,
                 'TImean_ROI': 0.6,

@@ -266,7 +266,7 @@ class DockerManager extends EventEmitter {
       // Prevent OpenMP issues
       KMP_AFFINITY: 'disabled',
       // Explicitly set PATH to include FreeSurfer bin (for freeview, recon-all) and SimNIBS bin
-      PATH: '/usr/local/freesurfer/bin:/root/SimNIBS-4.5/bin:/ti-toolbox/ti-toolbox/cli:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'
+      PATH: '/usr/local/freesurfer/bin:/root/SimNIBS-4.5/bin:/ti-toolbox/tit/cli:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'
     };
 
     // Log full environment for debugging
@@ -279,7 +279,7 @@ class DockerManager extends EventEmitter {
     let stream;
     try {
       exec = await container.exec({
-        Cmd: ['bash', '/ti-toolbox/ti-toolbox/cli/GUI.sh'],
+        Cmd: ['bash', '/ti-toolbox/tit/cli/GUI.sh'],
         AttachStdout: true,
         AttachStderr: true,
         AttachStdin: false,

@@ -6,18 +6,18 @@ import pytest
 
 
 def load_flex_module():
-    base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'ti-toolbox'))
+    base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'tit'))
     sys.path.insert(0, base_dir)
     # Import the flex_config module which has parse_arguments
-    from opt.flex import flex_config
+    from tit.opt.flex import flex_config
     return flex_config
 
 
 def load_flex_utils_module():
-    base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'ti-toolbox'))
+    base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'tit'))
     sys.path.insert(0, base_dir)
     # Import the utils module which has roi_dirname
-    from opt.flex import utils
+    from tit.opt.flex import utils
     return utils
 
 

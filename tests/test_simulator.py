@@ -17,10 +17,12 @@ import pytest
 from unittest.mock import patch, MagicMock, call
 from pathlib import Path
 
-# Add ti-toolbox directory to path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'ti-toolbox'))
+# Ensure repo root is on sys.path so `import tit` resolves to local sources.
+REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
 
-from sim.simulator import (
+from tit.sim.simulator import (
     setup_montage_directories,
     run_montage_visualization,
     run_simulation,
@@ -28,7 +30,7 @@ from sim.simulator import (
     _run_parallel,
     _run_single_montage
 )
-from sim.config import (
+from tit.sim.config import (
     SimulationConfig,
     MontageConfig,
     SimulationMode,
@@ -190,7 +192,7 @@ class TestRunSimulation:
 
         mock_logger = MagicMock()
 
-        with patch('sim.simulator._run_sequential') as mock_sequential:
+        with patch('tit.sim.simulator._run_sequential') as mock_sequential:
             mock_sequential.return_value = [{"montage_name": "montage1", "status": "completed"}]
 
             results = run_simulation(config, montages, logger=mock_logger)
@@ -217,7 +219,7 @@ class TestRunSimulation:
 
         mock_logger = MagicMock()
 
-        with patch('sim.simulator._run_parallel') as mock_parallel:
+        with patch('tit.sim.simulator._run_parallel') as mock_parallel:
             mock_parallel.return_value = [
                 {"montage_name": "montage1", "status": "completed"},
                 {"montage_name": "montage2", "status": "completed"}
@@ -241,8 +243,8 @@ class TestRunSimulation:
 
         montages = []
 
-        with patch('sim.simulator._run_sequential') as mock_sequential, \
-             patch('sim.simulator.logging_util.get_file_only_logger'):
+        with patch('tit.sim.simulator._run_sequential') as mock_sequential, \
+             patch('tit.sim.simulator.logging_util.get_file_only_logger'):
             mock_sequential.return_value = []
 
             # Should not raise exception
@@ -264,7 +266,7 @@ class TestRunSimulation:
         mock_logger = MagicMock()
         mock_callback = MagicMock()
 
-        with patch('sim.simulator._run_sequential') as mock_sequential:
+        with patch('tit.sim.simulator._run_sequential') as mock_sequential:
             mock_sequential.return_value = [{"montage_name": "montage1", "status": "completed"}]
 
             run_simulation(config, montages, logger=mock_logger, progress_callback=mock_callback)
@@ -277,9 +279,9 @@ class TestRunSimulation:
 class TestRunSingleMontage:
     """Test suite for _run_single_montage()."""
 
-    @patch('sim.simulator.setup_montage_directories')
-    @patch('sim.simulator.run_montage_visualization')
-    @patch('sim.simulator.run_simnibs')
+    @patch('tit.sim.simulator.setup_montage_directories')
+    @patch('tit.sim.simulator.run_montage_visualization')
+    @patch('tit.sim.simulator.run_simnibs')
     def test_ti_workflow(self, mock_run_simnibs, mock_viz, mock_setup):
         """Test complete TI simulation workflow."""
         # Mock directory setup
@@ -341,9 +343,9 @@ class TestRunSingleMontage:
         mock_run_simnibs.assert_called_once()
         mock_post_processor.process_ti_results.assert_called_once()
 
-    @patch('sim.simulator.setup_montage_directories')
-    @patch('sim.simulator.run_montage_visualization')
-    @patch('sim.simulator.run_simnibs')
+    @patch('tit.sim.simulator.setup_montage_directories')
+    @patch('tit.sim.simulator.run_montage_visualization')
+    @patch('tit.sim.simulator.run_simnibs')
     def test_mti_workflow(self, mock_run_simnibs, mock_viz, mock_setup):
         """Test complete mTI simulation workflow."""
         mock_setup.return_value = {
@@ -401,7 +403,7 @@ class TestRunSingleMontage:
 class TestRunParallel:
     """Test suite for _run_parallel()."""
 
-    @patch('sim.simulator.ProcessPoolExecutor')
+    @patch('tit.sim.simulator.ProcessPoolExecutor')
     def test_parallel_worker_submission(self, mock_executor):
         """Test that workers are submitted correctly."""
         config = SimulationConfig(
@@ -433,7 +435,10 @@ class TestRunParallel:
 
         mock_executor_instance.submit.side_effect = [mock_future1, mock_future2]
 
-        with patch('sim.simulator.as_completed', return_value=[mock_future1, mock_future2]):
+        # Patch the correct as_completed symbol used by tit.sim.simulator.
+        # If this isn't patched, concurrent.futures.as_completed() will block forever
+        # on MagicMock "futures" and the test will hang.
+        with patch('tit.sim.simulator.as_completed', return_value=[mock_future1, mock_future2]):
             results = _run_parallel(
                 config=config,
                 montages=montages,
@@ -445,7 +450,7 @@ class TestRunParallel:
         assert mock_executor_instance.submit.call_count == 2
         assert len(results) == 2
 
-    @patch('sim.simulator.ProcessPoolExecutor')
+    @patch('tit.sim.simulator.ProcessPoolExecutor')
     def test_worker_exception_handling(self, mock_executor):
         """Test handling of worker exceptions."""
         config = SimulationConfig(
@@ -474,7 +479,7 @@ class TestRunParallel:
 
         mock_executor_instance.submit.return_value = mock_future
 
-        with patch('sim.simulator.as_completed', return_value=[mock_future]):
+        with patch('tit.sim.simulator.as_completed', return_value=[mock_future]):
             results = _run_parallel(
                 config=config,
                 montages=montages,

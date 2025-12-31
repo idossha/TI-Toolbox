@@ -1,6 +1,6 @@
 #!/usr/bin/env simnibs_python
 """
-Comprehensive tests for ti-toolbox/stats/ module
+Comprehensive tests for tit/stats/ module
 
 Tests cover:
 - stats_utils.py: Statistical calculations (t-tests, correlations, cluster operations)
@@ -20,8 +20,8 @@ import sys
 from unittest.mock import Mock, MagicMock, patch, mock_open, call
 from pathlib import Path
 
-# Add ti-toolbox directory to path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'ti-toolbox'))
+# Add tit directory to path
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'tit'))
 
 
 # ==============================================================================

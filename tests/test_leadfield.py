@@ -1,6 +1,6 @@
 #!/usr/bin/env simnibs_python
 """
-Comprehensive tests for ti-toolbox/opt/leadfield.py
+Comprehensive tests for tit/opt/leadfield.py
 
 Tests cover the LeadfieldGenerator class:
 - Initialization and configuration
@@ -18,8 +18,8 @@ import sys
 from unittest.mock import Mock, MagicMock, patch, mock_open, call
 from pathlib import Path
 
-# Add ti-toolbox directory to path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'ti-toolbox'))
+# Add tit directory to path
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'tit'))
 
 
 # ==============================================================================
@@ -83,10 +83,10 @@ class TestLeadfieldGeneratorInit:
     """Test LeadfieldGenerator initialization"""
 
     @pytest.mark.unit
-    @patch('opt.leadfield.get_path_manager')
+    @patch('tit.opt.leadfield.get_path_manager')
     def test_init_basic(self, mock_get_pm, sample_subject_dir, mock_path_manager):
         """Test basic initialization"""
-        from opt.leadfield import LeadfieldGenerator
+        from tit.opt.leadfield import LeadfieldGenerator
 
         mock_get_pm.return_value = mock_path_manager
 
@@ -99,10 +99,10 @@ class TestLeadfieldGeneratorInit:
         assert gen.positions is None
 
     @pytest.mark.unit
-    @patch('opt.leadfield.get_path_manager')
+    @patch('tit.opt.leadfield.get_path_manager')
     def test_init_with_callbacks(self, mock_get_pm, sample_subject_dir, mock_path_manager):
         """Test initialization with progress callback and termination flag"""
-        from opt.leadfield import LeadfieldGenerator
+        from tit.opt.leadfield import LeadfieldGenerator
 
         mock_get_pm.return_value = mock_path_manager
 
@@ -123,11 +123,11 @@ class TestLeadfieldGeneratorInit:
         assert gen.logger is None  # Should not create logger when callback provided
 
     @pytest.mark.unit
-    @patch('opt.leadfield.get_path_manager')
-    @patch('opt.leadfield.logging_util.get_logger')
+    @patch('tit.opt.leadfield.get_path_manager')
+    @patch('tit.opt.leadfield.logging_util.get_logger')
     def test_init_with_logger(self, mock_get_logger, mock_get_pm, sample_subject_dir, mock_path_manager):
         """Test initialization creates logger when no callback"""
-        from opt.leadfield import LeadfieldGenerator
+        from tit.opt.leadfield import LeadfieldGenerator
 
         mock_get_pm.return_value = mock_path_manager
         mock_logger = MagicMock()
@@ -148,13 +148,13 @@ class TestCleanupOldSimulations:
     """Test cleanup of old simulation files"""
 
     @pytest.mark.unit
-    @patch('opt.leadfield.get_path_manager')
+    @patch('tit.opt.leadfield.get_path_manager')
     @patch('glob.glob')
-    @patch('opt.leadfield.os.remove')
+    @patch('tit.opt.leadfield.os.remove')
     @patch('shutil.rmtree')
     def test_cleanup_simulation_files(self, mock_rmtree, mock_remove, mock_glob, mock_get_pm, sample_subject_dir, mock_path_manager):
         """Test cleanup of .mat simulation files"""
-        from opt.leadfield import LeadfieldGenerator
+        from tit.opt.leadfield import LeadfieldGenerator
 
         mock_get_pm.return_value = mock_path_manager
 
@@ -171,12 +171,12 @@ class TestCleanupOldSimulations:
         assert mock_remove.call_count == 2
 
     @pytest.mark.unit
-    @patch('opt.leadfield.get_path_manager')
+    @patch('tit.opt.leadfield.get_path_manager')
     @patch('glob.glob')
     @patch('shutil.rmtree')
     def test_cleanup_leadfield_directory(self, mock_rmtree, mock_glob, mock_get_pm, sample_subject_dir, mock_path_manager):
         """Test cleanup of temporary leadfield directory"""
-        from opt.leadfield import LeadfieldGenerator
+        from tit.opt.leadfield import LeadfieldGenerator
 
         mock_get_pm.return_value = mock_path_manager
         mock_glob.return_value = []  # No .mat files
@@ -192,11 +192,11 @@ class TestCleanupOldSimulations:
         mock_rmtree.assert_called()
 
     @pytest.mark.unit
-    @patch('opt.leadfield.get_path_manager')
+    @patch('tit.opt.leadfield.get_path_manager')
     @patch('glob.glob')
     def test_cleanup_roi_mesh_file(self, mock_glob, mock_get_pm, sample_subject_dir, mock_path_manager):
         """Test cleanup of ROI mesh file"""
-        from opt.leadfield import LeadfieldGenerator
+        from tit.opt.leadfield import LeadfieldGenerator
 
         mock_get_pm.return_value = mock_path_manager
         mock_glob.return_value = []
@@ -224,12 +224,12 @@ class TestGenerateLeadfield:
     """Test leadfield generation workflow"""
 
     @pytest.mark.unit
-    @patch('opt.leadfield.get_path_manager')
+    @patch('tit.opt.leadfield.get_path_manager')
     @patch('simnibs.run_simnibs')
     @patch('glob.glob')
     def test_generate_leadfield_basic(self, mock_glob, mock_run_simnibs, mock_get_pm, tmp_path, sample_subject_dir, mock_path_manager):
         """Test basic leadfield generation"""
-        from opt.leadfield import LeadfieldGenerator
+        from tit.opt.leadfield import LeadfieldGenerator
 
         mock_get_pm.return_value = mock_path_manager
 
@@ -247,10 +247,10 @@ class TestGenerateLeadfield:
         mock_run_simnibs.assert_called_once()
 
     @pytest.mark.unit
-    @patch('opt.leadfield.get_path_manager')
+    @patch('tit.opt.leadfield.get_path_manager')
     def test_generate_leadfield_mesh_not_found(self, mock_get_pm, tmp_path, mock_path_manager):
         """Test error when mesh file not found"""
-        from opt.leadfield import LeadfieldGenerator
+        from tit.opt.leadfield import LeadfieldGenerator
 
         mock_get_pm.return_value = mock_path_manager
 
@@ -264,12 +264,12 @@ class TestGenerateLeadfield:
             gen.generate_leadfield()
 
     @pytest.mark.unit
-    @patch('opt.leadfield.get_path_manager')
+    @patch('tit.opt.leadfield.get_path_manager')
     @patch('simnibs.run_simnibs')
     @patch('glob.glob')
     def test_generate_leadfield_with_termination(self, mock_glob, mock_run_simnibs, mock_get_pm, sample_subject_dir, mock_path_manager):
         """Test leadfield generation with termination flag"""
-        from opt.leadfield import LeadfieldGenerator
+        from tit.opt.leadfield import LeadfieldGenerator
 
         mock_get_pm.return_value = mock_path_manager
         termination_flag = MagicMock(return_value=True)  # Immediately terminate
@@ -300,11 +300,11 @@ class TestListAvailableLeadfieldsHdf5:
     """Test listing available HDF5 leadfield files"""
 
     @pytest.mark.unit
-    @patch('opt.leadfield.get_path_manager')
+    @patch('tit.opt.leadfield.get_path_manager')
     @patch('os.path.exists')
     def test_list_hdf5_leadfields(self, mock_exists, mock_get_pm, mock_path_manager, tmp_path):
         """Test listing HDF5 leadfield files"""
-        from opt.leadfield import LeadfieldGenerator
+        from tit.opt.leadfield import LeadfieldGenerator
 
         mock_get_pm.return_value = mock_path_manager
 
@@ -330,11 +330,11 @@ class TestListAvailableLeadfieldsHdf5:
             assert isinstance(size, float)
 
     @pytest.mark.unit
-    @patch('opt.leadfield.get_path_manager')
+    @patch('tit.opt.leadfield.get_path_manager')
     @patch('os.path.exists')
     def test_list_hdf5_leadfields_empty_dir(self, mock_exists, mock_get_pm, mock_path_manager):
         """Test listing when no HDF5 files exist"""
-        from opt.leadfield import LeadfieldGenerator
+        from tit.opt.leadfield import LeadfieldGenerator
 
         mock_get_pm.return_value = mock_path_manager
         mock_path_manager.get_leadfield_dir = MagicMock(return_value=None)
@@ -354,10 +354,10 @@ class TestGetElectrodeNamesFromCap:
     """Test electrode name extraction from EEG cap file"""
 
     @pytest.mark.unit
-    @patch('opt.leadfield.get_path_manager')
+    @patch('tit.opt.leadfield.get_path_manager')
     def test_get_electrode_names_basic(self, mock_get_pm, sample_subject_dir, mock_path_manager):
         """Test basic electrode name extraction"""
-        from opt.leadfield import LeadfieldGenerator
+        from tit.opt.leadfield import LeadfieldGenerator
 
         mock_get_pm.return_value = mock_path_manager
 
@@ -379,10 +379,10 @@ class TestGetElectrodeNamesFromCap:
         assert 'F3' in electrodes
 
     @pytest.mark.unit
-    @patch('opt.leadfield.get_path_manager')
+    @patch('tit.opt.leadfield.get_path_manager')
     def test_get_electrode_names_file_not_found(self, mock_get_pm, sample_subject_dir, mock_path_manager):
         """Test error when cap file not found"""
-        from opt.leadfield import LeadfieldGenerator
+        from tit.opt.leadfield import LeadfieldGenerator
 
         mock_get_pm.return_value = mock_path_manager
 

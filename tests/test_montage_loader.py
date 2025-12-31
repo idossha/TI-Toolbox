@@ -17,16 +17,18 @@ import pytest
 from unittest.mock import patch, mock_open, MagicMock
 from pathlib import Path
 
-# Add ti-toolbox directory to path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'ti-toolbox'))
+# Ensure repo root is on sys.path so `import tit` resolves to local sources.
+REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
 
-from sim.montage_loader import (
+from tit.sim.montage_loader import (
     load_montage_file,
     load_flex_montages,
     parse_flex_montage,
     load_montages
 )
-from sim.config import MontageConfig
+from tit.sim.config import MontageConfig
 
 
 @pytest.mark.unit
@@ -37,7 +39,7 @@ class TestLoadMontageFile:
         """Test loading an existing montage configuration file."""
         # Create test project structure
         project_dir = tmp_path / "test_project"
-        config_dir = project_dir / "code" / "ti-toolbox" / "config"
+        config_dir = project_dir / "code" / "tit" / "config"
         config_dir.mkdir(parents=True)
 
         montage_file = config_dir / "montage_list.json"
@@ -68,7 +70,7 @@ class TestLoadMontageFile:
     def test_create_default_montage_file(self, tmp_path):
         """Test creating default montage file when it doesn't exist."""
         project_dir = tmp_path / "test_project"
-        config_dir = project_dir / "code" / "ti-toolbox" / "config"
+        config_dir = project_dir / "code" / "tit" / "config"
 
         # File doesn't exist yet
         montage_file = config_dir / "montage_list.json"
@@ -85,7 +87,7 @@ class TestLoadMontageFile:
     def test_missing_eeg_net(self, tmp_path):
         """Test error when requested EEG net not found."""
         project_dir = tmp_path / "test_project"
-        config_dir = project_dir / "code" / "ti-toolbox" / "config"
+        config_dir = project_dir / "code" / "tit" / "config"
         config_dir.mkdir(parents=True)
 
         montage_file = config_dir / "montage_list.json"
@@ -107,7 +109,7 @@ class TestLoadMontageFile:
     def test_invalid_json(self, tmp_path):
         """Test error handling for invalid JSON file."""
         project_dir = tmp_path / "test_project"
-        config_dir = project_dir / "code" / "ti-toolbox" / "config"
+        config_dir = project_dir / "code" / "tit" / "config"
         config_dir.mkdir(parents=True)
 
         montage_file = config_dir / "montage_list.json"
@@ -287,7 +289,7 @@ class TestLoadMontages:
     def test_load_regular_montages_only(self, tmp_path):
         """Test loading regular montages without flex montages."""
         project_dir = tmp_path / "test_project"
-        config_dir = project_dir / "code" / "ti-toolbox" / "config"
+        config_dir = project_dir / "code" / "tit" / "config"
         config_dir.mkdir(parents=True)
 
         montage_file = config_dir / "montage_list.json"
@@ -322,7 +324,7 @@ class TestLoadMontages:
     def test_load_with_flex_montages(self, tmp_path):
         """Test loading both regular and flex montages."""
         project_dir = tmp_path / "test_project"
-        config_dir = project_dir / "code" / "ti-toolbox" / "config"
+        config_dir = project_dir / "code" / "tit" / "config"
         config_dir.mkdir(parents=True)
 
         montage_file = config_dir / "montage_list.json"
@@ -367,7 +369,7 @@ class TestLoadMontages:
     def test_freehand_mode(self, tmp_path):
         """Test is_xyz flag for freehand mode."""
         project_dir = tmp_path / "test_project"
-        config_dir = project_dir / "code" / "ti-toolbox" / "config"
+        config_dir = project_dir / "code" / "tit" / "config"
         config_dir.mkdir(parents=True)
 
         montage_file = config_dir / "montage_list.json"
@@ -398,7 +400,7 @@ class TestLoadMontages:
     def test_skip_failed_flex_montages(self, tmp_path, capsys):
         """Test that failed flex montages are skipped with warning."""
         project_dir = tmp_path / "test_project"
-        config_dir = project_dir / "code" / "ti-toolbox" / "config"
+        config_dir = project_dir / "code" / "tit" / "config"
         config_dir.mkdir(parents=True)
 
         montage_file = config_dir / "montage_list.json"
@@ -442,7 +444,7 @@ class TestLoadMontages:
     def test_empty_montage_list(self, tmp_path):
         """Test loading with empty montage list."""
         project_dir = tmp_path / "test_project"
-        config_dir = project_dir / "code" / "ti-toolbox" / "config"
+        config_dir = project_dir / "code" / "tit" / "config"
         config_dir.mkdir(parents=True)
 
         montage_file = config_dir / "montage_list.json"
@@ -470,7 +472,7 @@ class TestLoadMontages:
     def test_montage_priority(self, tmp_path):
         """Test that multi_polar is checked before uni_polar."""
         project_dir = tmp_path / "test_project"
-        config_dir = project_dir / "code" / "ti-toolbox" / "config"
+        config_dir = project_dir / "code" / "tit" / "config"
         config_dir.mkdir(parents=True)
 
         montage_file = config_dir / "montage_list.json"

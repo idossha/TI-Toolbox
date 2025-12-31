@@ -11,9 +11,9 @@ import time
 from unittest.mock import Mock, patch, MagicMock
 from PyQt5 import QtCore
 
-# Add ti-toolbox directory to path
+# Add tit directory to path
 project_root = os.path.join(os.path.dirname(__file__), '..')
-ti_toolbox_dir = os.path.join(project_root, 'ti-toolbox')
+ti_toolbox_dir = os.path.join(project_root, 'tit')
 sys.path.insert(0, ti_toolbox_dir)
 
 from core.process import (

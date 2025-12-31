@@ -262,7 +262,7 @@ get_host_timestamp() {
 
 # Function to check if project is new and needs initialization
 check_if_new_project() {
-  local project_config_dir="$LOCAL_PROJECT_DIR/code/ti-toolbox/config"
+  local project_config_dir="$LOCAL_PROJECT_DIR/code/tit/config"
   
   if [ ! -d "$project_config_dir" ]; then
     return 0  # New project
@@ -318,7 +318,7 @@ This project contains structural MRI data and derivatives for simulating and ana
 - `derivatives/` - Processed data and analysis results
   - `freesurfer/` - FreeSurfer anatomical segmentation and surface reconstructions
   - `SimNIBS/` - SimNIBS head models and electric field simulations
-  - `ti-toolbox/` - TI-Toolbox simulation results and analyses
+  - `tit/` - TI-Toolbox simulation results and analyses
 
 ## Software
 
@@ -353,7 +353,7 @@ setup_example_data_if_new() {
   echo "═══════════════════════════════════════════════════════"
   
   local toolbox_root="$SCRIPT_DIR/../.."
-  local example_data_manager="$toolbox_root/ti-toolbox/new_project/example_data_manager.py"
+  local example_data_manager="$toolbox_root/tit/new_project/example_data_manager.py"
   
   echo "DEBUG: SCRIPT_DIR = $SCRIPT_DIR"
   echo "DEBUG: toolbox_root = $toolbox_root"
@@ -364,7 +364,7 @@ setup_example_data_if_new() {
   if [ ! -f "$example_data_manager" ]; then
     echo "ERROR: Example data manager not found at $example_data_manager"
     echo "DEBUG: Listing directory contents:"
-    ls -la "$toolbox_root/ti-toolbox/new_project/" 2>&1 || echo "Directory does not exist"
+    ls -la "$toolbox_root/tit/new_project/" 2>&1 || echo "Directory does not exist"
     return 1
   fi
   
@@ -512,7 +512,7 @@ setup_example_data_in_container() {
   done
   
   # Run the example data manager inside the container with correct paths
-  if docker exec "$container_name" simnibs_python /ti-toolbox/ti-toolbox/new_project/example_data_manager.py /ti-toolbox "$container_project_dir"; then
+  if docker exec "$container_name" simnibs_python /ti-toolbox/tit/new_project/example_data_manager.py /ti-toolbox "$container_project_dir"; then
     echo "  ✓ Example data copied successfully"
     return 0
   else
@@ -532,7 +532,7 @@ initialize_project_structure() {
   
   # Create main BIDS directories
   echo "Creating directory structure..."
-  mkdir -p "$LOCAL_PROJECT_DIR/code/ti-toolbox/config"
+  mkdir -p "$LOCAL_PROJECT_DIR/code/tit/config"
   mkdir -p "$LOCAL_PROJECT_DIR/derivatives/ti-toolbox/.ti-toolbox-info"
   mkdir -p "$LOCAL_PROJECT_DIR/derivatives/freesurfer"
   mkdir -p "$LOCAL_PROJECT_DIR/derivatives/SimNIBS"
@@ -547,8 +547,8 @@ initialize_project_structure() {
   initialize_dataset_description
   echo "  ✓ Root dataset_description.json created"
   
-  initialize_derivative_dataset_description "ti-toolbox"
-  echo "  ✓ ti-toolbox dataset_description.json created"
+  initialize_derivative_dataset_description "tit"
+  echo "  ✓ tit dataset_description.json created"
   
   initialize_derivative_dataset_description "freesurfer"
   echo "  ✓ freesurfer dataset_description.json created"
@@ -562,7 +562,7 @@ initialize_project_structure() {
   echo "  ✓ Project status file created"
   
   # Create a marker file to indicate initialization was done
-  touch "$LOCAL_PROJECT_DIR/code/ti-toolbox/config/.initialized"
+  touch "$LOCAL_PROJECT_DIR/code/tit/config/.initialized"
   echo "  ✓ Initialization marker created"
   
   echo ""

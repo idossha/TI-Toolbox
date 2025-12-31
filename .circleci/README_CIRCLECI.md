@@ -143,7 +143,7 @@ Uses Ubuntu 22.04 VM with Docker support.
 1. Checks out PR code
 2. Pulls test image (`ti-toolbox-test:latest`)
 3. Creates test directories
-4. Mounts PR code into container at `/ti-toolbox` (matches production)
+4. Mounts PR code into container at `/tit` (matches production)
 5. Script copies TI-Toolbox extensions to SimNIBS
 6. Runs `./tests/run_tests.sh --verbose`
 7. Stores test artifacts
@@ -159,10 +159,10 @@ Uses Ubuntu 22.04 VM with Docker support.
 ```bash
 # What CircleCI runs:
 docker run --rm \
-  -v "${WORKSPACE}:/ti-toolbox" \             # PR code (matches production)
+  -v "${WORKSPACE}:/tit" \             # PR code (matches production)
   -v /tmp/test_projectdir:/mnt/test_projectdir \  # Test data
   -v /tmp/test-results:/tmp/test-results \    # Results
-  -w /ti-toolbox \                            # Working directory
+  -w /tit \                            # Working directory
   ti-test:latest \                            # Test image (SimNIBS + tools)
   bash -c './tests/run_tests.sh --verbose'
 

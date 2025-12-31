@@ -21,46 +21,16 @@ from pathlib import Path
 from unittest.mock import Mock, patch, MagicMock, call
 from io import StringIO
 
-# Add ti-toolbox directory to path
-project_root = str(Path(__file__).resolve().parent.parent)
-ti_toolbox_dir = str(Path(project_root) / 'ti-toolbox')
-sys.path.insert(0, ti_toolbox_dir)
+# Ensure repo root is on sys.path so `import tit` resolves to local sources.
+project_root = Path(__file__).resolve().parent.parent
+if str(project_root) not in sys.path:
+    sys.path.insert(0, str(project_root))
 
-# Mock the analyzer modules before importing main_analyzer
-from unittest.mock import MagicMock
-
-# Store original modules for cleanup
-_original_mesh_analyzer = sys.modules.get('mesh_analyzer')
-_original_voxel_analyzer = sys.modules.get('voxel_analyzer')
-
-# Create mock modules for the analyzer dependencies
-mock_mesh_analyzer = MagicMock()
-mock_voxel_analyzer = MagicMock()
-
-# Add the mock modules to sys.modules before importing
-sys.modules['mesh_analyzer'] = mock_mesh_analyzer
-sys.modules['voxel_analyzer'] = mock_voxel_analyzer
-
-
-@pytest.fixture(scope='module', autouse=True)
-def cleanup_analyzer_mocks():
-    """Cleanup mock dependencies after all tests"""
-    yield  # Tests run here
-
-    # Cleanup: restore original modules or remove mocks
-    if _original_mesh_analyzer is not None:
-        sys.modules['mesh_analyzer'] = _original_mesh_analyzer
-    else:
-        sys.modules.pop('mesh_analyzer', None)
-
-    if _original_voxel_analyzer is not None:
-        sys.modules['voxel_analyzer'] = _original_voxel_analyzer
-    else:
-        sys.modules.pop('voxel_analyzer', None)
-
-
-# Now import the main_analyzer module (after mocks are set up)
-from analyzer.main_analyzer import (
+# Import the main_analyzer module.
+# The analyzer classes it uses are imported lazily inside `main()`, so importing
+# this module in tests should not inject mocks into `sys.modules` or affect other
+# test modules collected in the same pytest process.
+from tit.analyzer.main_analyzer import (
     format_duration,
     validate_file_extension,
     validate_coordinates,
@@ -183,13 +153,13 @@ class TestLoggingFunctions:
     def setup_method(self):
         """Setup for each test method"""
         # Reset global variables
-        import analyzer.main_analyzer as ma
+        import tit.analyzer.main_analyzer as ma
         ma.SUMMARY_MODE = False
         ma._start_times = {}
         ma._analysis_start_time = None
     
-    @patch('analyzer.main_analyzer.SUMMARY_MODE', False)
-    @patch('analyzer.main_analyzer.logger')
+    @patch('tit.analyzer.main_analyzer.SUMMARY_MODE', False)
+    @patch('tit.analyzer.main_analyzer.logger')
     def test_log_analysis_start(self, mock_logger):
         """Test log_analysis_start function"""
         log_analysis_start("spherical", "test_subject", "Test ROI")
@@ -198,7 +168,7 @@ class TestLoggingFunctions:
             "Beginning analysis for subject: test_subject (Test ROI)"
         )
     
-    @patch('analyzer.main_analyzer.SUMMARY_MODE', True)
+    @patch('tit.analyzer.main_analyzer.SUMMARY_MODE', True)
     @patch('builtins.print')
     def test_log_analysis_start_summary_mode(self, mock_print):
         """Test log_analysis_start function in summary mode"""
@@ -208,11 +178,11 @@ class TestLoggingFunctions:
             "Beginning analysis for subject: test_subject (Test ROI)"
         )
     
-    @patch('analyzer.main_analyzer.SUMMARY_MODE', False)
-    @patch('analyzer.main_analyzer.logger')
+    @patch('tit.analyzer.main_analyzer.SUMMARY_MODE', False)
+    @patch('tit.analyzer.main_analyzer.logger')
     def test_log_analysis_complete(self, mock_logger):
         """Test log_analysis_complete function"""
-        import analyzer.main_analyzer as ma
+        import tit.analyzer.main_analyzer as ma
         ma._analysis_start_time = 1000.0
         
         with patch('time.time', return_value=1010.0):
@@ -222,11 +192,11 @@ class TestLoggingFunctions:
             "Analysis completed successfully for subject: test_subject (Total: 10s)"
         )
     
-    @patch('analyzer.main_analyzer.SUMMARY_MODE', True)
+    @patch('tit.analyzer.main_analyzer.SUMMARY_MODE', True)
     @patch('builtins.print')
     def test_log_analysis_complete_summary_mode(self, mock_print):
         """Test log_analysis_complete function in summary mode"""
-        import analyzer.main_analyzer as ma
+        import tit.analyzer.main_analyzer as ma
         ma._analysis_start_time = 1000.0
         
         with patch('time.time', return_value=1010.0):
@@ -238,11 +208,11 @@ class TestLoggingFunctions:
         ]
         mock_print.assert_has_calls(expected_calls)
     
-    @patch('analyzer.main_analyzer.SUMMARY_MODE', False)
-    @patch('analyzer.main_analyzer.logger')
+    @patch('tit.analyzer.main_analyzer.SUMMARY_MODE', False)
+    @patch('tit.analyzer.main_analyzer.logger')
     def test_log_analysis_failed(self, mock_logger):
         """Test log_analysis_failed function"""
-        import analyzer.main_analyzer as ma
+        import tit.analyzer.main_analyzer as ma
         ma._analysis_start_time = 1000.0
         
         with patch('time.time', return_value=1010.0):
@@ -252,15 +222,15 @@ class TestLoggingFunctions:
             "Analysis failed for subject: test_subject (10s) - Test error"
         )
     
-    @patch('analyzer.main_analyzer.SUMMARY_MODE', False)
-    @patch('analyzer.main_analyzer.logger')
+    @patch('tit.analyzer.main_analyzer.SUMMARY_MODE', False)
+    @patch('tit.analyzer.main_analyzer.logger')
     def test_log_analysis_step_start(self, mock_logger):
         """Test log_analysis_step_start function"""
         log_analysis_step_start("Field loading", "test_subject")
         
         mock_logger.info.assert_called_once_with("Field loading: Started")
     
-    @patch('analyzer.main_analyzer.SUMMARY_MODE', True)
+    @patch('tit.analyzer.main_analyzer.SUMMARY_MODE', True)
     @patch('builtins.print')
     def test_log_analysis_step_start_summary_mode(self, mock_print):
         """Test log_analysis_step_start function in summary mode"""
@@ -268,11 +238,11 @@ class TestLoggingFunctions:
         
         mock_print.assert_called_once_with("├─ Field loading: Started")
     
-    @patch('analyzer.main_analyzer.SUMMARY_MODE', False)
-    @patch('analyzer.main_analyzer.logger')
+    @patch('tit.analyzer.main_analyzer.SUMMARY_MODE', False)
+    @patch('tit.analyzer.main_analyzer.logger')
     def test_log_analysis_step_complete(self, mock_logger):
         """Test log_analysis_step_complete function"""
-        import analyzer.main_analyzer as ma
+        import tit.analyzer.main_analyzer as ma
         ma._start_times["test_subject_Field loading"] = 1000.0
         
         with patch('time.time', return_value=1010.0):
@@ -281,11 +251,11 @@ class TestLoggingFunctions:
         mock_logger.info.assert_called_once_with("Field loading: Complete (10s)")
         assert "test_subject_Field loading" not in ma._start_times
     
-    @patch('analyzer.main_analyzer.SUMMARY_MODE', True)
+    @patch('tit.analyzer.main_analyzer.SUMMARY_MODE', True)
     @patch('builtins.print')
     def test_log_analysis_step_complete_summary_mode(self, mock_print):
         """Test log_analysis_step_complete function in summary mode"""
-        import analyzer.main_analyzer as ma
+        import tit.analyzer.main_analyzer as ma
         ma._start_times["test_subject_Field loading"] = 1000.0
         
         with patch('time.time', return_value=1010.0):
@@ -294,11 +264,11 @@ class TestLoggingFunctions:
         mock_print.assert_called_once_with("├─ Field loading: ✓ Complete (10s) - 5 voxels")
         assert "test_subject_Field loading" not in ma._start_times
     
-    @patch('analyzer.main_analyzer.SUMMARY_MODE', False)
-    @patch('analyzer.main_analyzer.logger')
+    @patch('tit.analyzer.main_analyzer.SUMMARY_MODE', False)
+    @patch('tit.analyzer.main_analyzer.logger')
     def test_log_analysis_step_failed(self, mock_logger):
         """Test log_analysis_step_failed function"""
-        import analyzer.main_analyzer as ma
+        import tit.analyzer.main_analyzer as ma
         ma._start_times["test_subject_Field loading"] = 1000.0
         
         with patch('time.time', return_value=1010.0):
@@ -486,7 +456,7 @@ class TestArgumentValidation:
         self.mock_logger = Mock()
         
         # Patch the logger in the module
-        with patch('analyzer.main_analyzer.logger', self.mock_logger):
+        with patch('tit.analyzer.main_analyzer.logger', self.mock_logger):
             pass
     
     @patch('os.path.isdir')
@@ -508,10 +478,10 @@ class TestArgumentValidation:
         args.region = None
         args.whole_head = False
         
-        with patch('analyzer.main_analyzer.construct_mesh_field_path', return_value='/path/to/field.msh'):
-            with patch('analyzer.main_analyzer.validate_file_extension'):
-                with patch('analyzer.main_analyzer.validate_coordinates', return_value=[10.0, 20.0, 30.0]):
-                    with patch('analyzer.main_analyzer.validate_radius', return_value=5.0):
+        with patch('tit.analyzer.main_analyzer.construct_mesh_field_path', return_value='/path/to/field.msh'):
+            with patch('tit.analyzer.main_analyzer.validate_file_extension'):
+                with patch('tit.analyzer.main_analyzer.validate_coordinates', return_value=[10.0, 20.0, 30.0]):
+                    with patch('tit.analyzer.main_analyzer.validate_radius', return_value=5.0):
                         # Should not raise any exceptions
                         validate_args(args)
     
@@ -582,7 +552,7 @@ class TestArgumentValidation:
         args.coordinates = None
         args.radius = 5.0
 
-        with patch('analyzer.main_analyzer.construct_mesh_field_path', return_value='/path/to/field.msh'):
+        with patch('tit.analyzer.main_analyzer.construct_mesh_field_path', return_value='/path/to/field.msh'):
             with pytest.raises(ValueError, match="Coordinates are required for spherical analysis"):
                 validate_args(args)
     
@@ -602,7 +572,7 @@ class TestArgumentValidation:
         args.coordinates = [10, 20, 30]
         args.radius = None
 
-        with patch('analyzer.main_analyzer.construct_mesh_field_path', return_value='/path/to/field.msh'):
+        with patch('tit.analyzer.main_analyzer.construct_mesh_field_path', return_value='/path/to/field.msh'):
             with pytest.raises(ValueError, match="Radius is required for spherical analysis"):
                 validate_args(args)
     
@@ -623,7 +593,7 @@ class TestArgumentValidation:
         args.region = 'test_region'
         args.whole_head = False
 
-        with patch('analyzer.main_analyzer.construct_mesh_field_path', return_value='/path/to/field.msh'):
+        with patch('tit.analyzer.main_analyzer.construct_mesh_field_path', return_value='/path/to/field.msh'):
             with pytest.raises(ValueError, match="Atlas name is required for mesh-based cortical analysis"):
                 validate_args(args)
     
@@ -663,7 +633,7 @@ class TestArgumentValidation:
         args.region = None
         args.whole_head = False
 
-        with patch('analyzer.main_analyzer.construct_mesh_field_path', return_value='/path/to/field.msh'):
+        with patch('tit.analyzer.main_analyzer.construct_mesh_field_path', return_value='/path/to/field.msh'):
             with pytest.raises(ValueError, match="Either --whole_head flag or --region must be specified"):
                 validate_args(args)
 
@@ -729,10 +699,10 @@ class TestMainFunction:
         import shutil
         shutil.rmtree(self.temp_dir, ignore_errors=True)
     
-    @patch('analyzer.main_analyzer.MeshAnalyzer')
-    @patch('analyzer.main_analyzer.VoxelAnalyzer')
-    @patch('analyzer.main_analyzer.logging_util.get_logger')
-    @patch('analyzer.main_analyzer.setup_parser')
+    @patch('tit.analyzer.mesh_analyzer.MeshAnalyzer')
+    @patch('tit.analyzer.voxel_analyzer.VoxelAnalyzer')
+    @patch('tit.analyzer.main_analyzer.logging_util.get_logger')
+    @patch('tit.analyzer.main_analyzer.setup_parser')
     def test_main_mesh_spherical_analysis(self, mock_setup_parser, mock_get_logger, mock_voxel_analyzer, mock_mesh_analyzer):
         """Test main function with mesh spherical analysis"""
         # Setup mock parser and arguments
@@ -769,9 +739,9 @@ class TestMainFunction:
         with patch('os.path.isdir', return_value=True):
             with patch('os.path.exists', return_value=True):
                 with patch('os.makedirs'):
-                    with patch('analyzer.main_analyzer.construct_mesh_field_path', return_value='/path/to/field.msh'):
+                    with patch('tit.analyzer.main_analyzer.construct_mesh_field_path', return_value='/path/to/field.msh'):
                         # Run main function
-                        from analyzer.main_analyzer import main
+                        from tit.analyzer.main_analyzer import main
                         main()
         
         # Verify analyzer was called correctly
@@ -782,10 +752,10 @@ class TestMainFunction:
             visualize=False
         )
     
-    @patch('analyzer.main_analyzer.MeshAnalyzer')
-    @patch('analyzer.main_analyzer.VoxelAnalyzer')
-    @patch('analyzer.main_analyzer.logging_util.get_logger')
-    @patch('analyzer.main_analyzer.setup_parser')
+    @patch('tit.analyzer.mesh_analyzer.MeshAnalyzer')
+    @patch('tit.analyzer.voxel_analyzer.VoxelAnalyzer')
+    @patch('tit.analyzer.main_analyzer.logging_util.get_logger')
+    @patch('tit.analyzer.main_analyzer.setup_parser')
     def test_main_voxel_cortical_analysis(self, mock_setup_parser, mock_get_logger, mock_voxel_analyzer, mock_mesh_analyzer):
         """Test main function with voxel cortical analysis"""
         # Setup mock parser and arguments
@@ -822,7 +792,7 @@ class TestMainFunction:
             with patch('os.path.exists', return_value=True):
                 with patch('os.makedirs'):
                     # Run main function
-                    from analyzer.main_analyzer import main
+                    from tit.analyzer.main_analyzer import main
                     main()
         
         # Verify analyzer was called correctly
@@ -833,10 +803,10 @@ class TestMainFunction:
             visualize=False
         )
 
-    @patch('analyzer.main_analyzer.MeshAnalyzer')
-    @patch('analyzer.main_analyzer.VoxelAnalyzer')
-    @patch('analyzer.main_analyzer.logging_util.get_logger')
-    @patch('analyzer.main_analyzer.setup_parser')
+    @patch('tit.analyzer.mesh_analyzer.MeshAnalyzer')
+    @patch('tit.analyzer.voxel_analyzer.VoxelAnalyzer')
+    @patch('tit.analyzer.main_analyzer.logging_util.get_logger')
+    @patch('tit.analyzer.main_analyzer.setup_parser')
     def test_main_voxel_cortical_whole_head(self, mock_setup_parser, mock_get_logger, mock_voxel_analyzer, mock_mesh_analyzer):
         """Test main function with voxel cortical whole-head analysis"""
         mock_parser = Mock()
@@ -866,7 +836,7 @@ class TestMainFunction:
         with patch('os.path.isdir', return_value=True):
             with patch('os.path.exists', return_value=True):
                 with patch('os.makedirs'):
-                    from analyzer.main_analyzer import main
+                    from tit.analyzer.main_analyzer import main
                     main()
 
         mock_voxel_analyzer.assert_called_once()
@@ -875,10 +845,10 @@ class TestMainFunction:
             visualize=False
         )
     
-    @patch('analyzer.main_analyzer.MeshAnalyzer')
-    @patch('analyzer.main_analyzer.VoxelAnalyzer')
-    @patch('analyzer.main_analyzer.logging_util.get_logger')
-    @patch('analyzer.main_analyzer.setup_parser')
+    @patch('tit.analyzer.mesh_analyzer.MeshAnalyzer')
+    @patch('tit.analyzer.voxel_analyzer.VoxelAnalyzer')
+    @patch('tit.analyzer.main_analyzer.logging_util.get_logger')
+    @patch('tit.analyzer.main_analyzer.setup_parser')
     def test_main_whole_head_analysis(self, mock_setup_parser, mock_get_logger, mock_voxel_analyzer, mock_mesh_analyzer):
         """Test main function with whole head analysis"""
         # Setup mock parser and arguments
@@ -913,9 +883,9 @@ class TestMainFunction:
         with patch('os.path.isdir', return_value=True):
             with patch('os.path.exists', return_value=True):
                 with patch('os.makedirs'):
-                    with patch('analyzer.main_analyzer.construct_mesh_field_path', return_value='/path/to/field.msh'):
+                    with patch('tit.analyzer.main_analyzer.construct_mesh_field_path', return_value='/path/to/field.msh'):
                         # Run main function
-                        from analyzer.main_analyzer import main
+                        from tit.analyzer.main_analyzer import main
                         main()
         
         # Verify analyzer was called correctly
@@ -925,10 +895,10 @@ class TestMainFunction:
             visualize=False
         )
     
-    @patch('analyzer.main_analyzer.MeshAnalyzer')
-    @patch('analyzer.main_analyzer.VoxelAnalyzer')
-    @patch('analyzer.main_analyzer.logging_util.get_logger')
-    @patch('analyzer.main_analyzer.setup_parser')
+    @patch('tit.analyzer.mesh_analyzer.MeshAnalyzer')
+    @patch('tit.analyzer.voxel_analyzer.VoxelAnalyzer')
+    @patch('tit.analyzer.main_analyzer.logging_util.get_logger')
+    @patch('tit.analyzer.main_analyzer.setup_parser')
     def test_main_quiet_mode(self, mock_setup_parser, mock_get_logger, mock_voxel_analyzer, mock_mesh_analyzer):
         """Test main function in quiet mode"""
         # Setup mock parser and arguments
@@ -965,20 +935,20 @@ class TestMainFunction:
         with patch('os.path.isdir', return_value=True):
             with patch('os.path.exists', return_value=True):
                 with patch('os.makedirs'):
-                    with patch('analyzer.main_analyzer.construct_mesh_field_path', return_value='/path/to/field.msh'):
+                    with patch('tit.analyzer.main_analyzer.construct_mesh_field_path', return_value='/path/to/field.msh'):
                         with patch('builtins.print') as mock_print:
                             # Run main function
-                            from analyzer.main_analyzer import main
+                            from tit.analyzer.main_analyzer import main
                             main()
         
         # Verify quiet mode logging was used
         # The print calls should include summary mode messages
         assert any('Beginning analysis for subject' in str(call) for call in mock_print.call_args_list)
     
-    @patch('analyzer.main_analyzer.MeshAnalyzer')
-    @patch('analyzer.main_analyzer.VoxelAnalyzer')
-    @patch('analyzer.main_analyzer.logging_util.get_logger')
-    @patch('analyzer.main_analyzer.setup_parser')
+    @patch('tit.analyzer.mesh_analyzer.MeshAnalyzer')
+    @patch('tit.analyzer.voxel_analyzer.VoxelAnalyzer')
+    @patch('tit.analyzer.main_analyzer.logging_util.get_logger')
+    @patch('tit.analyzer.main_analyzer.setup_parser')
     def test_main_analyzer_initialization_failure(self, mock_setup_parser, mock_get_logger, mock_voxel_analyzer, mock_mesh_analyzer):
         """Test main function when analyzer initialization fails"""
         # Setup mock parser and arguments
@@ -1008,19 +978,19 @@ class TestMainFunction:
         with patch('os.path.isdir', return_value=True):
             with patch('os.path.exists', return_value=True):
                 with patch('os.makedirs'):
-                    with patch('analyzer.main_analyzer.construct_mesh_field_path', return_value='/path/to/field.msh'):
+                    with patch('tit.analyzer.main_analyzer.construct_mesh_field_path', return_value='/path/to/field.msh'):
                         with patch('sys.exit') as mock_exit:
                             # Run main function
-                            from analyzer.main_analyzer import main
+                            from tit.analyzer.main_analyzer import main
                             main()
         
         # Verify that sys.exit was called with error code 1
         mock_exit.assert_called_once_with(1)
     
-    @patch('analyzer.main_analyzer.MeshAnalyzer')
-    @patch('analyzer.main_analyzer.VoxelAnalyzer')
-    @patch('analyzer.main_analyzer.logging_util.get_logger')
-    @patch('analyzer.main_analyzer.setup_parser')
+    @patch('tit.analyzer.mesh_analyzer.MeshAnalyzer')
+    @patch('tit.analyzer.voxel_analyzer.VoxelAnalyzer')
+    @patch('tit.analyzer.main_analyzer.logging_util.get_logger')
+    @patch('tit.analyzer.main_analyzer.setup_parser')
     def test_main_validation_error(self, mock_setup_parser, mock_get_logger, mock_voxel_analyzer, mock_mesh_analyzer):
         """Test main function when argument validation fails"""
         # Setup mock parser and arguments
@@ -1047,7 +1017,7 @@ class TestMainFunction:
         with patch('os.path.isdir', return_value=False):
             with patch('sys.exit') as mock_exit:
                 # Run main function
-                from analyzer.main_analyzer import main
+                from tit.analyzer.main_analyzer import main
                 main()
         
         # Verify that sys.exit was called with error code 1

@@ -3,7 +3,7 @@
 
 [run]
 # Source packages to measure
-source = ti-toolbox
+source = tit
 
 # Files to omit from coverage measurement
 omit =

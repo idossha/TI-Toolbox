@@ -17,7 +17,7 @@ PROJECT_DIR="/mnt/test_projectdir"
 export PROJECT_DIR_NAME=$(basename "$PROJECT_DIR")
 
 # Create montage configuration for the test
-CONFIG_DIR="$PROJECT_DIR/code/ti-toolbox/config"
+CONFIG_DIR="$PROJECT_DIR/code/tit/config"
 MONTAGE_FILE="$CONFIG_DIR/montage_list.json"
 
 # Ensure config directory exists
@@ -51,15 +51,19 @@ chmod 666 "$MONTAGE_FILE"
 if command -v simulator >/dev/null 2>&1; then
     SIM_CMD="simulator"
     SIM_ARGS=""
-elif [ -f "/ti-toolbox/ti-toolbox/cli/simulator.py" ]; then
+elif [ -f "/ti-toolbox/tit/cli/simulator.py" ]; then
     SIM_CMD="simnibs_python"
-    SIM_ARGS="/ti-toolbox/ti-toolbox/cli/simulator.py"
-elif [ -f "/development/ti-toolbox/cli/simulator.py" ]; then
+    SIM_ARGS="/ti-toolbox/tit/cli/simulator.py"
+elif [ -f "/development/ti-toolbox/tit/cli/simulator.py" ]; then
     SIM_CMD="simnibs_python"
-    SIM_ARGS="/development/ti-toolbox/cli/simulator.py"
-elif [ -f "ti-toolbox/cli/simulator.py" ]; then
+    SIM_ARGS="/development/ti-toolbox/tit/cli/simulator.py"
+elif [ -f "/development/tit/cli/simulator.py" ]; then
+    # Backward compatibility (older mounts)
     SIM_CMD="simnibs_python"
-    SIM_ARGS="./ti-toolbox/cli/simulator.py"
+    SIM_ARGS="/development/tit/cli/simulator.py"
+elif [ -f "tit/cli/simulator.py" ]; then
+    SIM_CMD="simnibs_python"
+    SIM_ARGS="./tit/cli/simulator.py"
 else
     echo "Error: simulator.py not found"
     exit 1
