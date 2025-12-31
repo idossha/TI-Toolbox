@@ -39,7 +39,9 @@ class ElectrodePlacementConfig:
         
         # Placement settings:
         scale_factor: Scaling factor for CSV coordinates (default: 1.0)
-        electrode_size: Uniform scale for electrode objects (default: 50.0)
+        electrode_diameter_mm: Electrode diameter in mm (default: 10.0)
+        electrode_height_mm: Electrode height in mm (default: 6.0)
+        electrode_size: (Deprecated) uniform scale for electrode objects (legacy)
         offset_distance: Distance to lift electrodes off scalp surface (default: 3.25 mm)
         text_offset: Offset for label text above electrode (default: 0.090)
         
@@ -61,7 +63,9 @@ class ElectrodePlacementConfig:
     
     # Placement settings
     scale_factor: float = 1.0
-    electrode_size: float = 50.0
+    electrode_diameter_mm: float = 10.0
+    electrode_height_mm: float = 6.0
+    electrode_size: Optional[float] = None
     offset_distance: float = 3.25
     text_offset: float = 0.090
     
@@ -107,7 +111,11 @@ class ElectrodePlacementConfig:
         # Validate numeric parameters
         if self.scale_factor <= 0:
             raise ValueError(f"scale_factor must be > 0, got {self.scale_factor}")
-        if self.electrode_size <= 0:
+        if self.electrode_diameter_mm <= 0:
+            raise ValueError(f"electrode_diameter_mm must be > 0, got {self.electrode_diameter_mm}")
+        if self.electrode_height_mm <= 0:
+            raise ValueError(f"electrode_height_mm must be > 0, got {self.electrode_height_mm}")
+        if self.electrode_size is not None and self.electrode_size <= 0:
             raise ValueError(f"electrode_size must be > 0, got {self.electrode_size}")
         if self.offset_distance < 0:
             raise ValueError(f"offset_distance must be >= 0, got {self.offset_distance}")
@@ -151,22 +159,75 @@ class ElectrodePlacer:
         # Validate configuration
         self.config.validate()
         
-        # Import bpy (works with simnibs_python or blender)
+        import bpy 
+        self.bpy = bpy
+
+        from mathutils import Vector, Quaternion
+        self.Vector = Vector
+        self.Quaternion = Quaternion
+        self._mm_to_blender_units: Optional[float] = None
+
+    def _infer_mm_to_blender_units(self, scalp_obj) -> float:
+        """Infer conversion factor from mm -> Blender units based on scalp size.
+
+        SimNIBS meshes are typically in mm. Blender defaults to meters.
+        We keep this simple and infer from the scalp bounding box:
+        - If the scalp max dimension is > 10, we assume units are already mm (1mm == 1BU)
+        - Otherwise we assume meters (1mm == 0.001BU)
+        """
         try:
-            import bpy
-            self.bpy = bpy
-        except ImportError:
-            raise ImportError(
-                "bpy module not found. Run with simnibs_python or blender."
-            )
-        
-        # Import mathutils
+            max_dim = float(max(getattr(scalp_obj, "dimensions", (0.0, 0.0, 0.0))))
+        except Exception:
+            max_dim = 0.0
+
+        # Head size is ~180mm (~0.18m). This threshold cleanly separates mm vs meters scenes.
+        return 1.0 if max_dim > 10.0 else 0.001
+
+    def _apply_electrode_dimensions(self, electrode_obj, template_obj) -> None:
+        """Scale electrode_obj so it matches the desired diameter/height (in mm) in the scene."""
+        desired_diam = float(self.config.electrode_diameter_mm)
+        desired_h = float(self.config.electrode_height_mm)
+
+        mm_to_bu = self._mm_to_blender_units or 1.0
+        desired_diam_bu = desired_diam * mm_to_bu
+        desired_h_bu = desired_h * mm_to_bu
+
+        # Measure template dimensions in its local axes (assumes Z is height, X/Y is diameter).
+        base_dims = getattr(template_obj, "dimensions", None)
+        if not base_dims:
+            # Fallback to legacy uniform scale if we can't measure the template.
+            if self.config.electrode_size is not None:
+                electrode_obj.scale = (self.config.electrode_size,) * 3
+            return
+
+        base_diam = float(max(base_dims[0], base_dims[1]))
+        base_h = float(base_dims[2])
+        if base_diam <= 0 or base_h <= 0:
+            if self.config.electrode_size is not None:
+                electrode_obj.scale = (self.config.electrode_size,) * 3
+            return
+
+        sx = desired_diam_bu / base_diam
+        sy = sx
+        sz = desired_h_bu / base_h
+        electrode_obj.scale = (sx, sy, sz)
+
+    def _electrode_min_local_z_scaled(self, electrode_obj) -> float:
+        """Return the minimum local Z of the electrode geometry after object scaling.
+
+        This is used to keep the electrode from penetrating the scalp when height changes.
+        Assumes the electrode's local +Z is its "up" axis (which we align to surface normal).
+        """
         try:
-            from mathutils import Vector, Quaternion
-            self.Vector = Vector
-            self.Quaternion = Quaternion
-        except ImportError:
-            raise ImportError("mathutils not found. Run with simnibs_python or blender.")
+            zs = [float(v.co[2]) for v in electrode_obj.data.vertices]
+            if not zs:
+                return 0.0
+            min_z = min(zs)
+            # Account for object scaling along Z.
+            return float(min_z) * float(electrode_obj.scale[2])
+        except Exception:
+            # Fallback: unknown geometry/origin; don't force extra offset.
+            return 0.0
 
     def _extract_scalp_from_msh(self) -> Tuple[List[tuple], List[tuple]]:
         """Extract skin surface from SimNIBS .msh file.
@@ -395,17 +456,19 @@ class ElectrodePlacer:
         dup = ele_template.copy()
         dup.data = ele_template.data.copy()
         dup.name = label
-        dup.scale = (self.config.electrode_size,) * 3
+        self._apply_electrode_dimensions(dup, ele_template)
         electrodes_collection.objects.link(dup)
+        # Hide Blender "relationship lines" (the black parent-connection line in viewport).
+        try:
+            dup.show_relationship_lines = False
+        except Exception:
+            pass
 
         # Optional: color montage pair electrodes (both electrodes share the pair color)
         if label in color_map:
             try:
                 # Import locally so this file still imports outside Blender
-                try:
-                    from .scene_setup import copy_material_with_color
-                except ImportError:
-                    from scene_setup import copy_material_with_color
+                from .scene_setup import copy_material_with_color
 
                 # Only apply highlight to the specific electrode material "Material.011"
                 # and keep all other material slots intact.
@@ -435,7 +498,16 @@ class ElectrodePlacer:
         
         dup.rotation_mode = 'QUATERNION'
         dup.rotation_quaternion = self._calculate_orientation(surface_norm)
-        dup.location = surface_loc + surface_norm * self.config.offset_distance
+        # Ensure electrode doesn't penetrate the scalp when electrode height increases.
+        # We treat config.offset_distance as a minimum lift (in mm).
+        mm_to_bu = self._mm_to_blender_units or 1.0
+        base_offset = float(self.config.offset_distance) * mm_to_bu
+        # If the electrode origin is centered, min_z will be ~(-height/2); if it's at the base, min_z ~ 0.
+        min_z_scaled = self._electrode_min_local_z_scaled(dup)
+        tiny_gap = 0.1 * mm_to_bu  # 0.1mm safety gap
+        required_offset = max(0.0, -min_z_scaled) + tiny_gap
+        final_offset = max(base_offset, required_offset)
+        dup.location = surface_loc + surface_norm * final_offset
         
         # Create label
         txt = txt_template.copy()
@@ -443,6 +515,18 @@ class ElectrodePlacer:
         txt.name = f"Label_{label}"
         txt.parent = dup
         txt.matrix_parent_inverse = dup.matrix_world.inverted()
+        # Keep label geometry independent of the electrode's (potentially non-uniform) scale.
+        # This preserves label size and its relative offset.
+        try:
+            txt.inherit_scale = 'NONE'
+            txt.scale = (1.0, 1.0, 1.0)
+        except Exception:
+            pass
+        # Hide Blender "relationship lines" (the black parent-connection line in viewport).
+        try:
+            txt.show_relationship_lines = False
+        except Exception:
+            pass
         txt.data.body = label
         txt.location = Vector((0, 0, self.config.text_offset))
         electrodes_collection.objects.link(txt)
@@ -520,6 +604,7 @@ class ElectrodePlacer:
             # Clear scene and create scalp mesh
             clear_blender_scene()
             scalp = self._create_scalp_mesh(vertices, faces)
+            self._mm_to_blender_units = self._infer_mm_to_blender_units(scalp)
 
             # Create a single collection for all electrodes + labels
             electrodes_collection = bpy.data.collections.get("Electrodes")

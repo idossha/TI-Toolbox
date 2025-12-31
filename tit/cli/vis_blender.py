@@ -1,30 +1,31 @@
 #!/usr/bin/env simnibs_python
 """
-Montage publication Blender scene builder (STL-only).
+TI-Toolbox Montage Publication CLI
 
-Given (subject_id, simulation_name), loads `documentation/config.json`, exports:
-- `scalp.stl` (tag 1005 from tetrahedral mesh)
-- `gm.stl` (central surface)
-Then places electrodes and saves a publication-ready `.blend` using Eevee with
-transparent background, a simple studio lighting setup, and standard cameras.
+Creates a publication-ready Blender scene (.blend) for a given subject + simulation:
+- Loads `Simulations/<simulation>/documentation/config.json`
+- Exports `scalp.stl` and `gm.stl`
+- Places electrodes from EEG net, highlighting montage pairs (optional)
+- Saves `<subject>_<simulation>_montage_publication.blend`
 
-Designed to run under `simnibs_python` where both `simnibs` and `bpy` are available.
+Usage:
+  simnibs_python tit/cli/vis_blender.py --subject 001 --simulation MySim
 """
 
 from __future__ import annotations
 
-import json
+import argparse
 import logging
 import os
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple
 
+from tit.core import get_path_manager
+from tit.core import constants as const
+from tit.blender_exporter import utils as be_utils
+
 
 logger = logging.getLogger(__name__)
-
-from tit.core import constants as const
-from tit.core import get_path_manager
-from tit.blender_exporter.utils import write_binary_stl
 
 
 def _find_tetrahedral_mesh(sim_dir: str) -> str:
@@ -76,28 +77,11 @@ def _find_central_surface_mesh(sim_dir: str, subject_id: str, simulation_name: s
 
 def export_scalp_stl_from_sim(sim_dir: str, *, output_stl: str, skin_tag: int = 1005) -> str:
     """Export a scalp STL from the simulation tetrahedral mesh."""
-    import numpy as np
-    import simnibs
-
     tetra_mesh = _find_tetrahedral_mesh(sim_dir)
-    mesh = simnibs.read_msh(tetra_mesh)
-
-    triangular = mesh.elm.elm_type == 2
-    skin_mask = mesh.elm.tag1 == skin_tag
-    skin_triangles_mask = triangular & skin_mask
-
-    triangle_nodes = mesh.elm.node_number_list[skin_triangles_mask][:, :3]
-    if len(triangle_nodes) == 0:
-        raise ValueError(f"No skin triangles found with tag {skin_tag}")
-
-    unique_nodes = np.unique(triangle_nodes.flatten())
-    node_to_idx = {old_idx: new_idx for new_idx, old_idx in enumerate(unique_nodes)}
-
-    vertices = mesh.nodes.node_coord[unique_nodes - 1]
-    faces = np.array([[node_to_idx[n] for n in tri] for tri in triangle_nodes])
+    vertices, faces = be_utils.extract_scalp_from_msh(tetra_mesh, skin_tag=skin_tag)
 
     os.makedirs(os.path.dirname(output_stl), exist_ok=True)
-    write_binary_stl(vertices, faces, output_stl, "TI-Toolbox Scalp Mesh")
+    be_utils.write_binary_stl(vertices, faces, output_stl, "TI-Toolbox Scalp Mesh")
     return output_stl
 
 
@@ -121,17 +105,8 @@ def export_gm_stl_from_sim(sim_dir: str, *, subject_id: str, simulation_name: st
     faces = np.array([[node_to_idx[n] for n in tri] for tri in triangle_nodes])
 
     os.makedirs(os.path.dirname(output_stl), exist_ok=True)
-    write_binary_stl(vertices, faces, output_stl, "TI-Toolbox GM Surface Mesh")
+    be_utils.write_binary_stl(vertices, faces, output_stl, "TI-Toolbox GM Surface Mesh")
     return output_stl
-
-
-def load_sim_config(sim_dir: str) -> Dict[str, Any]:
-    """Load `documentation/config.json` from the simulation directory."""
-    config_path = os.path.join(sim_dir, "documentation", "config.json")
-    if not os.path.exists(config_path):
-        raise FileNotFoundError(f"Config file not found: {config_path}")
-    with open(config_path, "r") as f:
-        return json.load(f)
 
 
 def _resolve_eeg_net_csv(*, subject_id: str, eeg_net_name: str) -> str:
@@ -159,6 +134,8 @@ def build_montage_publication_blend(
     simulation_name: str,
     output_dir: Optional[str] = None,
     show_full_net: bool = True,
+    electrode_diameter_mm: float = 10.0,
+    electrode_height_mm: float = 6.0,
 ) -> MontagePublicationResult:
     """
     Build montage publication assets and final `.blend`.
@@ -173,7 +150,12 @@ def build_montage_publication_blend(
     if not sim_dir:
         raise FileNotFoundError(f"Simulation directory not found for {subject_id}/{simulation_name}")
 
-    cfg = load_sim_config(sim_dir)
+    cfg = be_utils.load_simulation_config(subject_id, simulation_name)
+    if not cfg:
+        raise FileNotFoundError(
+            f"Simulation config.json not found for {subject_id}/{simulation_name} "
+            f"(expected under documentation/config.json)."
+        )
 
     if output_dir is None:
         # Default: <project>/derivatives/ti-toolbox/montage_publication/sub-<id>/<sim>/
@@ -206,7 +188,8 @@ def build_montage_publication_blend(
     electrode_pairs = cfg.get("electrode_pairs") or []
 
     eeg_csv = _resolve_eeg_net_csv(subject_id=subject_id, eeg_net_name=str(eeg_net))
-    electrode_template = os.path.join(os.path.dirname(__file__), "Electrode.blend")
+    electrode_template = os.path.join(os.path.dirname(__file__), "..", "blender_exporter", "Electrode.blend")
+    electrode_template = os.path.abspath(electrode_template)
     subject_m2m = pm.get_m2m_dir(subject_id)
     if not subject_m2m:
         raise FileNotFoundError(f"m2m directory not found for subject {subject_id}")
@@ -221,7 +204,9 @@ def build_montage_publication_blend(
         output_dir=output_dir,
         subject_msh_path=subject_msh if os.path.exists(subject_msh) else None,
         scalp_stl_path=scalp_stl,
-        electrode_size=60.0,
+        electrode_diameter_mm=electrode_diameter_mm,
+        electrode_height_mm=electrode_height_mm,
+        electrode_size=None,
         montage_pairs=[tuple(p) for p in electrode_pairs if isinstance(p, (list, tuple)) and len(p) >= 2],
         export_glb=False,
         show_full_net=show_full_net,
@@ -238,6 +223,7 @@ def build_montage_publication_blend(
     # This avoids re-loading the intermediate electrode `.blend` which can fail
     # in headless environments.
     from tit.blender_exporter import scene_setup
+
     configure_render_eevee = scene_setup.configure_render_eevee
     ensure_world_nodes = scene_setup.ensure_world_nodes
     configure_color_management_agx = scene_setup.configure_color_management_agx
@@ -355,7 +341,7 @@ def build_montage_publication_blend(
 
     # Create 5 standard cameras that share lens/sensor and are auto-framed to the scene.
     # Names: top/left/right/front/back (per user request).
-    cams = create_standard_cameras(
+    create_standard_cameras(
         target_objects=[o for o in bpy.context.scene.objects if o.type in {"MESH", "FONT"}],
         lens=60.0,
         margin=1.08,
@@ -378,5 +364,77 @@ def build_montage_publication_blend(
         electrodes_blend=electrodes_blend,
         final_blend=final_blend,
     )
+
+
+def _setup_logging(verbose: bool) -> None:
+    level = logging.DEBUG if verbose else logging.INFO
+    logging.basicConfig(
+        level=level,
+        format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
+    )
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description="Create montage publication .blend")
+    parser.add_argument("-s", "--subject", required=True, help="Subject ID (e.g., 001)")
+    parser.add_argument("-sim", "--simulation", required=True, help="Simulation name")
+    parser.add_argument(
+        "--output-dir",
+        default=None,
+        help="Output directory (default: <sim_dir>/documentation/montage_publication)",
+    )
+    parser.add_argument(
+        "--project-dir",
+        default=None,
+        help="Optional explicit TI-Toolbox project directory (overrides env auto-detect)",
+    )
+    parser.add_argument(
+        "--montage-only",
+        action="store_true",
+        help="Only show/place electrodes that are part of the montage pairs in config.json",
+    )
+    parser.add_argument(
+        "--electrode-diameter-mm",
+        type=float,
+        default=10.0,
+        help="Electrode diameter in mm (default: 10.0)",
+    )
+    parser.add_argument(
+        "--electrode-height-mm",
+        type=float,
+        default=6.0,
+        help="Electrode height in mm (default: 6.0)",
+    )
+    parser.add_argument("--verbose", action="store_true", help="Verbose logging")
+    args = parser.parse_args()
+
+    _setup_logging(args.verbose)
+    log = logging.getLogger("motage_publication")
+
+    # Optionally set explicit project directory for PathManager auto-resolution
+    if args.project_dir:
+        pm = get_path_manager()
+        pm.project_dir = os.path.abspath(args.project_dir)
+        log.info(f"Using project_dir={pm.project_dir}")
+
+    result = build_montage_publication_blend(
+        subject_id=args.subject,
+        simulation_name=args.simulation,
+        output_dir=args.output_dir,
+        show_full_net=(not args.montage_only),
+        electrode_diameter_mm=args.electrode_diameter_mm,
+        electrode_height_mm=args.electrode_height_mm,
+    )
+
+    log.info("Done.")
+    log.info(f"Scalp STL: {result.scalp_stl}")
+    log.info(f"GM STL:    {result.gm_stl}")
+    log.info(f"Electrodes blend: {result.electrodes_blend}")
+    log.info(f"Final blend:      {result.final_blend}")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
 
 
