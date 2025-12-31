@@ -17,15 +17,17 @@ from __future__ import annotations
 import argparse
 import logging
 import os
+from datetime import datetime
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple
 
 from tit.core import get_path_manager
 from tit.core import constants as const
 from tit.blender_exporter import utils as be_utils
+from tit.tools import logging_util
 
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("tit.cli.vis_blender")
 
 
 def _find_tetrahedral_mesh(sim_dir: str) -> str:
@@ -158,7 +160,7 @@ def build_montage_publication_blend(
         )
 
     if output_dir is None:
-        # Default: <project>/derivatives/ti-toolbox/montage_publication/sub-<id>/<sim>/
+        # Default: <project>/derivatives/ti-toolbox/sub-<id>/<sim>/
         if not pm.project_dir:
             raise RuntimeError("Project directory is not set (PathManager.project_dir is None).")
 
@@ -166,7 +168,6 @@ def build_montage_publication_blend(
             pm.project_dir,
             const.DIR_DERIVATIVES,
             const.DIR_TI_TOOLBOX,
-            "montage_publication",
             f"{const.PREFIX_SUBJECT}{subject_id}",
             simulation_name,
         )
@@ -213,7 +214,7 @@ def build_montage_publication_blend(
     )
 
     logger.info("Placing electrodes (building electrode .blend)...")
-    placer = ElectrodePlacer(ele_cfg, logger=logger)
+    placer = ElectrodePlacer(ele_cfg, logger=logging.getLogger("tit.blender_exporter.electrode_placement"))
     ok, msg = placer.place_electrodes()
     if not ok:
         raise RuntimeError(msg)
@@ -366,12 +367,32 @@ def build_montage_publication_blend(
     )
 
 
-def _setup_logging(verbose: bool) -> None:
-    level = logging.DEBUG if verbose else logging.INFO
-    logging.basicConfig(
-        level=level,
-        format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
+def _setup_logging_with_file(verbose: bool, log_file: Optional[str]) -> logging.Logger:
+    """Configure console + optional file logging with consistent formatting."""
+    root_name = "tit.cli.vis_blender"
+    log = logging_util.get_logger(root_name, log_file=log_file, overwrite=True, console=True)
+
+    if verbose:
+        for h in list(log.handlers):
+            try:
+                h.setLevel(logging.DEBUG)
+            except Exception:
+                pass
+
+    logging_util.configure_external_loggers(
+        names=[
+            "tit.blender_exporter.utils",
+            "tit.blender_exporter.electrode_placement",
+            "simnibs",
+        ],
+        parent_logger=log,
     )
+    return log
+
+
+def _setup_logging(verbose: bool) -> logging.Logger:
+    """Backwards-compatible wrapper (console-only)."""
+    return _setup_logging_with_file(verbose, log_file=None)
 
 
 def main() -> int:
@@ -381,7 +402,7 @@ def main() -> int:
     parser.add_argument(
         "--output-dir",
         default=None,
-        help="Output directory (default: <sim_dir>/documentation/montage_publication)",
+        help="Output directory (default: <project>/derivatives/ti-toolbox/sub-<id>/<sim>/)",
     )
     parser.add_argument(
         "--project-dir",
@@ -395,12 +416,16 @@ def main() -> int:
     )
     parser.add_argument(
         "--electrode-diameter-mm",
+        "--electrode-diameter",
+        dest="electrode_diameter_mm",
         type=float,
         default=10.0,
         help="Electrode diameter in mm (default: 10.0)",
     )
     parser.add_argument(
         "--electrode-height-mm",
+        "--electrode-height",
+        dest="electrode_height_mm",
         type=float,
         default=6.0,
         help="Electrode height in mm (default: 6.0)",
@@ -408,14 +433,36 @@ def main() -> int:
     parser.add_argument("--verbose", action="store_true", help="Verbose logging")
     args = parser.parse_args()
 
-    _setup_logging(args.verbose)
-    log = logging.getLogger("motage_publication")
-
     # Optionally set explicit project directory for PathManager auto-resolution
     if args.project_dir:
         pm = get_path_manager()
         pm.project_dir = os.path.abspath(args.project_dir)
+
+    # Force PathManager to resolve the simulation directory early; this typically also resolves project_dir.
+    pm = get_path_manager()
+    sim_dir = pm.get_simulation_dir(args.subject, args.simulation)
+    if not sim_dir:
+        raise FileNotFoundError(f"Simulation directory not found for {args.subject}/{args.simulation}")
+
+    # Always write a log file if we know project_dir (independent of --output-dir).
+    log_file = None
+    if pm.project_dir:
+        logs_dir = os.path.join(
+            pm.project_dir,
+            const.DIR_DERIVATIVES,
+            const.DIR_TI_TOOLBOX,
+            "logs",
+            f"{const.PREFIX_SUBJECT}{args.subject}",
+        )
+        os.makedirs(logs_dir, exist_ok=True)
+        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+        log_file = os.path.join(logs_dir, f"vis_blender_{args.simulation}_{ts}.log")
+
+    log = _setup_logging_with_file(args.verbose, log_file)
+    if pm.project_dir:
         log.info(f"Using project_dir={pm.project_dir}")
+    if log_file:
+        log.info(f"Logging to: {log_file}")
 
     result = build_montage_publication_blend(
         subject_id=args.subject,

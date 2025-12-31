@@ -43,8 +43,10 @@ class HostTimestampFormatter(logging.Formatter):
         tz_name = os.environ.get('TZ', 'UTC')
         try:
             tz = ZoneInfo(tz_name)
-            dt = datetime.now(tz)
-            return dt.strftime("%H:%M:%S")
+            # Use the record timestamp so the logged time matches the event time.
+            dt = datetime.fromtimestamp(record.created, tz)
+            fmt = datefmt or DATE_FORMAT
+            return dt.strftime(fmt)
         except Exception:
             # Fallback to default formatting
             return super().formatTime(record, datefmt)
@@ -100,8 +102,8 @@ _LEVEL_BY_NAME = {
 
 FILE_LOG_LEVEL = _LEVEL_BY_NAME.get(os.environ.get('TI_LOG_LEVEL', 'INFO').upper(), logging.INFO)
 CONSOLE_LOG_LEVEL = logging.INFO
-FILE_FORMAT = '[%(asctime)s] [%(name)s] [%(levelname)s] %(message)s'
-CONSOLE_FORMAT = '%(message)s'
+FILE_FORMAT = '%(asctime)s | %(levelname)s | %(name)s | %(message)s'
+CONSOLE_FORMAT = '%(asctime)s | %(levelname)s | %(name)s | %(message)s'
 DATE_FORMAT = '%Y-%m-%d %H:%M:%S'
 
 # ----------------------------------------------------------------------------
@@ -125,9 +127,9 @@ def _copy_handler(handler: logging.Handler) -> logging.Handler:
     """
     if isinstance(handler, logging.FileHandler):
         # Always use append mode for external loggers to avoid overwriting
-        new_handler = logging.FileHandler(handler.baseFilename, mode='a')
+        new_handler = FlushingFileHandler(handler.baseFilename, mode='a')
     elif isinstance(handler, logging.StreamHandler):
-        new_handler = logging.StreamHandler(sys.stdout)
+        new_handler = FlushingStreamHandler(sys.stdout)
     elif isinstance(handler, CallbackHandler):
         # Skip CallbackHandler as it's GUI-specific and shouldn't be shared
         raise ValueError("CallbackHandler cannot be copied to external loggers")
@@ -174,7 +176,7 @@ def get_logger(name: str,
     if console:
         console_handler = FlushingStreamHandler(sys.stdout)
         console_handler.setLevel(CONSOLE_LOG_LEVEL)
-        console_handler.setFormatter(logging.Formatter(CONSOLE_FORMAT))
+        console_handler.setFormatter(HostTimestampFormatter(CONSOLE_FORMAT, datefmt=DATE_FORMAT))
         # Force immediate flushing for real-time GUI updates
         console_handler.stream.reconfigure(line_buffering=True) if hasattr(console_handler.stream, 'reconfigure') else None
         logger.addHandler(console_handler)
