@@ -32,52 +32,19 @@ import click
 
 from tit.core import get_path_manager, list_subjects
 from tit.tools import logging_util
+from tit.cli import utils as cli_utils
 
 # =============================================================================
 # STYLING HELPERS
 # =============================================================================
 
-COLORS = {
-    'header': 'cyan',
-    'success': 'green',
-    'warning': 'yellow',
-    'error': 'red',
-    'info': 'blue',
-    'prompt': 'white',
-}
-
-
-def echo_header(text: str):
-    """Print a styled header."""
-    click.secho(f"\n{'=' * 50}", fg=COLORS['header'], bold=True)
-    click.secho(f"  {text}", fg=COLORS['header'], bold=True)
-    click.secho(f"{'=' * 50}\n", fg=COLORS['header'], bold=True)
-
-
-def echo_section(text: str):
-    """Print a styled section header."""
-    click.secho(f"\n{text}", fg=COLORS['header'], bold=True)
-    click.secho("-" * len(text), fg=COLORS['header'])
-
-
-def echo_success(text: str):
-    """Print a success message."""
-    click.secho(f"✓ {text}", fg=COLORS['success'])
-
-
-def echo_warning(text: str):
-    """Print a warning message."""
-    click.secho(f"⚠ {text}", fg=COLORS['warning'])
-
-
-def echo_error(text: str):
-    """Print an error message."""
-    click.secho(f"✗ {text}", fg=COLORS['error'])
-
-
-def echo_info(text: str):
-    """Print an info message."""
-    click.secho(f"ℹ {text}", fg=COLORS['info'])
+COLORS = cli_utils.COLORS
+echo_header = cli_utils.echo_header
+echo_section = cli_utils.echo_section
+echo_success = cli_utils.echo_success
+echo_warning = cli_utils.echo_warning
+echo_error = cli_utils.echo_error
+echo_info = cli_utils.echo_info
 
 
 # =============================================================================
@@ -85,55 +52,11 @@ def echo_info(text: str):
 # =============================================================================
 
 def display_subjects_table(subjects: List[str]) -> None:
-    """Display subjects in a multi-column table."""
-    if not subjects:
-        echo_warning("No subjects found")
-        return
-
-    max_rows = 10
-    num_cols = (len(subjects) + max_rows - 1) // max_rows
-
-    for row in range(max_rows):
-        line = ""
-        for col in range(num_cols):
-            idx = col * max_rows + row
-            if idx < len(subjects):
-                line += f"{idx + 1:3d}. {subjects[idx]:<25}"
-        if line:
-            click.echo(line)
+    cli_utils.display_table(subjects)
 
 
 def prompt_subjects(subjects: List[str]) -> List[str]:
-    """Prompt user to select subjects."""
-    echo_section("Available Subjects")
-    display_subjects_table(subjects)
-
-    click.echo()
-    selection = click.prompt(
-        click.style("Enter subject numbers (comma-separated, e.g., 1,2,3)", fg='white'),
-        type=str
-    )
-
-    selected = []
-    for num_str in selection.split(','):
-        try:
-            num = int(num_str.strip())
-            if 1 <= num <= len(subjects):
-                selected.append(subjects[num - 1])
-            else:
-                echo_warning(f"Invalid number: {num}")
-        except ValueError:
-            # Check if it's a subject ID directly
-            if num_str.strip() in subjects:
-                selected.append(num_str.strip())
-            else:
-                echo_warning(f"Invalid input: {num_str}")
-
-    if not selected:
-        echo_error("No valid subjects selected")
-        raise click.Abort()
-
-    return selected
+    return cli_utils.prompt_subject_ids(subjects)
 
 
 def list_available_caps(subject_id: str) -> List[str]:

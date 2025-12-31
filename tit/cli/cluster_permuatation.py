@@ -43,12 +43,12 @@ REQUIRED FILES:
   - CSV file with subject configurations (see format above)
   - NIfTI files for each subject/simulation in TI-Toolbox BIDS structure
 """)
-@click.option('--csv', '-c', required=True,
+@click.option('--csv', '-c', prompt=True,
               type=click.Path(exists=True, dir_okay=False),
               help='Path to CSV file with subject configurations (see CSV FORMAT below)')
-@click.option('--name', '-n', required=True,
+@click.option('--name', '-n', prompt=True,
               help='Analysis name (used for output directory)')
-@click.option('--analysis-type', required=True,
+@click.option('--analysis-type', prompt=True,
               type=click.Choice(['group_comparison', 'correlation']),
               help='Type of analysis: group_comparison (binary) or correlation (continuous)')
 @click.option('--test-type',

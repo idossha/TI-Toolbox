@@ -244,6 +244,12 @@ if [ "$RUN_UNIT_TESTS" = true ]; then
 
         echo ""
 
+        # CLI unit tests (Click-based CLIs; fast, wiring-focused)
+        run_test "CLI Tests" \
+            "simnibs_python -m pytest $PYTEST_FLAGS tests/test_cli.py" || true
+
+        echo ""
+
 
         # Stats module tests
         run_test "Stats Module Tests" \

@@ -94,17 +94,16 @@ print_software_info() {
 }
 
 # Make CLI scripts executable
-chmod +x /ti-toolbox/tit/cli/*.sh
+# Note: CLI is Python-based; avoid chmod'ing non-existent legacy .sh scripts.
 
 # Create CLI script aliases (without .sh extension)
-alias GUI='GUI.sh'
-alias analyzer='analyzer.sh'
-alias ex-search='ex-search.sh'
-alias flex-search='flex-search.sh'
-alias group_analyzer='group_analyzer.sh'
-alias movea='movea.sh'
-alias pre-process='pre-process.sh'
-alias simulator='simulator.sh'
+alias GUI='simnibs_python -m tit.cli.gui'
+alias analyzer='simnibs_python -m tit.cli.analyzer'
+alias ex-search='simnibs_python -m tit.cli.ex_search'
+alias flex-search='simnibs_python -m tit.cli.flex_search'
+alias group_analyzer='simnibs_python -m tit.cli.group_analyzer'
+alias pre-process='simnibs_python -m tit.cli.pre_process'
+alias simulator='simnibs_python -m tit.cli.simulator'
 
 # Add environment setup to .bashrc
 {
@@ -113,14 +112,13 @@ alias simulator='simulator.sh'
     echo ""
     echo "# TI-Toolbox CLI scripts"
     echo "export PATH=\"\$PATH:/ti-toolbox/tit/cli\""
-    echo "alias GUI='GUI.sh'"
-    echo "alias analyzer='analyzer.sh'"
-    echo "alias ex-search='ex-search.sh'"
-    echo "alias flex-search='flex-search.sh'"
-    echo "alias group_analyzer='group_analyzer.sh'"
-    echo "alias movea='movea.sh'"
-    echo "alias pre-process='pre-process.sh'"
-    echo "alias simulator='simulator.sh'"
+    echo "alias GUI='simnibs_python -m tit.cli.gui'"
+    echo "alias analyzer='simnibs_python -m tit.cli.analyzer'"
+    echo "alias ex-search='simnibs_python -m tit.cli.ex_search'"
+    echo "alias flex-search='simnibs_python -m tit.cli.flex_search'"
+    echo "alias group_analyzer='simnibs_python -m tit.cli.group_analyzer'"
+    echo "alias pre-process='simnibs_python -m tit.cli.pre_process'"
+    echo "alias simulator='simnibs_python -m tit.cli.simulator'"
     echo ""
     echo "# Display software info on interactive shell"
     echo "if [[ \$- == *i* ]] && [ -z \"\$TI_INFO_SHOWN\" ]; then"

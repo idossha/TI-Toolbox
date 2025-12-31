@@ -279,7 +279,7 @@ class DockerManager extends EventEmitter {
     let stream;
     try {
       exec = await container.exec({
-        Cmd: ['bash', '/ti-toolbox/tit/cli/GUI.sh'],
+        Cmd: ['simnibs_python', '-m', 'tit.cli.gui'],
         AttachStdout: true,
         AttachStderr: true,
         AttachStdin: false,

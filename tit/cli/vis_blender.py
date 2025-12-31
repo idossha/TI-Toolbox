@@ -17,6 +17,7 @@ from __future__ import annotations
 import argparse
 import logging
 import os
+import sys
 from datetime import datetime
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple
@@ -397,8 +398,8 @@ def _setup_logging(verbose: bool) -> logging.Logger:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Create montage publication .blend")
-    parser.add_argument("-s", "--subject", required=True, help="Subject ID (e.g., 001)")
-    parser.add_argument("-sim", "--simulation", required=True, help="Simulation name")
+    parser.add_argument("-s", "--subject", required=False, default=None, help="Subject ID (e.g., 001)")
+    parser.add_argument("-sim", "--simulation", required=False, default=None, help="Simulation name")
     parser.add_argument(
         "--output-dir",
         default=None,
@@ -432,6 +433,18 @@ def main() -> int:
     )
     parser.add_argument("--verbose", action="store_true", help="Verbose logging")
     args = parser.parse_args()
+
+    # Interactive defaults when run without args (call/response UX).
+    if args.subject is None:
+        if sys.stdin.isatty():
+            args.subject = input("Subject ID (e.g., 001): ").strip()
+        else:
+            parser.error("--subject is required")
+    if args.simulation is None:
+        if sys.stdin.isatty():
+            args.simulation = input("Simulation name: ").strip()
+        else:
+            parser.error("--simulation is required")
 
     # Optionally set explicit project directory for PathManager auto-resolution
     if args.project_dir:

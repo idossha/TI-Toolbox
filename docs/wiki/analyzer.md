@@ -144,7 +144,7 @@ The group analyzer now supports **arbitrary combinations** of subjects and monta
 
 ```bash
 # Example: Compare the same montage across multiple subjects
-simnibs_python group_analyzer.py \
+simnibs_python -m tit.analyzer.group_analyzer \
     --space mesh \
     --analysis_type spherical \
     --coordinates 10 20 30 \
@@ -155,7 +155,7 @@ simnibs_python group_analyzer.py \
     --output_dir /path/to/group/output
 
 # Example: Compare different montages on the same subject
-simnibs_python group_analyzer.py \
+simnibs_python -m tit.analyzer.group_analyzer \
     --space mesh \
     --analysis_type cortical \
     --atlas_name DK40 \

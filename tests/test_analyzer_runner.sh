@@ -19,12 +19,11 @@ export PROJECT_DIR_NAME=$(basename "$PROJECT_DIR")
 # Find analyzer script
 if command -v analyzer >/dev/null 2>&1; then
     ANALYZER_CMD="analyzer"
-elif [ -f "/ti-toolbox/tit/cli/analyzer.sh" ]; then
-    ANALYZER_CMD="/ti-toolbox/tit/cli/analyzer.sh"
-elif [ -f "tit/cli/analyzer.sh" ]; then
-    ANALYZER_CMD="./tit/cli/analyzer.sh"
+elif command -v simnibs_python >/dev/null 2>&1; then
+    # Preferred: Python Click CLI replacement
+    ANALYZER_CMD="simnibs_python -m tit.cli.analyzer"
 else
-    echo "Error: analyzer.sh not found"
+    echo "Error: analyzer CLI not found"
     exit 1
 fi
 
@@ -41,4 +40,4 @@ export VISUALIZE="true"
 
 # Run analyzer in non-interactive mode
 export ANALYSIS_MODE="single"
-"$ANALYZER_CMD" --run-direct
+eval "$ANALYZER_CMD --run-direct"

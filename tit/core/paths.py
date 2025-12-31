@@ -563,8 +563,18 @@ def get_m2m_dir(subject_id: str) -> Optional[str]:
     return get_path_manager().get_m2m_dir(subject_id)
 
 
-def list_subjects() -> List[str]:
-    """List all available subjects."""
+def list_subjects(project_dir: Optional[str] = None) -> List[str]:
+    """
+    List all available subjects.
+
+    By default, this uses the global `PathManager` singleton (whose `project_dir`
+    is typically inferred from environment variables).
+
+    If `project_dir` is provided, this will list subjects under that explicit
+    project directory without mutating the global singleton.
+    """
+    if project_dir:
+        return PathManager(project_dir=project_dir).list_subjects()
     return get_path_manager().list_subjects()
 
 

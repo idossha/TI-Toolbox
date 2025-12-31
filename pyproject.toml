@@ -9,6 +9,9 @@ description = "TI-Toolbox (Python package: tit)"
 readme = "README.md"
 requires-python = ">=3.9"
 dynamic = ["version"]
+dependencies = [
+  "click>=8.1",
+]
 
 [project.urls]
 Repository = "https://github.com/idossha/TI-toolbox"

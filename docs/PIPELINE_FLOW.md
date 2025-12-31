@@ -97,7 +97,7 @@ Optimize electrode positions to maximize/target stimulation in specific brain re
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                      ENTRYPOINT                              │
-│  tit/cli/flex-search.sh                               │
+│  tit/cli/flex_search.py                               │
 └─────────────────────────────────────────────────────────────┘
                             ↓
 ┌─────────────────────────────────────────────────────────────┐
