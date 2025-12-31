@@ -63,11 +63,11 @@ from tools import logging_util
 def setup_montage_directories(montage_dir: str, simulation_mode: SimulationMode) -> dict:
     """
     Create the complete directory structure for a montage simulation.
-    
+
     Args:
         montage_dir: Base montage directory
         simulation_mode: TI or MTI simulation mode
-        
+
     Returns:
         Dictionary of created directory paths
     """
@@ -83,18 +83,83 @@ def setup_montage_directories(montage_dir: str, simulation_mode: SimulationMode)
         'ti_montage_imgs': os.path.join(montage_dir, "TI", "montage_imgs"),
         'documentation': os.path.join(montage_dir, "documentation"),
     }
-    
+
     # Add mTI directories for multipolar mode
     if simulation_mode == SimulationMode.MTI:
         dirs['mti_mesh'] = os.path.join(montage_dir, "mTI", "mesh")
         dirs['mti_niftis'] = os.path.join(montage_dir, "mTI", "niftis")
         dirs['mti_montage_imgs'] = os.path.join(montage_dir, "mTI", "montage_imgs")
-    
+
     # Create all directories
     for path in dirs.values():
         os.makedirs(path, exist_ok=True)
-    
+
     return dirs
+
+
+def create_simulation_config_file(
+    config: SimulationConfig,
+    montage: MontageConfig,
+    documentation_dir: str,
+    logger
+) -> str:
+    """
+    Create a config.json file with all simulation parameters.
+
+    This file is used by visualization tools to auto-populate parameters
+    without requiring manual input.
+
+    Args:
+        config: Simulation configuration
+        montage: Montage configuration
+        documentation_dir: Documentation directory path
+        logger: Logger instance
+
+    Returns:
+        Path to created config.json file
+    """
+    config_file = os.path.join(documentation_dir, "config.json")
+
+    # Build configuration dictionary
+    sim_config = {
+        "subject_id": config.subject_id,
+        "simulation_name": montage.name,
+        "simulation_mode": montage.simulation_mode.value,
+        "eeg_net": montage.eeg_net or config.eeg_net,
+        "conductivity_type": config.conductivity_type.value,
+        "electrode_pairs": montage.electrode_pairs,
+        "is_xyz_montage": montage.is_xyz,
+        "intensities": {
+            "pair1": config.intensities.pair1,
+            "pair2": config.intensities.pair2,
+            "pair3": config.intensities.pair3,
+            "pair4": config.intensities.pair4
+        },
+        "electrode_geometry": {
+            "shape": config.electrode.shape,
+            "dimensions": config.electrode.dimensions,
+            "gel_thickness": config.electrode.thickness,
+            "sponge_thickness": config.electrode.sponge_thickness
+        },
+        "mapping_options": {
+            "map_to_surf": config.map_to_surf,
+            "map_to_vol": config.map_to_vol,
+            "map_to_mni": config.map_to_mni,
+            "map_to_fsavg": config.map_to_fsavg
+        },
+        "created_at": datetime.now().isoformat(),
+        "ti_toolbox_version": "2.0.0"  # TODO: Get from version.py
+    }
+
+    # Write config file
+    try:
+        with open(config_file, 'w') as f:
+            json.dump(sim_config, f, indent=2)
+        logger.info(f"Created simulation config: {config_file}")
+    except Exception as e:
+        logger.warning(f"Failed to create config file: {e}")
+
+    return config_file
 
 
 def run_montage_visualization(
@@ -588,6 +653,10 @@ def _run_single_montage(
     # Step 1: Create complete directory structure
     logger.info(f"Creating directory structure for {montage.name}")
     dirs = setup_montage_directories(montage_dir, montage.simulation_mode)
+
+    # Step 1.5: Create simulation config file for downstream tools
+    logger.info(f"Creating simulation configuration file")
+    create_simulation_config_file(config, montage, dirs['documentation'], logger)
 
     # Step 2: Run montage visualization immediately after directory setup
     montage_img_dir = dirs.get('mti_montage_imgs') if montage.simulation_mode == SimulationMode.MTI else dirs['ti_montage_imgs']
