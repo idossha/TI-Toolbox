@@ -76,13 +76,14 @@ def pval_from_histogram(observed_stats, null_distribution, tail=0):
 # CORRELATION FUNCTIONS (for continuous outcome analysis)
 # ==============================================================================
 
-def correlation(voxel_data, effect_sizes, correlation_type='pearson', weights=None):
+def correlation(voxel_data, effect_sizes, correlation_type='pearson', weights=None,
+                voxel_data_preranked=False):
     """
     Vectorized computation of correlations for all voxels at once.
-    
+
     Computes the correlation between electric field magnitude at each voxel
     and a continuous outcome measure (e.g., behavioral effect size).
-    
+
     Parameters:
     -----------
     voxel_data : ndarray, shape (n_voxels, n_subjects)
@@ -94,7 +95,11 @@ def correlation(voxel_data, effect_sizes, correlation_type='pearson', weights=No
     weights : ndarray, shape (n_subjects,), optional
         Weights for each subject (e.g., sample size for meta-analysis)
         If None, all subjects are weighted equally
-    
+    voxel_data_preranked : bool, optional
+        If True and correlation_type='spearman', assumes voxel_data is already ranked.
+        This optimization is used during permutation testing where voxel_data doesn't change.
+        (default: False)
+
     Returns:
     --------
     r_values : ndarray, shape (n_voxels,)
@@ -105,11 +110,14 @@ def correlation(voxel_data, effect_sizes, correlation_type='pearson', weights=No
         P-values for all voxels (two-sided)
     """
     n_voxels, n_subjects = voxel_data.shape
-    
-    # For Spearman, convert to ranks
+
+    # For Spearman, convert to ranks (skip if already pre-ranked)
     if correlation_type == 'spearman':
-        # Rank data along subject dimension (with fractional ranking for ties)
-        voxel_data = np.apply_along_axis(rankdata, 1, voxel_data)
+        # Rank voxel data only if not already ranked
+        if not voxel_data_preranked:
+            # Rank data along subject dimension (with fractional ranking for ties)
+            voxel_data = np.apply_along_axis(rankdata, 1, voxel_data)
+        # Always rank effect sizes (they change in permutations)
         effect_sizes = rankdata(effect_sizes)
     
     if weights is None:
@@ -282,15 +290,15 @@ def correlation_voxelwise(subject_data, effect_sizes, weights=None,
 def _run_single_correlation_permutation(voxel_data, effect_sizes, valid_coords,
                                         cluster_threshold, valid_mask, shape,
                                         correlation_type='pearson', weights=None,
-                                        cluster_stat='mass', seed=None,
-                                        return_indices=False):
+                                        cluster_stat='mass', alternative='two-sided', seed=None,
+                                        return_indices=False, voxel_data_preranked=False):
     """
     Helper function to run a single correlation permutation (for parallel processing)
-    
+
     Parameters:
     -----------
     voxel_data : ndarray, shape (n_voxels, n_subjects)
-        Pre-extracted voxel data
+        Pre-extracted voxel data (may be pre-ranked if correlation_type='spearman')
     effect_sizes : ndarray, shape (n_subjects,)
         Continuous outcome measure
     valid_coords : ndarray
@@ -307,11 +315,16 @@ def _run_single_correlation_permutation(voxel_data, effect_sizes, valid_coords,
         Subject weights (weights are NOT shuffled - only effect sizes)
     cluster_stat : str
         'size' or 'mass'
+    alternative : {'two-sided', 'greater', 'less'}, optional
+        Alternative hypothesis for correlation testing
     seed : int, optional
         Random seed
     return_indices : bool
         If True, return permutation indices
-    
+    voxel_data_preranked : bool, optional
+        If True and correlation_type='spearman', voxel_data is already ranked
+        (optimization for permutation testing)
+
     Returns:
     --------
     max_cluster_stat : float
@@ -325,22 +338,26 @@ def _run_single_correlation_permutation(voxel_data, effect_sizes, valid_coords,
     """
     if seed is not None:
         np.random.seed(seed)
-    
+
     n_subjects = len(effect_sizes)
-    
-    # Shuffle effect sizes (the key step - maintain E-field structure)
+
+    # CRITICAL: Shuffle effect sizes AND weights TOGETHER (as per ACES logic)
+    # This breaks the E-field <-> effect_size association (what we're testing)
+    # But MAINTAINS the effect_size <-> weight association (precision travels with measurement)
     perm_idx = np.random.permutation(n_subjects)
     perm_effect_sizes = effect_sizes[perm_idx]
-    
-    # Note: weights stay with original subjects (not shuffled)
-    # This maintains the correspondence between effect sizes and sample sizes
-    # as described in ACES paper
-    
+
+    # Shuffle weights with same permutation indices to maintain pairing
+    perm_weights = None
+    if weights is not None:
+        perm_weights = weights[perm_idx]
+
     # Compute correlations for permuted data
     perm_r, perm_t, perm_p = correlation(
         voxel_data, perm_effect_sizes,
         correlation_type=correlation_type,
-        weights=weights
+        weights=perm_weights,
+        voxel_data_preranked=voxel_data_preranked
     )
     
     # Map back to 3D using advanced indexing (faster than loop)
@@ -350,10 +367,18 @@ def _run_single_correlation_permutation(voxel_data, effect_sizes, valid_coords,
     idx_i, idx_j, idx_k = valid_coords[:, 0], valid_coords[:, 1], valid_coords[:, 2]
     perm_p_values[idx_i, idx_j, idx_k] = perm_p
     perm_t_statistics[idx_i, idx_j, idx_k] = perm_t
-    
-    # Form clusters (only positive correlations as per ACES)
-    # For negative correlations, user should invert effect sizes
-    perm_mask = (perm_p_values < cluster_threshold) & valid_mask & (perm_t_statistics > 0)
+
+    # Form clusters based on alternative hypothesis
+    if alternative == 'greater':
+        # Test positive correlations only
+        perm_mask = (perm_p_values < cluster_threshold) & valid_mask & (perm_t_statistics > 0)
+    elif alternative == 'less':
+        # Test negative correlations only
+        perm_mask = (perm_p_values < cluster_threshold) & valid_mask & (perm_t_statistics < 0)
+    else:
+        # Two-sided: test all significant correlations
+        perm_mask = (perm_p_values < cluster_threshold) & valid_mask
+
     perm_labeled, perm_n_clusters = label(perm_mask)
     
     # Calculate cluster statistics using optimized approach
@@ -400,7 +425,7 @@ def correlation_cluster_correction(subject_data, effect_sizes, r_values, t_stati
                                    p_values, valid_mask, weights=None,
                                    correlation_type='pearson', cluster_threshold=0.05,
                                    n_permutations=1000, alpha=0.05, cluster_stat='mass',
-                                   n_jobs=-1, verbose=True, logger=None,
+                                   alternative='two-sided', n_jobs=-1, verbose=True, logger=None,
                                    save_permutation_log=False, permutation_log_file=None,
                                    subject_ids=None):
     """
@@ -435,6 +460,11 @@ def correlation_cluster_correction(subject_data, effect_sizes, r_values, t_stati
         Significance level for cluster-level correction
     cluster_stat : str
         'size' or 'mass' (sum of t-values in cluster)
+    alternative : {'two-sided', 'greater', 'less'}, optional
+        Defines the alternative hypothesis (default: 'two-sided'):
+        * 'two-sided': test both positive and negative correlations
+        * 'greater': test positive correlations only (one-tailed, uses full alpha)
+        * 'less': test negative correlations only (one-tailed, uses full alpha)
     n_jobs : int
         Number of parallel jobs (-1 = all cores)
     verbose : bool
@@ -477,10 +507,16 @@ def correlation_cluster_correction(subject_data, effect_sizes, r_values, t_stati
             logger.info(header)
         else:
             print(header)
-        
+
         stat_name = "Cluster Size" if cluster_stat == 'size' else "Cluster Mass"
         weight_str = " (weighted)" if weights is not None else ""
+        alt_text = {
+            'two-sided': 'two-sided (tests both positive and negative correlations)',
+            'greater': 'one-sided (tests positive correlations only, full alpha)',
+            'less': 'one-sided (tests negative correlations only, full alpha)'
+        }
         config_info = (f"Correlation type: {correlation_type.capitalize()}{weight_str}\n"
+                      f"Alternative hypothesis: {alt_text.get(alternative, alternative)}\n"
                       f"Cluster statistic: {stat_name}\n"
                       f"Cluster-forming threshold: p < {cluster_threshold}\n"
                       f"Number of permutations: {n_permutations}\n"
@@ -491,12 +527,24 @@ def correlation_cluster_correction(subject_data, effect_sizes, r_values, t_stati
         else:
             print(config_info)
     
-    # Form clusters based on initial threshold (positive correlations only)
-    initial_mask = (p_values < cluster_threshold) & valid_mask & (t_statistics > 0)
+    # Form clusters based on initial threshold and alternative hypothesis
+    if alternative == 'greater':
+        # Test positive correlations only
+        initial_mask = (p_values < cluster_threshold) & valid_mask & (t_statistics > 0)
+        corr_type_str = "positive correlations"
+    elif alternative == 'less':
+        # Test negative correlations only
+        initial_mask = (p_values < cluster_threshold) & valid_mask & (t_statistics < 0)
+        corr_type_str = "negative correlations"
+    else:
+        # Two-sided: test all significant correlations
+        initial_mask = (p_values < cluster_threshold) & valid_mask
+        corr_type_str = "correlations (both positive and negative)"
+
     labeled_array, n_clusters = label(initial_mask)
-    
+
     if verbose:
-        msg = f"\nFound {n_clusters} clusters at p < {cluster_threshold} (positive correlations)"
+        msg = f"\nFound {n_clusters} clusters at p < {cluster_threshold} ({corr_type_str})"
         if logger:
             logger.info(msg)
         else:
@@ -515,12 +563,23 @@ def correlation_cluster_correction(subject_data, effect_sizes, r_values, t_stati
     # Pre-extract voxel data
     valid_coords = np.argwhere(valid_mask)
     n_valid = len(valid_coords)
-    
+
     voxel_data = np.zeros((n_valid, n_subjects), dtype=np.float64)
     for idx, coord in enumerate(valid_coords):
         i, j, k = coord
         voxel_data[idx, :] = subject_data[i, j, k, :]
-    
+
+    # OPTIMIZATION: For Spearman, pre-rank voxel data ONCE before permutations
+    # This avoids re-ranking the same data in every permutation (huge speedup!)
+    voxel_data_preranked = False
+    if correlation_type == 'spearman':
+        if verbose:
+            print(f"Pre-ranking voxel data for Spearman correlation (one-time operation)...")
+        voxel_data = np.apply_along_axis(rankdata, 1, voxel_data)
+        voxel_data_preranked = True
+        if verbose:
+            print(f"  ✓ Voxel data pre-ranked ({n_valid} voxels)")
+
     if verbose:
         print(f"\nRunning {n_permutations} permutations...")
     
@@ -539,15 +598,16 @@ def correlation_cluster_correction(subject_data, effect_sizes, r_values, t_stati
         null_max_cluster_sizes = []
         null_max_cluster_masses = []
         permutation_indices = [] if track_indices else None
-        
+
         iterator = tqdm(range(n_permutations), desc="Permutations") if verbose else range(n_permutations)
         for perm in iterator:
             result = _run_single_correlation_permutation(
                 voxel_data, effect_sizes, valid_coords,
                 cluster_threshold, valid_mask, p_values.shape,
                 correlation_type=correlation_type, weights=weights,
-                cluster_stat=cluster_stat, seed=seeds[perm],
-                return_indices=track_indices
+                cluster_stat=cluster_stat, alternative=alternative, seed=seeds[perm],
+                return_indices=track_indices,
+                voxel_data_preranked=voxel_data_preranked
             )
             if track_indices:
                 max_stat, perm_idx, max_size, max_mass = result
@@ -564,14 +624,15 @@ def correlation_cluster_correction(subject_data, effect_sizes, r_values, t_stati
         # Parallel execution
         if verbose:
             print(f"Using {n_jobs} parallel processes...")
-        
+
         results = Parallel(n_jobs=n_jobs, verbose=10 if verbose else 0)(
             delayed(_run_single_correlation_permutation)(
                 voxel_data, effect_sizes, valid_coords,
                 cluster_threshold, valid_mask, p_values.shape,
                 correlation_type=correlation_type, weights=weights,
-                cluster_stat=cluster_stat, seed=seeds[perm],
-                return_indices=track_indices
+                cluster_stat=cluster_stat, alternative=alternative, seed=seeds[perm],
+                return_indices=track_indices,
+                voxel_data_preranked=voxel_data_preranked
             ) for perm in range(n_permutations)
         )
 
@@ -594,14 +655,26 @@ def correlation_cluster_correction(subject_data, effect_sizes, r_values, t_stati
     del voxel_data
     gc.collect()
     
-    # Determine threshold
+    # Determine threshold using discrete approach (consistent with exact p-values)
     null_max_cluster_stats = np.array(null_max_cluster_stats)
-    cluster_stat_threshold = np.percentile(null_max_cluster_stats, 100 * (1 - alpha))
+
+    # For p < alpha, we need (count >= observed) < alpha * n_permutations
+    # The threshold is the value where exactly alpha * n_permutations values exceed it
+    sorted_null = np.sort(null_max_cluster_stats)[::-1]  # Sort descending
+    threshold_index = int(alpha * n_permutations)
+    if threshold_index == 0:
+        threshold_index = 1  # Need at least 1 for edge case
+    if threshold_index > len(sorted_null):
+        threshold_index = len(sorted_null)
+
+    # Discrete threshold: the value where exactly alpha proportion exceeds it
+    cluster_stat_threshold = sorted_null[threshold_index - 1]  # -1 for 0-indexing
     
     if verbose:
         stat_unit = "voxels" if cluster_stat == 'size' else "mass units"
-        msg = (f"\n{100*(1-alpha)}th percentile of null distribution: "
+        msg = (f"\nDiscrete threshold for significance (p < {alpha}): "
                f"{cluster_stat_threshold:.2f} {stat_unit}\n"
+               f"  (This is the {threshold_index}th largest value out of {n_permutations} permutations)\n"
                f"Null distribution: min={np.min(null_max_cluster_stats):.2f}, "
                f"mean={np.mean(null_max_cluster_stats):.2f}, "
                f"max={np.max(null_max_cluster_stats):.2f}")
@@ -657,14 +730,50 @@ def correlation_cluster_correction(subject_data, effect_sizes, r_values, t_stati
     # Compute per-cluster p-values using MNE-style approach
     if all_cluster_stats:
         all_cluster_stats = np.array(all_cluster_stats)
-        
-        # For correlation analysis, we typically test positive correlations (tail=1)
-        cluster_pvalues = pval_from_histogram(all_cluster_stats, null_max_cluster_stats, tail=1)
-        
+
+        # Determine tail based on alternative hypothesis
+        if alternative == 'greater':
+            tail = 1  # Test positive correlations (upper tail)
+        elif alternative == 'less':
+            tail = -1  # Test negative correlations (lower tail)
+        else:
+            tail = 0  # Two-sided test
+
+        cluster_pvalues = pval_from_histogram(all_cluster_stats, null_max_cluster_stats, tail=tail)
+
+        # Log top 10 clusters with their p-values for transparency
+        if verbose and len(cluster_info_list) > 0:
+            msg = f"\nTop {min(10, len(cluster_info_list))} observed clusters with p-values:"
+            if logger:
+                logger.info(msg)
+            else:
+                print(msg)
+
+            for i in range(min(10, len(cluster_info_list))):
+                info = cluster_info_list[i]
+                cluster_pv = cluster_pvalues[i]
+                status = "SIGNIFICANT" if cluster_pv < alpha else "not significant"
+                msg = (f"  Cluster {info['id']}: mass={info['stat_value']:.2f}, "
+                       f"size={info['size']}, p={cluster_pv:.4f} ({status})")
+                if logger:
+                    logger.info(msg)
+                else:
+                    print(msg)
+
+        # Collect top observed clusters for visualization (top 10 by cluster mass)
+        all_observed_clusters = []
+        for i, info in enumerate(cluster_info_list[:min(10, len(cluster_info_list))]):
+            all_observed_clusters.append({
+                'id': info['id'],
+                'size': info['size'],
+                'stat_value': info['stat_value'],
+                'p_value': cluster_pvalues[i]
+            })
+
         # Second pass: identify significant clusters and compute masks ONLY for those
         for i, info in enumerate(cluster_info_list):
             cluster_pv = cluster_pvalues[i]
-            
+
             if cluster_pv < alpha:
                 # Get cluster coordinates and set significant mask (memory efficient)
                 cluster_coords = np.where(labeled_array == info['id'])
@@ -674,7 +783,7 @@ def correlation_cluster_correction(subject_data, effect_sizes, r_values, t_stati
                 cluster_r_values = r_values[cluster_coords]
                 peak_r = np.max(cluster_r_values)
                 mean_r = np.mean(cluster_r_values)
-                
+
                 sig_clusters.append({
                     'id': info['id'],
                     'size': info['size'],
@@ -683,26 +792,21 @@ def correlation_cluster_correction(subject_data, effect_sizes, r_values, t_stati
                     'mean_r': mean_r,
                     'p_value': cluster_pv
                 })
-                
-                if verbose:
-                    print(f"  ✓ Cluster {info['id']} is SIGNIFICANT "
-                          f"(mass={info['stat_value']:.2f}, size={info['size']}, "
-                          f"mean r={mean_r:.3f}, p={cluster_pv:.4f})")
-    
+
     if verbose:
-        msg = (f"\nSignificant clusters: {len(sig_clusters)}\n"
+        msg = (f"\nSignificant clusters (p < {alpha}): {len(sig_clusters)}\n"
                f"Total significant voxels: {np.sum(sig_mask)}")
         if logger:
             logger.info(msg)
         else:
             print(msg)
-    
+
     correlation_data = {
         'sizes': np.array(null_max_cluster_sizes),
         'masses': np.array(null_max_cluster_masses)
     }
-    
-    return sig_mask, cluster_stat_threshold, sig_clusters, null_max_cluster_stats, [], correlation_data
+
+    return sig_mask, cluster_stat_threshold, sig_clusters, null_max_cluster_stats, all_observed_clusters, correlation_data
 
 
 def ttest_ind(test_data, n_resp, n_non_resp, alternative='two-sided'):
@@ -1400,13 +1504,24 @@ def cluster_based_correction(responders, non_responders, p_values, valid_mask,
     del test_coords
     gc.collect()
     
-    # Step 4: Determine cluster statistic threshold
+    # Step 4: Determine cluster statistic threshold using discrete approach
     null_max_cluster_stats = np.array(null_max_cluster_stats)
-    cluster_stat_threshold = np.percentile(null_max_cluster_stats, 100 * (1 - alpha))
-    
+
+    # For p < alpha, we need (count >= observed) < alpha * n_permutations
+    # The threshold is the value where exactly alpha * n_permutations values exceed it
+    sorted_null = np.sort(null_max_cluster_stats)[::-1]  # Sort descending
+    threshold_index = int(alpha * n_permutations)
+    if threshold_index == 0:
+        threshold_index = 1  # Need at least 1 for edge case
+    if threshold_index > len(sorted_null):
+        threshold_index = len(sorted_null)
+
+    # Discrete threshold: the value where exactly alpha proportion exceeds it
+    cluster_stat_threshold = sorted_null[threshold_index - 1]  # -1 for 0-indexing
+
     if verbose:
         stat_unit = "voxels" if cluster_stat == 'size' else "mass units"
-        msg = f"\n{100*(1-alpha)}th percentile of null distribution: {cluster_stat_threshold:.2f} {stat_unit}\nNull distribution stats: min={np.min(null_max_cluster_stats):.2f}, mean={np.mean(null_max_cluster_stats):.2f}, max={np.max(null_max_cluster_stats):.2f}"
+        msg = f"\nDiscrete threshold for significance (p < {alpha}): {cluster_stat_threshold:.2f} {stat_unit}\n  (This is the {threshold_index}th largest value out of {n_permutations} permutations)\nNull distribution stats: min={np.min(null_max_cluster_stats):.2f}, mean={np.mean(null_max_cluster_stats):.2f}, max={np.max(null_max_cluster_stats):.2f}"
         if logger:
             logger.info(msg)
         else:
@@ -1480,12 +1595,44 @@ def cluster_based_correction(responders, non_responders, p_values, valid_mask,
         
         # Compute p-values for each cluster
         cluster_pvalues = pval_from_histogram(all_cluster_stats, null_max_cluster_stats, tail=tail)
-        
+
+        # Log top 10 clusters with their p-values for transparency
+        if verbose and len(cluster_info_list) > 0:
+            msg = f"\nTop {min(10, len(cluster_info_list))} observed clusters with p-values:"
+            if logger:
+                logger.info(msg)
+            else:
+                print(msg)
+
+            for i in range(min(10, len(cluster_info_list))):
+                info = cluster_info_list[i]
+                cluster_pv = cluster_pvalues[i]
+                status = "SIGNIFICANT" if cluster_pv < alpha else "not significant"
+                if cluster_stat == 'size':
+                    msg = (f"  Cluster {info['id']}: {info['size']} voxels, "
+                           f"p={cluster_pv:.4f} ({status})")
+                else:
+                    msg = (f"  Cluster {info['id']}: mass={info['stat_value']:.2f}, "
+                           f"size={info['size']}, p={cluster_pv:.4f} ({status})")
+                if logger:
+                    logger.info(msg)
+                else:
+                    print(msg)
+
+        # Collect top observed clusters for visualization (top 10 by cluster statistic)
+        all_observed_clusters = []
+        for i, info in enumerate(cluster_info_list[:min(10, len(cluster_info_list))]):
+            all_observed_clusters.append({
+                'id': info['id'],
+                'size': info['size'],
+                'stat_value': info['stat_value'],
+                'p_value': cluster_pvalues[i]
+            })
+
         # Second pass: identify significant clusters
-        n_sig_printed = 0
         for i, info in enumerate(cluster_info_list):
             cluster_pv = cluster_pvalues[i]
-            
+
             # Check if significant using per-cluster p-value
             if cluster_pv < alpha:
                 sig_mask[info['coords']] = 1
@@ -1493,32 +1640,23 @@ def cluster_based_correction(responders, non_responders, p_values, valid_mask,
                     'id': info['id'],
                     'size': info['size'],
                     'stat_value': info['stat_value'],
-                    'p_value': cluster_pv  # NEW: include cluster-level p-value
+                    'p_value': cluster_pv
                 })
-                if verbose and n_sig_printed < 10:
-                    if cluster_stat == 'size':
-                        print(f"  ✓ Cluster {info['id']} is SIGNIFICANT "
-                              f"({info['size']} voxels, p = {cluster_pv:.4f})")
-                    else:
-                        print(f"  ✓ Cluster {info['id']} is SIGNIFICANT "
-                              f"(mass = {info['stat_value']:.2f}, {info['size']} voxels, p = {cluster_pv:.4f})")
-                    n_sig_printed += 1
-    
+
     if verbose:
-        msg = f"\nNumber of significant clusters: {len(sig_clusters)}\nTotal significant voxels: {np.sum(sig_mask)}"
+        msg = f"\nSignificant clusters (p < {alpha}): {len(sig_clusters)}\nTotal significant voxels: {np.sum(sig_mask)}"
         if logger:
             logger.info(msg)
         else:
             print(msg)
-    
+
     # Prepare correlation data
     correlation_data = {
         'sizes': np.array(null_max_cluster_sizes),
         'masses': np.array(null_max_cluster_masses)
     }
-    
-    # Return empty list for cluster_stats since we don't store all clusters anymore
-    return sig_mask, cluster_stat_threshold, sig_clusters, null_max_cluster_stats, [], correlation_data
+
+    return sig_mask, cluster_stat_threshold, sig_clusters, null_max_cluster_stats, all_observed_clusters, correlation_data
 
 
 def cluster_analysis(sig_mask, affine, verbose=True):

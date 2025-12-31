@@ -607,7 +607,7 @@ def _run_group_comparison_analysis(subject_configs, CONFIG, output_dir, logger, 
 
     logger.info(f"\nStep completed in {time.time() - step_start:.2f} seconds")
 
-    # Log observed clusters before permutation correction
+    # Log observed clusters before permutation correction (vectorized for speed)
     from scipy.ndimage import label as scipy_label
     observed_mask = (p_values < CONFIG['cluster_threshold']) & valid_mask
     observed_labeled, n_observed_clusters = scipy_label(observed_mask)
@@ -616,19 +616,17 @@ def _run_group_comparison_analysis(subject_configs, CONFIG, output_dir, logger, 
     logger.info(f"Total clusters found: {n_observed_clusters}")
 
     if n_observed_clusters > 0:
-        observed_cluster_sizes = []
-        for cluster_id in range(1, n_observed_clusters + 1):
-            size = np.sum(observed_labeled == cluster_id)
-            observed_cluster_sizes.append(size)
-
-        observed_cluster_sizes.sort(reverse=True)
+        # Vectorized cluster size computation using bincount
+        cluster_labels_flat = observed_labeled.ravel()
+        observed_cluster_sizes = np.bincount(cluster_labels_flat, minlength=n_observed_clusters + 1)[1:]
+        observed_cluster_sizes_sorted = np.sort(observed_cluster_sizes)[::-1]
 
         logger.info(f"\nTop 10 largest observed clusters (before permutation correction):")
-        for i, size in enumerate(observed_cluster_sizes[:10], 1):
+        for i, size in enumerate(observed_cluster_sizes_sorted[:10], 1):
             logger.info(f"  Cluster {i:2d}: {size:6d} voxels")
 
-        logger.info(f"\nLargest observed cluster: {observed_cluster_sizes[0]} voxels")
-        logger.info(f"Total voxels in all clusters: {sum(observed_cluster_sizes)}")
+        logger.info(f"\nLargest observed cluster: {observed_cluster_sizes_sorted[0]} voxels")
+        logger.info(f"Total voxels in all clusters: {np.sum(observed_cluster_sizes)}")
 
     if stop_callback and stop_callback():
         logger.warning("Analysis stopped by user before permutation testing")
@@ -979,6 +977,46 @@ def _run_correlation_analysis(subject_configs, CONFIG, output_dir, logger, log_c
 
     logger.info(f"\nStep completed in {time.time() - step_start:.2f} seconds")
 
+    # Log observed clusters before permutation correction (vectorized for speed)
+    from scipy.ndimage import label as scipy_label, sum as ndimage_sum
+    observed_mask = (p_values < CONFIG['cluster_threshold']) & valid_mask
+    observed_labeled, n_observed_clusters = scipy_label(observed_mask)
+
+    logger.info(f"\nObserved clusters at p < {CONFIG['cluster_threshold']} (before permutation correction):")
+    logger.info(f"Total clusters found: {n_observed_clusters}")
+
+    if n_observed_clusters > 0:
+        # Vectorized cluster size computation using bincount
+        cluster_labels_flat = observed_labeled.ravel()
+        observed_cluster_sizes = np.bincount(cluster_labels_flat, minlength=n_observed_clusters + 1)[1:]
+
+        # Vectorized cluster mass computation using ndimage.sum
+        cluster_indices = list(range(1, n_observed_clusters + 1))
+        observed_cluster_masses = ndimage_sum(t_statistics, observed_labeled, cluster_indices)
+        observed_cluster_masses = np.array(observed_cluster_masses)
+
+        # Sort by cluster statistic
+        if CONFIG['cluster_stat'] == 'size':
+            sort_idx = np.argsort(observed_cluster_sizes)[::-1]
+        else:
+            sort_idx = np.argsort(observed_cluster_masses)[::-1]
+
+        observed_cluster_sizes_sorted = observed_cluster_sizes[sort_idx]
+        observed_cluster_masses_sorted = observed_cluster_masses[sort_idx]
+
+        logger.info(f"\nTop 10 largest observed clusters (before permutation correction):")
+        for i in range(min(10, len(observed_cluster_sizes_sorted))):
+            if CONFIG['cluster_stat'] == 'size':
+                logger.info(f"  Cluster {i+1:2d}: {observed_cluster_sizes_sorted[i]:6d} voxels, mass={observed_cluster_masses_sorted[i]:.2f}")
+            else:
+                logger.info(f"  Cluster {i+1:2d}: mass={observed_cluster_masses_sorted[i]:.2f}, {observed_cluster_sizes_sorted[i]:6d} voxels")
+
+        if CONFIG['cluster_stat'] == 'size':
+            logger.info(f"\nLargest observed cluster: {observed_cluster_sizes_sorted[0]} voxels")
+        else:
+            logger.info(f"\nLargest observed cluster mass: {observed_cluster_masses_sorted[0]:.2f}")
+        logger.info(f"Total voxels in all clusters: {np.sum(observed_cluster_sizes)}")
+
     if stop_callback and stop_callback():
         raise KeyboardInterrupt("Analysis stopped by user")
 
@@ -1006,6 +1044,7 @@ def _run_correlation_analysis(subject_configs, CONFIG, output_dir, logger, log_c
             n_permutations=CONFIG['n_permutations'],
             alpha=CONFIG['alpha'],
             cluster_stat=CONFIG['cluster_stat'],
+            alternative=CONFIG.get('alternative', 'two-sided'),  # Default to two-sided if not specified
             n_jobs=CONFIG['n_jobs'],
             logger=logger,
             save_permutation_log=True,

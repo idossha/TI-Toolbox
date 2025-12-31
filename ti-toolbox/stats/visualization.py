@@ -50,11 +50,11 @@ def plot_permutation_null_distribution(null_distribution, threshold, observed_cl
         if cluster_stat == 'size':
             x_label = 'Maximum Cluster Size (voxels)'
             title = 'Permutation Null Distribution of Maximum Cluster Sizes'
-            threshold_label = f'Threshold (α={alpha}): {threshold:.1f} voxels'
+            threshold_label = f'Discrete Threshold (p<{alpha}): {threshold:.1f} voxels'
         else:  # cluster_stat == 'mass'
             x_label = 'Maximum Cluster Mass (sum of t-statistics)'
             title = 'Permutation Null Distribution of Maximum Cluster Mass'
-            threshold_label = f'Threshold (α={alpha}): {threshold:.2f}'
+            threshold_label = f'Discrete Threshold (p<{alpha}): {threshold:.2f}'
         
         # Plot histogram of null distribution with seaborn
         sns.histplot(null_distribution, bins=200, alpha=0.7, color='gray', 
@@ -65,16 +65,31 @@ def plot_permutation_null_distribution(null_distribution, threshold, observed_cl
                    label=threshold_label)
         
         # Plot observed cluster statistics
+        sig_plotted = False
+        nonsig_plotted = False
         for i, cluster in enumerate(observed_clusters):
             stat_value = cluster['stat_value']
-            is_significant = stat_value > threshold
+            p_value = cluster.get('p_value', None)
+
+            # Determine significance from p-value if available, otherwise use threshold
+            if p_value is not None:
+                is_significant = p_value < 0.05
+            else:
+                is_significant = stat_value > threshold
+
             color = 'green' if is_significant else 'orange'
-            label = 'Significant Cluster' if i == 0 and is_significant else None
-            if i == 0 and not is_significant:
-                label = 'Non-significant Cluster'
-            
-            ax.axvline(stat_value, color=color, linestyle='-', linewidth=1.5, 
-                      alpha=0.8, label=label)
+
+            # Label only the first of each type
+            label = None
+            if is_significant and not sig_plotted:
+                label = f'Significant Clusters (p<0.05)'
+                sig_plotted = True
+            elif not is_significant and not nonsig_plotted:
+                label = f'Non-significant Clusters (p≥0.05)'
+                nonsig_plotted = True
+
+            ax.axvline(stat_value, color=color, linestyle='-', linewidth=2,
+                      alpha=0.7, label=label)
         
         ax.set_xlabel(x_label, fontsize=12)
         ax.set_ylabel('Frequency', fontsize=12)

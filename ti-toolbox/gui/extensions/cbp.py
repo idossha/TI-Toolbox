@@ -380,6 +380,18 @@ class ClusterPermutationWidget(QtWidgets.QWidget):
             self.config_layout.addWidget(self.use_weights_check, row, 3)
             row += 1
 
+            # Alternative hypothesis (for correlation)
+            self.config_layout.addWidget(QtWidgets.QLabel("Alternative:"), row, 0)
+            self.correlation_alternative_combo = QtWidgets.QComboBox()
+            self.correlation_alternative_combo.addItems(['Two-sided', 'Greater (Positive)', 'Less (Negative)'])
+            self.correlation_alternative_combo.setToolTip(
+                "Two-sided: Test both positive and negative correlations\n"
+                "Greater: Test positive correlations only (one-tailed, uses full alpha)\n"
+                "Less: Test negative correlations only (one-tailed, uses full alpha)"
+            )
+            self.config_layout.addWidget(self.correlation_alternative_combo, row, 1, 1, 3)
+            row += 1
+
         # Common configuration options for both modes
         # Left column - Cluster threshold
         self.config_layout.addWidget(QtWidgets.QLabel("Cluster Threshold:"), row, 0)
@@ -700,9 +712,19 @@ class ClusterPermutationWidget(QtWidgets.QWidget):
                 'alternative': self.alternative_combo.currentText().lower(),  # 'two-sided', 'greater', or 'less'
             })
         else:  # correlation
+            # Map GUI text to API values
+            alt_text = self.correlation_alternative_combo.currentText()
+            if 'Greater' in alt_text:
+                alternative = 'greater'
+            elif 'Less' in alt_text:
+                alternative = 'less'
+            else:
+                alternative = 'two-sided'
+
             config.update({
                 'correlation_type': self.correlation_type_combo.currentText().lower(),
                 'use_weights': self.use_weights_check.isChecked(),
+                'alternative': alternative,  # Add alternative hypothesis for correlation
             })
         
         analysis_name = self.analysis_name_edit.text().strip()
@@ -715,6 +737,7 @@ class ClusterPermutationWidget(QtWidgets.QWidget):
         else:  # correlation
             subject_info = f"  • {len(subject_configs)} subjects\n"
             analysis_info = f"  • Correlation type: {config['correlation_type']}\n"
+            analysis_info += f"  • Alternative: {config['alternative']}\n"
             analysis_info += f"  • Use weights: {config['use_weights']}\n"
 
         reply = QtWidgets.QMessageBox.question(
@@ -876,6 +899,7 @@ class ClusterPermutationWidget(QtWidgets.QWidget):
             self.alternative_combo.setEnabled(False)
         else:  # correlation
             self.correlation_type_combo.setEnabled(False)
+            self.correlation_alternative_combo.setEnabled(False)
             self.use_weights_check.setEnabled(False)
 
         self.cluster_threshold_spin.setEnabled(False)
@@ -923,6 +947,7 @@ class ClusterPermutationWidget(QtWidgets.QWidget):
             self.alternative_combo.setEnabled(True)
         else:  # correlation
             self.correlation_type_combo.setEnabled(True)
+            self.correlation_alternative_combo.setEnabled(True)
             self.use_weights_check.setEnabled(True)
 
         self.cluster_threshold_spin.setEnabled(True)
