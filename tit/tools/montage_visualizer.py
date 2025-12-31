@@ -37,47 +37,19 @@ class ResourcePathManager:
         
     def _detect_resources_dir(self) -> str:
         """
-        Detect the correct resources directory based on environment.
-        
-        Priority:
-        1. Project directory: /mnt/{PROJECT_DIR_NAME}/code/tit/resources/amv
-        2. Development directory: /development/ti-toolbox/resources/amv
-        3. Production directory: /ti-toolbox/resources/amv (baked into Docker image)
-        
+        Return the resources directory.
+
+        TI-Toolbox is expected to run with the repository mounted at `/ti-toolbox`,
+        so resources are always located at:
+            /ti-toolbox/resources/amv
+
         Returns:
-            Path to resources/amv directory
+            Path to `/ti-toolbox/resources/amv`
         """
-        # Priority 1: Check project directory first
-        if self.project_dir_name:
-            project_resources = f"/mnt/{self.project_dir_name}/code/tit/resources/amv"
-            if os.path.isdir(project_resources):
-                return project_resources
-        
-        # Priority 2: Check development mode
-        dev_resources_candidates = [
-            "/development/ti-toolbox/resources/amv",
-            "/development/resources/amv"  # backward compatibility
-        ]
-        for dev_resources in dev_resources_candidates:
-            if os.path.isdir(dev_resources):
-                return dev_resources
-        
-        # Priority 3: Fall back to production (Docker image location)
-        prod_resources_candidates = [
-            "/ti-toolbox/resources/amv",
-            "/tit/resources/amv"  # backward compatibility
-        ]
-        for prod_resources in prod_resources_candidates:
-            if os.path.isdir(prod_resources):
-                return prod_resources
-        
-        # If none found, raise error
-        raise FileNotFoundError(
-            f"Resources directory not found. Checked:\n"
-            f"  1. /mnt/{self.project_dir_name}/code/tit/resources/amv\n"
-            f"  2. /development/ti-toolbox/resources/amv\n"
-            f"  3. /ti-toolbox/resources/amv"
-        )
+        resources = "/ti-toolbox/resources/amv"
+        if not os.path.isdir(resources):
+            raise FileNotFoundError(f"Resources directory not found: {resources}")
+        return resources
     
     def get_coordinate_file(self, eeg_net: str) -> Optional[str]:
         """
@@ -87,7 +59,10 @@ class ResourcePathManager:
             eeg_net: Name of the EEG net (e.g., "EGI_template.csv")
 
         Returns:
-            Path to coordinate CSV file, or None for freehand/flex modes or unsupported nets
+            Path to coordinate CSV file, or None for freehand/flex modes or explicitly unsupported nets.
+
+        Raises:
+            ValueError: If `eeg_net` is not recognized.
         """
         # Freehand and flex modes don't use predefined coordinate files
         if eeg_net in ["freehand", "flex_mode"]:
@@ -122,8 +97,9 @@ class ResourcePathManager:
         elif eeg_net in ten_ten_nets:
             return os.path.join(self.resources_dir, "10-10.csv")
         else:
-            # Unknown net, return None and skip visualization
-            return None
+            # Unknown net: fail fast rather than silently skipping visualization.
+            # This avoids "false green" runs where montage images are missing.
+            raise ValueError(f"Unsupported EEG net: {eeg_net}")
     
     def get_template_image(self, eeg_net: str) -> str:
         """
