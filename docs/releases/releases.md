@@ -27,15 +27,16 @@ permalink: /releases/
 [macOS Apple Silicon](https://github.com/idossha/TI-toolbox/releases/latest/download/TI-Toolbox-arm64.dmg) ·
 [Windows](https://github.com/idossha/TI-toolbox/releases/latest/download/TI-Toolbox-Setup.exe) ·
 [Linux AppImage](https://github.com/idossha/TI-toolbox/releases/latest/download/TI-Toolbox.AppImage) ·
-[Linux deb](https://github.com/idossha/TI-toolbox/releases/latest/download/tit.deb)
+[Linux deb](https://github.com/idossha/TI-toolbox/releases/latest/download/ti-toolbox.deb)
 
 **Other:**
 - Docker Image: `docker pull idossha/simnibs:latest`
 - Source Code: [GitHub Repository](https://github.com/idossha/TI-Toolbox)
 
 For installation instructions, see the [Installation Guide]({{ site.baseurl }}/installation/).
-#### Backward compatibility change to be aware:
-- **Electode Mapping**: We changed the mapping functionality from the **flex-seach** to the **simulator**. This to provide a more flexible and dynamic framework. Now, the flex-search outputs the: `electrode_positions.json` file and the mapping functionality happeneds on the simulator side using the new method `tit/tools/map_electrodes.py`. Thus, one can use a single flex-search to conveniently map to multiple nets. 
+#### Backward compatibility changes to be aware:
+- **Electode Mapping**: We changed the mapping functionality from the **flex-seach** to the **simulator**. This to provide a more flexible and dynamic framework. Now, the flex-search outputs the: `electrode_positions.json` file and the mapping functionality happeneds on the simulator side using the new method `ti-toolbox/tools/map_electrodes.py`. Thus, one can use a single flex-search to conveniently map to multiple nets.
+- **Package Naming**: The Python package has been renamed from `ti-toolbox` to `tit` for consistency with the internal module structure. All imports should now use `import tit` instead of `import ti_toolbox`. The directory structure has been updated accordingly (`ti-toolbox/` → `tit/`). 
 
 #### Additions
 - **Desktop App**: Recognizing the importance of Desktop delivery, we redesign our executables with Electron. For more info please see `package`.
@@ -55,7 +56,7 @@ For installation instructions, see the [Installation Guide]({{ site.baseurl }}/i
 [macOS Apple Silicon](https://github.com/idossha/TI-toolbox/releases/latest/download/TI-Toolbox-arm64.dmg) ·
 [Windows](https://github.com/idossha/TI-toolbox/releases/latest/download/TI-Toolbox-Setup.exe) ·
 [Linux AppImage](https://github.com/idossha/TI-toolbox/releases/latest/download/TI-Toolbox.AppImage) ·
-[Linux deb](https://github.com/idossha/TI-toolbox/releases/latest/download/tit.deb)
+[Linux deb](https://github.com/idossha/TI-toolbox/releases/latest/download/ti-toolbox.deb)
 
 **Other:**
 - Docker Image: `docker pull idossha/simnibs:latest`

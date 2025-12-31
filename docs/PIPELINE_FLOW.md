@@ -14,7 +14,7 @@ Run temporal interference (TI) simulations with predefined electrode montages.
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                      ENTRYPOINT                              │
-│  tit/cli/simulator.sh                                 │
+│  ti-toolbox/cli/simulator.sh                                 │
 └─────────────────────────────────────────────────────────────┘
                             ↓
 ┌─────────────────────────────────────────────────────────────┐
@@ -40,7 +40,7 @@ Run temporal interference (TI) simulations with predefined electrode montages.
 │     └─> Load EEG cap positions                               │
 │                                                              │
 │  3. Call main simulation script                              │
-│     └─> tit/sim/TI.py                                 │
+│     └─> ti-toolbox/sim/TI.py                                 │
 └─────────────────────────────────────────────────────────────┘
                             ↓
 ┌─────────────────────────────────────────────────────────────┐
@@ -97,7 +97,7 @@ Optimize electrode positions to maximize/target stimulation in specific brain re
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                      ENTRYPOINT                              │
-│  tit/cli/flex-search.sh                               │
+│  ti-toolbox/cli/flex-search.sh                               │
 └─────────────────────────────────────────────────────────────┘
                             ↓
 ┌─────────────────────────────────────────────────────────────┐
@@ -118,7 +118,7 @@ Optimize electrode positions to maximize/target stimulation in specific brain re
 │                   INFORMATION FLOW                           │
 │                                                              │
 │  1. Parse and validate inputs                                │
-│     └─> tit/opt/flex/flex_config.py                  │
+│     └─> ti-toolbox/opt/flex/flex_config.py                  │
 │                                                              │
 │  2. Setup optimization object                                │
 │     └─> Configure ROI (spherical or atlas-based)            │
@@ -126,7 +126,7 @@ Optimize electrode positions to maximize/target stimulation in specific brain re
 │     └─> Set electrode constraints                           │
 │                                                              │
 │  3. Call main optimization script                            │
-│     └─> tit/opt/flex/flex.py                         │
+│     └─> ti-toolbox/opt/flex/flex.py                         │
 └─────────────────────────────────────────────────────────────┘
                             ↓
 ┌─────────────────────────────────────────────────────────────┐
@@ -197,7 +197,7 @@ Perform exhaustive search optimization across all electrode combinations and cur
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                      ENTRYPOINT                              │
-│  tit/cli/ex-search.sh                                 │
+│  ti-toolbox/cli/ex-search.sh                                 │
 └─────────────────────────────────────────────────────────────┘
                             ↓
 ┌─────────────────────────────────────────────────────────────┐
@@ -224,7 +224,7 @@ Perform exhaustive search optimization across all electrode combinations and cur
 │     └─> Load/select EEG net and leadfield                    │
 │                                                              │
 │  3. Call main optimization script                            │
-│     └─> tit/opt/ex/ti_sim.py                          │
+│     └─> ti-toolbox/opt/ex/ti_sim.py                          │
 └─────────────────────────────────────────────────────────────┘
                             ↓
 ┌─────────────────────────────────────────────────────────────┐
