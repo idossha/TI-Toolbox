@@ -396,7 +396,7 @@ class ClusterPermutationWidget(QtWidgets.QWidget):
         # Left column - Cluster threshold
         self.config_layout.addWidget(QtWidgets.QLabel("Cluster Threshold:"), row, 0)
         self.cluster_threshold_spin = QtWidgets.QDoubleSpinBox()
-        self.cluster_threshold_spin.setRange(0.001, 0.1)
+        self.cluster_threshold_spin.setRange(0.0001, 0.05)
         self.cluster_threshold_spin.setValue(0.05)
         self.cluster_threshold_spin.setSingleStep(0.01)
         self.cluster_threshold_spin.setDecimals(3)
@@ -420,7 +420,7 @@ class ClusterPermutationWidget(QtWidgets.QWidget):
         # Right column - Alpha level
         self.config_layout.addWidget(QtWidgets.QLabel("Alpha Level:"), row, 2)
         self.alpha_spin = QtWidgets.QDoubleSpinBox()
-        self.alpha_spin.setRange(0.001, 0.1)
+        self.alpha_spin.setRange(0.0001, 0.1)
         self.alpha_spin.setValue(0.05)
         self.alpha_spin.setSingleStep(0.01)
         self.alpha_spin.setDecimals(3)
