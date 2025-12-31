@@ -6,6 +6,16 @@ touch ~/.bashrc
 # Source environment setup scripts
 [ -f "$FREESURFER_HOME/SetUpFreeSurfer.sh" ] && source "$FREESURFER_HOME/SetUpFreeSurfer.sh"
 
+# Ensure `tit` is importable system-wide in the SimNIBS python environment.
+# This fixes running python entrypoints by path like:
+#   simnibs_python /ti-toolbox/tit/cli/simulator.py
+if command -v simnibs_python >/dev/null 2>&1; then
+    if ! simnibs_python -c "import tit" >/dev/null 2>&1; then
+        # Editable install keeps imports working while still allowing mounted code changes.
+        simnibs_python -m pip install -e /ti-toolbox >/dev/null 2>&1 || true
+    fi
+fi
+
 # ============================================================================
 # Software Version Checks and Display
 # ============================================================================
@@ -84,7 +94,7 @@ print_software_info() {
 }
 
 # Make CLI scripts executable
-chmod +x /ti-toolbox/ti-toolbox/cli/*.sh
+chmod +x /ti-toolbox/tit/cli/*.sh
 
 # Create CLI script aliases (without .sh extension)
 alias GUI='GUI.sh'
@@ -102,7 +112,7 @@ alias simulator='simulator.sh'
     echo "source \"\$FREESURFER_HOME/SetUpFreeSurfer.sh\""
     echo ""
     echo "# TI-Toolbox CLI scripts"
-    echo "export PATH=\"\$PATH:/ti-toolbox/ti-toolbox/cli\""
+    echo "export PATH=\"\$PATH:/ti-toolbox/tit/cli\""
     echo "alias GUI='GUI.sh'"
     echo "alias analyzer='analyzer.sh'"
     echo "alias ex-search='ex-search.sh'"

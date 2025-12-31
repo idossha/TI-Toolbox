@@ -172,7 +172,7 @@ Check if initialized (.initialized marker)
         ├─► Yes → Use existing project
         │
         └─► No → Create structure:
-                 ├─ code/ti-toolbox/config/
+                 ├─ code/tit/config/
                  ├─ derivatives/ti-toolbox/.ti-toolbox-info/
                  ├─ derivatives/freesurfer/
                  ├─ derivatives/SimNIBS/
@@ -260,12 +260,12 @@ package/
 ```
 project/
 ├── code/
-│   └── ti-toolbox/
+│   └── tit/
 │       └── config/
 │           └── .initialized
 ├── derivatives/
-│   ├── ti-toolbox/
-│   │   └── .ti-toolbox-info/
+│   ├── tit/
+│   │   └── .tit-info/
 │   ├── freesurfer/
 │   └── SimNIBS/
 └── sourcedata/

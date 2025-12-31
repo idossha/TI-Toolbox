@@ -24,10 +24,10 @@ from pathlib import Path
 from unittest.mock import Mock, patch, MagicMock, call, mock_open
 from io import StringIO
 
-# Add ti-toolbox directory to path
-project_root = str(Path(__file__).resolve().parent.parent)
-ti_toolbox_dir = str(Path(project_root) / 'ti-toolbox')
-sys.path.insert(0, ti_toolbox_dir)
+# Ensure repo root is on sys.path so `import tit` resolves to local sources.
+project_root = Path(__file__).resolve().parent.parent
+if str(project_root) not in sys.path:
+    sys.path.insert(0, str(project_root))
 
 # Mock only what needs to be mocked for this specific test
 from unittest.mock import MagicMock
@@ -51,7 +51,7 @@ def cleanup_visualizer_mock():
 
 
 # Now import the voxel_analyzer module
-from analyzer.voxel_analyzer import VoxelAnalyzer
+from tit.analyzer.voxel_analyzer import VoxelAnalyzer
 
 
 class TestVoxelAnalyzerInitialization:
@@ -79,7 +79,7 @@ class TestVoxelAnalyzerInitialization:
         assert analyzer.logger == mock_child_logger
         mock_logger.getChild.assert_called_once_with('voxel_analyzer')
     
-    @patch('analyzer.voxel_analyzer.logging_util.get_logger')
+    @patch('tit.analyzer.voxel_analyzer.logging_util.get_logger')
     def test_init_without_logger(self, mock_get_logger):
         """Test initialization without logger (creates its own)"""
         mock_logger_instance = MagicMock()

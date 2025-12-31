@@ -35,10 +35,10 @@ The TI-Toolbox codebase shows good organization but has opportunities for signif
 - Multiple implementations of ANSI code stripping
 
 **Recommendation:**
-Create a unified process management system in `ti-toolbox/core/process.py`:
+Create a unified process management system in `tit/core/process.py`:
 
 ```python
-# ti-toolbox/core/process.py
+# tit/core/process.py
 class ProcessRunner(QtCore.QThread):
     """Unified process runner for all GUI tabs"""
     output_signal = QtCore.pyqtSignal(str, str)
@@ -70,10 +70,10 @@ class ProcessRunner(QtCore.QThread):
 - No unified error recovery mechanism
 
 **Recommendation:**
-Create error handling utilities in `ti-toolbox/core/errors.py`:
+Create error handling utilities in `tit/core/errors.py`:
 
 ```python
-# ti-toolbox/core/errors.py
+# tit/core/errors.py
 class TIToolboxError(Exception):
     """Base exception for all TI-Toolbox errors"""
     def __init__(self, message, error_code=None, details=None):
@@ -111,7 +111,7 @@ def handle_error(error, logger=None, gui_callback=None):
 Consolidate logging into a single Python-based system:
 
 ```python
-# ti-toolbox/core/logging.py
+# tit/core/logging.py
 class TILogger:
     """Unified logging system for all TI-Toolbox components"""
     def __init__(self, name, log_file=None, console_level='INFO', file_level='DEBUG'):
@@ -141,10 +141,10 @@ def get_logger(name):
 - Inconsistent state management
 
 **Recommendation:**
-Create a base tab class in `ti-toolbox/gui/base_tab.py`:
+Create a base tab class in `tit/gui/base_tab.py`:
 
 ```python
-# ti-toolbox/gui/base_tab.py
+# tit/gui/base_tab.py
 class BaseToolTab(QtWidgets.QWidget):
     """Base class for all tool tabs"""
     
@@ -192,7 +192,7 @@ class BaseToolTab(QtWidgets.QWidget):
 Gradually migrate shell scripts to Python modules:
 
 ```python
-# Example: ti-toolbox/pre/dicom2nifti.py
+# Example: tit/pre/dicom2nifti.py
 class DicomConverter:
     """DICOM to NIfTI conversion with BIDS compliance"""
     
@@ -222,7 +222,7 @@ class DicomConverter:
 Create a configuration management system:
 
 ```python
-# ti-toolbox/core/config.py
+# tit/core/config.py
 from dataclasses import dataclass
 from typing import Optional, List
 
@@ -266,8 +266,8 @@ class ConfigManager:
 Standardize imports and create proper package structure:
 
 ```python
-# ti-toolbox/__init__.py
-# Make ti-toolbox a proper package
+# tit/__init__.py
+# Make tit a proper package
 from .core import get_path_manager, PathManager
 from .version import __version__
 
@@ -295,7 +295,7 @@ __all__ = ['get_path_manager', 'PathManager', '__version__']
 Add caching layer for expensive operations:
 
 ```python
-# ti-toolbox/core/cache.py
+# tit/core/cache.py
 from functools import lru_cache
 import pickle
 from pathlib import Path

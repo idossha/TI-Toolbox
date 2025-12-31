@@ -15,8 +15,11 @@ import pytest
 from unittest.mock import MagicMock, Mock, patch, call
 from types import ModuleType
 
-# Add ti-toolbox directory to path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'ti-toolbox'))
+# Ensure repo root is on sys.path so `import tit` resolves to local sources.
+from pathlib import Path
+REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
 
 
 @pytest.fixture
@@ -173,7 +176,7 @@ def setup_test_structure(tmp_path):
 @pytest.fixture
 def load_post_processor(mock_simnibs, mock_core_calc):
     """Load PostProcessor after mocking dependencies."""
-    from sim.post_processor import PostProcessor
+    from tit.sim.post_processor import PostProcessor
     return PostProcessor
 
 

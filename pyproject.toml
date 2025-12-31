@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+# PyPI/distribution name. Repo/app name stays "ti-toolbox", but the Python package is "tit".
+name = "tit"
+description = "TI-Toolbox (Python package: tit)"
+readme = "README.md"
+requires-python = ">=3.9"
+dynamic = ["version"]
+
+[project.urls]
+Repository = "https://github.com/idossha/TI-toolbox"
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+include = ["tit*"]
+
+[tool.setuptools.dynamic]
+version = {attr = "tit.__version__"}
+
+

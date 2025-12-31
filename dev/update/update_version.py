@@ -81,7 +81,7 @@ def update_version(new_version):
         ],
         
         # Python package version
-        "ti-toolbox/__init__.py": [
+        "tit/__init__.py": [
             (r'__version__ = "[^"]*"', f'__version__ = "{new_version}"'),
         ],
         
@@ -114,7 +114,7 @@ def update_version(new_version):
     print(f"   • Updated previous release titles")
     print(f"   • Updated dataset description JSON files with new SimNIBS Docker image version")
     print(f"   • Updated Electron Desktop App (package.json, index.html, docker-compose.yml, main.js)")
-    print(f"   • Updated Python package version (ti-toolbox/__init__.py)")
+    print(f"   • Updated Python package version (tit/__init__.py)")
 
 def update_dataset_descriptions(new_version):
     """Update Docker image versions in dataset description JSON files"""
@@ -200,7 +200,7 @@ def update_releases_page(version, release_notes, release_date):
 [macOS Apple Silicon](https://github.com/idossha/TI-toolbox/releases/latest/download/TI-Toolbox-arm64.dmg) ·
 [Windows](https://github.com/idossha/TI-toolbox/releases/latest/download/TI-Toolbox-Setup.exe) ·
 [Linux AppImage](https://github.com/idossha/TI-toolbox/releases/latest/download/TI-Toolbox.AppImage) ·
-[Linux deb](https://github.com/idossha/TI-toolbox/releases/latest/download/ti-toolbox.deb)
+[Linux deb](https://github.com/idossha/TI-toolbox/releases/latest/download/tit.deb)
 
 **Other:**
 - Docker Image: `docker pull idossha/simnibs:latest`
@@ -249,7 +249,7 @@ def update_changelog_file(version, release_notes, release_date):
 [macOS Apple Silicon](https://github.com/idossha/TI-toolbox/releases/download/v{version}/TI-Toolbox-arm64.dmg) ·
 [Windows](https://github.com/idossha/TI-toolbox/releases/download/v{version}/TI-Toolbox-Setup.exe) ·
 [Linux AppImage](https://github.com/idossha/TI-toolbox/releases/download/v{version}/TI-Toolbox.AppImage) ·
-[Linux deb](https://github.com/idossha/TI-toolbox/releases/download/v{version}/ti-toolbox.deb)
+[Linux deb](https://github.com/idossha/TI-toolbox/releases/download/v{version}/tit.deb)
 
 **Other:**
 - Docker Image: `docker pull idossha/simnibs:v{version}`
@@ -316,7 +316,7 @@ sitemap: false
 [macOS Apple Silicon](https://github.com/idossha/TI-toolbox/releases/download/v{version}/TI-Toolbox-arm64.dmg) ·
 [Windows](https://github.com/idossha/TI-toolbox/releases/download/v{version}/TI-Toolbox-Setup.exe) ·
 [Linux AppImage](https://github.com/idossha/TI-toolbox/releases/download/v{version}/TI-Toolbox.AppImage) ·
-[Linux deb](https://github.com/idossha/TI-toolbox/releases/download/v{version}/ti-toolbox.deb)
+[Linux deb](https://github.com/idossha/TI-toolbox/releases/download/v{version}/tit.deb)
 
 **Other:**
 - Docker Image: `docker pull idossha/simnibs:v{version}`

@@ -26,7 +26,7 @@ Complete changelog for all versions of the Temporal Interference Toolbox.
 [macOS Apple Silicon](https://github.com/idossha/TI-toolbox/releases/download/v2.2.2/TI-Toolbox-arm64.dmg) ·
 [Windows](https://github.com/idossha/TI-toolbox/releases/download/v2.2.2/TI-Toolbox-Setup.exe) ·
 [Linux AppImage](https://github.com/idossha/TI-toolbox/releases/download/v2.2.2/TI-Toolbox.AppImage) ·
-[Linux deb](https://github.com/idossha/TI-toolbox/releases/download/v2.2.2/ti-toolbox.deb)
+[Linux deb](https://github.com/idossha/TI-toolbox/releases/download/v2.2.2/tit.deb)
 **Other:**
 - Docker Image: `docker pull idossha/simnibs:v2.2.2`
 - Source Code: [GitHub Repository](https://github.com/idossha/TI-Toolbox)
@@ -37,7 +37,7 @@ Complete changelog for all versions of the Temporal Interference Toolbox.
 **Release Date**: December 04, 2025
 
 #### Backward compatibility change to be aware:
-- **Electode Mapping**: We changed the mapping functionality from the **flex-seach** to the **simulator**. This to provide a more flexible and dynamic framework. Now, the flex-search outputs the: `electrode_positions.json` file and the mapping functionality happeneds on the simulator side using the new method `ti-toolbox/tools/map_electrodes.py`. Thus, one can use a single flex-search to conveniently map to multiple nets. 
+- **Electode Mapping**: We changed the mapping functionality from the **flex-seach** to the **simulator**. This to provide a more flexible and dynamic framework. Now, the flex-search outputs the: `electrode_positions.json` file and the mapping functionality happeneds on the simulator side using the new method `tit/tools/map_electrodes.py`. Thus, one can use a single flex-search to conveniently map to multiple nets. 
 
 #### Additions
 - **Desktop App**: Recognizing the importance of Desktop delivery, we redesign our executables with Electron. For more info please see `package`.
@@ -59,7 +59,7 @@ Complete changelog for all versions of the Temporal Interference Toolbox.
 [macOS Apple Silicon](https://github.com/idossha/TI-toolbox/releases/download/v2.2.1/TI-Toolbox-arm64.dmg) ·
 [Windows](https://github.com/idossha/TI-toolbox/releases/download/v2.2.1/TI-Toolbox-Setup.exe) ·
 [Linux AppImage](https://github.com/idossha/TI-toolbox/releases/download/v2.2.1/TI-Toolbox.AppImage) ·
-[Linux deb](https://github.com/idossha/TI-toolbox/releases/download/v2.2.1/ti-toolbox.deb)
+[Linux deb](https://github.com/idossha/TI-toolbox/releases/download/v2.2.1/tit.deb)
 
 **Other:**
 - Docker Image: `docker pull idossha/simnibs:v2.2.1`
@@ -72,14 +72,14 @@ Complete changelog for all versions of the Temporal Interference Toolbox.
 **Release Date**: November 07, 2025
 
 #### Additions
-- **Core Infrastructure & Architecture**: The project underwent a complete restructure, removing old launcher directories and consolidating to a unified ti-toolbox structure. A new core module system was introduced in ti-toolbox/core/ with reusable components including paths.py, calc.py, constants.py, errors.py, process.py, utils.py, nifti.py, mesh.py, and viz.py. The project moved away from executable compilation and now focuses exclusively on bash entry point.
-- **GUI Extensions System**: A new modular extension system was introduced in ti-toolbox/gui/extensions/ providing several powerful tools. The Cluster-Based Permutation Testing (CBP) extension offers statistical analysis for group comparisons. Nilearn Visuals enables brain visualization using nilearn with glass brain views, surface plots, and slices. The NIfTI Group Averaging tool allows averaging multiple NIfTI files across subjects. The Visual Exporter provides export capabilities to Blender-compatible formats (PLY, STL) with a full tutorial. Additional extensions include Quick Notes for in-app note-taking with persistence, Subject Info Viewer for displaying metadata and processing status, and an Electrode Placement Tool for interactive electrode positioning.
-- **3D Visualization & Export**: A 3D Exporter module was added in ti-toolbox/3d_exporter/ containing four specialized tools. TI_quick_volumetric.py provides fast volumetric field exports, cortical_regions_to_ply.py handles region-specific mesh exports, cortical_regions_to_stl.py outputs STL format for 3D printing, and vector_ply.py enables vector field visualization in Blender.
+- **Core Infrastructure & Architecture**: The project underwent a complete restructure, removing old launcher directories and consolidating to a unified tit structure. A new core module system was introduced in tit/core/ with reusable components including paths.py, calc.py, constants.py, errors.py, process.py, utils.py, nifti.py, mesh.py, and viz.py. The project moved away from executable compilation and now focuses exclusively on bash entry point.
+- **GUI Extensions System**: A new modular extension system was introduced in tit/gui/extensions/ providing several powerful tools. The Cluster-Based Permutation Testing (CBP) extension offers statistical analysis for group comparisons. Nilearn Visuals enables brain visualization using nilearn with glass brain views, surface plots, and slices. The NIfTI Group Averaging tool allows averaging multiple NIfTI files across subjects. The Visual Exporter provides export capabilities to Blender-compatible formats (PLY, STL) with a full tutorial. Additional extensions include Quick Notes for in-app note-taking with persistence, Subject Info Viewer for displaying metadata and processing status, and an Electrode Placement Tool for interactive electrode positioning.
+- **3D Visualization & Export**: A 3D Exporter module was added in tit/blender_exporter/ containing four specialized tools. TI_quick_volumetric.py provides fast volumetric field exports, cortical_regions_to_ply.py handles region-specific mesh exports, cortical_regions_to_stl.py outputs STL format for 3D printing, and vector_ply.py enables vector field visualization in Blender.
 - **MOVEA Optimization**: MOVEA-like integration was implemented for multi-objective optimization of electrode placement. The system now uses a centralized leadfield with unified leadfield target locations across all optimization tools. A complete MOVEA GUI tab provides an interface for optimization workflows.
 - **Analysis Tool**: Group Analyzer received significant improvements including enhanced multi-subject analysis capabilities with MNI coordinate support.
-- **Statistics Module**: A statistics package was created in ti-toolbox/stats/. The cluster_permutation.py module implements non-parametric cluster-based permutation testing.
+- **Statistics Module**: A statistics package was created in tit/stats/. The cluster_permutation.py module implements non-parametric cluster-based permutation testing.
 - **Simulator Improvements**: The simulator received substantial enhancements including a new free-hand mode that allows direct electrode coordinate input without montage selection. The entire simulator was refactored for a cleaner codebase with better error handling.
-- **Optimization Tools**: The flex-search tool was restructured and modularized into ti-toolbox/opt/flex/. A multi-start approach was implemented allowing multiple iterations to find the best solution. The ex-search tool received enhancements for better ROI handling and faster analysis.
+- **Optimization Tools**: The flex-search tool was restructured and modularized into tit/opt/flex/. A multi-start approach was implemented allowing multiple iterations to find the best solution. The ex-search tool received enhancements for better ROI handling and faster analysis.
 - **GUI Enhancements**: Multiple GUI improvements enhance the user experience. A centralized Path Manager handles path operations across all GUI tabs. Console output was standardized for consistent logging and status updates. Confirmation dialogs now appear before long-running processes. A debug mode provides optional verbose output for troubleshooting. An OpenGL fallback system provides automatic compatibility handling for macOS issues.
 - **Documentation**: More documentation was added covering new features. New wiki pages document cluster permutation testing, electrode placement, MOVEA optimization, tissue analyzer, visual exporter, nilearn visuals, nifti group averaging, and quick notes. A pipeline flow diagram provides visual representation of the complete workflow. A detailed Blender tutorial offers step-by-step guidance for 3D visualization. Installation documentation was streamlined with updated setup instructions and removal of executable references. The gallery was updated with new screenshots showcasing all GUI features.
 - **CI/CD & Testing**: A CI/CD pipeline was implemented with automated testing and Codecov integration for code coverage tracking. The test suite was expanded covering most modules, including new test files for calc, constants, core integration, mesh, errors, ex-analyzer, nifti, paths, process, utils, and MOVEA optimizer with integration tests. CircleCI integration now provides automated testing on every commit with proper permissions and workflows.

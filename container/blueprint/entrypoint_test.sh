@@ -9,17 +9,17 @@ mkdir -p /opt/test_projectdir/sourcedata \
     && mkdir -p /opt/test_projectdir/derivatives/ti-toolbox \
     && mkdir -p /opt/test_projectdir/derivatives/SimNIBS \
     && mkdir -p /opt/test_projectdir/derivatives/freesurfer \
-    && mkdir -p /opt/test_projectdir/code/ti-toolbox/config
+    && mkdir -p /opt/test_projectdir/code/tit/config
 
-# Copy electrode caps from mounted ti-toolbox to SimNIBS directory
+# Copy electrode caps from mounted TI-Toolbox to SimNIBS directory
 if [ -d "$SIMNIBSDIR" ] && [ -d "/ti-toolbox/resources/ElectrodeCaps_MNI" ]; then
-    echo "Copying electrode caps from ti-toolbox to SimNIBS..."
+    echo "Copying electrode caps from TI-Toolbox to SimNIBS..."
     mkdir -p "$SIMNIBSDIR/resources/ElectrodeCaps_MNI/"
     cp -f /ti-toolbox/resources/ElectrodeCaps_MNI/*.csv "$SIMNIBSDIR/resources/ElectrodeCaps_MNI/" 2>/dev/null || true
 fi
 
 # Create montage_list.json with proper structure
-cat > /opt/test_projectdir/code/ti-toolbox/config/montage_list.json << 'EOF'
+cat > /opt/test_projectdir/code/tit/config/montage_list.json << 'EOF'
 {
     "nets": {
         "GSN-HydroCel-256.csv": {

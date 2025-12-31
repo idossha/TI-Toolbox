@@ -46,7 +46,7 @@ Notes are saved following BIDS derivatives structure:
 ```
 project_dir/
 └── derivatives/
-    └── ti-toolbox/
+    └── tit/
         └── notes.txt
 ```
 

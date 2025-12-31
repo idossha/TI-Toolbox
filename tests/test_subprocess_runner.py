@@ -17,10 +17,12 @@ import pytest
 from unittest.mock import patch, MagicMock, mock_open, call
 from pathlib import Path
 
-# Add ti-toolbox directory to path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'ti-toolbox'))
+# Ensure repo root is on sys.path so `import tit` resolves to local sources.
+REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
 
-from sim.subprocess_runner import (
+from tit.sim.subprocess_runner import (
     _ensure_own_process_group,
     _build_logger,
     _load_payload,
@@ -59,8 +61,8 @@ class TestEnsureOwnProcessGroup:
 class TestBuildLogger:
     """Test suite for _build_logger() function."""
 
-    @patch('core.get_path_manager')
-    @patch('tools.logging_util.get_logger')
+    @patch('tit.core.get_path_manager')
+    @patch('tit.tools.logging_util.get_logger')
     @patch('os.makedirs')
     @patch('os.path.join', side_effect=lambda *args: '/'.join(args))
     def test_logger_creation(self, mock_join, mock_makedirs, mock_get_logger, mock_pm):
@@ -85,8 +87,8 @@ class TestBuildLogger:
         assert "sub-001" in log_file
         assert "Simulator_" in log_file
 
-    @patch('core.get_path_manager')
-    @patch('tools.logging_util.get_logger')
+    @patch('tit.core.get_path_manager')
+    @patch('tit.tools.logging_util.get_logger')
     @patch('os.makedirs')
     def test_debug_mode(self, mock_makedirs, mock_get_logger, mock_pm):
         """Test logger in debug mode."""
@@ -175,10 +177,10 @@ class TestMain:
 
         assert exit_code == 2
 
-    @patch('core.get_path_manager')
-    @patch('sim.subprocess_runner._build_logger')
-    @patch('sim.run_simulation')
-    @patch('sim.subprocess_runner._ensure_own_process_group')
+    @patch('tit.core.get_path_manager')
+    @patch('tit.sim.subprocess_runner._build_logger')
+    @patch('tit.sim.run_simulation')
+    @patch('tit.sim.subprocess_runner._ensure_own_process_group')
     def test_successful_execution(self, mock_pg, mock_run_sim, mock_logger, mock_pm, tmp_path):
         """Test successful simulation execution."""
         # Setup payload
@@ -256,10 +258,10 @@ class TestMain:
         # Check simulation was called
         mock_run_sim.assert_called_once()
 
-    @patch('core.get_path_manager')
-    @patch('sim.subprocess_runner._build_logger')
-    @patch('sim.run_simulation', side_effect=Exception("Simulation failed"))
-    @patch('sim.subprocess_runner._ensure_own_process_group')
+    @patch('tit.core.get_path_manager')
+    @patch('tit.sim.subprocess_runner._build_logger')
+    @patch('tit.sim.run_simulation', side_effect=Exception("Simulation failed"))
+    @patch('tit.sim.subprocess_runner._ensure_own_process_group')
     def test_simulation_exception_handling(self, mock_pg, mock_run_sim, mock_logger, mock_pm, tmp_path):
         """Test exception handling during simulation."""
         # Setup payload
@@ -322,7 +324,7 @@ class TestMain:
         assert results["status"] == "failed"
         assert "Simulation failed" in results["error"]
 
-    @patch('sim.subprocess_runner._ensure_own_process_group')
+    @patch('tit.sim.subprocess_runner._ensure_own_process_group')
     def test_debug_flag(self, mock_pg, tmp_path):
         """Test that debug flag is passed through."""
         payload = {
@@ -358,9 +360,9 @@ class TestMain:
 
         results_file = tmp_path / "results.json"
 
-        with patch('sim.subprocess_runner._build_logger') as mock_logger, \
-             patch('core.get_path_manager') as mock_pm, \
-             patch('sim.run_simulation') as mock_run_sim:
+        with patch('tit.sim.subprocess_runner._build_logger') as mock_logger, \
+             patch('tit.core.get_path_manager') as mock_pm, \
+             patch('tit.sim.run_simulation') as mock_run_sim:
 
             mock_logger_instance = MagicMock()
             mock_logger.return_value = (mock_logger_instance, "/test/log.log")
@@ -381,7 +383,7 @@ class TestMain:
             args, kwargs = mock_logger.call_args
             assert kwargs.get('debug', args[2] if len(args) > 2 else False) is True
 
-    @patch('sim.subprocess_runner._ensure_own_process_group')
+    @patch('tit.sim.subprocess_runner._ensure_own_process_group')
     def test_sys_path_setup(self, mock_pg, tmp_path):
         """Test that sys.path is configured correctly."""
         payload = {
@@ -416,9 +418,9 @@ class TestMain:
 
         results_file = tmp_path / "results.json"
 
-        with patch('sim.subprocess_runner._build_logger') as mock_logger, \
-             patch('core.get_path_manager') as mock_pm, \
-             patch('sim.run_simulation') as mock_run_sim:
+        with patch('tit.sim.subprocess_runner._build_logger') as mock_logger, \
+             patch('tit.core.get_path_manager') as mock_pm, \
+             patch('tit.sim.run_simulation') as mock_run_sim:
 
             mock_logger_instance = MagicMock()
             mock_logger.return_value = (mock_logger_instance, "/test/log.log")
@@ -476,10 +478,10 @@ class TestMain:
 
         results_file = tmp_path / "results.json"
 
-        with patch('sim.subprocess_runner._ensure_own_process_group'), \
-             patch('sim.subprocess_runner._build_logger') as mock_logger, \
-             patch('core.get_path_manager') as mock_pm, \
-             patch('sim.run_simulation') as mock_run_sim:
+        with patch('tit.sim.subprocess_runner._ensure_own_process_group'), \
+             patch('tit.sim.subprocess_runner._build_logger') as mock_logger, \
+             patch('tit.core.get_path_manager') as mock_pm, \
+             patch('tit.sim.run_simulation') as mock_run_sim:
 
             mock_logger_instance = MagicMock()
             mock_logger.return_value = (mock_logger_instance, "/test/log.log")

@@ -40,37 +40,37 @@ flags:
 
   core:
     paths:
-      - ti-toolbox/core/
+      - tit/core/
     carryforward: false
     target: 80%
 
   simulator:
     paths:
-      - ti-toolbox/sim/
+      - tit/sim/
     carryforward: false
     target: 70%
 
   analyzer:
     paths:
-      - ti-toolbox/analyzer/
+      - tit/analyzer/
     carryforward: false
     target: 75%
 
   optimizer:
     paths:
-      - ti-toolbox/opt/
+      - tit/opt/
     carryforward: false
     target: 65%
 
   stats:
     paths:
-      - ti-toolbox/stats/
+      - tit/stats/
     carryforward: false
     target: 60%
 
   viz:
     paths:
-      - ti-toolbox/viz/
+      - tit/viz/
     carryforward: false
     target: 60%
 

@@ -8,13 +8,13 @@ The 3D Visual Exporter extension was built to enable better visualization and pr
 
 ## Overview
 
-- **Location**: `ti-toolbox/gui/extensions/visual_exporter.py`
+- **Location**: `tit/gui/extensions/visual_exporter.py`
 - **Purpose**: Export 3D assets in formats compatible with Blender, CAD software, and other 3D modeling tools to enable better visualization and presentation of simulation results.
 - **Back-end scripts**:
-  - `3d_exporter/cortical_regions_to_ply.py`
-  - `3d_exporter/cortical_regions_to_stl.py`
-  - `3d_exporter/vector_ply.py`
-  - `3d_exporter/electrode_placement.py`
+  - `blender_exporter/cortical_regions_to_ply.py`
+  - `blender_exporter/cortical_regions_to_stl.py`
+  - `blender_exporter/vector_ply.py`
+  - `blender_exporter/electrode_placement.py`
   - `tools/extract_labels.py`
   - `tools/nifti_to_mesh.py`
 - **Outputs**: PLY surface meshes, STL geometry, PLY vector clouds, electrode placements (.blend/.glb), skin surfaces, and sub-cortical structures stored under the TI-Toolbox derivatives tree.
@@ -163,7 +163,7 @@ This mode creates 3D electrode placements on the scalp surface using Blender for
 **Blender integration:**
 - Uses headless Blender (simnibs_blender) for automated electrode placement
 - Requires Blender to be installed on the system
-- Electrode template objects are defined in `3d_exporter/Electrode.blend`
+- Electrode template objects are defined in `blender_exporter/Electrode.blend`
 
 ### Sub-cortical Extraction
 
@@ -201,23 +201,23 @@ You can call the Python scripts directly whenever you need command-line automati
 
 ```bash
 # Export atlas-aligned cortical regions to PLY
-simnibs_python 3d_exporter/cortical_regions_to_ply.py \
+simnibs_python blender_exporter/cortical_regions_to_ply.py \
   --mesh <path/to/central.msh> \
   --m2m <path/to/m2m_subject> \
   --output-dir <output_folder>
 
 # Export region geometry to STL
-simnibs_python 3d_exporter/cortical_regions_to_stl.py \
+simnibs_python blender_exporter/cortical_regions_to_stl.py \
   --mesh <path/to/central.msh> \
   --m2m <path/to/m2m_subject> \
   --output-dir <output_folder>
 
 # Export TI or mTI vector arrows
-simnibs_python 3d_exporter/vector_ply.py \
+simnibs_python blender_exporter/vector_ply.py \
   tdcs1.msh tdcs2.msh <output_prefix> --sum --ti-normal
 
 # Place electrodes on scalp surface
-simnibs_python 3d_exporter/electrode_placement.py \
+simnibs_python blender_exporter/electrode_placement.py \
   --subject-id <subject_id> \
   --electrode-csv <path/to/eeg_positions/montage.csv> \
   --subject-msh <path/to/m2m_subject/subject.msh> \
@@ -235,7 +235,7 @@ simnibs_python tools/nifti_to_mesh.py \
   --clean-components
 ```
 
-Refer to the README files in `ti-toolbox/3d_exporter/` and `tools/` directories for full command-line options, including electrode placement parameters, sub-cortical label extraction, and mesh cleaning options.
+Refer to the README files in `tit/blender_exporter/` and `tools/` directories for full command-line options, including electrode placement parameters, sub-cortical label extraction, and mesh cleaning options.
 
 ## Output structure
 
@@ -243,7 +243,7 @@ Exports triggered from the extension (or using the same base output directory) f
 
 ```
 derivatives/
-  ti-toolbox/
+  tit/
     visual_exports/
       sub-<subject>/
         <simulation>/

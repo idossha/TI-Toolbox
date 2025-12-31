@@ -380,7 +380,7 @@ ipcMain.handle('create-new-project', async (_event, projectDir, includeExampleDa
       const { spawn } = require('child_process');
       const exampleDataScript = path.join(
         toolboxRoot,
-        'ti-toolbox',
+        'tit',
         'new_project',
         'example_data_manager.py'
       );
@@ -429,8 +429,8 @@ ipcMain.handle('create-new-project', async (_event, projectDir, includeExampleDa
     }
     
     // Copy configuration files
-    const configSrcDir = path.join(toolboxRoot, 'ti-toolbox', 'new_project', 'configs');
-    const configDstDir = path.join(validatedDir, 'code', 'ti-toolbox', 'config');
+    const configSrcDir = path.join(toolboxRoot, 'tit', 'new_project', 'configs');
+    const configDstDir = path.join(validatedDir, 'code', 'tit', 'config');
     
     if (fs.existsSync(configSrcDir)) {
       await fs.copy(configSrcDir, configDstDir, { overwrite: false });
@@ -475,8 +475,8 @@ This project contains structural MRI data and derivatives for simulating and ana
 - \`derivatives/\` - Processed data and analysis results
   - \`freesurfer/\` - FreeSurfer anatomical segmentation and surface reconstructions
   - \`SimNIBS/\` - SimNIBS head models and electric field simulations
-  - \`ti-toolbox/\` - TI-Toolbox simulation results and analyses
-- \`code/ti-toolbox/\` - Configuration files for the toolbox
+  - \`tit/\` - TI-Toolbox simulation results and analyses
+- \`code/tit/\` - Configuration files for the toolbox
 
 ## Software
 
@@ -500,7 +500,7 @@ This dataset follows the Brain Imaging Data Structure (BIDS) specification for o
     }
     
     // Create project status file
-    const statusDir = path.join(validatedDir, 'derivatives', 'ti-toolbox', '.ti-toolbox-info');
+    const statusDir = path.join(validatedDir, 'derivatives', 'tit', '.tit-info');
     const statusFile = path.join(statusDir, 'project_status.json');
     
     if (!fs.existsSync(statusFile)) {

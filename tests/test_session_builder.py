@@ -19,8 +19,11 @@ import sys
 import pytest
 from unittest.mock import MagicMock, patch
 
-# Add ti-toolbox directory to path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'ti-toolbox'))
+# Ensure repo root is on sys.path so `import tit` resolves to local sources.
+from pathlib import Path
+REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
 
 
 @pytest.fixture
@@ -74,11 +77,11 @@ def setup_test_files(tmp_path, mock_path_manager):
 class TestSessionBuilderInitialization:
     """Test suite for SessionBuilder initialization."""
 
-    @patch('sim.session_builder.get_path_manager')
+    @patch('tit.sim.session_builder.get_path_manager')
     def test_initialization(self, mock_get_pm, setup_test_files):
         """Test SessionBuilder initializes with correct paths."""
-        from sim.config import SimulationConfig, ConductivityType, IntensityConfig, ElectrodeConfig
-        from sim.session_builder import SessionBuilder
+        from tit.sim.config import SimulationConfig, ConductivityType, IntensityConfig, ElectrodeConfig
+        from tit.sim.session_builder import SessionBuilder
 
         mock_get_pm.return_value = setup_test_files['path_manager']
 
@@ -97,11 +100,11 @@ class TestSessionBuilderInitialization:
         assert builder.mesh_file == setup_test_files['mesh_file']
         assert "DTI_coregT1_tensor.nii.gz" in builder.tensor_file
 
-    @patch('sim.session_builder.get_path_manager')
+    @patch('tit.sim.session_builder.get_path_manager')
     def test_paths_exist(self, mock_get_pm, setup_test_files):
         """Test that SessionBuilder finds existing paths."""
-        from sim.config import SimulationConfig, ConductivityType, IntensityConfig, ElectrodeConfig
-        from sim.session_builder import SessionBuilder
+        from tit.sim.config import SimulationConfig, ConductivityType, IntensityConfig, ElectrodeConfig
+        from tit.sim.session_builder import SessionBuilder
 
         mock_get_pm.return_value = setup_test_files['path_manager']
 
@@ -123,11 +126,11 @@ class TestSessionBuilderInitialization:
 class TestSessionBuilderTIMode:
     """Test suite for SessionBuilder TI mode (2 pairs)."""
 
-    @patch('sim.session_builder.get_path_manager')
+    @patch('tit.sim.session_builder.get_path_manager')
     def test_build_ti_session_basic(self, mock_get_pm, setup_test_files):
         """Test building basic TI session with 2 electrode pairs."""
-        from sim.config import SimulationConfig, MontageConfig, ConductivityType, IntensityConfig, ElectrodeConfig
-        from sim.session_builder import SessionBuilder
+        from tit.sim.config import SimulationConfig, MontageConfig, ConductivityType, IntensityConfig, ElectrodeConfig
+        from tit.sim.session_builder import SessionBuilder
 
         mock_get_pm.return_value = setup_test_files['path_manager']
 
@@ -155,11 +158,11 @@ class TestSessionBuilderTIMode:
         assert session.anisotropy_type == "dir"
         assert session.pathfem == "/output/dir"
 
-    @patch('sim.session_builder.get_path_manager')
+    @patch('tit.sim.session_builder.get_path_manager')
     def test_build_ti_session_eeg_cap(self, mock_get_pm, setup_test_files):
         """Test TI session sets EEG cap for electrode names."""
-        from sim.config import SimulationConfig, MontageConfig, ConductivityType, IntensityConfig, ElectrodeConfig
-        from sim.session_builder import SessionBuilder
+        from tit.sim.config import SimulationConfig, MontageConfig, ConductivityType, IntensityConfig, ElectrodeConfig
+        from tit.sim.session_builder import SessionBuilder
 
         mock_get_pm.return_value = setup_test_files['path_manager']
 
@@ -184,11 +187,11 @@ class TestSessionBuilderTIMode:
         assert session.eeg_cap.endswith("EGI_template.csv")
         assert "eeg_positions" in session.eeg_cap
 
-    @patch('sim.session_builder.get_path_manager')
+    @patch('tit.sim.session_builder.get_path_manager')
     def test_build_ti_session_xyz_no_eeg_cap(self, mock_get_pm, setup_test_files):
         """Test TI session does not set EEG cap for XYZ coordinates."""
-        from sim.config import SimulationConfig, MontageConfig, ConductivityType, IntensityConfig, ElectrodeConfig
-        from sim.session_builder import SessionBuilder
+        from tit.sim.config import SimulationConfig, MontageConfig, ConductivityType, IntensityConfig, ElectrodeConfig
+        from tit.sim.session_builder import SessionBuilder
 
         mock_get_pm.return_value = setup_test_files['path_manager']
 
@@ -215,11 +218,11 @@ class TestSessionBuilderTIMode:
         # eeg_cap should be empty string or not set for XYZ mode
         assert session.eeg_cap == "" or not session.eeg_cap
 
-    @patch('sim.session_builder.get_path_manager')
+    @patch('tit.sim.session_builder.get_path_manager')
     def test_build_ti_session_mapping_options(self, mock_get_pm, setup_test_files):
         """Test TI session applies mapping options."""
-        from sim.config import SimulationConfig, MontageConfig, ConductivityType, IntensityConfig, ElectrodeConfig
-        from sim.session_builder import SessionBuilder
+        from tit.sim.config import SimulationConfig, MontageConfig, ConductivityType, IntensityConfig, ElectrodeConfig
+        from tit.sim.session_builder import SessionBuilder
 
         mock_get_pm.return_value = setup_test_files['path_manager']
 
@@ -248,11 +251,11 @@ class TestSessionBuilderTIMode:
         assert session.map_to_mni is True
         assert session.map_to_fsavg is False
 
-    @patch('sim.session_builder.get_path_manager')
+    @patch('tit.sim.session_builder.get_path_manager')
     def test_build_ti_session_dti_tensor(self, mock_get_pm, setup_test_files):
         """Test TI session sets DTI tensor when file exists."""
-        from sim.config import SimulationConfig, MontageConfig, ConductivityType, IntensityConfig, ElectrodeConfig
-        from sim.session_builder import SessionBuilder
+        from tit.sim.config import SimulationConfig, MontageConfig, ConductivityType, IntensityConfig, ElectrodeConfig
+        from tit.sim.session_builder import SessionBuilder
 
         mock_get_pm.return_value = setup_test_files['path_manager']
 
@@ -275,11 +278,11 @@ class TestSessionBuilderTIMode:
         # Tensor file exists in setup_test_files
         assert session.dti_nii == setup_test_files['tensor_file']
 
-    @patch('sim.session_builder.get_path_manager')
+    @patch('tit.sim.session_builder.get_path_manager')
     def test_build_ti_session_adds_two_pairs(self, mock_get_pm, setup_test_files):
         """Test TI session adds exactly 2 electrode pairs."""
-        from sim.config import SimulationConfig, MontageConfig, ConductivityType, IntensityConfig, ElectrodeConfig
-        from sim.session_builder import SessionBuilder
+        from tit.sim.config import SimulationConfig, MontageConfig, ConductivityType, IntensityConfig, ElectrodeConfig
+        from tit.sim.session_builder import SessionBuilder
 
         mock_get_pm.return_value = setup_test_files['path_manager']
 
@@ -301,11 +304,11 @@ class TestSessionBuilderTIMode:
 
         assert len(session.poslists) == 2
 
-    @patch('sim.session_builder.get_path_manager')
+    @patch('tit.sim.session_builder.get_path_manager')
     def test_build_ti_session_current_conversion(self, mock_get_pm, setup_test_files):
         """Test TI session converts mA to Amperes."""
-        from sim.config import SimulationConfig, MontageConfig, ConductivityType, IntensityConfig, ElectrodeConfig
-        from sim.session_builder import SessionBuilder
+        from tit.sim.config import SimulationConfig, MontageConfig, ConductivityType, IntensityConfig, ElectrodeConfig
+        from tit.sim.session_builder import SessionBuilder
 
         mock_get_pm.return_value = setup_test_files['path_manager']
 
@@ -339,11 +342,11 @@ class TestSessionBuilderTIMode:
 class TestSessionBuilderMTIMode:
     """Test suite for SessionBuilder mTI mode (4+ pairs)."""
 
-    @patch('sim.session_builder.get_path_manager')
+    @patch('tit.sim.session_builder.get_path_manager')
     def test_build_mti_session_basic(self, mock_get_pm, setup_test_files):
         """Test building basic mTI session with 4 electrode pairs."""
-        from sim.config import SimulationConfig, MontageConfig, ConductivityType, IntensityConfig, ElectrodeConfig
-        from sim.session_builder import SessionBuilder
+        from tit.sim.config import SimulationConfig, MontageConfig, ConductivityType, IntensityConfig, ElectrodeConfig
+        from tit.sim.session_builder import SessionBuilder
 
         mock_get_pm.return_value = setup_test_files['path_manager']
 
@@ -371,11 +374,11 @@ class TestSessionBuilderMTIMode:
         assert session.pathfem == "/output/dir"
         assert len(session.poslists) == 4
 
-    @patch('sim.session_builder.get_path_manager')
+    @patch('tit.sim.session_builder.get_path_manager')
     def test_build_mti_session_adds_four_pairs(self, mock_get_pm, setup_test_files):
         """Test mTI session adds exactly 4 electrode pairs."""
-        from sim.config import SimulationConfig, MontageConfig, ConductivityType, IntensityConfig, ElectrodeConfig
-        from sim.session_builder import SessionBuilder
+        from tit.sim.config import SimulationConfig, MontageConfig, ConductivityType, IntensityConfig, ElectrodeConfig
+        from tit.sim.session_builder import SessionBuilder
 
         mock_get_pm.return_value = setup_test_files['path_manager']
 
@@ -402,11 +405,11 @@ class TestSessionBuilderMTIMode:
 
         assert len(session.poslists) == 4
 
-    @patch('sim.session_builder.get_path_manager')
+    @patch('tit.sim.session_builder.get_path_manager')
     def test_build_mti_session_current_distribution(self, mock_get_pm, setup_test_files):
         """Test mTI session distributes currents correctly."""
-        from sim.config import SimulationConfig, MontageConfig, ConductivityType, IntensityConfig, ElectrodeConfig
-        from sim.session_builder import SessionBuilder
+        from tit.sim.config import SimulationConfig, MontageConfig, ConductivityType, IntensityConfig, ElectrodeConfig
+        from tit.sim.session_builder import SessionBuilder
 
         mock_get_pm.return_value = setup_test_files['path_manager']
 
@@ -446,11 +449,11 @@ class TestSessionBuilderMTIMode:
 class TestSessionBuilderElectrodeConfiguration:
     """Test suite for electrode configuration."""
 
-    @patch('sim.session_builder.get_path_manager')
+    @patch('tit.sim.session_builder.get_path_manager')
     def test_electrode_shape(self, mock_get_pm, setup_test_files):
         """Test electrode shape is applied."""
-        from sim.config import SimulationConfig, MontageConfig, ConductivityType, IntensityConfig, ElectrodeConfig
-        from sim.session_builder import SessionBuilder
+        from tit.sim.config import SimulationConfig, MontageConfig, ConductivityType, IntensityConfig, ElectrodeConfig
+        from tit.sim.session_builder import SessionBuilder
 
         mock_get_pm.return_value = setup_test_files['path_manager']
 
@@ -473,11 +476,11 @@ class TestSessionBuilderElectrodeConfiguration:
         # Check first electrode of first pair
         assert session.poslists[0].electrode[0].shape == "rect"
 
-    @patch('sim.session_builder.get_path_manager')
+    @patch('tit.sim.session_builder.get_path_manager')
     def test_electrode_dimensions(self, mock_get_pm, setup_test_files):
         """Test electrode dimensions are applied."""
-        from sim.config import SimulationConfig, MontageConfig, ConductivityType, IntensityConfig, ElectrodeConfig
-        from sim.session_builder import SessionBuilder
+        from tit.sim.config import SimulationConfig, MontageConfig, ConductivityType, IntensityConfig, ElectrodeConfig
+        from tit.sim.session_builder import SessionBuilder
 
         mock_get_pm.return_value = setup_test_files['path_manager']
 
@@ -499,11 +502,11 @@ class TestSessionBuilderElectrodeConfiguration:
 
         assert session.poslists[0].electrode[0].dimensions == [10.0, 12.0]
 
-    @patch('sim.session_builder.get_path_manager')
+    @patch('tit.sim.session_builder.get_path_manager')
     def test_electrode_thickness(self, mock_get_pm, setup_test_files):
         """Test electrode thickness (gel + sponge) is applied."""
-        from sim.config import SimulationConfig, MontageConfig, ConductivityType, IntensityConfig, ElectrodeConfig
-        from sim.session_builder import SessionBuilder
+        from tit.sim.config import SimulationConfig, MontageConfig, ConductivityType, IntensityConfig, ElectrodeConfig
+        from tit.sim.session_builder import SessionBuilder
 
         mock_get_pm.return_value = setup_test_files['path_manager']
 
@@ -532,11 +535,11 @@ class TestSessionBuilderElectrodeConfiguration:
 class TestSessionBuilderTissueConductivity:
     """Test suite for tissue conductivity overrides."""
 
-    @patch('sim.session_builder.get_path_manager')
+    @patch('tit.sim.session_builder.get_path_manager')
     def test_tissue_conductivity_from_env(self, mock_get_pm, setup_test_files):
         """Test tissue conductivity override from environment variables."""
-        from sim.config import SimulationConfig, MontageConfig, ConductivityType, IntensityConfig, ElectrodeConfig
-        from sim.session_builder import SessionBuilder
+        from tit.sim.config import SimulationConfig, MontageConfig, ConductivityType, IntensityConfig, ElectrodeConfig
+        from tit.sim.session_builder import SessionBuilder
 
         mock_get_pm.return_value = setup_test_files['path_manager']
 
@@ -571,11 +574,11 @@ class TestSessionBuilderTissueConductivity:
             if 'TISSUE_COND_2' in os.environ:
                 del os.environ['TISSUE_COND_2']
 
-    @patch('sim.session_builder.get_path_manager')
+    @patch('tit.sim.session_builder.get_path_manager')
     def test_tissue_conductivity_invalid_env(self, mock_get_pm, setup_test_files):
         """Test tissue conductivity ignores invalid environment values."""
-        from sim.config import SimulationConfig, MontageConfig, ConductivityType, IntensityConfig, ElectrodeConfig
-        from sim.session_builder import SessionBuilder
+        from tit.sim.config import SimulationConfig, MontageConfig, ConductivityType, IntensityConfig, ElectrodeConfig
+        from tit.sim.session_builder import SessionBuilder
 
         mock_get_pm.return_value = setup_test_files['path_manager']
 

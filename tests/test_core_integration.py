@@ -13,9 +13,9 @@ import numpy as np
 import tempfile
 from pathlib import Path
 
-# Add ti-toolbox directory to path
+# Add tit directory to path
 project_root = os.path.join(os.path.dirname(__file__), '..')
-ti_toolbox_dir = os.path.join(project_root, 'ti-toolbox')
+ti_toolbox_dir = os.path.join(project_root, 'tit')
 sys.path.insert(0, ti_toolbox_dir)
 
 from core import get_path_manager, reset_path_manager, constants as const

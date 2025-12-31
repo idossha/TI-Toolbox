@@ -14,15 +14,15 @@ from itertools import product
 from unittest.mock import MagicMock, patch, Mock, mock_open
 from pathlib import Path
 
-# Add ti-toolbox directory to path
+# Add tit directory to path
 project_root = os.path.join(os.path.dirname(__file__), '..')
-ti_toolbox_dir = os.path.join(project_root, 'ti-toolbox')
+ti_toolbox_dir = os.path.join(project_root, 'tit')
 sys.path.insert(0, ti_toolbox_dir)
 
-from opt.ex.logic import generate_current_ratios, calculate_total_combinations, generate_montage_combinations
-from opt.ex.config import validate_electrode, validate_current, ElectrodeConfig, CurrentConfig
-from opt.ex.results import ResultsProcessor, ResultsVisualizer
-from opt.ex.runner import LeadfieldAlgorithms, TIAlgorithms, CurrentRatioGenerator, MontageGenerator
+from tit.opt.ex.logic import generate_current_ratios, calculate_total_combinations, generate_montage_combinations
+from tit.opt.ex.config import validate_electrode, validate_current, ElectrodeConfig, CurrentConfig
+from tit.opt.ex.results import ResultsProcessor, ResultsVisualizer
+from tit.opt.ex.runner import LeadfieldAlgorithms, TIAlgorithms, CurrentRatioGenerator, MontageGenerator
 from core.roi import ROICoordinateHelper
 
 

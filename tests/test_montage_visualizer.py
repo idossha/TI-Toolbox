@@ -14,8 +14,8 @@ import unittest
 from unittest.mock import patch, mock_open, MagicMock
 from pathlib import Path
 
-# Add ti-toolbox/tools to path so we can import montage_visualizer
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'ti-toolbox', 'tools'))
+# Add tit/tools to path so we can import montage_visualizer
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'tit', 'tools'))
 
 from montage_visualizer import (
     ResourcePathManager,
@@ -37,18 +37,18 @@ class TestResourcePathManager(unittest.TestCase):
             mock_isdir.return_value = True
             manager = ResourcePathManager("test_project")
             result = manager._detect_resources_dir()
-            expected = "/mnt/test_project/code/ti-toolbox/resources/amv"
+            expected = "/mnt/test_project/code/tit/resources/amv"
             self.assertEqual(result, expected)
 
     def test_detect_resources_dir_development_mode(self):
         """Test resource directory detection in development mode."""
         with patch('os.path.isdir') as mock_isdir:
             def side_effect(path):
-                return path == "/development/resources/amv"
+                return path == "/development/ti-toolbox/resources/amv"
             mock_isdir.side_effect = side_effect
             manager = ResourcePathManager()
             result = manager._detect_resources_dir()
-            self.assertEqual(result, "/development/resources/amv")
+            self.assertEqual(result, "/development/ti-toolbox/resources/amv")
 
     def test_detect_resources_dir_production_mode(self):
         """Test resource directory detection in production mode."""

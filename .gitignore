@@ -49,4 +49,8 @@ TI-Toolbox_*_*/
 CLAUDE.md
 .claude
 
+# Benchmarking
 benchmark_results/
+
+# ideas to be implemented
+future/

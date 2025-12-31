@@ -15,10 +15,13 @@ import sys
 import pytest
 from unittest.mock import patch
 
-# Add ti-toolbox directory to path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'ti-toolbox'))
+# Ensure repo root is on sys.path so `import tit` resolves to local sources.
+from pathlib import Path
+REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
 
-from sim.config import (
+from tit.sim.config import (
     SimulationMode,
     ConductivityType,
     ElectrodeConfig,

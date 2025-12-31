@@ -51,15 +51,15 @@ jobs:
             echo ""
 
             # Run all tests with coverage and verbose output
-            # - Mounts PR code at /ti-toolbox (matches production environment)
+            # - Mounts PR code at /tit (matches production environment)
             # - Script copies ElectrodeCaps and tes_flex to SimNIBS
             # - Verbose mode ensures continuous output to prevent timeout
             docker run --rm \
-              -v "${WORKSPACE}:/ti-toolbox" \
+              -v "${WORKSPACE}:/tit" \
               -v /tmp/test_projectdir:/mnt/test_projectdir \
               -v /tmp/test-results:/tmp/test-results \
               -v /tmp/coverage:/tmp/coverage \
-              -w /ti-toolbox \
+              -w /tit \
               ti-test:latest \
               bash -c './tests/run_tests.sh --verbose --coverage'
 

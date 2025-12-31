@@ -3,8 +3,8 @@ const fs = require('fs-extra');
 const { logger } = require('./logger');
 
 const REQUIRED_DIRS = [
-  ['code', 'ti-toolbox', 'config'],
-  ['derivatives', 'ti-toolbox', '.ti-toolbox-info'],
+  ['code', 'tit', 'config'],
+  ['derivatives', 'tit', '.tit-info'],
   ['derivatives', 'freesurfer'],
   ['derivatives', 'SimNIBS'],
   ['sourcedata']
@@ -37,7 +37,7 @@ async function validateProjectDirectory(projectDir) {
 }
 
 async function initializeProject(projectDir) {
-  const configDir = path.join(projectDir, 'code', 'ti-toolbox', 'config');
+  const configDir = path.join(projectDir, 'code', 'tit', 'config');
   const initializedMarker = path.join(configDir, '.initialized');
 
   try {
