@@ -8,13 +8,13 @@ The 3D Visual Exporter extension was built to enable better visualization and pr
 
 ## Overview
 
-- **Location**: `ti-toolbox/gui/extensions/visual_exporter.py`
+- **Location**: `tit/gui/extensions/visual_exporter.py`
 - **Purpose**: Export 3D assets in formats compatible with Blender, CAD software, and other 3D modeling tools to enable better visualization and presentation of simulation results.
 - **Back-end scripts**:
-  - `3d_exporter/cortical_regions_to_ply.py`
-  - `3d_exporter/cortical_regions_to_stl.py`
-  - `3d_exporter/vector_ply.py`
-  - `3d_exporter/electrode_placement.py`
+  - `blender_exporter/cortical_regions_to_ply.py`
+  - `blender_exporter/cortical_regions_to_stl.py`
+  - `blender_exporter/vector_ply.py`
+  - `blender_exporter/electrode_placement.py`
   - `tools/extract_labels.py`
   - `tools/nifti_to_mesh.py`
 - **Outputs**: PLY surface meshes, STL geometry, PLY vector clouds, electrode placements (.blend/.glb), skin surfaces, and sub-cortical structures stored under the TI-Toolbox derivatives tree.
@@ -163,7 +163,7 @@ This mode creates 3D electrode placements on the scalp surface using Blender for
 **Blender integration:**
 - Uses headless Blender (simnibs_blender) for automated electrode placement
 - Requires Blender to be installed on the system
-- Electrode template objects are defined in `3d_exporter/Electrode.blend`
+- Electrode template objects are defined in `blender_exporter/Electrode.blend`
 
 ### Sub-cortical Extraction
 
@@ -191,7 +191,7 @@ This mode extracts sub-cortical structures from NIfTI segmentation files and con
 4. Choose **Cortical Regions**, **Field Vectors**, **Electrode Placement**, or **Sub-cortical** mode.
 5. Configure atlas, region filters, formats, and output directory options (for regions), sampling and styling parameters (for vectors), EEG montage and electrode settings (for electrode placement), or NIfTI file and label extraction settings (for sub-cortical structures).
 6. Click **Run Export**. The console panel shows the exact commands executed and live progress.
-7. Review artifacts in `derivatives/ti-toolbox/visual_exports/sub-<id>/<simulation>/` once the export completes.
+7. Review artifacts in `derivatives/tit/visual_exports/sub-<id>/<simulation>/` once the export completes.
 
 The **Stop** button terminates the active subprocess if you need to cancel a long export.
 
@@ -201,23 +201,23 @@ You can call the Python scripts directly whenever you need command-line automati
 
 ```bash
 # Export atlas-aligned cortical regions to PLY
-simnibs_python 3d_exporter/cortical_regions_to_ply.py \
+simnibs_python blender_exporter/cortical_regions_to_ply.py \
   --mesh <path/to/central.msh> \
   --m2m <path/to/m2m_subject> \
   --output-dir <output_folder>
 
 # Export region geometry to STL
-simnibs_python 3d_exporter/cortical_regions_to_stl.py \
+simnibs_python blender_exporter/cortical_regions_to_stl.py \
   --mesh <path/to/central.msh> \
   --m2m <path/to/m2m_subject> \
   --output-dir <output_folder>
 
 # Export TI or mTI vector arrows
-simnibs_python 3d_exporter/vector_ply.py \
+simnibs_python blender_exporter/vector_ply.py \
   tdcs1.msh tdcs2.msh <output_prefix> --sum --ti-normal
 
 # Place electrodes on scalp surface
-simnibs_python 3d_exporter/electrode_placement.py \
+simnibs_python blender_exporter/electrode_placement.py \
   --subject-id <subject_id> \
   --electrode-csv <path/to/eeg_positions/montage.csv> \
   --subject-msh <path/to/m2m_subject/subject.msh> \
@@ -235,7 +235,7 @@ simnibs_python tools/nifti_to_mesh.py \
   --clean-components
 ```
 
-Refer to the README files in `ti-toolbox/3d_exporter/` and `tools/` directories for full command-line options, including electrode placement parameters, sub-cortical label extraction, and mesh cleaning options.
+Refer to the README files in `tit/blender_exporter/` and `tools/` directories for full command-line options, including electrode placement parameters, sub-cortical label extraction, and mesh cleaning options.
 
 ## Output structure
 
@@ -243,7 +243,7 @@ Exports triggered from the extension (or using the same base output directory) f
 
 ```
 derivatives/
-  ti-toolbox/
+  tit/
     visual_exports/
       sub-<subject>/
         <simulation>/
@@ -276,7 +276,7 @@ This tutorial walks you through importing and visualizing PLY files exported fro
 
 1. Open Blender and start with the default scene (or create a new project).
 2. Go to **File** → **Import** → **Stanford (.ply)**.
-3. Navigate to your exported PLY file location (typically in `derivatives/ti-toolbox/visual_exports/sub-<id>/<simulation>/ply/`).
+3. Navigate to your exported PLY file location (typically in `derivatives/tit/visual_exports/sub-<id>/<simulation>/ply/`).
 4. Select your PLY file and click **Import Stanford (.ply)**.
 
 The mesh will appear in your viewport. If the mesh appears very small or very large, you may need to adjust the view or scale the object.
