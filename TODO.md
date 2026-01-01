@@ -21,3 +21,4 @@ To-Do List:
 ### Logistic
 
 - [ ] move nifti things, and resampling logic from analyzer to core.nifti
+- [ ] clean up the tit/tools/* move things to their appropriate places
