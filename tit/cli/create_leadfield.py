@@ -31,7 +31,7 @@ from typing import List, Optional, Tuple
 import click
 
 from tit.core import get_path_manager, list_subjects
-from tit.tools import logging_util
+from tit import logging as logging_util
 from tit.cli import utils as cli_utils
 
 # =============================================================================

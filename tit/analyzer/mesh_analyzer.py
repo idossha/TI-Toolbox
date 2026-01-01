@@ -53,7 +53,12 @@ Dependencies:
 """
 import matplotlib.pyplot as plt
 import numpy as np
-import simnibs
+
+# SimNIBS is optional - only import when needed for mesh analysis
+try:
+    import simnibs
+except ImportError:
+    simnibs = None
 
 
 import csv
@@ -65,7 +70,7 @@ import time
 from datetime import datetime
 from pathlib import Path
 
-from tit.tools import logging_util
+from tit import logging as logging_util
 from tit.analyzer.visualizer import MeshVisualizer
 from tit.core.roi import ROICoordinateHelper, calculate_roi_metrics
 

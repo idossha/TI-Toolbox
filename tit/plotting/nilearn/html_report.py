@@ -11,7 +11,7 @@ Usage:
 import argparse
 import sys
 
-from tit.core.viz import NilearnVisualizer
+from .visualizer import NilearnVisualizer
 
 
 def create_html_entry_point(subject_id: str, simulation_name: str, min_cutoff: float = 0.3):

@@ -1,21 +1,5 @@
 #!/bin/bash
 
-##############################################
-# Ido Haber - ihaber@wisc.edu
-# October 16, 2024
-# Optimized for optimizer pipeline
-#
-# This script is designed to convert parcellated mesh files (e.g., GM and WM meshes) to NIfTI format 
-# using a subject's T1-weighted MRI as a reference. It ensures the anatomical accuracy 
-# of simulations by aligning the mesh with the subject's brain anatomy in MNI space.
-#
-# Key Features:
-# - Converts parcellated mesh files to NIfTI format using the subject2mni tool.
-# - Validates input directories and files to ensure smooth execution.
-# - Automatically creates an output directory for the resulting NIfTI files.
-# - Provides detailed error handling for common issues like missing files or directories.
-##############################################
-
 # Get the subject ID, m2m directory, input mesh directory, and output directory from the command-line arguments
 subject_id="$1"
 m2m_dir="$2"  # This is now the full path to the m2m directory

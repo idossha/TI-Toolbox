@@ -25,7 +25,7 @@ from tit.gui.components.console import ConsoleWidget
 from tit.gui.components.action_buttons import RunStopButtons
 from tit.gui.components.base_thread import detect_message_type_from_content
 from tit.core import get_path_manager, constants as const
-from tit.tools.report_util import get_simulation_report_generator
+from tit.reporting.report_util import get_simulation_report_generator
 
 # Import the refactored simulation dataclasses
 from tit.sim import (

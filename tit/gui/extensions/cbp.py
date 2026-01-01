@@ -19,7 +19,7 @@ EXTENSION_DESCRIPTION = "unified cluster-based permutation testing for group com
 
 from tit.core import get_path_manager
 from tit.core import constants as const
-from tit.tools import logging_util
+from tit import logging as logging_util
 from tit.gui.components.console import ConsoleWidget
 from tit.gui.components.action_buttons import RunStopButtons
 

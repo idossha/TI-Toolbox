@@ -49,7 +49,7 @@ from .reporting import generate_summary, generate_correlation_summary
 from tit.core import get_path_manager
 from tit.core import constants as const
 from tit.core import nifti
-from tit.tools import logging_util
+from tit import logging as logging_util
 
 
 # ==============================================================================

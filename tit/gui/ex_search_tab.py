@@ -23,7 +23,7 @@ from tit.gui.utils import confirm_overwrite, is_verbose_message, is_important_me
 from tit.gui.components.console import ConsoleWidget
 from tit.gui.components.action_buttons import RunStopButtons
 from tit.core import get_path_manager
-from tit.tools import logging_util
+from tit import logging as logging_util
 
 
 def _get_and_display_electrodes(subject_id, cap_name, parent_widget, path_manager=None):

@@ -4,8 +4,6 @@ TI Exhaustive Search Module
 A streamlined implementation for TI exhaustive search simulations.
 """
 
-import os
-
 from .config import get_full_config
 from .logic import generate_current_ratios, calculate_total_combinations, generate_montage_combinations
 from .runner import LeadfieldProcessor, CurrentRatioGenerator, MontageGenerator, SimulationRunner

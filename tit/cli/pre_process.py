@@ -202,7 +202,7 @@ def cli(
     # Best-effort report generation (mirrors legacy script)
     for sid in subject_ids:
         try:
-            from tit.tools.report_util import create_preprocessing_report
+            from tit.reporting.report_util import create_preprocessing_report
 
             create_preprocessing_report(str(proj), sid)
         except Exception:

@@ -18,7 +18,7 @@ import shutil
 import sys
 import time
 
-from tit.tools.logging_util import configure_external_loggers
+from tit.logging import configure_external_loggers
 
 from . import flex_config, flex_log, multi_start
 

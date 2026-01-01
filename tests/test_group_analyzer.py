@@ -385,7 +385,6 @@ class TestCommandBuilding:
         subject_output_dir = '/path/to/output'
         
         with patch('group_analyzer.group_logger', None), \
-             patch('group_analyzer.mni2subject_coords', None), \
              patch('group_analyzer.Path') as mock_path:
             mock_path.return_value.parent = Path('/path/to/analyzer')
             mock_path.return_value.__truediv__ = lambda self, other: Path(f'/path/to/analyzer/{other}')

@@ -1,4 +1,5 @@
 import csv, json, os, re
+from tit.plotting.matplotlib.ti_metrics import plot_intensity_vs_focality, plot_montage_distributions
 
 class OutputAlgorithms:
     @staticmethod
@@ -118,39 +119,21 @@ class ResultsVisualizer:
 
     def create_histograms(self, timax_values, timean_values, focality_values):
         try:
-            import matplotlib
-            matplotlib.use('Agg')
-            import matplotlib.pyplot as plt
-
-            fig, axes = plt.subplots(1, 3, figsize=(15, 4))
-            configs = [
-                (timax_values, axes[0], 'TImax (V/m)', 'TImax Distribution', '#2196F3'),
-                (timean_values, axes[1], 'TImean (V/m)', 'TImean Distribution', '#4CAF50'),
-                (focality_values, axes[2], 'Focality', 'Focality Distribution', '#FF9800')
-            ]
-
-            for values, ax, xlabel, title, color in configs:
-                if values:
-                    ax.hist(values, bins=20, color=color, edgecolor='black', alpha=0.7)
-                    ax.set_xlabel(xlabel, fontsize=12)
-                    ax.set_ylabel('Frequency', fontsize=12)
-                    ax.set_title(title, fontsize=14, fontweight='bold')
-                    ax.grid(axis='y', alpha=0.3)
-
-            plt.tight_layout()
             hist_path = os.path.join(self.output_dir, 'montage_distributions.png')
-            plt.savefig(hist_path, dpi=300, bbox_inches='tight')
-            plt.close()
-            self.logger.info(f"Histogram visualization saved: {hist_path}")
-            return hist_path
+            saved = plot_montage_distributions(
+                timax_values=timax_values,
+                timean_values=timean_values,
+                focality_values=focality_values,
+                output_file=hist_path,
+                dpi=300,
+            )
+            if saved:
+                self.logger.info(f"Histogram visualization saved: {saved}")
+            return saved
         except: return None
 
     def create_scatter_plot(self, results, roi_name):
         try:
-            import matplotlib
-            matplotlib.use('Agg')
-            import matplotlib.pyplot as plt
-
             intensity, focality, composite = [], [], []
             for data in results.values():
                 ti_mean = data.get(f'{roi_name}_TImean_ROI')
@@ -162,24 +145,17 @@ class ResultsVisualizer:
 
             if not intensity or not focality: return None
 
-            fig, ax = plt.subplots(figsize=(6, 5))
-            if any(c is not None for c in composite):
-                sc = ax.scatter(intensity, focality, c=composite, cmap='viridis', s=40, edgecolor='black', alpha=0.7)
-                plt.colorbar(sc, ax=ax).set_label('Composite Index', fontsize=12)
-            else:
-                ax.scatter(intensity, focality, s=40, edgecolor='black', alpha=0.7)
-
-            ax.set_xlabel('TImean_ROI (V/m)', fontsize=12)
-            ax.set_ylabel('Focality', fontsize=12)
-            ax.set_title('Intensity vs Focality', fontsize=14, fontweight='bold')
-            ax.grid(alpha=0.3)
-
             scatter_path = os.path.join(self.output_dir, 'intensity_vs_focality_scatter.png')
-            plt.tight_layout()
-            plt.savefig(scatter_path, dpi=300, bbox_inches='tight')
-            plt.close()
-            self.logger.info(f"Scatter visualization saved: {scatter_path}")
-            return scatter_path
+            saved = plot_intensity_vs_focality(
+                intensity=intensity,
+                focality=focality,
+                composite=composite,
+                output_file=scatter_path,
+                dpi=300,
+            )
+            if saved:
+                self.logger.info(f"Scatter visualization saved: {saved}")
+            return saved
         except: return None
 
     def generate_visualizations(self, results, roi_name, timax_values, timean_values, focality_values):

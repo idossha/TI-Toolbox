@@ -57,7 +57,7 @@ def setup_logger(output_folder: str, subject_id: str) -> Logger:
     Raises:
         SystemExit: If PROJECT_DIR environment variable is not set
     """
-    from tit.tools.logging_util import get_logger
+    from tit.logging import get_logger
     
     # Get project directory from environment
     proj_dir = os.getenv("PROJECT_DIR")

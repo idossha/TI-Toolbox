@@ -16,8 +16,8 @@ import json
 import re
 from typing import List, Tuple
 
-from tit.tools import logging_util
-from tit.tools.logging_util import get_logger
+from tit import logging as logging_util
+from tit.logging import get_logger
 
 # Initialize centralized group analysis logger (will be configured in setup_group_logger)
 group_logger = None

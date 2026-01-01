@@ -1,6 +1,6 @@
 #!/usr/bin/env simnibs_python
 """
-Comprehensive tests for tit/viz/ module
+Comprehensive tests for TI-Toolbox nilearn plotting module
 
 Tests cover:
 - img_glass.py: Glass brain visualization functions
@@ -17,8 +17,10 @@ import sys
 from unittest.mock import Mock, MagicMock, patch, call
 from pathlib import Path
 
-# Add tit directory to path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'tit'))
+# Ensure repo root is on sys.path so `import tit` resolves to local sources.
+REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
 
 
 # ==============================================================================
@@ -52,7 +54,7 @@ def mock_path_manager():
 @pytest.fixture
 def mock_visualizer():
     """Create mock NilearnVisualizer"""
-    with patch('tit.viz.img_glass.NilearnVisualizer') as mock_viz:
+    with patch('tit.plotting.nilearn.img_glass.NilearnVisualizer') as mock_viz:
         instance = MagicMock()
         mock_viz.return_value = instance
         yield instance
@@ -66,10 +68,10 @@ class TestCreateGlassBrainEntryPoint:
     """Test glass brain visualization entry point"""
 
     @pytest.mark.unit
-    @patch('viz.img_glass.NilearnVisualizer')
+    @patch('tit.plotting.nilearn.img_glass.NilearnVisualizer')
     def test_glass_brain_success(self, mock_viz_class):
         """Test successful glass brain visualization creation"""
-        from viz.img_glass import create_glass_brain_entry_point
+        from tit.plotting.nilearn.img_glass import create_glass_brain_entry_point
 
         # Mock visualizer
         mock_viz = MagicMock()
@@ -92,10 +94,10 @@ class TestCreateGlassBrainEntryPoint:
         )
 
     @pytest.mark.unit
-    @patch('viz.img_glass.NilearnVisualizer')
+    @patch('tit.plotting.nilearn.img_glass.NilearnVisualizer')
     def test_glass_brain_failure(self, mock_viz_class):
         """Test glass brain visualization failure"""
-        from viz.img_glass import create_glass_brain_entry_point
+        from tit.plotting.nilearn.img_glass import create_glass_brain_entry_point
 
         # Mock visualizer that returns None (failure)
         mock_viz = MagicMock()
@@ -107,10 +109,10 @@ class TestCreateGlassBrainEntryPoint:
         assert result is None
 
     @pytest.mark.unit
-    @patch('viz.img_glass.NilearnVisualizer')
+    @patch('tit.plotting.nilearn.img_glass.NilearnVisualizer')
     def test_glass_brain_with_callback(self, mock_viz_class):
         """Test glass brain with output callback"""
-        from viz.img_glass import create_glass_brain_entry_point
+        from tit.plotting.nilearn.img_glass import create_glass_brain_entry_point
 
         mock_viz = MagicMock()
         mock_viz.create_glass_brain_visualization = MagicMock(
@@ -140,7 +142,7 @@ class TestCreateGlassBrainEntryPointGroup:
     @patch('os.makedirs')
     def test_glass_brain_group_success(self, mock_makedirs, mock_plot, mock_savefig, mock_nifti_img):
         """Test successful group glass brain visualization"""
-        from viz.img_glass import create_glass_brain_entry_point_group
+        from tit.plotting.nilearn.img_glass import create_glass_brain_entry_point_group
 
         result = create_glass_brain_entry_point_group(
             averaged_img=mock_nifti_img,
@@ -159,7 +161,7 @@ class TestCreateGlassBrainEntryPointGroup:
     @patch('nilearn.plotting.plot_glass_brain')
     def test_glass_brain_group_no_data(self, mock_plot):
         """Test glass brain with no non-zero data"""
-        from viz.img_glass import create_glass_brain_entry_point_group
+        from tit.plotting.nilearn.img_glass import create_glass_brain_entry_point_group
 
         # Create image with all zeros
         mock_img = MagicMock()
@@ -178,7 +180,7 @@ class TestCreateGlassBrainEntryPointGroup:
     @patch('nilearn.plotting.plot_glass_brain')
     def test_glass_brain_group_with_callback(self, mock_plot, mock_nifti_img):
         """Test group glass brain with callback"""
-        from viz.img_glass import create_glass_brain_entry_point_group
+        from tit.plotting.nilearn.img_glass import create_glass_brain_entry_point_group
 
         callback_messages = []
 
@@ -203,10 +205,10 @@ class TestCreatePdfEntryPoint:
     """Test PDF slice visualization entry point"""
 
     @pytest.mark.unit
-    @patch('viz.img_slices.NilearnVisualizer')
+    @patch('tit.plotting.nilearn.img_slices.NilearnVisualizer')
     def test_pdf_success(self, mock_viz_class):
         """Test successful PDF visualization creation"""
-        from viz.img_slices import create_pdf_entry_point
+        from tit.plotting.nilearn.img_slices import create_pdf_entry_point
 
         # Mock visualizer
         mock_viz = MagicMock()
@@ -228,10 +230,10 @@ class TestCreatePdfEntryPoint:
         mock_viz.create_pdf_visualization.assert_called_once()
 
     @pytest.mark.unit
-    @patch('viz.img_slices.NilearnVisualizer')
+    @patch('tit.plotting.nilearn.img_slices.NilearnVisualizer')
     def test_pdf_failure(self, mock_viz_class):
         """Test PDF visualization failure"""
-        from viz.img_slices import create_pdf_entry_point
+        from tit.plotting.nilearn.img_slices import create_pdf_entry_point
 
         mock_viz = MagicMock()
         mock_viz.create_pdf_visualization = MagicMock(return_value=None)
@@ -242,10 +244,10 @@ class TestCreatePdfEntryPoint:
         assert result is None
 
     @pytest.mark.unit
-    @patch('viz.img_slices.NilearnVisualizer')
+    @patch('tit.plotting.nilearn.img_slices.NilearnVisualizer')
     def test_pdf_with_callback(self, mock_viz_class):
         """Test PDF visualization with output callback"""
-        from viz.img_slices import create_pdf_entry_point
+        from tit.plotting.nilearn.img_slices import create_pdf_entry_point
 
         mock_viz = MagicMock()
         mock_viz.create_pdf_visualization = MagicMock(
@@ -266,10 +268,10 @@ class TestCreatePdfEntryPoint:
         assert len(callback_messages) > 0
 
     @pytest.mark.unit
-    @patch('viz.img_slices.NilearnVisualizer')
+    @patch('tit.plotting.nilearn.img_slices.NilearnVisualizer')
     def test_pdf_with_atlas_regions(self, mock_viz_class):
         """Test PDF with specific atlas regions"""
-        from viz.img_slices import create_pdf_entry_point
+        from tit.plotting.nilearn.img_slices import create_pdf_entry_point
 
         mock_viz = MagicMock()
         mock_viz.create_pdf_visualization = MagicMock(
@@ -292,10 +294,10 @@ class TestCreatePdfEntryPointGroup:
     """Test PDF visualization for group-averaged data"""
 
     @pytest.mark.unit
-    @patch('viz.img_slices.NilearnVisualizer')
+    @patch('tit.plotting.nilearn.img_slices.NilearnVisualizer')
     def test_pdf_group_success(self, mock_viz_class, mock_nifti_img):
         """Test successful group PDF visualization"""
-        from viz.img_slices import create_pdf_entry_point_group
+        from tit.plotting.nilearn.img_slices import create_pdf_entry_point_group
 
         mock_viz = MagicMock()
         mock_viz.create_pdf_visualization_group = MagicMock(
@@ -315,10 +317,10 @@ class TestCreatePdfEntryPointGroup:
         mock_viz.create_pdf_visualization_group.assert_called_once()
 
     @pytest.mark.unit
-    @patch('viz.img_slices.NilearnVisualizer')
+    @patch('tit.plotting.nilearn.img_slices.NilearnVisualizer')
     def test_pdf_group_failure(self, mock_viz_class, mock_nifti_img):
         """Test group PDF visualization failure"""
-        from viz.img_slices import create_pdf_entry_point_group
+        from tit.plotting.nilearn.img_slices import create_pdf_entry_point_group
 
         mock_viz = MagicMock()
         mock_viz.create_pdf_visualization_group = MagicMock(return_value=None)
@@ -331,10 +333,10 @@ class TestCreatePdfEntryPointGroup:
         assert result is None
 
     @pytest.mark.unit
-    @patch('viz.img_slices.NilearnVisualizer')
+    @patch('tit.plotting.nilearn.img_slices.NilearnVisualizer')
     def test_pdf_group_with_callback(self, mock_viz_class, mock_nifti_img):
         """Test group PDF with callback"""
-        from viz.img_slices import create_pdf_entry_point_group
+        from tit.plotting.nilearn.img_slices import create_pdf_entry_point_group
 
         mock_viz = MagicMock()
         mock_viz.create_pdf_visualization_group = MagicMock(
@@ -364,10 +366,10 @@ class TestCreateHtmlEntryPoint:
     """Test HTML report generation entry point"""
 
     @pytest.mark.unit
-    @patch('viz.html_report.NilearnVisualizer')
+    @patch('tit.plotting.nilearn.html_report.NilearnVisualizer')
     def test_html_success(self, mock_viz_class):
         """Test successful HTML report creation"""
-        from viz.html_report import create_html_entry_point
+        from tit.plotting.nilearn.html_report import create_html_entry_point
 
         # Mock visualizer
         mock_viz = MagicMock()
@@ -386,10 +388,10 @@ class TestCreateHtmlEntryPoint:
         mock_viz.create_html_visualization.assert_called_once_with('001', 'montage1', 0.3)
 
     @pytest.mark.unit
-    @patch('viz.html_report.NilearnVisualizer')
+    @patch('tit.plotting.nilearn.html_report.NilearnVisualizer')
     def test_html_failure(self, mock_viz_class):
         """Test HTML report creation failure"""
-        from viz.html_report import create_html_entry_point
+        from tit.plotting.nilearn.html_report import create_html_entry_point
 
         mock_viz = MagicMock()
         mock_viz.create_html_visualization = MagicMock(return_value=None)
@@ -400,10 +402,10 @@ class TestCreateHtmlEntryPoint:
         assert result == 1  # Failure exit code
 
     @pytest.mark.unit
-    @patch('viz.html_report.NilearnVisualizer')
+    @patch('tit.plotting.nilearn.html_report.NilearnVisualizer')
     def test_html_with_custom_cutoff(self, mock_viz_class):
         """Test HTML report with custom cutoff"""
-        from viz.html_report import create_html_entry_point
+        from tit.plotting.nilearn.html_report import create_html_entry_point
 
         mock_viz = MagicMock()
         mock_viz.create_html_visualization = MagicMock(
@@ -427,10 +429,10 @@ class TestGlassBrainCLI:
 
     @pytest.mark.unit
     @patch('sys.argv', ['img_glass.py', '--subject', '001', '--simulation', 'montage1'])
-    @patch('viz.img_glass.create_glass_brain_entry_point')
+    @patch('tit.plotting.nilearn.img_glass.create_glass_brain_entry_point')
     def test_glass_brain_cli_basic(self, mock_entry):
         """Test basic glass brain CLI invocation"""
-        from viz.img_glass import main
+        from tit.plotting.nilearn.img_glass import main
 
         mock_entry.return_value = '/fake/output.pdf'
 
@@ -451,10 +453,10 @@ class TestGlassBrainCLI:
         '--max-cutoff', '3.0',
         '--cmap', 'plasma'
     ])
-    @patch('viz.img_glass.create_glass_brain_entry_point')
+    @patch('tit.plotting.nilearn.img_glass.create_glass_brain_entry_point')
     def test_glass_brain_cli_with_options(self, mock_entry):
         """Test glass brain CLI with all options"""
-        from viz.img_glass import main
+        from tit.plotting.nilearn.img_glass import main
 
         mock_entry.return_value = '/fake/output.pdf'
 
@@ -472,10 +474,10 @@ class TestSlicesCLI:
 
     @pytest.mark.unit
     @patch('sys.argv', ['img_slices.py', '--subject', '001', '--simulation', 'montage1'])
-    @patch('viz.img_slices.create_pdf_entry_point')
+    @patch('tit.plotting.nilearn.img_slices.create_pdf_entry_point')
     def test_slices_cli_basic(self, mock_entry):
         """Test basic slices CLI invocation"""
-        from viz.img_slices import main
+        from tit.plotting.nilearn.img_slices import main
 
         mock_entry.return_value = '/fake/output.pdf'
 
@@ -494,10 +496,10 @@ class TestSlicesCLI:
         '--atlas', 'aal',
         '--regions', '1', '2', '3'
     ])
-    @patch('viz.img_slices.create_pdf_entry_point')
+    @patch('tit.plotting.nilearn.img_slices.create_pdf_entry_point')
     def test_slices_cli_with_atlas_regions(self, mock_entry):
         """Test slices CLI with atlas and regions"""
-        from viz.img_slices import main
+        from tit.plotting.nilearn.img_slices import main
 
         mock_entry.return_value = '/fake/output.pdf'
 
@@ -514,10 +516,10 @@ class TestHtmlReportCLI:
 
     @pytest.mark.unit
     @patch('sys.argv', ['html_report.py', '--subject', '001', '--simulation', 'montage1'])
-    @patch('viz.html_report.create_html_entry_point')
+    @patch('tit.plotting.nilearn.html_report.create_html_entry_point')
     def test_html_cli_basic(self, mock_entry):
         """Test basic HTML report CLI invocation"""
-        from viz.html_report import main
+        from tit.plotting.nilearn.html_report import main
 
         mock_entry.return_value = 0
 
@@ -533,10 +535,10 @@ class TestHtmlReportCLI:
         '--simulation', 'montage1',
         '--cutoff', '0.7'
     ])
-    @patch('viz.html_report.create_html_entry_point')
+    @patch('tit.plotting.nilearn.html_report.create_html_entry_point')
     def test_html_cli_with_cutoff(self, mock_entry):
         """Test HTML report CLI with custom cutoff"""
-        from viz.html_report import main
+        from tit.plotting.nilearn.html_report import main
 
         mock_entry.return_value = 0
 
@@ -586,10 +588,10 @@ class TestVisualizationErrorHandling:
     """Test error handling in visualization functions"""
 
     @pytest.mark.unit
-    @patch('viz.img_glass.NilearnVisualizer')
+    @patch('tit.plotting.nilearn.img_glass.NilearnVisualizer')
     def test_glass_brain_exception_handling(self, mock_viz_class):
         """Test glass brain raises exceptions from visualizer"""
-        from viz.img_glass import create_glass_brain_entry_point
+        from tit.plotting.nilearn.img_glass import create_glass_brain_entry_point
 
         mock_viz = MagicMock()
         mock_viz.create_glass_brain_visualization = MagicMock(
@@ -602,10 +604,10 @@ class TestVisualizationErrorHandling:
             create_glass_brain_entry_point('001', 'montage1')
 
     @pytest.mark.unit
-    @patch('viz.img_slices.NilearnVisualizer')
+    @patch('tit.plotting.nilearn.img_slices.NilearnVisualizer')
     def test_pdf_exception_handling(self, mock_viz_class):
         """Test PDF visualization raises exceptions from visualizer"""
-        from viz.img_slices import create_pdf_entry_point
+        from tit.plotting.nilearn.img_slices import create_pdf_entry_point
 
         mock_viz = MagicMock()
         mock_viz.create_pdf_visualization = MagicMock(
@@ -626,10 +628,10 @@ class TestParameterValidation:
     """Test parameter validation in visualization functions"""
 
     @pytest.mark.unit
-    @patch('viz.img_glass.NilearnVisualizer')
+    @patch('tit.plotting.nilearn.img_glass.NilearnVisualizer')
     def test_glass_brain_valid_parameters(self, mock_viz_class):
         """Test glass brain with valid parameter ranges"""
-        from viz.img_glass import create_glass_brain_entry_point
+        from tit.plotting.nilearn.img_glass import create_glass_brain_entry_point
 
         mock_viz = MagicMock()
         mock_viz.create_glass_brain_visualization = MagicMock(return_value='/fake/output.pdf')
@@ -646,10 +648,10 @@ class TestParameterValidation:
         assert result is not None
 
     @pytest.mark.unit
-    @patch('viz.img_slices.NilearnVisualizer')
+    @patch('tit.plotting.nilearn.img_slices.NilearnVisualizer')
     def test_pdf_valid_atlas_names(self, mock_viz_class):
         """Test PDF with valid atlas names"""
-        from viz.img_slices import create_pdf_entry_point
+        from tit.plotting.nilearn.img_slices import create_pdf_entry_point
 
         mock_viz = MagicMock()
         mock_viz.create_pdf_visualization = MagicMock(return_value='/fake/output.pdf')

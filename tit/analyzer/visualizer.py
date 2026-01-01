@@ -49,7 +49,7 @@ import csv
 import os
 from pathlib import Path
 
-from tit.tools import logging_util
+from tit import logging as logging_util
 
 
 class BaseVisualizer:
@@ -255,212 +255,27 @@ class BaseVisualizer:
         Returns:
             str: Path to the generated histogram file
         """
-        if plt is None:
-            self.logger.warning("matplotlib not available. Cannot generate histogram.")
-            return None
-            
+        from tit.plotting.matplotlib.focality import plot_whole_head_roi_histogram
+
         self.logger.info(f"Generating whole-head ROI histogram for {len(whole_head_field_data)} {data_type}s")
-        
         try:
-            # Check for valid data
-            if len(whole_head_field_data) == 0:
-                self.logger.warning(f"No whole-head data to plot")
-                return None
-            
-            if len(roi_field_data) == 0:
-                self.logger.warning(f"No ROI data to plot")
-                return None
-            
-            # Remove NaN values from both datasets
-            whole_head_valid_mask = ~np.isnan(whole_head_field_data)
-            roi_valid_mask = ~np.isnan(roi_field_data)
-            
-            whole_head_field_data = whole_head_field_data[whole_head_valid_mask]
-            roi_field_data = roi_field_data[roi_valid_mask]
-            
-            # Handle element sizes for whole head
-            if whole_head_element_sizes is not None:
-                whole_head_element_sizes = whole_head_element_sizes[whole_head_valid_mask]
-                if len(whole_head_element_sizes) != len(whole_head_field_data):
-                    self.logger.warning("Whole head element sizes don't match data length, using frequency histogram")
-                    whole_head_element_sizes = None
-            elif data_type == 'voxel' and voxel_dims is not None:
-                # Calculate voxel volumes from dimensions
-                voxel_volume = np.prod(voxel_dims[:3])  # x * y * z
-                whole_head_element_sizes = np.full(len(whole_head_field_data), voxel_volume)
-                self.logger.info(f"Voxel dimensions: {voxel_dims[:3]} mm")
-                self.logger.info(f"Using uniform voxel volume: {voxel_volume:.3f} mm³")
-                self.logger.info(f"Number of whole head voxels: {len(whole_head_field_data):,}")
-                self.logger.info(f"Total whole head volume: {np.sum(whole_head_element_sizes) / 1000.0:.1f} cm³")
-            
-            # Handle element sizes for ROI
-            if roi_element_sizes is not None:
-                roi_element_sizes = roi_element_sizes[roi_valid_mask]
-                if len(roi_element_sizes) != len(roi_field_data):
-                    self.logger.warning("ROI element sizes don't match data length")
-                    roi_element_sizes = None
-            
-            # Set up focality parameters
-            focality_cutoffs = [50, 75, 90, 95]  # Percentages of 99.9 percentile
-            
-            # Set matplotlib parameters for Inkscape-compatible PDF output
-            plt.rcParams.update({
-                'pdf.fonttype': 42,  # Embed fonts as text (not paths)
-                'pdf.use14corefonts': True,  # Use standard 14 core fonts that Inkscape supports
-                'font.family': 'sans-serif',
-                'font.sans-serif': ['Helvetica', 'Arial', 'sans-serif'],
-                'text.usetex': False,  # Don't use LaTeX for text rendering
-                'svg.fonttype': 'none'  # For SVG compatibility too
-            })
-
-            fig, ax = plt.subplots(figsize=(14, 10))
-            if sns is not None:
-                sns.set_style('whitegrid')
-            
-            # Determine if we're doing volume-weighted or frequency histogram
-            use_volume_weighting = (whole_head_element_sizes is not None and 
-                                  len(whole_head_element_sizes) == len(whole_head_field_data))
-            
-            # Use element/voxel counts instead of volume measurements
-            weights = None
-            unit = 'count'
-            ax.set_ylabel(f'{data_type.capitalize()}s', fontsize=14)
-            
-            # Create histogram bins based on whole head data
-            n_bins = 100
-            hist, bin_edges = np.histogram(whole_head_field_data, bins=n_bins, weights=weights)
-            bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2
-            
-            # Calculate ROI contribution to each bin
-            roi_hist, _ = np.histogram(roi_field_data, bins=bin_edges, weights=roi_element_sizes if roi_element_sizes is not None else None)
-            
-            # Calculate ROI contribution percentage for each bin
-            roi_contribution = np.zeros_like(hist, dtype=float)
-            for i in range(len(hist)):
-                if hist[i] > 0:
-                    roi_contribution[i] = roi_hist[i] / hist[i]
-                else:
-                    roi_contribution[i] = 0.0
-            
-            # Calculate a more meaningful color scale based on the actual distribution
-            # Use the 95th percentile of non-zero contributions as the upper bound
-            non_zero_contributions = roi_contribution[roi_contribution > 0]
-            if len(non_zero_contributions) > 0:
-                max_contribution = np.percentile(non_zero_contributions, 95)
-                # Ensure we have a reasonable range (at least 0.01)
-                max_contribution = max(max_contribution, 0.01)
+            hist_file = plot_whole_head_roi_histogram(
+                output_dir=self.output_dir,
+                whole_head_field_data=whole_head_field_data,
+                roi_field_data=roi_field_data,
+                whole_head_element_sizes=whole_head_element_sizes,
+                roi_element_sizes=roi_element_sizes,
+                filename=filename,
+                region_name=region_name,
+                roi_field_value=roi_field_value,
+                data_type=data_type,
+                voxel_dims=voxel_dims,
+            )
+            if hist_file:
+                self.logger.info(f"Generated whole-head ROI histogram: {hist_file}")
             else:
-                max_contribution = 0.01
-            
-            # Normalize contributions to the new scale
-            normalized_contributions = np.clip(roi_contribution / max_contribution, 0, 1)
-            
-            # Use a blue-green-red (rainbow) colormap
-            rainbow_cmap = plt.cm.get_cmap('rainbow')
-            # To get blue at 0, green at 0.5, red at 1, use the full range
-            colors = rainbow_cmap(normalized_contributions)
-            colors[:, 3] = 0.7  # Set alpha to 0.7 for transparency
-            
-            # Plot the histogram bars
-            bars = ax.bar(bin_centers, hist, width=bin_edges[1]-bin_edges[0],
-                         color=colors, edgecolor='black')
-            
-            # Calculate focality cutoffs based on 99.9 percentile of whole head data
-            percentile_99_9 = np.percentile(whole_head_field_data, 99.9)
-            focality_thresholds = []
-            focality_volumes = []
-            
-            for cutoff in focality_cutoffs:
-                threshold = (cutoff / 100.0) * percentile_99_9
-                focality_thresholds.append(threshold)
-                
-                # Calculate count above this threshold
-                above_threshold = whole_head_field_data >= threshold
-                if np.any(above_threshold):
-                    count = np.sum(above_threshold)
-                    focality_volumes.append(count)
-                else:
-                    focality_volumes.append(0)
-            
-            # Add vertical red lines for focality cutoffs
-            colors_lines = ['red', 'darkred', 'crimson', 'maroon']
-            lines_added = 0
-            for i, (threshold, cutoff) in enumerate(zip(focality_thresholds, focality_cutoffs)):
-                if threshold <= np.max(whole_head_field_data) and threshold >= np.min(whole_head_field_data):
-                    color = colors_lines[i % len(colors_lines)]
-                    ax.axvline(x=threshold, color=color, linestyle='--', linewidth=2,
-                              label=f'{cutoff}% of 99.9%ile\n({threshold:.2f} V/m)\nCount: {focality_volumes[i]:,} {data_type}s')
-                    lines_added += 1
-            
-            # Add mean ROI field value indicator line (if available)
-            if roi_field_value is not None and np.min(whole_head_field_data) <= roi_field_value <= np.max(whole_head_field_data):
-                ax.axvline(x=roi_field_value, color='green', linestyle='-', linewidth=3,
-                          label=f'Mean ROI Field\n({roi_field_value:.2f} V/m)')
-                lines_added += 1
-            
-            # Add legend for all lines (only if lines were added)
-            if lines_added > 0:
-                ax.legend(loc='upper left', bbox_to_anchor=(0.02, 0.98),
-                          frameon=True, fontsize=11)
-            
-            # Customize plot
-            ax.set_xlabel('Field Strength (V/m)', fontsize=14)
-            ax.tick_params(axis='both', which='major', labelsize=12)
-            
-            # Create title
-            title_parts = ['Whole-Head Field Distribution with ROI Contribution']
-            if region_name:
-                title_parts.append(f'ROI: {region_name}')
-            if filename:
-                title_parts.append(f'File: {filename}')
-            
-            ax.set_title('\n'.join(title_parts), fontsize=14)
-            ax.grid(True, alpha=0.3)
-            
-            # Add colorbar for ROI contribution
-            norm = plt.Normalize(0, 1)
-            sm = plt.cm.ScalarMappable(cmap=rainbow_cmap, norm=norm)
-            sm.set_array([])
-            cbar = plt.colorbar(sm, ax=ax, shrink=0.7, pad=0.02, aspect=25)
-            cbar.set_label(f'ROI Contribution Fraction\n(Blue→Green→Red, max={max_contribution:.3f})', fontsize=12)
-            
-            # Add statistics text box
-            stats_text = f'Whole Head:\n'
-            stats_text += f'Max: {np.max(whole_head_field_data):.2f} V/m\n'
-            stats_text += f'Mean: {np.mean(whole_head_field_data):.2f} V/m\n'
-            stats_text += f'99.9%ile: {np.percentile(whole_head_field_data, 99.9):.2f} V/m\n'
-            stats_text += f'{data_type.capitalize()}s: {len(whole_head_field_data):,}\n'
-            
-            stats_text += f'\nROI:\n'
-            stats_text += f'Mean: {np.mean(roi_field_data):.2f} V/m\n'
-            stats_text += f'Max: {np.max(roi_field_data):.2f} V/m\n'
-            stats_text += f'Nodes: {len(roi_field_data):,}'
-            
-            # Position stats box on the right side of the plot
-            ax.text(0.98, 0.98, stats_text, transform=ax.transAxes, fontsize=11,
-                   verticalalignment='top', horizontalalignment='right',
-                   bbox=dict(boxstyle='square', facecolor='lightyellow'))
-            
-            # Generate output filename
-            if filename:
-                base_name = Path(filename).stem if hasattr(Path, 'stem') else os.path.splitext(os.path.basename(filename))[0]
-            elif region_name:
-                base_name = f"{region_name}_whole_head_roi"
-            else:
-                base_name = "whole_head_roi_histogram"
-            
-            # Save histogram with tight layout
-            hist_file = os.path.join(self.output_dir, f'{base_name}_histogram.pdf')
-            plt.tight_layout()
-
-            # Save as PDF with proper text embedding for Inkscape compatibility
-            plt.savefig(hist_file, dpi=600, bbox_inches='tight', format='pdf')
-
-            plt.close(fig)
-            
-            self.logger.info(f"Generated whole-head ROI histogram: {hist_file}")
+                self.logger.warning("Failed to generate whole-head ROI histogram (no output produced).")
             return hist_file
-            
         except Exception as e:
             self.logger.error(f"Failed to generate whole-head ROI histogram: {str(e)}")
             return None

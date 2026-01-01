@@ -1765,188 +1765,21 @@ All simulations were performed using SimNIBS (www.simnibs.org) with head models 
         Creates multiple slices for each orientation to sweep through the brain.
         """
         try:
-            import nibabel as nib
-            import matplotlib.pyplot as plt
-            import numpy as np
-            from matplotlib.colors import ListedColormap
-            import matplotlib
-            import base64
-            import io
-            
-            # Load NIfTI files
-            t1_img = nib.load(t1_file)
-            overlay_img = nib.load(overlay_file)
-            
-            # Get data arrays
-            t1_data = t1_img.get_fdata()
-            overlay_data = overlay_img.get_fdata()
-            
-            # Handle 4D arrays (take first volume)
-            if len(overlay_data.shape) == 4:
-                overlay_data = overlay_data[..., 0]
-            
-            # Check if dimensions match and adjust if needed
-            if t1_data.shape != overlay_data.shape:
-                print(f"Warning: T1 shape {t1_data.shape} != overlay shape {overlay_data.shape}")
-                # Resample overlay to match T1 dimensions
-                zoom_factors = [t1_data.shape[i] / overlay_data.shape[i] for i in range(3)]
-                overlay_data = zoom(overlay_data, zoom_factors, order=1)
-            
-            # Get voxel dimensions (spacing) from header
-            voxel_sizes = t1_img.header.get_zooms()[:3]  # x, y, z dimensions in mm
-            
-            # Normalize T1 data for display (robust normalization)
-            t1_min, t1_max = np.percentile(t1_data[t1_data > 0], [2, 98])
-            t1_normalized = np.clip((t1_data - t1_min) / (t1_max - t1_min), 0, 1)
-            
-            # Normalize overlay data 
-            overlay_max = np.max(overlay_data)
-            if overlay_max > 0:
-                overlay_normalized = overlay_data / overlay_max
-            else:
-                overlay_normalized = overlay_data
-            
-            # Create mask for non-zero overlay values
-            overlay_mask = overlay_data > (overlay_max * 0.1)  # Show values above 10% of max
-            
-            # Get dimensions for slice planning
-            dims = t1_data.shape
-            
-            # Define slice positions for each orientation (create 7 slices each)
-            num_slices = 7
-            def safe_slices(dim_size, num_slices):
-                start = dim_size // 4
-                end = min((dim_size * 3) // 4, dim_size - 1)
-                return np.linspace(start, end, num_slices).astype(int)
-            
-            slice_positions = {
-                'axial': safe_slices(dims[2], num_slices),
-                'sagittal': safe_slices(dims[0], num_slices),
-                'coronal': safe_slices(dims[1], num_slices)
-            }
-            
-            # Create colormap for overlay (hot colormap)
-            cmap = plt.cm.hot
-            cmap.set_bad(color=(0, 0, 0, 0))  # Use RGBA tuple for transparency
-            
-            # Calculate aspect ratios for each view based on voxel dimensions
-            aspects = {
-                'axial': voxel_sizes[1] / voxel_sizes[0],      # y/x ratio for axial (looking down)
-                'sagittal': voxel_sizes[2] / voxel_sizes[1],   # z/y ratio for sagittal (looking from side)
-                'coronal': voxel_sizes[2] / voxel_sizes[0]     # z/x ratio for coronal (looking from front)
-            }
-            
-            # Dictionary to store base64-encoded image data
-            generated_images = {'axial': [], 'sagittal': [], 'coronal': []}
-            
-            # Generate slices for each orientation
-            orientations = [
-                ('axial', 2, aspects['axial']),      # slice along z-axis
-                ('sagittal', 0, aspects['sagittal']), # slice along x-axis
-                ('coronal', 1, aspects['coronal'])     # slice along y-axis
-            ]
-            
-            for orientation, axis, aspect_ratio in orientations:
-                positions = slice_positions[orientation]
-                
-                for i, slice_pos in enumerate(positions):
-                    # Extract slice data based on orientation
-                    if orientation == 'axial':
-                        t1_slice = t1_normalized[:, :, slice_pos]
-                        overlay_slice = overlay_normalized[:, :, slice_pos]
-                        mask_slice = overlay_mask[:, :, slice_pos]
-                    elif orientation == 'sagittal':
-                        t1_slice = t1_normalized[slice_pos, :, :]
-                        overlay_slice = overlay_normalized[slice_pos, :, :]
-                        mask_slice = overlay_mask[slice_pos, :, :]
-                    elif orientation == 'coronal':
-                        t1_slice = t1_normalized[:, slice_pos, :]
-                        overlay_slice = overlay_normalized[:, slice_pos, :]
-                        mask_slice = overlay_mask[:, slice_pos, :]
-                    
-                    # Apply orientation corrections
-                    if orientation == 'axial':
-                        # Axial view: rotate 90 degrees counter-clockwise
-                        t1_slice = np.rot90(t1_slice, k=1)
-                        overlay_slice = np.rot90(overlay_slice, k=1)
-                        mask_slice = np.rot90(mask_slice, k=1)
-                    elif orientation == 'sagittal':
-                        # Sagittal view: looking from the side
-                        t1_slice = np.rot90(t1_slice, k=1)
-                        overlay_slice = np.rot90(overlay_slice, k=1)
-                        mask_slice = np.rot90(mask_slice, k=1)
-                    elif orientation == 'coronal':
-                        # Coronal view: looking from the front/back
-                        t1_slice = np.rot90(t1_slice, k=1)
-                        overlay_slice = np.rot90(overlay_slice, k=1)
-                        mask_slice = np.rot90(mask_slice, k=1)
-                        # Flip for neurological convention
-                        t1_slice = np.fliplr(t1_slice)
-                        overlay_slice = np.fliplr(overlay_slice)
-                        mask_slice = np.fliplr(mask_slice)
-                    
-                    # Create masked overlay for transparency
-                    overlay_masked = np.ma.masked_where(~mask_slice, overlay_slice)
-                    
-                    # Create smaller figure for web display (4x4 inches)
-                    fig, ax = plt.subplots(1, 1, figsize=(4, 4 * aspect_ratio), dpi=100)
-                    
-                    # Display T1 in grayscale with correct aspect ratio
-                    ax.imshow(t1_slice, cmap='gray', alpha=1.0, aspect=aspect_ratio, vmin=0, vmax=1)
-                    
-                    # Overlay TI field with reduced opacity if there's data
-                    overlay_voxels = np.sum(mask_slice)
-                    if overlay_voxels > 0:
-                        im = ax.imshow(overlay_masked, cmap=cmap, alpha=0.6, aspect=aspect_ratio, vmin=0, vmax=1)
-                    
-                    # Remove axes and add minimal title
-                    ax.set_xticks([])
-                    ax.set_yticks([])
-                    ax.set_title(f'{orientation.title()} {i+1}', fontsize=12, fontweight='bold', pad=10)
-                    
-                    # Add compact orientation labels
-                    if orientation == 'axial':
-                        ax.text(0.05, 0.95, 'L', transform=ax.transAxes, fontsize=10, fontweight='bold', 
-                               color='white', va='top', ha='left')
-                        ax.text(0.95, 0.95, 'R', transform=ax.transAxes, fontsize=10, fontweight='bold', 
-                               color='white', va='top', ha='right')
-                    elif orientation == 'sagittal':
-                        ax.text(0.05, 0.95, 'A', transform=ax.transAxes, fontsize=10, fontweight='bold', 
-                               color='white', va='top', ha='left')
-                        ax.text(0.95, 0.95, 'P', transform=ax.transAxes, fontsize=10, fontweight='bold', 
-                               color='white', va='top', ha='right')
-                    elif orientation == 'coronal':
-                        ax.text(0.05, 0.95, 'R', transform=ax.transAxes, fontsize=10, fontweight='bold', 
-                               color='white', va='top', ha='left')
-                        ax.text(0.95, 0.95, 'L', transform=ax.transAxes, fontsize=10, fontweight='bold', 
-                               color='white', va='top', ha='right')
-                    
-                    # Convert plot to base64 string
-                    buffer = io.BytesIO()
-                    plt.savefig(buffer, dpi=100, bbox_inches='tight', 
-                              facecolor='white', edgecolor='none', format='png')
-                    buffer.seek(0)
-                    
-                    # Encode to base64
-                    image_base64 = base64.b64encode(buffer.getvalue()).decode('utf-8')
-                    plt.close()
-                    
-                    # Store base64 data with metadata
-                    image_data = {
-                        'base64': image_base64,
-                        'slice_num': i + 1,
-                        'overlay_voxels': overlay_voxels
-                    }
-                    generated_images[orientation].append(image_data)
-            
-            return generated_images
-                
+            # Moved to tit.plotting.* so reporting stays focused on HTML/report structure.
+            from tit.plotting.matplotlib.static_overlay import generate_static_overlay_images
+
+            return generate_static_overlay_images(
+                t1_file=t1_file,
+                overlay_file=overlay_file,
+                subject_id=subject_id,
+                montage_name=montage_name,
+                output_dir=output_dir,
+            )
         except ImportError as e:
-            raise ImportError(f"Missing required libraries for image generation: {e}. Install with: pip install nibabel matplotlib numpy")
-        except Exception as e:
-            import traceback
-            traceback.print_exc()
-            raise
+            raise ImportError(
+                f"Missing required libraries for image generation: {e}. "
+                "Install with: pip install nibabel matplotlib numpy"
+            )
     
 
 

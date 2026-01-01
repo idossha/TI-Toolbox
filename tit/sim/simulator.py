@@ -48,7 +48,7 @@ from tit.sim.montage_loader import load_montages
 from tit.sim.session_builder import SessionBuilder
 from tit.sim.post_processor import PostProcessor
 from tit.core import get_path_manager
-from tit.tools import logging_util
+from tit import logging as logging_util
 
 
 def setup_montage_directories(montage_dir: str, simulation_mode: SimulationMode) -> dict:
@@ -293,7 +293,7 @@ def _run_montage_worker(args: dict) -> dict:
         from tit.sim.session_builder import SessionBuilder
         from tit.sim.post_processor import PostProcessor
         from tit.core import get_path_manager
-        from tit.tools import logging_util
+        from tit import logging as logging_util
         
         # Reconstruct MontageConfig
         montage = MontageConfig(

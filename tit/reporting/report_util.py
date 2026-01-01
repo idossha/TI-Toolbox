@@ -13,8 +13,8 @@ import shutil
 from pathlib import Path
 from typing import Optional, Dict, Any, List
 
-from tit.tools.preprocessing_report_generator import PreprocessingReportGenerator
-from tit.tools.simulation_report_generator import SimulationReportGenerator
+from .preprocessing_report_generator import PreprocessingReportGenerator
+from .simulation_report_generator import SimulationReportGenerator
 
 # ----------------------------------------------------------------------------
 # Configuration constants

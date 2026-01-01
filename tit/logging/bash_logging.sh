@@ -29,7 +29,7 @@ init_logging() {
     simnibs_python - "$name" "$log_file" <<EOF
 import sys
 import os
-from tit.tools.logging_util import get_logger
+from tit.logging import get_logger
 name = sys.argv[1]
 log_file = sys.argv[2] if len(sys.argv) > 2 and sys.argv[2] != "" else None
 
@@ -57,7 +57,7 @@ configure_external_loggers() {
 import sys
 import os
 import json
-from tit.tools.logging_util import get_logger, configure_external_loggers
+from tit.logging import get_logger, configure_external_loggers
 
 name = sys.argv[1]
 log_file = sys.argv[2] if sys.argv[2] != "" else None
@@ -91,7 +91,7 @@ log_info() {
     fi
     simnibs_python -u - "$LOGGER_NAME" "$LOG_FILE" <<EOF
 import sys, os
-from tit.tools.logging_util import get_logger
+from tit.logging import get_logger
 name = sys.argv[1]
 log_file = sys.argv[2]
 logger = get_logger(name, log_file if log_file!="" else None, overwrite=False)
@@ -108,7 +108,7 @@ log_warning() {
     fi
     simnibs_python -u - "$LOGGER_NAME" "$LOG_FILE" <<EOF
 import sys, os
-from tit.tools.logging_util import get_logger
+from tit.logging import get_logger
 name = sys.argv[1]
 log_file = sys.argv[2]
 logger = get_logger(name, log_file if log_file!="" else None, overwrite=False)
@@ -125,7 +125,7 @@ log_error() {
     fi
     simnibs_python -u - "$LOGGER_NAME" "$LOG_FILE" <<EOF
 import sys, os
-from tit.tools.logging_util import get_logger
+from tit.logging import get_logger
 name = sys.argv[1]
 log_file = sys.argv[2]
 logger = get_logger(name, log_file if log_file!="" else None, overwrite=False)
@@ -142,7 +142,7 @@ log_debug() {
     fi
     simnibs_python -u - "$LOGGER_NAME" "$LOG_FILE" <<EOF
 import sys, os
-from tit.tools.logging_util import get_logger
+from tit.logging import get_logger
 name = sys.argv[1]
 log_file = sys.argv[2]
 logger = get_logger(name, log_file if log_file!="" else None, overwrite=False)

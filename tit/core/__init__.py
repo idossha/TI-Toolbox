@@ -3,6 +3,7 @@
 
 # Import main components for easy access
 from . import constants
+from . import utils
 from .paths import (
     PathManager,
     get_path_manager,
@@ -23,6 +24,9 @@ from .paths import (
 __all__ = [
     # Constants module
     'constants',
+
+    # Utils module
+    'utils',
     
     # Path management classes
     'PathManager',

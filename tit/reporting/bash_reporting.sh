@@ -72,7 +72,7 @@ create_preprocessing_report() {
 import sys
 import os
 import json
-from tit.tools.report_util import create_preprocessing_report
+from tit.reporting.report_util import create_preprocessing_report
 
 project_dir = sys.argv[1]
 subject_id = sys.argv[2]
@@ -149,7 +149,7 @@ create_simulation_report() {
 import sys
 import os
 import json
-from tit.tools.report_util import create_simulation_report
+from tit.reporting.report_util import create_simulation_report
 
 project_dir = sys.argv[1]
 simulation_session_id = sys.argv[2] if sys.argv[2] != 'None' else None
@@ -213,7 +213,7 @@ list_reports() {
     simnibs_python - <<EOF
 import sys
 import os
-from tit.tools.report_util import list_reports
+from tit.reporting.report_util import list_reports
 
 project_dir = sys.argv[1]
 subject_id = sys.argv[2] if sys.argv[2] != 'None' else None
@@ -265,7 +265,7 @@ get_latest_report() {
     simnibs_python - "$PROJECT_DIR" "$subject_id" "$report_type" <<EOF
 import sys
 import os
-from tit.tools.report_util import get_latest_report
+from tit.reporting.report_util import get_latest_report
 
 project_dir = sys.argv[1]
 subject_id = sys.argv[2]

@@ -20,8 +20,8 @@ from PyQt5 import QtWidgets, QtCore
 
 from tit.core import get_path_manager
 from tit.core.nifti import load_group_data_ti_toolbox
-from tit.viz.img_slices import create_pdf_entry_point_group
-from tit.viz.img_glass import create_glass_brain_entry_point_group
+from tit.plotting.nilearn.img_slices import create_pdf_entry_point_group
+from tit.plotting.nilearn.img_glass import create_glass_brain_entry_point_group
 from tit.gui.components.console import ConsoleWidget
 from tit.gui.components.action_buttons import RunStopButtons
 
