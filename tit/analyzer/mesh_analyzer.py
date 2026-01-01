@@ -55,6 +55,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import simnibs
 
+
 import csv
 import os
 import subprocess
@@ -66,6 +67,7 @@ from pathlib import Path
 
 from tit.tools import logging_util
 from tit.analyzer.visualizer import MeshVisualizer
+from tit.core.roi import ROICoordinateHelper, calculate_roi_metrics
 
 class MeshAnalyzer:
     """
@@ -505,18 +507,22 @@ class MeshAnalyzer:
                         self.logger.error(f"Failed to get node areas for region {region_name}: {str(e)}")
                         self.logger.error(f"Node areas type: {type(node_areas) if 'node_areas' in locals() else 'undefined'}")
                         raise
-                    mean_value = np.average(field_values_positive, weights=positive_node_areas)
-                    
-                    # Calculate focality (roi_average / whole_brain_average)
-                    # Only include positive values in the whole brain average
-                    # Use area-weighted averaging for consistency with other mesh analyses
+                    # Calculate mean + focality using canonical ROI metric helper
                     whole_brain_positive_mask = field_values > 0
                     whole_brain_node_areas = node_areas[whole_brain_positive_mask]
-                    whole_brain_average = np.average(field_values[whole_brain_positive_mask], weights=whole_brain_node_areas)
-                    focality = mean_value / whole_brain_average
+                    metrics = calculate_roi_metrics(
+                        field_values_positive,
+                        positive_node_areas,
+                        ti_field_gm=field_values[whole_brain_positive_mask],
+                        gm_volumes=whole_brain_node_areas,
+                    )
+                    mean_value = metrics["TImean_ROI"]
+                    focality = metrics.get("Focality")
+                    whole_brain_average = metrics.get("TImean_GM")
                     
                     # Log the whole brain average for debugging
-                    self.logger.info(f"Whole brain average (denominator for focality): {whole_brain_average:.6f}")
+                    if whole_brain_average is not None:
+                        self.logger.info(f"Whole brain average (denominator for focality): {whole_brain_average:.6f}")
                     
                     # Create result dictionary for this region with TI_max values
                     region_results = {
@@ -638,19 +644,12 @@ class MeshAnalyzer:
             # Get field values from surface mesh
             field_values = gm_surf.field[self.field_name].value
             
-            # Create spherical ROI on surface mesh
+            # Create spherical ROI on surface mesh (use canonical helper)
             self.logger.info(f"Creating spherical ROI at {center_coordinates} with radius {radius}mm...")
             node_coords = gm_surf.nodes.node_coord
-            
-            # Calculate distance from each node to the center
-            distances = np.sqrt(
-                (node_coords[:, 0] - center_coordinates[0])**2 +
-                (node_coords[:, 1] - center_coordinates[1])**2 + 
-                (node_coords[:, 2] - center_coordinates[2])**2
-            )
-            
-            # Create mask for nodes within radius
-            roi_mask = distances <= radius
+            roi_indices = ROICoordinateHelper.find_voxels_in_sphere(node_coords, center_coordinates, radius)
+            roi_mask = np.zeros(len(node_coords), dtype=bool)
+            roi_mask[roi_indices] = True
             
             # Check if we have any nodes in the ROI
             roi_nodes_count = np.sum(roi_mask)
@@ -679,25 +678,27 @@ class MeshAnalyzer:
             self.logger.info(f"Found {positive_count} nodes with positive values in the ROI")
             self.logger.info("Calculating statistics...")
             
-            # Calculate statistics on positive values only
+            # Calculate statistics using canonical ROI metric helper
             min_value = np.min(field_values_positive)
-            max_value = np.max(field_values_positive)
-            
-            # Calculate mean value using node areas for proper averaging (only positive values)
             node_areas = gm_surf.nodes_areas()
             positive_node_areas = node_areas[roi_mask][positive_mask]
-            mean_value = np.average(field_values_positive, weights=positive_node_areas)
 
-            # Calculate focality (roi_average / whole_brain_average)
-            # Only include positive values in the whole brain average
-            # Use area-weighted averaging for consistency with ROI calculations
             whole_brain_positive_mask = field_values > 0
             whole_brain_node_areas = node_areas[whole_brain_positive_mask]
-            whole_brain_average = np.average(field_values[whole_brain_positive_mask], weights=whole_brain_node_areas)
-            focality = mean_value / whole_brain_average
+            metrics = calculate_roi_metrics(
+                field_values_positive,
+                positive_node_areas,
+                ti_field_gm=field_values[whole_brain_positive_mask],
+                gm_volumes=whole_brain_node_areas,
+            )
+            mean_value = metrics["TImean_ROI"]
+            max_value = metrics["TImax_ROI"]
+            focality = metrics.get("Focality")
+            whole_brain_average = metrics.get("TImean_GM")
 
             # Log the whole brain average for debugging
-            self.logger.info(f"Whole brain average (denominator for focality): {whole_brain_average:.6f}")
+            if whole_brain_average is not None:
+                self.logger.info(f"Whole brain average (denominator for focality): {whole_brain_average:.6f}")
 
             # Create results dictionary with TI_max values
             results = {
@@ -863,25 +864,26 @@ class MeshAnalyzer:
                 
                 return results
             
-            # Calculate statistics on positive values only
             min_value = np.min(field_values_positive)
-            max_value = np.max(field_values_positive)
-
-            # Calculate mean value using node areas for proper averaging (only positive values)
             node_areas = gm_surf.nodes_areas()
             positive_node_areas = node_areas[roi_mask][positive_mask]
-            mean_value = np.average(field_values_positive, weights=positive_node_areas)
-
-            # Calculate focality (roi_average / whole_brain_average)
-            # Only include positive values in the whole brain average
-            # Use area-weighted averaging for consistency with ROI calculations
             whole_brain_positive_mask = field_values > 0
             whole_brain_node_areas = node_areas[whole_brain_positive_mask]
-            whole_brain_average = np.average(field_values[whole_brain_positive_mask], weights=whole_brain_node_areas)
-            focality = mean_value / whole_brain_average
+
+            metrics = calculate_roi_metrics(
+                field_values_positive,
+                positive_node_areas,
+                ti_field_gm=field_values[whole_brain_positive_mask],
+                gm_volumes=whole_brain_node_areas,
+            )
+            mean_value = metrics["TImean_ROI"]
+            max_value = metrics["TImax_ROI"]
+            focality = metrics.get("Focality")
+            whole_brain_average = metrics.get("TImean_GM")
             
             # Log the whole brain average for debugging
-            self.logger.info(f"Whole brain average (denominator for focality): {whole_brain_average:.6f}")
+            if whole_brain_average is not None:
+                self.logger.info(f"Whole brain average (denominator for focality): {whole_brain_average:.6f}")
             
             # Prepare the results with TI_max values
             results = {

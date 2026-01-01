@@ -75,12 +75,6 @@ def log_group_subject_status(subject_id, status, duration_str, error_msg=""):
         else:
             print(f"├─ Subject {subject_id}: ✗ Failed ({duration_str}) - {error_msg}")
 
-# Import SimNIBS for MNI coordinate transformation
-try:
-    from simnibs import mni2subject_coords
-except ImportError:
-    mni2subject_coords = None
-
 # Import our comparison functions
 try:
     # Try absolute import first (for testing)

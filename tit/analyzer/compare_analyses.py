@@ -195,16 +195,9 @@ def _get_run_specific_output_dir(input_paths: List[str]) -> str:
     Returns:
         str: Path to run-specific output directory
     """
-    # Extract project name
     project_name = _extract_project_name(input_paths[0])
-    
-    # Extract montage and region information
     montage_name, region_name = _extract_montage_and_region_info(input_paths)
-    
-    # Create run-specific folder name
     run_folder_name = f"{montage_name}_{region_name}"
-    
-    # Create full output directory path under derivatives/SimNIBS/group_analysis
     output_dir = os.path.join("/mnt", project_name, "derivatives", "SimNIBS", "group_analysis", run_folder_name)
     os.makedirs(output_dir, exist_ok=True)
     
@@ -228,16 +221,10 @@ def _get_output_path(input_paths: List[str], method_name: str,
     Returns:
         str: Full path for output file in run-specific directory
     """
-    # Get run-specific output directory
     output_dir = _get_run_specific_output_dir(input_paths)
-    
-    # Get montage and region info for simpler naming
     montage_name, region_name = _extract_montage_and_region_info(input_paths)
-    
-    # Extract subject count for naming
     subject_count = len(input_paths)
     
-    # Determine file extension
     extension = ""
     if filename.endswith('.nii.gz'):
         extension = '.nii.gz'

@@ -19,8 +19,6 @@ Example Usage:
 
 """
 
-from simnibs import mni2subject_coords
-
 import argparse
 import functools
 import logging
@@ -29,6 +27,8 @@ import os
 import sys
 import time
 from pathlib import Path
+
+from tit.core.roi import ROICoordinateHelper
 
 """
 NOTE ON IMPORTS
@@ -526,16 +526,13 @@ def main():
 
         # Transform coordinates if needed for analysis space
         if args.analysis_type == 'spherical' and args.coordinate_space == 'MNI':
-            if mni2subject_coords is None:
-                raise RuntimeError("MNI coordinate transformation requested but simnibs.mni2subject_coords is not available. Please install simnibs.")
-
             formatted_orig_coords = [f"{float(c):.2f}" for c in args.coordinates]
             logger.info(f"Transforming MNI coordinates [{', '.join(formatted_orig_coords)}] to subject {subject_id} space")
             flush_output()
 
             try:
                 mni_coords = [float(c) for c in args.coordinates]
-                subject_coords = mni2subject_coords(mni_coords, args.m2m_subject_path)
+                subject_coords = ROICoordinateHelper.transform_mni_to_subject(mni_coords, args.m2m_subject_path)
 
                 # Validate transformation result
                 if subject_coords is None or len(subject_coords) != 3:
@@ -550,6 +547,11 @@ def main():
                 formatted_coords = [f"{c:.2f}" for c in subject_coords]
                 logger.info(f"Transformed MNI coordinates for {subject_id}: [{', '.join(formatted_coords)}]")
                 flush_output()
+            except (ImportError, ModuleNotFoundError) as e:
+                raise RuntimeError(
+                    "MNI coordinate transformation requested but SimNIBS is not available. "
+                    "Please run with `simnibs_python` / install SimNIBS."
+                ) from e
             except Exception as e:
                 logger.error(f"MNI transformation failed for {subject_id}: {e}")
                 raise RuntimeError(f"Failed to transform MNI coordinates: {e}")

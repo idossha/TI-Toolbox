@@ -101,7 +101,7 @@ Extensions can import and use TI-Toolbox core modules:
 
 ```python
 from core.paths import Paths
-from core.utils import Utils
+from core.roi import ROICoordinateHelper
 from core.constants import Constants
 from core import get_path_manager
 ```

@@ -127,7 +127,7 @@ print('Config validation works')
 import sys
 import numpy as np
 sys.path.insert(0, '${BATS_TEST_DIRNAME}/../tit')
-from core.roi import find_target_voxels
+from core.roi import ROICoordinateHelper
 
 # Test that import works
 print('Import successful')
@@ -158,7 +158,7 @@ print('All functions available')
 import sys
 import numpy as np
 sys.path.insert(0, '${BATS_TEST_DIRNAME}/../tit')
-from core.roi import find_target_voxels
+from core.roi import ROICoordinateHelper
 
 # Create test voxel positions
 positions = np.array([
@@ -170,7 +170,7 @@ positions = np.array([
 ])
 
 # Find voxels within 6mm of origin
-indices = find_target_voxels(positions, [0, 0, 0], 6.0)
+indices = ROICoordinateHelper.find_voxels_in_sphere(positions, [0, 0, 0], 6.0)
 
 # Should find (0,0,0), (5,0,0), (0,5,0), (0,0,5)
 assert len(indices) == 4

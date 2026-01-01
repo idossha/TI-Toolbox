@@ -5,7 +5,6 @@ Used by optimization tools
 """
 
 import numpy as np
-from simnibs.utils.TI_utils import get_maxTI
 
 def get_TI_vectors(E1_org, E2_org):
     """
@@ -173,88 +172,3 @@ def get_mTI_vectors(E1_org, E2_org, E3_org, E4_org):
     mTI_vectors = get_TI_vectors(TI_A, TI_B)
 
     return mTI_vectors
-
-
-
-def calculate_ti_field_from_leadfield(leadfield, stim1, stim2, target_indices=None):
-    """
-    Calculate TI field from leadfield matrix and stimulation patterns
-    
-    Args:
-        leadfield: Leadfield matrix [n_electrodes, n_elements, 3] in mV/mm (from SimNIBS)
-        stim1: Stimulation pattern 1 [n_electrodes] in mA
-        stim2: Stimulation pattern 2 [n_electrodes] in mA
-        target_indices: Optional element indices to calculate only for subset (for speed)
-    
-    Returns:
-        ti_field: TI field magnitude [n_elements] or [n_target_elements] in V/m
-    """
-    # Calculate electric fields from each stimulation pattern
-    # E = leadfield @ stim gives E-field at each element (shape: [n_elements, 3])
-    # leadfield is in mV/mm, divide by 1000 to convert to V/m
-    E1 = np.einsum('ijk,i->jk', leadfield, stim1) / 1000.0
-    E2 = np.einsum('ijk,i->jk', leadfield, stim2) / 1000.0
-    
-    # If target indices specified, only calculate for those elements
-    if target_indices is not None:
-        E1 = E1[target_indices]
-        E2 = E2[target_indices]
-    
-    # Calculate TI envelope
-    ti_field = get_maxTI(E1, E2)
-
-    # Handle case where both fields are zero (no stimulation)
-    norm_E1 = np.linalg.norm(E1, axis=1)
-    norm_E2 = np.linalg.norm(E2, axis=1)
-    zero_mask = (norm_E1 == 0) & (norm_E2 == 0)
-    ti_field[zero_mask] = 0.0
-
-    return ti_field
-
-def create_stim_patterns(electrode_names, e1_plus, e1_minus, e2_plus, e2_minus, intensity=0.001):
-    """
-    Create bipolar stimulation patterns from electrode lists
-    
-    Args:
-        electrode_names: List of all electrode names in leadfield
-        e1_plus: List of E1+ electrode names
-        e1_minus: List of E1- electrode names
-        e2_plus: List of E2+ electrode names
-        e2_minus: List of E2- electrode names
-        intensity: Stimulation intensity in Amperes (default: 0.001 = 1mA)
-    
-    Returns:
-        stim1: Stimulation pattern 1 [n_electrodes] in mA
-        stim2: Stimulation pattern 2 [n_electrodes] in mA
-    """
-    n_electrodes = len(electrode_names)
-    stim1 = np.zeros(n_electrodes)
-    stim2 = np.zeros(n_electrodes)
-    
-    # Convert intensity to mA for consistency
-    intensity_ma = intensity * 1000.0
-    
-    # Create electrode name to index mapping
-    electrode_map = {name: idx for idx, name in enumerate(electrode_names)}
-    
-    # Set E1+ electrodes
-    for elec in e1_plus:
-        if elec in electrode_map:
-            stim1[electrode_map[elec]] = intensity_ma / len(e1_plus)
-    
-    # Set E1- electrodes
-    for elec in e1_minus:
-        if elec in electrode_map:
-            stim1[electrode_map[elec]] = -intensity_ma / len(e1_minus)
-    
-    # Set E2+ electrodes
-    for elec in e2_plus:
-        if elec in electrode_map:
-            stim2[electrode_map[elec]] = intensity_ma / len(e2_plus)
-    
-    # Set E2- electrodes
-    for elec in e2_minus:
-        if elec in electrode_map:
-            stim2[electrode_map[elec]] = -intensity_ma / len(e2_minus)
-    
-    return stim1, stim2

@@ -66,6 +66,7 @@ from pathlib import Path
 
 from tit.tools import logging_util
 from tit.analyzer.visualizer import VoxelVisualizer
+from tit.core.roi import calculate_roi_metrics
 
 
 class VoxelAnalyzer:
@@ -289,15 +290,20 @@ class VoxelAnalyzer:
                         continue
                     
                     # Calculate statistics
-                    mean_value = np.mean(field_values)
                     max_value = np.max(field_values)
                     min_value = np.min(field_values)
 
-                    # Calculate focality (roi_average / whole_brain_average)
-                    # Only include positive values in the whole brain average
                     whole_brain_positive_mask = field_arr > 0
-                    whole_brain_average = np.mean(field_arr[whole_brain_positive_mask])
-                    focality = mean_value / whole_brain_average
+                    gm_values = field_arr[whole_brain_positive_mask]
+                    metrics = calculate_roi_metrics(
+                        field_values,
+                        np.ones(len(field_values), dtype=float),
+                        ti_field_gm=gm_values,
+                        gm_volumes=np.ones(len(gm_values), dtype=float),
+                    )
+                    mean_value = metrics["TImean_ROI"]
+                    focality = metrics.get("Focality")
+                    whole_brain_average = metrics.get("TImean_GM")
                     
                     # Log the whole brain average for debugging
                     if not self.quiet:
@@ -460,16 +466,19 @@ class VoxelAnalyzer:
         # Get the field values within the ROI
         roi_values = field_data[combined_mask]
         
-        # Calculate statistics
         min_value = np.min(roi_values)
-        max_value = np.max(roi_values)
-        mean_value = np.mean(roi_values)
-        
-        # Calculate focality (roi_average / whole_brain_average)
-        # Only include positive values in the whole brain average
         whole_brain_positive_mask = field_data > 0
-        whole_brain_average = np.mean(field_data[whole_brain_positive_mask])
-        focality = mean_value / whole_brain_average
+        gm_values = field_data[whole_brain_positive_mask]
+        metrics = calculate_roi_metrics(
+            roi_values,
+            np.ones(len(roi_values), dtype=float),
+            ti_field_gm=gm_values,
+            gm_volumes=np.ones(len(gm_values), dtype=float),
+        )
+        mean_value = metrics["TImean_ROI"]
+        max_value = metrics["TImax_ROI"]
+        focality = metrics.get("Focality")
+        whole_brain_average = metrics.get("TImean_GM")
         
         # Log the whole brain average for debugging
         if not self.quiet:
@@ -837,16 +846,20 @@ class VoxelAnalyzer:
         
         if not self.quiet:
             self.logger.info("Calculating statistics...")
-        # Calculate statistics
-        mean_value = np.mean(field_values)
         max_value = np.max(field_values)
         min_value = np.min(field_values)
 
-        # Calculate focality (roi_average / whole_brain_average)
-        # Only include positive values in the whole brain average
         whole_brain_positive_mask = field_arr > 0
-        whole_brain_average = np.mean(field_arr[whole_brain_positive_mask])
-        focality = mean_value / whole_brain_average
+        gm_values = field_arr[whole_brain_positive_mask]
+        metrics = calculate_roi_metrics(
+            field_values,
+            np.ones(len(field_values), dtype=float),
+            ti_field_gm=gm_values,
+            gm_volumes=np.ones(len(gm_values), dtype=float),
+        )
+        mean_value = metrics["TImean_ROI"]
+        focality = metrics.get("Focality")
+        whole_brain_average = metrics.get("TImean_GM")
         
         # Log the whole brain average for debugging
         if not self.quiet:

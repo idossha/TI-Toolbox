@@ -1,10 +1,5 @@
 #!/usr/bin/env simnibs_python
-"""
-Unit tests for TI-Toolbox utility module (core/utils.py)
-
-Tests utility functions for mesh analysis and ROI calculations.
-These functions are used extensively in analyzer modules.
-"""
+"""Unit tests for ROI helpers in `core/roi.py`."""
 
 import pytest
 import numpy as np
@@ -17,15 +12,11 @@ project_root = os.path.join(os.path.dirname(__file__), '..')
 ti_toolbox_dir = os.path.join(project_root, 'tit')
 sys.path.insert(0, ti_toolbox_dir)
 
-from core.utils import (
-    find_sphere_element_indices,
-    find_grey_matter_indices,
-    calculate_roi_metrics
-)
+from core.roi import find_roi_element_indices, find_grey_matter_indices, calculate_roi_metrics
 
 
-class TestFindSphereElementIndices:
-    """Test find_sphere_element_indices function"""
+class TestFindRoiElementIndices:
+    """Test find_roi_element_indices function"""
 
     @pytest.fixture
     def mock_mesh(self):
@@ -52,9 +43,7 @@ class TestFindSphereElementIndices:
         roi_coords = [0, 0, 0]
         radius = 5.0
 
-        roi_indices, element_volumes = find_sphere_element_indices(
-            mock_mesh, roi_coords, radius
-        )
+        roi_indices, element_volumes = find_roi_element_indices(mock_mesh, roi_coords, radius)
 
         # Should find elements within 5mm of origin
         assert len(roi_indices) > 0
@@ -72,9 +61,7 @@ class TestFindSphereElementIndices:
         roi_coords = [5, 5, 5]
         radius = 3.0
 
-        roi_indices, element_volumes = find_sphere_element_indices(
-            mock_mesh, roi_coords, radius
-        )
+        roi_indices, element_volumes = find_roi_element_indices(mock_mesh, roi_coords, radius)
 
         assert len(roi_indices) > 0
         assert len(element_volumes) == len(roi_indices)
@@ -84,9 +71,7 @@ class TestFindSphereElementIndices:
         roi_coords = [0, 0, 0]
         radius = 0.5
 
-        roi_indices, element_volumes = find_sphere_element_indices(
-            mock_mesh, roi_coords, radius
-        )
+        roi_indices, element_volumes = find_roi_element_indices(mock_mesh, roi_coords, radius)
 
         # With small radius, might find 0 or 1 element
         assert len(roi_indices) >= 0
@@ -97,9 +82,7 @@ class TestFindSphereElementIndices:
         roi_coords = [0, 0, 0]
         radius = 50.0  # Larger than grid extent
 
-        roi_indices, element_volumes = find_sphere_element_indices(
-            mock_mesh, roi_coords, radius
-        )
+        roi_indices, element_volumes = find_roi_element_indices(mock_mesh, roi_coords, radius)
 
         # Should find all 125 elements
         assert len(roi_indices) == 125
@@ -110,9 +93,7 @@ class TestFindSphereElementIndices:
         roi_coords = [10, 10, 10]  # At corner of grid
         radius = 3.0
 
-        roi_indices, element_volumes = find_sphere_element_indices(
-            mock_mesh, roi_coords, radius
-        )
+        roi_indices, element_volumes = find_roi_element_indices(mock_mesh, roi_coords, radius)
 
         # Should find at least one element
         assert len(roi_indices) >= 1
@@ -122,9 +103,7 @@ class TestFindSphereElementIndices:
         roi_coords = [100, 100, 100]  # Far from grid
         radius = 1.0
 
-        roi_indices, element_volumes = find_sphere_element_indices(
-            mock_mesh, roi_coords, radius
-        )
+        roi_indices, element_volumes = find_roi_element_indices(mock_mesh, roi_coords, radius)
 
         # Should find no elements
         assert len(roi_indices) == 0
@@ -135,9 +114,7 @@ class TestFindSphereElementIndices:
         roi_coords = [0, 0, 0]
         radius = 5.0
 
-        roi_indices, element_volumes = find_sphere_element_indices(
-            mock_mesh, roi_coords, radius
-        )
+        roi_indices, element_volumes = find_roi_element_indices(mock_mesh, roi_coords, radius)
 
         # Number of volumes should match number of indices
         assert len(element_volumes) == len(roi_indices)
@@ -397,9 +374,7 @@ class TestIntegration:
         # Find elements in sphere
         roi_coords = [0, 0, 0]
         radius = 7.0
-        sphere_indices, _ = find_sphere_element_indices(
-            mock_mesh_full, roi_coords, radius
-        )
+        sphere_indices, _ = find_roi_element_indices(mock_mesh_full, roi_coords, radius)
 
         # Find grey matter elements
         gm_indices, _ = find_grey_matter_indices(mock_mesh_full)
@@ -416,9 +391,7 @@ class TestIntegration:
         # Step 1: Find ROI elements
         roi_coords = [0, 0, 0]
         radius = 5.0
-        roi_indices, roi_volumes = find_sphere_element_indices(
-            mock_mesh_full, roi_coords, radius
-        )
+        roi_indices, roi_volumes = find_roi_element_indices(mock_mesh_full, roi_coords, radius)
 
         # Step 2: Find grey matter elements
         gm_indices, gm_volumes = find_grey_matter_indices(mock_mesh_full)

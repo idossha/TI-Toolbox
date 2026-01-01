@@ -1,557 +1,128 @@
 #!/usr/bin/env simnibs_python
-"""Shared ROI (Region of Interest) module for optimization tools.
+"""ROI helpers used across optimizers/analyzers.
 
-This module provides a unified interface for ROI operations using SimNIBS's
-RegionOfInterest class. It supports:
-- Spherical ROIs with MNI/subject space coordinates
-- Atlas-based cortical ROIs (surface)
-- Volume-based subcortical ROIs
-- ROI visualization and mesh extraction
-
-Note: flex-search has its own specialized ROI module (flex/roi.py) that
-integrates directly with SimNIBS optimization structures.
+Goal: keep this module small and fast. It intentionally focuses on:
+- Mapping simple ROI definitions (sphere + tissue tags) to mesh elements
+- Computing summary metrics for an ROI (and optional GM reference)
+- Minimal coordinate helpers for ex-search (CSV + MNI→subject)
 """
 
 from __future__ import annotations
 
+from typing import Iterable, Sequence
+
 import numpy as np
-import numpy.typing as npt
-from simnibs.utils.region_of_interest import RegionOfInterest
-from simnibs.mesh_tools.mesh_io import Msh, read_msh, ElementTags
-from simnibs.utils.transformations import mni2subject_coords
-from simnibs.utils.TI_utils import get_maxTI
-
-import os
-from typing import Optional, Union, List, Tuple, Dict, Any
-
-from tit.core.calc import (
-    get_TI_vectors,
-    get_mTI_vectors,
-    calculate_ti_field_from_leadfield,
-    create_stim_patterns
-)
-
-from tit.core.utils import (
-    find_sphere_element_indices as find_roi_element_indices,
-    find_grey_matter_indices,
-    calculate_roi_metrics
-)
 
 
-class ROIManager:
-    """High-level interface for creating and managing ROIs using SimNIBS RegionOfInterest.
+def find_roi_element_indices(mesh, roi_coords: Sequence[float], radius: float = 3.0):
+    """Return element indices/volumes for elements whose barycenters fall in a sphere."""
+    centers = mesh.elements_baricenters()
+    center = np.asarray(roi_coords, dtype=float)
+    r2 = float(radius) ** 2
+    d2 = np.sum((centers - center) ** 2, axis=1)
+    mask = d2 <= r2
+    return np.flatnonzero(mask), mesh.elements_volumes_and_areas()[mask]
 
-    This class simplifies ROI creation for common use cases in optimization tools.
-    """
-    
-    def __init__(self, m2m_path: str, mesh_path: Optional[str] = None):
-        """Initialize ROI manager.
-        
-        Args:
-            m2m_path: Path to the m2m folder (e.g., /path/to/m2m_subject)
-            mesh_path: Optional path to the head mesh. If not provided, will be
-                      loaded from m2m folder when needed.
-        """
-        self.m2m_path = m2m_path
-        self.mesh_path = mesh_path
-        self._mesh = None
-        
-        # Validate paths
-        if not os.path.isdir(m2m_path):
-            raise ValueError(f"m2m folder not found: {m2m_path}")
-    
-    @property
-    def mesh(self) -> Msh:
-        """Lazy load the head mesh."""
-        if self._mesh is None:
-            if self.mesh_path is not None:
-                self._mesh = read_msh(self.mesh_path)
-            else:
-                # Load from m2m folder
-                default_mesh = os.path.join(self.m2m_path, f"{os.path.basename(self.m2m_path)}.msh")
-                if os.path.exists(default_mesh):
-                    self._mesh = read_msh(default_mesh)
-                else:
-                    raise ValueError(f"Could not find mesh in m2m folder: {self.m2m_path}")
-        return self._mesh
-    
-    def create_spherical_roi(
-        self,
-        center: Union[List[float], npt.NDArray],
-        radius: float,
-        coordinate_space: str = "subject",
-        roi_type: str = "surface",
-        tissues: Optional[List[int]] = None
-    ) -> RegionOfInterest:
-        """Create a spherical ROI.
-        
-        Args:
-            center: Center coordinates [x, y, z] in mm
-            radius: Radius in mm
-            coordinate_space: "subject" or "mni" coordinate space
-            roi_type: "surface" for cortical or "volume" for subcortical
-            tissues: List of tissue tags for volume ROIs (default: [ElementTags.GM])
-        
-        Returns:
-            Configured RegionOfInterest object
-        """
-        roi = RegionOfInterest()
-        roi.subpath = self.m2m_path
-        
-        if roi_type == "surface":
-            roi.method = "surface"
-            roi.surface_type = "central"
-            roi.roi_sphere_center_space = coordinate_space
-            roi.roi_sphere_center = list(center)
-            roi.roi_sphere_radius = radius
-        elif roi_type == "volume":
-            roi.method = "volume"
-            roi.mesh = self.mesh
-            roi.roi_sphere_center_space = coordinate_space
-            roi.roi_sphere_center = list(center)
-            roi.roi_sphere_radius = radius
-            roi.tissues = tissues if tissues is not None else [ElementTags.GM]
-        else:
-            raise ValueError(f"Invalid roi_type: {roi_type}. Must be 'surface' or 'volume'")
-        
-        return roi
-    
-    def create_atlas_roi(
-        self,
-        atlas_path: str,
-        label_value: int,
-        hemisphere: str = "lh"
-    ) -> RegionOfInterest:
-        """Create a cortical atlas-based ROI.
-        
-        Args:
-            atlas_path: Path to atlas file (.annot, .label, or surface mask file)
-            label_value: Label value in the atlas to use as ROI
-            hemisphere: "lh" or "rh" for left/right hemisphere
-        
-        Returns:
-            Configured RegionOfInterest object
-        """
-        if not os.path.exists(atlas_path):
-            raise ValueError(f"Atlas file not found: {atlas_path}")
-        
-        roi = RegionOfInterest()
-        roi.subpath = self.m2m_path
-        roi.method = "surface"
-        roi.surface_type = "central"
-        roi.mask_space = [f"subject_{hemisphere}"]
-        roi.mask_path = [atlas_path]
-        roi.mask_value = [label_value]
-        
-        return roi
-    
-    def create_volume_roi(
-        self,
-        mask_path: str,
-        mask_value: int = 1,
-        coordinate_space: str = "subject",
-        tissues: Optional[List[int]] = None
-    ) -> RegionOfInterest:
-        """Create a volume-based ROI from a NIfTI mask.
-        
-        Args:
-            mask_path: Path to NIfTI volume mask (.nii or .nii.gz)
-            mask_value: Value in the mask representing the ROI
-            coordinate_space: "subject" or "mni" coordinate space
-            tissues: List of tissue tags to restrict ROI to (default: [ElementTags.GM])
-        
-        Returns:
-            Configured RegionOfInterest object
-        """
-        if not os.path.exists(mask_path):
-            raise ValueError(f"Mask file not found: {mask_path}")
-        
-        roi = RegionOfInterest()
-        roi.subpath = self.m2m_path
-        roi.method = "volume"
-        roi.mesh = self.mesh
-        roi.mask_space = [coordinate_space]
-        roi.mask_path = [mask_path]
-        roi.mask_value = [mask_value]
-        roi.tissues = tissues if tissues is not None else [ElementTags.GM]
-        
-        return roi
-    
-    def get_roi_coordinates(
-        self,
-        roi: RegionOfInterest,
-        node_type: Optional[str] = None
-    ) -> npt.NDArray[np.float_]:
-        """Extract coordinates from an ROI.
-        
-        Args:
-            roi: RegionOfInterest object
-            node_type: "node" for node coordinates, "elm_center" for element centers,
-                      None for automatic based on ROI type
-        
-        Returns:
-            Array of coordinates [N, 3]
-        """
-        return roi.get_nodes(node_type=node_type)
-    
-    def get_roi_mesh(self, roi: RegionOfInterest) -> Msh:
-        """Extract the ROI as a mesh.
-        
-        Args:
-            roi: RegionOfInterest object
-        
-        Returns:
-            Mesh containing only the ROI
-        """
-        return roi.get_roi_mesh()
-    
-    def visualize_roi(
-        self,
-        roi: RegionOfInterest,
-        output_dir: str,
-        base_name: str = "roi_visualization"
-    ) -> str:
-        """Create visualization files for the ROI.
-        
-        Args:
-            roi: RegionOfInterest object
-            output_dir: Directory to save visualization files
-            base_name: Base name for output files
-        
-        Returns:
-            Path to the main visualization file (.msh)
-        """
-        os.makedirs(output_dir, exist_ok=True)
-        roi.write_visualization(output_dir, base_name)
-        return os.path.join(output_dir, f"{base_name}.msh")
+
+def find_grey_matter_indices(mesh, grey_matter_tags: Iterable[int] = (2,)):
+    """Return element indices/volumes for elements with tags in `grey_matter_tags`."""
+    tags = mesh.elm.tag1
+    mask = np.isin(tags, list(grey_matter_tags))
+    return np.flatnonzero(mask), mesh.elements_volumes_and_areas()[mask]
+
+
+def calculate_roi_metrics(
+    ti_field_roi,
+    element_volumes,
+    ti_field_gm=None,
+    gm_volumes=None,
+):
+    """Compute TImax/TImean in ROI and (optionally) focality vs GM."""
+    if len(ti_field_roi) == 0:
+        return {
+            "TImax_ROI": 0.0,
+            "TImean_ROI": 0.0,
+            "n_elements": 0,
+            # Preserve existing behavior used in tests
+            "Focality": 0.0,
+        }
+
+    timax_roi = float(np.max(ti_field_roi))
+    timean_roi = float(np.average(ti_field_roi, weights=element_volumes))
+
+    result = {
+        "TImax_ROI": timax_roi,
+        "TImean_ROI": timean_roi,
+        "n_elements": int(len(ti_field_roi)),
+    }
+
+    if ti_field_gm is not None and gm_volumes is not None and len(ti_field_gm) > 0:
+        timean_gm = float(np.average(ti_field_gm, weights=gm_volumes))
+        focality = float(timean_roi / timean_gm) if timean_gm > 0 else 0.0
+        result["TImean_GM"] = timean_gm
+        result["Focality"] = focality
+
+    return result
 
 
 class ROICoordinateHelper:
-    """Helper functions for coordinate transformation and ROI specification.
-
-    These utilities are useful for optimization workflows.
-    """
-    
     @staticmethod
-    def transform_mni_to_subject(
-        mni_coords: Union[List[float], npt.NDArray],
-        m2m_path: str
-    ) -> npt.NDArray:
-        """Transform MNI coordinates to subject space.
-        
-        Args:
-            mni_coords: MNI coordinates [x, y, z]
-            m2m_path: Path to m2m folder
-        
-        Returns:
-            Subject space coordinates [x, y, z]
-        """
+    def transform_mni_to_subject(mni_coords: Sequence[float], m2m_path: str):
+        # Lazy import so this module stays importable without SimNIBS installed
+        from simnibs.utils.transformations import mni2subject_coords
+
         return mni2subject_coords(list(mni_coords), m2m_path)
-    
+
     @staticmethod
-    def find_voxels_in_sphere(
-        voxel_positions: npt.NDArray,
-        center: Union[List[float], npt.NDArray],
-        radius: float
-    ) -> npt.NDArray[np.int_]:
-        """Find voxel indices within a spherical ROI.
+    def find_voxels_in_sphere(voxel_positions, center: Sequence[float], radius: float):
+        center = np.asarray(center, dtype=float)
+        r2 = float(radius) ** 2
+        d2 = np.sum((voxel_positions - center) ** 2, axis=1)
+        return np.flatnonzero(d2 <= r2)
 
-        Useful for optimization where you need to identify
-        target voxels in a leadfield matrix.
-
-        Args:
-            voxel_positions: Array of voxel positions [N, 3]
-            center: Center coordinate [x, y, z]
-            radius: Radius in mm
-
-        Returns:
-            Array of voxel indices within the sphere
-        """
-        center = np.array(center)
-        distances = np.linalg.norm(voxel_positions - center, axis=1)
-        return np.where(distances <= radius)[0]
-    
     @staticmethod
-    def compute_roi_centroid(coordinates: npt.NDArray) -> npt.NDArray:
-        """Compute the centroid of an ROI.
-        
-        Args:
-            coordinates: Array of coordinates [N, 3]
-        
-        Returns:
-            Centroid coordinate [x, y, z]
-        """
-        return np.mean(coordinates, axis=0)
-    
-    @staticmethod
-    def compute_roi_bounds(
-        coordinates: npt.NDArray
-    ) -> Tuple[npt.NDArray, npt.NDArray]:
-        """Compute bounding box of an ROI.
-        
-        Args:
-            coordinates: Array of coordinates [N, 3]
-        
-        Returns:
-            Tuple of (min_coords, max_coords) each [x, y, z]
-        """
-        return np.min(coordinates, axis=0), np.max(coordinates, axis=0)
-    
-    @staticmethod
-    def load_roi_from_csv(csv_path: str) -> npt.NDArray:
-        """Load ROI coordinates from CSV file.
-
-        Supports the ex-search CSV format with single coordinate [x, y, z].
-        Automatically detects and skips header rows.
-
-        Args:
-            csv_path: Path to CSV file
-
-        Returns:
-            Coordinate array [x, y, z], or None if file cannot be loaded
-        """
+    def load_roi_from_csv(csv_path: str):
         import csv
+
         try:
-            with open(csv_path, 'r') as f:
-                reader = csv.reader(f)
-                for row in reader:
-                    # Skip empty rows
+            with open(csv_path, "r") as f:
+                for row in csv.reader(f):
                     if not row:
                         continue
-                    # Try to convert to floats
                     try:
                         coords = [float(c.strip()) for c in row]
-                        # Check if we have exactly 3 coordinates
-                        if len(coords) == 3:
-                            return np.array(coords)
-                        # If more than 3, take first 3
-                        elif len(coords) > 3:
-                            return np.array(coords[:3])
                     except ValueError:
-                        # This might be a header row, skip it
                         continue
-                # No valid coordinate row found
-                return None
+                    if len(coords) >= 3:
+                        return np.asarray(coords[:3], dtype=float)
         except FileNotFoundError:
             return None
         except Exception:
             return None
-    
+        return None
+
     @staticmethod
-    def save_roi_to_csv(coordinates: Union[List[float], npt.NDArray], csv_path: str):
-        """Save ROI coordinates to CSV file.
-        
-        Uses ex-search compatible format.
-        
-        Args:
-            coordinates: Coordinate [x, y, z]
-            csv_path: Path to save CSV file
-        """
+    def save_roi_to_csv(coordinates: Sequence[float], csv_path: str):
         import csv
-        with open(csv_path, 'w', newline='') as f:
-            writer = csv.writer(f)
-            writer.writerow(coordinates)
+
+        with open(csv_path, "w", newline="") as f:
+            csv.writer(f).writerow(list(coordinates))
 
 
-def roi_to_dict(roi: RegionOfInterest) -> Dict[str, Any]:
-    """Convert RegionOfInterest to dictionary for serialization.
-    
-    Args:
-        roi: RegionOfInterest object
-    
-    Returns:
-        Dictionary representation
-    """
-    return roi.to_dict()
-
-
-def roi_from_dict(roi_dict: Dict[str, Any]) -> RegionOfInterest:
-    """Create RegionOfInterest from dictionary.
-    
-    Args:
-        roi_dict: Dictionary representation
-    
-    Returns:
-        RegionOfInterest object
-    """
-    roi = RegionOfInterest()
-    roi.from_dict(roi_dict)
-    return roi
-
-
-# Convenience functions for backward compatibility with existing code
-
-def create_spherical_roi_simple(
-    center: List[float],
-    radius: float,
-    m2m_path: str,
-    coordinate_space: str = "subject"
-) -> Tuple[RegionOfInterest, ROIManager]:
-    """Simple interface for creating a spherical cortical ROI.
-    
-    Args:
-        center: Center coordinates [x, y, z]
-        radius: Radius in mm
-        m2m_path: Path to m2m folder
-        coordinate_space: "subject" or "mni"
-    
-    Returns:
-        Tuple of (roi, manager)
-    """
-    manager = ROIManager(m2m_path)
-    roi = manager.create_spherical_roi(
-        center=center,
-        radius=radius,
-        coordinate_space=coordinate_space,
-        roi_type="surface"
-    )
-    return roi, manager
-
-
-def get_roi_voxel_indices(
-    roi: RegionOfInterest,
-    voxel_positions: npt.NDArray
-) -> npt.NDArray[np.int_]:
-    """Get indices of voxels that fall within an ROI.
-
-    Useful for leadfield-based optimization.
-
-    Args:
-        roi: RegionOfInterest object
-        voxel_positions: Array of all voxel positions [N, 3]
-
-    Returns:
-        Array of indices of voxels within the ROI
-    """
-    roi_coords = roi.get_nodes()
-
-    # For each ROI coordinate, find closest voxels
-    from scipy.spatial import cKDTree
-    tree = cKDTree(voxel_positions)
-
-    # Find voxels within 1mm of any ROI coordinate
-    indices_list = tree.query_ball_point(roi_coords, r=1.0)
-
-    # Flatten and get unique indices
-    indices = np.unique(np.concatenate([np.array(idx_list) for idx_list in indices_list if len(idx_list) > 0]))
-
-    return indices
-
-
-def find_target_voxels(voxel_positions, center, radius):
-    """
-    Find voxel indices within a spherical ROI.
-    Used by optimization tools.
-
-    Args:
-        voxel_positions: Array of voxel positions [N, 3]
-        center: Center coordinate [x, y, z]
-        radius: Radius in mm
-
-    Returns:
-        Array of voxel indices within the sphere
-    """
-    center = np.array(center)
-    distances = np.linalg.norm(voxel_positions - center, axis=1)
-    return np.where(distances <= radius)[0]
-
-
-def validate_ti_montage(electrodes, num_electrodes):
-    """
-    Validate TI montage electrode configuration.
-
-    Args:
-        electrodes: Array of 4 electrode indices
-        num_electrodes: Total number of available electrodes
-
-    Returns:
-        bool: True if valid, False otherwise
-    """
+def validate_ti_montage(electrodes: Sequence[int], num_electrodes: int) -> bool:
     if len(electrodes) != 4:
         return False
-    if len(set(electrodes)) != 4:  # Check for duplicates
+    if len(set(electrodes)) != 4:
         return False
     if any(e < 0 or e >= num_electrodes for e in electrodes):
         return False
     return True
 
 
-# Re-export all functions for convenience
 __all__ = [
-    # ROI classes and functions
-    'ROIManager',
-    'ROICoordinateHelper',
-    'roi_to_dict',
-    'roi_from_dict',
-    'create_spherical_roi_simple',
-    'get_roi_voxel_indices',
-    # TI calculation functions
-    'get_TI_vectors',
-    'get_mTI_vectors',
-    'calculate_ti_field_from_leadfield',
-    'create_stim_patterns',
-    # ROI utility functions
-    'find_roi_element_indices',
-    'find_grey_matter_indices',
-    'calculate_roi_metrics',
-    'find_target_voxels',
-    'validate_ti_montage'
+    "find_roi_element_indices",
+    "find_grey_matter_indices",
+    "calculate_roi_metrics",
+    "ROICoordinateHelper",
+    "validate_ti_montage",
 ]
-
-
-# Example usage and documentation
-if __name__ == "__main__":
-    print("ROI Module for optimization tools")
-    print("=" * 50)
-    print("\nThis module provides a unified interface for ROI operations")
-    print("using SimNIBS's RegionOfInterest class.\n")
-
-    print("Example 1: Create a spherical cortical ROI")
-    print("-" * 50)
-    print("""
-    from tit.core.roi import ROIManager
-
-    manager = ROIManager("/path/to/m2m_subject")
-    roi = manager.create_spherical_roi(
-        center=[47, -13, 52],  # Motor cortex in MNI
-        radius=10.0,
-        coordinate_space="mni",
-        roi_type="surface"
-    )
-
-    # Get ROI coordinates
-    coords = manager.get_roi_coordinates(roi)
-    print(f"ROI contains {len(coords)} nodes")
-    """)
-
-    print("\nExample 2: Create an atlas-based ROI")
-    print("-" * 50)
-    print("""
-    roi = manager.create_atlas_roi(
-        atlas_path="/path/to/lh.aparc.a2009s.annot",
-        label_value=1,  # Specific region label
-        hemisphere="lh"
-    )
-    """)
-
-    print("\nExample 3: Create a volume ROI for subcortical structures")
-    print("-" * 50)
-    print("""
-    roi = manager.create_volume_roi(
-        mask_path="/path/to/hippocampus_mask.nii.gz",
-        mask_value=1,
-        coordinate_space="subject"
-    )
-    """)
-
-    print("\nExample 4: Coordinate transformation")
-    print("-" * 50)
-    print("""
-    from tit.core.roi import ROICoordinateHelper
-
-    # Transform MNI to subject space
-    subject_coords = ROICoordinateHelper.transform_mni_to_subject(
-        mni_coords=[47, -13, 52],
-        m2m_path="/path/to/m2m_subject"
-    )
-    """)

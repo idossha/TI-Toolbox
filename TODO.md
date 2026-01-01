@@ -17,3 +17,7 @@ To-Do List:
 ### Other
 - [ ] Add security metrics to CI (bandit)
 - [ ] Integrate with openssf best practices
+
+### Logistic
+
+- [ ] move nifti things, and resampling logic from analyzer to core.nifti
