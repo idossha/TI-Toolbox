@@ -48,26 +48,18 @@ def generate_surface_mesh(field_mesh_path, subject_dir):
     if os.path.exists(surface_mesh_path):
         return surface_mesh_path
         
-    try:
-        # Run msh2cortex command only for this specific field mesh
-        cmd = [
-            'msh2cortex',
-            '-i', field_mesh_path,
-            '-m', subject_dir,
-            '-o', mesh_dir
-        ]
-        
-        subprocess.run(cmd, check=True, capture_output=True)
-        
-        if not os.path.exists(surface_mesh_path):
-            raise FileNotFoundError(f"Expected surface mesh file not found at: {surface_mesh_path}")
-        
-        return surface_mesh_path
-        
-    except subprocess.CalledProcessError as e:
-        raise RuntimeError("Failed to generate surface mesh using msh2cortex")
-    except FileNotFoundError as e:
-        raise
+    # Run msh2cortex command only for this specific field mesh
+    cmd = [
+        'msh2cortex',
+        '-i', field_mesh_path,
+        '-m', subject_dir,
+        '-o', mesh_dir
+    ]
+    
+    subprocess.run(cmd, check=True, capture_output=True)
+    
+    return surface_mesh_path
+
 
 
 def process_region_to_stl(surface_mesh, atlas, region_name, field_name, output_dir, atlas_type, temp_dir):
@@ -161,22 +153,6 @@ def main():
     
     # Determine mesh path
     mesh_path = args.mesh
-    if args.gm_mesh:
-        if not os.path.exists(args.gm_mesh):
-            sys.exit(1)
-        # Generate surface mesh from tetrahedral mesh
-        mesh_path = generate_surface_mesh(args.gm_mesh, args.m2m)
-        if not mesh_path:
-            sys.exit(1)
-    
-    if not mesh_path:
-        sys.exit(1)
-    
-    if not os.path.exists(mesh_path):
-        sys.exit(1)
-    
-    if not os.path.exists(args.m2m):
-        sys.exit(1)
     
     # Create output directory
     os.makedirs(args.output_dir, exist_ok=True)

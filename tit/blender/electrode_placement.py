@@ -1,6 +1,6 @@
 #!/usr/bin/env simnibs_python
 """
-Electrode Placement Module for TI-Toolbox 3D Exporter
+Electrode Placement Module for TI-Toolbox Blender integration. 
 
 This module provides functionality for placing electrode objects on a scalp mesh
 using Blender. It supports both:

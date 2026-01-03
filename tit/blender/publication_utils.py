@@ -18,7 +18,7 @@ import numpy as np
 import simnibs
 
 from tit.core import get_path_manager, constants as const
-from tit.blender_exporter.utils import (
+from tit.blender.utils import (
     write_binary_stl,
     create_roi_mesh,
     extract_roi_region_no_zeros,
@@ -119,26 +119,9 @@ class PublicationVisualizer:
         Raises:
             KeyError: If field not found with helpful message
         """
-        # Try the requested field name first
         if hasattr(mesh, 'field') and requested_field in mesh.field:
             return requested_field
 
-        # Try common variations for TI fields
-        variations = [
-            requested_field,
-            "TI_max",       # Common variation with underscore
-            "TImax",        # Without underscore
-            "TI_Max",       # Capitalized
-            "normE",        # Electric field magnitude
-            "E_magn"        # Electric field magnitude (alternative)
-        ]
-
-        for variant in variations:
-            if hasattr(mesh, 'field') and variant in mesh.field:
-                logger.info(f"Field '{requested_field}' not found, using '{variant}' instead")
-                return variant
-
-        # Field not found - provide helpful error
         available_fields = list(mesh.field.keys()) if hasattr(mesh, 'field') else []
         error_msg = (
             f"\nField '{requested_field}' not found in mesh.\n"
@@ -337,7 +320,7 @@ class PublicationVisualizer:
         if self.eeg_net:
             logger.info("Placing electrodes using ElectrodePlacer class...")
 
-            from tit.blender_exporter.electrode_placement import (
+            from tit.blender.electrode_placement import (
                 ElectrodePlacer,
                 ElectrodePlacementConfig,
             )

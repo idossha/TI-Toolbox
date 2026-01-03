@@ -10,11 +10,12 @@ Provides:
 - Color mapping utilities
 """
 
+import simnibs
+import numpy as np
+
 import os
 import struct
 import logging
-import numpy as np
-import simnibs
 from typing import List, Tuple, Optional, Dict, Any
 from pathlib import Path
 
@@ -38,58 +39,35 @@ def load_simulation_config(subject_id: str, simulation_name: str) -> Optional[Di
 
     Returns:
         Dictionary with simulation configuration, or None if not found
-
-    Example config structure:
-        {
-            "subject_id": "001",
-            "simulation_name": "montage1",
-            "simulation_mode": "TI",
-            "eeg_net": "EGI_template.csv",
-            "conductivity_type": "scalar",
-            "electrode_pairs": [["E1", "E2"], ["E3", "E4"]],
-            "is_xyz_montage": false,
-            "intensities": {"pair1": 2.0, "pair2": 2.0, ...},
-            "electrode_geometry": {"shape": "ellipse", ...},
-            "mapping_options": {...},
-            "created_at": "2025-01-01T12:00:00",
-            "ti_toolbox_version": "2.0.0"
-        }
     """
+   
     import json
+    from tit.core import get_path_manager
 
-    try:
-        from tit.core import get_path_manager
+    pm = get_path_manager()
 
-        pm = get_path_manager()
-
-        # Construct path to config file
-        sim_dir = pm.get_simulation_dir(subject_id, simulation_name)
-        if not sim_dir:
-            logger.warning(f"Simulation directory not found for {subject_id}/{simulation_name}")
-            return None
-
-        config_file = os.path.join(sim_dir, "documentation", "config.json")
-
-        if not os.path.exists(config_file):
-            logger.warning(f"Config file not found: {config_file}")
-            logger.info("This simulation may have been run before config.json feature was added")
-            return None
-
-        # Read config file
-        with open(config_file, 'r') as f:
-            config = json.load(f)
-
-        logger.info(f"Loaded simulation config from: {config_file}")
-        logger.debug(f"Config: {config}")
-
-        return config
-
-    except json.JSONDecodeError as e:
-        logger.error(f"Failed to parse config file: {e}")
+    # Construct path to config file
+    sim_dir = pm.get_simulation_dir(subject_id, simulation_name)
+    if not sim_dir:
+        logger.warning(f"Simulation directory not found for {subject_id}/{simulation_name}")
         return None
-    except Exception as e:
-        logger.error(f"Error loading simulation config: {e}")
+
+    config_file = os.path.join(sim_dir, "documentation", "config.json")
+
+    if not os.path.exists(config_file):
+        logger.warning(f"Config file not found: {config_file}")
+        logger.info("This simulation may have been run before config.json feature was added")
         return None
+
+    # Read config file
+    with open(config_file, 'r') as f:
+        config = json.load(f)
+
+    logger.info(f"Loaded simulation config from: {config_file}")
+    logger.debug(f"Config: {config}")
+
+    return config
+
 
 
 def get_montage_from_config(subject_id: str, simulation_name: str) -> Optional[List[Tuple[str, str]]]:
@@ -224,22 +202,19 @@ def create_roi_mesh(surface_mesh, roi_mask, field_values, field_name, region_nam
     roi_mesh.write(temp_mesh_path)
 
     # Create .opt file for Gmsh visualization
-    try:
-        from tit.core.mesh import create_mesh_opt_file
+    from tit.core.mesh import create_mesh_opt_file
 
-        if len(roi_field_values[roi_mask]) > 0:
-            max_value = np.max(roi_field_values[roi_mask])
-        else:
-            max_value = 1.0
+    if len(roi_field_values[roi_mask]) > 0:
+        max_value = np.max(roi_field_values[roi_mask])
+    else:
+        max_value = 1.0
 
-        field_info = {
-            'fields': [field_name],
-            'max_values': {field_name: max_value},
-            'field_type': 'node'
-        }
-        create_mesh_opt_file(temp_mesh_path, field_info)
-    except Exception as e:
-        logger.warning(f"Could not create .opt file: {e}")
+    field_info = {
+        'fields': [field_name],
+        'max_values': {field_name: max_value},
+        'field_type': 'node'
+    }
+    create_mesh_opt_file(temp_mesh_path, field_info)
 
     return temp_mesh_path
 
