@@ -28,7 +28,7 @@ from tit.gui.components.action_buttons import RunStopButtons
 from tit.logging import get_logger
 from tit.tools.extract_labels import extract_labels_from_nifti
 from tit.tools.nifti_to_mesh import nifti_to_mesh
-from tit.blender_exporter.electrode_placement import ElectrodePlacer, ElectrodePlacementConfig
+from tit.blender.electrode_placement import ElectrodePlacer, ElectrodePlacementConfig
 
 
 class Mode:
@@ -844,7 +844,7 @@ class VisualExporterWidget(QtWidgets.QWidget):
         # Build paths
         eeg_pos_dir = self.pm.get_eeg_positions_dir(subject_id)
         csv_path = os.path.join(eeg_pos_dir, net_name)
-        electrode_blend_path = os.path.join(ti_toolbox_path, "blender_exporter", "Electrode.blend")
+        electrode_blend_path = os.path.join(ti_toolbox_path, "blender", "Electrode.blend")
         output_dir = self._electrode_exports_dir(subject_id)
         
         m2m_dir = self._m2m_dir(subject_id)
@@ -995,7 +995,7 @@ class VisualExporterWidget(QtWidgets.QWidget):
                 os.makedirs(stl_dir, exist_ok=True)
                 cmd_stl = [
                     "simnibs_python",
-                    str(ti_toolbox_path / "blender_exporter" / "region_stl_exporter.py"),
+                    str(ti_toolbox_path / "blender" / "region_stl_exporter.py"),
                     "--mesh", central_surface,
                     "--m2m", self._m2m_dir(subject_id),
                     "--output-dir", stl_dir,
@@ -1022,7 +1022,7 @@ class VisualExporterWidget(QtWidgets.QWidget):
                 os.makedirs(ply_dir, exist_ok=True)
                 cmd_ply = [
                     "simnibs_python",
-                    str(ti_toolbox_path / "blender_exporter" / "region_ply_exporter.py"),
+                    str(ti_toolbox_path / "blender" / "region_ply_exporter.py"),
                     "--mesh", central_surface,
                     "--m2m", self._m2m_dir(subject_id),
                     "--output-dir", ply_dir,
@@ -1072,7 +1072,7 @@ class VisualExporterWidget(QtWidgets.QWidget):
                 # Use output directory as prefix (vectors will be named TI.ply, CH1.ply, etc.)
                 cmd = [
                     "simnibs_python",
-                    str(ti_toolbox_path / "blender_exporter" / "vector_field_exporter.py"),
+                    str(ti_toolbox_path / "blender" / "vector_field_exporter.py"),
                     m1,
                     m2,
                     mode_dir,  # Output directory
@@ -1124,7 +1124,7 @@ class VisualExporterWidget(QtWidgets.QWidget):
                 if not blender_available:
                     raise ValueError(
                         "Blender is not installed by default. Electrode placement feature requires Blender.\n"
-                        "Install Blender by running: bash tit/blender_exporter/install_blender_docker.sh\n"
+                        "Install Blender by running: bash tit/blender/install_blender_docker.sh\n"
                     )
                 
                 net_name = self.electrode_net_combo.currentText().strip()

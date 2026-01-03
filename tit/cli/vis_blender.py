@@ -24,7 +24,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from tit.core import get_path_manager
 from tit.core import constants as const
-from tit.blender_exporter import utils as be_utils
+from tit.blender import utils as be_utils
 from tit import logging as logging_util
 
 
@@ -190,14 +190,14 @@ def build_montage_publication_blend(
     electrode_pairs = cfg.get("electrode_pairs") or []
 
     eeg_csv = _resolve_eeg_net_csv(subject_id=subject_id, eeg_net_name=str(eeg_net))
-    electrode_template = os.path.join(os.path.dirname(__file__), "..", "blender_exporter", "Electrode.blend")
+    electrode_template = os.path.join(os.path.dirname(__file__), "..", "blender", "Electrode.blend")
     electrode_template = os.path.abspath(electrode_template)
     subject_m2m = pm.get_m2m_dir(subject_id)
     if not subject_m2m:
         raise FileNotFoundError(f"m2m directory not found for subject {subject_id}")
     subject_msh = os.path.join(subject_m2m, f"{subject_id}.msh")
 
-    from tit.blender_exporter.electrode_placement import ElectrodePlacer, ElectrodePlacementConfig
+    from tit.electrode_placement import ElectrodePlacer, ElectrodePlacementConfig
 
     ele_cfg = ElectrodePlacementConfig(
         subject_id=subject_id,
@@ -215,7 +215,7 @@ def build_montage_publication_blend(
     )
 
     logger.info("Placing electrodes (building electrode .blend)...")
-    placer = ElectrodePlacer(ele_cfg, logger=logging.getLogger("tit.blender_exporter.electrode_placement"))
+    placer = ElectrodePlacer(ele_cfg, logger=logging.getLogger("tit.blender.electrode_placement"))
     ok, msg = placer.place_electrodes()
     if not ok:
         raise RuntimeError(msg)
@@ -224,7 +224,7 @@ def build_montage_publication_blend(
     # Compose final scene (reuse the current scene produced by ElectrodePlacer)
     # This avoids re-loading the intermediate electrode `.blend` which can fail
     # in headless environments.
-    from tit.blender_exporter import scene_setup
+    from tit.blender import scene_setup
 
     configure_render_eevee = scene_setup.configure_render_eevee
     ensure_world_nodes = scene_setup.ensure_world_nodes
@@ -382,8 +382,8 @@ def _setup_logging_with_file(verbose: bool, log_file: Optional[str]) -> logging.
 
     logging_util.configure_external_loggers(
         names=[
-            "tit.blender_exporter.utils",
-            "tit.blender_exporter.electrode_placement",
+            "tit.blender.utils",
+            "tit.blender.electrode_placement",
             "simnibs",
         ],
         parent_logger=log,

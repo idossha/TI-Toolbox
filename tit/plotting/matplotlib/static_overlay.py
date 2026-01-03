@@ -178,3 +178,4 @@ def generate_static_overlay_images(
     return generated_images
 
 
+
