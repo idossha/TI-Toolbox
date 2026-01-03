@@ -9,8 +9,11 @@ To-Do List:
 ### UI - Frontend
 
 - [ ] Ex-search viewer - graphical UI for electrode visualization and selection.
-- [ ] Covert to fully-baed Electron frontend
+- [ ] Convert to fully-baed Electron frontend
 
 ### Scientific
 - [ ] SAR calculation for HF signal
 
+### Other
+- [ ] Add security metrics to CI (bandit)
+- [ ] Integrate with openssf best practices
