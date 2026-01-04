@@ -1,20 +1,20 @@
 ---
 layout: wiki
-title: 3D Visual Exporter
-permalink: /wiki/visual-exporter/
+title: Blener Integration
+permalink: /wiki/blender/
 ---
 
-The 3D Visual Exporter extension was built to enable better visualization and presentation of simulation results using other 3D modeling software. It bundles the mesh export scripts that ship with TI-Toolbox and provides a single interface for exporting cortical surfaces, field vectors, electrode placements, skin surfaces, and sub-cortical structures in formats compatible with Blender, CAD software, and other 3D visualization tools. Use it when you want a guided workflow from the GUI, or call the underlying Python scripts directly for batch jobs and automation.
+The Blender extension was built to enable publication level visualization and presentation of simulation results using other 3D modeling software in general, and specifically Blender. It provides a convenient interface for exporting cortical surfaces, field vectors, electrode placements, skin surfaces, and sub-cortical structures in formats compatible with Blender, CAD software, and other 3D visualization tools. Use it when you want a guided workflow from the GUI, or call the underlying Python scripts directly for batch jobs and automation.
 
 ## Overview
 
 - **Location**: `tit/gui/extensions/visual_exporter.py`
 - **Purpose**: Export 3D assets in formats compatible with Blender, CAD software, and other 3D modeling tools to enable better visualization and presentation of simulation results.
 - **Back-end scripts**:
-  - `blender_exporter/cortical_regions_to_ply.py`
-  - `blender_exporter/cortical_regions_to_stl.py`
-  - `blender_exporter/vector_ply.py`
-  - `blender_exporter/electrode_placement.py`
+  - `blender/cortical_regions_to_ply.py`
+  - `blender/cortical_regions_to_stl.py`
+  - `blender/vector_ply.py`
+  - `blender/electrode_placement.py`
   - `tools/extract_labels.py`
   - `tools/nifti_to_mesh.py`
 - **Outputs**: PLY surface meshes, STL geometry, PLY vector clouds, electrode placements (.blend/.glb), skin surfaces, and sub-cortical structures stored under the TI-Toolbox derivatives tree.
