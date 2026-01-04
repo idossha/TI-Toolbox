@@ -1,3 +1,0 @@
-[bandit]
-# Directories or files to skip
-exclude = tests,venv,.venv,env
