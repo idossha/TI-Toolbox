@@ -8,7 +8,7 @@
 
 Releases, guides, and wiki please see: [https://idossha.github.io/TI-Toolbox/](https://idossha.github.io/TI-Toolbox/)
 
-Reference: https://www.biorxiv.org/content/10.1101/2025.10.06.680781v3
+[Brain Stimulation Journal](https://www.brainstimjrnl.com/article/S1935-861X(25)00418-8/fulltext#supplementary-material)
 
 ## Contact
 
