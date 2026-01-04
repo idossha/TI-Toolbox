@@ -101,48 +101,8 @@ jobs:
         echo "" >> $GITHUB_STEP_SUMMARY
 
         if [ -f bandit-results.json ]; then
-          # Generate summary statistics
-          python3 -c "
-import json
-try:
-    with open('bandit-results.json', 'r') as f:
-        data = json.load(f)
-        results = data.get('results', [])
-        metrics = data.get('metrics', {})
-
-    print('📊 **Summary:**')
-    print('- Files scanned:', metrics.get('_totals', {}).get('loc', 0), 'lines')
-    print('- Total issues found:', len(results))
-
-    severity_counts = {}
-    confidence_counts = {}
-    for issue in results:
-        sev = issue.get('issue_severity', 'unknown')
-        conf = issue.get('issue_confidence', 'unknown')
-        severity_counts[sev] = severity_counts.get(sev, 0) + 1
-        confidence_counts[conf] = confidence_counts.get(conf, 0) + 1
-
-    print('- By severity:', severity_counts)
-    print('- By confidence:', confidence_counts)
-    print('')
-
-    if results:
-        print('🚨 **Issues found:**')
-        for issue in results[:10]:  # Show first 10 issues
-            filename = issue.get('filename', 'unknown')
-            line = issue.get('line_number', 'unknown')
-            severity = issue.get('issue_severity', 'unknown')
-            confidence = issue.get('issue_confidence', 'unknown')
-            test_id = issue.get('test_id', 'unknown')
-            print('- ' + severity + '/' + confidence + ': ' + test_id + ' in ' + filename + ':' + str(line))
-        if len(results) > 10:
-            print('... and', len(results) - 10, 'more issues')
-    else:
-        print('✅ No security issues found!')
-
-except Exception as e:
-    print('Error parsing results:', e)
-          " >> $GITHUB_STEP_SUMMARY
+          # Generate summary statistics using external script
+          python3 .github/scripts/generate_bandit_report.py >> $GITHUB_STEP_SUMMARY
         else
           echo "❌ Bandit scan failed - no results file generated" >> $GITHUB_STEP_SUMMARY
         fi
