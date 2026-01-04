@@ -58,41 +58,15 @@ jobs:
                || echo '{"errors": ["Bandit scan failed"], "results": [], "metrics": {"_totals": {"loc": 0}}}' > bandit-results.json
 
     - name: Upload Bandit results to GitHub Security tab
-      uses: github/codeql-action/upload-sarif@v4
-      if: always()  # Upload results even if bandit found issues
-      with:
-        sarif_file: bandit-results.json
-        category: bandit
-      continue-on-error: true  # Don't fail if SARIF upload fails
+      if: always()  # Skip SARIF upload since bandit doesn't output SARIF format
+      run: |
+        echo "Note: Bandit results are not uploaded to Security tab (bandit uses custom JSON format)"
+        echo "Security scanning is already covered by CodeQL workflow"
 
     - name: Check for high-severity issues
       run: |
-        # Check if there are any high-severity issues
-        if [ -f bandit-results.json ]; then
-          # Count high-severity issues
-          HIGH_SEVERITY=$(python3 -c "
-          import json
-          try:
-              with open('bandit-results.json', 'r') as f:
-                  data = json.load(f)
-                  high_issues = [issue for issue in data.get('results', []) if issue.get('issue_severity', '').upper() == 'HIGH']
-                  print(len(high_issues))
-          except:
-              print(0)
-          ")
-
-          echo "Found $HIGH_SEVERITY high-severity security issues"
-
-          if [ "$HIGH_SEVERITY" -gt 0 ]; then
-            echo "❌ High-severity security issues found! Failing the build."
-            echo "Please review the Bandit results above and fix these issues."
-            exit 1
-          else
-            echo "✅ No high-severity security issues found."
-          fi
-        else
-          echo "⚠️  Bandit results file not found"
-        fi
+        # Check for high-severity issues using external script
+        python3 .github/scripts/check_bandit_severity.py
 
     - name: Generate human-readable report
       if: always()
