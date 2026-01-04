@@ -49,13 +49,22 @@ jobs:
         # Run bandit with command line options
         # Scan only the tit/ directory (main Python package)
         # Exclude test files, use high confidence and medium+ severity
+        # Bandit returns non-zero exit code when issues are found, which is normal
         python3 -m bandit -r tit/ \
                -f json \
                -o bandit-results.json \
                --confidence-level high \
                --severity-level medium \
                --exclude "*/tests/*,*/test_*,__pycache__,.git" \
-               || echo '{"errors": ["Bandit scan failed"], "results": [], "metrics": {"_totals": {"loc": 0}}}' > bandit-results.json
+               --exit-zero  # Force zero exit code so CI doesn't fail here
+
+        # Check if the file was created and has content
+        if [ -f bandit-results.json ] && [ -s bandit-results.json ]; then
+          echo "✅ Bandit scan completed successfully"
+        else
+          echo "❌ Bandit scan failed, creating fallback JSON"
+          echo '{"errors": ["Bandit scan failed"], "results": [], "metrics": {"_totals": {"loc": 0}}}' > bandit-results.json
+        fi
 
     - name: Upload Bandit results to GitHub Security tab
       if: always()  # Skip SARIF upload since bandit doesn't output SARIF format
