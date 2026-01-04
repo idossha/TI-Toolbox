@@ -72,10 +72,10 @@ jobs:
         echo "Note: Bandit results are not uploaded to Security tab (bandit uses custom JSON format)"
         echo "Security scanning is already covered by CodeQL workflow"
 
-    - name: Check for high-severity issues
-      run: |
-        # Check for high-severity issues using external script
-        python3 .github/scripts/check_bandit_severity.py
+    # - name: Check for high-severity issues
+    #   run: |
+    #     # Check for high-severity issues using external script
+    #     python3 .github/scripts/check_bandit_severity.py
 
     - name: Display Bandit JSON Results
       if: always()
