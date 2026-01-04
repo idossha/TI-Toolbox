@@ -432,6 +432,7 @@ def _resolve_msh2cortex(explicit_path: str | None) -> str | None:
                 if p.is_file():
                     return str(p)
     except Exception:
+        # Executable search may fail in unusual environments - continue with None
         pass
     return None
 

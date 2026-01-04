@@ -81,7 +81,8 @@ class SimulationReportGenerator:
                                   capture_output=True, text=True, timeout=10)
             if result.returncode == 0:
                 self.report_data['software_versions']['simnibs'] = result.stdout.strip()
-        except:
+        except Exception:
+            # SimNIBS version detection may fail if not installed
             pass
         
         try:
@@ -90,7 +91,8 @@ class SimulationReportGenerator:
                                   capture_output=True, text=True, timeout=10)
             if result.returncode == 0:
                 self.report_data['software_versions']['python'] = result.stdout.strip()
-        except:
+        except Exception:
+            # Python version detection may fail
             pass
         
         try:
@@ -99,7 +101,8 @@ class SimulationReportGenerator:
             if version_file.exists():
                 with open(version_file, 'r') as f:
                     self.report_data['software_versions']['ti_csc'] = f.read().strip()
-        except:
+        except Exception:
+            # TI-Toolbox version file reading may fail
             pass
     
     def add_simulation_parameters(self, conductivity_type, simulation_mode, eeg_net, 
@@ -467,6 +470,7 @@ class SimulationReportGenerator:
                     if not dd_path.exists() and assets_template.exists():
                         shutil.copyfile(str(assets_template), str(dd_path))
                 except Exception:
+                    # Dataset description file copying may fail - continue without it
                     pass
                 reports_dir = base_reports_dir / bids_subject_id
                 reports_dir.mkdir(parents=True, exist_ok=True)
@@ -483,6 +487,7 @@ class SimulationReportGenerator:
                     if not dd_path.exists() and assets_template.exists():
                         shutil.copyfile(str(assets_template), str(dd_path))
                 except Exception:
+                    # Dataset description file copying may fail - continue without it
                     pass
                 output_path = reports_dir / f"simulation_session_{self.simulation_session_id}.html"
         

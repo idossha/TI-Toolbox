@@ -368,11 +368,12 @@ class BaseProcessThread(QtCore.QThread):
                         stderr=subprocess.DEVNULL,
                         stdout=subprocess.DEVNULL
                     )
-                except Exception:
+                except (OSError, subprocess.SubprocessError):
                     # Fallback: try direct kill
                     try:
                         self.process.kill()
-                    except Exception:
+                    except (OSError, ProcessLookupError):
+                        # Process may have already terminated
                         pass
 
             else:  # Unix/Linux/macOS
@@ -388,13 +389,15 @@ class BaseProcessThread(QtCore.QThread):
                         # If still running, force kill with SIGKILL
                         try:
                             os.killpg(pgid, signal.SIGKILL)
-                        except Exception:
+                        except (OSError, ProcessLookupError):
+                            # Process group may have already terminated
                             pass
 
                         # Backup: force kill the main process directly
                         try:
                             self.process.kill()
-                        except Exception:
+                        except (OSError, ProcessLookupError):
+                            # Process may have already terminated
                             pass
 
                 except Exception:
@@ -405,13 +408,15 @@ class BaseProcessThread(QtCore.QThread):
                             self.process.wait(timeout=1)
                         except subprocess.TimeoutExpired:
                             self.process.kill()
-                    except Exception:
+                    except (OSError, ProcessLookupError):
+                        # Process may have already terminated
                         pass
 
             # Final cleanup - ensure process is terminated
             try:
                 self.process.wait(timeout=1)
-            except Exception:
+            except (subprocess.TimeoutExpired, OSError, ProcessLookupError):
+                # Process may have already terminated or timed out
                 pass
 
             return True

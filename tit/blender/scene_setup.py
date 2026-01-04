@@ -34,7 +34,7 @@ def clear_scene(*, remove_collections: bool = True) -> None:
             try:
                 bpy.data.collections.remove(coll)
             except Exception:
-                # Some collections may be in use; ignore.
+                # Some collections may be in use or required by Blender - skip them
                 pass
 
 
@@ -68,6 +68,7 @@ def move_object_to_collection(
         if obj.name not in collection.objects:
             collection.objects.link(obj)
     except Exception:
+        # Object linking may fail if object is already linked or invalid
         pass
 
     if not unlink_from_others:
@@ -81,6 +82,7 @@ def move_object_to_collection(
             if obj.name in coll.objects:
                 coll.objects.unlink(obj)
         except Exception:
+            # Object unlinking may fail if object is not in collection
             pass
 
 
@@ -104,6 +106,7 @@ def ensure_gm_wireframe(
             try:
                 gm_obj.modifiers.remove(m)
             except Exception:
+                # Modifier removal may fail if modifier is in use
                 pass
 
     mod = gm_obj.modifiers.new(name=name, type="WIREFRAME")
@@ -116,6 +119,7 @@ def ensure_gm_wireframe(
     try:
         mod.material_offset = 0
     except Exception:
+        # Material offset setting may fail in some Blender versions
         pass
 
 
@@ -333,6 +337,7 @@ def add_area_light(
     try:
         light.data.size = float(size)
     except Exception:
+        # Light size setting may fail in some Blender versions
         pass
     return light
 
@@ -481,6 +486,7 @@ def create_principled_material(
     try:
         mat.blend_method = blend_method
     except Exception:
+        # Blend method setting may fail in some Blender versions
         pass
 
     nodes = mat.node_tree.nodes

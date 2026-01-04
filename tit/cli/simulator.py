@@ -227,6 +227,7 @@ def prompt_flex_outputs(selected_subjects: List[str]) -> Tuple[List[dict], str]:
                     })
                     flex_paths.append(mapping_file)
                 except Exception:
+                    # Skip flex outputs that cannot be parsed - continue with others
                     pass
     
     if not flex_outputs:

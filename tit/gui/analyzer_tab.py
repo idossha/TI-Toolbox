@@ -10,6 +10,7 @@ import traceback
 import time
 import os
 import subprocess
+import psutil
 
 from PyQt5 import QtWidgets, QtCore, QtGui
 
@@ -126,8 +127,9 @@ class AnalysisThread(QtCore.QThread):
                             os.kill(pid_val, signal.SIGTERM)
                         except OSError:
                             pass  # Process might have already exited
-                except Exception:  # pylint: disable=broad-except
-                    pass  # Ignore errors in finding/killing child processes
+                except (ProcessLookupError, OSError, psutil.Error):
+                    # Best-effort cleanup of child processes - may fail if processes already terminated
+                    pass
                 
                 # Kill the main process
                 self.process.terminate() # Send SIGTERM
@@ -171,7 +173,7 @@ class AnalyzerTab(QtWidgets.QWidget):
             if hasattr(self, 'update_gmsh_subjects'):
                 self.update_gmsh_subjects()
         except Exception as e:
-            # Silently ignore errors during UI setup
+            # Silently ignore errors during UI setup to prevent GUI initialization failures
             pass
 
     def __init__(self, parent=None):
@@ -1177,7 +1179,9 @@ class AnalyzerTab(QtWidgets.QWidget):
             self.atlas_name_combo.setEnabled(True)  # Always enable for mesh
             has_valid_atlas = True  # Mesh atlases are always available
             try: self.atlas_name_combo.currentTextChanged.disconnect(self.update_group_mesh_atlas)
-            except TypeError: pass
+            except TypeError:
+                # Signal may not be connected - this is expected
+                pass
             self.atlas_name_combo.currentTextChanged.connect(self.update_group_mesh_atlas)
             self.update_group_mesh_atlas(self.atlas_name_combo.currentText()) # Initial update
         elif self.space_voxel.isChecked() and self.type_cortical.isChecked():
@@ -1216,7 +1220,9 @@ class AnalyzerTab(QtWidgets.QWidget):
                 self.atlas_combo.setEnabled(True)
                 has_valid_atlas = True
                 try: self.atlas_combo.currentTextChanged.disconnect(self.update_group_voxel_atlas)
-                except TypeError: pass
+                except TypeError:
+                    # Signal may not be connected - this is expected
+                    pass
                 self.atlas_combo.currentTextChanged.connect(self.update_group_voxel_atlas)
                 self.update_group_voxel_atlas(self.atlas_combo.currentText()) # Initial update
             else:

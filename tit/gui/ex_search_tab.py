@@ -242,6 +242,7 @@ class ExSearchThread(QtCore.QThread):
                 self.output_signal.emit(f"[DEBUG] Launching process: {' '.join(self.cmd)}", 'debug')
                 self.output_signal.emit(f"[DEBUG] Env highlights: {dbg_env}", 'debug')
             except Exception:
+                # Debug output may fail - continue with process launch
                 pass
             self.process = subprocess.Popen(
                 self.cmd, 
@@ -255,6 +256,7 @@ class ExSearchThread(QtCore.QThread):
             try:
                 self.output_signal.emit(f"[DEBUG] Spawned PID: {self.process.pid}", 'debug')
             except Exception:
+                # Debug output may fail - continue with process execution
                 pass
             
             # If input data is provided, send it to the process
@@ -1133,7 +1135,7 @@ class ExSearchTab(QtWidgets.QWidget):
                             subjects_with_leadfields[subject_id] = net_names
                             total_leadfields += len(leadfields)
                 except Exception:
-                    # Skip subjects with errors
+                    # Skip subjects with errors in leadfield listing - continue with other subjects
                     pass
             
             # Display summary only in debug mode

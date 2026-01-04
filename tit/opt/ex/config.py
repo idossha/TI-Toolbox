@@ -93,7 +93,9 @@ class CurrentConfig:
                 if validation_fn is None or validation_fn(val):
                     self.logger.info(f"{name} from stdin: {val}")
                     return val
-        except: pass
+        except Exception:
+            # Stdin input reading may fail - continue with environment/default values
+            pass
         env_val = os.getenv(name.upper().replace(' ', '_'))
         if env_val:
             try:

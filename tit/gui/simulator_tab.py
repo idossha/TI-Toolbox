@@ -142,10 +142,8 @@ class SubprocessSimulationProcess(QtCore.QObject):
             return None
 
     def _cleanup_temp(self):
-        try:
-            shutil.rmtree(self._temp_dir, ignore_errors=True)
-        except Exception:
-            pass
+        # Use ignore_errors=True parameter - no need for try-except
+        shutil.rmtree(self._temp_dir, ignore_errors=True)
 
     def _on_finished(self, exit_code, exit_status):
         # Flush any remaining buffered output
@@ -199,15 +197,15 @@ class SubprocessSimulationProcess(QtCore.QObject):
         if pid > 0 and os.name != "nt":
             try:
                 os.killpg(pid, signal.SIGKILL)
-            except Exception:
-                pass
+            except (ProcessLookupError, OSError):
+                pass  # Process group may already be terminated
 
         # Also kill the main process
         try:
             if self.qprocess.state() != QtCore.QProcess.NotRunning:
                 self.qprocess.kill()
-        except Exception:
-            pass
+        except (RuntimeError, OSError):
+            pass  # QProcess may already be destroyed or process already dead
         return True
 
 class SimulatorTab(QtWidgets.QWidget):
@@ -2339,13 +2337,13 @@ class SimulatorTab(QtWidgets.QWidget):
             for proc in list(getattr(self, "_active_processes", set())):
                 try:
                     proc.terminate_simulation()
-                except Exception:
-                    pass
+                except (RuntimeError, OSError, AttributeError):
+                    pass  # Process may already be terminated or object destroyed
             self._active_processes = set()
             self._process_to_job = {}
             self._job_queue = []
-        except Exception:
-            pass
+        except AttributeError:
+            pass  # Attributes may not exist during early initialization or cleanup
 
         if hasattr(self, 'simulation_process') and self.simulation_process:
             # Mark as not running immediately to avoid triggering auto-abort logic from late output.
@@ -2607,13 +2605,13 @@ class SimulatorTab(QtWidgets.QWidget):
                     for proc in list(getattr(self, "_active_processes", set())):
                         try:
                             proc.terminate_simulation()
-                        except Exception:
-                            pass
+                        except (RuntimeError, OSError, AttributeError):
+                            pass  # Process may already be terminated or object destroyed
                     self._active_processes = set()
                     self._process_to_job = {}
                     self._job_queue = []
-                except Exception:
-                    pass
+                except AttributeError:
+                    pass  # Attributes may not exist during early initialization
                 # Perform cleanup of outputs generated so far
                 try:
                     self._cleanup_partial_outputs()
@@ -2633,20 +2631,16 @@ class SimulatorTab(QtWidgets.QWidget):
             # Remove tmp directory entirely
             tmp_dir = os.path.join(sim_root, 'tmp')
             if os.path.isdir(tmp_dir):
-                try:
-                    shutil.rmtree(tmp_dir, ignore_errors=True)
-                    self.update_output(f"[CLEANUP] Removed temporary directory: {tmp_dir}")
-                except Exception:
-                    pass
+                # Use ignore_errors=True - will silently skip if directory is inaccessible
+                shutil.rmtree(tmp_dir, ignore_errors=True)
+                self.update_output(f"[CLEANUP] Removed temporary directory: {tmp_dir}")
             # Remove montage-specific output directories that may have been created
             for montage_name in (self._current_run_montages or []):
                 montage_dir = os.path.join(sim_root, montage_name)
                 if os.path.isdir(montage_dir):
-                    try:
-                        shutil.rmtree(montage_dir, ignore_errors=True)
-                        self.update_output(f"[CLEANUP] Removed partial montage outputs: {montage_dir}")
-                    except Exception:
-                        pass
+                    # Use ignore_errors=True - will silently skip if directory is inaccessible
+                    shutil.rmtree(montage_dir, ignore_errors=True)
+                    self.update_output(f"[CLEANUP] Removed partial montage outputs: {montage_dir}")
             # Mark log files created during this failed run as errored by renaming them
             logs_dir = self.pm.get_logs_dir(subject_id)
             if os.path.isdir(logs_dir):
@@ -2663,13 +2657,12 @@ class SimulatorTab(QtWidgets.QWidget):
                                     try:
                                         os.rename(fpath, new_path)
                                         self.update_output(f"[CLEANUP] Marked errored log: {fname} -> {new_name}")
-                                    except Exception:
-                                        # If rename fails (e.g., file locked), skip silently
-                                        pass
-                        except Exception:
-                            continue
-                except Exception:
-                    pass
+                                    except (OSError, PermissionError):
+                                        pass  # If rename fails (e.g., file locked), skip silently
+                        except (OSError, ValueError):
+                            continue  # Skip files with access errors or invalid timestamps
+                except (OSError, PermissionError):
+                    pass  # Best-effort log cleanup - may fail if directory is inaccessible
 
     def show_add_montage_dialog(self):
         """Show the dialog for adding a new montage."""

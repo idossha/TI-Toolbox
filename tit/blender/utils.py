@@ -425,6 +425,7 @@ def get_simulation_electrodes(subject_dir: str, simulation_name: str) -> List[st
 
             return list(used_electrodes)
         except Exception:
+            # Montage file parsing may fail - continue with fallback
             pass
 
     # Fallback: return empty list (all electrodes will be treated equally)

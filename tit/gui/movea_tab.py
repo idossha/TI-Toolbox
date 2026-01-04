@@ -1259,7 +1259,8 @@ class MOVEATab(QtWidgets.QWidget):
                 else:
                     logger.info(message)
         except Exception:
-            pass  # Fail silently if logging fails
+            # Logging may fail - continue with GUI display
+            pass
         
         # THEN filter for GUI display based on debug mode
         if not self.console_widget.is_debug_mode():

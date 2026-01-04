@@ -57,7 +57,8 @@ class PreprocessingReportGenerator:
                                   capture_output=True, text=True, timeout=10)
             if result.returncode == 0:
                 self.report_data['software_versions']['freesurfer'] = result.stdout.strip()
-        except:
+        except Exception:
+            # FreeSurfer version detection may fail if not installed
             pass
         
         try:
@@ -66,7 +67,8 @@ class PreprocessingReportGenerator:
                                   capture_output=True, text=True, timeout=10)
             if result.returncode == 0:
                 self.report_data['software_versions']['simnibs'] = result.stdout.strip()
-        except:
+        except Exception:
+            # SimNIBS version detection may fail if not installed
             pass
         
         try:
@@ -79,7 +81,8 @@ class PreprocessingReportGenerator:
                     if 'version' in line.lower():
                         self.report_data['software_versions']['dcm2niix'] = line.strip()
                         break
-        except:
+        except Exception:
+            # dcm2niix version detection may fail if not installed
             pass
     
     def add_processing_step(self, step_name, description, parameters=None, status='completed', 
@@ -255,6 +258,7 @@ class PreprocessingReportGenerator:
                 if not dd_path.exists() and assets_template.exists():
                     shutil.copyfile(str(assets_template), str(dd_path))
             except Exception:
+                # Dataset description file copying may fail - continue without it
                 pass
             reports_dir = base_reports_dir / self.bids_subject_id
             reports_dir.mkdir(parents=True, exist_ok=True)
