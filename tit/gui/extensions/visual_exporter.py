@@ -25,7 +25,7 @@ from tit.core import get_path_manager
 from tit.core import constants as const
 from tit.gui.components.console import ConsoleWidget
 from tit.gui.components.action_buttons import RunStopButtons
-from tit.logging import get_logger
+from tit.logger import get_logger
 from tit.tools.extract_labels import extract_labels_from_nifti
 from tit.tools.nifti_to_mesh import nifti_to_mesh
 from tit.blender.electrode_placement import ElectrodePlacer, ElectrodePlacementConfig

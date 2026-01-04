@@ -26,7 +26,7 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 from tit.gui.components.action_buttons import RunStopButtons
 from tit.gui.components.console import ConsoleWidget
 from tit.core import get_path_manager
-from tit import logging as logging_util
+from tit import logger as logging_util
 from tit.gui.utils import is_important_message, is_verbose_message
 
 # MOVEA imports - loaded at module level for thread safety

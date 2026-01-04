@@ -37,7 +37,7 @@ from typing import List, Dict, Tuple, Optional
 from datetime import datetime
 import logging
 
-from tit import logging as logging_util
+from tit import logger as logging_util
 
 def extract_subject_label(subject_id: str) -> str:
     """

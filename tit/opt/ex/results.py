@@ -1,5 +1,4 @@
 import csv, json, os, re
-from tit.plotting.matplotlib.ti_metrics import plot_intensity_vs_focality, plot_montage_distributions
 
 class OutputAlgorithms:
     @staticmethod
@@ -119,6 +118,7 @@ class ResultsVisualizer:
 
     def create_histograms(self, timax_values, timean_values, focality_values):
         try:
+            from tit.plotting.ti_metrics import plot_montage_distributions
             hist_path = os.path.join(self.output_dir, 'montage_distributions.png')
             saved = plot_montage_distributions(
                 timax_values=timax_values,
@@ -145,6 +145,7 @@ class ResultsVisualizer:
 
             if not intensity or not focality: return None
 
+            from tit.plotting.ti_metrics import plot_intensity_vs_focality
             scatter_path = os.path.join(self.output_dir, 'intensity_vs_focality_scatter.png')
             saved = plot_intensity_vs_focality(
                 intensity=intensity,

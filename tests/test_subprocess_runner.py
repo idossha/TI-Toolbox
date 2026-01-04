@@ -62,7 +62,7 @@ class TestBuildLogger:
     """Test suite for _build_logger() function."""
 
     @patch('tit.core.get_path_manager')
-    @patch('tit.logging.get_logger')
+    @patch('tit.logger.get_logger')
     @patch('os.makedirs')
     @patch('os.path.join', side_effect=lambda *args: '/'.join(args))
     def test_logger_creation(self, mock_join, mock_makedirs, mock_get_logger, mock_pm):
@@ -88,7 +88,7 @@ class TestBuildLogger:
         assert "Simulator_" in log_file
 
     @patch('tit.core.get_path_manager')
-    @patch('tit.logging.get_logger')
+    @patch('tit.logger.get_logger')
     @patch('os.makedirs')
     def test_debug_mode(self, mock_makedirs, mock_get_logger, mock_pm):
         """Test logger in debug mode."""

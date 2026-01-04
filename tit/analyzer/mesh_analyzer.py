@@ -70,7 +70,7 @@ import time
 from datetime import datetime
 from pathlib import Path
 
-from tit import logging as logging_util
+from tit import logger as logging_util
 from tit.analyzer.visualizer import MeshVisualizer
 from tit.core.roi import ROICoordinateHelper, calculate_roi_metrics
 

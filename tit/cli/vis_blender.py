@@ -25,7 +25,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from tit.core import get_path_manager
 from tit.core import constants as const
 from tit.blender import utils as be_utils
-from tit import logging as logging_util
+from tit import logger as logging_util
 
 
 logger = logging.getLogger("tit.cli.vis_blender")

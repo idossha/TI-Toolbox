@@ -15,7 +15,7 @@ To-Do List:
 - [ ] SAR calculation for HF signal
 
 ### Other
-- [ ] Add security metrics to CI (bandit)
+- [x] Add security metrics to CI (bandit) - ✅ Added automated bandit scanning in CI/CD with proper error handling
 - [ ] Integrate with openssf best practices
 
 ### Logistic

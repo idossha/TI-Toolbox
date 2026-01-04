@@ -64,7 +64,7 @@ import traceback
 from datetime import datetime
 from pathlib import Path
 
-from tit import logging as logging_util
+from tit import logger as logging_util
 from tit.analyzer.visualizer import VoxelVisualizer
 from tit.core.roi import calculate_roi_metrics
 

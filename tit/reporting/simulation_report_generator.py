@@ -1771,7 +1771,7 @@ All simulations were performed using SimNIBS (www.simnibs.org) with head models 
         """
         try:
             # Moved to tit.plotting.* so reporting stays focused on HTML/report structure.
-            from tit.plotting.matplotlib.static_overlay import generate_static_overlay_images
+            from tit.plotting.static_overlay import generate_static_overlay_images
 
             return generate_static_overlay_images(
                 t1_file=t1_file,

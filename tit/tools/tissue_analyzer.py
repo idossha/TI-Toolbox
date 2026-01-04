@@ -22,7 +22,7 @@ from pathlib import Path
 from abc import ABC, abstractmethod
 
 script_dir = os.path.dirname(os.path.abspath(__file__))
-from logging_util import get_logger
+from tit import get_logger
 
 log_file = os.environ.get('TI_LOG_FILE')
 LOGGER = get_logger('tissue_analyzer', log_file=log_file, overwrite=False)

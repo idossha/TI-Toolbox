@@ -98,7 +98,7 @@ The logging system respects the following environment variables:
 ### Python Usage
 
 ```python
-from utils.logging_util import get_logger
+from tit import get_logger
 
 # Create a logger with default settings
 logger = get_logger('my_component')
@@ -151,7 +151,7 @@ The logger name hierarchy is reflected in the log output:
 Configure external loggers to use the same logging setup:
 
 ```python
-from utils.logging_util import configure_external_loggers
+from tit.logger import configure_external_loggers
 
 # Configure external loggers to use the same handlers
 configure_external_loggers(['simnibs', 'mesh_io'], parent_logger)

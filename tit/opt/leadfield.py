@@ -9,7 +9,7 @@ import shutil
 import h5py
 from pathlib import Path
 
-from tit import logging as logging_util
+from tit import logger as logging_util
 from tit.core import get_path_manager
 
 

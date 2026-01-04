@@ -83,7 +83,7 @@ except (AttributeError, OSError):
     sys.stdout.write = flushing_stdout_write
     sys.stderr.write = flushing_stderr_write
 
-from tit import logging as logging_util
+from tit import logger as logging_util
 
 def flush_output():
     """Force flush stdout and stderr for real-time GUI updates."""

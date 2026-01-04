@@ -49,7 +49,7 @@ import csv
 import os
 from pathlib import Path
 
-from tit import logging as logging_util
+from tit import logger as logging_util
 
 
 class BaseVisualizer:
@@ -255,7 +255,7 @@ class BaseVisualizer:
         Returns:
             str: Path to the generated histogram file
         """
-        from tit.plotting.matplotlib.focality import plot_whole_head_roi_histogram
+        from tit.plotting.focality import plot_whole_head_roi_histogram
 
         self.logger.info(f"Generating whole-head ROI histogram for {len(whole_head_field_data)} {data_type}s")
         try:

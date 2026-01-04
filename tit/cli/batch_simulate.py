@@ -44,7 +44,7 @@ from tit.sim import (
 )
 from tit.sim.montage_loader import load_montages
 from tit.core import get_path_manager
-from tit import logging as logging_util
+from tit import logger as logging_util
 
 # =============================================================================
 # INTERNAL FUNCTIONS

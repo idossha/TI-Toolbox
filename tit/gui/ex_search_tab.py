@@ -24,7 +24,7 @@ from tit.gui.components.console import ConsoleWidget
 from tit.gui.components.action_buttons import RunStopButtons
 from tit.core import get_path_manager
 from tit.core.process import get_child_pids
-from tit import logging as logging_util
+from tit import logger as logging_util
 
 
 def _get_and_display_electrodes(subject_id, cap_name, parent_widget, path_manager=None):

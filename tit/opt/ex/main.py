@@ -1,6 +1,6 @@
 import os, sys, time
 
-from tit import logging as logging_util
+from tit import log as logging_util
 from tit.core import get_path_manager
 from tit.opt.ex.config import get_full_config
 from tit.opt.ex.runner import LeadfieldProcessor, CurrentRatioGenerator, MontageGenerator, SimulationRunner

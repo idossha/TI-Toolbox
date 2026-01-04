@@ -736,7 +736,7 @@ def run(ctx, subject, montage, eeg_net, conductivity, intensity,
             continue
 
         # Setup logger with console output for integration tests/CI
-        from tit import logging as logging_util
+        from tit import logger as logging_util
 
         # Create log directory
         pm = get_path_manager()

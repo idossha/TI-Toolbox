@@ -39,7 +39,7 @@ def _ensure_own_process_group() -> None:
 def _build_logger(subject_id: str, project_dir: str, debug: bool):
     """Create a logger that logs to stdout (for GUI) and to a per-subject log file."""
     from tit.core import get_path_manager
-    from tit import logging as logging_util
+    from tit import logger as logging_util
 
     pm = get_path_manager()
     derivatives_dir = pm.get_derivatives_dir()
