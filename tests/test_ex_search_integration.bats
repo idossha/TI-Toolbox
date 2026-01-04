@@ -144,7 +144,7 @@ from core import calc, roi
 
 # Test that all expected functions are available
 assert hasattr(calc, 'get_TI_vectors')
-assert hasattr(roi, 'find_target_voxels')
+assert hasattr(roi, 'ROICoordinateHelper')
 assert hasattr(roi, 'validate_ti_montage')
 
 print('All functions available')
@@ -237,7 +237,7 @@ for export in calc_exports:
     assert hasattr(calc, export), f'Missing calc export: {export}'
 
 # Check roi module exports
-roi_exports = ['find_target_voxels', 'validate_ti_montage', 'ROICoordinateHelper']
+roi_exports = ['validate_ti_montage', 'ROICoordinateHelper']
 for export in roi_exports:
     assert hasattr(roi, export), f'Missing roi export: {export}'
 
