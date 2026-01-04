@@ -111,8 +111,8 @@ try:
         metrics = data.get('metrics', {})
 
     print('📊 **Summary:**')
-    print(f'- Files scanned: {metrics.get(\"_totals\", {}).get(\"loc\", 0)} lines')
-    print(f'- Total issues found: {len(results)}')
+    print('- Files scanned:', metrics.get('_totals', {}).get('loc', 0), 'lines')
+    print('- Total issues found:', len(results))
 
     severity_counts = {}
     confidence_counts = {}
@@ -122,8 +122,8 @@ try:
         severity_counts[sev] = severity_counts.get(sev, 0) + 1
         confidence_counts[conf] = confidence_counts.get(conf, 0) + 1
 
-    print(f'- By severity: {severity_counts}')
-    print(f'- By confidence: {confidence_counts}')
+    print('- By severity:', severity_counts)
+    print('- By confidence:', confidence_counts)
     print('')
 
     if results:
@@ -134,14 +134,14 @@ try:
             severity = issue.get('issue_severity', 'unknown')
             confidence = issue.get('issue_confidence', 'unknown')
             test_id = issue.get('test_id', 'unknown')
-            print(f'- {severity}/{confidence}: {test_id} in {filename}:{line}')
+            print('- ' + severity + '/' + confidence + ': ' + test_id + ' in ' + filename + ':' + str(line))
         if len(results) > 10:
-            print(f'... and {len(results) - 10} more issues')
+            print('... and', len(results) - 10, 'more issues')
     else:
         print('✅ No security issues found!')
 
 except Exception as e:
-    print(f'Error parsing results: {e}')
+    print('Error parsing results:', e)
           " >> $GITHUB_STEP_SUMMARY
         else
           echo "❌ Bandit scan failed - no results file generated" >> $GITHUB_STEP_SUMMARY
