@@ -24,6 +24,7 @@ from tit.core import (
     get_simulation_dir,
     get_m2m_dir,
 )
+from tit.core.process import get_child_pids
 
 class AnalysisThread(QtCore.QThread):
     """Thread to run analysis in background to prevent GUI freezing."""
@@ -116,19 +117,17 @@ class AnalysisThread(QtCore.QThread):
                 subprocess.call(['taskkill', '/F', '/T', '/PID', str(self.process.pid)])
             else:  # Unix/Linux/Mac
                 import signal
-                # Try to terminate child processes too (best effort)
+                # Try to terminate child processes too using psutil (secure)
                 try:
                     parent_pid = self.process.pid
-                    # Using psutil would be more robust if available, but sticking to standard library
-                    ps_output = subprocess.check_output(f"ps -o pid --ppid {parent_pid} --noheaders", shell=True)
-                    child_pids = [int(pid_str) for pid_str in ps_output.decode().strip().split('\n') if pid_str]
+                    child_pids = get_child_pids(parent_pid)
                     for pid_val in child_pids:
                         try:
                             os.kill(pid_val, signal.SIGTERM)
                         except OSError:
-                            pass # Process might have already exited
-                except Exception: # pylint: disable=broad-except
-                    pass # Ignore errors in finding/killing child processes
+                            pass  # Process might have already exited
+                except Exception:  # pylint: disable=broad-except
+                    pass  # Ignore errors in finding/killing child processes
                 
                 # Kill the main process
                 self.process.terminate() # Send SIGTERM
