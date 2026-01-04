@@ -83,6 +83,7 @@ class WorkerThread(QtCore.QThread):
                 except subprocess.TimeoutExpired:
                     self._process.kill()
         except Exception:
+            # Process cleanup may fail if already terminated
             pass
 
 
@@ -527,6 +528,7 @@ class VisualExporterWidget(QtWidgets.QWidget):
                 item = self.cort_regions_list.item(i)
                 item.setSelected(select_all)
         except Exception:
+            # GUI operations may fail during widget destruction
             pass
 
     def _filter_regions(self, text: str):
@@ -541,6 +543,7 @@ class VisualExporterWidget(QtWidgets.QWidget):
                     item = QtWidgets.QListWidgetItem(name)
                     self.cort_regions_list.addItem(item)
         except Exception:
+            # GUI operations may fail during widget destruction
             pass
 
     def _refresh_regions(self):
@@ -572,6 +575,7 @@ class VisualExporterWidget(QtWidgets.QWidget):
                 item = QtWidgets.QListWidgetItem(name)
                 self.cort_regions_list.addItem(item)
         except Exception:
+            # GUI operations may fail during widget destruction
             pass
 
     def _refresh_electrode_nets(self, subject_id):
@@ -828,6 +832,7 @@ class VisualExporterWidget(QtWidgets.QWidget):
             try:
                 shutil.copyfile(produced, central_path)
             except Exception:
+                # File copy may fail if destination already exists or permissions issue
                 pass
         return central_path if os.path.exists(central_path) else produced
 
@@ -1279,7 +1284,8 @@ class VisualExporterWidget(QtWidgets.QWidget):
                     if labels is not None and os.path.exists(temp_nifti):
                         try:
                             os.remove(temp_nifti)
-                        except:
+                        except OSError:
+                            # Temp file cleanup may fail
                             pass
                     raise
 
@@ -1348,7 +1354,8 @@ class VisualExporterWidget(QtWidgets.QWidget):
                                 if name not in sel:
                                     try:
                                         os.remove(os.path.join(regions_dir, f))
-                                    except Exception:
+                                    except OSError:
+                                        # File may be in use or already deleted
                                         pass
                 else:
                     regions_dir = os.path.join(info['mode_dir'], 'cortical_plys', 'regions')
@@ -1359,9 +1366,11 @@ class VisualExporterWidget(QtWidgets.QWidget):
                                 if name not in sel:
                                     try:
                                         os.remove(os.path.join(regions_dir, f))
-                                    except Exception:
+                                    except OSError:
+                                        # File may be in use or already deleted
                                         pass
         except Exception:
+            # Directory cleanup may fail if files are in use
             pass
 
     def _on_error(self, err):

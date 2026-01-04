@@ -19,6 +19,7 @@ from tit.gui.components.console import ConsoleWidget
 from tit.gui.components.action_buttons import RunStopButtons
 
 from tit.core import get_path_manager, constants as const
+from tit.core.process import get_child_pids
 
 
 class FlexSearchThread(QtCore.QThread):
@@ -89,14 +90,13 @@ class FlexSearchThread(QtCore.QThread):
                 subprocess.call(['taskkill', '/F', '/T', '/PID', str(self.process.pid)])
             else:  # Unix/Linux/Mac
                 import signal
-                # Try to terminate child processes too
+                # Try to terminate child processes using psutil (secure)
                 try:
                     parent_pid = self.process.pid
-                    ps_output = subprocess.check_output(f"ps -o pid --ppid {parent_pid} --noheaders", shell=True)
-                    child_pids = [int(pid) for pid in ps_output.decode().strip().split('\n') if pid]
+                    child_pids = get_child_pids(parent_pid)
                     for pid in child_pids:
                         os.kill(pid, signal.SIGTERM)
-                except (subprocess.CalledProcessError, OSError, ValueError):
+                except (OSError, ValueError):
                     pass  # Ignore errors in finding child processes
                 
                 # Kill the main process

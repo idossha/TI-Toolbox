@@ -32,7 +32,7 @@ def _ensure_own_process_group() -> None:
         if os.name != "nt":
             os.setpgid(0, 0)
     except Exception:
-        # Best-effort. Even if this fails, the simulation still runs; abort may be less robust.
+        # Process group setup may fail on some systems - continue anyway
         pass
 
 
@@ -62,6 +62,7 @@ def _build_logger(subject_id: str, project_dir: str, debug: bool):
             if isinstance(handler, logging.StreamHandler) and not isinstance(handler, logging.FileHandler):
                 handler.setLevel(logging.DEBUG if debug else logging.INFO)
     except Exception:
+        # Logger configuration may fail - continue with default logging
         pass
 
     # Mirror external loggers (simnibs etc.) into the same handlers.
@@ -71,6 +72,7 @@ def _build_logger(subject_id: str, project_dir: str, debug: bool):
             parent_logger=logger,
         )
     except Exception:
+        # External logger configuration may fail - continue without it
         pass
 
     return logger, log_file
@@ -118,6 +120,7 @@ def main(argv=None) -> int:
         try:
             get_path_manager().project_dir = project_dir
         except Exception:
+            # Path manager configuration may fail - continue with default paths
             pass
 
         logger, log_file = _build_logger(subject_id, project_dir, debug=debug)
@@ -172,6 +175,7 @@ def main(argv=None) -> int:
             if sim_names:
                 logger.info(f"Simulation: {', '.join(sim_names)}")
         except Exception:
+            # Simulation name logging may fail - continue with simulation
             pass
 
         # Make the parallel decision explicit in logs (helps users understand behavior).
@@ -186,6 +190,7 @@ def main(argv=None) -> int:
                 elif workers <= 1:
                     logger.warning("Parallel execution is enabled, but effective_workers<=1; running sequentially.")
         except Exception:
+            # Configuration logging may fail - continue with execution
             pass
 
         results = run_simulation(
@@ -219,6 +224,7 @@ def main(argv=None) -> int:
             with open(args.results, "w") as f:
                 json.dump(out, f)
         except Exception:
+            # Results file writing may fail - continue with error reporting
             pass
 
         import traceback

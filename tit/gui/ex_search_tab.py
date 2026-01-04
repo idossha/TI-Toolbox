@@ -23,6 +23,7 @@ from tit.gui.utils import confirm_overwrite, is_verbose_message, is_important_me
 from tit.gui.components.console import ConsoleWidget
 from tit.gui.components.action_buttons import RunStopButtons
 from tit.core import get_path_manager
+from tit.core.process import get_child_pids
 from tit import logging as logging_util
 
 
@@ -241,6 +242,7 @@ class ExSearchThread(QtCore.QThread):
                 self.output_signal.emit(f"[DEBUG] Launching process: {' '.join(self.cmd)}", 'debug')
                 self.output_signal.emit(f"[DEBUG] Env highlights: {dbg_env}", 'debug')
             except Exception:
+                # Debug output may fail - continue with process launch
                 pass
             self.process = subprocess.Popen(
                 self.cmd, 
@@ -254,6 +256,7 @@ class ExSearchThread(QtCore.QThread):
             try:
                 self.output_signal.emit(f"[DEBUG] Spawned PID: {self.process.pid}", 'debug')
             except Exception:
+                # Debug output may fail - continue with process execution
                 pass
             
             # If input data is provided, send it to the process
@@ -333,11 +336,10 @@ class ExSearchThread(QtCore.QThread):
                 import signal
                 try:
                     parent_pid = self.process.pid
-                    ps_output = subprocess.check_output(f"ps -o pid --ppid {parent_pid} --noheaders", shell=True)
-                    child_pids = [int(pid) for pid in ps_output.decode().strip().split('\n') if pid]
+                    child_pids = get_child_pids(parent_pid)
                     for pid in child_pids:
                         os.kill(pid, signal.SIGTERM)
-                except (subprocess.CalledProcessError, OSError, ValueError):
+                except (OSError, ValueError):
                     pass
                 
                 self.process.terminate()
@@ -1133,7 +1135,7 @@ class ExSearchTab(QtWidgets.QWidget):
                             subjects_with_leadfields[subject_id] = net_names
                             total_leadfields += len(leadfields)
                 except Exception:
-                    # Skip subjects with errors
+                    # Skip subjects with errors in leadfield listing - continue with other subjects
                     pass
             
             # Display summary only in debug mode

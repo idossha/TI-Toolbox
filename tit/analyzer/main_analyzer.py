@@ -89,12 +89,14 @@ def flush_output():
     """Force flush stdout and stderr for real-time GUI updates."""
     try:
         sys.stdout.flush()
-    except:
+    except Exception:
+        # Best-effort flush - may fail if output is redirected or closed
         pass
-    
+
     try:
         sys.stderr.flush()
-    except:
+    except Exception:
+        # Best-effort flush - may fail if output is redirected or closed
         pass
 
 def format_duration(total_seconds):
@@ -340,7 +342,8 @@ def construct_mesh_field_path(m2m_subject_path, montage_name):
         for fname in sorted(os.listdir(mesh_dir)):
             if fname.lower().endswith('.msh'):
                 return os.path.join(mesh_dir, fname)
-    except Exception:
+    except (OSError, PermissionError):
+        # Directory may not be accessible - will use default filename
         pass
 
     # If no file found, return the first pattern for error reporting

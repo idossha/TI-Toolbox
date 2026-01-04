@@ -263,7 +263,7 @@ class MeshAnalyzer:
                     files = os.listdir(surface_mesh_dir)
                     for f in files:
                         self.logger.error(f"  {f}")
-                except:
+                except (OSError, PermissionError):
                     self.logger.error("  Could not list directory contents")
                 raise
                 
@@ -277,7 +277,8 @@ class MeshAnalyzer:
             try:
                 self.logger.info("Cleaning up temporary directory...")
                 self._temp_dir.cleanup()
-            except:
+            except (OSError, PermissionError):
+                # Best-effort cleanup - directory may already be deleted or inaccessible
                 pass
 
     def _construct_normal_mesh_path(self):
@@ -617,7 +618,8 @@ class MeshAnalyzer:
             try:
                 del gm_surf
                 del atlas
-            except:
+            except NameError:
+                # Variables may not be defined if cleanup failed earlier
                 pass
 
 

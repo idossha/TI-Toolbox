@@ -18,6 +18,7 @@ def _fmt(v):
             try:
                 return tuple(v[:])
             except Exception:
+                # Tuple conversion may fail for some Blender types - continue with string conversion
                 pass
         return str(v)
     except Exception:
@@ -191,6 +192,7 @@ def _print_eevee_settings(scene) -> None:
         try:
             val = getattr(ee, name)
         except Exception:
+            # Attribute access may fail for some Blender objects - skip this attribute
             continue
         # Only print "simple" values (avoid dumping large datablocks)
         if isinstance(val, (bool, int, float, str, tuple)):

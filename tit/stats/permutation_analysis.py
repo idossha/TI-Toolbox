@@ -560,7 +560,8 @@ def _run_group_comparison_analysis(subject_configs, CONFIG, output_dir, logger, 
         process = psutil.Process()
         mem_info = process.memory_info()
         logger.info(f"  Memory usage: {mem_info.rss / (1024**3):.2f} GB")
-    except:
+    except Exception:
+        # Memory usage logging may fail on some systems - continue without it
         pass
 
     logger.info(f"\nStep completed in {time.time() - step_start:.2f} seconds")

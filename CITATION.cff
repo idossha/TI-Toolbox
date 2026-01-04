@@ -1,0 +1,41 @@
+cff-version: 1.2.0
+
+title: "TI-Toolbox"
+message: "If you use this software, please cite both the software and the associated journal article listed in the preferred-citation field."
+
+type: software
+
+version: 2.2.0
+date-released: "2025-12-25"
+url: "https://github.com/idossha/TI-Toolbox"
+
+authors:
+  - family-names: Haber
+    given-names: I.
+  - family-names: Jackson
+    given-names: A.
+  - family-names: Thielscher
+    given-names: A.
+  - family-names: Hai
+    given-names: A.
+  - family-names: Tononi
+    given-names: G.
+
+doi: 10.1016/j.brs.2025.103016
+
+preferred-citation:
+  type: article
+  title: "TI-Toolbox: An Open-Source Software for Temporal Interference Stimulation Research"
+  journal: "Brain Stimulation: Basic, Translational, and Clinical Research in Neuromodulation"
+  doi: 10.1016/j.brs.2025.103016
+  authors:
+    - family-names: Haber
+      given-names: I.
+    - family-names: Jackson
+      given-names: A.
+    - family-names: Thielscher
+      given-names: A.
+    - family-names: Hai
+      given-names: A.
+    - family-names: Tononi
+      given-names: G.

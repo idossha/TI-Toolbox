@@ -94,7 +94,8 @@ class BenchmarkConfig:
             script_dir = Path(__file__).parent
             toolbox_root = script_dir.parent.parent
             search_paths.append(toolbox_root / self.DEFAULT_CONFIG_FILENAME)
-        except:
+        except Exception:
+            # Path resolution may fail in unusual environments - continue with other paths
             pass
         
         for path in search_paths:

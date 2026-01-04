@@ -384,7 +384,8 @@ class VoxelAnalyzer:
                     del atlas_tuple
                 if 'field_tuple' in locals():
                     del field_tuple
-            except:
+            except NameError:
+                # Variables may not be defined if cleanup failed earlier
                 pass
 
     def analyze_sphere(self, center_coordinates, radius, visualize=False):
@@ -719,14 +720,16 @@ class VoxelAnalyzer:
             for temp_file in [template_path, output_path]:
                 try:
                     os.unlink(temp_file)
-                except:
+                except (OSError, FileNotFoundError):
+                    # Best-effort cleanup - file may already be deleted
                     pass
-            
+
             # Also remove temporary source file if we created it
             if 'temp_source_created' in locals() and temp_source_created and 'source_path' in locals():
                 try:
                     os.unlink(source_path)
-                except:
+                except (OSError, FileNotFoundError):
+                    # Best-effort cleanup - file may already be deleted
                     pass
 
     def analyze_cortex(self, atlas_file, target_region, region_info=None, atlas_data=None, field_data=None, visualize=False):

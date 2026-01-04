@@ -10,6 +10,7 @@ import traceback
 import time
 import os
 import subprocess
+import psutil
 
 from PyQt5 import QtWidgets, QtCore, QtGui
 
@@ -24,6 +25,7 @@ from tit.core import (
     get_simulation_dir,
     get_m2m_dir,
 )
+from tit.core.process import get_child_pids
 
 class AnalysisThread(QtCore.QThread):
     """Thread to run analysis in background to prevent GUI freezing."""
@@ -116,19 +118,18 @@ class AnalysisThread(QtCore.QThread):
                 subprocess.call(['taskkill', '/F', '/T', '/PID', str(self.process.pid)])
             else:  # Unix/Linux/Mac
                 import signal
-                # Try to terminate child processes too (best effort)
+                # Try to terminate child processes too using psutil (secure)
                 try:
                     parent_pid = self.process.pid
-                    # Using psutil would be more robust if available, but sticking to standard library
-                    ps_output = subprocess.check_output(f"ps -o pid --ppid {parent_pid} --noheaders", shell=True)
-                    child_pids = [int(pid_str) for pid_str in ps_output.decode().strip().split('\n') if pid_str]
+                    child_pids = get_child_pids(parent_pid)
                     for pid_val in child_pids:
                         try:
                             os.kill(pid_val, signal.SIGTERM)
                         except OSError:
-                            pass # Process might have already exited
-                except Exception: # pylint: disable=broad-except
-                    pass # Ignore errors in finding/killing child processes
+                            pass  # Process might have already exited
+                except (ProcessLookupError, OSError, psutil.Error):
+                    # Best-effort cleanup of child processes - may fail if processes already terminated
+                    pass
                 
                 # Kill the main process
                 self.process.terminate() # Send SIGTERM
@@ -172,7 +173,7 @@ class AnalyzerTab(QtWidgets.QWidget):
             if hasattr(self, 'update_gmsh_subjects'):
                 self.update_gmsh_subjects()
         except Exception as e:
-            # Silently ignore errors during UI setup
+            # Silently ignore errors during UI setup to prevent GUI initialization failures
             pass
 
     def __init__(self, parent=None):
@@ -1178,7 +1179,9 @@ class AnalyzerTab(QtWidgets.QWidget):
             self.atlas_name_combo.setEnabled(True)  # Always enable for mesh
             has_valid_atlas = True  # Mesh atlases are always available
             try: self.atlas_name_combo.currentTextChanged.disconnect(self.update_group_mesh_atlas)
-            except TypeError: pass
+            except TypeError:
+                # Signal may not be connected - this is expected
+                pass
             self.atlas_name_combo.currentTextChanged.connect(self.update_group_mesh_atlas)
             self.update_group_mesh_atlas(self.atlas_name_combo.currentText()) # Initial update
         elif self.space_voxel.isChecked() and self.type_cortical.isChecked():
@@ -1217,7 +1220,9 @@ class AnalyzerTab(QtWidgets.QWidget):
                 self.atlas_combo.setEnabled(True)
                 has_valid_atlas = True
                 try: self.atlas_combo.currentTextChanged.disconnect(self.update_group_voxel_atlas)
-                except TypeError: pass
+                except TypeError:
+                    # Signal may not be connected - this is expected
+                    pass
                 self.atlas_combo.currentTextChanged.connect(self.update_group_voxel_atlas)
                 self.update_group_voxel_atlas(self.atlas_combo.currentText()) # Initial update
             else:

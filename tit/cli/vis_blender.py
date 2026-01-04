@@ -265,6 +265,7 @@ def build_montage_publication_blend(
                 if "Subsurface Radius" in bsdf.inputs:
                     bsdf.inputs["Subsurface Radius"].default_value = (1.0, 0.2, 0.1)
         except Exception:
+            # Material parameter configuration may fail in different Blender versions
             pass
         scalp_obj.data.materials.clear()
         scalp_obj.data.materials.append(scalp_mat)
@@ -378,6 +379,7 @@ def _setup_logging_with_file(verbose: bool, log_file: Optional[str]) -> logging.
             try:
                 h.setLevel(logging.DEBUG)
             except Exception:
+                # Logger handler configuration may fail
                 pass
 
     logging_util.configure_external_loggers(

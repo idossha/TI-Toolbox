@@ -262,6 +262,7 @@ def _get_cpu_model() -> str:
             if len(lines) > 1:
                 return lines[1].strip()
     except Exception:
+        # CPU information retrieval may fail on some systems - continue with unknown
         pass
     
     return "Unknown CPU"

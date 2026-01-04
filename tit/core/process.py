@@ -6,13 +6,15 @@ TI-Toolbox Process Management Module
 Unified process runner for all GUI tabs and command-line tools.
 """
 
+from PyQt5 import QtCore
+
 import os
 import sys
 import re
 import subprocess
 import signal
 from typing import Optional, List, Dict, Callable, Any
-from PyQt5 import QtCore
+import psutil
 
 from .errors import ProcessError
 
@@ -20,15 +22,50 @@ from .errors import ProcessError
 def strip_ansi_codes(text: str) -> str:
     """
     Remove ANSI color codes from text.
-    
+
     Args:
         text: Text containing ANSI codes
-        
+
     Returns:
         Cleaned text without ANSI codes
     """
     ansi_escape = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
     return ansi_escape.sub('', text)
+
+
+def get_child_pids(parent_pid: int) -> List[int]:
+    """
+    Safely get child process IDs using psutil library.
+
+    This function replaces the insecure shell=True subprocess calls
+    that were vulnerable to command injection (B602 security issue).
+
+    Args:
+        parent_pid: Parent process ID
+
+    Returns:
+        List of child process IDs. Returns empty list if:
+        - psutil is not available
+        - parent process doesn't exist
+        - access is denied
+        - any other error occurs
+
+    Security Note:
+        This implementation is safe from command injection attacks
+        as it uses the psutil library API instead of shell commands.
+    """
+    if not PSUTIL_AVAILABLE:
+        return []
+
+    try:
+        parent = psutil.Process(parent_pid)
+        children = parent.children(recursive=False)
+        return [child.pid for child in children]
+    except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+        return []
+    except Exception:
+        # Catch any other unexpected errors
+        return []
 
 
 class MessageParser:
@@ -225,19 +262,10 @@ class ProcessRunner(QtCore.QThread):
                     stderr=subprocess.DEVNULL
                 )
             else:  # Unix/Linux/Mac
-                # Try to terminate child processes
+                # Try to terminate child processes using psutil (secure)
                 try:
                     parent_pid = self.process.pid
-                    ps_output = subprocess.check_output(
-                        f"ps -o pid --ppid {parent_pid} --noheaders",
-                        shell=True,
-                        stderr=subprocess.DEVNULL
-                    )
-                    child_pids = [
-                        int(pid_str) 
-                        for pid_str in ps_output.decode().strip().split('\n') 
-                        if pid_str
-                    ]
+                    child_pids = get_child_pids(parent_pid)
                     for pid in child_pids:
                         try:
                             os.kill(pid, signal.SIGTERM)
