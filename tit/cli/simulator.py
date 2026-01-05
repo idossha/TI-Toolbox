@@ -143,35 +143,142 @@ def prompt_eeg_net(subject_id: str) -> str:
     return caps[choice - 1]
 
 
+def prompt_create_montage(project_dir: str, eeg_net: str, sim_mode: str) -> bool:
+    """Prompt user to create a new montage interactively."""
+    echo_info(f"No montages found for {eeg_net}")
+
+    if not click.confirm(click.style("Would you like to create a montage for this EEG net?", fg='yellow'), default=True):
+        return False
+
+    # Get montage name
+    montage_name = click.prompt(
+        click.style("Enter montage name", fg='white'),
+        type=str
+    ).strip()
+
+    if not montage_name:
+        echo_warning("Montage name cannot be empty")
+        return False
+
+    # Determine expected number of pairs
+    expected_pairs = 2 if sim_mode == "U" else 4
+    pair_type = "unipolar TI (2 pairs)" if sim_mode == "U" else "multipolar mTI (4 pairs)"
+
+    echo_info(f"Creating {pair_type} montage")
+    echo_info("Enter electrode pairs in format 'E1,E2' (or press Enter to finish)")
+
+    pairs = []
+    for i in range(expected_pairs):
+        pair_input = click.prompt(
+            click.style(f"Pair {i+1} (E1,E2)", fg='white'),
+            type=str,
+            default=""
+        ).strip()
+
+        if not pair_input:
+            if i == 0:
+                echo_warning("At least one pair is required")
+                return False
+            break
+
+        try:
+            electrodes = [e.strip() for e in pair_input.split(',')]
+            if len(electrodes) != 2:
+                echo_warning("Each pair must have exactly 2 electrodes separated by comma")
+                return False
+            pairs.append(electrodes)
+        except:
+            echo_warning("Invalid pair format. Use 'E1,E2'")
+            return False
+
+    if not pairs:
+        echo_warning("At least one pair is required")
+        return False
+
+    # Save the montage
+    try:
+        config_dir = os.path.join(project_dir, 'code', 'tit', 'config')
+        montage_file = os.path.join(config_dir, 'montage_list.json')
+
+        # Load existing montage data
+        if os.path.exists(montage_file):
+            with open(montage_file, 'r') as f:
+                montage_data = json.load(f)
+        else:
+            montage_data = {"nets": {}}
+
+        # Ensure the net exists
+        if eeg_net not in montage_data["nets"]:
+            montage_data["nets"][eeg_net] = {
+                "uni_polar_montages": {},
+                "multi_polar_montages": {}
+            }
+
+        # Add the montage
+        montage_type = "uni_polar_montages" if sim_mode == "U" else "multi_polar_montages"
+        montage_data["nets"][eeg_net][montage_type][montage_name] = pairs
+
+        # Save back to file
+        os.makedirs(config_dir, exist_ok=True)
+        with open(montage_file, 'w') as f:
+            json.dump(montage_data, f, indent=4)
+
+        echo_success(f"Montage '{montage_name}' created successfully with {len(pairs)} pairs")
+        return True
+
+    except Exception as e:
+        echo_error(f"Failed to save montage: {e}")
+        return False
+
+
 def prompt_montages(project_dir: str, eeg_net: str, sim_mode: str) -> List[str]:
     """Prompt user to select montages."""
     try:
         montage_data = load_montage_file(project_dir, eeg_net)
     except (ValueError, FileNotFoundError):
-        echo_warning("No montages found. Please create montages first.")
-        return []
-    
+        # Try to create montage instead of just warning
+        if prompt_create_montage(project_dir, eeg_net, sim_mode):
+            # Reload montage data after creation
+            try:
+                montage_data = load_montage_file(project_dir, eeg_net)
+            except (ValueError, FileNotFoundError):
+                echo_error("Failed to reload montage data after creation")
+                return []
+        else:
+            return []
+
     montage_type = "uni_polar_montages" if sim_mode == "U" else "multi_polar_montages"
     available = montage_data.get(montage_type, {})
-    
+
     if not available:
-        echo_warning(f"No {montage_type} found for {eeg_net}")
-        return []
-    
+        # Try to create montage for this specific type
+        if prompt_create_montage(project_dir, eeg_net, sim_mode):
+            # Reload montage data after creation
+            try:
+                montage_data = load_montage_file(project_dir, eeg_net)
+                available = montage_data.get(montage_type, {})
+                if not available:
+                    return []
+            except (ValueError, FileNotFoundError):
+                echo_error("Failed to reload montage data after creation")
+                return []
+        else:
+            return []
+
     montage_names = list(available.keys())
-    
+
     echo_section(f"Available Montages ({montage_type})")
     for i, name in enumerate(montage_names, 1):
         pairs = available[name]
         pairs_str = "; ".join([f"{p[0]},{p[1]}" for p in pairs])
         click.echo(f"{i:3d}. {name:<25} Pairs: {pairs_str}")
-    
+
     click.echo()
     selection = click.prompt(
         click.style("Enter montage numbers (comma-separated)", fg='white'),
         type=str
     )
-    
+
     selected = []
     for num_str in selection.split(','):
         try:
@@ -182,8 +289,10 @@ def prompt_montages(project_dir: str, eeg_net: str, sim_mode: str) -> List[str]:
                 echo_warning(f"Invalid number: {num}")
         except ValueError:
             echo_warning(f"Invalid input: {num_str}")
-    
+
     return selected
+
+
 
 
 def prompt_flex_outputs(selected_subjects: List[str]) -> Tuple[List[dict], str]:
