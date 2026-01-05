@@ -136,8 +136,8 @@ RUN cp /ti-toolbox/resources/ElectrodeCaps_MNI/* $SIMNIBSDIR/resources/Electrode
 RUN rm -f $SIMNIBSDIR/simnibs/optimization/tes_flex_optimization/tes_flex_optimization.py && \
     cp /ti-toolbox/resources/map-electrodes/tes_flex_optimization.py $SIMNIBSDIR/simnibs/optimization/tes_flex_optimization/tes_flex_optimization.py
 
-# Install TIT package in editable mode
-RUN cd /ti-toolbox && simnibs_python -m pip install -e .
+# Install TIT package (non-editable). CLI entrypoints are defined in pyproject.toml.
+RUN cd /ti-toolbox && simnibs_python -m pip install --no-cache-dir .
 
 ############ CLI tools ###############
 

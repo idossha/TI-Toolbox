@@ -13,6 +13,18 @@ dependencies = [
   "click>=8.1",
 ]
 
+[project.scripts]
+# Stable user-facing commands (replaces legacy bash `*.sh` CLIs).
+# These create actual executables during `pip install` so they work without shell aliases.
+gui = "tit.cli.gui:cli"
+simulator = "tit.cli.simulator:cli"
+analyzer = "tit.cli.analyzer:cli"
+pre_process = "tit.cli.pre_process:cli"
+ex_search = "tit.cli.ex_search:cli"
+flex_search = "tit.cli.flex_search:cli"
+group_analyzer = "tit.cli.group_analyzer:cli"
+create_leadfield = "tit.cli.create_leadfield:cli"
+
 [project.urls]
 Repository = "https://github.com/idossha/TI-toolbox"
 

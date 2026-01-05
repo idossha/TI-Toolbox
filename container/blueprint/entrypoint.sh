@@ -1,19 +1,24 @@
 #!/bin/bash
+set -euo pipefail
 
 # Initialize .bashrc if it doesn't exist
 touch ~/.bashrc
 
 # Source environment setup scripts
-[ -f "$FREESURFER_HOME/SetUpFreeSurfer.sh" ] && source "$FREESURFER_HOME/SetUpFreeSurfer.sh"
+if [ -n "${FREESURFER_HOME:-}" ] && [ -f "${FREESURFER_HOME}/SetUpFreeSurfer.sh" ]; then
+    # shellcheck source=/dev/null
+    source "${FREESURFER_HOME}/SetUpFreeSurfer.sh"
+fi
 
-# Ensure `tit` is importable system-wide in the SimNIBS python environment.
-# This fixes running python entrypoints by path like:
-#   simnibs_python /ti-toolbox/tit/cli/simulator.py
-if command -v simnibs_python >/dev/null 2>&1; then
-    if ! simnibs_python -c "import tit" >/dev/null 2>&1; then
-        # Editable install keeps imports working while still allowing mounted code changes.
-        simnibs_python -m pip install -e /ti-toolbox >/dev/null 2>&1 || true
-    fi
+#
+# NOTE:
+# - CLI entrypoints are defined in `pyproject.toml` and installed at image build
+#   time (non-editable).
+# - For development, users may mount the repo at /ti-toolbox. We prefer that
+#   mounted source to take precedence over the installed package without needing
+#   a runtime `pip install -e`.
+if [ -d "/ti-toolbox/tit" ]; then
+    export PYTHONPATH="/ti-toolbox${PYTHONPATH:+:${PYTHONPATH}}"
 fi
 
 # ============================================================================
@@ -27,8 +32,15 @@ print_software_info() {
     echo "═══════════════════════════════════════════════════════════════════"
     echo ""
     
-    # Get TI-Toolbox version from container image tag (set during build)
-    TI_VERSION="${TI_TOOLBOX_VERSION:-unknown}"
+    # Prefer explicit image-tag version (env), fall back to python package version.
+    local TI_VERSION="${TI_TOOLBOX_VERSION:-unknown}"
+    if command -v simnibs_python >/dev/null 2>&1; then
+        local TIT_VERSION
+        TIT_VERSION="$(simnibs_python -c "import tit; print(getattr(tit, '__version__', 'unknown'))" 2>/dev/null || true)"
+        if { [ "${TI_VERSION}" = "unknown" ] || [ -z "${TI_VERSION}" ]; } && [ -n "${TIT_VERSION}" ] && [ "${TIT_VERSION}" != "unknown" ]; then
+            TI_VERSION="v${TIT_VERSION}"
+        fi
+    fi
     echo "✓ TI-Toolbox:     ${TI_VERSION}"
     
     # Check SimNIBS
@@ -80,52 +92,24 @@ print_software_info() {
     echo "  Available Commands:"
     echo "═══════════════════════════════════════════════════════════════════"
     echo ""
-    echo "  GUI              - Launch graphical user interface"
+    echo "  gui              - Launch graphical user interface"
     echo "  simulator        - Run TI simulations"
     echo "  analyzer         - Analyze simulation results"
-    echo "  pre-process      - Preprocess MRI data"
-    echo "  movea            - MOVEA optimization"
-    echo "  ex-search        - Exhaustive search"
-    echo "  flex-search      - Flexible search"
+    echo "  pre_process      - Preprocess MRI data"
+    echo "  ex_search        - Exhaustive search"
+    echo "  flex_search      - Flexible search"
     echo "  group_analyzer   - Group analysis"
+    echo "  create_leadfield - Create leadfields"
     echo ""
     echo "═══════════════════════════════════════════════════════════════════"
     echo ""
 }
 
-# Make CLI scripts executable
-# Note: CLI is Python-based; avoid chmod'ing non-existent legacy .sh scripts.
-
-# Create CLI script aliases (without .sh extension)
-alias GUI='simnibs_python -m tit.cli.gui'
-alias analyzer='simnibs_python -m tit.cli.analyzer'
-alias ex-search='simnibs_python -m tit.cli.ex_search'
-alias flex-search='simnibs_python -m tit.cli.flex_search'
-alias group_analyzer='simnibs_python -m tit.cli.group_analyzer'
-alias pre-process='simnibs_python -m tit.cli.pre_process'
-alias simulator='simnibs_python -m tit.cli.simulator'
-
-# Add environment setup to .bashrc
-{
-    echo ""
-    echo "source \"\$FREESURFER_HOME/SetUpFreeSurfer.sh\""
-    echo ""
-    echo "# TI-Toolbox CLI scripts"
-    echo "export PATH=\"\$PATH:/ti-toolbox/tit/cli\""
-    echo "alias GUI='simnibs_python -m tit.cli.gui'"
-    echo "alias analyzer='simnibs_python -m tit.cli.analyzer'"
-    echo "alias ex-search='simnibs_python -m tit.cli.ex_search'"
-    echo "alias flex-search='simnibs_python -m tit.cli.flex_search'"
-    echo "alias group_analyzer='simnibs_python -m tit.cli.group_analyzer'"
-    echo "alias pre-process='simnibs_python -m tit.cli.pre_process'"
-    echo "alias simulator='simnibs_python -m tit.cli.simulator'"
-    echo ""
-    echo "# Display software info on interactive shell"
-    echo "if [[ \$- == *i* ]] && [ -z \"\$TI_INFO_SHOWN\" ]; then"
-    echo "    export TI_INFO_SHOWN=1"
-    echo "    source /usr/local/bin/entrypoint.sh print_info_only"
-    echo "fi"
-} >> ~/.bashrc
+# Display software info on interactive shell once per session
+if [[ $- == *i* ]] && [ -z "${TI_INFO_SHOWN:-}" ]; then
+    export TI_INFO_SHOWN=1
+    print_software_info
+fi
 
 # Setup XDG runtime directory
 export XDG_RUNTIME_DIR=/tmp/runtime-root
