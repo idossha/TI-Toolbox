@@ -130,14 +130,36 @@ async function loadSavedPath() {
 
 function appendActivity({ stage, message, timestamp }) {
   const item = document.createElement('li');
-  const time = new Date(timestamp || Date.now()).toLocaleTimeString();
 
-  item.innerHTML = `<span class="activity-time">${time}</span><span class="activity-stage">${stage}</span><span class="activity-message">${message}</span>`;
-  activityList.prepend(item);
+  // Format timestamp to HH:MM:SS
+  const time = new Date(timestamp).toLocaleTimeString('en-US', {
+    hour12: false,
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit'
+  });
 
-  while (activityList.children.length > 8) {
-    activityList.removeChild(activityList.lastChild);
+  // Terminal-style output with time format: |time| message|
+  item.textContent = `|${time}| ${message}`;
+
+  // Add styling based on stage or message content
+  if (stage === 'gui-started' || stage === 'shutdown-complete' || message.includes('successfully') || message.includes('✓')) {
+    item.classList.add('success');
+  } else if (stage === 'error' || message.includes('error') || message.includes('failed') || message.includes('✗')) {
+    item.classList.add('error');
+  } else if (stage === 'warning' || message.includes('warning') || message.includes('⚠')) {
+    item.classList.add('warning');
   }
+
+  activityList.appendChild(item);
+
+  // Keep more lines for terminal-like scrolling
+  while (activityList.children.length > 100) {
+    activityList.removeChild(activityList.firstChild);
+  }
+
+  // Auto-scroll to bottom
+  activityList.scrollTop = activityList.scrollHeight;
 }
 
 async function hydrateLogPath() {
@@ -371,9 +393,17 @@ ipcRenderer.on('launcher-log', (_event, payload) => {
   if (!payload?.message) {
     return;
   }
+
+  // Filter out specific libGL error messages
+  const message = payload.message.trim();
+  if (message.includes('libGL error: No matching fbConfigs or visuals found') ||
+      message.includes('libGL error: failed to load driver: swrast')) {
+    return;
+  }
+
   appendActivity({
     stage: 'log',
-    message: payload.message.trim(),
+    message: message,
     timestamp: payload.timestamp || new Date().toISOString()
   });
 });

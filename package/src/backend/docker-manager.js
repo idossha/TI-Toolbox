@@ -178,11 +178,53 @@ class DockerManager extends EventEmitter {
     const execa = await getExeca();
     const execEnv = ensurePathEnv(env);
     const dockerPath = this.findDockerCommand();
-    await execa(dockerPath, ['compose', '-f', this.composeFile, 'up', '--build', '-d'], {
-      env: execEnv,
+
+    // Set BUILDKIT_PROGRESS to plain for better terminal-like output
+    const enhancedEnv = {
+      ...execEnv,
+      BUILDKIT_PROGRESS: 'plain',
+      COMPOSE_DOCKER_CLI_BUILD: '1'
+    };
+
+    // Stream output in real-time for docker pull progress
+    const subprocess = execa(dockerPath, ['compose', '-f', this.composeFile, 'up', '--build', '-d'], {
+      env: enhancedEnv,
       cwd: this.toolboxRoot,
-      timeout: 180000
+      timeout: 300000,
+      buffer: false
     });
+
+    // Stream stdout
+    if (subprocess.stdout) {
+      subprocess.stdout.on('data', (chunk) => {
+        const output = chunk.toString().trim();
+        if (output) {
+          // Emit each line as progress
+          output.split('\n').forEach(line => {
+            if (line.trim()) {
+              this.emitProgress('docker', line.trim());
+            }
+          });
+        }
+      });
+    }
+
+    // Stream stderr (docker compose often outputs to stderr)
+    if (subprocess.stderr) {
+      subprocess.stderr.on('data', (chunk) => {
+        const output = chunk.toString().trim();
+        if (output) {
+          // Emit each line as progress
+          output.split('\n').forEach(line => {
+            if (line.trim()) {
+              this.emitProgress('docker', line.trim());
+            }
+          });
+        }
+      });
+    }
+
+    await subprocess;
   }
 
   async composeDown(env) {

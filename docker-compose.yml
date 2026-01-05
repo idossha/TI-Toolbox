@@ -12,7 +12,7 @@ services:
 
   simnibs:
     platform: linux/amd64
-    image: idossha/simnibs:v2.2.2
+    image: idossha/simnibs:v2.2.3
     container_name: simnibs_container
     volumes:
       - ti-toolbox_freesurfer_data:/usr/local/freesurfer/
@@ -30,7 +30,7 @@ services:
       PROJECT_DIR_NAME: ${PROJECT_DIR_NAME}
       TZ: ${TZ}
       KMP_AFFINITY: "disabled"
-      TI_TOOLBOX_VERSION: "v2.2.2"
+      TI_TOOLBOX_VERSION: "v2.2.3"
     networks:
       - ti_network
     depends_on:
