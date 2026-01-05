@@ -72,7 +72,7 @@ def update_version(new_version):
         ],
         
         "package/src/index.html": [
-            (r'Version \d+\.\d+\.\d+', f'Version {new_version}'),
+            (r'TI-Toolbox V\d+\.\d+\.\d+', f'TI-Toolbox V{new_version}'),
         ],
         
         "package/docker/docker-compose.yml": [
