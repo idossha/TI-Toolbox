@@ -1,21 +1,29 @@
 ---
 layout: gallery
-title: Ex-Search Gallery
-permalink: /gallery/ex-search/
+title: Statistics Gallery
+permalink: /gallery/statistics/
 ---
 
 <link rel="stylesheet" href="{{ '/assets/css/lightbox.css' | relative_url }}">
 
 <div class="gallery-section">
-  <h3>Exhaustive Search Results</h3>
+  <h3>Statistical Analysis & Group-Level Computations</h3>
   <div class="gallery-grid">
     <div class="gallery-item">
-      <img src="{{ site.baseurl }}/assets/imgs/gallery/ex-search_ex-search_selection.png" alt="Ex-Search Selection" onclick="openLightbox(this)" />
-      <p>electrode selection is required for exhaustive search optimization</p>
+      <img src="{{ site.baseurl }}/assets/imgs/gallery/statistics_descriptive.png" alt="Descriptive Statistics" onclick="openLightbox(this)" />
+      <p>Descriptive statistics for TI field distributions across subjects.</p>
     </div>
     <div class="gallery-item">
-      <img src="{{ site.baseurl }}/assets/imgs/gallery/ex-search_ex-search_combos.png" alt="Ex-Search Combinations" onclick="openLightbox(this)" />
-      <p>All elecrode combinations to be searches through n^4 combniations</p>
+      <img src="{{ site.baseurl }}/assets/imgs/gallery/statistics_group_comparison.png" alt="Group Comparison" onclick="openLightbox(this)" />
+      <p>Statistical comparison between different subject groups or conditions.</p>
+    </div>
+    <div class="gallery-item">
+      <img src="{{ site.baseurl }}/assets/imgs/gallery/statistics_roi_analysis.png" alt="ROI-based Statistics" onclick="openLightbox(this)" />
+      <p>Region of interest statistical analysis and metrics.</p>
+    </div>
+    <div class="gallery-item">
+      <img src="{{ site.baseurl }}/assets/imgs/gallery/statistics_correlation.png" alt="Correlation Analysis" onclick="openLightbox(this)" />
+      <p>Correlation analysis between different field parameters and outcomes.</p>
     </div>
   </div>
 </div>
@@ -93,12 +101,12 @@ permalink: /gallery/ex-search/
     grid-template-columns: 1fr;
     gap: 1rem;
   }
-  
+
   .gallery-section {
     margin: 1rem 0;
     padding: 0.5rem;
   }
-  
+
   .wiki-content .gallery-item img,
   .gallery-item img {
     max-width: 100% !important;
@@ -112,4 +120,4 @@ permalink: /gallery/ex-search/
     max-height: 250px !important;
   }
 }
-</style> 
+</style>

@@ -1,21 +1,29 @@
 ---
 layout: gallery
-title: Ex-Search Gallery
-permalink: /gallery/ex-search/
+title: Nilearn Gallery
+permalink: /gallery/nilearn/
 ---
 
 <link rel="stylesheet" href="{{ '/assets/css/lightbox.css' | relative_url }}">
 
 <div class="gallery-section">
-  <h3>Exhaustive Search Results</h3>
+  <h3>Nilearn Visualizations & Brain Imaging</h3>
   <div class="gallery-grid">
     <div class="gallery-item">
-      <img src="{{ site.baseurl }}/assets/imgs/gallery/ex-search_ex-search_selection.png" alt="Ex-Search Selection" onclick="openLightbox(this)" />
-      <p>electrode selection is required for exhaustive search optimization</p>
+      <img src="{{ site.baseurl }}/assets/imgs/gallery/nilearn_slices.png" alt="Slice Visualizations" onclick="openLightbox(this)" />
+      <p>High-quality brain slice visualizations with anatomical overlays.</p>
     </div>
     <div class="gallery-item">
-      <img src="{{ site.baseurl }}/assets/imgs/gallery/ex-search_ex-search_combos.png" alt="Ex-Search Combinations" onclick="openLightbox(this)" />
-      <p>All elecrode combinations to be searches through n^4 combniations</p>
+      <img src="{{ site.baseurl }}/assets/imgs/gallery/nilearn_glass_brain.png" alt="Glass Brain" onclick="openLightbox(this)" />
+      <p>3D glass brain visualization showing field distributions.</p>
+    </div>
+    <div class="gallery-item">
+      <img src="{{ site.baseurl }}/assets/imgs/gallery/nilearn_roi_overlay.png" alt="ROI Overlay" onclick="openLightbox(this)" />
+      <p>Region of interest overlays on anatomical templates.</p>
+    </div>
+    <div class="gallery-item">
+      <img src="{{ site.baseurl }}/assets/imgs/gallery/nilearn_statistical_maps.png" alt="Statistical Maps" onclick="openLightbox(this)" />
+      <p>Statistical parametric maps with significance overlays.</p>
     </div>
   </div>
 </div>
@@ -93,12 +101,12 @@ permalink: /gallery/ex-search/
     grid-template-columns: 1fr;
     gap: 1rem;
   }
-  
+
   .gallery-section {
     margin: 1rem 0;
     padding: 0.5rem;
   }
-  
+
   .wiki-content .gallery-item img,
   .gallery-item img {
     max-width: 100% !important;
@@ -112,4 +120,4 @@ permalink: /gallery/ex-search/
     max-height: 250px !important;
   }
 }
-</style> 
+</style>

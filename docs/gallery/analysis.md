@@ -45,7 +45,7 @@ Comprehensive analysis and visualization of TI simulation results, field distrib
   <div class="gallery-grid">
     <div class="gallery-item">
       <img src="{{ site.baseurl }}/assets/imgs/gallery/analyzer/analyzer_lh.insula_whole_head_roi_histogram.png" alt="ROI Histogram Analysis" onclick="openLightbox(this)" />
-      <p>Histrogram showing focality, intensity cutoffs, and relationship to ROI</p>
+      <p>Histogram showing focality, intensity cutoffs, and relationship to ROI</p>
     </div>
   </div>
 </div>
@@ -84,7 +84,7 @@ Comprehensive analysis and visualization of TI simulation results, field distrib
 
 .gallery-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+  grid-template-columns: repeat(2, 1fr);
   gap: 1.5rem;
   margin-top: 1rem;
 }
@@ -135,12 +135,12 @@ Comprehensive analysis and visualization of TI simulation results, field distrib
     grid-template-columns: 1fr;
     gap: 1rem;
   }
-  
+
   .gallery-section {
     margin: 1rem 0;
     padding: 1rem;
   }
-  
+
   .wiki-content .gallery-item img,
   .gallery-item img {
     max-width: 100% !important;
