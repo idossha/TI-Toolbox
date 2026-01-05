@@ -212,7 +212,7 @@ def interactive(ctx, tissues):
         tissues = list(tissues)
 
     # Get available subjects
-    subjects = list_subjects()
+    subjects = pm.list_subjects()
     if not subjects:
         echo_error("No subjects found in project directory")
         raise click.Abort()
