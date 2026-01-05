@@ -133,6 +133,9 @@ RUN cp /ti-toolbox/resources/ElectrodeCaps_MNI/* $SIMNIBSDIR/resources/Electrode
 RUN rm -f $SIMNIBSDIR/simnibs/optimization/tes_flex_optimization/tes_flex_optimization.py && \
     cp /ti-toolbox/resources/map-electrodes/tes_flex_optimization.py $SIMNIBSDIR/simnibs/optimization/tes_flex_optimization/tes_flex_optimization.py
 
+# Install TIT package in editable mode
+RUN cd /ti-toolbox && simnibs_python -m pip install -e .
+
 ############ CLI tools ###############
 
 # Install Neovim v.0.11.0 from source 
