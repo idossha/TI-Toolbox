@@ -121,6 +121,11 @@ export XDG_RUNTIME_DIR=/tmp/runtime-root
 mkdir -p "$XDG_RUNTIME_DIR"
 chmod 700 "$XDG_RUNTIME_DIR"
 
+# Set PROJECT_DIR environment variable for CLI tools
+if [ -n "$PROJECT_DIR_NAME" ]; then
+    export PROJECT_DIR="/mnt/$PROJECT_DIR_NAME"
+fi
+
 # ============================================================================
 # Container-side initialization - minimal setup only
 # ============================================================================
