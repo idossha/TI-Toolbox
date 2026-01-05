@@ -22,3 +22,4 @@ To-Do List:
 
 - [ ] move nifti things, and resampling logic from analyzer to core.nifti
 - [ ] continue to clean up the tit/tools/* move things to their appropriate places
+- [ ] consider moving pre-process bash to python
