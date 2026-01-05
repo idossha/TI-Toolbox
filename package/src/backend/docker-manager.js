@@ -24,11 +24,31 @@ class DockerManager extends EventEmitter {
   constructor(toolboxRoot) {
     super();
     this.toolboxRoot = toolboxRoot;
-    this.composeFile = path.join(toolboxRoot, 'docker-compose.yml');
+    this.originalComposeFile = path.join(toolboxRoot, 'docker-compose.yml');
+    this.composeFile = this.getAccessibleComposeFile();
     this.docker = this.createDockerClient();
     this.globalExecEnv = ensurePathEnv(process.env);
     this.stopInFlight = null;
     this.guiRunning = false;
+  }
+
+  getAccessibleComposeFile() {
+    // Copy docker-compose.yml to a Docker-accessible location
+    // Docker Desktop requires paths to be explicitly shared on macOS
+    try {
+      const tempDir = path.join(os.tmpdir(), 'ti-toolbox-docker');
+      fs.ensureDirSync(tempDir);
+
+      const accessibleComposeFile = path.join(tempDir, 'docker-compose.yml');
+      fs.copyFileSync(this.originalComposeFile, accessibleComposeFile);
+
+      logger.info(`Copied docker-compose.yml to accessible location: ${accessibleComposeFile}`);
+      return accessibleComposeFile;
+    } catch (error) {
+      logger.warn(`Failed to copy docker-compose.yml to accessible location, using original: ${error.message}`);
+      // Fall back to original file if copy fails
+      return this.originalComposeFile;
+    }
   }
 
   createDockerClient() {
@@ -228,6 +248,9 @@ class DockerManager extends EventEmitter {
   }
 
   async composeDown(env) {
+    // Ensure we have an accessible compose file
+    this.composeFile = this.getAccessibleComposeFile();
+
     const composeExists = await fs.pathExists(this.composeFile);
     if (!composeExists) {
       return;
@@ -260,6 +283,9 @@ class DockerManager extends EventEmitter {
   }
 
   async prepareStack(env) {
+    // Ensure we have an accessible compose file
+    this.composeFile = this.getAccessibleComposeFile();
+
     const composeExists = await fs.pathExists(this.composeFile);
     if (!composeExists) {
       throw new Error(`docker-compose.yml not found at ${this.composeFile}`);
