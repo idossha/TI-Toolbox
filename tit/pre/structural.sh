@@ -12,11 +12,23 @@
 # Source the logging utility
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 echo "DEBUG: Script directory: $script_dir" >&2
-echo "DEBUG: Looking for logging utility at: $script_dir/../tools/bash_logging.sh" >&2
+LOG_UTIL_CANDIDATES=(
+    "$script_dir/../bash_logging.sh"
+    "$script_dir/../tools/bash_logging.sh"
+)
 
-if [[ -f "$script_dir/../tools/bash_logging.sh" ]]; then
+log_util_path=""
+for candidate in "${LOG_UTIL_CANDIDATES[@]}"; do
+    echo "DEBUG: Looking for logging utility at: $candidate" >&2
+    if [[ -f "$candidate" ]]; then
+        log_util_path="$candidate"
+        break
+    fi
+done
+
+if [[ -n "$log_util_path" ]]; then
     echo "DEBUG: Logging utility file exists, sourcing it..." >&2
-    source "$script_dir/../tools/bash_logging.sh"
+    source "$log_util_path"
     echo "DEBUG: Logging utility sourced" >&2
     
     # Check if key functions are available
@@ -32,7 +44,10 @@ if [[ -f "$script_dir/../tools/bash_logging.sh" ]]; then
         echo "DEBUG: log_info function is NOT available" >&2
     fi
 else
-    echo "ERROR: Logging utility file not found at $script_dir/../tools/bash_logging.sh" >&2
+    echo "ERROR: Logging utility file not found. Looked in:" >&2
+    for candidate in "${LOG_UTIL_CANDIDATES[@]}"; do
+        echo "  - $candidate" >&2
+    done
     echo "ERROR: Logging will not be available" >&2
 fi
 

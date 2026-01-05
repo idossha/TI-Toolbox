@@ -8,7 +8,22 @@
 
 # Source the logging utility
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "$script_dir/../tools/bash_logging.sh"
+LOG_UTIL_CANDIDATES=(
+    "$script_dir/../bash_logging.sh"
+    "$script_dir/../tools/bash_logging.sh"
+)
+log_util_path=""
+for candidate in "${LOG_UTIL_CANDIDATES[@]}"; do
+    if [[ -f "$candidate" ]]; then
+        log_util_path="$candidate"
+        break
+    fi
+done
+if [[ -n "$log_util_path" ]]; then
+    source "$log_util_path"
+else
+    echo "[WARN] bash_logging.sh not found (looked in: ${LOG_UTIL_CANDIDATES[*]}). Proceeding without enhanced logging." >&2
+fi
 
 # Parse arguments
 PROJECT_DIR=""

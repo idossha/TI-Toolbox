@@ -8,7 +8,22 @@
 
 # Source the logging utility
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "$script_dir/../tools/bash_logging.sh"
+LOG_UTIL_CANDIDATES=(
+    "$script_dir/../bash_logging.sh"
+    "$script_dir/../tools/bash_logging.sh"
+)
+log_util_path=""
+for candidate in "${LOG_UTIL_CANDIDATES[@]}"; do
+    if [[ -f "$candidate" ]]; then
+        log_util_path="$candidate"
+        break
+    fi
+done
+if [[ -n "$log_util_path" ]]; then
+    source "$log_util_path"
+else
+    echo "[WARN] bash_logging.sh not found (looked in: ${LOG_UTIL_CANDIDATES[*]}). Proceeding without enhanced logging." >&2
+fi
 
 # Parse arguments
 SUBJECT_DIR=""
@@ -88,6 +103,28 @@ fi
 
 log_info "Starting DICOM to NIfTI conversion for subject: $SUBJECT_ID"
 
+TI_TOOLBOX_OVERWRITE="${TI_TOOLBOX_OVERWRITE:-false}"
+TI_TOOLBOX_PROMPT_OVERWRITE="${TI_TOOLBOX_PROMPT_OVERWRITE:-true}"
+
+confirm_overwrite() {
+    local target_path="$1"
+    if [ "$TI_TOOLBOX_OVERWRITE" = "true" ] || [ "$TI_TOOLBOX_OVERWRITE" = "1" ]; then
+        return 0
+    fi
+    if [ "$TI_TOOLBOX_PROMPT_OVERWRITE" = "false" ] || [ "$TI_TOOLBOX_PROMPT_OVERWRITE" = "0" ]; then
+        return 1
+    fi
+    # interactive prompt when running in a TTY
+    if [ -t 0 ]; then
+        read -r -p "Output exists: ${target_path}. Overwrite? [y/N]: " ans
+        case "$ans" in
+            y|Y|yes|YES) return 0 ;;
+            *) return 1 ;;
+        esac
+    fi
+    return 1
+}
+
 # Function to handle compressed DICOM files
 handle_compressed_dicom() {
     local source_dir="$1"
@@ -139,6 +176,9 @@ process_dicom_directory() {
         # First convert in place
         dcm2niix -z y -o "$target_dir" "$source_dir"
         
+        local wrote_t1w="false"
+        local wrote_t2w="false"
+
 		# Process each pair of files
 		for json_file in "$target_dir"/*.json; do
 			if [ -f "$json_file" ]; then
@@ -167,30 +207,52 @@ process_dicom_directory() {
 					else
 						base_name="${BIDS_SUBJECT_ID}_${scan_suffix}"
 					fi
+
+                    # We never auto-create run-XX variants. Instead:
+                    # - Write ONE canonical T1w and ONE canonical T2w
+                    # - Move any additional series into anat/extra/
+                    if [ "$scan_suffix" = "T1w" ] && [ "$wrote_t1w" = "true" ]; then
+                        mkdir -p "$BIDS_ANAT_DIR/extra"
+                        mv "$json_file" "$BIDS_ANAT_DIR/extra/$(basename "$json_file")"
+                        mv "$nii_file" "$BIDS_ANAT_DIR/extra/$(basename "$nii_file")"
+                        log_warning "Additional T1w series detected; moved to anat/extra/: $(basename "$nii_file")"
+                        continue
+                    fi
+                    if [ "$scan_suffix" = "T2w" ] && [ "$wrote_t2w" = "true" ]; then
+                        mkdir -p "$BIDS_ANAT_DIR/extra"
+                        mv "$json_file" "$BIDS_ANAT_DIR/extra/$(basename "$json_file")"
+                        mv "$nii_file" "$BIDS_ANAT_DIR/extra/$(basename "$nii_file")"
+                        log_warning "Additional T2w series detected; moved to anat/extra/: $(basename "$nii_file")"
+                        continue
+                    fi
+
 					new_json="${BIDS_ANAT_DIR}/${base_name}.json"
 					new_nii="${BIDS_ANAT_DIR}/${base_name}.nii.gz"
-					
-					# Handle duplicates by adding run-XX
-					if [ -e "$new_nii" ] || [ -e "$new_json" ]; then
-						run_index=2
-						while true; do
-							candidate_base="${base_name}_run-$(printf "%02d" "$run_index")"
-							candidate_json="${BIDS_ANAT_DIR}/${candidate_base}.json"
-							candidate_nii="${BIDS_ANAT_DIR}/${candidate_base}.nii.gz"
-							if [ ! -e "$candidate_json" ] && [ ! -e "$candidate_nii" ]; then
-								new_json="$candidate_json"
-								new_nii="$candidate_nii"
-								break
-							fi
-							run_index=$((run_index + 1))
-						done
-					fi
+
+                    # If canonical exists, require explicit overwrite confirmation.
+                    if [ -e "$new_nii" ] || [ -e "$new_json" ]; then
+                        if confirm_overwrite "$new_nii"; then
+                            rm -f "$new_nii" "$new_json"
+                        else
+                            mkdir -p "$BIDS_ANAT_DIR/extra"
+                            mv "$json_file" "$BIDS_ANAT_DIR/extra/$(basename "$json_file")"
+                            mv "$nii_file" "$BIDS_ANAT_DIR/extra/$(basename "$nii_file")"
+                            log_warning "Kept existing canonical file; moved new conversion to anat/extra/: $(basename "$nii_file")"
+                            continue
+                        fi
+                    fi
 					
 					# Move and rename the files
 					mkdir -p "$BIDS_ANAT_DIR"
 					mv "$json_file" "$new_json"
 					mv "$nii_file" "$new_nii"
 					log_info "Renamed files to: $(basename "$new_nii")"
+
+                    if [ "$scan_suffix" = "T1w" ]; then
+                        wrote_t1w="true"
+                    elif [ "$scan_suffix" = "T2w" ]; then
+                        wrote_t2w="true"
+                    fi
 				fi
 			fi
 		done

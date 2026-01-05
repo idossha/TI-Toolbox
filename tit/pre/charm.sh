@@ -8,7 +8,22 @@
 
 # Source the logging utility
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "$script_dir/../tools/bash_logging.sh"
+LOG_UTIL_CANDIDATES=(
+    "$script_dir/../bash_logging.sh"
+    "$script_dir/../tools/bash_logging.sh"
+)
+log_util_path=""
+for candidate in "${LOG_UTIL_CANDIDATES[@]}"; do
+    if [[ -f "$candidate" ]]; then
+        log_util_path="$candidate"
+        break
+    fi
+done
+if [[ -n "$log_util_path" ]]; then
+    source "$log_util_path"
+else
+    echo "[WARN] bash_logging.sh not found (looked in: ${LOG_UTIL_CANDIDATES[*]}). Proceeding without enhanced logging." >&2
+fi
 
 # Parse arguments
 SUBJECT_DIR=""
@@ -142,8 +157,28 @@ log_info "Creating head model with SimNIBS charm..."
 m2m_dir="$SIMNIBS_DIR/m2m_${SUBJECT_ID}"
 forcerun=""
 if [ -d "$m2m_dir" ] && [ "$(ls -A "$m2m_dir" 2>/dev/null)" ]; then
-    log_warning "Head model directory already contains files. Using --forcerun option."
-    forcerun="--forcerun"
+    if [ "${TI_TOOLBOX_OVERWRITE:-false}" = "true" ] || [ "${TI_TOOLBOX_OVERWRITE:-false}" = "1" ]; then
+        log_warning "Head model directory already contains files. Using --forcerun option (TI_TOOLBOX_OVERWRITE enabled)."
+        forcerun="--forcerun"
+    elif [ "${TI_TOOLBOX_PROMPT_OVERWRITE:-true}" = "false" ] || [ "${TI_TOOLBOX_PROMPT_OVERWRITE:-true}" = "0" ]; then
+        log_warning "m2m output already exists for sub-${SUBJECT_ID}. Skipping charm (overwrite not enabled)."
+        exit 0
+    elif [ -t 0 ]; then
+        read -r -p "m2m output already exists for sub-${SUBJECT_ID}. Re-run and overwrite outputs? [y/N]: " ans
+        case "$ans" in
+            y|Y|yes|YES)
+                log_warning "User confirmed overwrite. Using --forcerun option."
+                forcerun="--forcerun"
+                ;;
+            *)
+                log_warning "User declined overwrite. Skipping charm for sub-${SUBJECT_ID}."
+                exit 0
+                ;;
+        esac
+    else
+        log_error "m2m output already exists for sub-${SUBJECT_ID}. Set TI_TOOLBOX_OVERWRITE=true to overwrite in non-interactive mode."
+        exit 1
+    fi
 fi
 
 # Function to run command with proper error handling

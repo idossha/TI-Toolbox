@@ -8,7 +8,22 @@
 
 # Source the logging utility
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "$script_dir/../tools/bash_logging.sh"
+LOG_UTIL_CANDIDATES=(
+    "$script_dir/../bash_logging.sh"
+    "$script_dir/../tools/bash_logging.sh"
+)
+log_util_path=""
+for candidate in "${LOG_UTIL_CANDIDATES[@]}"; do
+    if [[ -f "$candidate" ]]; then
+        log_util_path="$candidate"
+        break
+    fi
+done
+if [[ -n "$log_util_path" ]]; then
+    source "$log_util_path"
+else
+    echo "[WARN] bash_logging.sh not found (looked in: ${LOG_UTIL_CANDIDATES[*]}). Proceeding without enhanced logging." >&2
+fi
 
 # Function to validate FreeSurfer environment
 validate_freesurfer_env() {
@@ -432,11 +447,31 @@ else
 fi
 log_info "FreeSurfer subjects directory: $SUBJECTS_DIR"
 
-# Check if subject already exists and remove it (GUI already confirmed overwrite)
+# Check if subject already exists and require explicit overwrite confirmation
 SUBJECT_FS_DIR="$SUBJECTS_DIR/$BIDS_SUBJECT_ID"
 if [ -d "$SUBJECT_FS_DIR" ]; then
-    log_info "Removing existing FreeSurfer directory for subject: $BIDS_SUBJECT_ID (overwrite confirmed)"
-    rm -rf "$SUBJECT_FS_DIR"
+    if [ "${TI_TOOLBOX_OVERWRITE:-false}" = "true" ] || [ "${TI_TOOLBOX_OVERWRITE:-false}" = "1" ]; then
+        log_info "Removing existing FreeSurfer directory for subject: $BIDS_SUBJECT_ID (TI_TOOLBOX_OVERWRITE enabled)"
+        rm -rf "$SUBJECT_FS_DIR"
+    elif [ "${TI_TOOLBOX_PROMPT_OVERWRITE:-true}" = "false" ] || [ "${TI_TOOLBOX_PROMPT_OVERWRITE:-true}" = "0" ]; then
+        log_warning "FreeSurfer output already exists for ${BIDS_SUBJECT_ID}. Skipping recon-all (overwrite not enabled)."
+        exit 0
+    elif [ -t 0 ]; then
+        read -r -p "FreeSurfer output already exists for ${BIDS_SUBJECT_ID}. Delete and re-run recon-all? [y/N]: " ans
+        case "$ans" in
+            y|Y|yes|YES)
+                log_info "User confirmed overwrite. Removing: $SUBJECT_FS_DIR"
+                rm -rf "$SUBJECT_FS_DIR"
+                ;;
+            *)
+                log_warning "User declined overwrite. Skipping recon-all for ${BIDS_SUBJECT_ID}."
+                exit 0
+                ;;
+        esac
+    else
+        log_error "FreeSurfer output already exists for ${BIDS_SUBJECT_ID}. Set TI_TOOLBOX_OVERWRITE=true to overwrite in non-interactive mode."
+        exit 1
+    fi
 fi
 
 log_info "Starting new FreeSurfer analysis for subject: $BIDS_SUBJECT_ID"
