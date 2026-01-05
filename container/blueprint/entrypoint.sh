@@ -82,14 +82,14 @@ print_software_info() {
 # Create CLI script aliases (without .sh extension)
 alias GUI='simnibs_python -m tit.cli.gui'
 alias analyzer='simnibs_python -m tit.cli.analyzer'
-alias ex-search='simnibs_python -m tit.cli.ex_search'
-alias flex-search='simnibs_python -m tit.cli.flex_search'
+alias ex_search='simnibs_python -m tit.cli.ex_search'
+alias flex_search='simnibs_python -m tit.cli.flex_search'
 alias group_analyzer='simnibs_python -m tit.cli.group_analyzer'
-alias pre-process='simnibs_python -m tit.cli.pre_process'
+alias pre_process='simnibs_python -m tit.cli.pre_process'
 alias simulator='simnibs_python -m tit.cli.simulator'
-alias blender='simnibs_python -m tit.cli.viz_blender'
+alias blender='simnibs_python -m tit.cli.vis_blender'
 alias create_leadfield='simnibs_python -m tit.cli.create_leadfield'
-alias cluster_permutation='simnibs_python -m tit.cli.cluster_permutation'
+alias cluster_permutation='simnibs_python -m tit.cli.cluster_permuatation'
 
 # Add environment setup to .bashrc
 {
@@ -105,9 +105,9 @@ alias cluster_permutation='simnibs_python -m tit.cli.cluster_permutation'
     echo "alias group_analyzer='simnibs_python -m tit.cli.group_analyzer'"
     echo "alias pre_process='simnibs_python -m tit.cli.pre_process'"
     echo "alias simulator='simnibs_python -m tit.cli.simulator'"
-    echo "alias blender='simnibs_python -m tit.cli.viz_blender'"
+    echo "alias blender='simnibs_python -m tit.cli.vis_blender'"
     echo "alias create_leadfield='simnibs_python -m tit.cli.create_leadfield'"
-    echo "alias cluster_permutation='simnibs_python -m tit.cli.cluster_permutation'"
+    echo "alias cluster_permutation='simnibs_python -m tit.cli.cluster_permuatation'"
     echo ""
     echo "# Display software info on interactive shell"
     echo "if [[ \$- == *i* ]] && [ -z \"\$TI_INFO_SHOWN\" ]; then"
