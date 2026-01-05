@@ -154,7 +154,7 @@ class SettingsMenuButton(QtWidgets.QPushButton):
     
     def open_extensions(self):
         """Open the Extensions window."""
-        from extensions import FloatingExtensionsWindow
+        from tit.gui.extensions import FloatingExtensionsWindow
         extensions_window = FloatingExtensionsWindow(self.parent, main_window=self.parent)
         extensions_window.show()
         
@@ -202,7 +202,7 @@ class ExtensionsButton(QtWidgets.QPushButton):
     
     def open_extensions(self):
         """Open the Extensions window."""
-        from extensions import FloatingExtensionsWindow
+        from tit.gui.extensions import FloatingExtensionsWindow
         extensions_window = FloatingExtensionsWindow(self.parent, main_window=self.parent)
         extensions_window.show()
 
