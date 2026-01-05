@@ -74,23 +74,6 @@ print_software_info() {
     else
         echo "✗ tmux:           Not found"
     fi
-    
-    echo ""
-    echo "═══════════════════════════════════════════════════════════════════"
-    echo "  Available Commands:"
-    echo "═══════════════════════════════════════════════════════════════════"
-    echo ""
-    echo "  GUI              - Launch graphical user interface"
-    echo "  simulator        - Run TI simulations"
-    echo "  analyzer         - Analyze simulation results"
-    echo "  pre-process      - Preprocess MRI data"
-    echo "  movea            - MOVEA optimization"
-    echo "  ex-search        - Exhaustive search"
-    echo "  flex-search      - Flexible search"
-    echo "  group_analyzer   - Group analysis"
-    echo ""
-    echo "═══════════════════════════════════════════════════════════════════"
-    echo ""
 }
 
 # Make CLI scripts executable
@@ -104,6 +87,9 @@ alias flex-search='simnibs_python -m tit.cli.flex_search'
 alias group_analyzer='simnibs_python -m tit.cli.group_analyzer'
 alias pre-process='simnibs_python -m tit.cli.pre_process'
 alias simulator='simnibs_python -m tit.cli.simulator'
+alias blender='simnibs_python -m tit.cli.viz_blender'
+alias create_leadfield='simnibs_python -m tit.cli.create_leadfield'
+alias cluster_permutation='simnibs_python -m tit.cli.cluster_permutation'
 
 # Add environment setup to .bashrc
 {
@@ -119,6 +105,9 @@ alias simulator='simnibs_python -m tit.cli.simulator'
     echo "alias group_analyzer='simnibs_python -m tit.cli.group_analyzer'"
     echo "alias pre_process='simnibs_python -m tit.cli.pre_process'"
     echo "alias simulator='simnibs_python -m tit.cli.simulator'"
+    echo "alias blender='simnibs_python -m tit.cli.viz_blender'"
+    echo "alias create_leadfield='simnibs_python -m tit.cli.create_leadfield'"
+    echo "alias cluster_permutation='simnibs_python -m tit.cli.cluster_permutation'"
     echo ""
     echo "# Display software info on interactive shell"
     echo "if [[ \$- == *i* ]] && [ -z \"\$TI_INFO_SHOWN\" ]; then"
