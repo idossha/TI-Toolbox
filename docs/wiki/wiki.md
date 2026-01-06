@@ -13,12 +13,13 @@ Welcome to the Temporal Interference Toolbox Wiki. Here you'll find detailed gui
 - **[Ex Search](ex-search)** - TI optimization pipeline based on leadfield matrices
 - **[Simulator](simulator)** -  Simualtor with flexible parameter input
 - **[Analyzer](analyzer)** - Comprehensive field analysis for both mesh and voxel data
+- **[Visualizers](visualizers)** - Gmsh and Freeview integration for mesh and NIfTI visualization
 
 ### Embedded Tools
 - **[Reports](reports)** - Understanding HTML simulation reports and results
 - **[Logging](logging)** - Comprehensive logging system documentation
 - **[Atlas Resampling](atlas-resampling)** - Working with brain atlases and resampling
-- **[Montage Visualizer](montage_visualizer)** - Electrode montage visualization on head 
+- **[Montage Visualizer](montage_visualizer)** - Electrode montage visualization on head
 - **[Electrode Mapping](electrode-mapping)** - Optimal electrode position mapping to EEG nets
 
 ### Extensions
