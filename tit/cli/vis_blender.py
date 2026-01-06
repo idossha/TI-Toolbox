@@ -161,7 +161,7 @@ def build_montage_publication_blend(
         )
 
     if output_dir is None:
-        # Default: <project>/derivatives/ti-toolbox/sub-<id>/<sim>/
+        # Default: <project>/derivatives/ti-toolbox/montage_publication/sub-<id>/
         if not pm.project_dir:
             raise RuntimeError("Project directory is not set (PathManager.project_dir is None).")
 
@@ -169,8 +169,8 @@ def build_montage_publication_blend(
             pm.project_dir,
             const.DIR_DERIVATIVES,
             const.DIR_TI_TOOLBOX,
+            "montage_publication",
             f"{const.PREFIX_SUBJECT}{subject_id}",
-            simulation_name,
         )
     os.makedirs(output_dir, exist_ok=True)
 
@@ -197,7 +197,7 @@ def build_montage_publication_blend(
         raise FileNotFoundError(f"m2m directory not found for subject {subject_id}")
     subject_msh = os.path.join(subject_m2m, f"{subject_id}.msh")
 
-    from tit.electrode_placement import ElectrodePlacer, ElectrodePlacementConfig
+    from tit.blender.electrode_placement import ElectrodePlacer, ElectrodePlacementConfig
 
     ele_cfg = ElectrodePlacementConfig(
         subject_id=subject_id,
