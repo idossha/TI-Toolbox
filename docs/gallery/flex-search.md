@@ -53,6 +53,10 @@ permalink: /gallery/flex-search/
       <img src="{{ site.baseurl }}/assets/imgs/flex-search/multi-start.png" alt="Multi-Start Optimization" onclick="openLightbox(this)" />
       <p>Multi-start optimization strategy to avoid local minima in electrode placement.</p>
     </div>
+    <div class="gallery-item">
+      <img src="{{ site.baseurl }}/assets/imgs/flex-search/valid_skin.png" alt="Valid Skin Region" onclick="openLightbox(this)" />
+      <p>Visualization of valid skin regions for electrode placement with HD-EEG electrode positions.</p>
+    </div>
   </div>
 </div>
 
