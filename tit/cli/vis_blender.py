@@ -161,7 +161,7 @@ def build_montage_publication_blend(
         )
 
     if output_dir is None:
-        # Default: <project>/derivatives/ti-toolbox/montage_publication/sub-<id>/
+        # Default: <project>/derivatives/ti-toolbox/visual_exports/sub-<id>/montage_publication/
         if not pm.project_dir:
             raise RuntimeError("Project directory is not set (PathManager.project_dir is None).")
 
@@ -169,8 +169,9 @@ def build_montage_publication_blend(
             pm.project_dir,
             const.DIR_DERIVATIVES,
             const.DIR_TI_TOOLBOX,
-            "montage_publication",
+            "visual_exports",
             f"{const.PREFIX_SUBJECT}{subject_id}",
+            "montage_publication",
         )
     os.makedirs(output_dir, exist_ok=True)
 
