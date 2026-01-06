@@ -8,7 +8,7 @@ The TI-Toolbox Desktop Application is an Electron-based launcher that provides a
 
 ## Architecture Overview
 
-![TI-Toolbox Desktop App Architecture](../assets/imgs/electron-architecture.svg)
+![TI-Toolbox Desktop App Architecture]({{ site.baseurl }}/assets/imgs/development/electron-architecture.svg)
 
 ## Components
 

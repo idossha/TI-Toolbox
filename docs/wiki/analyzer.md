@@ -20,7 +20,7 @@ The Analyzer module consists of three main components:
 - **VoxelAnalyzer**: Analyzes NIfTI files (.nii, .nii.gz, .mgz) containing field data
 - **Group Analyzer**: Batch processing for multiple subjects and comparative analysis
 
-<img src="{{ site.baseurl }}/assets/imgs/wiki/analyzer/UI_ana.png" alt="Analyzer User Interface" style="width: 100%; max-width: 600px;">
+<img src="{{ site.baseurl }}/assets/imgs/UI/UI_ana.png" alt="Analyzer User Interface" style="width: 100%; max-width: 600px;">
 
 ## Key Features
 
@@ -56,11 +56,11 @@ The MeshAnalyzer works with SimNIBS mesh files and provides high-resolution anal
 
 <div class="image-row">
   <div class="image-container">
-    <img src="{{ site.baseurl }}/assets/imgs/gallery/analyzer/analyzer_TI_max.png" alt="TI Max Field in ROI">
+    <img src="{{ site.baseurl }}/assets/imgs/analyzer/analyzer_TI_max.png" alt="TI Max Field in ROI">
     <em>TInorm field distribution in ROI (Left Insula)</em>
   </div>
   <div class="image-container">
-    <img src="{{ site.baseurl }}/assets/imgs/gallery/analyzer/analyzer_TI_normal.png" alt="TI Normal Field in ROI">
+    <img src="{{ site.baseurl }}/assets/imgs/analyzer/analyzer_TI_normal.png" alt="TI Normal Field in ROI">
     <em>TInormal field distribution in ROI (Left Insula)</em>
   </div>
 </div>
@@ -70,11 +70,11 @@ The MeshAnalyzer works with SimNIBS mesh files and provides high-resolution anal
 
 <div class="image-row">
   <div class="image-container">
-    <img src="{{ site.baseurl }}/assets/imgs/wiki/analyzer/analyzer_sphere_max.png" alt="Spherical TI_max Analysis">
+    <img src="{{ site.baseurl }}/assets/imgs/analyzer/analyzer_sphere_max.png" alt="Spherical TI_max Analysis">
     <em>Spherical ROI analysis showing TI_max field distribution within a 10mm radius sphere at coordinates (-31.3, 24.0, -37.0)</em>
   </div>
   <div class="image-container">
-    <img src="{{ site.baseurl }}/assets/imgs/wiki/analyzer/analyzer_sphere_normal.png" alt="Spherical TI_normal Analysis">
+    <img src="{{ site.baseurl }}/assets/imgs/analyzer/analyzer_sphere_normal.png" alt="Spherical TI_normal Analysis">
     <em>Spherical ROI analysis showing TI_normal field distribution for the same target region, demonstrating directional field components</em>
   </div>
 </div>
@@ -93,7 +93,7 @@ The VoxelAnalyzer handles NIfTI format files and integrates with FreeSurfer atla
 
 <div class="image-row">
   <div class="image-container">
-    <img src="{{ site.baseurl }}/assets/imgs/gallery/analyzer_voxel_montage_1.png" alt="Spherical TI_max Analysis">
+    <img src="{{ site.baseurl }}/assets/imgs/analyzer/analyzer_voxel_montage_1.png" alt="Spherical TI_max Analysis">
     <em>Right Hippocampus ROI analysis showing TI_max field distribution given a 1mA:1mA stimualtion</em>
   </div>
 </div>
@@ -103,7 +103,7 @@ The VoxelAnalyzer handles NIfTI format files and integrates with FreeSurfer atla
 
 <div class="image-row">
   <div class="image-container">
-    <img src="{{ site.baseurl }}/assets/imgs/gallery/analyzer/analyzer_lh.insula_whole_head_roi_histogram.png" alt="ROI Histogram">
+    <img src="{{ site.baseurl }}/assets/imgs/analyzer/analyzer_lh.insula_whole_head_roi_histogram.png" alt="ROI Histogram">
     <em>Region-of-interest histogram analysis for left hemisphere insula showing field distribution within target areas</em>
   </div>
 </div>

@@ -10,16 +10,40 @@ permalink: /gallery/blender/
   <h3>Blender Montage Creation & Visualization</h3>
   <div class="gallery-grid">
     <div class="gallery-item">
-      <img src="{{ site.baseurl }}/assets/imgs/gallery/blender_montage_example.png" alt="Blender Montage Example" onclick="openLightbox(this)" />
-      <p>Example Blender montage showing electrode placement and scalp surface.</p>
+      <img src="{{ site.baseurl }}/assets/imgs/blender/blender_overview.png" alt="Blender Overview" onclick="openLightbox(this)" />
+      <p>Overview of Blender montage creation and visualization capabilities.</p>
     </div>
     <div class="gallery-item">
-      <img src="{{ site.baseurl }}/assets/imgs/gallery/blender_electrode_placement.png" alt="Electrode Placement" onclick="openLightbox(this)" />
-      <p>Automated electrode placement visualization in Blender.</p>
+      <img src="{{ site.baseurl }}/assets/imgs/blender/blender_closeup.png" alt="Blender Closeup" onclick="openLightbox(this)" />
+      <p>Detailed closeup view of Blender visualization elements.</p>
     </div>
     <div class="gallery-item">
-      <img src="{{ site.baseurl }}/assets/imgs/gallery/blender_field_visualization.png" alt="Field Visualization" onclick="openLightbox(this)" />
-      <p>Temporal interference field visualization in Blender scenes.</p>
+      <img src="{{ site.baseurl }}/assets/imgs/blender/blender_HF_side.png" alt="Blender HF Side View" onclick="openLightbox(this)" />
+      <p>Side view of high-frequency field visualization in Blender.</p>
+    </div>
+    <div class="gallery-item">
+      <img src="{{ site.baseurl }}/assets/imgs/blender/blender_HF_top.png" alt="Blender HF Top View" onclick="openLightbox(this)" />
+      <p>Top view of high-frequency field visualization in Blender.</p>
+    </div>
+    <div class="gallery-item">
+      <img src="{{ site.baseurl }}/assets/imgs/blender/visual_exporter_electrodes_subcortical.png" alt="Electrode Subcortical Visualization" onclick="openLightbox(this)" />
+      <p>Electrode placement with subcortical structure visualization.</p>
+    </div>
+    <div class="gallery-item">
+      <img src="{{ site.baseurl }}/assets/imgs/blender/visual_exporter_ply_sample_2.png" alt="PLY Export Sample 2" onclick="openLightbox(this)" />
+      <p>Second sample of PLY mesh export from visual exporter.</p>
+    </div>
+    <div class="gallery-item">
+      <img src="{{ site.baseurl }}/assets/imgs/blender/visual_exporter_rgb_vectors.png" alt="RGB Vector Visualization" onclick="openLightbox(this)" />
+      <p>RGB color-coded vector field visualization.</p>
+    </div>
+    <div class="gallery-item">
+      <img src="{{ site.baseurl }}/assets/imgs/blender/visual_exporter_vectors_close.png" alt="Close-up Vector Fields" onclick="openLightbox(this)" />
+      <p>Detailed close-up view of vector field visualization.</p>
+    </div>
+    <div class="gallery-item">
+      <img src="{{ site.baseurl }}/assets/imgs/blender/visual_exporter_vectors.png" alt="Vector Field Visualization" onclick="openLightbox(this)" />
+      <p>Comprehensive vector field visualization in Blender.</p>
     </div>
   </div>
 </div>

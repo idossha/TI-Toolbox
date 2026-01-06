@@ -185,7 +185,7 @@ correlation/hippocampus_effect_size_correlation/
 - Dose-response relationship between E-field strength and clinical improvement
 
 
-<img src="{{ site.baseurl }}/assets/imgs/wiki/cluster-permutation-testing/stats_permutation_null_dist.png" alt="Permutation Null Distribution" style="width: 80%; max-width: 700px;">
+<img src="{{ site.baseurl }}/assets/imgs/stats/stats_permutation_null_dist.png" alt="Permutation Null Distribution" style="width: 80%; max-width: 700px;">
 
 ## Technical Details
 

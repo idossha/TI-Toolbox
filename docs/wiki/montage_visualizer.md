@@ -10,11 +10,11 @@ The Montage Visualizer is a tool for creating visual representations of electrod
 
 Unipolar montages use **4 electrodes** arranged in **2 channels**. 
 
-![Unipolar Montage Example]({{ site.baseurl }}/assets/imgs/wiki/montage_visualizer/unipolar.png)
+![Unipolar Montage Example]({{ site.baseurl }}/assets/imgs/simulator/unipolar.png)
 
 Multipolar montages use **8 electrodes** arranged in **4 channels**.
 
-![Multipolar Montage Example]({{ site.baseurl }}/assets/imgs/wiki/montage_visualizer/multipolar.png)
+![Multipolar Montage Example]({{ site.baseurl }}/assets/imgs/simulator/multipolar.png)
 
 ## Supported EEG Networks
 

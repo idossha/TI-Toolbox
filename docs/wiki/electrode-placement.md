@@ -32,7 +32,7 @@ The Electrode Placement extension provides an interactive 3D tool for freely pla
 3. **Automatic Naming**: Electrodes are automatically named with polarity (E1+, E1-, E2+, E2-, etc.)
 4. **Color Coding**: Each electrode pair receives a distinct color for visual organization
 
-![Freehand Electrode Placement]({{ site.baseurl }}/assets/imgs/wiki/electrode-placement/freehand.png)
+![Freehand Electrode Placement]({{ site.baseurl }}/assets/imgs/electrode-placement/freehand.png)
 
 *Figure: Interactive 3D electrode placement interface showing freehand positioning on head surface*
 

@@ -8,7 +8,7 @@ The Simulator module provides temporal interference (TI) simulation capabilities
 
 ## User Interface
 
-<img src="{{ site.baseurl }}/assets/imgs/wiki/simulator/UI_sim.png" alt="Simulator User Interface" style="width: 100%; max-width: 600px;">
+<img src="{{ site.baseurl }}/assets/imgs/UI/UI_sim.png" alt="Simulator User Interface" style="width: 100%; max-width: 600px;">
 
 The simulator GUI provides intuitive controls for all simulation parameters:
 
@@ -55,7 +55,7 @@ Mode that allows exploration of untraditional montages
 
 ## Simulation Modes
 
-<img src="{{ site.baseurl }}/assets/imgs/wiki/simulator/uTI_mTI.png" alt="Unipolar TI" style="width: 80%; max-width: 300px;">
+<img src="{{ site.baseurl }}/assets/imgs/simulator/uTI_mTI.png" alt="Unipolar TI" style="width: 80%; max-width: 300px;">
 <em>Left column unipolar (two channels) right column multipolar (four channels). Panels A,D: target and electrode montage. Panels B,E: high frequency fields. Panels C,F: modulation fields.</em>
 
 ### Unipolar Mode

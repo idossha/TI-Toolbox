@@ -10,20 +10,12 @@ permalink: /gallery/statistics/
   <h3>Statistical Analysis & Group-Level Computations</h3>
   <div class="gallery-grid">
     <div class="gallery-item">
-      <img src="{{ site.baseurl }}/assets/imgs/gallery/statistics_descriptive.png" alt="Descriptive Statistics" onclick="openLightbox(this)" />
+      <img src="{{ site.baseurl }}/assets/imgs/stats/stats_efield_avg_with_cluster_MNI.png" alt="E-field Average with Cluster MNI" onclick="openLightbox(this)" />
       <p>Descriptive statistics for TI field distributions across subjects.</p>
     </div>
     <div class="gallery-item">
-      <img src="{{ site.baseurl }}/assets/imgs/gallery/statistics_group_comparison.png" alt="Group Comparison" onclick="openLightbox(this)" />
+      <img src="{{ site.baseurl }}/assets/imgs/stats/stats_permutation_null_dist.png" alt="Permutation Null Distribution" onclick="openLightbox(this)" />
       <p>Statistical comparison between different subject groups or conditions.</p>
-    </div>
-    <div class="gallery-item">
-      <img src="{{ site.baseurl }}/assets/imgs/gallery/statistics_roi_analysis.png" alt="ROI-based Statistics" onclick="openLightbox(this)" />
-      <p>Region of interest statistical analysis and metrics.</p>
-    </div>
-    <div class="gallery-item">
-      <img src="{{ site.baseurl }}/assets/imgs/gallery/statistics_correlation.png" alt="Correlation Analysis" onclick="openLightbox(this)" />
-      <p>Correlation analysis between different field parameters and outcomes.</p>
     </div>
   </div>
 </div>

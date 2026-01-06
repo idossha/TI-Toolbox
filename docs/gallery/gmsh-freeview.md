@@ -10,19 +10,19 @@ permalink: /gallery/gmsh-freeview/
   <h3>Gmsh & Freeview Mesh Visualization</h3>
   <div class="gallery-grid">
     <div class="gallery-item">
-      <img src="{{ site.baseurl }}/assets/imgs/gallery/gmsh_mesh_visualization.png" alt="Gmsh Mesh Visualization" onclick="openLightbox(this)" />
+      <img src="{{ site.baseurl }}/assets/imgs/freeview/visualizer_MRI_atlas.png" alt="MRI Atlas Visualization" onclick="openLightbox(this)" />
       <p>3D mesh visualization showing tetrahedral elements and surfaces.</p>
     </div>
     <div class="gallery-item">
-      <img src="{{ site.baseurl }}/assets/imgs/gallery/freeview_brain_overlay.png" alt="Freeview Brain Overlay" onclick="openLightbox(this)" />
+      <img src="{{ site.baseurl }}/assets/imgs/freeview/visualizer_MRI_ROI.png" alt="MRI ROI Visualization" onclick="openLightbox(this)" />
       <p>Freeview visualization with anatomical brain overlays.</p>
     </div>
     <div class="gallery-item">
-      <img src="{{ site.baseurl }}/assets/imgs/gallery/gmsh_field_distribution.png" alt="Field Distribution" onclick="openLightbox(this)" />
+      <img src="{{ site.baseurl }}/assets/imgs/freeview/visualizer_MRI_atlas_field.png" alt="Atlas with Field" onclick="openLightbox(this)" />
       <p>Electric field distribution visualization on mesh surfaces.</p>
     </div>
     <div class="gallery-item">
-      <img src="{{ site.baseurl }}/assets/imgs/gallery/freeview_roi_selection.png" alt="ROI Selection" onclick="openLightbox(this)" />
+      <img src="{{ site.baseurl }}/assets/imgs/freeview/visualizer_MRI_ROI_field.png" alt="ROI with Field" onclick="openLightbox(this)" />
       <p>Region of interest selection and highlighting in Freeview.</p>
     </div>
   </div>

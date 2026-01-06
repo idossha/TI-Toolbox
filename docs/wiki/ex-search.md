@@ -40,7 +40,7 @@ All electrodes are pooled together and can be assigned to any channel position, 
 
 ## User Interface
 
-<img src="{{ site.baseurl }}/assets/imgs/gallery/UI_ex.png" alt="Flex Search Interface" style="width: 80%; max-width: 700px;">
+<img src="{{ site.baseurl }}/assets/imgs/UI/UI_ex.png" alt="Flex Search Interface" style="width: 80%; max-width: 700px;">
 
 The interface provides controls for:
 - **Subject Selection**: Choose from available subjects with automatic leadfield scanning
@@ -58,11 +58,11 @@ Ex-Search automatically detects and supports multiple EEG electrode configuratio
 
 <div class="image-row">
   <div class="image-container">
-    <img src="{{ site.baseurl }}/assets/imgs/wiki/ex-search/ex-search_EEG10-20_Okamoto_2004_net.png" alt="EEG 10-20 Network">
+    <img src="{{ site.baseurl }}/assets/imgs/ex-search/ex-search_EEG10-20_Okamoto_2004_net.png" alt="EEG 10-20 Network">
     <em>EGI 10-20 Okamoto 2004 electrode configuration - widely used standard with 32 electrodes</em>
   </div>
   <div class="image-container">
-    <img src="{{ site.baseurl }}/assets/imgs/wiki/ex-search/ex-search_GSN256_net.png" alt="GSN 256 Network">
+    <img src="{{ site.baseurl }}/assets/imgs/ex-search/ex-search_GSN256_net.png" alt="GSN 256 Network">
     <em>GSN-HydroCel 256 electrode configuration - high-density net for precise targeting</em>
   </div>
 </div>
@@ -80,7 +80,7 @@ Ex-Search automatically detects and supports multiple EEG electrode configuratio
 
 
 
-![Ex-Search Distribution Analysis]({{ site.baseurl }}/assets/imgs/wiki/ex-search/ex-search_distribution.png)
+![Ex-Search Distribution Analysis]({{ site.baseurl }}/assets/imgs/ex-search/ex-search_distribution.png)
 
 ---
 

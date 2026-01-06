@@ -10,19 +10,19 @@ permalink: /gallery/simulations/
   <h3>Temporal Interference Field Simulation</h3>
   <div class="gallery-grid">
     <div class="gallery-item">
-      <img src="{{ site.baseurl }}/assets/imgs/gallery/analyzer_MRI_ROI_field.png" alt="MRI ROI Field Analysis" onclick="openLightbox(this)" />
+      <img src="{{ site.baseurl }}/assets/imgs/freeview/visualizer_MRI_ROI_field.png" alt="MRI ROI Field Analysis" onclick="openLightbox(this)" />
       <p>MRI-based region of interest analysis with temporal interference field distribution.</p>
     </div>
     <div class="gallery-item">
-      <img src="{{ site.baseurl }}/assets/imgs/gallery/analyzer_MRI_ROI.png" alt="MRI ROI Analysis" onclick="openLightbox(this)" />
+      <img src="{{ site.baseurl }}/assets/imgs/freeview/visualizer_MRI_ROI.png" alt="MRI ROI Analysis" onclick="openLightbox(this)" />
       <p>Region of interest analysis showing precise targeting of brain structures.</p>
     </div>
     <div class="gallery-item">
-      <img src="{{ site.baseurl }}/assets/imgs/gallery/analyzer_MRI_atlas.png" alt="MRI Atlas" onclick="openLightbox(this)" />
+      <img src="{{ site.baseurl }}/assets/imgs/freeview/visualizer_MRI_atlas.png" alt="MRI Atlas" onclick="openLightbox(this)" />
       <p>Brain atlas visualization with anatomical structures and regions clearly defined.</p>
     </div>
     <div class="gallery-item">
-      <img src="{{ site.baseurl }}/assets/imgs/gallery/analyzer_MRI_atlas_field.png" alt="Atlas with Field" onclick="openLightbox(this)" />
+      <img src="{{ site.baseurl }}/assets/imgs/freeview/visualizer_MRI_atlas_field.png" alt="Atlas with Field" onclick="openLightbox(this)" />
       <p>Atlas overlay with electric field distribution for anatomical reference and targeting.</p>
     </div>
   </div>

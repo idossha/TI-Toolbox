@@ -10,20 +10,12 @@ permalink: /gallery/nilearn/
   <h3>Nilearn Visualizations & Brain Imaging</h3>
   <div class="gallery-grid">
     <div class="gallery-item">
-      <img src="{{ site.baseurl }}/assets/imgs/gallery/nilearn_slices.png" alt="Slice Visualizations" onclick="openLightbox(this)" />
+      <img src="{{ site.baseurl }}/assets/imgs/nilearn-visuals/nilearn_visuals_sliced_brain.png" alt="Sliced Brain Visualizations" onclick="openLightbox(this)" />
       <p>High-quality brain slice visualizations with anatomical overlays.</p>
     </div>
     <div class="gallery-item">
-      <img src="{{ site.baseurl }}/assets/imgs/gallery/nilearn_glass_brain.png" alt="Glass Brain" onclick="openLightbox(this)" />
+      <img src="{{ site.baseurl }}/assets/imgs/nilearn-visuals/nilearn_visuals_glass_brain.png" alt="Glass Brain" onclick="openLightbox(this)" />
       <p>3D glass brain visualization showing field distributions.</p>
-    </div>
-    <div class="gallery-item">
-      <img src="{{ site.baseurl }}/assets/imgs/gallery/nilearn_roi_overlay.png" alt="ROI Overlay" onclick="openLightbox(this)" />
-      <p>Region of interest overlays on anatomical templates.</p>
-    </div>
-    <div class="gallery-item">
-      <img src="{{ site.baseurl }}/assets/imgs/gallery/nilearn_statistical_maps.png" alt="Statistical Maps" onclick="openLightbox(this)" />
-      <p>Statistical parametric maps with significance overlays.</p>
     </div>
   </div>
 </div>

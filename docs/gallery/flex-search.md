@@ -10,12 +10,48 @@ permalink: /gallery/flex-search/
   <h3>Evolutionary Electrode Optimization</h3>
   <div class="gallery-grid">
     <div class="gallery-item">
-      <img src="{{ site.baseurl }}/assets/imgs/gallery/flex-search_flex-search.png" alt="Flex-Search Optimization" onclick="openLightbox(this)" />
+      <img src="{{ site.baseurl }}/assets/imgs/flex-search/flex-search_flex-search.png" alt="Flex-Search Optimization" onclick="openLightbox(this)" />
       <p>Evolutionary optimization showing flexible electrode placement unbound by EEG net.</p>
     </div>
     <div class="gallery-item">
-      <img src="{{ site.baseurl }}/assets/imgs/gallery/flex-search_mapping.png" alt="Electrode Mapping" onclick="openLightbox(this)" />
-      <p>Extention to the flex-search mapping optimized electrodes to nearest avilable EEG electrodes</p>
+      <img src="{{ site.baseurl }}/assets/imgs/flex-search/flex-search_mapping.png" alt="Electrode Mapping" onclick="openLightbox(this)" />
+      <p>Extension to the flex-search mapping optimized electrodes to nearest available EEG electrodes.</p>
+    </div>
+    <div class="gallery-item">
+      <img src="{{ site.baseurl }}/assets/imgs/flex-search/flex-search_max_TI_field.png" alt="Maximum TI Field" onclick="openLightbox(this)" />
+      <p>Maximum temporal interference field visualization across the brain volume.</p>
+    </div>
+    <div class="gallery-item">
+      <img src="{{ site.baseurl }}/assets/imgs/flex-search/flex-search_max_TI_ROI.png" alt="Maximum TI ROI" onclick="openLightbox(this)" />
+      <p>Maximum temporal interference field focused on the region of interest.</p>
+    </div>
+    <div class="gallery-item">
+      <img src="{{ site.baseurl }}/assets/imgs/flex-search/flex-search_Normal_field.png" alt="Normal Field Component" onclick="openLightbox(this)" />
+      <p>Normal component of the electric field showing perpendicular field distribution.</p>
+    </div>
+    <div class="gallery-item">
+      <img src="{{ site.baseurl }}/assets/imgs/flex-search/flex-search_normal_ROI.png" alt="Normal ROI Component" onclick="openLightbox(this)" />
+      <p>Normal component field focused on the target region of interest.</p>
+    </div>
+    <div class="gallery-item">
+      <img src="{{ site.baseurl }}/assets/imgs/flex-search/flex-search_tangent_field.png" alt="Tangent Field Component" onclick="openLightbox(this)" />
+      <p>Tangent component of the electric field showing parallel field distribution.</p>
+    </div>
+    <div class="gallery-item">
+      <img src="{{ site.baseurl }}/assets/imgs/flex-search/flex-search_tangent_ROI.png" alt="Tangent ROI Component" onclick="openLightbox(this)" />
+      <p>Tangent component field focused on the target region of interest.</p>
+    </div>
+    <div class="gallery-item">
+      <img src="{{ site.baseurl }}/assets/imgs/flex-search/focality_thresholds.png" alt="Focality Thresholds" onclick="openLightbox(this)" />
+      <p>Analysis of focality thresholds for different field intensity levels.</p>
+    </div>
+    <div class="gallery-item">
+      <img src="{{ site.baseurl }}/assets/imgs/flex-search/mapping_distance.png" alt="Mapping Distance Analysis" onclick="openLightbox(this)" />
+      <p>Distance analysis for mapping optimized electrodes to available EEG positions.</p>
+    </div>
+    <div class="gallery-item">
+      <img src="{{ site.baseurl }}/assets/imgs/flex-search/multi-start.png" alt="Multi-Start Optimization" onclick="openLightbox(this)" />
+      <p>Multi-start optimization strategy to avoid local minima in electrode placement.</p>
     </div>
   </div>
 </div>
@@ -44,7 +80,7 @@ permalink: /gallery/flex-search/
 
 .gallery-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: 1.5rem;
   margin-top: 1rem;
 }
@@ -90,7 +126,7 @@ permalink: /gallery/flex-search/
 
 @media (max-width: 768px) {
   .gallery-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, 1fr);
     gap: 1rem;
   }
   

@@ -12,11 +12,11 @@ The TI-Toolbox uses a multi-layered testing approach that combines unit tests, i
   <div class="carousel-wrapper">
     <div class="carousel-images">
       <div class="carousel-slide active">
-        <img src="{{ site.baseurl }}/assets/imgs/wiki/testing-pipeline/testing_graphical_abstract_revised.png" alt="Complete TI-Toolbox Tech-stack">
+        <img src="{{ site.baseurl }}/assets/imgs/development/testing_graphical_abstract_revised.png" alt="Complete TI-Toolbox Tech-stack">
         <p>Complete TI-Toolbox Tech-stack</p>
       </div>
       <div class="carousel-slide">
-        <img src="{{ site.baseurl }}/assets/imgs/wiki/testing-pipeline/testing_Ti-ToolboxCICD.png" alt="TI-Toolbox CI/CD Pipeline">
+        <img src="{{ site.baseurl }}/assets/imgs/development/testing_Ti-ToolboxCICD.png" alt="TI-Toolbox CI/CD Pipeline">
         <p>TI-Toolbox CI/CD Pipeline</p>
       </div>
     </div>
