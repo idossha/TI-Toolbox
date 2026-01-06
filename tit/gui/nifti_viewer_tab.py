@@ -53,25 +53,33 @@ class NiftiViewerTab(QtWidgets.QWidget):
             subject_id: The subject ID without 'sub-' prefix
 
         Returns:
-            List of available atlas files
+            List of available atlas filenames
         """
         freesurfer_dir = get_freesurfer_mri_dir(subject_id)
+        m2m_dir = get_m2m_dir(subject_id)
         atlas_files = []
 
+        # Check Freesurfer directory for atlases
         if freesurfer_dir and os.path.isdir(freesurfer_dir):
-            # Look for common atlas files
-            atlas_patterns = [
+            freesurfer_patterns = [
                 "aparc.DKTatlas+aseg.mgz",
                 "aparc.a2009s+aseg.mgz",
                 "aparc+aseg.mgz",
                 "aseg.mgz"
             ]
-            
-            for pattern in atlas_patterns:
+
+            for pattern in freesurfer_patterns:
                 atlas_path = os.path.join(freesurfer_dir, pattern)
                 if os.path.exists(atlas_path):
                     atlas_files.append(pattern)
-        
+
+        # Check m2m segmentation directory for labeling.nii.gz
+        if m2m_dir and os.path.isdir(m2m_dir):
+            labeling_path = os.path.join(m2m_dir, "segmentation", "labeling.nii.gz")
+            if os.path.exists(labeling_path):
+                # Add labeling.nii.gz to the beginning of the list for default selection
+                atlas_files.insert(0, "labeling.nii.gz")
+
         return atlas_files
     
     def detect_mni_atlases(self):
@@ -482,16 +490,20 @@ class NiftiViewerTab(QtWidgets.QWidget):
         """Check for available Freesurfer atlases for the current subject."""
         if self.subject_combo.count() == 0:
             return
-            
+
         subject_id = self.subject_combo.currentText()
         available_atlases = self.detect_freesurfer_atlases(subject_id)
-        
+
         self.atlas_combo.clear()
         if available_atlases:
             self.atlas_combo.addItems(available_atlases)
             self.atlas_combo.setEnabled(True)
             self.atlas_visibility_chk.setEnabled(True)
             self.atlas_opacity_slider.setEnabled(True)
+
+            # Set labeling.nii.gz as default if available
+            if "labeling.nii.gz" in available_atlases:
+                self.atlas_combo.setCurrentText("labeling.nii.gz")
         else:
             self.atlas_combo.setEnabled(False)
             self.atlas_visibility_chk.setEnabled(False)
@@ -965,16 +977,26 @@ class NiftiViewerTab(QtWidgets.QWidget):
         else:
             self.info_area.append(f"\nWarning: T1 file not found at {t1_file}")
 
-        # Add Freesurfer atlas if selected and available
+        # Add atlas if selected and available
         if self.atlas_combo.isEnabled() and self.atlas_combo.currentText():
             atlas_name = self.atlas_combo.currentText()
-            freesurfer_mri_dir = get_freesurfer_mri_dir(subject_id)
-            atlas_file = os.path.join(freesurfer_mri_dir, atlas_name) if freesurfer_mri_dir else None
-            
-            if os.path.exists(atlas_file):
+
+            # Determine atlas location based on filename
+            if atlas_name == "labeling.nii.gz":
+                # labeling.nii.gz is in m2m/segmentation/
+                m2m_dir = get_m2m_dir(subject_id)
+                atlas_file = os.path.join(m2m_dir, "segmentation", atlas_name) if m2m_dir else None
+                atlas_source = "m2m segmentation"
+            else:
+                # Other atlases are in Freesurfer directory
+                freesurfer_mri_dir = get_freesurfer_mri_dir(subject_id)
+                atlas_file = os.path.join(freesurfer_mri_dir, atlas_name) if freesurfer_mri_dir else None
+                atlas_source = "Freesurfer"
+
+            if atlas_file and os.path.exists(atlas_file):
                 atlas_visible = 1 if self.atlas_visibility_chk.isChecked() else 0
                 atlas_opacity = self.atlas_opacity_slider.value() / 100.0
-                
+
                 file_specs.append({
                     "path": atlas_file,
                     "type": "volume",
@@ -982,7 +1004,7 @@ class NiftiViewerTab(QtWidgets.QWidget):
                     "colormap": "lut",  # Use lookup table colormap for segmentation
                     "opacity": atlas_opacity
                 })
-                self.info_area.append(f"\nLoading Freesurfer atlas: {atlas_name}")
+                self.info_area.append(f"\nLoading {atlas_source} atlas: {atlas_name}")
             else:
                 self.info_area.append(f"\nWarning: Atlas file not found at {atlas_file}")
 
