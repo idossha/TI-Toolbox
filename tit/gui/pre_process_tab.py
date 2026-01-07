@@ -452,7 +452,7 @@ class PreProcessTab(QtWidgets.QWidget):
         self.subject_list.clear()
         
         # First check sourcedata directory for new subjects
-        sourcedata_dir = self.pm.get_sourcedata_dir()
+        sourcedata_dir = self.pm.path_optional("sourcedata")
         
         if sourcedata_dir and os.path.exists(sourcedata_dir):
             for subj_dir in glob.glob(os.path.join(sourcedata_dir, "sub-*")):

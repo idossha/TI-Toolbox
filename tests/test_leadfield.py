@@ -314,7 +314,7 @@ class TestListAvailableLeadfieldsHdf5:
         # Create temporary leadfields directory
         leadfields_dir = tmp_path / 'leadfields'
         leadfields_dir.mkdir()
-        mock_path_manager.get_leadfield_dir = MagicMock(return_value=str(leadfields_dir))
+        mock_path_manager.path_optional = MagicMock(return_value=str(leadfields_dir))
         mock_exists.return_value = True
 
         # Create HDF5 files
@@ -340,7 +340,7 @@ class TestListAvailableLeadfieldsHdf5:
         from tit.opt.leadfield import LeadfieldGenerator
 
         mock_get_pm.return_value = mock_path_manager
-        mock_path_manager.get_leadfield_dir = MagicMock(return_value=None)
+        mock_path_manager.path_optional = MagicMock(return_value=None)
         mock_exists.return_value = False
 
         gen = LeadfieldGenerator(Path('/fake/m2m_101'))

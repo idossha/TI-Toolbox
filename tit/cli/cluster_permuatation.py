@@ -14,7 +14,6 @@ from pathlib import Path
 
 from tit.cli.base import ArgumentDefinition, BaseCLI, InteractivePrompt
 from tit.cli import utils
-from tit.stats import permutation_analysis
 from tit.core import get_path_manager
 
 
@@ -60,6 +59,9 @@ class PermutationCLI(BaseCLI):
         return self.execute({"csv": csv_path, "name": name, "analysis_type": analysis_type})
 
     def execute(self, args: Dict[str, Any]) -> int:
+        # Lazy import: permutation analysis pulls scientific stack (pandas/nibabel, etc.).
+        from tit.stats import permutation_analysis
+
         config = {
             "analysis_type": str(args["analysis_type"]),
             "cluster_threshold": float(args.get("cluster_threshold", 0.05)),

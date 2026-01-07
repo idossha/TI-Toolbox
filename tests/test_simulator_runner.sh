@@ -98,9 +98,9 @@ fi
 
 # Run simulator in non-interactive mode with proper arguments
 "$SIM_CMD" "$SIM_ARGS" \
-    --subject "$SUBJECT" \
+    --sub "$SUBJECT" \
     --montages "$MONTAGE" \
-    --eeg-net "$EEG_NET" \
+    --eeg "$EEG_NET" \
     --conductivity "$CONDUCTIVITY" \
     --intensity "$INTENSITY" \
     --electrode-shape "$ELECTRODE_SHAPE" \

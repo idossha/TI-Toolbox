@@ -2188,7 +2188,7 @@ class SimulatorTab(QtWidgets.QWidget):
             self.update_output(f"--- Generated {successful_reports}/{total_reports} individual simulation reports ---")
             
             if successful_reports > 0:
-                reports_dir = self.pm.get_reports_dir()
+                reports_dir = self.pm.path_optional("ti_reports")
                 self.update_output(f"[INFO] Reports saved in: {reports_dir}")
                 
                 # Open the reports directory instead of individual files

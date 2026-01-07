@@ -14,15 +14,14 @@ from typing import Any, Dict, List
 from tit.cli.base import ArgumentDefinition, BaseCLI
 from tit.cli import utils
 from tit.core import get_path_manager
-from tit.opt.leadfield import LeadfieldGenerator
 
 
 class CreateLeadfieldCLI(BaseCLI):
     def __init__(self) -> None:
         super().__init__("Create leadfield matrices for a subject.")
-        self.add_argument(ArgumentDefinition(name="subject", type=str, help="Subject ID", required=True))
-        self.add_argument(ArgumentDefinition(name="eeg_net", type=str, help="EEG cap CSV filename (e.g., EGI_template.csv)", required=True))
-        self.add_argument(ArgumentDefinition(name="tissues", type=str, help="Comma-separated tissue tags (default 1,2)", default="1,2"))
+        self.add_argument(ArgumentDefinition(name="subject", type=str, help="Subject ID", required=True, flags=["--subject", "--sub"]))
+        self.add_argument(ArgumentDefinition(name="eeg_net", type=str, help="EEG cap CSV filename (e.g., EGI_template.csv)", required=True, flags=["--eeg-net", "--eeg"]))
+        self.add_argument(ArgumentDefinition(name="tissues", type=str, nargs="+", help="Tissue tags (comma-separated or space-separated). Default: 1 2", default=["1", "2"]))
 
     def run_interactive(self) -> int:
         pm = get_path_manager()
@@ -70,12 +69,15 @@ class CreateLeadfieldCLI(BaseCLI):
         if not Path(eeg_cap_path).exists():
             raise RuntimeError(f"EEG cap CSV not found: {eeg_cap_path}")
 
-        tissues = [int(x.strip()) for x in str(args.get("tissues", "1,2")).split(",") if x.strip()]
+        tissues_raw = utils.split_csv_or_tokens(args.get("tissues"))
+        tissues = [int(x.strip()) for x in tissues_raw if str(x).strip()]
         if not tissues:
             tissues = [1, 2]
 
         out_dir = pm.ensure_dir("leadfields", subject_id=subject_id)
 
+        # Lazy import: leadfield generation depends on SimNIBS.
+        from tit.opt.leadfield import LeadfieldGenerator
         gen = LeadfieldGenerator(m2m_dir, electrode_cap=eeg_net)
         gen.generate_leadfield(output_dir=str(out_dir), tissues=tissues, eeg_cap_path=eeg_cap_path)
         utils.echo_success(f"Leadfield created in: {out_dir}")

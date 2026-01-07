@@ -166,7 +166,7 @@ class LeadfieldGenerator:
 
         if output_dir is None:
             # Use PathManager to get leadfield directory
-            output_dir = self.pm.get_leadfield_dir(self.subject_id)
+            output_dir = self.pm.path_optional("leadfields", subject_id=self.subject_id)
             if output_dir is None:
                 # Fallback to manual construction if PathManager doesn't find it
                 output_dir = self.subject_dir.parent / "leadfields"
@@ -224,7 +224,7 @@ class LeadfieldGenerator:
             self._log(f"Using EEG cap: {Path(eeg_cap_path).name}", 'info')
         elif self.electrode_cap and self.electrode_cap != 'EEG10-10':
             # Try to find in eeg_positions directory using PathManager
-            eeg_positions_dir = self.pm.get_eeg_positions_dir(self.subject_id)
+            eeg_positions_dir = self.pm.path_optional("eeg_positions", subject_id=self.subject_id)
             if eeg_positions_dir and os.path.exists(eeg_positions_dir):
                 cap_file = Path(eeg_positions_dir) / f"{self.electrode_cap}.csv"
                 if cap_file.exists():
@@ -342,7 +342,7 @@ class LeadfieldGenerator:
             subject_id = self.subject_id
 
         # Use PathManager to get leadfield directory
-        leadfields_dir = self.pm.get_leadfield_dir(subject_id)
+        leadfields_dir = self.pm.path_optional("leadfields", subject_id=subject_id)
         
         leadfields = []
         if leadfields_dir and os.path.exists(leadfields_dir):
@@ -377,7 +377,7 @@ class LeadfieldGenerator:
             subject_id = self.subject_id
 
         # Use PathManager to get leadfield directory
-        leadfields_dir = self.pm.get_leadfield_dir(subject_id)
+        leadfields_dir = self.pm.path_optional("leadfields", subject_id=subject_id)
 
         leadfields = []
         if leadfields_dir and os.path.exists(leadfields_dir):

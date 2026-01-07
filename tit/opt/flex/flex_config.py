@@ -35,12 +35,12 @@ def parse_arguments() -> argparse.Namespace:
     )
 
     # Core parameters
-    p.add_argument("--subject", required=True, help="Subject ID")
+    p.add_argument("--subject", "-sub", required=True, help="Subject ID")
     p.add_argument("--goal", choices=["mean", "max", "focality"], required=True,
                    help="Optimization goal")
     p.add_argument("--postproc", choices=["max_TI", "dir_TI_normal", "dir_TI_tangential"],
                    required=True, help="Post-processing method")
-    p.add_argument("--eeg-net",
+    p.add_argument("--eeg-net", "-eeg",
                    help="CSV filename in eeg_positions (without .csv). Required when --enable-mapping is used.")
     p.add_argument("--current", type=float, required=True,
                    help="Electrode current in mA")

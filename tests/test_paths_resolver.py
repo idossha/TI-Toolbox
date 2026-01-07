@@ -9,18 +9,12 @@ Focus:
 """
 
 import os
-import sys
 from pathlib import Path
 
 import pytest
 
-# Add tit directory to path (match existing tests style)
-project_root = os.path.join(os.path.dirname(__file__), "..")
-ti_toolbox_dir = os.path.join(project_root, "tit")
-sys.path.insert(0, ti_toolbox_dir)
-
-from core.paths import PathManager, reset_path_manager  # noqa: E402
-from core import constants as const  # noqa: E402
+from tit.core.paths import PathManager, reset_path_manager
+from tit.core import constants as const
 
 
 @pytest.fixture

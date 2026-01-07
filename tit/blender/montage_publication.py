@@ -41,7 +41,7 @@ def _find_tetrahedral_mesh(sim_dir: str) -> str:
 
 def _find_central_surface_mesh(sim_dir: str, subject_id: str, simulation_name: str) -> str:
     pm = get_path_manager()
-    expected = pm.get_ti_central_surface_path(subject_id, simulation_name)
+    expected = pm.path_optional("ti_central_surface", subject_id=subject_id, simulation_name=simulation_name)
     if expected and os.path.exists(expected):
         return expected
 
@@ -88,7 +88,7 @@ def export_gm_stl_from_sim(sim_dir: str, *, subject_id: str, simulation_name: st
 
 def _resolve_eeg_net_csv(*, subject_id: str, eeg_net_name: str) -> str:
     pm = get_path_manager()
-    eeg_dir = pm.get_eeg_positions_dir(subject_id)
+    eeg_dir = pm.path_optional("eeg_positions", subject_id=subject_id)
     if not eeg_dir:
         raise FileNotFoundError(f"EEG positions directory not found for subject {subject_id}")
     path = os.path.join(eeg_dir, eeg_net_name)

@@ -25,5 +25,5 @@ class GuiCLI(BaseCLI):
         return 0
 
 if __name__ == "__main__":
-    runpy.run_module("tit.gui.main", run_name="__main__")
+    raise SystemExit(GuiCLI().run())
 

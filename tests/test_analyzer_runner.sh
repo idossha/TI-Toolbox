@@ -29,8 +29,8 @@ fi
 
 # Run analyzer in non-interactive mode with proper arguments
 eval "$ANALYZER_CMD" \
-    --subject "ernie_extended" \
-    --simulation "central_montage" \
+    --sub "ernie_extended" \
+    --sim "central_montage" \
     --space "mesh" \
     --analysis-type "spherical" \
     --coordinates -50 0 0 \

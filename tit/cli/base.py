@@ -40,6 +40,12 @@ from typing import Any, Callable, Dict, List, Optional, TypeVar
 from tit.cli import utils
 
 
+class _DefaultHelpFormatter(argparse.ArgumentDefaultsHelpFormatter, argparse.RawDescriptionHelpFormatter):
+    """
+    Help formatter that shows defaults while preserving newlines in descriptions.
+    """
+
+
 @dataclass
 class ArgumentDefinition:
     """Definition for a command-line argument."""
@@ -51,6 +57,7 @@ class ArgumentDefinition:
     choices: Optional[List[Any]] = None
     metavar: Optional[str] = None
     nargs: Any = None  # passed through to argparse (e.g. 3, '+', '*')
+    flags: Optional[List[str]] = None  # custom flags / aliases (e.g. ["--subject","-sub","-subject"])
 
     # For interactive mode
     prompt_text: Optional[str] = None
@@ -116,16 +123,42 @@ class BaseCLI(ABC):
         """Run in direct mode using command-line arguments."""
         parser = argparse.ArgumentParser(
             description=self.description,
-            formatter_class=argparse.RawDescriptionHelpFormatter
+            formatter_class=_DefaultHelpFormatter,
+            # Prevent confusing partial matches like:
+            #   --montage -> --montages
+            #   --pool    -> --pool-electrodes
+            allow_abbrev=False,
         )
 
         # Add script-specific arguments
         for arg_def in self._argument_definitions.values():
+            # Build help string with required marker (argparse already enforces required=True,
+            # but the marker makes it much easier to scan `-h` output).
+            help_text = arg_def.help or ""
+            if arg_def.type is not bool:
+                tag = "required" if arg_def.required else "optional"
+                help_text = f"[{tag}] {help_text}".strip()
+            else:
+                # Bool flags are always optional in our CLIs.
+                help_text = f"[optional] {help_text}".strip()
+
             kwargs = {
-                "help": arg_def.help,
-                "default": arg_def.default,
+                "help": help_text,
                 "metavar": arg_def.metavar,
+                # IMPORTANT: Keep stable keys in the parsed args dict regardless of flag spelling
+                # (e.g. --sub should still populate args["subject"]).
+                "dest": arg_def.name,
             }
+
+            # Only include defaults when they are meaningful; avoid noisy "default: None".
+            # Bool flags always have a meaningful default (False unless explicitly True).
+            if arg_def.type is bool:
+                if arg_def.default is None:
+                    kwargs["default"] = False
+                else:
+                    kwargs["default"] = bool(arg_def.default)
+            elif arg_def.default is not None:
+                kwargs["default"] = arg_def.default
 
             if arg_def.choices:
                 kwargs["choices"] = arg_def.choices
@@ -133,18 +166,52 @@ class BaseCLI(ABC):
                 kwargs["nargs"] = arg_def.nargs
 
             if arg_def.type == bool:
-                kwargs["action"] = "store_true"
+                # Support both "store_true" and "store_false" patterns depending on default.
+                # This keeps defaults accurate in help output.
+                if bool(kwargs.get("default", False)) is True:
+                    kwargs["action"] = "store_false"
+                else:
+                    kwargs["action"] = "store_true"
                 kwargs.pop("metavar", None)
-                kwargs.pop("default", None)
             else:
                 kwargs["type"] = arg_def.type
                 kwargs["required"] = arg_def.required
 
-            parser.add_argument(f"--{arg_def.name.replace('_', '-')}", **kwargs)
+            flags = arg_def.flags or self._default_flags(arg_def.name)
+            parser.add_argument(*flags, **kwargs)
 
         args = parser.parse_args()
 
         return self.execute(vars(args))
+
+    @staticmethod
+    def _default_flags(arg_name: str) -> List[str]:
+        """
+        Default flag set for an argument.
+
+        To reduce bloat and ambiguity across many CLIs, we standardize *common* flags
+        on short logical forms (and do NOT keep long legacy variants).
+
+        For other args, we fall back to the kebab-cased long name.
+        """
+        # Canonical short flags for common args (no legacy long names)
+        short_map = {
+            "subject": "--sub",
+            "subjects": "--subs",
+            "eeg_net": "--eeg",
+            "simulation": "--sim",
+            "roi_name": "--roi",
+            "leadfield_hdf": "--lf",
+            "output_dir": "--out",
+        }
+
+        if arg_name in short_map:
+            # Accept both --x and -x forms (users frequently type single-dash variants).
+            longish = short_map[arg_name]
+            return [longish, "-" + longish[2:]]
+
+        # Fallback: keep the explicit kebab-case long name for less common args.
+        return [f"--{arg_name.replace('_', '-')}"]
 
     def run_interactive(self) -> int:
         """Run in interactive mode with prompts."""

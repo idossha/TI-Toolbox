@@ -18,18 +18,26 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple
 from tit.cli.base import ArgumentDefinition, BaseCLI
 from tit.cli import utils
 from tit.core import get_path_manager
-from tit.opt.ex import (
-    get_available_rois,
-    create_roi_from_coordinates,
-)
 
 _ELECTRODE_RE = re.compile(r"^[A-Za-z][A-Za-z0-9]*$")
 
 
-def _parse_electrode_list(raw: str) -> List[str]:
-    items = [x.strip() for x in (raw or "").split(",")]
-    items = [x for x in items if x]
-    return list(dict.fromkeys(items))  # stable-unique
+def _parse_electrode_list(raw: Any) -> List[str]:
+    """
+    Accept either:
+    - a comma-separated string: "C3,C4,Fz,Cz"
+    - a list of tokens: ["C3", "C4", "Fz", "Cz"]
+    - a mixed list: ["C3,C4", "Fz", "Cz"]
+    """
+    tokens: List[str] = []
+    if raw is None:
+        tokens = []
+    elif isinstance(raw, (list, tuple)):
+        for t in raw:
+            tokens.extend([x.strip() for x in str(t).split(",") if x.strip()])
+    else:
+        tokens = [x.strip() for x in str(raw).split(",") if x.strip()]
+    return list(dict.fromkeys(tokens))  # stable-unique
 
 
 def _derive_eeg_net_stem_from_leadfield(leadfield_hdf: str) -> Optional[str]:
@@ -40,13 +48,75 @@ def _derive_eeg_net_stem_from_leadfield(leadfield_hdf: str) -> Optional[str]:
       {subject}_leadfield_{net}.hdf5 -> {net}
     """
     name = Path(leadfield_hdf).name
-    if name.endswith(".hdf5"):
-        name = name[:-5]
+    for ext in (".hdf5", ".h5"):
+        if name.endswith(ext):
+            name = name[: -len(ext)]
+            break
     if "_leadfield_" not in name:
         return None
     _, _, net = name.partition("_leadfield_")
     net = net.strip()
     return net or None
+
+
+def _resolve_leadfield_path(subject_id: str, leadfield_arg: str) -> Path:
+    """
+    Resolve a leadfield passed via --lf.
+
+    Accepts:
+    - an absolute/relative path to an existing file
+    - a filename (with or without extension) that lives under the subject leadfields directory
+    """
+    if not leadfield_arg:
+        raise RuntimeError("Missing leadfield. Use --lf <path-or-stem>.")
+
+    p = Path(str(leadfield_arg))
+    if p.is_file():
+        return p
+
+    # If user passed a bare name or a non-existent relative path, try subject leadfields dir.
+    pm = get_path_manager()
+    lf_dir = Path(pm.path("leadfields", subject_id=subject_id))
+    if not lf_dir.is_dir():
+        raise RuntimeError(f"Leadfields directory not found for subject {subject_id}: {lf_dir}")
+
+    name = Path(str(leadfield_arg)).name
+    stem = Path(name).stem if name else ""
+
+    candidates: List[Path] = []
+    for cand in (lf_dir / name, lf_dir / f"{name}.hdf5", lf_dir / f"{name}.h5"):
+        if cand.name and cand.is_file():
+            candidates.append(cand)
+
+    if stem:
+        for cand in (lf_dir / f"{stem}.hdf5", lf_dir / f"{stem}.h5"):
+            if cand.is_file():
+                candidates.append(cand)
+
+        # Fuzzy fallback: prefix match (handles users omitting subject prefix etc.)
+        for ext in ("*.hdf5", "*.h5"):
+            for f in lf_dir.glob(ext):
+                if f.stem.lower() == stem.lower() or f.name.lower() == name.lower():
+                    candidates.append(f)
+
+    # De-dupe while preserving order
+    uniq: List[Path] = []
+    seen = set()
+    for c in candidates:
+        s = str(c)
+        if s not in seen:
+            seen.add(s)
+            uniq.append(c)
+
+    if len(uniq) == 1:
+        return uniq[0]
+    if len(uniq) > 1:
+        opts = ", ".join(sorted({u.name for u in uniq}))
+        raise RuntimeError(f"Ambiguous leadfield '{leadfield_arg}'. Matches: {opts}")
+
+    available = sorted([f.name for f in lf_dir.glob("*.hdf5")] + [f.name for f in lf_dir.glob("*.h5")])
+    hint = f" Available leadfields: {', '.join(available)}" if available else " No leadfields found in that folder."
+    raise RuntimeError(f"Leadfield file not found: {leadfield_arg} (searched in {lf_dir}).{hint}")
 
 
 def _find_eeg_net_csv(subject_id: str, *, leadfield_hdf: str) -> Tuple[Optional[str], Optional[Path]]:
@@ -118,30 +188,19 @@ def _validate_electrode_names(*, specified: Iterable[str], available: List[str])
 class ExSearchCLI(BaseCLI):
     def __init__(self) -> None:
         super().__init__("Run exhaustive search optimization (env-driven core).")
+        
         self.add_argument(ArgumentDefinition(name="subject", type=str, help="Subject ID", required=True))
-        self.add_argument(ArgumentDefinition(name="leadfield_hdf", type=str, help="Leadfield .hdf5 path", required=True))
+        self.add_argument(ArgumentDefinition(name="leadfield_hdf", type=str, help="Leadfield file (path or stem under subject leadfields; .hdf5/.h5)", required=True))
         self.add_argument(ArgumentDefinition(name="roi_name", type=str, help="ROI name (with or without .csv)", required=True))
         self.add_argument(ArgumentDefinition(name="roi_radius", type=float, help="ROI radius (mm)", default=3.0))
-        self.add_argument(
-            ArgumentDefinition(
-                name="optimization_mode",
-                type=str,
-                help="Optimization mode: 'buckets' or 'pool'",
-                choices=["buckets", "pool"],
-                required=True,
-            )
-        )
-
-        # Buckets mode args
-        self.add_argument(ArgumentDefinition(name="e1_plus", type=str, help="E1+ electrodes (comma-separated)", required=False))
-        self.add_argument(ArgumentDefinition(name="e1_minus", type=str, help="E1- electrodes (comma-separated)", required=False))
-        self.add_argument(ArgumentDefinition(name="e2_plus", type=str, help="E2+ electrodes (comma-separated)", required=False))
-        self.add_argument(ArgumentDefinition(name="e2_minus", type=str, help="E2- electrodes (comma-separated)", required=False))
-
-        # Pool mode args
-        self.add_argument(ArgumentDefinition(name="pool_electrodes", type=str, help="All electrodes (comma-separated, min 4)", required=False))
-
-        # Current params
+        self.add_argument(ArgumentDefinition(name="optimization_mode", type=str, help="Optimization mode: 'buckets' or 'pool'", choices=["buckets", "pool"], required=False, default=None))
+        self.add_argument(ArgumentDefinition(name="pool", type=bool, help="Shorthand for --optimization-mode pool", default=False))
+        self.add_argument(ArgumentDefinition(name="buckets", type=bool, help="Shorthand for --optimization-mode buckets", default=False))
+        self.add_argument(ArgumentDefinition(name="e1_plus", type=str, nargs="+", help="E1+ electrodes (comma-separated or space-separated)", required=False))
+        self.add_argument(ArgumentDefinition(name="e1_minus", type=str, nargs="+", help="E1- electrodes (comma-separated or space-separated)", required=False))
+        self.add_argument(ArgumentDefinition(name="e2_plus", type=str, nargs="+", help="E2+ electrodes (comma-separated or space-separated)", required=False))
+        self.add_argument(ArgumentDefinition(name="e2_minus", type=str, nargs="+", help="E2- electrodes (comma-separated or space-separated)", required=False))
+        self.add_argument(ArgumentDefinition(name="pool_electrodes", type=str, nargs="+", help="All electrodes (comma-separated or space-separated, min 4)", required=False))
         self.add_argument(ArgumentDefinition(name="total_current", type=float, help="Total current (mA)", default=1.0))
         self.add_argument(ArgumentDefinition(name="current_step", type=float, help="Current step (mA)", default=0.1))
         self.add_argument(ArgumentDefinition(name="channel_limit", type=float, help="Optional per-channel limit (mA)", required=False))
@@ -232,6 +291,9 @@ class ExSearchCLI(BaseCLI):
 
     def _select_or_create_roi(self, subject_id: str) -> str:
         """Select an existing ROI or create a new one."""
+        # Lazy import: ex-search backend pulls SimNIBS; keep CLI import-light so `--help` works everywhere.
+        from tit.opt.ex import get_available_rois
+
         while True:
             existing = get_available_rois(subject_id)
             roi_stems = sorted([x.replace(".csv", "") for x in existing]) if existing else []
@@ -245,6 +307,9 @@ class ExSearchCLI(BaseCLI):
 
     def _create_roi_from_coordinates(self, subject_id: str) -> Optional[str]:
         """Create an ROI from custom coordinates."""
+        # Lazy import: ex-search backend pulls SimNIBS; keep CLI import-light so `--help` works everywhere.
+        from tit.opt.ex import create_roi_from_coordinates
+
         roi_name = utils.ask_required("ROI name (without .csv extension)")
 
         utils.echo_info("Enter coordinates in subject space (RAS coordinates in mm)")
@@ -314,9 +379,7 @@ class ExSearchCLI(BaseCLI):
             raise RuntimeError("Project directory not resolved. In Docker set PROJECT_DIR_NAME so /mnt/<name> exists.")
 
         subject_id = str(args["subject"])
-        leadfield_hdf = str(args["leadfield_hdf"])
-        if not Path(leadfield_hdf).is_file():
-            raise RuntimeError(f"Leadfield file not found: {leadfield_hdf}")
+        leadfield_hdf = str(_resolve_leadfield_path(subject_id, str(args["leadfield_hdf"])))
 
         net_stem, csv_path = _find_eeg_net_csv(subject_id, leadfield_hdf=leadfield_hdf)
         if not net_stem:
@@ -327,18 +390,28 @@ class ExSearchCLI(BaseCLI):
 
         available_labels: List[str] = _load_eeg_labels(csv_path) if csv_path else []
 
-        mode = args["optimization_mode"]
+        # Resolve optimization mode with ergonomic flags
+        if args.get("pool") and args.get("buckets"):
+            raise ValueError("Choose only one of --pool or --buckets")
+        mode = args.get("optimization_mode")
+        if not mode:
+            if args.get("pool"):
+                mode = "pool"
+            elif args.get("buckets"):
+                mode = "buckets"
+        if mode not in ("pool", "buckets"):
+            raise ValueError("Missing optimization mode. Use --optimization-mode {pool,buckets} or the shorthand --pool/--buckets.")
         if mode == "pool":
-            pool = _parse_electrode_list(str(args.get("pool_electrodes") or ""))
+            pool = _parse_electrode_list(args.get("pool_electrodes"))
             if len(pool) < 4:
                 raise ValueError("Pool mode requires --pool-electrodes with at least 4 electrodes")
             _validate_electrode_names(specified=pool, available=available_labels)
             pool_raw = ", ".join(pool)
         else:
-            e1p = _parse_electrode_list(str(args.get("e1_plus") or ""))
-            e1m = _parse_electrode_list(str(args.get("e1_minus") or ""))
-            e2p = _parse_electrode_list(str(args.get("e2_plus") or ""))
-            e2m = _parse_electrode_list(str(args.get("e2_minus") or ""))
+            e1p = _parse_electrode_list(args.get("e1_plus"))
+            e1m = _parse_electrode_list(args.get("e1_minus"))
+            e2p = _parse_electrode_list(args.get("e2_plus"))
+            e2m = _parse_electrode_list(args.get("e2_minus"))
             if not (e1p and e1m and e2p and e2m):
                 raise ValueError("Buckets mode requires --e1-plus/--e1-minus/--e2-plus/--e2-minus")
             if not (len(e1p) == len(e1m) == len(e2p) == len(e2m)):

@@ -23,19 +23,64 @@ from tit.core import get_path_manager
 from tit.core import constants as const
 
 
+def _resolve_eeg_cap_filename(subject_id: str, eeg_net_arg: str) -> str:
+    """
+    Resolve an EEG cap argument to a canonical CSV filename in eeg_positions.
+
+    Accepts either:
+    - "GSN-HydroCel-185" (stem)
+    - "GSN-HydroCel-185.csv" (filename)
+    Performs case-insensitive match within the subject's eeg_positions directory.
+
+    Returns the canonical filename (with .csv extension) if found; otherwise
+    returns the original input (or input + ".csv") without raising.
+    """
+    pm = get_path_manager()
+    raw = str(eeg_net_arg or "").strip()
+    if not raw:
+        return raw
+
+    eeg_dir = Path(pm.path("eeg_positions", subject_id=str(subject_id)))
+    if not eeg_dir.is_dir():
+        return raw
+
+    # Prefer explicit filename, but allow passing stem.
+    candidates = [raw]
+    if not raw.lower().endswith(".csv"):
+        candidates.append(raw + ".csv")
+
+    # Direct (case-sensitive) hit.
+    for c in candidates:
+        if (eeg_dir / c).is_file():
+            return c
+
+    # Case-insensitive hit.
+    wanted = {c.lower() for c in candidates}
+    for p in eeg_dir.glob("*.csv"):
+        if p.name.lower() in wanted or p.stem.lower() in {Path(c).stem.lower() for c in candidates}:
+            return p.name
+
+    # Not found: return the most reasonable normalized name.
+    return candidates[-1]
+
+
 class SimulatorCLI(BaseCLI):
     def __init__(self) -> None:
         super().__init__("Run TI/mTI simulations (delegates to tit.sim.simulator).")
 
         self.add_argument(ArgumentDefinition(name="list_subjects", type=bool, help="List subjects", default=False))
         self.add_argument(ArgumentDefinition(name="list_eeg_caps", type=bool, help="List EEG caps for --subject", default=False))
-        self.add_argument(ArgumentDefinition(name="list_montages", type=bool, help="List montages for --subject/--eeg-net", default=False))
+        # Accept common singular typo too (--list-montage)
+        self.add_argument(ArgumentDefinition(name="list_montages", type=bool, help="List montages for --eeg (and flex-search runs if --sub is provided)", default=False, flags=["--list-montages", "--list-montage"]))
 
-        self.add_argument(ArgumentDefinition(name="subject", type=str, help="Subject ID", required=False))
-        self.add_argument(ArgumentDefinition(name="eeg_net", type=str, help="EEG cap CSV filename", default="EGI_template.csv"))
+        self.add_argument(ArgumentDefinition(name="subject", type=str, help="Subject ID", required=False, flags=["--subject", "--sub"]))
+        self.add_argument(ArgumentDefinition(name="eeg_net", type=str, help="EEG cap CSV filename", default="EGI_template.csv", flags=["--eeg-net", "--eeg"]))
         self.add_argument(ArgumentDefinition(name="framework", type=str, choices=["montage", "flex"], default="montage"))
+        # Ergonomic aliases that avoid argparse abbreviation confusion (BaseCLI sets allow_abbrev=False)
+        self.add_argument(ArgumentDefinition(name="montage", type=bool, help="Shorthand for --framework montage", default=False))
+        self.add_argument(ArgumentDefinition(name="flex", type=bool, help="Shorthand for --framework flex", default=False))
         self.add_argument(ArgumentDefinition(name="mode", type=str, choices=["U", "M"], default="U", help="U (TI) or M (mTI)"))
-        self.add_argument(ArgumentDefinition(name="montages", type=str, help="Comma-separated montage names", required=False))
+        self.add_argument(ArgumentDefinition(name="montages", type=str, nargs="+", help="One or more montage names (supports comma-separated values too).", required=False))
         self.add_argument(ArgumentDefinition(name="create_montage", type=bool, help="Create montage if missing (interactive-like)", default=False))
 
         self.add_argument(ArgumentDefinition(name="conductivity", type=str, choices=["scalar", "vn", "dir", "mc"], default="scalar"))
@@ -80,7 +125,7 @@ class SimulatorCLI(BaseCLI):
                     name = utils.ask_required("Montage name")
                     n_pairs = 2 if mode == "U" else 4
                     pairs: List[List[str]] = []
-                    eeg_pos_dir = pm.get_eeg_positions_dir(subject_id)
+                    eeg_pos_dir = pm.path_optional("eeg_positions", subject_id=subject_id)
                     labels: List[str] = []
                     if eeg_pos_dir:
                         labels = utils.load_eeg_cap_labels(Path(eeg_pos_dir) / eeg_net)
@@ -212,32 +257,56 @@ class SimulatorCLI(BaseCLI):
         if args.get("list_eeg_caps"):
             sid = args.get("subject")
             if not sid:
-                raise RuntimeError("--subject is required for --list-eeg-caps")
+                raise RuntimeError("--sub is required for --list-eeg-caps")
             caps = pm.list_eeg_caps(str(sid))
             utils.echo_header(f"EEG caps for {sid}")
             utils.display_table(caps)
             return 0
 
         if args.get("list_montages"):
+            eeg_net_arg = str(args.get("eeg_net") or self._default_eeg_cap())
+            # If a subject is provided, normalize EEG cap name against eeg_positions.
             sid = args.get("subject")
-            if not sid:
-                raise RuntimeError("--subject is required for --list-montages")
-            from tit.sim.montage_loader import load_montages
+            eeg_net = _resolve_eeg_cap_filename(str(sid), eeg_net_arg) if sid else eeg_net_arg
+            from tit.sim.montage_loader import list_montage_names as _list_names
 
-            eeg_net = str(args.get("eeg_net") or self._default_eeg_cap())
-            montages = load_montages(montage_names=[], project_dir=pm.project_dir, eeg_net=eeg_net, include_flex=True)
-            names = [m.name for m in montages] if montages else []
-            utils.echo_header(f"Montages ({eeg_net})")
-            utils.display_table(names)
+            # montage_list.json keys usually include ".csv". If user passed a stem, also try the ".csv" key.
+            u_names = _list_names(str(pm.project_dir), eeg_net, mode="U")
+            m_names = _list_names(str(pm.project_dir), eeg_net, mode="M")
+            if not eeg_net.lower().endswith(".csv"):
+                u_names = sorted(set(u_names) | set(_list_names(str(pm.project_dir), eeg_net + ".csv", mode="U")))
+                m_names = sorted(set(m_names) | set(_list_names(str(pm.project_dir), eeg_net + ".csv", mode="M")))
+            utils.echo_header(f"Montages (eeg-net: {eeg_net})")
+            utils.echo_section("U mode (TI / 2 pairs)")
+            utils.display_table(u_names)
+            utils.echo_section("M mode (mTI / 4 pairs)")
+            utils.display_table(m_names)
+
+            # If a subject was provided, also show available flex-search runs for that subject.
+            if sid:
+                runs = pm.list_flex_search_runs(str(sid))
+                utils.echo_section(f"Flex-search runs (sub: {sid})")
+                utils.display_table(runs)
             return 0
 
         # Run simulation using tit.sim (keeps critical steps intact)
         sid = args.get("subject")
         if not sid:
-            raise RuntimeError("--subject is required")
-        framework = str(args.get("framework") or "montage")
+            raise RuntimeError("--sub is required")
+        # Framework selection: explicit shorthand flags win.
+        if args.get("montage") and args.get("flex"):
+            raise RuntimeError("Choose only one of --montage or --flex")
+        framework = "montage"
+        if args.get("flex"):
+            framework = "flex"
+        elif args.get("montage"):
+            framework = "montage"
+        else:
+            framework = str(args.get("framework") or "montage")
         mode = str(args.get("mode") or "U").upper()
-        eeg_net = str(args.get("eeg_net") or self._default_eeg_cap())
+        eeg_net_arg = str(args.get("eeg_net") or self._default_eeg_cap())
+        # Normalize EEG cap to existing eeg_positions filename when possible.
+        eeg_net = _resolve_eeg_cap_filename(str(sid), eeg_net_arg)
 
         from tit.sim import (
             ConductivityType,
@@ -249,7 +318,16 @@ class SimulatorCLI(BaseCLI):
         from tit.sim.config import MontageConfig
         from tit.tools import map_electrodes as map_tool
 
-        montage_names = [m.strip() for m in str(args.get("montages") or "").split(",") if m.strip()]
+        raw_montages = args.get("montages")
+        tokens: List[str] = []
+        if raw_montages is None:
+            tokens = []
+        elif isinstance(raw_montages, (list, tuple)):
+            for t in raw_montages:
+                tokens.extend([x.strip() for x in str(t).split(",") if x.strip()])
+        else:
+            tokens = [x.strip() for x in str(raw_montages).split(",") if x.strip()]
+        montage_names = list(dict.fromkeys(tokens))  # stable-unique
         if framework == "montage" and not montage_names:
             raise RuntimeError("--montages is required for framework=montage")
 
@@ -276,13 +354,65 @@ class SimulatorCLI(BaseCLI):
         montages: List[MontageConfig] = []
         if framework == "montage":
             from tit.sim.montage_loader import load_montages as _load_regular
+            from tit.sim.montage_loader import list_montage_names as _list_names
+            from tit.sim import utils as sim_utils
 
-            montages = _load_regular(
-                montage_names=montage_names,
-                project_dir=str(pm.project_dir),
-                eeg_net=eeg_net,
-                include_flex=False,
-            )
+            montages = _load_regular(montage_names=montage_names, project_dir=str(pm.project_dir), eeg_net=eeg_net, include_flex=False)
+
+            # If missing and user asked to create, prompt for montage definitions now.
+            if (not montages) and bool(args.get("create_montage")):
+                available_labels: List[str] = []
+                eeg_pos_dir = pm.path_optional("eeg_positions", subject_id=str(sid))
+                if eeg_pos_dir:
+                    cap_path = Path(eeg_pos_dir) / eeg_net
+                    if cap_path.is_file():
+                        available_labels = utils.load_eeg_cap_labels(cap_path)
+                if not available_labels:
+                    raise RuntimeError(f"Could not load electrode labels for EEG cap '{eeg_net}'. Ensure it exists under eeg_positions for sub {sid}.")
+
+                utils.echo_header("Create montage(s)")
+                utils.echo_info(f"EEG cap: {eeg_net}")
+                utils.echo_info("Available electrodes (sample):")
+                utils.display_table(available_labels, max_rows=10, col_width=12)
+                canon = {lab.strip().upper(): lab for lab in available_labels}
+                n_pairs = 2 if mode == "U" else 4
+
+                for name in montage_names:
+                    pairs: List[List[str]] = []
+                    utils.echo_section(f"Montage: {name} ({mode})")
+                    for i in range(n_pairs):
+                        while True:
+                            raw = utils.ask_required(f"Enter two electrodes for pair {i+1} (comma-separated)", default=None)
+                            parts = [p.strip() for p in raw.split(",") if p.strip()]
+                            if len(parts) != 2:
+                                utils.echo_error("Please enter exactly two electrode labels separated by a comma (e.g. FC1, FC3).")
+                                continue
+                            a_raw, b_raw = parts[0].upper(), parts[1].upper()
+                            if a_raw == b_raw:
+                                utils.echo_error("Electrodes must be different.")
+                                continue
+                            a = canon.get(a_raw)
+                            b = canon.get(b_raw)
+                            if not a or not b:
+                                utils.echo_error("One or both electrode labels were not recognized. Please use labels from the EEG cap.")
+                                continue
+                            pairs.append([a, b])
+                            break
+                    sim_utils.upsert_montage(project_dir=str(pm.project_dir), eeg_net=eeg_net, montage_name=name, electrode_pairs=pairs, mode=mode)
+                    utils.echo_success(f"Saved montage '{name}' to montage_list.json")
+
+                # Reload after creation
+                montages = _load_regular(montage_names=montage_names, project_dir=str(pm.project_dir), eeg_net=eeg_net, include_flex=False)
+
+            if not montages:
+                available = _list_names(str(pm.project_dir), eeg_net, mode=mode)
+                available_s = ", ".join(available) if available else "(none)"
+                raise RuntimeError(
+                    f"No montages were loaded for eeg-net={eeg_net}, mode={mode}. "
+                    f"Requested: {', '.join(montage_names)}. Available: {available_s}. "
+                    f"Tip: run `simulator --list-montages --eeg {eeg_net}` "
+                    f"or re-run with --create-montage to define it."
+                )
         else:
             # Flex mode: montage_names holds selected flex-search folders
             flex_root = Path(pm.path("flex_search", subject_id=str(sid)))
@@ -439,7 +569,21 @@ class SimulatorCLI(BaseCLI):
             kwargs = {}
 
         results = run_simulation(config, montages, **kwargs)
-        ok = all(r.get("status") == "completed" for r in results)
+        utils.echo_header("Simulation Results")
+        if not results:
+            utils.echo_warning("No simulations were run (empty montage list).")
+            return 1
+
+        completed = [r for r in results if r.get("status") == "completed"]
+        failed = [r for r in results if r.get("status") != "completed"]
+        for r in completed:
+            out_mesh = r.get("output_mesh") or "-"
+            utils.echo_success(f"{r.get('montage_name', 'unknown')}: completed (output_mesh: {out_mesh})")
+        for r in failed:
+            err = r.get("error") or "unknown error"
+            utils.echo_error(f"{r.get('montage_name', 'unknown')}: failed ({err})")
+
+        ok = len(failed) == 0
         return 0 if ok else 1
 
 

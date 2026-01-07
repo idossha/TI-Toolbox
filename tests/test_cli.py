@@ -34,9 +34,9 @@ def test_analyzer_direct_builds_expected_argv(monkeypatch, tmp_path: Path):
     rc = _run_cli(
         cli,
         [
-            "--subject",
+            "--sub",
             "101",
-            "--simulation",
+            "--sim",
             "test_montage",
             "--space",
             "mesh",
@@ -88,15 +88,15 @@ def test_group_analyzer_from_project_builds_subject_specs(monkeypatch, tmp_path:
     rc = _run_cli(
         cli,
         [
-            "--subjects",
+            "--subs",
             "101,102",
-            "--simulation",
+            "--sim",
             "simA",
             "--space",
             "mesh",
             "--analysis-type",
             "spherical",
-            "--output-dir",
+            "--out",
             str(out),
             "--coordinates",
             "0 0 0",
@@ -170,7 +170,7 @@ def test_pre_process_direct_calls_structural(monkeypatch, tmp_path: Path):
     proj.mkdir(parents=True, exist_ok=True)
     monkeypatch.setenv("PROJECT_DIR", str(proj))
     cli = pp.PreProcessCLI()
-    rc = _run_cli(cli, ["--subjects", "101,102"])
+    rc = _run_cli(cli, ["--subs", "101,102"])
     assert rc == 0
     assert calls, "expected structural.sh to be invoked"
     # structural.sh should be called once with two subject dirs
@@ -192,10 +192,11 @@ def test_vis_blender_direct_delegates(monkeypatch, tmp_path: Path):
     def fake_build(**_kwargs):
         return DummyResult()
 
-    monkeypatch.setattr(vb, "build_montage_publication_blend", lambda **kwargs: fake_build(**kwargs))
+    from tit.blender import montage_publication as mp
+    monkeypatch.setattr(mp, "build_montage_publication_blend", fake_build)
 
     cli = vb.VisBlenderCLI()
-    rc = _run_cli(cli, ["--subject", "101", "--simulation", "simA"])
+    rc = _run_cli(cli, ["--sub", "101", "--sim", "simA"])
     assert rc == 0
 
 
@@ -224,10 +225,11 @@ def test_create_leadfield_direct_delegates(monkeypatch, tmp_path: Path):
             called["eeg_cap_path"] = eeg_cap_path
             return str(Path(output_dir) / "leadfield.hdf5")
 
-    monkeypatch.setattr(cl, "LeadfieldGenerator", DummyGen)
+    from tit.opt import leadfield as lf
+    monkeypatch.setattr(lf, "LeadfieldGenerator", DummyGen)
 
     cli = cl.CreateLeadfieldCLI()
-    rc = _run_cli(cli, ["--subject", "101", "--eeg-net", "EGI_template.csv"])
+    rc = _run_cli(cli, ["--sub", "101", "--eeg", "EGI_template.csv"])
     assert rc == 0
     assert "m2m_101" in str(called["m2m_dir"])
 
@@ -262,11 +264,11 @@ def test_ex_search_direct_sets_env_and_calls(monkeypatch, tmp_path: Path):
     rc = _run_cli(
         cli,
         [
-            "--subject",
+            "--sub",
             "101",
-            "--roi-name",
+            "--roi",
             "roiA",
-            "--leadfield-hdf",
+            "--lf",
             str(lf),
             "--optimization-mode",
             "buckets",
@@ -293,7 +295,8 @@ def test_cluster_permutation_direct_delegates(monkeypatch, tmp_path: Path):
         seen.update(kwargs)
         return None
 
-    monkeypatch.setattr(cp.permutation_analysis, "run_analysis", lambda *a, **k: fake_run(args=a, kwargs=k))
+    from tit.stats import permutation_analysis as pa
+    monkeypatch.setattr(pa, "run_analysis", lambda *a, **k: fake_run(args=a, kwargs=k))
 
     csv = tmp_path / "subjects.csv"
     csv.write_text("subject_id,simulation_name,response\n101,simA,1\n")
@@ -332,18 +335,15 @@ def test_simulator_direct_delegates_to_run_simulation(monkeypatch, tmp_path: Pat
         captured["montages"] = montages
         return [{"montage_name": "m1", "status": "completed"}]
 
-    monkeypatch.setattr(sim_cli, "get_path_manager", sim_cli.get_path_manager)
-    monkeypatch.setattr(sim_cli, "load_montages", fake_load_montages, raising=False)
-    monkeypatch.setattr(sim_cli, "run_simulation", fake_run_simulation, raising=False)
-
-    # Patch the imports inside execute by patching tit.sim itself
+    # Patch the imports inside execute by patching tit.sim
     import tit.sim as sim_pkg
+    import tit.sim.montage_loader as ml
 
-    monkeypatch.setattr(sim_pkg, "load_montages", fake_load_montages)
+    monkeypatch.setattr(ml, "load_montages", fake_load_montages)
     monkeypatch.setattr(sim_pkg, "run_simulation", fake_run_simulation)
 
     cli = sim_cli.SimulatorCLI()
-    rc = _run_cli(cli, ["--subject", "101", "--framework", "montage", "--montages", "m1", "--eeg-net", "EGI_template.csv"])
+    rc = _run_cli(cli, ["--sub", "101", "--framework", "montage", "--montages", "m1", "--eeg", "EGI_template.csv"])
     assert rc == 0
     assert captured["config"].subject_id == "101"
 

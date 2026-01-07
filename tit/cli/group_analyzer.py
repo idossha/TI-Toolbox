@@ -30,7 +30,10 @@ class GroupAnalyzerCLI(BaseCLI):
     def __init__(self) -> None:
         super().__init__("Run analysis across multiple subjects and compare results.")
 
-        self.add_argument(ArgumentDefinition(name="subjects", type=str, help="Comma-separated subject IDs", required=True))
+        # Accept either:
+        # - comma-separated: --subs 101,102
+        # - space-separated: --subs 101 102
+        self.add_argument(ArgumentDefinition(name="subjects", type=str, nargs="+", help="Subject IDs (comma-separated or space-separated). Requires at least 2.", required=True))
         self.add_argument(ArgumentDefinition(name="simulation", type=str, help="Simulation name", required=True))
         self.add_argument(ArgumentDefinition(name="space", type=str, choices=["mesh", "voxel"], default="mesh", help="mesh|voxel"))
         self.add_argument(ArgumentDefinition(name="analysis_type", type=str, choices=["spherical", "cortical"], default="spherical", help="spherical|cortical"))
@@ -143,9 +146,9 @@ class GroupAnalyzerCLI(BaseCLI):
             raise RuntimeError("Project directory not resolved. In Docker set PROJECT_DIR_NAME so /mnt/<name> exists.")
         proj = Path(pm.project_dir)
 
-        subject_ids = [s.strip() for s in str(args["subjects"]).split(",") if s.strip()]
+        subject_ids = utils.split_csv_or_tokens(args.get("subjects"))
         if len(subject_ids) < 2:
-            raise RuntimeError("--subjects must contain at least two ids (comma-separated)")
+            raise RuntimeError("--subs must contain at least two ids")
 
         output_dir = args.get("output_dir") or pm.path("simnibs")
         argv: List[str] = ["--space", str(args["space"]), "--analysis_type", str(args["analysis_type"]), "--output_dir", str(output_dir)]

@@ -845,7 +845,9 @@ class VisualExporterWidget(QtWidgets.QWidget):
             use_existing_stl: If True, use existing scalp.stl; otherwise extract from .msh
         """
         # Build paths
-        eeg_pos_dir = self.pm.get_eeg_positions_dir(subject_id)
+        eeg_pos_dir = self.pm.path_optional("eeg_positions", subject_id=subject_id)
+        if not eeg_pos_dir:
+            raise FileNotFoundError(f"EEG positions directory not found for subject {subject_id}")
         csv_path = os.path.join(eeg_pos_dir, net_name)
         electrode_blend_path = os.path.join(ti_toolbox_path, "blender", "Electrode.blend")
         output_dir = self._electrode_exports_dir(subject_id)

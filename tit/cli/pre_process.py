@@ -69,10 +69,51 @@ def _run_structural(
     return subprocess.call(cmd)
 
 
+def _run_atlas_creation(project_dir: Path, subject_ids: List[str]) -> int:
+    """Run atlas creation for the given subjects."""
+    atlas_script = _script_path("subject_atlas.sh")
+    if not atlas_script.exists():
+        raise RuntimeError(f"Missing atlas script: {atlas_script}")
+
+    cmd: List[str] = [str(atlas_script)]
+    for sid in subject_ids:
+        cmd.append(str(project_dir / f"sub-{sid}"))
+
+    return subprocess.call(cmd)
+
+
+def _run_tissue_analysis(project_dir: Path, subject_ids: List[str]) -> int:
+    """Run tissue analysis for the given subjects."""
+    pm = get_path_manager()
+    pm.project_dir = str(project_dir)
+
+    tissue_script = _script_path("tissue-analyzer.sh")
+    if not tissue_script.exists():
+        raise RuntimeError(f"Missing tissue analyzer script: {tissue_script}")
+
+    for sid in subject_ids:
+        # Get the tissue labeling file path using path manager
+        label_nii_path = pm.path("tissue_labeling", subject_id=sid)
+
+        if not pm.is_file("tissue_labeling", subject_id=sid):
+            raise RuntimeError(f"Labeling.nii.gz not found for subject {sid} at {label_nii_path}")
+
+        # Ensure output directory exists using path manager
+        tissue_out_dir = pm.ensure_dir("tissue_analysis_output", subject_id=sid)
+
+        # Run tissue analysis
+        cmd = [str(tissue_script), label_nii_path, "-o", tissue_out_dir]
+        exit_code = subprocess.call(cmd)
+        if exit_code != 0:
+            return exit_code
+
+    return 0
+
+
 class PreProcessCLI(BaseCLI):
     def __init__(self) -> None:
         super().__init__("Run preprocessing pipeline (structural / m2m / atlas / tissue analysis).")
-        self.add_argument(ArgumentDefinition(name="subjects", type=str, help="Comma-separated subject IDs", required=True))
+        self.add_argument(ArgumentDefinition(name="subjects", type=str, nargs="+", help="Subject IDs (comma-separated or space-separated).", required=True))
         self.add_argument(ArgumentDefinition(name="convert_dicom", type=bool, help="Convert dicom to nifti", default=False))
         self.add_argument(ArgumentDefinition(name="run_recon", type=bool, help="Run FreeSurfer recon-all", default=False))
         self.add_argument(ArgumentDefinition(name="parallel_recon", type=bool, help="Pass --parallel to recon-all", default=False))
@@ -141,14 +182,15 @@ class PreProcessCLI(BaseCLI):
         pm = get_path_manager()
         project_dir = Path(pm.project_dir)
 
-        subject_ids = [s.strip() for s in str(args["subjects"]).split(",") if s.strip()]
+        subject_ids = utils.split_csv_or_tokens(args.get("subjects"))
         if not subject_ids:
             raise RuntimeError("No subjects provided.")
 
         for sid in subject_ids:
             _ensure_subject_dirs(project_dir, sid)
 
-        return _run_structural(
+        # Run structural preprocessing (DICOM conversion, recon-all, m2m creation)
+        exit_code = _run_structural(
             project_dir,
             subject_ids,
             convert_dicom=bool(args.get("convert_dicom", False)),
@@ -156,6 +198,22 @@ class PreProcessCLI(BaseCLI):
             parallel_recon=bool(args.get("parallel_recon", False)),
             create_m2m=bool(args.get("create_m2m", False)),
         )
+        if exit_code != 0:
+            return exit_code
+
+        # Run atlas creation if requested
+        if bool(args.get("create_atlas", False)):
+            exit_code = _run_atlas_creation(project_dir, subject_ids)
+            if exit_code != 0:
+                return exit_code
+
+        # Run tissue analysis if requested
+        if bool(args.get("run_tissue_analysis", False)):
+            exit_code = _run_tissue_analysis(project_dir, subject_ids)
+            if exit_code != 0:
+                return exit_code
+
+        return 0
 
 
 if __name__ == "__main__":

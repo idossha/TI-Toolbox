@@ -19,13 +19,25 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PYTHON_SCRIPT="$SCRIPT_DIR/../tools/tissue_analyzer.py"
 
 # Source shared bash logging utility
-UTIL_DIR="$SCRIPT_DIR/../tools"
-if [ -f "$UTIL_DIR/bash_logging.sh" ]; then
+UTIL_CANDIDATES=(
+    "$SCRIPT_DIR/../bash_logging.sh"
+    "$SCRIPT_DIR/../tools/bash_logging.sh"
+)
+
+log_util_path=""
+for candidate in "${UTIL_CANDIDATES[@]}"; do
+    if [ -f "$candidate" ]; then
+        log_util_path="$candidate"
+        break
+    fi
+done
+
+if [ -n "$log_util_path" ]; then
     # shellcheck disable=SC1090
-    source "$UTIL_DIR/bash_logging.sh"
+    source "$log_util_path"
     set_logger_name "tissue_analyzer"
 else
-    echo "[WARN] bash_logging.sh not found at $UTIL_DIR; proceeding without file logging" >&2
+    echo "[WARN] bash_logging.sh not found in any expected location; proceeding without file logging" >&2
 fi
 
 # Print functions

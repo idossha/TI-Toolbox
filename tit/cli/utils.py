@@ -13,7 +13,7 @@ import os
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Iterable, List, Optional, Sequence, Tuple, TypeVar, Union
+from typing import Any, Callable, Iterable, List, Optional, Sequence, Tuple, TypeVar, Union
 import csv
 from datetime import datetime
 import shlex
@@ -117,6 +117,31 @@ def env_required(name: str) -> str:
     if not val:
         raise RuntimeError(f"Missing required environment variable: {name}")
     return val
+
+
+# =============================================================================
+# Arg parsing helpers (direct mode ergonomics)
+# =============================================================================
+
+
+def split_csv_or_tokens(value: Any) -> List[str]:
+    """
+    Accept either:
+    - comma-separated string: "a,b,c"
+    - whitespace-separated tokens via argparse nargs='+': ["a","b","c"]
+    - mixed: ["a,b", "c"]
+
+    Returns stable-unique tokens, preserving first occurrence order.
+    """
+    tokens: List[str] = []
+    if value is None:
+        tokens = []
+    elif isinstance(value, (list, tuple)):
+        for t in value:
+            tokens.extend([x.strip() for x in str(t).split(",") if x.strip()])
+    else:
+        tokens = [x.strip() for x in str(value).split(",") if x.strip()]
+    return list(dict.fromkeys(tokens))
 
 
 def default_project_dir_from_env() -> Optional[Path]:

@@ -33,16 +33,6 @@ import sys
 import time
 from concurrent.futures import ProcessPoolExecutor, as_completed
 
-from tit.sim import (
-    run_simulation,
-    SimulationConfig,
-    ElectrodeConfig,
-    IntensityConfig,
-    MontageConfig,
-    ConductivityType,
-    ParallelConfig,
-)
-from tit.sim.montage_loader import load_montages
 from tit.core import get_path_manager
 from tit import logger as logging_util
 
@@ -54,6 +44,17 @@ def _process_single_simulation(sim_idx, sim_config, project_dir, eeg_net,
                               conductivity, default_electrode, parallel_config):
     """Process a single simulation. Used for parallel execution."""
     try:
+        # Lazy import: keep module importable for `--help` even without SimNIBS installed.
+        from tit.sim import (
+            run_simulation,
+            SimulationConfig,
+            ElectrodeConfig,
+            IntensityConfig,
+            ConductivityType,
+            ParallelConfig,
+        )
+        from tit.sim.montage_loader import load_montages
+
         subject_id = sim_config["subject"]
 
         # Set up per-simulation logger (file-only to avoid console conflicts)
@@ -67,6 +68,25 @@ def _process_single_simulation(sim_idx, sim_config, project_dir, eeg_net,
         )
 
         sim_logger.info(f"Processing simulation {sim_idx + 1} for subject {subject_id}")
+
+        # Normalize configs (accept dicts to keep module import-light)
+        intensity = sim_config.get("intensity")
+        if isinstance(intensity, dict):
+            intensity = IntensityConfig(**intensity)
+
+        electrode = sim_config.get("electrode")
+        if electrode is None:
+            electrode = default_electrode
+        if isinstance(electrode, dict):
+            electrode = ElectrodeConfig(**electrode)
+
+        cond = sim_config.get("conductivity", conductivity)
+        if isinstance(cond, str):
+            cond = getattr(ConductivityType, cond.strip().upper())
+
+        par = parallel_config
+        if isinstance(par, dict):
+            par = ParallelConfig(**par)
 
         # Get montages
         montage_input = sim_config["montages"]
@@ -88,11 +108,11 @@ def _process_single_simulation(sim_idx, sim_config, project_dir, eeg_net,
         config = SimulationConfig(
             subject_id=subject_id,
             project_dir=project_dir,
-            conductivity_type=sim_config.get("conductivity", conductivity),
-            intensities=sim_config["intensity"],
-            electrode=sim_config.get("electrode", default_electrode),
+            conductivity_type=cond,
+            intensities=intensity,
+            electrode=electrode,
             eeg_net=eeg_net,
-            parallel=parallel_config
+            parallel=par
         )
 
         # Run simulation
@@ -121,21 +141,21 @@ PROJECT_DIR = "/mnt/BIDS_new"
 EEG_NET = "GSN-HydroCel-185.csv"
 
 # Default electrode configuration (can be overridden per simulation)
-DEFAULT_ELECTRODE = ElectrodeConfig(
-    shape="ellipse",
-    dimensions=[8.0, 8.0],
-    thickness=4.0,
-    sponge_thickness=2.0
-)
+DEFAULT_ELECTRODE = {
+    "shape": "ellipse",
+    "dimensions": [8.0, 8.0],
+    "thickness": 4.0,
+    "sponge_thickness": 2.0,
+}
 
 # Parallel execution settings
-PARALLEL = ParallelConfig(
-    enabled=True,      # Enable parallel execution
-    max_workers=2      # Number of parallel workers (0 = auto)
-)
+PARALLEL = {
+    "enabled": True,  # Enable parallel execution
+    "max_workers": 2,  # Number of parallel workers (0 = auto)
+}
 
 # Conductivity type: "scalar", "vn", "dir", or "mc"
-CONDUCTIVITY = ConductivityType.SCALAR
+CONDUCTIVITY = "SCALAR"
 
 # -----------------------------------------------------------------------------
 # SIMULATIONS - Define your simulations here
@@ -152,12 +172,7 @@ SIMULATIONS = [
     {
         "subject": "ernie",
         "montages": ["test"],
-        "intensity": IntensityConfig(
-            pair1=1.0,  # mA for electrode pair 1
-            pair2=1.0,  # mA for electrode pair 2
-            pair3=1.0,  # mA for electrode pair 3 (mTI mode)
-            pair4=1.0   # mA for electrode pair 4 (mTI mode)
-        ),
+        "intensity": {"pair1": 1.0, "pair2": 1.0, "pair3": 1.0, "pair4": 1.0},
     },
 
     # # Simulation 2: Ernie - Higher intensity
@@ -176,36 +191,21 @@ SIMULATIONS = [
     {
         "subject": "ernie",
         "montages": ["test"],
-        "intensity": IntensityConfig(
-            pair1=2.0,  # mA for electrode pair 1
-            pair2=2.0,  # mA for electrode pair 2
-            pair3=2.0,  # mA for electrode pair 3 (mTI mode)
-            pair4=2.0   # mA for electrode pair 4 (mTI mode)
-        ),
+        "intensity": {"pair1": 2.0, "pair2": 2.0, "pair3": 2.0, "pair4": 2.0},
     },
 
     # Simulation 3: Subject2 - Different montage and intensity
     {
         "subject": "subject2",
         "montages": ["test"],
-        "intensity": IntensityConfig(
-            pair1=1.5,  # mA for electrode pair 1
-            pair2=2.5,  # mA for electrode pair 2
-            pair3=1.0,  # mA for electrode pair 3 (mTI mode)
-            pair4=1.0   # mA for electrode pair 4 (mTI mode)
-        ),
+        "intensity": {"pair1": 1.5, "pair2": 2.5, "pair3": 1.0, "pair4": 1.0},
     },
 
     # Simulation 4: Ernie - Another configuration
     {
         "subject": "ernie",
         "montages": ["test"],
-        "intensity": IntensityConfig(
-            pair1=0.5,  # mA for electrode pair 1
-            pair2=1.0,  # mA for electrode pair 2
-            pair3=0.5,  # mA for electrode pair 3 (mTI mode)
-            pair4=1.0   # mA for electrode pair 4 (mTI mode)
-        ),
+        "intensity": {"pair1": 0.5, "pair2": 1.0, "pair3": 0.5, "pair4": 1.0},
     },
     
     # # Simulation 2: Ernie - Higher intensity
@@ -261,6 +261,12 @@ SUBJECTS = [
 
 def run_batch(logger=None):
     """Run the batch simulation."""
+    # Lazy import: keep module importable for `--help` even without SimNIBS installed.
+    from tit.sim import ParallelConfig
+
+    parallel_cfg = ParallelConfig(**PARALLEL) if isinstance(PARALLEL, dict) else PARALLEL
+    parallel_enabled = bool(getattr(parallel_cfg, "enabled", False))
+    workers = int(getattr(parallel_cfg, "effective_workers", 1))
 
     # Group simulations by subject
     simulations_by_subject = {}
@@ -282,9 +288,9 @@ def run_batch(logger=None):
 
     # Check if we should run simulations in parallel
     run_simulations_parallel = (
-        PARALLEL.enabled and
+        parallel_enabled and
         len(SIMULATIONS) > 1 and
-        PARALLEL.effective_workers > 1
+        workers > 1
     )
 
     if logger:
@@ -295,9 +301,9 @@ def run_batch(logger=None):
         logger.debug(f"Subjects to process: {subjects_to_process}")
         logger.debug(f"Total simulations: {len(SIMULATIONS)}")
         logger.debug(f"Simulations by subject: {dict((k, len(v)) for k, v in simulations_by_subject.items())}")
-        logger.debug(f"Parallel enabled: {PARALLEL.enabled} ({PARALLEL.effective_workers} workers)")
+        logger.debug(f"Parallel enabled: {parallel_enabled} ({workers} workers)")
         if run_simulations_parallel:
-            logger.info(f"Will run simulations in parallel with {PARALLEL.effective_workers} workers")
+            logger.info(f"Will run simulations in parallel with {workers} workers")
         else:
             logger.info("Will run simulations sequentially")
 
@@ -308,9 +314,9 @@ def run_batch(logger=None):
     print(f"Subjects: {subjects_to_process}")
     print(f"Simulations: {len(SIMULATIONS)}")
     if run_simulations_parallel:
-        print(f"Parallel: Simulation-level ({PARALLEL.effective_workers} workers)")
+        print(f"Parallel: Simulation-level ({workers} workers)")
     else:
-        print(f"Parallel: {PARALLEL.enabled} ({PARALLEL.effective_workers} workers)")
+        print(f"Parallel: {parallel_enabled} ({workers} workers)")
     print("=" * 60)
 
     # Initialize path manager
@@ -322,10 +328,10 @@ def run_batch(logger=None):
 
     if run_simulations_parallel:
         if logger:
-            logger.info(f"Running {len(SIMULATIONS)} simulations in parallel with {PARALLEL.effective_workers} workers")
+            logger.info(f"Running {len(SIMULATIONS)} simulations in parallel with {workers} workers")
 
         # Run simulations in parallel
-        with ProcessPoolExecutor(max_workers=PARALLEL.effective_workers) as executor:
+        with ProcessPoolExecutor(max_workers=workers) as executor:
             # Submit all simulation tasks
             future_to_sim = {}
             for sim_idx, sim_config in enumerate(SIMULATIONS):
@@ -371,6 +377,19 @@ def run_batch(logger=None):
 
     else:
         # Run simulations sequentially
+        # Lazy import: keep module importable for `--help` even without SimNIBS installed.
+        from tit.sim import (
+            run_simulation,
+            SimulationConfig,
+            ElectrodeConfig,
+            IntensityConfig,
+            ConductivityType,
+            ParallelConfig,
+        )
+        from tit.sim.montage_loader import load_montages
+
+        par = ParallelConfig(**PARALLEL) if isinstance(PARALLEL, dict) else PARALLEL
+
         if logger and len(SIMULATIONS) > 1:
             logger.info(f"Running {len(SIMULATIONS)} simulations sequentially")
 
@@ -394,17 +413,31 @@ def run_batch(logger=None):
                 montages = montage_input
 
             print(f"  Montages: {[m.name for m in montages]}")
-            print(f"  Intensity: {sim_config['intensity'].pair1} mA")
+
+            intensity = sim_config.get("intensity")
+            if isinstance(intensity, dict):
+                intensity = IntensityConfig(**intensity)
+            print(f"  Intensity: {getattr(intensity, 'pair1', '?')} mA")
+
+            electrode = sim_config.get("electrode")
+            if electrode is None:
+                electrode = DEFAULT_ELECTRODE
+            if isinstance(electrode, dict):
+                electrode = ElectrodeConfig(**electrode)
+
+            cond = sim_config.get("conductivity", CONDUCTIVITY)
+            if isinstance(cond, str):
+                cond = getattr(ConductivityType, cond.strip().upper())
 
             # Build config
             config = SimulationConfig(
                 subject_id=subject_id,
                 project_dir=PROJECT_DIR,
-                conductivity_type=sim_config.get("conductivity", CONDUCTIVITY),
-                intensities=sim_config["intensity"],
-                electrode=sim_config.get("electrode", DEFAULT_ELECTRODE),
+                conductivity_type=cond,
+                intensities=intensity,
+                electrode=electrode,
                 eeg_net=EEG_NET,
-                parallel=PARALLEL
+                parallel=par
             )
 
             # Run simulation

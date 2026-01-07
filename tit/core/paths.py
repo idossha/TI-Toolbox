@@ -252,6 +252,9 @@ class PathManager:
         "flex_search": (const.DIR_DERIVATIVES, const.DIR_SIMNIBS, f"{const.PREFIX_SUBJECT}{{subject_id}}", const.DIR_FLEX_SEARCH),
         "flex_search_run": (const.DIR_DERIVATIVES, const.DIR_SIMNIBS, f"{const.PREFIX_SUBJECT}{{subject_id}}", const.DIR_FLEX_SEARCH, "{search_name}"),
         "flex_electrode_positions": (const.DIR_DERIVATIVES, const.DIR_SIMNIBS, f"{const.PREFIX_SUBJECT}{{subject_id}}", const.DIR_FLEX_SEARCH, "{search_name}", "electrode_positions.json"),
+        # tissue analysis
+        "tissue_labeling": (const.DIR_DERIVATIVES, const.DIR_SIMNIBS, f"{const.PREFIX_SUBJECT}{{subject_id}}", f"{const.DIR_M2M_PREFIX}{{subject_id}}", "segmentation", "Labeling.nii.gz"),
+        "tissue_analysis_output": (const.DIR_DERIVATIVES, const.DIR_TI_TOOLBOX, const.DIR_TISSUE_ANALYSIS, f"{const.PREFIX_SUBJECT}{{subject_id}}"),
     }
 
     def path(self, key: str, /, **kwargs) -> str:

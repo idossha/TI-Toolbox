@@ -27,7 +27,6 @@ from tit.cli.base import ArgumentDefinition, InteractivePrompt, BaseCLI
 from tit.core import get_path_manager
 from tit.core import constants as const
 from tit import logger as logging_util
-from tit.blender.montage_publication import build_montage_publication_blend
 
 
 logger = logging.getLogger("tit.cli.vis_blender")
@@ -42,8 +41,8 @@ class VisBlenderCLI(BaseCLI):
         )
 
         # Add argument definitions
-        self.add_argument(ArgumentDefinition(name="subject", type=str, help="Subject ID (e.g., 001)", required=True))
-        self.add_argument(ArgumentDefinition(name="simulation", type=str, help="Simulation name", required=True))
+        self.add_argument(ArgumentDefinition(name="subject", type=str, help="Subject ID (e.g., 001)", required=True, flags=["--subject", "--sub"]))
+        self.add_argument(ArgumentDefinition(name="simulation", type=str, help="Simulation name", required=True, flags=["--simulation", "--sim"]))
         self.add_argument(ArgumentDefinition(name="output_dir", type=str, help="Output directory (default: <project>/derivatives/ti-toolbox/sub-<id>/<sim>/)", required=False))
         self.add_argument(ArgumentDefinition(name="montage_only", type=bool, help="Only show/place electrodes that are part of the montage pairs in config.json", default=False))
         self.add_argument(ArgumentDefinition(name="electrode_diameter_mm", type=float, help="Electrode diameter in mm (default: 10.0)", default=10.0))
@@ -105,6 +104,9 @@ class VisBlenderCLI(BaseCLI):
             log.info(f"Logging to: {log_file}")
 
         try:
+            # Lazy import: Blender/SimNIBS stack is heavy; keep `--help` import-safe.
+            from tit.blender.montage_publication import build_montage_publication_blend
+
             result = build_montage_publication_blend(
                 subject_id=args["subject"],
                 simulation_name=args["simulation"],
