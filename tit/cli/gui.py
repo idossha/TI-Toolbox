@@ -15,7 +15,7 @@ from tit.cli.base import BaseCLI
 from tit.cli import utils
 
 
-class GuiCLI(BaseCLI):
+class GUICLI(BaseCLI):
     def __init__(self) -> None:
         super().__init__(description="Launch the TI-Toolbox GUI (Qt).")
 
@@ -25,5 +25,5 @@ class GuiCLI(BaseCLI):
         return 0
 
 if __name__ == "__main__":
-    raise SystemExit(GuiCLI().run())
+    raise SystemExit(GUICLI().run())
 
