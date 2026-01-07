@@ -25,6 +25,12 @@ from tit.gui.components.action_buttons import RunStopButtons
 from tit.core import get_path_manager
 from tit.core.process import get_child_pids
 from tit import logger as logging_util
+from tit.opt.ex import (
+    get_available_rois,
+    create_roi_from_coordinates,
+    delete_roi,
+    get_roi_coordinates,
+)
 
 
 def _get_and_display_electrodes(subject_id, cap_name, parent_widget, path_manager=None):
@@ -372,40 +378,12 @@ class ExSearchTab(QtWidgets.QWidget):
         # Initialize path manager
         self.pm = get_path_manager()
         
-        # Load ROI presets
-        self.presets = {}
-        self.load_presets()
         
         self.setup_ui()
         
         # Initialize with available subjects and check leadfields
         QtCore.QTimer.singleShot(500, self.initial_setup)
     
-    def load_presets(self):
-        """Load ROI presets from resources/roi_presets.json"""
-        try:
-            # Get path to resources directory (project root / resources)
-            script_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # tit/gui -> tit
-            project_root = os.path.dirname(script_dir)  # tit -> project root
-            presets_file = os.path.join(project_root, 'resources', 'roi_presets.json')
-            
-            if os.path.exists(presets_file):
-                with open(presets_file, 'r') as f:
-                    data = json.load(f)
-                    self.presets = data.get('regions', {})
-            else:
-                # Fallback to opt directory (old location for backward compatibility)
-                presets_file = os.path.join(script_dir, 'opt', 'roi_presets.json')
-                if os.path.exists(presets_file):
-                    with open(presets_file, 'r') as f:
-                        data = json.load(f)
-                        self.presets = data.get('regions', {})
-                else:
-                    print(f"Warning: roi_presets.json not found in resources or opt directories")
-                    self.presets = {}
-        except Exception as e:
-            print(f"Error loading ROI presets: {e}")
-            self.presets = {}
     
     def set_summary_mode(self, enabled):
         """Enable or disable summary mode."""
@@ -1377,51 +1355,26 @@ class ExSearchTab(QtWidgets.QWidget):
             subject_id = self.subject_combo.currentText()
             if not subject_id:
                 return
-            
-            pm = self.pm if hasattr(self, 'pm') else get_path_manager()
-            m2m_dir = pm.get_m2m_dir(subject_id)
-            roi_dir = os.path.join(m2m_dir, "ROIs") if m2m_dir else None
-            
+
             self.roi_list.clear()
-            
-            if os.path.exists(roi_dir):
-                # Always scan directory for actual CSV files and sync roi_list.txt
-                csv_files = [f for f in os.listdir(roi_dir) 
-                           if f.endswith('.csv') and not f.startswith('.') 
-                           and os.path.isfile(os.path.join(roi_dir, f))]
-                
-                # Sync roi_list.txt with actual CSV files
-                roi_list_file = os.path.join(roi_dir, "roi_list.txt")
-                with open(roi_list_file, 'w') as f:
-                    for csv_file in sorted(csv_files):
-                        f.write(f"{csv_file}\n")
-                
-                # Display ROIs with coordinates
-                for roi_name in sorted(csv_files):
-                    roi_path = os.path.join(roi_dir, roi_name)
-                    coords = None
-                    try:
-                        with open(roi_path, 'r') as rf:
-                            line = rf.readline().strip()
-                            # Expect format: x, y, z
-                            parts = [p.strip() for p in line.split(',')]
-                            if len(parts) == 3:
-                                coords = ', '.join(parts)
-                    except Exception as e:
-                        self.update_output(f"Warning: Could not read coordinates from {roi_name}: {e}", 'warning')
-                    
-                    display_name = roi_name.replace('.csv', '')
-                    if coords:
-                        self.roi_list.addItem(f"{display_name}: {coords}")
-                    else:
-                        self.roi_list.addItem(display_name)
-                        
-                if self.debug_mode:
-                    self.update_output(f"Found and synced {len(csv_files)} ROI file(s)")
-                    
-                    # Debug: Show what's in roi_list.txt vs actual files
-                    if csv_files:
-                        self.update_output(f"ROI files: {', '.join(sorted(csv_files))}")
+
+            # Get available ROIs using the shared utility
+            available_rois = get_available_rois(subject_id)
+
+            # Display ROIs with coordinates
+            for roi_name in sorted(available_rois):
+                display_name = roi_name.replace('.csv', '')
+
+                # Get coordinates using the shared utility
+                coords = get_roi_coordinates(subject_id, roi_name)
+                if coords:
+                    coord_str = ', '.join([f"{c:.2f}" for c in coords])
+                    self.roi_list.addItem(f"{display_name}: {coord_str}")
+                else:
+                    self.roi_list.addItem(display_name)
+
+            if self.debug_mode:
+                self.update_output(f"Found {len(available_rois)} ROI file(s)")
         except Exception as e:
             self.update_status(f"Error updating ROI list: {str(e)}", error=True)
     
@@ -1448,32 +1401,18 @@ class ExSearchTab(QtWidgets.QWidget):
         if msg.exec_() == QtWidgets.QMessageBox.Yes:
             try:
                 selected_subject = self.subject_combo.currentText()
-                pm = get_path_manager()
-                m2m_dir = pm.get_m2m_dir(selected_subject)
-                roi_dir = os.path.join(m2m_dir, "ROIs") if m2m_dir else None
-                roi_list_file = os.path.join(roi_dir, "roi_list.txt")
-                # Read existing ROIs
-                if os.path.exists(roi_list_file):
-                    with open(roi_list_file, 'r') as f:
-                        rois = [line.strip() for line in f.readlines()]
-                else:
-                    rois = []
-                # Remove selected ROIs
+
+                # Remove selected ROIs using the shared utility
                 for item in selected_items:
                     # Handle display format 'name: x, y, z' or just 'name'
                     roi_display = item.text()
-                    roi_name = roi_display.split(':')[0].strip() + '.csv'
-                    # Remove from roi_list.txt if present
-                    if roi_name in rois:
-                        rois.remove(roi_name)
-                    # Remove the ROI file
-                    roi_file = os.path.join(roi_dir, roi_name)
-                    if os.path.exists(roi_file):
-                        os.remove(roi_file)
-                # Update roi_list.txt
-                with open(roi_list_file, 'w') as f:
-                    for roi in rois:
-                        f.write(f"{roi}\n")
+                    roi_name = roi_display.split(':')[0].strip()
+
+                    success, message = delete_roi(selected_subject, roi_name)
+                    if not success:
+                        self.update_status(f"Error removing ROI '{roi_name}': {message}", error=True)
+                        return
+
                 self.update_roi_list()
             except Exception as e:
                 self.update_status(f"Error removing ROI: {str(e)}", error=True)
@@ -2178,7 +2117,7 @@ class ExSearchTab(QtWidgets.QWidget):
         self.update_roi_list()
 
 class AddROIDialog(QtWidgets.QDialog):
-    """Dialog for adding a new ROI with preset or custom coordinates."""
+    """Dialog for adding a new ROI with custom coordinates."""
     
     def __init__(self, parent=None):
         super(AddROIDialog, self).__init__(parent)
@@ -2189,41 +2128,9 @@ class AddROIDialog(QtWidgets.QDialog):
         """Set up the dialog UI."""
         self.setWindowTitle("Add New ROI")
         layout = QtWidgets.QVBoxLayout(self)
-        
-        # ROI type selection (Preset or Custom)
-        type_group = QtWidgets.QGroupBox("ROI Source")
-        type_layout = QtWidgets.QVBoxLayout()
-        
-        self.preset_radio = QtWidgets.QRadioButton("Use Preset (MNI coordinates)")
-        self.preset_radio.setChecked(True)
-        self.preset_radio.toggled.connect(self.toggle_roi_source)
-        self.custom_radio = QtWidgets.QRadioButton("Custom Coordinates (Subject space)")
-        
-        type_layout.addWidget(self.preset_radio)
-        type_layout.addWidget(self.custom_radio)
-        type_group.setLayout(type_layout)
-        layout.addWidget(type_group)
-        
-        # Preset selection
-        self.preset_group = QtWidgets.QGroupBox("Select Preset ROI")
-        preset_layout = QtWidgets.QVBoxLayout()
-        
-        self.preset_combo = QtWidgets.QComboBox()
-        if hasattr(self.parent, 'presets') and self.parent.presets:
-            for preset_key in sorted(self.parent.presets.keys()):
-                preset_data = self.parent.presets[preset_key]
-                display_name = f"{preset_data['name']} ({preset_key})"
-                self.preset_combo.addItem(display_name, preset_key)
-        else:
-            self.preset_combo.addItem("No presets available")
-            self.preset_combo.setEnabled(False)
-        
-        preset_layout.addWidget(self.preset_combo)
-        self.preset_group.setLayout(preset_layout)
-        layout.addWidget(self.preset_group)
-        
+
         # Custom coordinates
-        self.coord_group = QtWidgets.QGroupBox("Custom ROI Coordinates (subject space, RAS)")
+        self.coord_group = QtWidgets.QGroupBox("ROI Coordinates (subject space, RAS)")
         coord_layout = QtWidgets.QFormLayout()
         
         self.x_coord = QtWidgets.QDoubleSpinBox()
@@ -2263,14 +2170,6 @@ class AddROIDialog(QtWidgets.QDialog):
         button_box.rejected.connect(self.reject)
         layout.addWidget(button_box)
         
-        # Initial visibility
-        self.toggle_roi_source()
-    
-    def toggle_roi_source(self):
-        """Toggle between preset and custom coordinate input."""
-        is_preset = self.preset_radio.isChecked()
-        self.preset_group.setVisible(is_preset)
-        self.coord_group.setVisible(not is_preset)
     
     def load_t1_in_freeview(self):
         """Load the subject's T1 NIfTI file in Freeview."""
@@ -2298,71 +2197,25 @@ class AddROIDialog(QtWidgets.QDialog):
             if not subject_id:
                 QtWidgets.QMessageBox.warning(self, "Error", "Please select a subject first")
                 return
-            
+
             # Validate ROI name
             roi_name = self.roi_name.text().strip()
             if not roi_name:
                 QtWidgets.QMessageBox.warning(self, "Error", "Please enter a ROI name")
                 return
-                
-            # Add .csv extension if not present
-            if not roi_name.endswith('.csv'):
-                roi_name += '.csv'
-            
-            # Create ROI file
-            pm = self.pm if hasattr(self, 'pm') else get_path_manager()
-            m2m_dir = pm.get_m2m_dir(subject_id)
-            roi_dir = os.path.join(m2m_dir, "ROIs") if m2m_dir else None
-            
-            os.makedirs(roi_dir, exist_ok=True)
-            
-            # Get coordinates based on selection type
-            if self.preset_radio.isChecked():
-                # Using preset - need to transform MNI to subject space
-                preset_key = self.preset_combo.currentData()
-                if not preset_key or preset_key not in self.parent.presets:
-                    QtWidgets.QMessageBox.warning(self, "Error", "Invalid preset selection")
-                    return
-                
-                mni_coords = self.parent.presets[preset_key]['mni']
-                
-                # Transform MNI coordinates to subject space
-                try:
-                    from tit.core.roi import ROICoordinateHelper
-                    subject_coords = ROICoordinateHelper.transform_mni_to_subject(mni_coords, m2m_dir)
-                    x, y, z = subject_coords[0], subject_coords[1], subject_coords[2]
-                except Exception as e:
-                    QtWidgets.QMessageBox.critical(self, "Error", 
-                        f"Failed to transform MNI coordinates to subject space:\n{str(e)}\n\n"
-                        f"Make sure SimNIBS is properly installed.")
-                    return
-            else:
-                # Using custom coordinates (already in subject space)
-                x = self.x_coord.value()
-                y = self.y_coord.value()
-                z = self.z_coord.value()
-            
-            # Format coordinates to two decimal places
-            x = round(x, 2)
-            y = round(y, 2)
-            z = round(z, 2)
 
-            # Write coordinates to ROI file as three comma-separated columns
-            roi_file = os.path.join(roi_dir, roi_name)
-            with open(roi_file, 'w', newline='') as f:
-                writer = csv.writer(f)
-                writer.writerow([x, y, z])
-            
-            # Update roi_list.txt
-            roi_list_file = os.path.join(roi_dir, "roi_list.txt")
-            with open(roi_list_file, 'a+') as f:
-                f.seek(0)
-                existing_rois = [line.strip() for line in f.readlines()]
-                if roi_name not in existing_rois:
-                    f.write(f"{roi_name}\n")
-            
+            # Create ROI using custom coordinates (subject space)
+            x = self.x_coord.value()
+            y = self.y_coord.value()
+            z = self.z_coord.value()
+
+            success, message = create_roi_from_coordinates(subject_id, roi_name, x, y, z)
+            if not success:
+                QtWidgets.QMessageBox.critical(self, "Error", message)
+                return
+
             super().accept()
-            
+
         except Exception as e:
             QtWidgets.QMessageBox.critical(self, "Error", f"Failed to create ROI: {str(e)}")
 

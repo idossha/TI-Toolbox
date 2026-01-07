@@ -108,9 +108,6 @@ class CurrentConfig:
         return default
 
     def get_config(self):
-        print("\n\033[1;36m=== Current Configuration ===\033[0m")
-        print("\033[0;36mExample: total=2.0mA, step=0.2mA, limit=1.6mA\033[0m")
-        print("\033[0;36mCh1: 1.6mA, Ch2: 0.4mA → Ch1: 0.4mA, Ch2: 1.6mA\033[0m\n")
         total = self.get_param('total_current', 1.0, lambda x: validate_current(x, 0))
         step = self.get_param('current_step', 0.1, lambda x: validate_current(x, 0, total))
         limit = self.get_param('channel_limit', None)

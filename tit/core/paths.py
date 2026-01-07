@@ -77,6 +77,10 @@ class PathManager:
         """
         if self._project_dir is None:
             # Auto-detect from environment
+            project_dir = os.environ.get(const.ENV_PROJECT_DIR)
+            if project_dir and os.path.isdir(project_dir):
+                self._project_dir = project_dir
+
             project_dir_name = os.environ.get(const.ENV_PROJECT_DIR_NAME)
             if project_dir_name:
                 mnt_path = os.path.join(const.DOCKER_MOUNT_PREFIX, project_dir_name)
@@ -308,21 +312,23 @@ class PathManager:
             return os.path.join(derivatives_dir, const.DIR_REPORTS)
         return None
     
-    def get_logs_dir(self, subject_id: str) -> Optional[str]:
+    def get_logs_dir(self, subject_id: str) -> str:
         """
         Get the logs directory for a specific subject.
-        
+
         Args:
             subject_id: Subject ID
-            
+
         Returns:
-            Path to subject's logs directory or None
+            Path to subject's logs directory
         """
-        derivatives_dir = self.get_derivatives_dir()
-        if derivatives_dir:
-            return os.path.join(derivatives_dir, const.DIR_TI_TOOLBOX, 
-                              const.DIR_LOGS, f"{const.PREFIX_SUBJECT}{subject_id}")
-        return None
+        subject_dir = self.get_subject_dir(subject_id)
+        # Change from derivatives/SimNIBS/sub-ernie to derivatives/ti-toolbox/sub-ernie
+        ti_toolbox_subject_dir = subject_dir.replace(
+            os.path.join("SimNIBS", f"{const.PREFIX_SUBJECT}{subject_id}"),
+            os.path.join(const.DIR_TI_TOOLBOX, f"{const.PREFIX_SUBJECT}{subject_id}")
+        )
+        return ti_toolbox_subject_dir
     
     def get_ex_search_dir(self, subject_id: str) -> Optional[str]:
         """

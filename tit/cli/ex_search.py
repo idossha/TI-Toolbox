@@ -1,797 +1,390 @@
-#!/usr/bin/env python3
+#!/usr/bin/env simnibs_python
 """
-TI-Toolbox Ex-Search CLI
+TI-Toolbox Ex-Search CLI.
 
-A Click-based command-line interface for running exhaustive search optimization.
-Provides both interactive and direct execution modes.
+Thin wrapper around `tit.opt.ex.main.main()` which is env-driven.
 
-Usage:
-    # Interactive mode
-    python ex_search.py
-
-    # Direct mode (for GUI/scripting)
-    python ex_search.py run --subject 101 --roi-name M1_left --total-current 1.0
-
-    # List available subjects
-    python ex_search.py list-subjects
-
-    # List available leadfields
-    python ex_search.py list-leadfields --subject 101
+- Interactive default (no args)
+- Direct mode via flags
 """
 
-import json
+from __future__ import annotations
+
 import os
-import sys
-import time
+import re
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Tuple
 
-import click
+from tit.cli.base import ArgumentDefinition, BaseCLI
+from tit.cli import utils
+from tit.core import get_path_manager
+from tit.opt.ex import (
+    get_available_rois,
+    create_roi_from_coordinates,
+)
 
-from tit.core import get_path_manager, list_subjects
-from tit import logger as logging_util
-from tit.cli import utils as cli_utils
-
-# =============================================================================
-# STYLING HELPERS
-# =============================================================================
-
-COLORS = cli_utils.COLORS
-echo_header = cli_utils.echo_header
-echo_section = cli_utils.echo_section
-echo_success = cli_utils.echo_success
-echo_warning = cli_utils.echo_warning
-echo_error = cli_utils.echo_error
-echo_info = cli_utils.echo_info
+_ELECTRODE_RE = re.compile(r"^[A-Za-z][A-Za-z0-9]*$")
 
 
-# =============================================================================
-# INTERACTIVE PROMPTS
-# =============================================================================
-
-def display_subjects_table(subjects: List[str]) -> None:
-    cli_utils.display_table(subjects)
+def _parse_electrode_list(raw: str) -> List[str]:
+    items = [x.strip() for x in (raw or "").split(",")]
+    items = [x for x in items if x]
+    return list(dict.fromkeys(items))  # stable-unique
 
 
-def prompt_subjects(subjects: List[str]) -> List[str]:
-    return cli_utils.prompt_subject_ids(subjects)
+def _derive_eeg_net_stem_from_leadfield(leadfield_hdf: str) -> Optional[str]:
+    """
+    Derive EEG net stem from leadfield filename.
+
+    Expected pattern:
+      {subject}_leadfield_{net}.hdf5 -> {net}
+    """
+    name = Path(leadfield_hdf).name
+    if name.endswith(".hdf5"):
+        name = name[:-5]
+    if "_leadfield_" not in name:
+        return None
+    _, _, net = name.partition("_leadfield_")
+    net = net.strip()
+    return net or None
 
 
-def list_available_rois(subject_id: str) -> List[str]:
-    """List available ROIs for a subject."""
-    pm = get_path_manager()
-    m2m_dir = pm.get_m2m_dir(subject_id)
-    if not m2m_dir:
-        return []
+def _find_eeg_net_csv(subject_id: str, *, leadfield_hdf: str) -> Tuple[Optional[str], Optional[Path]]:
+    """
+    The rule is simple:
+    - EEG cap CSV files live under: m2m_<subject>/eeg_positions/*.csv
+    - EEG cap name is derived from the leadfield filename
 
-    roi_dir = os.path.join(m2m_dir, "ROIs")
-    if not os.path.exists(roi_dir):
-        return []
-
-    rois = []
-    for f in os.listdir(roi_dir):
-        if f.endswith('.csv') and f != 'roi_list.txt':
-            rois.append(f.replace('.csv', ''))
-
-    return sorted(rois)
-
-
-def prompt_roi_selection(subject_id: str) -> Tuple[str, float]:
-    """Prompt user to select or create an ROI. Returns (roi_name, radius)."""
-    rois = list_available_rois(subject_id)
-
-    if rois:
-        echo_section(f"Available ROIs for Subject {subject_id}")
-        for i, roi in enumerate(rois, 1):
-            click.echo(f"{i:3d}. {roi}")
-
-        click.echo()
-        choice = click.prompt(
-            click.style("Select ROI number (or 'new' to create new)", fg='white'),
-            type=str
-        )
-
-        if choice.lower() == 'new':
-            roi_name, sphere_radius, center_coords = prompt_new_roi()
-            create_roi_csv(subject_id, roi_name, center_coords)
-            return roi_name, sphere_radius
-
-        try:
-            num = int(choice)
-            if 1 <= num <= len(rois):
-                roi_name = rois[num - 1]
-                # For existing ROIs, prompt for radius to use
-                sphere_radius = click.prompt(
-                    click.style(f"Radius for ROI '{roi_name}' (mm)", fg='white'),
-                    type=float,
-                    default=10.0
-                )
-                return roi_name, sphere_radius
-        except ValueError:
-            pass
-
-        echo_error("Invalid selection")
-        raise click.Abort()
-    else:
-        echo_warning("No existing ROIs found")
-        roi_name, sphere_radius, center_coords = prompt_new_roi()
-        create_roi_csv(subject_id, roi_name, center_coords)
-        return roi_name, sphere_radius
-
-
-def prompt_new_roi() -> Tuple[str, float]:
-    """Prompt user to create a new ROI."""
-    roi_name = click.prompt(
-        click.style("Enter ROI name", fg='white'),
-        type=str
-    )
-
-    # Prompt for center coordinates
-    click.echo()
-    click.echo("Enter sphere center coordinates (in mm):")
-    center_x = click.prompt(
-        click.style("Center X coordinate", fg='white'),
-        type=float,
-        default=0.0
-    )
-    center_y = click.prompt(
-        click.style("Center Y coordinate", fg='white'),
-        type=float,
-        default=0.0
-    )
-    center_z = click.prompt(
-        click.style("Center Z coordinate", fg='white'),
-        type=float,
-        default=0.0
-    )
-
-    # Prompt for sphere radius
-    sphere_radius = click.prompt(
-        click.style("Sphere radius (mm)", fg='white'),
-        type=float,
-        default=10.0
-    )
-
-    return roi_name, sphere_radius, [center_x, center_y, center_z]
-
-
-def create_roi_csv(subject_id: str, roi_name: str, center_coords: List[float]) -> str:
-    """Create a new ROI CSV file with the given center coordinates."""
-    from tit.core.roi import ROICoordinateHelper
+    Returns (net_stem, csv_path). If not found, csv_path=None.
+    """
+    net_stem = _derive_eeg_net_stem_from_leadfield(leadfield_hdf)
+    if not net_stem:
+        return None, None
 
     pm = get_path_manager()
-    roi_dir = os.path.join(pm.get_m2m_dir(subject_id), 'ROIs')
-    os.makedirs(roi_dir, exist_ok=True)
+    eeg_pos_dir = pm.get_eeg_positions_dir(subject_id)
+    if not eeg_pos_dir:
+        return net_stem, None
 
-    roi_file_path = os.path.join(roi_dir, f"{roi_name}.csv")
+    eeg_pos_dir_p = Path(eeg_pos_dir)
+    if not eeg_pos_dir_p.is_dir():
+        return net_stem, None
 
-    # Save the coordinates to CSV
-    ROICoordinateHelper.save_roi_to_csv(center_coords, roi_file_path)
+    direct = eeg_pos_dir_p / f"{net_stem}.csv"
+    if direct.is_file():
+        return net_stem, direct
 
-    echo_success(f"Created ROI file: {roi_file_path}")
-    echo_info(f"Center coordinates: [{center_coords[0]}, {center_coords[1]}, {center_coords[2]}] mm")
+    # Case-insensitive fallback
+    target = f"{net_stem}.csv".lower()
+    for p in eeg_pos_dir_p.glob("*.csv"):
+        if p.name.lower() == target or p.stem.lower() == net_stem.lower():
+            return net_stem, p
 
-    return roi_file_path
+    return net_stem, None
 
 
-def list_available_leadfields(subject_id: str) -> List[Tuple[str, str, float]]:
-    """List available leadfield files for a subject."""
-    from tit.opt.leadfield import LeadfieldGenerator
-
-    pm = get_path_manager()
-    m2m_dir = pm.get_m2m_dir(subject_id)
-    if not m2m_dir:
+def _load_eeg_labels(csv_path: Path) -> List[str]:
+    """
+    Load electrode labels from an EEG cap CSV.
+    Prefer SimNIBS reader when available; fall back to our CSV loader.
+    """
+    if not csv_path.is_file():
         return []
-
-    gen = LeadfieldGenerator(m2m_dir)
-    return gen.list_available_leadfields_hdf5(subject_id)
-
-
-def prompt_leadfield_selection(subject_id: str) -> Optional[Tuple[str, str]]:
-    """Prompt user to select an existing leadfield."""
-    leadfields = list_available_leadfields(subject_id)
-
-    if leadfields:
-        echo_section(f"Available Leadfields for Subject {subject_id}")
-        for i, (net_name, hdf5_path, size_gb) in enumerate(leadfields, 1):
-            click.echo(f"{i:3d}. {net_name:<30} ({size_gb:.2f} GB)")
-
-        click.echo()
-
-        choice = click.prompt(
-            click.style("Select leadfield number", fg='white'),
-            type=click.IntRange(1, len(leadfields)),
-            default=1
-        )
-
-        net_name, hdf5_path, _ = leadfields[choice - 1]
-        echo_success(f"Selected leadfield: {net_name}")
-        return (net_name, hdf5_path)
-    else:
-        echo_error("No existing leadfields found")
-        echo_info("Use 'tit create-leadfield' command to create leadfields first")
-        raise click.Abort()
-
-
-def prompt_existing_leadfield(subject_id: str, leadfields: List[Tuple[str, str, float]]) -> Tuple[str, str]:
-    """Prompt to select from existing leadfields."""
-    echo_section(f"Available Leadfields for Subject {subject_id}")
-    for i, (net_name, hdf5_path, size_gb) in enumerate(leadfields, 1):
-        click.echo(f"{i:3d}. {net_name:<30} ({size_gb:.2f} GB)")
-
-    choice = click.prompt(
-        click.style("Select leadfield number", fg='white'),
-        type=click.IntRange(1, len(leadfields)),
-        default=1
-    )
-
-    net_name, hdf5_path, _ = leadfields[choice - 1]
-    echo_success(f"Selected leadfield: {net_name}")
-    return (net_name, hdf5_path)
-
-
-
-
-def prompt_optimization_mode() -> bool:
-    """Prompt user to select optimization mode (bucketed vs all combinations)."""
-    echo_section("Optimization Mode")
-    click.echo("1. Bucketed mode (E1+/-, E2+/- channels)")
-    click.echo("   - Electrodes grouped into specific channels")
-    click.echo("   - Faster optimization with structured electrode assignment")
-    click.echo()
-    click.echo("2. All Combinations mode (pooled electrodes)")
-    click.echo("   - All electrodes in a single pool")
-    click.echo("   - Exhaustive search across all possible combinations")
-    click.echo("   - Slower but more thorough")
-    click.echo()
-
-    choice = click.prompt(
-        click.style("Select mode (1=Bucketed, 2=All Combinations)", fg='white'),
-        type=click.IntRange(1, 2),
-        default=1
-    )
-
-    return choice == 2  # True if All Combinations, False if Bucketed
-
-
-def get_available_electrodes(subject_id: str, net_name: str) -> List[str]:
-    """Get list of available electrodes from EEG cap."""
-    from tit.opt.leadfield import LeadfieldGenerator
-
-    pm = get_path_manager()
-    m2m_dir = pm.get_m2m_dir(subject_id)
-    if not m2m_dir:
-        return []
-
-    # Clean cap name (remove .csv extension if present)
-    clean_cap_name = net_name.replace('.csv', '') if net_name.endswith('.csv') else net_name
 
     try:
-        # Create LeadfieldGenerator instance to use its methods
-        gen = LeadfieldGenerator(m2m_dir)
+        from simnibs.utils.csv_reader import read_csv_positions as simnibs_read_csv  # type: ignore[import-not-found]
 
-        # Use the generator's method to get electrode names, which will handle cap file finding
-        electrodes = gen.get_electrode_names_from_cap(cap_name=clean_cap_name)
-        return electrodes
-    except FileNotFoundError:
-        echo_warning(f"Could not load electrodes from {clean_cap_name}.csv, continuing without validation")
-        return []
+        type_, _coords, _extra, name, _extra_cols, _header = simnibs_read_csv(str(csv_path))
+        labels: List[str] = []
+        for t, n in zip(type_, name):
+            if t in ["Electrode", "ReferenceElectrode"] and n:
+                labels.append(str(n).strip())
+        labels = [x for x in labels if x]
+        return list(dict.fromkeys(labels))
+    except Exception:
+        return utils.load_eeg_cap_labels(csv_path)
 
 
-def prompt_electrodes_bucketed(available_electrodes: List[str]) -> dict:
-    """Prompt user to select electrodes in bucketed mode (E1+/-, E2+/-)."""
-    echo_section("Electrode Selection - Bucketed Mode")
-    click.echo("Select electrodes for each channel:")
-    click.echo("(Enter electrode names separated by spaces or commas)")
-    click.echo()
+def _validate_electrode_names(*, specified: Iterable[str], available: List[str]) -> None:
+    bad_format = sorted({e for e in specified if not _ELECTRODE_RE.match(e)})
+    if bad_format:
+        raise ValueError(f"Invalid electrode names (format): {', '.join(bad_format)}")
 
-    if available_electrodes:
-        click.echo(f"Available electrodes ({len(available_electrodes)}): {', '.join(available_electrodes[:20])}")
-        if len(available_electrodes) > 20:
-            click.echo(f"... and {len(available_electrodes) - 20} more")
-        click.echo()
+    if not available:
+        return
 
-    def get_electrode_list(prompt_text):
-        while True:
-            selection = click.prompt(
-                click.style(prompt_text, fg='white'),
-                type=str
+    available_set = set(available)
+    invalid = sorted(set(specified) - available_set)
+    if invalid:
+        raise ValueError(f"Electrodes not found in EEG net: {', '.join(invalid)}")
+
+
+class ExSearchCLI(BaseCLI):
+    def __init__(self) -> None:
+        super().__init__("Run exhaustive search optimization (env-driven core).")
+        self.add_argument(ArgumentDefinition(name="subject", type=str, help="Subject ID", required=True))
+        self.add_argument(ArgumentDefinition(name="leadfield_hdf", type=str, help="Leadfield .hdf5 path", required=True))
+        self.add_argument(ArgumentDefinition(name="roi_name", type=str, help="ROI name (with or without .csv)", required=True))
+        self.add_argument(ArgumentDefinition(name="roi_radius", type=float, help="ROI radius (mm)", default=3.0))
+        self.add_argument(
+            ArgumentDefinition(
+                name="optimization_mode",
+                type=str,
+                help="Optimization mode: 'buckets' or 'pool'",
+                choices=["buckets", "pool"],
+                required=True,
             )
-            electrodes = selection.replace(',', ' ').split()
-            if electrodes:
-                return electrodes
-            echo_warning("Please enter at least one electrode")
-
-    e1_plus = get_electrode_list("E1+ electrodes")
-    e1_minus = get_electrode_list("E1- electrodes")
-    e2_plus = get_electrode_list("E2+ electrodes")
-    e2_minus = get_electrode_list("E2- electrodes")
-
-    return {
-        'E1_plus': e1_plus,
-        'E1_minus': e1_minus,
-        'E2_plus': e2_plus,
-        'E2_minus': e2_minus,
-    }
-
-
-def prompt_electrodes_pooled(available_electrodes: List[str]) -> dict:
-    """Prompt user to select electrodes in pooled/all-combinations mode."""
-    echo_section("Electrode Selection - All Combinations Mode")
-    click.echo("Select electrodes for the optimization pool:")
-    click.echo("(All selected electrodes will be tested in all possible combinations)")
-    click.echo()
-
-    if available_electrodes:
-        click.echo(f"Available electrodes ({len(available_electrodes)}): {', '.join(available_electrodes[:20])}")
-        if len(available_electrodes) > 20:
-            click.echo(f"... and {len(available_electrodes) - 20} more")
-        click.echo()
-
-    while True:
-        selection = click.prompt(
-            click.style("All electrodes (space/comma separated)", fg='white'),
-            type=str
         )
-        electrodes = selection.replace(',', ' ').split()
-        if len(electrodes) >= 4:
-            # In all combinations mode, all channels use the same electrode pool
-            return {
-                'E1_plus': electrodes,
-                'E1_minus': electrodes,
-                'E2_plus': electrodes,
-                'E2_minus': electrodes,
-            }
-        echo_warning("Please enter at least 4 electrodes for all-combinations mode")
 
+        # Buckets mode args
+        self.add_argument(ArgumentDefinition(name="e1_plus", type=str, help="E1+ electrodes (comma-separated)", required=False))
+        self.add_argument(ArgumentDefinition(name="e1_minus", type=str, help="E1- electrodes (comma-separated)", required=False))
+        self.add_argument(ArgumentDefinition(name="e2_plus", type=str, help="E2+ electrodes (comma-separated)", required=False))
+        self.add_argument(ArgumentDefinition(name="e2_minus", type=str, help="E2- electrodes (comma-separated)", required=False))
 
-def prompt_current_parameters() -> Tuple[float, float, float]:
-    """Prompt user for current configuration parameters."""
-    echo_section("Current Configuration")
-    click.echo("Configure current parameters for optimization")
-    click.echo()
+        # Pool mode args
+        self.add_argument(ArgumentDefinition(name="pool_electrodes", type=str, help="All electrodes (comma-separated, min 4)", required=False))
 
-    total_current = click.prompt(
-        click.style("Total current (mA)", fg='white'),
-        type=float,
-        default=1.0
-    )
+        # Current params
+        self.add_argument(ArgumentDefinition(name="total_current", type=float, help="Total current (mA)", default=1.0))
+        self.add_argument(ArgumentDefinition(name="current_step", type=float, help="Current step (mA)", default=0.1))
+        self.add_argument(ArgumentDefinition(name="channel_limit", type=float, help="Optional per-channel limit (mA)", required=False))
 
-    current_step = click.prompt(
-        click.style("Current step size (mA)", fg='white'),
-        type=float,
-        default=0.1
-    )
+    def run_interactive(self) -> int:
+        pm = get_path_manager()
+        if not pm.project_dir:
+            raise RuntimeError("Project directory not resolved. In Docker set PROJECT_DIR_NAME so /mnt/<name> exists.")
 
-    default_limit = total_current / 2.0
-    channel_limit = click.prompt(
-        click.style("Channel limit (mA)", fg='white'),
-        type=float,
-        default=default_limit
-    )
+        utils.echo_header("Ex-Search (interactive)")
 
-    return (total_current, current_step, channel_limit)
+        # Select subject
+        subject_id = self.select_one(
+            prompt_text="Select subject",
+            options=pm.list_subjects(),
+            help_text="Choose from available subjects in your project",
+        )
 
+        # Select leadfield (no EEG cap selection)
+        lf_dir = pm.get_leadfield_dir(subject_id)
+        lf_files: List[str] = []
+        if lf_dir and Path(lf_dir).is_dir():
+            lf_files = sorted([p.name for p in Path(lf_dir).glob("*.hdf5")])
+        if not lf_files:
+            utils.echo_error("No leadfield files found for this subject")
+            return 1
+        leadfield_hdf = str(Path(lf_dir) / self.select_one(prompt_text="Select leadfield", options=lf_files, help_text="Available leadfield files"))
 
-def show_confirmation(
-    subjects: List[str],
-    roi_name: str,
-    net_name: str,
-    total_current: float,
-    current_step: float,
-    channel_limit: float,
-    all_combinations: bool,
-    electrodes: dict,
-    roi_radius: float,
-) -> bool:
-    """Show configuration summary and get confirmation."""
-    echo_header("Configuration Summary")
+        # Select or create ROI
+        roi_name = self._select_or_create_roi(subject_id)
 
-    echo_section("Subjects")
-    for subj in subjects:
-        click.echo(f"  • {subj}")
+        # Select optimization mode
+        optimization_mode = self.select_one(
+            prompt_text="Select optimization mode",
+            options=["buckets", "pool"],
+            help_text="'buckets': separate electrode groups for each position\n'pool': all electrodes available for any position",
+        )
 
-    echo_section("Optimization Parameters")
-    click.echo(f"  ROI:           {roi_name}")
-    click.echo(f"  ROI Radius:    {roi_radius} mm")
-    click.echo(f"  EEG Net:       {net_name}")
-    click.echo(f"  Mode:          {'All Combinations' if all_combinations else 'Bucketed'}")
+        # Get electrodes based on mode (validate against EEG net CSV if available)
+        electrode_args = self._prompt_electrodes(subject_id, leadfield_hdf, optimization_mode)
 
-    echo_section("Electrode Configuration")
-    if all_combinations:
-        click.echo(f"  Pool:          {', '.join(electrodes['E1_plus'])}")
-    else:
-        click.echo(f"  E1+:           {', '.join(electrodes['E1_plus'])}")
-        click.echo(f"  E1-:           {', '.join(electrodes['E1_minus'])}")
-        click.echo(f"  E2+:           {', '.join(electrodes['E2_plus'])}")
-        click.echo(f"  E2-:           {', '.join(electrodes['E2_minus'])}")
+        # Get ROI radius
+        roi_radius = utils.ask_float("ROI radius (mm)", default="3.0")
 
-    echo_section("Current Configuration")
-    click.echo(f"  Total:         {total_current} mA")
-    click.echo(f"  Step:          {current_step} mA")
-    click.echo(f"  Channel Limit: {channel_limit} mA")
+        # Get current parameters
+        total_current = utils.ask_float("Total current (mA)", default="1.0")
+        current_step = utils.ask_float("Current step (mA)", default="0.1")
+        channel_limit_raw = utils.ask("Channel limit (mA) (empty for none)", default="")
+        channel_limit = float(channel_limit_raw) if channel_limit_raw else None
 
-    click.echo()
-    return click.confirm(
-        click.style("Proceed with ex-search optimization?", fg='yellow', bold=True),
-        default=True
-    )
-
-
-# =============================================================================
-# CLI COMMANDS
-# =============================================================================
-
-@click.group(invoke_without_command=True)
-@click.option('--project-dir', '-p', envvar='PROJECT_DIR',
-              help='Project directory path (BIDS root)')
-@click.pass_context
-def cli(ctx, project_dir):
-    """
-    TI-Toolbox Ex-Search CLI
-
-    Run exhaustive search optimization interactively or via command-line options.
-    """
-    ctx.ensure_object(dict)
-
-    # Initialize path manager
-    pm = get_path_manager()
-    pm.project_dir = project_dir
-
-    ctx.obj['pm'] = pm
-    ctx.obj['project_dir'] = pm.project_dir
-
-    # If no subcommand, run interactive mode
-    if ctx.invoked_subcommand is None:
-        ctx.invoke(interactive)
-
-
-@cli.command()
-@click.pass_context
-def interactive(ctx):
-    """Run ex-search in interactive mode."""
-    pm = ctx.obj['pm']
-    project_dir = ctx.obj['project_dir']
-
-    if not project_dir:
-        echo_error("Project directory not set. Use --project-dir or set PROJECT_DIR environment variable.")
-        raise click.Abort()
-
-    # Welcome
-    echo_header("TI-Toolbox Ex-Search Optimization")
-    click.echo(f"Project: {project_dir}")
-
-    # Get available subjects
-    subjects = list_subjects()
-    if not subjects:
-        echo_error("No subjects found in project directory")
-        raise click.Abort()
-
-    # Interactive prompts
-    selected_subjects = prompt_subjects(subjects)
-
-    # Prompt for optimization mode BEFORE electrode selection
-    all_combinations = prompt_optimization_mode()
-    echo_success(f"Mode: {'All Combinations (pooled)' if all_combinations else 'Bucketed (E1+/-, E2+/-)'}")
-
-    # Process each subject
-    for subject_id in selected_subjects:
-        click.echo()
-        echo_info(f"Processing subject: {subject_id}")
-
-        # ROI selection/creation
-        roi_name, roi_radius = prompt_roi_selection(subject_id)
-        echo_success(f"ROI: {roi_name} (radius: {roi_radius} mm)")
-
-        # Leadfield selection/creation
-        net_name, hdf5_path = prompt_leadfield_selection(subject_id)
-        echo_success(f"Leadfield: {net_name}")
-
-        # Get available electrodes
-        available_electrodes = get_available_electrodes(subject_id, net_name)
-        if not available_electrodes:
-            echo_warning(f"Could not load electrodes from {net_name}.csv, continuing without validation")
-
-        # Electrode selection based on mode
-        if all_combinations:
-            electrodes = prompt_electrodes_pooled(available_electrodes)
+        net_stem, csv_path = _find_eeg_net_csv(subject_id, leadfield_hdf=leadfield_hdf)
+        review_items = [
+            ("Subject", subject_id),
+            ("Leadfield", Path(leadfield_hdf).name),
+            ("ROI", roi_name),
+            ("ROI radius (mm)", str(roi_radius)),
+            ("Optimization mode", optimization_mode),
+            ("EEG net (derived)", net_stem or "-"),
+            ("EEG net CSV", str(csv_path) if csv_path else "-"),
+            ("Total current (mA)", str(total_current)),
+            ("Current step (mA)", str(current_step)),
+            ("Channel limit (mA)", str(channel_limit) if channel_limit is not None else "-"),
+        ]
+        if optimization_mode == "pool":
+            review_items.insert(5, ("Electrode pool", electrode_args["pool_electrodes"]))
         else:
-            electrodes = prompt_electrodes_bucketed(available_electrodes)
+            review_items.insert(
+                5,
+                ("E1+/E1-/E2+/E2-", f"{electrode_args['e1_plus']} | {electrode_args['e1_minus']} | {electrode_args['e2_plus']} | {electrode_args['e2_minus']}"),
+            )
 
-        echo_success(f"Electrodes configured: {len(electrodes['E1_plus'])} electrode(s)")
+        if not utils.review_and_confirm("Review (ex-search)", items=review_items, default_yes=True):
+            utils.echo_warning("Cancelled.")
+            return 0
 
-        # Current parameters
-        total_current, current_step, channel_limit = prompt_current_parameters()
-
-        # Confirmation
-        if not show_confirmation(
-            subjects=[subject_id],
+        args: Dict[str, Any] = dict(
+            subject=subject_id,
+            leadfield_hdf=leadfield_hdf,
             roi_name=roi_name,
-            net_name=net_name,
+            roi_radius=roi_radius,
+            optimization_mode=optimization_mode,
             total_current=total_current,
             current_step=current_step,
             channel_limit=channel_limit,
-            all_combinations=all_combinations,
-            electrodes=electrodes,
-            roi_radius=roi_radius,
-        ):
-            echo_warning("Ex-search cancelled")
-            continue
-
-        # Run ex-search
-        run_ex_search(
-            subject_id=subject_id,
-            roi_name=roi_name,
-            net_name=net_name,
-            hdf5_path=hdf5_path,
-            total_current=total_current,
-            current_step=current_step,
-            channel_limit=channel_limit,
-            all_combinations=all_combinations,
-            electrodes=electrodes,
-            project_dir=project_dir,
-            roi_radius=roi_radius,
+            **electrode_args,
         )
+        return self.execute(args)
+
+    def _select_or_create_roi(self, subject_id: str) -> str:
+        """Select an existing ROI or create a new one."""
+        while True:
+            existing = get_available_rois(subject_id)
+            roi_stems = sorted([x.replace(".csv", "") for x in existing]) if existing else []
+            options = roi_stems + ["[Create new ROI...]"]
+            choice = self.select_one(prompt_text="ROI", options=options, help_text="Choose an existing ROI or create a new ROI.")
+            if choice == "[Create new ROI...]":
+                self._create_roi_from_coordinates(subject_id)
+                continue
+            return f"{choice}.csv"
 
 
-@cli.command()
-@click.option('--subject', '-s', required=True,
-              help='Subject ID to process')
-@click.option('--roi-name', '-r', required=True,
-              help='ROI name for optimization')
-@click.option('--net-name', '-n',
-              help='EEG net name (will prompt if not provided)')
-@click.option('--leadfield-hdf', '-l',
-              help='Path to leadfield HDF5 file (will prompt if not provided)')
-@click.option('--total-current', '-t', type=float, default=1.0,
-              help='Total current in mA')
-@click.option('--current-step', type=float, default=0.1,
-              help='Current step size in mA')
-@click.option('--channel-limit', type=float,
-              help='Channel limit in mA (default: total_current/2)')
-@click.option('--roi-radius', type=float, default=10.0,
-              help='ROI sphere radius in mm')
-@click.option('--all-combinations', is_flag=True,
-              help='Use all combinations mode')
-@click.option('--electrodes', '-e', multiple=True,
-              help='Electrodes (for all-combinations mode, specify once with all electrodes; for bucketed mode, specify 4 times: E1+, E1-, E2+, E2-)')
-@click.pass_context
-def run(ctx, subject, roi_name, net_name, leadfield_hdf, total_current,
-        current_step, channel_limit, all_combinations, electrodes, roi_radius):
-    """
-    Run ex-search directly with command-line options.
+    def _create_roi_from_coordinates(self, subject_id: str) -> Optional[str]:
+        """Create an ROI from custom coordinates."""
+        roi_name = utils.ask_required("ROI name (without .csv extension)")
 
-    This is the non-interactive mode for scripting and GUI integration.
-    """
-    pm = ctx.obj['pm']
-    project_dir = ctx.obj['project_dir']
+        utils.echo_info("Enter coordinates in subject space (RAS coordinates in mm)")
+        x = utils.ask_float("X coordinate")
+        y = utils.ask_float("Y coordinate")
+        z = utils.ask_float("Z coordinate")
 
-    if not project_dir:
-        echo_error("Project directory not set")
-        raise click.Abort()
-
-    # Verify subject exists
-    m2m_dir = pm.get_m2m_dir(subject)
-    if not m2m_dir:
-        echo_error(f"Subject not found: {subject}")
-        raise click.Abort()
-
-    # Handle leadfield selection if not provided
-    if not leadfield_hdf:
-        leadfields = list_available_leadfields(subject)
-        if not leadfields:
-            echo_error(f"No leadfields found for subject {subject}")
-            echo_info("Use create-leadfield command to create one first")
-            raise click.Abort()
-
-        # Use first leadfield by default
-        net_name, leadfield_hdf, _ = leadfields[0]
-        echo_info(f"Using leadfield: {net_name}")
-
-    # Set channel limit default
-    if channel_limit is None:
-        channel_limit = total_current / 2.0
-
-    # Extract net_name from leadfield if not provided
-    if not net_name:
-        # Try to extract from leadfield filename
-        net_name = os.path.basename(leadfield_hdf).replace('_leadfield.hdf5', '')
-        if not net_name:
-            net_name = "unknown"
-
-    echo_info(f"Processing subject: {subject}")
-    echo_info(f"ROI: {roi_name} (radius: {roi_radius} mm)")
-    echo_info(f"EEG Net: {net_name}")
-    echo_info(f"Current: {total_current} mA (step: {current_step} mA, limit: {channel_limit} mA)")
-
-    # Parse electrodes parameter
-    if electrodes:
-        if all_combinations:
-            # All electrodes go into the pool
-            electrode_list = ' '.join(electrodes).replace(',', ' ').split()
-            electrodes_dict = {
-                'E1_plus': electrode_list,
-                'E1_minus': electrode_list,
-                'E2_plus': electrode_list,
-                'E2_minus': electrode_list,
-            }
-            echo_info(f"Electrodes (pool): {', '.join(electrode_list)}")
+        success, message = create_roi_from_coordinates(subject_id, roi_name, x, y, z)
+        if success:
+            utils.echo_success(message)
+            return roi_name
         else:
-            # Bucketed mode: expect 4 electrode groups
-            if len(electrodes) != 4:
-                echo_error("Bucketed mode requires 4 electrode groups: E1+, E1-, E2+, E2-")
-                echo_info("Example: --electrodes 'E1 E2' --electrodes 'E3 E4' --electrodes 'E5 E6' --electrodes 'E7 E8'")
-                raise click.Abort()
+            utils.echo_error(message)
+            return None
 
-            electrodes_dict = {
-                'E1_plus': electrodes[0].replace(',', ' ').split(),
-                'E1_minus': electrodes[1].replace(',', ' ').split(),
-                'E2_plus': electrodes[2].replace(',', ' ').split(),
-                'E2_minus': electrodes[3].replace(',', ' ').split(),
-            }
-            echo_info(f"E1+: {', '.join(electrodes_dict['E1_plus'])}")
-            echo_info(f"E1-: {', '.join(electrodes_dict['E1_minus'])}")
-            echo_info(f"E2+: {', '.join(electrodes_dict['E2_plus'])}")
-            echo_info(f"E2-: {', '.join(electrodes_dict['E2_minus'])}")
-    else:
-        # No electrodes provided - ex-search config will prompt
-        echo_warning("No electrodes specified. Ex-search will prompt for electrode input.")
-        electrodes_dict = {
-            'E1_plus': [],
-            'E1_minus': [],
-            'E2_plus': [],
-            'E2_minus': [],
-        }
+    def _prompt_electrodes(self, subject_id: str, leadfield_hdf: str, mode: str) -> Dict[str, Any]:
+        net_stem, csv_path = _find_eeg_net_csv(subject_id, leadfield_hdf=leadfield_hdf)
+        available_labels: List[str] = _load_eeg_labels(csv_path) if csv_path else []
+        if net_stem and not csv_path:
+            eeg_dir = get_path_manager().get_eeg_positions_dir(subject_id) or "<unknown>"
+            utils.echo_warning(f"EEG net CSV not found: {net_stem}.csv (expected under {eeg_dir}) - electrode validation skipped")
 
-    # Run ex-search
-    run_ex_search(
-        subject_id=subject,
-        roi_name=roi_name,
-        net_name=net_name,
-        hdf5_path=leadfield_hdf,
-        total_current=total_current,
-        current_step=current_step,
-        channel_limit=channel_limit,
-        all_combinations=all_combinations,
-        electrodes=electrodes_dict,
-        project_dir=project_dir,
-        roi_radius=roi_radius,
-    )
+        if mode == "pool":
+            utils.echo_info("Pool mode: all electrodes available for any position")
+            while True:
+                raw = utils.ask_required("All electrodes (comma-separated, minimum 4)")
+                pool = _parse_electrode_list(raw)
+                if len(pool) < 4:
+                    utils.echo_error("At least 4 electrodes are required for pool mode")
+                    continue
+                try:
+                    _validate_electrode_names(specified=pool, available=available_labels)
+                except ValueError as e:
+                    utils.echo_error(str(e))
+                    if available_labels:
+                        utils.echo_info(f"Available electrodes: {', '.join(sorted(available_labels))}")
+                    continue
+                return dict(pool_electrodes=", ".join(pool))
 
+        utils.echo_info("Buckets mode: separate electrode groups for each position")
+        while True:
+            e1p = _parse_electrode_list(utils.ask_required("E1_PLUS electrodes (comma-separated)"))
+            e1m = _parse_electrode_list(utils.ask_required("E1_MINUS electrodes (comma-separated)"))
+            e2p = _parse_electrode_list(utils.ask_required("E2_PLUS electrodes (comma-separated)"))
+            e2m = _parse_electrode_list(utils.ask_required("E2_MINUS electrodes (comma-separated)"))
+            if not (len(e1p) == len(e1m) == len(e2p) == len(e2m)):
+                utils.echo_error("All electrode categories must have the same number of electrodes")
+                continue
+            specified = list(dict.fromkeys([*e1p, *e1m, *e2p, *e2m]))
+            try:
+                _validate_electrode_names(specified=specified, available=available_labels)
+            except ValueError as e:
+                utils.echo_error(str(e))
+                if available_labels:
+                    utils.echo_info(f"Available electrodes: {', '.join(sorted(available_labels))}")
+                continue
+            return dict(
+                e1_plus=", ".join(e1p),
+                e1_minus=", ".join(e1m),
+                e2_plus=", ".join(e2p),
+                e2_minus=", ".join(e2m),
+            )
 
-@cli.command('list-subjects')
-@click.pass_context
-def list_subjects_cmd(ctx):
-    """List all available subjects in the project."""
-    pm = ctx.obj['pm']
+    def execute(self, args: Dict[str, Any]) -> int:
+        pm = get_path_manager()
+        if not pm.project_dir:
+            raise RuntimeError("Project directory not resolved. In Docker set PROJECT_DIR_NAME so /mnt/<name> exists.")
 
-    if not pm.project_dir:
-        echo_error("Project directory not set")
-        raise click.Abort()
+        subject_id = str(args["subject"])
+        leadfield_hdf = str(args["leadfield_hdf"])
+        if not Path(leadfield_hdf).is_file():
+            raise RuntimeError(f"Leadfield file not found: {leadfield_hdf}")
 
-    subjects = pm.list_subjects()
+        net_stem, csv_path = _find_eeg_net_csv(subject_id, leadfield_hdf=leadfield_hdf)
+        if not net_stem:
+            utils.echo_warning("Could not derive EEG net name from leadfield filename - electrode validation skipped")
+        elif not csv_path:
+            eeg_dir = pm.get_eeg_positions_dir(subject_id) or "<unknown>"
+            utils.echo_warning(f"EEG net CSV not found: {net_stem}.csv (expected under {eeg_dir}) - electrode validation skipped")
 
-    if not subjects:
-        echo_warning("No subjects found")
-        return
+        available_labels: List[str] = _load_eeg_labels(csv_path) if csv_path else []
 
-    echo_header("Available Subjects")
-    display_subjects_table(subjects)
-    click.echo()
-    echo_info(f"Total: {len(subjects)} subject(s)")
+        mode = args["optimization_mode"]
+        if mode == "pool":
+            pool = _parse_electrode_list(str(args.get("pool_electrodes") or ""))
+            if len(pool) < 4:
+                raise ValueError("Pool mode requires --pool-electrodes with at least 4 electrodes")
+            _validate_electrode_names(specified=pool, available=available_labels)
+            pool_raw = ", ".join(pool)
+        else:
+            e1p = _parse_electrode_list(str(args.get("e1_plus") or ""))
+            e1m = _parse_electrode_list(str(args.get("e1_minus") or ""))
+            e2p = _parse_electrode_list(str(args.get("e2_plus") or ""))
+            e2m = _parse_electrode_list(str(args.get("e2_minus") or ""))
+            if not (e1p and e1m and e2p and e2m):
+                raise ValueError("Buckets mode requires --e1-plus/--e1-minus/--e2-plus/--e2-minus")
+            if not (len(e1p) == len(e1m) == len(e2p) == len(e2m)):
+                raise ValueError("Buckets mode requires all electrode lists to have the same length")
+            specified = list(dict.fromkeys([*e1p, *e1m, *e2p, *e2m]))
+            _validate_electrode_names(specified=specified, available=available_labels)
 
+        # Set env vars expected by tit.opt.ex.config + tit.opt.ex.main
+        os.environ["PROJECT_DIR"] = pm.project_dir
+        os.environ["SUBJECT_NAME"] = subject_id
+        os.environ["SELECTED_EEG_NET"] = net_stem or "unknown_net"
+        os.environ["ROI_NAME"] = str(args["roi_name"])
+        os.environ["ROI_RADIUS"] = str(args.get("roi_radius", 3.0))
+        os.environ["LEADFIELD_HDF"] = leadfield_hdf
 
-@cli.command('list-leadfields')
-@click.option('--subject', '-s', required=True, help='Subject ID')
-@click.pass_context
-def list_leadfields_cmd(ctx, subject):
-    """List available leadfields for a subject."""
-    pm = ctx.obj['pm']
+        if mode == "pool":
+            os.environ["E1_PLUS"] = pool_raw
+            os.environ["E1_MINUS"] = pool_raw
+            os.environ["E2_PLUS"] = pool_raw
+            os.environ["E2_MINUS"] = pool_raw
+            os.environ["ALL_COMBINATIONS"] = "true"
+        else:
+            os.environ.pop("ALL_COMBINATIONS", None)
+            os.environ["E1_PLUS"] = ", ".join(e1p)
+            os.environ["E1_MINUS"] = ", ".join(e1m)
+            os.environ["E2_PLUS"] = ", ".join(e2p)
+            os.environ["E2_MINUS"] = ", ".join(e2m)
 
-    leadfields = list_available_leadfields(subject)
+        os.environ["TOTAL_CURRENT"] = str(args.get("total_current", 1.0))
+        os.environ["CURRENT_STEP"] = str(args.get("current_step", 0.1))
+        if args.get("channel_limit") is not None:
+            os.environ["CHANNEL_LIMIT"] = str(args["channel_limit"])
+        else:
+            os.environ.pop("CHANNEL_LIMIT", None)
 
-    if not leadfields:
-        echo_warning(f"No leadfields found for subject {subject}")
-        return
+        from tit.opt.ex.main import main as ex_main
 
-    echo_header(f"Leadfields for Subject {subject}")
-    for net_name, hdf5_path, size_gb in leadfields:
-        click.echo(f"  {net_name:<30} ({size_gb:.2f} GB)")
-        click.echo(f"    Path: {hdf5_path}")
-
-    echo_info(f"Total: {len(leadfields)} leadfield(s)")
-
-
-@cli.command('list-rois')
-@click.option('--subject', '-s', required=True, help='Subject ID')
-@click.pass_context
-def list_rois_cmd(ctx, subject):
-    """List available ROIs for a subject."""
-    rois = list_available_rois(subject)
-
-    if not rois:
-        echo_warning(f"No ROIs found for subject {subject}")
-        return
-
-    echo_header(f"ROIs for Subject {subject}")
-    for roi in rois:
-        click.echo(f"  • {roi}")
-
-    echo_info(f"Total: {len(rois)} ROI(s)")
-
-
-# =============================================================================
-# EXECUTION LOGIC
-# =============================================================================
-
-def run_ex_search(
-    subject_id: str,
-    roi_name: str,
-    net_name: str,
-    hdf5_path: str,
-    total_current: float,
-    current_step: float,
-    channel_limit: float,
-    all_combinations: bool,
-    electrodes: dict,
-    project_dir: str,
-    roi_radius: float = 3.0,
-):
-    """Execute ex-search optimization for a subject."""
-    from tit.opt.ex import main as ex_main
-
-    echo_header("Running Ex-Search Optimization")
-
-    # Set environment variables for ex-search main
-    os.environ['PROJECT_DIR'] = project_dir
-    os.environ['SUBJECT_NAME'] = subject_id
-    os.environ['SELECTED_EEG_NET'] = net_name
-    os.environ['LEADFIELD_HDF'] = hdf5_path
-    os.environ['ROI_NAME'] = roi_name
-    os.environ['ROI_RADIUS'] = str(roi_radius)
-    os.environ['TOTAL_CURRENT'] = str(total_current)
-    os.environ['CURRENT_STEP'] = str(current_step)
-    os.environ['CHANNEL_LIMIT'] = str(channel_limit)
-
-    # Set electrode environment variables (space-separated) if provided
-    if electrodes['E1_plus']:
-        os.environ['E1_PLUS'] = ' '.join(electrodes['E1_plus'])
-    if electrodes['E1_minus']:
-        os.environ['E1_MINUS'] = ' '.join(electrodes['E1_minus'])
-    if electrodes['E2_plus']:
-        os.environ['E2_PLUS'] = ' '.join(electrodes['E2_plus'])
-    if electrodes['E2_minus']:
-        os.environ['E2_MINUS'] = ' '.join(electrodes['E2_minus'])
-    os.environ['ALL_COMBINATIONS'] = '1' if all_combinations else '0'
-
-    # Create logger
-    pm = get_path_manager()
-    derivatives_dir = pm.get_derivatives_dir()
-    log_dir = os.path.join(derivatives_dir, 'tit', 'logs', f'sub-{subject_id}')
-    os.makedirs(log_dir, exist_ok=True)
-    log_file = os.path.join(log_dir, f'ExSearch_{int(time.time())}.log')
-    os.environ['TI_LOG_FILE'] = log_file
-
-    start_time = time.time()
-
-    try:
-        # Run ex-search main (ex_main IS the main function)
         ex_main()
-
-        elapsed = time.time() - start_time
-        echo_success(f"Ex-search completed in {elapsed/60:.1f} minutes")
-        echo_info(f"Log file: {log_file}")
-
-    except Exception as e:
-        echo_error(f"Ex-search failed: {e}")
-        import traceback
-        traceback.print_exc()
-        sys.exit(1)
+        return 0
 
 
-# =============================================================================
-# ENTRY POINT
-# =============================================================================
+if __name__ == "__main__":
+    raise SystemExit(ExSearchCLI().run())
 
-if __name__ == '__main__':
-    cli(obj={})
+
