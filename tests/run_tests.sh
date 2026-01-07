@@ -202,9 +202,10 @@ if [ "$RUN_UNIT_TESTS" = true ]; then
 
     # Setup coverage flags if enabled
     if [ "$ENABLE_COVERAGE" = true ]; then
-        PYTEST_FLAGS="--cov=tit --cov-report=xml:/tmp/coverage/coverage.xml --cov-report=term"
+        COVERAGE_XML="${COVERAGE_XML:-/tmp/coverage/coverage.xml}"
+        PYTEST_FLAGS="--cov=tit --cov-report=xml:${COVERAGE_XML} --cov-report=term-missing:skip-covered"
         echo -e "${CYAN}Coverage reporting enabled - running all tests together${NC}"
-        mkdir -p /tmp/coverage
+        mkdir -p "$(dirname "${COVERAGE_XML}")"
 
         # Run ALL unit tests in a single command for accurate coverage measurement
         # This ensures coverage data is collected across all modules in one run

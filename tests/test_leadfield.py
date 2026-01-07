@@ -253,6 +253,9 @@ class TestGenerateLeadfield:
         from tit.opt.leadfield import LeadfieldGenerator
 
         mock_get_pm.return_value = mock_path_manager
+        # generate_leadfield() creates the output dir before checking for the mesh;
+        # ensure the mocked PathManager points to a writable location.
+        mock_path_manager.get_leadfield_dir = MagicMock(return_value=str(tmp_path / "leadfields"))
 
         # Create directory without mesh file
         subject_dir = tmp_path / 'm2m_999'

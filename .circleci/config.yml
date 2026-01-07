@@ -36,48 +36,16 @@ jobs:
           command: |
             set -euo pipefail
 
-            # Create directories for test results, coverage, and test project
-            mkdir -p /tmp/test-results /tmp/test_projectdir /tmp/coverage
-            chmod 777 /tmp/test-results /tmp/test_projectdir /tmp/coverage
-
-            # Get current working directory (checked out PR code)
-            WORKSPACE=$(pwd)
-
             echo "=========================================="
             echo "TI-Toolbox CI Testing Pipeline"
             echo "=========================================="
-            echo "Testing PR code from: ${WORKSPACE}"
+            echo "Testing PR code from: $(pwd)"
             echo "Test image: ti-test:latest"
             echo ""
 
-            # Run all tests with coverage and verbose output
-            # - Mounts PR code at /tit (matches production environment)
-            # - Script copies ElectrodeCaps and tes_flex to SimNIBS
-            # - Verbose mode ensures continuous output to prevent timeout
-            docker run --rm \
-              -v "${WORKSPACE}:/tit" \
-              -v /tmp/test_projectdir:/mnt/test_projectdir \
-              -v /tmp/test-results:/tmp/test-results \
-              -v /tmp/coverage:/tmp/coverage \
-              -w /tit \
-              ti-test:latest \
-              bash -c './tests/run_tests.sh --verbose --coverage'
-
-            EXIT_CODE=$?
-
-            # Cleanup test project directory from host side (after container exits)
-            # Note: Keep /tmp/test-results and /tmp/coverage for artifact storage
-            echo "Cleaning up test project directory from host..."
-            rm -rf /tmp/test_projectdir 2>/dev/null || true
-
-            if [ $EXIT_CODE -eq 0 ]; then
-              echo ""
-              echo "✓ All tests passed!"
-            else
-              echo ""
-              echo "✗ Some tests failed!"
-              exit $EXIT_CODE
-            fi
+            # Always run via the Docker wrapper to guarantee a consistent environment.
+            # Use the already-pulled image tag to avoid re-pulling.
+            TEST_IMAGE=ti-test:latest bash ./tests/test.sh --verbose --coverage
 
       - run:
           name: Upload coverage to Codecov
@@ -106,7 +74,7 @@ jobs:
             ./codecov \
               -t ${CODECOV_TOKEN} \
               -f /tmp/coverage/coverage.xml \
-              -F unittests,core,simulator,analyzer,optimizer,stats,viz \
+              -F unittests,core,simulator,analyzer,optimizer,stats,plotting \
               -n "CircleCI-${CIRCLE_BUILD_NUM}" \
               -B "${CIRCLE_BRANCH}" \
               -C "${CIRCLE_SHA1}" \

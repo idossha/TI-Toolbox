@@ -9,6 +9,7 @@ import sys
 import os
 import time
 from unittest.mock import Mock, patch, MagicMock
+
 from PyQt5 import QtCore
 
 # Add tit directory to path

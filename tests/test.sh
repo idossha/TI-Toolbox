@@ -53,12 +53,16 @@ echo ""
 
 # Create mount directory if it doesn't exist
 mkdir -p /tmp/test_projectdir
+mkdir -p /tmp/test-results /tmp/coverage
+chmod 777 /tmp/test_projectdir /tmp/test-results /tmp/coverage 2>/dev/null || true
 
 # Run the tests in the container with local code mounted
 # Mount to /ti-toolbox to match production environment
 docker run --rm \
     -v "${REPO_ROOT}:/ti-toolbox" \
     -v /tmp/test_projectdir:/mnt/test_projectdir \
+    -v /tmp/test-results:/tmp/test-results \
+    -v /tmp/coverage:/tmp/coverage \
     -w /ti-toolbox \
     "$TEST_IMAGE" \
     ./tests/run_tests.sh $TEST_ARGS
@@ -69,6 +73,11 @@ EXIT_CODE=$?
 if [ -d "/tmp/test_projectdir" ]; then
     echo -e "${CYAN}Cleaning up host test directory...${NC}"
     rm -rf /tmp/test_projectdir 2>/dev/null || true
+fi
+
+# If coverage was enabled, keep a copy in the repo root for convenience.
+if [ -f "/tmp/coverage/coverage.xml" ]; then
+    cp /tmp/coverage/coverage.xml "${REPO_ROOT}/coverage.xml" 2>/dev/null || true
 fi
 
 echo ""

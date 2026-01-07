@@ -41,6 +41,11 @@ TI-Toolbox_*_*/
 .cache/
 .pytest_cache/
 
+# Coverage artifacts
+.coverage
+coverage.xml
+htmlcov/
+
 # Development-specific
 **/.default_paths.user
 **/.default_paths.dev

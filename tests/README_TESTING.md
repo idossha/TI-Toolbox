@@ -12,6 +12,9 @@ Complete guide for running tests locally and in CI/CD.
 # Run all tests with your local code
 ./tests/test.sh
 
+# Run all tests and generate coverage.xml (written to repo root)
+./tests/test.sh --coverage
+
 # Run only unit tests (fast)
 ./tests/test.sh --unit-only
 
