@@ -993,35 +993,9 @@ class SimulatorTab(QtWidgets.QWidget):
 
     def ensure_montage_file_exists(self, project_dir):
         """Ensure the montage file exists with proper structure."""
-        ti_csc_dir = os.path.join(project_dir, 'code', 'tit')
-        config_dir = os.path.join(ti_csc_dir, 'config')
-        montage_file = os.path.join(config_dir, 'montage_list.json')
-        
-        # Create directories if they don't exist
-        os.makedirs(config_dir, exist_ok=True)
-        
-        # Set directory permissions
-        os.chmod(ti_csc_dir, 0o777)
-        os.chmod(config_dir, 0o777)
-        
-        # Create montage file if it doesn't exist
-        if not os.path.exists(montage_file):
-            initial_content = {
-                "nets": {
-                    "EGI_template.csv": {
-                        "uni_polar_montages": {},
-                        "multi_polar_montages": {}
-                    }
-                }
-            }
-            with open(montage_file, 'w') as f:
-                json.dump(initial_content, f, indent=4)
-            os.chmod(montage_file, 0o777)
-        else:
-            # Ensure correct permissions
-            os.chmod(montage_file, 0o777)
-        
-        return montage_file
+        from tit.sim import utils as sim_utils
+
+        return sim_utils.ensure_montage_file(project_dir)
 
     def update_montage_list(self, checked=None):
         """Update the list of available montages."""
@@ -2689,37 +2663,23 @@ class SimulatorTab(QtWidgets.QWidget):
             
             # Get project directory using path manager
             project_dir = self.pm.project_dir
-            
-            # Ensure montage file exists and get its path
-            montage_file = self.ensure_montage_file_exists(project_dir)
-            
-            # Load existing montage data
-            with open(montage_file, 'r') as f:
-                montage_data_file = json.load(f)
-            
-            # Ensure the target net exists in the structure
+            from tit.sim import utils as sim_utils
+
+            # Persist montage via shared sim utils (reused by CLI + GUI)
             target_net = montage_data["target_net"]
-            if "nets" not in montage_data_file:
-                montage_data_file["nets"] = {}
-            if target_net not in montage_data_file["nets"]:
-                montage_data_file["nets"][target_net] = {
-                    "uni_polar_montages": {},
-                    "multi_polar_montages": {}
-                }
-            
-            # Add the new montage to the appropriate section
-            montage_type = "uni_polar_montages" if montage_data["is_unipolar"] else "multi_polar_montages"
-            
-            # Store the montage under the correct net and type
-            montage_data_file["nets"][target_net][montage_type][montage_data["name"]] = montage_data["electrode_pairs"]
-            
-            # Save the updated montage data
-            with open(montage_file, 'w') as f:
-                json.dump(montage_data_file, f, indent=4)
+            sim_utils.upsert_montage(
+                project_dir=project_dir,
+                eeg_net=target_net,
+                montage_name=montage_data["name"],
+                electrode_pairs=montage_data["electrode_pairs"],
+                mode=("U" if montage_data["is_unipolar"] else "M"),
+            )
+            montage_file = sim_utils.montage_list_path(project_dir)
             
             # Format pairs for display
             pairs_text = ", ".join([f"{pair[0]}↔{pair[1]}" for pair in montage_data["electrode_pairs"]])
             
+            montage_type = "uni_polar_montages" if montage_data["is_unipolar"] else "multi_polar_montages"
             self.update_output(f"Added {montage_type.split('_')[0]} montage '{montage_data['name']}' for net {target_net} with pairs: {pairs_text}")
             self.update_output(f"Montage saved to: {montage_file}")
             

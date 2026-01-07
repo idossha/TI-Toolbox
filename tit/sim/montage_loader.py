@@ -9,6 +9,7 @@ from typing import Dict, List, Optional
 
 from tit.sim.config import MontageConfig
 from tit.core import get_path_manager
+from tit.sim import utils as sim_utils
 
 
 def load_montage_file(project_dir: str, eeg_net: str) -> Dict:
@@ -22,32 +23,50 @@ def load_montage_file(project_dir: str, eeg_net: str) -> Dict:
     Returns:
         Dictionary of montages for the specified EEG net
     """
-    config_dir = os.path.join(project_dir, 'code', 'tit', 'config')
-    montage_file = os.path.join(config_dir, 'montage_list.json')
+    # Delegate montage_list.json management to shared sim utils (used by GUI + CLI).
+    all_montages = sim_utils.load_montage_data(project_dir)
+    nets = all_montages.get("nets") or {}
+    if not isinstance(nets, dict):
+        nets = {}
+        all_montages["nets"] = nets
+    # Never raise for missing EEG net; return empty structure (caller may create montages).
+    net_data = nets.get(eeg_net)
+    if not isinstance(net_data, dict):
+        return {"uni_polar_montages": {}, "multi_polar_montages": {}}
+    net_data.setdefault("uni_polar_montages", {})
+    net_data.setdefault("multi_polar_montages", {})
+    return net_data
 
-    # Initialize montage file if it doesn't exist
-    if not os.path.exists(montage_file):
-        os.makedirs(config_dir, exist_ok=True)
-        default_config = {
-            "nets": {
-                "EGI_template.csv": {
-                    "uni_polar_montages": {},
-                    "multi_polar_montages": {}
-                }
-            }
-        }
-        with open(montage_file, 'w') as f:
-            json.dump(default_config, f, indent=4)
-        os.chmod(montage_file, 0o666)
 
-    # Load montages
-    with open(montage_file, 'r') as f:
-        all_montages = json.load(f)
+def list_montage_names(project_dir: str, eeg_net: str, *, mode: str) -> List[str]:
+    """
+    List montage names for a given EEG net and mode.
+    mode: 'U' (uni_polar_montages) or 'M' (multi_polar_montages)
+    """
+    # Use shared util (never throws for missing nets).
+    return sim_utils.list_montage_names(project_dir, eeg_net, mode=mode)
 
-    if eeg_net not in all_montages.get('nets', {}):
-        raise ValueError(f"EEG net '{eeg_net}' not found in montage list")
 
-    return all_montages['nets'][eeg_net]
+def add_montage(
+    *,
+    project_dir: str,
+    eeg_net: str,
+    montage_name: str,
+    electrode_pairs: List[List[str]],
+    mode: str,
+) -> None:
+    """
+    Persist a montage into montage_list.json under the given net.
+    mode: 'U' (uni_polar_montages) or 'M' (multi_polar_montages)
+    """
+    # Delegate persistence to shared sim utils (used by GUI + CLI).
+    sim_utils.upsert_montage(
+        project_dir=project_dir,
+        eeg_net=eeg_net,
+        montage_name=montage_name,
+        electrode_pairs=electrode_pairs,
+        mode=mode,
+    )
 
 
 def load_flex_montages(flex_file: Optional[str] = None) -> List[Dict]:
