@@ -142,6 +142,13 @@ class TestElectrodeConfig:
         """Setup test fixtures"""
         self.logger = MagicMock()
 
+    def teardown_method(self):
+        """Clean up test fixtures"""
+        # Clean up environment variables that might be set by tests
+        env_vars = ['E1_PLUS', 'E1_MINUS', 'E2_PLUS', 'E2_MINUS']
+        for var in env_vars:
+            os.environ.pop(var, None)
+
     @patch.dict(os.environ, {
         'E1_PLUS': 'E1 E2',
         'E1_MINUS': 'E3 E4',
@@ -183,9 +190,10 @@ class TestElectrodeConfig:
 
     def test_get_config_missing_env_vars(self):
         """Test electrode config with missing environment variables"""
+        from tit.opt.ex.config import ConfigError
         config = ElectrodeConfig(self.logger)
 
-        with pytest.raises(Exception):  # Should raise ConfigError
+        with pytest.raises(ConfigError):  # Should raise ConfigError
             config.get_config(False)
 
 
