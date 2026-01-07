@@ -215,19 +215,22 @@ class AnalyzerCLI(BaseCLI):
         cfg = dict(args)
 
         if cfg["analysis_type"] == "spherical":
+            # Keep direct mode ergonomic: default to the interactive defaults (0,0,0) and 10mm.
             coords = cfg.get("coordinates")
-            if not coords:
-                raise RuntimeError("--coordinates is required for spherical analysis")
-            if isinstance(coords, (list, tuple)):
+            if coords is None:
+                cfg["coordinates"] = [0.0, 0.0, 0.0]
+            elif isinstance(coords, (list, tuple)):
                 if len(coords) != 3:
                     raise RuntimeError("--coordinates must be 3 values: x y z")
+                cfg["coordinates"] = [float(coords[0]), float(coords[1]), float(coords[2])]
             else:
                 parts = str(coords).split()
                 if len(parts) != 3:
                     raise RuntimeError("--coordinates must be 3 values: x y z")
                 cfg["coordinates"] = [float(parts[0]), float(parts[1]), float(parts[2])]
+
             if cfg.get("radius") is None:
-                raise RuntimeError("--radius is required for spherical analysis")
+                cfg["radius"] = 10.0
         else:
             if cfg["space"] == "voxel" and not cfg.get("atlas_path"):
                 raise RuntimeError("--atlas-path is required for voxel cortical analysis")

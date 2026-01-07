@@ -9,7 +9,7 @@
     },
     "eeg_net": {
         "prompt": "disable",
-        "default": "EGI_template.csv"
+        "default": "GSN-HydroCel-185.csv"
     },
     "roi_method": {
         "prompt": "enable",

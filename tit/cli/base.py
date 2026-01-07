@@ -180,7 +180,15 @@ class BaseCLI(ABC):
             flags = arg_def.flags or self._default_flags(arg_def.name)
             parser.add_argument(*flags, **kwargs)
 
-        args = parser.parse_args()
+        # argparse uses SystemExit for normal control flow (e.g., -h, parse errors).
+        # In-library usage (tests, GUI wrappers) expects a return code instead of raising.
+        try:
+            args = parser.parse_args()
+        except SystemExit as e:
+            # e.code can be None/str/int depending on argparse call-site; normalize to int.
+            if isinstance(e.code, int):
+                return e.code
+            return 1
 
         return self.execute(vars(args))
 

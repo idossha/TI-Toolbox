@@ -309,7 +309,7 @@ def main():
     sim_mode = str(merged.get('sim_mode', 'U'))
     conductivity = str(merged.get('conductivity', 'scalar'))
     current = str(merged.get('current', '0.002,0.002'))
-    eeg_net = str(merged.get('eeg_net', 'EGI_template.csv'))
+    eeg_net = str(merged.get('eeg_net', 'GSN-HydroCel-185.csv'))
     electrode_shape = str(merged.get('electrode_shape', 'rect'))
     dimensions = str(merged.get('dimensions', '50,50'))
     thickness = str(merged.get('thickness', '5'))

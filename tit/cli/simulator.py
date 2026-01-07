@@ -74,7 +74,7 @@ class SimulatorCLI(BaseCLI):
         self.add_argument(ArgumentDefinition(name="list_montages", type=bool, help="List montages for --eeg (and flex-search runs if --sub is provided)", default=False, flags=["--list-montages", "--list-montage"]))
 
         self.add_argument(ArgumentDefinition(name="subject", type=str, help="Subject ID", required=False, flags=["--subject", "--sub"]))
-        self.add_argument(ArgumentDefinition(name="eeg_net", type=str, help="EEG cap CSV filename", default="EGI_template.csv", flags=["--eeg-net", "--eeg"]))
+        self.add_argument(ArgumentDefinition(name="eeg_net", type=str, help="EEG cap CSV filename", default="GSN-HydroCel-185.csv", flags=["--eeg-net", "--eeg"]))
         self.add_argument(ArgumentDefinition(name="framework", type=str, choices=["montage", "flex"], default="montage"))
         # Ergonomic aliases that avoid argparse abbreviation confusion (BaseCLI sets allow_abbrev=False)
         self.add_argument(ArgumentDefinition(name="montage", type=bool, help="Shorthand for --framework montage", default=False))
@@ -85,7 +85,7 @@ class SimulatorCLI(BaseCLI):
 
         self.add_argument(ArgumentDefinition(name="conductivity", type=str, choices=["scalar", "vn", "dir", "mc"], default="scalar"))
         self.add_argument(ArgumentDefinition(name="intensity", type=str, help="Intensity (mA). For mTI use format 'a,b,c,d' if supported.", default="2.0"))
-        self.add_argument(ArgumentDefinition(name="electrode_shape", type=str, help="rect|ellipse", default="ellipse"))
+        self.add_argument(ArgumentDefinition(name="electrode_shape", type=str, choices=["rect", "ellipse"], help="rect|ellipse", default="ellipse"))
         self.add_argument(ArgumentDefinition(name="dimensions", type=str, help="e.g. 8,8", default="8,8"))
         self.add_argument(ArgumentDefinition(name="thickness", type=float, help="mm", default=4.0))
 
@@ -241,7 +241,7 @@ class SimulatorCLI(BaseCLI):
 
     @staticmethod
     def _default_eeg_cap() -> str:
-        return "EGI_template.csv"
+        return "GSN-HydroCel-185.csv"
 
     def execute(self, args: Dict[str, Any]) -> int:
         pm = get_path_manager()

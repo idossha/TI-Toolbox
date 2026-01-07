@@ -150,7 +150,7 @@ def main(argv=None) -> int:
                 thickness=float(electrode.get("thickness", 4.0)),
                 sponge_thickness=float(electrode.get("sponge_thickness", 2.0)),
             ),
-            eeg_net=str(cfg.get("eeg_net") or "EGI_template.csv"),
+            eeg_net=str(cfg.get("eeg_net") or "GSN-HydroCel-185.csv"),
             parallel=ParallelConfig(
                 enabled=bool(parallel.get("enabled", False)),
                 max_workers=int(parallel.get("max_workers", 0)),

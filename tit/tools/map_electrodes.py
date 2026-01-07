@@ -190,10 +190,10 @@ def main():
         epilog="""
 Examples:
   # Map using electrode_positions.json and EEG net CSV
-  %(prog)s -i electrode_positions.json -n EGI_template.csv -o electrode_mapping.json
+  %(prog)s -i electrode_positions.json -n GSN-HydroCel-185.csv -o electrode_mapping.json
 
   # With verbose output
-  %(prog)s -i electrode_positions.json -n EGI_template.csv -o electrode_mapping.json -v
+  %(prog)s -i electrode_positions.json -n GSN-HydroCel-185.csv -o electrode_mapping.json -v
         """
     )
 

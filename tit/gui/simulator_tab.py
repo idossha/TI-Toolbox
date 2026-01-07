@@ -753,7 +753,7 @@ class SimulatorTab(QtWidgets.QWidget):
             
             # If no nets found, add default
             if self.eeg_net_combo.count() == 0:
-                self.eeg_net_combo.addItem("EGI_template.csv")
+                self.eeg_net_combo.addItem("GSN-HydroCel-185.csv")
             
         except Exception as e:
             print(f"Error listing subjects: {str(e)}")
@@ -915,7 +915,7 @@ class SimulatorTab(QtWidgets.QWidget):
 
             # If no nets found, add default
             if self.flex_eeg_net_combo.count() == 0:
-                self.flex_eeg_net_combo.addItem("EGI_template.csv")
+                self.flex_eeg_net_combo.addItem("GSN-HydroCel-185.csv")
 
         except Exception as e:
             print(f"Error populating flex EEG nets: {str(e)}")
@@ -1003,7 +1003,7 @@ class SimulatorTab(QtWidgets.QWidget):
             with open(montage_file, 'r') as f:
                 montage_data = json.load(f)
             # Get the current EEG net
-            current_net = self.eeg_net_combo.currentText() or "EGI_template.csv"
+            current_net = self.eeg_net_combo.currentText() or "GSN-HydroCel-185.csv"
             # Get montages for the current net
             if "nets" in montage_data and current_net in montage_data["nets"]:
                 net_montages = montage_data["nets"][current_net]
@@ -1073,7 +1073,7 @@ class SimulatorTab(QtWidgets.QWidget):
                     montage_data = json.load(f)
 
                 # Determine current EEG net
-                current_net = self.eeg_net_combo.currentText() or "EGI_template.csv"
+                current_net = self.eeg_net_combo.currentText() or "GSN-HydroCel-185.csv"
                 # Get montages for the selected mode from the new nested structure
                 is_unipolar = self.sim_mode_unipolar.isChecked()
                 montage_type = "uni_polar_montages" if is_unipolar else "multi_polar_montages"
@@ -2103,13 +2103,13 @@ class SimulatorTab(QtWidgets.QWidget):
                             if mapping_file and os.path.exists(mapping_file):
                                 with open(mapping_file, 'r') as f:
                                     mapping_data = json.load(f)
-                                    eeg_net = mapping_data.get('eeg_net', 'EGI_template.csv')
+                                    eeg_net = mapping_data.get('eeg_net', 'GSN-HydroCel-185.csv')
                             else:
-                                eeg_net = 'EGI_template.csv'
+                                eeg_net = 'GSN-HydroCel-185.csv'
                         except Exception:
-                            eeg_net = 'EGI_template.csv'
+                            eeg_net = 'GSN-HydroCel-185.csv'
                     else:
-                        eeg_net = 'EGI_template.csv'
+                        eeg_net = 'GSN-HydroCel-185.csv'
                 
                 # Generate individual report for each montage for this subject
                 for montage_name in montages_to_process:

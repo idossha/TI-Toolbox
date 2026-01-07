@@ -148,7 +148,7 @@ class SimulationConfig:
     conductivity_type: ConductivityType
     intensities: IntensityConfig
     electrode: ElectrodeConfig
-    eeg_net: str = "EGI_template.csv"
+    eeg_net: str = "GSN-HydroCel-185.csv"
     map_to_surf: bool = True
     map_to_vol: bool = True
     map_to_mni: bool = True

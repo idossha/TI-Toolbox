@@ -39,6 +39,6 @@
   },
   "eeg_net": {
     "prompt": "enable",
-    "default": "EGI_template.csv"
+    "default": "GSN-HydroCel-185.csv"
   }
 }

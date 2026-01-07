@@ -105,7 +105,7 @@ def get_eeg_net_from_config(subject_id: str, simulation_name: str) -> Optional[s
         simulation_name: Simulation name
 
     Returns:
-        EEG net filename (e.g., "EGI_template.csv"), or None if not found
+        EEG net filename (e.g., "GSN-HydroCel-185.csv"), or None if not found
     """
     config = load_simulation_config(subject_id, simulation_name)
     if not config:

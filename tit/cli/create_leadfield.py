@@ -20,7 +20,7 @@ class CreateLeadfieldCLI(BaseCLI):
     def __init__(self) -> None:
         super().__init__("Create leadfield matrices for a subject.")
         self.add_argument(ArgumentDefinition(name="subject", type=str, help="Subject ID", required=True, flags=["--subject", "--sub"]))
-        self.add_argument(ArgumentDefinition(name="eeg_net", type=str, help="EEG cap CSV filename (e.g., EGI_template.csv)", required=True, flags=["--eeg-net", "--eeg"]))
+        self.add_argument(ArgumentDefinition(name="eeg_net", type=str, help="EEG cap CSV filename (e.g., GSN-HydroCel-185.csv)", required=True, flags=["--eeg-net", "--eeg"]))
         self.add_argument(ArgumentDefinition(name="tissues", type=str, nargs="+", help="Tissue tags (comma-separated or space-separated). Default: 1 2", default=["1", "2"]))
 
     def run_interactive(self) -> int:

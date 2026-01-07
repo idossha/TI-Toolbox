@@ -1810,7 +1810,7 @@ def create_simulation_report(project_dir, simulation_session_id=None, simulation
             generator.add_simulation_parameters(
                 params.get('conductivity_type', 'scalar'),
                 params.get('simulation_mode', 'U'),
-                params.get('eeg_net', 'EGI_template.csv'),
+                params.get('eeg_net', 'GSN-HydroCel-185.csv'),
                 params.get('intensity_ch1_ma', 0),
                 params.get('intensity_ch2_ma', 0),
                 params.get('quiet_mode', False)

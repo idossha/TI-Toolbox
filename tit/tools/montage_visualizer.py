@@ -56,7 +56,7 @@ class ResourcePathManager:
         Get the coordinate file path for a specific EEG net.
 
         Args:
-            eeg_net: Name of the EEG net (e.g., "EGI_template.csv")
+            eeg_net: Name of the EEG net (e.g., "GSN-HydroCel-185.csv")
 
         Returns:
             Path to coordinate CSV file, or None for freehand/flex modes or explicitly unsupported nets.
@@ -79,7 +79,7 @@ class ResourcePathManager:
 
         # GSN-HD compatible nets
         gsn_hd_nets = [
-            "EGI_template.csv",
+            "GSN-HydroCel-185.csv",
             "GSN-HydroCel-185.csv",
             "GSN-HydroCel-256.csv"
         ]
@@ -112,7 +112,7 @@ class ResourcePathManager:
             Path to template PNG image
         """
         gsn_hd_nets = [
-            "EGI_template.csv",
+            "GSN-HydroCel-185.csv",
             "GSN-HydroCel-185.csv",
             "GSN-HydroCel-256.csv"
         ]
@@ -569,7 +569,7 @@ def main():
         '--eeg-net',
         '-e',
         required=True,
-        help='EEG net name (e.g., EGI_template.csv)'
+        help='EEG net name (e.g., GSN-HydroCel-185.csv)'
     )
     
     parser.add_argument(

@@ -348,5 +348,989 @@ def test_simulator_direct_delegates_to_run_simulation(monkeypatch, tmp_path: Pat
     assert captured["config"].subject_id == "101"
 
 
+def test_simulator_direct_comprehensive_argument_coverage(monkeypatch, tmp_path: Path):
+    """Test all simulator CLI argument combinations for direct mode."""
+    from tit.cli import simulator as sim_cli
+
+    proj = tmp_path / "proj"
+    proj.mkdir(parents=True, exist_ok=True)
+    monkeypatch.setenv("PROJECT_DIR", str(proj))
+
+    # Create minimal project structure
+    (proj / "derivatives" / "SimNIBS" / "sub-101" / "m2m_101").mkdir(parents=True, exist_ok=True)
+
+    captured_calls = []
+
+    def fake_load_montages(*, montage_names, project_dir, eeg_net, include_flex=True):
+        from tit.sim.config import MontageConfig
+        captured_calls.append(("load_montages", montage_names, eeg_net, include_flex))
+        return [MontageConfig(name="test_montage", electrode_pairs=[("A", "B"), ("C", "D")], is_xyz=False, eeg_net=eeg_net)]
+
+    def fake_run_simulation(config, montages, logger=None):
+        captured_calls.append(("run_simulation", config.subject_id, len(montages)))
+        return [{"montage_name": "test_montage", "status": "completed"}]
+
+    # Mock the actual simnibs-dependent functions
+    monkeypatch.setattr('tit.sim.run_simulation', fake_run_simulation)
+    monkeypatch.setattr('tit.sim.montage_loader.load_montages', fake_load_montages)
+    monkeypatch.setattr('tit.sim.montage_loader.list_montage_names', lambda *args, **kwargs: ["test_montage"])
+
+    cli = sim_cli.SimulatorCLI()
+
+    # Test 1: Basic montage mode with all arguments
+    captured_calls.clear()
+    rc = _run_cli(cli, [
+        "--sub", "101",
+        "--framework", "montage",
+        "--montages", "test_montage",
+        "--eeg", "EGI_template.csv",
+        "--mode", "U",
+        "--conductivity", "scalar",
+        "--intensity", "2.0",
+        "--electrode-shape", "ellipse",
+        "--dimensions", "8,8",
+        "--thickness", "4.0"
+    ])
+    assert rc == 0
+    assert len(captured_calls) == 2
+
+    # Test 2: Flex framework shorthand flags (requires flex-search directory and montages)
+    captured_calls.clear()
+    flex_dir = proj / "derivatives" / "SimNIBS" / "sub-101" / "flex-search" / "test_search"
+    flex_dir.mkdir(parents=True, exist_ok=True)
+    (flex_dir / "electrode_positions.json").write_text('{"optimized_positions": [[0,0,0], [10,10,10], [20,20,20], [30,30,30]]}')
+    rc = _run_cli(cli, ["--sub", "101", "--flex", "--montages", "test_search"])
+    assert rc == 0
+
+    # Test 3: Montage shorthand flag
+    captured_calls.clear()
+    rc = _run_cli(cli, ["--sub", "101", "--montage", "--montages", "test_montage", "--eeg", "EGI_template.csv"])
+    assert rc == 0
+
+    # Test 4: M mode (mTI)
+    captured_calls.clear()
+    rc = _run_cli(cli, ["--sub", "101", "--framework", "montage", "--montages", "test_montage", "--eeg", "EGI_template.csv", "--mode", "M"])
+    assert rc == 0
+
+    # Test 5: Multiple montages
+    captured_calls.clear()
+    rc = _run_cli(cli, ["--sub", "101", "--montages", "montage1,montage2", "--eeg", "EGI_template.csv"])
+    assert rc == 0
+
+    # Test 6: Different conductivity types
+    for conductivity in ["scalar", "vn", "dir", "mc"]:
+        captured_calls.clear()
+        rc = _run_cli(cli, ["--sub", "101", "--montages", "test_montage", "--eeg", "EGI_template.csv", "--conductivity", conductivity])
+        assert rc == 0
+
+    # Test 7: Different electrode shapes
+    for shape in ["rect", "ellipse"]:
+        captured_calls.clear()
+        rc = _run_cli(cli, ["--sub", "101", "--montages", "test_montage", "--eeg", "EGI_template.csv", "--electrode-shape", shape])
+        assert rc == 0
+
+    # Test 8: mTI intensity format
+    captured_calls.clear()
+    rc = _run_cli(cli, ["--sub", "101", "--montages", "test_montage", "--eeg", "EGI_template.csv", "--mode", "M", "--intensity", "1.0,2.0,1.5,2.5"])
+    assert rc == 0
+
+    # Test 9: List commands (should not run simulation)
+    captured_calls.clear()
+    rc = _run_cli(cli, ["--list-subjects"])
+    assert rc == 0
+    assert len(captured_calls) == 0  # No simulation should be run
+
+    rc = _run_cli(cli, ["--list-eeg-caps", "--sub", "101"])
+    assert rc == 0
+
+    rc = _run_cli(cli, ["--list-montages", "--eeg", "EGI_template.csv"])
+    assert rc == 0
+
+
+def test_analyzer_direct_comprehensive_argument_coverage(monkeypatch, tmp_path: Path):
+    """Test all analyzer CLI argument combinations for direct mode."""
+    from tit.cli import analyzer as analyzer_cli
+
+    proj = tmp_path / "proj"
+    proj.mkdir(parents=True, exist_ok=True)
+    monkeypatch.setenv("PROJECT_DIR", str(proj))
+
+    # Create minimal project structure
+    (proj / "derivatives" / "SimNIBS" / "sub-101" / "m2m_101").mkdir(parents=True, exist_ok=True)
+    (proj / "derivatives" / "SimNIBS" / "sub-101" / "Simulations" / "test_sim" / "TI" / "mesh").mkdir(parents=True, exist_ok=True)
+
+    captured_calls = []
+
+    # Mock analyzer dependencies
+    def fake_run_main_with_argv(prog, argv, main_func):
+        captured_calls.append(("run_main_with_argv", argv))
+        return 0
+
+    def fake_select_field_file(*args, **kwargs):
+        return ("dummy_field.h5", "dummy_type")
+
+    # Mock the actual functions that get called
+    monkeypatch.setattr('tit.analyzer.main_analyzer.main', lambda: captured_calls.append("analyzer_main_called"))
+    monkeypatch.setattr('tit.analyzer.field_selector.select_field_file', fake_select_field_file)
+    monkeypatch.setattr('tit.cli.analyzer.utils.run_main_with_argv', fake_run_main_with_argv)
+
+    cli = analyzer_cli.AnalyzerCLI()
+
+    # Test 1: Spherical mesh analysis with all arguments
+    captured_calls.clear()
+    rc = _run_cli(cli, [
+        "--sub", "101",
+        "--sim", "test_sim",
+        "--space", "mesh",
+        "--analysis-type", "spherical",
+        "--coordinates", "0", "0", "0",
+        "--radius", "10",
+        "--coordinate-space", "subject",
+        "--visualize"
+    ])
+    assert rc == 0
+    assert len(captured_calls) == 1
+    argv = captured_calls[0][1]
+    assert "--analysis_type" in argv and argv[argv.index("--analysis_type") + 1] == "spherical"
+
+    # Test 2: Spherical voxel analysis
+    captured_calls.clear()
+    rc = _run_cli(cli, [
+        "--sub", "101",
+        "--sim", "test_sim",
+        "--space", "voxel",
+        "--analysis-type", "spherical",
+        "--coordinates", "-5", "10", "15",
+        "--radius", "8",
+        "--coordinate-space", "MNI"
+    ])
+    assert rc == 0
+
+    # Test 3: Cortical mesh analysis with atlas
+    captured_calls.clear()
+    rc = _run_cli(cli, [
+        "--sub", "101",
+        "--sim", "test_sim",
+        "--space", "mesh",
+        "--analysis-type", "cortical",
+        "--atlas-name", "DK40",
+        "--region", "precentral",
+        "--visualize"
+    ])
+    assert rc == 0
+
+    # Test 4: Cortical mesh analysis whole head
+    captured_calls.clear()
+    rc = _run_cli(cli, [
+        "--sub", "101",
+        "--sim", "test_sim",
+        "--space", "mesh",
+        "--analysis-type", "cortical",
+        "--atlas-name", "HCP_MMP1",
+        "--whole-head"
+    ])
+    assert rc == 0
+
+    # Test 5: Cortical voxel analysis with atlas path
+    captured_calls.clear()
+    atlas_path = str(tmp_path / "atlas.nii.gz")
+    with open(atlas_path, "w") as f:
+        f.write("fake atlas")
+    rc = _run_cli(cli, [
+        "--sub", "101",
+        "--sim", "test_sim",
+        "--space", "voxel",
+        "--analysis-type", "cortical",
+        "--atlas-path", atlas_path,
+        "--region", "region1"
+    ])
+    assert rc == 0
+
+    # Test 6: Default arguments
+    captured_calls.clear()
+    rc = _run_cli(cli, ["--sub", "101", "--sim", "test_sim"])
+    assert rc == 0  # Should use defaults: mesh, spherical
+
+    # Test 7: Different coordinate spaces
+    for coord_space in ["MNI", "subject"]:
+        captured_calls.clear()
+        rc = _run_cli(cli, [
+            "--sub", "101",
+            "--sim", "test_sim",
+            "--analysis-type", "spherical",
+            "--coordinates", "1", "2", "3",
+            "--radius", "5",
+            "--coordinate-space", coord_space
+        ])
+        assert rc == 0
+
+    # Test 8: Different atlas names for mesh
+    for atlas in ["DK40", "HCP_MMP1", "a2009s"]:
+        captured_calls.clear()
+        rc = _run_cli(cli, [
+            "--sub", "101",
+            "--sim", "test_sim",
+            "--space", "mesh",
+            "--analysis-type", "cortical",
+            "--atlas-name", atlas,
+            "--region", "test_region"
+        ])
+        assert rc == 0
+
+
+def test_group_analyzer_direct_comprehensive_argument_coverage(monkeypatch, tmp_path: Path):
+    """Test all group analyzer CLI argument combinations for direct mode."""
+    from tit.cli import group_analyzer as ga
+
+    proj = tmp_path / "proj"
+    proj.mkdir(parents=True, exist_ok=True)
+
+    # Create minimal project structure for two subjects
+    for sid in ["101", "102"]:
+        (proj / "derivatives" / "SimNIBS" / f"sub-{sid}" / f"m2m_{sid}").mkdir(parents=True, exist_ok=True)
+        (proj / "derivatives" / "SimNIBS" / f"sub-{sid}" / "Simulations" / "test_sim" / "TI" / "mesh").mkdir(parents=True, exist_ok=True)
+
+    monkeypatch.setenv("PROJECT_DIR", str(proj))
+
+    captured_calls = []
+
+    # Mock group analyzer dependencies
+    def fake_run_group_analyzer(argv):
+        captured_calls.append(("group_analyzer_main", argv))
+        return 0
+
+    def fake_select_field_file(*args, **kwargs):
+        return ("dummy_field.h5", "dummy_type")
+
+    # Mock the actual functions that get called
+    monkeypatch.setattr('tit.cli.group_analyzer._run_group_analyzer_with_argv', fake_run_group_analyzer)
+    monkeypatch.setattr('tit.analyzer.field_selector.select_field_file', fake_select_field_file)
+
+    cli = ga.GroupAnalyzerCLI()
+
+    # Test 1: Basic spherical analysis with multiple subjects
+    captured_calls.clear()
+    rc = _run_cli(cli, [
+        "--subs", "101,102",
+        "--sim", "test_sim",
+        "--space", "mesh",
+        "--analysis-type", "spherical",
+        "--coordinates", "0 0 0",
+        "--radius", "10",
+        "--coordinate-space", "MNI",
+        "--visualize"
+    ])
+    assert rc == 0
+    assert len(captured_calls) == 1
+    argv = captured_calls[0][1]
+    assert argv.count("--subject") == 2  # Two subjects
+
+    # Test 2: Space-separated subjects
+    captured_calls.clear()
+    rc = _run_cli(cli, [
+        "--subs", "101", "102",
+        "--sim", "test_sim",
+        "--space", "mesh",
+        "--analysis-type", "spherical",
+        "--coordinates", "5 5 5",
+        "--radius", "15"
+    ])
+    assert rc == 0
+    assert argv.count("--subject") == 2
+
+    # Test 3: Cortical mesh analysis
+    captured_calls.clear()
+    rc = _run_cli(cli, [
+        "--subs", "101,102",
+        "--sim", "test_sim",
+        "--space", "mesh",
+        "--analysis-type", "cortical",
+        "--atlas-name", "DK40",
+        "--region", "precentral"
+    ])
+    assert rc == 0
+
+    # Test 4: Cortical whole head analysis
+    captured_calls.clear()
+    rc = _run_cli(cli, [
+        "--subs", "101,102",
+        "--sim", "test_sim",
+        "--space", "mesh",
+        "--analysis-type", "cortical",
+        "--atlas-name", "HCP_MMP1",
+        "--whole-head"
+    ])
+    assert rc == 0
+
+    # Test 5: Voxel space analysis
+    captured_calls.clear()
+    atlas_path = str(tmp_path / "atlas.nii.gz")
+    with open(atlas_path, "w") as f:
+        f.write("fake atlas")
+    rc = _run_cli(cli, [
+        "--subs", "101,102",
+        "--sim", "test_sim",
+        "--space", "voxel",
+        "--analysis-type", "cortical",
+        "--atlas-path", atlas_path,
+        "--region", "region1",
+        "--quiet"
+    ])
+    assert rc == 0
+
+    # Test 6: Different coordinate spaces
+    for coord_space in ["MNI", "subject"]:
+        captured_calls.clear()
+        rc = _run_cli(cli, [
+            "--subs", "101,102",
+            "--sim", "test_sim",
+            "--analysis-type", "spherical",
+            "--coordinates", "1 2 3",
+            "--radius", "5",
+            "--coordinate-space", coord_space
+        ])
+        assert rc == 0
+
+    # Test 7: Custom output directory
+    captured_calls.clear()
+    out_dir = str(tmp_path / "custom_output")
+    rc = _run_cli(cli, [
+        "--subs", "101,102",
+        "--sim", "test_sim",
+        "--analysis-type", "spherical",
+        "--coordinates", "0 0 0",
+        "--radius", "10",
+        "--out", out_dir
+    ])
+    assert rc == 0
+    argv = captured_calls[0][1]
+    assert "--output_dir" in argv and out_dir in argv
+
+
+def test_create_leadfield_direct_comprehensive_argument_coverage(monkeypatch, tmp_path: Path):
+    """Test all create leadfield CLI argument combinations for direct mode."""
+    from tit.cli import create_leadfield as cl
+
+    proj = tmp_path / "proj"
+    proj.mkdir(parents=True, exist_ok=True)
+    monkeypatch.setenv("PROJECT_DIR", str(proj))
+
+    # Create minimal subject structure
+    m2m_dir = proj / "derivatives" / "SimNIBS" / "sub-101" / "m2m_101"
+    eeg_dir = m2m_dir / "eeg_positions"
+    eeg_dir.mkdir(parents=True, exist_ok=True)
+
+    # Create fake EEG cap files
+    for cap_name in ["EGI_template.csv", "GSN-HydroCel-185.csv"]:
+        cap_file = eeg_dir / cap_name
+        cap_file.write_text("x,y,z,label\n0,0,0,F3\n0,0,0,F4\n")
+
+    captured_calls = []
+
+    # Mock leadfield dependencies
+    def mock_leadfield_generator(*args, **kwargs):
+        class MockGen:
+            def generate_leadfield(self, output_dir=None, tissues=None, eeg_cap_path=None, cleanup=True):
+                captured_calls.append(("generate_leadfield", str(output_dir), tissues, str(eeg_cap_path)))
+                from pathlib import Path
+                return str(Path(output_dir) / "leadfield.hdf5")
+        return MockGen()
+
+    # Mock the actual class that gets instantiated
+    monkeypatch.setattr('tit.opt.leadfield.LeadfieldGenerator', mock_leadfield_generator)
+
+    cli = cl.CreateLeadfieldCLI()
+
+    # Test 1: Basic usage with default tissues
+    captured_calls.clear()
+    rc = _run_cli(cli, ["--sub", "101", "--eeg", "EGI_template.csv"])
+    assert rc == 0
+    assert len(captured_calls) == 1
+    assert captured_calls[0][2] == [1, 2]  # Default tissues (index 2: tissues parameter)
+
+    # Test 2: Custom tissues
+    captured_calls.clear()
+    rc = _run_cli(cli, ["--sub", "101", "--eeg", "EGI_template.csv", "--tissues", "1", "2", "3"])
+    assert rc == 0
+    assert captured_calls[0][2] == [1, 2, 3]
+
+    # Test 3: Comma-separated tissues
+    captured_calls.clear()
+    rc = _run_cli(cli, ["--sub", "101", "--eeg", "GSN-HydroCel-185.csv", "--tissues", "1,2"])
+    assert rc == 0
+    assert captured_calls[0][2] == [1, 2]
+
+    # Test 4: Single tissue
+    captured_calls.clear()
+    rc = _run_cli(cli, ["--sub", "101", "--eeg", "EGI_template.csv", "--tissues", "1"])
+    assert rc == 0
+    assert captured_calls[0][2] == [1]
+
+
+def test_ex_search_direct_comprehensive_argument_coverage(monkeypatch, tmp_path: Path):
+    """Test all ex-search CLI argument combinations for direct mode."""
+    from tit.cli import ex_search as ex
+
+    proj = tmp_path / "proj"
+    proj.mkdir(parents=True, exist_ok=True)
+    monkeypatch.setenv("PROJECT_DIR", str(proj))
+
+    # Create minimal project structure
+    m2m_dir = proj / "derivatives" / "SimNIBS" / "sub-101" / "m2m_101"
+    eeg_dir = m2m_dir / "eeg_positions"
+    lf_dir = proj / "derivatives" / "ti-toolbox" / "sub-101" / "leadfields"
+    lf_dir.mkdir(parents=True, exist_ok=True)
+    eeg_dir.mkdir(parents=True, exist_ok=True)
+
+    # Create fake EEG cap and leadfield
+    eeg_cap = eeg_dir / "EGI_template.csv"
+    eeg_cap.write_text("x,y,z,label\n0,0,0,F3\n0,0,0,F4\n0,0,0,P3\n0,0,0,P4\n0,0,0,C3\n0,0,0,C4\n0,0,0,O1\n0,0,0,O2\n")
+    lf_file = lf_dir / "101_leadfield_EGI_template.hdf5"
+    lf_file.write_text("fake leadfield")
+
+    captured_calls = []
+
+    # Mock ex-search dependencies
+    def fake_ex_main():
+        captured_calls.append("ex_main_called")
+
+    # Mock the actual function that gets called (use importlib like the original test)
+    import importlib
+    ex_main_mod = importlib.import_module("tit.opt.ex.main")
+    monkeypatch.setattr(ex_main_mod, "main", fake_ex_main)
+
+    cli = ex.ExSearchCLI()
+
+    # Test 1: Buckets mode with all electrodes specified
+    captured_calls.clear()
+    rc = _run_cli(cli, [
+        "--sub", "101",
+        "--lf", str(lf_file),
+        "--roi", "test_roi.csv",
+        "--optimization-mode", "buckets",
+        "--e1-plus", "F3",
+        "--e1-minus", "F4",
+        "--e2-plus", "P3",
+        "--e2-minus", "P4",
+        "--total-current", "1.0",
+        "--current-step", "0.1",
+        "--channel-limit", "2.0"
+    ])
+    assert rc == 0
+    assert len(captured_calls) == 1
+
+    # Test 2: Pool mode
+    captured_calls.clear()
+    rc = _run_cli(cli, [
+        "--sub", "101",
+        "--lf", str(lf_file),
+        "--roi", "test_roi.csv",
+        "--pool",
+        "--pool-electrodes", "F3,F4,P3,P4,C3,C4",
+        "--total-current", "2.0",
+        "--current-step", "0.2"
+    ])
+    assert rc == 0
+    assert len(captured_calls) == 1
+
+    # Test 3: Buckets shorthand flags
+    captured_calls.clear()
+    rc = _run_cli(cli, [
+        "--sub", "101",
+        "--lf", str(lf_file),
+        "--roi", "test_roi.csv",
+        "--buckets",
+        "--e1-plus", "F3,F4",
+        "--e1-minus", "C3,C4",
+        "--e2-plus", "P3,P4",
+        "--e2-minus", "O1,O2"
+    ])
+    assert rc == 0
+
+    # Test 4: Default values
+    captured_calls.clear()
+    rc = _run_cli(cli, [
+        "--sub", "101",
+        "--lf", str(lf_file),
+        "--roi", "test_roi.csv",
+        "--pool",
+        "--pool-electrodes", "F3,F4,P3,P4"
+        # Using defaults for total-current, current-step, channel-limit
+    ])
+    assert rc == 0
+
+    # Test 5: Space-separated electrode lists
+    captured_calls.clear()
+    rc = _run_cli(cli, [
+        "--sub", "101",
+        "--lf", str(lf_file),
+        "--roi", "test_roi.csv",
+        "--buckets",
+        "--e1-plus", "F3", "F4",
+        "--e1-minus", "C3", "C4",
+        "--e2-plus", "P3", "P4",
+        "--e2-minus", "O1", "O2"
+    ])
+    assert rc == 0
+
+
+def test_pre_process_direct_comprehensive_argument_coverage(monkeypatch, tmp_path: Path):
+    """Test all pre-process CLI argument combinations for direct mode."""
+    from tit.cli import pre_process as pp
+
+    proj = tmp_path / "proj"
+    proj.mkdir(parents=True, exist_ok=True)
+    monkeypatch.setenv("PROJECT_DIR", str(proj))
+
+    captured_calls = []
+
+    # Create fake scripts
+    structural = tmp_path / "structural.sh"
+    structural.write_text("#!/bin/bash\nexit 0\n")
+    atlas = tmp_path / "subject_atlas.sh"
+    atlas.write_text("#!/bin/bash\nexit 0\n")
+    tissue = tmp_path / "tissue-analyzer.sh"
+    tissue.write_text("#!/bin/bash\nexit 0\n")
+
+    def fake_script_path(name: str):
+        if name == "structural.sh":
+            return structural
+        elif name == "subject_atlas.sh":
+            return atlas
+        elif name == "tissue-analyzer.sh":
+            return tissue
+        return tmp_path / name
+
+    # Mock subprocess to avoid actual script execution
+    def fake_subprocess_call(cmd):
+        captured_calls.append(("subprocess_call", cmd))
+        return 0
+
+    # Mock the actual functions that get called
+    monkeypatch.setattr(pp, "_script_path", fake_script_path)
+    monkeypatch.setattr('subprocess.call', fake_subprocess_call)
+
+    cli = pp.PreProcessCLI()
+
+    # Test 1: Basic structural processing
+    captured_calls.clear()
+    rc = _run_cli(cli, ["--subs", "101,102"])
+    assert rc == 0
+    assert len(captured_calls) == 1  # Only structural.sh called
+
+    # Test 2: Convert DICOM
+    captured_calls.clear()
+    rc = _run_cli(cli, ["--subs", "101", "--convert-dicom"])
+    assert rc == 0
+    assert "--convert-dicom" in captured_calls[0][1]
+
+    # Test 3: Run recon-all
+    captured_calls.clear()
+    rc = _run_cli(cli, ["--subs", "101", "--run-recon"])
+    assert rc == 0
+    assert "recon-all" in " ".join(captured_calls[0][1])
+
+    # Test 4: Parallel recon
+    captured_calls.clear()
+    rc = _run_cli(cli, ["--subs", "101", "--run-recon", "--parallel-recon"])
+    assert rc == 0
+    assert "--parallel" in captured_calls[0][1]
+
+    # Test 5: Create m2m
+    captured_calls.clear()
+    rc = _run_cli(cli, ["--subs", "101", "--create-m2m"])
+    assert rc == 0
+    assert "--create-m2m" in captured_calls[0][1]
+
+    # Test 6: Multiple subjects space-separated
+    captured_calls.clear()
+    rc = _run_cli(cli, ["--subs", "101", "102", "--run-recon"])
+    assert rc == 0
+    assert str(proj / "sub-101") in captured_calls[0][1]
+    assert str(proj / "sub-102") in captured_calls[0][1]
+
+    # Test 7: Create atlas
+    captured_calls.clear()
+    rc = _run_cli(cli, ["--subs", "101", "--create-atlas"])
+    assert rc == 0
+    assert len(captured_calls) == 2  # structural + atlas
+
+    # Test 8: Run tissue analysis (requires labeling file in correct location)
+    labeling_dir = proj / "derivatives" / "SimNIBS" / "sub-101" / "m2m_101" / "segmentation"
+    labeling_dir.mkdir(parents=True)
+    (labeling_dir / "Labeling.nii.gz").write_text("fake labeling")
+
+    captured_calls.clear()
+    rc = _run_cli(cli, ["--subs", "101", "--run-tissue-analysis"])
+    assert rc == 0
+    assert len(captured_calls) == 2  # structural + tissue
+
+    # Test 9: All options combined (requires labeling for both subjects)
+    labeling_dir_102 = proj / "derivatives" / "SimNIBS" / "sub-102" / "m2m_102" / "segmentation"
+    labeling_dir_102.mkdir(parents=True)
+    (labeling_dir_102 / "Labeling.nii.gz").write_text("fake labeling")
+
+    captured_calls.clear()
+    rc = _run_cli(cli, [
+        "--subs", "101,102",
+        "--convert-dicom",
+        "--run-recon",
+        "--parallel-recon",
+        "--create-m2m",
+        "--create-atlas",
+        "--run-tissue-analysis"
+    ])
+    assert rc == 0
+    assert len(captured_calls) == 4  # structural, atlas, tissue (101), tissue (102)
+
+
+def test_vis_blender_direct_comprehensive_argument_coverage(monkeypatch, tmp_path: Path):
+    """Test all vis-blender CLI argument combinations for direct mode."""
+    from tit.cli import vis_blender as vb
+
+    proj = tmp_path / "proj"
+    proj.mkdir(parents=True, exist_ok=True)
+    monkeypatch.setenv("PROJECT_DIR", str(proj))
+
+    # Create minimal simulation structure
+    sim_dir = proj / "derivatives" / "SimNIBS" / "sub-101" / "Simulations" / "test_sim"
+    config_dir = sim_dir / "documentation"
+    config_dir.mkdir(parents=True)
+    (config_dir / "config.json").write_text('{"montage": {"pairs": [["F3", "F4"], ["C3", "C4"]]}}')
+
+    captured_calls = []
+
+    # Mock blender dependencies
+    def mock_build_blend(**kwargs):
+        captured_calls.append(("build_montage_publication_blend", kwargs))
+        class MockResult:
+            scalp_stl = "scalp.stl"
+            gm_stl = "gm.stl"
+            electrodes_blend = "elec.blend"
+            final_blend = "final.blend"
+        return MockResult()
+
+    # Mock the actual functions that get called
+    monkeypatch.setattr('tit.blender.montage_publication.build_montage_publication_blend', mock_build_blend)
+
+    # Mock _setup_logging to return a valid log file path
+    def mock_setup_logging(self, args):
+        log_file = str(tmp_path / f"vis_blender_{args['simulation']}.log")
+        return log_file
+    monkeypatch.setattr(vb.VisBlenderCLI, "_setup_logging", mock_setup_logging)
+
+    # Mock the logger setup function
+    def mock_setup_logging_with_file(verbose, log_file):
+        import logging
+        return logging.getLogger("mock_logger")
+    monkeypatch.setattr('tit.cli.vis_blender._setup_logging_with_file', mock_setup_logging_with_file)
+
+    cli = vb.VisBlenderCLI()
+
+    # Test 1: Basic usage with defaults
+    captured_calls.clear()
+    rc = _run_cli(cli, ["--sub", "101", "--sim", "test_sim"])
+    assert rc == 0
+    assert len(captured_calls) == 1
+
+    # Test 2: With montage-only flag
+    captured_calls.clear()
+    rc = _run_cli(cli, ["--sub", "101", "--sim", "test_sim", "--montage-only"])
+    assert rc == 0
+    assert captured_calls[0][1]["show_full_net"] is False
+
+    # Test 3: Custom electrode dimensions
+    captured_calls.clear()
+    rc = _run_cli(cli, [
+        "--sub", "101",
+        "--sim", "test_sim",
+        "--electrode-diameter-mm", "12.0",
+        "--electrode-height-mm", "8.0"
+    ])
+    assert rc == 0
+    assert captured_calls[0][1]["electrode_diameter_mm"] == 12.0
+    assert captured_calls[0][1]["electrode_height_mm"] == 8.0
+
+    # Test 4: Custom output directory
+    captured_calls.clear()
+    out_dir = str(tmp_path / "custom_output")
+    rc = _run_cli(cli, ["--sub", "101", "--sim", "test_sim", "--out", out_dir])
+    assert rc == 0
+    assert captured_calls[0][1]["output_dir"] == out_dir
+
+    # Test 5: Verbose logging
+    captured_calls.clear()
+    rc = _run_cli(cli, ["--sub", "101", "--sim", "test_sim", "--verbose"])
+    assert rc == 0
+
+
+def test_cluster_permutation_direct_comprehensive_argument_coverage(monkeypatch, tmp_path: Path):
+    """Test all cluster permutation CLI argument combinations for direct mode."""
+    from tit.cli import cluster_permuatation as cp
+
+    captured_calls = []
+
+    # Mock stats dependencies
+    def fake_run_analysis(*args, **kwargs):
+        captured_calls.append(("run_analysis", kwargs))
+
+    # Mock the actual function that gets called
+    monkeypatch.setattr('tit.stats.permutation_analysis.run_analysis', fake_run_analysis)
+
+    cli = cp.PermutationCLI()
+
+    # Test 1: Group comparison analysis
+    captured_calls.clear()
+    csv_file = tmp_path / "subjects.csv"
+    csv_file.write_text("subject_id,simulation_name,response\n101,simA,1\n102,simA,0\n")
+    rc = _run_cli(cli, [
+        "--csv", str(csv_file),
+        "--name", "test_analysis",
+        "--analysis-type", "group_comparison"
+    ])
+    assert rc == 0
+    assert len(captured_calls) == 1
+    assert captured_calls[0][1]["analysis_name"] == "test_analysis"
+
+    # Test 2: Correlation analysis
+    captured_calls.clear()
+    csv_file2 = tmp_path / "correlation.csv"
+    csv_file2.write_text("subject_id,simulation_name,response,predictor\n101,simA,1.5,2.3\n102,simA,2.1,1.8\n")
+    rc = _run_cli(cli, [
+        "--csv", str(csv_file2),
+        "--name", "corr_analysis",
+        "--analysis-type", "correlation",
+        "--use-weights"
+    ])
+    assert rc == 0
+    assert captured_calls[0][1]["config"]["use_weights"] is True
+
+    # Test 3: Custom permutation parameters
+    captured_calls.clear()
+    rc = _run_cli(cli, [
+        "--csv", str(csv_file),
+        "--name", "custom_params",
+        "--analysis-type", "group_comparison",
+        "--cluster-threshold", "0.01",
+        "--cluster-stat", "size",
+        "--n-permutations", "2000",
+        "--alpha", "0.01",
+        "--n-jobs", "2"
+    ])
+    assert rc == 0
+    config = captured_calls[0][1]["config"]
+    assert config["cluster_threshold"] == 0.01
+    assert config["cluster_stat"] == "size"
+    assert config["n_permutations"] == 2000
+    assert config["alpha"] == 0.01
+    assert config["n_jobs"] == 2
+
+    # Test 4: Tissue type options
+    for tissue in ["grey", "white", "all"]:
+        captured_calls.clear()
+        rc = _run_cli(cli, [
+            "--csv", str(csv_file),
+            "--name", f"tissue_{tissue}",
+            "--analysis-type", "group_comparison",
+            "--tissue-type", tissue
+        ])
+        assert rc == 0
+        assert captured_calls[0][1]["config"]["tissue_type"] == tissue
+
+    # Test 5: With custom nifti pattern
+    captured_calls.clear()
+    rc = _run_cli(cli, [
+        "--csv", str(csv_file),
+        "--name", "custom_pattern",
+        "--analysis-type", "group_comparison",
+        "--nifti-pattern", "*.nii.gz"
+    ])
+    assert rc == 0
+    assert captured_calls[0][1]["config"]["nifti_pattern"] == "*.nii.gz"
+
+    # Test 6: Quiet and save log options
+    captured_calls.clear()
+    rc = _run_cli(cli, [
+        "--csv", str(csv_file),
+        "--name", "quiet_test",
+        "--analysis-type", "group_comparison",
+        "--quiet",
+        "--save-perm-log"
+    ])
+    assert rc == 0
+    config = captured_calls[0][1]["config"]
+    assert config["quiet"] is True
+    assert config["save_perm_log"] is True
+
+
+def test_cli_argument_validation_error_handling(monkeypatch, tmp_path: Path):
+    """Test that CLI scripts properly handle invalid arguments and missing required args."""
+    from tit.cli import analyzer as analyzer_cli
+    from tit.cli import simulator as sim_cli
+    from tit.cli import group_analyzer as ga
+    from tit.cli import ex_search as ex
+
+    proj = tmp_path / "proj"
+    proj.mkdir(parents=True, exist_ok=True)
+    monkeypatch.setenv("PROJECT_DIR", str(proj))
+
+    # Create minimal project structure
+    (proj / "derivatives" / "SimNIBS" / "sub-101" / "m2m_101").mkdir(parents=True, exist_ok=True)
+    (proj / "derivatives" / "SimNIBS" / "sub-101" / "Simulations" / "test_sim" / "TI" / "mesh").mkdir(parents=True, exist_ok=True)
+
+    # Test 1: Invalid argument types - should be caught by argparse
+    sim_cli_inst = sim_cli.SimulatorCLI()
+    # Mock execute to avoid actual execution
+    def mock_execute(args):
+        return 0
+    monkeypatch.setattr(sim_cli_inst, "execute", mock_execute)
+
+    # Invalid thickness type should be caught by argparse
+    rc = _run_cli(sim_cli_inst, ["--sub", "101", "--montages", "test", "--eeg", "EGI_template.csv", "--thickness", "not_a_number"])
+    assert rc != 0  # Should fail due to invalid float type
+
+    # Test 2: Invalid framework choice
+    rc = _run_cli(sim_cli_inst, ["--sub", "101", "--framework", "invalid", "--montages", "test", "--eeg", "EGI_template.csv"])
+    assert rc != 0  # Should fail due to invalid choice
+
+    # Test 3: Invalid conductivity choice
+    rc = _run_cli(sim_cli_inst, ["--sub", "101", "--montages", "test", "--eeg", "EGI_template.csv", "--conductivity", "invalid"])
+    assert rc != 0  # Should fail due to invalid choice
+
+    # Test 4: Invalid electrode shape choice
+    rc = _run_cli(sim_cli_inst, ["--sub", "101", "--montages", "test", "--eeg", "EGI_template.csv", "--electrode-shape", "invalid"])
+    assert rc != 0  # Should fail due to invalid choice
+
+    # Test 5: Invalid mode choice
+    rc = _run_cli(sim_cli_inst, ["--sub", "101", "--montages", "test", "--eeg", "EGI_template.csv", "--mode", "invalid"])
+    assert rc != 0  # Should fail due to invalid choice
+
+
+def test_cli_argument_type_validation(monkeypatch, tmp_path: Path):
+    """Test that CLI scripts properly validate argument types."""
+    from tit.cli import analyzer as analyzer_cli
+    from tit.cli import simulator as sim_cli
+
+    proj = tmp_path / "proj"
+    proj.mkdir(parents=True, exist_ok=True)
+    monkeypatch.setenv("PROJECT_DIR", str(proj))
+
+    # Create minimal project structure
+    (proj / "derivatives" / "SimNIBS" / "sub-101" / "m2m_101").mkdir(parents=True, exist_ok=True)
+    (proj / "derivatives" / "SimNIBS" / "sub-101" / "Simulations" / "test_sim" / "TI" / "mesh").mkdir(parents=True, exist_ok=True)
+
+    # Mock execute methods to avoid actual execution
+    def mock_execute(args):
+        return 0
+
+    # Test 1: Analyzer invalid radius type - should be caught by argparse
+    analyzer_cli_inst = analyzer_cli.AnalyzerCLI()
+    monkeypatch.setattr(analyzer_cli_inst, "execute", mock_execute)
+    rc = _run_cli(analyzer_cli_inst, [
+        "--sub", "101",
+        "--sim", "test_sim",
+        "--coordinates", "0", "0", "0",
+        "--radius", "not_a_number"
+    ])
+    assert rc != 0  # Should fail due to invalid radius type
+
+    # Test 2: Simulator invalid thickness type - should be caught by argparse
+    sim_cli_inst = sim_cli.SimulatorCLI()
+    monkeypatch.setattr(sim_cli_inst, "execute", mock_execute)
+    rc = _run_cli(sim_cli_inst, [
+        "--sub", "101",
+        "--montages", "test_montage",
+        "--eeg", "EGI_template.csv",
+        "--thickness", "not_a_number"
+    ])
+    assert rc != 0  # Should fail due to invalid thickness type
+
+    # Test 3: Analyzer invalid coordinate space - should be caught by argparse
+    rc = _run_cli(analyzer_cli_inst, [
+        "--sub", "101",
+        "--sim", "test_sim",
+        "--coordinates", "0", "0", "0",
+        "--radius", "10",
+        "--coordinate-space", "invalid_space"
+    ])
+    assert rc != 0  # Should fail due to invalid coordinate space
+
+    # Test 4: Simulator invalid framework - should be caught by argparse
+    rc = _run_cli(sim_cli_inst, [
+        "--sub", "101",
+        "--montages", "test_montage",
+        "--eeg", "EGI_template.csv",
+        "--framework", "invalid_framework"
+    ])
+    assert rc != 0  # Should fail due to invalid framework
+
+    # Test 5: Analyzer invalid analysis type - should be caught by argparse
+    rc = _run_cli(analyzer_cli_inst, [
+        "--sub", "101",
+        "--sim", "test_sim",
+        "--analysis-type", "invalid_type",
+        "--coordinates", "0", "0", "0",
+        "--radius", "10"
+    ])
+    assert rc != 0  # Should fail due to invalid analysis type
+
+    # Test 6: Valid cases should work
+    rc = _run_cli(analyzer_cli_inst, [
+        "--sub", "101",
+        "--sim", "test_sim",
+        "--coordinates", "0", "0", "0",
+        "--radius", "10"
+    ])
+    assert rc == 0  # Should work with valid arguments
+
+
+def test_cli_list_commands_no_execution(monkeypatch, tmp_path: Path):
+    """Test that list commands don't trigger actual execution."""
+    from tit.cli import simulator as sim_cli
+
+    proj = tmp_path / "proj"
+    proj.mkdir(parents=True, exist_ok=True)
+    monkeypatch.setenv("PROJECT_DIR", str(proj))
+
+    # Create minimal subject structure for list commands
+    (proj / "derivatives" / "SimNIBS" / "sub-101" / "m2m_101" / "eeg_positions").mkdir(parents=True, exist_ok=True)
+    eeg_cap = proj / "derivatives" / "SimNIBS" / "sub-101" / "m2m_101" / "eeg_positions" / "EGI_template.csv"
+    eeg_cap.write_text("x,y,z,label\n0,0,0,F3\n")
+
+    # Track what gets called
+    captured_calls = []
+
+    cli = sim_cli.SimulatorCLI()
+
+    # Mock the execute method to track calls
+    original_execute = cli.execute
+    def mock_execute(args):
+        captured_calls.append(("execute_called", args))
+        return 0
+    monkeypatch.setattr(cli, "execute", mock_execute)
+
+    # Test list-subjects - should call execute since it handles the list internally
+    captured_calls.clear()
+    rc = _run_cli(cli, ["--list-subjects"])
+    assert rc == 0
+    # List commands are handled in execute, so execute should be called
+    assert len(captured_calls) == 1
+    assert captured_calls[0][1]["list_subjects"] is True
+
+    # Test list-eeg-caps
+    captured_calls.clear()
+    rc = _run_cli(cli, ["--list-eeg-caps", "--sub", "101"])
+    assert rc == 0
+    assert len(captured_calls) == 1
+    assert captured_calls[0][1]["list_eeg_caps"] is True
+
+    # Test list-montages
+    captured_calls.clear()
+    rc = _run_cli(cli, ["--list-montages", "--eeg", "EGI_template.csv"])
+    assert rc == 0
+    assert len(captured_calls) == 1
+    assert captured_calls[0][1]["list_montages"] is True
+
+
 
 

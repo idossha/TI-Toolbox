@@ -103,7 +103,7 @@ class TestFileConstants:
     def test_template_file_constants(self):
         """Test template file constants"""
         assert hasattr(const, 'FILE_EGI_TEMPLATE')
-        assert const.FILE_EGI_TEMPLATE == "EGI_template.csv"
+        assert const.FILE_EGI_TEMPLATE == "GSN-HydroCel-185.csv"
 
 
 class TestNamingPatternConstants:
