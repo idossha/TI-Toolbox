@@ -109,6 +109,17 @@ The simulator supports different tissue conductivity models:
 - **Applications**: More realistic modeling of white matter tracts
 - **Processing**: Accounts for fiber orientation in field calculations
 
+#### DTI Eigen Vectors Visualization
+
+<img src="{{ site.baseurl }}/assets/imgs/simulator/dti_CC.png" alt="DTI Eigen Vectors - Corpus Callosum" style="width: 80%; max-width: 500px;">
+<img src="{{ site.baseurl }}/assets/imgs/simulator/dti_spinal.png" alt="DTI Eigen Vectors - Spinal Cord" style="width: 80%; max-width: 500px;">
+
+<em>Gmsh visualizations showing white and gray matter with overlaid eigen vectors that scale conductivity in anisotropic simulations. Top: Corpus callosum region showing organized fiber directions. Bottom: Spinal cord region with longitudinal fiber orientation.</em>
+
+These visualizations display the principal diffusion directions (eigen vectors) derived from diffusion tensor imaging (DTI) data, which are used to create direction-dependent conductivity tensors in anisotropic tissue modeling.
+
+For a complete explanation of DTI processing and tensor preparation, see the [SimNIBS wiki](https://simnibs.github.io/simnibs/build/html/documentation/command_line/dwi2cond.html).
+
 ---
 
 ## Coordinate Spaces

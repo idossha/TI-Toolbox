@@ -28,6 +28,20 @@ permalink: /gallery/simulations/
   </div>
 </div>
 
+<div class="gallery-section">
+  <h3>Anisotropic Tissue Modeling with DTI</h3>
+  <div class="gallery-grid">
+    <div class="gallery-item">
+      <img src="{{ site.baseurl }}/assets/imgs/simulator/dti_CC.png" alt="DTI Eigen Vectors - Corpus Callosum" onclick="openLightbox(this)" />
+      <p>Gmsh visualization of white and gray matter with eigen vectors in the corpus callosum region, showing organized fiber directions for anisotropic conductivity modeling.</p>
+    </div>
+    <div class="gallery-item">
+      <img src="{{ site.baseurl }}/assets/imgs/simulator/dti_spinal.png" alt="DTI Eigen Vectors - Spinal Cord" onclick="openLightbox(this)" />
+      <p>Spinal cord region showing longitudinal fiber orientation with overlaid eigen vectors that scale conductivity in anisotropic simulations.</p>
+    </div>
+  </div>
+</div>
+
 <!-- Lightbox Modal -->
 <div id="lightbox" class="lightbox" onclick="closeLightbox()">
   <span class="close" onclick="closeLightbox()">&times;</span>
