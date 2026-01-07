@@ -55,7 +55,8 @@ def parse_arguments() -> argparse.Namespace:
 
     # Focality-specific arguments
     p.add_argument("--thresholds",
-                   help="Single value or two comma-separated values for focality")
+                   help="Focality threshold(s). Provide a single value or two comma-separated values. "
+                        "If omitted (or set to 'dynamic'), SimNIBS will use its dynamic thresholding/adaptation.")
     p.add_argument("--non-roi-method", choices=["everything_else", "specific"],
                    help="Non-ROI definition method (required for focality goal)")
 
@@ -66,8 +67,8 @@ def parse_arguments() -> argparse.Namespace:
                    help="Skip extra simulation with mapped electrodes")
 
     # Output control
-    p.add_argument("--run-final-electrode-simulation", action="store_true", default=True,
-                   help="Run final simulation with optimal electrodes (default: True)")
+    p.add_argument("--run-final-electrode-simulation", action="store_true", default=False,
+                   help="Run final simulation with optimal electrodes (default: False)")
     p.add_argument("--skip-final-electrode-simulation", action="store_true",
                    help="Skip final simulation with optimal electrodes")
 
@@ -133,10 +134,16 @@ def build_optimization(args: argparse.Namespace) -> opt_struct.TesFlexOptimizati
     # Configure goals and thresholds
     opt.goal = args.goal
     if args.goal == "focality":
-        if not args.thresholds:
-            raise SystemExit("--thresholds required for focality goal")
-        vals = [float(v) for v in args.thresholds.split(",")]
-        opt.threshold = vals if len(vals) > 1 else vals[0]
+        # Allow "dynamic" focality thresholds:
+        # - If --thresholds is omitted (None/empty) or explicitly set to "dynamic"/"auto",
+        #   do NOT set opt.threshold and let SimNIBS handle threshold adaptation.
+        thr_raw = (args.thresholds or "").strip()
+        if thr_raw and thr_raw.lower() not in {"dynamic", "auto"}:
+            try:
+                vals = [float(v) for v in thr_raw.split(",")]
+            except Exception as exc:
+                raise SystemExit(f"Invalid --thresholds value: {args.thresholds!r}. Expected float(s) or 'dynamic'.") from exc
+            opt.threshold = vals if len(vals) > 1 else vals[0]
         if not args.non_roi_method:
             raise SystemExit("--non-roi-method required for focality goal")
 

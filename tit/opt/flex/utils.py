@@ -9,11 +9,15 @@ This module handles ROI setup for different methods:
 
 from __future__ import annotations
 
-from simnibs import mni2subject_coords
+from simnibs import mni2subject_coords, opt_struct
 from simnibs.mesh_tools.mesh_io import ElementTags
 
 import os
 import argparse
+import glob
+from pathlib import Path
+from typing import List, Dict, Tuple
+import nibabel.freesurfer.io as fsio
 
 
 def roi_dirname(args: argparse.Namespace) -> str:
@@ -256,15 +260,77 @@ def configure_subcortical_roi(
             non_roi.tissues = [ElementTags.GM]  # Gray matter
 
 
+def find_subject_atlases(subject_id: str, hemisphere: str, project_dir: str = None) -> Dict[str, str]:
+    """Find available atlas files for a subject and return atlas_name -> file_path mapping.
+
+    Args:
+        subject_id: Subject ID (e.g., '001')
+        hemisphere: Hemisphere ('lh' or 'rh')
+        project_dir: Project directory path (defaults to PROJECT_DIR env var)
+
+    Returns:
+        Dictionary mapping atlas names (e.g., 'DK40') to file paths
+    """
+    if project_dir is None:
+        project_dir = os.environ.get('PROJECT_DIR', '/mnt/BIDS_test')
+
+    atlas_map = {}
+
+    # Primary: SimNIBS segmentation directory (same as GUI)
+    seg_dir = Path(project_dir) / "derivatives" / "SimNIBS" / f"sub-{subject_id}" / f"m2m_{subject_id}" / "segmentation"
+    if seg_dir.is_dir():
+        # Look for files with hemisphere prefix: lh.atlas_name.annot, rh.atlas_name.annot
+        pattern = f"{hemisphere}.*.annot"
+        for atlas_file in seg_dir.glob(pattern):
+            fname = atlas_file.name
+            # Extract atlas name from filename (e.g., lh.101_DK40.annot -> DK40)
+            parts = fname.split('.')
+            if len(parts) == 3 and parts[2] == 'annot':
+                atlas_full = parts[1]  # e.g., 101_DK40
+                # Remove subjectID prefix for display
+                atlas_display = atlas_full.split('_', 1)[-1] if '_' in atlas_full else atlas_full
+                atlas_map[atlas_display] = str(atlas_file)
+
+    # Fallback: project-level bundled atlases
+    atlas_dir = Path(project_dir) / "resources" / "atlas"
+    if atlas_dir.is_dir():
+        for atlas_file in atlas_dir.glob("*.annot"):
+            atlas_name = atlas_file.stem  # Remove .annot extension
+            if atlas_name not in atlas_map:  # Don't overwrite subject-specific atlases
+                atlas_map[atlas_name] = str(atlas_file)
+
+    return atlas_map
+
+
+def list_atlas_regions(annot_path: str) -> List[Tuple[int, str]]:
+    """List all regions in an atlas file.
+
+    Args:
+        annot_path: Path to the .annot file
+
+    Returns:
+        List of (region_index, region_name) tuples
+    """
+    try:
+        labels, ctab, names = fsio.read_annot(annot_path)
+        regions = []
+        for i, name in enumerate(names):
+            region_name = name.decode('utf-8') if isinstance(name, bytes) else str(name)
+            regions.append((i, region_name))
+        return regions
+    except Exception as e:
+        raise RuntimeError(f"Failed to read atlas file {annot_path}: {e}")
+
+
 def configure_roi(
     opt: opt_struct.TesFlexOptimization,
     args: argparse.Namespace
 ) -> None:
     """Configure ROI based on the specified method.
-    
+
     This is the main entry point for ROI configuration that delegates to
     the appropriate method-specific function.
-    
+
     Args:
         opt: SimNIBS optimization object
         args: Parsed command line arguments

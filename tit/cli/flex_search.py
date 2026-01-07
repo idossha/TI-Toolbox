@@ -1,135 +1,217 @@
-#!/usr/bin/env python3
+#!/usr/bin/env simnibs_python
 """
-TI-Toolbox Flex-Search CLI (Click).
+TI-Toolbox Flex-Search CLI.
 
-Replaces `tit/cli/flex-search.sh`.
+This file intentionally contains *no* flex business logic.
 
-This is a Click wrapper around the existing module entrypoint `python -m tit.opt.flex`.
-We intentionally allow passthrough args so the flex optimizer can evolve without
-duplicating its full argument surface here.
-
-Usage:
-  simnibs_python -m tit.cli.flex_search -- --subject 101 --goal mean --postproc max_TI ...
-
-Notes:
-  - Everything after `--` is forwarded to `tit.opt.flex` unchanged.
+- Interactive (no args): prompt for a minimal set, then run `simnibs_python -m tit.opt.flex ...`
+- Direct (args present): forward args unchanged to `simnibs_python -m tit.opt.flex ...`
 """
 
 from __future__ import annotations
 
 import os
 import subprocess
+import sys
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
-import click
-
+from tit.cli.base import BaseCLI, InteractivePrompt
 from tit.cli import utils
 
 
-def _python_executable() -> str:
-    # Prefer simnibs_python if available inside containers.
-    return os.environ.get("TI_PYTHON", "simnibs_python")
+class FlexSearchCLI(BaseCLI):
+    def __init__(self) -> None:
+        super().__init__("Run flex-search optimization (delegates to tit.opt.flex).")
 
-def _set_flex_roi_env_for_spherical(
-    *,
-    roi_x: float,
-    roi_y: float,
-    roi_z: float,
-    roi_radius: float,
-    use_mni_coords: bool,
-) -> None:
-    os.environ["ROI_X"] = str(roi_x)
-    os.environ["ROI_Y"] = str(roi_y)
-    os.environ["ROI_Z"] = str(roi_z)
-    os.environ["ROI_RADIUS"] = str(roi_radius)
-    os.environ["USE_MNI_COORDS"] = "true" if use_mni_coords else "false"
+    @staticmethod
+    def _call_flex(args: List[str]) -> int:
+        return subprocess.call(["simnibs_python", "-m", "tit.opt.flex", *args])
 
+    def run_direct(self) -> int:
+        return self._call_flex(sys.argv[1:])
 
-def _set_flex_roi_env_for_atlas(*, atlas_path: str, hemisphere: str, roi_label: int) -> None:
-    os.environ["ATLAS_PATH"] = atlas_path
-    os.environ["SELECTED_HEMISPHERE"] = hemisphere
-    os.environ["ROI_LABEL"] = str(roi_label)
+    def execute(self, args):  # type: ignore[override]
+        # Not used: direct mode overrides `run_direct()` and interactive calls `_call_flex()` directly.
+        return 0
 
+    def run_interactive(self) -> int:
+        from tit.core import get_path_manager
 
-def _set_flex_roi_env_for_subcortical(*, volume_atlas_path: str, roi_label: int) -> None:
-    os.environ["VOLUME_ATLAS_PATH"] = volume_atlas_path
-    os.environ["VOLUME_ROI_LABEL"] = str(roi_label)
+        pm = get_path_manager()
+        if not pm.project_dir:
+            raise RuntimeError("Project directory not resolved. Set PROJECT_DIR_NAME or PROJECT_DIR in Docker.")
 
+        utils.echo_header("Flex Search (interactive)")
 
-def _call_flex(args: List[str]) -> int:
-    cmd = [_python_executable(), "-m", "tit.opt.flex", *args]
-    return subprocess.call(cmd)
+        def _list_subject_surface_atlases(subject_id: str, hemi: str) -> List[str]:
+            """Get list of available atlas names for a subject."""
+            from tit.opt.flex.utils import find_subject_atlases
+            atlas_map = find_subject_atlases(subject_id, hemi, pm.project_dir)
+            return sorted(atlas_map.keys())
 
-
-def _default_project_dir(project_dir: Optional[Path]) -> Path:
-    proj = project_dir or utils.default_project_dir_from_env()
-    if proj is None:
-        raise click.ClickException("Project directory not found. Set --project-dir or PROJECT_DIR/PROJECT_DIR_NAME.")
-    return proj
-
-
-def _direct_from_env(project_dir: Optional[Path]) -> int:
-    proj = _default_project_dir(project_dir)
-    os.environ["PROJECT_DIR"] = str(proj)
-
-    subjects_env = utils.env_required("SUBJECTS")
-    subject_ids = [s.strip() for s in subjects_env.split(",") if s.strip()]
-    if not subject_ids:
-        raise click.ClickException("SUBJECTS env var is empty")
-
-    # Core args (match flex_config.parse_arguments)
-    goal = utils.env_required("GOAL")
-    postproc = utils.env_required("POSTPROC")
-    current = float(utils.env_required("CURRENT"))
-    electrode_shape = utils.env_required("ELECTRODE_SHAPE")
-    dimensions = utils.env_required("DIMENSIONS")
-    thickness = float(utils.env_required("THICKNESS"))
-    roi_method = utils.env_required("ROI_METHOD")
-
-    eeg_net = os.environ.get("EEG_NET")  # required if ENABLE_MAPPING=true
-    enable_mapping = utils.bool_env("ENABLE_MAPPING", default=False)
-    disable_mapping_sim = utils.bool_env("DISABLE_MAPPING_SIMULATION", default=False)
-
-    n_multistart = os.environ.get("N_MULTISTART")
-    max_iterations = os.environ.get("MAX_ITERATIONS")
-    population_size = os.environ.get("POPULATION_SIZE")
-    cpus = os.environ.get("CPUS")
-
-    detailed_results = utils.bool_env("DETAILED_RESULTS", default=False)
-    visualize_valid_skin_region = utils.bool_env("VISUALIZE_VALID_SKIN_REGION", default=False)
-    skin_visualization_net = os.environ.get("SKIN_VISUALIZATION_NET")
-
-    thresholds = os.environ.get("THRESHOLDS")
-    non_roi_method = os.environ.get("NON_ROI_METHOD")
-
-    # ROI env vars for method
-    if roi_method == "spherical":
-        _set_flex_roi_env_for_spherical(
-            roi_x=float(utils.env_required("ROI_X")),
-            roi_y=float(utils.env_required("ROI_Y")),
-            roi_z=float(utils.env_required("ROI_Z")),
-            roi_radius=float(utils.env_required("ROI_RADIUS")),
-            use_mni_coords=utils.bool_env("USE_MNI_COORDS", default=(len(subject_ids) > 1)),
+        subject_id = self.select_one(
+            prompt_text="Select subject",
+            options=pm.list_subjects(),
+            help_text="Choose from available subjects in your project",
         )
-    elif roi_method == "atlas":
-        _set_flex_roi_env_for_atlas(
-            atlas_path=utils.env_required("ATLAS_PATH"),
-            hemisphere=os.environ.get("SELECTED_HEMISPHERE", "lh"),
-            roi_label=int(os.environ.get("ROI_LABEL", "1")),
-        )
-    else:
-        _set_flex_roi_env_for_subcortical(
-            volume_atlas_path=utils.env_required("VOLUME_ATLAS_PATH"),
-            roi_label=int(os.environ.get("VOLUME_ROI_LABEL", "10")),
+        roi_method = self._prompt_for_value(
+            InteractivePrompt(name="roi_method", prompt_text="ROI method", choices=["spherical", "atlas", "subcortical"], default="spherical")
         )
 
-    # Build arg list per subject and run sequentially
-    rc_total = 0
-    for sid in subject_ids:
+        # ROI configuration is done via environment variables in tit.opt.flex (not CLI flags).
+        env_items: List[tuple[str, str]] = []
+        if roi_method == "spherical":
+            x = utils.ask_float("ROI center X", default="0")
+            y = utils.ask_float("ROI center Y", default="0")
+            z = utils.ask_float("ROI center Z", default="0")
+            r = utils.ask_float("ROI radius", default="10")
+            use_mni = utils.ask_bool("Coordinate space = MNI?", default=False)
+            os.environ["ROI_X"] = str(x)
+            os.environ["ROI_Y"] = str(y)
+            os.environ["ROI_Z"] = str(z)
+            os.environ["ROI_RADIUS"] = str(r)
+            os.environ["USE_MNI_COORDS"] = "true" if use_mni else "false"
+            env_items += [("ROI_X", str(x)), ("ROI_Y", str(y)), ("ROI_Z", str(z)), ("ROI_RADIUS", str(r)), ("USE_MNI_COORDS", os.environ["USE_MNI_COORDS"])]
+        elif roi_method == "atlas":
+            hemi = self._prompt_for_value(InteractivePrompt(name="hemi", prompt_text="Hemisphere", choices=["lh", "rh"], default="lh"))
+            from tit.opt.flex.utils import find_subject_atlases
+            atlas_map = find_subject_atlases(subject_id, hemi, pm.project_dir)
+            atlas_names = list(atlas_map.keys())
+
+            if not atlas_names:
+                atlas_name = utils.ask_required("Atlas name (no atlases found automatically)")
+                atlas_path = atlas_name  # User will provide full path
+            else:
+                atlas_name = utils.choose_or_enter(
+                    prompt="Atlas name",
+                    options=atlas_names,
+                    help_text="Select an atlas or choose 'Enter manually…'",
+                )
+                atlas_path = atlas_map.get(atlas_name, atlas_name)  # Use path if found, otherwise user input
+
+            # Option to list regions in the selected atlas
+            if atlas_path and os.path.isfile(atlas_path):
+                if utils.ask_bool("List available regions in this atlas?", default=False):
+                    from tit.opt.flex.utils import list_atlas_regions
+                    try:
+                        regions = list_atlas_regions(atlas_path)
+                        utils.echo_header(f"Regions in {atlas_name}")
+                        for idx, name in regions:
+                            print(f"  {idx}: {name}")
+                        print()
+                    except Exception as e:
+                        utils.echo_warning(f"Could not list regions: {e}")
+
+            roi_label = utils.ask_required("ROI label", default="1")
+            os.environ["ATLAS_PATH"] = str(atlas_path)
+            os.environ["SELECTED_HEMISPHERE"] = str(hemi)
+            os.environ["ROI_LABEL"] = str(roi_label)
+            env_items += [("ATLAS_PATH", str(atlas_path)), ("SELECTED_HEMISPHERE", str(hemi)), ("ROI_LABEL", str(roi_label))]
+        else:
+            vol_dir = Path(pm.project_dir) / "resources" / "atlas" if pm.project_dir else None
+            vol_files: List[str] = []
+            if vol_dir and vol_dir.is_dir():
+                vol_files = [str(p) for p in sorted(vol_dir.glob("*.nii*"))]
+            vol_atlas = utils.choose_or_enter(prompt="Volume atlas path", options=vol_files, help_text="Select a volume atlas or choose 'Enter manually…'")
+            vol_label = utils.ask_required("Volume ROI label", default="10")
+            os.environ["VOLUME_ATLAS_PATH"] = str(vol_atlas)
+            os.environ["VOLUME_ROI_LABEL"] = str(vol_label)
+            env_items += [("VOLUME_ATLAS_PATH", str(vol_atlas)), ("VOLUME_ROI_LABEL", str(vol_label))]
+
+        goal = self._prompt_for_value(InteractivePrompt(name="goal", prompt_text="Goal", choices=["mean", "focality", "max"], default="mean"))
+        threshold_strategy: Optional[str] = None
+        thresholds: Optional[str] = None
+        non_roi: Optional[str] = None
+        if goal == "focality":
+            threshold_strategy = self._prompt_for_value(
+                InteractivePrompt(
+                    name="threshold_strategy",
+                    prompt_text="Focality thresholds",
+                    choices=["dynamic", "manual"],
+                    default="dynamic",
+                    help_text="Dynamic: let SimNIBS adapt thresholds automatically. Manual: provide numeric thresholds.",
+                )
+            )
+            non_roi = self._prompt_for_value(
+                InteractivePrompt(
+                    name="non_roi_method",
+                    prompt_text="Non-ROI method",
+                    choices=["everything_else", "specific"],
+                    default="everything_else",
+                )
+            )
+            if threshold_strategy == "manual":
+                thresholds = utils.ask_required("Focality thresholds (e.g. 0.2 or 0.2,0.5)")
+
+            # If user wants a specific non-ROI region, collect its definition via env vars
+            if non_roi == "specific":
+                if roi_method == "spherical":
+                    nx = utils.ask_float("Non-ROI center X", default="0")
+                    ny = utils.ask_float("Non-ROI center Y", default="0")
+                    nz = utils.ask_float("Non-ROI center Z", default="0")
+                    nr = utils.ask_float("Non-ROI radius", default="10")
+                    use_mni_non_roi = utils.ask_bool("Non-ROI coordinate space = MNI?", default=False)
+                    os.environ["NON_ROI_X"] = str(nx)
+                    os.environ["NON_ROI_Y"] = str(ny)
+                    os.environ["NON_ROI_Z"] = str(nz)
+                    os.environ["NON_ROI_RADIUS"] = str(nr)
+                    os.environ["USE_MNI_COORDS_NON_ROI"] = "true" if use_mni_non_roi else "false"
+                    env_items += [
+                        ("NON_ROI_X", str(nx)),
+                        ("NON_ROI_Y", str(ny)),
+                        ("NON_ROI_Z", str(nz)),
+                        ("NON_ROI_RADIUS", str(nr)),
+                        ("USE_MNI_COORDS_NON_ROI", os.environ["USE_MNI_COORDS_NON_ROI"]),
+                    ]
+                elif roi_method == "atlas":
+                    non_roi_label = utils.ask_required("Non-ROI label", default="1")
+                    # By default use the same atlas file unless user selects otherwise
+                    non_roi_atlas_files = _list_subject_surface_atlases(subject_id, os.environ.get("SELECTED_HEMISPHERE", "lh"))
+                    non_roi_atlas_path = utils.choose_or_enter(
+                        prompt="Non-ROI atlas path (.annot)",
+                        options=non_roi_atlas_files,
+                        default=os.environ.get("ATLAS_PATH"),
+                        help_text="Select an atlas for the non-ROI or choose 'Enter manually…'",
+                    )
+                    os.environ["NON_ROI_LABEL"] = str(non_roi_label)
+                    os.environ["NON_ROI_ATLAS_PATH"] = str(non_roi_atlas_path)
+                    env_items += [("NON_ROI_LABEL", str(non_roi_label)), ("NON_ROI_ATLAS_PATH", str(non_roi_atlas_path))]
+                else:
+                    non_roi_label = utils.ask_required("Non-ROI volume label", default="10")
+                    vol_dir = Path(pm.project_dir) / "resources" / "atlas" if pm.project_dir else None
+                    vol_files: List[str] = []
+                    if vol_dir and vol_dir.is_dir():
+                        vol_files = [str(p) for p in sorted(vol_dir.glob("*.nii*"))]
+                    non_roi_atlas_path = utils.choose_or_enter(
+                        prompt="Non-ROI volume atlas path",
+                        options=vol_files,
+                        default=os.environ.get("VOLUME_ATLAS_PATH"),
+                        help_text="Select a volume atlas for the non-ROI or choose 'Enter manually…'",
+                    )
+                    os.environ["VOLUME_NON_ROI_LABEL"] = str(non_roi_label)
+                    os.environ["VOLUME_NON_ROI_ATLAS_PATH"] = str(non_roi_atlas_path)
+                    env_items += [("VOLUME_NON_ROI_LABEL", str(non_roi_label)), ("VOLUME_NON_ROI_ATLAS_PATH", str(non_roi_atlas_path))]
+
+        postproc = self._prompt_for_value(
+            InteractivePrompt(
+                name="postproc",
+                prompt_text="Post-processing",
+                choices=["max_TI", "dir_TI_normal", "dir_TI_tangential"],
+                default="max_TI",
+            )
+        )
+        current = utils.ask_float("Current (mA)", default="2.0")
+        electrode_shape = self._prompt_for_value(
+            InteractivePrompt(name="electrode_shape", prompt_text="Electrode shape", choices=["rect", "ellipse"], default="ellipse")
+        )
+        dimensions = utils.ask_required("Electrode dimensions (mm) (x,y)", default="8,8")
+        thickness = utils.ask_float("Electrode thickness (mm)", default="4.0")
+
+
         args: List[str] = [
             "--subject",
-            sid,
+            subject_id,
             "--goal",
             goal,
             "--postproc",
@@ -145,192 +227,37 @@ def _direct_from_env(project_dir: Optional[Path]) -> int:
             "--roi-method",
             roi_method,
         ]
-
-        if enable_mapping:
-            if not eeg_net:
-                raise click.ClickException("ENABLE_MAPPING=true requires EEG_NET")
-            args += ["--enable-mapping", "--eeg-net", eeg_net]
-            if disable_mapping_sim:
-                args += ["--disable-mapping-simulation"]
-        elif eeg_net:
-            # still pass eeg-net if provided (helpful for logging/skin viz)
-            args += ["--eeg-net", eeg_net]
-
-        if thresholds:
-            args += ["--thresholds", thresholds]
-        if non_roi_method:
-            args += ["--non-roi-method", non_roi_method]
-
-        if n_multistart:
-            args += ["--n-multistart", n_multistart]
-        if max_iterations:
-            args += ["--max-iterations", max_iterations]
-        if population_size:
-            args += ["--population-size", population_size]
-        if cpus:
-            args += ["--cpus", cpus]
-
-        if detailed_results:
-            args += ["--detailed-results"]
-        if visualize_valid_skin_region:
-            args += ["--visualize-valid-skin-region"]
-        if skin_visualization_net:
-            args += ["--skin-visualization-net", skin_visualization_net]
-
-        rc = _call_flex(args)
-        if rc != 0:
-            rc_total = rc
-
-    return rc_total
+        if goal == "focality":
+            args += ["--non-roi-method", str(non_roi or "everything_else")]
+            if threshold_strategy == "manual" and thresholds:
+                args += ["--thresholds", thresholds]
 
 
-def _interactive_wizard(project_dir: Optional[Path]) -> int:
-    proj = _default_project_dir(project_dir)
-    os.environ["PROJECT_DIR"] = str(proj)
+        cmd = ["simnibs_python", "-m", "tit.opt.flex", *args]
+        if not utils.review_and_confirm(
+            "Review (flex-search)",
+            items=[
+                ("Subject", subject_id),
+                ("ROI method", roi_method),
+                ("Goal", goal),
+                ("Post-processing", postproc),
+                ("Current (mA)", str(current)),
+                ("Electrode shape", electrode_shape),
+                ("Dimensions (mm)", dimensions),
+                ("Thickness (mm)", str(thickness)),
+                ("Focality thresholds", "dynamic" if (goal == "focality" and threshold_strategy == "dynamic") else (thresholds or "-")),
+            ],
+            env=env_items,
+            command=cmd,
+            default_yes=True,
+        ):
+            utils.echo_warning("Cancelled.")
+            return 0
 
-    from tit.core import list_subjects as _list_subjects
-
-    all_subjects = _list_subjects(str(proj))
-    if not all_subjects:
-        raise click.ClickException(f"No subjects found under {proj}/derivatives/SimNIBS")
-    subject_ids = utils.prompt_subject_ids(all_subjects)
-
-    utils.echo_header("Flex-Search Optimization")
-
-    goal = click.prompt("Goal", type=click.Choice(["mean", "focality", "max"]), default="mean")
-    postproc = click.prompt(
-        "Postproc", type=click.Choice(["max_TI", "dir_TI_normal", "dir_TI_tangential"]), default="max_TI"
-    )
-
-    electrode_shape = click.prompt("Electrode shape", type=click.Choice(["rect", "ellipse"]), default="rect")
-    dimensions = click.prompt("Dimensions (x,y mm)", type=str, default="8,8")
-    thickness = click.prompt("Thickness (mm)", type=float, default=5.0)
-    current = click.prompt("Current (mA)", type=float, default=2.0)
-
-    roi_method = click.prompt("ROI method", type=click.Choice(["spherical", "atlas", "subcortical"]), default="spherical")
-
-    if roi_method == "spherical":
-        utils.echo_section("Spherical ROI")
-        use_mni_coords = len(subject_ids) > 1 and click.confirm(
-            "Multiple subjects selected: treat coordinates as MNI and transform per subject?", default=True
-        )
-        roi_x = click.prompt("ROI X", type=float, default=0.0)
-        roi_y = click.prompt("ROI Y", type=float, default=0.0)
-        roi_z = click.prompt("ROI Z", type=float, default=0.0)
-        roi_radius = click.prompt("ROI radius (mm)", type=float, default=10.0)
-        _set_flex_roi_env_for_spherical(
-            roi_x=roi_x, roi_y=roi_y, roi_z=roi_z, roi_radius=roi_radius, use_mni_coords=use_mni_coords
-        )
-    elif roi_method == "atlas":
-        utils.echo_section("Atlas ROI")
-        atlas_path = click.prompt("ATLAS_PATH (annot file)", type=str)
-        hemisphere = click.prompt("Hemisphere", type=click.Choice(["lh", "rh"]), default="lh")
-        roi_label = click.prompt("ROI label (int)", type=int, default=1)
-        _set_flex_roi_env_for_atlas(atlas_path=atlas_path, hemisphere=hemisphere, roi_label=roi_label)
-    else:
-        utils.echo_section("Subcortical ROI")
-        volume_atlas_path = click.prompt("VOLUME_ATLAS_PATH (.nii/.nii.gz/.mgz)", type=str)
-        roi_label = click.prompt("VOLUME_ROI_LABEL (int)", type=int, default=10)
-        _set_flex_roi_env_for_subcortical(volume_atlas_path=volume_atlas_path, roi_label=roi_label)
-
-    enable_mapping = click.confirm("Enable mapping to EEG net?", default=False)
-    eeg_net: Optional[str] = None
-    disable_mapping_sim = False
-    if enable_mapping:
-        eeg_net = click.prompt("EEG net name (without .csv)", type=str)
-        disable_mapping_sim = click.confirm("Disable extra mapped-electrodes simulation?", default=False)
-
-    # Performance options
-    n_multistart = click.prompt("n-multistart", type=int, default=1)
-    cpus = click.prompt("cpus", type=int, default=1)
-
-    thresholds: Optional[str] = None
-    non_roi_method: Optional[str] = None
-    if goal == "focality":
-        thresholds = click.prompt("thresholds (single or two values 'a' or 'a,b')", type=str)
-        non_roi_method = click.prompt(
-            "non-roi-method", type=click.Choice(["everything_else", "specific"]), default="everything_else"
-        )
-
-    if not click.confirm("Proceed with flex-search?", default=True):
-        raise click.Abort()
-
-    # run for each subject
-    rc_total = 0
-    for sid in subject_ids:
-        args = [
-            "--subject",
-            sid,
-            "--goal",
-            goal,
-            "--postproc",
-            postproc,
-            "--current",
-            str(current),
-            "--electrode-shape",
-            electrode_shape,
-            "--dimensions",
-            dimensions,
-            "--thickness",
-            str(thickness),
-            "--roi-method",
-            roi_method,
-            "--n-multistart",
-            str(n_multistart),
-            "--cpus",
-            str(cpus),
-        ]
-        if enable_mapping:
-            args += ["--enable-mapping", "--eeg-net", eeg_net or ""]
-            if disable_mapping_sim:
-                args += ["--disable-mapping-simulation"]
-        if thresholds:
-            args += ["--thresholds", thresholds]
-        if non_roi_method:
-            args += ["--non-roi-method", non_roi_method]
-
-        rc = _call_flex(args)
-        if rc != 0:
-            rc_total = rc
-
-    return rc_total
-
-
-@click.command(
-    context_settings=dict(
-        help_option_names=["-h", "--help"],
-        ignore_unknown_options=True,
-        allow_extra_args=True,
-    )
-)
-@click.pass_context
-@click.option("--run-direct", is_flag=True, help="Run using env vars (SUBJECTS, GOAL, POSTPROC, etc.).")
-@click.option("--project-dir", type=click.Path(path_type=Path), default=None, help="Project directory (BIDS root).")
-def cli(ctx: click.Context, run_direct: bool, project_dir: Optional[Path]) -> None:
-    """
-    Flex-search CLI.
-
-    - If called with arguments after `--`, they are forwarded to `tit.opt.flex` (direct/scriptable).
-    - If called with --run-direct, values are read from env vars and executed.
-    - If called with no forwarded args and no --run-direct, an interactive wizard runs.
-    """
-    extra: List[str] = list(ctx.args)
-    if extra and extra[0] == "--":
-        extra = extra[1:]
-
-    if extra:
-        # passthrough mode
-        proj = _default_project_dir(project_dir)
-        os.environ.setdefault("PROJECT_DIR", str(proj))
-        raise SystemExit(_call_flex(extra))
-
-    if run_direct:
-        raise SystemExit(_direct_from_env(project_dir))
-
-    raise SystemExit(_interactive_wizard(project_dir))
+        return self._call_flex(args)
 
 
 if __name__ == "__main__":
-    cli()
+    raise SystemExit(FlexSearchCLI().run())
 
 

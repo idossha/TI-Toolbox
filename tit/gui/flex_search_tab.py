@@ -20,6 +20,7 @@ from tit.gui.components.action_buttons import RunStopButtons
 
 from tit.core import get_path_manager, constants as const
 from tit.core.process import get_child_pids
+from tit.opt.flex.utils import find_subject_atlases, list_atlas_regions
 
 
 class FlexSearchThread(QtCore.QThread):
@@ -885,40 +886,37 @@ class FlexSearchTab(QtWidgets.QWidget):
         selected_items = self.subject_list.selectedItems()
         if not selected_items:
             return
-        
+
         subject_id = selected_items[0].text()
-        # Base directory where subjects are located
         project_dir = os.environ.get('PROJECT_DIR', '/mnt/BIDS_test')
-        # Use segmentation directory for atlas files in new BIDS structure
-        seg_dir = os.path.join(project_dir, 'derivatives', 'SimNIBS', f'sub-{subject_id}', 
-                              f'm2m_{subject_id}', 'segmentation')
-        unique_atlases = set()
-        self.atlas_display_map = {}  # Map display name to (subjectID, atlas_name)
+
         try:
-            if os.path.isdir(seg_dir):
-                # Find all .annot files in the directory
-                for atlas_file in glob.glob(os.path.join(seg_dir, '*.annot')):
-                    fname = os.path.basename(atlas_file)
-                    # Expect format: lh.101_DK40.annot or rh.101_DK40.annot
-                    parts = fname.split('.')
-                    if len(parts) == 3 and parts[2] == 'annot':
-                        atlas_full = parts[1]  # e.g., 101_DK40
-                        # Remove subjectID prefix for display
-                        atlas_display = atlas_full.split('_', 1)[-1] if '_' in atlas_full else atlas_full
-                        unique_atlases.add(atlas_display)
-                        self.atlas_display_map[atlas_display] = atlas_full
-                        self.atlases[(parts[0], atlas_full)] = atlas_file
-                for atlas_display in sorted(unique_atlases):
-                    self.atlas_combo.addItem(atlas_display)
-                if unique_atlases:
-                    if self.debug_mode:
-                        self.output_text.append(f"Found {len(unique_atlases)} unique atlases for subject {subject_id}.")
-                else:
-                    if self.debug_mode:
-                        self.output_text.append(f"No atlas files found for subject {subject_id}.")
+            # Find atlases for both hemispheres
+            lh_atlases = find_subject_atlases(subject_id, 'lh', project_dir)
+            rh_atlases = find_subject_atlases(subject_id, 'rh', project_dir)
+
+            # Combine and deduplicate atlas names (same atlas appears in both hemispheres)
+            all_atlas_names = set(lh_atlases.keys()) | set(rh_atlases.keys())
+
+            # Build the atlas mapping for GUI
+            self.atlas_display_map = {}  # Map display name to full atlas name
+            for atlas_name in sorted(all_atlas_names):
+                self.atlas_combo.addItem(atlas_name)
+                # Store the atlas name for later use (we'll resolve hemisphere when needed)
+                self.atlas_display_map[atlas_name] = atlas_name
+
+                # Store file paths for both hemispheres
+                if atlas_name in lh_atlases:
+                    self.atlases[('lh', atlas_name)] = lh_atlases[atlas_name]
+                if atlas_name in rh_atlases:
+                    self.atlases[('rh', atlas_name)] = rh_atlases[atlas_name]
+
+            if all_atlas_names:
+                if self.debug_mode:
+                    self.output_text.append(f"Found {len(all_atlas_names)} unique atlases for subject {subject_id}.")
             else:
                 if self.debug_mode:
-                    self.output_text.append(f"Segmentation directory not found for subject {subject_id}.")
+                    self.output_text.append(f"No atlas files found for subject {subject_id}.")
         except Exception as e:
             self.output_text.append(f"Error scanning for atlas files: {str(e)}")
         # Also update non-ROI atlas combo
@@ -1902,39 +1900,30 @@ class FlexSearchTab(QtWidgets.QWidget):
         self._show_volume_regions_dialog(volume_atlas)
 
     def _show_atlas_regions_dialog(self, atlas_display, hemi):
-        # Find the atlas file path
-        selected_items = self.subject_list.selectedItems()
-        if not selected_items:
-            QtWidgets.QMessageBox.warning(self, "No Subject Selected", "Please select a subject.")
+        """Show a dialog with available regions in the selected atlas."""
+        # Get the atlas file path
+        atlas_key = (hemi, atlas_display)
+        if atlas_key not in self.atlases:
+            QtWidgets.QMessageBox.warning(self, "Atlas File Not Found",
+                                        f"Could not find atlas file for {hemi}.{atlas_display}")
             return
-            
-        subject_id = selected_items[0].text()
-        project_dir = os.environ.get('PROJECT_DIR', '/mnt/BIDS_test')
-        seg_dir = os.path.join(project_dir, 'derivatives', 'SimNIBS', f'sub-{subject_id}', f'm2m_{subject_id}', 'segmentation')
-        
-        # Get the full atlas name for this subject
-        atlas_full = self.atlas_display_map.get(atlas_display, atlas_display)
-        annot_file = os.path.join(seg_dir, f'{hemi}.{atlas_full}.annot')
 
-        if not os.path.isfile(annot_file):
-            QtWidgets.QMessageBox.warning(self, "Atlas File Not Found", f"Could not find atlas file: {annot_file}")
-            return
-        # Run read_annot.py and show output
-        script_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        utils_dir = os.path.join(script_dir, "tools")
-        read_annot_py = os.path.join(utils_dir, "read_annot.py")
-        if not os.path.isfile(read_annot_py):
-            QtWidgets.QMessageBox.warning(self, "read_annot.py Not Found", f"Could not find read_annot.py at {read_annot_py}")
-            return
+        annot_file = self.atlases[atlas_key]
+
         try:
-            result = subprocess.run(["simnibs_python", read_annot_py, annot_file], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=10)
-            if result.returncode != 0:
-                QtWidgets.QMessageBox.warning(self, "Error Listing Regions", result.stderr)
-                return
-            output = result.stdout
+            # Use the centralized function to get regions
+            regions = list_atlas_regions(annot_file)
+
+            # Format the output
+            output_lines = []
+            for idx, name in regions:
+                output_lines.append(f"{idx:3d}: {name}")
+            output = '\n'.join(output_lines)
+
         except Exception as e:
             QtWidgets.QMessageBox.warning(self, "Error Listing Regions", str(e))
             return
+
         # Show output in a dialog with search
         dlg = QtWidgets.QDialog(self)
         dlg.setWindowTitle(f"Regions in {hemi}.{atlas_display}")
