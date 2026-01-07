@@ -13,7 +13,9 @@ function changeSlide(btn, direction) {
 
   // Remove active class from current slide
   slides[currentIndex].classList.remove('active');
-  dots[currentIndex].classList.remove('active');
+  if (dots[currentIndex]) {
+    dots[currentIndex].classList.remove('active');
+  }
 
   // Calculate new index
   let newIndex = currentIndex + direction;
@@ -25,7 +27,9 @@ function changeSlide(btn, direction) {
 
   // Add active class to new slide
   slides[newIndex].classList.add('active');
-  dots[newIndex].classList.add('active');
+  if (dots[newIndex]) {
+    dots[newIndex].classList.add('active');
+  }
 }
 
 function currentSlide(dot, index) {
@@ -38,14 +42,24 @@ function currentSlide(dot, index) {
   dots.forEach(d => d.classList.remove('active'));
 
   // Add active class to selected slide and dot
-  slides[index].classList.add('active');
-  dots[index].classList.add('active');
+  if (slides[index]) {
+    slides[index].classList.add('active');
+  }
+  if (dots[index]) {
+    dots[index].classList.add('active');
+  }
 }
 
 // Auto-advance carousel
 document.addEventListener('DOMContentLoaded', function() {
   const carousels = document.querySelectorAll('.carousel-container');
   carousels.forEach(carousel => {
+    // Ensure at least one slide is visible on initial load
+    const slides = carousel.querySelectorAll('.carousel-slide');
+    if (slides.length > 0 && carousel.querySelectorAll('.carousel-slide.active').length === 0) {
+      slides[0].classList.add('active');
+    }
+
     let interval = setInterval(() => {
       const nextBtn = carousel.querySelector('.carousel-btn.next');
       if (nextBtn) {

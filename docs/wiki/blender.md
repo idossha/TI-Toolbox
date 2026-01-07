@@ -118,7 +118,7 @@ This mode exports electric field vectors from TDCS simulations as arrow clouds i
 - Random seed controls reproducibility of sampling patterns.
 - Vectors can be filtered to show only top percentile regions by magnitude.
 
-### Electrode Placement
+### Montage Visualizer
 
 This mode creates 3D electrode placements on the scalp surface using Blender for visualization. It automatically extracts the scalp surface from the subject's mesh file and places electrode objects according to EEG montage coordinates, with optional text labels.
 
@@ -151,19 +151,14 @@ This mode creates 3D electrode placements on the scalp surface using Blender for
 </div>
 
 **What is produced:**
-- **.blend file**: Blender scene file containing scalp surface, electrode objects, and text labels
+- **.blend file**: Blender scene file containing scalp surface, electrode objects, and text labels with sensible cameras, lighting conditions and material transparency. 
 - **.glb file**: GLTF binary format for web-based 3D viewers or other applications (e.g., `electrodes_GSN-HydroCel-185.glb`)
 - **scalp.stl**: Extracted scalp surface mesh for reference
 
 **Electrode configuration:**
-- Choose from available EEG montages (automatically detected from the subject's eeg_positions directory)
+- Choose from available simulation montages (automatically detected from the subject's directory)
 - Adjust electrode size, offset distance from scalp surface, and text label positioning
 - Scale factor for coordinate system adjustments
-
-**Blender integration:**
-- Uses headless Blender (simnibs_blender) for automated electrode placement
-- Requires Blender to be installed on the system
-- Electrode template objects are defined in `blender_exporter/Electrode.blend`
 
 ### Sub-cortical Extraction
 
@@ -183,15 +178,34 @@ This mode extracts sub-cortical structures from NIfTI segmentation files and con
 - Default: `m2m_<subject>/segmentation/labeling.nii.gz` (FreeSurfer segmentation)
 - Custom: Any NIfTI file containing labeled anatomical regions
 
+This can be incoporated into other visualization to produce images and animations such as:
+
+<div class="glb-viewer-section">
+  <div class="glb-viewer">
+    <model-viewer
+      src="{{ site.baseurl }}/assets/imgs/blender/ernie_electrodes_GSN-HydroCel-256_subcor.glb"
+      alt="GSN-HydroCel-185 electrode placement example"
+      camera-controls
+      auto-rotate
+      ar
+      shadow-intensity="1"
+      exposure="1"
+      style="width: 100%; height: 450px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+    </model-viewer>
+  </div>
+</div>
+
+<br>
+
 ## Running from the GUI
 
 1. Launch TI-Toolbox and click the **Extensions** button in the top-right corner of the window.
 2. Select **3D Visual Exporter** and click **Launch**.
-3. Pick a subject and simulation from the dropdowns. The extension queries the Path Manager for available outputs.
-4. Choose **Cortical Regions**, **Field Vectors**, **Electrode Placement**, or **Sub-cortical** mode.
+3. Pick a subject and simulation from the dropdowns. 
+4. Choose **Cortical Regions**, **Field Vectors**, **Montage Visualizer**, or **Sub-cortical** mode.
 5. Configure atlas, region filters, formats, and output directory options (for regions), sampling and styling parameters (for vectors), EEG montage and electrode settings (for electrode placement), or NIfTI file and label extraction settings (for sub-cortical structures).
 6. Click **Run Export**. The console panel shows the exact commands executed and live progress.
-7. Review artifacts in `derivatives/tit/visual_exports/sub-<id>/<simulation>/` once the export completes.
+7. Review artifacts in `derivatives/tit/visual_exports/sub-<id>/` once the export completes.
 
 The **Stop** button terminates the active subprocess if you need to cancel a long export.
 
@@ -235,26 +249,6 @@ simnibs_python tools/nifti_to_mesh.py \
   --clean-components
 ```
 
-Refer to the README files in `tit/blender_exporter/` and `tools/` directories for full command-line options, including electrode placement parameters, sub-cortical label extraction, and mesh cleaning options.
-
-## Output structure
-
-Exports triggered from the extension (or using the same base output directory) follow this structure:
-
-```
-derivatives/
-  tit/
-    visual_exports/
-      sub-<subject>/
-        <simulation>/
-          stl/                 # Cortical STL exports
-          ply/                 # Cortical PLY exports
-          vectors/             # Vector PLY exports
-        electrodes/            # Electrode placement exports (.blend, .glb, scalp.stl)
-        subcortical/           # Sub-cortical structure exports (.stl, .msh, .nii.gz)
-```
-
-Vector exports append suffixes such as `_CH1`, `_CH2`, `_TI`, `_TI_sum`, and `_TI_normal`. Cortical exports include `cortical_stls/` and `cortical_plys/` subfolders with `regions/` and `whole_gm` outputs. Electrode exports include Blender scene files and GLTF models. Sub-cortical exports include mesh files with descriptive suffixes indicating the extracted labels and processing options.
 
 ## Tips and troubleshooting
 
@@ -262,11 +256,12 @@ Vector exports append suffixes such as `_CH1`, `_CH2`, `_TI`, `_TI_sum`, and `_T
 - **Missing fields**: The cortical exporters expect the requested `--field` (default `TI_max`) to exist on the mesh. Inspect field names with `simnibs_python -c "import simnibs; print(simnibs.read_msh('mesh.msh').field.keys())"`.
 - **Large vector clouds**: Start with smaller `--count` values or enable `--top-percent` to reduce file sizes before ramping up density.
 - **Atlas updates**: If you add a new atlas, ensure the `m2m_*` directory contains the matching label files before launching the GUI.
-- **Blender requirement**: Electrode placement mode requires Blender to be installed (`apt-get install -y blender` on Ubuntu/Debian). The system will automatically detect and use `simnibs_blender` if available.
-- **EEG montages**: Ensure EEG position files are present in the subject's `eeg_positions/` directory. The extension automatically detects available montages.
-- **Sub-cortical segmentation**: For sub-cortical extraction, verify your NIfTI file contains labeled anatomical regions. FreeSurfer's `labeling.nii.gz` uses standard FreeSurfer label numbers.
 - **Label extraction**: When extracting specific labels, use comma-separated values (e.g., "10,49" for left/right thalamus). Check FreeSurfer's label lookup table for anatomical region codes.
 - **Error logs**: The extension console mirrors stdout/stderr from the scripts. Copy the failing command and re-run in a terminal to investigate with additional flags (for example `--verbose`).
+
+---
+
+<br>
 
 ## Blender Tutorial: Visualizing PLY Files
 
@@ -331,6 +326,7 @@ Your mesh should now display the color-mapped field data from your simulation. T
     </div>
     <div class="carousel-dots">
       <span class="dot active" onclick="currentSlide(this, 0)"></span>
+      <span class="dot" onclick="currentSlide(this, 1)"></span>
     </div>
   </div>
 </div>
