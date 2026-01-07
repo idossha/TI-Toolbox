@@ -117,3 +117,4 @@ def test_ttests_alternatives_and_error():
         ttest_rel(paired, n_resp=3, alternative="nope")
 
 
+
