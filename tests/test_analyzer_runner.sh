@@ -27,17 +27,13 @@ else
     exit 1
 fi
 
-# Set environment variables for non-interactive mode
-export SUBJECT="ernie_extended"
-export SIMULATION_NAME="test_montage"
-export SPACE_TYPE="mesh"
-export ANALYSIS_TYPE="spherical"
-export FIELD_PATH="$PROJECT_DIR/derivatives/SimNIBS/sub-ernie_extended/Simulations/test_montage/TI/mesh/grey_test_montage_TI.msh"
-export COORDINATES="-50 0 0"
-export RADIUS="5"
-export COORDINATE_SPACE="subject"
-export VISUALIZE="true"
-
-# Run analyzer in non-interactive mode
-export ANALYSIS_MODE="single"
-eval "$ANALYZER_CMD --run-direct"
+# Run analyzer in non-interactive mode with proper arguments
+eval "$ANALYZER_CMD" \
+    --subject "ernie_extended" \
+    --simulation "central_montage" \
+    --space "mesh" \
+    --analysis-type "spherical" \
+    --coordinates -50 0 0 \
+    --radius 5 \
+    --coordinate-space "subject" \
+    --visualize

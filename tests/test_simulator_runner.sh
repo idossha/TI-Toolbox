@@ -90,12 +90,12 @@ echo "  Dimensions: $DIMENSIONS mm"
 echo "  Thickness: $THICKNESS mm"
 
 # Run simulator in non-interactive mode with proper arguments
-"$SIM_CMD" "$SIM_ARGS" run \
+"$SIM_CMD" "$SIM_ARGS" \
     --subject "$SUBJECT" \
-    --montage "$MONTAGE" \
+    --montages "$MONTAGE" \
     --eeg-net "$EEG_NET" \
     --conductivity "$CONDUCTIVITY" \
     --intensity "$INTENSITY" \
-    --shape "$ELECTRODE_SHAPE" \
+    --electrode-shape "$ELECTRODE_SHAPE" \
     --dimensions "$DIMENSIONS" \
     --thickness "$THICKNESS"
