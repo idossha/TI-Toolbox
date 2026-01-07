@@ -66,6 +66,7 @@ from pathlib import Path
 
 from tit import logger as logging_util
 from tit.analyzer.visualizer import VoxelVisualizer
+from tit.core import get_path_manager
 from tit.core.roi import calculate_roi_metrics
 
 
@@ -86,7 +87,7 @@ class VoxelAnalyzer:
     def __init__(self, field_nifti: str, subject_dir: str, output_dir: str, logger=None, quiet=False):
         """
         Initialize the VoxelAnalyzer with paths to required data.
-        
+
         Args:
             field_nifti (str): Path to the NIfTI file containing field data
             subject_dir (str): Directory containing subject data
@@ -123,7 +124,8 @@ class VoxelAnalyzer:
             subject_id = os.path.basename(self.subject_dir).split('_')[1] if '_' in os.path.basename(self.subject_dir) else os.path.basename(self.subject_dir)
             
             # Create derivatives/ti-toolbox/logs/sub-* directory structure
-            log_dir = os.path.join('derivatives', 'ti-toolbox', 'logs', f'sub-{subject_id}')
+            pm = get_path_manager()
+            log_dir = pm.get_ti_toolbox_logs_dir(subject_id) or os.path.join('derivatives', 'ti-toolbox', 'logs', f'sub-{subject_id}')
             os.makedirs(log_dir, exist_ok=True)
             
             # Create log file in the new directory
@@ -346,7 +348,7 @@ class VoxelAnalyzer:
                                 whole_head_positive_mask = field_arr > 0
                                 whole_head_filtered = field_arr[whole_head_positive_mask]
                                 
-                                region_visualizer.generate_focality_histogram(
+                                self.visualizer.generate_focality_histogram(
                                     whole_head_field_data=whole_head_filtered,
                                     roi_field_data=field_values,
                                     region_name=region_name,

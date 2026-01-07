@@ -3,7 +3,8 @@ MeshAnalyzer: A tool for analyzing mesh-based neuroimaging data
 
 This module provides functionality for analyzing field data in specific regions of interest,
 including spherical ROIs and cortical regions defined by an atlas. It works with
-SimNIBS mesh files and can generate surface meshes for cortical analysis.
+SimNIBS mesh files and uses the cortical middle-layer surface mesh (via msh2cortex)
+for cortical/surface analyses.
 
 Inputs:
     - SimNIBS mesh files (.msh) containing field data
@@ -72,16 +73,17 @@ from pathlib import Path
 
 from tit import logger as logging_util
 from tit.analyzer.visualizer import MeshVisualizer
+from tit.core import get_path_manager
 from tit.core.roi import ROICoordinateHelper, calculate_roi_metrics
 
 class MeshAnalyzer:
     """
     A class for analyzing mesh-based data from 3D models.
-    
+
    This class provides methods for analyzing field data in specific regions of interest,
     including spherical ROIs and cortical regions defined by an atlas. It works with
-    SimNIBS mesh files and can generate surface meshes for cortical analysis.
-    
+    SimNIBS mesh files and uses cortical middle-layer surface meshes for analysis.
+
     Attributes:
         field_mesh_path (str): Path to the mesh file containing field data
         field_name (str): Name of the field to analyze in the mesh
@@ -125,7 +127,8 @@ class MeshAnalyzer:
             subject_id = os.path.basename(self.subject_dir).split('_')[1] if '_' in os.path.basename(self.subject_dir) else os.path.basename(self.subject_dir)
             
             # Create derivatives/ti-toolbox/logs/sub-* directory structure (using relative path like voxel analyzer)
-            log_dir = os.path.join('derivatives', 'ti-toolbox', 'logs', f'sub-{subject_id}')
+            pm = get_path_manager()
+            log_dir = pm.get_ti_toolbox_logs_dir(subject_id) or os.path.join('derivatives', 'ti-toolbox', 'logs', f'sub-{subject_id}')
             os.makedirs(log_dir, exist_ok=True)
             
             # Create log file in the new directory
@@ -366,6 +369,9 @@ class MeshAnalyzer:
             # Note: We assume the normal mesh has the same node structure as the surface mesh
             # so we can use the same ROI mask
             node_areas = normal_mesh.nodes_areas()
+            if hasattr(node_areas, 'value'):
+                node_areas = node_areas.value
+            node_areas = np.asarray(node_areas)
             positive_node_areas = node_areas[roi_mask][positive_mask]
             normal_mean_value = np.average(normal_field_values_positive, weights=positive_node_areas)
             
@@ -399,12 +405,9 @@ class MeshAnalyzer:
         """
         start_time = time.time()
         self.logger.info(f"Starting whole head analysis using {atlas_type} atlas")
-        
+
         try:
-            # Generate surface mesh if needed
             surface_mesh_path = self._generate_surface_mesh()
-      
-            # Load the surface mesh
             self.logger.info("Loading surface mesh...")
             gm_surf = simnibs.read_msh(surface_mesh_path)
             
@@ -505,6 +508,9 @@ class MeshAnalyzer:
                     # Calculate mean value using node areas for proper averaging (only positive values)
                     try:
                         node_areas = gm_surf.nodes_areas()
+                        if hasattr(node_areas, 'value'):
+                            node_areas = node_areas.value
+                        node_areas = np.asarray(node_areas)
                         if callable(node_areas):
                             self.logger.error(f"Region {region_name}: nodes_areas() returned a callable object")
                             raise TypeError(f"Region {region_name}: Expected node areas array, got callable object")
@@ -573,6 +579,9 @@ class MeshAnalyzer:
                                 self.logger.info(f"Generating focality histogram for region: {region_name}")
                                 # Get node areas for volume weighting
                                 node_areas = gm_surf.nodes_areas()
+                                if hasattr(node_areas, 'value'):
+                                    node_areas = node_areas.value
+                                node_areas = np.asarray(node_areas)
                                 positive_node_areas = node_areas[roi_mask][positive_mask]
 
                                 # Create a custom visualizer just for this region with the region directory as output
@@ -637,9 +646,8 @@ class MeshAnalyzer:
             Dictionary containing analysis results or None if no nodes found
         """
         self.logger.info(f"Starting spherical ROI analysis (radius={radius}mm) at coordinates {center_coordinates}")
-        
+
         try:
-            # Generate surface mesh if needed and load it (for consistency with cortical analysis)
             surface_mesh_path = self._generate_surface_mesh()
             gm_surf = simnibs.read_msh(surface_mesh_path)
             
@@ -688,6 +696,9 @@ class MeshAnalyzer:
             # Calculate statistics using canonical ROI metric helper
             min_value = np.min(field_values_positive)
             node_areas = gm_surf.nodes_areas()
+            if hasattr(node_areas, 'value'):
+                node_areas = node_areas.value
+            node_areas = np.asarray(node_areas)
             positive_node_areas = node_areas[roi_mask][positive_mask]
 
             whole_brain_positive_mask = field_values > 0
@@ -802,12 +813,9 @@ class MeshAnalyzer:
             Dictionary containing analysis results
         """
         self.logger.info(f"Starting cortical analysis for region '{target_region}' using {atlas_type} atlas")
-        
+
         try:
-            # Generate surface mesh if needed
             surface_mesh_path = self._generate_surface_mesh()
-            
-            # Load the surface mesh
             self.logger.info("Loading surface mesh...")
             gm_surf = simnibs.read_msh(surface_mesh_path)
             
@@ -873,6 +881,9 @@ class MeshAnalyzer:
             
             min_value = np.min(field_values_positive)
             node_areas = gm_surf.nodes_areas()
+            if hasattr(node_areas, 'value'):
+                node_areas = node_areas.value
+            node_areas = np.asarray(node_areas)
             positive_node_areas = node_areas[roi_mask][positive_mask]
             whole_brain_positive_mask = field_values > 0
             whole_brain_node_areas = node_areas[whole_brain_positive_mask]
@@ -919,6 +930,9 @@ class MeshAnalyzer:
                     self.logger.info(f"Generating focality histogram for region: {target_region}")
                     # Get node areas for volume weighting
                     node_areas = gm_surf.nodes_areas()
+                    if hasattr(node_areas, 'value'):
+                        node_areas = node_areas.value
+                    node_areas = np.asarray(node_areas)
                     positive_node_areas = node_areas[roi_mask][positive_mask]
 
                     self.visualizer.generate_focality_histogram(
@@ -1093,6 +1107,9 @@ class MeshAnalyzer:
             
             # Calculate statistics using area-weighted averaging (consistent with other mesh analyses)
             node_areas = gm_surf.nodes_areas()
+            if hasattr(node_areas, 'value'):
+                node_areas = node_areas.value
+            node_areas = np.asarray(node_areas)
             positive_node_areas = node_areas[positive_mask]
             grey_mean = np.average(field_values_positive, weights=positive_node_areas)
             grey_max = np.max(field_values_positive)

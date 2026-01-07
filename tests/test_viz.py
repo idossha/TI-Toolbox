@@ -198,6 +198,40 @@ class TestCreateGlassBrainEntryPointGroup:
 
 
 # ==============================================================================
+# TEST tit/plotting/focality.py - Whole-head ROI histogram robustness
+# ==============================================================================
+
+class TestWholeHeadRoiHistogram:
+    """Regression tests for whole-head ROI histogram plotting."""
+
+    @pytest.mark.unit
+    def test_histogram_accepts_scalar_element_sizes(self, tmp_path):
+        """
+        In tiny ROI edge cases, callers may accidentally pass scalar element sizes.
+        The histogram function should not crash with 'too many indices for array'.
+        """
+        from tit.plotting.focality import plot_whole_head_roi_histogram
+        from unittest.mock import MagicMock, patch
+
+        whole = np.linspace(0.0, 1.0, 1000)
+        roi = np.linspace(0.2, 0.8, 11)
+
+        # tests/conftest.py globally mocks matplotlib; ensure subplots returns (fig, ax)
+        # so the function can progress far enough to exercise the scalar-size logic.
+        with patch("matplotlib.pyplot.subplots", return_value=(MagicMock(), MagicMock())):
+            out = plot_whole_head_roi_histogram(
+                output_dir=str(tmp_path),
+                whole_head_field_data=whole,
+                roi_field_data=roi,
+                whole_head_element_sizes=1.0,  # scalar (0-d)
+                roi_element_sizes=1.0,  # scalar (0-d)
+                data_type="node",
+            )
+
+        assert out is not None
+        assert out.endswith(".pdf")
+
+# ==============================================================================
 # TEST img_slices.py - PDF Slice Visualizations
 # ==============================================================================
 

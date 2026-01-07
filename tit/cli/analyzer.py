@@ -1,356 +1,244 @@
-#!/usr/bin/env python3
+#!/usr/bin/env simnibs_python
 """
-TI-Toolbox Analyzer CLI (Click).
+Analyzer CLI implementation.
 
-Replaces `tit/cli/analyzer.sh`.
-
-Supports:
-- Interactive mode (best-effort; prompts for key inputs)
-- Direct/non-interactive mode via `--run-direct` + env vars (used by GUI/tests)
-
-Direct mode env vars (matches legacy bash):
-  SUBJECT, SIMULATION_NAME, SPACE_TYPE, ANALYSIS_TYPE, FIELD_PATH
-  For spherical:
-    COORDINATES="x y z", RADIUS, COORDINATE_SPACE
-  For cortical:
-    SPACE_TYPE=mesh: ATLAS_NAME, and either WHOLE_HEAD=true or REGION=...
-    SPACE_TYPE=voxel: ATLAS_PATH, and either WHOLE_HEAD=true or REGION=...
-  Optional:
-    OUTPUT_DIR, VISUALIZE=true|false
+Kept here (not in tit/cli/) so the analyzer package owns its CLI behavior.
+The `tit/cli/analyzer.py` file is just a thin wrapper.
 """
 
 from __future__ import annotations
 
-import os
-import sys
-from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Optional, Sequence, Tuple
+from typing import Any, Dict, List
 
-import click
-
-from tit.core import list_subjects as _list_subjects
+from tit.cli.base import ArgumentDefinition, BaseCLI, InteractivePrompt
 from tit.cli import utils
+from tit.core import get_path_manager
 
 
-def _run_main_analyzer_with_argv(argv: Sequence[str]) -> int:
-    """
-    Run `tit.analyzer.main_analyzer.main()` with an argv override.
+class AnalyzerCLI(BaseCLI):
+    def __init__(self) -> None:
+        super().__init__("Analyze simulation results (mesh or voxel) for a single subject.")
 
-    We avoid spawning subprocesses to keep it fast and easy to test.
-    """
-    from tit.analyzer import main_analyzer
+        self.add_argument(ArgumentDefinition(name="subject", type=str, help="Subject ID", required=True))
+        self.add_argument(ArgumentDefinition(name="simulation", type=str, help="Simulation name", required=True))
+        self.add_argument(ArgumentDefinition(name="space", type=str, choices=["mesh", "voxel"], default="mesh", help="mesh|voxel"))
+        self.add_argument(ArgumentDefinition(name="analysis_type", type=str, choices=["spherical", "cortical"], default="spherical", help="spherical|cortical"))
+        # Mesh can derive field path from montage_name; voxel always needs field_path.
+        # Field path is now automatically determined
+        self.add_argument(ArgumentDefinition(name="output_dir", type=str, help="Output directory", required=False))
+        self.add_argument(ArgumentDefinition(name="visualize", type=bool, help="Generate visualizations", default=False))
 
-    old_argv = sys.argv[:]
-    try:
-        sys.argv = ["tit.analyzer.main_analyzer", *argv]
-        main_analyzer.main()
-        return 0
-    finally:
-        sys.argv = old_argv
+        # spherical
+        self.add_argument(ArgumentDefinition(name="coordinates", type=float, nargs=3, help="x y z", required=False))
+        self.add_argument(ArgumentDefinition(name="radius", type=float, help="Radius (mm)", required=False))
+        self.add_argument(ArgumentDefinition(name="coordinate_space", type=str, choices=["MNI", "subject"], default="subject"))
 
-
-@dataclass(frozen=True)
-class DirectConfig:
-    subject_id: str
-    simulation_name: str
-    space_type: str
-    analysis_type: str
-    field_path: str
-    output_dir: Optional[str]
-    visualize: bool
-    coordinates: Optional[Tuple[float, float, float]]
-    radius: Optional[float]
-    coordinate_space: Optional[str]
-    atlas_name: Optional[str]
-    atlas_path: Optional[str]
-    whole_head: bool
-    region: Optional[str]
-
-
-def _load_direct_config_from_env() -> DirectConfig:
-    subject_id = utils.env_required("SUBJECT")
-    simulation_name = utils.env_required("SIMULATION_NAME")
-    space_type = utils.env_required("SPACE_TYPE")
-    analysis_type = utils.env_required("ANALYSIS_TYPE")
-    field_path = utils.env_required("FIELD_PATH")
-
-    output_dir = os.environ.get("OUTPUT_DIR") or None
-    visualize = utils.bool_env("VISUALIZE", default=True)
-
-    coordinates: Optional[Tuple[float, float, float]] = None
-    radius: Optional[float] = None
-    coordinate_space: Optional[str] = None
-    atlas_name: Optional[str] = None
-    atlas_path: Optional[str] = None
-    whole_head = utils.bool_env("WHOLE_HEAD", default=False)
-    region = os.environ.get("REGION") or None
-
-    if analysis_type == "spherical":
-        coords_raw = utils.env_required("COORDINATES")
-        parts = coords_raw.strip().split()
-        if len(parts) != 3:
-            raise click.ClickException("COORDINATES must be 3 space-separated numbers, e.g. '-50 0 0'")
-        coordinates = (float(parts[0]), float(parts[1]), float(parts[2]))
-        radius = float(utils.env_required("RADIUS"))
-        coordinate_space = utils.env_required("COORDINATE_SPACE")
-    else:
         # cortical
-        if space_type == "mesh":
-            atlas_name = utils.env_required("ATLAS_NAME")
-        else:
-            atlas_path = utils.env_required("ATLAS_PATH")
+        self.add_argument(ArgumentDefinition(name="atlas_name", type=str, choices=["DK40", "HCP_MMP1", "a2009s"], default="DK40"))
+        self.add_argument(ArgumentDefinition(name="atlas_path", type=str, help="Atlas path (voxel cortical)", required=False))
+        self.add_argument(ArgumentDefinition(name="whole_head", type=bool, help="Whole head (cortical)", default=False))
+        self.add_argument(ArgumentDefinition(name="region", type=str, help="Region name (cortical)", required=False))
 
-        if not whole_head and not region:
-            raise click.ClickException("For cortical analysis set WHOLE_HEAD=true or REGION=<region-name>")
+    def run_interactive(self) -> int:
+        pm = get_path_manager()
+        if not pm.project_dir:
+            raise RuntimeError("Project directory not resolved. Set PROJECT_DIR_NAME or PROJECT_DIR in Docker.")
 
-    return DirectConfig(
-        subject_id=subject_id,
-        simulation_name=simulation_name,
-        space_type=space_type,
-        analysis_type=analysis_type,
-        field_path=field_path,
-        output_dir=output_dir,
-        visualize=visualize,
-        coordinates=coordinates,
-        radius=radius,
-        coordinate_space=coordinate_space,
-        atlas_name=atlas_name,
-        atlas_path=atlas_path,
-        whole_head=whole_head,
-        region=region,
-    )
+        utils.echo_header("Analyzer (interactive)")
 
-
-def _default_project_dir_from_env() -> Optional[Path]:
-    return utils.default_project_dir_from_env()
-
-
-def _compute_default_output_dir(
-    project_dir: Path,
-    subject_id: str,
-    simulation_name: str,
-    space_type: str,
-    analysis_type: str,
-    coords: Optional[Tuple[float, float, float]],
-    radius: Optional[float],
-    atlas_name: Optional[str],
-    atlas_path: Optional[str],
-    whole_head: bool,
-    region: Optional[str],
-) -> Path:
-    analyses_dir = project_dir / "derivatives" / "SimNIBS" / f"sub-{subject_id}" / "Simulations" / simulation_name / "Analyses"
-    analysis_type_dir = analyses_dir / ("Mesh" if space_type == "mesh" else "Voxel")
-
-    if analysis_type == "spherical":
-        assert coords is not None and radius is not None
-        target_info = f"sphere_x{coords[0]}_y{coords[1]}_z{coords[2]}_r{radius}"
-    else:
-        if whole_head:
-            if space_type == "mesh":
-                target_info = f"whole_head_{atlas_name}"
-            else:
-                atlas_base = Path(atlas_path or "atlas").name
-                target_info = f"whole_head_{atlas_base.split('.')[0]}"
-        else:
-            target_info = f"region_{region}"
-
-    return analysis_type_dir / target_info
-
-
-def _discover_simulations(project_dir: Path, subject_id: str) -> List[str]:
-    return utils.discover_simulations(project_dir, subject_id)
-
-
-def _discover_fields(project_dir: Path, subject_id: str, simulation_name: str, space_type: str) -> List[Path]:
-    return utils.discover_fields(project_dir, subject_id, simulation_name, space_type)
-
-
-@click.command(context_settings=dict(help_option_names=["-h", "--help"]))
-@click.option("--run-direct", is_flag=True, help="Run using legacy env vars (non-interactive).")
-@click.option("--project-dir", type=click.Path(path_type=Path), default=None, help="Project directory (BIDS root).")
-def cli(run_direct: bool, project_dir: Optional[Path]) -> None:
-    """Analyze simulation results (mesh or voxel) for a single subject."""
-    if run_direct:
-        cfg = _load_direct_config_from_env()
-        proj = project_dir or _default_project_dir_from_env()
-        if proj is None:
-            raise click.ClickException("Project directory not found. Set --project-dir or PROJECT_DIR/PROJECT_DIR_NAME.")
-
-        out_dir = cfg.output_dir or str(
-            _compute_default_output_dir(
-                project_dir=proj,
-                subject_id=cfg.subject_id,
-                simulation_name=cfg.simulation_name,
-                space_type=cfg.space_type,
-                analysis_type=cfg.analysis_type,
-                coords=cfg.coordinates,
-                radius=cfg.radius,
-                atlas_name=cfg.atlas_name,
-                atlas_path=cfg.atlas_path,
-                whole_head=cfg.whole_head,
-                region=cfg.region,
-            )
+        subject_id = self.select_one(
+            prompt_text="Select subject",
+            options=pm.list_subjects(),
+            help_text="Choose from available subjects in your project",
+        )
+        simulation_name = self.select_one(
+            prompt_text="Select simulation",
+            options=pm.list_simulations(subject_id),
+            help_text="Choose from available simulations for this subject",
         )
 
-        # m2m dir is derived from project_dir + subject
-        m2m_dir = proj / "derivatives" / "SimNIBS" / f"sub-{cfg.subject_id}" / f"m2m_{cfg.subject_id}"
+        space = self._prompt_for_value(InteractivePrompt(name="space", prompt_text="Space", choices=["mesh", "voxel"], default="mesh"))
+        analysis_type = self._prompt_for_value(
+            InteractivePrompt(name="analysis_type", prompt_text="Analysis type", choices=["spherical", "cortical"], default="spherical")
+        )
 
-        argv: List[str] = [
-            "--m2m_subject_path",
-            str(m2m_dir),
-            "--field_path",
-            cfg.field_path,
-            "--space",
-            cfg.space_type,
-            "--analysis_type",
-            cfg.analysis_type,
-            "--output_dir",
-            out_dir,
-        ]
+        # Automatically determine field file using backend logic
+        from tit.analyzer.field_selector import select_field_file
+        project_dir = Path(pm.project_dir)
+        m2m_dir = project_dir / "derivatives" / "SimNIBS" / f"sub-{subject_id}" / f"m2m_{subject_id}"
+        try:
+            field_path, _ = select_field_file(str(m2m_dir), simulation_name, space, analysis_type)
+        except FileNotFoundError as e:
+            raise RuntimeError(f"No suitable field file found: {e}")
 
-        if cfg.analysis_type == "spherical":
-            assert cfg.coordinates and cfg.radius is not None and cfg.coordinate_space
-            argv += ["--coordinates", str(cfg.coordinates[0]), str(cfg.coordinates[1]), str(cfg.coordinates[2])]
-            argv += ["--radius", str(cfg.radius)]
-            argv += ["--coordinate-space", cfg.coordinate_space]
+        args: Dict[str, Any] = dict(
+            subject=subject_id,
+            simulation=simulation_name,
+            space=space,
+            analysis_type=analysis_type,
+        )
+
+        if analysis_type == "spherical":
+            x = utils.ask_float("X", default="0")
+            y = utils.ask_float("Y", default="0")
+            z = utils.ask_float("Z", default="0")
+            args["coordinates"] = f"{x} {y} {z}"
+            args["radius"] = utils.ask_float("Radius (mm)", default="10")
+            args["coordinate_space"] = self._prompt_for_value(
+                InteractivePrompt(name="coordinate_space", prompt_text="Coordinate space", choices=["MNI", "subject"], default="subject")
+            )
         else:
-            if cfg.space_type == "mesh":
-                argv += ["--atlas_name", cfg.atlas_name or "DK40"]
+            if space == "mesh":
+                args["atlas_name"] = self._prompt_for_value(
+                    InteractivePrompt(name="atlas_name", prompt_text="Atlas", choices=["DK40", "HCP_MMP1", "a2009s"], default="DK40")
+                )
             else:
-                argv += ["--atlas_path", cfg.atlas_path or ""]
-            if cfg.whole_head:
+                atlas_dir = Path(pm.project_dir) / "resources" / "atlas" if pm.project_dir else None
+                atlas_files: List[str] = []
+                if atlas_dir and atlas_dir.is_dir():
+                    atlas_files = [str(p) for p in sorted(atlas_dir.glob("*.nii*"))]
+                args["atlas_path"] = utils.choose_or_enter(prompt="Atlas path", options=atlas_files, help_text="Select an atlas file or choose 'Enter manually…'")
+            args["whole_head"] = utils.ask_bool("Analyze whole head?", default=False)
+            if not args["whole_head"]:
+                args["region"] = utils.ask_required("Region name")
+
+        args["visualize"] = utils.ask_bool("Generate visualizations?", default=False)
+
+        # Default output dir: keep CLI consistent with GUI.
+        args["output_dir"] = str(self._default_output_dir(pm, args))
+
+        argv_preview = [
+            "simnibs_python",
+            "-m",
+            "tit.analyzer.main_analyzer",
+            "--space",
+            str(args["space"]),
+            "--analysis_type",
+            str(args["analysis_type"]),
+            "--output_dir",
+            str(args["output_dir"]),
+            "--m2m_subject_path",
+            str(Path(pm.project_dir) / "derivatives" / "SimNIBS" / f"sub-{subject_id}" / f"m2m_{subject_id}"),
+            "--montage_name",
+            str(simulation_name),
+        ]
+        if not utils.review_and_confirm(
+            "Review (analyzer)",
+            items=[
+                ("Subject", subject_id),
+                ("Simulation", simulation_name),
+                ("Space", str(args["space"])),
+                ("Analysis type", str(args["analysis_type"])),
+                ("Output dir", str(args["output_dir"])),
+                ("Visualize", "yes" if args.get("visualize") else "no"),
+            ],
+            command=argv_preview,
+            default_yes=True,
+        ):
+            utils.echo_warning("Cancelled.")
+            return 0
+
+        return self.execute(args)
+
+    def execute(self, args: Dict[str, Any]) -> int:
+        pm = get_path_manager()
+        if not pm.project_dir:
+            raise RuntimeError("Project directory not resolved. Set PROJECT_DIR_NAME or PROJECT_DIR in Docker.")
+
+        cfg = self._normalize(args)
+
+        argv: List[str] = ["--space", cfg["space"], "--analysis_type", cfg["analysis_type"]]
+        # If not provided explicitly, default to the same layout as the GUI.
+        if not cfg.get("output_dir"):
+            cfg["output_dir"] = str(self._default_output_dir(pm, cfg))
+        argv += ["--output_dir", str(cfg["output_dir"])]
+
+        if cfg["analysis_type"] == "spherical":
+            xyz = cfg["coordinates"]
+            argv += ["--coordinates", str(xyz[0]), str(xyz[1]), str(xyz[2])]
+            argv += ["--radius", str(cfg["radius"])]
+            argv += ["--coordinate-space", cfg.get("coordinate_space", "subject")]
+        else:
+            if cfg["space"] == "mesh":
+                argv += ["--atlas_name", cfg.get("atlas_name", "DK40")]
+            else:
+                argv += ["--atlas_path", cfg.get("atlas_path", "")]
+            if cfg.get("whole_head"):
                 argv += ["--whole_head"]
             else:
-                argv += ["--region", cfg.region or ""]
+                argv += ["--region", cfg.get("region", "")]
 
-        if cfg.space_type == "mesh":
-            argv += ["--montage_name", cfg.simulation_name]
-
-        if cfg.visualize:
+        if cfg["space"] == "mesh":
+            argv += ["--montage_name", cfg["simulation"]]
+        if cfg.get("visualize"):
             argv += ["--visualize"]
 
-        rc = _run_main_analyzer_with_argv(argv)
-        raise SystemExit(rc)
+        project_dir = Path(pm.project_dir)
+        m2m_dir = project_dir / "derivatives" / "SimNIBS" / f"sub-{cfg['subject']}" / f"m2m_{cfg['subject']}"
+        argv += ["--m2m_subject_path", str(m2m_dir)]
 
-    # Interactive mode (best-effort, simplified)
-    proj = project_dir or _default_project_dir_from_env()
-    if proj is None:
-        proj = Path(click.prompt("Project directory (BIDS root)", type=click.Path(path_type=Path)))
+        from tit.analyzer import main_analyzer
 
-    subjects = _list_subjects(str(proj))
-    if not subjects:
-        raise click.ClickException(f"No subjects found under {proj}/derivatives/SimNIBS")
+        utils.run_main_with_argv("tit.analyzer.main_analyzer", argv, main_analyzer.main)
+        return 0
 
-    click.echo("\nAvailable Subjects:")
-    for i, sid in enumerate(subjects, 1):
-        click.echo(f"{i:3d}. {sid}")
-    idx = click.prompt("Select subject number", type=click.IntRange(1, len(subjects)))
-    subject_id = subjects[idx - 1]
+    @staticmethod
+    def _default_output_dir(pm, cfg: Dict[str, Any]) -> Path:
+        """
+        Default output directory that matches the GUI layout:
+          <Simulations>/<montage>/Analyses/<Mesh|Voxel>/<analysis_name>
+        """
+        # Centralized in PathManager so GUI/CLI naming stays identical.
+        sim_dir = pm.get_simulation_dir(str(cfg["subject"]), str(cfg["simulation"]))
+        if not sim_dir:
+            raise RuntimeError(f"Could not resolve simulation directory for sub-{cfg['subject']} / {cfg['simulation']}")
 
-    sims = _discover_simulations(proj, subject_id)
-    if not sims:
-        raise click.ClickException(f"No simulations found for subject {subject_id}")
-    click.echo("\nAvailable Simulations:")
-    for i, s in enumerate(sims, 1):
-        click.echo(f"{i:3d}. {s}")
-    sim_idx = click.prompt("Select simulation number", type=click.IntRange(1, len(sims)))
-    simulation_name = sims[sim_idx - 1]
-
-    space_type = click.prompt("Space", type=click.Choice(["mesh", "voxel"]), default="mesh")
-    analysis_type = click.prompt("Analysis type", type=click.Choice(["spherical", "cortical"]), default="spherical")
-
-    fields = _discover_fields(proj, subject_id, simulation_name, space_type)
-    if not fields:
-        raise click.ClickException("No field files found for this simulation/space")
-    click.echo("\nAvailable Field Files:")
-    for i, p in enumerate(fields, 1):
-        click.echo(f"{i:3d}. {p.name}")
-    f_idx = click.prompt("Select field file number", type=click.IntRange(1, len(fields)))
-    field_path = str(fields[f_idx - 1])
-
-    coords: Optional[Tuple[float, float, float]] = None
-    radius: Optional[float] = None
-    coordinate_space: Optional[str] = None
-    atlas_name: Optional[str] = None
-    atlas_path: Optional[str] = None
-    whole_head = False
-    region: Optional[str] = None
-
-    if analysis_type == "spherical":
-        x = click.prompt("X", type=float)
-        y = click.prompt("Y", type=float)
-        z = click.prompt("Z", type=float)
-        coords = (x, y, z)
-        radius = click.prompt("Radius (mm)", type=float, default=10.0)
-        coordinate_space = click.prompt("Coordinate space", type=click.Choice(["MNI", "subject"]), default="subject")
-    else:
-        if space_type == "mesh":
-            atlas_name = click.prompt("Atlas name", type=click.Choice(["DK40", "HCP_MMP1", "a2009s"]), default="DK40")
-        else:
-            atlas_path = click.prompt("Atlas path", type=str)
-        whole_head = click.confirm("Analyze whole head?", default=False)
-        if not whole_head:
-            region = click.prompt("Region name", type=str)
-
-    visualize = click.confirm("Generate visualizations?", default=True)
-    out_dir = str(
-        _compute_default_output_dir(
-            project_dir=proj,
-            subject_id=subject_id,
-            simulation_name=simulation_name,
-            space_type=space_type,
-            analysis_type=analysis_type,
-            coords=coords,
-            radius=radius,
-            atlas_name=atlas_name,
-            atlas_path=atlas_path,
-            whole_head=whole_head,
-            region=region,
+        out = pm.get_analysis_output_dir(
+            subject_id=str(cfg["subject"]),
+            simulation_name=str(cfg["simulation"]),
+            space=str(cfg["space"]),
+            analysis_type=str(cfg["analysis_type"]),
+            coordinates=cfg.get("coordinates"),
+            radius=cfg.get("radius"),
+            coordinate_space=str(cfg.get("coordinate_space") or "subject"),
+            whole_head=bool(cfg.get("whole_head", False)),
+            region=cfg.get("region"),
+            atlas_name=cfg.get("atlas_name"),
+            atlas_path=cfg.get("atlas_path"),
         )
-    )
+        if not out:
+            raise RuntimeError("Could not compute analyzer output directory")
+        return Path(out)
 
-    if not click.confirm(f"Proceed? Output dir:\n  {out_dir}", default=True):
-        raise click.Abort()
+    @staticmethod
+    def _normalize(args: Dict[str, Any]) -> Dict[str, Any]:
+        cfg = dict(args)
 
-    m2m_dir = proj / "derivatives" / "SimNIBS" / f"sub-{subject_id}" / f"m2m_{subject_id}"
-    argv = [
-        "--m2m_subject_path",
-        str(m2m_dir),
-        "--field_path",
-        field_path,
-        "--space",
-        space_type,
-        "--analysis_type",
-        analysis_type,
-        "--output_dir",
-        out_dir,
-    ]
-    if analysis_type == "spherical":
-        assert coords and radius is not None and coordinate_space
-        argv += ["--coordinates", str(coords[0]), str(coords[1]), str(coords[2])]
-        argv += ["--radius", str(radius)]
-        argv += ["--coordinate-space", coordinate_space]
-    else:
-        if space_type == "mesh":
-            argv += ["--atlas_name", atlas_name or "DK40"]
+        if cfg["analysis_type"] == "spherical":
+            coords = cfg.get("coordinates")
+            if not coords:
+                raise RuntimeError("--coordinates is required for spherical analysis")
+            if isinstance(coords, (list, tuple)):
+                if len(coords) != 3:
+                    raise RuntimeError("--coordinates must be 3 values: x y z")
+            else:
+                parts = str(coords).split()
+                if len(parts) != 3:
+                    raise RuntimeError("--coordinates must be 3 values: x y z")
+                cfg["coordinates"] = [float(parts[0]), float(parts[1]), float(parts[2])]
+            if cfg.get("radius") is None:
+                raise RuntimeError("--radius is required for spherical analysis")
         else:
-            argv += ["--atlas_path", atlas_path or ""]
-        if whole_head:
-            argv += ["--whole_head"]
-        else:
-            argv += ["--region", region or ""]
+            if cfg["space"] == "voxel" and not cfg.get("atlas_path"):
+                raise RuntimeError("--atlas-path is required for voxel cortical analysis")
+            if not cfg.get("whole_head") and not cfg.get("region"):
+                raise RuntimeError("--region is required unless --whole-head")
+            # Field path is now automatically determined
 
-    if space_type == "mesh":
-        argv += ["--montage_name", simulation_name]
-    if visualize:
-        argv += ["--visualize"]
-
-    rc = _run_main_analyzer_with_argv(argv)
-    raise SystemExit(rc)
+        return cfg
 
 
 if __name__ == "__main__":
-    cli()
-
+    raise SystemExit(AnalyzerCLI().run())
 

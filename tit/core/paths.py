@@ -247,6 +247,169 @@ class PathManager:
             return os.path.join(subject_root, "Simulations", simulation_name)
         return None
 
+    def get_subject_simulations_dir(self, subject_id: str) -> Optional[str]:
+        """Get the subject's Simulations directory: .../derivatives/SimNIBS/sub-<id>/Simulations."""
+        subject_root = self.get_subject_dir(subject_id)
+        if subject_root and os.path.isdir(subject_root):
+            return os.path.join(subject_root, "Simulations")
+        return None
+
+    # -------------------------------------------------------------------------
+    # Centralized TI-Toolbox derivative outputs (logs/reports/stats/etc.)
+    # -------------------------------------------------------------------------
+
+    def get_ti_toolbox_dir(self) -> Optional[str]:
+        """Get the ti-toolbox derivatives base directory: <project>/derivatives/ti-toolbox."""
+        derivatives_dir = self.get_derivatives_dir()
+        if derivatives_dir:
+            return os.path.join(derivatives_dir, const.DIR_TI_TOOLBOX)
+        return None
+
+    def get_ti_toolbox_subject_dir(self, subject_id: str) -> Optional[str]:
+        """Get ti-toolbox derivatives subject dir: <project>/derivatives/ti-toolbox/sub-<id>."""
+        base = self.get_ti_toolbox_dir()
+        if base:
+            return os.path.join(base, f"{const.PREFIX_SUBJECT}{subject_id}")
+        return None
+
+    def get_ti_toolbox_logs_dir(self, subject_id: str) -> Optional[str]:
+        """Get ti-toolbox logs dir: <project>/derivatives/ti-toolbox/logs/sub-<id>."""
+        base = self.get_ti_toolbox_dir()
+        if base:
+            return os.path.join(base, const.DIR_LOGS, f"{const.PREFIX_SUBJECT}{subject_id}")
+        return None
+
+    def get_ti_toolbox_reports_dir(self) -> Optional[str]:
+        """Get ti-toolbox reports dir: <project>/derivatives/ti-toolbox/reports."""
+        base = self.get_ti_toolbox_dir()
+        if base:
+            return os.path.join(base, const.DIR_REPORTS)
+        return None
+
+    def get_ti_toolbox_stats_data_dir(self) -> Optional[str]:
+        """Get ti-toolbox stats data dir: <project>/derivatives/ti-toolbox/stats/data."""
+        base = self.get_ti_toolbox_dir()
+        if base:
+            return os.path.join(base, "stats", "data")
+        return None
+
+    # -------------------------------------------------------------------------
+    # BIDS/sourcedata inputs (used by preprocessing)
+    # -------------------------------------------------------------------------
+
+    def get_bids_subject_dir(self, subject_id: str) -> Optional[str]:
+        """Get BIDS subject dir: <project>/sub-<id>."""
+        if not self.project_dir:
+            return None
+        return os.path.join(self.project_dir, f"{const.PREFIX_SUBJECT}{subject_id}")
+
+    def get_bids_anat_dir(self, subject_id: str) -> Optional[str]:
+        """Get BIDS anat dir: <project>/sub-<id>/anat."""
+        base = self.get_bids_subject_dir(subject_id)
+        if base:
+            return os.path.join(base, "anat")
+        return None
+
+    def get_sourcedata_subject_dir(self, subject_id: str) -> Optional[str]:
+        """Get sourcedata subject dir: <project>/sourcedata/sub-<id>."""
+        if not self.project_dir:
+            return None
+        return os.path.join(self.project_dir, const.DIR_SOURCEDATA, f"{const.PREFIX_SUBJECT}{subject_id}")
+
+    def get_sourcedata_dicom_dir(self, subject_id: str, modality: str) -> Optional[str]:
+        """
+        Get sourcedata dicom dir: <project>/sourcedata/sub-<id>/<modality>/dicom
+        modality should be e.g. 'T1w' or 'T2w'.
+        """
+        subj = self.get_sourcedata_subject_dir(subject_id)
+        if subj:
+            return os.path.join(subj, modality, "dicom")
+        return None
+
+    # -------------------------------------------------------------------------
+    # Analysis outputs (Analyzer / Group Analyzer)
+    # -------------------------------------------------------------------------
+
+    @staticmethod
+    def analysis_space_dir_name(space: str) -> str:
+        """Map analyzer space ('mesh'|'voxel') to folder name ('Mesh'|'Voxel')."""
+        return "Mesh" if str(space).lower() == "mesh" else "Voxel"
+
+    @staticmethod
+    def _atlas_name_clean(atlas_name_or_path: str) -> str:
+        s = str(atlas_name_or_path or "unknown_atlas")
+        # If this is a path, reduce to basename and strip common extensions.
+        s = os.path.basename(s)
+        for ext in (".nii.gz", ".nii", ".mgz"):
+            if s.endswith(ext):
+                s = s[: -len(ext)]
+                break
+        return s.replace("+", "_").replace(".", "_")
+
+    @staticmethod
+    def spherical_analysis_name(x: float, y: float, z: float, radius: float, coordinate_space: str) -> str:
+        """Match GUI/CLI naming: sphere_x.._y.._z.._r.._{_MNI|_subject}."""
+        coord_space_suffix = "_MNI" if str(coordinate_space).upper() == "MNI" else "_subject"
+        return f"sphere_x{x:.2f}_y{y:.2f}_z{z:.2f}_r{float(radius)}{coord_space_suffix}"
+
+    @classmethod
+    def cortical_analysis_name(
+        cls,
+        *,
+        whole_head: bool,
+        region: Optional[str],
+        atlas_name: Optional[str] = None,
+        atlas_path: Optional[str] = None,
+    ) -> str:
+        """Match GUI/CLI naming for cortical analysis folders."""
+        atlas_clean = cls._atlas_name_clean(atlas_name or atlas_path or "unknown_atlas")
+        if whole_head:
+            return f"whole_head_{atlas_clean}"
+        region_val = str(region or "").strip()
+        if not region_val:
+            raise ValueError("region is required for cortical analysis unless whole_head=True")
+        return f"region_{region_val}_{atlas_clean}"
+
+    def get_analysis_space_dir(self, subject_id: str, simulation_name: str, space: str) -> Optional[str]:
+        """Get base analysis dir: .../Simulations/<sim>/Analyses/<Mesh|Voxel>."""
+        sim_dir = self.get_simulation_dir(subject_id, simulation_name)
+        if not sim_dir:
+            return None
+        return os.path.join(sim_dir, const.DIR_ANALYSIS, self.analysis_space_dir_name(space))
+
+    def get_analysis_output_dir(
+        self,
+        *,
+        subject_id: str,
+        simulation_name: str,
+        space: str,
+        analysis_type: str,
+        coordinates: Optional[List[float]] = None,
+        radius: Optional[float] = None,
+        coordinate_space: str = "subject",
+        whole_head: bool = False,
+        region: Optional[str] = None,
+        atlas_name: Optional[str] = None,
+        atlas_path: Optional[str] = None,
+    ) -> Optional[str]:
+        """
+        Centralized analysis output directory used by GUI/CLI.
+        Returns the folder but does NOT create it.
+        """
+        base = self.get_analysis_space_dir(subject_id, simulation_name, space)
+        if not base:
+            return None
+
+        at = str(analysis_type).lower()
+        if at == "spherical":
+            if not coordinates or len(coordinates) != 3 or radius is None:
+                raise ValueError("coordinates(3) and radius are required for spherical analysis output path")
+            name = self.spherical_analysis_name(float(coordinates[0]), float(coordinates[1]), float(coordinates[2]), float(radius), coordinate_space)
+        else:
+            name = self.cortical_analysis_name(whole_head=bool(whole_head), region=region, atlas_name=atlas_name, atlas_path=atlas_path)
+
+        return os.path.join(base, name)
+
     def get_ti_mesh_path(self, subject_id: str, simulation_name: str) -> Optional[str]:
         """
         Get the volumetric TI mesh path for a simulation.
@@ -612,4 +775,39 @@ def get_simulation_dir(subject_id: str, simulation_name: str) -> Optional[str]:
 def get_freesurfer_mri_dir(subject_id: str) -> Optional[str]:
     """Get the FreeSurfer MRI directory path."""
     return get_path_manager().get_freesurfer_mri_dir(subject_id)
+
+
+def get_ti_toolbox_logs_dir(subject_id: str) -> Optional[str]:
+    """Get ti-toolbox logs dir: <project>/derivatives/ti-toolbox/logs/sub-<id>."""
+    return get_path_manager().get_ti_toolbox_logs_dir(subject_id)
+
+
+def get_analysis_output_dir(
+    *,
+    subject_id: str,
+    simulation_name: str,
+    space: str,
+    analysis_type: str,
+    coordinates: Optional[List[float]] = None,
+    radius: Optional[float] = None,
+    coordinate_space: str = "subject",
+    whole_head: bool = False,
+    region: Optional[str] = None,
+    atlas_name: Optional[str] = None,
+    atlas_path: Optional[str] = None,
+) -> Optional[str]:
+    """Get analyzer output dir matching GUI/CLI conventions (does not create it)."""
+    return get_path_manager().get_analysis_output_dir(
+        subject_id=subject_id,
+        simulation_name=simulation_name,
+        space=space,
+        analysis_type=analysis_type,
+        coordinates=coordinates,
+        radius=radius,
+        coordinate_space=coordinate_space,
+        whole_head=whole_head,
+        region=region,
+        atlas_name=atlas_name,
+        atlas_path=atlas_path,
+    )
 

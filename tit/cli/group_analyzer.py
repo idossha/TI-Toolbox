@@ -1,26 +1,22 @@
-#!/usr/bin/env python3
+#!/usr/bin/env simnibs_python
 """
-TI-Toolbox Group Analyzer CLI (Click).
+TI-Toolbox Group Analyzer CLI.
 
-Replaces `tit/cli/group_analyzer.sh`.
+Thin wrapper around `tit.opt.ex.main.main()` which is env-driven.
 
-This is a thin Click wrapper around `tit.analyzer.group_analyzer`.
-It focuses on providing a clean, scriptable CLI; interactive prompting is minimal.
-
-Usage:
-  simnibs_python -m tit.cli.group_analyzer run --space mesh --analysis-type spherical --output-dir /mnt/<proj>/code/tit/group_analyses/out ...
+- Interactive default (no args)
+- Direct mode via flags
 """
 
 from __future__ import annotations
 
-import os
-import sys
 from pathlib import Path
-from typing import List, Optional, Sequence
+from typing import Any, Dict, List, Sequence
+from datetime import datetime
 
-import click
-
+from tit.cli.base import ArgumentDefinition, BaseCLI, InteractivePrompt
 from tit.cli import utils
+from tit.core import get_path_manager
 
 
 def _run_group_analyzer_with_argv(argv: Sequence[str]) -> int:
@@ -30,356 +26,188 @@ def _run_group_analyzer_with_argv(argv: Sequence[str]) -> int:
     return 0
 
 
-def _default_project_dir_from_env() -> Optional[Path]:
-    return utils.default_project_dir_from_env()
+class GroupAnalyzerCLI(BaseCLI):
+    def __init__(self) -> None:
+        super().__init__("Run analysis across multiple subjects and compare results.")
 
+        self.add_argument(ArgumentDefinition(name="subjects", type=str, help="Comma-separated subject IDs", required=True))
+        self.add_argument(ArgumentDefinition(name="simulation", type=str, help="Simulation name", required=True))
+        self.add_argument(ArgumentDefinition(name="space", type=str, choices=["mesh", "voxel"], default="mesh", help="mesh|voxel"))
+        self.add_argument(ArgumentDefinition(name="analysis_type", type=str, choices=["spherical", "cortical"], default="spherical", help="spherical|cortical"))
+        # This is the *base* directory the group analyzer uses to place each subject's analysis output.
+        # The recommended value is the SimNIBS derivatives directory (e.g. .../derivatives/SimNIBS),
+        # which matches the GUI behavior and keeps results under each simulation's Analyses/ folder.
+        self.add_argument(ArgumentDefinition(name="output_dir", type=str, help="Base output directory (default: <project>/derivatives/SimNIBS)", required=False))
 
-@click.group(context_settings=dict(help_option_names=["-h", "--help"]), invoke_without_command=True)
-@click.option("--run-direct", is_flag=True, help="Run using legacy env vars (non-interactive).")
-@click.option("--project-dir", type=click.Path(path_type=Path), default=None)
-@click.pass_context
-def cli(ctx: click.Context, run_direct: bool, project_dir: Optional[Path]) -> None:
-    """Run analysis across multiple subjects and compare results."""
-    ctx.ensure_object(dict)
-    ctx.obj["run_direct"] = run_direct
-    ctx.obj["project_dir"] = project_dir
+        # spherical
+        self.add_argument(ArgumentDefinition(name="coordinates", type=str, help="x y z", required=False))
+        self.add_argument(ArgumentDefinition(name="radius", type=float, help="Radius (mm)", required=False))
+        self.add_argument(ArgumentDefinition(name="coordinate_space", type=str, choices=["MNI", "subject"], default="MNI", help="MNI|subject"))
 
-    # Interactive default if no subcommand
-    if ctx.invoked_subcommand is None and not run_direct:
-        _interactive_wizard(project_dir)
-        raise SystemExit(0)
-    if ctx.invoked_subcommand is None and run_direct:
-        _direct_from_env(project_dir)
-        raise SystemExit(0)
+        # cortical
+        self.add_argument(ArgumentDefinition(name="atlas_name", type=str, help="Atlas name (mesh cortical)", required=False))
+        self.add_argument(ArgumentDefinition(name="atlas_path", type=str, help="Atlas path (voxel cortical)", required=False))
+        self.add_argument(ArgumentDefinition(name="whole_head", type=bool, help="Analyze whole head", default=False))
+        self.add_argument(ArgumentDefinition(name="region", type=str, help="Region name (if not whole head)", required=False))
 
+        # output toggles
+        self.add_argument(ArgumentDefinition(name="quiet", type=bool, help="Quiet mode", default=False))
+        self.add_argument(ArgumentDefinition(name="visualize", type=bool, help="Generate visualizations", default=False))
 
-def _direct_from_env(project_dir: Optional[Path]) -> None:
-    proj = project_dir or _default_project_dir_from_env()
-    if proj is None:
-        raise click.ClickException("Project directory not found. Set --project-dir or PROJECT_DIR/PROJECT_DIR_NAME.")
+    def run_interactive(self) -> int:
+        pm = get_path_manager()
 
-    subjects_env = utils.env_required("SUBJECTS")  # comma-separated subject ids
-    simulation = utils.env_required("SIMULATION_NAME")
-    space = utils.env_required("SPACE_TYPE")
-    analysis_type = utils.env_required("ANALYSIS_TYPE")
-    output_dir = Path(os.environ.get("OUTPUT_DIR") or (proj / "code" / "tit" / "group_analyses" / "group_analysis"))
+        utils.echo_header("Group Analyzer (interactive)")
 
-    # Analysis-specific env
-    coordinates = os.environ.get("COORDINATES")
-    coordinate_space = os.environ.get("COORDINATE_SPACE")
-    radius = os.environ.get("RADIUS")
-    atlas_name = os.environ.get("ATLAS_NAME")
-    region = os.environ.get("REGION")
-    whole_head = utils.bool_env("WHOLE_HEAD", default=False)
-    visualize = utils.bool_env("VISUALIZE", default=True)
-    quiet = utils.bool_env("QUIET", default=True)
+        subjects = pm.list_subjects()
+        selected = self.select_many(prompt_text="Select subjects", options=subjects, help_text="Choose at least 2 subjects")
+        if len(selected) < 2:
+            raise RuntimeError("Group analysis requires at least 2 subjects.")
 
-    subject_ids = [s.strip() for s in subjects_env.split(",") if s.strip()]
-    if len(subject_ids) < 2:
-        raise click.ClickException("Group analysis requires at least 2 subjects in SUBJECTS")
-
-    # Build argv for `tit.analyzer.group_analyzer`
-    argv: List[str] = ["--space", space, "--analysis_type", analysis_type, "--output_dir", str(output_dir)]
-    if quiet:
-        argv.append("--quiet")
-    if visualize:
-        argv.append("--visualize")
-
-    if analysis_type == "spherical":
-        if not coordinates or not radius or not coordinate_space:
-            raise click.ClickException("Direct spherical requires COORDINATES, RADIUS, COORDINATE_SPACE")
-        xyz = coordinates.split()
-        if len(xyz) != 3:
-            raise click.ClickException("COORDINATES must be 'x y z'")
-        argv += ["--coordinates", xyz[0], xyz[1], xyz[2], "--radius", str(float(radius)), "--coordinate-space", coordinate_space]
-    else:
-        if space == "mesh":
-            if not atlas_name:
-                raise click.ClickException("Direct mesh cortical requires ATLAS_NAME")
-            argv += ["--atlas_name", atlas_name]
-        if whole_head:
-            argv.append("--whole_head")
+        # Prefer listing available simulations that exist for all selected subjects
+        sim_sets = [set(pm.list_simulations(sid)) for sid in selected]
+        common_sims = sorted(set.intersection(*sim_sets)) if sim_sets else []
+        if common_sims:
+            simulation = self.select_one(
+                prompt_text="Select simulation",
+                options=common_sims,
+                help_text="Simulations common to all selected subjects",
+            )
         else:
-            if not region:
-                raise click.ClickException("Direct cortical requires REGION unless WHOLE_HEAD=true")
-            argv += ["--region", region]
+            simulation = utils.ask_required("Simulation name")
 
-    # Per-subject specs
-    for sid in subject_ids:
-        m2m = proj / "derivatives" / "SimNIBS" / f"sub-{sid}" / f"m2m_{sid}"
-        if space == "mesh":
-            field = proj / "derivatives" / "SimNIBS" / f"sub-{sid}" / "Simulations" / simulation / "TI" / "mesh" / f"{simulation}_TI.msh"
-            argv += ["--subject", sid, str(m2m), str(field)]
+        space = self._prompt_for_value(
+            InteractivePrompt(name="space", prompt_text="Space", choices=["mesh", "voxel"], default="mesh")
+        )
+        analysis_type = self._prompt_for_value(
+            InteractivePrompt(name="analysis_type", prompt_text="Analysis type", choices=["spherical", "cortical"], default="spherical")
+        )
+
+        default_out = pm.get_simnibs_dir() or str(Path(pm.get_derivatives_dir()) / "SimNIBS")
+        output_dir = utils.choose_or_enter(
+            prompt="Base output dir",
+            options=[default_out],
+            default=default_out,
+            help_text="This is the base dir used to write per-subject outputs (recommended: derivatives/SimNIBS).",
+        )
+
+        args: Dict[str, Any] = {
+            "subjects": ",".join(selected),
+            "simulation": simulation,
+            "space": space,
+            "analysis_type": analysis_type,
+            "output_dir": output_dir,
+        }
+
+        if analysis_type == "spherical":
+            x = utils.ask_float("X", default="0")
+            y = utils.ask_float("Y", default="0")
+            z = utils.ask_float("Z", default="0")
+            args["coordinates"] = f"{x} {y} {z}"
+            args["radius"] = utils.ask_float("Radius (mm)", default="10")
+            args["coordinate_space"] = self._prompt_for_value(
+                InteractivePrompt(name="coordinate_space", prompt_text="Coordinate space", choices=["MNI", "subject"], default="MNI")
+            )
         else:
-            field = proj / "derivatives" / "SimNIBS" / f"sub-{sid}" / "Simulations" / simulation / "TI" / "niftis" / f"grey_{simulation}_TI_subject_TI_max.nii.gz"
-            if analysis_type == "cortical":
-                atlas = utils.env_required("ATLAS_PATH")  # single atlas path used for all is acceptable here
-                argv += ["--subject", sid, str(m2m), str(field), atlas]
+            args["whole_head"] = utils.ask_bool("Analyze whole head?", default=False)
+            if not args["whole_head"]:
+                args["region"] = utils.ask_required("Region name")
+            if space == "mesh":
+                args["atlas_name"] = utils.ask_required("Atlas name", default="DK40")
             else:
-                argv += ["--subject", sid, str(m2m), str(field)]
+                atlas_dir = Path(pm.project_dir) / "resources" / "atlas" if pm.project_dir else None
+                atlas_files: List[str] = []
+                if atlas_dir and atlas_dir.is_dir():
+                    atlas_files = [str(p) for p in sorted(atlas_dir.glob("*.nii*"))]
+                args["atlas_path"] = utils.choose_or_enter(prompt="Atlas path", options=atlas_files, help_text="Select an atlas file or choose 'Enter manually…'")
 
-    rc = _run_group_analyzer_with_argv(argv)
-    raise SystemExit(rc)
+        if not utils.review_and_confirm(
+            "Review (group analyzer)",
+            items=[
+                ("Subjects", ",".join(selected)),
+                ("Simulation", str(simulation)),
+                ("Space", str(space)),
+                ("Analysis type", str(analysis_type)),
+                ("Output dir", str(output_dir)),
+            ],
+            default_yes=True,
+        ):
+            utils.echo_warning("Cancelled.")
+            return 0
 
+        return self.execute(args)
 
-def _interactive_wizard(project_dir: Optional[Path]) -> None:
-    proj = project_dir or _default_project_dir_from_env()
-    if proj is None:
-        proj = Path(click.prompt("Project directory (BIDS root)", type=click.Path(path_type=Path)))
+    def execute(self, args: Dict[str, Any]) -> int:
+        pm = get_path_manager()
+        if not pm.project_dir:
+            raise RuntimeError("Project directory not resolved. In Docker set PROJECT_DIR_NAME so /mnt/<name> exists.")
+        proj = Path(pm.project_dir)
 
-    from tit.core import list_subjects as _list_subjects
+        subject_ids = [s.strip() for s in str(args["subjects"]).split(",") if s.strip()]
+        if len(subject_ids) < 2:
+            raise RuntimeError("--subjects must contain at least two ids (comma-separated)")
 
-    subjects = _list_subjects(str(proj))
-    if not subjects:
-        raise click.ClickException(f"No subjects found under {proj}/derivatives/SimNIBS")
+        output_dir = args.get("output_dir") or pm.get_simnibs_dir() or str(Path(pm.get_derivatives_dir()) / "SimNIBS")
+        argv: List[str] = ["--space", str(args["space"]), "--analysis_type", str(args["analysis_type"]), "--output_dir", str(output_dir)]
 
-    selected = utils.prompt_subject_ids(subjects)
-    if len(selected) < 2:
-        raise click.ClickException("Group analysis requires selecting at least 2 subjects")
+        if args.get("quiet"):
+            argv.append("--quiet")
+        if args.get("visualize"):
+            argv.append("--visualize")
 
-    simulation = click.prompt("Simulation/montage name (must exist for all subjects)", type=str)
-    space = click.prompt("Space", type=click.Choice(["mesh", "voxel"]), default="mesh")
-    analysis_type = click.prompt("Analysis type", type=click.Choice(["spherical", "cortical"]), default="spherical")
-    output_dir = Path(click.prompt("Output directory", type=click.Path(path_type=Path)))
-    visualize = click.confirm("Generate visualizations?", default=True)
-    quiet = click.confirm("Summary/quiet mode?", default=True)
-
-    argv: List[str] = ["--space", space, "--analysis_type", analysis_type, "--output_dir", str(output_dir)]
-    if quiet:
-        argv.append("--quiet")
-    if visualize:
-        argv.append("--visualize")
-
-    if analysis_type == "spherical":
-        x = click.prompt("X", type=float)
-        y = click.prompt("Y", type=float)
-        z = click.prompt("Z", type=float)
-        radius = click.prompt("Radius (mm)", type=float, default=10.0)
-        coordinate_space = click.prompt("Coordinate space", type=click.Choice(["MNI", "subject"]), default="MNI")
-        argv += ["--coordinates", str(x), str(y), str(z), "--radius", str(radius), "--coordinate-space", coordinate_space]
-    else:
-        if space == "mesh":
-            atlas_name = click.prompt("Atlas name", type=click.Choice(["DK40", "HCP_MMP1", "a2009s"]), default="DK40")
-            argv += ["--atlas_name", atlas_name]
-        whole_head = click.confirm("Analyze whole head?", default=False)
-        if whole_head:
-            argv.append("--whole_head")
+        if args["analysis_type"] == "spherical":
+            xyz = str(args.get("coordinates") or "").split()
+            if len(xyz) != 3:
+                raise RuntimeError("--coordinates must be 'x y z' for spherical analysis")
+            if args.get("radius") is None:
+                raise RuntimeError("--radius is required for spherical analysis")
+            argv += [
+                "--coordinates",
+                xyz[0],
+                xyz[1],
+                xyz[2],
+                "--radius",
+                str(args["radius"]),
+                "--coordinate-space",
+                str(args.get("coordinate_space") or "MNI"),
+            ]
         else:
-            region = click.prompt("Region name", type=str)
-            argv += ["--region", region]
-
-    for sid in selected:
-        m2m = proj / "derivatives" / "SimNIBS" / f"sub-{sid}" / f"m2m_{sid}"
-        if space == "mesh":
-            field = proj / "derivatives" / "SimNIBS" / f"sub-{sid}" / "Simulations" / simulation / "TI" / "mesh" / f"{simulation}_TI.msh"
-            argv += ["--subject", sid, str(m2m), str(field)]
-        else:
-            field = proj / "derivatives" / "SimNIBS" / f"sub-{sid}" / "Simulations" / simulation / "TI" / "niftis" / f"grey_{simulation}_TI_subject_TI_max.nii.gz"
-            if analysis_type == "cortical":
-                atlas_path = click.prompt("Atlas path (for voxel cortical)", type=str)
-                argv += ["--subject", sid, str(m2m), str(field), atlas_path]
+            if args["space"] == "mesh":
+                atlas_name = args.get("atlas_name")
+                if not atlas_name:
+                    raise RuntimeError("--atlas-name is required for mesh cortical analysis")
+                argv += ["--atlas_name", str(atlas_name)]
+            if args.get("whole_head"):
+                argv.append("--whole_head")
             else:
-                argv += ["--subject", sid, str(m2m), str(field)]
+                region = args.get("region")
+                if not region:
+                    raise RuntimeError("--region is required unless --whole-head")
+                argv += ["--region", str(region)]
 
-    if not click.confirm("Proceed with group analysis?", default=True):
-        raise click.Abort()
+        simulation = str(args["simulation"])
+        for sid in subject_ids:
+            m2m = proj / "derivatives" / "SimNIBS" / f"sub-{sid}" / f"m2m_{sid}"
+            if args["space"] == "mesh":
+                # For mesh, group_analyzer expects the montage name (not a mesh filepath),
+                # so it can auto-construct the correct field path (TI vs mTI) just like the GUI.
+                argv += ["--subject", sid, str(m2m), simulation]
+            else:
+                # For voxel, pass an actual field file path. Prefer the same backend selector used elsewhere.
+                from tit.analyzer.field_selector import select_field_file
+                field, _ = select_field_file(str(m2m), simulation, "voxel", str(args["analysis_type"]))
+                if args["analysis_type"] == "cortical":
+                    atlas_path = args.get("atlas_path")
+                    if not atlas_path:
+                        raise RuntimeError("--atlas-path is required for voxel cortical analysis")
+                    argv += ["--subject", sid, str(m2m), str(field), str(atlas_path)]
+                else:
+                    argv += ["--subject", sid, str(m2m), str(field)]
 
-    rc = _run_group_analyzer_with_argv(argv)
-    raise SystemExit(rc)
-
-
-@cli.command("run", context_settings=dict(ignore_unknown_options=True, allow_extra_args=True))
-@click.option("--space", type=click.Choice(["mesh", "voxel"]), required=True)
-@click.option("--analysis-type", "analysis_type", type=click.Choice(["spherical", "cortical"]), required=True)
-@click.option("--output-dir", "output_dir", type=click.Path(path_type=Path), required=True)
-@click.option("--atlas-name", "atlas_name", type=str, default=None)
-@click.option("--coordinates", nargs=3, type=float, default=None)
-@click.option("--coordinate-space", "coordinate_space", type=click.Choice(["MNI", "subject"]), default=None)
-@click.option("--radius", type=float, default=None)
-@click.option("--region", type=str, default=None)
-@click.option("--whole-head", "whole_head", is_flag=True, default=False)
-@click.option("--visualize", is_flag=True, default=True)
-@click.option("--quiet", is_flag=True, default=True, help="Enable summary mode (recommended for CLI).")
-@click.option(
-    "--subject",
-    "subjects",
-    multiple=True,
-    required=False,
-    help="Repeatable subject spec. Provide: subject_id,m2m_path,field_path[,atlas_path].",
-)
-@click.pass_context
-def run_cmd(
-    ctx: click.Context,
-    space: str,
-    analysis_type: str,
-    output_dir: Path,
-    atlas_name: Optional[str],
-    coordinates: Optional[List[float]],
-    coordinate_space: Optional[str],
-    radius: Optional[float],
-    region: Optional[str],
-    whole_head: bool,
-    visualize: bool,
-    quiet: bool,
-    subjects: List[str],
-) -> None:
-    """
-    Run group analysis.
-
-    Notes:
-    - For voxel+cortical, each subject must include atlas_path.
-    - If you don't pass any --subject, this command errors (we don't replicate the full bash discovery UI).
-    """
-    argv: List[str] = [
-        "--space",
-        space,
-        "--analysis_type",
-        analysis_type,
-        "--output_dir",
-        str(output_dir),
-    ]
-
-    if quiet:
-        argv.append("--quiet")
-    if visualize:
-        argv.append("--visualize")
-
-    if analysis_type == "spherical":
-        if not coordinates or radius is None or not coordinate_space:
-            raise click.ClickException("Spherical analysis requires --coordinates X Y Z, --radius, and --coordinate-space")
-        argv += ["--coordinates", str(coordinates[0]), str(coordinates[1]), str(coordinates[2])]
-        argv += ["--radius", str(radius)]
-        argv += ["--coordinate-space", coordinate_space]
-    else:
-        if space == "mesh":
-            if not atlas_name:
-                raise click.ClickException("Mesh cortical analysis requires --atlas-name")
-            argv += ["--atlas_name", atlas_name]
-        if whole_head:
-            argv.append("--whole_head")
-        else:
-            if not region:
-                raise click.ClickException("Cortical analysis requires --region unless --whole-head is set")
-            argv += ["--region", region]
-
-    if not subjects:
-        raise click.ClickException("At least one --subject is required (format: subject_id,m2m_path,field_path[,atlas_path])")
-
-    for spec in subjects:
-        parts = [p.strip() for p in spec.split(",") if p.strip()]
-        if analysis_type == "spherical" or (analysis_type == "cortical" and space == "mesh"):
-            if len(parts) != 3:
-                raise click.ClickException(f"Invalid --subject '{spec}'. Expected 3 parts: subject_id,m2m_path,field_path")
-        else:
-            if len(parts) != 4:
-                raise click.ClickException(
-                    f"Invalid --subject '{spec}'. Expected 4 parts: subject_id,m2m_path,field_path,atlas_path"
-                )
-        argv += ["--subject", *parts]
-
-    # Allow extra args passthrough if needed in future
-    argv += list(ctx.args)
-
-    rc = _run_group_analyzer_with_argv(argv)
-    raise SystemExit(rc)
-
-
-@cli.command("from-project")
-@click.option("--project-dir", type=click.Path(path_type=Path), default=None)
-@click.option("--subjects", type=str, required=True, help="Comma-separated subject IDs, e.g. 101,102,103")
-@click.option("--simulation", type=str, required=True, help="Simulation/montage name common to all subjects")
-@click.option("--space", type=click.Choice(["mesh", "voxel"]), required=True)
-@click.option("--analysis-type", type=click.Choice(["spherical", "cortical"]), required=True)
-@click.option("--output-dir", type=click.Path(path_type=Path), required=True)
-@click.option("--coordinates", nargs=3, type=float, default=None)
-@click.option("--coordinate-space", type=click.Choice(["MNI", "subject"]), default=None)
-@click.option("--radius", type=float, default=None)
-@click.option("--atlas-name", type=str, default=None)
-@click.option("--region", type=str, default=None)
-@click.option("--whole-head", is_flag=True, default=False)
-@click.option("--visualize", is_flag=True, default=True)
-@click.option("--quiet", is_flag=True, default=True)
-def from_project_cmd(
-    project_dir: Optional[Path],
-    subjects: str,
-    simulation: str,
-    space: str,
-    analysis_type: str,
-    output_dir: Path,
-    coordinates: Optional[List[float]],
-    coordinate_space: Optional[str],
-    radius: Optional[float],
-    atlas_name: Optional[str],
-    region: Optional[str],
-    whole_head: bool,
-    visualize: bool,
-    quiet: bool,
-) -> None:
-    """Convenience wrapper that constructs --subject specs from a standard project layout."""
-    proj = project_dir or _default_project_dir_from_env()
-    if proj is None:
-        raise click.ClickException("Project directory not found. Set --project-dir or PROJECT_DIR/PROJECT_DIR_NAME.")
-
-    subject_ids = [s.strip() for s in subjects.split(",") if s.strip()]
-    if len(subject_ids) < 2:
-        raise click.ClickException("Group analysis requires at least 2 subjects")
-
-    subject_specs: List[str] = []
-    for sid in subject_ids:
-        m2m = proj / "derivatives" / "SimNIBS" / f"sub-{sid}" / f"m2m_{sid}"
-        if space == "mesh":
-            field = proj / "derivatives" / "SimNIBS" / f"sub-{sid}" / "Simulations" / simulation / "TI" / "mesh" / f"{simulation}_TI.msh"
-        else:
-            field = proj / "derivatives" / "SimNIBS" / f"sub-{sid}" / "Simulations" / simulation / "TI" / "niftis" / f"grey_{simulation}_TI_subject_TI_max.nii.gz"
-
-        if analysis_type == "cortical" and space == "voxel":
-            # Best-effort default atlas location (caller can use `run` for explicit per-subject atlas paths)
-            atlas = proj / "derivatives" / "freesurfer" / f"sub-{sid}" / sid / "mri" / "aparc.DKTatlas+aseg.mgz"
-            subject_specs.append(f"{sid},{m2m},{field},{atlas}")
-        else:
-            subject_specs.append(f"{sid},{m2m},{field}")
-
-    # Delegate to `run` implementation by calling the module main with argv.
-    argv: List[str] = [
-        "--space",
-        space,
-        "--analysis_type",
-        analysis_type,
-        "--output_dir",
-        str(output_dir),
-    ]
-    if quiet:
-        argv.append("--quiet")
-    if visualize:
-        argv.append("--visualize")
-
-    if analysis_type == "spherical":
-        if not coordinates or radius is None or not coordinate_space:
-            raise click.ClickException("Spherical analysis requires --coordinates X Y Z, --radius, and --coordinate-space")
-        argv += ["--coordinates", str(coordinates[0]), str(coordinates[1]), str(coordinates[2])]
-        argv += ["--radius", str(radius)]
-        argv += ["--coordinate-space", coordinate_space]
-    else:
-        if space == "mesh":
-            if not atlas_name:
-                raise click.ClickException("Mesh cortical analysis requires --atlas-name")
-            argv += ["--atlas_name", atlas_name]
-        if whole_head:
-            argv.append("--whole_head")
-        else:
-            if not region:
-                raise click.ClickException("Cortical analysis requires --region unless --whole-head is set")
-            argv += ["--region", region]
-
-    for spec in subject_specs:
-        parts = [p.strip() for p in spec.split(",") if p.strip()]
-        argv += ["--subject", *parts]
-
-    rc = _run_group_analyzer_with_argv(argv)
-    raise SystemExit(rc)
+        return _run_group_analyzer_with_argv(argv)
 
 
 if __name__ == "__main__":
-    cli()
+    raise SystemExit(GroupAnalyzerCLI().run())
 
 

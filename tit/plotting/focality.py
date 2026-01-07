@@ -70,21 +70,40 @@ def plot_whole_head_roi_histogram(
         weights_wh = np.full(whole_head_field_data.shape, voxel_volume, dtype=float)
         weights_roi = np.full(roi_field_data.shape, voxel_volume, dtype=float)
     elif whole_head_element_sizes is not None and roi_element_sizes is not None:
-        whole_head_element_sizes = np.asarray(whole_head_element_sizes)[wh_mask]
-        roi_element_sizes = np.asarray(roi_element_sizes)[roi_mask]
-        if whole_head_element_sizes.shape == whole_head_field_data.shape and roi_element_sizes.shape == roi_field_data.shape:
-            weights_wh = whole_head_element_sizes
-            weights_roi = roi_element_sizes
+        # Robust handling: some callers may pass scalar (0-d) "element sizes" in edge
+        # cases (e.g., tiny ROIs). In that case, treat it as a uniform weight.
+        wh_sizes = np.asarray(whole_head_element_sizes)
+        roi_sizes = np.asarray(roi_element_sizes)
+
+        # Broadcast scalars to match data, otherwise apply NaN masks.
+        if wh_sizes.ndim == 0:
+            wh_sizes = np.full(whole_head_field_data.shape, wh_sizes.item(), dtype=float)
+        else:
+            wh_sizes = wh_sizes[wh_mask]
+
+        if roi_sizes.ndim == 0:
+            roi_sizes = np.full(roi_field_data.shape, roi_sizes.item(), dtype=float)
+        else:
+            roi_sizes = roi_sizes[roi_mask]
+
+        if wh_sizes.shape == whole_head_field_data.shape and roi_sizes.shape == roi_field_data.shape:
+            weights_wh = wh_sizes
+            weights_roi = roi_sizes
 
     ensure_headless_matplotlib_backend()
     import matplotlib.pyplot as plt
 
-    # Keep these local to the plotting call (avoid global side effects)
+    # Keep these local to the plotting call (avoid global side effects).
+    #
+    # Note: In minimal Docker/SimNIBS environments, matplotlib can emit very noisy
+    # `findfont:` messages when fonts are missing. We suppress that noise in
+    # `ensure_headless_matplotlib_backend()`; here we avoid forcing Helvetica (which
+    # may not be installed) and provide a reasonable preference order.
     rc = {
         "pdf.fonttype": 42,  # Embed fonts as text (not paths)
         "pdf.use14corefonts": True,
         "font.family": "sans-serif",
-        "font.sans-serif": ["Helvetica", "Arial", "sans-serif"],
+        "font.sans-serif": ["DejaVu Sans", "Liberation Sans", "Bitstream Vera Sans", "sans-serif"],
         "text.usetex": False,
         "svg.fonttype": "none",
     }
@@ -161,7 +180,11 @@ def plot_whole_head_roi_histogram(
         sm = plt.cm.ScalarMappable(cmap=rainbow_cmap, norm=plt.Normalize(0, 1))
         sm.set_array([])
         cbar = fig.colorbar(sm, ax=ax, shrink=0.7, pad=0.02, aspect=25)
-        cbar.set_label(f"ROI Contribution Fraction\n(Blue→Green→Red, max={max_contribution:.3f})", fontsize=12)
+        # Avoid non-ASCII arrows to keep PDF core fonts (Helvetica) warning-free in minimal containers.
+        cbar.set_label(
+            f"ROI Contribution Fraction\n(Blue->Green->Red, max={max_contribution:.3f})",
+            fontsize=12,
+        )
 
         # Stats box
         stats_text = (

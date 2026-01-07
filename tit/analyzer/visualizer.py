@@ -50,6 +50,7 @@ import os
 from pathlib import Path
 
 from tit import logger as logging_util
+from tit.core import get_path_manager
 
 
 class BaseVisualizer:
@@ -86,7 +87,8 @@ class BaseVisualizer:
             subject_id = os.path.basename(output_dir).split('_')[1] if '_' in os.path.basename(output_dir) else os.path.basename(output_dir)
             
             # Create derivatives/ti-toolbox/logs directory structure (using relative path)
-            log_dir = os.path.join('derivatives', 'ti-toolbox', 'logs', f'sub-{subject_id}')
+            pm = get_path_manager()
+            log_dir = pm.get_ti_toolbox_logs_dir(subject_id) or os.path.join('derivatives', 'ti-toolbox', 'logs', f'sub-{subject_id}')
             os.makedirs(log_dir, exist_ok=True)
             
             # Create log file in the new directory

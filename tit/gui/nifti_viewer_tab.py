@@ -1014,7 +1014,7 @@ class NiftiViewerTab(QtWidgets.QWidget):
             
             # Look for the ROI file
             sim_dir = get_simulation_dir(subject_id, simulation_name)
-            analysis_dir = os.path.join(sim_dir, "Analyses", "Voxel", region_name) if sim_dir else None
+            analysis_dir = os.path.join(self.pm.get_analysis_space_dir(subject_id, simulation_name, "voxel") or "", region_name) if sim_dir else None
             
             if os.path.exists(analysis_dir):
                 # First try to find the specific ROI file

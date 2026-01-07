@@ -1,11 +1,21 @@
 import os
+import sys
 from pathlib import Path
 
 import pytest
 
 
-click = pytest.importorskip("click")
-from click.testing import CliRunner  # noqa: E402
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+def _run_cli(cli_obj, argv):
+    import sys
+
+    old = sys.argv[:]
+    try:
+        sys.argv = ["prog", *argv]
+        return cli_obj.run()
+    finally:
+        sys.argv = old
 
 
 def test_analyzer_direct_builds_expected_argv(monkeypatch, tmp_path: Path):
@@ -13,26 +23,36 @@ def test_analyzer_direct_builds_expected_argv(monkeypatch, tmp_path: Path):
 
     captured = {}
 
-    def fake_run(argv):
+    def fake_run_main_with_argv(_prog, argv, _main):
         captured["argv"] = list(argv)
         return 0
 
-    monkeypatch.setattr(analyzer_cli, "_run_main_analyzer_with_argv", fake_run)
+    monkeypatch.setattr(analyzer_cli.utils, "run_main_with_argv", fake_run_main_with_argv)
 
-    # Minimal env for direct mode
     monkeypatch.setenv("PROJECT_DIR", str(tmp_path))
-    monkeypatch.setenv("SUBJECT", "101")
-    monkeypatch.setenv("SIMULATION_NAME", "test_montage")
-    monkeypatch.setenv("SPACE_TYPE", "mesh")
-    monkeypatch.setenv("ANALYSIS_TYPE", "spherical")
-    monkeypatch.setenv("FIELD_PATH", str(tmp_path / "dummy.msh"))
-    monkeypatch.setenv("COORDINATES", "-50 0 0")
-    monkeypatch.setenv("RADIUS", "5")
-    monkeypatch.setenv("COORDINATE_SPACE", "subject")
-    monkeypatch.setenv("VISUALIZE", "false")
-
-    res = CliRunner().invoke(analyzer_cli.cli, ["--run-direct", "--project-dir", str(tmp_path)])
-    assert res.exit_code == 0, res.output
+    cli = analyzer_cli.AnalyzerCLI()
+    rc = _run_cli(
+        cli,
+        [
+            "--subject",
+            "101",
+            "--simulation",
+            "test_montage",
+            "--space",
+            "mesh",
+            "--analysis-type",
+            "spherical",
+            "--coordinates",
+            "-50",
+            "0",
+            "0",
+            "--radius",
+            "5",
+            "--coordinate-space",
+            "subject",
+        ],
+    )
+    assert rc == 0
 
     argv = captured["argv"]
     assert "--m2m_subject_path" in argv
@@ -63,12 +83,11 @@ def test_group_analyzer_from_project_builds_subject_specs(monkeypatch, tmp_path:
             parents=True, exist_ok=True
         )
 
-    res = CliRunner().invoke(
-        ga.cli,
+    monkeypatch.setenv("PROJECT_DIR", str(proj))
+    cli = ga.GroupAnalyzerCLI()
+    rc = _run_cli(
+        cli,
         [
-            "from-project",
-            "--project-dir",
-            str(proj),
             "--subjects",
             "101,102",
             "--simulation",
@@ -80,16 +99,14 @@ def test_group_analyzer_from_project_builds_subject_specs(monkeypatch, tmp_path:
             "--output-dir",
             str(out),
             "--coordinates",
-            "0",
-            "0",
-            "0",
+            "0 0 0",
             "--coordinate-space",
             "MNI",
             "--radius",
             "10",
         ],
     )
-    assert res.exit_code == 0, res.output
+    assert rc == 0
 
     argv = captured["argv"]
     assert argv[:2] == ["--space", "mesh"]
@@ -108,27 +125,13 @@ def test_flex_search_direct_runs_per_subject(monkeypatch, tmp_path: Path):
 
     monkeypatch.setattr(fs.subprocess, "call", fake_call)
 
-    monkeypatch.setenv("PROJECT_DIR", str(tmp_path))
-    monkeypatch.setenv("SUBJECTS", "101,102")
-    monkeypatch.setenv("GOAL", "mean")
-    monkeypatch.setenv("POSTPROC", "max_TI")
-    monkeypatch.setenv("CURRENT", "2.0")
-    monkeypatch.setenv("ELECTRODE_SHAPE", "rect")
-    monkeypatch.setenv("DIMENSIONS", "8,8")
-    monkeypatch.setenv("THICKNESS", "5")
-    monkeypatch.setenv("ROI_METHOD", "spherical")
-    monkeypatch.setenv("ROI_X", "0")
-    monkeypatch.setenv("ROI_Y", "0")
-    monkeypatch.setenv("ROI_Z", "0")
-    monkeypatch.setenv("ROI_RADIUS", "10")
+    cli = fs.FlexSearchCLI()
+    rc = _run_cli(cli, ["--subject", "101", "--goal", "mean", "--postproc", "max_TI", "--roi-method", "spherical", "--roi-x", "0", "--roi-y", "0", "--roi-z", "0", "--roi-radius", "10"])
+    assert rc == 0
 
-    res = CliRunner().invoke(fs.cli, ["--run-direct", "--project-dir", str(tmp_path)])
-    assert res.exit_code == 0, res.output
-
-    assert len(calls) == 2
-    assert calls[0][1:4] == ["-m", "tit.opt.flex", "--subject"]
-    assert calls[0][4] == "101"
-    assert calls[1][4] == "102"
+    assert len(calls) == 1
+    assert calls[0][:3] == ["simnibs_python", "-m", "tit.opt.flex"]
+    assert "--subject" in calls[0]
 
 
 def test_gui_cli_runs_gui_module(monkeypatch, tmp_path: Path):
@@ -142,10 +145,8 @@ def test_gui_cli_runs_gui_module(monkeypatch, tmp_path: Path):
         return None
 
     monkeypatch.setattr(gui_cli.runpy, "run_module", fake_run_module)
-    monkeypatch.setattr(gui_cli, "_repo_root_from_this_file", lambda: tmp_path)
-
-    res = CliRunner().invoke(gui_cli.cli, ["--run-direct"])
-    assert res.exit_code == 0, res.output
+    rc = _run_cli(gui_cli.GuiCLI(), [])
+    assert rc == 0
     assert seen["name"] == "tit.gui.main"
 
 
@@ -166,21 +167,186 @@ def test_pre_process_direct_calls_structural(monkeypatch, tmp_path: Path):
     monkeypatch.setattr(pp.subprocess, "call", fake_call)
 
     proj = tmp_path / "proj"
+    proj.mkdir(parents=True, exist_ok=True)
     monkeypatch.setenv("PROJECT_DIR", str(proj))
-    monkeypatch.setenv("SUBJECTS", "101,102")
-    monkeypatch.setenv("CONVERT_DICOM", "false")
-    monkeypatch.setenv("RUN_RECON", "false")
-    monkeypatch.setenv("PARALLEL_RECON", "false")
-    monkeypatch.setenv("CREATE_M2M", "false")
-    monkeypatch.setenv("CREATE_ATLAS", "false")
-    monkeypatch.setenv("RUN_TISSUE_ANALYSIS", "false")
-
-    res = CliRunner().invoke(pp.cli, ["--run-direct", "--project-dir", str(proj)])
-    assert res.exit_code == 0, res.output
+    cli = pp.PreProcessCLI()
+    rc = _run_cli(cli, ["--subjects", "101,102"])
+    assert rc == 0
     assert calls, "expected structural.sh to be invoked"
     # structural.sh should be called once with two subject dirs
     assert str(proj / "sub-101") in calls[0]
     assert str(proj / "sub-102") in calls[0]
+
+
+def test_vis_blender_direct_delegates(monkeypatch, tmp_path: Path):
+    from tit.cli import vis_blender as vb
+
+    monkeypatch.setenv("PROJECT_DIR", str(tmp_path))
+
+    class DummyResult:
+        scalp_stl = "scalp.stl"
+        gm_stl = "gm.stl"
+        electrodes_blend = "elec.blend"
+        final_blend = "final.blend"
+
+    def fake_build(**_kwargs):
+        return DummyResult()
+
+    monkeypatch.setattr(vb, "build_montage_publication_blend", lambda **kwargs: fake_build(**kwargs))
+
+    cli = vb.VisBlenderCLI()
+    rc = _run_cli(cli, ["--subject", "101", "--simulation", "simA"])
+    assert rc == 0
+
+
+def test_create_leadfield_direct_delegates(monkeypatch, tmp_path: Path):
+    from tit.cli import create_leadfield as cl
+
+    monkeypatch.setenv("PROJECT_DIR", str(tmp_path))
+
+    pm = cl.get_path_manager()
+    pm.project_dir = str(tmp_path)
+
+    (tmp_path / "derivatives" / "SimNIBS" / "sub-101" / "m2m_101" / "eeg_positions").mkdir(parents=True, exist_ok=True)
+    cap = tmp_path / "derivatives" / "SimNIBS" / "sub-101" / "m2m_101" / "eeg_positions" / "EGI_template.csv"
+    cap.write_text("x,y,z,label\n")
+
+    called = {}
+
+    class DummyGen:
+        def __init__(self, m2m_dir, electrode_cap):
+            called["m2m_dir"] = m2m_dir
+            called["electrode_cap"] = electrode_cap
+
+        def generate_leadfield(self, output_dir=None, tissues=None, eeg_cap_path=None, cleanup=True):
+            called["output_dir"] = output_dir
+            called["tissues"] = tissues
+            called["eeg_cap_path"] = eeg_cap_path
+            return str(Path(output_dir) / "leadfield.hdf5")
+
+    monkeypatch.setattr(cl, "LeadfieldGenerator", DummyGen)
+
+    cli = cl.CreateLeadfieldCLI()
+    rc = _run_cli(cli, ["--subject", "101", "--eeg-net", "EGI_template.csv"])
+    assert rc == 0
+    assert "m2m_101" in str(called["m2m_dir"])
+
+
+def test_ex_search_direct_sets_env_and_calls(monkeypatch, tmp_path: Path):
+    from tit.cli import ex_search as ex
+
+    # Minimal project layout for PathManager:
+    #   <proj>/derivatives/SimNIBS/sub-101/m2m_101/eeg_positions/<net>.csv
+    proj = tmp_path / "proj"
+    m2m = proj / "derivatives" / "SimNIBS" / "sub-101" / "m2m_101"
+    eeg_pos = m2m / "eeg_positions"
+    eeg_pos.mkdir(parents=True, exist_ok=True)
+    (eeg_pos / "EGI_template.csv").write_text("x,y,z,label\n0,0,0,F3\n0,0,0,F4\n0,0,0,P3\n0,0,0,P4\n")
+
+    monkeypatch.setenv("PROJECT_DIR", str(proj))
+    pm = ex.get_path_manager()
+    pm.project_dir = str(proj)
+
+    seen = {"called": False}
+
+    def fake_main():
+        seen["called"] = True
+
+    import importlib
+    ex_main_mod = importlib.import_module("tit.opt.ex.main")
+    monkeypatch.setattr(ex_main_mod, "main", fake_main)
+
+    cli = ex.ExSearchCLI()
+    lf = tmp_path / "101_leadfield_EGI_template.hdf5"
+    lf.write_text("dummy")
+    rc = _run_cli(
+        cli,
+        [
+            "--subject",
+            "101",
+            "--roi-name",
+            "roiA",
+            "--leadfield-hdf",
+            str(lf),
+            "--optimization-mode",
+            "buckets",
+            "--e1-plus",
+            "F3",
+            "--e1-minus",
+            "F4",
+            "--e2-plus",
+            "P3",
+            "--e2-minus",
+            "P4",
+        ],
+    )
+    assert rc == 0
+    assert seen["called"] is True
+
+
+def test_cluster_permutation_direct_delegates(monkeypatch, tmp_path: Path):
+    from tit.cli import cluster_permuatation as cp
+
+    seen = {}
+
+    def fake_run(**kwargs):
+        seen.update(kwargs)
+        return None
+
+    monkeypatch.setattr(cp.permutation_analysis, "run_analysis", lambda *a, **k: fake_run(args=a, kwargs=k))
+
+    csv = tmp_path / "subjects.csv"
+    csv.write_text("subject_id,simulation_name,response\n101,simA,1\n")
+
+    cli = cp.PermutationCLI()
+    rc = _run_cli(cli, ["--csv", str(csv), "--name", "a", "--analysis-type", "group_comparison"])
+    assert rc == 0
+    assert seen["kwargs"]["analysis_name"] == "a"
+
+
+def test_batch_simulate_imports():
+    import tit.cli.advanced.batch_simulate as _  # noqa: F401
+
+
+def test_simulator_direct_delegates_to_run_simulation(monkeypatch, tmp_path: Path):
+    from tit.cli import simulator as sim_cli
+
+    proj = tmp_path / "proj"
+    proj.mkdir(parents=True, exist_ok=True)
+    monkeypatch.setenv("PROJECT_DIR", str(proj))
+
+    # Minimal fake subject structure
+    (proj / "derivatives" / "SimNIBS" / "sub-101" / "m2m_101").mkdir(parents=True, exist_ok=True)
+
+    captured = {}
+
+    def fake_load_montages(*, montage_names, project_dir, eeg_net, include_flex=True):
+        from tit.sim.config import MontageConfig
+
+        captured["load"] = dict(montage_names=montage_names, project_dir=project_dir, eeg_net=eeg_net, include_flex=include_flex)
+        # 2 pairs => TI
+        return [MontageConfig(name="m1", electrode_pairs=[("A", "B"), ("C", "D")], is_xyz=False, eeg_net=eeg_net)]
+
+    def fake_run_simulation(config, montages):
+        captured["config"] = config
+        captured["montages"] = montages
+        return [{"montage_name": "m1", "status": "completed"}]
+
+    monkeypatch.setattr(sim_cli, "get_path_manager", sim_cli.get_path_manager)
+    monkeypatch.setattr(sim_cli, "load_montages", fake_load_montages, raising=False)
+    monkeypatch.setattr(sim_cli, "run_simulation", fake_run_simulation, raising=False)
+
+    # Patch the imports inside execute by patching tit.sim itself
+    import tit.sim as sim_pkg
+
+    monkeypatch.setattr(sim_pkg, "load_montages", fake_load_montages)
+    monkeypatch.setattr(sim_pkg, "run_simulation", fake_run_simulation)
+
+    cli = sim_cli.SimulatorCLI()
+    rc = _run_cli(cli, ["--subject", "101", "--framework", "montage", "--montages", "m1", "--eeg-net", "EGI_template.csv"])
+    assert rc == 0
+    assert captured["config"].subject_id == "101"
+
 
 
 

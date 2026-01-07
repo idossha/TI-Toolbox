@@ -15,6 +15,8 @@ from .paths import (
     get_simulation_dir,
     get_freesurfer_subject_dir,
     get_freesurfer_mri_dir,
+    get_ti_toolbox_logs_dir,
+    get_analysis_output_dir,
     list_subjects,
     list_simulations,
     validate_subject
@@ -43,6 +45,8 @@ __all__ = [
     'get_simulation_dir',
     'get_freesurfer_subject_dir',
     'get_freesurfer_mri_dir',
+    'get_ti_toolbox_logs_dir',
+    'get_analysis_output_dir',
     'list_subjects',
     'list_simulations',
     'validate_subject',

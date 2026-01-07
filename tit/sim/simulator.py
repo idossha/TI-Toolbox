@@ -447,7 +447,7 @@ def run_simulation(
     # Get simulation directory
     pm = get_path_manager()
     simnibs_dir = pm.get_simnibs_dir()
-    simulation_dir = os.path.join(simnibs_dir, f"sub-{config.subject_id}", "Simulations")
+    simulation_dir = pm.get_subject_simulations_dir(config.subject_id) or os.path.join(simnibs_dir, f"sub-{config.subject_id}", "Simulations")
     
     # Check if parallel execution is enabled and we have multiple montages
     use_parallel = (
@@ -640,7 +640,8 @@ def _run_single_montage(
     Returns:
         Dictionary with simulation result
     """
-    montage_dir = os.path.join(simulation_dir, montage.name)
+    pm = get_path_manager()
+    montage_dir = pm.get_simulation_dir(config.subject_id, montage.name) or os.path.join(simulation_dir, montage.name)
 
     # Step 1: Create complete directory structure
     logger.info(f"Creating directory structure for {montage.name}")

@@ -28,12 +28,27 @@ def _script_path(name: str) -> Path:
 
 
 def _ensure_subject_dirs(project_dir: Path, subject_id: str) -> None:
-    bids_subject = f"sub-{subject_id}"
-    (project_dir / "sourcedata" / bids_subject / "T1w" / "dicom").mkdir(parents=True, exist_ok=True)
-    (project_dir / "sourcedata" / bids_subject / "T2w" / "dicom").mkdir(parents=True, exist_ok=True)
-    (project_dir / bids_subject / "anat").mkdir(parents=True, exist_ok=True)
-    (project_dir / "derivatives" / "freesurfer" / bids_subject).mkdir(parents=True, exist_ok=True)
-    (project_dir / "derivatives" / "SimNIBS" / bids_subject).mkdir(parents=True, exist_ok=True)
+    # Centralize directory conventions in PathManager.
+    pm = get_path_manager()
+    pm.project_dir = str(project_dir)
+
+    for modality in ("T1w", "T2w"):
+        d = pm.get_sourcedata_dicom_dir(subject_id, modality)
+        if d:
+            Path(d).mkdir(parents=True, exist_ok=True)
+
+    d = pm.get_bids_anat_dir(subject_id)
+    if d:
+        Path(d).mkdir(parents=True, exist_ok=True)
+
+    d = pm.get_freesurfer_subject_dir(subject_id)
+    if d:
+        Path(d).mkdir(parents=True, exist_ok=True)
+
+    # Ensure SimNIBS subject dir exists
+    simnibs_dir = pm.get_simnibs_dir()
+    if simnibs_dir:
+        Path(simnibs_dir, f"sub-{subject_id}").mkdir(parents=True, exist_ok=True)
 
 
 def _run_structural(

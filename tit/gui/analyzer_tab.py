@@ -33,11 +33,12 @@ class AnalysisThread(QtCore.QThread):
     # Signal to emit output text with message type
     output_signal = QtCore.pyqtSignal(str, str)
     
-    def __init__(self, cmd, env=None):
+    def __init__(self, cmd, env=None, cwd=None):
         """Initialize the thread with the command to run and environment variables."""
         super(AnalysisThread, self).__init__()
         self.cmd = cmd
         self.env = env or os.environ.copy()
+        self.cwd = cwd
         self.process = None
         self.terminated = False # Flag to indicate if termination was requested
         
@@ -61,6 +62,7 @@ class AnalysisThread(QtCore.QThread):
                 universal_newlines=True,
                 bufsize=1,
                 env=self.env,
+                cwd=self.cwd,
                 preexec_fn=None if os.name == 'nt' else os.setsid,
                 creationflags=subprocess.CREATE_NEW_PROCESS_GROUP if os.name == 'nt' else 0
             )
@@ -662,6 +664,8 @@ class AnalyzerTab(QtWidgets.QWidget):
         type_layout.addStretch()  # Keep stretch to push radio buttons to left
         analysis_params_layout.addLayout(type_layout)
 
+        # (Removed) Analysis mode selection row (surface vs volumetric). Analyzer is surface-only.
+
         # Region, Atlas, and Spherical parameters - organized into multiple rows
         # Row 1: Region input, All checkbox, and List Regions button
         region_row = QtWidgets.QHBoxLayout()
@@ -805,6 +809,8 @@ class AnalyzerTab(QtWidgets.QWidget):
         # Connect signals to update cortical button text based on space
         self.space_mesh.toggled.connect(self.update_cortical_button_text)
         self.space_voxel.toggled.connect(self.update_cortical_button_text)
+
+        # (Removed) Analysis mode defaults (surface vs volumetric). Analyzer is surface-only.
 
         # Connect coordinate space radio buttons
         self.coord_space_subject.toggled.connect(self._update_coordinate_space_labels)
@@ -1156,6 +1162,8 @@ class AnalyzerTab(QtWidgets.QWidget):
         else:
             self.type_cortical.setText("Cortical")
 
+    # (Removed) update_analysis_mode_defaults (surface vs volumetric). Analyzer is surface-only.
+
     def update_group_atlas_options(self):
         if not self.is_group_mode: return
         selected_subjects = self.get_selected_subjects()
@@ -1446,6 +1454,12 @@ class AnalyzerTab(QtWidgets.QWidget):
             project_dir_name = os.environ.get('PROJECT_DIR_NAME', 'BIDS_new')
             env['PROJECT_DIR'] = f"/mnt/{project_dir_name}"
             env['SUBJECT_ID'] = subject_id # Passed to script via env
+
+            # Ensure the analyzer runs against the repo sources even when launched from the GUI.
+            # When executing `-m tit...`, Python needs the repo root on sys.path.
+            gui_app_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # .../tit
+            repo_root = os.path.dirname(gui_app_root)  # .../ (ti-toolbox)
+            env['PYTHONPATH'] = repo_root + os.pathsep + env.get('PYTHONPATH', '')
             
             # Mark thread start as early as possible to avoid race double-starts
             self._thread_started = True
@@ -1468,7 +1482,7 @@ class AnalyzerTab(QtWidgets.QWidget):
                 self.update_output(f"Montage: {simulation_name}")
                 self.update_output(f"Command: {' '.join(cmd)}")
             
-            self.optimization_process = AnalysisThread(cmd, env)
+            self.optimization_process = AnalysisThread(cmd, env, cwd=repo_root)
             self.optimization_process.output_signal.connect(self.update_output, QtCore.Qt.QueuedConnection)
             self.optimization_process.finished.connect(
                 lambda sid=subject_id, sim_name=simulation_name: self.analysis_finished(subject_id=sid, simulation_name=sim_name, success=True),
@@ -1493,6 +1507,11 @@ class AnalyzerTab(QtWidgets.QWidget):
             env = os.environ.copy()
             project_dir_name = os.environ.get('PROJECT_DIR_NAME', 'BIDS_new')
             env['PROJECT_DIR'] = f"/mnt/{project_dir_name}"
+
+            # Ensure group analyzer also runs against repo sources.
+            gui_app_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # .../tit
+            repo_root = os.path.dirname(gui_app_root)  # .../ (ti-toolbox)
+            env['PYTHONPATH'] = repo_root + os.pathsep + env.get('PYTHONPATH', '')
             
             # Clear summary printed set at start of new analysis to ensure summary output shows
             if hasattr(self, '_summary_printed'):
@@ -1528,7 +1547,7 @@ class AnalyzerTab(QtWidgets.QWidget):
                 self.update_output(f"Command: {' '.join(cmd)}")
             
             # Create and start thread
-            self.optimization_process = AnalysisThread(cmd, env)
+            self.optimization_process = AnalysisThread(cmd, env, cwd=repo_root)
             self.optimization_process.output_signal.connect(self.update_output, QtCore.Qt.QueuedConnection)
             self.optimization_process.finished.connect(
                 lambda: self.analysis_finished(success=True),
@@ -1543,12 +1562,8 @@ class AnalyzerTab(QtWidgets.QWidget):
     def build_group_analyzer_command(self):
         """Build command to run group_analyzer.py with all selected subjects."""
         try:
-            # Locate group_analyzer.py script
-            app_root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-            group_analyzer_script_path = os.path.join(app_root_dir, 'analyzer', 'group_analyzer.py')
-            if not os.path.exists(group_analyzer_script_path):
-                self.update_output(f"Error: group_analyzer.py not found at {group_analyzer_script_path}")
-                return None
+            # Prefer module execution so imports resolve to the repo sources (not an older installed package).
+            cmd = ['simnibs_python', '-m', 'tit.analyzer.group_analyzer']
 
             # Build base command with temporary output directory (group_analyzer.py will create the actual organized directories)
             project_dir = self.pm.project_dir
@@ -1557,10 +1572,11 @@ class AnalyzerTab(QtWidgets.QWidget):
                 return None
             temp_output_dir = self.pm.get_simnibs_dir()
             
-            cmd = ['simnibs_python', group_analyzer_script_path,
-                   '--space', 'mesh' if self.space_mesh.isChecked() else 'voxel',
-                   '--analysis_type', 'spherical' if self.type_spherical.isChecked() else 'cortical',
-                   '--output_dir', temp_output_dir]
+            cmd.extend([
+                '--space', 'mesh' if self.space_mesh.isChecked() else 'voxel',
+                '--analysis_type', 'spherical' if self.type_spherical.isChecked() else 'cortical',
+                '--output_dir', temp_output_dir
+            ])
 
             # Field name is now hardcoded to TI_max in the main analyzer
 
@@ -2337,9 +2353,8 @@ class AnalyzerTab(QtWidgets.QWidget):
         if not subject_id or not simulation_name:
             return
 
-        # Look specifically in Analyses/Mesh/ for mesh analysis folders
-        sim_dir = self.pm.get_simulation_dir(subject_id, simulation_name)
-        mesh_dir = os.path.join(sim_dir, "Analyses", "Mesh") if sim_dir else None
+        # Look specifically in Analyses/Mesh/ for mesh analysis folders (centralized via PathManager)
+        mesh_dir = self.pm.get_analysis_space_dir(subject_id, simulation_name, "mesh")
 
         if not mesh_dir or not os.path.exists(mesh_dir):
             return
@@ -2377,8 +2392,8 @@ class AnalyzerTab(QtWidgets.QWidget):
             return
 
         # Find the analysis directory in Analyses/Mesh/ and look for .msh files
-        sim_dir = self.pm.get_simulation_dir(subject_id, simulation_name)
-        analysis_dir = os.path.join(sim_dir, "Analyses", "Mesh", analysis_name) if sim_dir else None
+        mesh_dir = self.pm.get_analysis_space_dir(subject_id, simulation_name, "mesh")
+        analysis_dir = os.path.join(mesh_dir, analysis_name) if mesh_dir else None
 
         if not analysis_dir or not os.path.exists(analysis_dir):
             QtWidgets.QMessageBox.critical(self, "Error", f"Analysis directory not found: {analysis_dir}")
@@ -2417,32 +2432,27 @@ class AnalyzerTab(QtWidgets.QWidget):
                 self.update_output("Error: Could not determine project directory")
                 return None
             
-            target_info = ""
+            # Centralize analysis folder naming in PathManager so GUI/CLI match.
             if self.type_spherical.isChecked():
-                coords = [c.text().strip() or "0" for c in [self.coord_x, self.coord_y, self.coord_z]]
-                radius_val = self.radius_input.text().strip() or "5"
-                coord_space_suffix = "_MNI" if self.coord_space_mni.isChecked() else "_subject"
-                formatted_coords = [f"{float(c):.2f}" for c in coords]
-                target_info = f"sphere_x{formatted_coords[0]}_y{formatted_coords[1]}_z{formatted_coords[2]}_r{radius_val}{coord_space_suffix}"
-            else: # Cortical
-                atlas_name_cleaned = "unknown_atlas"
+                coords = [float(self.coord_x.text().strip() or "0"), float(self.coord_y.text().strip() or "0"), float(self.coord_z.text().strip() or "0")]
+                radius_val = float(self.radius_input.text().strip() or "5")
+                coord_space = 'MNI' if self.coord_space_mni.isChecked() else 'subject'
+                target_info = self.pm.spherical_analysis_name(coords[0], coords[1], coords[2], radius_val, coord_space)
+            else:  # Cortical
                 if self.space_mesh.isChecked():
-                    atlas_name_cleaned = self.atlas_name_combo.currentText().replace("+", "_").replace(".", "_")
-                else: # Voxel
-                    atlas_config_for_subj = {'name': self.atlas_combo.currentText(), 'path': self.atlas_combo.currentData()}
-                    
-                    if atlas_config_for_subj.get('name'):
-                        atlas_name_cleaned = atlas_config_for_subj['name'].split('+')[0].replace('.mgz','').replace('.nii.gz','').replace('.nii','')
-                    else:
-                        return None
-
-                if self.whole_head_check.isChecked():
-                    target_info = f"whole_head_{atlas_name_cleaned}"
+                    atlas_name = self.atlas_name_combo.currentText()
+                    atlas_path = None
                 else:
-                    region_val = self.region_input.text().strip()
-                    if not region_val:
+                    atlas_name = self.atlas_combo.currentText()
+                    atlas_path = self.atlas_combo.currentData()
+                    if not atlas_name and not atlas_path:
                         return None
-                    target_info = f"region_{region_val}_{atlas_name_cleaned}"
+                target_info = self.pm.cortical_analysis_name(
+                    whole_head=self.whole_head_check.isChecked(),
+                    region=self.region_input.text().strip() if not self.whole_head_check.isChecked() else None,
+                    atlas_name=atlas_name,
+                    atlas_path=atlas_path,
+                )
             
             # Field name is now hardcoded to TI_max
 
@@ -2455,48 +2465,54 @@ class AnalyzerTab(QtWidgets.QWidget):
             if not sim_dir:
                 self.update_output(f"Error: Could not find simulation directory for {subject_id}, {simulation_name}")
                 return None
-            output_dir = os.path.join(sim_dir, 'Analyses', analysis_space_folder, target_info)
+            # Centralize output dir structure in PathManager.
+            output_dir = self.pm.get_analysis_output_dir(
+                subject_id=subject_id,
+                simulation_name=simulation_name,
+                space='mesh' if self.space_mesh.isChecked() else 'voxel',
+                analysis_type='spherical' if self.type_spherical.isChecked() else 'cortical',
+                coordinates=[float(self.coord_x.text().strip() or "0"), float(self.coord_y.text().strip() or "0"), float(self.coord_z.text().strip() or "0")] if self.type_spherical.isChecked() else None,
+                radius=float(self.radius_input.text().strip() or "5") if self.type_spherical.isChecked() else None,
+                coordinate_space='MNI' if self.coord_space_mni.isChecked() else 'subject',
+                whole_head=self.whole_head_check.isChecked(),
+                region=self.region_input.text().strip() if (not self.type_spherical.isChecked() and not self.whole_head_check.isChecked()) else None,
+                atlas_name=self.atlas_name_combo.currentText() if (not self.type_spherical.isChecked() and self.space_mesh.isChecked()) else self.atlas_combo.currentText(),
+                atlas_path=self.atlas_combo.currentData() if (not self.type_spherical.isChecked() and not self.space_mesh.isChecked()) else None,
+            )
+
+            if not output_dir:
+                return None
 
             if os.path.exists(output_dir) and not confirm_overwrite(self, output_dir, "analysis output directory"):
                 return None
             os.makedirs(output_dir, exist_ok=True)
 
-            app_root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-            main_analyzer_script_path = os.path.join(app_root_dir, 'analyzer', 'main_analyzer.py')
-            if not os.path.exists(main_analyzer_script_path):
-                return None
+            # Prefer module execution so imports resolve to the repo sources (not an older installed package).
+            # This keeps GUI and CLI behavior identical.
+            cmd = ['simnibs_python', '-m', 'tit.analyzer.main_analyzer']
 
             m2m_path = self.pm.get_m2m_dir(subject_id)
             if not m2m_path or not os.path.isdir(m2m_path):
                 self.update_output(f"Error: m2m_{subject_id} folder not found at {m2m_path}. Please create the m2m folder first using the Pre-process tab.", 'error')
                 return None
 
-            cmd = [ 'simnibs_python', main_analyzer_script_path,
-                    '--m2m_subject_path', m2m_path,
+            cmd.extend(['--m2m_subject_path', m2m_path,
                     '--space', 'mesh' if self.space_mesh.isChecked() else 'voxel',
                     '--analysis_type', 'spherical' if self.type_spherical.isChecked() else 'cortical',
-                    '--output_dir', output_dir ]
+                    '--output_dir', output_dir])
                     
             # Add field path or montage name based on analysis space
             if self.space_mesh.isChecked():
                 cmd.extend(['--montage_name', simulation_name])
             else:
-                # For voxel analysis, automatically construct field path
-                base_sim_dir = get_simulation_dir(subject_id, simulation_name)
-                nifti_dir = os.path.join(base_sim_dir, 'mTI', 'niftis') if os.path.exists(os.path.join(base_sim_dir, 'mTI', 'niftis')) else os.path.join(base_sim_dir, 'TI', 'niftis')
-                # Prefer grey matter files
-                grey_files = [f for f in os.listdir(nifti_dir) if f.startswith('grey_') and not f.endswith('_MNI.nii.gz')] if os.path.exists(nifti_dir) else []
-                if grey_files:
-                    voxel_field_path = os.path.join(nifti_dir, grey_files[0])
-                else:
-                    # Fallback to any NIfTI file
-                    nii_files = [f for f in os.listdir(nifti_dir) if f.endswith('.nii') or f.endswith('.nii.gz')] if os.path.exists(nifti_dir) else []
-                    voxel_field_path = os.path.join(nifti_dir, nii_files[0]) if nii_files else None
-
-                if not voxel_field_path or not os.path.exists(voxel_field_path):
-                    self.update_output(f"Error: Field file not found for subject {subject_id} (expected in {nifti_dir})")
+                # For voxel analysis, automatically select field path using backend logic
+                from tit.analyzer.field_selector import select_field_file
+                try:
+                    voxel_field_path, _ = select_field_file(m2m_path, simulation_name, 'voxel')
+                    cmd.extend(['--field_path', voxel_field_path])
+                except FileNotFoundError as e:
+                    self.update_output(f"Error: {e}")
                     return None
-                cmd.extend(['--field_path', voxel_field_path])
 
             if self.type_spherical.isChecked():
                 coords_str = [self.coord_x.text().strip() or "0", self.coord_y.text().strip() or "0", self.coord_z.text().strip() or "0"]
