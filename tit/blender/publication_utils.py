@@ -2,6 +2,14 @@
 """
 TI-Toolbox Publication Visual Utilities
 
+⚠️ DEPRECATED: This module is obsolete and no longer used.
+⚠️ All functionality has been moved to tit.blender.montage_publication.py
+
+This file is kept for reference only. It contains the original implementation
+that was used to develop the current centralized montage publication system.
+
+Use tit.blender.montage_publication.build_montage_publication_blend() instead.
+
 Backend utilities for creating publication-ready 3D visualizations.
 Provides functionality to export and compose scalp, electrodes, GM, and ROI
 into Blender scenes with proper transparency and electrode highlighting.

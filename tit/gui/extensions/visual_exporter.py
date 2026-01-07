@@ -12,6 +12,7 @@ import subprocess
 import tempfile
 import glob
 import io
+import logging
 from pathlib import Path
 from datetime import datetime
 from contextlib import redirect_stdout, redirect_stderr
@@ -28,6 +29,10 @@ from tit.gui.components.action_buttons import RunStopButtons
 from tit.logger import get_logger
 from tit.tools.extract_labels import extract_labels_from_nifti
 from tit.tools.nifti_to_mesh import nifti_to_mesh
+
+# Repo/package path helper used to invoke bundled CLI/blender scripts in subprocesses.
+# `.../tit/gui/extensions/visual_exporter.py` -> parents[2] == `.../tit`
+ti_toolbox_path = Path(__file__).resolve().parents[2]
 
 
 class Mode:
@@ -52,9 +57,13 @@ class WorkerThread(QtCore.QThread):
         try:
             for cmd, cwd in self.commands:
                 self.output_signal.emit(f"\n$ {' '.join(cmd)}")
+                # Force unbuffered Python output so GUI receives logs immediately.
+                env = os.environ.copy()
+                env.setdefault("PYTHONUNBUFFERED", "1")
                 self._process = subprocess.Popen(
                     cmd,
                     cwd=cwd or None,
+                    env=env,
                     stdout=subprocess.PIPE,
                     stderr=subprocess.STDOUT,
                     text=True,
@@ -131,6 +140,13 @@ class VisualExporterWidget(QtWidgets.QWidget):
         config_layout.addWidget(QtWidgets.QLabel("Simulation:"), row, 2)
         self.simulation_combo = QtWidgets.QComboBox()
         config_layout.addWidget(self.simulation_combo, row, 3)
+
+        # Refresh button
+        self.refresh_btn = QtWidgets.QPushButton("Refresh")
+        self.refresh_btn.setToolTip("Refresh subjects, simulations, and regions lists")
+        self.refresh_btn.clicked.connect(self._refresh_all)
+        self.refresh_btn.setMaximumWidth(80)
+        config_layout.addWidget(self.refresh_btn, row, 4)
         row += 1
 
         # Mesh selection is automatic via PathManager (no manual controls)
@@ -415,6 +431,13 @@ class VisualExporterWidget(QtWidgets.QWidget):
         config.addWidget(self.electrode_height_spin, r, 3)
         r += 1
 
+        # Export GLB checkbox
+        self.export_glb_checkbox = QtWidgets.QCheckBox("Export GLB file for web viewing")
+        self.export_glb_checkbox.setChecked(False)
+        self.export_glb_checkbox.setToolTip("Export a GLB (glTF binary) file that can be viewed in web browsers")
+        config.addWidget(self.export_glb_checkbox, r, 0, 1, 4)
+        r += 1
+
         # Info label
         info_label = QtWidgets.QLabel(
             "This mode creates a publication-ready Blender scene (.blend) with:\n"
@@ -495,6 +518,71 @@ class VisualExporterWidget(QtWidgets.QWidget):
             self._update_output(f"Loaded {len(self.subjects_list)} subjects", 'info')
         except Exception as e:
             self._update_output(f"Error loading subjects: {str(e)}", 'error')
+
+    def _refresh_all(self):
+        """Refresh all dynamic content (subjects, simulations, regions)"""
+        if not self.pm:
+            self._update_output("Warning: Path manager not available", 'warning')
+            return
+
+        try:
+            # Store current selections
+            current_subject = self.subject_combo.currentText()
+            current_simulation = self.simulation_combo.currentText()
+
+            # Reload subjects and simulations
+            self._update_output("Refreshing data...", 'info')
+            self.subjects_list = []
+            self.simulations_dict = {}
+
+            self.subjects_list = self.pm.list_subjects()
+            for subject_id in self.subjects_list:
+                sim_dir = self.pm.path_optional("simnibs_subject", subject_id=subject_id)
+                if sim_dir:
+                    s = self.pm.list_simulations(subject_id)
+                    self.simulations_dict[subject_id] = s
+
+            # Update subject combo
+            self.subject_combo.blockSignals(True)  # Prevent triggering changed signal
+            self.subject_combo.clear()
+            self.subject_combo.addItems(self.subjects_list)
+
+            # Restore previous subject selection if still exists
+            if current_subject and current_subject in self.subjects_list:
+                self.subject_combo.setCurrentText(current_subject)
+            elif self.subjects_list:
+                self.subject_combo.setCurrentIndex(0)
+                current_subject = self.subjects_list[0]
+
+            self.subject_combo.blockSignals(False)
+
+            # Update simulation combo
+            if current_subject:
+                self.simulation_combo.clear()
+                sims = self.simulations_dict.get(current_subject, [])
+                self.simulation_combo.addItems(sims)
+
+                # Restore previous simulation selection if still exists
+                if current_simulation and current_simulation in sims:
+                    self.simulation_combo.setCurrentText(current_simulation)
+                elif sims:
+                    self.simulation_combo.setCurrentIndex(0)
+
+            # Refresh regions list for STL mode
+            self._refresh_regions()
+
+            # Update sub-cortical NIfTI path
+            if current_subject and hasattr(self, 'subcort_nifti_edit'):
+                m2m_dir = self.pm.path_optional("m2m", subject_id=current_subject)
+                if m2m_dir and os.path.isdir(m2m_dir):
+                    default_path = str(Path(m2m_dir) / "segmentation" / "labeling.nii.gz")
+                    self.subcort_nifti_edit.setText(default_path)
+                    self.subcort_nifti_edit.setPlaceholderText(default_path)
+
+            self._update_output(f"Refreshed: {len(self.subjects_list)} subjects loaded", 'success')
+
+        except Exception as e:
+            self._update_output(f"Error refreshing data: {str(e)}", 'error')
 
     def _on_subject_changed(self, subject_id):
         self.simulation_combo.clear()
@@ -823,10 +911,17 @@ class VisualExporterWidget(QtWidgets.QWidget):
         subject_id = self.subject_combo.currentText().strip()
         simulation_name = self.simulation_combo.currentText().strip()
 
-        # Simulation is only required for STL and vectors modes
-        if self.rb_electrodes.isChecked() or self.rb_subcortical.isChecked():
+        # Input validation:
+        # - Sub-cortical export: subject only
+        # - Montage visualizer: subject + simulation (needs config.json under the simulation)
+        # - STL / vectors: subject + simulation
+        if self.rb_subcortical.isChecked():
             if not subject_id:
                 QtWidgets.QMessageBox.warning(self, "Missing Input", "Please select subject.")
+                return
+        elif self.rb_electrodes.isChecked():
+            if not subject_id or not simulation_name:
+                QtWidgets.QMessageBox.warning(self, "Missing Input", "Please select subject and simulation.")
                 return
         else:
             if not subject_id or not simulation_name:
@@ -864,20 +959,28 @@ class VisualExporterWidget(QtWidgets.QWidget):
         else:
             log_file = os.path.join(log_dir, f"visual_exporter_{simulation_name}_{timestamp}.log")
 
-        # Create logger that only writes to file (no console output)
+        # Create logger with file handler and GUI console callback handler
+        from tit.logger import CallbackHandler
+
+        # Create base logger with file output only
         self.logger = get_logger("visual_exporter", log_file=log_file, overwrite=True, console=False)
 
-        # Show log file location in GUI
-        self._update_output(f"Log file: {log_file}", 'info')
+        # Add GUI console callback handler for real-time output in GUI
+        gui_handler = CallbackHandler(self._update_output)
+        gui_handler.setLevel(logging.INFO)  # Show INFO and above in GUI console
+        # Use simple format for GUI (no timestamp/level prefix - that's added by console widget)
+        gui_handler.setFormatter(logging.Formatter('%(message)s'))
+        self.logger.addHandler(gui_handler)
 
-        self.logger.info(f"=== 3D Visual Exporter - {EXTENSION_NAME} ===")
-        self.logger.info(f"Timestamp: {timestamp}")
-        self.logger.info(f"Subject: {subject_id}")
-        if simulation_name:
-            self.logger.info(f"Simulation: {simulation_name}")
-        self.logger.info(f"Output directory: {out_base}")
-        self.logger.info(f"Log file: {log_file}")
-        self.logger.info("")
+        # Ensure file handler captures everything (DEBUG level)
+        self.logger.setLevel(logging.DEBUG)
+
+        # Log header (in file only, not in GUI console)
+        # Use debug level so it doesn't appear in GUI console
+        self.logger.debug(f"=== 3D Visual Exporter - {EXTENSION_NAME} ===")
+        self.logger.debug(f"Timestamp: {timestamp}")
+        self.logger.debug(f"Log file: {log_file}")
+        self.logger.debug("")
 
         try:
             commands = []
@@ -1020,79 +1123,36 @@ class VisualExporterWidget(QtWidgets.QWidget):
                 commands.append((cmd, None))
 
             elif self.rb_electrodes.isChecked():
-                # Montage Visualizer mode - runs synchronously (not via worker thread)
+                # Montage Visualizer mode:
+                # Run the same CLI entrypoint in a subprocess so the GUI never blocks,
+                # and stream output exactly like the other tabs.
                 self.logger.info("=== Montage Visualizer Mode ===")
 
-                # Get configuration from UI
                 montage_only = self.montage_only_checkbox.isChecked()
                 electrode_diameter_mm = self.electrode_diameter_spin.value()
                 electrode_height_mm = self.electrode_height_spin.value()
+                export_glb = self.export_glb_checkbox.isChecked()
 
-                self.logger.info(f"Subject: {subject_id}")
-                self.logger.info(f"Simulation: {simulation_name}")
-                self.logger.info(f"Show full net: {not montage_only}")
-                self.logger.info(f"Electrode diameter: {electrode_diameter_mm} mm")
-                self.logger.info(f"Electrode height: {electrode_height_mm} mm")
+                cmd = [
+                    "simnibs_python",
+                    str(ti_toolbox_path / "cli" / "vis_blender.py"),
+                    "--sub",
+                    subject_id,
+                    "--sim",
+                    simulation_name,
+                    "--electrode-diameter-mm",
+                    str(electrode_diameter_mm),
+                    "--electrode-height-mm",
+                    str(electrode_height_mm),
+                ]
+                if montage_only:
+                    cmd.append("--montage-only")
+                if export_glb:
+                    cmd.append("--export-glb")
 
-                # Create montage publication blend
-                self.logger.info("Creating montage publication blend...")
-                self._update_output("Creating montage publication blend...", 'info')
-
-                # Suppress stdout/stderr during Blender operations
-                import sys
-                import io
-                from contextlib import redirect_stdout, redirect_stderr
-
-                # Capture stdout and stderr
-                stdout_capture = io.StringIO()
-                stderr_capture = io.StringIO()
-
-                try:
-                    with redirect_stdout(stdout_capture), redirect_stderr(stderr_capture):
-                        # Lazy import - will fail if bpy not available
-                        from tit.blender.montage_publication import build_montage_publication_blend
-
-                        result = build_montage_publication_blend(
-                            subject_id=subject_id,
-                            simulation_name=simulation_name,
-                            output_dir=None,  # Always use default
-                            show_full_net=(not montage_only),
-                            electrode_diameter_mm=electrode_diameter_mm,
-                            electrode_height_mm=electrode_height_mm,
-                        )
-                finally:
-                    # Log any captured output to the file logger (not console)
-                    stdout_content = stdout_capture.getvalue()
-                    stderr_content = stderr_capture.getvalue()
-                    if stdout_content.strip():
-                        self.logger.debug(f"Montage publication stdout: {stdout_content}")
-                    if stderr_content.strip():
-                        self.logger.debug(f"Montage publication stderr: {stderr_content}")
-
-                # Log results
-                self.logger.info("")
-                self.logger.info("Output files:")
-                self.logger.info(f"  Scalp STL: {result.scalp_stl}")
-                self.logger.info(f"  GM STL: {result.gm_stl}")
-                self.logger.info(f"  Electrodes blend: {result.electrodes_blend}")
-                self.logger.info(f"  Final blend: {result.final_blend}")
-
-                # Update console
-                self._update_output("\nOutput files:", 'info')
-                self._update_output(f"  Scalp STL: {result.scalp_stl}", 'info')
-                self._update_output(f"  GM STL: {result.gm_stl}", 'info')
-                self._update_output(f"  Electrodes blend: {result.electrodes_blend}", 'info')
-                self._update_output(f"  Final blend: {result.final_blend}", 'info')
-
-                # Montage mode completes immediately (no worker thread needed)
-                self.logger.info("")
-                self.logger.info("========================================")
-                self.logger.info("EXPORT COMPLETE")
-                self.logger.info("========================================")
-                self._update_output("\n========================================", 'success')
-                self._update_output("EXPORT COMPLETE", 'success')
-                self._update_output("========================================", 'success')
-                return  # Exit early for montage mode
+                self.logger.info("Starting montage visualizer subprocess...")
+                self.logger.debug("Command: %s", " ".join(cmd))
+                commands.append((cmd, None))
 
             elif self.rb_subcortical.isChecked():
                 # Sub-cortical mesh export mode - runs synchronously using Python functions
@@ -1229,8 +1289,9 @@ class VisualExporterWidget(QtWidgets.QWidget):
                 self.logger.warning("No commands to execute")
                 self._update_output("No export operations selected", 'warning')
         except Exception as e:
-            self._update_output(str(e), 'error')
-            QtWidgets.QMessageBox.critical(self, "Run Error", str(e))
+            # Error already logged by the specific mode handler
+            # Just show error dialog
+            QtWidgets.QMessageBox.critical(self, "Export Error", f"{str(e)}\n\nSee log file for details.")
 
     def _start_worker(self, commands):
         if hasattr(self, 'console_widget') and self.console_widget:
