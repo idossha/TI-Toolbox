@@ -101,7 +101,7 @@ class TestRunMontageVisualization:
         result = run_montage_visualization(
             montage_name="test_montage",
             simulation_mode=SimulationMode.TI,
-            eeg_net="EGI_template.csv",
+            eeg_net="GSN-HydroCel-185",
             output_dir="/test/output",
             project_dir="/test/project",
             logger=mock_logger
@@ -121,7 +121,7 @@ class TestRunMontageVisualization:
         result = run_montage_visualization(
             montage_name="test_montage",
             simulation_mode=SimulationMode.MTI,
-            eeg_net="EGI_template.csv",
+            eeg_net="GSN-HydroCel-185",
             output_dir="/test/output",
             project_dir="/test/project",
             logger=mock_logger,
@@ -138,7 +138,7 @@ class TestRunMontageVisualization:
         result = run_montage_visualization(
             montage_name="test_montage",
             simulation_mode=SimulationMode.TI,
-            eeg_net="EGI_template.csv",
+            eeg_net="GSN-HydroCel-185",
             output_dir="/test/output",
             project_dir="/test/project",
             logger=mock_logger
@@ -414,7 +414,7 @@ class TestRunSingleMontage:
             conductivity_type=ConductivityType.DIR,
             intensities=IntensityConfig(1.0, -1.0, 1.0, -1.0),
             electrode=ElectrodeConfig(),
-            eeg_net="EGI_template.csv"
+            eeg_net="GSN-HydroCel-185"
         )
 
         # 4-pair montage = mTI mode
@@ -457,7 +457,7 @@ class TestRunParallel:
             conductivity_type=ConductivityType.DIR,
             intensities=IntensityConfig(1.0, -1.0, 1.0, -1.0),
             electrode=ElectrodeConfig(),
-            eeg_net="EGI_template.csv",
+            eeg_net="GSN-HydroCel-185",
             parallel=ParallelConfig(enabled=True, max_workers=2)
         )
 
@@ -504,7 +504,7 @@ class TestRunParallel:
             conductivity_type=ConductivityType.DIR,
             intensities=IntensityConfig(1.0, -1.0, 1.0, -1.0),
             electrode=ElectrodeConfig(),
-            eeg_net="EGI_template.csv",
+            eeg_net="GSN-HydroCel-185",
             parallel=ParallelConfig(enabled=True, max_workers=2)
         )
 

@@ -46,7 +46,7 @@ def test_summary_file_writers(tmp_path: Path):
         goal="target",
         postproc="maxTI",
         roi_method="spherical",
-        eeg_net="EGI_template.csv",
+        eeg_net="GSN-HydroCel-185",
         electrode_shape="ellipse",
         dimensions="8,8",
         thickness=4.0,

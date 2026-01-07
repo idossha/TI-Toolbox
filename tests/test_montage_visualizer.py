@@ -46,7 +46,7 @@ class TestResourcePathManager(unittest.TestCase):
         with patch.object(ResourcePathManager, '_detect_resources_dir', return_value='/test/path'):
             manager = ResourcePathManager()
 
-            gsn_nets = ["EGI_template.csv", "GSN-HydroCel-185.csv", "GSN-HydroCel-256.csv"]
+            gsn_nets = ["GSN-HydroCel-185", "GSN-HydroCel-185.csv", "GSN-HydroCel-256.csv"]
             for net in gsn_nets:
                 result = manager.get_coordinate_file(net)
                 self.assertEqual(result, "/test/path/GSN-256.csv")
@@ -84,7 +84,7 @@ class TestResourcePathManager(unittest.TestCase):
         with patch.object(ResourcePathManager, '_detect_resources_dir', return_value='/test/path'):
             manager = ResourcePathManager()
 
-            gsn_nets = ["EGI_template.csv", "GSN-HydroCel-185.csv", "GSN-HydroCel-256.csv"]
+            gsn_nets = ["GSN-HydroCel-185", "GSN-HydroCel-185.csv", "GSN-HydroCel-256.csv"]
             for net in gsn_nets:
                 result = manager.get_template_image(net)
                 self.assertEqual(result, "/test/path/GSN-256.png")

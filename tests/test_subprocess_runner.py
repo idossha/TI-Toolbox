@@ -201,7 +201,7 @@ class TestMain:
                     "thickness": 4.0,
                     "sponge_thickness": 2.0
                 },
-                "eeg_net": "EGI_template.csv",
+                "eeg_net": "GSN-HydroCel-185",
                 "parallel": {
                     "enabled": False,
                     "max_workers": 0
@@ -282,7 +282,7 @@ class TestMain:
                     "thickness": 4.0,
                     "sponge_thickness": 2.0
                 },
-                "eeg_net": "EGI_template.csv",
+                "eeg_net": "GSN-HydroCel-185",
                 "parallel": {
                     "enabled": False,
                     "max_workers": 0
@@ -344,7 +344,7 @@ class TestMain:
                     "thickness": 4.0,
                     "sponge_thickness": 2.0
                 },
-                "eeg_net": "EGI_template.csv",
+                "eeg_net": "GSN-HydroCel-185",
                 "parallel": {
                     "enabled": False,
                     "max_workers": 0
@@ -403,7 +403,7 @@ class TestMain:
                     "thickness": 4.0,
                     "sponge_thickness": 2.0
                 },
-                "eeg_net": "EGI_template.csv",
+                "eeg_net": "GSN-HydroCel-185",
                 "parallel": {
                     "enabled": False,
                     "max_workers": 0
@@ -463,7 +463,7 @@ class TestMain:
                     "thickness": 4.0,
                     "sponge_thickness": 2.0
                 },
-                "eeg_net": "EGI_template.csv",
+                "eeg_net": "GSN-HydroCel-185",
                 "parallel": {
                     "enabled": False,
                     "max_workers": 0

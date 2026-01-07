@@ -37,7 +37,7 @@ cat > "$MONTAGE_FILE" << 'EOF'
       },
       "multi_polar_montages": {}
     },
-    "EGI_template.csv": {
+    "GSN-HydroCel-185": {
       "uni_polar_montages": {},
       "multi_polar_montages": {}
     }

@@ -209,7 +209,7 @@ def test_create_leadfield_direct_delegates(monkeypatch, tmp_path: Path):
     pm.project_dir = str(tmp_path)
 
     (tmp_path / "derivatives" / "SimNIBS" / "sub-101" / "m2m_101" / "eeg_positions").mkdir(parents=True, exist_ok=True)
-    cap = tmp_path / "derivatives" / "SimNIBS" / "sub-101" / "m2m_101" / "eeg_positions" / "EGI_template.csv"
+    cap = tmp_path / "derivatives" / "SimNIBS" / "sub-101" / "m2m_101" / "eeg_positions" / "GSN-HydroCel-185"
     cap.write_text("x,y,z,label\n")
 
     called = {}
@@ -229,7 +229,7 @@ def test_create_leadfield_direct_delegates(monkeypatch, tmp_path: Path):
     monkeypatch.setattr(lf, "LeadfieldGenerator", DummyGen)
 
     cli = cl.CreateLeadfieldCLI()
-    rc = _run_cli(cli, ["--sub", "101", "--eeg", "EGI_template.csv"])
+    rc = _run_cli(cli, ["--sub", "101", "--eeg", "GSN-HydroCel-185"])
     assert rc == 0
     assert "m2m_101" in str(called["m2m_dir"])
 
@@ -243,7 +243,7 @@ def test_ex_search_direct_sets_env_and_calls(monkeypatch, tmp_path: Path):
     m2m = proj / "derivatives" / "SimNIBS" / "sub-101" / "m2m_101"
     eeg_pos = m2m / "eeg_positions"
     eeg_pos.mkdir(parents=True, exist_ok=True)
-    (eeg_pos / "EGI_template.csv").write_text("x,y,z,label\n0,0,0,F3\n0,0,0,F4\n0,0,0,P3\n0,0,0,P4\n")
+    (eeg_pos / "GSN-HydroCel-185").write_text("x,y,z,label\n0,0,0,F3\n0,0,0,F4\n0,0,0,P3\n0,0,0,P4\n")
 
     monkeypatch.setenv("PROJECT_DIR", str(proj))
     pm = ex.get_path_manager()
@@ -259,7 +259,7 @@ def test_ex_search_direct_sets_env_and_calls(monkeypatch, tmp_path: Path):
     monkeypatch.setattr(ex_main_mod, "main", fake_main)
 
     cli = ex.ExSearchCLI()
-    lf = tmp_path / "101_leadfield_EGI_template.hdf5"
+    lf = tmp_path / "101_leadfield_GSN-HydroCel-185.hdf5"
     lf.write_text("dummy")
     rc = _run_cli(
         cli,
@@ -343,7 +343,7 @@ def test_simulator_direct_delegates_to_run_simulation(monkeypatch, tmp_path: Pat
     monkeypatch.setattr(sim_pkg, "run_simulation", fake_run_simulation)
 
     cli = sim_cli.SimulatorCLI()
-    rc = _run_cli(cli, ["--sub", "101", "--framework", "montage", "--montages", "m1", "--eeg", "EGI_template.csv"])
+    rc = _run_cli(cli, ["--sub", "101", "--framework", "montage", "--montages", "m1", "--eeg", "GSN-HydroCel-185"])
     assert rc == 0
     assert captured["config"].subject_id == "101"
 
@@ -383,7 +383,7 @@ def test_simulator_direct_comprehensive_argument_coverage(monkeypatch, tmp_path:
         "--sub", "101",
         "--framework", "montage",
         "--montages", "test_montage",
-        "--eeg", "EGI_template.csv",
+        "--eeg", "GSN-HydroCel-185",
         "--mode", "U",
         "--conductivity", "scalar",
         "--intensity", "2.0",
@@ -404,34 +404,34 @@ def test_simulator_direct_comprehensive_argument_coverage(monkeypatch, tmp_path:
 
     # Test 3: Montage shorthand flag
     captured_calls.clear()
-    rc = _run_cli(cli, ["--sub", "101", "--montage", "--montages", "test_montage", "--eeg", "EGI_template.csv"])
+    rc = _run_cli(cli, ["--sub", "101", "--montage", "--montages", "test_montage", "--eeg", "GSN-HydroCel-185"])
     assert rc == 0
 
     # Test 4: M mode (mTI)
     captured_calls.clear()
-    rc = _run_cli(cli, ["--sub", "101", "--framework", "montage", "--montages", "test_montage", "--eeg", "EGI_template.csv", "--mode", "M"])
+    rc = _run_cli(cli, ["--sub", "101", "--framework", "montage", "--montages", "test_montage", "--eeg", "GSN-HydroCel-185", "--mode", "M"])
     assert rc == 0
 
     # Test 5: Multiple montages
     captured_calls.clear()
-    rc = _run_cli(cli, ["--sub", "101", "--montages", "montage1,montage2", "--eeg", "EGI_template.csv"])
+    rc = _run_cli(cli, ["--sub", "101", "--montages", "montage1,montage2", "--eeg", "GSN-HydroCel-185"])
     assert rc == 0
 
     # Test 6: Different conductivity types
     for conductivity in ["scalar", "vn", "dir", "mc"]:
         captured_calls.clear()
-        rc = _run_cli(cli, ["--sub", "101", "--montages", "test_montage", "--eeg", "EGI_template.csv", "--conductivity", conductivity])
+        rc = _run_cli(cli, ["--sub", "101", "--montages", "test_montage", "--eeg", "GSN-HydroCel-185", "--conductivity", conductivity])
         assert rc == 0
 
     # Test 7: Different electrode shapes
     for shape in ["rect", "ellipse"]:
         captured_calls.clear()
-        rc = _run_cli(cli, ["--sub", "101", "--montages", "test_montage", "--eeg", "EGI_template.csv", "--electrode-shape", shape])
+        rc = _run_cli(cli, ["--sub", "101", "--montages", "test_montage", "--eeg", "GSN-HydroCel-185", "--electrode-shape", shape])
         assert rc == 0
 
     # Test 8: mTI intensity format
     captured_calls.clear()
-    rc = _run_cli(cli, ["--sub", "101", "--montages", "test_montage", "--eeg", "EGI_template.csv", "--mode", "M", "--intensity", "1.0,2.0,1.5,2.5"])
+    rc = _run_cli(cli, ["--sub", "101", "--montages", "test_montage", "--eeg", "GSN-HydroCel-185", "--mode", "M", "--intensity", "1.0,2.0,1.5,2.5"])
     assert rc == 0
 
     # Test 9: List commands (should not run simulation)
@@ -443,7 +443,7 @@ def test_simulator_direct_comprehensive_argument_coverage(monkeypatch, tmp_path:
     rc = _run_cli(cli, ["--list-eeg-caps", "--sub", "101"])
     assert rc == 0
 
-    rc = _run_cli(cli, ["--list-montages", "--eeg", "EGI_template.csv"])
+    rc = _run_cli(cli, ["--list-montages", "--eeg", "GSN-HydroCel-185"])
     assert rc == 0
 
 
@@ -721,7 +721,7 @@ def test_create_leadfield_direct_comprehensive_argument_coverage(monkeypatch, tm
     eeg_dir.mkdir(parents=True, exist_ok=True)
 
     # Create fake EEG cap files
-    for cap_name in ["EGI_template.csv", "GSN-HydroCel-185.csv"]:
+    for cap_name in ["GSN-HydroCel-185", "GSN-HydroCel-185.csv"]:
         cap_file = eeg_dir / cap_name
         cap_file.write_text("x,y,z,label\n0,0,0,F3\n0,0,0,F4\n")
 
@@ -743,14 +743,14 @@ def test_create_leadfield_direct_comprehensive_argument_coverage(monkeypatch, tm
 
     # Test 1: Basic usage with default tissues
     captured_calls.clear()
-    rc = _run_cli(cli, ["--sub", "101", "--eeg", "EGI_template.csv"])
+    rc = _run_cli(cli, ["--sub", "101", "--eeg", "GSN-HydroCel-185"])
     assert rc == 0
     assert len(captured_calls) == 1
     assert captured_calls[0][2] == [1, 2]  # Default tissues (index 2: tissues parameter)
 
     # Test 2: Custom tissues
     captured_calls.clear()
-    rc = _run_cli(cli, ["--sub", "101", "--eeg", "EGI_template.csv", "--tissues", "1", "2", "3"])
+    rc = _run_cli(cli, ["--sub", "101", "--eeg", "GSN-HydroCel-185", "--tissues", "1", "2", "3"])
     assert rc == 0
     assert captured_calls[0][2] == [1, 2, 3]
 
@@ -762,7 +762,7 @@ def test_create_leadfield_direct_comprehensive_argument_coverage(monkeypatch, tm
 
     # Test 4: Single tissue
     captured_calls.clear()
-    rc = _run_cli(cli, ["--sub", "101", "--eeg", "EGI_template.csv", "--tissues", "1"])
+    rc = _run_cli(cli, ["--sub", "101", "--eeg", "GSN-HydroCel-185", "--tissues", "1"])
     assert rc == 0
     assert captured_calls[0][2] == [1]
 
@@ -783,9 +783,9 @@ def test_ex_search_direct_comprehensive_argument_coverage(monkeypatch, tmp_path:
     eeg_dir.mkdir(parents=True, exist_ok=True)
 
     # Create fake EEG cap and leadfield
-    eeg_cap = eeg_dir / "EGI_template.csv"
+    eeg_cap = eeg_dir / "GSN-HydroCel-185"
     eeg_cap.write_text("x,y,z,label\n0,0,0,F3\n0,0,0,F4\n0,0,0,P3\n0,0,0,P4\n0,0,0,C3\n0,0,0,C4\n0,0,0,O1\n0,0,0,O2\n")
-    lf_file = lf_dir / "101_leadfield_EGI_template.hdf5"
+    lf_file = lf_dir / "101_leadfield_GSN-HydroCel-185.hdf5"
     lf_file.write_text("fake leadfield")
 
     captured_calls = []
@@ -1186,23 +1186,23 @@ def test_cli_argument_validation_error_handling(monkeypatch, tmp_path: Path):
     monkeypatch.setattr(sim_cli_inst, "execute", mock_execute)
 
     # Invalid thickness type should be caught by argparse
-    rc = _run_cli(sim_cli_inst, ["--sub", "101", "--montages", "test", "--eeg", "EGI_template.csv", "--thickness", "not_a_number"])
+    rc = _run_cli(sim_cli_inst, ["--sub", "101", "--montages", "test", "--eeg", "GSN-HydroCel-185", "--thickness", "not_a_number"])
     assert rc != 0  # Should fail due to invalid float type
 
     # Test 2: Invalid framework choice
-    rc = _run_cli(sim_cli_inst, ["--sub", "101", "--framework", "invalid", "--montages", "test", "--eeg", "EGI_template.csv"])
+    rc = _run_cli(sim_cli_inst, ["--sub", "101", "--framework", "invalid", "--montages", "test", "--eeg", "GSN-HydroCel-185"])
     assert rc != 0  # Should fail due to invalid choice
 
     # Test 3: Invalid conductivity choice
-    rc = _run_cli(sim_cli_inst, ["--sub", "101", "--montages", "test", "--eeg", "EGI_template.csv", "--conductivity", "invalid"])
+    rc = _run_cli(sim_cli_inst, ["--sub", "101", "--montages", "test", "--eeg", "GSN-HydroCel-185", "--conductivity", "invalid"])
     assert rc != 0  # Should fail due to invalid choice
 
     # Test 4: Invalid electrode shape choice
-    rc = _run_cli(sim_cli_inst, ["--sub", "101", "--montages", "test", "--eeg", "EGI_template.csv", "--electrode-shape", "invalid"])
+    rc = _run_cli(sim_cli_inst, ["--sub", "101", "--montages", "test", "--eeg", "GSN-HydroCel-185", "--electrode-shape", "invalid"])
     assert rc != 0  # Should fail due to invalid choice
 
     # Test 5: Invalid mode choice
-    rc = _run_cli(sim_cli_inst, ["--sub", "101", "--montages", "test", "--eeg", "EGI_template.csv", "--mode", "invalid"])
+    rc = _run_cli(sim_cli_inst, ["--sub", "101", "--montages", "test", "--eeg", "GSN-HydroCel-185", "--mode", "invalid"])
     assert rc != 0  # Should fail due to invalid choice
 
 
@@ -1240,7 +1240,7 @@ def test_cli_argument_type_validation(monkeypatch, tmp_path: Path):
     rc = _run_cli(sim_cli_inst, [
         "--sub", "101",
         "--montages", "test_montage",
-        "--eeg", "EGI_template.csv",
+        "--eeg", "GSN-HydroCel-185",
         "--thickness", "not_a_number"
     ])
     assert rc != 0  # Should fail due to invalid thickness type
@@ -1259,7 +1259,7 @@ def test_cli_argument_type_validation(monkeypatch, tmp_path: Path):
     rc = _run_cli(sim_cli_inst, [
         "--sub", "101",
         "--montages", "test_montage",
-        "--eeg", "EGI_template.csv",
+        "--eeg", "GSN-HydroCel-185",
         "--framework", "invalid_framework"
     ])
     assert rc != 0  # Should fail due to invalid framework
@@ -1294,7 +1294,7 @@ def test_cli_list_commands_no_execution(monkeypatch, tmp_path: Path):
 
     # Create minimal subject structure for list commands
     (proj / "derivatives" / "SimNIBS" / "sub-101" / "m2m_101" / "eeg_positions").mkdir(parents=True, exist_ok=True)
-    eeg_cap = proj / "derivatives" / "SimNIBS" / "sub-101" / "m2m_101" / "eeg_positions" / "EGI_template.csv"
+    eeg_cap = proj / "derivatives" / "SimNIBS" / "sub-101" / "m2m_101" / "eeg_positions" / "GSN-HydroCel-185"
     eeg_cap.write_text("x,y,z,label\n0,0,0,F3\n")
 
     # Track what gets called
@@ -1326,7 +1326,7 @@ def test_cli_list_commands_no_execution(monkeypatch, tmp_path: Path):
 
     # Test list-montages
     captured_calls.clear()
-    rc = _run_cli(cli, ["--list-montages", "--eeg", "EGI_template.csv"])
+    rc = _run_cli(cli, ["--list-montages", "--eeg", "GSN-HydroCel-185"])
     assert rc == 0
     assert len(captured_calls) == 1
     assert captured_calls[0][1]["list_montages"] is True

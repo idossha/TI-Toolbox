@@ -45,7 +45,7 @@ def test_simulator_execute_flex_builds_mapped_and_optimized(tmp_path: Path):
     eeg_dir.mkdir(parents=True)
 
     # EEG cap file exists
-    eeg_cap = eeg_dir / "EGI_template.csv"
+    eeg_cap = eeg_dir / "GSN-HydroCel-185"
     eeg_cap.write_text("label,x,y,z\nFp1,0,0,0\nFz,0,0,0\n")
 
     # One flex search folder
@@ -76,7 +76,7 @@ def test_simulator_execute_flex_builds_mapped_and_optimized(tmp_path: Path):
             dict(
                 subject="001",
                 framework="flex",
-                eeg_net="EGI_template.csv",
+                eeg_net="GSN-HydroCel-185",
                 montages="lh_aal_region_goal_post",
                 flex_use_mapped=True,
                 flex_use_optimized=True,

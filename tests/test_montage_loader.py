@@ -45,7 +45,7 @@ class TestLoadMontageFile:
         montage_file = config_dir / "montage_list.json"
         test_montages = {
             "nets": {
-                "EGI_template.csv": {
+                "GSN-HydroCel-185": {
                     "uni_polar_montages": {
                         "montage1": [["E1", "E2"], ["E3", "E4"]]
                     },
@@ -60,7 +60,7 @@ class TestLoadMontageFile:
             json.dump(test_montages, f)
 
         # Test loading
-        result = load_montage_file(str(project_dir), "EGI_template.csv")
+        result = load_montage_file(str(project_dir), "GSN-HydroCel-185")
 
         assert "uni_polar_montages" in result
         assert "multi_polar_montages" in result
@@ -77,7 +77,7 @@ class TestLoadMontageFile:
         assert not montage_file.exists()
 
         # Should create default file
-        result = load_montage_file(str(project_dir), "EGI_template.csv")
+        result = load_montage_file(str(project_dir), "GSN-HydroCel-185")
 
         # Check file was created
         assert montage_file.exists()
@@ -93,7 +93,7 @@ class TestLoadMontageFile:
         montage_file = config_dir / "montage_list.json"
         test_montages = {
             "nets": {
-                "EGI_template.csv": {
+                "GSN-HydroCel-185": {
                     "uni_polar_montages": {}
                 }
             }
@@ -118,7 +118,7 @@ class TestLoadMontageFile:
             f.write("{ invalid json }")
 
         with pytest.raises(json.JSONDecodeError):
-            load_montage_file(str(project_dir), "EGI_template.csv")
+            load_montage_file(str(project_dir), "GSN-HydroCel-185")
 
 
 @pytest.mark.unit
@@ -218,7 +218,7 @@ class TestParseFlexMontage:
             "name": "flex_mapped_1",
             "type": "flex_mapped",
             "pairs": [["E1", "E2"], ["E3", "E4"]],
-            "eeg_net": "EGI_template.csv"
+            "eeg_net": "GSN-HydroCel-185"
         }
 
         result = parse_flex_montage(flex_data)
@@ -226,7 +226,7 @@ class TestParseFlexMontage:
         assert isinstance(result, MontageConfig)
         assert result.name == "flex_mapped_1"
         assert result.is_xyz is False
-        assert result.eeg_net == "EGI_template.csv"
+        assert result.eeg_net == "GSN-HydroCel-185"
         assert len(result.electrode_pairs) == 2
         assert result.electrode_pairs[0] == ("E1", "E2")
 
@@ -296,7 +296,7 @@ class TestLoadMontages:
         montage_file = config_dir / "montage_list.json"
         test_montages = {
             "nets": {
-                "EGI_template.csv": {
+                "GSN-HydroCel-185": {
                     "uni_polar_montages": {
                         "montage1": [["E1", "E2"], ["E3", "E4"]]
                     },
@@ -313,7 +313,7 @@ class TestLoadMontages:
         result = load_montages(
             montage_names=["montage1", "montage2"],
             project_dir=str(project_dir),
-            eeg_net="EGI_template.csv",
+            eeg_net="GSN-HydroCel-185",
             include_flex=False
         )
 
@@ -331,7 +331,7 @@ class TestLoadMontages:
         montage_file = config_dir / "montage_list.json"
         test_montages = {
             "nets": {
-                "EGI_template.csv": {
+                "GSN-HydroCel-185": {
                     "uni_polar_montages": {
                         "montage1": [["E1", "E2"], ["E3", "E4"]]
                     },
@@ -349,7 +349,7 @@ class TestLoadMontages:
             "name": "flex1",
             "type": "flex_mapped",
             "pairs": [["E5", "E6"], ["E7", "E8"]],
-            "eeg_net": "EGI_template.csv"
+            "eeg_net": "GSN-HydroCel-185"
         }]
 
         with open(flex_file, 'w') as f:
@@ -359,7 +359,7 @@ class TestLoadMontages:
             result = load_montages(
                 montage_names=["montage1"],
                 project_dir=str(project_dir),
-                eeg_net="EGI_template.csv",
+                eeg_net="GSN-HydroCel-185",
                 include_flex=True
             )
 
@@ -407,7 +407,7 @@ class TestLoadMontages:
         montage_file = config_dir / "montage_list.json"
         test_montages = {
             "nets": {
-                "EGI_template.csv": {
+                "GSN-HydroCel-185": {
                     "uni_polar_montages": {},
                     "multi_polar_montages": {}
                 }
@@ -431,7 +431,7 @@ class TestLoadMontages:
             result = load_montages(
                 montage_names=[],
                 project_dir=str(project_dir),
-                eeg_net="EGI_template.csv",
+                eeg_net="GSN-HydroCel-185",
                 include_flex=True
             )
 
@@ -451,7 +451,7 @@ class TestLoadMontages:
         montage_file = config_dir / "montage_list.json"
         test_montages = {
             "nets": {
-                "EGI_template.csv": {
+                "GSN-HydroCel-185": {
                     "uni_polar_montages": {},
                     "multi_polar_montages": {}
                 }
@@ -464,7 +464,7 @@ class TestLoadMontages:
         result = load_montages(
             montage_names=[],
             project_dir=str(project_dir),
-            eeg_net="EGI_template.csv",
+            eeg_net="GSN-HydroCel-185",
             include_flex=False
         )
 
@@ -479,7 +479,7 @@ class TestLoadMontages:
         montage_file = config_dir / "montage_list.json"
         test_montages = {
             "nets": {
-                "EGI_template.csv": {
+                "GSN-HydroCel-185": {
                     "uni_polar_montages": {
                         "montage1": [["E1", "E2"], ["E3", "E4"]]
                     },
@@ -496,7 +496,7 @@ class TestLoadMontages:
         result = load_montages(
             montage_names=["montage1"],
             project_dir=str(project_dir),
-            eeg_net="EGI_template.csv",
+            eeg_net="GSN-HydroCel-185",
             include_flex=False
         )
 

@@ -156,12 +156,12 @@ class TestEnvironmentConfiguration:
         """Test handling multiple environment variables"""
         # Set multiple environment variables
         monkeypatch.setenv(const.ENV_PROJECT_DIR_NAME, "test_project")
-        monkeypatch.setenv(const.ENV_SELECTED_EEG_NET, "EGI_template")
+        monkeypatch.setenv(const.ENV_SELECTED_EEG_NET, "GSN-HydroCel-185")
         monkeypatch.setenv(const.ENV_ROI_NAME, "hippocampus")
 
         # All should be accessible
         assert os.environ.get(const.ENV_PROJECT_DIR_NAME) == "test_project"
-        assert os.environ.get(const.ENV_SELECTED_EEG_NET) == "EGI_template"
+        assert os.environ.get(const.ENV_SELECTED_EEG_NET) == "GSN-HydroCel-185"
         assert os.environ.get(const.ENV_ROI_NAME) == "hippocampus"
 
 

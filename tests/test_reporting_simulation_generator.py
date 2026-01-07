@@ -41,7 +41,7 @@ def test_simulation_report_basic_apis_and_generate(tmp_path: Path):
     gen.add_simulation_parameters(
         conductivity_type="scalar",
         simulation_mode="U",
-        eeg_net="EGI_template.csv",
+        eeg_net="GSN-HydroCel-185",
         intensity_ch1=2.0,
         intensity_ch2=2.0,
         quiet_mode=True,

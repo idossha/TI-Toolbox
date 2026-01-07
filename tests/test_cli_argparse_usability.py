@@ -139,7 +139,7 @@ def test_group_analyzer_subjects_accepts_singular_flag(monkeypatch):
 @pytest.mark.unit
 def test_create_leadfield_tissues_space_separated(monkeypatch):
     cli = _CaptureCreateLeadfield()
-    monkeypatch.setattr(sys, "argv", ["create_leadfield", "--sub", "101", "--eeg", "EGI_template.csv", "--tissues", "1", "2"])
+    monkeypatch.setattr(sys, "argv", ["create_leadfield", "--sub", "101", "--eeg", "GSN-HydroCel-185", "--tissues", "1", "2"])
     rc = cli.run_direct()
     assert rc == 0
     assert cli.captured["tissues"] == ["1", "2"]
