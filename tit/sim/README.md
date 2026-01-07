@@ -93,7 +93,7 @@ config = SimulationConfig(
     conductivity_type=ConductivityType.SCALAR,
     intensities=IntensityConfig.from_string("2.0"),
     electrode=ElectrodeConfig(),
-    eeg_net="EGI_template.csv",
+    eeg_net="GSN-HydroCel-185",
     parallel=ParallelConfig(
         enabled=True,     # Enable parallel mode
         max_workers=4     # Use 4 CPU cores (0 = auto-detect)
@@ -137,14 +137,14 @@ config = SimulationConfig(
         dimensions=[8.0, 8.0],
         thickness=4.0
     ),
-    eeg_net="EGI_template.csv"
+    eeg_net="GSN-HydroCel-185"
 )
 
 # Load montages
 montages = load_montages(
     montage_names=["montage1", "montage2"],
     project_dir="/mnt/my_project",
-    eeg_net="EGI_template.csv"
+    eeg_net="GSN-HydroCel-185"
 )
 
 # Run simulations
@@ -162,7 +162,7 @@ simnibs_python simulator.py SUBJECT_ID CONDUCTIVITY PROJECT_DIR SIMULATION_DIR M
 
 ```bash
 simnibs_python simulator.py 001 dir /mnt/project /mnt/project/derivatives/SimNIBS/sub-001/Simulations \
-    TI 2.0 ellipse 8,8 4 EGI_template.csv montage1 montage2
+    TI 2.0 ellipse 8,8 4 GSN-HydroCel-185 montage1 montage2
 ```
 
 ## Configuration
@@ -177,7 +177,7 @@ Main configuration dataclass for simulations.
 - `conductivity_type`: ConductivityType enum (SCALAR, VN, DIR, MC)
 - `intensities`: IntensityConfig object
 - `electrode`: ElectrodeConfig object
-- `eeg_net`: EEG net filename (default: "EGI_template.csv")
+- `eeg_net`: EEG net filename (default: "GSN-HydroCel-185")
 - `map_to_surf`: Map to cortical surface (default: True)
 - `map_to_vol`: Map to volume (default: True)
 - `map_to_mni`: Map to MNI space (default: True)
@@ -269,7 +269,7 @@ Stored in `config/montage_list.json`:
 ```json
 {
   "nets": {
-    "EGI_template.csv": {
+    "GSN-HydroCel-185": {
       "uni_polar_montages": {},
       "multi_polar_montages": {
         "montage1": [["E1", "E2"], ["E3", "E4"]]

@@ -80,8 +80,8 @@ class ResourcePathManager:
         # GSN-HD compatible nets
         gsn_hd_nets = [
             "GSN-HydroCel-185.csv",
-            "GSN-HydroCel-185.csv",
-            "GSN-HydroCel-256.csv"
+            "GSN-HydroCel-256.csv",
+            "GSN-HydroCel-185"  # Legacy alias for GSN-HydroCel-185
         ]
 
         # 10-10 system nets
@@ -113,10 +113,10 @@ class ResourcePathManager:
         """
         gsn_hd_nets = [
             "GSN-HydroCel-185.csv",
-            "GSN-HydroCel-185.csv",
-            "GSN-HydroCel-256.csv"
+            "GSN-HydroCel-256.csv",
+            "GSN-HydroCel-185"  # Legacy alias for GSN-HydroCel-185
         ]
-        
+
         # All nets use the same GSN-256 template image
         return os.path.join(self.resources_dir, "GSN-256.png")
     

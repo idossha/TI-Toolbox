@@ -170,15 +170,17 @@ class TestRunMontageVisualization:
 class TestRunSimulation:
     """Test suite for run_simulation()."""
 
-    def test_sequential_execution(self):
+    def test_sequential_execution(self, monkeypatch):
         """Test sequential simulation execution."""
+        monkeypatch.setenv("PROJECT_DIR", "/test/project")
+
         config = SimulationConfig(
             subject_id="001",
             project_dir="/test/project",
             conductivity_type=ConductivityType.DIR,
             intensities=IntensityConfig(1.0, -1.0, 1.0, -1.0),
             electrode=ElectrodeConfig(),
-            eeg_net="EGI_template.csv",
+            eeg_net="GSN-HydroCel-185.csv",
             parallel=ParallelConfig(enabled=False)
         )
 
@@ -200,15 +202,17 @@ class TestRunSimulation:
             mock_sequential.assert_called_once()
             assert len(results) == 1
 
-    def test_parallel_execution(self):
+    def test_parallel_execution(self, monkeypatch):
         """Test parallel simulation execution."""
+        monkeypatch.setenv("PROJECT_DIR", "/test/project")
+
         config = SimulationConfig(
             subject_id="001",
             project_dir="/test/project",
             conductivity_type=ConductivityType.DIR,
             intensities=IntensityConfig(1.0, -1.0, 1.0, -1.0),
             electrode=ElectrodeConfig(),
-            eeg_net="EGI_template.csv",
+            eeg_net="GSN-HydroCel-185.csv",
             parallel=ParallelConfig(enabled=True, max_workers=2)
         )
 
@@ -230,35 +234,68 @@ class TestRunSimulation:
             mock_parallel.assert_called_once()
             assert len(results) == 2
 
-    def test_logger_creation_when_none(self):
+    def test_logger_creation_when_none(self, monkeypatch):
         """Test automatic logger creation when not provided."""
+        # Set up project directory environment variable
+        monkeypatch.setenv("PROJECT_DIR", "/test/project")
+
         config = SimulationConfig(
             subject_id="001",
             project_dir="/test/project",
             conductivity_type=ConductivityType.DIR,
             intensities=IntensityConfig(1.0, -1.0, 1.0, -1.0),
             electrode=ElectrodeConfig(),
-            eeg_net="EGI_template.csv"
+            eeg_net="GSN-HydroCel-185.csv"
         )
 
         montages = []
 
         with patch('tit.sim.simulator._run_sequential') as mock_sequential, \
-             patch('tit.sim.simulator.logging_util.get_file_only_logger'):
+             patch('tit.sim.simulator.logging_util.get_file_only_logger') as mock_logger_fn, \
+             patch('tit.sim.simulator.get_path_manager') as mock_get_pm, \
+             patch('os.makedirs') as mock_makedirs, \
+             patch('logging.FileHandler') as mock_file_handler, \
+             patch('logging.getLogger') as mock_get_logger:
             mock_sequential.return_value = []
+
+            # Mock PathManager for logger creation
+            mock_pm = MagicMock()
+            # path() is called with different args: "derivatives" and "simulations"
+            def mock_path_side_effect(*args, **kwargs):
+                if args[0] == "derivatives":
+                    return "/test/derivatives"
+                elif args[0] == "simulations":
+                    return "/test/simulations"
+                return f"/test/{args[0]}"
+
+            mock_pm.path.side_effect = mock_path_side_effect
+            mock_get_pm.return_value = mock_pm
+
+            # Mock the logger creation
+            mock_logger = MagicMock()
+            mock_logger_fn.return_value = mock_logger
 
             # Should not raise exception
             run_simulation(config, montages, logger=None)
 
-    def test_progress_callback(self):
+            # Verify logger was created
+            mock_logger_fn.assert_called_once()
+            # Verify get_path_manager was called
+            assert mock_get_pm.call_count >= 1
+            # Verify log directory was created
+            mock_makedirs.assert_called()
+
+    def test_progress_callback(self, monkeypatch):
         """Test progress callback invocation."""
+        monkeypatch.setenv("PROJECT_DIR", "/test/project")
+
         config = SimulationConfig(
             subject_id="001",
             project_dir="/test/project",
             conductivity_type=ConductivityType.DIR,
             intensities=IntensityConfig(1.0, -1.0, 1.0, -1.0),
             electrode=ElectrodeConfig(),
-            eeg_net="EGI_template.csv"
+            eeg_net="GSN-HydroCel-185.csv"
         )
 
         montages = [MontageConfig(name="montage1", electrode_pairs=[], is_xyz=False)]
@@ -282,8 +319,16 @@ class TestRunSingleMontage:
     @patch('tit.sim.simulator.setup_montage_directories')
     @patch('tit.sim.simulator.run_montage_visualization')
     @patch('tit.sim.simulator.run_simnibs')
-    def test_ti_workflow(self, mock_run_simnibs, mock_viz, mock_setup):
+    @patch('tit.sim.simulator.get_path_manager')
+    def test_ti_workflow(self, mock_get_pm, mock_run_simnibs, mock_viz, mock_setup, monkeypatch):
         """Test complete TI simulation workflow."""
+        monkeypatch.setenv("PROJECT_DIR", "/test/project")
+
+        # Mock PathManager
+        mock_pm = MagicMock()
+        mock_pm.path.return_value = "/test/simulations/montage1"
+        mock_get_pm.return_value = mock_pm
+
         # Mock directory setup
         mock_setup.return_value = {
             'montage_dir': '/test/montage1',
@@ -307,7 +352,7 @@ class TestRunSingleMontage:
             conductivity_type=ConductivityType.DIR,
             intensities=IntensityConfig(1.0, -1.0, 1.0, -1.0),
             electrode=ElectrodeConfig(),
-            eeg_net="EGI_template.csv"
+            eeg_net="GSN-HydroCel-185.csv"
         )
 
         montage = MontageConfig(
