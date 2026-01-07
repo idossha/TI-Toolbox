@@ -145,7 +145,7 @@ def test_gui_cli_runs_gui_module(monkeypatch, tmp_path: Path):
         return None
 
     monkeypatch.setattr(gui_cli.runpy, "run_module", fake_run_module)
-    rc = _run_cli(gui_cli.GuiCLI(), [])
+    rc = _run_cli(gui_cli.GUICLI(), [])
     assert rc == 0
     assert seen["name"] == "tit.gui.main"
 
@@ -986,6 +986,15 @@ def test_pre_process_direct_comprehensive_argument_coverage(monkeypatch, tmp_pat
 
 def test_vis_blender_direct_comprehensive_argument_coverage(monkeypatch, tmp_path: Path):
     """Test all vis-blender CLI argument combinations for direct mode."""
+    # Mock simnibs before any imports that depend on it
+    import sys
+    from unittest.mock import MagicMock
+
+    # Create mock simnibs module to avoid import errors in test environment
+    mock_simnibs = MagicMock()
+    monkeypatch.setitem(sys.modules, 'simnibs', mock_simnibs)
+    monkeypatch.setitem(sys.modules, 'simnibs.mesh_io', MagicMock())
+
     from tit.cli import vis_blender as vb
 
     proj = tmp_path / "proj"
@@ -1000,9 +1009,19 @@ def test_vis_blender_direct_comprehensive_argument_coverage(monkeypatch, tmp_pat
 
     captured_calls = []
 
-    # Mock blender dependencies
-    def mock_build_blend(**kwargs):
-        captured_calls.append(("build_montage_publication_blend", kwargs))
+    # Mock blender dependencies - need to create a full mock API
+    def mock_create_montage(req, *, logger=None):
+        # Capture the request object's attributes as a dict
+        req_dict = {
+            'subject_id': req.subject_id,
+            'simulation_name': req.simulation_name,
+            'output_dir': req.output_dir,
+            'show_full_net': req.show_full_net,
+            'electrode_diameter_mm': req.electrode_diameter_mm,
+            'electrode_height_mm': req.electrode_height_mm,
+            'export_glb': req.export_glb,
+        }
+        captured_calls.append(("create_montage_publication_blend", req_dict))
         class MockResult:
             scalp_stl = "scalp.stl"
             gm_stl = "gm.stl"
@@ -1010,8 +1029,25 @@ def test_vis_blender_direct_comprehensive_argument_coverage(monkeypatch, tmp_pat
             final_blend = "final.blend"
         return MockResult()
 
-    # Mock the actual functions that get called
-    monkeypatch.setattr('tit.blender.montage_publication.build_montage_publication_blend', mock_build_blend)
+    # Create a real MontagePublicationRequest class for the mock
+    from dataclasses import dataclass
+    from typing import Optional as Opt
+
+    @dataclass(frozen=True)
+    class MockRequest:
+        subject_id: str
+        simulation_name: str
+        output_dir: Opt[str] = None
+        show_full_net: bool = True
+        electrode_diameter_mm: float = 10.0
+        electrode_height_mm: float = 6.0
+        export_glb: bool = False
+
+    # Create mock API module to avoid importing montage_publication
+    mock_api = MagicMock()
+    mock_api.MontagePublicationRequest = MockRequest
+    mock_api.create_montage_publication_blend = mock_create_montage
+    monkeypatch.setitem(sys.modules, 'tit.blender.api', mock_api)
 
     # Mock _setup_logging to return a valid log file path
     def mock_setup_logging(self, args):
@@ -1062,6 +1098,29 @@ def test_vis_blender_direct_comprehensive_argument_coverage(monkeypatch, tmp_pat
     captured_calls.clear()
     rc = _run_cli(cli, ["--sub", "101", "--sim", "test_sim", "--verbose"])
     assert rc == 0
+
+    # Test 6: Export GLB option
+    captured_calls.clear()
+    rc = _run_cli(cli, ["--sub", "101", "--sim", "test_sim", "--export-glb"])
+    assert rc == 0
+    assert captured_calls[0][1]["export_glb"] is True
+
+    # Test 7: All options combined
+    captured_calls.clear()
+    rc = _run_cli(cli, [
+        "--sub", "101",
+        "--sim", "test_sim",
+        "--montage-only",
+        "--electrode-diameter-mm", "15.0",
+        "--electrode-height-mm", "7.5",
+        "--export-glb",
+        "--verbose"
+    ])
+    assert rc == 0
+    assert captured_calls[0][1]["show_full_net"] is False
+    assert captured_calls[0][1]["electrode_diameter_mm"] == 15.0
+    assert captured_calls[0][1]["electrode_height_mm"] == 7.5
+    assert captured_calls[0][1]["export_glb"] is True
 
 
 def test_cluster_permutation_direct_comprehensive_argument_coverage(monkeypatch, tmp_path: Path):
