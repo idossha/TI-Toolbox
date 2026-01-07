@@ -54,9 +54,6 @@ def get_child_pids(parent_pid: int) -> List[int]:
         This implementation is safe from command injection attacks
         as it uses the psutil library API instead of shell commands.
     """
-    if not PSUTIL_AVAILABLE:
-        return []
-
     try:
         parent = psutil.Process(parent_pid)
         children = parent.children(recursive=False)
@@ -64,7 +61,7 @@ def get_child_pids(parent_pid: int) -> List[int]:
     except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
         return []
     except Exception:
-        # Catch any other unexpected errors
+        # Catch any other unexpected errors, including psutil not available
         return []
 
 
