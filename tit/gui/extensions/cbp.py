@@ -505,15 +505,36 @@ class ClusterPermutationWidget(QtWidgets.QWidget):
     
     def import_from_csv(self):
         """Import subject configurations from CSV"""
+        # Only allow CSV files from projectID/derivatives/ti-toolbox/stats/data/*.csv
+        initial_dir = ""
+        if self.pm and self.pm.project_dir:
+            from pathlib import Path
+            stats_data_dir = Path(self.pm.project_dir) / "derivatives" / "ti-toolbox" / "stats" / "data"
+            if stats_data_dir.is_dir():
+                initial_dir = str(stats_data_dir)
+
         file_path, _ = QtWidgets.QFileDialog.getOpenFileName(
             self,
             "Import Subject Configuration",
-            "",
+            initial_dir,
             "CSV Files (*.csv)"
         )
-        
+
         if not file_path:
             return
+
+        # Validate that the selected file is from the allowed directory
+        if self.pm and self.pm.project_dir:
+            from pathlib import Path
+            allowed_dir = Path(self.pm.project_dir) / "derivatives" / "ti-toolbox" / "stats" / "data"
+            selected_file = Path(file_path)
+            if not selected_file.parent == allowed_dir:
+                QtWidgets.QMessageBox.warning(
+                    self,
+                    "Invalid File Location",
+                    f"CSV files must be located in {allowed_dir}.\n\nSelected file: {file_path}"
+                )
+                return
         
         try:
             import csv
