@@ -89,6 +89,13 @@ echo "  Electrode Shape: $ELECTRODE_SHAPE"
 echo "  Dimensions: $DIMENSIONS mm"
 echo "  Thickness: $THICKNESS mm"
 
+# Clean up any existing simulation files before running
+SIM_DIR="$PROJECT_DIR/derivatives/SimNIBS/sub-$SUBJECT/Simulations/$MONTAGE"
+if [ -d "$SIM_DIR" ]; then
+    echo "Cleaning up existing simulation directory: $SIM_DIR"
+    rm -rf "$SIM_DIR"
+fi
+
 # Run simulator in non-interactive mode with proper arguments
 "$SIM_CMD" "$SIM_ARGS" \
     --subject "$SUBJECT" \
