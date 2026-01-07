@@ -48,8 +48,11 @@ class LeadfieldGenerator:
 
         # Setup logger
         if progress_callback is None:
-            log_file = os.path.join(os.path.expanduser("~"), ".tit", "logs", "leadfield_generator.log")
-            os.makedirs(os.path.dirname(log_file), exist_ok=True)
+            pm = self.pm
+            # For leadfield generation, use a general ti-toolbox logs directory
+            logs_dir = os.path.join(pm.project_dir, "derivatives", "ti-toolbox", "logs")
+            os.makedirs(logs_dir, exist_ok=True)
+            log_file = os.path.join(logs_dir, "leadfield_generator.log")
             self.logger = logging_util.get_logger("LeadfieldGenerator", log_file, overwrite=False)
             logging_util.configure_external_loggers(['simnibs', 'mesh_io'], self.logger)
         else:
