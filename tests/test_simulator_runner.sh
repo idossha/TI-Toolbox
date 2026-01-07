@@ -89,10 +89,10 @@ echo "  Electrode Shape: $ELECTRODE_SHAPE"
 echo "  Dimensions: $DIMENSIONS mm"
 echo "  Thickness: $THICKNESS mm"
 
-# Clean up any existing simulation files before running
-SIM_DIR="$PROJECT_DIR/derivatives/SimNIBS/sub-$SUBJECT/Simulations/$MONTAGE"
+# Clean up any existing simulation directory before running
+SIM_DIR="$PROJECT_DIR/derivatives/SimNIBS/sub-$SUBJECT/Simulations"
 if [ -d "$SIM_DIR" ]; then
-    echo "Cleaning up existing simulation directory: $SIM_DIR"
+    echo "Cleaning up existing simulations directory: $SIM_DIR"
     rm -rf "$SIM_DIR"
 fi
 
