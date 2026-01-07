@@ -57,7 +57,7 @@ def _process_single_simulation(sim_idx, sim_config, project_dir, eeg_net,
         subject_id = sim_config["subject"]
 
         # Set up per-simulation logger (file-only to avoid console conflicts)
-        log_dir = os.path.join(project_dir, 'derivatives', 'tit', f'sub-{subject_id}', 'logs')
+        log_dir = os.path.join(project_dir, 'derivatives', 'ti-toolbox', f'sub-{subject_id}')
         os.makedirs(log_dir, exist_ok=True)
 
         sim_logger = logging_util.get_file_only_logger(
