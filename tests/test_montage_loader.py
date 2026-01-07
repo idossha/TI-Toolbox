@@ -102,9 +102,10 @@ class TestLoadMontageFile:
         with open(montage_file, 'w') as f:
             json.dump(test_montages, f)
 
-        # Test missing net
-        with pytest.raises(ValueError, match="EEG net 'unknown_net.csv' not found"):
-            load_montage_file(str(project_dir), "unknown_net.csv")
+        # Missing nets are treated as empty (callers may create montages on demand)
+        net_data = load_montage_file(str(project_dir), "unknown_net.csv")
+        assert net_data["uni_polar_montages"] == {}
+        assert net_data["multi_polar_montages"] == {}
 
     def test_invalid_json(self, tmp_path):
         """Test error handling for invalid JSON file."""

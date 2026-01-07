@@ -59,7 +59,14 @@ def nifti_test_data(tmp_path_factory):
 
         filename = f"grey_{sim_name}_TI_MNI_MNI_TI_max.nii.gz"
         filepath = nifti_dir / filename
-        nib.save(img, filepath)
+        # Use str() for broad nibabel compatibility (some environments are picky about Path objects)
+        nib.save(img, str(filepath))
+        # Sanity check: if this fails, the rest of the tests will be misleading
+        if not filepath.exists():
+            raise RuntimeError(
+                f"Test fixture failed to write NIfTI file: {filepath}. "
+                f"Directory contents: {sorted(nifti_dir.iterdir())}"
+            )
 
         filepaths[f"{subject_id}_{sim_name}"] = str(filepath)
 

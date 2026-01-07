@@ -23,16 +23,6 @@ from core.paths import (
     PathManager,
     get_path_manager,
     reset_path_manager,
-    get_project_dir,
-    get_subject_dir,
-    get_m2m_dir,
-    list_subjects,
-    list_simulations,
-    validate_subject,
-    get_freesurfer_subject_dir,
-    get_simnibs_dir,
-    get_simulation_dir,
-    get_freesurfer_mri_dir
 )
 from core import constants as const
 
@@ -165,7 +155,7 @@ class TestDirectoryPaths:
 
         reset_path_manager()  # Reset singleton after patching
         pm = PathManager()
-        derivatives_dir = pm.get_derivatives_dir()
+        derivatives_dir = pm.path("derivatives")
 
         assert derivatives_dir == mock_project_structure['derivatives']
 
@@ -177,7 +167,7 @@ class TestDirectoryPaths:
 
         reset_path_manager()  # Reset singleton after patching
         pm = PathManager()
-        simnibs_dir = pm.get_simnibs_dir()
+        simnibs_dir = pm.path("simnibs")
 
         assert simnibs_dir == mock_project_structure['simnibs']
 
@@ -193,7 +183,7 @@ class TestSubjectPaths:
 
         reset_path_manager()  # Reset singleton after patching
         pm = PathManager()
-        subject_dir = pm.get_subject_dir(mock_subject_structure['subject_id'])
+        subject_dir = pm.path("simnibs_subject", subject_id=mock_subject_structure['subject_id'])
 
         assert subject_dir == mock_subject_structure['subject_dir']
 
@@ -205,21 +195,21 @@ class TestSubjectPaths:
 
         reset_path_manager()  # Reset singleton after patching
         pm = PathManager()
-        m2m_dir = pm.get_m2m_dir(mock_subject_structure['subject_id'])
+        m2m_dir = pm.path("m2m", subject_id=mock_subject_structure['subject_id'])
 
         assert m2m_dir == mock_subject_structure['m2m_dir']
 
     def test_get_m2m_dir_nonexistent(self, mock_subject_structure, monkeypatch):
-        """Test getting m2m directory for non-existent subject"""
+        """Test m2m path resolution for non-existent subject (path resolves; directory does not exist)."""
         monkeypatch.setenv(const.ENV_PROJECT_DIR_NAME, mock_subject_structure['project_name'])
         monkeypatch.setattr(const, 'DOCKER_MOUNT_PREFIX',
                           os.path.dirname(mock_subject_structure['project_dir']))
 
         reset_path_manager()  # Reset singleton after patching
         pm = PathManager()
-        m2m_dir = pm.get_m2m_dir("999")
-
-        assert m2m_dir is None
+        m2m_dir = pm.path("m2m", subject_id="999")
+        assert isinstance(m2m_dir, str)
+        assert not os.path.isdir(m2m_dir)
 
 
 class TestSubjectListing:
@@ -335,9 +325,10 @@ class TestSimulationPaths:
 
         reset_path_manager()  # Reset singleton after patching
         pm = PathManager()
-        sim_dir = pm.get_simulation_dir(
-            mock_simulation_structure['subject_id'],
-            mock_simulation_structure['sim_name']
+        sim_dir = pm.path(
+            "simulation",
+            subject_id=mock_simulation_structure['subject_id'],
+            simulation_name=mock_simulation_structure['sim_name'],
         )
 
         assert sim_dir == mock_simulation_structure['sim_dir']
@@ -350,9 +341,10 @@ class TestSimulationPaths:
 
         reset_path_manager()  # Reset singleton after patching
         pm = PathManager()
-        ti_mesh = pm.get_ti_mesh_path(
-            mock_simulation_structure['subject_id'],
-            mock_simulation_structure['sim_name']
+        ti_mesh = pm.path(
+            "ti_mesh",
+            subject_id=mock_simulation_structure['subject_id'],
+            simulation_name=mock_simulation_structure['sim_name'],
         )
 
         # The actual implementation returns: TI/mesh/<sim>_TI.msh
@@ -362,31 +354,6 @@ class TestSimulationPaths:
             f"{mock_simulation_structure['sim_name']}_TI{const.EXT_MESH}"
         )
         assert ti_mesh == expected_path
-
-
-class TestConvenienceFunctions:
-    """Test module-level convenience functions"""
-
-    def test_get_project_dir_function(self, monkeypatch):
-        """Test get_project_dir convenience function"""
-        project_name = "test_project"
-        monkeypatch.setenv(const.ENV_PROJECT_DIR_NAME, project_name)
-
-        # Reset to ensure clean state
-        reset_path_manager()
-
-        result = get_project_dir()
-        # Should return string or None
-        assert result is None or isinstance(result, str)
-
-    def test_list_subjects_function(self, monkeypatch):
-        """Test list_subjects convenience function"""
-        monkeypatch.delenv(const.ENV_PROJECT_DIR_NAME, raising=False)
-
-        reset_path_manager()
-        subjects = list_subjects()
-
-        assert isinstance(subjects, list)
 
 
 class TestValidation:
@@ -457,7 +424,7 @@ class TestFreeSurferPaths:
 
         reset_path_manager()  # Reset singleton after patching
         pm = PathManager()
-        fs_dir = pm.get_freesurfer_subject_dir(mock_freesurfer_structure['subject_id'])
+        fs_dir = pm.path("freesurfer_subject", subject_id=mock_freesurfer_structure['subject_id'])
 
         assert fs_dir == mock_freesurfer_structure['fs_dir']
 
@@ -469,7 +436,7 @@ class TestFreeSurferPaths:
 
         reset_path_manager()  # Reset singleton after patching
         pm = PathManager()
-        fs_mri_dir = pm.get_freesurfer_mri_dir(mock_freesurfer_structure['subject_id'])
+        fs_mri_dir = pm.path("freesurfer_mri", subject_id=mock_freesurfer_structure['subject_id'])
 
         assert fs_mri_dir == mock_freesurfer_structure['fs_mri_dir']
 
@@ -490,10 +457,9 @@ class TestEdgeCases:
         reset_path_manager()  # Reset singleton after patching
         pm = PathManager()
 
-        # Empty subject ID currently returns a path with just "sub-" prefix
-        # This may need to be changed to return None for better validation
-        subject_dir = pm.get_subject_dir("")
-        expected_path = os.path.join(pm.get_simnibs_dir(), "sub-")
+        # Empty subject ID returns a canonical "sub-" path.
+        subject_dir = pm.path("simnibs_subject", subject_id="")
+        expected_path = os.path.join(pm.path("simnibs"), "sub-")
         assert subject_dir == expected_path
 
     def test_special_characters_in_subject_id(self, tmp_path, monkeypatch):
@@ -511,9 +477,8 @@ class TestEdgeCases:
         pm = PathManager()
 
         # Subject ID with special characters
-        result = pm.get_subject_dir("test@123")
-        # Should handle gracefully (return None if not found)
-        assert result is None or isinstance(result, str)
+        result = pm.path("simnibs_subject", subject_id="test@123")
+        assert isinstance(result, str)
 
     def test_pathmanager_without_project(self, monkeypatch):
         """Test PathManager behavior when no project is found"""

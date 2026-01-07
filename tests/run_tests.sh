@@ -222,7 +222,7 @@ if [ "$RUN_UNIT_TESTS" = true ]; then
 
         # Analyzer unit tests
         run_test "Analyzer Tests" \
-            "simnibs_python -m pytest $PYTEST_FLAGS tests/test_analyzer.py tests/test_mesh_analyzer.py tests/test_voxel_analyzer.py tests/test_group_analyzer.py" || true
+            "simnibs_python -m pytest $PYTEST_FLAGS tests/test_analyzer.py tests/test_mesh_analyzer.py tests/test_voxel_analyzer.py tests/test_group_analyzer.py tests/test_compare_analyses.py tests/test_csv_group_comparator.py tests/test_main_analyzer.py tests/test_visualizer.py" || true
 
         echo ""
 

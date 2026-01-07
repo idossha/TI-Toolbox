@@ -44,56 +44,74 @@ def pytest_configure(config):
     # Mock seaborn to avoid complex matplotlib dependencies
     sys.modules['seaborn'] = MagicMock()
 
-    # Mock SimNIBS + Blender/python neuro deps for local/unit tests (Docker has real deps).
-    simnibs = types.ModuleType("simnibs")
-    simnibs.__path__ = []  # mark as package
-    simnibs.opt_struct = MagicMock()
-    simnibs.run_simnibs = MagicMock()
-    simnibs.mesh_io = MagicMock()
-    simnibs.sim_struct = MagicMock()
-    simnibs.mni2subject_coords = MagicMock()
-    simnibs.subject2mni_coords = MagicMock()
-    sys.modules["simnibs"] = simnibs
+    # Prefer real SimNIBS when available (Docker test image has it via simnibs_python).
+    # Fall back to stubs for local/unit environments without SimNIBS.
+    try:
+        import simnibs as _simnibs  # noqa: F401
+    except Exception:
+        simnibs = types.ModuleType("simnibs")
+        simnibs.__path__ = []  # mark as package
+        simnibs.opt_struct = MagicMock()
+        simnibs.run_simnibs = MagicMock()
+        simnibs.mesh_io = MagicMock()
+        simnibs.sim_struct = MagicMock()
+        simnibs.mni2subject_coords = MagicMock()
+        simnibs.subject2mni_coords = MagicMock()
+        sys.modules["simnibs"] = simnibs
 
-    simnibs_optimization = types.ModuleType("simnibs.optimization")
-    simnibs_optimization.__path__ = []
-    sys.modules["simnibs.optimization"] = simnibs_optimization
+        simnibs_optimization = types.ModuleType("simnibs.optimization")
+        simnibs_optimization.__path__ = []
+        sys.modules["simnibs.optimization"] = simnibs_optimization
 
-    tfo = types.ModuleType("simnibs.optimization.tes_flex_optimization")
-    tfo.__path__ = []
-    sys.modules["simnibs.optimization.tes_flex_optimization"] = tfo
+        tfo = types.ModuleType("simnibs.optimization.tes_flex_optimization")
+        tfo.__path__ = []
+        sys.modules["simnibs.optimization.tes_flex_optimization"] = tfo
 
-    electrode_layout = types.ModuleType("simnibs.optimization.tes_flex_optimization.electrode_layout")
-    electrode_layout.ElectrodeArrayPair = MagicMock()
-    sys.modules["simnibs.optimization.tes_flex_optimization.electrode_layout"] = electrode_layout
+        electrode_layout = types.ModuleType("simnibs.optimization.tes_flex_optimization.electrode_layout")
+        electrode_layout.ElectrodeArrayPair = MagicMock()
+        sys.modules["simnibs.optimization.tes_flex_optimization.electrode_layout"] = electrode_layout
 
-    simnibs_utils = types.ModuleType("simnibs.utils")
-    simnibs_utils.__path__ = []
-    simnibs_utils.TI_utils = MagicMock()
-    sys.modules["simnibs.utils"] = simnibs_utils
+        simnibs_utils = types.ModuleType("simnibs.utils")
+        simnibs_utils.__path__ = []
+        simnibs_utils.TI_utils = MagicMock()
+        sys.modules["simnibs.utils"] = simnibs_utils
 
-    sys.modules["simnibs.sim_struct"] = types.ModuleType("simnibs.sim_struct")
+        sys.modules["simnibs.sim_struct"] = types.ModuleType("simnibs.sim_struct")
 
-    simnibs_mesh_tools = types.ModuleType("simnibs.mesh_tools")
-    simnibs_mesh_tools.__path__ = []
-    sys.modules["simnibs.mesh_tools"] = simnibs_mesh_tools
-    simnibs_mesh_tools_mesh_io = types.ModuleType("simnibs.mesh_tools.mesh_io")
-    simnibs_mesh_tools_mesh_io.ElementTags = MagicMock()
-    sys.modules["simnibs.mesh_tools.mesh_io"] = simnibs_mesh_tools_mesh_io
+        simnibs_mesh_tools = types.ModuleType("simnibs.mesh_tools")
+        simnibs_mesh_tools.__path__ = []
+        sys.modules["simnibs.mesh_tools"] = simnibs_mesh_tools
+        simnibs_mesh_tools_mesh_io = types.ModuleType("simnibs.mesh_tools.mesh_io")
+        simnibs_mesh_tools_mesh_io.ElementTags = MagicMock()
+        sys.modules["simnibs.mesh_tools.mesh_io"] = simnibs_mesh_tools_mesh_io
 
     sys.modules.setdefault("bpy", MagicMock())
 
-    nibabel = types.ModuleType("nibabel")
-    nibabel.__path__ = []
-    nibabel.Nifti1Image = MagicMock()
-    nibabel.load = MagicMock()
-    sys.modules["nibabel"] = nibabel
-    nibabel_processing = types.ModuleType("nibabel.processing")
-    nibabel_processing.resample_from_to = MagicMock()
-    sys.modules["nibabel.processing"] = nibabel_processing
+    # Prefer real nibabel/pandas/h5py when available (Docker test image has them);
+    # fall back to lightweight stubs for local/unit environments without these deps.
+    try:
+        import nibabel as _nibabel  # noqa: F401
+    except Exception:
+        nibabel = types.ModuleType("nibabel")
+        nibabel.__path__ = []
+        nibabel.Nifti1Image = MagicMock()
+        nibabel.load = MagicMock()
+        nibabel.save = MagicMock()
+        sys.modules["nibabel"] = nibabel
 
-    sys.modules.setdefault("pandas", MagicMock())
-    sys.modules.setdefault("h5py", MagicMock())
+        nibabel_processing = types.ModuleType("nibabel.processing")
+        nibabel_processing.resample_from_to = MagicMock()
+        sys.modules["nibabel.processing"] = nibabel_processing
+
+    try:
+        import pandas as _pandas  # noqa: F401
+    except Exception:
+        sys.modules.setdefault("pandas", MagicMock())
+
+    try:
+        import h5py as _h5py  # noqa: F401
+    except Exception:
+        sys.modules.setdefault("h5py", MagicMock())
 
 
 @pytest.fixture(autouse=True)
