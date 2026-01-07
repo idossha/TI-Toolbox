@@ -19,7 +19,7 @@ from PyQt5 import QtWidgets, QtCore
 
 # Extension metadata (required)
 EXTENSION_NAME = "3D Visual Exporter"
-EXTENSION_DESCRIPTION = "Export STL/PLY cortical regions, vector clouds, and electrode placements for 3D visualization"
+EXTENSION_DESCRIPTION = "Export STL/PLY cortical regions, vector clouds, and montage visualizations for 3D visualization"
 
 from tit.core import get_path_manager
 from tit.core import constants as const
@@ -28,7 +28,6 @@ from tit.gui.components.action_buttons import RunStopButtons
 from tit.logger import get_logger
 from tit.tools.extract_labels import extract_labels_from_nifti
 from tit.tools.nifti_to_mesh import nifti_to_mesh
-from tit.blender.electrode_placement import ElectrodePlacer, ElectrodePlacementConfig
 
 
 class Mode:
@@ -111,8 +110,8 @@ class VisualExporterWidget(QtWidgets.QWidget):
         layout.addWidget(header_label)
 
         desc = QtWidgets.QLabel(
-            "Export cortical regions to STL/PLY, vector clouds (TI/mTI), and electrode placements for 3D visualization.\n"
-            "Electrode placement uses scalp surface extracted from subject mesh files."
+            "Export cortical regions to STL/PLY, vector clouds (TI/mTI), and montage visualizations for 3D visualization.\n"
+            "Montage visualizer creates publication-ready Blender scenes with electrodes from simulation config."
         )
         desc.setWordWrap(True)
         desc.setStyleSheet("color: #666; padding: 5px;")
@@ -144,7 +143,7 @@ class VisualExporterWidget(QtWidgets.QWidget):
         radio_layout = QtWidgets.QHBoxLayout()
         self.rb_stl = QtWidgets.QRadioButton("Cortical Regions")
         self.rb_vec = QtWidgets.QRadioButton("Field Vectors")
-        self.rb_electrodes = QtWidgets.QRadioButton("Electrode Placement")
+        self.rb_electrodes = QtWidgets.QRadioButton("Montage Visualizer")
         self.rb_subcortical = QtWidgets.QRadioButton("Sub-cortical")
         self.rb_stl.setChecked(True)
 
@@ -389,44 +388,44 @@ class VisualExporterWidget(QtWidgets.QWidget):
         w = QtWidgets.QWidget()
         outer = QtWidgets.QVBoxLayout(w)
 
-        # Electrode Configuration
-        config_group = QtWidgets.QGroupBox("Electrode Configuration")
+        # Montage Visualizer Configuration
+        config_group = QtWidgets.QGroupBox("Montage Visualizer Configuration")
         config = QtWidgets.QGridLayout(config_group)
         r = 0
 
-        # Net selection
-        config.addWidget(QtWidgets.QLabel("EEG Net:"), r, 0)
-        self.electrode_net_combo = QtWidgets.QComboBox()
-        self.electrode_net_combo.setMinimumWidth(200)
-        config.addWidget(self.electrode_net_combo, r, 1, 1, 2)
+        # Montage-only checkbox
+        self.montage_only_checkbox = QtWidgets.QCheckBox("Show only montage electrodes (from config.json)")
+        self.montage_only_checkbox.setChecked(False)
+        config.addWidget(self.montage_only_checkbox, r, 0, 1, 4)
         r += 1
 
+        # Electrode parameters
+        config.addWidget(QtWidgets.QLabel("Electrode Diameter (mm):"), r, 0)
+        self.electrode_diameter_spin = QtWidgets.QDoubleSpinBox()
+        self.electrode_diameter_spin.setRange(1.0, 100.0)
+        self.electrode_diameter_spin.setValue(10.0)
+        self.electrode_diameter_spin.setDecimals(1)
+        config.addWidget(self.electrode_diameter_spin, r, 1)
 
-        # Electrode placement parameters
-        config.addWidget(QtWidgets.QLabel("Electrode Size:"), r, 0)
-        self.electrode_size_spin = QtWidgets.QDoubleSpinBox()
-        self.electrode_size_spin.setRange(1.0, 1000.0)
-        self.electrode_size_spin.setValue(50.0)
-        config.addWidget(self.electrode_size_spin, r, 1)
-
-        config.addWidget(QtWidgets.QLabel("Offset Distance:"), r, 2)
-        self.offset_distance_spin = QtWidgets.QDoubleSpinBox()
-        self.offset_distance_spin.setRange(0.1, 10.0)
-        self.offset_distance_spin.setValue(3.25)
-        config.addWidget(self.offset_distance_spin, r, 3)
+        config.addWidget(QtWidgets.QLabel("Electrode Height (mm):"), r, 2)
+        self.electrode_height_spin = QtWidgets.QDoubleSpinBox()
+        self.electrode_height_spin.setRange(1.0, 50.0)
+        self.electrode_height_spin.setValue(6.0)
+        self.electrode_height_spin.setDecimals(1)
+        config.addWidget(self.electrode_height_spin, r, 3)
         r += 1
 
-        config.addWidget(QtWidgets.QLabel("Text Offset:"), r, 0)
-        self.text_offset_spin = QtWidgets.QDoubleSpinBox()
-        self.text_offset_spin.setRange(0.01, 1.0)
-        self.text_offset_spin.setValue(0.090)
-        config.addWidget(self.text_offset_spin, r, 1)
-
-        config.addWidget(QtWidgets.QLabel("Scale Factor:"), r, 2)
-        self.scale_factor_spin = QtWidgets.QDoubleSpinBox()
-        self.scale_factor_spin.setRange(0.001, 10.0)
-        self.scale_factor_spin.setValue(1.0)
-        config.addWidget(self.scale_factor_spin, r, 3)
+        # Info label
+        info_label = QtWidgets.QLabel(
+            "This mode creates a publication-ready Blender scene (.blend) with:\n"
+            "• Scalp and gray matter surfaces\n"
+            "• Electrode placements from simulation config.json\n"
+            "• Optimized render settings\n\n"
+            "Output directory: derivatives/ti-toolbox/visual_exports/sub-{subject_id}/montage_publication/"
+        )
+        info_label.setWordWrap(True)
+        info_label.setStyleSheet("color: #555; font-size: 9pt; padding: 10px; background-color: #f0f0f0; border-radius: 5px;")
+        config.addWidget(info_label, r, 0, 1, 4)
 
         outer.addWidget(config_group)
         outer.addStretch()
@@ -502,7 +501,6 @@ class VisualExporterWidget(QtWidgets.QWidget):
         sims = self.simulations_dict.get(subject_id, [])
         self.simulation_combo.addItems(sims)
         self._refresh_regions()
-        self._refresh_electrode_nets(subject_id)
         # Set default sub-cortical NIfTI path
         if self.pm and subject_id and hasattr(self, 'subcort_nifti_edit'):
             m2m_dir = self.pm.path_optional("m2m", subject_id=subject_id)
@@ -578,18 +576,6 @@ class VisualExporterWidget(QtWidgets.QWidget):
             # GUI operations may fail during widget destruction
             pass
 
-    def _refresh_electrode_nets(self, subject_id):
-        """Refresh the electrode net combo box based on selected subject."""
-        try:
-            self.electrode_net_combo.clear()
-            if not self.pm:
-                return
-            nets = self.pm.list_eeg_caps(subject_id)
-            self.electrode_net_combo.addItems(nets)
-            if not nets:
-                self._update_output(f"Warning: No EEG nets found for subject {subject_id}", 'warning')
-        except Exception as e:
-            self._update_output(f"Error loading electrode nets: {str(e)}", 'error')
 
     def _browse_tdcs_into(self, line_edit: QtWidgets.QLineEdit):
         # Default to current simulation directory
@@ -776,21 +762,6 @@ class VisualExporterWidget(QtWidgets.QWidget):
         os.makedirs(out_base, exist_ok=True)
         return out_base
 
-    def _electrode_exports_dir(self, subject_id: str):
-        """Create electrode exports directory for a subject."""
-        project_dir = self._get_project_dir()
-        if not project_dir:
-            return None
-        out_base = os.path.join(
-            project_dir,
-            const.DIR_DERIVATIVES,
-            const.DIR_TI_TOOLBOX,
-            "visual_exports/",
-            f"{const.PREFIX_SUBJECT}{subject_id}/electrode_exports",
-        )
-        os.makedirs(out_base, exist_ok=True)
-        return out_base
-
     def _m2m_dir(self, subject_id: str):
         if not self.pm:
             return None
@@ -834,80 +805,6 @@ class VisualExporterWidget(QtWidgets.QWidget):
                 pass
         return central_path if os.path.exists(central_path) else produced
 
-    # Electrode placement
-    def _place_electrodes(self, subject_id: str, net_name: str, 
-                          use_existing_stl: bool = False) -> None:
-        """Place electrodes on scalp using ElectrodePlacer class.
-        
-        Args:
-            subject_id: Subject identifier
-            net_name: EEG net CSV filename
-            use_existing_stl: If True, use existing scalp.stl; otherwise extract from .msh
-        """
-        # Build paths
-        eeg_pos_dir = self.pm.path_optional("eeg_positions", subject_id=subject_id)
-        if not eeg_pos_dir:
-            raise FileNotFoundError(f"EEG positions directory not found for subject {subject_id}")
-        csv_path = os.path.join(eeg_pos_dir, net_name)
-        electrode_blend_path = os.path.join(ti_toolbox_path, "blender", "Electrode.blend")
-        output_dir = self._electrode_exports_dir(subject_id)
-        
-        m2m_dir = self._m2m_dir(subject_id)
-        
-        # Determine scalp source
-        subject_msh_path = None
-        scalp_stl_path = None
-        
-        if use_existing_stl:
-            # Try to use existing scalp.stl
-            existing_stl = os.path.join(m2m_dir, "scalp.stl")
-            if os.path.exists(existing_stl):
-                scalp_stl_path = existing_stl
-                self._update_output(f"Using existing scalp STL: {existing_stl}", 'info')
-            else:
-                # Fall back to MSH extraction
-                self._update_output("No existing scalp.stl found, extracting from MSH...", 'info')
-                subject_msh_path = os.path.join(m2m_dir, f"{subject_id}.msh")
-        else:
-            # Extract from MSH file
-            subject_msh_path = os.path.join(m2m_dir, f"{subject_id}.msh")
-        
-        # Validate source exists
-        if subject_msh_path and not os.path.exists(subject_msh_path):
-            raise FileNotFoundError(f"Subject mesh not found: {subject_msh_path}")
-
-        # Create configuration
-        config = ElectrodePlacementConfig(
-            subject_id=subject_id,
-            electrode_csv_path=csv_path,
-            electrode_blend_path=electrode_blend_path,
-            output_dir=output_dir,
-            subject_msh_path=subject_msh_path,
-            scalp_stl_path=scalp_stl_path,
-            scale_factor=self.scale_factor_spin.value(),
-            electrode_size=self.electrode_size_spin.value(),
-            offset_distance=self.offset_distance_spin.value(),
-            text_offset=self.text_offset_spin.value()
-        )
-
-        # Create placer and execute
-        try:
-            placer = ElectrodePlacer(config, logger=self.logger)
-            self._update_output(f"Placing electrodes using {net_name}…", 'info')
-
-            success, message = placer.place_electrodes()
-
-            if success:
-                self._update_output(f"\n✓ Electrode placement saved to:", 'success')
-                self._update_output(f"  {output_dir}", 'info')
-            else:
-                raise RuntimeError(message)
-
-        except Exception as e:
-            if self.logger:
-                self.logger.error(f"Electrode placement failed: {e}")
-            raise
-
     # Vector mesh autodetect
     def _autodetect_tdcs_pair(self, subject_id: str, simulation_name: str):
         sim_dir = self._simulation_dir(subject_id, simulation_name)
@@ -940,18 +837,20 @@ class VisualExporterWidget(QtWidgets.QWidget):
             QtWidgets.QMessageBox.warning(self, "Missing Project", "Project directory not found.")
             return
 
-        # For electrode and sub-cortical modes, use subject directory instead of simulation-specific directory
-        if self.rb_electrodes.isChecked() or self.rb_subcortical.isChecked():
-            if self.rb_electrodes.isChecked():
-                out_base = self._electrode_exports_dir(subject_id)
-            else:  # sub-cortical
-                out_base = self._visual_exports_dir(subject_id, None)  # No simulation for sub-cortical
-        else:
+        # For sub-cortical mode, use subject directory instead of simulation-specific directory
+        if self.rb_subcortical.isChecked():
+            out_base = self._visual_exports_dir(subject_id, None)  # No simulation for sub-cortical
+            if not out_base:
+                QtWidgets.QMessageBox.warning(self, "Output Error", "Could not create output directory.")
+                return
+        elif not self.rb_electrodes.isChecked():
             out_base = self._visual_exports_dir(subject_id, simulation_name)
-
-        if not out_base:
-            QtWidgets.QMessageBox.warning(self, "Output Error", "Could not create output directory.")
-            return
+            if not out_base:
+                QtWidgets.QMessageBox.warning(self, "Output Error", "Could not create output directory.")
+                return
+        else:
+            # Montage visualizer mode - output directory handled by montage_publication
+            out_base = None
 
         # Setup logger with timestamp - follows project convention: logs/sub-{subject_id}/
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -959,7 +858,7 @@ class VisualExporterWidget(QtWidgets.QWidget):
         os.makedirs(log_dir, exist_ok=True)
 
         if self.rb_electrodes.isChecked():
-            log_file = os.path.join(log_dir, f"electrode_placement_{timestamp}.log")
+            log_file = os.path.join(log_dir, f"montage_visualizer_{timestamp}.log")
         elif self.rb_subcortical.isChecked():
             log_file = os.path.join(log_dir, f"subcortical_export_{timestamp}.log")
         else:
@@ -1121,27 +1020,25 @@ class VisualExporterWidget(QtWidgets.QWidget):
                 commands.append((cmd, None))
 
             elif self.rb_electrodes.isChecked():
-                # Electrode placement mode - runs synchronously (not via worker thread)
-                self.logger.info("=== Electrode Placement Mode ===")
-                
-                # Check if Blender is available
-                blender_available = any(shutil.which(cmd) for cmd in ["blender", "simnibs_blender"])
-                if not blender_available:
-                    raise ValueError(
-                        "Blender is not installed by default. Electrode placement feature requires Blender.\n"
-                        "Install Blender by running: bash tit/blender/install_blender_docker.sh\n"
-                    )
-                
-                net_name = self.electrode_net_combo.currentText().strip()
+                # Montage Visualizer mode - runs synchronously (not via worker thread)
+                self.logger.info("=== Montage Visualizer Mode ===")
 
-                if not net_name:
-                    raise ValueError("Please select an EEG net")
+                # Get configuration from UI
+                montage_only = self.montage_only_checkbox.isChecked()
+                electrode_diameter_mm = self.electrode_diameter_spin.value()
+                electrode_height_mm = self.electrode_height_spin.value()
 
-                self.logger.info(f"EEG Net: {net_name}")
+                self.logger.info(f"Subject: {subject_id}")
+                self.logger.info(f"Simulation: {simulation_name}")
+                self.logger.info(f"Show full net: {not montage_only}")
+                self.logger.info(f"Electrode diameter: {electrode_diameter_mm} mm")
+                self.logger.info(f"Electrode height: {electrode_height_mm} mm")
 
-                # Place electrodes (always extract fresh scalp STL from MSH)
-                self.logger.info("Placing electrodes...")
-                # Suppress stdout/stderr during electrode placement to avoid Blender output
+                # Create montage publication blend
+                self.logger.info("Creating montage publication blend...")
+                self._update_output("Creating montage publication blend...", 'info')
+
+                # Suppress stdout/stderr during Blender operations
                 import sys
                 import io
                 from contextlib import redirect_stdout, redirect_stderr
@@ -1152,17 +1049,42 @@ class VisualExporterWidget(QtWidgets.QWidget):
 
                 try:
                     with redirect_stdout(stdout_capture), redirect_stderr(stderr_capture):
-                        self._place_electrodes(subject_id, net_name, use_existing_stl=False)
+                        # Lazy import - will fail if bpy not available
+                        from tit.blender.montage_publication import build_montage_publication_blend
+
+                        result = build_montage_publication_blend(
+                            subject_id=subject_id,
+                            simulation_name=simulation_name,
+                            output_dir=None,  # Always use default
+                            show_full_net=(not montage_only),
+                            electrode_diameter_mm=electrode_diameter_mm,
+                            electrode_height_mm=electrode_height_mm,
+                        )
                 finally:
                     # Log any captured output to the file logger (not console)
                     stdout_content = stdout_capture.getvalue()
                     stderr_content = stderr_capture.getvalue()
                     if stdout_content.strip():
-                        self.logger.debug(f"Electrode placement stdout: {stdout_content}")
+                        self.logger.debug(f"Montage publication stdout: {stdout_content}")
                     if stderr_content.strip():
-                        self.logger.debug(f"Electrode placement stderr: {stderr_content}")
+                        self.logger.debug(f"Montage publication stderr: {stderr_content}")
 
-                # Electrode mode completes immediately (no worker thread needed)
+                # Log results
+                self.logger.info("")
+                self.logger.info("Output files:")
+                self.logger.info(f"  Scalp STL: {result.scalp_stl}")
+                self.logger.info(f"  GM STL: {result.gm_stl}")
+                self.logger.info(f"  Electrodes blend: {result.electrodes_blend}")
+                self.logger.info(f"  Final blend: {result.final_blend}")
+
+                # Update console
+                self._update_output("\nOutput files:", 'info')
+                self._update_output(f"  Scalp STL: {result.scalp_stl}", 'info')
+                self._update_output(f"  GM STL: {result.gm_stl}", 'info')
+                self._update_output(f"  Electrodes blend: {result.electrodes_blend}", 'info')
+                self._update_output(f"  Final blend: {result.final_blend}", 'info')
+
+                # Montage mode completes immediately (no worker thread needed)
                 self.logger.info("")
                 self.logger.info("========================================")
                 self.logger.info("EXPORT COMPLETE")
@@ -1170,7 +1092,7 @@ class VisualExporterWidget(QtWidgets.QWidget):
                 self._update_output("\n========================================", 'success')
                 self._update_output("EXPORT COMPLETE", 'success')
                 self._update_output("========================================", 'success')
-                return  # Exit early for electrode mode
+                return  # Exit early for montage mode
 
             elif self.rb_subcortical.isChecked():
                 # Sub-cortical mesh export mode - runs synchronously using Python functions
