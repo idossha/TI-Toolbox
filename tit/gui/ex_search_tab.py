@@ -57,9 +57,9 @@ def _get_and_display_electrodes(subject_id, cap_name, parent_widget, path_manage
     try:
         # Get path manager
         pm = path_manager if path_manager is not None else get_path_manager()
-        m2m_dir = pm.get_m2m_dir(subject_id)
+        m2m_dir = pm.path_optional("m2m", subject_id=subject_id)
         
-        if not m2m_dir or not os.path.exists(m2m_dir):
+        if not m2m_dir or not os.path.isdir(m2m_dir):
             QtWidgets.QMessageBox.warning(parent_widget, "Directory Not Found",
                                          f"m2m directory not found for subject {subject_id}")
             return False
@@ -118,18 +118,16 @@ class LeadfieldGenerationThread(QtCore.QThread):
             self.output_signal.emit("Initializing leadfield generation...", 'info')
             
             pm = get_path_manager()
-            m2m_dir = pm.get_m2m_dir(self.subject_id)
+            m2m_dir = pm.path_optional("m2m", subject_id=self.subject_id)
             
-            if not m2m_dir or not os.path.exists(m2m_dir):
+            if not m2m_dir or not os.path.isdir(m2m_dir):
                 self.error_signal.emit(f"m2m directory not found for subject {self.subject_id}")
                 self.finished_signal.emit(False, "")
                 return
             
             # Setup log file
             time_stamp = time.strftime('%Y%m%d_%H%M%S')
-            derivatives_dir = os.path.join(self.project_dir, 'derivatives')
-            log_dir = os.path.join(derivatives_dir, 'tit', 'logs', f'sub-{self.subject_id}')
-            os.makedirs(log_dir, exist_ok=True)
+            log_dir = pm.ensure_dir("ti_logs", subject_id=self.subject_id)
             log_file = os.path.join(log_dir, f'exsearch_leadfield_{time_stamp}.log')
             
             self.output_signal.emit(f"Log file: {log_file}", 'info')
@@ -138,9 +136,7 @@ class LeadfieldGenerationThread(QtCore.QThread):
             self.output_signal.emit(f"m2m directory: {m2m_dir}", 'info')
             
             # Get leadfield output directory
-            subject_dir = f"sub-{self.subject_id}"
-            leadfield_dir = os.path.join(self.project_dir, 'derivatives', 'SimNIBS', subject_dir, 'leadfields')
-            os.makedirs(leadfield_dir, exist_ok=True)
+            leadfield_dir = pm.ensure_dir("leadfields", subject_id=self.subject_id)
             
             # Clean net name (remove .csv extension)
             net_name = self.eeg_net_file.replace('.csv', '') if self.eeg_net_file.endswith('.csv') else self.eeg_net_file
@@ -1088,8 +1084,8 @@ class ExSearchTab(QtWidgets.QWidget):
             
             # Get list of subjects
             subjects = []
-            simnibs_dir = pm.get_simnibs_dir()
-            if os.path.exists(simnibs_dir):
+            simnibs_dir = pm.path_optional("simnibs")
+            if simnibs_dir and os.path.isdir(simnibs_dir):
                 for item in os.listdir(simnibs_dir):
                     if item.startswith("sub-"):
                         subject_id = item[4:]  # Remove 'sub-' prefix
@@ -1102,8 +1098,8 @@ class ExSearchTab(QtWidgets.QWidget):
             # Use LeadfieldGenerator to count leadfields for each subject
             for subject_id in subjects:
                 try:
-                    m2m_dir = pm.get_m2m_dir(subject_id)
-                    if m2m_dir and os.path.exists(m2m_dir):
+                    m2m_dir = pm.path_optional("m2m", subject_id=subject_id)
+                    if m2m_dir and os.path.isdir(m2m_dir):
                         gen = LeadfieldGenerator(m2m_dir)
                         leadfields = gen.list_available_leadfields_hdf5(subject_id)
                         
@@ -1153,7 +1149,7 @@ class ExSearchTab(QtWidgets.QWidget):
         try:
             # Get subject's m2m directory for LeadfieldGenerator
             pm = self.pm if hasattr(self, 'pm') else get_path_manager()
-            m2m_dir = pm.get_m2m_dir(subject_id)
+            m2m_dir = pm.path("m2m", subject_id=subject_id)
 
             # Use LeadfieldGenerator to list available leadfields
             from tit.opt.leadfield import LeadfieldGenerator
@@ -1193,10 +1189,10 @@ class ExSearchTab(QtWidgets.QWidget):
     def get_available_eeg_nets(self, subject_id):
         """Get available EEG nets for a subject."""
         pm = self.pm if hasattr(self, 'pm') else get_path_manager()
-        eeg_positions_dir = pm.get_eeg_positions_dir(subject_id)
+        eeg_positions_dir = pm.path_optional("eeg_positions", subject_id=subject_id)
         
         eeg_nets = []
-        if os.path.exists(eeg_positions_dir):
+        if eeg_positions_dir and os.path.isdir(eeg_positions_dir):
             for file in os.listdir(eeg_positions_dir):
                 if file.endswith('.csv'):
                     eeg_nets.append(file)
@@ -1321,27 +1317,12 @@ class ExSearchTab(QtWidgets.QWidget):
             self.update_status("No project directory selected", error=True)
             return
             
-        subjects_dir = self.pm.get_simnibs_dir() if hasattr(self, 'pm') else get_path_manager().get_simnibs_dir()
-        if not os.path.exists(subjects_dir):
-            self.update_status("No subjects directory found", error=True)
-            return
-            
-        # Find all m2m_* directories
-        subjects = []
-        for item in os.listdir(subjects_dir):
-            if item.startswith("sub-"):
-                subject_path = os.path.join(subjects_dir, item)
-                for m2m_dir in os.listdir(subject_path):
-                    if m2m_dir.startswith("m2m_"):
-                        subject_id = m2m_dir.replace("m2m_", "")
-                        subjects.append(subject_id)
+        pm = self.pm if hasattr(self, "pm") else get_path_manager()
+        subjects = pm.list_subjects()
         
         if not subjects:
             self.update_status("No subjects found", error=True)
             return
-            
-        # Sort subjects naturally
-        subjects.sort(key=lambda x: [int(c) if c.isdigit() else c.lower() for c in re.split('([0-9]+)', x)])
         self.subject_combo.addItems(subjects)
     
     def clear_subject_selection(self):
@@ -1487,7 +1468,7 @@ class ExSearchTab(QtWidgets.QWidget):
         subject_id = self.subject_combo.currentText()
         project_dir = self.pm.project_dir if hasattr(self, 'pm') else get_path_manager().project_dir
         pm = self.pm if hasattr(self, 'pm') else get_path_manager()
-        ex_search_dir = pm.get_ex_search_dir(subject_id)
+        ex_search_dir = pm.path_optional("ex_search", subject_id=subject_id)
 
         # Get electrode configurations based on mode (needed for confirmation dialog)
         if self.rb_all_combinations.isChecked():
@@ -1621,8 +1602,8 @@ class ExSearchTab(QtWidgets.QWidget):
         
         # Get ROI coordinates for environment variables
         pm = self.pm if hasattr(self, 'pm') else get_path_manager()
-        m2m_dir = pm.get_m2m_dir(subject_id)
-        roi_dir = os.path.join(m2m_dir, "ROIs") if m2m_dir else None
+        m2m_dir = pm.path_optional("m2m", subject_id=subject_id)
+        roi_dir = pm.path_optional("m2m_rois", subject_id=subject_id)
         roi_file = os.path.join(roi_dir, current_roi)
         
         try:
@@ -1774,7 +1755,7 @@ class ExSearchTab(QtWidgets.QWidget):
         # Create directory name: roi_leadfield format  
         output_dir_name = f"{roi_name}_{eeg_net_name}"
         pm = self.pm if hasattr(self, 'pm') else get_path_manager()
-        ex_search_dir = pm.get_ex_search_dir(subject_id)
+        ex_search_dir = pm.path_optional("ex_search", subject_id=subject_id)
         mesh_dir = os.path.join(ex_search_dir, output_dir_name) if ex_search_dir else None
         
         # Create temporary roi_list.txt with just the current ROI for ex_analyzer.py
@@ -1899,7 +1880,7 @@ class ExSearchTab(QtWidgets.QWidget):
         total_rois = len(self.roi_processing_queue)
         project_dir = self.pm.project_dir if hasattr(self, 'pm') else get_path_manager().project_dir
         pm = self.pm if hasattr(self, 'pm') else get_path_manager()
-        ex_search_dir = pm.get_ex_search_dir(subject_id)
+        ex_search_dir = pm.path_optional("ex_search", subject_id=subject_id)
         
         self.log_exsearch_complete(subject_id, total_rois, ex_search_dir)
         
@@ -2180,8 +2161,8 @@ class AddROIDialog(QtWidgets.QDialog):
                 return
             project_dir = self.pm.project_dir if hasattr(self, 'pm') else get_path_manager().project_dir
             pm = self.pm if hasattr(self, 'pm') else get_path_manager()
-            t1_path = pm.get_t1_path(subject_id)
-            if not os.path.exists(t1_path):
+            t1_path = pm.path("t1", subject_id=subject_id)
+            if not os.path.isfile(t1_path):
                 QtWidgets.QMessageBox.warning(self, "Error", f"T1 NIfTI file not found: {t1_path}")
                 return
             import subprocess

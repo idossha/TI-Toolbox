@@ -14,6 +14,7 @@ from typing import Any, Dict, List
 from tit.cli.base import ArgumentDefinition, BaseCLI
 from tit.cli import utils
 from tit.core import get_path_manager
+from tit.opt.leadfield import LeadfieldGenerator
 
 
 class CreateLeadfieldCLI(BaseCLI):
@@ -51,19 +52,17 @@ class CreateLeadfieldCLI(BaseCLI):
         return self.execute({"subject": subject_id, "eeg_net": eeg_net, "tissues": tissues})
 
     def execute(self, args: Dict[str, Any]) -> int:
-        from tit.opt.leadfield import LeadfieldGenerator
-
         pm = get_path_manager()
         if not pm.project_dir:
             raise RuntimeError("Project directory not resolved. In Docker set PROJECT_DIR_NAME so /mnt/<name> exists.")
 
         subject_id = str(args["subject"])
-        m2m_dir = pm.get_m2m_dir(subject_id)
-        if not m2m_dir:
+        m2m_dir = pm.path("m2m", subject_id=subject_id)
+        if not Path(m2m_dir).is_dir():
             raise RuntimeError(f"m2m directory not found for subject {subject_id}")
 
-        eeg_pos_dir = pm.get_eeg_positions_dir(subject_id)
-        if not eeg_pos_dir:
+        eeg_pos_dir = pm.path("eeg_positions", subject_id=subject_id)
+        if not Path(eeg_pos_dir).is_dir():
             raise RuntimeError(f"EEG positions directory not found for subject {subject_id}")
 
         eeg_net = str(args["eeg_net"])
@@ -75,9 +74,7 @@ class CreateLeadfieldCLI(BaseCLI):
         if not tissues:
             tissues = [1, 2]
 
-        out_dir = pm.get_leadfield_dir(subject_id)
-        if not out_dir:
-            raise RuntimeError("Leadfield output dir could not be resolved.")
+        out_dir = pm.ensure_dir("leadfields", subject_id=subject_id)
 
         gen = LeadfieldGenerator(m2m_dir, electrode_cap=eeg_net)
         gen.generate_leadfield(output_dir=str(out_dir), tissues=tissues, eeg_cap_path=eeg_cap_path)

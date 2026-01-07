@@ -33,22 +33,11 @@ def _ensure_subject_dirs(project_dir: Path, subject_id: str) -> None:
     pm.project_dir = str(project_dir)
 
     for modality in ("T1w", "T2w"):
-        d = pm.get_sourcedata_dicom_dir(subject_id, modality)
-        if d:
-            Path(d).mkdir(parents=True, exist_ok=True)
+        Path(pm.path("sourcedata_dicom", subject_id=subject_id, modality=modality)).mkdir(parents=True, exist_ok=True)
 
-    d = pm.get_bids_anat_dir(subject_id)
-    if d:
-        Path(d).mkdir(parents=True, exist_ok=True)
-
-    d = pm.get_freesurfer_subject_dir(subject_id)
-    if d:
-        Path(d).mkdir(parents=True, exist_ok=True)
-
-    # Ensure SimNIBS subject dir exists
-    simnibs_dir = pm.get_simnibs_dir()
-    if simnibs_dir:
-        Path(simnibs_dir, f"sub-{subject_id}").mkdir(parents=True, exist_ok=True)
+    Path(pm.path("bids_anat", subject_id=subject_id)).mkdir(parents=True, exist_ok=True)
+    Path(pm.path("freesurfer_subject", subject_id=subject_id)).mkdir(parents=True, exist_ok=True)
+    Path(pm.path("simnibs"), f"sub-{subject_id}").mkdir(parents=True, exist_ok=True)
 
 
 def _run_structural(

@@ -617,8 +617,8 @@ class ElectrodePlacementWidget(QtWidgets.QWidget):
             return
         
         # Get m2m directory
-        m2m_dir = self.path_manager.get_m2m_dir(self.current_subject)
-        if not m2m_dir or not os.path.exists(m2m_dir):
+        m2m_dir = self.path_manager.path_optional("m2m", subject_id=self.current_subject)
+        if not m2m_dir or not os.path.isdir(m2m_dir):
             QMessageBox.critical(
                 self, "Error", 
                 f"m2m directory not found for subject {self.current_subject}"
@@ -664,7 +664,7 @@ class ElectrodePlacementWidget(QtWidgets.QWidget):
             QMessageBox.warning(self, "Warning", "No EEG cap selected")
             return
         
-        eeg_pos_dir = self.path_manager.get_eeg_positions_dir(self.current_subject)
+        eeg_pos_dir = self.path_manager.path_optional("eeg_positions", subject_id=self.current_subject) or ""
         cap_path = os.path.join(eeg_pos_dir, cap_file)
         
         success, count = self.gl_widget.loadEEGCap(cap_path)

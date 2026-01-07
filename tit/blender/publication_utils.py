@@ -54,9 +54,9 @@ class PublicationVisualizer:
         self.pm = get_path_manager()
 
         # Setup paths using PathManager
-        self.subject_dir = self.pm.get_subject_dir(subject_id)
-        self.sim_dir = self.pm.get_simulation_dir(subject_id, simulation_name)
-        self.m2m_dir = self.pm.get_m2m_dir(subject_id)
+        self.subject_dir = self.pm.path_optional("simnibs_subject", subject_id=subject_id)
+        self.sim_dir = self.pm.path_optional("simulation", subject_id=subject_id, simulation_name=simulation_name)
+        self.m2m_dir = self.pm.path_optional("m2m", subject_id=subject_id)
 
         if not all([self.subject_dir, self.sim_dir, self.m2m_dir]):
             raise ValueError(f"Required directories not found for subject {subject_id}")

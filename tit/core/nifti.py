@@ -80,6 +80,21 @@ def load_subject_nifti_ti_toolbox(
     
     # Load the file (inline basic loading)
     if not os.path.exists(filepath):
+        # Provide extra context to make debugging path/layout issues easier
+        if os.path.isdir(nifti_dir):
+            try:
+                existing = sorted(os.listdir(nifti_dir))
+            except Exception:
+                existing = []
+            preview = existing[:20]
+            suffix = ""
+            if len(existing) > len(preview):
+                suffix = f" (showing first {len(preview)} of {len(existing)})"
+            raise FileNotFoundError(
+                f"NIfTI file not found: {filepath}. "
+                f"Directory exists: {nifti_dir}. "
+                f"Files in directory: {preview}{suffix}"
+            )
         raise FileNotFoundError(f"NIfTI file not found: {filepath}")
 
     img = nib.load(filepath)

@@ -89,7 +89,7 @@ def _select_mesh_field_file(m2m_subject_path: str, montage_name: str) -> str:
     pm = PathManager(project_dir=project_dir)
 
     # Get base simulation directory using PathManager
-    base_sim_dir = pm.get_simulation_dir(subject_id, montage_name)
+    base_sim_dir = pm.path_optional("simulation", subject_id=subject_id, simulation_name=montage_name)
     if not base_sim_dir:
         raise FileNotFoundError(f"No simulation directory found for {montage_name}")
 
@@ -186,7 +186,7 @@ def _select_voxel_field_file(m2m_subject_path: str, montage_name: str) -> str:
 
     # Get base simulation directory using PathManager
     pm = PathManager(project_dir=project_dir)
-    base_sim_dir = pm.get_simulation_dir(subject_id, montage_name)
+    base_sim_dir = pm.path_optional("simulation", subject_id=subject_id, simulation_name=montage_name)
     if not base_sim_dir:
         raise FileNotFoundError(f"No simulation directory found for {montage_name}")
 

@@ -8,6 +8,7 @@ import sys
 import shutil
 import h5py
 from pathlib import Path
+from typing import List, Optional
 
 from tit import logger as logging_util
 from tit.core import get_path_manager
@@ -49,11 +50,16 @@ class LeadfieldGenerator:
         # Setup logger
         if progress_callback is None:
             pm = self.pm
-            # For leadfield generation, use a general ti-toolbox logs directory
-            logs_dir = os.path.join(pm.project_dir, "derivatives", "ti-toolbox", "logs")
-            os.makedirs(logs_dir, exist_ok=True)
-            log_file = os.path.join(logs_dir, "leadfield_generator.log")
-            self.logger = logging_util.get_logger("LeadfieldGenerator", log_file, overwrite=False)
+            # Prefer a project-scoped log file when the project dir is resolved.
+            # In unit tests, PathManager is frequently mocked, so avoid filesystem writes.
+            log_file: Optional[str] = None
+            project_dir = getattr(pm, "project_dir", None)
+            if isinstance(project_dir, str) and project_dir and os.path.isdir(project_dir):
+                logs_dir = os.path.join(project_dir, "derivatives", "ti-toolbox", "logs")
+                os.makedirs(logs_dir, exist_ok=True)
+                log_file = os.path.join(logs_dir, "leadfield_generator.log")
+
+            self.logger = logging_util.get_logger("LeadfieldGenerator", log_file=log_file, overwrite=False, console=True)
             logging_util.configure_external_loggers(['simnibs', 'mesh_io'], self.logger)
         else:
             self.logger = None
@@ -434,11 +440,38 @@ class LeadfieldGenerator:
         if cap_name is None:
             cap_name = self.electrode_cap
 
-        # Use simnibs csv_reader to get electrode positions
-        from simnibs.utils.csv_reader import eeg_positions
-        eeg_pos = eeg_positions(str(self.subject_dir), cap_name=cap_name)
-        electrodes = list(eeg_pos.keys())
-        return sorted(electrodes)
+        # Prefer SimNIBS reader when available; fall back to a lightweight CSV parse for tests.
+        try:
+            from simnibs.utils.csv_reader import eeg_positions  # type: ignore[import-not-found]
+
+            eeg_pos = eeg_positions(str(self.subject_dir), cap_name=cap_name)
+            electrodes = list(eeg_pos.keys())
+            return sorted(electrodes)
+        except Exception:
+            cap = str(cap_name)
+            if not cap.lower().endswith(".csv"):
+                cap = f"{cap}.csv"
+            cap_path = self.subject_dir / "eeg_positions" / cap
+            if not cap_path.exists():
+                raise OSError(f"Could not find EEG cap file: {cap_path}")
+
+            labels: List[str] = []
+            with cap_path.open("r", encoding="utf-8", errors="ignore") as f:
+                for line in f:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    parts = [p.strip() for p in line.split(",")]
+                    # expected SimNIBS format: Type,x,y,z,label
+                    if len(parts) < 2:
+                        continue
+                    if parts[0] not in ("Electrode", "ReferenceElectrode"):
+                        continue
+                    label = parts[-1].strip()
+                    if label:
+                        labels.append(label)
+            # stable unique
+            return sorted(list(dict.fromkeys(labels)))
 
 
 if __name__ == '__main__':

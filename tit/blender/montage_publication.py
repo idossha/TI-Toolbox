@@ -117,7 +117,7 @@ def build_montage_publication_blend(
     import bpy
 
     pm = get_path_manager()
-    sim_dir = pm.get_simulation_dir(subject_id, simulation_name)
+    sim_dir = pm.path_optional("simulation", subject_id=subject_id, simulation_name=simulation_name)
     if not sim_dir:
         raise FileNotFoundError(f"Simulation directory not found for {subject_id}/{simulation_name}")
 
@@ -154,8 +154,8 @@ def build_montage_publication_blend(
     eeg_csv = _resolve_eeg_net_csv(subject_id=subject_id, eeg_net_name=str(eeg_net))
     electrode_template = os.path.abspath(os.path.join(os.path.dirname(__file__), "Electrode.blend"))
 
-    subject_m2m = pm.get_m2m_dir(subject_id)
-    if not subject_m2m:
+    subject_m2m = pm.path_optional("m2m", subject_id=subject_id)
+    if not subject_m2m or not os.path.isdir(subject_m2m):
         raise FileNotFoundError(f"m2m directory not found for subject {subject_id}")
     subject_msh = os.path.join(subject_m2m, f"{subject_id}.msh")
 

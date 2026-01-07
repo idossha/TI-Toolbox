@@ -18,13 +18,7 @@ from tit.gui.confirmation_dialog import ConfirmationDialog
 from tit.gui.utils import confirm_overwrite, is_verbose_message, is_important_message
 from tit.gui.components.console import ConsoleWidget
 from tit.gui.components.action_buttons import RunStopButtons
-from tit.core import (
-    get_path_manager,
-    get_simnibs_dir,
-    get_freesurfer_mri_dir,
-    get_simulation_dir,
-    get_m2m_dir,
-)
+from tit.core import get_path_manager
 from tit.core.process import get_child_pids
 
 class AnalysisThread(QtCore.QThread):
@@ -883,8 +877,7 @@ class AnalyzerTab(QtWidgets.QWidget):
         atlas_files = []
         if not subject_id: return atlas_files
 
-        # Freesurfer path uses full subject ID for both levels, e.g., sub-001/sub-001/mri
-        freesurfer_mri_dir = get_freesurfer_mri_dir(subject_id)
+        freesurfer_mri_dir = self.pm.path_optional("freesurfer_mri", subject_id=subject_id)
 
         atlases_to_check = ['aparc.DKTatlas+aseg.mgz', 'aparc.a2009s+aseg.mgz']
 
@@ -895,8 +888,8 @@ class AnalyzerTab(QtWidgets.QWidget):
                     atlas_files.append((atlas_filename, full_path))
 
         # Check for SimNIBS labeling.nii.gz atlas
-        m2m_dir = get_m2m_dir(subject_id)
-        if m2m_dir:
+        m2m_dir = self.pm.path_optional("m2m", subject_id=subject_id)
+        if m2m_dir and os.path.isdir(m2m_dir):
             labeling_path = os.path.join(m2m_dir, "segmentation", "labeling.nii.gz")
             if os.path.exists(labeling_path):
                 atlas_files.append(("SimNIBS labeling", labeling_path))
@@ -1041,8 +1034,8 @@ class AnalyzerTab(QtWidgets.QWidget):
         selected_subjects = self.get_selected_subjects()
         if selected_subjects:
             subject_id = selected_subjects[0]
-            m2m_dir_path = self.pm.get_m2m_dir(subject_id)
-            if m2m_dir_path and os.path.exists(m2m_dir_path): # Check existence
+            m2m_dir_path = self.pm.path_optional("m2m", subject_id=subject_id)
+            if m2m_dir_path and os.path.isdir(m2m_dir_path): # Check existence
                 initial_dir = os.path.join(m2m_dir_path, 'segmentation') 
         
         file_name, _ = QtWidgets.QFileDialog.getOpenFileName(self, "Select Atlas File", initial_dir,
@@ -1570,7 +1563,7 @@ class AnalyzerTab(QtWidgets.QWidget):
             if not project_dir:
                 self.update_output("Error: Could not determine project directory")
                 return None
-            temp_output_dir = self.pm.get_simnibs_dir()
+            temp_output_dir = self.pm.path_optional("simnibs")
             
             cmd.extend([
                 '--space', 'mesh' if self.space_mesh.isChecked() else 'voxel',
@@ -1632,7 +1625,7 @@ class AnalyzerTab(QtWidgets.QWidget):
                     self.update_output(f"Error: Invalid subject-simulation pair in row {row + 1}")
                     return None
                 # Get m2m path
-                m2m_path = self.pm.get_m2m_dir(subject_id)
+                m2m_path = self.pm.path_optional("m2m", subject_id=subject_id)
                 if not m2m_path or not os.path.isdir(m2m_path):
                     self.update_output(f"Error: m2m_{subject_id} folder not found at {m2m_path}. Please create the m2m folder first using the Pre-process tab.", 'error')
                     return None
@@ -1643,7 +1636,7 @@ class AnalyzerTab(QtWidgets.QWidget):
                     field_path = simulation_name  # This will be treated as montage name by group_analyzer.py
                 else:
                     # For voxel analysis, look for appropriate NIfTI file
-                    base_sim_dir = self.pm.get_simulation_dir(subject_id, simulation_name)
+                    base_sim_dir = self.pm.path_optional("simulation", subject_id=subject_id, simulation_name=simulation_name)
                     nifti_dir = os.path.join(base_sim_dir, 'mTI', 'niftis') if os.path.exists(os.path.join(base_sim_dir, 'mTI', 'niftis')) else os.path.join(base_sim_dir, 'TI', 'niftis')
                     # Prefer grey matter files, then any other file
                     grey_files = [f for f in os.listdir(nifti_dir) if f.startswith('grey_') and not f.endswith('_MNI.nii.gz')] if os.path.exists(nifti_dir) else []
@@ -2084,8 +2077,8 @@ class AnalyzerTab(QtWidgets.QWidget):
                 atlas_name_simnibs = self.atlas_name_combo.currentText()
                 if not atlas_name_simnibs: QtWidgets.QMessageBox.warning(self, "Atlas Error", "Select mesh atlas."); return
                 atlas_type_display = atlas_name_simnibs
-                m2m_dir = self.pm.get_m2m_dir(subject_id)
-                if not m2m_dir: QtWidgets.QMessageBox.critical(self, "Error", f"m2m dir not found: {subject_id}."); return
+                m2m_dir = self.pm.path_optional("m2m", subject_id=subject_id)
+                if not m2m_dir or not os.path.isdir(m2m_dir): QtWidgets.QMessageBox.critical(self, "Error", f"m2m dir not found: {subject_id}."); return
                 
                 progress_dialog.setValue(20); QtWidgets.QApplication.processEvents()
                 try:
@@ -2220,8 +2213,8 @@ class AnalyzerTab(QtWidgets.QWidget):
             else:
                 # Single mode or non-spherical: load subject's T1
                 subject_id = selected_subjects[0]
-                m2m_dir_path = self.pm.get_m2m_dir(subject_id)
-                if not m2m_dir_path: QtWidgets.QMessageBox.warning(self, "Error", f"m2m dir not found for {subject_id}."); return
+                m2m_dir_path = self.pm.path_optional("m2m", subject_id=subject_id)
+                if not m2m_dir_path or not os.path.isdir(m2m_dir_path): QtWidgets.QMessageBox.warning(self, "Error", f"m2m dir not found for {subject_id}."); return
                 
                 t1_nii_gz_path = os.path.join(m2m_dir_path, "T1.nii.gz")
                 t1_mgz_path = os.path.join(m2m_dir_path, "T1.mgz") # Check for .mgz too
@@ -2461,7 +2454,7 @@ class AnalyzerTab(QtWidgets.QWidget):
                  return None
 
             # Build output directory using PathManager
-            sim_dir = self.pm.get_simulation_dir(subject_id, simulation_name)
+            sim_dir = self.pm.path_optional("simulation", subject_id=subject_id, simulation_name=simulation_name)
             if not sim_dir:
                 self.update_output(f"Error: Could not find simulation directory for {subject_id}, {simulation_name}")
                 return None
@@ -2491,7 +2484,7 @@ class AnalyzerTab(QtWidgets.QWidget):
             # This keeps GUI and CLI behavior identical.
             cmd = ['simnibs_python', '-m', 'tit.analyzer.main_analyzer']
 
-            m2m_path = self.pm.get_m2m_dir(subject_id)
+            m2m_path = self.pm.path_optional("m2m", subject_id=subject_id)
             if not m2m_path or not os.path.isdir(m2m_path):
                 self.update_output(f"Error: m2m_{subject_id} folder not found at {m2m_path}. Please create the m2m folder first using the Pre-process tab.", 'error')
                 return None

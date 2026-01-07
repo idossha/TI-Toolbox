@@ -316,7 +316,7 @@ def _run_montage_worker(args: dict) -> dict:
         
         # Set up per-worker file-only logger (no console output)
         pm = get_path_manager()
-        derivatives_dir = pm.get_derivatives_dir()
+        derivatives_dir = pm.path("derivatives")
         log_dir = os.path.join(derivatives_dir, 'tit', 'logs', f'sub-{config.subject_id}')
         os.makedirs(log_dir, exist_ok=True)
         log_file = os.path.join(log_dir, f'Simulator_worker{worker_id}_{montage.name}_{time.strftime("%Y%m%d_%H%M%S")}.log')
@@ -351,7 +351,7 @@ def _run_montage_worker(args: dict) -> dict:
         
         # Initialize components
         session_builder = SessionBuilder(config)
-        m2m_dir = pm.get_m2m_dir(config.subject_id)
+        m2m_dir = pm.path("m2m", subject_id=config.subject_id)
         
         post_processor = PostProcessor(
             subject_id=config.subject_id,
@@ -423,7 +423,7 @@ def run_simulation(
     if logger is None:
         import logging
         pm = get_path_manager()
-        derivatives_dir = pm.get_derivatives_dir()
+        derivatives_dir = pm.path("derivatives")
         log_dir = os.path.join(derivatives_dir, 'tit', 'logs', f'sub-{config.subject_id}')
         os.makedirs(log_dir, exist_ok=True)
         log_file = os.path.join(log_dir, f'Simulator_{time.strftime("%Y%m%d_%H%M%S")}.log')
@@ -446,8 +446,7 @@ def run_simulation(
 
     # Get simulation directory
     pm = get_path_manager()
-    simnibs_dir = pm.get_simnibs_dir()
-    simulation_dir = pm.get_subject_simulations_dir(config.subject_id) or os.path.join(simnibs_dir, f"sub-{config.subject_id}", "Simulations")
+    simulation_dir = pm.path("simulations", subject_id=config.subject_id)
     
     # Check if parallel execution is enabled and we have multiple montages
     use_parallel = (
@@ -473,7 +472,7 @@ def _run_sequential(
     # Initialize components
     session_builder = SessionBuilder(config)
     pm = get_path_manager()
-    m2m_dir = pm.get_m2m_dir(config.subject_id)
+    m2m_dir = pm.path("m2m", subject_id=config.subject_id)
     
     post_processor = PostProcessor(
         subject_id=config.subject_id,
@@ -641,7 +640,7 @@ def _run_single_montage(
         Dictionary with simulation result
     """
     pm = get_path_manager()
-    montage_dir = pm.get_simulation_dir(config.subject_id, montage.name) or os.path.join(simulation_dir, montage.name)
+    montage_dir = pm.path("simulation", subject_id=config.subject_id, simulation_name=montage.name)
 
     # Step 1: Create complete directory structure
     logger.info(f"Creating directory structure for {montage.name}")
@@ -775,7 +774,7 @@ def main():
 
     # Generate completion report
     pm = get_path_manager()
-    derivatives_dir = pm.get_derivatives_dir()
+    derivatives_dir = pm.path("derivatives")
 
     report = {
         'session_id': os.environ.get('SIMULATION_SESSION_ID', 'unknown'),

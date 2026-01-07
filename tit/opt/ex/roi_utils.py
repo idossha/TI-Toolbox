@@ -40,8 +40,7 @@ def load_roi_presets() -> Dict[str, Dict]:
 def get_available_rois(subject_id: str) -> List[str]:
     """Get list of available ROIs for a subject."""
     pm = get_path_manager()
-    m2m_dir = pm.get_m2m_dir(subject_id)
-    roi_dir = os.path.join(m2m_dir, "ROIs")
+    roi_dir = pm.path_optional("m2m_rois", subject_id=subject_id) or ""
 
     roi_files = []
     for p in Path(roi_dir).glob("*.csv"):
@@ -76,8 +75,8 @@ def create_roi_from_preset(
 
     try:
         pm = get_path_manager()
-        m2m_dir = pm.get_m2m_dir(subject_id)
-        roi_dir = os.path.join(m2m_dir, "ROIs")
+        m2m_dir = pm.path("m2m", subject_id=subject_id)
+        roi_dir = pm.path("m2m_rois", subject_id=subject_id)
         os.makedirs(roi_dir, exist_ok=True)
 
         # Ensure .csv extension
@@ -125,8 +124,8 @@ def create_roi_from_coordinates(
     """
     try:
         pm = get_path_manager()
-        m2m_dir = pm.get_m2m_dir(subject_id)
-        roi_dir = os.path.join(m2m_dir, "ROIs")
+        m2m_dir = pm.path("m2m", subject_id=subject_id)
+        roi_dir = pm.path("m2m_rois", subject_id=subject_id)
         os.makedirs(roi_dir, exist_ok=True)
 
         # Ensure .csv extension
@@ -160,8 +159,8 @@ def delete_roi(subject_id: str, roi_name: str) -> Tuple[bool, str]:
     """
     try:
         pm = get_path_manager()
-        m2m_dir = pm.get_m2m_dir(subject_id)
-        roi_dir = os.path.join(m2m_dir, "ROIs")
+        m2m_dir = pm.path("m2m", subject_id=subject_id)
+        roi_dir = pm.path("m2m_rois", subject_id=subject_id)
 
         # Ensure .csv extension
         if not roi_name.endswith('.csv'):
@@ -205,8 +204,8 @@ def get_roi_coordinates(subject_id: str, roi_name: str) -> Optional[Tuple[float,
     """
     try:
         pm = get_path_manager()
-        m2m_dir = pm.get_m2m_dir(subject_id)
-        roi_dir = os.path.join(m2m_dir, "ROIs")
+        m2m_dir = pm.path("m2m", subject_id=subject_id)
+        roi_dir = pm.path("m2m_rois", subject_id=subject_id)
 
         # Ensure .csv extension
         if not roi_name.endswith('.csv'):

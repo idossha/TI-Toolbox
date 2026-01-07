@@ -83,7 +83,7 @@ class GroupAnalyzerCLI(BaseCLI):
             InteractivePrompt(name="analysis_type", prompt_text="Analysis type", choices=["spherical", "cortical"], default="spherical")
         )
 
-        default_out = pm.get_simnibs_dir() or str(Path(pm.get_derivatives_dir()) / "SimNIBS")
+        default_out = pm.path("simnibs")
         output_dir = utils.choose_or_enter(
             prompt="Base output dir",
             options=[default_out],
@@ -147,7 +147,7 @@ class GroupAnalyzerCLI(BaseCLI):
         if len(subject_ids) < 2:
             raise RuntimeError("--subjects must contain at least two ids (comma-separated)")
 
-        output_dir = args.get("output_dir") or pm.get_simnibs_dir() or str(Path(pm.get_derivatives_dir()) / "SimNIBS")
+        output_dir = args.get("output_dir") or pm.path("simnibs")
         argv: List[str] = ["--space", str(args["space"]), "--analysis_type", str(args["analysis_type"]), "--output_dir", str(output_dir)]
 
         if args.get("quiet"):

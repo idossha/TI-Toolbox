@@ -485,7 +485,7 @@ class VisualExporterWidget(QtWidgets.QWidget):
         try:
             self.subjects_list = self.pm.list_subjects()
             for subject_id in self.subjects_list:
-                sim_dir = self.pm.get_subject_dir(subject_id)
+                sim_dir = self.pm.path_optional("simnibs_subject", subject_id=subject_id)
                 if sim_dir:
                     s = self.pm.list_simulations(subject_id)
                     self.simulations_dict[subject_id] = s
@@ -505,8 +505,8 @@ class VisualExporterWidget(QtWidgets.QWidget):
         self._refresh_electrode_nets(subject_id)
         # Set default sub-cortical NIfTI path
         if self.pm and subject_id and hasattr(self, 'subcort_nifti_edit'):
-            m2m_dir = self.pm.get_m2m_dir(subject_id)
-            if m2m_dir:
+            m2m_dir = self.pm.path_optional("m2m", subject_id=subject_id)
+            if m2m_dir and os.path.isdir(m2m_dir):
                 default_path = str(Path(m2m_dir) / "segmentation" / "labeling.nii.gz")
                 self.subcort_nifti_edit.setText(default_path)
                 self.subcort_nifti_edit.setPlaceholderText(default_path)
@@ -604,8 +604,8 @@ class VisualExporterWidget(QtWidgets.QWidget):
         # Default to m2m segmentation directory
         subject_id = self.subject_combo.currentText().strip()
         if self.pm and subject_id:
-            m2m_dir = self.pm.get_m2m_dir(subject_id)
-            if m2m_dir:
+            m2m_dir = self.pm.path_optional("m2m", subject_id=subject_id)
+            if m2m_dir and os.path.isdir(m2m_dir):
                 init_dir = str(Path(m2m_dir) / "segmentation")
             else:
                 init_dir = ""
@@ -630,8 +630,8 @@ class VisualExporterWidget(QtWidgets.QWidget):
         # Find the labeling_LUT.txt file
         lut_path = None
         if self.pm:
-            m2m_dir = self.pm.get_m2m_dir(subject_id)
-            if m2m_dir:
+            m2m_dir = self.pm.path_optional("m2m", subject_id=subject_id)
+            if m2m_dir and os.path.isdir(m2m_dir):
                 potential_path = Path(m2m_dir) / "segmentation" / "labeling_LUT.txt"
                 if potential_path.exists():
                     lut_path = potential_path
@@ -747,7 +747,7 @@ class VisualExporterWidget(QtWidgets.QWidget):
     def _simulation_dir(self, subject_id: str, simulation_name: str):
         if not self.pm:
             return None
-        return self.pm.get_simulation_dir(subject_id, simulation_name)
+        return self.pm.path_optional("simulation", subject_id=subject_id, simulation_name=simulation_name)
 
     def _visual_exports_dir(self, subject_id: str, simulation_name: str):
         project_dir = self._get_project_dir()
@@ -794,7 +794,7 @@ class VisualExporterWidget(QtWidgets.QWidget):
     def _m2m_dir(self, subject_id: str):
         if not self.pm:
             return None
-        return self.pm.get_m2m_dir(subject_id)
+        return self.pm.path_optional("m2m", subject_id=subject_id)
 
     # Surface mesh ensuring and caching
     def _ensure_central_surface(self, subject_id: str, simulation_name: str) -> str:
@@ -802,12 +802,10 @@ class VisualExporterWidget(QtWidgets.QWidget):
         if not m2m_dir:
             raise ValueError("m2m directory not found")
         # Paths from PathManager
-        if not self.pm or not hasattr(self.pm, 'get_ti_central_surface_path') or not hasattr(self.pm, 'get_ti_mesh_path'):
-            raise ValueError("PathManager does not provide TI mesh path helpers")
-        central_path = self.pm.get_ti_central_surface_path(subject_id, simulation_name)
-        ti_mesh_path = self.pm.get_ti_mesh_path(subject_id, simulation_name)
-        if not central_path or not ti_mesh_path:
-            raise ValueError("Unable to resolve TI mesh paths from PathManager")
+        if not self.pm:
+            raise ValueError("PathManager not available")
+        central_path = self.pm.path("ti_central_surface", subject_id=subject_id, simulation_name=simulation_name)
+        ti_mesh_path = self.pm.path("ti_mesh", subject_id=subject_id, simulation_name=simulation_name)
         surfaces_dir = os.path.dirname(central_path)
         os.makedirs(surfaces_dir, exist_ok=True)
         if os.path.exists(central_path):
@@ -1181,8 +1179,8 @@ class VisualExporterWidget(QtWidgets.QWidget):
                 if not nifti_path:
                     # Use default path
                     if self.pm:
-                        m2m_dir = self.pm.get_m2m_dir(subject_id)
-                        if m2m_dir:
+                        m2m_dir = self.pm.path_optional("m2m", subject_id=subject_id)
+                        if m2m_dir and os.path.isdir(m2m_dir):
                             nifti_path = str(Path(m2m_dir) / "segmentation" / "labeling.nii.gz")
                         else:
                             raise ValueError("Could not determine default NIfTI path. Please specify manually.")

@@ -15,6 +15,7 @@ import json
 import os
 import logging
 import sys
+import inspect
 
 from tit.cli.base import ArgumentDefinition, BaseCLI, InteractivePrompt
 from tit.cli import utils
@@ -122,19 +123,10 @@ class SimulatorCLI(BaseCLI):
             montage_names = ",".join(selected)
         else:
             # flex: discover flex-search outputs in standard locations (same as GUI)
-            flex_root = None
-            subject_dir = pm.get_subject_dir(subject_id)
-            if subject_dir:
-                flex_root = Path(subject_dir) / const.DIR_FLEX_SEARCH
-
-            searches: List[str] = []
-            if flex_root and flex_root.is_dir():
-                for d in sorted([p for p in flex_root.iterdir() if p.is_dir()]):
-                    if (d / "electrode_positions.json").is_file():
-                        searches.append(d.name)
+            searches = pm.list_flex_search_runs(subject_id)
 
             if not searches:
-                utils.echo_warning("No flex-search outputs found for this subject (missing flex_search/*/electrode_positions.json).")
+                utils.echo_warning("No flex-search outputs found for this subject (missing flex-search/*/electrode_positions.json).")
                 montage_names = ""
             else:
                 selected_searches = self.select_many(
@@ -293,10 +285,7 @@ class SimulatorCLI(BaseCLI):
             )
         else:
             # Flex mode: montage_names holds selected flex-search folders
-            subject_dir = pm.get_subject_dir(str(sid))
-            if not subject_dir:
-                raise RuntimeError("Subject directory not resolved.")
-            flex_root = Path(subject_dir) / const.DIR_FLEX_SEARCH
+            flex_root = Path(pm.path("flex_search", subject_id=str(sid)))
             if not flex_root.is_dir():
                 raise RuntimeError(f"No flex-search directory found: {flex_root}")
 
@@ -399,10 +388,8 @@ class SimulatorCLI(BaseCLI):
                         )
 
                 if use_mapped:
-                    m2m_dir = pm.get_m2m_dir(str(sid))
-                    if not m2m_dir:
-                        continue
-                    eeg_net_path = Path(m2m_dir) / const.DIR_EEG_POSITIONS / eeg_net
+                    eeg_dir = Path(pm.path("eeg_positions", subject_id=str(sid)))
+                    eeg_net_path = eeg_dir / eeg_net
                     if not eeg_net_path.is_file():
                         continue
                     mapping_file = search_dir / f"electrode_mapping_{eeg_net.replace('.csv', '')}.json"
@@ -442,7 +429,16 @@ class SimulatorCLI(BaseCLI):
             h.setFormatter(logging.Formatter("[%(levelname)s] %(message)s"))
             logger.addHandler(h)
 
-        results = run_simulation(config, montages, logger=logger)
+        # Backward-compatible: only pass logger if backend supports it.
+        kwargs: Dict[str, Any] = {}
+        try:
+            if "logger" in inspect.signature(run_simulation).parameters:
+                kwargs["logger"] = logger
+        except Exception:
+            # If signature introspection fails, fall back to passing no kwargs.
+            kwargs = {}
+
+        results = run_simulation(config, montages, **kwargs)
         ok = all(r.get("status") == "completed" for r in results)
         return 0 if ok else 1
 

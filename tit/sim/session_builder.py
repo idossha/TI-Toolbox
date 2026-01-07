@@ -27,7 +27,7 @@ class SessionBuilder:
         self.pm = get_path_manager()
 
         # Setup paths
-        self.m2m_dir = self.pm.get_m2m_dir(config.subject_id)
+        self.m2m_dir = self.pm.path("m2m", subject_id=config.subject_id)
         self.mesh_file = os.path.join(self.m2m_dir, f"{config.subject_id}.msh")
         self.tensor_file = os.path.join(self.m2m_dir, "DTI_coregT1_tensor.nii.gz")
 
@@ -56,7 +56,7 @@ class SessionBuilder:
         # Set EEG cap if using electrode names (not XYZ)
         if not montage.is_xyz:
             eeg_net = montage.eeg_net or self.config.eeg_net
-            S.eeg_cap = os.path.join(self.m2m_dir, "eeg_positions", eeg_net)
+            S.eeg_cap = os.path.join(self.pm.path("eeg_positions", subject_id=self.config.subject_id), eeg_net)
 
         # Mapping options
         S.map_to_surf = self.config.map_to_surf

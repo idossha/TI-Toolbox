@@ -65,8 +65,7 @@ class AnalyzerCLI(BaseCLI):
 
         # Automatically determine field file using backend logic
         from tit.analyzer.field_selector import select_field_file
-        project_dir = Path(pm.project_dir)
-        m2m_dir = project_dir / "derivatives" / "SimNIBS" / f"sub-{subject_id}" / f"m2m_{subject_id}"
+        m2m_dir = Path(pm.path("m2m", subject_id=subject_id))
         try:
             field_path, _ = select_field_file(str(m2m_dir), simulation_name, space, analysis_type)
         except FileNotFoundError as e:
@@ -190,7 +189,7 @@ class AnalyzerCLI(BaseCLI):
           <Simulations>/<montage>/Analyses/<Mesh|Voxel>/<analysis_name>
         """
         # Centralized in PathManager so GUI/CLI naming stays identical.
-        sim_dir = pm.get_simulation_dir(str(cfg["subject"]), str(cfg["simulation"]))
+        sim_dir = pm.path_optional("simulation", subject_id=str(cfg["subject"]), simulation_name=str(cfg["simulation"]))
         if not sim_dir:
             raise RuntimeError(f"Could not resolve simulation directory for sub-{cfg['subject']} / {cfg['simulation']}")
 

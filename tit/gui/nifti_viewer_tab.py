@@ -12,16 +12,7 @@ import glob
 import subprocess
 from PyQt5 import QtWidgets, QtCore, QtGui
 
-from tit.core import (
-    get_path_manager,
-    get_freesurfer_mri_dir,
-    get_simulation_dir,
-    get_simnibs_dir,
-    list_simulations,
-    list_subjects,
-    get_subject_dir,
-    get_m2m_dir,
-)
+from tit.core import get_path_manager
 
 class NiftiViewerTab(QtWidgets.QWidget):
     """Tab for NIfTI visualization using Freeview."""
@@ -31,6 +22,7 @@ class NiftiViewerTab(QtWidgets.QWidget):
         self.parent = parent
         self.freeview_process = None
         self.current_file = None
+        self.pm = get_path_manager()
         self.base_dir = self.find_base_dir()
         self.subject_sim_pairs = []  # Store subject-simulation pairs for group mode
         self.visualization_mode = "single"  # "single" or "group"
@@ -55,8 +47,8 @@ class NiftiViewerTab(QtWidgets.QWidget):
         Returns:
             List of available atlas filenames
         """
-        freesurfer_dir = get_freesurfer_mri_dir(subject_id)
-        m2m_dir = get_m2m_dir(subject_id)
+        freesurfer_dir = self.pm.path_optional("freesurfer_mri", subject_id=subject_id)
+        m2m_dir = self.pm.path_optional("m2m", subject_id=subject_id)
         atlas_files = []
 
         # Check Freesurfer directory for atlases
@@ -126,7 +118,7 @@ class NiftiViewerTab(QtWidgets.QWidget):
             List of available region names
         """
         regions = []
-        sim_dir = get_simulation_dir(subject_id, simulation_name)
+        sim_dir = self.pm.path_optional("simulation", subject_id=subject_id, simulation_name=simulation_name)
         analyses_dir = os.path.join(sim_dir, "Analyses") if sim_dir else None
         
         if os.path.isdir(analyses_dir):
@@ -462,7 +454,7 @@ class NiftiViewerTab(QtWidgets.QWidget):
 
         # Look for subject directories in the derivatives/SimNIBS directory
         try:
-            simnibs_dir = get_simnibs_dir()
+            simnibs_dir = self.pm.path_optional("simnibs")
             if not simnibs_dir or not os.path.isdir(simnibs_dir):
                 self.status_label.setText("No subjects found")
                 return
@@ -516,11 +508,10 @@ class NiftiViewerTab(QtWidgets.QWidget):
             return
 
         subject_id = self.subject_combo.currentText()
-        simulations = list_simulations(subject_id)
+        simulations = self.pm.list_simulations(subject_id)
 
         if not simulations:
-            pm = get_path_manager()
-            subject_dir = pm.get_subject_dir(subject_id)
+            subject_dir = self.pm.path_optional("simnibs_subject", subject_id=subject_id)
             sim_base = os.path.join(subject_dir, "Simulations") if subject_dir else "unknown location"
             self.info_area.append(f"\nNo Simulations directory found at {sim_base}")
             return
@@ -603,7 +594,7 @@ class NiftiViewerTab(QtWidgets.QWidget):
     def get_simulations_for_subject(self, subject_id):
         """Get list of available simulations for a subject."""
         try:
-            return list_simulations(subject_id)
+            return self.pm.list_simulations(subject_id)
         except Exception as e:
             self.info_area.append(f"\nError getting simulations for subject {subject_id}: {str(e)}")
             return []
@@ -616,7 +607,7 @@ class NiftiViewerTab(QtWidgets.QWidget):
         # Subject combo
         subject_combo = QtWidgets.QComboBox()
         try:
-            subjects = list_subjects()
+            subjects = self.pm.list_subjects()
         except Exception as e:
             self.info_area.append(f"\nError getting subjects: {str(e)}")
             subjects = []
@@ -673,7 +664,7 @@ class NiftiViewerTab(QtWidgets.QWidget):
         # Get all unique simulations across all subjects
         all_sims = set()
         try:
-            subjects = list_subjects()
+            subjects = self.pm.list_subjects()
         except Exception as e:
             self.info_area.append(f"\nError getting subjects: {str(e)}")
             subjects = []
@@ -689,7 +680,7 @@ class NiftiViewerTab(QtWidgets.QWidget):
         subject_list.setSelectionMode(QtWidgets.QAbstractItemView.MultiSelection)
         
         try:
-            all_subjects = list_subjects()
+            all_subjects = self.pm.list_subjects()
         except Exception as e:
             self.info_area.append(f"\nError getting subjects: {str(e)}")
             all_subjects = []
@@ -779,7 +770,7 @@ class NiftiViewerTab(QtWidgets.QWidget):
             Tuple of (is_valid, nifti_path or error_message)
         """
         # Look for MNI NIfTI files
-        sim_dir = get_simulation_dir(subject_id, simulation_name)
+        sim_dir = self.pm.path_optional("simulation", subject_id=subject_id, simulation_name=simulation_name)
         
         # Check mTI and TI directories
         for sim_type in ["mTI", "TI"]:
@@ -946,8 +937,8 @@ class NiftiViewerTab(QtWidgets.QWidget):
             return
         
         # Get paths using path manager
-        subject_dir = get_subject_dir(subject_id)
-        m2m_dir = get_m2m_dir(subject_id)
+        subject_dir = self.pm.path_optional("simnibs_subject", subject_id=subject_id)
+        m2m_dir = self.pm.path_optional("m2m", subject_id=subject_id)
         simulations_dir = os.path.join(subject_dir, "Simulations") if subject_dir else None
         
         # Get visualization options
@@ -984,12 +975,12 @@ class NiftiViewerTab(QtWidgets.QWidget):
             # Determine atlas location based on filename
             if atlas_name == "labeling.nii.gz":
                 # labeling.nii.gz is in m2m/segmentation/
-                m2m_dir = get_m2m_dir(subject_id)
+                m2m_dir = self.pm.path_optional("m2m", subject_id=subject_id)
                 atlas_file = os.path.join(m2m_dir, "segmentation", atlas_name) if m2m_dir else None
                 atlas_source = "m2m segmentation"
             else:
                 # Other atlases are in Freesurfer directory
-                freesurfer_mri_dir = get_freesurfer_mri_dir(subject_id)
+                freesurfer_mri_dir = self.pm.path_optional("freesurfer_mri", subject_id=subject_id)
                 atlas_file = os.path.join(freesurfer_mri_dir, atlas_name) if freesurfer_mri_dir else None
                 atlas_source = "Freesurfer"
 
@@ -1013,7 +1004,7 @@ class NiftiViewerTab(QtWidgets.QWidget):
             region_name = self.analysis_region_combo.currentText()
             
             # Look for the ROI file
-            sim_dir = get_simulation_dir(subject_id, simulation_name)
+            sim_dir = self.pm.path_optional("simulation", subject_id=subject_id, simulation_name=simulation_name)
             analysis_dir = os.path.join(self.pm.get_analysis_space_dir(subject_id, simulation_name, "voxel") or "", region_name) if sim_dir else None
             
             if os.path.exists(analysis_dir):

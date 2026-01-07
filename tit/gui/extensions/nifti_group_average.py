@@ -295,15 +295,16 @@ class NiftiGroupAverageWidget(QtWidgets.QWidget):
             for subject_id in self.subjects_list:
                 simulations = self.pm.list_simulations(subject_id)
                 # Filter for only Simulations directory contents
-                sim_dir = self.pm.get_subject_dir(subject_id)
-                if sim_dir:
-                    sim_path = os.path.join(sim_dir, "Simulations")
-                    if os.path.exists(sim_path):
-                        sims = [d for d in os.listdir(sim_path) 
-                               if os.path.isdir(os.path.join(sim_path, d))]
-                        self.simulations_dict[subject_id] = sorted(sims)
-                    else:
-                        self.simulations_dict[subject_id] = []
+                sim_path = self.pm.path_optional("simulations", subject_id=subject_id)
+                if sim_path and os.path.isdir(sim_path):
+                    sims = [
+                        d
+                        for d in os.listdir(sim_path)
+                        if os.path.isdir(os.path.join(sim_path, d))
+                    ]
+                    self.simulations_dict[subject_id] = sorted(sims)
+                else:
+                    self.simulations_dict[subject_id] = []
             
             self.update_output(f"Loaded {len(self.subjects_list)} subjects", 'info')
             

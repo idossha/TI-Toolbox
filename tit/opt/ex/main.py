@@ -16,9 +16,9 @@ def main():
     # Determine log file location
     log_file = os.environ.get('TI_LOG_FILE')
     if not log_file:
-        # Use proper logs directory
+        # Use proper logs directory (centralized in PathManager).
         pm = get_path_manager()
-        logs_dir = pm.get_logs_dir(subject_name)
+        logs_dir = pm.path_optional("ti_logs", subject_id=subject_name) or pm.get_logs_dir(subject_name)
         os.makedirs(logs_dir, exist_ok=True)
         log_file = os.path.join(logs_dir, f'ex_search_{time.strftime("%Y%m%d_%H%M%S")}.log')
     logger = logging_util.get_logger('ex_search', log_file, overwrite=False)
@@ -37,16 +37,17 @@ def main():
 
         pm = get_path_manager()
 
-        # Normalize ROI name to ensure it has exactly one .csv extension
+        # Output directory (centralized): .../ex-search/<roi.csv>_<net>
         roi_name = env_config['ROI_NAME']
-        if not roi_name.endswith('.csv'):
-            roi_name += '.csv'
-
-        output_dir = os.path.join(pm.get_ex_search_dir(subject_name), f"{roi_name}_{env_config['SELECTED_EEG_NET']}")
+        roi_csv = roi_name if roi_name.endswith(".csv") else f"{roi_name}.csv"
+        net = str(env_config.get("SELECTED_EEG_NET") or "unknown_net").strip() or "unknown_net"
+        run_name = f"{roi_csv}_{net}"
+        output_dir = pm.path("ex_search_run", subject_id=subject_name, run_name=run_name)
         os.makedirs(output_dir, exist_ok=True)
         logger.info(f"Output directory: {output_dir}")
 
-        roi_file = os.path.join(pm.get_m2m_dir(subject_name), 'ROIs', roi_name)
+        roi_dir = pm.path("m2m_rois", subject_id=subject_name)
+        roi_file = os.path.join(roi_dir, roi_csv)
         leadfield_processor = LeadfieldProcessor(env_config['LEADFIELD_HDF'], roi_file, roi_name, logger)
         leadfield_processor.initialize()
 

@@ -62,11 +62,7 @@ def _find_eeg_net_csv(subject_id: str, *, leadfield_hdf: str) -> Tuple[Optional[
         return None, None
 
     pm = get_path_manager()
-    eeg_pos_dir = pm.get_eeg_positions_dir(subject_id)
-    if not eeg_pos_dir:
-        return net_stem, None
-
-    eeg_pos_dir_p = Path(eeg_pos_dir)
+    eeg_pos_dir_p = Path(pm.path("eeg_positions", subject_id=subject_id))
     if not eeg_pos_dir_p.is_dir():
         return net_stem, None
 
@@ -165,7 +161,7 @@ class ExSearchCLI(BaseCLI):
         )
 
         # Select leadfield (no EEG cap selection)
-        lf_dir = pm.get_leadfield_dir(subject_id)
+        lf_dir = pm.path("leadfields", subject_id=subject_id)
         lf_files: List[str] = []
         if lf_dir and Path(lf_dir).is_dir():
             lf_files = sorted([p.name for p in Path(lf_dir).glob("*.hdf5")])
@@ -268,7 +264,7 @@ class ExSearchCLI(BaseCLI):
         net_stem, csv_path = _find_eeg_net_csv(subject_id, leadfield_hdf=leadfield_hdf)
         available_labels: List[str] = _load_eeg_labels(csv_path) if csv_path else []
         if net_stem and not csv_path:
-            eeg_dir = get_path_manager().get_eeg_positions_dir(subject_id) or "<unknown>"
+            eeg_dir = get_path_manager().path("eeg_positions", subject_id=subject_id)
             utils.echo_warning(f"EEG net CSV not found: {net_stem}.csv (expected under {eeg_dir}) - electrode validation skipped")
 
         if mode == "pool":
@@ -326,7 +322,7 @@ class ExSearchCLI(BaseCLI):
         if not net_stem:
             utils.echo_warning("Could not derive EEG net name from leadfield filename - electrode validation skipped")
         elif not csv_path:
-            eeg_dir = pm.get_eeg_positions_dir(subject_id) or "<unknown>"
+            eeg_dir = pm.path("eeg_positions", subject_id=subject_id)
             utils.echo_warning(f"EEG net CSV not found: {net_stem}.csv (expected under {eeg_dir}) - electrode validation skipped")
 
         available_labels: List[str] = _load_eeg_labels(csv_path) if csv_path else []
