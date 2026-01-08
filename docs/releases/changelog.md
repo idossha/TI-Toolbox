@@ -47,11 +47,11 @@ Complete changelog for all versions of the Temporal Interference Toolbox.
 - - **Windows Electron**: A more robust executable delivery on Windows.
 #### Download Links
 **Desktop App (v2.2.2):**
-[macOS Intel](https://github.com/idossha/TI-toolbox/releases/download/v2.2.2/TI-Toolbox-x64.dmg) ·
-[macOS Apple Silicon](https://github.com/idossha/TI-toolbox/releases/download/v2.2.2/TI-Toolbox-arm64.dmg) ·
-[Windows](https://github.com/idossha/TI-toolbox/releases/download/v2.2.2/TI-Toolbox-Setup.exe) ·
-[Linux AppImage](https://github.com/idossha/TI-toolbox/releases/download/v2.2.2/TI-Toolbox.AppImage) ·
-[Linux deb](https://github.com/idossha/TI-toolbox/releases/download/v2.2.2/ti-toolbox.deb)
+[macOS Intel](https://github.com/idossha/TI-Toolbox/releases/download/v2.2.2/TI-Toolbox-x64.dmg) ·
+[macOS Apple Silicon](https://github.com/idossha/TI-Toolbox/releases/download/v2.2.2/TI-Toolbox-arm64.dmg) ·
+[Windows](https://github.com/idossha/TI-Toolbox/releases/download/v2.2.2/TI-Toolbox-Setup.exe) ·
+[Linux AppImage](https://github.com/idossha/TI-Toolbox/releases/download/v2.2.2/TI-Toolbox.AppImage) ·
+[Linux deb](https://github.com/idossha/TI-Toolbox/releases/download/v2.2.2/ti-toolbox.deb)
 **Other:**
 - Docker Image: `docker pull idossha/simnibs:v2.2.2`
 
