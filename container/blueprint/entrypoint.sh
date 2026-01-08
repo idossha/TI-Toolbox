@@ -4,7 +4,7 @@
 touch ~/.bashrc
 
 # Source environment setup scripts
-[ -f "$FREESURFER_HOME/SetUpFreeSurfer.sh" ] && source "$FREESURFER_HOME/SetUpFreeSurfer.sh"
+[ -f "$FREESURFER_HOME/SetUpFreeSurfer.sh" ] && source "$FREESURFER_HOME/SetUpFreeSurfer.sh" >/dev/null 2>&1
 
 # Ensure `tit` is importable system-wide in the SimNIBS python environment.
 # This fixes running python entrypoints by path like:
@@ -94,7 +94,7 @@ alias cluster_permutation='simnibs_python -m tit.cli.cluster_permuatation'
 # Add environment setup to .bashrc
 {
     echo ""
-    echo "source \"\$FREESURFER_HOME/SetUpFreeSurfer.sh\""
+    echo "source \"\$FREESURFER_HOME/SetUpFreeSurfer.sh\" >/dev/null 2>&1"
     echo ""
     echo "# TI-Toolbox CLI scripts"
     echo "export PATH=\"\$PATH:/ti-toolbox/tit/cli\""
