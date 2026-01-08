@@ -4,6 +4,15 @@
 # docker build --no-cache --platform linux/amd64 \
 #   -f Dockerfile.simnibs \
 #   -t idossha/simnibs:{version} .
+#
+# To build with cache but fresh TI-Toolbox clone:
+# docker build --platform linux/amd64 \
+#   --build-arg CACHE_BUST=$(date +%s) \
+#   -f Dockerfile.simnibs \
+#   -t idossha/simnibs:{version} .
+#
+# This preserves cache for all layers up to SimNIBS installation,
+# but forces fresh clone of TI-Toolbox repository.
 
 FROM ubuntu:22.04
 
@@ -122,24 +131,6 @@ ENV SIMNIBSDIR="/root/SimNIBS-4.5"
 # Install additional Python packages to simnibs_python
 RUN simnibs_python -m pip install meshio nilearn PyOpenGL-accelerate trimesh seaborn scikit-image numpy-stl click bpy
 
-########### TI-Toolbox ########################
-RUN git clone https://github.com/idossha/TI-Toolbox.git /ti-toolbox
-
-# Convert all shell scripts to Unix line endings
-RUN find /ti-toolbox -name "*.sh" -exec dos2unix {} \;
-
-# Extra EEG nets 
-RUN mkdir -p $SIMNIBSDIR/resources/ElectrodeCaps_MNI/
-RUN cp /ti-toolbox/resources/ElectrodeCaps_MNI/* $SIMNIBSDIR/resources/ElectrodeCaps_MNI/
-
-# Flex extention by TI-Toolbox team
-RUN rm -f $SIMNIBSDIR/simnibs/optimization/tes_flex_optimization/tes_flex_optimization.py && \
-    cp /ti-toolbox/resources/map-electrodes/tes_flex_optimization.py $SIMNIBSDIR/simnibs/optimization/tes_flex_optimization/tes_flex_optimization.py
-
-# Install TIT package (non-editable). CLI entrypoints are defined in pyproject.toml.
-RUN cd /ti-toolbox && simnibs_python -m pip install --no-cache-dir .
-
-############ CLI tools ###############
 
 # Install Neovim v.0.11.0 from source 
 RUN git clone https://github.com/neovim/neovim.git /tmp/neovim \
@@ -149,15 +140,32 @@ RUN git clone https://github.com/neovim/neovim.git /tmp/neovim \
     && make install \
     && rm -rf /tmp/neovim
 
+
+########### TI-Toolbox ########################
+# Use CACHE_BUST build arg to force fresh clone when needed
+ARG CACHE_BUST
+RUN git clone https://github.com/idossha/TI-Toolbox.git /ti-toolbox && \
+    # Convert all shell scripts to Unix line endings \
+    find /ti-toolbox -name "*.sh" -exec dos2unix {} \; && \
+    # Extra EEG nets \
+    mkdir -p $SIMNIBSDIR/resources/ElectrodeCaps_MNI/ && \
+    cp /ti-toolbox/resources/ElectrodeCaps_MNI/* $SIMNIBSDIR/resources/ElectrodeCaps_MNI/ && \
+    # Flex extension by TI-Toolbox team \
+    rm -f $SIMNIBSDIR/simnibs/optimization/tes_flex_optimization/tes_flex_optimization.py && \
+    cp /ti-toolbox/resources/map-electrodes/tes_flex_optimization.py $SIMNIBSDIR/simnibs/optimization/tes_flex_optimization/tes_flex_optimization.py && \
+    # Install TIT package (non-editable). CLI entrypoints are defined in pyproject.toml. \
+    cd /ti-toolbox && simnibs_python -m pip install --no-cache-dir .
+
+
 # Create symlinks for config files
 RUN ln -sf /ti-toolbox/container/config/.tmux.conf /root/.tmux.conf && \
 ln -sf /ti-toolbox/container/config/nvim /root/.config/
 
-# Install plugins using lazy.nvim
-RUN nvim --headless "+LAZY! sync" +qa
-
 # Source tmux
 RUN tmux source-file /root/.tmux.conf || true
+
+# Install plugins using lazy.nvim
+RUN nvim --headless "+LAZY! sync" +qa
 
 # Copy the robust entrypoint script into the image
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
