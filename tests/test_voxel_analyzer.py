@@ -17,40 +17,16 @@ This module tests all the functionality in the voxel analyzer including:
 import os
 import sys
 import pytest
-import tempfile
 import subprocess
 import numpy as np
 from pathlib import Path
-from unittest.mock import Mock, patch, MagicMock, call, mock_open
-from io import StringIO
+from unittest.mock import patch, MagicMock, mock_open
 
 # Ensure repo root is on sys.path so `import tit` resolves to local sources.
 project_root = Path(__file__).resolve().parent.parent
 if str(project_root) not in sys.path:
     sys.path.insert(0, str(project_root))
 
-# Mock only what needs to be mocked for this specific test
-from unittest.mock import MagicMock
-
-# Store original visualizer for cleanup
-_original_visualizer = sys.modules.get('visualizer')
-
-# Mock visualizer module (local module that may not exist)
-sys.modules['visualizer'] = MagicMock()
-sys.modules['visualizer'].VoxelVisualizer = MagicMock()
-
-
-@pytest.fixture(scope='module', autouse=True)
-def cleanup_visualizer_mock():
-    """Cleanup visualizer mock after all tests"""
-    yield  # Tests run here
-    if _original_visualizer is not None:
-        sys.modules['visualizer'] = _original_visualizer
-    else:
-        sys.modules.pop('visualizer', None)
-
-
-# Now import the voxel_analyzer module
 from tit.analyzer.voxel_analyzer import VoxelAnalyzer
 
 
@@ -80,10 +56,16 @@ class TestVoxelAnalyzerInitialization:
         mock_logger.getChild.assert_called_once_with('voxel_analyzer')
     
     @patch('tit.analyzer.voxel_analyzer.logging_util.get_logger')
-    def test_init_without_logger(self, mock_get_logger):
+    @patch('tit.analyzer.voxel_analyzer.get_path_manager')
+    def test_init_without_logger(self, mock_get_pm, mock_get_logger):
         """Test initialization without logger (creates its own)"""
         mock_logger_instance = MagicMock()
         mock_get_logger.return_value = mock_logger_instance
+
+        # Mock PathManager
+        mock_pm = MagicMock()
+        mock_pm.path.return_value = "/path/to/logs"
+        mock_get_pm.return_value = mock_pm
 
         with patch('os.path.exists', return_value=True):
             with patch('os.makedirs'):

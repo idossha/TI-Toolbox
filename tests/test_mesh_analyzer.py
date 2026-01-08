@@ -17,54 +17,16 @@ This module tests all the functionality in the mesh analyzer including:
 import os
 import sys
 import pytest
-import tempfile
 import subprocess
 import numpy as np
 from pathlib import Path
-from unittest.mock import Mock, patch, MagicMock, call, mock_open
-from io import StringIO
+from unittest.mock import patch, MagicMock, mock_open
 
 # Ensure repo root is on sys.path so `import tit` resolves to local sources.
 project_root = Path(__file__).resolve().parent.parent
 if str(project_root) not in sys.path:
     sys.path.insert(0, str(project_root))
 
-# Mock only local modules (simnibs and matplotlib.pyplot are available in SimNIBS environment)
-from unittest.mock import MagicMock
-
-# Store original modules for cleanup
-_original_viz = sys.modules.get('visualizer')
-_original_tools = sys.modules.get('tools')
-
-# Mock visualizer module (local module that may not exist)
-mock_visualizer_mod = MagicMock()
-mock_visualizer_mod.MeshVisualizer = MagicMock()
-sys.modules['visualizer'] = mock_visualizer_mod
-
-# Mock tools module (for logging_util)
-mock_tools = MagicMock()
-mock_tools.logging_util = MagicMock()
-sys.modules['tools'] = mock_tools
-
-
-@pytest.fixture(scope='module', autouse=True)
-def cleanup_mesh_mocks():
-    """Cleanup mock dependencies after all tests"""
-    yield  # Tests run here
-
-    # Cleanup: restore original modules or remove mocks
-    if _original_viz is not None:
-        sys.modules['visualizer'] = _original_viz
-    else:
-        sys.modules.pop('visualizer', None)
-
-    if _original_tools is not None:
-        sys.modules['tools'] = _original_tools
-    else:
-        sys.modules.pop('tools', None)
-
-
-# Now import the mesh_analyzer module
 from tit.analyzer.mesh_analyzer import MeshAnalyzer
 
 
@@ -96,10 +58,16 @@ class TestMeshAnalyzerInitialization:
         assert any(call[0][0] == 'mesh_analyzer' for call in mock_logger.getChild.call_args_list)
     
     @patch('tit.analyzer.mesh_analyzer.logging_util.get_logger')
-    def test_init_without_logger(self, mock_get_logger):
+    @patch('tit.analyzer.mesh_analyzer.get_path_manager')
+    def test_init_without_logger(self, mock_get_pm, mock_get_logger):
         """Test initialization without logger (creates its own)"""
         mock_logger_instance = MagicMock()
         mock_get_logger.return_value = mock_logger_instance
+
+        # Mock PathManager
+        mock_pm = MagicMock()
+        mock_pm.path.return_value = "/path/to/logs"
+        mock_get_pm.return_value = mock_pm
 
         with patch('os.path.exists', return_value=True):
             with patch('os.makedirs'):

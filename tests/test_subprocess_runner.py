@@ -14,7 +14,7 @@ import os
 import sys
 import json
 import pytest
-from unittest.mock import patch, MagicMock, mock_open, call
+from unittest.mock import patch, MagicMock
 from pathlib import Path
 
 # Ensure repo root is on sys.path so `import tit` resolves to local sources.
@@ -64,51 +64,53 @@ class TestBuildLogger:
     @patch('tit.core.get_path_manager')
     @patch('tit.logger.get_logger')
     @patch('os.makedirs')
-    @patch('os.path.join', side_effect=lambda *args: '/'.join(args))
-    def test_logger_creation(self, mock_join, mock_makedirs, mock_get_logger, mock_pm):
+    @patch('time.strftime', return_value='20240101_120000')
+    def test_logger_creation(self, mock_strftime, mock_makedirs, mock_get_logger, mock_get_pm):
         """Test logger creation with correct paths."""
         # Mock PathManager
         mock_pm_instance = MagicMock()
-        mock_pm_instance.get_derivatives_dir.return_value = "/test/derivatives"
-        mock_pm.return_value = mock_pm_instance
+        mock_pm_instance.path.return_value = "/test/derivatives/tit/logs/sub-001"
+        mock_get_pm.return_value = mock_pm_instance
 
-        # Mock logger
+        # Mock logger with handlers
         mock_logger = MagicMock()
+        mock_logger.handlers = []
         mock_get_logger.return_value = mock_logger
 
         logger, log_file = _build_logger("001", "/test/project", debug=False)
 
         # Check directory creation
-        mock_makedirs.assert_called_once()
+        mock_makedirs.assert_called_once_with("/test/derivatives/tit/logs/sub-001", exist_ok=True)
 
         # Check logger was created
         mock_get_logger.assert_called_once()
         assert logger == mock_logger
-        assert "sub-001" in log_file
         assert "Simulator_" in log_file
+        assert "20240101_120000" in log_file
 
     @patch('tit.core.get_path_manager')
     @patch('tit.logger.get_logger')
     @patch('os.makedirs')
-    def test_debug_mode(self, mock_makedirs, mock_get_logger, mock_pm):
+    @patch('time.strftime', return_value='20240101_120000')
+    def test_debug_mode(self, mock_strftime, mock_makedirs, mock_get_logger, mock_get_pm):
         """Test logger in debug mode."""
         # Mock PathManager
         mock_pm_instance = MagicMock()
-        mock_pm_instance.get_derivatives_dir.return_value = "/test/derivatives"
-        mock_pm.return_value = mock_pm_instance
+        mock_pm_instance.path.return_value = "/test/derivatives/tit/logs/sub-001"
+        mock_get_pm.return_value = mock_pm_instance
 
         # Mock logger with handlers
         mock_logger = MagicMock()
-        mock_console_handler = MagicMock()
+        import logging
+        mock_console_handler = MagicMock(spec=logging.StreamHandler)
         mock_console_handler.setLevel = MagicMock()
         mock_logger.handlers = [mock_console_handler]
         mock_get_logger.return_value = mock_logger
 
-        with patch('logging.StreamHandler', return_value=mock_console_handler):
-            logger, log_file = _build_logger("001", "/test/project", debug=True)
+        logger, log_file = _build_logger("001", "/test/project", debug=True)
 
         # Should set handler to DEBUG level
-        # Note: actual implementation may vary
+        # The actual implementation catches exceptions so we just verify it was called
         assert logger == mock_logger
 
 
