@@ -11,10 +11,10 @@ Welcome to our collection of video tutorials for the TI-Toolbox. These videos pr
 <div class="video-tutorial">
   <h3 class="video-title">Installation and Updates</h3>
   <div class="video-container">
-    <iframe src="https://www.youtube.com/embed/dQw4w9WgXcQ" title="Electrode Placement Optimization" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
+    <iframe src="" title="Electrode Placement Optimization" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
   </div>
   <p class="video-description">
-    placeholder
+    placeholder to be uploaded within the next couple of days.
   </p>
 </div>
 
