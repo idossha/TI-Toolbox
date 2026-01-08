@@ -47,11 +47,11 @@ Complete changelog for all versions of the Temporal Interference Toolbox.
 - - **Windows Electron**: A more robust executable delivery on Windows.
 #### Download Links
 **Desktop App (v2.2.2):**
-[macOS Intel](https://github.com/idossha/TI-Toolbox/releases/download/v2.2.2/TI-Toolbox-x64.dmg) ·
-[macOS Apple Silicon](https://github.com/idossha/TI-Toolbox/releases/download/v2.2.2/TI-Toolbox-arm64.dmg) ·
-[Windows](https://github.com/idossha/TI-Toolbox/releases/download/v2.2.2/TI-Toolbox-Setup.exe) ·
-[Linux AppImage](https://github.com/idossha/TI-Toolbox/releases/download/v2.2.2/TI-Toolbox.AppImage) ·
-[Linux deb](https://github.com/idossha/TI-Toolbox/releases/download/v2.2.2/ti-toolbox.deb)
+[macOS Intel](https://github.com/idossha/TI-Toolbox/releases/download/v2.2.2/TI-Toolbox-2.2.2-x64.dmg) ·
+[macOS Apple Silicon](https://github.com/idossha/TI-Toolbox/releases/download/v2.2.2/TI-Toolbox-2.2.2-arm64.dmg) ·
+[Windows](https://github.com/idossha/TI-Toolbox/releases/download/v2.2.2/TI-Toolbox-2.2.2-Setup.exe) ·
+[Linux AppImage](https://github.com/idossha/TI-Toolbox/releases/download/v2.2.2/TI-Toolbox-2.2.2.AppImage) ·
+[Linux deb](https://github.com/idossha/TI-Toolbox/releases/download/v2.2.2/ti-toolbox-2.2.2.deb)
 **Other:**
 - Docker Image: `docker pull idossha/simnibs:v2.2.2`
 
@@ -80,11 +80,11 @@ Complete changelog for all versions of the Temporal Interference Toolbox.
 #### Download Links
 
 **Desktop App (v2.2.1):**
-[macOS Intel](https://github.com/idossha/TI-toolbox/releases/download/v2.2.1/TI-Toolbox-x64.dmg) ·
-[macOS Apple Silicon](https://github.com/idossha/TI-toolbox/releases/download/v2.2.1/TI-Toolbox-arm64.dmg) ·
-[Windows](https://github.com/idossha/TI-toolbox/releases/download/v2.2.1/TI-Toolbox-Setup.exe) ·
-[Linux AppImage](https://github.com/idossha/TI-toolbox/releases/download/v2.2.1/TI-Toolbox.AppImage) ·
-[Linux deb](https://github.com/idossha/TI-toolbox/releases/download/v2.2.1/ti-toolbox.deb)
+[macOS Intel](https://github.com/idossha/TI-Toolbox/releases/download/v2.2.1/TI-Toolbox-2.2.1-x64.dmg) ·
+[macOS Apple Silicon](https://github.com/idossha/TI-Toolbox/releases/download/v2.2.1/TI-Toolbox-2.2.1-arm64.dmg) ·
+[Windows](https://github.com/idossha/TI-Toolbox/releases/download/v2.2.1/TI-Toolbox-2.2.1-Setup.exe) ·
+[Linux AppImage](https://github.com/idossha/TI-Toolbox/releases/download/v2.2.1/TI-Toolbox-2.2.1.AppImage) ·
+[Linux deb](https://github.com/idossha/TI-Toolbox/releases/download/v2.2.1/ti-toolbox-2.2.1.deb)
 
 **Other:**
 - Docker Image: `docker pull idossha/simnibs:v2.2.1`
