@@ -11,7 +11,7 @@ Welcome to our collection of video tutorials for the TI-Toolbox. These videos pr
 <div class="video-tutorial">
   <h3 class="video-title">Installation and Updates</h3>
   <div class="video-container">
-    <iframe src="https://www.youtube.com/watch?v=jEhk5wpIAuA&t=969s" title="Electrode Placement Optimization" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
+    <iframe src="https://www.youtube.com/embed/jEhk5wpIAuA?vq=highres" title="Installation and Updates" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
   </div>
   <p class="video-description">
     Learn how to install and get started with TI-Toolbox through both desktop app and command line approaches. This tutorial covers prerequisites (Docker and X11 server), project setup using BIDS data structure, and step-by-step launch procedures. You'll see how to organize your neuroimaging data (minimum requirement: T1-weighted scans) and perform initial DICOM-to-NIfTI conversion. The video demonstrates Docker image management, and both GUI and CLI workflows for remote machines or advanced users. Prerequisites: Docker installation and X11 server setup.
@@ -25,7 +25,7 @@ Welcome to our collection of video tutorials for the TI-Toolbox. These videos pr
 <div class="video-tutorial">
   <h3 class="video-title">Blender Integration: Creating Publication-Ready Visualizations</h3>
   <div class="video-container">
-    <iframe src="https://www.youtube.com/embed/0c3J79PEe-M?vq=highres" title="Temporal Interference Toolbox Tutorial" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
+    <iframe src="https://www.youtube.com/embed/0c3J79PEe-M?vq=highres" title="Blender Integration" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
   </div>
   <p class="video-description">
     Learn how to create 3D visualizations for your temporal interference research using TI-Toolbox's Blender integration. This tutorial covers the 3D visualizer's four main modes, with a focus on the montage visualizer for electrode geometry manipulation. You'll learn to export web-friendly GLB files, import brain regions of interest (like thalamus), and render publication-quality images with proper lighting and camera angles. Includes both GUI and command-line workflows, plus some tips. Prerequisites: TI-Toolbox, Docker, Blender and basic familiarity with the TI-Toolbox.
