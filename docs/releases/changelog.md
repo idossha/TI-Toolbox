@@ -23,11 +23,11 @@ Complete changelog for all versions of the Temporal Interference Toolbox.
 - - **Documentation Updates**: New CLI and GUI documentation pages. Improved Blender integration instructions. Added visualizer documentation. Better organization of documentation images.
 #### Download Links
 **Desktop App (v2.2.3):**
-[macOS Intel](https://github.com/idossha/TI-toolbox/releases/download/v2.2.3/TI-Toolbox-x64.dmg) ·
-[macOS Apple Silicon](https://github.com/idossha/TI-toolbox/releases/download/v2.2.3/TI-Toolbox-arm64.dmg) ·
-[Windows](https://github.com/idossha/TI-toolbox/releases/download/v2.2.3/TI-Toolbox-Setup.exe) ·
-[Linux AppImage](https://github.com/idossha/TI-toolbox/releases/download/v2.2.3/TI-Toolbox.AppImage) ·
-[Linux deb](https://github.com/idossha/TI-toolbox/releases/download/v2.2.3/tit.deb)
+[macOS Intel](https://github.com/idossha/TI-Toolbox/releases/download/v2.2.3/TI-Toolbox-2.2.3-x64.dmg) ·
+[macOS Apple Silicon](https://github.com/idossha/TI-Toolbox/releases/download/v2.2.3/TI-Toolbox-2.2.3-arm64.dmg) ·
+[Windows](https://github.com/idossha/TI-Toolbox/releases/download/v2.2.3/TI-Toolbox-2.2.3-Setup.exe) ·
+[Linux AppImage](https://github.com/idossha/TI-Toolbox/releases/download/v2.2.3/TI-Toolbox-2.2.3.AppImage) ·
+[Linux deb](https://github.com/idossha/TI-Toolbox/releases/download/v2.2.3/ti-toolbox-2.2.3.deb)
 **Other:**
 - Docker Image: `docker pull idossha/simnibs:v2.2.3`
 
