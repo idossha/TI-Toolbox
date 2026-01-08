@@ -37,6 +37,10 @@ layout: home
         <p>High-resolution electric field vector visualization showing direction and magnitude</p>
       </div>
       <div class="carousel-slide">
+        <img src="{{ site.baseurl }}/assets/imgs/blender/blender_closeup.png" alt="3D Blender Visualization">
+        <p>Advanced 3D visualization of temporal interference fields using Blender integration</p>
+      </div>
+      <div class="carousel-slide">
         <img src="{{ site.baseurl }}/assets/imgs/development/testing_graphical_abstract_revised.png" alt="TI-Toolbox Tech Stack">
         <p>Complete TI-Toolbox technology stack: BIDS-compatible, Docker-based, end-to-end pipeline</p>
       </div>
@@ -66,6 +70,7 @@ layout: home
       <span class="dot" onclick="currentSlide(this, 3)"></span>
       <span class="dot" onclick="currentSlide(this, 4)"></span>
       <span class="dot" onclick="currentSlide(this, 5)"></span>
+      <span class="dot" onclick="currentSlide(this, 6)"></span>
     </div>
   </div>
 </div>

@@ -30,7 +30,7 @@ module Jekyll
           search_data << {
             'title' => title,
             'content' => clean_content,
-            'url' => page.url
+            'url' => '/TI-Toolbox' + page.url
           }
         end
 
