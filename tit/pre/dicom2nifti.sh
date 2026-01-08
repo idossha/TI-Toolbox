@@ -74,7 +74,7 @@ BIDS_ANAT_DIR="${PROJECT_DIR}/${BIDS_SUBJECT_ID}/anat"
 # Set up logging
 if ! $QUIET; then
     DERIVATIVES_DIR="${PROJECT_DIR}/derivatives"
-    logs_dir="${DERIVATIVES_DIR}/tit/logs/${BIDS_SUBJECT_ID}"
+    logs_dir="${DERIVATIVES_DIR}/ti-toolbox/logs/${BIDS_SUBJECT_ID}"
     mkdir -p "$logs_dir"
 
     # Ensure dataset_description.json exists for tit derivative

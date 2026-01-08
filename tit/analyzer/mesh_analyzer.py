@@ -126,9 +126,9 @@ class MeshAnalyzer:
             # Extract subject ID from subject_dir (e.g., m2m_subject -> subject)
             subject_id = os.path.basename(self.subject_dir).split('_')[1] if '_' in os.path.basename(self.subject_dir) else os.path.basename(self.subject_dir)
             
-            # Create derivatives/ti-toolbox/logs/sub-* directory structure (using relative path like voxel analyzer)
+            # Create derivatives/ti-toolbox/logs/sub-* directory structure
             pm = get_path_manager()
-            log_dir = pm.path_optional("ti_logs", subject_id=subject_id) or os.path.join('derivatives', 'ti-toolbox', 'logs', f'sub-{subject_id}')
+            log_dir = pm.path("ti_logs", subject_id=subject_id)
             os.makedirs(log_dir, exist_ok=True)
             
             # Create log file in the new directory

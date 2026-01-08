@@ -947,17 +947,17 @@ class VisualExporterWidget(QtWidgets.QWidget):
             # Montage visualizer mode - output directory handled by montage_publication
             out_base = None
 
-        # Setup logger with timestamp - follows project convention: logs/sub-{subject_id}/
+        # Setup logger with timestamp - follows project convention: log/sub-{subject_id}/
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        log_dir = os.path.join(project_dir, const.DIR_DERIVATIVES, const.DIR_TI_TOOLBOX, "logs", f"sub-{subject_id}")
+        log_dir = os.path.join(project_dir, const.DIR_DERIVATIVES, const.DIR_TI_TOOLBOX, const.DIR_LOGS, f"sub-{subject_id}")
         os.makedirs(log_dir, exist_ok=True)
 
         if self.rb_electrodes.isChecked():
-            log_file = os.path.join(log_dir, f"montage_visualizer_{timestamp}.log")
+            log_file = os.path.join(log_dir, f"is_blender_montage_{timestamp}.log")
         elif self.rb_subcortical.isChecked():
-            log_file = os.path.join(log_dir, f"subcortical_export_{timestamp}.log")
+            log_file = os.path.join(log_dir, f"is_blender_subcortical_{timestamp}.log")
         else:
-            log_file = os.path.join(log_dir, f"visual_exporter_{simulation_name}_{timestamp}.log")
+            log_file = os.path.join(log_dir, f"is_blender_{simulation_name}_{timestamp}.log")
 
         # Create logger with file handler and GUI console callback handler
         from tit.logger import CallbackHandler

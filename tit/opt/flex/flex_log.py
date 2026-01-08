@@ -67,9 +67,7 @@ def setup_logger(output_folder: str, subject_id: str) -> Logger:
     # Create logs directory in project derivatives
     from tit.core import get_path_manager
     pm = get_path_manager()
-    logs_dir = pm.path_optional("ti_logs", subject_id=subject_id)
-    if not logs_dir:
-        raise RuntimeError("Project directory is not set (PathManager.project_dir is None).")
+    logs_dir = pm.path("ti_logs", subject_id=subject_id)
     os.makedirs(logs_dir, exist_ok=True)
     
     # Set proper permissions for logs directory

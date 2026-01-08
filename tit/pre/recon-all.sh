@@ -302,7 +302,7 @@ fi
 
 # Set up logging
 if ! $QUIET; then
-    logs_dir="${DERIVATIVES_DIR}/tit/logs/${BIDS_SUBJECT_ID}"
+    logs_dir="${DERIVATIVES_DIR}/ti-toolbox/logs/${BIDS_SUBJECT_ID}"
     mkdir -p "$logs_dir"
     # Ensure dataset_description.json exists for tit derivative
     if [ ! -f "$DERIVATIVES_DIR/tit/dataset_description.json" ] && [ -f "$ASSETS_DD_DIR/tit.dataset_description.json" ]; then

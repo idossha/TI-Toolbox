@@ -74,26 +74,32 @@ class BaseVisualizer:
         """
         self.output_dir = output_dir
         
-        # Set up logger - use provided logger or create a new one
-        if logger is not None:
-            # Create a child logger to distinguish visualizer logs
-            self.logger = logger.getChild('visualizer')
-        else:
-            # Create our own logger if none provided
-            import time
-            time_stamp = time.strftime('%Y%m%d_%H%M%S')
-            
-            # Extract subject ID from output_dir path
+        # Always create our own logger for visualizer-specific logging
+        import time
+        time_stamp = time.strftime('%Y%m%d_%H%M%S')
+
+        # Extract subject ID from output_dir path - go up until we find a sub-* directory
+        output_path = Path(output_dir)
+        subject_id = None
+        for part in reversed(output_path.parts):
+            if part.startswith('sub-'):
+                subject_id = part.replace('sub-', '')
+                break
+        if subject_id is None:
+            # Fallback to old method
             subject_id = os.path.basename(output_dir).split('_')[1] if '_' in os.path.basename(output_dir) else os.path.basename(output_dir)
-            
-            # Create derivatives/ti-toolbox/logs directory structure (using relative path)
-            pm = get_path_manager()
-            log_dir = pm.path_optional("ti_logs", subject_id=subject_id) or os.path.join('derivatives', 'ti-toolbox', 'logs', f'sub-{subject_id}')
-            os.makedirs(log_dir, exist_ok=True)
-            
-            # Create log file in the new directory
-            log_file = os.path.join(log_dir, f'visualizer_{time_stamp}.log')
-            self.logger = logging_util.get_logger('visualizer', log_file, overwrite=True)
+
+        # Extract region name from output_dir (last directory component)
+        region_name = os.path.basename(output_dir)
+
+        # Create derivatives/ti-toolbox/logs directory structure
+        pm = get_path_manager()
+        log_dir = pm.path("ti_logs", subject_id=subject_id)
+        os.makedirs(log_dir, exist_ok=True)
+
+        # Create log file in the new directory with is_blender prefix and region
+        log_file = os.path.join(log_dir, f'is_blender_{region_name}_{time_stamp}.log')
+        self.logger = logging_util.get_logger('visualizer', log_file, overwrite=True)
         
         # Create output directory if it doesn't exist
         if not os.path.exists(output_dir):

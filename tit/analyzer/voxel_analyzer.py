@@ -125,7 +125,7 @@ class VoxelAnalyzer:
             
             # Create derivatives/ti-toolbox/logs/sub-* directory structure
             pm = get_path_manager()
-            log_dir = pm.path_optional("ti_logs", subject_id=subject_id) or os.path.join('derivatives', 'ti-toolbox', 'logs', f'sub-{subject_id}')
+            log_dir = pm.path("ti_logs", subject_id=subject_id)
             os.makedirs(log_dir, exist_ok=True)
             
             # Create log file in the new directory

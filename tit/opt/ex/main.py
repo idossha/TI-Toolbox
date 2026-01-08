@@ -18,9 +18,7 @@ def main():
     if not log_file:
         # Use proper logs directory (centralized in PathManager).
         pm = get_path_manager()
-        logs_dir = pm.path_optional("ti_logs", subject_id=subject_name)
-        if not logs_dir:
-            raise RuntimeError("Project directory is not set (PathManager.project_dir is None).")
+        logs_dir = pm.path("ti_logs", subject_id=subject_name)
         os.makedirs(logs_dir, exist_ok=True)
         log_file = os.path.join(logs_dir, f'ex_search_{time.strftime("%Y%m%d_%H%M%S")}.log')
     logger = logging_util.get_logger('ex_search', log_file, overwrite=False)

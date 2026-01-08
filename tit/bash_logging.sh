@@ -352,7 +352,7 @@ extract_log_error() {
     
     # Try to find the most recent log file
     local bids_subject_id="sub-${subject_id}"
-    local log_dir="/mnt/*/derivatives/logs/${bids_subject_id}"
+    local log_dir="/mnt/*/derivatives/ti-toolbox/logs/${bids_subject_id}"
     local log_file=""
     
     # Find the most recent log file matching the pattern

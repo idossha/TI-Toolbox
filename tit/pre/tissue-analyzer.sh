@@ -656,7 +656,7 @@ main() {
         SUBJECT_NAME=$(basename "$output_dir" 2>/dev/null || echo "unknown")
         
         # Create logs directory structure: /projectdir/derivatives/ti-toolbox/logs/{subject_name}/
-        # Go up 2 levels from tissue_analysis to get to tit, then into logs
+        # Go up 2 levels from tissue_analysis to get to derivatives/ti-toolbox, then into logs
         PROJECT_ROOT=$(dirname "$(dirname "$output_dir")")
         LOGS_DIR="$PROJECT_ROOT/logs/$SUBJECT_NAME"
         mkdir -p "$LOGS_DIR"

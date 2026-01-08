@@ -150,11 +150,12 @@ class VisBlenderCLI(BaseCLI):
             pm.project_dir,
             const.DIR_DERIVATIVES,
             const.DIR_TI_TOOLBOX,
+            const.DIR_LOGS,
             f"{const.PREFIX_SUBJECT}{args['subject']}",
         )
         os.makedirs(logs_dir, exist_ok=True)
         ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-        return os.path.join(logs_dir, f"vis_blender_{args['simulation']}_{ts}.log")
+        return os.path.join(logs_dir, f"is_blender_{args['simulation']}_{ts}.log")
 
 
 def _setup_logging_with_file(verbose: bool, log_file: Optional[str]) -> logging.Logger:

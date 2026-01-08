@@ -510,13 +510,7 @@ def main():
             # Use default subject-specific logging
             # Centralized logs dir (derivatives/ti-toolbox/logs/sub-*)
             pm = get_path_manager()
-            log_dir = pm.path_optional("ti_logs", subject_id=subject_id)
-            if not log_dir:
-                # Fallback: preserve previous behavior if project_dir is not resolvable.
-                project_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(args.m2m_subject_path))))
-                if not project_dir.startswith('/mnt/'):
-                    project_dir = f"/mnt/{os.path.basename(project_dir)}"
-                log_dir = os.path.join(project_dir, 'derivatives', 'ti-toolbox', 'logs', f'sub-{subject_id}')
+            log_dir = pm.path("ti_logs", subject_id=subject_id)
             os.makedirs(log_dir, exist_ok=True)
             
             # Create log file in the new directory

@@ -316,8 +316,7 @@ def _run_montage_worker(args: dict) -> dict:
         
         # Set up per-worker file-only logger (no console output)
         pm = get_path_manager()
-        derivatives_dir = pm.path("derivatives")
-        log_dir = os.path.join(derivatives_dir, 'tit', 'logs', f'sub-{config.subject_id}')
+        log_dir = pm.path("ti_logs", subject_id=config.subject_id)
         os.makedirs(log_dir, exist_ok=True)
         log_file = os.path.join(log_dir, f'Simulator_worker{worker_id}_{montage.name}_{time.strftime("%Y%m%d_%H%M%S")}.log')
         
@@ -423,8 +422,7 @@ def run_simulation(
     if logger is None:
         import logging
         pm = get_path_manager()
-        derivatives_dir = pm.path("derivatives")
-        log_dir = os.path.join(derivatives_dir, 'tit', 'logs', f'sub-{config.subject_id}')
+        log_dir = pm.path("ti_logs", subject_id=config.subject_id)
         os.makedirs(log_dir, exist_ok=True)
         log_file = os.path.join(log_dir, f'Simulator_{time.strftime("%Y%m%d_%H%M%S")}.log')
         
