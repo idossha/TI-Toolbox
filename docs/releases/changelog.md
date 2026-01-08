@@ -30,8 +30,9 @@ Complete changelog for all versions of the Temporal Interference Toolbox.
 [Linux deb](https://github.com/idossha/TI-toolbox/releases/download/v2.2.3/tit.deb)
 **Other:**
 - Docker Image: `docker pull idossha/simnibs:v2.2.3`
-- Source Code: [GitHub Repository](https://github.com/idossha/TI-Toolbox)
+
 ---
+
 ### v2.2.2
 **Release Date**: December 25, 2025
 #### Additions
@@ -53,7 +54,7 @@ Complete changelog for all versions of the Temporal Interference Toolbox.
 [Linux deb](https://github.com/idossha/TI-toolbox/releases/download/v2.2.2/ti-toolbox.deb)
 **Other:**
 - Docker Image: `docker pull idossha/simnibs:v2.2.2`
-- Source Code: [GitHub Repository](https://github.com/idossha/TI-Toolbox)
+
 ---
 
 ### v2.2.1
@@ -87,7 +88,6 @@ Complete changelog for all versions of the Temporal Interference Toolbox.
 
 **Other:**
 - Docker Image: `docker pull idossha/simnibs:v2.2.1`
-- Source Code: [GitHub Repository](https://github.com/idossha/TI-Toolbox)
 
 ---
 
