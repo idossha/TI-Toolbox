@@ -70,6 +70,7 @@ class TestLoadMontageFile:
     def test_create_default_montage_file(self, tmp_path):
         """Test creating default montage file when it doesn't exist."""
         project_dir = tmp_path / "test_project"
+        project_dir.mkdir()  # Create the project directory
         config_dir = project_dir / "code" / "ti-toolbox" / "config"
 
         # File doesn't exist yet

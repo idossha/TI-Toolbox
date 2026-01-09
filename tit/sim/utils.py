@@ -12,7 +12,7 @@ import json
 import os
 from typing import Any, Dict, List, Optional
 
-from tit.core import get_path_manager
+from tit.core import get_path_manager, constants as const
 
 
 def montage_config_dir(project_dir: str) -> str:
@@ -22,7 +22,7 @@ def montage_config_dir(project_dir: str) -> str:
 
 
 def montage_list_path(project_dir: str) -> str:
-    return os.path.join(montage_config_dir(project_dir), "montage_list.json")
+    return os.path.join(montage_config_dir(project_dir), const.FILE_MONTAGE_LIST)
 
 
 def _chmod_best_effort(path: str, mode: int) -> None:
@@ -42,7 +42,7 @@ def ensure_montage_file(project_dir: str) -> str:
     os.makedirs(config_dir, exist_ok=True)
 
     # Best-effort permissive perms (matches GUI expectations in containers)
-    _chmod_best_effort(os.path.join(project_dir, "code", "tit"), 0o777)
+    _chmod_best_effort(os.path.join(project_dir, const.DIR_CODE, const.DIR_CODE_TI_TOOLBOX), 0o777)
     _chmod_best_effort(config_dir, 0o777)
 
     path = montage_list_path(project_dir)
