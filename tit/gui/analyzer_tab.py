@@ -1442,10 +1442,9 @@ class AnalyzerTab(QtWidgets.QWidget):
             if not cmd: # build_analysis_command returns None on error
                 self.analysis_finished(success=False)
                 return
-            
+
             env = os.environ.copy()
-            project_dir_name = os.environ.get('PROJECT_DIR_NAME', 'BIDS_new')
-            env['PROJECT_DIR'] = f"/mnt/{project_dir_name}"
+            env['PROJECT_DIR'] = self.pm.project_dir
             env['SUBJECT_ID'] = subject_id # Passed to script via env
 
             # Ensure the analyzer runs against the repo sources even when launched from the GUI.
@@ -1498,8 +1497,7 @@ class AnalyzerTab(QtWidgets.QWidget):
                 return
 
             env = os.environ.copy()
-            project_dir_name = os.environ.get('PROJECT_DIR_NAME', 'BIDS_new')
-            env['PROJECT_DIR'] = f"/mnt/{project_dir_name}"
+            env['PROJECT_DIR'] = self.pm.project_dir
 
             # Ensure group analyzer also runs against repo sources.
             gui_app_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # .../tit
