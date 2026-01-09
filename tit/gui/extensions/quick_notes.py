@@ -55,8 +55,8 @@ class NotesWindow(QtWidgets.QDialog):
         if not project_dir:
             return
         
-        # Create derivatives/tit directory if it doesn't exist
-        ti_toolbox_dir = os.path.join(project_dir, "derivatives", "tit")
+        # Create derivatives/ti-toolbox directory if it doesn't exist
+        ti_toolbox_dir = os.path.join(project_dir, "derivatives", "ti-toolbox")
         os.makedirs(ti_toolbox_dir, exist_ok=True)
         
         # Set notes file path
