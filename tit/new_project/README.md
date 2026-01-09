@@ -7,7 +7,7 @@ This directory contains files and configurations that are used when initializing
 ### Configuration Files
 Located in `configs/`:
 - Default configuration files for various tools (pre-processing, simulation, search, etc.)
-- These files are copied to the new project's `code/tit/config` directory when a project is first created
+- These files are copied to the new project's `code/ti-toolbox/config` directory when a project is first created
 
 ### First Time User Experience
 `first_time_user.py`:
@@ -73,8 +73,8 @@ project/
 ├── sub-{subject}/                       # Subject-level data (BIDS format)
 │   └── anat/                           # Anatomical images
 ├── derivatives/                         # Processed data
-│   ├── tit/                     # TI-Toolbox outputs
-│   │   └── .tit-info/          # Hidden metadata directory
+│   ├── ti-toolbox/                     # TI-Toolbox outputs
+│   │   └── .ti-toolbox-info/          # Hidden metadata directory
 │   │       ├── project_status.json    # Project status tracking
 │   │       └── system_info.txt        # System information
 │   ├── SimNIBS/                        # SimNIBS outputs

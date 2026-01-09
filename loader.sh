@@ -262,7 +262,7 @@ get_host_timestamp() {
 
 # Function to check if project is new and needs initialization
 check_if_new_project() {
-  local project_config_dir="$LOCAL_PROJECT_DIR/code/tit/config"
+  local project_config_dir="$LOCAL_PROJECT_DIR/code/ti-toolbox/config"
   
   if [ ! -d "$project_config_dir" ]; then
     return 0  # New project
@@ -532,7 +532,7 @@ initialize_project_structure() {
   
   # Create main BIDS directories
   echo "Creating directory structure..."
-  mkdir -p "$LOCAL_PROJECT_DIR/code/tit/config"
+  mkdir -p "$LOCAL_PROJECT_DIR/code/ti-toolbox/config"
   mkdir -p "$LOCAL_PROJECT_DIR/derivatives/ti-toolbox/.ti-toolbox-info"
   mkdir -p "$LOCAL_PROJECT_DIR/derivatives/freesurfer"
   mkdir -p "$LOCAL_PROJECT_DIR/derivatives/SimNIBS"
@@ -562,7 +562,7 @@ initialize_project_structure() {
   echo "  ✓ Project status file created"
   
   # Create a marker file to indicate initialization was done
-  touch "$LOCAL_PROJECT_DIR/code/tit/config/.initialized"
+  touch "$LOCAL_PROJECT_DIR/code/ti-toolbox/config/.initialized"
   echo "  ✓ Initialization marker created"
   
   echo ""

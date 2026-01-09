@@ -200,7 +200,7 @@ class SubjectInfoWindow(QtWidgets.QDialog):
 
         try:
             # Create export directory and file
-            export_dir = self.project_dir / 'derivatives' / 'tit' / 'subjects-viewer'
+            export_dir = self.project_dir / 'derivatives' / 'ti-toolbox' / 'subjects-viewer'
             export_dir.mkdir(parents=True, exist_ok=True)
 
             timestamp = QtCore.QDateTime.currentDateTime().toString("yyyyMMdd_HHmmss")

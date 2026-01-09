@@ -103,7 +103,7 @@ class ExampleDataManager:
             return False
         
         # Check project status file if it exists to see if example data was already copied
-        status_file = self.project_dir / "derivatives" / "tit" / ".tit-info" / "project_status.json"
+        status_file = self.project_dir / "derivatives" / "ti-toolbox" / ".ti-toolbox-info" / "project_status.json"
         if status_file.exists():
             try:
                 import json
@@ -187,10 +187,10 @@ class ExampleDataManager:
         # Ensure core BIDS directories exist
         core_dirs = [
             self.project_dir / "sourcedata",
-            self.project_dir / "derivatives" / "tit",
+            self.project_dir / "derivatives" / "ti-toolbox",
             self.project_dir / "derivatives" / "SimNIBS",
             self.project_dir / "derivatives" / "freesurfer",
-            self.project_dir / "code" / "tit" / "config"
+            self.project_dir / "code" / "ti-toolbox" / "config"
         ]
         
         for dir_path in core_dirs:
@@ -258,7 +258,7 @@ class ExampleDataManager:
             from datetime import datetime
             
             # Create the status directory if it doesn't exist
-            status_dir = self.project_dir / "derivatives" / "tit" / ".tit-info"
+            status_dir = self.project_dir / "derivatives" / "ti-toolbox" / ".ti-toolbox-info"
             status_dir.mkdir(parents=True, exist_ok=True)
             
             status_file = status_dir / "project_status.json"
@@ -366,8 +366,8 @@ This project includes example data for testing and demonstration:
 - `derivatives/` - Processed data and analysis results
   - `freesurfer/` - FreeSurfer anatomical segmentation and surface reconstructions
   - `SimNIBS/` - SimNIBS head models and electric field simulations
-  - `tit/` - TI-Toolbox simulation results and analyses
-- `code/tit/` - Configuration files for the toolbox
+  - `ti-toolbox/` - TI-Toolbox simulation results and analyses
+- `code/ti-toolbox/` - Configuration files for the toolbox
 
 ## Software
 

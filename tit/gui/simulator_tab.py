@@ -1063,7 +1063,7 @@ class SimulatorTab(QtWidgets.QWidget):
             project_dir = self.pm.project_dir
             if not project_dir:
                 return
-            # Ensure and use the new location under code/tit/config
+            # Ensure and use the new location under code/ti-toolbox/config
             montage_file = self.ensure_montage_file_exists(project_dir)
 
             self.update_output(f"Looking for montages in: {montage_file}")

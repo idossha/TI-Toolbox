@@ -145,7 +145,7 @@ Project Directory/
             <li>DICOM files must be placed in <code>sourcedata/sub-{subject}/T1w/dicom/</code></li>
             <li>T2w images are optional but can improve head model quality</li>
             <li>All other directories are automatically created during processing</li>
-            <li>The <code>code/tit</code> directory contains shared configuration files</li>
+            <li>The <code>code/ti-toolbox</code> directory contains shared configuration files</li>
             <li>TI-Toolbox analysis outputs are organized under <code>derivatives/ti-toolbox/</code> with subdirectories for different analysis types</li>
             <li>Bone analysis results are stored in <code>derivatives/ti-toolbox/bone_analysis/sub-{subject}/</code></li>
         </ul>

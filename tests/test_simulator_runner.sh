@@ -17,7 +17,7 @@ PROJECT_DIR="/mnt/test_projectdir"
 export PROJECT_DIR_NAME=$(basename "$PROJECT_DIR")
 
 # Create montage configuration for the test
-CONFIG_DIR="$PROJECT_DIR/code/tit/config"
+CONFIG_DIR="$PROJECT_DIR/code/ti-toolbox/config"
 MONTAGE_FILE="$CONFIG_DIR/montage_list.json"
 
 # Ensure config directory exists

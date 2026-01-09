@@ -182,7 +182,7 @@ class MainWindow(QtWidgets.QMainWindow):
         """Get the path to the extensions configuration file."""
         project_dir = self.pm.project_dir
         
-        # Path: /mnt/project_dir/code/tit/config/extensions.json
+        # Path: /mnt/project_dir/code/ti-toolbox/config/extensions.json
         config_path = Path(project_dir) / 'code' / 'ti-toolbox' / 'config' / 'extensions.json'
         
         # Ensure the directory exists

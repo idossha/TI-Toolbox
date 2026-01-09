@@ -478,7 +478,7 @@ class SimulationReportGenerator:
                 output_path = reports_dir / f"simulation_report_{timestamp}.html"
             else:
                 # Multi-subject or session report
-                reports_dir = self.project_dir / "derivatives" / "tit" / "reports"
+                reports_dir = self.project_dir / "derivatives" / "ti-toolbox" / "reports"
                 reports_dir.mkdir(parents=True, exist_ok=True)
                 # Ensure dataset_description.json exists at reports root
                 try:

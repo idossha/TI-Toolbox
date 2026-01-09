@@ -99,7 +99,7 @@ def create_montage_config(project_dir: Path, montage_name: str, electrodes: list
         logger: Logger instance
     """
     # Determine montage file path
-    montage_file = project_dir / "code" / "tit" / "config" / "montage_list.json"
+    montage_file = project_dir / "code" / "ti-toolbox" / "config" / "montage_list.json"
     
     if not montage_file.exists():
         logger.warning(f"Montage file not found: {montage_file}")

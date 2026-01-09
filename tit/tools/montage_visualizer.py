@@ -627,11 +627,11 @@ def main():
     if args.montage_file is None:
         project_dir_name = args.project_dir_name or os.environ.get('PROJECT_DIR_NAME')
         if project_dir_name:
-            args.montage_file = f"/mnt/{project_dir_name}/code/tit/config/montage_list.json"
+            args.montage_file = f"/mnt/{project_dir_name}/code/ti-toolbox/config/montage_list.json"
         else:
             # Try development mode
-            if os.path.isfile("/development/tit/config/montage_list.json"):
-                args.montage_file = "/development/tit/config/montage_list.json"
+            if os.path.isfile("/development/ti-toolbox/config/montage_list.json"):
+                args.montage_file = "/development/ti-toolbox/config/montage_list.json"
             else:
                 args.montage_file = "/tit/config/montage_list.json"
     

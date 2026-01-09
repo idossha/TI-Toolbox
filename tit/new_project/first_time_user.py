@@ -23,7 +23,7 @@ def get_status_file_path():
     # Get project directory from environment
     project_dir = os.environ.get('PROJECT_DIR', '')
     if not project_dir:
-        project_dir = f"/mnt/{os.environ.get('PROJECT_DIR_NAME', 'BIDS_new')}"
+        project_dir = f"/mnt/{os.environ.get('PROJECT_DIR_NAME', '/enter/project/path')}"
     
     info_dir = os.path.join(project_dir, 'derivatives', 'ti-toolbox', '.ti-toolbox-info')
     return os.path.join(info_dir, 'project_status.json')
@@ -45,10 +45,10 @@ def initialize_project_status(project_dir):
     # Ensure core BIDS directories exist
     core_dirs = [
         os.path.join(project_dir, 'sourcedata'),
-        os.path.join(project_dir, 'derivatives', 'tit'),
+        os.path.join(project_dir, 'derivatives', 'ti-toolbox'),
         os.path.join(project_dir, 'derivatives', 'SimNIBS'),
         os.path.join(project_dir, 'derivatives', 'freesurfer'),
-        os.path.join(project_dir, 'code', 'tit', 'config')
+        os.path.join(project_dir, 'code', 'ti-toolbox', 'config')
     ]
     
     for dir_path in core_dirs:

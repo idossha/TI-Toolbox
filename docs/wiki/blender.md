@@ -205,7 +205,7 @@ This can be incoporated into other visualization to produce images and animation
 4. Choose **Cortical Regions**, **Field Vectors**, **Montage Visualizer**, or **Sub-cortical** mode.
 5. Configure atlas, region filters, formats, and output directory options (for regions), sampling and styling parameters (for vectors), EEG montage and electrode settings (for electrode placement), or NIfTI file and label extraction settings (for sub-cortical structures).
 6. Click **Run Export**. The console panel shows the exact commands executed and live progress.
-7. Review artifacts in `derivatives/tit/visual_exports/sub-<id>/` once the export completes.
+7. Review artifacts in `derivatives/ti-toolbox/visual_exports/sub-<id>/` once the export completes.
 
 The **Stop** button terminates the active subprocess if you need to cancel a long export.
 
@@ -271,7 +271,7 @@ This tutorial walks you through importing and visualizing PLY files exported fro
 
 1. Open Blender and start with the default scene (or create a new project).
 2. Go to **File** → **Import** → **Stanford (.ply)**.
-3. Navigate to your exported PLY file location (typically in `derivatives/tit/visual_exports/sub-<id>/<simulation>/ply/`).
+3. Navigate to your exported PLY file location (typically in `derivatives/ti-toolbox/visual_exports/sub-<id>/<simulation>/ply/`).
 4. Select your PLY file and click **Import Stanford (.ply)**.
 
 The mesh will appear in your viewport. If the mesh appears very small or very large, you may need to adjust the view or scale the object.

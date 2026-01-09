@@ -430,7 +430,7 @@ ipcMain.handle('create-new-project', async (_event, projectDir, includeExampleDa
     
     // Copy configuration files
     const configSrcDir = path.join(toolboxRoot, 'tit', 'new_project', 'configs');
-    const configDstDir = path.join(validatedDir, 'code', 'tit', 'config');
+    const configDstDir = path.join(validatedDir, 'code', 'ti-toolbox', 'config');
     
     if (fs.existsSync(configSrcDir)) {
       await fs.copy(configSrcDir, configDstDir, { overwrite: false });
@@ -475,8 +475,8 @@ This project contains structural MRI data and derivatives for simulating and ana
 - \`derivatives/\` - Processed data and analysis results
   - \`freesurfer/\` - FreeSurfer anatomical segmentation and surface reconstructions
   - \`SimNIBS/\` - SimNIBS head models and electric field simulations
-  - \`tit/\` - TI-Toolbox simulation results and analyses
-- \`code/tit/\` - Configuration files for the toolbox
+  - \`ti-toolbox/\` - TI-Toolbox simulation results and analyses
+- \`code/ti-toolbox/\` - Configuration files for the toolbox
 
 ## Software
 
@@ -500,7 +500,7 @@ This dataset follows the Brain Imaging Data Structure (BIDS) specification for o
     }
     
     // Create project status file
-    const statusDir = path.join(validatedDir, 'derivatives', 'tit', '.tit-info');
+    const statusDir = path.join(validatedDir, 'derivatives', 'ti-toolbox', '.ti-toolbox-info');
     const statusFile = path.join(statusDir, 'project_status.json');
     
     if (!fs.existsSync(statusFile)) {

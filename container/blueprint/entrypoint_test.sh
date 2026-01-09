@@ -9,7 +9,7 @@ mkdir -p /opt/test_projectdir/sourcedata \
     && mkdir -p /opt/test_projectdir/derivatives/ti-toolbox \
     && mkdir -p /opt/test_projectdir/derivatives/SimNIBS \
     && mkdir -p /opt/test_projectdir/derivatives/freesurfer \
-    && mkdir -p /opt/test_projectdir/code/tit/config
+    && mkdir -p /opt/test_projectdir/code/ti-toolbox/config
 
 # Copy electrode caps from mounted TI-Toolbox to SimNIBS directory
 if [ -d "$SIMNIBSDIR" ] && [ -d "/ti-toolbox/resources/ElectrodeCaps_MNI" ]; then

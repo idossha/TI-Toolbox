@@ -3,8 +3,8 @@ const fs = require('fs-extra');
 const { logger } = require('./logger');
 
 const REQUIRED_DIRS = [
-  ['code', 'tit', 'config'],
-  ['derivatives', 'tit', '.tit-info'],
+  ['code', 'ti-toolbox', 'config'],
+  ['derivatives', 'ti-toolbox', '.ti-toolbox-info'],
   ['derivatives', 'freesurfer'],
   ['derivatives', 'SimNIBS'],
   ['sourcedata']

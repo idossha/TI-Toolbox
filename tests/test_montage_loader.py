@@ -39,7 +39,7 @@ class TestLoadMontageFile:
         """Test loading an existing montage configuration file."""
         # Create test project structure
         project_dir = tmp_path / "test_project"
-        config_dir = project_dir / "code" / "tit" / "config"
+        config_dir = project_dir / "code" / "ti-toolbox" / "config"
         config_dir.mkdir(parents=True)
 
         montage_file = config_dir / "montage_list.json"
@@ -70,7 +70,7 @@ class TestLoadMontageFile:
     def test_create_default_montage_file(self, tmp_path):
         """Test creating default montage file when it doesn't exist."""
         project_dir = tmp_path / "test_project"
-        config_dir = project_dir / "code" / "tit" / "config"
+        config_dir = project_dir / "code" / "ti-toolbox" / "config"
 
         # File doesn't exist yet
         montage_file = config_dir / "montage_list.json"
@@ -87,7 +87,7 @@ class TestLoadMontageFile:
     def test_missing_eeg_net(self, tmp_path):
         """Test error when requested EEG net not found."""
         project_dir = tmp_path / "test_project"
-        config_dir = project_dir / "code" / "tit" / "config"
+        config_dir = project_dir / "code" / "ti-toolbox" / "config"
         config_dir.mkdir(parents=True)
 
         montage_file = config_dir / "montage_list.json"
@@ -110,7 +110,7 @@ class TestLoadMontageFile:
     def test_invalid_json(self, tmp_path):
         """Test error handling for invalid JSON file."""
         project_dir = tmp_path / "test_project"
-        config_dir = project_dir / "code" / "tit" / "config"
+        config_dir = project_dir / "code" / "ti-toolbox" / "config"
         config_dir.mkdir(parents=True)
 
         montage_file = config_dir / "montage_list.json"
@@ -290,7 +290,7 @@ class TestLoadMontages:
     def test_load_regular_montages_only(self, tmp_path):
         """Test loading regular montages without flex montages."""
         project_dir = tmp_path / "test_project"
-        config_dir = project_dir / "code" / "tit" / "config"
+        config_dir = project_dir / "code" / "ti-toolbox" / "config"
         config_dir.mkdir(parents=True)
 
         montage_file = config_dir / "montage_list.json"
@@ -325,7 +325,7 @@ class TestLoadMontages:
     def test_load_with_flex_montages(self, tmp_path):
         """Test loading both regular and flex montages."""
         project_dir = tmp_path / "test_project"
-        config_dir = project_dir / "code" / "tit" / "config"
+        config_dir = project_dir / "code" / "ti-toolbox" / "config"
         config_dir.mkdir(parents=True)
 
         montage_file = config_dir / "montage_list.json"
@@ -370,7 +370,7 @@ class TestLoadMontages:
     def test_freehand_mode(self, tmp_path):
         """Test is_xyz flag for freehand mode."""
         project_dir = tmp_path / "test_project"
-        config_dir = project_dir / "code" / "tit" / "config"
+        config_dir = project_dir / "code" / "ti-toolbox" / "config"
         config_dir.mkdir(parents=True)
 
         montage_file = config_dir / "montage_list.json"
@@ -401,7 +401,7 @@ class TestLoadMontages:
     def test_skip_failed_flex_montages(self, tmp_path, capsys):
         """Test that failed flex montages are skipped with warning."""
         project_dir = tmp_path / "test_project"
-        config_dir = project_dir / "code" / "tit" / "config"
+        config_dir = project_dir / "code" / "ti-toolbox" / "config"
         config_dir.mkdir(parents=True)
 
         montage_file = config_dir / "montage_list.json"
@@ -445,7 +445,7 @@ class TestLoadMontages:
     def test_empty_montage_list(self, tmp_path):
         """Test loading with empty montage list."""
         project_dir = tmp_path / "test_project"
-        config_dir = project_dir / "code" / "tit" / "config"
+        config_dir = project_dir / "code" / "ti-toolbox" / "config"
         config_dir.mkdir(parents=True)
 
         montage_file = config_dir / "montage_list.json"
@@ -473,7 +473,7 @@ class TestLoadMontages:
     def test_montage_priority(self, tmp_path):
         """Test that multi_polar is checked before uni_polar."""
         project_dir = tmp_path / "test_project"
-        config_dir = project_dir / "code" / "tit" / "config"
+        config_dir = project_dir / "code" / "ti-toolbox" / "config"
         config_dir.mkdir(parents=True)
 
         montage_file = config_dir / "montage_list.json"

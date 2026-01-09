@@ -3,7 +3,7 @@
 Shared utilities for simulation-related IO (used by both CLI and GUI).
 
 Currently:
-- Montage list management (code/tit/config/montage_list.json)
+- Montage list management (code/ti-toolbox/config/montage_list.json)
 """
 
 from __future__ import annotations
@@ -14,7 +14,7 @@ from typing import Any, Dict, List, Optional
 
 
 def montage_config_dir(project_dir: str) -> str:
-    return os.path.join(project_dir, "code", "tit", "config")
+    return os.path.join(project_dir, "code", "ti-toolbox", "config")
 
 
 def montage_list_path(project_dir: str) -> str:

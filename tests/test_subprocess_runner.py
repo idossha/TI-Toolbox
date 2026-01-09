@@ -69,7 +69,7 @@ class TestBuildLogger:
         """Test logger creation with correct paths."""
         # Mock PathManager
         mock_pm_instance = MagicMock()
-        mock_pm_instance.path.return_value = "/test/derivatives/tit/logs/sub-001"
+        mock_pm_instance.path.return_value = "/test/derivatives/ti-toolbox/logs/sub-001"
         mock_get_pm.return_value = mock_pm_instance
 
         # Mock logger with handlers
@@ -80,7 +80,7 @@ class TestBuildLogger:
         logger, log_file = _build_logger("001", "/test/project", debug=False)
 
         # Check directory creation
-        mock_makedirs.assert_called_once_with("/test/derivatives/tit/logs/sub-001", exist_ok=True)
+        mock_makedirs.assert_called_once_with("/test/derivatives/ti-toolbox/logs/sub-001", exist_ok=True)
 
         # Check logger was created
         mock_get_logger.assert_called_once()
@@ -96,7 +96,7 @@ class TestBuildLogger:
         """Test logger in debug mode."""
         # Mock PathManager
         mock_pm_instance = MagicMock()
-        mock_pm_instance.path.return_value = "/test/derivatives/tit/logs/sub-001"
+        mock_pm_instance.path.return_value = "/test/derivatives/ti-toolbox/logs/sub-001"
         mock_get_pm.return_value = mock_pm_instance
 
         # Mock logger with handlers
