@@ -23,6 +23,7 @@ from tit.benchmark.core import (
 )
 from tit.benchmark.logger import BenchmarkLogger, create_benchmark_log_file
 from tit.benchmark.config import BenchmarkConfig, merge_config_with_args
+from tit.core import get_path_manager
 
 
 def select_electrodes(m2m_dir: Path, eeg_net: str, sim_mode: str, logger):
@@ -99,7 +100,9 @@ def create_montage_config(project_dir: Path, montage_name: str, electrodes: list
         logger: Logger instance
     """
     # Determine montage file path
-    montage_file = project_dir / "code" / "ti-toolbox" / "config" / "montage_list.json"
+    pm = get_path_manager()
+    pm.project_dir = str(project_dir)
+    montage_file = Path(pm.path("montage_config"))
     
     if not montage_file.exists():
         logger.warning(f"Montage file not found: {montage_file}")

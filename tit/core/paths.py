@@ -215,7 +215,9 @@ class PathManager:
     _TEMPLATES = {
         # core roots
         "derivatives": (const.DIR_DERIVATIVES,),
+        "sourcedata": (const.DIR_SOURCEDATA,),
         "simnibs": (const.DIR_DERIVATIVES, const.DIR_SIMNIBS),
+        "freesurfer": (const.DIR_DERIVATIVES, "freesurfer"),
         "simnibs_subject": (const.DIR_DERIVATIVES, const.DIR_SIMNIBS, f"{const.PREFIX_SUBJECT}{{subject_id}}"),
         "m2m": (const.DIR_DERIVATIVES, const.DIR_SIMNIBS, f"{const.PREFIX_SUBJECT}{{subject_id}}", f"{const.DIR_M2M_PREFIX}{{subject_id}}"),
         "simulations": (const.DIR_DERIVATIVES, const.DIR_SIMNIBS, f"{const.PREFIX_SUBJECT}{{subject_id}}", "Simulations"),
@@ -230,10 +232,16 @@ class PathManager:
         "leadfields": (const.DIR_DERIVATIVES, const.DIR_SIMNIBS, f"{const.PREFIX_SUBJECT}{{subject_id}}", const.DIR_LEADFIELDS),
         # ti-toolbox derivatives
         "ti_toolbox": (const.DIR_DERIVATIVES, const.DIR_TI_TOOLBOX),
+        "ti_toolbox_info": (const.DIR_DERIVATIVES, const.DIR_TI_TOOLBOX, const.DIR_TI_TOOLBOX_INFO),
+        "ti_toolbox_status": (const.DIR_DERIVATIVES, const.DIR_TI_TOOLBOX, const.DIR_TI_TOOLBOX_INFO, "project_status.json"),
         "ti_logs": (const.DIR_DERIVATIVES, const.DIR_TI_TOOLBOX, const.DIR_LOGS, f"{const.PREFIX_SUBJECT}{{subject_id}}"),
         "ti_logs_group": (const.DIR_DERIVATIVES, const.DIR_TI_TOOLBOX, const.DIR_LOGS, "group_analysis"),
         "ti_reports": (const.DIR_DERIVATIVES, const.DIR_TI_TOOLBOX, const.DIR_REPORTS),
         "ti_stats_data": (const.DIR_DERIVATIVES, const.DIR_TI_TOOLBOX, "stats", "data"),
+        # config directory
+        "ti_toolbox_config": (const.DIR_CODE, const.DIR_CODE_TI_TOOLBOX, const.DIR_CONFIG),
+        "montage_config": (const.DIR_CODE, const.DIR_CODE_TI_TOOLBOX, const.DIR_CONFIG, const.FILE_MONTAGE_LIST),
+        "extensions_config": (const.DIR_CODE, const.DIR_CODE_TI_TOOLBOX, const.DIR_CONFIG, "extensions.json"),
         # TI outputs
         "ti_mesh": (const.DIR_DERIVATIVES, const.DIR_SIMNIBS, f"{const.PREFIX_SUBJECT}{{subject_id}}", "Simulations", "{simulation_name}", "TI", "mesh", "{simulation_name}_TI" + const.EXT_MESH),
         "ti_central_surface": (const.DIR_DERIVATIVES, const.DIR_SIMNIBS, f"{const.PREFIX_SUBJECT}{{subject_id}}", "Simulations", "{simulation_name}", "TI", "mesh", "surfaces", "{simulation_name}_TI_central" + const.EXT_MESH),

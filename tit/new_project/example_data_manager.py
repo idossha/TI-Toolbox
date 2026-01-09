@@ -16,6 +16,8 @@ import logging
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
+from tit.core import get_path_manager
+
 # Set up logging (no console output)
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
@@ -103,7 +105,9 @@ class ExampleDataManager:
             return False
         
         # Check project status file if it exists to see if example data was already copied
-        status_file = self.project_dir / "derivatives" / "ti-toolbox" / ".ti-toolbox-info" / "project_status.json"
+        pm = get_path_manager()
+        pm.project_dir = str(self.project_dir)
+        status_file = Path(pm.path("ti_toolbox_status"))
         if status_file.exists():
             try:
                 import json
@@ -183,14 +187,17 @@ class ExampleDataManager:
             return False, []
         
         logger.info(f"Copying example data to new project: {self.project_dir}")
-        
-        # Ensure core BIDS directories exist
+
+        # Initialize path manager and ensure core BIDS directories exist
+        pm = get_path_manager()
+        pm.project_dir = str(self.project_dir)
+
         core_dirs = [
-            self.project_dir / "sourcedata",
-            self.project_dir / "derivatives" / "ti-toolbox",
-            self.project_dir / "derivatives" / "SimNIBS",
-            self.project_dir / "derivatives" / "freesurfer",
-            self.project_dir / "code" / "ti-toolbox" / "config"
+            pm.ensure_dir("sourcedata"),
+            pm.ensure_dir("ti_toolbox"),
+            pm.ensure_dir("simnibs"),
+            pm.ensure_dir("freesurfer"),
+            pm.ensure_dir("ti_toolbox_config")
         ]
         
         for dir_path in core_dirs:
@@ -258,7 +265,9 @@ class ExampleDataManager:
             from datetime import datetime
             
             # Create the status directory if it doesn't exist
-            status_dir = self.project_dir / "derivatives" / "ti-toolbox" / ".ti-toolbox-info"
+            pm = get_path_manager()
+            pm.project_dir = str(self.project_dir)
+            status_dir = Path(pm.ensure_dir("ti_toolbox_info"))
             status_dir.mkdir(parents=True, exist_ok=True)
             
             status_file = status_dir / "project_status.json"

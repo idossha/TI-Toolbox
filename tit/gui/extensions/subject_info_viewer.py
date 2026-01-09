@@ -11,6 +11,8 @@ import json
 from pathlib import Path
 from PyQt5 import QtWidgets, QtCore, QtGui
 
+from tit.core import get_path_manager
+
 # Extension metadata (required)
 EXTENSION_NAME = "Subject Info Viewer"
 EXTENSION_DESCRIPTION = "View details for subjects in your project directory."
@@ -200,7 +202,10 @@ class SubjectInfoWindow(QtWidgets.QDialog):
 
         try:
             # Create export directory and file
-            export_dir = self.project_dir / 'derivatives' / 'ti-toolbox' / 'subjects-viewer'
+            pm = get_path_manager()
+            pm.project_dir = str(self.project_dir)
+            export_dir = Path(pm.ensure_dir("ti_toolbox")) / 'subjects-viewer'
+            export_dir.mkdir(parents=True, exist_ok=True)
             export_dir.mkdir(parents=True, exist_ok=True)
 
             timestamp = QtCore.QDateTime.currentDateTime().toString("yyyyMMdd_HHmmss")

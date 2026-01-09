@@ -18,6 +18,8 @@ import sys
 import warnings
 from pathlib import Path
 
+from tit.core import get_path_manager
+
 # Suppress specific SIP deprecation warning originating from PyQt/SIP internals
 warnings.filterwarnings(
     'ignore',
@@ -180,14 +182,10 @@ class MainWindow(QtWidgets.QMainWindow):
     
     def get_extensions_config_path(self):
         """Get the path to the extensions configuration file."""
-        project_dir = self.pm.project_dir
-        
-        # Path: /mnt/project_dir/code/ti-toolbox/config/extensions.json
-        config_path = Path(project_dir) / 'code' / 'ti-toolbox' / 'config' / 'extensions.json'
-        
-        # Ensure the directory exists
-        config_path.parent.mkdir(parents=True, exist_ok=True)
-        
+        # Ensure the config directory exists and return the extensions config path
+        config_dir = Path(self.pm.ensure_dir("ti_toolbox_config"))
+        config_path = config_dir / 'extensions.json'
+
         return config_path
     
     def ensure_extensions_config(self):

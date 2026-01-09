@@ -12,9 +12,13 @@ import json
 import os
 from typing import Any, Dict, List, Optional
 
+from tit.core import get_path_manager
+
 
 def montage_config_dir(project_dir: str) -> str:
-    return os.path.join(project_dir, "code", "ti-toolbox", "config")
+    pm = get_path_manager()
+    pm.project_dir = project_dir
+    return pm.path("ti_toolbox_config")
 
 
 def montage_list_path(project_dir: str) -> str:

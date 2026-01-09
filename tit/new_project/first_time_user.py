@@ -7,6 +7,7 @@ import os.path
 from datetime import datetime
 
 from tit import __version__
+from tit.core import get_path_manager
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -20,13 +21,8 @@ def get_status_file_path():
     Get the path to the status file in the project directory.
     The file will be stored in /mnt/PROJECT_DIR_NAME/derivatives/ti-toolbox/.ti-toolbox-info/project_status.json
     """
-    # Get project directory from environment
-    project_dir = os.environ.get('PROJECT_DIR', '')
-    if not project_dir:
-        project_dir = f"/mnt/{os.environ.get('PROJECT_DIR_NAME', '/enter/project/path')}"
-    
-    info_dir = os.path.join(project_dir, 'derivatives', 'ti-toolbox', '.ti-toolbox-info')
-    return os.path.join(info_dir, 'project_status.json')
+    pm = get_path_manager()
+    return pm.path("ti_toolbox_status")
 
 def initialize_project_status(project_dir):
     """
@@ -34,27 +30,23 @@ def initialize_project_status(project_dir):
     This is called when a new project is created or when the status file is missing.
     Creates the BIDS-compliant directory structure and initializes project tracking.
     """
-    status_file = get_status_file_path()
-    info_dir = os.path.dirname(status_file)
-    
+    pm = get_path_manager()
+    pm.project_dir = project_dir
+
+    status_file = pm.path("ti_toolbox_status")
+    info_dir = pm.path("ti_toolbox_info")
+
     # Create info directory if it doesn't exist
-    if not os.path.exists(info_dir):
-        os.makedirs(info_dir, exist_ok=True)
-        logger.info(f"Created info directory: {info_dir}")
-    
+    pm.ensure_dir("ti_toolbox_info")
+
     # Ensure core BIDS directories exist
     core_dirs = [
-        os.path.join(project_dir, 'sourcedata'),
-        os.path.join(project_dir, 'derivatives', 'ti-toolbox'),
-        os.path.join(project_dir, 'derivatives', 'SimNIBS'),
-        os.path.join(project_dir, 'derivatives', 'freesurfer'),
-        os.path.join(project_dir, 'code', 'ti-toolbox', 'config')
+        pm.ensure_dir("sourcedata"),
+        pm.ensure_dir("ti_toolbox"),
+        pm.ensure_dir("simnibs"),
+        pm.ensure_dir("freesurfer"),
+        pm.ensure_dir("ti_toolbox_config")
     ]
-    
-    for dir_path in core_dirs:
-        if not os.path.exists(dir_path):
-            os.makedirs(dir_path, exist_ok=True)
-            logger.info(f"Created BIDS directory: {dir_path}")
     
     # Default status data
     status_data = {
@@ -87,10 +79,11 @@ def get_project_status():
     Get the current project status, initializing if necessary.
     Returns the status data dictionary or None if initialization fails.
     """
-    status_file = get_status_file_path()
-    project_dir = os.environ.get('PROJECT_DIR', '')
-    
-    if not os.path.exists(status_file):
+    pm = get_path_manager()
+    status_file = pm.path_optional("ti_toolbox_status")
+
+    if not status_file or not os.path.exists(status_file):
+        project_dir = os.environ.get('PROJECT_DIR', '')
         return initialize_project_status(project_dir)
     
     try:
@@ -108,17 +101,18 @@ def update_project_status(updates):
     Returns:
         bool: True if update was successful, False otherwise
     """
-    status_file = get_status_file_path()
+    pm = get_path_manager()
+    status_file = pm.path_optional("ti_toolbox_status")
     current_status = get_project_status()
-    
+
     if not current_status:
         logger.error("Failed to get current project status")
         return False
-    
+
     # Update the status data
     current_status.update(updates)
     current_status['last_updated'] = datetime.now().isoformat()
-    
+
     try:
         with open(status_file, 'w') as f:
             json.dump(current_status, f, indent=2)

@@ -18,6 +18,8 @@ import subprocess
 from pathlib import Path
 from typing import List, Tuple, Optional, Dict
 
+from tit.core import get_path_manager
+
 
 class ResourcePathManager:
     """
@@ -627,7 +629,9 @@ def main():
     if args.montage_file is None:
         project_dir_name = args.project_dir_name or os.environ.get('PROJECT_DIR_NAME')
         if project_dir_name:
-            args.montage_file = f"/mnt/{project_dir_name}/code/ti-toolbox/config/montage_list.json"
+            pm = get_path_manager()
+            pm.project_dir = f"/mnt/{project_dir_name}"
+            args.montage_file = pm.path("montage_config")
         else:
             # Try development mode
             if os.path.isfile("/development/ti-toolbox/config/montage_list.json"):

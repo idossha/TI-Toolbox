@@ -23,6 +23,7 @@ DIR_TI_TOOLBOX = "ti-toolbox"
 DIR_LOGS = "logs"
 DIR_NILEARN_VISUALS = "nilearn_visuals"
 DIR_TISSUE_ANALYSIS = "tissue_analysis"
+DIR_TI_TOOLBOX_INFO = ".ti-toolbox-info"
 
 # Subject-level directories
 DIR_M2M_PREFIX = "m2m_"
@@ -35,6 +36,7 @@ DIR_ANALYSIS = "Analyses"
 
 # Configuration directory
 DIR_CONFIG = "config"
+DIR_CODE_TI_TOOLBOX = "ti-toolbox"
 
 # ============================================================================
 # FILE NAMES AND EXTENSIONS
