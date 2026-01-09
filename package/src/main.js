@@ -424,7 +424,7 @@ ipcMain.handle('create-new-project', async (_event, projectDir, includeExampleDa
           });
         });
       } else {
-        logger.warning('Example data script not found, skipping example data copy');
+        logger.warn('Example data script not found, skipping example data copy');
       }
     }
     
