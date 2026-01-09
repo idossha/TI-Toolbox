@@ -199,32 +199,56 @@ class DockerManager extends EventEmitter {
     const execEnv = ensurePathEnv(env);
     const dockerPath = this.findDockerCommand();
 
-    // Set BUILDKIT_PROGRESS to plain for better terminal-like output
+    // Use 'auto' progress mode for proper terminal animations
     const enhancedEnv = {
       ...execEnv,
-      BUILDKIT_PROGRESS: 'plain',
-      COMPOSE_DOCKER_CLI_BUILD: '1'
+      BUILDKIT_PROGRESS: 'auto',
+      COMPOSE_DOCKER_CLI_BUILD: '1',
+      // Force color output for better progress display
+      COMPOSE_ANSI: 'auto'
     };
 
-    // Stream output in real-time for docker pull progress
-    const subprocess = execa(dockerPath, ['compose', '-f', this.composeFile, 'up', '--build', '-d'], {
-      env: enhancedEnv,
-      cwd: this.toolboxRoot,
-      timeout: 300000,
-      buffer: false
-    });
+    // Run docker compose without explicit progress flag (environment variables handle it)
+    const subprocess = execa(
+      dockerPath,
+      ['compose', '-f', this.composeFile, 'up', '--build', '-d'],
+      {
+        env: enhancedEnv,
+        cwd: this.toolboxRoot,
+        timeout: 300000,
+        buffer: false,
+        // Allocate a pseudo-TTY for proper terminal control sequences
+        stdio: ['ignore', 'pipe', 'pipe']
+      }
+    );
 
-    // Stream stdout
+    // Buffer for handling partial lines and control sequences
+    let stdoutBuffer = '';
+    let stderrBuffer = '';
+
+    // Stream stdout with proper handling of terminal control sequences
     if (subprocess.stdout) {
       subprocess.stdout.on('data', (chunk) => {
-        const output = chunk.toString().trim();
-        if (output) {
-          // Emit each line as progress
-          output.split('\n').forEach(line => {
+        const output = chunk.toString();
+        stdoutBuffer += output;
+
+        // Check if we have complete lines (ending with newline)
+        if (stdoutBuffer.includes('\n')) {
+          const lines = stdoutBuffer.split('\n');
+          // Keep the last incomplete line in the buffer
+          stdoutBuffer = lines.pop() || '';
+
+          // Emit complete lines
+          lines.forEach(line => {
             if (line.trim()) {
-              this.emitProgress('docker', line.trim());
+              this.emitProgress('docker', line);
             }
           });
+        } else if (output.includes('\r') || output.match(/[\u001b\u009b][\[\]()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><]/)) {
+          // Emit lines with carriage return or ANSI escape sequences immediately
+          // This preserves progress bars and spinners
+          this.emitProgress('docker', output);
+          stdoutBuffer = '';
         }
       });
     }
@@ -232,19 +256,38 @@ class DockerManager extends EventEmitter {
     // Stream stderr (docker compose often outputs to stderr)
     if (subprocess.stderr) {
       subprocess.stderr.on('data', (chunk) => {
-        const output = chunk.toString().trim();
-        if (output) {
-          // Emit each line as progress
-          output.split('\n').forEach(line => {
+        const output = chunk.toString();
+        stderrBuffer += output;
+
+        // Check if we have complete lines (ending with newline)
+        if (stderrBuffer.includes('\n')) {
+          const lines = stderrBuffer.split('\n');
+          // Keep the last incomplete line in the buffer
+          stderrBuffer = lines.pop() || '';
+
+          // Emit complete lines
+          lines.forEach(line => {
             if (line.trim()) {
-              this.emitProgress('docker', line.trim());
+              this.emitProgress('docker', line);
             }
           });
+        } else if (output.includes('\r') || output.match(/[\u001b\u009b][\[\]()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><]/)) {
+          // Emit lines with carriage return or ANSI escape sequences immediately
+          this.emitProgress('docker', output);
+          stderrBuffer = '';
         }
       });
     }
 
     await subprocess;
+
+    // Emit any remaining buffered content
+    if (stdoutBuffer.trim()) {
+      this.emitProgress('docker', stdoutBuffer.trim());
+    }
+    if (stderrBuffer.trim()) {
+      this.emitProgress('docker', stderrBuffer.trim());
+    }
   }
 
   async composeDown(env) {

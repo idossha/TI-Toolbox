@@ -20,6 +20,8 @@ const clearActivityBtn = document.getElementById('clear-activity-btn');
 
 let isLaunching = false;
 let sessionActive = false;
+// Map to track Docker layer progress items for in-place updates
+const dockerLayerItems = new Map();
 
 function showStatus(message, type = 'info') {
   statusMessage.textContent = message;
@@ -129,8 +131,6 @@ async function loadSavedPath() {
 }
 
 function appendActivity({ stage, message, timestamp }) {
-  const item = document.createElement('li');
-
   // Format timestamp to HH:MM:SS
   const time = new Date(timestamp).toLocaleTimeString('en-US', {
     hour12: false,
@@ -139,27 +139,113 @@ function appendActivity({ stage, message, timestamp }) {
     second: '2-digit'
   });
 
-  // Terminal-style output with time format: |time| message|
-  item.textContent = `|${time}| ${message}`;
+  // Strip ANSI escape sequences but preserve the message content
+  const cleanMessage = message.replace(/\x1B\[[0-9;]*[A-Za-z]/g, '').replace(/\r/g, '');
 
-  // Add styling based on stage or message content
-  if (stage === 'gui-started' || stage === 'shutdown-complete' || message.includes('successfully') || message.includes('✓')) {
-    item.classList.add('success');
-  } else if (stage === 'error' || message.includes('error') || message.includes('failed') || message.includes('✗')) {
-    item.classList.add('error');
-  } else if (stage === 'warning' || message.includes('warning') || message.includes('⚠')) {
-    item.classList.add('warning');
+  // Skip empty messages
+  if (!cleanMessage.trim()) {
+    return;
   }
+
+  // Extract the layer ID from Docker messages
+  const layerMatch = cleanMessage.match(/^\s*(\w+)\s+(Pulling|Downloading|Extracting|Waiting|Verifying Checksum|Download complete|Pull complete|Already exists)/);
+
+  // Check if this is a Docker progress message
+  const isDockerProgress = stage === 'docker' && layerMatch !== null;
+
+  // For Docker progress messages with layer IDs, check if we should update existing item
+  if (isDockerProgress && layerMatch) {
+    const layerId = layerMatch[1];
+    const status = layerMatch[2];
+
+    // Check if this is a "complete" message (should create new line)
+    const isComplete = status === 'Download complete' ||
+                      status === 'Pull complete' ||
+                      status === 'Already exists';
+
+    // If we have an existing item for this layer and it's not a completion message, update it
+    if (dockerLayerItems.has(layerId) && !isComplete) {
+      const existingItem = dockerLayerItems.get(layerId);
+
+      // Make sure the item is still in the DOM
+      if (activityList.contains(existingItem)) {
+        existingItem.textContent = `|${time}| ${cleanMessage}`;
+        // Update the item's styling
+        updateItemStyling(existingItem, stage, cleanMessage);
+        return;
+      } else {
+        // Item was removed, clear it from map
+        dockerLayerItems.delete(layerId);
+      }
+    }
+
+    // If this is a completion message, remove from tracking so future messages create new lines
+    if (isComplete) {
+      dockerLayerItems.delete(layerId);
+    }
+  }
+
+  // Check for spinner lines (simnibs pulling status) - update in place
+  const isSpinner = cleanMessage.match(/^\s*[⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]/);
+  if (isSpinner && activityList.lastChild &&
+      activityList.lastChild.dataset.spinner === 'true') {
+    activityList.lastChild.textContent = `|${time}| ${cleanMessage}`;
+    return;
+  }
+
+  // Create new list item
+  const item = document.createElement('li');
+
+  // Terminal-style output with time format: |time| message|
+  item.textContent = `|${time}| ${cleanMessage}`;
+
+  // Store metadata for tracking
+  if (isDockerProgress && layerMatch) {
+    item.dataset.dockerProgress = 'true';
+    const layerId = layerMatch[1];
+    item.dataset.layerId = layerId;
+    // Track this item for future updates
+    dockerLayerItems.set(layerId, item);
+  }
+
+  if (isSpinner) {
+    item.dataset.spinner = 'true';
+  }
+
+  // Add styling
+  updateItemStyling(item, stage, cleanMessage);
 
   activityList.appendChild(item);
 
   // Keep more lines for terminal-like scrolling
   while (activityList.children.length > 100) {
-    activityList.removeChild(activityList.firstChild);
+    const removedItem = activityList.firstChild;
+    // Clean up from tracking map
+    if (removedItem.dataset.layerId) {
+      dockerLayerItems.delete(removedItem.dataset.layerId);
+    }
+    activityList.removeChild(removedItem);
   }
 
   // Auto-scroll to bottom
   activityList.scrollTop = activityList.scrollHeight;
+}
+
+function updateItemStyling(item, stage, message) {
+  // Remove existing style classes
+  item.classList.remove('success', 'error', 'warning');
+
+  // Add styling based on stage or message content
+  if (stage === 'gui-started' || stage === 'shutdown-complete' ||
+      message.includes('successfully') || message.includes('✓') ||
+      message.includes('Pull complete') || message.includes('Download complete')) {
+    item.classList.add('success');
+  } else if (stage === 'error' || message.includes('error') ||
+             message.includes('failed') || message.includes('✗')) {
+    item.classList.add('error');
+  } else if (stage === 'warning' || message.includes('warning') || message.includes('⚠')) {
+    item.classList.add('warning');
+  }
 }
 
 async function hydrateLogPath() {
@@ -360,6 +446,7 @@ openLogsBtn.addEventListener('click', async () => {
 
 clearActivityBtn.addEventListener('click', () => {
   activityList.innerHTML = '';
+  dockerLayerItems.clear(); // Clear the tracking map
 });
 
 ipcRenderer.on('launcher-progress', (_event, payload) => {
@@ -371,6 +458,8 @@ ipcRenderer.on('launcher-progress', (_event, payload) => {
     stopBtn.classList.remove('hidden');
     stopBtn.disabled = false;
     showStatus('TI-Toolbox GUI is running. You can minimize this window.', 'success');
+    // Clear Docker layer tracking since pull/build is complete
+    dockerLayerItems.clear();
   }
 
   if (payload.stage === 'gui-exited') {
@@ -384,6 +473,8 @@ ipcRenderer.on('launcher-progress', (_event, payload) => {
   if (payload.stage === 'shutdown-complete') {
     hideProgress();
     showStatus('All Docker services stopped successfully.', 'success');
+    // Clear Docker layer tracking for next session
+    dockerLayerItems.clear();
   }
 
   refreshLaunchButton();
