@@ -37,7 +37,7 @@ async function validateProjectDirectory(projectDir) {
 }
 
 async function initializeProject(projectDir) {
-  const configDir = path.join(projectDir, 'code', 'tit', 'config');
+  const configDir = path.join(projectDir, 'code', 'ti-toolbox', 'config');
   const initializedMarker = path.join(configDir, '.initialized');
 
   try {

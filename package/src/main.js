@@ -377,54 +377,64 @@ ipcMain.handle('create-new-project', async (_event, projectDir, includeExampleDa
     
     // If user wants example data, we need to copy it
     if (includeExampleData) {
-      const { spawn } = require('child_process');
-      const exampleDataScript = path.join(
-        toolboxRoot,
-        'tit',
-        'new_project',
-        'example_data_manager.py'
-      );
-      
-      // Check if the script exists
-      if (fs.existsSync(exampleDataScript)) {
-        // Run the Python script to copy example data
-        await new Promise((resolve, reject) => {
-          const pythonProcess = spawn('python3', [
-            exampleDataScript,
-            toolboxRoot,
-            validatedDir
-          ]);
-          
-          let stdout = '';
-          let stderr = '';
-          
-          pythonProcess.stdout.on('data', (data) => {
-            stdout += data.toString();
-          });
-          
-          pythonProcess.stderr.on('data', (data) => {
-            stderr += data.toString();
-          });
-          
-          pythonProcess.on('close', (code) => {
-            if (code === 0) {
-              logger.info('Example data copied successfully');
-              resolve();
-            } else {
-              logger.error(`Example data copy failed: ${stderr}`);
-              // Don't reject, just continue without example data
-              resolve();
+      const exampleDataDir = path.join(toolboxRoot, 'resources', 'example_data');
+
+      // Check if example data directory exists
+      if (fs.existsSync(exampleDataDir)) {
+        try {
+          logger.info('Copying example data to project...');
+
+          // Define the mapping of source files to BIDS destinations
+          const dataMapping = {
+            'ernie': {
+              'T1.nii.gz': path.join(validatedDir, 'sub-ernie', 'anat', 'sub-ernie_T1w.nii.gz'),
+              'T2_reg.nii.gz': path.join(validatedDir, 'sub-ernie', 'anat', 'sub-ernie_T2w.nii.gz')
+            },
+            'MNI152': {
+              'T1.nii.gz': path.join(validatedDir, 'sub-MNI152', 'anat', 'sub-MNI152_T1w.nii.gz')
             }
-          });
-          
-          pythonProcess.on('error', (err) => {
-            logger.error(`Failed to run example data script: ${err.message}`);
-            // Don't reject, just continue without example data
-            resolve();
-          });
-        });
+          };
+
+          // Copy each subject's data
+          for (const [subjectKey, fileMapping] of Object.entries(dataMapping)) {
+            const subjectSrcDir = path.join(exampleDataDir, subjectKey);
+
+            if (fs.existsSync(subjectSrcDir)) {
+              logger.info(`Copying example data for ${subjectKey}...`);
+
+              for (const [srcFileName, dstPath] of Object.entries(fileMapping)) {
+                const srcPath = path.join(subjectSrcDir, srcFileName);
+
+                if (fs.existsSync(srcPath)) {
+                  // Ensure destination directory exists
+                  await fs.ensureDir(path.dirname(dstPath));
+                  // Copy the file
+                  await fs.copy(srcPath, dstPath);
+                  logger.info(`Copied: ${srcFileName} -> ${dstPath}`);
+                } else {
+                  logger.warn(`Source file not found: ${srcPath}`);
+                }
+              }
+            } else {
+              logger.warn(`Subject directory not found: ${subjectSrcDir}`);
+            }
+          }
+
+          // Copy readme file if it exists
+          const readmeSrc = path.join(exampleDataDir, 'readme.txt');
+          if (fs.existsSync(readmeSrc)) {
+            const readmeDst = path.join(validatedDir, 'EXAMPLE_DATA_README.txt');
+            await fs.copy(readmeSrc, readmeDst);
+            logger.info('Copied example data readme');
+          }
+
+          logger.info('Example data copied successfully');
+        } catch (err) {
+          logger.error(`Failed to copy example data: ${err.message}`);
+          // Don't fail project creation if example data copy fails
+        }
       } else {
-        logger.warn('Example data script not found, skipping example data copy');
+        logger.warn(`Example data directory not found at ${exampleDataDir}, skipping example data copy`);
       }
     }
     
