@@ -59,25 +59,6 @@ jobs:
           path: docs/api/_build/html/
           retention-days: 30
 
-      - name: Commit built documentation (on main branch only)
-        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-        run: |
-          git config --global user.name 'github-actions[bot]'
-          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
-
-          # Add built documentation (force add since it's in .gitignore)
-          git add -f docs/api/_build/html/
-
-          # Check if there are changes
-          if git diff --staged --quiet; then
-            echo "No documentation changes to commit"
-          else
-            git commit -m "docs: update Sphinx API documentation [skip ci]"
-
-            # Use GITHUB_TOKEN with enhanced permissions
-            git push https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git HEAD:main
-          fi
-
       - name: Comment PR with documentation link
         if: github.event_name == 'pull_request'
         uses: actions/github-script@v7
