@@ -1,0 +1,1010 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>tit.analyzer.group_analyzer &mdash; TI-Toolbox 2.0.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../_static/documentation_options.js?v=51b770b3"></script>
+      <script src="../../../_static/doctools.js?v=9a2dae69"></script>
+      <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            TI-Toolbox
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Core Modules</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../core/index.html">Core Modules (<code class="docutils literal notranslate"><span class="pre">tit.core</span></code>)</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../core/index.html#path-management">Path Management</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../core/index.html#module-tit.core.constants">Constants</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../core/index.html#nifti-operations">NIfTI Operations</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../core/index.html#mesh-operations">Mesh Operations</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../core/index.html#calculations">Calculations</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../core/index.html#roi-utilities">ROI Utilities</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../core/index.html#utilities">Utilities</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../core/index.html#error-classes">Error Classes</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../core/index.html#process-management">Process Management</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Simulation</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../sim/index.html">Simulation Module (<code class="docutils literal notranslate"><span class="pre">tit.sim</span></code>)</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../sim/index.html#main-simulator">Main Simulator</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../sim/index.html#module-tit.sim.config">Configuration Classes</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.SimulationMode"><code class="docutils literal notranslate"><span class="pre">SimulationMode</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.SimulationMode.TI"><code class="docutils literal notranslate"><span class="pre">SimulationMode.TI</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.SimulationMode.MTI"><code class="docutils literal notranslate"><span class="pre">SimulationMode.MTI</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.ConductivityType"><code class="docutils literal notranslate"><span class="pre">ConductivityType</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.ConductivityType.SCALAR"><code class="docutils literal notranslate"><span class="pre">ConductivityType.SCALAR</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.ConductivityType.VN"><code class="docutils literal notranslate"><span class="pre">ConductivityType.VN</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.ConductivityType.DIR"><code class="docutils literal notranslate"><span class="pre">ConductivityType.DIR</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.ConductivityType.MC"><code class="docutils literal notranslate"><span class="pre">ConductivityType.MC</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.ElectrodeConfig"><code class="docutils literal notranslate"><span class="pre">ElectrodeConfig</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.ElectrodeConfig.shape"><code class="docutils literal notranslate"><span class="pre">ElectrodeConfig.shape</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.ElectrodeConfig.dimensions"><code class="docutils literal notranslate"><span class="pre">ElectrodeConfig.dimensions</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.ElectrodeConfig.thickness"><code class="docutils literal notranslate"><span class="pre">ElectrodeConfig.thickness</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.ElectrodeConfig.sponge_thickness"><code class="docutils literal notranslate"><span class="pre">ElectrodeConfig.sponge_thickness</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.ElectrodeConfig.__init__"><code class="docutils literal notranslate"><span class="pre">ElectrodeConfig.__init__()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.IntensityConfig"><code class="docutils literal notranslate"><span class="pre">IntensityConfig</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.IntensityConfig.pair1"><code class="docutils literal notranslate"><span class="pre">IntensityConfig.pair1</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.IntensityConfig.pair2"><code class="docutils literal notranslate"><span class="pre">IntensityConfig.pair2</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.IntensityConfig.pair3"><code class="docutils literal notranslate"><span class="pre">IntensityConfig.pair3</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.IntensityConfig.pair4"><code class="docutils literal notranslate"><span class="pre">IntensityConfig.pair4</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.IntensityConfig.from_string"><code class="docutils literal notranslate"><span class="pre">IntensityConfig.from_string()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.IntensityConfig.__init__"><code class="docutils literal notranslate"><span class="pre">IntensityConfig.__init__()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.MontageConfig"><code class="docutils literal notranslate"><span class="pre">MontageConfig</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.MontageConfig.name"><code class="docutils literal notranslate"><span class="pre">MontageConfig.name</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.MontageConfig.electrode_pairs"><code class="docutils literal notranslate"><span class="pre">MontageConfig.electrode_pairs</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.MontageConfig.is_xyz"><code class="docutils literal notranslate"><span class="pre">MontageConfig.is_xyz</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.MontageConfig.eeg_net"><code class="docutils literal notranslate"><span class="pre">MontageConfig.eeg_net</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.MontageConfig.simulation_mode"><code class="docutils literal notranslate"><span class="pre">MontageConfig.simulation_mode</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.MontageConfig.num_pairs"><code class="docutils literal notranslate"><span class="pre">MontageConfig.num_pairs</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.MontageConfig.__init__"><code class="docutils literal notranslate"><span class="pre">MontageConfig.__init__()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.ParallelConfig"><code class="docutils literal notranslate"><span class="pre">ParallelConfig</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.ParallelConfig.enabled"><code class="docutils literal notranslate"><span class="pre">ParallelConfig.enabled</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.ParallelConfig.max_workers"><code class="docutils literal notranslate"><span class="pre">ParallelConfig.max_workers</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.ParallelConfig.__post_init__"><code class="docutils literal notranslate"><span class="pre">ParallelConfig.__post_init__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.ParallelConfig.effective_workers"><code class="docutils literal notranslate"><span class="pre">ParallelConfig.effective_workers</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.ParallelConfig.get_memory_warning"><code class="docutils literal notranslate"><span class="pre">ParallelConfig.get_memory_warning()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.ParallelConfig.__init__"><code class="docutils literal notranslate"><span class="pre">ParallelConfig.__init__()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.SimulationConfig"><code class="docutils literal notranslate"><span class="pre">SimulationConfig</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.SimulationConfig.subject_id"><code class="docutils literal notranslate"><span class="pre">SimulationConfig.subject_id</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.SimulationConfig.project_dir"><code class="docutils literal notranslate"><span class="pre">SimulationConfig.project_dir</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.SimulationConfig.conductivity_type"><code class="docutils literal notranslate"><span class="pre">SimulationConfig.conductivity_type</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.SimulationConfig.intensities"><code class="docutils literal notranslate"><span class="pre">SimulationConfig.intensities</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.SimulationConfig.electrode"><code class="docutils literal notranslate"><span class="pre">SimulationConfig.electrode</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.SimulationConfig.eeg_net"><code class="docutils literal notranslate"><span class="pre">SimulationConfig.eeg_net</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.SimulationConfig.map_to_surf"><code class="docutils literal notranslate"><span class="pre">SimulationConfig.map_to_surf</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.SimulationConfig.map_to_vol"><code class="docutils literal notranslate"><span class="pre">SimulationConfig.map_to_vol</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.SimulationConfig.map_to_mni"><code class="docutils literal notranslate"><span class="pre">SimulationConfig.map_to_mni</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.SimulationConfig.map_to_fsavg"><code class="docutils literal notranslate"><span class="pre">SimulationConfig.map_to_fsavg</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.SimulationConfig.tissues_in_niftis"><code class="docutils literal notranslate"><span class="pre">SimulationConfig.tissues_in_niftis</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.SimulationConfig.open_in_gmsh"><code class="docutils literal notranslate"><span class="pre">SimulationConfig.open_in_gmsh</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.SimulationConfig.parallel"><code class="docutils literal notranslate"><span class="pre">SimulationConfig.parallel</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.SimulationConfig.__post_init__"><code class="docutils literal notranslate"><span class="pre">SimulationConfig.__post_init__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.SimulationConfig.__init__"><code class="docutils literal notranslate"><span class="pre">SimulationConfig.__init__()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../sim/index.html#session-builder">Session Builder</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../sim/index.html#post-processing">Post-Processing</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../sim/index.html#montage-loading">Montage Loading</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../sim/index.html#utilities">Utilities</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Analysis</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../analyzer/index.html">Analysis Module (<code class="docutils literal notranslate"><span class="pre">tit.analyzer</span></code>)</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../analyzer/index.html#mesh-analyzer">Mesh Analyzer</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../analyzer/index.html#voxel-analyzer">Voxel Analyzer</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../analyzer/index.html#module-tit.analyzer.group_analyzer">Group Analyzer</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.group_analyzer.format_duration"><code class="docutils literal notranslate"><span class="pre">format_duration()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.group_analyzer.log_group_analysis_start"><code class="docutils literal notranslate"><span class="pre">log_group_analysis_start()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.group_analyzer.log_group_analysis_complete"><code class="docutils literal notranslate"><span class="pre">log_group_analysis_complete()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.group_analyzer.log_group_subject_status"><code class="docutils literal notranslate"><span class="pre">log_group_subject_status()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.group_analyzer.run_all_group_comparisons"><code class="docutils literal notranslate"><span class="pre">run_all_group_comparisons()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.group_analyzer.setup_group_logger"><code class="docutils literal notranslate"><span class="pre">setup_group_logger()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.group_analyzer.create_group_output_directory"><code class="docutils literal notranslate"><span class="pre">create_group_output_directory()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.group_analyzer.setup_parser"><code class="docutils literal notranslate"><span class="pre">setup_parser()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.group_analyzer.validate_args"><code class="docutils literal notranslate"><span class="pre">validate_args()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.group_analyzer.compute_subject_output_dir"><code class="docutils literal notranslate"><span class="pre">compute_subject_output_dir()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.group_analyzer.build_main_analyzer_command"><code class="docutils literal notranslate"><span class="pre">build_main_analyzer_command()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.group_analyzer.run_subject_analysis"><code class="docutils literal notranslate"><span class="pre">run_subject_analysis()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.group_analyzer.collect_analysis_paths"><code class="docutils literal notranslate"><span class="pre">collect_analysis_paths()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.group_analyzer.run_comprehensive_group_analysis"><code class="docutils literal notranslate"><span class="pre">run_comprehensive_group_analysis()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.group_analyzer.determine_group_subfolder_name"><code class="docutils literal notranslate"><span class="pre">determine_group_subfolder_name()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.group_analyzer.main"><code class="docutils literal notranslate"><span class="pre">main()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../analyzer/index.html#visualizer">Visualizer</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../analyzer/index.html#main-analyzer">Main Analyzer</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../analyzer/index.html#field-selector">Field Selector</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Optimization</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../opt/index.html">Optimization Module (<code class="docutils literal notranslate"><span class="pre">tit.opt</span></code>)</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../opt/index.html#leadfield-generator">Leadfield Generator</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../opt/index.html#flex-search">Flex-Search</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../opt/index.html#ex-search">Ex-Search</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Statistics</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../stats/index.html">Statistics Module (<code class="docutils literal notranslate"><span class="pre">tit.stats</span></code>)</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../stats/index.html#permutation-analysis">Permutation Analysis</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../stats/index.html#cluster-analysis">Cluster Analysis</a></li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">TI-Toolbox</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">tit.analyzer.group_analyzer</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for tit.analyzer.group_analyzer</h1><div class="highlight"><pre>
+<span></span><span class="ch">#!/usr/bin/env simnibs_python</span>
+
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">Group Analyzer Script</span>
+
+<span class="sd">Each subject&#39;s analysis will be saved under:</span>
+<span class="sd">    derivatives/SimNIBS/&lt;subject_id&gt;/Simulations/&lt;montage_name&gt;/Analyses/&lt;Mesh-or-Voxel&gt;/</span>
+
+<span class="sd">Within each subject&#39;s Analyses folder, we also capture:</span>
+<span class="sd">  - overlays &amp; plots (via --visualize)</span>
+<span class="sd">  - CSV summary  (handled by main_analyzer.py)</span>
+<span class="sd">  - centralized group analysis log file (all subjects logged together)</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">sys</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">argparse</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">subprocess</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">time</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">List</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Optional</span>
+
+<span class="c1"># Global variables for summary mode and timing</span>
+<span class="n">SUMMARY_MODE</span> <span class="o">=</span> <span class="kc">False</span>
+<span class="n">_group_start_time</span> <span class="o">=</span> <span class="kc">None</span>
+
+<div class="viewcode-block" id="format_duration">
+<a class="viewcode-back" href="../../../analyzer/index.html#tit.analyzer.group_analyzer.format_duration">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">format_duration</span><span class="p">(</span><span class="n">total_seconds</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Format duration in human-readable format.&quot;&quot;&quot;</span>
+    <span class="n">total_seconds</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">total_seconds</span><span class="p">)</span>
+    <span class="n">hours</span> <span class="o">=</span> <span class="n">total_seconds</span> <span class="o">//</span> <span class="mi">3600</span>
+    <span class="n">minutes</span> <span class="o">=</span> <span class="p">(</span><span class="n">total_seconds</span> <span class="o">%</span> <span class="mi">3600</span><span class="p">)</span> <span class="o">//</span> <span class="mi">60</span>
+    <span class="n">seconds</span> <span class="o">=</span> <span class="n">total_seconds</span> <span class="o">%</span> <span class="mi">60</span>
+    
+    <span class="k">if</span> <span class="n">hours</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">hours</span><span class="si">}</span><span class="s2">h </span><span class="si">{</span><span class="n">minutes</span><span class="si">}</span><span class="s2">m </span><span class="si">{</span><span class="n">seconds</span><span class="si">}</span><span class="s2">s&quot;</span>
+    <span class="k">elif</span> <span class="n">minutes</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">minutes</span><span class="si">}</span><span class="s2">m </span><span class="si">{</span><span class="n">seconds</span><span class="si">}</span><span class="s2">s&quot;</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">seconds</span><span class="si">}</span><span class="s2">s&quot;</span></div>
+
+
+<div class="viewcode-block" id="log_group_analysis_start">
+<a class="viewcode-back" href="../../../analyzer/index.html#tit.analyzer.group_analyzer.log_group_analysis_start">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">log_group_analysis_start</span><span class="p">(</span><span class="n">num_subjects</span><span class="p">,</span> <span class="n">analysis_description</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Log the start of group analysis.&quot;&quot;&quot;</span>
+    <span class="k">global</span> <span class="n">_group_start_time</span><span class="p">,</span> <span class="n">SUMMARY_MODE</span>
+    <span class="n">_group_start_time</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+    
+    <span class="k">if</span> <span class="n">SUMMARY_MODE</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Beginning group analysis for </span><span class="si">{</span><span class="n">num_subjects</span><span class="si">}</span><span class="s2"> subjects (</span><span class="si">{</span><span class="n">analysis_description</span><span class="si">}</span><span class="s2">)&quot;</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="log_group_analysis_complete">
+<a class="viewcode-back" href="../../../analyzer/index.html#tit.analyzer.group_analyzer.log_group_analysis_complete">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">log_group_analysis_complete</span><span class="p">(</span><span class="n">num_successful</span><span class="p">,</span> <span class="n">num_total</span><span class="p">,</span> <span class="n">output_path</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Log the completion of group analysis.&quot;&quot;&quot;</span>
+    <span class="k">global</span> <span class="n">_group_start_time</span><span class="p">,</span> <span class="n">SUMMARY_MODE</span>
+    
+    <span class="k">if</span> <span class="n">_group_start_time</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">total_duration</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="n">_group_start_time</span>
+        <span class="n">duration_str</span> <span class="o">=</span> <span class="n">format_duration</span><span class="p">(</span><span class="n">total_duration</span><span class="p">)</span>
+        
+        <span class="k">if</span> <span class="n">SUMMARY_MODE</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">num_successful</span> <span class="o">==</span> <span class="n">num_total</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;└─ Group analysis completed (</span><span class="si">{</span><span class="n">num_successful</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">num_total</span><span class="si">}</span><span class="s2"> subjects successful, Total: </span><span class="si">{</span><span class="n">duration_str</span><span class="si">}</span><span class="s2">)&quot;</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;└─ Group analysis completed with failures (</span><span class="si">{</span><span class="n">num_successful</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">num_total</span><span class="si">}</span><span class="s2"> subjects successful, Total: </span><span class="si">{</span><span class="n">duration_str</span><span class="si">}</span><span class="s2">)&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">output_path</span><span class="p">:</span>
+                <span class="c1"># Show relative path from /mnt/ for cleaner display</span>
+                <span class="n">display_path</span> <span class="o">=</span> <span class="n">output_path</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s1">&#39;/mnt/&#39;</span><span class="p">,</span> <span class="s1">&#39;&#39;</span><span class="p">)</span> <span class="k">if</span> <span class="n">output_path</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s1">&#39;/mnt/&#39;</span><span class="p">)</span> <span class="k">else</span> <span class="n">output_path</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;   Group results saved to: </span><span class="si">{</span><span class="n">display_path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="log_group_subject_status">
+<a class="viewcode-back" href="../../../analyzer/index.html#tit.analyzer.group_analyzer.log_group_subject_status">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">log_group_subject_status</span><span class="p">(</span><span class="n">subject_id</span><span class="p">,</span> <span class="n">status</span><span class="p">,</span> <span class="n">duration_str</span><span class="p">,</span> <span class="n">error_msg</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Log the status of a subject in group analysis.&quot;&quot;&quot;</span>
+    <span class="k">global</span> <span class="n">SUMMARY_MODE</span>
+    
+    <span class="k">if</span> <span class="n">SUMMARY_MODE</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">status</span> <span class="o">==</span> <span class="s2">&quot;complete&quot;</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;├─ Subject </span><span class="si">{</span><span class="n">subject_id</span><span class="si">}</span><span class="s2">: ✓ Complete (</span><span class="si">{</span><span class="n">duration_str</span><span class="si">}</span><span class="s2">)&quot;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;├─ Subject </span><span class="si">{</span><span class="n">subject_id</span><span class="si">}</span><span class="s2">: ✗ Failed (</span><span class="si">{</span><span class="n">duration_str</span><span class="si">}</span><span class="s2">) - </span><span class="si">{</span><span class="n">error_msg</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span></div>
+
+
+<span class="c1"># Import our comparison functions</span>
+<span class="k">try</span><span class="p">:</span>
+    <span class="c1"># Try absolute import first (for testing)</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">compare_analyses</span><span class="w"> </span><span class="kn">import</span> <span class="n">run_all_group_comparisons</span><span class="p">,</span> <span class="n">_extract_project_name</span><span class="p">,</span> <span class="n">setup_group_logger</span>
+<span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="c1"># Fallback for relative import (for package usage)</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">.compare_analyses</span><span class="w"> </span><span class="kn">import</span> <span class="n">run_all_group_comparisons</span><span class="p">,</span> <span class="n">_extract_project_name</span><span class="p">,</span> <span class="n">setup_group_logger</span>
+    <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+        <span class="c1"># If compare_analyses is not available, create dummy functions</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Warning: compare_analyses not available. Group comparison functionality will be limited.&quot;</span><span class="p">)</span>
+        
+<div class="viewcode-block" id="run_all_group_comparisons">
+<a class="viewcode-back" href="../../../analyzer/index.html#tit.analyzer.group_analyzer.run_all_group_comparisons">[docs]</a>
+        <span class="k">def</span><span class="w"> </span><span class="nf">run_all_group_comparisons</span><span class="p">(</span><span class="n">analysis_paths</span><span class="p">,</span> <span class="n">project_name</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">            </span><span class="sd">&quot;&quot;&quot;Dummy function when compare_analyses is not available.&quot;&quot;&quot;</span>
+            <span class="k">return</span> <span class="s2">&quot;&quot;</span></div>
+
+        
+        <span class="k">def</span><span class="w"> </span><span class="nf">_extract_project_name</span><span class="p">(</span><span class="n">path</span><span class="p">):</span>
+<span class="w">            </span><span class="sd">&quot;&quot;&quot;Dummy function when compare_analyses is not available.&quot;&quot;&quot;</span>
+            <span class="k">return</span> <span class="s2">&quot;unknown_project&quot;</span>
+        
+<div class="viewcode-block" id="setup_group_logger">
+<a class="viewcode-back" href="../../../analyzer/index.html#tit.analyzer.group_analyzer.setup_group_logger">[docs]</a>
+        <span class="k">def</span><span class="w"> </span><span class="nf">setup_group_logger</span><span class="p">(</span><span class="n">output_dir</span><span class="p">,</span> <span class="n">project_name</span><span class="p">):</span>
+<span class="w">            </span><span class="sd">&quot;&quot;&quot;Dummy function when compare_analyses is not available.&quot;&quot;&quot;</span>
+            <span class="k">return</span> <span class="kc">None</span></div>
+
+
+<span class="c1"># Global group logger for centralized logging</span>
+<span class="n">group_logger</span> <span class="o">=</span> <span class="kc">None</span>
+
+<div class="viewcode-block" id="create_group_output_directory">
+<a class="viewcode-back" href="../../../analyzer/index.html#tit.analyzer.group_analyzer.create_group_output_directory">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">create_group_output_directory</span><span class="p">(</span><span class="n">first_subject_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Create centralized group analysis output directory.</span>
+<span class="sd">    </span>
+<span class="sd">    Args:</span>
+<span class="sd">        first_subject_path (str): Path from the first subject to extract project name</span>
+<span class="sd">        </span>
+<span class="sd">    Returns:</span>
+<span class="sd">        str: Path to the created group analysis directory</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">global</span> <span class="n">group_logger</span>
+    
+    <span class="c1"># Extract project name from the first subject&#39;s path</span>
+    <span class="n">project_name</span> <span class="o">=</span> <span class="n">_extract_project_name</span><span class="p">(</span><span class="n">first_subject_path</span><span class="p">)</span>
+    
+    <span class="c1"># No longer create centralized group analysis directory under SimNIBS</span>
+    <span class="c1"># Individual subject analyses are stored in their respective subject directories</span>
+    <span class="c1"># Group comparisons will be stored in the user-specified output directory</span>
+    
+    <span class="k">if</span> <span class="n">group_logger</span><span class="p">:</span>
+        <span class="n">group_logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Using project: </span><span class="si">{</span><span class="n">project_name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    
+    <span class="c1"># Return a placeholder path - not actually used since we don&#39;t create central directories</span>
+    <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;/mnt/</span><span class="si">{</span><span class="n">project_name</span><span class="si">}</span><span class="s2">/derivatives/SimNIBS&quot;</span></div>
+
+
+<div class="viewcode-block" id="setup_parser">
+<a class="viewcode-back" href="../../../analyzer/index.html#tit.analyzer.group_analyzer.setup_parser">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">setup_parser</span><span class="p">():</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Set up command line argument parser.&quot;&quot;&quot;</span>
+    <span class="n">parser</span> <span class="o">=</span> <span class="n">argparse</span><span class="o">.</span><span class="n">ArgumentParser</span><span class="p">(</span><span class="n">description</span><span class="o">=</span><span class="s2">&quot;Run analysis across multiple subjects and compare results&quot;</span><span class="p">)</span>
+
+    <span class="c1"># Analysis parameters (same as main_analyzer.py)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;--space&quot;</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">choices</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;mesh&#39;</span><span class="p">,</span> <span class="s1">&#39;voxel&#39;</span><span class="p">],</span>
+                        <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Analysis space: mesh or voxel&quot;</span><span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;--analysis_type&quot;</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">choices</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;spherical&#39;</span><span class="p">,</span> <span class="s1">&#39;cortical&#39;</span><span class="p">],</span>
+                        <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Type of analysis to perform&quot;</span><span class="p">)</span>
+
+    <span class="c1"># Analysis‐specific parameters</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;--atlas_name&quot;</span><span class="p">,</span>
+                        <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Atlas name for mesh-based cortical analysis (e.g., DK40)&quot;</span><span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;--coordinates&quot;</span><span class="p">,</span> <span class="n">nargs</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>
+                        <span class="n">help</span><span class="o">=</span><span class="s2">&quot;x y z coordinates for spherical analysis&quot;</span><span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;--coordinate-space&quot;</span><span class="p">,</span> <span class="n">choices</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;MNI&#39;</span><span class="p">,</span> <span class="s1">&#39;subject&#39;</span><span class="p">],</span>
+                        <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Coordinate space of the input coordinates (MNI or subject) - required for spherical analysis&quot;</span><span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;--radius&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">float</span><span class="p">,</span>
+                        <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Radius for spherical analysis&quot;</span><span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;--region&quot;</span><span class="p">,</span>
+                        <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Region name for cortical analysis&quot;</span><span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;--whole_head&quot;</span><span class="p">,</span> <span class="n">action</span><span class="o">=</span><span class="s2">&quot;store_true&quot;</span><span class="p">,</span>
+                        <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Analyze the whole head instead of a specific region&quot;</span><span class="p">)</span>
+
+    <span class="c1"># Subject specification; for voxel‐cortical we expect an extra atlas_path</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;--subject&quot;</span><span class="p">,</span> <span class="n">action</span><span class="o">=</span><span class="s2">&quot;append&quot;</span><span class="p">,</span> <span class="n">nargs</span><span class="o">=</span><span class="s1">&#39;+&#39;</span><span class="p">,</span> <span class="n">metavar</span><span class="o">=</span><span class="s2">&quot;ARG&quot;</span><span class="p">,</span>
+                        <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Subject specification: subject_id m2m_path field_path [atlas_path] &quot;</span>
+                             <span class="s2">&quot;(atlas_path required for voxel-based cortical analysis)&quot;</span><span class="p">)</span>
+
+    <span class="c1"># Output and comparison options</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;--output_dir&quot;</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                        <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Directory for legacy group analysis outputs (comprehensive results go to centralized location)&quot;</span><span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;--quiet&quot;</span><span class="p">,</span> <span class="n">action</span><span class="o">=</span><span class="s2">&quot;store_true&quot;</span><span class="p">,</span>
+                        <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Enable summary mode for clean output (non-debug mode)&quot;</span><span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;--no-compare&quot;</span><span class="p">,</span> <span class="n">action</span><span class="o">=</span><span class="s2">&quot;store_true&quot;</span><span class="p">,</span>
+                        <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Skip comparison analysis after all subjects are processed (comparison runs by default)&quot;</span><span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;--visualize&quot;</span><span class="p">,</span> <span class="n">action</span><span class="o">=</span><span class="s2">&quot;store_true&quot;</span><span class="p">,</span>
+                        <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Generate visualization outputs for each analysis&quot;</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">parser</span></div>
+
+
+
+<div class="viewcode-block" id="validate_args">
+<a class="viewcode-back" href="../../../analyzer/index.html#tit.analyzer.group_analyzer.validate_args">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">validate_args</span><span class="p">(</span><span class="n">args</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Validate command line arguments.&quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">args</span><span class="o">.</span><span class="n">subject</span> <span class="ow">or</span> <span class="nb">len</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">subject</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;At least one --subject must be specified&quot;</span><span class="p">)</span>
+
+    <span class="c1"># Validate analysis‐specific arguments</span>
+    <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">analysis_type</span> <span class="o">==</span> <span class="s1">&#39;spherical&#39;</span><span class="p">:</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">args</span><span class="o">.</span><span class="n">coordinates</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Coordinates are required for spherical analysis&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">radius</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Radius is required for spherical analysis&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">args</span><span class="o">.</span><span class="n">coordinate_space</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Coordinate space (--coordinate-space) is required for spherical analysis&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Spherical: each subject must supply exactly (id, m2m_path, field_path)</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">subject_args</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">subject</span><span class="p">):</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">subject_args</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">3</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Subject </span><span class="si">{</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="si">}</span><span class="s2">: Spherical analysis requires exactly 3 arguments: &quot;</span>
+                    <span class="s2">&quot;subject_id m2m_path field_path&quot;</span>
+                <span class="p">)</span>
+
+    <span class="k">else</span><span class="p">:</span>  <span class="c1"># cortical</span>
+        <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">space</span> <span class="o">==</span> <span class="s1">&#39;mesh&#39;</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">args</span><span class="o">.</span><span class="n">atlas_name</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Atlas name is required for mesh-based cortical analysis&quot;</span><span class="p">)</span>
+            <span class="c1"># Mesh‐cortical: each subject still has (id, m2m_path, field_path)</span>
+            <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">subject_args</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">subject</span><span class="p">):</span>
+                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">subject_args</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">3</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                        <span class="sa">f</span><span class="s2">&quot;Subject </span><span class="si">{</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="si">}</span><span class="s2">: Mesh cortical analysis requires exactly 3 arguments: &quot;</span>
+                        <span class="s2">&quot;subject_id m2m_path field_path&quot;</span>
+                    <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># Voxel‐cortical: each subject must supply (id, m2m_path, field_path, atlas_path)</span>
+            <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">subject_args</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">subject</span><span class="p">):</span>
+                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">subject_args</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">4</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                        <span class="sa">f</span><span class="s2">&quot;Subject </span><span class="si">{</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="si">}</span><span class="s2">: Voxel cortical analysis requires exactly 4 arguments: &quot;</span>
+                        <span class="s2">&quot;subject_id m2m_path field_path atlas_path&quot;</span>
+                    <span class="p">)</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">args</span><span class="o">.</span><span class="n">whole_head</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">args</span><span class="o">.</span><span class="n">region</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Either --whole_head flag or --region must be specified for cortical analysis&quot;</span><span class="p">)</span>
+
+    <span class="c1"># Validate space‐specific: mesh needs a field_name (now hardcoded)</span>
+    <span class="c1"># Field name is now hardcoded to &quot;TI_max&quot;, no validation needed</span>
+
+    <span class="c1"># Validate existence of provided paths</span>
+    <span class="k">for</span> <span class="n">subject_args</span> <span class="ow">in</span> <span class="n">args</span><span class="o">.</span><span class="n">subject</span><span class="p">:</span>
+        <span class="n">subject_id</span> <span class="o">=</span> <span class="n">subject_args</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">m2m_path</span> <span class="o">=</span> <span class="n">subject_args</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+        <span class="n">field_path</span> <span class="o">=</span> <span class="n">subject_args</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isdir</span><span class="p">(</span><span class="n">m2m_path</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Subject </span><span class="si">{</span><span class="n">subject_id</span><span class="si">}</span><span class="s2"> m2m directory not found: </span><span class="si">{</span><span class="n">m2m_path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="c1"># For mesh analysis, field_path is actually a montage name, not a file path</span>
+        <span class="c1"># Skip file existence check for mesh analysis</span>
+        <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">space</span> <span class="o">!=</span> <span class="s1">&#39;mesh&#39;</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">field_path</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Subject </span><span class="si">{</span><span class="n">subject_id</span><span class="si">}</span><span class="s2"> field file not found: </span><span class="si">{</span><span class="n">field_path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">space</span> <span class="o">==</span> <span class="s1">&#39;voxel&#39;</span> <span class="ow">and</span> <span class="n">args</span><span class="o">.</span><span class="n">analysis_type</span> <span class="o">==</span> <span class="s1">&#39;cortical&#39;</span><span class="p">:</span>
+            <span class="n">atlas_path</span> <span class="o">=</span> <span class="n">subject_args</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">atlas_path</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Subject </span><span class="si">{</span><span class="n">subject_id</span><span class="si">}</span><span class="s2"> atlas file not found: </span><span class="si">{</span><span class="n">atlas_path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="compute_subject_output_dir">
+<a class="viewcode-back" href="../../../analyzer/index.html#tit.analyzer.group_analyzer.compute_subject_output_dir">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">compute_subject_output_dir</span><span class="p">(</span><span class="n">args</span><span class="p">,</span> <span class="n">subject_args</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Create a consistent output directory structure for analysis results.</span>
+<span class="sd">    Structure: output_dir/sub-{subject_id}/Simulations/{montage_name}/Analyses/{Mesh|Voxel}/{analysis_name}</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">subject_id</span> <span class="o">=</span> <span class="n">subject_args</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+    <span class="c1"># For mesh analysis, field_path is the montage name</span>
+    <span class="c1"># For voxel analysis, we need to extract montage name from field path</span>
+    <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">space</span> <span class="o">==</span> <span class="s1">&#39;mesh&#39;</span><span class="p">:</span>
+        <span class="n">montage_name</span> <span class="o">=</span> <span class="n">subject_args</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>  <span class="c1"># field_path is montage name for mesh</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="c1"># For voxel analysis, extract montage name from path structure</span>
+        <span class="n">field_path</span> <span class="o">=</span> <span class="n">subject_args</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">path_parts</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">field_path</span><span class="p">)</span><span class="o">.</span><span class="n">parts</span>
+            <span class="n">sim_idx</span> <span class="o">=</span> <span class="n">path_parts</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="s1">&#39;Simulations&#39;</span><span class="p">)</span>
+            <span class="n">montage_name</span> <span class="o">=</span> <span class="n">path_parts</span><span class="p">[</span><span class="n">sim_idx</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span>
+        <span class="k">except</span> <span class="p">(</span><span class="ne">ValueError</span><span class="p">,</span> <span class="ne">IndexError</span><span class="p">):</span>
+            <span class="c1"># If we can&#39;t parse the path, use a default montage name</span>
+            <span class="n">montage_name</span> <span class="o">=</span> <span class="s1">&#39;unknown_montage&#39;</span>
+
+    <span class="c1"># Build consistent directory structure</span>
+    <span class="n">space_dir</span> <span class="o">=</span> <span class="s1">&#39;Mesh&#39;</span> <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">space</span> <span class="o">==</span> <span class="s1">&#39;mesh&#39;</span> <span class="k">else</span> <span class="s1">&#39;Voxel&#39;</span>
+    <span class="n">base_dir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">output_dir</span><span class="p">,</span> <span class="sa">f</span><span class="s1">&#39;sub-</span><span class="si">{</span><span class="n">subject_id</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">,</span> <span class="s1">&#39;Simulations&#39;</span><span class="p">,</span> <span class="n">montage_name</span><span class="p">,</span> <span class="s1">&#39;Analyses&#39;</span><span class="p">,</span> <span class="n">space_dir</span><span class="p">)</span>
+
+    <span class="c1"># Create analysis-specific directory name</span>
+    <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">analysis_type</span> <span class="o">==</span> <span class="s1">&#39;spherical&#39;</span><span class="p">:</span>
+        <span class="n">coord_space_suffix</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;_</span><span class="si">{</span><span class="n">args</span><span class="o">.</span><span class="n">coordinate_space</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="n">coords</span> <span class="o">=</span> <span class="p">[</span><span class="nb">float</span><span class="p">(</span><span class="n">c</span><span class="p">)</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">args</span><span class="o">.</span><span class="n">coordinates</span><span class="p">]</span>
+        <span class="n">analysis_name</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;sphere_x</span><span class="si">{</span><span class="n">coords</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">_y</span><span class="si">{</span><span class="n">coords</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">_z</span><span class="si">{</span><span class="n">coords</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">_r</span><span class="si">{</span><span class="n">args</span><span class="o">.</span><span class="n">radius</span><span class="si">}{</span><span class="n">coord_space_suffix</span><span class="si">}</span><span class="s2">&quot;</span>
+    <span class="k">else</span><span class="p">:</span>  <span class="c1"># cortical</span>
+        <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">whole_head</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">space</span> <span class="o">==</span> <span class="s1">&#39;mesh&#39;</span><span class="p">:</span>
+                <span class="n">analysis_name</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;whole_head_</span><span class="si">{</span><span class="n">args</span><span class="o">.</span><span class="n">atlas_name</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">atlas_path</span> <span class="o">=</span> <span class="n">subject_args</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span>
+                <span class="n">atlas_name</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">basename</span><span class="p">(</span><span class="n">atlas_path</span><span class="p">)</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;.&#39;</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+                <span class="n">analysis_name</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;whole_head_</span><span class="si">{</span><span class="n">atlas_name</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">analysis_name</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;region_</span><span class="si">{</span><span class="n">args</span><span class="o">.</span><span class="n">region</span><span class="si">}</span><span class="s2">&quot;</span>
+
+    <span class="n">output_dir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">base_dir</span><span class="p">,</span> <span class="n">analysis_name</span><span class="p">)</span>
+    <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">output_dir</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">output_dir</span></div>
+
+
+
+<div class="viewcode-block" id="build_main_analyzer_command">
+<a class="viewcode-back" href="../../../analyzer/index.html#tit.analyzer.group_analyzer.build_main_analyzer_command">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">build_main_analyzer_command</span><span class="p">(</span>
+    <span class="n">args</span><span class="p">,</span>
+    <span class="n">subject_args</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+    <span class="n">subject_output_dir</span><span class="p">:</span> <span class="nb">str</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Build the command to run main_analyzer.py for a single subject,</span>
+<span class="sd">    matching the exact structure used in analyzer_tab.py.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">global</span> <span class="n">group_logger</span>
+    
+    <span class="n">subject_id</span> <span class="o">=</span> <span class="n">subject_args</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">m2m_path</span> <span class="o">=</span> <span class="n">subject_args</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+    <span class="n">field_path</span> <span class="o">=</span> <span class="n">subject_args</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
+
+    <span class="c1"># Locate main_analyzer.py (assume it sits next to this script)</span>
+    <span class="n">script_dir</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="vm">__file__</span><span class="p">)</span><span class="o">.</span><span class="n">parent</span>
+    <span class="n">main_analyzer_path</span> <span class="o">=</span> <span class="n">script_dir</span> <span class="o">/</span> <span class="s2">&quot;main_analyzer.py&quot;</span>
+
+    <span class="c1"># Use `simnibs_python` as the interpreter (matching analyzer_tab.py)</span>
+    <span class="n">cmd</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;simnibs_python&quot;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">main_analyzer_path</span><span class="p">)]</span>
+
+    <span class="c1"># Add arguments in the same order as analyzer_tab.py</span>
+    <span class="n">cmd</span> <span class="o">+=</span> <span class="p">[</span><span class="s2">&quot;--m2m_subject_path&quot;</span><span class="p">,</span> <span class="n">m2m_path</span><span class="p">]</span>
+    
+    <span class="c1"># For mesh analysis, field_path is the montage name directly</span>
+    <span class="c1"># For voxel analysis, field_path is the actual file path</span>
+    <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">space</span> <span class="o">==</span> <span class="s1">&#39;mesh&#39;</span><span class="p">:</span>
+        <span class="c1"># field_path is already the montage name</span>
+        <span class="n">cmd</span> <span class="o">+=</span> <span class="p">[</span><span class="s2">&quot;--montage_name&quot;</span><span class="p">,</span> <span class="n">field_path</span><span class="p">]</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">cmd</span> <span class="o">+=</span> <span class="p">[</span><span class="s2">&quot;--field_path&quot;</span><span class="p">,</span> <span class="n">field_path</span><span class="p">]</span>
+    
+    <span class="n">cmd</span> <span class="o">+=</span> <span class="p">[</span><span class="s2">&quot;--space&quot;</span><span class="p">,</span> <span class="n">args</span><span class="o">.</span><span class="n">space</span><span class="p">]</span>
+    <span class="n">cmd</span> <span class="o">+=</span> <span class="p">[</span><span class="s2">&quot;--analysis_type&quot;</span><span class="p">,</span> <span class="n">args</span><span class="o">.</span><span class="n">analysis_type</span><span class="p">]</span>
+
+    <span class="c1"># Analysis-type-specific flags</span>
+    <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">analysis_type</span> <span class="o">==</span> <span class="s1">&#39;spherical&#39;</span><span class="p">:</span>
+        <span class="c1"># Pass coordinates and coordinate space - let main_analyzer.py handle transformation</span>
+        <span class="n">cmd</span> <span class="o">+=</span> <span class="p">[</span><span class="s2">&quot;--coordinates&quot;</span><span class="p">]</span> <span class="o">+</span> <span class="p">[</span><span class="nb">str</span><span class="p">(</span><span class="n">c</span><span class="p">)</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">args</span><span class="o">.</span><span class="n">coordinates</span><span class="p">]</span>
+        <span class="n">cmd</span> <span class="o">+=</span> <span class="p">[</span><span class="s2">&quot;--coordinate-space&quot;</span><span class="p">,</span> <span class="n">args</span><span class="o">.</span><span class="n">coordinate_space</span><span class="p">]</span>
+        <span class="n">cmd</span> <span class="o">+=</span> <span class="p">[</span><span class="s2">&quot;--radius&quot;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">radius</span><span class="p">)]</span>
+
+    <span class="k">else</span><span class="p">:</span>  <span class="c1"># cortical</span>
+        <span class="c1"># For cortical, add atlas info first</span>
+        <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">space</span> <span class="o">==</span> <span class="s1">&#39;mesh&#39;</span><span class="p">:</span>
+            <span class="n">cmd</span> <span class="o">+=</span> <span class="p">[</span><span class="s2">&quot;--atlas_name&quot;</span><span class="p">,</span> <span class="n">args</span><span class="o">.</span><span class="n">atlas_name</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>  <span class="c1"># voxel</span>
+            <span class="n">atlas_path</span> <span class="o">=</span> <span class="n">subject_args</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span>
+            <span class="n">cmd</span> <span class="o">+=</span> <span class="p">[</span><span class="s2">&quot;--atlas_path&quot;</span><span class="p">,</span> <span class="n">atlas_path</span><span class="p">]</span>
+
+        <span class="c1"># Then add region or whole_head flag</span>
+        <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">whole_head</span><span class="p">:</span>
+            <span class="n">cmd</span> <span class="o">+=</span> <span class="p">[</span><span class="s2">&quot;--whole_head&quot;</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">cmd</span> <span class="o">+=</span> <span class="p">[</span><span class="s2">&quot;--region&quot;</span><span class="p">,</span> <span class="n">args</span><span class="o">.</span><span class="n">region</span><span class="p">]</span>
+
+    <span class="c1"># Field name is now hardcoded in main_analyzer.py, no need to pass it</span>
+    
+    <span class="c1"># Add output directory</span>
+    <span class="n">cmd</span> <span class="o">+=</span> <span class="p">[</span><span class="s2">&quot;--output_dir&quot;</span><span class="p">,</span> <span class="n">subject_output_dir</span><span class="p">]</span>
+    
+    <span class="c1"># Always enable visualizations (matching the request)</span>
+    <span class="n">cmd</span> <span class="o">+=</span> <span class="p">[</span><span class="s2">&quot;--visualize&quot;</span><span class="p">]</span>
+    
+    <span class="c1"># Add group analysis log file path if available</span>
+    <span class="k">if</span> <span class="n">group_logger</span> <span class="ow">and</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">group_logger</span><span class="p">,</span> <span class="s1">&#39;handlers&#39;</span><span class="p">)</span> <span class="ow">and</span> <span class="n">group_logger</span><span class="o">.</span><span class="n">handlers</span><span class="p">:</span>
+        <span class="c1"># Get the log file path from the first handler</span>
+        <span class="k">for</span> <span class="n">handler</span> <span class="ow">in</span> <span class="n">group_logger</span><span class="o">.</span><span class="n">handlers</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">handler</span><span class="p">,</span> <span class="s1">&#39;baseFilename&#39;</span><span class="p">):</span>
+                <span class="n">log_file_path</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">handler</span><span class="p">,</span> <span class="s1">&#39;baseFilename&#39;</span><span class="p">)</span>
+                <span class="n">cmd</span> <span class="o">+=</span> <span class="p">[</span><span class="s2">&quot;--log_file&quot;</span><span class="p">,</span> <span class="n">log_file_path</span><span class="p">]</span>
+                <span class="k">break</span>
+    
+    <span class="c1"># Add quiet flag if requested</span>
+    <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">quiet</span><span class="p">:</span>
+        <span class="n">cmd</span> <span class="o">+=</span> <span class="p">[</span><span class="s2">&quot;--quiet&quot;</span><span class="p">]</span>
+
+    <span class="k">return</span> <span class="n">cmd</span></div>
+
+
+
+<div class="viewcode-block" id="run_subject_analysis">
+<a class="viewcode-back" href="../../../analyzer/index.html#tit.analyzer.group_analyzer.run_subject_analysis">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">run_subject_analysis</span><span class="p">(</span><span class="n">args</span><span class="p">,</span> <span class="n">subject_args</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">bool</span><span class="p">,</span> <span class="nb">str</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Run analysis for a single subject and return (success, output_dir).</span>
+<span class="sd">    All output is logged to the centralized group analysis log file.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">global</span> <span class="n">group_logger</span>
+    
+    <span class="n">subject_id</span> <span class="o">=</span> <span class="n">subject_args</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">m2m_path</span> <span class="o">=</span> <span class="n">subject_args</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+    <span class="n">field_path</span> <span class="o">=</span> <span class="n">subject_args</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
+
+    <span class="c1"># Compute the target output folder for this subject</span>
+    <span class="n">subject_output_dir</span> <span class="o">=</span> <span class="n">compute_subject_output_dir</span><span class="p">(</span><span class="n">args</span><span class="p">,</span> <span class="n">subject_args</span><span class="p">)</span>
+
+    <span class="c1"># Build the command</span>
+    <span class="n">cmd</span> <span class="o">=</span> <span class="n">build_main_analyzer_command</span><span class="p">(</span><span class="n">args</span><span class="p">,</span> <span class="n">subject_args</span><span class="p">,</span> <span class="n">subject_output_dir</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">group_logger</span><span class="p">:</span>
+        <span class="n">group_logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Starting analysis for subject: </span><span class="si">{</span><span class="n">subject_id</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+    <span class="c1"># Track timing for subject analysis</span>
+    <span class="kn">import</span><span class="w"> </span><span class="nn">time</span>
+    <span class="n">start_time</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+
+    <span class="c1"># Run main_analyzer.py with real-time output streaming</span>
+    <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">quiet</span><span class="p">:</span>
+        <span class="c1"># In summary mode, stream output in real-time to show task steps as they happen</span>
+        <span class="n">proc</span> <span class="o">=</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">Popen</span><span class="p">(</span><span class="n">cmd</span><span class="p">,</span> <span class="n">stdout</span><span class="o">=</span><span class="n">subprocess</span><span class="o">.</span><span class="n">PIPE</span><span class="p">,</span> <span class="n">stderr</span><span class="o">=</span><span class="n">subprocess</span><span class="o">.</span><span class="n">STDOUT</span><span class="p">,</span> 
+                               <span class="n">text</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">bufsize</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">universal_newlines</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        
+        <span class="c1"># Stream output in real-time</span>
+        <span class="n">output_lines</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
+            <span class="n">line</span> <span class="o">=</span> <span class="n">proc</span><span class="o">.</span><span class="n">stdout</span><span class="o">.</span><span class="n">readline</span><span class="p">()</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">line</span> <span class="ow">and</span> <span class="n">proc</span><span class="o">.</span><span class="n">poll</span><span class="p">()</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">break</span>
+            <span class="k">if</span> <span class="n">line</span><span class="p">:</span>
+                <span class="n">line</span> <span class="o">=</span> <span class="n">line</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+                <span class="k">if</span> <span class="n">line</span><span class="p">:</span>
+                    <span class="n">output_lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">line</span><span class="p">)</span>
+                    <span class="c1"># Display task steps in real-time</span>
+                    <span class="k">if</span> <span class="n">line</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s1">&#39;Beginning analysis for subject:&#39;</span><span class="p">):</span>
+                        <span class="c1"># This is the subject start message, display it with proper indentation</span>
+                        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  </span><span class="si">{</span><span class="n">line</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                    <span class="k">elif</span> <span class="n">line</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s1">&#39;├─ &#39;</span><span class="p">)</span> <span class="ow">or</span> <span class="n">line</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s1">&#39;└─ &#39;</span><span class="p">):</span>
+                        <span class="c1"># This is a task step, display it with proper indentation</span>
+                        <span class="n">clean_line</span> <span class="o">=</span> <span class="n">line</span><span class="p">[</span><span class="mi">2</span><span class="p">:]</span>  <span class="c1"># Remove the tree symbols</span>
+                        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  ├─ </span><span class="si">{</span><span class="n">clean_line</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                    <span class="k">elif</span> <span class="s1">&#39;Starting...&#39;</span> <span class="ow">in</span> <span class="n">line</span> <span class="ow">and</span> <span class="s1">&#39;Subject&#39;</span> <span class="ow">in</span> <span class="n">line</span><span class="p">:</span>
+                        <span class="c1"># Skip the &quot;Subject X: Starting...&quot; line as it&#39;s already shown</span>
+                        <span class="k">continue</span>
+                    <span class="k">elif</span> <span class="s1">&#39;✓ Complete&#39;</span> <span class="ow">in</span> <span class="n">line</span> <span class="ow">or</span> <span class="s1">&#39;✗ Failed&#39;</span> <span class="ow">in</span> <span class="n">line</span><span class="p">:</span>
+                        <span class="c1"># Skip completion lines as they&#39;re handled separately</span>
+                        <span class="k">continue</span>
+                    <span class="k">elif</span> <span class="s1">&#39;Analysis completed successfully&#39;</span> <span class="ow">in</span> <span class="n">line</span><span class="p">:</span>
+                        <span class="c1"># Skip the final completion message as it&#39;s handled separately</span>
+                        <span class="k">continue</span>
+        
+        <span class="c1"># Wait for process to complete</span>
+        <span class="n">return_code</span> <span class="o">=</span> <span class="n">proc</span><span class="o">.</span><span class="n">wait</span><span class="p">()</span>
+        <span class="n">stdout_output</span> <span class="o">=</span> <span class="s1">&#39;</span><span class="se">\n</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">output_lines</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="c1"># In debug mode, capture output as before</span>
+        <span class="n">proc</span> <span class="o">=</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">cmd</span><span class="p">,</span> <span class="n">capture_output</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">text</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">return_code</span> <span class="o">=</span> <span class="n">proc</span><span class="o">.</span><span class="n">returncode</span>
+        <span class="n">stdout_output</span> <span class="o">=</span> <span class="n">proc</span><span class="o">.</span><span class="n">stdout</span>
+
+    <span class="n">end_time</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+    <span class="n">duration</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">end_time</span> <span class="o">-</span> <span class="n">start_time</span><span class="p">)</span>
+    <span class="n">duration_str</span> <span class="o">=</span> <span class="n">format_duration</span><span class="p">(</span><span class="n">duration</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">return_code</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">group_logger</span><span class="p">:</span>
+            <span class="n">group_logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Subject </span><span class="si">{</span><span class="n">subject_id</span><span class="si">}</span><span class="s2"> analysis completed successfully&quot;</span><span class="p">)</span>
+        
+        <span class="c1"># Log subject status for summary</span>
+        <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">quiet</span><span class="p">:</span>
+            <span class="n">log_group_subject_status</span><span class="p">(</span><span class="n">subject_id</span><span class="p">,</span> <span class="s2">&quot;complete&quot;</span><span class="p">,</span> <span class="n">duration_str</span><span class="p">)</span>
+        
+        <span class="k">return</span> <span class="kc">True</span><span class="p">,</span> <span class="n">subject_output_dir</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">group_logger</span><span class="p">:</span>
+            <span class="n">group_logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Subject </span><span class="si">{</span><span class="n">subject_id</span><span class="si">}</span><span class="s2"> analysis failed&quot;</span><span class="p">)</span>
+            <span class="c1"># Log any additional error output that might not have been captured by main_analyzer.py</span>
+            <span class="k">if</span> <span class="n">stdout_output</span><span class="o">.</span><span class="n">strip</span><span class="p">():</span>
+                <span class="n">group_logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;stdout: </span><span class="si">{</span><span class="n">stdout_output</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="c1"># For streaming mode, stderr is redirected to stdout, so no separate stderr handling needed</span>
+
+        <span class="c1"># Extract meaningful error message for summary</span>
+        <span class="n">error_msg</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">stdout_output</span><span class="o">.</span><span class="n">strip</span><span class="p">():</span>
+            <span class="c1"># Look for error patterns in stdout</span>
+            <span class="n">stdout_lines</span> <span class="o">=</span> <span class="n">stdout_output</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">stdout_lines</span><span class="p">:</span>
+                <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="n">keyword</span> <span class="ow">in</span> <span class="n">line</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="k">for</span> <span class="n">keyword</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">&#39;error:&#39;</span><span class="p">,</span> <span class="s1">&#39;failed&#39;</span><span class="p">,</span> <span class="s1">&#39;exception&#39;</span><span class="p">,</span> <span class="s1">&#39;critical&#39;</span><span class="p">]):</span>
+                    <span class="n">error_msg</span> <span class="o">=</span> <span class="n">line</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+                    <span class="k">break</span>
+        
+        <span class="c1"># Log subject status for summary</span>
+        <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">quiet</span><span class="p">:</span>
+            <span class="n">log_group_subject_status</span><span class="p">(</span><span class="n">subject_id</span><span class="p">,</span> <span class="s2">&quot;failed&quot;</span><span class="p">,</span> <span class="n">duration_str</span><span class="p">,</span> <span class="n">error_msg</span><span class="p">)</span>
+        
+        <span class="k">return</span> <span class="kc">False</span><span class="p">,</span> <span class="s2">&quot;&quot;</span></div>
+
+
+
+<div class="viewcode-block" id="collect_analysis_paths">
+<a class="viewcode-back" href="../../../analyzer/index.html#tit.analyzer.group_analyzer.collect_analysis_paths">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">collect_analysis_paths</span><span class="p">(</span><span class="n">successful_dirs</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Each entry in successful_dirs is exactly the folder we passed to --output_dir</span>
+<span class="sd">    for main_analyzer.py. We check that it contains at least one .csv before returning it.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">global</span> <span class="n">group_logger</span>
+    
+    <span class="n">analysis_paths</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">successful_dirs</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isdir</span><span class="p">(</span><span class="n">d</span><span class="p">):</span>
+            <span class="n">csv_list</span> <span class="o">=</span> <span class="p">[</span><span class="n">f</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">os</span><span class="o">.</span><span class="n">listdir</span><span class="p">(</span><span class="n">d</span><span class="p">)</span> <span class="k">if</span> <span class="n">f</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s2">&quot;.csv&quot;</span><span class="p">)]</span>
+            <span class="k">if</span> <span class="n">csv_list</span><span class="p">:</span>
+                <span class="n">analysis_paths</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">d</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">group_logger</span><span class="p">:</span>
+                    <span class="n">group_logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;No CSV found under </span><span class="si">{</span><span class="n">d</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">group_logger</span><span class="p">:</span>
+                <span class="n">group_logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Expected analysis directory not found: </span><span class="si">{</span><span class="n">d</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">analysis_paths</span></div>
+
+
+
+<div class="viewcode-block" id="run_comprehensive_group_analysis">
+<a class="viewcode-back" href="../../../analyzer/index.html#tit.analyzer.group_analyzer.run_comprehensive_group_analysis">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">run_comprehensive_group_analysis</span><span class="p">(</span><span class="n">analysis_paths</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">project_name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Run comprehensive group analysis using all available comparison methods.</span>
+<span class="sd">    </span>
+<span class="sd">    Args:</span>
+<span class="sd">        analysis_paths (List[str]): List of paths to individual subject analysis directories</span>
+<span class="sd">        project_name (str, optional): Project name. If None, extracted from first path.</span>
+<span class="sd">        </span>
+<span class="sd">    Returns:</span>
+<span class="sd">        str: Path to the group analysis output directory</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">global</span> <span class="n">group_logger</span>
+    
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">analysis_paths</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">group_logger</span><span class="p">:</span>
+            <span class="n">group_logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;No analysis paths provided for group comparison.&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="s2">&quot;&quot;</span>
+    
+    <span class="k">if</span> <span class="n">group_logger</span><span class="p">:</span>
+        <span class="n">group_logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">=== Running comprehensive group analysis on </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">analysis_paths</span><span class="p">)</span><span class="si">}</span><span class="s2"> analyses ===&quot;</span><span class="p">)</span>
+    
+    <span class="k">try</span><span class="p">:</span>
+        <span class="c1"># Use the comprehensive comparison function from compare_analyses.py</span>
+        <span class="n">group_output_dir</span> <span class="o">=</span> <span class="n">run_all_group_comparisons</span><span class="p">(</span><span class="n">analysis_paths</span><span class="p">,</span> <span class="n">project_name</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">group_logger</span><span class="p">:</span>
+            <span class="n">group_logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;✔ Comprehensive group analysis completed successfully.&quot;</span><span class="p">)</span>
+            <span class="n">group_logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  All results saved to: </span><span class="si">{</span><span class="n">group_output_dir</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">group_output_dir</span>
+    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">group_logger</span><span class="p">:</span>
+            <span class="n">group_logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;✖ Group analysis failed with error: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="s2">&quot;&quot;</span></div>
+
+
+
+<div class="viewcode-block" id="determine_group_subfolder_name">
+<a class="viewcode-back" href="../../../analyzer/index.html#tit.analyzer.group_analyzer.determine_group_subfolder_name">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">determine_group_subfolder_name</span><span class="p">(</span><span class="n">args</span><span class="p">,</span> <span class="n">first_subject_args</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Determine the group subfolder name in format: {montage}_{roi}</span>
+<span class="sd">    </span>
+<span class="sd">    Args:</span>
+<span class="sd">        args: Command line arguments</span>
+<span class="sd">        first_subject_args: First subject&#39;s arguments to extract montage info</span>
+<span class="sd">        </span>
+<span class="sd">    Returns:</span>
+<span class="sd">        str: Subfolder name like &quot;montage_roi&quot;</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Extract montage name from field path</span>
+    <span class="n">field_path</span> <span class="o">=</span> <span class="n">first_subject_args</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
+    <span class="n">path_parts</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">field_path</span><span class="p">)</span><span class="o">.</span><span class="n">parts</span>
+    
+    <span class="k">try</span><span class="p">:</span>
+        <span class="c1"># Locate &quot;Simulations&quot; in the file path</span>
+        <span class="n">sim_idx</span> <span class="o">=</span> <span class="n">path_parts</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="s1">&#39;Simulations&#39;</span><span class="p">)</span>
+        <span class="c1"># Montage name is the folder immediately after &quot;Simulations&quot;</span>
+        <span class="n">montage_name</span> <span class="o">=</span> <span class="n">path_parts</span><span class="p">[</span><span class="n">sim_idx</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span>
+    <span class="k">except</span> <span class="p">(</span><span class="ne">ValueError</span><span class="p">,</span> <span class="ne">IndexError</span><span class="p">):</span>
+        <span class="c1"># If &quot;Simulations&quot; not found in path, try to extract from filename</span>
+        <span class="n">field_filename</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">field_path</span><span class="p">)</span><span class="o">.</span><span class="n">stem</span>
+        <span class="k">if</span> <span class="n">field_filename</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s1">&#39;_TINormal&#39;</span><span class="p">):</span>
+            <span class="n">montage_name</span> <span class="o">=</span> <span class="n">field_filename</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s1">&#39;_TINormal&#39;</span><span class="p">,</span> <span class="s1">&#39;Normal&#39;</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">field_filename</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s1">&#39;_TI_Normal&#39;</span><span class="p">):</span>
+            <span class="n">montage_name</span> <span class="o">=</span> <span class="n">field_filename</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s1">&#39;_TI_Normal&#39;</span><span class="p">,</span> <span class="s1">&#39;_Normal&#39;</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">field_filename</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s1">&#39;_TI&#39;</span><span class="p">):</span>
+            <span class="n">montage_name</span> <span class="o">=</span> <span class="n">field_filename</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s1">&#39;_TI&#39;</span><span class="p">,</span> <span class="s1">&#39;&#39;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">montage_name</span> <span class="o">=</span> <span class="n">field_filename</span>
+    
+    <span class="c1"># Determine ROI description</span>
+    <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">analysis_type</span> <span class="o">==</span> <span class="s1">&#39;spherical&#39;</span><span class="p">:</span>
+        <span class="n">roi_desc</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;sphere_r</span><span class="si">{</span><span class="n">args</span><span class="o">.</span><span class="n">radius</span><span class="si">}</span><span class="s2">&quot;</span>
+    <span class="k">else</span><span class="p">:</span>  <span class="c1"># cortical</span>
+        <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">whole_head</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">space</span> <span class="o">==</span> <span class="s1">&#39;mesh&#39;</span><span class="p">:</span>
+                <span class="n">roi_desc</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;whole_head_</span><span class="si">{</span><span class="n">args</span><span class="o">.</span><span class="n">atlas_name</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="k">else</span><span class="p">:</span>  <span class="c1"># voxel</span>
+                <span class="n">atlas_path</span> <span class="o">=</span> <span class="n">first_subject_args</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">first_subject_args</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">3</span> <span class="k">else</span> <span class="s2">&quot;unknown_atlas&quot;</span>
+                <span class="n">atlas_name</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">basename</span><span class="p">(</span><span class="n">atlas_path</span><span class="p">)</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;.&#39;</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span> <span class="k">if</span> <span class="n">atlas_path</span> <span class="o">!=</span> <span class="s2">&quot;unknown_atlas&quot;</span> <span class="k">else</span> <span class="s2">&quot;unknown_atlas&quot;</span>
+                <span class="n">roi_desc</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;whole_head_</span><span class="si">{</span><span class="n">atlas_name</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">roi_desc</span> <span class="o">=</span> <span class="n">args</span><span class="o">.</span><span class="n">region</span>
+    
+    <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">montage_name</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">roi_desc</span><span class="si">}</span><span class="s2">&quot;</span></div>
+
+
+
+<div class="viewcode-block" id="main">
+<a class="viewcode-back" href="../../../analyzer/index.html#tit.analyzer.group_analyzer.main">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">main</span><span class="p">():</span>
+    <span class="k">global</span> <span class="n">group_logger</span>
+    
+    <span class="n">parser</span> <span class="o">=</span> <span class="n">setup_parser</span><span class="p">()</span>
+    <span class="n">args</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">parse_args</span><span class="p">()</span>
+
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">validate_args</span><span class="p">(</span><span class="n">args</span><span class="p">)</span>
+
+        <span class="c1"># Set up summary mode if requested</span>
+        <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">quiet</span><span class="p">:</span>
+            <span class="k">global</span> <span class="n">SUMMARY_MODE</span>
+            <span class="n">SUMMARY_MODE</span> <span class="o">=</span> <span class="kc">True</span>
+
+        <span class="c1"># Create centralized group output directory based on first subject&#39;s path</span>
+        <span class="n">first_subject_path</span> <span class="o">=</span> <span class="n">args</span><span class="o">.</span><span class="n">subject</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span>  <span class="c1"># m2m_path from first subject</span>
+        <span class="n">centralized_group_dir</span> <span class="o">=</span> <span class="n">create_group_output_directory</span><span class="p">(</span><span class="n">first_subject_path</span><span class="p">)</span>
+        
+        <span class="c1"># Extract project name for later use</span>
+        <span class="n">project_name</span> <span class="o">=</span> <span class="n">_extract_project_name</span><span class="p">(</span><span class="n">first_subject_path</span><span class="p">)</span>
+        
+        <span class="c1"># Set up centralized logging for group analysis</span>
+        <span class="n">group_logger</span> <span class="o">=</span> <span class="n">setup_group_logger</span><span class="p">(</span><span class="n">project_name</span><span class="p">)</span>
+        
+        <span class="c1"># Create analysis description for summary</span>
+        <span class="n">analysis_description</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">args</span><span class="o">.</span><span class="n">analysis_type</span><span class="si">}</span><span class="s2"> (</span><span class="si">{</span><span class="n">args</span><span class="o">.</span><span class="n">space</span><span class="si">}</span><span class="s2">)&quot;</span>
+        <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">analysis_type</span> <span class="o">==</span> <span class="s1">&#39;spherical&#39;</span> <span class="ow">and</span> <span class="n">args</span><span class="o">.</span><span class="n">coordinates</span><span class="p">:</span>
+            <span class="n">coords_str</span> <span class="o">=</span> <span class="s1">&#39;, &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="nb">float</span><span class="p">(</span><span class="n">c</span><span class="p">)</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2">&quot;</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">args</span><span class="o">.</span><span class="n">coordinates</span><span class="p">)</span>
+            <span class="n">analysis_description</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot; - x=</span><span class="si">{</span><span class="n">coords_str</span><span class="si">}</span><span class="s2">, r=</span><span class="si">{</span><span class="n">args</span><span class="o">.</span><span class="n">radius</span><span class="si">}</span><span class="s2">mm&quot;</span>
+        <span class="k">elif</span> <span class="n">args</span><span class="o">.</span><span class="n">analysis_type</span> <span class="o">==</span> <span class="s1">&#39;cortical&#39;</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">whole_head</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">space</span> <span class="o">==</span> <span class="s1">&#39;mesh&#39;</span><span class="p">:</span>
+                    <span class="n">analysis_description</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot; - </span><span class="si">{</span><span class="n">args</span><span class="o">.</span><span class="n">atlas_name</span><span class="si">}</span><span class="s2"> (whole head)&quot;</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">analysis_description</span> <span class="o">+=</span> <span class="s2">&quot; - whole head&quot;</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">space</span> <span class="o">==</span> <span class="s1">&#39;mesh&#39;</span><span class="p">:</span>
+                    <span class="n">analysis_description</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot; - </span><span class="si">{</span><span class="n">args</span><span class="o">.</span><span class="n">atlas_name</span><span class="si">}</span><span class="s2">.</span><span class="si">{</span><span class="n">args</span><span class="o">.</span><span class="n">region</span><span class="si">}</span><span class="s2">&quot;</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">analysis_description</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot; - </span><span class="si">{</span><span class="n">args</span><span class="o">.</span><span class="n">region</span><span class="si">}</span><span class="s2">&quot;</span>
+        
+        <span class="c1"># Start group analysis summary logging</span>
+        <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">quiet</span><span class="p">:</span>
+            <span class="n">log_group_analysis_start</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">subject</span><span class="p">),</span> <span class="n">analysis_description</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">group_logger</span><span class="p">:</span>
+            <span class="n">group_logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&gt;&gt;&gt; Starting group analysis with </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">subject</span><span class="p">)</span><span class="si">}</span><span class="s2"> subject(s).&quot;</span><span class="p">)</span>
+            <span class="n">group_logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;    Project: </span><span class="si">{</span><span class="n">project_name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">group_logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;    Analysis = </span><span class="si">{</span><span class="n">args</span><span class="o">.</span><span class="n">analysis_type</span><span class="si">}</span><span class="s2"> (space=</span><span class="si">{</span><span class="n">args</span><span class="o">.</span><span class="n">space</span><span class="si">}</span><span class="s2">)&quot;</span><span class="p">)</span>
+            <span class="n">group_logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;    Centralized group results will go to: </span><span class="si">{</span><span class="n">centralized_group_dir</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        
+        <span class="c1"># Still create the user-specified output directory for legacy compatibility</span>
+        <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">output_dir</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">group_logger</span><span class="p">:</span>
+            <span class="n">group_logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;    Legacy output directory: </span><span class="si">{</span><span class="n">args</span><span class="o">.</span><span class="n">output_dir</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+
+        <span class="n">successful_dirs</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">successful_subjects_info</span> <span class="o">=</span> <span class="p">[]</span>  <span class="c1"># Store (subject_args, output_dir) pairs</span>
+        <span class="n">failed_subjects</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="k">for</span> <span class="n">subj_args</span> <span class="ow">in</span> <span class="n">args</span><span class="o">.</span><span class="n">subject</span><span class="p">:</span>
+            <span class="n">subj_id</span> <span class="o">=</span> <span class="n">subj_args</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            
+            <span class="c1"># Log subject start for summary</span>
+            <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">quiet</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;├─ Subject </span><span class="si">{</span><span class="n">subj_id</span><span class="si">}</span><span class="s2">: Starting...&quot;</span><span class="p">)</span>
+            
+            <span class="n">ok</span><span class="p">,</span> <span class="n">outdir</span> <span class="o">=</span> <span class="n">run_subject_analysis</span><span class="p">(</span><span class="n">args</span><span class="p">,</span> <span class="n">subj_args</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">ok</span><span class="p">:</span>
+                <span class="n">successful_dirs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">outdir</span><span class="p">)</span>
+                <span class="n">successful_subjects_info</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">subj_args</span><span class="p">,</span> <span class="n">outdir</span><span class="p">))</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">failed_subjects</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">subj_id</span><span class="p">)</span>
+            
+            <span class="c1"># Add a small visual separator between subjects for clarity</span>
+            <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">quiet</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">subject</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;&quot;</span><span class="p">)</span>  <span class="c1"># Empty line for visual separation</span>
+
+        <span class="k">if</span> <span class="n">group_logger</span><span class="p">:</span>
+            <span class="n">group_logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">=== GROUP ANALYSIS SUMMARY ===&quot;</span><span class="p">)</span>
+            <span class="n">group_logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Total subjects : </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">subject</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">group_logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Succeeded      : </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">successful_dirs</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">group_logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Failed         : </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">failed_subjects</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">failed_subjects</span><span class="p">:</span>
+                <span class="n">group_logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Failed subjects: </span><span class="si">{</span><span class="s1">&#39;, &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">failed_subjects</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Always run comprehensive group analysis if we have successful analyses (unless --no-compare is specified)</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">successful_dirs</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="mi">1</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">args</span><span class="o">.</span><span class="n">no_compare</span><span class="p">:</span>
+            <span class="c1"># Log group comparison start for summary</span>
+            <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">quiet</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;├─ Group comparison: Starting...&quot;</span><span class="p">)</span>
+            
+            <span class="c1"># Track timing for group comparison</span>
+            <span class="n">group_start_time</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+            
+            <span class="n">analysis_dirs</span> <span class="o">=</span> <span class="n">collect_analysis_paths</span><span class="p">(</span><span class="n">successful_dirs</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">analysis_dirs</span><span class="p">:</span>
+                <span class="n">final_group_dir</span> <span class="o">=</span> <span class="n">run_comprehensive_group_analysis</span><span class="p">(</span><span class="n">analysis_dirs</span><span class="p">,</span> <span class="n">project_name</span><span class="p">)</span>
+                
+                <span class="c1"># Calculate group comparison duration</span>
+                <span class="n">group_duration</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="n">group_start_time</span><span class="p">)</span>
+                <span class="n">group_duration_str</span> <span class="o">=</span> <span class="n">format_duration</span><span class="p">(</span><span class="n">group_duration</span><span class="p">)</span>
+                
+                <span class="c1"># Log group comparison completion for summary</span>
+                <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">quiet</span><span class="p">:</span>
+                    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;├─ Group comparison: ✓ Complete (</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">analysis_dirs</span><span class="p">)</span><span class="si">}</span><span class="s2"> subjects processed, </span><span class="si">{</span><span class="n">group_duration_str</span><span class="si">}</span><span class="s2">)&quot;</span><span class="p">)</span>
+                
+                <span class="k">if</span> <span class="n">group_logger</span><span class="p">:</span>
+                    <span class="n">group_logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Group comparison completed. Output directory: </span><span class="si">{</span><span class="n">final_group_dir</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                
+                <span class="c1"># Results are comprehensively logged, no need for separate summary files</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">group_logger</span><span class="p">:</span>
+                    <span class="n">group_logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;No valid analysis directories found for group comparison.&quot;</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">args</span><span class="o">.</span><span class="n">no_compare</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">group_logger</span><span class="p">:</span>
+                <span class="n">group_logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Group comparison skipped (--no-compare flag specified).&quot;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">group_logger</span><span class="p">:</span>
+                <span class="n">group_logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;No successful analyses to compare.&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Complete group analysis summary logging</span>
+        <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">quiet</span><span class="p">:</span>
+            <span class="n">output_path</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">successful_dirs</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="mi">1</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">args</span><span class="o">.</span><span class="n">no_compare</span> <span class="ow">and</span> <span class="s1">&#39;analysis_dirs&#39;</span> <span class="ow">in</span> <span class="nb">locals</span><span class="p">():</span>
+                <span class="n">output_path</span> <span class="o">=</span> <span class="n">final_group_dir</span> <span class="k">if</span> <span class="s1">&#39;final_group_dir&#39;</span> <span class="ow">in</span> <span class="nb">locals</span><span class="p">()</span> <span class="k">else</span> <span class="s2">&quot;&quot;</span>
+            <span class="n">log_group_analysis_complete</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">successful_dirs</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">subject</span><span class="p">),</span> <span class="n">output_path</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">group_logger</span><span class="p">:</span>
+            <span class="n">group_logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&gt;&gt;&gt; Group analysis complete.&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">successful_dirs</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="mi">1</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">args</span><span class="o">.</span><span class="n">no_compare</span><span class="p">:</span>
+                <span class="n">group_logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Comprehensive group results are available in the centralized location.&quot;</span><span class="p">)</span>
+                <span class="n">group_logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;&quot;</span><span class="p">)</span>  <span class="c1"># Empty line for spacing</span>
+            <span class="k">elif</span> <span class="n">args</span><span class="o">.</span><span class="n">no_compare</span><span class="p">:</span>
+                <span class="n">group_logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Group comparison was skipped. Individual subject results are in their respective directories.</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">group_logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;No successful analyses completed.</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+
+    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">group_logger</span><span class="p">:</span>
+            <span class="n">group_logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Error: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="n">sys</span><span class="o">.</span><span class="n">exit</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span></div>
+
+
+
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
+    <span class="n">main</span><span class="p">()</span>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2026, Ido Haber.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

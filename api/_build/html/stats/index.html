@@ -1,0 +1,259 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Statistics Module (tit.stats) &mdash; TI-Toolbox 2.0.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=51b770b3"></script>
+      <script src="../_static/doctools.js?v=9a2dae69"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="prev" title="Optimization Module (tit.opt)" href="../opt/index.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            TI-Toolbox
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Core Modules</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../core/index.html">Core Modules (<code class="docutils literal notranslate"><span class="pre">tit.core</span></code>)</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../core/index.html#path-management">Path Management</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../core/index.html#module-tit.core.constants">Constants</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../core/index.html#nifti-operations">NIfTI Operations</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../core/index.html#mesh-operations">Mesh Operations</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../core/index.html#calculations">Calculations</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../core/index.html#roi-utilities">ROI Utilities</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../core/index.html#utilities">Utilities</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../core/index.html#error-classes">Error Classes</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../core/index.html#process-management">Process Management</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Simulation</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../sim/index.html">Simulation Module (<code class="docutils literal notranslate"><span class="pre">tit.sim</span></code>)</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../sim/index.html#main-simulator">Main Simulator</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sim/index.html#module-tit.sim.config">Configuration Classes</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../sim/index.html#tit.sim.config.SimulationMode"><code class="docutils literal notranslate"><span class="pre">SimulationMode</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../sim/index.html#tit.sim.config.SimulationMode.TI"><code class="docutils literal notranslate"><span class="pre">SimulationMode.TI</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../sim/index.html#tit.sim.config.SimulationMode.MTI"><code class="docutils literal notranslate"><span class="pre">SimulationMode.MTI</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../sim/index.html#tit.sim.config.ConductivityType"><code class="docutils literal notranslate"><span class="pre">ConductivityType</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../sim/index.html#tit.sim.config.ConductivityType.SCALAR"><code class="docutils literal notranslate"><span class="pre">ConductivityType.SCALAR</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../sim/index.html#tit.sim.config.ConductivityType.VN"><code class="docutils literal notranslate"><span class="pre">ConductivityType.VN</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../sim/index.html#tit.sim.config.ConductivityType.DIR"><code class="docutils literal notranslate"><span class="pre">ConductivityType.DIR</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../sim/index.html#tit.sim.config.ConductivityType.MC"><code class="docutils literal notranslate"><span class="pre">ConductivityType.MC</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../sim/index.html#tit.sim.config.ElectrodeConfig"><code class="docutils literal notranslate"><span class="pre">ElectrodeConfig</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../sim/index.html#tit.sim.config.ElectrodeConfig.shape"><code class="docutils literal notranslate"><span class="pre">ElectrodeConfig.shape</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../sim/index.html#tit.sim.config.ElectrodeConfig.dimensions"><code class="docutils literal notranslate"><span class="pre">ElectrodeConfig.dimensions</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../sim/index.html#tit.sim.config.ElectrodeConfig.thickness"><code class="docutils literal notranslate"><span class="pre">ElectrodeConfig.thickness</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../sim/index.html#tit.sim.config.ElectrodeConfig.sponge_thickness"><code class="docutils literal notranslate"><span class="pre">ElectrodeConfig.sponge_thickness</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../sim/index.html#tit.sim.config.ElectrodeConfig.__init__"><code class="docutils literal notranslate"><span class="pre">ElectrodeConfig.__init__()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../sim/index.html#tit.sim.config.IntensityConfig"><code class="docutils literal notranslate"><span class="pre">IntensityConfig</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../sim/index.html#tit.sim.config.IntensityConfig.pair1"><code class="docutils literal notranslate"><span class="pre">IntensityConfig.pair1</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../sim/index.html#tit.sim.config.IntensityConfig.pair2"><code class="docutils literal notranslate"><span class="pre">IntensityConfig.pair2</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../sim/index.html#tit.sim.config.IntensityConfig.pair3"><code class="docutils literal notranslate"><span class="pre">IntensityConfig.pair3</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../sim/index.html#tit.sim.config.IntensityConfig.pair4"><code class="docutils literal notranslate"><span class="pre">IntensityConfig.pair4</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../sim/index.html#tit.sim.config.IntensityConfig.from_string"><code class="docutils literal notranslate"><span class="pre">IntensityConfig.from_string()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../sim/index.html#tit.sim.config.IntensityConfig.__init__"><code class="docutils literal notranslate"><span class="pre">IntensityConfig.__init__()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../sim/index.html#tit.sim.config.MontageConfig"><code class="docutils literal notranslate"><span class="pre">MontageConfig</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../sim/index.html#tit.sim.config.MontageConfig.name"><code class="docutils literal notranslate"><span class="pre">MontageConfig.name</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../sim/index.html#tit.sim.config.MontageConfig.electrode_pairs"><code class="docutils literal notranslate"><span class="pre">MontageConfig.electrode_pairs</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../sim/index.html#tit.sim.config.MontageConfig.is_xyz"><code class="docutils literal notranslate"><span class="pre">MontageConfig.is_xyz</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../sim/index.html#tit.sim.config.MontageConfig.eeg_net"><code class="docutils literal notranslate"><span class="pre">MontageConfig.eeg_net</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../sim/index.html#tit.sim.config.MontageConfig.simulation_mode"><code class="docutils literal notranslate"><span class="pre">MontageConfig.simulation_mode</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../sim/index.html#tit.sim.config.MontageConfig.num_pairs"><code class="docutils literal notranslate"><span class="pre">MontageConfig.num_pairs</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../sim/index.html#tit.sim.config.MontageConfig.__init__"><code class="docutils literal notranslate"><span class="pre">MontageConfig.__init__()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../sim/index.html#tit.sim.config.ParallelConfig"><code class="docutils literal notranslate"><span class="pre">ParallelConfig</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../sim/index.html#tit.sim.config.ParallelConfig.enabled"><code class="docutils literal notranslate"><span class="pre">ParallelConfig.enabled</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../sim/index.html#tit.sim.config.ParallelConfig.max_workers"><code class="docutils literal notranslate"><span class="pre">ParallelConfig.max_workers</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../sim/index.html#tit.sim.config.ParallelConfig.__post_init__"><code class="docutils literal notranslate"><span class="pre">ParallelConfig.__post_init__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../sim/index.html#tit.sim.config.ParallelConfig.effective_workers"><code class="docutils literal notranslate"><span class="pre">ParallelConfig.effective_workers</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../sim/index.html#tit.sim.config.ParallelConfig.get_memory_warning"><code class="docutils literal notranslate"><span class="pre">ParallelConfig.get_memory_warning()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../sim/index.html#tit.sim.config.ParallelConfig.__init__"><code class="docutils literal notranslate"><span class="pre">ParallelConfig.__init__()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../sim/index.html#tit.sim.config.SimulationConfig"><code class="docutils literal notranslate"><span class="pre">SimulationConfig</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../sim/index.html#tit.sim.config.SimulationConfig.subject_id"><code class="docutils literal notranslate"><span class="pre">SimulationConfig.subject_id</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../sim/index.html#tit.sim.config.SimulationConfig.project_dir"><code class="docutils literal notranslate"><span class="pre">SimulationConfig.project_dir</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../sim/index.html#tit.sim.config.SimulationConfig.conductivity_type"><code class="docutils literal notranslate"><span class="pre">SimulationConfig.conductivity_type</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../sim/index.html#tit.sim.config.SimulationConfig.intensities"><code class="docutils literal notranslate"><span class="pre">SimulationConfig.intensities</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../sim/index.html#tit.sim.config.SimulationConfig.electrode"><code class="docutils literal notranslate"><span class="pre">SimulationConfig.electrode</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../sim/index.html#tit.sim.config.SimulationConfig.eeg_net"><code class="docutils literal notranslate"><span class="pre">SimulationConfig.eeg_net</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../sim/index.html#tit.sim.config.SimulationConfig.map_to_surf"><code class="docutils literal notranslate"><span class="pre">SimulationConfig.map_to_surf</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../sim/index.html#tit.sim.config.SimulationConfig.map_to_vol"><code class="docutils literal notranslate"><span class="pre">SimulationConfig.map_to_vol</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../sim/index.html#tit.sim.config.SimulationConfig.map_to_mni"><code class="docutils literal notranslate"><span class="pre">SimulationConfig.map_to_mni</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../sim/index.html#tit.sim.config.SimulationConfig.map_to_fsavg"><code class="docutils literal notranslate"><span class="pre">SimulationConfig.map_to_fsavg</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../sim/index.html#tit.sim.config.SimulationConfig.tissues_in_niftis"><code class="docutils literal notranslate"><span class="pre">SimulationConfig.tissues_in_niftis</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../sim/index.html#tit.sim.config.SimulationConfig.open_in_gmsh"><code class="docutils literal notranslate"><span class="pre">SimulationConfig.open_in_gmsh</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../sim/index.html#tit.sim.config.SimulationConfig.parallel"><code class="docutils literal notranslate"><span class="pre">SimulationConfig.parallel</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../sim/index.html#tit.sim.config.SimulationConfig.__post_init__"><code class="docutils literal notranslate"><span class="pre">SimulationConfig.__post_init__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../sim/index.html#tit.sim.config.SimulationConfig.__init__"><code class="docutils literal notranslate"><span class="pre">SimulationConfig.__init__()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../sim/index.html#session-builder">Session Builder</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sim/index.html#post-processing">Post-Processing</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sim/index.html#montage-loading">Montage Loading</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sim/index.html#utilities">Utilities</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Analysis</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../analyzer/index.html">Analysis Module (<code class="docutils literal notranslate"><span class="pre">tit.analyzer</span></code>)</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../analyzer/index.html#mesh-analyzer">Mesh Analyzer</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../analyzer/index.html#voxel-analyzer">Voxel Analyzer</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../analyzer/index.html#module-tit.analyzer.group_analyzer">Group Analyzer</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../analyzer/index.html#tit.analyzer.group_analyzer.format_duration"><code class="docutils literal notranslate"><span class="pre">format_duration()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../analyzer/index.html#tit.analyzer.group_analyzer.log_group_analysis_start"><code class="docutils literal notranslate"><span class="pre">log_group_analysis_start()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../analyzer/index.html#tit.analyzer.group_analyzer.log_group_analysis_complete"><code class="docutils literal notranslate"><span class="pre">log_group_analysis_complete()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../analyzer/index.html#tit.analyzer.group_analyzer.log_group_subject_status"><code class="docutils literal notranslate"><span class="pre">log_group_subject_status()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../analyzer/index.html#tit.analyzer.group_analyzer.run_all_group_comparisons"><code class="docutils literal notranslate"><span class="pre">run_all_group_comparisons()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../analyzer/index.html#tit.analyzer.group_analyzer.setup_group_logger"><code class="docutils literal notranslate"><span class="pre">setup_group_logger()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../analyzer/index.html#tit.analyzer.group_analyzer.create_group_output_directory"><code class="docutils literal notranslate"><span class="pre">create_group_output_directory()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../analyzer/index.html#tit.analyzer.group_analyzer.setup_parser"><code class="docutils literal notranslate"><span class="pre">setup_parser()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../analyzer/index.html#tit.analyzer.group_analyzer.validate_args"><code class="docutils literal notranslate"><span class="pre">validate_args()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../analyzer/index.html#tit.analyzer.group_analyzer.compute_subject_output_dir"><code class="docutils literal notranslate"><span class="pre">compute_subject_output_dir()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../analyzer/index.html#tit.analyzer.group_analyzer.build_main_analyzer_command"><code class="docutils literal notranslate"><span class="pre">build_main_analyzer_command()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../analyzer/index.html#tit.analyzer.group_analyzer.run_subject_analysis"><code class="docutils literal notranslate"><span class="pre">run_subject_analysis()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../analyzer/index.html#tit.analyzer.group_analyzer.collect_analysis_paths"><code class="docutils literal notranslate"><span class="pre">collect_analysis_paths()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../analyzer/index.html#tit.analyzer.group_analyzer.run_comprehensive_group_analysis"><code class="docutils literal notranslate"><span class="pre">run_comprehensive_group_analysis()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../analyzer/index.html#tit.analyzer.group_analyzer.determine_group_subfolder_name"><code class="docutils literal notranslate"><span class="pre">determine_group_subfolder_name()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../analyzer/index.html#tit.analyzer.group_analyzer.main"><code class="docutils literal notranslate"><span class="pre">main()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../analyzer/index.html#visualizer">Visualizer</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../analyzer/index.html#main-analyzer">Main Analyzer</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../analyzer/index.html#field-selector">Field Selector</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Optimization</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../opt/index.html">Optimization Module (<code class="docutils literal notranslate"><span class="pre">tit.opt</span></code>)</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../opt/index.html#leadfield-generator">Leadfield Generator</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../opt/index.html#flex-search">Flex-Search</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../opt/index.html#ex-search">Ex-Search</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Statistics</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Statistics Module (<code class="docutils literal notranslate"><span class="pre">tit.stats</span></code>)</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#permutation-analysis">Permutation Analysis</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#cluster-analysis">Cluster Analysis</a></li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">TI-Toolbox</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Statistics Module (<code class="docutils literal notranslate"><span class="pre">tit.stats</span></code>)</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/stats/index.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="statistics-module-tit-stats">
+<h1>Statistics Module (<code class="docutils literal notranslate"><span class="pre">tit.stats</span></code>)<a class="headerlink" href="#statistics-module-tit-stats" title="Link to this heading"></a></h1>
+<p>The statistics package provides statistical analysis tools for TI field data.</p>
+<nav class="contents local" id="contents">
+<p class="topic-title">Contents</p>
+<ul class="simple">
+<li><p><a class="reference internal" href="#permutation-analysis" id="id1">Permutation Analysis</a></p></li>
+<li><p><a class="reference internal" href="#cluster-analysis" id="id2">Cluster Analysis</a></p></li>
+</ul>
+</nav>
+<section id="permutation-analysis">
+<h2><a class="toc-backref" href="#id1" role="doc-backlink">Permutation Analysis</a><a class="headerlink" href="#permutation-analysis" title="Link to this heading"></a></h2>
+</section>
+<section id="cluster-analysis">
+<h2><a class="toc-backref" href="#id2" role="doc-backlink">Cluster Analysis</a><a class="headerlink" href="#cluster-analysis" title="Link to this heading"></a></h2>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="../opt/index.html" class="btn btn-neutral float-left" title="Optimization Module (tit.opt)" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2026, Ido Haber.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
