@@ -56,15 +56,22 @@ jobs:
           path: docs/api/_build/html/
           retention-days: 30
 
-      - name: Deploy to GitHub Pages (on main branch only)
+      - name: Commit and push built documentation (on main branch only)
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-        uses: peaceiris/actions-gh-pages@v3
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: docs/api/_build/html
-          destination_dir: api/_build/html
-          keep_files: true  # Keep Jekyll files
-          commit_message: 'docs: update Sphinx API documentation'
+        run: |
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+
+          # Add built documentation
+          git add -f docs/api/_build/html/
+
+          # Check if there are changes
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "docs: update Sphinx API documentation [skip ci]"
+            git push
+          fi
 
       - name: Comment PR with documentation link
         if: github.event_name == 'pull_request'

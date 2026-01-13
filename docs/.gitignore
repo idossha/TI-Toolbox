@@ -1,5 +1,7 @@
 # Sphinx build outputs (auto-generated)
-api/_build/
+# Keep _build/html/ for GitHub Pages, ignore everything else
+api/_build/*
+!api/_build/html/
 api/_static/
 api/_templates/
 
