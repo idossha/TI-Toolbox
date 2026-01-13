@@ -68,7 +68,7 @@ jobs:
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: '📚 Documentation preview will be available after merge at: https://idossha.github.io/TI-Toolbox/api/_build/html/index.html'
+              body: '📚 API Reference (after merge): https://idossha.github.io/TI-Toolbox/api/'
             })
 
   documentation-summary:
@@ -84,7 +84,7 @@ jobs:
           echo "✅ Sphinx API documentation built successfully" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Access Documentation:" >> $GITHUB_STEP_SUMMARY
-          echo "- **Live Site**: https://idossha.github.io/TI-Toolbox/api/_build/html/index.html" >> $GITHUB_STEP_SUMMARY
+          echo "- **API Reference**: https://idossha.github.io/TI-Toolbox/api/" >> $GITHUB_STEP_SUMMARY
           echo "- **Wiki**: https://idossha.github.io/TI-Toolbox/wiki/" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Build Details:" >> $GITHUB_STEP_SUMMARY

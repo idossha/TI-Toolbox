@@ -52,6 +52,14 @@ if command -v bundle &> /dev/null && [ -f "Gemfile" ]; then
     if [ $? -eq 0 ]; then
         echo -e "${GREEN}✓ Jekyll build successful${NC}"
         echo "  Output: _site/"
+
+        # Copy the built Sphinx HTML into the built Jekyll site so it can be
+        # served without Jekyll trying to process Sphinx's `_static/` folders.
+        echo -e "\n${BLUE}[2.5/3] Copying Sphinx HTML into Jekyll site...${NC}"
+        rm -rf "_site/api"
+        mkdir -p "_site/api"
+        cp -a "api/_build/html/." "_site/api/"
+        echo -e "${GREEN}✓ API docs copied to _site/api/${NC}"
     else
         echo -e "${YELLOW}Warning: Jekyll build failed (continuing anyway)${NC}"
     fi
