@@ -1,0 +1,1240 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Simulation Module (tit.sim) &mdash; TI-Toolbox 2.0.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=51b770b3"></script>
+      <script src="../_static/doctools.js?v=9a2dae69"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Analysis Module (tit.analyzer)" href="../analyzer/index.html" />
+    <link rel="prev" title="Core Modules (tit.core)" href="../core/index.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            TI-Toolbox
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Core Modules</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../core/index.html">Core Modules (<code class="docutils literal notranslate"><span class="pre">tit.core</span></code>)</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../core/index.html#module-tit.core.paths">Path Management</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../core/index.html#tit.core.paths.PathManager"><code class="docutils literal notranslate"><span class="pre">PathManager</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../core/index.html#tit.core.paths.PathManager.__init__"><code class="docutils literal notranslate"><span class="pre">PathManager.__init__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../core/index.html#tit.core.paths.PathManager.project_dir"><code class="docutils literal notranslate"><span class="pre">PathManager.project_dir</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../core/index.html#tit.core.paths.PathManager.project_dir_name"><code class="docutils literal notranslate"><span class="pre">PathManager.project_dir_name</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../core/index.html#tit.core.paths.PathManager.path"><code class="docutils literal notranslate"><span class="pre">PathManager.path()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../core/index.html#tit.core.paths.PathManager.path_optional"><code class="docutils literal notranslate"><span class="pre">PathManager.path_optional()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../core/index.html#tit.core.paths.PathManager.list_flex_search_runs"><code class="docutils literal notranslate"><span class="pre">PathManager.list_flex_search_runs()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../core/index.html#tit.core.paths.PathManager.exists"><code class="docutils literal notranslate"><span class="pre">PathManager.exists()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../core/index.html#tit.core.paths.PathManager.is_dir"><code class="docutils literal notranslate"><span class="pre">PathManager.is_dir()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../core/index.html#tit.core.paths.PathManager.is_file"><code class="docutils literal notranslate"><span class="pre">PathManager.is_file()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../core/index.html#tit.core.paths.PathManager.ensure_dir"><code class="docutils literal notranslate"><span class="pre">PathManager.ensure_dir()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../core/index.html#tit.core.paths.PathManager.list_subjects"><code class="docutils literal notranslate"><span class="pre">PathManager.list_subjects()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../core/index.html#tit.core.paths.PathManager.list_simulations"><code class="docutils literal notranslate"><span class="pre">PathManager.list_simulations()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../core/index.html#tit.core.paths.PathManager.analysis_space_dir_name"><code class="docutils literal notranslate"><span class="pre">PathManager.analysis_space_dir_name()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../core/index.html#tit.core.paths.PathManager.spherical_analysis_name"><code class="docutils literal notranslate"><span class="pre">PathManager.spherical_analysis_name()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../core/index.html#tit.core.paths.PathManager.cortical_analysis_name"><code class="docutils literal notranslate"><span class="pre">PathManager.cortical_analysis_name()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../core/index.html#tit.core.paths.PathManager.get_analysis_space_dir"><code class="docutils literal notranslate"><span class="pre">PathManager.get_analysis_space_dir()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../core/index.html#tit.core.paths.PathManager.get_analysis_output_dir"><code class="docutils literal notranslate"><span class="pre">PathManager.get_analysis_output_dir()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../core/index.html#tit.core.paths.PathManager.get_derivatives_dir"><code class="docutils literal notranslate"><span class="pre">PathManager.get_derivatives_dir()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../core/index.html#tit.core.paths.PathManager.list_eeg_caps"><code class="docutils literal notranslate"><span class="pre">PathManager.list_eeg_caps()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../core/index.html#tit.core.paths.PathManager.validate_subject_structure"><code class="docutils literal notranslate"><span class="pre">PathManager.validate_subject_structure()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../core/index.html#tit.core.paths.get_path_manager"><code class="docutils literal notranslate"><span class="pre">get_path_manager()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../core/index.html#tit.core.paths.reset_path_manager"><code class="docutils literal notranslate"><span class="pre">reset_path_manager()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../core/index.html#module-tit.core.constants">Constants</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../core/index.html#module-tit.core.nifti">NIfTI Operations</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../core/index.html#tit.core.nifti.load_subject_nifti_ti_toolbox"><code class="docutils literal notranslate"><span class="pre">load_subject_nifti_ti_toolbox()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../core/index.html#tit.core.nifti.load_group_data_ti_toolbox"><code class="docutils literal notranslate"><span class="pre">load_group_data_ti_toolbox()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../core/index.html#tit.core.nifti.load_grouped_subjects_ti_toolbox"><code class="docutils literal notranslate"><span class="pre">load_grouped_subjects_ti_toolbox()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../core/index.html#module-tit.core.mesh">Mesh Operations</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../core/index.html#tit.core.mesh.create_mesh_opt_file"><code class="docutils literal notranslate"><span class="pre">create_mesh_opt_file()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../core/index.html#module-tit.core.calc">Calculations</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../core/index.html#tit.core.calc.get_TI_vectors"><code class="docutils literal notranslate"><span class="pre">get_TI_vectors()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../core/index.html#tit.core.calc.get_mTI_vectors"><code class="docutils literal notranslate"><span class="pre">get_mTI_vectors()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../core/index.html#module-tit.core.roi">ROI Utilities</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../core/index.html#tit.core.roi.find_roi_element_indices"><code class="docutils literal notranslate"><span class="pre">find_roi_element_indices()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../core/index.html#tit.core.roi.find_grey_matter_indices"><code class="docutils literal notranslate"><span class="pre">find_grey_matter_indices()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../core/index.html#tit.core.roi.calculate_roi_metrics"><code class="docutils literal notranslate"><span class="pre">calculate_roi_metrics()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../core/index.html#tit.core.roi.ROICoordinateHelper"><code class="docutils literal notranslate"><span class="pre">ROICoordinateHelper</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../core/index.html#tit.core.roi.ROICoordinateHelper.transform_mni_to_subject"><code class="docutils literal notranslate"><span class="pre">ROICoordinateHelper.transform_mni_to_subject()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../core/index.html#tit.core.roi.ROICoordinateHelper.find_voxels_in_sphere"><code class="docutils literal notranslate"><span class="pre">ROICoordinateHelper.find_voxels_in_sphere()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../core/index.html#tit.core.roi.ROICoordinateHelper.load_roi_from_csv"><code class="docutils literal notranslate"><span class="pre">ROICoordinateHelper.load_roi_from_csv()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../core/index.html#tit.core.roi.ROICoordinateHelper.save_roi_to_csv"><code class="docutils literal notranslate"><span class="pre">ROICoordinateHelper.save_roi_to_csv()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../core/index.html#tit.core.roi.validate_ti_montage"><code class="docutils literal notranslate"><span class="pre">validate_ti_montage()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../core/index.html#module-tit.core.utils">Utilities</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../core/index.html#tit.core.utils.find_roi_element_indices"><code class="docutils literal notranslate"><span class="pre">find_roi_element_indices()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../core/index.html#tit.core.utils.find_grey_matter_indices"><code class="docutils literal notranslate"><span class="pre">find_grey_matter_indices()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../core/index.html#tit.core.utils.calculate_roi_metrics"><code class="docutils literal notranslate"><span class="pre">calculate_roi_metrics()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../core/index.html#module-tit.core.errors">Error Classes</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../core/index.html#tit.core.errors.TIToolboxError"><code class="docutils literal notranslate"><span class="pre">TIToolboxError</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../core/index.html#tit.core.errors.TIToolboxError.__init__"><code class="docutils literal notranslate"><span class="pre">TIToolboxError.__init__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../core/index.html#tit.core.errors.TIToolboxError.to_dict"><code class="docutils literal notranslate"><span class="pre">TIToolboxError.to_dict()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../core/index.html#tit.core.errors.ProcessError"><code class="docutils literal notranslate"><span class="pre">ProcessError</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../core/index.html#tit.core.errors.ProcessError.__init__"><code class="docutils literal notranslate"><span class="pre">ProcessError.__init__()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../core/index.html#tit.core.errors.ValidationError"><code class="docutils literal notranslate"><span class="pre">ValidationError</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../core/index.html#tit.core.errors.ValidationError.__init__"><code class="docutils literal notranslate"><span class="pre">ValidationError.__init__()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../core/index.html#tit.core.errors.FileNotFoundError"><code class="docutils literal notranslate"><span class="pre">FileNotFoundError</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../core/index.html#tit.core.errors.FileNotFoundError.__init__"><code class="docutils literal notranslate"><span class="pre">FileNotFoundError.__init__()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../core/index.html#tit.core.errors.ConfigurationError"><code class="docutils literal notranslate"><span class="pre">ConfigurationError</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../core/index.html#tit.core.errors.ConfigurationError.__init__"><code class="docutils literal notranslate"><span class="pre">ConfigurationError.__init__()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../core/index.html#tit.core.errors.SubjectError"><code class="docutils literal notranslate"><span class="pre">SubjectError</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../core/index.html#tit.core.errors.SubjectError.__init__"><code class="docutils literal notranslate"><span class="pre">SubjectError.__init__()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../core/index.html#tit.core.errors.SimulationError"><code class="docutils literal notranslate"><span class="pre">SimulationError</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../core/index.html#tit.core.errors.SimulationError.__init__"><code class="docutils literal notranslate"><span class="pre">SimulationError.__init__()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../core/index.html#tit.core.errors.AnalysisError"><code class="docutils literal notranslate"><span class="pre">AnalysisError</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../core/index.html#tit.core.errors.AnalysisError.__init__"><code class="docutils literal notranslate"><span class="pre">AnalysisError.__init__()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../core/index.html#tit.core.errors.MeshError"><code class="docutils literal notranslate"><span class="pre">MeshError</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../core/index.html#tit.core.errors.MeshError.__init__"><code class="docutils literal notranslate"><span class="pre">MeshError.__init__()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../core/index.html#tit.core.errors.handle_error"><code class="docutils literal notranslate"><span class="pre">handle_error()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../core/index.html#tit.core.errors.show_error_dialog"><code class="docutils literal notranslate"><span class="pre">show_error_dialog()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../core/index.html#tit.core.errors.validate_file_exists"><code class="docutils literal notranslate"><span class="pre">validate_file_exists()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../core/index.html#tit.core.errors.validate_subject"><code class="docutils literal notranslate"><span class="pre">validate_subject()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../core/index.html#tit.core.errors.validate_montage_config"><code class="docutils literal notranslate"><span class="pre">validate_montage_config()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../core/index.html#module-tit.core.process">Process Management</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../core/index.html#tit.core.process.ProcessRunner"><code class="docutils literal notranslate"><span class="pre">ProcessRunner</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../core/index.html#tit.core.process.ProcessRunner.output_signal"><code class="docutils literal notranslate"><span class="pre">ProcessRunner.output_signal</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../core/index.html#tit.core.process.ProcessRunner.progress_signal"><code class="docutils literal notranslate"><span class="pre">ProcessRunner.progress_signal</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../core/index.html#tit.core.process.ProcessRunner.finished_signal"><code class="docutils literal notranslate"><span class="pre">ProcessRunner.finished_signal</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../core/index.html#tit.core.process.ProcessRunner.error_signal"><code class="docutils literal notranslate"><span class="pre">ProcessRunner.error_signal</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../core/index.html#tit.core.process.ProcessRunner.__init__"><code class="docutils literal notranslate"><span class="pre">ProcessRunner.__init__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../core/index.html#tit.core.process.ProcessRunner.run"><code class="docutils literal notranslate"><span class="pre">ProcessRunner.run()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../core/index.html#tit.core.process.ProcessRunner.terminate_process"><code class="docutils literal notranslate"><span class="pre">ProcessRunner.terminate_process()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../core/index.html#tit.core.process.MessageParser"><code class="docutils literal notranslate"><span class="pre">MessageParser</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../core/index.html#tit.core.process.MessageParser.parse"><code class="docutils literal notranslate"><span class="pre">MessageParser.parse()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../core/index.html#tit.core.process.SimulatorMessageParser"><code class="docutils literal notranslate"><span class="pre">SimulatorMessageParser</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../core/index.html#tit.core.process.AnalyzerMessageParser"><code class="docutils literal notranslate"><span class="pre">AnalyzerMessageParser</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../core/index.html#tit.core.process.PreprocessMessageParser"><code class="docutils literal notranslate"><span class="pre">PreprocessMessageParser</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../core/index.html#tit.core.process.strip_ansi_codes"><code class="docutils literal notranslate"><span class="pre">strip_ansi_codes()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Simulation</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Simulation Module (<code class="docutils literal notranslate"><span class="pre">tit.sim</span></code>)</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#module-tit.sim.simulator">Main Simulator</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#tit.sim.simulator.setup_montage_directories"><code class="docutils literal notranslate"><span class="pre">setup_montage_directories()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#tit.sim.simulator.create_simulation_config_file"><code class="docutils literal notranslate"><span class="pre">create_simulation_config_file()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#tit.sim.simulator.run_montage_visualization"><code class="docutils literal notranslate"><span class="pre">run_montage_visualization()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#tit.sim.simulator.run_simulation"><code class="docutils literal notranslate"><span class="pre">run_simulation()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#tit.sim.simulator.main"><code class="docutils literal notranslate"><span class="pre">main()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#module-tit.sim.config">Configuration Classes</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#tit.sim.config.SimulationMode"><code class="docutils literal notranslate"><span class="pre">SimulationMode</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#tit.sim.config.SimulationMode.TI"><code class="docutils literal notranslate"><span class="pre">SimulationMode.TI</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#tit.sim.config.SimulationMode.MTI"><code class="docutils literal notranslate"><span class="pre">SimulationMode.MTI</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#tit.sim.config.ConductivityType"><code class="docutils literal notranslate"><span class="pre">ConductivityType</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#tit.sim.config.ConductivityType.SCALAR"><code class="docutils literal notranslate"><span class="pre">ConductivityType.SCALAR</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#tit.sim.config.ConductivityType.VN"><code class="docutils literal notranslate"><span class="pre">ConductivityType.VN</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#tit.sim.config.ConductivityType.DIR"><code class="docutils literal notranslate"><span class="pre">ConductivityType.DIR</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#tit.sim.config.ConductivityType.MC"><code class="docutils literal notranslate"><span class="pre">ConductivityType.MC</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#tit.sim.config.ElectrodeConfig"><code class="docutils literal notranslate"><span class="pre">ElectrodeConfig</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#tit.sim.config.ElectrodeConfig.shape"><code class="docutils literal notranslate"><span class="pre">ElectrodeConfig.shape</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#tit.sim.config.ElectrodeConfig.dimensions"><code class="docutils literal notranslate"><span class="pre">ElectrodeConfig.dimensions</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#tit.sim.config.ElectrodeConfig.thickness"><code class="docutils literal notranslate"><span class="pre">ElectrodeConfig.thickness</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#tit.sim.config.ElectrodeConfig.sponge_thickness"><code class="docutils literal notranslate"><span class="pre">ElectrodeConfig.sponge_thickness</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#tit.sim.config.ElectrodeConfig.__init__"><code class="docutils literal notranslate"><span class="pre">ElectrodeConfig.__init__()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#tit.sim.config.IntensityConfig"><code class="docutils literal notranslate"><span class="pre">IntensityConfig</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#tit.sim.config.IntensityConfig.pair1"><code class="docutils literal notranslate"><span class="pre">IntensityConfig.pair1</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#tit.sim.config.IntensityConfig.pair2"><code class="docutils literal notranslate"><span class="pre">IntensityConfig.pair2</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#tit.sim.config.IntensityConfig.pair3"><code class="docutils literal notranslate"><span class="pre">IntensityConfig.pair3</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#tit.sim.config.IntensityConfig.pair4"><code class="docutils literal notranslate"><span class="pre">IntensityConfig.pair4</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#tit.sim.config.IntensityConfig.from_string"><code class="docutils literal notranslate"><span class="pre">IntensityConfig.from_string()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#tit.sim.config.IntensityConfig.__init__"><code class="docutils literal notranslate"><span class="pre">IntensityConfig.__init__()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#tit.sim.config.MontageConfig"><code class="docutils literal notranslate"><span class="pre">MontageConfig</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#tit.sim.config.MontageConfig.name"><code class="docutils literal notranslate"><span class="pre">MontageConfig.name</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#tit.sim.config.MontageConfig.electrode_pairs"><code class="docutils literal notranslate"><span class="pre">MontageConfig.electrode_pairs</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#tit.sim.config.MontageConfig.is_xyz"><code class="docutils literal notranslate"><span class="pre">MontageConfig.is_xyz</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#tit.sim.config.MontageConfig.eeg_net"><code class="docutils literal notranslate"><span class="pre">MontageConfig.eeg_net</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#tit.sim.config.MontageConfig.simulation_mode"><code class="docutils literal notranslate"><span class="pre">MontageConfig.simulation_mode</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#tit.sim.config.MontageConfig.num_pairs"><code class="docutils literal notranslate"><span class="pre">MontageConfig.num_pairs</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#tit.sim.config.MontageConfig.__init__"><code class="docutils literal notranslate"><span class="pre">MontageConfig.__init__()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#tit.sim.config.ParallelConfig"><code class="docutils literal notranslate"><span class="pre">ParallelConfig</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#tit.sim.config.ParallelConfig.enabled"><code class="docutils literal notranslate"><span class="pre">ParallelConfig.enabled</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#tit.sim.config.ParallelConfig.max_workers"><code class="docutils literal notranslate"><span class="pre">ParallelConfig.max_workers</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#tit.sim.config.ParallelConfig.__post_init__"><code class="docutils literal notranslate"><span class="pre">ParallelConfig.__post_init__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#tit.sim.config.ParallelConfig.effective_workers"><code class="docutils literal notranslate"><span class="pre">ParallelConfig.effective_workers</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#tit.sim.config.ParallelConfig.get_memory_warning"><code class="docutils literal notranslate"><span class="pre">ParallelConfig.get_memory_warning()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#tit.sim.config.ParallelConfig.__init__"><code class="docutils literal notranslate"><span class="pre">ParallelConfig.__init__()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#tit.sim.config.SimulationConfig"><code class="docutils literal notranslate"><span class="pre">SimulationConfig</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#tit.sim.config.SimulationConfig.subject_id"><code class="docutils literal notranslate"><span class="pre">SimulationConfig.subject_id</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#tit.sim.config.SimulationConfig.project_dir"><code class="docutils literal notranslate"><span class="pre">SimulationConfig.project_dir</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#tit.sim.config.SimulationConfig.conductivity_type"><code class="docutils literal notranslate"><span class="pre">SimulationConfig.conductivity_type</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#tit.sim.config.SimulationConfig.intensities"><code class="docutils literal notranslate"><span class="pre">SimulationConfig.intensities</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#tit.sim.config.SimulationConfig.electrode"><code class="docutils literal notranslate"><span class="pre">SimulationConfig.electrode</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#tit.sim.config.SimulationConfig.eeg_net"><code class="docutils literal notranslate"><span class="pre">SimulationConfig.eeg_net</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#tit.sim.config.SimulationConfig.map_to_surf"><code class="docutils literal notranslate"><span class="pre">SimulationConfig.map_to_surf</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#tit.sim.config.SimulationConfig.map_to_vol"><code class="docutils literal notranslate"><span class="pre">SimulationConfig.map_to_vol</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#tit.sim.config.SimulationConfig.map_to_mni"><code class="docutils literal notranslate"><span class="pre">SimulationConfig.map_to_mni</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#tit.sim.config.SimulationConfig.map_to_fsavg"><code class="docutils literal notranslate"><span class="pre">SimulationConfig.map_to_fsavg</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#tit.sim.config.SimulationConfig.tissues_in_niftis"><code class="docutils literal notranslate"><span class="pre">SimulationConfig.tissues_in_niftis</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#tit.sim.config.SimulationConfig.open_in_gmsh"><code class="docutils literal notranslate"><span class="pre">SimulationConfig.open_in_gmsh</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#tit.sim.config.SimulationConfig.parallel"><code class="docutils literal notranslate"><span class="pre">SimulationConfig.parallel</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#tit.sim.config.SimulationConfig.__post_init__"><code class="docutils literal notranslate"><span class="pre">SimulationConfig.__post_init__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#tit.sim.config.SimulationConfig.__init__"><code class="docutils literal notranslate"><span class="pre">SimulationConfig.__init__()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#module-tit.sim.session_builder">Session Builder</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#tit.sim.session_builder.SessionBuilder"><code class="docutils literal notranslate"><span class="pre">SessionBuilder</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#tit.sim.session_builder.SessionBuilder.__init__"><code class="docutils literal notranslate"><span class="pre">SessionBuilder.__init__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#tit.sim.session_builder.SessionBuilder.build_session"><code class="docutils literal notranslate"><span class="pre">SessionBuilder.build_session()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#module-tit.sim.post_processor">Post-Processing</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#tit.sim.post_processor.PostProcessor"><code class="docutils literal notranslate"><span class="pre">PostProcessor</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#tit.sim.post_processor.PostProcessor.__init__"><code class="docutils literal notranslate"><span class="pre">PostProcessor.__init__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#tit.sim.post_processor.PostProcessor.process_ti_results"><code class="docutils literal notranslate"><span class="pre">PostProcessor.process_ti_results()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#tit.sim.post_processor.PostProcessor.process_mti_results"><code class="docutils literal notranslate"><span class="pre">PostProcessor.process_mti_results()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#module-tit.sim.montage_loader">Montage Loading</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#tit.sim.montage_loader.load_montage_file"><code class="docutils literal notranslate"><span class="pre">load_montage_file()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#tit.sim.montage_loader.list_montage_names"><code class="docutils literal notranslate"><span class="pre">list_montage_names()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#tit.sim.montage_loader.add_montage"><code class="docutils literal notranslate"><span class="pre">add_montage()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#tit.sim.montage_loader.load_flex_montages"><code class="docutils literal notranslate"><span class="pre">load_flex_montages()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#tit.sim.montage_loader.parse_flex_montage"><code class="docutils literal notranslate"><span class="pre">parse_flex_montage()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#tit.sim.montage_loader.load_montages"><code class="docutils literal notranslate"><span class="pre">load_montages()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#module-tit.sim.utils">Utilities</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#tit.sim.utils.montage_config_dir"><code class="docutils literal notranslate"><span class="pre">montage_config_dir()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#tit.sim.utils.montage_list_path"><code class="docutils literal notranslate"><span class="pre">montage_list_path()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#tit.sim.utils.ensure_montage_file"><code class="docutils literal notranslate"><span class="pre">ensure_montage_file()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#tit.sim.utils.load_montage_data"><code class="docutils literal notranslate"><span class="pre">load_montage_data()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#tit.sim.utils.save_montage_data"><code class="docutils literal notranslate"><span class="pre">save_montage_data()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#tit.sim.utils.ensure_eeg_net_entry"><code class="docutils literal notranslate"><span class="pre">ensure_eeg_net_entry()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#tit.sim.utils.upsert_montage"><code class="docutils literal notranslate"><span class="pre">upsert_montage()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#tit.sim.utils.list_montage_names"><code class="docutils literal notranslate"><span class="pre">list_montage_names()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Analysis</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../analyzer/index.html">Analysis Module (<code class="docutils literal notranslate"><span class="pre">tit.analyzer</span></code>)</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../analyzer/index.html#module-tit.analyzer.mesh_analyzer">Mesh Analyzer</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../analyzer/index.html#tit.analyzer.mesh_analyzer.MeshAnalyzer"><code class="docutils literal notranslate"><span class="pre">MeshAnalyzer</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../analyzer/index.html#tit.analyzer.mesh_analyzer.MeshAnalyzer.__init__"><code class="docutils literal notranslate"><span class="pre">MeshAnalyzer.__init__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../analyzer/index.html#tit.analyzer.mesh_analyzer.MeshAnalyzer.__del__"><code class="docutils literal notranslate"><span class="pre">MeshAnalyzer.__del__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../analyzer/index.html#tit.analyzer.mesh_analyzer.MeshAnalyzer.analyze_whole_head"><code class="docutils literal notranslate"><span class="pre">MeshAnalyzer.analyze_whole_head()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../analyzer/index.html#tit.analyzer.mesh_analyzer.MeshAnalyzer.analyze_sphere"><code class="docutils literal notranslate"><span class="pre">MeshAnalyzer.analyze_sphere()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../analyzer/index.html#tit.analyzer.mesh_analyzer.MeshAnalyzer.analyze_cortex"><code class="docutils literal notranslate"><span class="pre">MeshAnalyzer.analyze_cortex()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../analyzer/index.html#tit.analyzer.mesh_analyzer.MeshAnalyzer.get_grey_matter_statistics"><code class="docutils literal notranslate"><span class="pre">MeshAnalyzer.get_grey_matter_statistics()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../analyzer/index.html#module-tit.analyzer.voxel_analyzer">Voxel Analyzer</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../analyzer/index.html#tit.analyzer.voxel_analyzer.VoxelAnalyzer"><code class="docutils literal notranslate"><span class="pre">VoxelAnalyzer</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../analyzer/index.html#tit.analyzer.voxel_analyzer.VoxelAnalyzer.field_nifti"><code class="docutils literal notranslate"><span class="pre">VoxelAnalyzer.field_nifti</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../analyzer/index.html#tit.analyzer.voxel_analyzer.VoxelAnalyzer.subject_dir"><code class="docutils literal notranslate"><span class="pre">VoxelAnalyzer.subject_dir</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../analyzer/index.html#tit.analyzer.voxel_analyzer.VoxelAnalyzer.output_dir"><code class="docutils literal notranslate"><span class="pre">VoxelAnalyzer.output_dir</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../analyzer/index.html#tit.analyzer.voxel_analyzer.VoxelAnalyzer.visualizer"><code class="docutils literal notranslate"><span class="pre">VoxelAnalyzer.visualizer</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../analyzer/index.html#tit.analyzer.voxel_analyzer.VoxelAnalyzer.__init__"><code class="docutils literal notranslate"><span class="pre">VoxelAnalyzer.__init__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../analyzer/index.html#tit.analyzer.voxel_analyzer.VoxelAnalyzer.analyze_whole_head"><code class="docutils literal notranslate"><span class="pre">VoxelAnalyzer.analyze_whole_head()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../analyzer/index.html#tit.analyzer.voxel_analyzer.VoxelAnalyzer.analyze_sphere"><code class="docutils literal notranslate"><span class="pre">VoxelAnalyzer.analyze_sphere()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../analyzer/index.html#tit.analyzer.voxel_analyzer.VoxelAnalyzer.resample_to_match"><code class="docutils literal notranslate"><span class="pre">VoxelAnalyzer.resample_to_match()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../analyzer/index.html#tit.analyzer.voxel_analyzer.VoxelAnalyzer.analyze_cortex"><code class="docutils literal notranslate"><span class="pre">VoxelAnalyzer.analyze_cortex()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../analyzer/index.html#tit.analyzer.voxel_analyzer.VoxelAnalyzer.get_atlas_regions"><code class="docutils literal notranslate"><span class="pre">VoxelAnalyzer.get_atlas_regions()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../analyzer/index.html#tit.analyzer.voxel_analyzer.VoxelAnalyzer.load_brain_image"><code class="docutils literal notranslate"><span class="pre">VoxelAnalyzer.load_brain_image()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../analyzer/index.html#tit.analyzer.voxel_analyzer.VoxelAnalyzer.find_region"><code class="docutils literal notranslate"><span class="pre">VoxelAnalyzer.find_region()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../analyzer/index.html#tit.analyzer.voxel_analyzer.VoxelAnalyzer.get_grey_matter_statistics"><code class="docutils literal notranslate"><span class="pre">VoxelAnalyzer.get_grey_matter_statistics()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../analyzer/index.html#module-tit.analyzer.group_analyzer">Group Analyzer</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../analyzer/index.html#tit.analyzer.group_analyzer.format_duration"><code class="docutils literal notranslate"><span class="pre">format_duration()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../analyzer/index.html#tit.analyzer.group_analyzer.log_group_analysis_start"><code class="docutils literal notranslate"><span class="pre">log_group_analysis_start()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../analyzer/index.html#tit.analyzer.group_analyzer.log_group_analysis_complete"><code class="docutils literal notranslate"><span class="pre">log_group_analysis_complete()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../analyzer/index.html#tit.analyzer.group_analyzer.log_group_subject_status"><code class="docutils literal notranslate"><span class="pre">log_group_subject_status()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../analyzer/index.html#tit.analyzer.group_analyzer.create_group_output_directory"><code class="docutils literal notranslate"><span class="pre">create_group_output_directory()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../analyzer/index.html#tit.analyzer.group_analyzer.setup_parser"><code class="docutils literal notranslate"><span class="pre">setup_parser()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../analyzer/index.html#tit.analyzer.group_analyzer.validate_args"><code class="docutils literal notranslate"><span class="pre">validate_args()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../analyzer/index.html#tit.analyzer.group_analyzer.compute_subject_output_dir"><code class="docutils literal notranslate"><span class="pre">compute_subject_output_dir()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../analyzer/index.html#tit.analyzer.group_analyzer.build_main_analyzer_command"><code class="docutils literal notranslate"><span class="pre">build_main_analyzer_command()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../analyzer/index.html#tit.analyzer.group_analyzer.run_subject_analysis"><code class="docutils literal notranslate"><span class="pre">run_subject_analysis()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../analyzer/index.html#tit.analyzer.group_analyzer.collect_analysis_paths"><code class="docutils literal notranslate"><span class="pre">collect_analysis_paths()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../analyzer/index.html#tit.analyzer.group_analyzer.run_comprehensive_group_analysis"><code class="docutils literal notranslate"><span class="pre">run_comprehensive_group_analysis()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../analyzer/index.html#tit.analyzer.group_analyzer.determine_group_subfolder_name"><code class="docutils literal notranslate"><span class="pre">determine_group_subfolder_name()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../analyzer/index.html#tit.analyzer.group_analyzer.main"><code class="docutils literal notranslate"><span class="pre">main()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../analyzer/index.html#module-tit.analyzer.visualizer">Visualizer</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../analyzer/index.html#tit.analyzer.visualizer.BaseVisualizer"><code class="docutils literal notranslate"><span class="pre">BaseVisualizer</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../analyzer/index.html#tit.analyzer.visualizer.BaseVisualizer.output_dir"><code class="docutils literal notranslate"><span class="pre">BaseVisualizer.output_dir</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../analyzer/index.html#tit.analyzer.visualizer.BaseVisualizer.__init__"><code class="docutils literal notranslate"><span class="pre">BaseVisualizer.__init__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../analyzer/index.html#tit.analyzer.visualizer.BaseVisualizer.save_results_to_csv"><code class="docutils literal notranslate"><span class="pre">BaseVisualizer.save_results_to_csv()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../analyzer/index.html#tit.analyzer.visualizer.BaseVisualizer.save_extra_info_to_csv"><code class="docutils literal notranslate"><span class="pre">BaseVisualizer.save_extra_info_to_csv()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../analyzer/index.html#tit.analyzer.visualizer.BaseVisualizer.save_whole_head_results_to_csv"><code class="docutils literal notranslate"><span class="pre">BaseVisualizer.save_whole_head_results_to_csv()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../analyzer/index.html#tit.analyzer.visualizer.BaseVisualizer.generate_focality_histogram"><code class="docutils literal notranslate"><span class="pre">BaseVisualizer.generate_focality_histogram()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../analyzer/index.html#tit.analyzer.visualizer.Visualizer"><code class="docutils literal notranslate"><span class="pre">Visualizer</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../analyzer/index.html#tit.analyzer.visualizer.Visualizer.__init__"><code class="docutils literal notranslate"><span class="pre">Visualizer.__init__()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../analyzer/index.html#tit.analyzer.visualizer.MeshVisualizer"><code class="docutils literal notranslate"><span class="pre">MeshVisualizer</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../analyzer/index.html#tit.analyzer.visualizer.MeshVisualizer.__init__"><code class="docutils literal notranslate"><span class="pre">MeshVisualizer.__init__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../analyzer/index.html#tit.analyzer.visualizer.MeshVisualizer.visualize_cortex_roi"><code class="docutils literal notranslate"><span class="pre">MeshVisualizer.visualize_cortex_roi()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../analyzer/index.html#tit.analyzer.visualizer.MeshVisualizer.visualize_spherical_roi"><code class="docutils literal notranslate"><span class="pre">MeshVisualizer.visualize_spherical_roi()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../analyzer/index.html#tit.analyzer.visualizer.VoxelVisualizer"><code class="docutils literal notranslate"><span class="pre">VoxelVisualizer</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../analyzer/index.html#tit.analyzer.visualizer.VoxelVisualizer.__init__"><code class="docutils literal notranslate"><span class="pre">VoxelVisualizer.__init__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../analyzer/index.html#tit.analyzer.visualizer.VoxelVisualizer.create_cortex_nifti"><code class="docutils literal notranslate"><span class="pre">VoxelVisualizer.create_cortex_nifti()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../analyzer/index.html#tit.analyzer.visualizer.VoxelVisualizer.find_region"><code class="docutils literal notranslate"><span class="pre">VoxelVisualizer.find_region()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../analyzer/index.html#module-tit.analyzer.main_analyzer">Main Analyzer</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../analyzer/index.html#tit.analyzer.main_analyzer.stdout_reconfigure"><code class="docutils literal notranslate"><span class="pre">stdout_reconfigure()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../analyzer/index.html#tit.analyzer.main_analyzer.stderr_reconfigure"><code class="docutils literal notranslate"><span class="pre">stderr_reconfigure()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../analyzer/index.html#tit.analyzer.main_analyzer.flush_output"><code class="docutils literal notranslate"><span class="pre">flush_output()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../analyzer/index.html#tit.analyzer.main_analyzer.format_duration"><code class="docutils literal notranslate"><span class="pre">format_duration()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../analyzer/index.html#tit.analyzer.main_analyzer.log_analysis_start"><code class="docutils literal notranslate"><span class="pre">log_analysis_start()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../analyzer/index.html#tit.analyzer.main_analyzer.log_analysis_complete"><code class="docutils literal notranslate"><span class="pre">log_analysis_complete()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../analyzer/index.html#tit.analyzer.main_analyzer.log_analysis_failed"><code class="docutils literal notranslate"><span class="pre">log_analysis_failed()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../analyzer/index.html#tit.analyzer.main_analyzer.log_analysis_step_start"><code class="docutils literal notranslate"><span class="pre">log_analysis_step_start()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../analyzer/index.html#tit.analyzer.main_analyzer.log_analysis_step_complete"><code class="docutils literal notranslate"><span class="pre">log_analysis_step_complete()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../analyzer/index.html#tit.analyzer.main_analyzer.log_analysis_step_failed"><code class="docutils literal notranslate"><span class="pre">log_analysis_step_failed()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../analyzer/index.html#tit.analyzer.main_analyzer.create_roi_description"><code class="docutils literal notranslate"><span class="pre">create_roi_description()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../analyzer/index.html#tit.analyzer.main_analyzer.validate_file_extension"><code class="docutils literal notranslate"><span class="pre">validate_file_extension()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../analyzer/index.html#tit.analyzer.main_analyzer.validate_coordinates"><code class="docutils literal notranslate"><span class="pre">validate_coordinates()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../analyzer/index.html#tit.analyzer.main_analyzer.validate_radius"><code class="docutils literal notranslate"><span class="pre">validate_radius()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../analyzer/index.html#tit.analyzer.main_analyzer.construct_mesh_field_path"><code class="docutils literal notranslate"><span class="pre">construct_mesh_field_path()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../analyzer/index.html#tit.analyzer.main_analyzer.setup_parser"><code class="docutils literal notranslate"><span class="pre">setup_parser()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../analyzer/index.html#tit.analyzer.main_analyzer.validate_args"><code class="docutils literal notranslate"><span class="pre">validate_args()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../analyzer/index.html#tit.analyzer.main_analyzer.main"><code class="docutils literal notranslate"><span class="pre">main()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../analyzer/index.html#tit.analyzer.main_analyzer.print_stat_if_exists"><code class="docutils literal notranslate"><span class="pre">print_stat_if_exists()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../analyzer/index.html#module-tit.analyzer.field_selector">Field Selector</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../analyzer/index.html#tit.analyzer.field_selector.select_field_file"><code class="docutils literal notranslate"><span class="pre">select_field_file()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Optimization</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../opt/index.html">Optimization Module (<code class="docutils literal notranslate"><span class="pre">tit.opt</span></code>)</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../opt/index.html#leadfield-generator">Leadfield Generator</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../opt/index.html#flex-search">Flex-Search</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../opt/index.html#ex-search">Ex-Search</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Statistics</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../stats/index.html">Statistics Module (<code class="docutils literal notranslate"><span class="pre">tit.stats</span></code>)</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../stats/index.html#module-tit.stats.permutation_analysis">Permutation Analysis</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../stats/index.html#tit.stats.permutation_analysis.load_subject_data"><code class="docutils literal notranslate"><span class="pre">load_subject_data()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../stats/index.html#tit.stats.permutation_analysis.load_subject_data_group_comparison"><code class="docutils literal notranslate"><span class="pre">load_subject_data_group_comparison()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../stats/index.html#tit.stats.permutation_analysis.load_subject_data_correlation"><code class="docutils literal notranslate"><span class="pre">load_subject_data_correlation()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../stats/index.html#tit.stats.permutation_analysis.prepare_config_from_csv"><code class="docutils literal notranslate"><span class="pre">prepare_config_from_csv()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../stats/index.html#tit.stats.permutation_analysis.setup_logging"><code class="docutils literal notranslate"><span class="pre">setup_logging()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../stats/index.html#tit.stats.permutation_analysis.run_analysis"><code class="docutils literal notranslate"><span class="pre">run_analysis()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../stats/index.html#tit.stats.permutation_analysis.main"><code class="docutils literal notranslate"><span class="pre">main()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../stats/index.html#cluster-analysis">Cluster Analysis</a></li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">TI-Toolbox</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Simulation Module (<code class="docutils literal notranslate"><span class="pre">tit.sim</span></code>)</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/sim/index.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="simulation-module-tit-sim">
+<h1>Simulation Module (<code class="docutils literal notranslate"><span class="pre">tit.sim</span></code>)<a class="headerlink" href="#simulation-module-tit-sim" title="Link to this heading"></a></h1>
+<p>The simulation package handles TI and mTI electromagnetic field simulations.</p>
+<nav class="contents local" id="contents">
+<p class="topic-title">Contents</p>
+<ul class="simple">
+<li><p><a class="reference internal" href="#module-tit.sim.simulator" id="id1">Main Simulator</a></p></li>
+<li><p><a class="reference internal" href="#module-tit.sim.config" id="id2">Configuration Classes</a></p></li>
+<li><p><a class="reference internal" href="#module-tit.sim.session_builder" id="id3">Session Builder</a></p></li>
+<li><p><a class="reference internal" href="#module-tit.sim.post_processor" id="id4">Post-Processing</a></p></li>
+<li><p><a class="reference internal" href="#module-tit.sim.montage_loader" id="id5">Montage Loading</a></p></li>
+<li><p><a class="reference internal" href="#module-tit.sim.utils" id="id6">Utilities</a></p></li>
+</ul>
+</nav>
+<section id="module-tit.sim.simulator">
+<span id="main-simulator"></span><h2><a class="toc-backref" href="#id1" role="doc-backlink">Main Simulator</a><a class="headerlink" href="#module-tit.sim.simulator" title="Link to this heading"></a></h2>
+<p>Unified TI/mTI simulation runner.</p>
+<p>This module provides a single entry point for running both TI (2-pair) and mTI (4-pair)
+simulations. The simulation type is automatically detected based on montage configuration.</p>
+<p>This refactored module includes all features from the original pipeline:
+- Montage visualization
+- SimNIBS simulation
+- Field extraction (GM/WM)
+- NIfTI transformation
+- T1 to MNI conversion
+- File organization</p>
+<p>Parallel execution support:
+- Multiple montages can be simulated in parallel
+- Worker count is configurable (default: half of CPU cores)</p>
+<dl class="py function">
+<dt class="sig sig-object py" id="tit.sim.simulator.setup_montage_directories">
+<span class="sig-prename descclassname"><span class="pre">tit.sim.simulator.</span></span><span class="sig-name descname"><span class="pre">setup_montage_directories</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">montage_dir</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">simulation_mode</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#tit.sim.config.SimulationMode" title="tit.sim.config.SimulationMode"><span class="pre">SimulationMode</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)"><span class="pre">dict</span></a></span></span><a class="reference internal" href="../_modules/tit/sim/simulator.html#setup_montage_directories"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#tit.sim.simulator.setup_montage_directories" title="Link to this definition"></a></dt>
+<dd><p>Create the complete directory structure for a montage simulation.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>montage_dir</strong> – Base montage directory</p></li>
+<li><p><strong>simulation_mode</strong> – TI or MTI simulation mode</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Dictionary of created directory paths</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="tit.sim.simulator.create_simulation_config_file">
+<span class="sig-prename descclassname"><span class="pre">tit.sim.simulator.</span></span><span class="sig-name descname"><span class="pre">create_simulation_config_file</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">config</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#tit.sim.config.SimulationConfig" title="tit.sim.config.SimulationConfig"><span class="pre">SimulationConfig</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">montage</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#tit.sim.config.MontageConfig" title="tit.sim.config.MontageConfig"><span class="pre">MontageConfig</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">documentation_dir</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">logger</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></span><a class="reference internal" href="../_modules/tit/sim/simulator.html#create_simulation_config_file"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#tit.sim.simulator.create_simulation_config_file" title="Link to this definition"></a></dt>
+<dd><p>Create a config.json file with all simulation parameters.</p>
+<p>This file is used by visualization tools to auto-populate parameters
+without requiring manual input.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>config</strong> – Simulation configuration</p></li>
+<li><p><strong>montage</strong> – Montage configuration</p></li>
+<li><p><strong>documentation_dir</strong> – Documentation directory path</p></li>
+<li><p><strong>logger</strong> – Logger instance</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Path to created config.json file</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="tit.sim.simulator.run_montage_visualization">
+<span class="sig-prename descclassname"><span class="pre">tit.sim.simulator.</span></span><span class="sig-name descname"><span class="pre">run_montage_visualization</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">montage_name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">simulation_mode</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#tit.sim.config.SimulationMode" title="tit.sim.config.SimulationMode"><span class="pre">SimulationMode</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">eeg_net</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">output_dir</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">project_dir</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">logger</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">electrode_pairs</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.14)"><span class="pre">List</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></span></span><a class="reference internal" href="../_modules/tit/sim/simulator.html#run_montage_visualization"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#tit.sim.simulator.run_montage_visualization" title="Link to this definition"></a></dt>
+<dd><p>Run montage visualization using visualize-montage.sh.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>montage_name</strong> – Name of the montage</p></li>
+<li><p><strong>simulation_mode</strong> – TI or MTI mode</p></li>
+<li><p><strong>eeg_net</strong> – EEG net name</p></li>
+<li><p><strong>output_dir</strong> – Output directory for montage images</p></li>
+<li><p><strong>project_dir</strong> – Project directory path</p></li>
+<li><p><strong>logger</strong> – Logger instance</p></li>
+<li><p><strong>electrode_pairs</strong> – Optional list of electrode pairs for direct visualization</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>True if successful, False otherwise</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="tit.sim.simulator.run_simulation">
+<span class="sig-prename descclassname"><span class="pre">tit.sim.simulator.</span></span><span class="sig-name descname"><span class="pre">run_simulation</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">config</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#tit.sim.config.SimulationConfig" title="tit.sim.config.SimulationConfig"><span class="pre">SimulationConfig</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">montages</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.14)"><span class="pre">List</span></a><span class="p"><span class="pre">[</span></span><a class="reference internal" href="#tit.sim.config.MontageConfig" title="tit.sim.config.MontageConfig"><span class="pre">MontageConfig</span></a><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">logger</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">progress_callback</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Callable" title="(in Python v3.14)"><span class="pre">Callable</span></a><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.14)"><span class="pre">List</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)"><span class="pre">dict</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../_modules/tit/sim/simulator.html#run_simulation"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#tit.sim.simulator.run_simulation" title="Link to this definition"></a></dt>
+<dd><p>Run TI/mTI simulations for given montages.</p>
+<p>Supports both sequential and parallel execution based on config.parallel settings.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>config</strong> – Simulation configuration</p></li>
+<li><p><strong>montages</strong> – List of montage configurations</p></li>
+<li><p><strong>logger</strong> – Optional logger instance</p></li>
+<li><p><strong>progress_callback</strong> – Optional callback for progress updates (current, total, montage_name)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>List of dictionaries with simulation results</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="tit.sim.simulator.main">
+<span class="sig-prename descclassname"><span class="pre">tit.sim.simulator.</span></span><span class="sig-name descname"><span class="pre">main</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/tit/sim/simulator.html#main"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#tit.sim.simulator.main" title="Link to this definition"></a></dt>
+<dd><p>Command-line entry point for the simulator.</p>
+<p>Parses command-line arguments, loads montages, runs simulations, and generates
+a completion report. This function is called when the module is executed directly
+or via the CLI wrapper script.</p>
+<section id="command-line-arguments">
+<h3>Command-line Arguments<a class="headerlink" href="#command-line-arguments" title="Link to this heading"></a></h3>
+<ol class="arabic simple">
+<li><dl class="simple">
+<dt>subject_id<span class="classifier">str</span></dt><dd><p>Subject identifier (e.g., ‘001’)</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>conductivity_str<span class="classifier">str</span></dt><dd><p>Conductivity type (‘scalar’, ‘vn’, ‘dir’, ‘mc’)</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>project_dir<span class="classifier">str</span></dt><dd><p>Project directory path</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>simulation_dir<span class="classifier">str</span></dt><dd><p>Simulation output directory (legacy, not used)</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>mode<span class="classifier">str</span></dt><dd><p>Simulation mode (legacy, not used - auto-detected)</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>intensity_str<span class="classifier">str</span></dt><dd><p>Current intensity string (e.g., ‘2.0’ or ‘2.0,1.5’ or ‘2.0,1.5,1.0,0.5’)</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>electrode_shape<span class="classifier">str</span></dt><dd><p>Electrode shape (‘ellipse’ or ‘rect’)</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>dimensions<span class="classifier">str</span></dt><dd><p>Electrode dimensions as ‘x,y’ in mm (e.g., ‘8.0,8.0’)</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>thickness<span class="classifier">float</span></dt><dd><p>Gel thickness in mm</p>
+</dd>
+</dl>
+</li>
+<li><p>eeg_net : str
+EEG cap name (e.g., ‘EGI_template.csv’)</p></li>
+</ol>
+<dl class="simple">
+<dt>11+. montage_names<span class="classifier">str</span></dt><dd><p>One or more montage names to simulate</p>
+</dd>
+</dl>
+</section>
+<section id="exit-codes">
+<h3>Exit Codes<a class="headerlink" href="#exit-codes" title="Link to this heading"></a></h3>
+<p>0 : All simulations completed successfully
+1 : One or more simulations failed</p>
+</section>
+<section id="output">
+<h3>Output<a class="headerlink" href="#output" title="Link to this heading"></a></h3>
+<p>Creates simulation_completion_&lt;subject_id&gt;_&lt;timestamp&gt;.json in derivatives/temp/
+with detailed results of all simulations.</p>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">python</span> <span class="n">simulator</span><span class="o">.</span><span class="n">py</span> <span class="mi">001</span> <span class="n">scalar</span> <span class="o">/</span><span class="n">path</span><span class="o">/</span><span class="n">to</span><span class="o">/</span><span class="n">project</span> <span class="o">/</span><span class="n">tmp</span> <span class="n">TI</span> <span class="mf">2.0</span> <span class="n">ellipse</span> <span class="mf">8.0</span><span class="p">,</span><span class="mf">8.0</span> <span class="mf">4.0</span> <span class="n">EGI_template</span><span class="o">.</span><span class="n">csv</span> <span class="n">montage1</span> <span class="n">montage2</span>
+</pre></div>
+</div>
+</section>
+</dd></dl>
+
+</section>
+<section id="module-tit.sim.config">
+<span id="configuration-classes"></span><h2><a class="toc-backref" href="#id2" role="doc-backlink">Configuration Classes</a><a class="headerlink" href="#module-tit.sim.config" title="Link to this heading"></a></h2>
+<p>Configuration dataclasses for TI simulations.</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="tit.sim.config.SimulationMode">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">tit.sim.config.</span></span><span class="sig-name descname"><span class="pre">SimulationMode</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">value</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/tit/sim/config.html#SimulationMode"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#tit.sim.config.SimulationMode" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/enum.html#enum.Enum" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Enum</span></code></a></p>
+<p>Simulation mode enumeration.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="tit.sim.config.SimulationMode.TI">
+<span class="sig-name descname"><span class="pre">TI</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'TI'</span></em><a class="headerlink" href="#tit.sim.config.SimulationMode.TI" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="tit.sim.config.SimulationMode.MTI">
+<span class="sig-name descname"><span class="pre">MTI</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'mTI'</span></em><a class="headerlink" href="#tit.sim.config.SimulationMode.MTI" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="tit.sim.config.ConductivityType">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">tit.sim.config.</span></span><span class="sig-name descname"><span class="pre">ConductivityType</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">value</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/tit/sim/config.html#ConductivityType"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#tit.sim.config.ConductivityType" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/enum.html#enum.Enum" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Enum</span></code></a></p>
+<p>SimNIBS conductivity type enumeration.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="tit.sim.config.ConductivityType.SCALAR">
+<span class="sig-name descname"><span class="pre">SCALAR</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'scalar'</span></em><a class="headerlink" href="#tit.sim.config.ConductivityType.SCALAR" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="tit.sim.config.ConductivityType.VN">
+<span class="sig-name descname"><span class="pre">VN</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'vn'</span></em><a class="headerlink" href="#tit.sim.config.ConductivityType.VN" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="tit.sim.config.ConductivityType.DIR">
+<span class="sig-name descname"><span class="pre">DIR</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'dir'</span></em><a class="headerlink" href="#tit.sim.config.ConductivityType.DIR" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="tit.sim.config.ConductivityType.MC">
+<span class="sig-name descname"><span class="pre">MC</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'mc'</span></em><a class="headerlink" href="#tit.sim.config.ConductivityType.MC" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="tit.sim.config.ElectrodeConfig">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">tit.sim.config.</span></span><span class="sig-name descname"><span class="pre">ElectrodeConfig</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">shape:</span> <span class="pre">str</span> <span class="pre">=</span> <span class="pre">'ellipse'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dimensions:</span> <span class="pre">~typing.List[float]</span> <span class="pre">=</span> <span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">thickness:</span> <span class="pre">float</span> <span class="pre">=</span> <span class="pre">4.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sponge_thickness:</span> <span class="pre">float</span> <span class="pre">=</span> <span class="pre">2.0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/tit/sim/config.html#ElectrodeConfig"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#tit.sim.config.ElectrodeConfig" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<p>Configuration for electrode properties.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="tit.sim.config.ElectrodeConfig.shape">
+<span class="sig-name descname"><span class="pre">shape</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'ellipse'</span></em><a class="headerlink" href="#tit.sim.config.ElectrodeConfig.shape" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="tit.sim.config.ElectrodeConfig.dimensions">
+<span class="sig-name descname"><span class="pre">dimensions</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.14)"><span class="pre">List</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#tit.sim.config.ElectrodeConfig.dimensions" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="tit.sim.config.ElectrodeConfig.thickness">
+<span class="sig-name descname"><span class="pre">thickness</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">4.0</span></em><a class="headerlink" href="#tit.sim.config.ElectrodeConfig.thickness" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="tit.sim.config.ElectrodeConfig.sponge_thickness">
+<span class="sig-name descname"><span class="pre">sponge_thickness</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">2.0</span></em><a class="headerlink" href="#tit.sim.config.ElectrodeConfig.sponge_thickness" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="tit.sim.config.ElectrodeConfig.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">shape:</span> <span class="pre">str</span> <span class="pre">=</span> <span class="pre">'ellipse'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dimensions:</span> <span class="pre">~typing.List[float]</span> <span class="pre">=</span> <span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">thickness:</span> <span class="pre">float</span> <span class="pre">=</span> <span class="pre">4.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sponge_thickness:</span> <span class="pre">float</span> <span class="pre">=</span> <span class="pre">2.0</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span></span><a class="headerlink" href="#tit.sim.config.ElectrodeConfig.__init__" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="tit.sim.config.IntensityConfig">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">tit.sim.config.</span></span><span class="sig-name descname"><span class="pre">IntensityConfig</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pair1</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pair2</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pair3</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pair4</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1.0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/tit/sim/config.html#IntensityConfig"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#tit.sim.config.IntensityConfig" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<p>Configuration for current intensities in TI simulations.</p>
+<p>Each pair requires one intensity value (in mA). SimNIBS automatically
+applies equal and opposite currents to the two electrodes in each pair.
+For example: pair1=2.0 means electrode1=+2.0mA and electrode2=-2.0mA</p>
+<p>TI mode (2 pairs): Uses pair1 and pair2
+mTI mode (4 pairs): Uses pair1, pair2, pair3, and pair4</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="tit.sim.config.IntensityConfig.pair1">
+<span class="sig-name descname"><span class="pre">pair1</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">1.0</span></em><a class="headerlink" href="#tit.sim.config.IntensityConfig.pair1" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="tit.sim.config.IntensityConfig.pair2">
+<span class="sig-name descname"><span class="pre">pair2</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">1.0</span></em><a class="headerlink" href="#tit.sim.config.IntensityConfig.pair2" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="tit.sim.config.IntensityConfig.pair3">
+<span class="sig-name descname"><span class="pre">pair3</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">1.0</span></em><a class="headerlink" href="#tit.sim.config.IntensityConfig.pair3" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="tit.sim.config.IntensityConfig.pair4">
+<span class="sig-name descname"><span class="pre">pair4</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">1.0</span></em><a class="headerlink" href="#tit.sim.config.IntensityConfig.pair4" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="tit.sim.config.IntensityConfig.from_string">
+<em class="property"><span class="pre">classmethod</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">from_string</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">intensity_str</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="#tit.sim.config.IntensityConfig" title="tit.sim.config.IntensityConfig"><span class="pre">IntensityConfig</span></a></span></span><a class="reference internal" href="../_modules/tit/sim/config.html#IntensityConfig.from_string"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#tit.sim.config.IntensityConfig.from_string" title="Link to this definition"></a></dt>
+<dd><p>Parse intensity from string format.</p>
+<p>Formats:
+- “2.0” -&gt; all pairs: 2.0 mA
+- “2.0,1.5” -&gt; pair1: 2.0, pair2: 1.5 (both set to 1.0 for pair3/pair4)
+- “2.0,1.5,1.0,0.5” -&gt; pair1: 2.0, pair2: 1.5, pair3: 1.0, pair4: 0.5</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>intensity_str</strong> – Comma-separated intensity values</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>IntensityConfig object</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="tit.sim.config.IntensityConfig.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pair1</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pair2</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pair3</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pair4</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1.0</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span></span><a class="headerlink" href="#tit.sim.config.IntensityConfig.__init__" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="tit.sim.config.MontageConfig">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">tit.sim.config.</span></span><span class="sig-name descname"><span class="pre">MontageConfig</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">electrode_pairs</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.14)"><span class="pre">List</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Tuple" title="(in Python v3.14)"><span class="pre">Tuple</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.14)"><span class="pre">List</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.14)"><span class="pre">List</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">is_xyz</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">eeg_net</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/tit/sim/config.html#MontageConfig"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#tit.sim.config.MontageConfig" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<p>Configuration for a single montage.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="tit.sim.config.MontageConfig.name">
+<span class="sig-name descname"><span class="pre">name</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></em><a class="headerlink" href="#tit.sim.config.MontageConfig.name" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="tit.sim.config.MontageConfig.electrode_pairs">
+<span class="sig-name descname"><span class="pre">electrode_pairs</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.14)"><span class="pre">List</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Tuple" title="(in Python v3.14)"><span class="pre">Tuple</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.14)"><span class="pre">List</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.14)"><span class="pre">List</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#tit.sim.config.MontageConfig.electrode_pairs" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="tit.sim.config.MontageConfig.is_xyz">
+<span class="sig-name descname"><span class="pre">is_xyz</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">False</span></em><a class="headerlink" href="#tit.sim.config.MontageConfig.is_xyz" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="tit.sim.config.MontageConfig.eeg_net">
+<span class="sig-name descname"><span class="pre">eeg_net</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#tit.sim.config.MontageConfig.eeg_net" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="tit.sim.config.MontageConfig.simulation_mode">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">simulation_mode</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="#tit.sim.config.SimulationMode" title="tit.sim.config.SimulationMode"><span class="pre">SimulationMode</span></a></em><a class="headerlink" href="#tit.sim.config.MontageConfig.simulation_mode" title="Link to this definition"></a></dt>
+<dd><p>Determine simulation mode based on number of electrode pairs.</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="tit.sim.config.MontageConfig.num_pairs">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">num_pairs</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></em><a class="headerlink" href="#tit.sim.config.MontageConfig.num_pairs" title="Link to this definition"></a></dt>
+<dd><p>Get number of electrode pairs.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="tit.sim.config.MontageConfig.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">electrode_pairs</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.14)"><span class="pre">List</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Tuple" title="(in Python v3.14)"><span class="pre">Tuple</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.14)"><span class="pre">List</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.14)"><span class="pre">List</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">is_xyz</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">eeg_net</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span></span><a class="headerlink" href="#tit.sim.config.MontageConfig.__init__" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="tit.sim.config.ParallelConfig">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">tit.sim.config.</span></span><span class="sig-name descname"><span class="pre">ParallelConfig</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">enabled</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_workers</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/tit/sim/config.html#ParallelConfig"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#tit.sim.config.ParallelConfig" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<p>Configuration for parallel simulation execution.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="tit.sim.config.ParallelConfig.enabled">
+<span class="sig-name descname"><span class="pre">enabled</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">False</span></em><a class="headerlink" href="#tit.sim.config.ParallelConfig.enabled" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="tit.sim.config.ParallelConfig.max_workers">
+<span class="sig-name descname"><span class="pre">max_workers</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0</span></em><a class="headerlink" href="#tit.sim.config.ParallelConfig.max_workers" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="tit.sim.config.ParallelConfig.__post_init__">
+<span class="sig-name descname"><span class="pre">__post_init__</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/tit/sim/config.html#ParallelConfig.__post_init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#tit.sim.config.ParallelConfig.__post_init__" title="Link to this definition"></a></dt>
+<dd><p>Set max_workers to sensible default if auto-detect.</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="tit.sim.config.ParallelConfig.effective_workers">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">effective_workers</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></em><a class="headerlink" href="#tit.sim.config.ParallelConfig.effective_workers" title="Link to this definition"></a></dt>
+<dd><p>Get the effective number of workers.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="tit.sim.config.ParallelConfig.get_memory_warning">
+<span class="sig-name descname"><span class="pre">get_memory_warning</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span></span><a class="reference internal" href="../_modules/tit/sim/config.html#ParallelConfig.get_memory_warning"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#tit.sim.config.ParallelConfig.get_memory_warning" title="Link to this definition"></a></dt>
+<dd><p>Return memory warning if parallel execution may cause issues.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="tit.sim.config.ParallelConfig.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">enabled</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_workers</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span></span><a class="headerlink" href="#tit.sim.config.ParallelConfig.__init__" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="tit.sim.config.SimulationConfig">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">tit.sim.config.</span></span><span class="sig-name descname"><span class="pre">SimulationConfig</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">subject_id:</span> <span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">project_dir:</span> <span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">conductivity_type:</span> <span class="pre">~tit.sim.config.ConductivityType</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">intensities:</span> <span class="pre">~tit.sim.config.IntensityConfig</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">electrode:</span> <span class="pre">~tit.sim.config.ElectrodeConfig</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">eeg_net:</span> <span class="pre">str</span> <span class="pre">=</span> <span class="pre">'GSN-HydroCel-185.csv'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">map_to_surf:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">map_to_vol:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">map_to_mni:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">map_to_fsavg:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tissues_in_niftis:</span> <span class="pre">str</span> <span class="pre">=</span> <span class="pre">'all'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">open_in_gmsh:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">parallel:</span> <span class="pre">~tit.sim.config.ParallelConfig</span> <span class="pre">=</span> <span class="pre">&lt;factory&gt;</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/tit/sim/config.html#SimulationConfig"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#tit.sim.config.SimulationConfig" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<p>Main configuration for TI simulation.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="tit.sim.config.SimulationConfig.subject_id">
+<span class="sig-name descname"><span class="pre">subject_id</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></em><a class="headerlink" href="#tit.sim.config.SimulationConfig.subject_id" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="tit.sim.config.SimulationConfig.project_dir">
+<span class="sig-name descname"><span class="pre">project_dir</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></em><a class="headerlink" href="#tit.sim.config.SimulationConfig.project_dir" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="tit.sim.config.SimulationConfig.conductivity_type">
+<span class="sig-name descname"><span class="pre">conductivity_type</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="#tit.sim.config.ConductivityType" title="tit.sim.config.ConductivityType"><span class="pre">ConductivityType</span></a></em><a class="headerlink" href="#tit.sim.config.SimulationConfig.conductivity_type" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="tit.sim.config.SimulationConfig.intensities">
+<span class="sig-name descname"><span class="pre">intensities</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="#tit.sim.config.IntensityConfig" title="tit.sim.config.IntensityConfig"><span class="pre">IntensityConfig</span></a></em><a class="headerlink" href="#tit.sim.config.SimulationConfig.intensities" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="tit.sim.config.SimulationConfig.electrode">
+<span class="sig-name descname"><span class="pre">electrode</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="#tit.sim.config.ElectrodeConfig" title="tit.sim.config.ElectrodeConfig"><span class="pre">ElectrodeConfig</span></a></em><a class="headerlink" href="#tit.sim.config.SimulationConfig.electrode" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="tit.sim.config.SimulationConfig.eeg_net">
+<span class="sig-name descname"><span class="pre">eeg_net</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'GSN-HydroCel-185.csv'</span></em><a class="headerlink" href="#tit.sim.config.SimulationConfig.eeg_net" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="tit.sim.config.SimulationConfig.map_to_surf">
+<span class="sig-name descname"><span class="pre">map_to_surf</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">True</span></em><a class="headerlink" href="#tit.sim.config.SimulationConfig.map_to_surf" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="tit.sim.config.SimulationConfig.map_to_vol">
+<span class="sig-name descname"><span class="pre">map_to_vol</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">True</span></em><a class="headerlink" href="#tit.sim.config.SimulationConfig.map_to_vol" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="tit.sim.config.SimulationConfig.map_to_mni">
+<span class="sig-name descname"><span class="pre">map_to_mni</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">True</span></em><a class="headerlink" href="#tit.sim.config.SimulationConfig.map_to_mni" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="tit.sim.config.SimulationConfig.map_to_fsavg">
+<span class="sig-name descname"><span class="pre">map_to_fsavg</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">False</span></em><a class="headerlink" href="#tit.sim.config.SimulationConfig.map_to_fsavg" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="tit.sim.config.SimulationConfig.tissues_in_niftis">
+<span class="sig-name descname"><span class="pre">tissues_in_niftis</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'all'</span></em><a class="headerlink" href="#tit.sim.config.SimulationConfig.tissues_in_niftis" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="tit.sim.config.SimulationConfig.open_in_gmsh">
+<span class="sig-name descname"><span class="pre">open_in_gmsh</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">False</span></em><a class="headerlink" href="#tit.sim.config.SimulationConfig.open_in_gmsh" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="tit.sim.config.SimulationConfig.parallel">
+<span class="sig-name descname"><span class="pre">parallel</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="#tit.sim.config.ParallelConfig" title="tit.sim.config.ParallelConfig"><span class="pre">ParallelConfig</span></a></em><a class="headerlink" href="#tit.sim.config.SimulationConfig.parallel" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="tit.sim.config.SimulationConfig.__post_init__">
+<span class="sig-name descname"><span class="pre">__post_init__</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/tit/sim/config.html#SimulationConfig.__post_init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#tit.sim.config.SimulationConfig.__post_init__" title="Link to this definition"></a></dt>
+<dd><p>Convert string conductivity type to enum if needed.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="tit.sim.config.SimulationConfig.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">subject_id:</span> <span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">project_dir:</span> <span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">conductivity_type:</span> <span class="pre">~tit.sim.config.ConductivityType</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">intensities:</span> <span class="pre">~tit.sim.config.IntensityConfig</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">electrode:</span> <span class="pre">~tit.sim.config.ElectrodeConfig</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">eeg_net:</span> <span class="pre">str</span> <span class="pre">=</span> <span class="pre">'GSN-HydroCel-185.csv'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">map_to_surf:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">map_to_vol:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">map_to_mni:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">map_to_fsavg:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tissues_in_niftis:</span> <span class="pre">str</span> <span class="pre">=</span> <span class="pre">'all'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">open_in_gmsh:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">parallel:</span> <span class="pre">~tit.sim.config.ParallelConfig</span> <span class="pre">=</span> <span class="pre">&lt;factory&gt;</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span></span><a class="headerlink" href="#tit.sim.config.SimulationConfig.__init__" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="module-tit.sim.session_builder">
+<span id="session-builder"></span><h2><a class="toc-backref" href="#id3" role="doc-backlink">Session Builder</a><a class="headerlink" href="#module-tit.sim.session_builder" title="Link to this heading"></a></h2>
+<p>SimNIBS session builder for TI simulations.</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="tit.sim.session_builder.SessionBuilder">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">tit.sim.session_builder.</span></span><span class="sig-name descname"><span class="pre">SessionBuilder</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">config</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#tit.sim.config.SimulationConfig" title="tit.sim.config.SimulationConfig"><span class="pre">SimulationConfig</span></a></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/tit/sim/session_builder.html#SessionBuilder"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#tit.sim.session_builder.SessionBuilder" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<p>Builder class for constructing SimNIBS SESSION objects.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="tit.sim.session_builder.SessionBuilder.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">config</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#tit.sim.config.SimulationConfig" title="tit.sim.config.SimulationConfig"><span class="pre">SimulationConfig</span></a></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/tit/sim/session_builder.html#SessionBuilder.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#tit.sim.session_builder.SessionBuilder.__init__" title="Link to this definition"></a></dt>
+<dd><p>Initialize session builder.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>config</strong> – Simulation configuration</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="tit.sim.session_builder.SessionBuilder.build_session">
+<span class="sig-name descname"><span class="pre">build_session</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">montage</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#tit.sim.config.MontageConfig" title="tit.sim.config.MontageConfig"><span class="pre">MontageConfig</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">output_dir</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">simnibs.sim_struct.SESSION</span></span></span><a class="reference internal" href="../_modules/tit/sim/session_builder.html#SessionBuilder.build_session"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#tit.sim.session_builder.SessionBuilder.build_session" title="Link to this definition"></a></dt>
+<dd><p>Build SimNIBS SESSION object for a montage.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>montage</strong> – Montage configuration</p></li>
+<li><p><strong>output_dir</strong> – Output directory for simulation results</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Configured SESSION object</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="module-tit.sim.post_processor">
+<span id="post-processing"></span><h2><a class="toc-backref" href="#id4" role="doc-backlink">Post-Processing</a><a class="headerlink" href="#module-tit.sim.post_processor" title="Link to this heading"></a></h2>
+<p>Post-processing utilities for TI simulations.</p>
+<p>This module handles all post-simulation processing including:
+- TI/mTI field calculation
+- Field extraction (GM/WM mesh creation)
+- NIfTI transformation
+- T1 to MNI conversion
+- File organization</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="tit.sim.post_processor.PostProcessor">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">tit.sim.post_processor.</span></span><span class="sig-name descname"><span class="pre">PostProcessor</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">subject_id</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">conductivity_type</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">m2m_dir</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">logger</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/tit/sim/post_processor.html#PostProcessor"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#tit.sim.post_processor.PostProcessor" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<p>Post-processor for TI simulation results.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="tit.sim.post_processor.PostProcessor.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">subject_id</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">conductivity_type</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">m2m_dir</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">logger</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/tit/sim/post_processor.html#PostProcessor.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#tit.sim.post_processor.PostProcessor.__init__" title="Link to this definition"></a></dt>
+<dd><p>Initialize post-processor.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>subject_id</strong> – Subject identifier</p></li>
+<li><p><strong>conductivity_type</strong> – Conductivity type string</p></li>
+<li><p><strong>m2m_dir</strong> – Path to m2m directory</p></li>
+<li><p><strong>logger</strong> – Logger instance</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="tit.sim.post_processor.PostProcessor.process_ti_results">
+<span class="sig-name descname"><span class="pre">process_ti_results</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">hf_dir</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">output_dir</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">nifti_dir</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">surface_overlays_dir</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">hf_mesh_dir</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">hf_nifti_dir</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">hf_analysis_dir</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">documentation_dir</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">montage_name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></span><a class="reference internal" href="../_modules/tit/sim/post_processor.html#PostProcessor.process_ti_results"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#tit.sim.post_processor.PostProcessor.process_ti_results" title="Link to this definition"></a></dt>
+<dd><p>Process 2-pair TI simulation results with full pipeline.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>hf_dir</strong> – High-frequency output directory (SimNIBS writes here)</p></li>
+<li><p><strong>output_dir</strong> – TI mesh output directory</p></li>
+<li><p><strong>nifti_dir</strong> – TI NIfTI output directory</p></li>
+<li><p><strong>surface_overlays_dir</strong> – Surface overlays output directory</p></li>
+<li><p><strong>hf_mesh_dir</strong> – High-frequency mesh output directory</p></li>
+<li><p><strong>hf_nifti_dir</strong> – High-frequency NIfTI output directory</p></li>
+<li><p><strong>hf_analysis_dir</strong> – High-frequency analysis output directory</p></li>
+<li><p><strong>documentation_dir</strong> – Documentation output directory</p></li>
+<li><p><strong>montage_name</strong> – Montage name</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Path to output TI mesh file</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="tit.sim.post_processor.PostProcessor.process_mti_results">
+<span class="sig-name descname"><span class="pre">process_mti_results</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">hf_dir</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">ti_dir</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">mti_dir</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">mti_nifti_dir</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">hf_mesh_dir</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">hf_analysis_dir</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">documentation_dir</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">montage_name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></span><a class="reference internal" href="../_modules/tit/sim/post_processor.html#PostProcessor.process_mti_results"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#tit.sim.post_processor.PostProcessor.process_mti_results" title="Link to this definition"></a></dt>
+<dd><p>Process 4-pair mTI simulation results with full pipeline.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>hf_dir</strong> – High-frequency output directory</p></li>
+<li><p><strong>ti_dir</strong> – TI intermediate output directory</p></li>
+<li><p><strong>mti_dir</strong> – mTI final output directory</p></li>
+<li><p><strong>mti_nifti_dir</strong> – mTI NIfTI output directory</p></li>
+<li><p><strong>hf_mesh_dir</strong> – High-frequency mesh output directory</p></li>
+<li><p><strong>hf_analysis_dir</strong> – High-frequency analysis output directory</p></li>
+<li><p><strong>documentation_dir</strong> – Documentation output directory</p></li>
+<li><p><strong>montage_name</strong> – Montage name</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Path to output mTI mesh file</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="module-tit.sim.montage_loader">
+<span id="montage-loading"></span><h2><a class="toc-backref" href="#id5" role="doc-backlink">Montage Loading</a><a class="headerlink" href="#module-tit.sim.montage_loader" title="Link to this heading"></a></h2>
+<p>Montage loading and validation utilities.</p>
+<dl class="py function">
+<dt class="sig sig-object py" id="tit.sim.montage_loader.load_montage_file">
+<span class="sig-prename descclassname"><span class="pre">tit.sim.montage_loader.</span></span><span class="sig-name descname"><span class="pre">load_montage_file</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">project_dir</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">eeg_net</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.14)"><span class="pre">Dict</span></a></span></span><a class="reference internal" href="../_modules/tit/sim/montage_loader.html#load_montage_file"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#tit.sim.montage_loader.load_montage_file" title="Link to this definition"></a></dt>
+<dd><p>Load montage configuration file.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>project_dir</strong> – Project directory path</p></li>
+<li><p><strong>eeg_net</strong> – EEG net name</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Dictionary of montages for the specified EEG net</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="tit.sim.montage_loader.list_montage_names">
+<span class="sig-prename descclassname"><span class="pre">tit.sim.montage_loader.</span></span><span class="sig-name descname"><span class="pre">list_montage_names</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">project_dir</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">eeg_net</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mode</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.14)"><span class="pre">List</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../_modules/tit/sim/montage_loader.html#list_montage_names"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#tit.sim.montage_loader.list_montage_names" title="Link to this definition"></a></dt>
+<dd><p>List montage names for a given EEG net and mode.
+mode: ‘U’ (uni_polar_montages) or ‘M’ (multi_polar_montages)</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="tit.sim.montage_loader.add_montage">
+<span class="sig-prename descclassname"><span class="pre">tit.sim.montage_loader.</span></span><span class="sig-name descname"><span class="pre">add_montage</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">project_dir</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">eeg_net</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">montage_name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">electrode_pairs</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.14)"><span class="pre">List</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.14)"><span class="pre">List</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mode</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span></span><a class="reference internal" href="../_modules/tit/sim/montage_loader.html#add_montage"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#tit.sim.montage_loader.add_montage" title="Link to this definition"></a></dt>
+<dd><p>Persist a montage into montage_list.json under the given net.
+mode: ‘U’ (uni_polar_montages) or ‘M’ (multi_polar_montages)</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="tit.sim.montage_loader.load_flex_montages">
+<span class="sig-prename descclassname"><span class="pre">tit.sim.montage_loader.</span></span><span class="sig-name descname"><span class="pre">load_flex_montages</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">flex_file</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.14)"><span class="pre">List</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.14)"><span class="pre">Dict</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../_modules/tit/sim/montage_loader.html#load_flex_montages"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#tit.sim.montage_loader.load_flex_montages" title="Link to this definition"></a></dt>
+<dd><p>Load flex/freehand montages from environment or file.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>flex_file</strong> – Optional path to flex montages file</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>List of flex montage configurations</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="tit.sim.montage_loader.parse_flex_montage">
+<span class="sig-prename descclassname"><span class="pre">tit.sim.montage_loader.</span></span><span class="sig-name descname"><span class="pre">parse_flex_montage</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">flex_data</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.14)"><span class="pre">Dict</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="#tit.sim.config.MontageConfig" title="tit.sim.config.MontageConfig"><span class="pre">MontageConfig</span></a></span></span><a class="reference internal" href="../_modules/tit/sim/montage_loader.html#parse_flex_montage"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#tit.sim.montage_loader.parse_flex_montage" title="Link to this definition"></a></dt>
+<dd><p>Parse flex montage data into MontageConfig.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>flex_data</strong> – Flex montage dictionary</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>MontageConfig object</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="tit.sim.montage_loader.load_montages">
+<span class="sig-prename descclassname"><span class="pre">tit.sim.montage_loader.</span></span><span class="sig-name descname"><span class="pre">load_montages</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">montage_names</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.14)"><span class="pre">List</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">project_dir</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">eeg_net</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">include_flex</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.14)"><span class="pre">List</span></a><span class="p"><span class="pre">[</span></span><a class="reference internal" href="#tit.sim.config.MontageConfig" title="tit.sim.config.MontageConfig"><span class="pre">MontageConfig</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../_modules/tit/sim/montage_loader.html#load_montages"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#tit.sim.montage_loader.load_montages" title="Link to this definition"></a></dt>
+<dd><p>Load all montages (regular + flex).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>montage_names</strong> – List of montage names to load</p></li>
+<li><p><strong>project_dir</strong> – Project directory path</p></li>
+<li><p><strong>eeg_net</strong> – EEG net name</p></li>
+<li><p><strong>include_flex</strong> – Whether to include flex montages</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>List of MontageConfig objects</p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+<section id="module-tit.sim.utils">
+<span id="utilities"></span><h2><a class="toc-backref" href="#id6" role="doc-backlink">Utilities</a><a class="headerlink" href="#module-tit.sim.utils" title="Link to this heading"></a></h2>
+<p>Shared utilities for simulation-related IO (used by both CLI and GUI).</p>
+<p>Currently:
+- Montage list management (code/ti-toolbox/config/montage_list.json)</p>
+<dl class="py function">
+<dt class="sig sig-object py" id="tit.sim.utils.montage_config_dir">
+<span class="sig-prename descclassname"><span class="pre">tit.sim.utils.</span></span><span class="sig-name descname"><span class="pre">montage_config_dir</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">project_dir</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></span><a class="reference internal" href="../_modules/tit/sim/utils.html#montage_config_dir"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#tit.sim.utils.montage_config_dir" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="tit.sim.utils.montage_list_path">
+<span class="sig-prename descclassname"><span class="pre">tit.sim.utils.</span></span><span class="sig-name descname"><span class="pre">montage_list_path</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">project_dir</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></span><a class="reference internal" href="../_modules/tit/sim/utils.html#montage_list_path"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#tit.sim.utils.montage_list_path" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="tit.sim.utils.ensure_montage_file">
+<span class="sig-prename descclassname"><span class="pre">tit.sim.utils.</span></span><span class="sig-name descname"><span class="pre">ensure_montage_file</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">project_dir</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></span><a class="reference internal" href="../_modules/tit/sim/utils.html#ensure_montage_file"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#tit.sim.utils.ensure_montage_file" title="Link to this definition"></a></dt>
+<dd><p>Ensure montage_list.json exists with a valid schema.</p>
+<p>Returns the montage_list.json path.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="tit.sim.utils.load_montage_data">
+<span class="sig-prename descclassname"><span class="pre">tit.sim.utils.</span></span><span class="sig-name descname"><span class="pre">load_montage_data</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">project_dir</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.14)"><span class="pre">Dict</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><span class="pre">Any</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../_modules/tit/sim/utils.html#load_montage_data"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#tit.sim.utils.load_montage_data" title="Link to this definition"></a></dt>
+<dd><p>Load montage_list.json (creating it if missing).</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="tit.sim.utils.save_montage_data">
+<span class="sig-prename descclassname"><span class="pre">tit.sim.utils.</span></span><span class="sig-name descname"><span class="pre">save_montage_data</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">project_dir</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">data</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.14)"><span class="pre">Dict</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><span class="pre">Any</span></a><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span></span><a class="reference internal" href="../_modules/tit/sim/utils.html#save_montage_data"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#tit.sim.utils.save_montage_data" title="Link to this definition"></a></dt>
+<dd><p>Write montage_list.json (best-effort chmod).</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="tit.sim.utils.ensure_eeg_net_entry">
+<span class="sig-prename descclassname"><span class="pre">tit.sim.utils.</span></span><span class="sig-name descname"><span class="pre">ensure_eeg_net_entry</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">project_dir</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">eeg_net</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span></span><a class="reference internal" href="../_modules/tit/sim/utils.html#ensure_eeg_net_entry"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#tit.sim.utils.ensure_eeg_net_entry" title="Link to this definition"></a></dt>
+<dd><p>Ensure the given EEG net exists in montage_list.json.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="tit.sim.utils.upsert_montage">
+<span class="sig-prename descclassname"><span class="pre">tit.sim.utils.</span></span><span class="sig-name descname"><span class="pre">upsert_montage</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">project_dir</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">eeg_net</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">montage_name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">electrode_pairs</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.14)"><span class="pre">List</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.14)"><span class="pre">List</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mode</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span></span><a class="reference internal" href="../_modules/tit/sim/utils.html#upsert_montage"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#tit.sim.utils.upsert_montage" title="Link to this definition"></a></dt>
+<dd><p>Persist a montage into montage_list.json under the given net.
+mode: ‘U’ (uni_polar_montages) or ‘M’ (multi_polar_montages)</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="tit.sim.utils.list_montage_names">
+<span class="sig-prename descclassname"><span class="pre">tit.sim.utils.</span></span><span class="sig-name descname"><span class="pre">list_montage_names</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">project_dir</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">eeg_net</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mode</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.14)"><span class="pre">List</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../_modules/tit/sim/utils.html#list_montage_names"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#tit.sim.utils.list_montage_names" title="Link to this definition"></a></dt>
+<dd><p>List montage names for a given EEG net and mode.
+Never raises for missing EEG nets; returns [].</p>
+</dd></dl>
+
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="../core/index.html" class="btn btn-neutral float-left" title="Core Modules (tit.core)" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="../analyzer/index.html" class="btn btn-neutral float-right" title="Analysis Module (tit.analyzer)" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2026, Ido Haber.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
