@@ -9,6 +9,7 @@ from tit.core.roi import (
     calculate_roi_metrics,
 )
 from .logic import generate_current_ratios, calculate_total_combinations, generate_montage_combinations
+from .gpu_acceleration import GPUAccelerator
 
 class LeadfieldAlgorithms:
     @staticmethod
@@ -43,12 +44,22 @@ class LeadfieldAlgorithms:
 
 class TIAlgorithms:
     @staticmethod
-    def calculate_ti_field(leadfield, idx_lf, roi_indices, roi_volumes, gm_indices, gm_volumes, e1_plus, e1_minus, current_ch1_mA, e2_plus, e2_minus, current_ch2_mA, roi_name):
-        ef1 = TI.get_field([e1_plus, e1_minus, current_ch1_mA/1000], leadfield, idx_lf)
-        ef2 = TI.get_field([e2_plus, e2_minus, current_ch2_mA/1000], leadfield, idx_lf)
-        ti_max_full = TI.get_maxTI(ef1, ef2)
-
-        roi_metrics = LeadfieldAlgorithms.calculate_roi_metrics_for_field(ti_max_full, roi_indices, roi_volumes, gm_indices, gm_volumes)
+    def calculate_ti_field(leadfield, idx_lf, roi_indices, roi_volumes, gm_indices, gm_volumes, e1_plus, e1_minus, current_ch1_mA, e2_plus, e2_minus, current_ch2_mA, roi_name, gpu_accelerator=None):
+        # Use GPU accelerator if provided and enabled, otherwise use CPU (SimNIBS)
+        if gpu_accelerator and gpu_accelerator.use_gpu:
+            ef1 = gpu_accelerator.get_field_gpu([e1_plus, e1_minus, current_ch1_mA/1000], leadfield, idx_lf)
+            ef2 = gpu_accelerator.get_field_gpu([e2_plus, e2_minus, current_ch2_mA/1000], leadfield, idx_lf)
+            ti_max_full = gpu_accelerator.get_maxTI_gpu(ef1, ef2)
+            roi_metrics = gpu_accelerator.calculate_roi_metrics_gpu(
+                ti_max_full[roi_indices], roi_volumes,
+                ti_max_full[gm_indices], gm_volumes
+            )
+        else:
+            # Default CPU path using SimNIBS
+            ef1 = TI.get_field([e1_plus, e1_minus, current_ch1_mA/1000], leadfield, idx_lf)
+            ef2 = TI.get_field([e2_plus, e2_minus, current_ch2_mA/1000], leadfield, idx_lf)
+            ti_max_full = TI.get_maxTI(ef1, ef2)
+            roi_metrics = LeadfieldAlgorithms.calculate_roi_metrics_for_field(ti_max_full, roi_indices, roi_volumes, gm_indices, gm_volumes)
 
         return {
             f'{roi_name}_TImax_ROI': roi_metrics['TImax_ROI'],
@@ -139,6 +150,9 @@ class MontageGenerator:
 class TISimulator:
     def __init__(self, leadfield_processor, logger):
         self.leadfield_processor, self.logger = leadfield_processor, logger
+        # Initialize GPU accelerator (default: CPU unless USE_GPU=1)
+        use_gpu = os.getenv('USE_GPU', '0').lower() in ('1', 'true', 'yes')
+        self.gpu_accelerator = GPUAccelerator(logger, use_gpu=use_gpu)
 
     def calculate_ti_field(self, e1_plus, e1_minus, current_ch1_mA, e2_plus, e2_minus, current_ch2_mA):
         return TIAlgorithms.calculate_ti_field(
@@ -146,7 +160,8 @@ class TISimulator:
             self.leadfield_processor.roi_indices, self.leadfield_processor.roi_volumes,
             self.leadfield_processor.gm_indices, self.leadfield_processor.gm_volumes,
             e1_plus, e1_minus, current_ch1_mA, e2_plus, e2_minus, current_ch2_mA,
-            self.leadfield_processor.roi_name
+            self.leadfield_processor.roi_name,
+            self.gpu_accelerator
         )
 
 class SimulationRunner:

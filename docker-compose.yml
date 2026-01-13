@@ -31,6 +31,7 @@ services:
       TZ: ${TZ}
       KMP_AFFINITY: "disabled"
       TI_TOOLBOX_VERSION: "v2.2.3"
+      USE_GPU: ${USE_GPU:-0}  # Set to 1 to enable GPU acceleration (requires nvidia-docker2)
     networks:
       - ti_network
     depends_on:
@@ -40,6 +41,16 @@ services:
     working_dir: /ti-toolbox
     restart: unless-stopped
     command: ["tail", "-f", "/dev/null"]
+    # GPU Support (NVIDIA CUDA only) - Uncomment the 6 lines below if you have NVIDIA GPU
+    # Requirements: nvidia-docker2 installed (apt-get install nvidia-docker2)
+    # Then set: export USE_GPU=1
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]
 
 networks:
   ti_network:

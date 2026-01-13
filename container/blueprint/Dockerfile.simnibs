@@ -129,7 +129,10 @@ ENV PATH="/root/SimNIBS-4.5/bin:$PATH"
 ENV SIMNIBSDIR="/root/SimNIBS-4.5"
 
 # Install additional Python packages to simnibs_python
-RUN simnibs_python -m pip install meshio nilearn PyOpenGL-accelerate trimesh seaborn scikit-image numpy-stl click bpy
+# Note: cupy-cuda12x is included for optional GPU acceleration (NVIDIA CUDA only)
+# GPU will only be used if: (1) NVIDIA GPU available, (2) nvidia-docker2 installed, (3) USE_GPU=1 set
+# If no GPU or USE_GPU=0, everything falls back to CPU automatically
+RUN simnibs_python -m pip install meshio nilearn PyOpenGL-accelerate trimesh seaborn scikit-image numpy-stl click bpy cupy-cuda12x
 
 
 # Install Neovim v.0.11.0 from source 
