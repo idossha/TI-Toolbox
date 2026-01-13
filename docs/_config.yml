@@ -38,6 +38,7 @@ exclude:
   - README.md
   - vendor/
   - .bundle/
+  - api/_build/
   - api/conf.py
   - api/Makefile
   - api/requirements.txt
