@@ -1,3 +1,8 @@
+# Sphinx build outputs (auto-generated)
+api/_build/
+api/_static/
+api/_templates/
+
 # Jekyll
 _site/
 .sass-cache/
@@ -8,6 +13,11 @@ _site/
 vendor/
 .bundle/
 Gemfile.lock
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
 
 # macOS
 .DS_Store

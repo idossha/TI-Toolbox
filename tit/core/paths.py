@@ -267,9 +267,44 @@ class PathManager:
 
     def path(self, key: str, /, **kwargs) -> str:
         """
-        Resolve a canonical path by key using a small set of templates.
+        Resolve a canonical path by key from predefined templates.
 
-        Docker-first: if project_dir is not resolved, this raises.
+        This is the primary path resolution method. It provides fast, cached access
+        to all standard TI-Toolbox paths using pre-compiled templates.
+
+        Parameters
+        ----------
+        key : str
+            Path template key (e.g., 'm2m', 'simulation', 'ti_mesh')
+        **kwargs
+            Required entities for the template (e.g., subject_id='001', simulation_name='montage1')
+
+        Returns
+        -------
+        str
+            Resolved absolute path
+
+        Raises
+        ------
+        RuntimeError
+            If project_dir is not resolved
+        KeyError
+            If key is unknown
+        ValueError
+            If required template entities are missing
+
+        Examples
+        --------
+        >>> pm = PathManager()
+        >>> m2m_path = pm.path("m2m", subject_id="001")
+        >>> sim_path = pm.path("simulation", subject_id="001", simulation_name="montage1")
+        >>> mesh_path = pm.path("ti_mesh", subject_id="001", simulation_name="montage1")
+
+        Notes
+        -----
+        - Results are cached for performance (8192 entry LRU cache)
+        - All paths are resolved relative to project_dir
+        - Template entities are type-checked and missing entities raise ValueError
         """
         if not self.project_dir:
             raise RuntimeError("Project directory not resolved. Set PROJECT_DIR_NAME or PROJECT_DIR in Docker.")
@@ -283,10 +318,36 @@ class PathManager:
 
     def path_optional(self, key: str, /, **kwargs) -> Optional[str]:
         """
-        Non-throwing path resolver.
+        Resolve a path without raising exceptions.
 
-        Returns None if project_dir is not resolved or key is unknown.
-        Use this to avoid try/except in callers.
+        Similar to path() but returns None instead of raising exceptions.
+        Useful for checking if paths exist or can be resolved without error handling.
+
+        Parameters
+        ----------
+        key : str
+            Path template key
+        **kwargs
+            Template entities (e.g., subject_id='001')
+
+        Returns
+        -------
+        str or None
+            Resolved path if successful, None otherwise
+
+        Examples
+        --------
+        >>> pm = PathManager()
+        >>> m2m_path = pm.path_optional("m2m", subject_id="001")
+        >>> if m2m_path:
+        ...     print(f"m2m exists at {m2m_path}")
+
+        Notes
+        -----
+        Returns None if:
+        - project_dir is not resolved
+        - key is unknown
+        - required entities are missing
         """
         if not self.project_dir:
             return None
@@ -331,14 +392,77 @@ class PathManager:
     # -------------------------------------------------------------------------
 
     def exists(self, key: str, /, **kwargs) -> bool:
+        """
+        Check if a path exists.
+
+        Parameters
+        ----------
+        key : str
+            Path template key
+        **kwargs
+            Template entities
+
+        Returns
+        -------
+        bool
+            True if path can be resolved and exists on filesystem
+
+        Examples
+        --------
+        >>> pm = PathManager()
+        >>> if pm.exists("m2m", subject_id="001"):
+        ...     print("m2m directory exists")
+        """
         p = self.path_optional(key, **kwargs)
         return bool(p and os.path.exists(p))
 
     def is_dir(self, key: str, /, **kwargs) -> bool:
+        """
+        Check if a path exists and is a directory.
+
+        Parameters
+        ----------
+        key : str
+            Path template key
+        **kwargs
+            Template entities
+
+        Returns
+        -------
+        bool
+            True if path can be resolved and is an existing directory
+
+        Examples
+        --------
+        >>> pm = PathManager()
+        >>> if pm.is_dir("simulations", subject_id="001"):
+        ...     simulations = pm.list_simulations("001")
+        """
         p = self.path_optional(key, **kwargs)
         return bool(p and os.path.isdir(p))
 
     def is_file(self, key: str, /, **kwargs) -> bool:
+        """
+        Check if a path exists and is a file.
+
+        Parameters
+        ----------
+        key : str
+            Path template key
+        **kwargs
+            Template entities
+
+        Returns
+        -------
+        bool
+            True if path can be resolved and is an existing file
+
+        Examples
+        --------
+        >>> pm = PathManager()
+        >>> if pm.is_file("ti_mesh", subject_id="001", simulation_name="montage1"):
+        ...     print("TI mesh file exists")
+        """
         p = self.path_optional(key, **kwargs)
         return bool(p and os.path.isfile(p))
 

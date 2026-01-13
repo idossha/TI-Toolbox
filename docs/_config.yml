@@ -37,4 +37,9 @@ exclude:
   - Gemfile.lock
   - README.md
   - vendor/
-  - .bundle/ 
+  - .bundle/
+  - api/_build/
+  - api/conf.py
+  - api/Makefile
+  - api/requirements.txt
+  - build-docs.sh 

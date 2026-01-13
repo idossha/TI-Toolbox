@@ -466,7 +466,35 @@ def _run_sequential(
     logger,
     progress_callback: Optional[Callable[[int, int, str], None]] = None
 ) -> List[dict]:
-    """Run montages sequentially."""
+    """
+    Run montages sequentially in a single process.
+
+    Processes each montage one at a time in the current process. This is the
+    default execution mode and is more memory-efficient than parallel execution.
+
+    Parameters
+    ----------
+    config : SimulationConfig
+        Simulation configuration
+    montages : list of MontageConfig
+        List of montages to simulate
+    simulation_dir : str
+        Base simulation directory path
+    logger : logging.Logger
+        Logger instance for progress tracking
+    progress_callback : callable, optional
+        Callback function(current, total, montage_name) for progress updates
+
+    Returns
+    -------
+    list of dict
+        List of simulation results, one per montage. Each dict contains:
+        - montage_name : str
+        - montage_type : str ('TI' or 'mTI')
+        - status : str ('completed' or 'failed')
+        - output_mesh : str (path to output mesh file, if successful)
+        - error : str (error message, if failed)
+    """
     # Initialize components
     session_builder = SessionBuilder(config)
     pm = get_path_manager()
@@ -526,7 +554,44 @@ def _run_parallel(
     logger,
     progress_callback: Optional[Callable[[int, int, str], None]] = None
 ) -> List[dict]:
-    """Run montages in parallel using ProcessPoolExecutor."""
+    """
+    Run montages in parallel using multiple worker processes.
+
+    Uses ProcessPoolExecutor with 'spawn' context for SimNIBS compatibility.
+    Each montage runs in a separate worker process with its own file-based logging.
+    Memory intensive - each worker requires ~4-8 GB RAM.
+
+    Parameters
+    ----------
+    config : SimulationConfig
+        Simulation configuration
+    montages : list of MontageConfig
+        List of montages to simulate
+    simulation_dir : str
+        Base simulation directory path
+    logger : logging.Logger
+        Main logger instance (each worker gets its own file logger)
+    progress_callback : callable, optional
+        Callback function(current, total, montage_name) for progress updates
+
+    Returns
+    -------
+    list of dict
+        List of simulation results in completion order. Each dict contains:
+        - montage_name : str
+        - montage_type : str ('TI' or 'mTI')
+        - status : str ('completed' or 'failed')
+        - output_mesh : str (path to output mesh file, if successful)
+        - log_file : str (path to worker log file)
+        - error : str (error message, if failed)
+
+    Notes
+    -----
+    - Uses 'spawn' multiprocessing context to avoid fork-related issues with SimNIBS
+    - Each worker suppresses stdout/stderr and logs only to files
+    - Worker count determined by config.parallel.effective_workers
+    - 2-hour timeout per simulation
+    """
     max_workers = min(config.parallel.effective_workers, len(montages))
     
     logger.info(f"Starting parallel execution with {max_workers} workers for {len(montages)} montages")
@@ -723,7 +788,52 @@ def _run_single_montage(
 
 
 def main():
-    """Command-line entry point."""
+    """
+    Command-line entry point for the simulator.
+
+    Parses command-line arguments, loads montages, runs simulations, and generates
+    a completion report. This function is called when the module is executed directly
+    or via the CLI wrapper script.
+
+    Command-line Arguments
+    ----------------------
+    1. subject_id : str
+        Subject identifier (e.g., '001')
+    2. conductivity_str : str
+        Conductivity type ('scalar', 'vn', 'dir', 'mc')
+    3. project_dir : str
+        Project directory path
+    4. simulation_dir : str
+        Simulation output directory (legacy, not used)
+    5. mode : str
+        Simulation mode (legacy, not used - auto-detected)
+    6. intensity_str : str
+        Current intensity string (e.g., '2.0' or '2.0,1.5' or '2.0,1.5,1.0,0.5')
+    7. electrode_shape : str
+        Electrode shape ('ellipse' or 'rect')
+    8. dimensions : str
+        Electrode dimensions as 'x,y' in mm (e.g., '8.0,8.0')
+    9. thickness : float
+        Gel thickness in mm
+    10. eeg_net : str
+        EEG cap name (e.g., 'EGI_template.csv')
+    11+. montage_names : str
+        One or more montage names to simulate
+
+    Exit Codes
+    ----------
+    0 : All simulations completed successfully
+    1 : One or more simulations failed
+
+    Output
+    ------
+    Creates simulation_completion_<subject_id>_<timestamp>.json in derivatives/temp/
+    with detailed results of all simulations.
+
+    Examples
+    --------
+    >>> python simulator.py 001 scalar /path/to/project /tmp TI 2.0 ellipse 8.0,8.0 4.0 EGI_template.csv montage1 montage2
+    """
     if len(sys.argv) < 11:
         print("Usage: simulator.py SUBJECT_ID CONDUCTIVITY PROJECT_DIR SIMULATION_DIR MODE "
               "INTENSITY ELECTRODE_SHAPE DIMENSIONS THICKNESS EEG_NET MONTAGE_NAMES...")
