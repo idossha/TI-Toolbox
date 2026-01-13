@@ -1,0 +1,1254 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>tit.analyzer.visualizer &mdash; TI-Toolbox 2.0.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../_static/documentation_options.js?v=51b770b3"></script>
+      <script src="../../../_static/doctools.js?v=9a2dae69"></script>
+      <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            TI-Toolbox
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Core Modules</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../core/index.html">Core Modules (<code class="docutils literal notranslate"><span class="pre">tit.core</span></code>)</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../core/index.html#module-tit.core.paths">Path Management</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../core/index.html#tit.core.paths.PathManager"><code class="docutils literal notranslate"><span class="pre">PathManager</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../core/index.html#tit.core.paths.PathManager.__init__"><code class="docutils literal notranslate"><span class="pre">PathManager.__init__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../core/index.html#tit.core.paths.PathManager.project_dir"><code class="docutils literal notranslate"><span class="pre">PathManager.project_dir</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../core/index.html#tit.core.paths.PathManager.project_dir_name"><code class="docutils literal notranslate"><span class="pre">PathManager.project_dir_name</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../core/index.html#tit.core.paths.PathManager.path"><code class="docutils literal notranslate"><span class="pre">PathManager.path()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../core/index.html#tit.core.paths.PathManager.path_optional"><code class="docutils literal notranslate"><span class="pre">PathManager.path_optional()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../core/index.html#tit.core.paths.PathManager.list_flex_search_runs"><code class="docutils literal notranslate"><span class="pre">PathManager.list_flex_search_runs()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../core/index.html#tit.core.paths.PathManager.exists"><code class="docutils literal notranslate"><span class="pre">PathManager.exists()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../core/index.html#tit.core.paths.PathManager.is_dir"><code class="docutils literal notranslate"><span class="pre">PathManager.is_dir()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../core/index.html#tit.core.paths.PathManager.is_file"><code class="docutils literal notranslate"><span class="pre">PathManager.is_file()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../core/index.html#tit.core.paths.PathManager.ensure_dir"><code class="docutils literal notranslate"><span class="pre">PathManager.ensure_dir()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../core/index.html#tit.core.paths.PathManager.list_subjects"><code class="docutils literal notranslate"><span class="pre">PathManager.list_subjects()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../core/index.html#tit.core.paths.PathManager.list_simulations"><code class="docutils literal notranslate"><span class="pre">PathManager.list_simulations()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../core/index.html#tit.core.paths.PathManager.analysis_space_dir_name"><code class="docutils literal notranslate"><span class="pre">PathManager.analysis_space_dir_name()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../core/index.html#tit.core.paths.PathManager.spherical_analysis_name"><code class="docutils literal notranslate"><span class="pre">PathManager.spherical_analysis_name()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../core/index.html#tit.core.paths.PathManager.cortical_analysis_name"><code class="docutils literal notranslate"><span class="pre">PathManager.cortical_analysis_name()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../core/index.html#tit.core.paths.PathManager.get_analysis_space_dir"><code class="docutils literal notranslate"><span class="pre">PathManager.get_analysis_space_dir()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../core/index.html#tit.core.paths.PathManager.get_analysis_output_dir"><code class="docutils literal notranslate"><span class="pre">PathManager.get_analysis_output_dir()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../core/index.html#tit.core.paths.PathManager.get_derivatives_dir"><code class="docutils literal notranslate"><span class="pre">PathManager.get_derivatives_dir()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../core/index.html#tit.core.paths.PathManager.list_eeg_caps"><code class="docutils literal notranslate"><span class="pre">PathManager.list_eeg_caps()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../core/index.html#tit.core.paths.PathManager.validate_subject_structure"><code class="docutils literal notranslate"><span class="pre">PathManager.validate_subject_structure()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../core/index.html#tit.core.paths.get_path_manager"><code class="docutils literal notranslate"><span class="pre">get_path_manager()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../core/index.html#tit.core.paths.reset_path_manager"><code class="docutils literal notranslate"><span class="pre">reset_path_manager()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../core/index.html#module-tit.core.constants">Constants</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../core/index.html#module-tit.core.nifti">NIfTI Operations</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../core/index.html#tit.core.nifti.load_subject_nifti_ti_toolbox"><code class="docutils literal notranslate"><span class="pre">load_subject_nifti_ti_toolbox()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../core/index.html#tit.core.nifti.load_group_data_ti_toolbox"><code class="docutils literal notranslate"><span class="pre">load_group_data_ti_toolbox()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../core/index.html#tit.core.nifti.load_grouped_subjects_ti_toolbox"><code class="docutils literal notranslate"><span class="pre">load_grouped_subjects_ti_toolbox()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../core/index.html#module-tit.core.mesh">Mesh Operations</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../core/index.html#tit.core.mesh.create_mesh_opt_file"><code class="docutils literal notranslate"><span class="pre">create_mesh_opt_file()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../core/index.html#module-tit.core.calc">Calculations</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../core/index.html#tit.core.calc.get_TI_vectors"><code class="docutils literal notranslate"><span class="pre">get_TI_vectors()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../core/index.html#tit.core.calc.get_mTI_vectors"><code class="docutils literal notranslate"><span class="pre">get_mTI_vectors()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../core/index.html#module-tit.core.roi">ROI Utilities</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../core/index.html#tit.core.roi.find_roi_element_indices"><code class="docutils literal notranslate"><span class="pre">find_roi_element_indices()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../core/index.html#tit.core.roi.find_grey_matter_indices"><code class="docutils literal notranslate"><span class="pre">find_grey_matter_indices()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../core/index.html#tit.core.roi.calculate_roi_metrics"><code class="docutils literal notranslate"><span class="pre">calculate_roi_metrics()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../core/index.html#tit.core.roi.ROICoordinateHelper"><code class="docutils literal notranslate"><span class="pre">ROICoordinateHelper</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../core/index.html#tit.core.roi.ROICoordinateHelper.transform_mni_to_subject"><code class="docutils literal notranslate"><span class="pre">ROICoordinateHelper.transform_mni_to_subject()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../core/index.html#tit.core.roi.ROICoordinateHelper.find_voxels_in_sphere"><code class="docutils literal notranslate"><span class="pre">ROICoordinateHelper.find_voxels_in_sphere()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../core/index.html#tit.core.roi.ROICoordinateHelper.load_roi_from_csv"><code class="docutils literal notranslate"><span class="pre">ROICoordinateHelper.load_roi_from_csv()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../core/index.html#tit.core.roi.ROICoordinateHelper.save_roi_to_csv"><code class="docutils literal notranslate"><span class="pre">ROICoordinateHelper.save_roi_to_csv()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../core/index.html#tit.core.roi.validate_ti_montage"><code class="docutils literal notranslate"><span class="pre">validate_ti_montage()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../core/index.html#module-tit.core.utils">Utilities</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../core/index.html#tit.core.utils.find_roi_element_indices"><code class="docutils literal notranslate"><span class="pre">find_roi_element_indices()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../core/index.html#tit.core.utils.find_grey_matter_indices"><code class="docutils literal notranslate"><span class="pre">find_grey_matter_indices()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../core/index.html#tit.core.utils.calculate_roi_metrics"><code class="docutils literal notranslate"><span class="pre">calculate_roi_metrics()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../core/index.html#module-tit.core.errors">Error Classes</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../core/index.html#tit.core.errors.TIToolboxError"><code class="docutils literal notranslate"><span class="pre">TIToolboxError</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../core/index.html#tit.core.errors.TIToolboxError.__init__"><code class="docutils literal notranslate"><span class="pre">TIToolboxError.__init__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../core/index.html#tit.core.errors.TIToolboxError.to_dict"><code class="docutils literal notranslate"><span class="pre">TIToolboxError.to_dict()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../core/index.html#tit.core.errors.ProcessError"><code class="docutils literal notranslate"><span class="pre">ProcessError</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../core/index.html#tit.core.errors.ProcessError.__init__"><code class="docutils literal notranslate"><span class="pre">ProcessError.__init__()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../core/index.html#tit.core.errors.ValidationError"><code class="docutils literal notranslate"><span class="pre">ValidationError</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../core/index.html#tit.core.errors.ValidationError.__init__"><code class="docutils literal notranslate"><span class="pre">ValidationError.__init__()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../core/index.html#tit.core.errors.FileNotFoundError"><code class="docutils literal notranslate"><span class="pre">FileNotFoundError</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../core/index.html#tit.core.errors.FileNotFoundError.__init__"><code class="docutils literal notranslate"><span class="pre">FileNotFoundError.__init__()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../core/index.html#tit.core.errors.ConfigurationError"><code class="docutils literal notranslate"><span class="pre">ConfigurationError</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../core/index.html#tit.core.errors.ConfigurationError.__init__"><code class="docutils literal notranslate"><span class="pre">ConfigurationError.__init__()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../core/index.html#tit.core.errors.SubjectError"><code class="docutils literal notranslate"><span class="pre">SubjectError</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../core/index.html#tit.core.errors.SubjectError.__init__"><code class="docutils literal notranslate"><span class="pre">SubjectError.__init__()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../core/index.html#tit.core.errors.SimulationError"><code class="docutils literal notranslate"><span class="pre">SimulationError</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../core/index.html#tit.core.errors.SimulationError.__init__"><code class="docutils literal notranslate"><span class="pre">SimulationError.__init__()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../core/index.html#tit.core.errors.AnalysisError"><code class="docutils literal notranslate"><span class="pre">AnalysisError</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../core/index.html#tit.core.errors.AnalysisError.__init__"><code class="docutils literal notranslate"><span class="pre">AnalysisError.__init__()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../core/index.html#tit.core.errors.MeshError"><code class="docutils literal notranslate"><span class="pre">MeshError</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../core/index.html#tit.core.errors.MeshError.__init__"><code class="docutils literal notranslate"><span class="pre">MeshError.__init__()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../core/index.html#tit.core.errors.handle_error"><code class="docutils literal notranslate"><span class="pre">handle_error()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../core/index.html#tit.core.errors.show_error_dialog"><code class="docutils literal notranslate"><span class="pre">show_error_dialog()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../core/index.html#tit.core.errors.validate_file_exists"><code class="docutils literal notranslate"><span class="pre">validate_file_exists()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../core/index.html#tit.core.errors.validate_subject"><code class="docutils literal notranslate"><span class="pre">validate_subject()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../core/index.html#tit.core.errors.validate_montage_config"><code class="docutils literal notranslate"><span class="pre">validate_montage_config()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../core/index.html#module-tit.core.process">Process Management</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../core/index.html#tit.core.process.ProcessRunner"><code class="docutils literal notranslate"><span class="pre">ProcessRunner</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../core/index.html#tit.core.process.ProcessRunner.output_signal"><code class="docutils literal notranslate"><span class="pre">ProcessRunner.output_signal</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../core/index.html#tit.core.process.ProcessRunner.progress_signal"><code class="docutils literal notranslate"><span class="pre">ProcessRunner.progress_signal</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../core/index.html#tit.core.process.ProcessRunner.finished_signal"><code class="docutils literal notranslate"><span class="pre">ProcessRunner.finished_signal</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../core/index.html#tit.core.process.ProcessRunner.error_signal"><code class="docutils literal notranslate"><span class="pre">ProcessRunner.error_signal</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../core/index.html#tit.core.process.ProcessRunner.__init__"><code class="docutils literal notranslate"><span class="pre">ProcessRunner.__init__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../core/index.html#tit.core.process.ProcessRunner.run"><code class="docutils literal notranslate"><span class="pre">ProcessRunner.run()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../core/index.html#tit.core.process.ProcessRunner.terminate_process"><code class="docutils literal notranslate"><span class="pre">ProcessRunner.terminate_process()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../core/index.html#tit.core.process.MessageParser"><code class="docutils literal notranslate"><span class="pre">MessageParser</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../core/index.html#tit.core.process.MessageParser.parse"><code class="docutils literal notranslate"><span class="pre">MessageParser.parse()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../core/index.html#tit.core.process.SimulatorMessageParser"><code class="docutils literal notranslate"><span class="pre">SimulatorMessageParser</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../core/index.html#tit.core.process.AnalyzerMessageParser"><code class="docutils literal notranslate"><span class="pre">AnalyzerMessageParser</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../core/index.html#tit.core.process.PreprocessMessageParser"><code class="docutils literal notranslate"><span class="pre">PreprocessMessageParser</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../core/index.html#tit.core.process.strip_ansi_codes"><code class="docutils literal notranslate"><span class="pre">strip_ansi_codes()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Simulation</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../sim/index.html">Simulation Module (<code class="docutils literal notranslate"><span class="pre">tit.sim</span></code>)</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../sim/index.html#module-tit.sim.simulator">Main Simulator</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../sim/index.html#tit.sim.simulator.setup_montage_directories"><code class="docutils literal notranslate"><span class="pre">setup_montage_directories()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../sim/index.html#tit.sim.simulator.create_simulation_config_file"><code class="docutils literal notranslate"><span class="pre">create_simulation_config_file()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../sim/index.html#tit.sim.simulator.run_montage_visualization"><code class="docutils literal notranslate"><span class="pre">run_montage_visualization()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../sim/index.html#tit.sim.simulator.run_simulation"><code class="docutils literal notranslate"><span class="pre">run_simulation()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../sim/index.html#tit.sim.simulator.main"><code class="docutils literal notranslate"><span class="pre">main()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../sim/index.html#module-tit.sim.config">Configuration Classes</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.SimulationMode"><code class="docutils literal notranslate"><span class="pre">SimulationMode</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.SimulationMode.TI"><code class="docutils literal notranslate"><span class="pre">SimulationMode.TI</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.SimulationMode.MTI"><code class="docutils literal notranslate"><span class="pre">SimulationMode.MTI</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.ConductivityType"><code class="docutils literal notranslate"><span class="pre">ConductivityType</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.ConductivityType.SCALAR"><code class="docutils literal notranslate"><span class="pre">ConductivityType.SCALAR</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.ConductivityType.VN"><code class="docutils literal notranslate"><span class="pre">ConductivityType.VN</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.ConductivityType.DIR"><code class="docutils literal notranslate"><span class="pre">ConductivityType.DIR</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.ConductivityType.MC"><code class="docutils literal notranslate"><span class="pre">ConductivityType.MC</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.ElectrodeConfig"><code class="docutils literal notranslate"><span class="pre">ElectrodeConfig</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.ElectrodeConfig.shape"><code class="docutils literal notranslate"><span class="pre">ElectrodeConfig.shape</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.ElectrodeConfig.dimensions"><code class="docutils literal notranslate"><span class="pre">ElectrodeConfig.dimensions</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.ElectrodeConfig.thickness"><code class="docutils literal notranslate"><span class="pre">ElectrodeConfig.thickness</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.ElectrodeConfig.sponge_thickness"><code class="docutils literal notranslate"><span class="pre">ElectrodeConfig.sponge_thickness</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.ElectrodeConfig.__init__"><code class="docutils literal notranslate"><span class="pre">ElectrodeConfig.__init__()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.IntensityConfig"><code class="docutils literal notranslate"><span class="pre">IntensityConfig</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.IntensityConfig.pair1"><code class="docutils literal notranslate"><span class="pre">IntensityConfig.pair1</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.IntensityConfig.pair2"><code class="docutils literal notranslate"><span class="pre">IntensityConfig.pair2</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.IntensityConfig.pair3"><code class="docutils literal notranslate"><span class="pre">IntensityConfig.pair3</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.IntensityConfig.pair4"><code class="docutils literal notranslate"><span class="pre">IntensityConfig.pair4</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.IntensityConfig.from_string"><code class="docutils literal notranslate"><span class="pre">IntensityConfig.from_string()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.IntensityConfig.__init__"><code class="docutils literal notranslate"><span class="pre">IntensityConfig.__init__()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.MontageConfig"><code class="docutils literal notranslate"><span class="pre">MontageConfig</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.MontageConfig.name"><code class="docutils literal notranslate"><span class="pre">MontageConfig.name</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.MontageConfig.electrode_pairs"><code class="docutils literal notranslate"><span class="pre">MontageConfig.electrode_pairs</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.MontageConfig.is_xyz"><code class="docutils literal notranslate"><span class="pre">MontageConfig.is_xyz</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.MontageConfig.eeg_net"><code class="docutils literal notranslate"><span class="pre">MontageConfig.eeg_net</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.MontageConfig.simulation_mode"><code class="docutils literal notranslate"><span class="pre">MontageConfig.simulation_mode</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.MontageConfig.num_pairs"><code class="docutils literal notranslate"><span class="pre">MontageConfig.num_pairs</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.MontageConfig.__init__"><code class="docutils literal notranslate"><span class="pre">MontageConfig.__init__()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.ParallelConfig"><code class="docutils literal notranslate"><span class="pre">ParallelConfig</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.ParallelConfig.enabled"><code class="docutils literal notranslate"><span class="pre">ParallelConfig.enabled</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.ParallelConfig.max_workers"><code class="docutils literal notranslate"><span class="pre">ParallelConfig.max_workers</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.ParallelConfig.__post_init__"><code class="docutils literal notranslate"><span class="pre">ParallelConfig.__post_init__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.ParallelConfig.effective_workers"><code class="docutils literal notranslate"><span class="pre">ParallelConfig.effective_workers</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.ParallelConfig.get_memory_warning"><code class="docutils literal notranslate"><span class="pre">ParallelConfig.get_memory_warning()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.ParallelConfig.__init__"><code class="docutils literal notranslate"><span class="pre">ParallelConfig.__init__()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.SimulationConfig"><code class="docutils literal notranslate"><span class="pre">SimulationConfig</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.SimulationConfig.subject_id"><code class="docutils literal notranslate"><span class="pre">SimulationConfig.subject_id</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.SimulationConfig.project_dir"><code class="docutils literal notranslate"><span class="pre">SimulationConfig.project_dir</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.SimulationConfig.conductivity_type"><code class="docutils literal notranslate"><span class="pre">SimulationConfig.conductivity_type</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.SimulationConfig.intensities"><code class="docutils literal notranslate"><span class="pre">SimulationConfig.intensities</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.SimulationConfig.electrode"><code class="docutils literal notranslate"><span class="pre">SimulationConfig.electrode</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.SimulationConfig.eeg_net"><code class="docutils literal notranslate"><span class="pre">SimulationConfig.eeg_net</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.SimulationConfig.map_to_surf"><code class="docutils literal notranslate"><span class="pre">SimulationConfig.map_to_surf</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.SimulationConfig.map_to_vol"><code class="docutils literal notranslate"><span class="pre">SimulationConfig.map_to_vol</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.SimulationConfig.map_to_mni"><code class="docutils literal notranslate"><span class="pre">SimulationConfig.map_to_mni</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.SimulationConfig.map_to_fsavg"><code class="docutils literal notranslate"><span class="pre">SimulationConfig.map_to_fsavg</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.SimulationConfig.tissues_in_niftis"><code class="docutils literal notranslate"><span class="pre">SimulationConfig.tissues_in_niftis</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.SimulationConfig.open_in_gmsh"><code class="docutils literal notranslate"><span class="pre">SimulationConfig.open_in_gmsh</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.SimulationConfig.parallel"><code class="docutils literal notranslate"><span class="pre">SimulationConfig.parallel</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.SimulationConfig.__post_init__"><code class="docutils literal notranslate"><span class="pre">SimulationConfig.__post_init__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.SimulationConfig.__init__"><code class="docutils literal notranslate"><span class="pre">SimulationConfig.__init__()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../sim/index.html#module-tit.sim.session_builder">Session Builder</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../sim/index.html#tit.sim.session_builder.SessionBuilder"><code class="docutils literal notranslate"><span class="pre">SessionBuilder</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.session_builder.SessionBuilder.__init__"><code class="docutils literal notranslate"><span class="pre">SessionBuilder.__init__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.session_builder.SessionBuilder.build_session"><code class="docutils literal notranslate"><span class="pre">SessionBuilder.build_session()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../sim/index.html#module-tit.sim.post_processor">Post-Processing</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../sim/index.html#tit.sim.post_processor.PostProcessor"><code class="docutils literal notranslate"><span class="pre">PostProcessor</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.post_processor.PostProcessor.__init__"><code class="docutils literal notranslate"><span class="pre">PostProcessor.__init__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.post_processor.PostProcessor.process_ti_results"><code class="docutils literal notranslate"><span class="pre">PostProcessor.process_ti_results()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.post_processor.PostProcessor.process_mti_results"><code class="docutils literal notranslate"><span class="pre">PostProcessor.process_mti_results()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../sim/index.html#module-tit.sim.montage_loader">Montage Loading</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../sim/index.html#tit.sim.montage_loader.load_montage_file"><code class="docutils literal notranslate"><span class="pre">load_montage_file()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../sim/index.html#tit.sim.montage_loader.list_montage_names"><code class="docutils literal notranslate"><span class="pre">list_montage_names()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../sim/index.html#tit.sim.montage_loader.add_montage"><code class="docutils literal notranslate"><span class="pre">add_montage()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../sim/index.html#tit.sim.montage_loader.load_flex_montages"><code class="docutils literal notranslate"><span class="pre">load_flex_montages()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../sim/index.html#tit.sim.montage_loader.parse_flex_montage"><code class="docutils literal notranslate"><span class="pre">parse_flex_montage()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../sim/index.html#tit.sim.montage_loader.load_montages"><code class="docutils literal notranslate"><span class="pre">load_montages()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../sim/index.html#module-tit.sim.utils">Utilities</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../sim/index.html#tit.sim.utils.montage_config_dir"><code class="docutils literal notranslate"><span class="pre">montage_config_dir()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../sim/index.html#tit.sim.utils.montage_list_path"><code class="docutils literal notranslate"><span class="pre">montage_list_path()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../sim/index.html#tit.sim.utils.ensure_montage_file"><code class="docutils literal notranslate"><span class="pre">ensure_montage_file()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../sim/index.html#tit.sim.utils.load_montage_data"><code class="docutils literal notranslate"><span class="pre">load_montage_data()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../sim/index.html#tit.sim.utils.save_montage_data"><code class="docutils literal notranslate"><span class="pre">save_montage_data()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../sim/index.html#tit.sim.utils.ensure_eeg_net_entry"><code class="docutils literal notranslate"><span class="pre">ensure_eeg_net_entry()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../sim/index.html#tit.sim.utils.upsert_montage"><code class="docutils literal notranslate"><span class="pre">upsert_montage()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../sim/index.html#tit.sim.utils.list_montage_names"><code class="docutils literal notranslate"><span class="pre">list_montage_names()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Analysis</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../analyzer/index.html">Analysis Module (<code class="docutils literal notranslate"><span class="pre">tit.analyzer</span></code>)</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../analyzer/index.html#module-tit.analyzer.mesh_analyzer">Mesh Analyzer</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.mesh_analyzer.MeshAnalyzer"><code class="docutils literal notranslate"><span class="pre">MeshAnalyzer</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.mesh_analyzer.MeshAnalyzer.__init__"><code class="docutils literal notranslate"><span class="pre">MeshAnalyzer.__init__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.mesh_analyzer.MeshAnalyzer.__del__"><code class="docutils literal notranslate"><span class="pre">MeshAnalyzer.__del__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.mesh_analyzer.MeshAnalyzer.analyze_whole_head"><code class="docutils literal notranslate"><span class="pre">MeshAnalyzer.analyze_whole_head()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.mesh_analyzer.MeshAnalyzer.analyze_sphere"><code class="docutils literal notranslate"><span class="pre">MeshAnalyzer.analyze_sphere()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.mesh_analyzer.MeshAnalyzer.analyze_cortex"><code class="docutils literal notranslate"><span class="pre">MeshAnalyzer.analyze_cortex()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.mesh_analyzer.MeshAnalyzer.get_grey_matter_statistics"><code class="docutils literal notranslate"><span class="pre">MeshAnalyzer.get_grey_matter_statistics()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../analyzer/index.html#module-tit.analyzer.voxel_analyzer">Voxel Analyzer</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.voxel_analyzer.VoxelAnalyzer"><code class="docutils literal notranslate"><span class="pre">VoxelAnalyzer</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.voxel_analyzer.VoxelAnalyzer.field_nifti"><code class="docutils literal notranslate"><span class="pre">VoxelAnalyzer.field_nifti</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.voxel_analyzer.VoxelAnalyzer.subject_dir"><code class="docutils literal notranslate"><span class="pre">VoxelAnalyzer.subject_dir</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.voxel_analyzer.VoxelAnalyzer.output_dir"><code class="docutils literal notranslate"><span class="pre">VoxelAnalyzer.output_dir</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.voxel_analyzer.VoxelAnalyzer.visualizer"><code class="docutils literal notranslate"><span class="pre">VoxelAnalyzer.visualizer</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.voxel_analyzer.VoxelAnalyzer.__init__"><code class="docutils literal notranslate"><span class="pre">VoxelAnalyzer.__init__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.voxel_analyzer.VoxelAnalyzer.analyze_whole_head"><code class="docutils literal notranslate"><span class="pre">VoxelAnalyzer.analyze_whole_head()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.voxel_analyzer.VoxelAnalyzer.analyze_sphere"><code class="docutils literal notranslate"><span class="pre">VoxelAnalyzer.analyze_sphere()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.voxel_analyzer.VoxelAnalyzer.resample_to_match"><code class="docutils literal notranslate"><span class="pre">VoxelAnalyzer.resample_to_match()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.voxel_analyzer.VoxelAnalyzer.analyze_cortex"><code class="docutils literal notranslate"><span class="pre">VoxelAnalyzer.analyze_cortex()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.voxel_analyzer.VoxelAnalyzer.get_atlas_regions"><code class="docutils literal notranslate"><span class="pre">VoxelAnalyzer.get_atlas_regions()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.voxel_analyzer.VoxelAnalyzer.load_brain_image"><code class="docutils literal notranslate"><span class="pre">VoxelAnalyzer.load_brain_image()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.voxel_analyzer.VoxelAnalyzer.find_region"><code class="docutils literal notranslate"><span class="pre">VoxelAnalyzer.find_region()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.voxel_analyzer.VoxelAnalyzer.get_grey_matter_statistics"><code class="docutils literal notranslate"><span class="pre">VoxelAnalyzer.get_grey_matter_statistics()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../analyzer/index.html#module-tit.analyzer.group_analyzer">Group Analyzer</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.group_analyzer.format_duration"><code class="docutils literal notranslate"><span class="pre">format_duration()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.group_analyzer.log_group_analysis_start"><code class="docutils literal notranslate"><span class="pre">log_group_analysis_start()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.group_analyzer.log_group_analysis_complete"><code class="docutils literal notranslate"><span class="pre">log_group_analysis_complete()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.group_analyzer.log_group_subject_status"><code class="docutils literal notranslate"><span class="pre">log_group_subject_status()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.group_analyzer.create_group_output_directory"><code class="docutils literal notranslate"><span class="pre">create_group_output_directory()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.group_analyzer.setup_parser"><code class="docutils literal notranslate"><span class="pre">setup_parser()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.group_analyzer.validate_args"><code class="docutils literal notranslate"><span class="pre">validate_args()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.group_analyzer.compute_subject_output_dir"><code class="docutils literal notranslate"><span class="pre">compute_subject_output_dir()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.group_analyzer.build_main_analyzer_command"><code class="docutils literal notranslate"><span class="pre">build_main_analyzer_command()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.group_analyzer.run_subject_analysis"><code class="docutils literal notranslate"><span class="pre">run_subject_analysis()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.group_analyzer.collect_analysis_paths"><code class="docutils literal notranslate"><span class="pre">collect_analysis_paths()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.group_analyzer.run_comprehensive_group_analysis"><code class="docutils literal notranslate"><span class="pre">run_comprehensive_group_analysis()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.group_analyzer.determine_group_subfolder_name"><code class="docutils literal notranslate"><span class="pre">determine_group_subfolder_name()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.group_analyzer.main"><code class="docutils literal notranslate"><span class="pre">main()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../analyzer/index.html#module-tit.analyzer.visualizer">Visualizer</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.visualizer.BaseVisualizer"><code class="docutils literal notranslate"><span class="pre">BaseVisualizer</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.visualizer.BaseVisualizer.output_dir"><code class="docutils literal notranslate"><span class="pre">BaseVisualizer.output_dir</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.visualizer.BaseVisualizer.__init__"><code class="docutils literal notranslate"><span class="pre">BaseVisualizer.__init__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.visualizer.BaseVisualizer.save_results_to_csv"><code class="docutils literal notranslate"><span class="pre">BaseVisualizer.save_results_to_csv()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.visualizer.BaseVisualizer.save_extra_info_to_csv"><code class="docutils literal notranslate"><span class="pre">BaseVisualizer.save_extra_info_to_csv()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.visualizer.BaseVisualizer.save_whole_head_results_to_csv"><code class="docutils literal notranslate"><span class="pre">BaseVisualizer.save_whole_head_results_to_csv()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.visualizer.BaseVisualizer.generate_focality_histogram"><code class="docutils literal notranslate"><span class="pre">BaseVisualizer.generate_focality_histogram()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.visualizer.Visualizer"><code class="docutils literal notranslate"><span class="pre">Visualizer</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.visualizer.Visualizer.__init__"><code class="docutils literal notranslate"><span class="pre">Visualizer.__init__()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.visualizer.MeshVisualizer"><code class="docutils literal notranslate"><span class="pre">MeshVisualizer</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.visualizer.MeshVisualizer.__init__"><code class="docutils literal notranslate"><span class="pre">MeshVisualizer.__init__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.visualizer.MeshVisualizer.visualize_cortex_roi"><code class="docutils literal notranslate"><span class="pre">MeshVisualizer.visualize_cortex_roi()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.visualizer.MeshVisualizer.visualize_spherical_roi"><code class="docutils literal notranslate"><span class="pre">MeshVisualizer.visualize_spherical_roi()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.visualizer.VoxelVisualizer"><code class="docutils literal notranslate"><span class="pre">VoxelVisualizer</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.visualizer.VoxelVisualizer.__init__"><code class="docutils literal notranslate"><span class="pre">VoxelVisualizer.__init__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.visualizer.VoxelVisualizer.create_cortex_nifti"><code class="docutils literal notranslate"><span class="pre">VoxelVisualizer.create_cortex_nifti()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.visualizer.VoxelVisualizer.find_region"><code class="docutils literal notranslate"><span class="pre">VoxelVisualizer.find_region()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../analyzer/index.html#module-tit.analyzer.main_analyzer">Main Analyzer</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.main_analyzer.stdout_reconfigure"><code class="docutils literal notranslate"><span class="pre">stdout_reconfigure()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.main_analyzer.stderr_reconfigure"><code class="docutils literal notranslate"><span class="pre">stderr_reconfigure()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.main_analyzer.flush_output"><code class="docutils literal notranslate"><span class="pre">flush_output()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.main_analyzer.format_duration"><code class="docutils literal notranslate"><span class="pre">format_duration()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.main_analyzer.log_analysis_start"><code class="docutils literal notranslate"><span class="pre">log_analysis_start()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.main_analyzer.log_analysis_complete"><code class="docutils literal notranslate"><span class="pre">log_analysis_complete()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.main_analyzer.log_analysis_failed"><code class="docutils literal notranslate"><span class="pre">log_analysis_failed()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.main_analyzer.log_analysis_step_start"><code class="docutils literal notranslate"><span class="pre">log_analysis_step_start()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.main_analyzer.log_analysis_step_complete"><code class="docutils literal notranslate"><span class="pre">log_analysis_step_complete()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.main_analyzer.log_analysis_step_failed"><code class="docutils literal notranslate"><span class="pre">log_analysis_step_failed()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.main_analyzer.create_roi_description"><code class="docutils literal notranslate"><span class="pre">create_roi_description()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.main_analyzer.validate_file_extension"><code class="docutils literal notranslate"><span class="pre">validate_file_extension()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.main_analyzer.validate_coordinates"><code class="docutils literal notranslate"><span class="pre">validate_coordinates()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.main_analyzer.validate_radius"><code class="docutils literal notranslate"><span class="pre">validate_radius()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.main_analyzer.construct_mesh_field_path"><code class="docutils literal notranslate"><span class="pre">construct_mesh_field_path()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.main_analyzer.setup_parser"><code class="docutils literal notranslate"><span class="pre">setup_parser()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.main_analyzer.validate_args"><code class="docutils literal notranslate"><span class="pre">validate_args()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.main_analyzer.main"><code class="docutils literal notranslate"><span class="pre">main()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.main_analyzer.print_stat_if_exists"><code class="docutils literal notranslate"><span class="pre">print_stat_if_exists()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../analyzer/index.html#module-tit.analyzer.field_selector">Field Selector</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.field_selector.select_field_file"><code class="docutils literal notranslate"><span class="pre">select_field_file()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Optimization</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../opt/index.html">Optimization Module (<code class="docutils literal notranslate"><span class="pre">tit.opt</span></code>)</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../opt/index.html#leadfield-generator">Leadfield Generator</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../opt/index.html#flex-search">Flex-Search</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../opt/index.html#ex-search">Ex-Search</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Statistics</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../stats/index.html">Statistics Module (<code class="docutils literal notranslate"><span class="pre">tit.stats</span></code>)</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../stats/index.html#module-tit.stats.permutation_analysis">Permutation Analysis</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../stats/index.html#tit.stats.permutation_analysis.load_subject_data"><code class="docutils literal notranslate"><span class="pre">load_subject_data()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../stats/index.html#tit.stats.permutation_analysis.load_subject_data_group_comparison"><code class="docutils literal notranslate"><span class="pre">load_subject_data_group_comparison()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../stats/index.html#tit.stats.permutation_analysis.load_subject_data_correlation"><code class="docutils literal notranslate"><span class="pre">load_subject_data_correlation()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../stats/index.html#tit.stats.permutation_analysis.prepare_config_from_csv"><code class="docutils literal notranslate"><span class="pre">prepare_config_from_csv()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../stats/index.html#tit.stats.permutation_analysis.setup_logging"><code class="docutils literal notranslate"><span class="pre">setup_logging()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../stats/index.html#tit.stats.permutation_analysis.run_analysis"><code class="docutils literal notranslate"><span class="pre">run_analysis()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../stats/index.html#tit.stats.permutation_analysis.main"><code class="docutils literal notranslate"><span class="pre">main()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../stats/index.html#cluster-analysis">Cluster Analysis</a></li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">TI-Toolbox</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">tit.analyzer.visualizer</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for tit.analyzer.visualizer</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">Visualizer: A tool for generating visualizations of neuroimaging analysis results</span>
+
+<span class="sd">This module provides visualization capabilities for both voxel-based and mesh-based</span>
+<span class="sd">neuroimaging data analysis results. It can generate various types of plots and</span>
+<span class="sd">visualizations to help interpret analysis results.</span>
+
+<span class="sd">Inputs:</span>
+<span class="sd">    - Analysis results (statistical measures, ROI masks)</span>
+<span class="sd">    - Field data (voxel or mesh based)</span>
+<span class="sd">    - Atlas information</span>
+<span class="sd">    - Region specifications</span>
+
+<span class="sd">Outputs:</span>
+<span class="sd">    - Focality histograms (PDF)</span>
+<span class="sd">    - ROI visualizations</span>
+<span class="sd">    - Surface overlays</span>
+<span class="sd">    - Statistical summaries (CSV)</span>
+
+<span class="sd">Example Usage:</span>
+<span class="sd">    ```python</span>
+<span class="sd">    # Initialize visualizer</span>
+<span class="sd">    visualizer = VoxelVisualizer(output_dir=&quot;/path/to/output&quot;)</span>
+
+<span class="sd">    # Generate focality histogram</span>
+<span class="sd">    visualizer.generate_focality_histogram(</span>
+<span class="sd">        whole_head_field_data=whole_head_data,</span>
+<span class="sd">        roi_field_data=roi_data,</span>
+<span class="sd">        region_name=&quot;Left-Hippocampus&quot;</span>
+<span class="sd">    )</span>
+<span class="sd">    ```</span>
+
+<span class="sd">Dependencies:</span>
+<span class="sd">    - numpy</span>
+<span class="sd">    - matplotlib</span>
+<span class="sd">    - nibabel (for VoxelVisualizer)</span>
+<span class="sd">    - simnibs (for MeshVisualizer)</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">matplotlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">cm</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">matplotlib.colors</span><span class="w"> </span><span class="kn">import</span> <span class="n">Normalize</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">nibabel</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">nib</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">seaborn</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">sns</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">simnibs</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">csv</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">tit</span><span class="w"> </span><span class="kn">import</span> <span class="n">logger</span> <span class="k">as</span> <span class="n">logging_util</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">tit.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_path_manager</span>
+
+
+<div class="viewcode-block" id="BaseVisualizer">
+<a class="viewcode-back" href="../../../analyzer/index.html#tit.analyzer.visualizer.BaseVisualizer">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">BaseVisualizer</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Base class for visualization functionality.</span>
+<span class="sd">    </span>
+<span class="sd">    This class provides common visualization methods that can be used</span>
+<span class="sd">    by both voxel-based and mesh-based visualizers.</span>
+<span class="sd">    </span>
+<span class="sd">    Attributes:</span>
+<span class="sd">        output_dir (str): Directory where visualization files will be saved</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    
+<div class="viewcode-block" id="BaseVisualizer.__init__">
+<a class="viewcode-back" href="../../../analyzer/index.html#tit.analyzer.visualizer.BaseVisualizer.__init__">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">output_dir</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">logger</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Initialize the BaseVisualizer.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            output_dir (str): Directory where visualization files will be saved</span>
+<span class="sd">            logger: Optional logger instance to use. If None, creates its own.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">output_dir</span> <span class="o">=</span> <span class="n">output_dir</span>
+
+        <span class="c1"># Set up logger - use provided logger or create a new one</span>
+        <span class="k">if</span> <span class="n">logger</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># Create a child logger to distinguish visualizer logs</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span> <span class="o">=</span> <span class="n">logger</span><span class="o">.</span><span class="n">getChild</span><span class="p">(</span><span class="s1">&#39;visualizer&#39;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># Create our own logger if none provided</span>
+            <span class="kn">import</span><span class="w"> </span><span class="nn">time</span>
+            <span class="n">time_stamp</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="s1">&#39;%Y%m</span><span class="si">%d</span><span class="s1">_%H%M%S&#39;</span><span class="p">)</span>
+
+            <span class="c1"># Extract subject ID from output_dir path - go up until we find a sub-* directory</span>
+            <span class="n">output_path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">output_dir</span><span class="p">)</span>
+            <span class="n">subject_id</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="k">for</span> <span class="n">part</span> <span class="ow">in</span> <span class="nb">reversed</span><span class="p">(</span><span class="n">output_path</span><span class="o">.</span><span class="n">parts</span><span class="p">):</span>
+                <span class="k">if</span> <span class="n">part</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s1">&#39;sub-&#39;</span><span class="p">):</span>
+                    <span class="n">subject_id</span> <span class="o">=</span> <span class="n">part</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s1">&#39;sub-&#39;</span><span class="p">,</span> <span class="s1">&#39;&#39;</span><span class="p">)</span>
+                    <span class="k">break</span>
+            <span class="k">if</span> <span class="n">subject_id</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="c1"># Fallback to old method</span>
+                <span class="n">subject_id</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">basename</span><span class="p">(</span><span class="n">output_dir</span><span class="p">)</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;_&#39;</span><span class="p">)[</span><span class="mi">1</span><span class="p">]</span> <span class="k">if</span> <span class="s1">&#39;_&#39;</span> <span class="ow">in</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">basename</span><span class="p">(</span><span class="n">output_dir</span><span class="p">)</span> <span class="k">else</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">basename</span><span class="p">(</span><span class="n">output_dir</span><span class="p">)</span>
+
+            <span class="c1"># Extract region name from output_dir (last directory component)</span>
+            <span class="n">region_name</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">basename</span><span class="p">(</span><span class="n">output_dir</span><span class="p">)</span>
+
+            <span class="c1"># Create derivatives/ti-toolbox/logs directory structure</span>
+            <span class="n">pm</span> <span class="o">=</span> <span class="n">get_path_manager</span><span class="p">()</span>
+            <span class="n">log_dir</span> <span class="o">=</span> <span class="n">pm</span><span class="o">.</span><span class="n">path</span><span class="p">(</span><span class="s2">&quot;ti_logs&quot;</span><span class="p">,</span> <span class="n">subject_id</span><span class="o">=</span><span class="n">subject_id</span><span class="p">)</span>
+            <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">log_dir</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+            <span class="c1"># Create log file in the new directory with is_blender prefix and region</span>
+            <span class="n">log_file</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">log_dir</span><span class="p">,</span> <span class="sa">f</span><span class="s1">&#39;is_blender_</span><span class="si">{</span><span class="n">region_name</span><span class="si">}</span><span class="s1">_</span><span class="si">{</span><span class="n">time_stamp</span><span class="si">}</span><span class="s1">.log&#39;</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span> <span class="o">=</span> <span class="n">logging_util</span><span class="o">.</span><span class="n">get_logger</span><span class="p">(</span><span class="s1">&#39;visualizer&#39;</span><span class="p">,</span> <span class="n">log_file</span><span class="p">,</span> <span class="n">overwrite</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+        <span class="c1"># Create output directory if it doesn&#39;t exist</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">output_dir</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Creating output directory: </span><span class="si">{</span><span class="n">output_dir</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">output_dir</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="BaseVisualizer.save_results_to_csv">
+<a class="viewcode-back" href="../../../analyzer/index.html#tit.analyzer.visualizer.BaseVisualizer.save_results_to_csv">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">save_results_to_csv</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">results</span><span class="p">,</span> <span class="n">analysis_type</span><span class="p">,</span> <span class="n">region_name</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">data_type</span><span class="o">=</span><span class="s1">&#39;node&#39;</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Save analysis results to a CSV file.</span>
+<span class="sd">        </span>
+<span class="sd">        Args:</span>
+<span class="sd">            results (dict): Analysis results to save</span>
+<span class="sd">            analysis_type (str): Type of analysis (&#39;cortical&#39; or &#39;spherical&#39;)</span>
+<span class="sd">            region_name (str, optional): Name of the region analyzed</span>
+<span class="sd">            data_type (str): Type of data (&#39;node&#39; or &#39;voxel&#39;)</span>
+<span class="sd">        </span>
+<span class="sd">        Returns:</span>
+<span class="sd">            str: Path to the created CSV file</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        
+        <span class="c1"># Create appropriate filename</span>
+        <span class="k">if</span> <span class="n">region_name</span><span class="p">:</span>
+            <span class="n">filename</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">analysis_type</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">region_name</span><span class="si">}</span><span class="s2">.csv&quot;</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">filename</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">analysis_type</span><span class="si">}</span><span class="s2">_analysis.csv&quot;</span>
+        
+        <span class="c1"># Save directly to the output directory</span>
+        <span class="n">output_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">output_dir</span><span class="p">,</span> <span class="n">filename</span><span class="p">)</span>
+        
+        <span class="c1"># Write results to CSV</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">output_path</span><span class="p">,</span> <span class="s1">&#39;w&#39;</span><span class="p">,</span> <span class="n">newline</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">csvfile</span><span class="p">:</span>
+            <span class="n">writer</span> <span class="o">=</span> <span class="n">csv</span><span class="o">.</span><span class="n">writer</span><span class="p">(</span><span class="n">csvfile</span><span class="p">)</span>
+            
+            <span class="c1"># Write header and data based on analysis type</span>
+            <span class="k">if</span> <span class="n">analysis_type</span> <span class="o">==</span> <span class="s1">&#39;spherical&#39;</span><span class="p">:</span>
+                <span class="n">writer</span><span class="o">.</span><span class="n">writerow</span><span class="p">([</span><span class="s1">&#39;Metric&#39;</span><span class="p">,</span> <span class="s1">&#39;Value&#39;</span><span class="p">])</span>
+                <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">results</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                    <span class="k">if</span> <span class="n">key</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">&#39;roi_mask&#39;</span><span class="p">,</span> <span class="s1">&#39;elements_in_roi&#39;</span><span class="p">,</span> <span class="s1">&#39;voxels_in_roi&#39;</span><span class="p">,</span> <span class="s1">&#39;nodes_in_roi&#39;</span><span class="p">]:</span>
+                        <span class="n">writer</span><span class="o">.</span><span class="n">writerow</span><span class="p">([</span><span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">])</span>
+                
+                <span class="c1"># Write count information</span>
+                <span class="k">if</span> <span class="s1">&#39;elements_in_roi&#39;</span> <span class="ow">in</span> <span class="n">results</span><span class="p">:</span>
+                    <span class="n">writer</span><span class="o">.</span><span class="n">writerow</span><span class="p">([</span><span class="s1">&#39;elements_in_roi&#39;</span><span class="p">,</span> <span class="n">results</span><span class="p">[</span><span class="s1">&#39;elements_in_roi&#39;</span><span class="p">]])</span>
+                <span class="k">if</span> <span class="s1">&#39;voxels_in_roi&#39;</span> <span class="ow">in</span> <span class="n">results</span><span class="p">:</span>
+                    <span class="n">writer</span><span class="o">.</span><span class="n">writerow</span><span class="p">([</span><span class="s1">&#39;voxels_in_roi&#39;</span><span class="p">,</span> <span class="n">results</span><span class="p">[</span><span class="s1">&#39;voxels_in_roi&#39;</span><span class="p">]])</span>
+                <span class="k">if</span> <span class="s1">&#39;nodes_in_roi&#39;</span> <span class="ow">in</span> <span class="n">results</span><span class="p">:</span>
+                    <span class="n">writer</span><span class="o">.</span><span class="n">writerow</span><span class="p">([</span><span class="s1">&#39;nodes_in_roi&#39;</span><span class="p">,</span> <span class="n">results</span><span class="p">[</span><span class="s1">&#39;nodes_in_roi&#39;</span><span class="p">]])</span>
+            
+            <span class="k">elif</span> <span class="n">analysis_type</span> <span class="o">==</span> <span class="s1">&#39;cortical&#39;</span><span class="p">:</span>
+                <span class="n">writer</span><span class="o">.</span><span class="n">writerow</span><span class="p">([</span><span class="s1">&#39;Metric&#39;</span><span class="p">,</span> <span class="s1">&#39;Value&#39;</span><span class="p">])</span>
+                <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">results</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                    <span class="k">if</span> <span class="n">key</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">&#39;roi_mask&#39;</span><span class="p">,</span> <span class="s1">&#39;elements_in_roi&#39;</span><span class="p">,</span> <span class="s1">&#39;voxels_in_roi&#39;</span><span class="p">,</span> <span class="s1">&#39;nodes_in_roi&#39;</span><span class="p">,</span> <span class="s1">&#39;visualization_file&#39;</span><span class="p">]:</span>
+                        <span class="n">writer</span><span class="o">.</span><span class="n">writerow</span><span class="p">([</span><span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">])</span>
+                
+                <span class="c1"># Write count information</span>
+                <span class="k">if</span> <span class="s1">&#39;nodes_in_roi&#39;</span> <span class="ow">in</span> <span class="n">results</span><span class="p">:</span>
+                    <span class="n">writer</span><span class="o">.</span><span class="n">writerow</span><span class="p">([</span><span class="s1">&#39;nodes_in_roi&#39;</span><span class="p">,</span> <span class="n">results</span><span class="p">[</span><span class="s1">&#39;nodes_in_roi&#39;</span><span class="p">]])</span>
+                <span class="k">if</span> <span class="s1">&#39;voxels_in_roi&#39;</span> <span class="ow">in</span> <span class="n">results</span><span class="p">:</span>
+                    <span class="n">writer</span><span class="o">.</span><span class="n">writerow</span><span class="p">([</span><span class="s1">&#39;voxels_in_roi&#39;</span><span class="p">,</span> <span class="n">results</span><span class="p">[</span><span class="s1">&#39;voxels_in_roi&#39;</span><span class="p">]])</span>
+                
+                <span class="c1"># Write visualization file path if available</span>
+                <span class="k">if</span> <span class="s1">&#39;visualization_file&#39;</span> <span class="ow">in</span> <span class="n">results</span> <span class="ow">and</span> <span class="n">results</span><span class="p">[</span><span class="s1">&#39;visualization_file&#39;</span><span class="p">]:</span>
+                    <span class="n">writer</span><span class="o">.</span><span class="n">writerow</span><span class="p">([</span><span class="s1">&#39;visualization_file&#39;</span><span class="p">,</span> <span class="n">results</span><span class="p">[</span><span class="s1">&#39;visualization_file&#39;</span><span class="p">]])</span>
+            
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Saved analysis results to: </span><span class="si">{</span><span class="n">output_path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">output_path</span></div>
+
+
+<div class="viewcode-block" id="BaseVisualizer.save_extra_info_to_csv">
+<a class="viewcode-back" href="../../../analyzer/index.html#tit.analyzer.visualizer.BaseVisualizer.save_extra_info_to_csv">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">save_extra_info_to_csv</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">focality_info</span><span class="p">,</span> <span class="n">analysis_type</span><span class="p">,</span> <span class="n">region_name</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">data_type</span><span class="o">=</span><span class="s1">&#39;node&#39;</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Save focality analysis extra information to a CSV file.</span>
+<span class="sd">        </span>
+<span class="sd">        Args:</span>
+<span class="sd">            focality_info (dict): Focality metrics to save</span>
+<span class="sd">            analysis_type (str): Type of analysis (&#39;cortical&#39; or &#39;spherical&#39;)</span>
+<span class="sd">            region_name (str, optional): Name of the region analyzed</span>
+<span class="sd">            data_type (str): Type of data (&#39;node&#39; or &#39;voxel&#39;)</span>
+<span class="sd">        </span>
+<span class="sd">        Returns:</span>
+<span class="sd">            str: Path to the created CSV file</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        
+        <span class="c1"># Create appropriate filename</span>
+        <span class="k">if</span> <span class="n">region_name</span><span class="p">:</span>
+            <span class="n">filename</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">analysis_type</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">region_name</span><span class="si">}</span><span class="s2">_extra_info.csv&quot;</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">filename</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">analysis_type</span><span class="si">}</span><span class="s2">_analysis_extra_info.csv&quot;</span>
+        
+        <span class="c1"># Save directly to the output directory</span>
+        <span class="n">output_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">output_dir</span><span class="p">,</span> <span class="n">filename</span><span class="p">)</span>
+        
+        <span class="c1"># Write focality info to CSV</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">output_path</span><span class="p">,</span> <span class="s1">&#39;w&#39;</span><span class="p">,</span> <span class="n">newline</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">csvfile</span><span class="p">:</span>
+            <span class="n">writer</span> <span class="o">=</span> <span class="n">csv</span><span class="o">.</span><span class="n">writer</span><span class="p">(</span><span class="n">csvfile</span><span class="p">)</span>
+            
+            <span class="c1"># Write header</span>
+            <span class="n">writer</span><span class="o">.</span><span class="n">writerow</span><span class="p">([</span><span class="s1">&#39;Metric&#39;</span><span class="p">,</span> <span class="s1">&#39;Value&#39;</span><span class="p">])</span>
+            
+            <span class="c1"># Write all focality metrics</span>
+            <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">focality_info</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="n">writer</span><span class="o">.</span><span class="n">writerow</span><span class="p">([</span><span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">])</span>
+        
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Saved focality extra info to: </span><span class="si">{</span><span class="n">output_path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">output_path</span></div>
+
+
+<div class="viewcode-block" id="BaseVisualizer.save_whole_head_results_to_csv">
+<a class="viewcode-back" href="../../../analyzer/index.html#tit.analyzer.visualizer.BaseVisualizer.save_whole_head_results_to_csv">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">save_whole_head_results_to_csv</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">results</span><span class="p">,</span> <span class="n">atlas_type</span><span class="p">,</span> <span class="n">data_type</span><span class="o">=</span><span class="s1">&#39;voxel&#39;</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Save a summary CSV of whole-head analysis results directly in the output directory.&quot;&quot;&quot;</span>
+        <span class="c1"># Create the CSV</span>
+        <span class="n">filename</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;whole_head_</span><span class="si">{</span><span class="n">atlas_type</span><span class="si">}</span><span class="s2">_summary.csv&quot;</span>
+        <span class="n">output_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">output_dir</span><span class="p">,</span> <span class="n">filename</span><span class="p">)</span>
+        
+        <span class="c1"># Write results to CSV</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">output_path</span><span class="p">,</span> <span class="s1">&#39;w&#39;</span><span class="p">,</span> <span class="n">newline</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">csvfile</span><span class="p">:</span>
+            <span class="n">writer</span> <span class="o">=</span> <span class="n">csv</span><span class="o">.</span><span class="n">writer</span><span class="p">(</span><span class="n">csvfile</span><span class="p">)</span>
+            
+            <span class="c1"># Write header row - include both TI_max and TI_normal columns</span>
+            <span class="n">header</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;Region&#39;</span><span class="p">,</span> <span class="s1">&#39;Mean Value&#39;</span><span class="p">,</span> <span class="s1">&#39;Max Value&#39;</span><span class="p">,</span> <span class="s1">&#39;Min Value&#39;</span><span class="p">,</span> <span class="s1">&#39;Focality&#39;</span><span class="p">,</span> 
+                     <span class="s1">&#39;Normal Mean Value&#39;</span><span class="p">,</span> <span class="s1">&#39;Normal Max Value&#39;</span><span class="p">,</span> <span class="s1">&#39;Normal Min Value&#39;</span><span class="p">,</span> <span class="s1">&#39;Normal Focality&#39;</span><span class="p">,</span>
+                     <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">data_type</span><span class="o">.</span><span class="n">capitalize</span><span class="p">()</span><span class="si">}</span><span class="s1">s in ROI&#39;</span><span class="p">]</span>
+            <span class="n">writer</span><span class="o">.</span><span class="n">writerow</span><span class="p">(</span><span class="n">header</span><span class="p">)</span>
+            
+            <span class="c1"># Write data for each region</span>
+            <span class="k">for</span> <span class="n">region_name</span><span class="p">,</span> <span class="n">region_data</span> <span class="ow">in</span> <span class="n">results</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="n">row</span> <span class="o">=</span> <span class="p">[</span>
+                    <span class="n">region_name</span><span class="p">,</span>
+                    <span class="n">region_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;mean_value&#39;</span><span class="p">,</span> <span class="s1">&#39;N/A&#39;</span><span class="p">),</span>
+                    <span class="n">region_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;max_value&#39;</span><span class="p">,</span> <span class="s1">&#39;N/A&#39;</span><span class="p">),</span>
+                    <span class="n">region_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;min_value&#39;</span><span class="p">,</span> <span class="s1">&#39;N/A&#39;</span><span class="p">),</span>
+                    <span class="n">region_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;focality&#39;</span><span class="p">,</span> <span class="s1">&#39;N/A&#39;</span><span class="p">),</span>
+                    <span class="n">region_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;normal_mean_value&#39;</span><span class="p">,</span> <span class="s1">&#39;N/A&#39;</span><span class="p">),</span>
+                    <span class="n">region_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;normal_max_value&#39;</span><span class="p">,</span> <span class="s1">&#39;N/A&#39;</span><span class="p">),</span>
+                    <span class="n">region_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;normal_min_value&#39;</span><span class="p">,</span> <span class="s1">&#39;N/A&#39;</span><span class="p">),</span>
+                    <span class="n">region_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;normal_focality&#39;</span><span class="p">,</span> <span class="s1">&#39;N/A&#39;</span><span class="p">),</span>
+                    <span class="n">region_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">data_type</span><span class="si">}</span><span class="s1">s_in_roi&#39;</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+                <span class="p">]</span>
+                <span class="n">writer</span><span class="o">.</span><span class="n">writerow</span><span class="p">(</span><span class="n">row</span><span class="p">)</span>
+        
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Saved whole-head analysis summary to: </span><span class="si">{</span><span class="n">output_path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">output_path</span></div>
+
+
+<div class="viewcode-block" id="BaseVisualizer.generate_focality_histogram">
+<a class="viewcode-back" href="../../../analyzer/index.html#tit.analyzer.visualizer.BaseVisualizer.generate_focality_histogram">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">generate_focality_histogram</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">whole_head_field_data</span><span class="p">,</span> <span class="n">roi_field_data</span><span class="p">,</span> 
+                                    <span class="n">whole_head_element_sizes</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">roi_element_sizes</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                                    <span class="n">filename</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">region_name</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">roi_field_value</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> 
+                                    <span class="n">data_type</span><span class="o">=</span><span class="s1">&#39;element&#39;</span><span class="p">,</span> <span class="n">voxel_dims</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Generate a whole-head histogram with ROI contribution color coding.</span>
+<span class="sd">        </span>
+<span class="sd">        This creates a histogram of field values across the entire brain volume,</span>
+<span class="sd">        with bars color-coded to show how much of each bin&#39;s volume comes from the ROI.</span>
+<span class="sd">        </span>
+<span class="sd">        Args:</span>
+<span class="sd">            whole_head_field_data (numpy.ndarray): Field strength values for entire head</span>
+<span class="sd">            roi_field_data (numpy.ndarray): Field strength values for ROI only</span>
+<span class="sd">            whole_head_element_sizes (numpy.ndarray, optional): Element sizes for entire head</span>
+<span class="sd">            roi_element_sizes (numpy.ndarray, optional): Element sizes for ROI only</span>
+<span class="sd">            filename (str, optional): Filename for the output image</span>
+<span class="sd">            region_name (str, optional): Name of the analyzed region</span>
+<span class="sd">            roi_field_value (float, optional): ROI field value to display as reference line</span>
+<span class="sd">            data_type (str): Type of data elements (&#39;element&#39;, &#39;voxel&#39;, &#39;node&#39;)</span>
+<span class="sd">            voxel_dims (tuple, optional): Voxel dimensions (x,y,z) for voxel volume calculation</span>
+<span class="sd">            </span>
+<span class="sd">        Returns:</span>
+<span class="sd">            str: Path to the generated histogram file</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">tit.plotting.focality</span><span class="w"> </span><span class="kn">import</span> <span class="n">plot_whole_head_roi_histogram</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Generating whole-head ROI histogram for </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">whole_head_field_data</span><span class="p">)</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">data_type</span><span class="si">}</span><span class="s2">s&quot;</span><span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">hist_file</span> <span class="o">=</span> <span class="n">plot_whole_head_roi_histogram</span><span class="p">(</span>
+                <span class="n">output_dir</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">output_dir</span><span class="p">,</span>
+                <span class="n">whole_head_field_data</span><span class="o">=</span><span class="n">whole_head_field_data</span><span class="p">,</span>
+                <span class="n">roi_field_data</span><span class="o">=</span><span class="n">roi_field_data</span><span class="p">,</span>
+                <span class="n">whole_head_element_sizes</span><span class="o">=</span><span class="n">whole_head_element_sizes</span><span class="p">,</span>
+                <span class="n">roi_element_sizes</span><span class="o">=</span><span class="n">roi_element_sizes</span><span class="p">,</span>
+                <span class="n">filename</span><span class="o">=</span><span class="n">filename</span><span class="p">,</span>
+                <span class="n">region_name</span><span class="o">=</span><span class="n">region_name</span><span class="p">,</span>
+                <span class="n">roi_field_value</span><span class="o">=</span><span class="n">roi_field_value</span><span class="p">,</span>
+                <span class="n">data_type</span><span class="o">=</span><span class="n">data_type</span><span class="p">,</span>
+                <span class="n">voxel_dims</span><span class="o">=</span><span class="n">voxel_dims</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="k">if</span> <span class="n">hist_file</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Generated whole-head ROI histogram: </span><span class="si">{</span><span class="n">hist_file</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Failed to generate whole-head ROI histogram (no output produced).&quot;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">hist_file</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Failed to generate whole-head ROI histogram: </span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="kc">None</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="Visualizer">
+<a class="viewcode-back" href="../../../analyzer/index.html#tit.analyzer.visualizer.Visualizer">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">Visualizer</span><span class="p">(</span><span class="n">BaseVisualizer</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Base class for generating visualizations of analysis results.</span>
+<span class="sd">    Contains common visualization methods used by both mesh and voxel analysis.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    
+<div class="viewcode-block" id="Visualizer.__init__">
+<a class="viewcode-back" href="../../../analyzer/index.html#tit.analyzer.visualizer.Visualizer.__init__">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">output_dir</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">logger</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Initialize the Visualizer class.</span>
+<span class="sd">        </span>
+<span class="sd">        Args:</span>
+<span class="sd">            output_dir (str): Directory where visualization files will be saved</span>
+<span class="sd">            logger: Optional logger instance to use. If None, creates its own.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">output_dir</span><span class="p">,</span> <span class="n">logger</span><span class="p">)</span></div>
+</div>
+
+        
+        <span class="c1"># Only create directories if needed for individual analyses, not for whole-head</span>
+        <span class="c1"># We&#39;ll create these directories on demand in the specific methods that need them</span>
+        <span class="c1"># instead of creating them all at initialization</span>
+    
+
+
+
+
+<div class="viewcode-block" id="MeshVisualizer">
+<a class="viewcode-back" href="../../../analyzer/index.html#tit.analyzer.visualizer.MeshVisualizer">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">MeshVisualizer</span><span class="p">(</span><span class="n">Visualizer</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Class for generating mesh-specific visualizations.&quot;&quot;&quot;</span>
+    
+<div class="viewcode-block" id="MeshVisualizer.__init__">
+<a class="viewcode-back" href="../../../analyzer/index.html#tit.analyzer.visualizer.MeshVisualizer.__init__">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">output_dir</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">logger</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialize the MeshVisualizer class.&quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">output_dir</span><span class="p">,</span> <span class="n">logger</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="MeshVisualizer.visualize_cortex_roi">
+<a class="viewcode-back" href="../../../analyzer/index.html#tit.analyzer.visualizer.MeshVisualizer.visualize_cortex_roi">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">visualize_cortex_roi</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">gm_surf</span><span class="p">,</span> <span class="n">roi_mask</span><span class="p">,</span> <span class="n">target_region</span><span class="p">,</span> <span class="n">field_values</span><span class="p">,</span> <span class="n">max_value</span><span class="p">,</span> <span class="n">output_dir</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">surface_mesh_path</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">normal_mesh_path</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Generate 3D visualization for a region and save it directly to the specified directory.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">simnibs</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;simnibs not available. Cannot generate mesh visualization.&quot;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="kc">None</span>
+            
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Creating cortex ROI visualization for region: </span><span class="si">{</span><span class="n">target_region</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;ROI contains </span><span class="si">{</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">roi_mask</span><span class="p">)</span><span class="si">}</span><span class="s2"> nodes&quot;</span><span class="p">)</span>
+        
+        <span class="c1"># Load a fresh copy of the surface mesh to avoid accumulating ROI fields across regions</span>
+        <span class="k">if</span> <span class="n">surface_mesh_path</span><span class="p">:</span>
+            <span class="n">region_mesh</span> <span class="o">=</span> <span class="n">simnibs</span><span class="o">.</span><span class="n">read_msh</span><span class="p">(</span><span class="n">surface_mesh_path</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># Use the provided mesh if no path is given</span>
+            <span class="n">region_mesh</span> <span class="o">=</span> <span class="n">gm_surf</span>
+        
+        <span class="c1"># Create a new field with TI_max field values only in ROI (zeros elsewhere)</span>
+        <span class="n">masked_field</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">region_mesh</span><span class="o">.</span><span class="n">nodes</span><span class="o">.</span><span class="n">nr</span><span class="p">)</span>
+        <span class="n">masked_field</span><span class="p">[</span><span class="n">roi_mask</span><span class="p">]</span> <span class="o">=</span> <span class="n">field_values</span><span class="p">[</span><span class="n">roi_mask</span><span class="p">]</span>
+        
+        <span class="c1"># Add TI_max field to the mesh</span>
+        <span class="n">region_mesh</span><span class="o">.</span><span class="n">add_node_field</span><span class="p">(</span><span class="n">masked_field</span><span class="p">,</span> <span class="s1">&#39;TI_max_ROI&#39;</span><span class="p">)</span>
+        
+        <span class="c1"># Try to add TI_normal field if normal mesh is available</span>
+        <span class="n">normal_max_value</span> <span class="o">=</span> <span class="n">max_value</span>  <span class="c1"># Default fallback</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="c1"># Construct normal mesh path if not provided</span>
+            <span class="k">if</span> <span class="n">normal_mesh_path</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">surface_mesh_path</span><span class="p">:</span>
+                <span class="c1"># Try to construct normal mesh path from surface mesh path</span>
+                <span class="c1"># Surface mesh: /path/to/montage_TI_central.msh -&gt; Normal mesh: /path/to/montage_normal.msh</span>
+                <span class="n">mesh_dir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">surface_mesh_path</span><span class="p">)</span>
+                <span class="n">surface_filename</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">basename</span><span class="p">(</span><span class="n">surface_mesh_path</span><span class="p">)</span>
+                
+                <span class="k">if</span> <span class="s1">&#39;_TI_central.msh&#39;</span> <span class="ow">in</span> <span class="n">surface_filename</span><span class="p">:</span>
+                    <span class="n">normal_mesh_filename</span> <span class="o">=</span> <span class="n">surface_filename</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s1">&#39;_TI_central.msh&#39;</span><span class="p">,</span> <span class="s1">&#39;_normal.msh&#39;</span><span class="p">)</span>
+                <span class="k">elif</span> <span class="s1">&#39;_mTI.msh&#39;</span> <span class="ow">in</span> <span class="n">surface_filename</span><span class="p">:</span>
+                    <span class="c1"># For mTI simulations: _mTI.msh -&gt; _mTI_normal.msh (if it exists)</span>
+                    <span class="n">normal_mesh_filename</span> <span class="o">=</span> <span class="n">surface_filename</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s1">&#39;_mTI.msh&#39;</span><span class="p">,</span> <span class="s1">&#39;_mTI_normal.msh&#39;</span><span class="p">)</span>
+                <span class="k">elif</span> <span class="s1">&#39;_TI.msh&#39;</span> <span class="ow">in</span> <span class="n">surface_filename</span><span class="p">:</span>
+                    <span class="c1"># For regular TI simulations: _TI.msh -&gt; _normal.msh</span>
+                    <span class="n">normal_mesh_filename</span> <span class="o">=</span> <span class="n">surface_filename</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s1">&#39;_TI.msh&#39;</span><span class="p">,</span> <span class="s1">&#39;_normal.msh&#39;</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="c1"># General fallback: try to replace .msh with _normal.msh</span>
+                    <span class="n">base_name</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">splitext</span><span class="p">(</span><span class="n">surface_filename</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+                    <span class="n">normal_mesh_filename</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">base_name</span><span class="si">}</span><span class="s2">_normal.msh&quot;</span>
+                
+                <span class="n">normal_mesh_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">mesh_dir</span><span class="p">,</span> <span class="n">normal_mesh_filename</span><span class="p">)</span>
+            
+            <span class="c1"># Load normal mesh and extract TI_normal values</span>
+            <span class="k">if</span> <span class="n">normal_mesh_path</span> <span class="ow">and</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">normal_mesh_path</span><span class="p">):</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Adding TI_normal field from: </span><span class="si">{</span><span class="n">normal_mesh_path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="n">normal_mesh</span> <span class="o">=</span> <span class="n">simnibs</span><span class="o">.</span><span class="n">read_msh</span><span class="p">(</span><span class="n">normal_mesh_path</span><span class="p">)</span>
+                
+                <span class="k">if</span> <span class="s1">&#39;TI_normal&#39;</span> <span class="ow">in</span> <span class="n">normal_mesh</span><span class="o">.</span><span class="n">field</span><span class="p">:</span>
+                    <span class="n">normal_field_values</span> <span class="o">=</span> <span class="n">normal_mesh</span><span class="o">.</span><span class="n">field</span><span class="p">[</span><span class="s1">&#39;TI_normal&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">value</span>
+                    
+                    <span class="c1"># Create masked normal field (zeros everywhere except ROI)</span>
+                    <span class="n">masked_normal_field</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">region_mesh</span><span class="o">.</span><span class="n">nodes</span><span class="o">.</span><span class="n">nr</span><span class="p">)</span>
+                    <span class="n">masked_normal_field</span><span class="p">[</span><span class="n">roi_mask</span><span class="p">]</span> <span class="o">=</span> <span class="n">normal_field_values</span><span class="p">[</span><span class="n">roi_mask</span><span class="p">]</span>
+                    
+                    <span class="c1"># Add TI_normal field to the mesh</span>
+                    <span class="n">region_mesh</span><span class="o">.</span><span class="n">add_node_field</span><span class="p">(</span><span class="n">masked_normal_field</span><span class="p">,</span> <span class="s1">&#39;TI_normal_ROI&#39;</span><span class="p">)</span>
+                    
+                    <span class="c1"># Calculate max value for normal field for color scaling</span>
+                    <span class="n">normal_roi_values</span> <span class="o">=</span> <span class="n">normal_field_values</span><span class="p">[</span><span class="n">roi_mask</span><span class="p">]</span>
+                    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">normal_roi_values</span><span class="p">[</span><span class="n">normal_roi_values</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">])</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                        <span class="n">normal_max_value</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">normal_roi_values</span><span class="p">[</span><span class="n">normal_roi_values</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">])</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;TI_normal max value in ROI: </span><span class="si">{</span><span class="n">normal_max_value</span><span class="si">:</span><span class="s2">.6f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                    
+                    <span class="c1"># Clean up</span>
+                    <span class="k">del</span> <span class="n">normal_mesh</span>
+                    
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;TI_normal field not found in normal mesh&quot;</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Normal mesh not found at: </span><span class="si">{</span><span class="n">normal_mesh_path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Could not add TI_normal field to visualization: </span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        
+        <span class="c1"># Use provided output_dir or default to self.output_dir</span>
+        <span class="k">if</span> <span class="n">output_dir</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">output_dir</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_dir</span>
+            
+        <span class="c1"># Create the output filename in the region directory</span>
+        <span class="n">output_filename</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">output_dir</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">target_region</span><span class="si">}</span><span class="s2">_ROI.msh&quot;</span><span class="p">)</span>
+        
+        <span class="c1"># Save the modified mesh</span>
+        <span class="n">region_mesh</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">output_filename</span><span class="p">)</span>
+        
+        <span class="c1"># Create the .msh.opt file with custom color map and alpha settings for both fields</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">output_filename</span><span class="si">}</span><span class="s2">.opt&quot;</span><span class="p">,</span> <span class="s1">&#39;w&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;&quot;&quot;</span>
+<span class="s2">    // Hide 2D mesh element faces for cleaner field visualization</span>
+<span class="s2">    Mesh.SurfaceFaces = 0;       // Hide surface faces</span>
+<span class="s2">    Mesh.SurfaceEdges = 0;       // Hide surface edges</span>
+<span class="s2">    Mesh.Points = 0;             // Hide mesh points</span>
+<span class="s2">    Mesh.Lines = 0;              // Hide mesh lines</span>
+
+<span class="s2">    // Make View[1] (TI_max_ROI) visible with custom colormap</span>
+<span class="s2">    View[1].Visible = 1;</span>
+<span class="s2">    View[1].ColormapNumber = 1;  // Use the first predefined colormap</span>
+<span class="s2">    View[1].RangeType = 2;       // Custom range</span>
+<span class="s2">    View[1].CustomMin = 0;       // Specific minimum value</span>
+<span class="s2">    View[1].CustomMax = </span><span class="si">{</span><span class="n">max_value</span><span class="si">}</span><span class="s2">;  // Specific maximum value for TI_max</span>
+<span class="s2">    View[1].ShowScale = 1;       // Show the color scale</span>
+
+<span class="s2">    // Add alpha/transparency based on value</span>
+<span class="s2">    View[1].ColormapAlpha = 1;</span>
+<span class="s2">    View[1].ColormapAlphaPower = 0.08;</span>
+
+<span class="s2">    // Make View[2] (TI_normal_ROI) visible with different colormap (if available)</span>
+<span class="s2">    View[2].Visible = 0;         // Initially hidden - user can toggle</span>
+<span class="s2">    View[2].ColormapNumber = 2;  // Use the second predefined colormap</span>
+<span class="s2">    View[2].RangeType = 2;       // Custom range</span>
+<span class="s2">    View[2].CustomMin = 0;       // Specific minimum value</span>
+<span class="s2">    View[2].CustomMax = </span><span class="si">{</span><span class="n">normal_max_value</span><span class="si">}</span><span class="s2">;  // Specific maximum value for TI_normal</span>
+<span class="s2">    View[2].ShowScale = 1;       // Show the color scale</span>
+
+<span class="s2">    // Add alpha/transparency based on value</span>
+<span class="s2">    View[2].ColormapAlpha = 1;</span>
+<span class="s2">    View[2].ColormapAlphaPower = 0.08;</span>
+<span class="s2">    </span>
+<span class="s2">    // Field information as comments</span>
+<span class="s2">    // View[1]: TI_max field (max value: </span><span class="si">{</span><span class="n">max_value</span><span class="si">:</span><span class="s2">.6f</span><span class="si">}</span><span class="s2">)</span>
+<span class="s2">    // View[2]: TI_normal field (max value: </span><span class="si">{</span><span class="n">normal_max_value</span><span class="si">:</span><span class="s2">.6f</span><span class="si">}</span><span class="s2">)</span>
+<span class="s2">    &quot;&quot;&quot;</span><span class="p">)</span>
+        
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Created visualization: </span><span class="si">{</span><span class="n">output_filename</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Visualization settings saved to: </span><span class="si">{</span><span class="n">output_filename</span><span class="si">}</span><span class="s2">.opt&quot;</span><span class="p">)</span>
+        
+        <span class="k">return</span> <span class="n">output_filename</span></div>
+
+
+<div class="viewcode-block" id="MeshVisualizer.visualize_spherical_roi">
+<a class="viewcode-back" href="../../../analyzer/index.html#tit.analyzer.visualizer.MeshVisualizer.visualize_spherical_roi">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">visualize_spherical_roi</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">gm_surf</span><span class="p">,</span> <span class="n">roi_mask</span><span class="p">,</span> <span class="n">center_coords</span><span class="p">,</span> <span class="n">radius</span><span class="p">,</span> <span class="n">field_values</span><span class="p">,</span> <span class="n">max_value</span><span class="p">,</span> <span class="n">output_dir</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">surface_mesh_path</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create visualization files for a spherical ROI in mesh data.</span>
+<span class="sd">        </span>
+<span class="sd">        Args:</span>
+<span class="sd">            gm_surf: Gray matter surface mesh</span>
+<span class="sd">            roi_mask: Boolean mask indicating which nodes are in the spherical ROI</span>
+<span class="sd">            center_coords: Coordinates of the sphere center (x, y, z)</span>
+<span class="sd">            radius: Radius of the sphere</span>
+<span class="sd">            field_values: Field values for all nodes</span>
+<span class="sd">            max_value: Maximum value for color scale</span>
+<span class="sd">            output_dir: Optional output directory (if None, uses self.output_dir)</span>
+<span class="sd">            surface_mesh_path: Optional path to surface mesh for TI_normal field extraction</span>
+<span class="sd">            </span>
+<span class="sd">        Returns:</span>
+<span class="sd">            str: Path to the created visualization file</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">simnibs</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;simnibs not available. Cannot generate mesh visualization.&quot;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="kc">None</span>
+            
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Creating spherical ROI visualization at center </span><span class="si">{</span><span class="n">center_coords</span><span class="si">}</span><span class="s2"> with radius </span><span class="si">{</span><span class="n">radius</span><span class="si">}</span><span class="s2">mm&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;ROI contains </span><span class="si">{</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">roi_mask</span><span class="p">)</span><span class="si">}</span><span class="s2"> surface nodes&quot;</span><span class="p">)</span>
+        
+        <span class="c1"># Create a new field with TI_max field values only in ROI (zeros elsewhere)</span>
+        <span class="n">masked_field</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">gm_surf</span><span class="o">.</span><span class="n">nodes</span><span class="o">.</span><span class="n">nr</span><span class="p">)</span>
+        <span class="n">masked_field</span><span class="p">[</span><span class="n">roi_mask</span><span class="p">]</span> <span class="o">=</span> <span class="n">field_values</span><span class="p">[</span><span class="n">roi_mask</span><span class="p">]</span>
+        
+        <span class="c1"># Add TI_max field to the mesh</span>
+        <span class="n">gm_surf</span><span class="o">.</span><span class="n">add_node_field</span><span class="p">(</span><span class="n">masked_field</span><span class="p">,</span> <span class="s1">&#39;Spherical_ROI_field&#39;</span><span class="p">)</span>
+        
+        <span class="c1"># Try to add TI_normal field if normal mesh is available</span>
+        <span class="n">normal_max_value</span> <span class="o">=</span> <span class="n">max_value</span>  <span class="c1"># Default fallback</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="c1"># Construct normal mesh path if surface mesh path is provided</span>
+            <span class="n">normal_mesh_path</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="k">if</span> <span class="n">surface_mesh_path</span><span class="p">:</span>
+                <span class="c1"># Try to construct normal mesh path from surface mesh path</span>
+                <span class="c1"># Surface mesh: /path/to/montage_TI_central.msh -&gt; Normal mesh: /path/to/montage_normal.msh</span>
+                <span class="n">mesh_dir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">surface_mesh_path</span><span class="p">)</span>
+                <span class="n">surface_filename</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">basename</span><span class="p">(</span><span class="n">surface_mesh_path</span><span class="p">)</span>
+                
+                <span class="k">if</span> <span class="s1">&#39;_TI_central.msh&#39;</span> <span class="ow">in</span> <span class="n">surface_filename</span><span class="p">:</span>
+                    <span class="n">normal_mesh_filename</span> <span class="o">=</span> <span class="n">surface_filename</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s1">&#39;_TI_central.msh&#39;</span><span class="p">,</span> <span class="s1">&#39;_normal.msh&#39;</span><span class="p">)</span>
+                <span class="k">elif</span> <span class="s1">&#39;_mTI.msh&#39;</span> <span class="ow">in</span> <span class="n">surface_filename</span><span class="p">:</span>
+                    <span class="c1"># For mTI simulations: _mTI.msh -&gt; _mTI_normal.msh (if it exists)</span>
+                    <span class="n">normal_mesh_filename</span> <span class="o">=</span> <span class="n">surface_filename</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s1">&#39;_mTI.msh&#39;</span><span class="p">,</span> <span class="s1">&#39;_mTI_normal.msh&#39;</span><span class="p">)</span>
+                <span class="k">elif</span> <span class="s1">&#39;_TI.msh&#39;</span> <span class="ow">in</span> <span class="n">surface_filename</span><span class="p">:</span>
+                    <span class="c1"># For regular TI simulations: _TI.msh -&gt; _normal.msh</span>
+                    <span class="n">normal_mesh_filename</span> <span class="o">=</span> <span class="n">surface_filename</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s1">&#39;_TI.msh&#39;</span><span class="p">,</span> <span class="s1">&#39;_normal.msh&#39;</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="c1"># General fallback: try to replace .msh with _normal.msh</span>
+                    <span class="n">base_name</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">splitext</span><span class="p">(</span><span class="n">surface_filename</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+                    <span class="n">normal_mesh_filename</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">base_name</span><span class="si">}</span><span class="s2">_normal.msh&quot;</span>
+                
+                <span class="n">normal_mesh_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">mesh_dir</span><span class="p">,</span> <span class="n">normal_mesh_filename</span><span class="p">)</span>
+            
+            <span class="c1"># Load normal mesh and extract TI_normal values</span>
+            <span class="k">if</span> <span class="n">normal_mesh_path</span> <span class="ow">and</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">normal_mesh_path</span><span class="p">):</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Adding TI_normal field from: </span><span class="si">{</span><span class="n">normal_mesh_path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="n">normal_mesh</span> <span class="o">=</span> <span class="n">simnibs</span><span class="o">.</span><span class="n">read_msh</span><span class="p">(</span><span class="n">normal_mesh_path</span><span class="p">)</span>
+                
+                <span class="k">if</span> <span class="s1">&#39;TI_normal&#39;</span> <span class="ow">in</span> <span class="n">normal_mesh</span><span class="o">.</span><span class="n">field</span><span class="p">:</span>
+                    <span class="n">normal_field_values</span> <span class="o">=</span> <span class="n">normal_mesh</span><span class="o">.</span><span class="n">field</span><span class="p">[</span><span class="s1">&#39;TI_normal&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">value</span>
+                    
+                    <span class="c1"># Create masked normal field (zeros everywhere except ROI)</span>
+                    <span class="n">masked_normal_field</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">gm_surf</span><span class="o">.</span><span class="n">nodes</span><span class="o">.</span><span class="n">nr</span><span class="p">)</span>
+                    <span class="n">masked_normal_field</span><span class="p">[</span><span class="n">roi_mask</span><span class="p">]</span> <span class="o">=</span> <span class="n">normal_field_values</span><span class="p">[</span><span class="n">roi_mask</span><span class="p">]</span>
+                    
+                    <span class="c1"># Add TI_normal field to the mesh</span>
+                    <span class="n">gm_surf</span><span class="o">.</span><span class="n">add_node_field</span><span class="p">(</span><span class="n">masked_normal_field</span><span class="p">,</span> <span class="s1">&#39;TI_normal_ROI&#39;</span><span class="p">)</span>
+                    
+                    <span class="c1"># Calculate max value for normal field for color scaling</span>
+                    <span class="n">normal_roi_values</span> <span class="o">=</span> <span class="n">normal_field_values</span><span class="p">[</span><span class="n">roi_mask</span><span class="p">]</span>
+                    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">normal_roi_values</span><span class="p">[</span><span class="n">normal_roi_values</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">])</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                        <span class="n">normal_max_value</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">normal_roi_values</span><span class="p">[</span><span class="n">normal_roi_values</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">])</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;TI_normal max value in ROI: </span><span class="si">{</span><span class="n">normal_max_value</span><span class="si">:</span><span class="s2">.6f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                    
+                    <span class="c1"># Clean up</span>
+                    <span class="k">del</span> <span class="n">normal_mesh</span>
+                    
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;TI_normal field not found in normal mesh&quot;</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Normal mesh not found at: </span><span class="si">{</span><span class="n">normal_mesh_path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Could not add TI_normal field to visualization: </span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        
+        <span class="c1"># Use provided output_dir or default to self.output_dir</span>
+        <span class="k">if</span> <span class="n">output_dir</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">output_dir</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_dir</span>
+            
+        <span class="c1"># Create sphere identifier for filename</span>
+        <span class="n">sphere_id</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;sphere_x</span><span class="si">{</span><span class="n">center_coords</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">_y</span><span class="si">{</span><span class="n">center_coords</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">_z</span><span class="si">{</span><span class="n">center_coords</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">_r</span><span class="si">{</span><span class="n">radius</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="n">output_filename</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">output_dir</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">sphere_id</span><span class="si">}</span><span class="s2">.msh&quot;</span><span class="p">)</span>
+        
+        <span class="c1"># Save the modified mesh</span>
+        <span class="n">gm_surf</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">output_filename</span><span class="p">)</span>
+        
+        <span class="c1"># Create the .msh.opt file with custom color map and alpha settings for both fields</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">output_filename</span><span class="si">}</span><span class="s2">.opt&quot;</span><span class="p">,</span> <span class="s1">&#39;w&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;&quot;&quot;</span>
+<span class="s2">    // Hide 2D mesh element faces for cleaner field visualization</span>
+<span class="s2">    Mesh.SurfaceFaces = 0;       // Hide surface faces</span>
+<span class="s2">    Mesh.SurfaceEdges = 0;       // Hide surface edges</span>
+<span class="s2">    Mesh.Points = 0;             // Hide mesh points</span>
+<span class="s2">    Mesh.Lines = 0;              // Hide mesh lines</span>
+
+<span class="s2">    // Make View[1] (Spherical_ROI_field) visible with custom colormap</span>
+<span class="s2">    View[1].Visible = 1;</span>
+<span class="s2">    View[1].ColormapNumber = 2;  // Use the second predefined colormap (different from cortical)</span>
+<span class="s2">    View[1].RangeType = 2;       // Custom range</span>
+<span class="s2">    View[1].CustomMin = 0;       // Specific minimum value</span>
+<span class="s2">    View[1].CustomMax = </span><span class="si">{</span><span class="n">max_value</span><span class="si">}</span><span class="s2">;  // Specific maximum value for TI_max</span>
+<span class="s2">    View[1].ShowScale = 1;       // Show the color scale</span>
+
+<span class="s2">    // Add alpha/transparency based on value (slightly different for spherical ROIs)</span>
+<span class="s2">    View[1].ColormapAlpha = 1;</span>
+<span class="s2">    View[1].ColormapAlphaPower = 0.1;</span>
+
+<span class="s2">    // Make View[2] (TI_normal_ROI) visible with different colormap (if available)</span>
+<span class="s2">    View[2].Visible = 0;         // Initially hidden - user can toggle</span>
+<span class="s2">    View[2].ColormapNumber = 3;  // Use the third predefined colormap</span>
+<span class="s2">    View[2].RangeType = 2;       // Custom range</span>
+<span class="s2">    View[2].CustomMin = 0;       // Specific minimum value</span>
+<span class="s2">    View[2].CustomMax = </span><span class="si">{</span><span class="n">normal_max_value</span><span class="si">}</span><span class="s2">;  // Specific maximum value for TI_normal</span>
+<span class="s2">    View[2].ShowScale = 1;       // Show the color scale</span>
+
+<span class="s2">    // Add alpha/transparency based on value</span>
+<span class="s2">    View[2].ColormapAlpha = 1;</span>
+<span class="s2">    View[2].ColormapAlphaPower = 0.1;</span>
+<span class="s2">    </span>
+<span class="s2">    // Sphere information as comments</span>
+<span class="s2">    // Sphere center: (</span><span class="si">{</span><span class="n">center_coords</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">center_coords</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">center_coords</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">)</span>
+<span class="s2">    // Sphere radius: </span><span class="si">{</span><span class="n">radius</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2"> mm</span>
+<span class="s2">    // View[1]: TI_max field (max value: </span><span class="si">{</span><span class="n">max_value</span><span class="si">:</span><span class="s2">.6f</span><span class="si">}</span><span class="s2">)</span>
+<span class="s2">    // View[2]: TI_normal field (max value: </span><span class="si">{</span><span class="n">normal_max_value</span><span class="si">:</span><span class="s2">.6f</span><span class="si">}</span><span class="s2">)</span>
+<span class="s2">    &quot;&quot;&quot;</span><span class="p">)</span>
+        
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Created spherical ROI visualization: </span><span class="si">{</span><span class="n">output_filename</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Sphere center: (</span><span class="si">{</span><span class="n">center_coords</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">center_coords</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">center_coords</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">)&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Sphere radius: </span><span class="si">{</span><span class="n">radius</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2"> mm&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Visualization settings saved to: </span><span class="si">{</span><span class="n">output_filename</span><span class="si">}</span><span class="s2">.opt&quot;</span><span class="p">)</span>
+        
+        <span class="k">return</span> <span class="n">output_filename</span></div>
+</div>
+
+
+<div class="viewcode-block" id="VoxelVisualizer">
+<a class="viewcode-back" href="../../../analyzer/index.html#tit.analyzer.visualizer.VoxelVisualizer">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">VoxelVisualizer</span><span class="p">(</span><span class="n">Visualizer</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Class for generating voxel-specific visualizations.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    
+<div class="viewcode-block" id="VoxelVisualizer.__init__">
+<a class="viewcode-back" href="../../../analyzer/index.html#tit.analyzer.visualizer.VoxelVisualizer.__init__">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">output_dir</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">logger</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Initialize the VoxelVisualizer class.</span>
+<span class="sd">        </span>
+<span class="sd">        Args:</span>
+<span class="sd">            output_dir (str): Directory where visualization files will be saved</span>
+<span class="sd">            logger: Optional logger instance to use. If None, creates its own.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">output_dir</span><span class="p">,</span> <span class="n">logger</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="VoxelVisualizer.create_cortex_nifti">
+<a class="viewcode-back" href="../../../analyzer/index.html#tit.analyzer.visualizer.VoxelVisualizer.create_cortex_nifti">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">create_cortex_nifti</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">atlas_img</span><span class="p">,</span> <span class="n">atlas_arr</span><span class="p">,</span> <span class="n">field_arr</span><span class="p">,</span> <span class="n">region_id</span><span class="p">,</span> <span class="n">region_name</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Create a NIfTI file visualization for a specific cortical region.</span>
+<span class="sd">        </span>
+<span class="sd">        Args:</span>
+<span class="sd">            atlas_img (nibabel.Nifti1Image): Atlas image object</span>
+<span class="sd">            atlas_arr (numpy.ndarray): Atlas data array</span>
+<span class="sd">            field_arr (numpy.ndarray): Field data array</span>
+<span class="sd">            region_id (int): ID of the target region</span>
+<span class="sd">            region_name (str): Name of the target region</span>
+<span class="sd">            </span>
+<span class="sd">        Returns:</span>
+<span class="sd">            str: Path to the created visualization file</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">nib</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;nibabel not available. Cannot create NIfTI visualization.&quot;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="kc">None</span>
+            
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Creating NIfTI visualization for region: </span><span class="si">{</span><span class="n">region_name</span><span class="si">}</span><span class="s2"> (ID: </span><span class="si">{</span><span class="n">region_id</span><span class="si">}</span><span class="s2">)&quot;</span><span class="p">)</span>
+        <span class="c1"># Create mask for this region</span>
+        <span class="n">region_mask</span> <span class="o">=</span> <span class="p">(</span><span class="n">atlas_arr</span> <span class="o">==</span> <span class="n">region_id</span><span class="p">)</span>
+        
+        <span class="c1"># Create visualization array (zeros everywhere except the region)</span>
+        <span class="n">vis_arr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">atlas_arr</span><span class="p">)</span>
+        <span class="n">vis_arr</span><span class="p">[</span><span class="n">region_mask</span><span class="p">]</span> <span class="o">=</span> <span class="n">field_arr</span><span class="p">[</span><span class="n">region_mask</span><span class="p">]</span>
+        
+        <span class="c1"># Save overlay file directly in the output directory</span>
+        <span class="n">output_filename</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">output_dir</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">region_name</span><span class="si">}</span><span class="s2">_ROI.nii.gz&quot;</span><span class="p">)</span>
+        
+        <span class="c1"># Save as NIfTI</span>
+        <span class="n">vis_img</span> <span class="o">=</span> <span class="n">nib</span><span class="o">.</span><span class="n">Nifti1Image</span><span class="p">(</span><span class="n">vis_arr</span><span class="p">,</span> <span class="n">atlas_img</span><span class="o">.</span><span class="n">affine</span><span class="p">)</span>
+        <span class="n">nib</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">vis_img</span><span class="p">,</span> <span class="n">output_filename</span><span class="p">)</span>
+        
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Created visualization: </span><span class="si">{</span><span class="n">output_filename</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">output_filename</span></div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_generate_region_visualization</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">atlas_img</span><span class="p">,</span> <span class="n">atlas_arr</span><span class="p">,</span> <span class="n">field_arr</span><span class="p">,</span> <span class="n">region_id</span><span class="p">,</span> <span class="n">region_name</span><span class="p">,</span> <span class="n">output_dir</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Generate a NIfTI file visualization for a specific cortical region and save it directly to the specified directory.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">nib</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;nibabel not available. Cannot create NIfTI visualization.&quot;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="kc">None</span>
+            
+        <span class="c1"># Create mask for this region</span>
+        <span class="n">region_mask</span> <span class="o">=</span> <span class="p">(</span><span class="n">atlas_arr</span> <span class="o">==</span> <span class="n">region_id</span><span class="p">)</span>
+        
+        <span class="c1"># Ensure field_arr is 3D for visualization</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">field_arr</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">4</span><span class="p">:</span>
+            <span class="n">viz_field_arr</span> <span class="o">=</span> <span class="n">field_arr</span><span class="p">[:,:,:,</span><span class="mi">0</span><span class="p">]</span>  <span class="c1"># Use the first volume</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">viz_field_arr</span> <span class="o">=</span> <span class="n">field_arr</span>
+        
+        <span class="c1"># Create visualization array (zeros everywhere except the region)</span>
+        <span class="n">vis_arr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">atlas_arr</span><span class="p">)</span>
+        <span class="n">vis_arr</span><span class="p">[</span><span class="n">region_mask</span><span class="p">]</span> <span class="o">=</span> <span class="n">viz_field_arr</span><span class="p">[</span><span class="n">region_mask</span><span class="p">]</span>
+        
+        <span class="c1"># Create output filename directly in the region directory</span>
+        <span class="n">output_filename</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">output_dir</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">region_name</span><span class="si">}</span><span class="s2">_ROI.nii.gz&quot;</span><span class="p">)</span>
+        
+        <span class="c1"># Save as NIfTI</span>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">nibabel</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">nib</span>
+        <span class="n">vis_img</span> <span class="o">=</span> <span class="n">nib</span><span class="o">.</span><span class="n">Nifti1Image</span><span class="p">(</span><span class="n">vis_arr</span><span class="p">,</span> <span class="n">atlas_img</span><span class="o">.</span><span class="n">affine</span><span class="p">)</span>
+        <span class="n">nib</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">vis_img</span><span class="p">,</span> <span class="n">output_filename</span><span class="p">)</span>
+        
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Created visualization: </span><span class="si">{</span><span class="n">output_filename</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">output_filename</span>
+
+<div class="viewcode-block" id="VoxelVisualizer.find_region">
+<a class="viewcode-back" href="../../../analyzer/index.html#tit.analyzer.visualizer.VoxelVisualizer.find_region">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">find_region</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">target_region</span><span class="p">,</span> <span class="n">region_info</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Find region ID and name based on input.</span>
+<span class="sd">        </span>
+<span class="sd">        Args:</span>
+<span class="sd">            target_region (str or int): Target region name or ID</span>
+<span class="sd">            region_info (dict): Dictionary with region information</span>
+<span class="sd">            </span>
+<span class="sd">        Returns:</span>
+<span class="sd">            tuple: (region_id, region_name)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Check if target_region is an ID (int) or can be converted to one</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">region_id</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">target_region</span><span class="p">)</span>
+            <span class="c1"># If it&#39;s an ID, get the name from region_info if available</span>
+            <span class="k">if</span> <span class="n">region_info</span> <span class="ow">and</span> <span class="n">region_id</span> <span class="ow">in</span> <span class="n">region_info</span><span class="p">:</span>
+                <span class="n">region_name</span> <span class="o">=</span> <span class="n">region_info</span><span class="p">[</span><span class="n">region_id</span><span class="p">][</span><span class="s1">&#39;name&#39;</span><span class="p">]</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">region_name</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;Region </span><span class="si">{</span><span class="n">region_id</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="k">return</span> <span class="n">region_id</span><span class="p">,</span> <span class="n">region_name</span>
+        <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
+            <span class="c1"># target_region is a string name, need to find the corresponding ID</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">region_info</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Region labels are required to look up regions by name&quot;</span><span class="p">)</span>
+            
+            <span class="c1"># Search for the region name (case-insensitive)</span>
+            <span class="n">target_lower</span> <span class="o">=</span> <span class="n">target_region</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+            <span class="k">for</span> <span class="n">region_id</span><span class="p">,</span> <span class="n">info</span> <span class="ow">in</span> <span class="n">region_info</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="k">if</span> <span class="n">target_lower</span> <span class="ow">in</span> <span class="n">info</span><span class="p">[</span><span class="s1">&#39;name&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">lower</span><span class="p">():</span>
+                    <span class="k">return</span> <span class="n">region_id</span><span class="p">,</span> <span class="n">info</span><span class="p">[</span><span class="s1">&#39;name&#39;</span><span class="p">]</span>
+            
+            <span class="c1"># If we get here, region name was not found</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Region name &#39;</span><span class="si">{</span><span class="n">target_region</span><span class="si">}</span><span class="s2">&#39; not found in region labels&quot;</span><span class="p">)</span></div>
+</div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2026, Ido Haber.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

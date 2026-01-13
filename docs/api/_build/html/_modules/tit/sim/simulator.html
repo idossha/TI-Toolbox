@@ -1,0 +1,1415 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>tit.sim.simulator &mdash; TI-Toolbox 2.0.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../_static/documentation_options.js?v=51b770b3"></script>
+      <script src="../../../_static/doctools.js?v=9a2dae69"></script>
+      <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            TI-Toolbox
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Core Modules</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../core/index.html">Core Modules (<code class="docutils literal notranslate"><span class="pre">tit.core</span></code>)</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../core/index.html#module-tit.core.paths">Path Management</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../core/index.html#tit.core.paths.PathManager"><code class="docutils literal notranslate"><span class="pre">PathManager</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../core/index.html#tit.core.paths.PathManager.__init__"><code class="docutils literal notranslate"><span class="pre">PathManager.__init__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../core/index.html#tit.core.paths.PathManager.project_dir"><code class="docutils literal notranslate"><span class="pre">PathManager.project_dir</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../core/index.html#tit.core.paths.PathManager.project_dir_name"><code class="docutils literal notranslate"><span class="pre">PathManager.project_dir_name</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../core/index.html#tit.core.paths.PathManager.path"><code class="docutils literal notranslate"><span class="pre">PathManager.path()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../core/index.html#tit.core.paths.PathManager.path_optional"><code class="docutils literal notranslate"><span class="pre">PathManager.path_optional()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../core/index.html#tit.core.paths.PathManager.list_flex_search_runs"><code class="docutils literal notranslate"><span class="pre">PathManager.list_flex_search_runs()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../core/index.html#tit.core.paths.PathManager.exists"><code class="docutils literal notranslate"><span class="pre">PathManager.exists()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../core/index.html#tit.core.paths.PathManager.is_dir"><code class="docutils literal notranslate"><span class="pre">PathManager.is_dir()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../core/index.html#tit.core.paths.PathManager.is_file"><code class="docutils literal notranslate"><span class="pre">PathManager.is_file()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../core/index.html#tit.core.paths.PathManager.ensure_dir"><code class="docutils literal notranslate"><span class="pre">PathManager.ensure_dir()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../core/index.html#tit.core.paths.PathManager.list_subjects"><code class="docutils literal notranslate"><span class="pre">PathManager.list_subjects()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../core/index.html#tit.core.paths.PathManager.list_simulations"><code class="docutils literal notranslate"><span class="pre">PathManager.list_simulations()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../core/index.html#tit.core.paths.PathManager.analysis_space_dir_name"><code class="docutils literal notranslate"><span class="pre">PathManager.analysis_space_dir_name()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../core/index.html#tit.core.paths.PathManager.spherical_analysis_name"><code class="docutils literal notranslate"><span class="pre">PathManager.spherical_analysis_name()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../core/index.html#tit.core.paths.PathManager.cortical_analysis_name"><code class="docutils literal notranslate"><span class="pre">PathManager.cortical_analysis_name()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../core/index.html#tit.core.paths.PathManager.get_analysis_space_dir"><code class="docutils literal notranslate"><span class="pre">PathManager.get_analysis_space_dir()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../core/index.html#tit.core.paths.PathManager.get_analysis_output_dir"><code class="docutils literal notranslate"><span class="pre">PathManager.get_analysis_output_dir()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../core/index.html#tit.core.paths.PathManager.get_derivatives_dir"><code class="docutils literal notranslate"><span class="pre">PathManager.get_derivatives_dir()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../core/index.html#tit.core.paths.PathManager.list_eeg_caps"><code class="docutils literal notranslate"><span class="pre">PathManager.list_eeg_caps()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../core/index.html#tit.core.paths.PathManager.validate_subject_structure"><code class="docutils literal notranslate"><span class="pre">PathManager.validate_subject_structure()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../core/index.html#tit.core.paths.get_path_manager"><code class="docutils literal notranslate"><span class="pre">get_path_manager()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../core/index.html#tit.core.paths.reset_path_manager"><code class="docutils literal notranslate"><span class="pre">reset_path_manager()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../core/index.html#module-tit.core.constants">Constants</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../core/index.html#module-tit.core.nifti">NIfTI Operations</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../core/index.html#tit.core.nifti.load_subject_nifti_ti_toolbox"><code class="docutils literal notranslate"><span class="pre">load_subject_nifti_ti_toolbox()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../core/index.html#tit.core.nifti.load_group_data_ti_toolbox"><code class="docutils literal notranslate"><span class="pre">load_group_data_ti_toolbox()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../core/index.html#tit.core.nifti.load_grouped_subjects_ti_toolbox"><code class="docutils literal notranslate"><span class="pre">load_grouped_subjects_ti_toolbox()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../core/index.html#module-tit.core.mesh">Mesh Operations</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../core/index.html#tit.core.mesh.create_mesh_opt_file"><code class="docutils literal notranslate"><span class="pre">create_mesh_opt_file()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../core/index.html#module-tit.core.calc">Calculations</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../core/index.html#tit.core.calc.get_TI_vectors"><code class="docutils literal notranslate"><span class="pre">get_TI_vectors()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../core/index.html#tit.core.calc.get_mTI_vectors"><code class="docutils literal notranslate"><span class="pre">get_mTI_vectors()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../core/index.html#module-tit.core.roi">ROI Utilities</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../core/index.html#tit.core.roi.find_roi_element_indices"><code class="docutils literal notranslate"><span class="pre">find_roi_element_indices()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../core/index.html#tit.core.roi.find_grey_matter_indices"><code class="docutils literal notranslate"><span class="pre">find_grey_matter_indices()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../core/index.html#tit.core.roi.calculate_roi_metrics"><code class="docutils literal notranslate"><span class="pre">calculate_roi_metrics()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../core/index.html#tit.core.roi.ROICoordinateHelper"><code class="docutils literal notranslate"><span class="pre">ROICoordinateHelper</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../core/index.html#tit.core.roi.ROICoordinateHelper.transform_mni_to_subject"><code class="docutils literal notranslate"><span class="pre">ROICoordinateHelper.transform_mni_to_subject()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../core/index.html#tit.core.roi.ROICoordinateHelper.find_voxels_in_sphere"><code class="docutils literal notranslate"><span class="pre">ROICoordinateHelper.find_voxels_in_sphere()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../core/index.html#tit.core.roi.ROICoordinateHelper.load_roi_from_csv"><code class="docutils literal notranslate"><span class="pre">ROICoordinateHelper.load_roi_from_csv()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../core/index.html#tit.core.roi.ROICoordinateHelper.save_roi_to_csv"><code class="docutils literal notranslate"><span class="pre">ROICoordinateHelper.save_roi_to_csv()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../core/index.html#tit.core.roi.validate_ti_montage"><code class="docutils literal notranslate"><span class="pre">validate_ti_montage()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../core/index.html#module-tit.core.utils">Utilities</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../core/index.html#tit.core.utils.find_roi_element_indices"><code class="docutils literal notranslate"><span class="pre">find_roi_element_indices()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../core/index.html#tit.core.utils.find_grey_matter_indices"><code class="docutils literal notranslate"><span class="pre">find_grey_matter_indices()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../core/index.html#tit.core.utils.calculate_roi_metrics"><code class="docutils literal notranslate"><span class="pre">calculate_roi_metrics()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../core/index.html#module-tit.core.errors">Error Classes</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../core/index.html#tit.core.errors.TIToolboxError"><code class="docutils literal notranslate"><span class="pre">TIToolboxError</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../core/index.html#tit.core.errors.TIToolboxError.__init__"><code class="docutils literal notranslate"><span class="pre">TIToolboxError.__init__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../core/index.html#tit.core.errors.TIToolboxError.to_dict"><code class="docutils literal notranslate"><span class="pre">TIToolboxError.to_dict()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../core/index.html#tit.core.errors.ProcessError"><code class="docutils literal notranslate"><span class="pre">ProcessError</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../core/index.html#tit.core.errors.ProcessError.__init__"><code class="docutils literal notranslate"><span class="pre">ProcessError.__init__()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../core/index.html#tit.core.errors.ValidationError"><code class="docutils literal notranslate"><span class="pre">ValidationError</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../core/index.html#tit.core.errors.ValidationError.__init__"><code class="docutils literal notranslate"><span class="pre">ValidationError.__init__()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../core/index.html#tit.core.errors.FileNotFoundError"><code class="docutils literal notranslate"><span class="pre">FileNotFoundError</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../core/index.html#tit.core.errors.FileNotFoundError.__init__"><code class="docutils literal notranslate"><span class="pre">FileNotFoundError.__init__()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../core/index.html#tit.core.errors.ConfigurationError"><code class="docutils literal notranslate"><span class="pre">ConfigurationError</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../core/index.html#tit.core.errors.ConfigurationError.__init__"><code class="docutils literal notranslate"><span class="pre">ConfigurationError.__init__()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../core/index.html#tit.core.errors.SubjectError"><code class="docutils literal notranslate"><span class="pre">SubjectError</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../core/index.html#tit.core.errors.SubjectError.__init__"><code class="docutils literal notranslate"><span class="pre">SubjectError.__init__()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../core/index.html#tit.core.errors.SimulationError"><code class="docutils literal notranslate"><span class="pre">SimulationError</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../core/index.html#tit.core.errors.SimulationError.__init__"><code class="docutils literal notranslate"><span class="pre">SimulationError.__init__()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../core/index.html#tit.core.errors.AnalysisError"><code class="docutils literal notranslate"><span class="pre">AnalysisError</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../core/index.html#tit.core.errors.AnalysisError.__init__"><code class="docutils literal notranslate"><span class="pre">AnalysisError.__init__()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../core/index.html#tit.core.errors.MeshError"><code class="docutils literal notranslate"><span class="pre">MeshError</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../core/index.html#tit.core.errors.MeshError.__init__"><code class="docutils literal notranslate"><span class="pre">MeshError.__init__()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../core/index.html#tit.core.errors.handle_error"><code class="docutils literal notranslate"><span class="pre">handle_error()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../core/index.html#tit.core.errors.show_error_dialog"><code class="docutils literal notranslate"><span class="pre">show_error_dialog()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../core/index.html#tit.core.errors.validate_file_exists"><code class="docutils literal notranslate"><span class="pre">validate_file_exists()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../core/index.html#tit.core.errors.validate_subject"><code class="docutils literal notranslate"><span class="pre">validate_subject()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../core/index.html#tit.core.errors.validate_montage_config"><code class="docutils literal notranslate"><span class="pre">validate_montage_config()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../core/index.html#module-tit.core.process">Process Management</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../core/index.html#tit.core.process.ProcessRunner"><code class="docutils literal notranslate"><span class="pre">ProcessRunner</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../core/index.html#tit.core.process.ProcessRunner.output_signal"><code class="docutils literal notranslate"><span class="pre">ProcessRunner.output_signal</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../core/index.html#tit.core.process.ProcessRunner.progress_signal"><code class="docutils literal notranslate"><span class="pre">ProcessRunner.progress_signal</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../core/index.html#tit.core.process.ProcessRunner.finished_signal"><code class="docutils literal notranslate"><span class="pre">ProcessRunner.finished_signal</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../core/index.html#tit.core.process.ProcessRunner.error_signal"><code class="docutils literal notranslate"><span class="pre">ProcessRunner.error_signal</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../core/index.html#tit.core.process.ProcessRunner.__init__"><code class="docutils literal notranslate"><span class="pre">ProcessRunner.__init__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../core/index.html#tit.core.process.ProcessRunner.run"><code class="docutils literal notranslate"><span class="pre">ProcessRunner.run()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../core/index.html#tit.core.process.ProcessRunner.terminate_process"><code class="docutils literal notranslate"><span class="pre">ProcessRunner.terminate_process()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../core/index.html#tit.core.process.MessageParser"><code class="docutils literal notranslate"><span class="pre">MessageParser</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../core/index.html#tit.core.process.MessageParser.parse"><code class="docutils literal notranslate"><span class="pre">MessageParser.parse()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../core/index.html#tit.core.process.SimulatorMessageParser"><code class="docutils literal notranslate"><span class="pre">SimulatorMessageParser</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../core/index.html#tit.core.process.AnalyzerMessageParser"><code class="docutils literal notranslate"><span class="pre">AnalyzerMessageParser</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../core/index.html#tit.core.process.PreprocessMessageParser"><code class="docutils literal notranslate"><span class="pre">PreprocessMessageParser</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../core/index.html#tit.core.process.strip_ansi_codes"><code class="docutils literal notranslate"><span class="pre">strip_ansi_codes()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Simulation</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../sim/index.html">Simulation Module (<code class="docutils literal notranslate"><span class="pre">tit.sim</span></code>)</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../sim/index.html#module-tit.sim.simulator">Main Simulator</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../sim/index.html#tit.sim.simulator.setup_montage_directories"><code class="docutils literal notranslate"><span class="pre">setup_montage_directories()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../sim/index.html#tit.sim.simulator.create_simulation_config_file"><code class="docutils literal notranslate"><span class="pre">create_simulation_config_file()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../sim/index.html#tit.sim.simulator.run_montage_visualization"><code class="docutils literal notranslate"><span class="pre">run_montage_visualization()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../sim/index.html#tit.sim.simulator.run_simulation"><code class="docutils literal notranslate"><span class="pre">run_simulation()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../sim/index.html#tit.sim.simulator.main"><code class="docutils literal notranslate"><span class="pre">main()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../sim/index.html#module-tit.sim.config">Configuration Classes</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.SimulationMode"><code class="docutils literal notranslate"><span class="pre">SimulationMode</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.SimulationMode.TI"><code class="docutils literal notranslate"><span class="pre">SimulationMode.TI</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.SimulationMode.MTI"><code class="docutils literal notranslate"><span class="pre">SimulationMode.MTI</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.ConductivityType"><code class="docutils literal notranslate"><span class="pre">ConductivityType</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.ConductivityType.SCALAR"><code class="docutils literal notranslate"><span class="pre">ConductivityType.SCALAR</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.ConductivityType.VN"><code class="docutils literal notranslate"><span class="pre">ConductivityType.VN</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.ConductivityType.DIR"><code class="docutils literal notranslate"><span class="pre">ConductivityType.DIR</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.ConductivityType.MC"><code class="docutils literal notranslate"><span class="pre">ConductivityType.MC</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.ElectrodeConfig"><code class="docutils literal notranslate"><span class="pre">ElectrodeConfig</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.ElectrodeConfig.shape"><code class="docutils literal notranslate"><span class="pre">ElectrodeConfig.shape</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.ElectrodeConfig.dimensions"><code class="docutils literal notranslate"><span class="pre">ElectrodeConfig.dimensions</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.ElectrodeConfig.thickness"><code class="docutils literal notranslate"><span class="pre">ElectrodeConfig.thickness</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.ElectrodeConfig.sponge_thickness"><code class="docutils literal notranslate"><span class="pre">ElectrodeConfig.sponge_thickness</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.ElectrodeConfig.__init__"><code class="docutils literal notranslate"><span class="pre">ElectrodeConfig.__init__()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.IntensityConfig"><code class="docutils literal notranslate"><span class="pre">IntensityConfig</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.IntensityConfig.pair1"><code class="docutils literal notranslate"><span class="pre">IntensityConfig.pair1</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.IntensityConfig.pair2"><code class="docutils literal notranslate"><span class="pre">IntensityConfig.pair2</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.IntensityConfig.pair3"><code class="docutils literal notranslate"><span class="pre">IntensityConfig.pair3</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.IntensityConfig.pair4"><code class="docutils literal notranslate"><span class="pre">IntensityConfig.pair4</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.IntensityConfig.from_string"><code class="docutils literal notranslate"><span class="pre">IntensityConfig.from_string()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.IntensityConfig.__init__"><code class="docutils literal notranslate"><span class="pre">IntensityConfig.__init__()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.MontageConfig"><code class="docutils literal notranslate"><span class="pre">MontageConfig</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.MontageConfig.name"><code class="docutils literal notranslate"><span class="pre">MontageConfig.name</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.MontageConfig.electrode_pairs"><code class="docutils literal notranslate"><span class="pre">MontageConfig.electrode_pairs</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.MontageConfig.is_xyz"><code class="docutils literal notranslate"><span class="pre">MontageConfig.is_xyz</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.MontageConfig.eeg_net"><code class="docutils literal notranslate"><span class="pre">MontageConfig.eeg_net</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.MontageConfig.simulation_mode"><code class="docutils literal notranslate"><span class="pre">MontageConfig.simulation_mode</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.MontageConfig.num_pairs"><code class="docutils literal notranslate"><span class="pre">MontageConfig.num_pairs</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.MontageConfig.__init__"><code class="docutils literal notranslate"><span class="pre">MontageConfig.__init__()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.ParallelConfig"><code class="docutils literal notranslate"><span class="pre">ParallelConfig</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.ParallelConfig.enabled"><code class="docutils literal notranslate"><span class="pre">ParallelConfig.enabled</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.ParallelConfig.max_workers"><code class="docutils literal notranslate"><span class="pre">ParallelConfig.max_workers</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.ParallelConfig.__post_init__"><code class="docutils literal notranslate"><span class="pre">ParallelConfig.__post_init__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.ParallelConfig.effective_workers"><code class="docutils literal notranslate"><span class="pre">ParallelConfig.effective_workers</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.ParallelConfig.get_memory_warning"><code class="docutils literal notranslate"><span class="pre">ParallelConfig.get_memory_warning()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.ParallelConfig.__init__"><code class="docutils literal notranslate"><span class="pre">ParallelConfig.__init__()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.SimulationConfig"><code class="docutils literal notranslate"><span class="pre">SimulationConfig</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.SimulationConfig.subject_id"><code class="docutils literal notranslate"><span class="pre">SimulationConfig.subject_id</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.SimulationConfig.project_dir"><code class="docutils literal notranslate"><span class="pre">SimulationConfig.project_dir</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.SimulationConfig.conductivity_type"><code class="docutils literal notranslate"><span class="pre">SimulationConfig.conductivity_type</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.SimulationConfig.intensities"><code class="docutils literal notranslate"><span class="pre">SimulationConfig.intensities</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.SimulationConfig.electrode"><code class="docutils literal notranslate"><span class="pre">SimulationConfig.electrode</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.SimulationConfig.eeg_net"><code class="docutils literal notranslate"><span class="pre">SimulationConfig.eeg_net</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.SimulationConfig.map_to_surf"><code class="docutils literal notranslate"><span class="pre">SimulationConfig.map_to_surf</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.SimulationConfig.map_to_vol"><code class="docutils literal notranslate"><span class="pre">SimulationConfig.map_to_vol</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.SimulationConfig.map_to_mni"><code class="docutils literal notranslate"><span class="pre">SimulationConfig.map_to_mni</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.SimulationConfig.map_to_fsavg"><code class="docutils literal notranslate"><span class="pre">SimulationConfig.map_to_fsavg</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.SimulationConfig.tissues_in_niftis"><code class="docutils literal notranslate"><span class="pre">SimulationConfig.tissues_in_niftis</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.SimulationConfig.open_in_gmsh"><code class="docutils literal notranslate"><span class="pre">SimulationConfig.open_in_gmsh</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.SimulationConfig.parallel"><code class="docutils literal notranslate"><span class="pre">SimulationConfig.parallel</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.SimulationConfig.__post_init__"><code class="docutils literal notranslate"><span class="pre">SimulationConfig.__post_init__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.config.SimulationConfig.__init__"><code class="docutils literal notranslate"><span class="pre">SimulationConfig.__init__()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../sim/index.html#module-tit.sim.session_builder">Session Builder</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../sim/index.html#tit.sim.session_builder.SessionBuilder"><code class="docutils literal notranslate"><span class="pre">SessionBuilder</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.session_builder.SessionBuilder.__init__"><code class="docutils literal notranslate"><span class="pre">SessionBuilder.__init__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.session_builder.SessionBuilder.build_session"><code class="docutils literal notranslate"><span class="pre">SessionBuilder.build_session()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../sim/index.html#module-tit.sim.post_processor">Post-Processing</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../sim/index.html#tit.sim.post_processor.PostProcessor"><code class="docutils literal notranslate"><span class="pre">PostProcessor</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.post_processor.PostProcessor.__init__"><code class="docutils literal notranslate"><span class="pre">PostProcessor.__init__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.post_processor.PostProcessor.process_ti_results"><code class="docutils literal notranslate"><span class="pre">PostProcessor.process_ti_results()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../sim/index.html#tit.sim.post_processor.PostProcessor.process_mti_results"><code class="docutils literal notranslate"><span class="pre">PostProcessor.process_mti_results()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../sim/index.html#module-tit.sim.montage_loader">Montage Loading</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../sim/index.html#tit.sim.montage_loader.load_montage_file"><code class="docutils literal notranslate"><span class="pre">load_montage_file()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../sim/index.html#tit.sim.montage_loader.list_montage_names"><code class="docutils literal notranslate"><span class="pre">list_montage_names()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../sim/index.html#tit.sim.montage_loader.add_montage"><code class="docutils literal notranslate"><span class="pre">add_montage()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../sim/index.html#tit.sim.montage_loader.load_flex_montages"><code class="docutils literal notranslate"><span class="pre">load_flex_montages()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../sim/index.html#tit.sim.montage_loader.parse_flex_montage"><code class="docutils literal notranslate"><span class="pre">parse_flex_montage()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../sim/index.html#tit.sim.montage_loader.load_montages"><code class="docutils literal notranslate"><span class="pre">load_montages()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../sim/index.html#module-tit.sim.utils">Utilities</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../sim/index.html#tit.sim.utils.montage_config_dir"><code class="docutils literal notranslate"><span class="pre">montage_config_dir()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../sim/index.html#tit.sim.utils.montage_list_path"><code class="docutils literal notranslate"><span class="pre">montage_list_path()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../sim/index.html#tit.sim.utils.ensure_montage_file"><code class="docutils literal notranslate"><span class="pre">ensure_montage_file()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../sim/index.html#tit.sim.utils.load_montage_data"><code class="docutils literal notranslate"><span class="pre">load_montage_data()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../sim/index.html#tit.sim.utils.save_montage_data"><code class="docutils literal notranslate"><span class="pre">save_montage_data()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../sim/index.html#tit.sim.utils.ensure_eeg_net_entry"><code class="docutils literal notranslate"><span class="pre">ensure_eeg_net_entry()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../sim/index.html#tit.sim.utils.upsert_montage"><code class="docutils literal notranslate"><span class="pre">upsert_montage()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../sim/index.html#tit.sim.utils.list_montage_names"><code class="docutils literal notranslate"><span class="pre">list_montage_names()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Analysis</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../analyzer/index.html">Analysis Module (<code class="docutils literal notranslate"><span class="pre">tit.analyzer</span></code>)</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../analyzer/index.html#module-tit.analyzer.mesh_analyzer">Mesh Analyzer</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.mesh_analyzer.MeshAnalyzer"><code class="docutils literal notranslate"><span class="pre">MeshAnalyzer</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.mesh_analyzer.MeshAnalyzer.__init__"><code class="docutils literal notranslate"><span class="pre">MeshAnalyzer.__init__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.mesh_analyzer.MeshAnalyzer.__del__"><code class="docutils literal notranslate"><span class="pre">MeshAnalyzer.__del__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.mesh_analyzer.MeshAnalyzer.analyze_whole_head"><code class="docutils literal notranslate"><span class="pre">MeshAnalyzer.analyze_whole_head()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.mesh_analyzer.MeshAnalyzer.analyze_sphere"><code class="docutils literal notranslate"><span class="pre">MeshAnalyzer.analyze_sphere()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.mesh_analyzer.MeshAnalyzer.analyze_cortex"><code class="docutils literal notranslate"><span class="pre">MeshAnalyzer.analyze_cortex()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.mesh_analyzer.MeshAnalyzer.get_grey_matter_statistics"><code class="docutils literal notranslate"><span class="pre">MeshAnalyzer.get_grey_matter_statistics()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../analyzer/index.html#module-tit.analyzer.voxel_analyzer">Voxel Analyzer</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.voxel_analyzer.VoxelAnalyzer"><code class="docutils literal notranslate"><span class="pre">VoxelAnalyzer</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.voxel_analyzer.VoxelAnalyzer.field_nifti"><code class="docutils literal notranslate"><span class="pre">VoxelAnalyzer.field_nifti</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.voxel_analyzer.VoxelAnalyzer.subject_dir"><code class="docutils literal notranslate"><span class="pre">VoxelAnalyzer.subject_dir</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.voxel_analyzer.VoxelAnalyzer.output_dir"><code class="docutils literal notranslate"><span class="pre">VoxelAnalyzer.output_dir</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.voxel_analyzer.VoxelAnalyzer.visualizer"><code class="docutils literal notranslate"><span class="pre">VoxelAnalyzer.visualizer</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.voxel_analyzer.VoxelAnalyzer.__init__"><code class="docutils literal notranslate"><span class="pre">VoxelAnalyzer.__init__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.voxel_analyzer.VoxelAnalyzer.analyze_whole_head"><code class="docutils literal notranslate"><span class="pre">VoxelAnalyzer.analyze_whole_head()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.voxel_analyzer.VoxelAnalyzer.analyze_sphere"><code class="docutils literal notranslate"><span class="pre">VoxelAnalyzer.analyze_sphere()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.voxel_analyzer.VoxelAnalyzer.resample_to_match"><code class="docutils literal notranslate"><span class="pre">VoxelAnalyzer.resample_to_match()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.voxel_analyzer.VoxelAnalyzer.analyze_cortex"><code class="docutils literal notranslate"><span class="pre">VoxelAnalyzer.analyze_cortex()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.voxel_analyzer.VoxelAnalyzer.get_atlas_regions"><code class="docutils literal notranslate"><span class="pre">VoxelAnalyzer.get_atlas_regions()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.voxel_analyzer.VoxelAnalyzer.load_brain_image"><code class="docutils literal notranslate"><span class="pre">VoxelAnalyzer.load_brain_image()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.voxel_analyzer.VoxelAnalyzer.find_region"><code class="docutils literal notranslate"><span class="pre">VoxelAnalyzer.find_region()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.voxel_analyzer.VoxelAnalyzer.get_grey_matter_statistics"><code class="docutils literal notranslate"><span class="pre">VoxelAnalyzer.get_grey_matter_statistics()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../analyzer/index.html#module-tit.analyzer.group_analyzer">Group Analyzer</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.group_analyzer.format_duration"><code class="docutils literal notranslate"><span class="pre">format_duration()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.group_analyzer.log_group_analysis_start"><code class="docutils literal notranslate"><span class="pre">log_group_analysis_start()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.group_analyzer.log_group_analysis_complete"><code class="docutils literal notranslate"><span class="pre">log_group_analysis_complete()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.group_analyzer.log_group_subject_status"><code class="docutils literal notranslate"><span class="pre">log_group_subject_status()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.group_analyzer.create_group_output_directory"><code class="docutils literal notranslate"><span class="pre">create_group_output_directory()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.group_analyzer.setup_parser"><code class="docutils literal notranslate"><span class="pre">setup_parser()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.group_analyzer.validate_args"><code class="docutils literal notranslate"><span class="pre">validate_args()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.group_analyzer.compute_subject_output_dir"><code class="docutils literal notranslate"><span class="pre">compute_subject_output_dir()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.group_analyzer.build_main_analyzer_command"><code class="docutils literal notranslate"><span class="pre">build_main_analyzer_command()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.group_analyzer.run_subject_analysis"><code class="docutils literal notranslate"><span class="pre">run_subject_analysis()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.group_analyzer.collect_analysis_paths"><code class="docutils literal notranslate"><span class="pre">collect_analysis_paths()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.group_analyzer.run_comprehensive_group_analysis"><code class="docutils literal notranslate"><span class="pre">run_comprehensive_group_analysis()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.group_analyzer.determine_group_subfolder_name"><code class="docutils literal notranslate"><span class="pre">determine_group_subfolder_name()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.group_analyzer.main"><code class="docutils literal notranslate"><span class="pre">main()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../analyzer/index.html#module-tit.analyzer.visualizer">Visualizer</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.visualizer.BaseVisualizer"><code class="docutils literal notranslate"><span class="pre">BaseVisualizer</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.visualizer.BaseVisualizer.output_dir"><code class="docutils literal notranslate"><span class="pre">BaseVisualizer.output_dir</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.visualizer.BaseVisualizer.__init__"><code class="docutils literal notranslate"><span class="pre">BaseVisualizer.__init__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.visualizer.BaseVisualizer.save_results_to_csv"><code class="docutils literal notranslate"><span class="pre">BaseVisualizer.save_results_to_csv()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.visualizer.BaseVisualizer.save_extra_info_to_csv"><code class="docutils literal notranslate"><span class="pre">BaseVisualizer.save_extra_info_to_csv()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.visualizer.BaseVisualizer.save_whole_head_results_to_csv"><code class="docutils literal notranslate"><span class="pre">BaseVisualizer.save_whole_head_results_to_csv()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.visualizer.BaseVisualizer.generate_focality_histogram"><code class="docutils literal notranslate"><span class="pre">BaseVisualizer.generate_focality_histogram()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.visualizer.Visualizer"><code class="docutils literal notranslate"><span class="pre">Visualizer</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.visualizer.Visualizer.__init__"><code class="docutils literal notranslate"><span class="pre">Visualizer.__init__()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.visualizer.MeshVisualizer"><code class="docutils literal notranslate"><span class="pre">MeshVisualizer</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.visualizer.MeshVisualizer.__init__"><code class="docutils literal notranslate"><span class="pre">MeshVisualizer.__init__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.visualizer.MeshVisualizer.visualize_cortex_roi"><code class="docutils literal notranslate"><span class="pre">MeshVisualizer.visualize_cortex_roi()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.visualizer.MeshVisualizer.visualize_spherical_roi"><code class="docutils literal notranslate"><span class="pre">MeshVisualizer.visualize_spherical_roi()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.visualizer.VoxelVisualizer"><code class="docutils literal notranslate"><span class="pre">VoxelVisualizer</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.visualizer.VoxelVisualizer.__init__"><code class="docutils literal notranslate"><span class="pre">VoxelVisualizer.__init__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.visualizer.VoxelVisualizer.create_cortex_nifti"><code class="docutils literal notranslate"><span class="pre">VoxelVisualizer.create_cortex_nifti()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.visualizer.VoxelVisualizer.find_region"><code class="docutils literal notranslate"><span class="pre">VoxelVisualizer.find_region()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../analyzer/index.html#module-tit.analyzer.main_analyzer">Main Analyzer</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.main_analyzer.stdout_reconfigure"><code class="docutils literal notranslate"><span class="pre">stdout_reconfigure()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.main_analyzer.stderr_reconfigure"><code class="docutils literal notranslate"><span class="pre">stderr_reconfigure()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.main_analyzer.flush_output"><code class="docutils literal notranslate"><span class="pre">flush_output()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.main_analyzer.format_duration"><code class="docutils literal notranslate"><span class="pre">format_duration()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.main_analyzer.log_analysis_start"><code class="docutils literal notranslate"><span class="pre">log_analysis_start()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.main_analyzer.log_analysis_complete"><code class="docutils literal notranslate"><span class="pre">log_analysis_complete()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.main_analyzer.log_analysis_failed"><code class="docutils literal notranslate"><span class="pre">log_analysis_failed()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.main_analyzer.log_analysis_step_start"><code class="docutils literal notranslate"><span class="pre">log_analysis_step_start()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.main_analyzer.log_analysis_step_complete"><code class="docutils literal notranslate"><span class="pre">log_analysis_step_complete()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.main_analyzer.log_analysis_step_failed"><code class="docutils literal notranslate"><span class="pre">log_analysis_step_failed()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.main_analyzer.create_roi_description"><code class="docutils literal notranslate"><span class="pre">create_roi_description()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.main_analyzer.validate_file_extension"><code class="docutils literal notranslate"><span class="pre">validate_file_extension()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.main_analyzer.validate_coordinates"><code class="docutils literal notranslate"><span class="pre">validate_coordinates()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.main_analyzer.validate_radius"><code class="docutils literal notranslate"><span class="pre">validate_radius()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.main_analyzer.construct_mesh_field_path"><code class="docutils literal notranslate"><span class="pre">construct_mesh_field_path()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.main_analyzer.setup_parser"><code class="docutils literal notranslate"><span class="pre">setup_parser()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.main_analyzer.validate_args"><code class="docutils literal notranslate"><span class="pre">validate_args()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.main_analyzer.main"><code class="docutils literal notranslate"><span class="pre">main()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.main_analyzer.print_stat_if_exists"><code class="docutils literal notranslate"><span class="pre">print_stat_if_exists()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../analyzer/index.html#module-tit.analyzer.field_selector">Field Selector</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../analyzer/index.html#tit.analyzer.field_selector.select_field_file"><code class="docutils literal notranslate"><span class="pre">select_field_file()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Optimization</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../opt/index.html">Optimization Module (<code class="docutils literal notranslate"><span class="pre">tit.opt</span></code>)</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../opt/index.html#leadfield-generator">Leadfield Generator</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../opt/index.html#flex-search">Flex-Search</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../opt/index.html#ex-search">Ex-Search</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Statistics</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../stats/index.html">Statistics Module (<code class="docutils literal notranslate"><span class="pre">tit.stats</span></code>)</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../stats/index.html#module-tit.stats.permutation_analysis">Permutation Analysis</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../stats/index.html#tit.stats.permutation_analysis.load_subject_data"><code class="docutils literal notranslate"><span class="pre">load_subject_data()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../stats/index.html#tit.stats.permutation_analysis.load_subject_data_group_comparison"><code class="docutils literal notranslate"><span class="pre">load_subject_data_group_comparison()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../stats/index.html#tit.stats.permutation_analysis.load_subject_data_correlation"><code class="docutils literal notranslate"><span class="pre">load_subject_data_correlation()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../stats/index.html#tit.stats.permutation_analysis.prepare_config_from_csv"><code class="docutils literal notranslate"><span class="pre">prepare_config_from_csv()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../stats/index.html#tit.stats.permutation_analysis.setup_logging"><code class="docutils literal notranslate"><span class="pre">setup_logging()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../stats/index.html#tit.stats.permutation_analysis.run_analysis"><code class="docutils literal notranslate"><span class="pre">run_analysis()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../stats/index.html#tit.stats.permutation_analysis.main"><code class="docutils literal notranslate"><span class="pre">main()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../stats/index.html#cluster-analysis">Cluster Analysis</a></li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">TI-Toolbox</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">tit.sim.simulator</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for tit.sim.simulator</h1><div class="highlight"><pre>
+<span></span><span class="ch">#!/usr/bin/env simnibs_python</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">Unified TI/mTI simulation runner.</span>
+
+<span class="sd">This module provides a single entry point for running both TI (2-pair) and mTI (4-pair)</span>
+<span class="sd">simulations. The simulation type is automatically detected based on montage configuration.</span>
+
+<span class="sd">This refactored module includes all features from the original pipeline:</span>
+<span class="sd">- Montage visualization</span>
+<span class="sd">- SimNIBS simulation</span>
+<span class="sd">- Field extraction (GM/WM)</span>
+<span class="sd">- NIfTI transformation</span>
+<span class="sd">- T1 to MNI conversion</span>
+<span class="sd">- File organization</span>
+
+<span class="sd">Parallel execution support:</span>
+<span class="sd">- Multiple montages can be simulated in parallel</span>
+<span class="sd">- Worker count is configurable (default: half of CPU cores)</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">simnibs</span><span class="w"> </span><span class="kn">import</span> <span class="n">run_simnibs</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">json</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">multiprocessing</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">shutil</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">subprocess</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">sys</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">time</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">traceback</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">concurrent.futures</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProcessPoolExecutor</span><span class="p">,</span> <span class="n">as_completed</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">asdict</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">datetime</span><span class="w"> </span><span class="kn">import</span> <span class="n">datetime</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Any</span>
+
+<span class="c1"># Use &#39;spawn&#39; context for better compatibility with SimNIBS</span>
+<span class="n">mp_context</span> <span class="o">=</span> <span class="n">multiprocessing</span><span class="o">.</span><span class="n">get_context</span><span class="p">(</span><span class="s1">&#39;spawn&#39;</span><span class="p">)</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">tit.sim.config</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">SimulationConfig</span><span class="p">,</span>
+    <span class="n">MontageConfig</span><span class="p">,</span>
+    <span class="n">SimulationMode</span><span class="p">,</span>
+    <span class="n">ElectrodeConfig</span><span class="p">,</span>
+    <span class="n">IntensityConfig</span><span class="p">,</span>
+    <span class="n">ConductivityType</span><span class="p">,</span>
+    <span class="n">ParallelConfig</span>
+<span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">tit.sim.montage_loader</span><span class="w"> </span><span class="kn">import</span> <span class="n">load_montages</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">tit.sim.session_builder</span><span class="w"> </span><span class="kn">import</span> <span class="n">SessionBuilder</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">tit.sim.post_processor</span><span class="w"> </span><span class="kn">import</span> <span class="n">PostProcessor</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">tit.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_path_manager</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">tit</span><span class="w"> </span><span class="kn">import</span> <span class="n">logger</span> <span class="k">as</span> <span class="n">logging_util</span>
+
+
+<div class="viewcode-block" id="setup_montage_directories">
+<a class="viewcode-back" href="../../../sim/index.html#tit.sim.simulator.setup_montage_directories">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">setup_montage_directories</span><span class="p">(</span><span class="n">montage_dir</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">simulation_mode</span><span class="p">:</span> <span class="n">SimulationMode</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Create the complete directory structure for a montage simulation.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        montage_dir: Base montage directory</span>
+<span class="sd">        simulation_mode: TI or MTI simulation mode</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        Dictionary of created directory paths</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">dirs</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s1">&#39;montage_dir&#39;</span><span class="p">:</span> <span class="n">montage_dir</span><span class="p">,</span>
+        <span class="s1">&#39;hf_dir&#39;</span><span class="p">:</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">montage_dir</span><span class="p">,</span> <span class="s2">&quot;high_Frequency&quot;</span><span class="p">),</span>
+        <span class="s1">&#39;hf_mesh&#39;</span><span class="p">:</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">montage_dir</span><span class="p">,</span> <span class="s2">&quot;high_Frequency&quot;</span><span class="p">,</span> <span class="s2">&quot;mesh&quot;</span><span class="p">),</span>
+        <span class="s1">&#39;hf_niftis&#39;</span><span class="p">:</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">montage_dir</span><span class="p">,</span> <span class="s2">&quot;high_Frequency&quot;</span><span class="p">,</span> <span class="s2">&quot;niftis&quot;</span><span class="p">),</span>
+        <span class="s1">&#39;hf_analysis&#39;</span><span class="p">:</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">montage_dir</span><span class="p">,</span> <span class="s2">&quot;high_Frequency&quot;</span><span class="p">,</span> <span class="s2">&quot;analysis&quot;</span><span class="p">),</span>
+        <span class="s1">&#39;ti_mesh&#39;</span><span class="p">:</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">montage_dir</span><span class="p">,</span> <span class="s2">&quot;TI&quot;</span><span class="p">,</span> <span class="s2">&quot;mesh&quot;</span><span class="p">),</span>
+        <span class="s1">&#39;ti_niftis&#39;</span><span class="p">:</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">montage_dir</span><span class="p">,</span> <span class="s2">&quot;TI&quot;</span><span class="p">,</span> <span class="s2">&quot;niftis&quot;</span><span class="p">),</span>
+        <span class="s1">&#39;ti_surface_overlays&#39;</span><span class="p">:</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">montage_dir</span><span class="p">,</span> <span class="s2">&quot;TI&quot;</span><span class="p">,</span> <span class="s2">&quot;surface_overlays&quot;</span><span class="p">),</span>
+        <span class="s1">&#39;ti_montage_imgs&#39;</span><span class="p">:</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">montage_dir</span><span class="p">,</span> <span class="s2">&quot;TI&quot;</span><span class="p">,</span> <span class="s2">&quot;montage_imgs&quot;</span><span class="p">),</span>
+        <span class="s1">&#39;documentation&#39;</span><span class="p">:</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">montage_dir</span><span class="p">,</span> <span class="s2">&quot;documentation&quot;</span><span class="p">),</span>
+    <span class="p">}</span>
+
+    <span class="c1"># Add mTI directories for multipolar mode</span>
+    <span class="k">if</span> <span class="n">simulation_mode</span> <span class="o">==</span> <span class="n">SimulationMode</span><span class="o">.</span><span class="n">MTI</span><span class="p">:</span>
+        <span class="n">dirs</span><span class="p">[</span><span class="s1">&#39;mti_mesh&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">montage_dir</span><span class="p">,</span> <span class="s2">&quot;mTI&quot;</span><span class="p">,</span> <span class="s2">&quot;mesh&quot;</span><span class="p">)</span>
+        <span class="n">dirs</span><span class="p">[</span><span class="s1">&#39;mti_niftis&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">montage_dir</span><span class="p">,</span> <span class="s2">&quot;mTI&quot;</span><span class="p">,</span> <span class="s2">&quot;niftis&quot;</span><span class="p">)</span>
+        <span class="n">dirs</span><span class="p">[</span><span class="s1">&#39;mti_montage_imgs&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">montage_dir</span><span class="p">,</span> <span class="s2">&quot;mTI&quot;</span><span class="p">,</span> <span class="s2">&quot;montage_imgs&quot;</span><span class="p">)</span>
+
+    <span class="c1"># Create all directories</span>
+    <span class="k">for</span> <span class="n">path</span> <span class="ow">in</span> <span class="n">dirs</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
+        <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">dirs</span></div>
+
+
+
+<div class="viewcode-block" id="create_simulation_config_file">
+<a class="viewcode-back" href="../../../sim/index.html#tit.sim.simulator.create_simulation_config_file">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">create_simulation_config_file</span><span class="p">(</span>
+    <span class="n">config</span><span class="p">:</span> <span class="n">SimulationConfig</span><span class="p">,</span>
+    <span class="n">montage</span><span class="p">:</span> <span class="n">MontageConfig</span><span class="p">,</span>
+    <span class="n">documentation_dir</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">logger</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Create a config.json file with all simulation parameters.</span>
+
+<span class="sd">    This file is used by visualization tools to auto-populate parameters</span>
+<span class="sd">    without requiring manual input.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        config: Simulation configuration</span>
+<span class="sd">        montage: Montage configuration</span>
+<span class="sd">        documentation_dir: Documentation directory path</span>
+<span class="sd">        logger: Logger instance</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        Path to created config.json file</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">config_file</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">documentation_dir</span><span class="p">,</span> <span class="s2">&quot;config.json&quot;</span><span class="p">)</span>
+
+    <span class="c1"># Build configuration dictionary</span>
+    <span class="n">sim_config</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">&quot;subject_id&quot;</span><span class="p">:</span> <span class="n">config</span><span class="o">.</span><span class="n">subject_id</span><span class="p">,</span>
+        <span class="s2">&quot;simulation_name&quot;</span><span class="p">:</span> <span class="n">montage</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+        <span class="s2">&quot;simulation_mode&quot;</span><span class="p">:</span> <span class="n">montage</span><span class="o">.</span><span class="n">simulation_mode</span><span class="o">.</span><span class="n">value</span><span class="p">,</span>
+        <span class="s2">&quot;eeg_net&quot;</span><span class="p">:</span> <span class="n">montage</span><span class="o">.</span><span class="n">eeg_net</span> <span class="ow">or</span> <span class="n">config</span><span class="o">.</span><span class="n">eeg_net</span><span class="p">,</span>
+        <span class="s2">&quot;conductivity_type&quot;</span><span class="p">:</span> <span class="n">config</span><span class="o">.</span><span class="n">conductivity_type</span><span class="o">.</span><span class="n">value</span><span class="p">,</span>
+        <span class="s2">&quot;electrode_pairs&quot;</span><span class="p">:</span> <span class="n">montage</span><span class="o">.</span><span class="n">electrode_pairs</span><span class="p">,</span>
+        <span class="s2">&quot;is_xyz_montage&quot;</span><span class="p">:</span> <span class="n">montage</span><span class="o">.</span><span class="n">is_xyz</span><span class="p">,</span>
+        <span class="s2">&quot;intensities&quot;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s2">&quot;pair1&quot;</span><span class="p">:</span> <span class="n">config</span><span class="o">.</span><span class="n">intensities</span><span class="o">.</span><span class="n">pair1</span><span class="p">,</span>
+            <span class="s2">&quot;pair2&quot;</span><span class="p">:</span> <span class="n">config</span><span class="o">.</span><span class="n">intensities</span><span class="o">.</span><span class="n">pair2</span><span class="p">,</span>
+            <span class="s2">&quot;pair3&quot;</span><span class="p">:</span> <span class="n">config</span><span class="o">.</span><span class="n">intensities</span><span class="o">.</span><span class="n">pair3</span><span class="p">,</span>
+            <span class="s2">&quot;pair4&quot;</span><span class="p">:</span> <span class="n">config</span><span class="o">.</span><span class="n">intensities</span><span class="o">.</span><span class="n">pair4</span>
+        <span class="p">},</span>
+        <span class="s2">&quot;electrode_geometry&quot;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s2">&quot;shape&quot;</span><span class="p">:</span> <span class="n">config</span><span class="o">.</span><span class="n">electrode</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span>
+            <span class="s2">&quot;dimensions&quot;</span><span class="p">:</span> <span class="n">config</span><span class="o">.</span><span class="n">electrode</span><span class="o">.</span><span class="n">dimensions</span><span class="p">,</span>
+            <span class="s2">&quot;gel_thickness&quot;</span><span class="p">:</span> <span class="n">config</span><span class="o">.</span><span class="n">electrode</span><span class="o">.</span><span class="n">thickness</span><span class="p">,</span>
+            <span class="s2">&quot;sponge_thickness&quot;</span><span class="p">:</span> <span class="n">config</span><span class="o">.</span><span class="n">electrode</span><span class="o">.</span><span class="n">sponge_thickness</span>
+        <span class="p">},</span>
+        <span class="s2">&quot;mapping_options&quot;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s2">&quot;map_to_surf&quot;</span><span class="p">:</span> <span class="n">config</span><span class="o">.</span><span class="n">map_to_surf</span><span class="p">,</span>
+            <span class="s2">&quot;map_to_vol&quot;</span><span class="p">:</span> <span class="n">config</span><span class="o">.</span><span class="n">map_to_vol</span><span class="p">,</span>
+            <span class="s2">&quot;map_to_mni&quot;</span><span class="p">:</span> <span class="n">config</span><span class="o">.</span><span class="n">map_to_mni</span><span class="p">,</span>
+            <span class="s2">&quot;map_to_fsavg&quot;</span><span class="p">:</span> <span class="n">config</span><span class="o">.</span><span class="n">map_to_fsavg</span>
+        <span class="p">},</span>
+        <span class="s2">&quot;created_at&quot;</span><span class="p">:</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span><span class="o">.</span><span class="n">isoformat</span><span class="p">(),</span>
+        <span class="s2">&quot;ti_toolbox_version&quot;</span><span class="p">:</span> <span class="s2">&quot;2.0.0&quot;</span>  <span class="c1"># TODO: Get from version.py</span>
+    <span class="p">}</span>
+
+    <span class="c1"># Write config file</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">config_file</span><span class="p">,</span> <span class="s1">&#39;w&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">sim_config</span><span class="p">,</span> <span class="n">f</span><span class="p">,</span> <span class="n">indent</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Created simulation config: </span><span class="si">{</span><span class="n">config_file</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Failed to create config file: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">config_file</span></div>
+
+
+
+<div class="viewcode-block" id="run_montage_visualization">
+<a class="viewcode-back" href="../../../sim/index.html#tit.sim.simulator.run_montage_visualization">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">run_montage_visualization</span><span class="p">(</span>
+    <span class="n">montage_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">simulation_mode</span><span class="p">:</span> <span class="n">SimulationMode</span><span class="p">,</span>
+    <span class="n">eeg_net</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">output_dir</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">project_dir</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">logger</span><span class="p">,</span>
+    <span class="n">electrode_pairs</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Run montage visualization using visualize-montage.sh.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        montage_name: Name of the montage</span>
+<span class="sd">        simulation_mode: TI or MTI mode</span>
+<span class="sd">        eeg_net: EEG net name</span>
+<span class="sd">        output_dir: Output directory for montage images</span>
+<span class="sd">        project_dir: Project directory path</span>
+<span class="sd">        logger: Logger instance</span>
+<span class="sd">        electrode_pairs: Optional list of electrode pairs for direct visualization</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        True if successful, False otherwise</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Skip visualization for freehand/flex modes with XYZ coordinates (no electrode_pairs provided)</span>
+    <span class="k">if</span> <span class="n">eeg_net</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;freehand&quot;</span><span class="p">,</span> <span class="s2">&quot;flex_mode&quot;</span><span class="p">]</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">electrode_pairs</span><span class="p">:</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Skipping montage visualization for </span><span class="si">{</span><span class="n">eeg_net</span><span class="si">}</span><span class="s2"> mode&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="kc">True</span>
+    
+    <span class="c1"># Determine sim_mode string for visualize-montage.sh</span>
+    <span class="n">sim_mode_str</span> <span class="o">=</span> <span class="s2">&quot;U&quot;</span> <span class="k">if</span> <span class="n">simulation_mode</span> <span class="o">==</span> <span class="n">SimulationMode</span><span class="o">.</span><span class="n">TI</span> <span class="k">else</span> <span class="s2">&quot;M&quot;</span>
+    
+    <span class="c1"># Path to visualize-montage.sh</span>
+    <span class="n">script_dir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="vm">__file__</span><span class="p">)</span>
+    <span class="n">visualize_script</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">script_dir</span><span class="p">,</span> <span class="s2">&quot;visualize-montage.sh&quot;</span><span class="p">)</span>
+    
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">visualize_script</span><span class="p">):</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Visualize montage script not found: </span><span class="si">{</span><span class="n">visualize_script</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="kc">True</span>  <span class="c1"># Non-fatal, continue without visualization</span>
+    
+    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Visualizing montage: </span><span class="si">{</span><span class="n">montage_name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+    <span class="k">try</span><span class="p">:</span>
+        <span class="c1"># Set PROJECT_DIR_NAME environment variable for the script</span>
+        <span class="n">env</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="n">project_dir_name</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">basename</span><span class="p">(</span><span class="n">project_dir</span><span class="p">)</span>
+        <span class="n">env</span><span class="p">[</span><span class="s1">&#39;PROJECT_DIR_NAME&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">project_dir_name</span>
+
+        <span class="c1"># Build command</span>
+        <span class="n">cmd</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;bash&#39;</span><span class="p">,</span> <span class="n">visualize_script</span><span class="p">,</span> <span class="n">sim_mode_str</span><span class="p">,</span> <span class="n">eeg_net</span><span class="p">,</span> <span class="n">output_dir</span><span class="p">]</span>
+
+        <span class="k">if</span> <span class="n">electrode_pairs</span><span class="p">:</span>
+            <span class="c1"># For flex montages with known electrode pairs, pass --pairs</span>
+            <span class="n">pairs_str</span> <span class="o">=</span> <span class="s2">&quot;,&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">pair</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2">-</span><span class="si">{</span><span class="n">pair</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span> <span class="k">for</span> <span class="n">pair</span> <span class="ow">in</span> <span class="n">electrode_pairs</span><span class="p">])</span>
+            <span class="n">pairs_arg</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">montage_name</span><span class="si">}</span><span class="s2">:</span><span class="si">{</span><span class="n">pairs_str</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="n">cmd</span><span class="o">.</span><span class="n">extend</span><span class="p">([</span><span class="s1">&#39;--pairs&#39;</span><span class="p">,</span> <span class="n">pairs_arg</span><span class="p">])</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># For standard montages, pass montage name</span>
+            <span class="n">cmd</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="n">montage_name</span><span class="p">)</span>  <span class="c1"># Insert after script path and sim_mode</span>
+
+        <span class="n">result</span> <span class="o">=</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">run</span><span class="p">(</span>
+            <span class="n">cmd</span><span class="p">,</span>
+            <span class="n">env</span><span class="o">=</span><span class="n">env</span><span class="p">,</span>
+            <span class="n">capture_output</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="n">text</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="n">timeout</span><span class="o">=</span><span class="mi">120</span>
+        <span class="p">)</span>
+        
+        <span class="k">if</span> <span class="n">result</span><span class="o">.</span><span class="n">returncode</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Montage visualization returned non-zero: </span><span class="si">{</span><span class="n">result</span><span class="o">.</span><span class="n">stderr</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        
+        <span class="k">return</span> <span class="n">result</span><span class="o">.</span><span class="n">returncode</span> <span class="o">==</span> <span class="mi">0</span>
+        
+    <span class="k">except</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">TimeoutExpired</span><span class="p">:</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Montage visualization timed out for </span><span class="si">{</span><span class="n">montage_name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="kc">False</span>
+    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Montage visualization failed: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="kc">False</span></div>
+
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_run_montage_worker</span><span class="p">(</span><span class="n">args</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Worker function for parallel montage execution.</span>
+<span class="sd">    </span>
+<span class="sd">    This function runs in a separate process and handles its own logging.</span>
+<span class="sd">    IMPORTANT: This function is called in a spawned process, so all imports</span>
+<span class="sd">    must happen inside the function.</span>
+<span class="sd">    </span>
+<span class="sd">    Logging behavior:</span>
+<span class="sd">    - All output goes to a per-worker log file</span>
+<span class="sd">    - No output to terminal/stdout (prevents console flooding)</span>
+<span class="sd">    - Errors are captured and returned in the result dict</span>
+<span class="sd">    </span>
+<span class="sd">    Args:</span>
+<span class="sd">        args: Dictionary containing:</span>
+<span class="sd">            - config_dict: Serialized SimulationConfig</span>
+<span class="sd">            - montage_dict: Serialized MontageConfig</span>
+<span class="sd">            - simulation_dir: Base simulation directory</span>
+<span class="sd">            - worker_id: Worker identifier for logging</span>
+<span class="sd">            </span>
+<span class="sd">    Returns:</span>
+<span class="sd">        Dictionary with simulation result</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+    <span class="kn">import</span><span class="w"> </span><span class="nn">sys</span>
+    <span class="kn">import</span><span class="w"> </span><span class="nn">time</span>
+    <span class="kn">import</span><span class="w"> </span><span class="nn">traceback</span>
+    <span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
+    
+    <span class="c1"># Extract args first (before imports that might fail)</span>
+    <span class="n">config_dict</span> <span class="o">=</span> <span class="n">args</span><span class="p">[</span><span class="s1">&#39;config_dict&#39;</span><span class="p">]</span>
+    <span class="n">montage_dict</span> <span class="o">=</span> <span class="n">args</span><span class="p">[</span><span class="s1">&#39;montage_dict&#39;</span><span class="p">]</span>
+    <span class="n">simulation_dir</span> <span class="o">=</span> <span class="n">args</span><span class="p">[</span><span class="s1">&#39;simulation_dir&#39;</span><span class="p">]</span>
+    <span class="n">worker_id</span> <span class="o">=</span> <span class="n">args</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;worker_id&#39;</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+    <span class="n">montage_name</span> <span class="o">=</span> <span class="n">montage_dict</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;name&#39;</span><span class="p">,</span> <span class="s1">&#39;unknown&#39;</span><span class="p">)</span>
+    
+    <span class="c1"># Suppress stdout/stderr to prevent terminal flooding</span>
+    <span class="c1"># Redirect to devnull for cleaner execution</span>
+    <span class="k">class</span><span class="w"> </span><span class="nc">NullWriter</span><span class="p">:</span>
+        <span class="k">def</span><span class="w"> </span><span class="nf">write</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span> <span class="k">pass</span>
+        <span class="k">def</span><span class="w"> </span><span class="nf">flush</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span> <span class="k">pass</span>
+    
+    <span class="c1"># Save original streams</span>
+    <span class="n">original_stdout</span> <span class="o">=</span> <span class="n">sys</span><span class="o">.</span><span class="n">stdout</span>
+    <span class="n">original_stderr</span> <span class="o">=</span> <span class="n">sys</span><span class="o">.</span><span class="n">stderr</span>
+    
+    <span class="k">try</span><span class="p">:</span>
+        <span class="c1"># Import dependencies inside the worker (required for spawn context)</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">tit.sim.config</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+            <span class="n">SimulationConfig</span><span class="p">,</span>
+            <span class="n">MontageConfig</span><span class="p">,</span>
+            <span class="n">ConductivityType</span><span class="p">,</span>
+            <span class="n">ElectrodeConfig</span><span class="p">,</span>
+            <span class="n">IntensityConfig</span><span class="p">,</span>
+            <span class="n">ParallelConfig</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">tit.sim.session_builder</span><span class="w"> </span><span class="kn">import</span> <span class="n">SessionBuilder</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">tit.sim.post_processor</span><span class="w"> </span><span class="kn">import</span> <span class="n">PostProcessor</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">tit.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_path_manager</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">tit</span><span class="w"> </span><span class="kn">import</span> <span class="n">logger</span> <span class="k">as</span> <span class="n">logging_util</span>
+        
+        <span class="c1"># Reconstruct MontageConfig</span>
+        <span class="n">montage</span> <span class="o">=</span> <span class="n">MontageConfig</span><span class="p">(</span>
+            <span class="n">name</span><span class="o">=</span><span class="n">montage_dict</span><span class="p">[</span><span class="s1">&#39;name&#39;</span><span class="p">],</span>
+            <span class="n">electrode_pairs</span><span class="o">=</span><span class="p">[</span><span class="nb">tuple</span><span class="p">(</span><span class="n">p</span><span class="p">)</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">montage_dict</span><span class="p">[</span><span class="s1">&#39;electrode_pairs&#39;</span><span class="p">]],</span>
+            <span class="n">is_xyz</span><span class="o">=</span><span class="n">montage_dict</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;is_xyz&#39;</span><span class="p">,</span> <span class="kc">False</span><span class="p">),</span>
+            <span class="n">eeg_net</span><span class="o">=</span><span class="n">montage_dict</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;eeg_net&#39;</span><span class="p">)</span>
+        <span class="p">)</span>
+        
+        <span class="c1"># Reconstruct config</span>
+        <span class="n">config</span> <span class="o">=</span> <span class="n">SimulationConfig</span><span class="p">(</span>
+            <span class="n">subject_id</span><span class="o">=</span><span class="n">config_dict</span><span class="p">[</span><span class="s1">&#39;subject_id&#39;</span><span class="p">],</span>
+            <span class="n">project_dir</span><span class="o">=</span><span class="n">config_dict</span><span class="p">[</span><span class="s1">&#39;project_dir&#39;</span><span class="p">],</span>
+            <span class="n">conductivity_type</span><span class="o">=</span><span class="n">ConductivityType</span><span class="p">(</span><span class="n">config_dict</span><span class="p">[</span><span class="s1">&#39;conductivity_type&#39;</span><span class="p">]),</span>
+            <span class="n">intensities</span><span class="o">=</span><span class="n">IntensityConfig</span><span class="p">(</span><span class="o">**</span><span class="n">config_dict</span><span class="p">[</span><span class="s1">&#39;intensities&#39;</span><span class="p">]),</span>
+            <span class="n">electrode</span><span class="o">=</span><span class="n">ElectrodeConfig</span><span class="p">(</span><span class="o">**</span><span class="n">config_dict</span><span class="p">[</span><span class="s1">&#39;electrode&#39;</span><span class="p">]),</span>
+            <span class="n">eeg_net</span><span class="o">=</span><span class="n">config_dict</span><span class="p">[</span><span class="s1">&#39;eeg_net&#39;</span><span class="p">],</span>
+            <span class="n">parallel</span><span class="o">=</span><span class="n">ParallelConfig</span><span class="p">(</span><span class="o">**</span><span class="n">config_dict</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;parallel&#39;</span><span class="p">,</span> <span class="p">{}))</span>
+        <span class="p">)</span>
+        
+        <span class="c1"># Set up per-worker file-only logger (no console output)</span>
+        <span class="n">pm</span> <span class="o">=</span> <span class="n">get_path_manager</span><span class="p">()</span>
+        <span class="n">log_dir</span> <span class="o">=</span> <span class="n">pm</span><span class="o">.</span><span class="n">path</span><span class="p">(</span><span class="s2">&quot;ti_logs&quot;</span><span class="p">,</span> <span class="n">subject_id</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">subject_id</span><span class="p">)</span>
+        <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">log_dir</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">log_file</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">log_dir</span><span class="p">,</span> <span class="sa">f</span><span class="s1">&#39;Simulator_worker</span><span class="si">{</span><span class="n">worker_id</span><span class="si">}</span><span class="s1">_</span><span class="si">{</span><span class="n">montage</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s1">_</span><span class="si">{</span><span class="n">time</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="s2">&quot;%Y%m</span><span class="si">%d</span><span class="s2">_%H%M%S&quot;</span><span class="p">)</span><span class="si">}</span><span class="s1">.log&#39;</span><span class="p">)</span>
+        
+        <span class="c1"># Use file-only logger to prevent terminal output</span>
+        <span class="n">logger</span> <span class="o">=</span> <span class="n">logging_util</span><span class="o">.</span><span class="n">get_file_only_logger</span><span class="p">(</span>
+            <span class="n">name</span><span class="o">=</span><span class="sa">f</span><span class="s1">&#39;TI-Simulator-W</span><span class="si">{</span><span class="n">worker_id</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">,</span>
+            <span class="n">log_file</span><span class="o">=</span><span class="n">log_file</span><span class="p">,</span>
+            <span class="n">level</span><span class="o">=</span><span class="n">logging</span><span class="o">.</span><span class="n">DEBUG</span>
+        <span class="p">)</span>
+        
+        <span class="c1"># Configure external loggers to also use file-only logging</span>
+        <span class="k">for</span> <span class="n">ext_name</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">&#39;simnibs&#39;</span><span class="p">,</span> <span class="s1">&#39;mesh_io&#39;</span><span class="p">,</span> <span class="s1">&#39;sim_struct&#39;</span><span class="p">,</span> <span class="s1">&#39;TI&#39;</span><span class="p">]:</span>
+            <span class="n">ext_logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="n">ext_name</span><span class="p">)</span>
+            <span class="n">ext_logger</span><span class="o">.</span><span class="n">setLevel</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">DEBUG</span><span class="p">)</span>
+            <span class="n">ext_logger</span><span class="o">.</span><span class="n">propagate</span> <span class="o">=</span> <span class="kc">False</span>
+            <span class="c1"># Clear existing handlers</span>
+            <span class="k">for</span> <span class="n">handler</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="n">ext_logger</span><span class="o">.</span><span class="n">handlers</span><span class="p">):</span>
+                <span class="n">ext_logger</span><span class="o">.</span><span class="n">removeHandler</span><span class="p">(</span><span class="n">handler</span><span class="p">)</span>
+            <span class="c1"># Add file handler</span>
+            <span class="n">file_handler</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">FileHandler</span><span class="p">(</span><span class="n">log_file</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;a&#39;</span><span class="p">)</span>
+            <span class="n">file_handler</span><span class="o">.</span><span class="n">setLevel</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">DEBUG</span><span class="p">)</span>
+            <span class="n">file_handler</span><span class="o">.</span><span class="n">setFormatter</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">Formatter</span><span class="p">(</span><span class="s1">&#39;[</span><span class="si">%(asctime)s</span><span class="s1">] [</span><span class="si">%(name)s</span><span class="s1">] [</span><span class="si">%(levelname)s</span><span class="s1">] </span><span class="si">%(message)s</span><span class="s1">&#39;</span><span class="p">))</span>
+            <span class="n">ext_logger</span><span class="o">.</span><span class="n">addHandler</span><span class="p">(</span><span class="n">file_handler</span><span class="p">)</span>
+        
+        <span class="c1"># Now suppress stdout/stderr after logging is set up</span>
+        <span class="n">sys</span><span class="o">.</span><span class="n">stdout</span> <span class="o">=</span> <span class="n">NullWriter</span><span class="p">()</span>
+        <span class="n">sys</span><span class="o">.</span><span class="n">stderr</span> <span class="o">=</span> <span class="n">NullWriter</span><span class="p">()</span>
+        
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Worker </span><span class="si">{</span><span class="n">worker_id</span><span class="si">}</span><span class="s2">: Starting </span><span class="si">{</span><span class="n">montage</span><span class="o">.</span><span class="n">simulation_mode</span><span class="o">.</span><span class="n">value</span><span class="si">}</span><span class="s2"> simulation: </span><span class="si">{</span><span class="n">montage</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Log file: </span><span class="si">{</span><span class="n">log_file</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        
+        <span class="c1"># Initialize components</span>
+        <span class="n">session_builder</span> <span class="o">=</span> <span class="n">SessionBuilder</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
+        <span class="n">m2m_dir</span> <span class="o">=</span> <span class="n">pm</span><span class="o">.</span><span class="n">path</span><span class="p">(</span><span class="s2">&quot;m2m&quot;</span><span class="p">,</span> <span class="n">subject_id</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">subject_id</span><span class="p">)</span>
+        
+        <span class="n">post_processor</span> <span class="o">=</span> <span class="n">PostProcessor</span><span class="p">(</span>
+            <span class="n">subject_id</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">subject_id</span><span class="p">,</span>
+            <span class="n">conductivity_type</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">conductivity_type</span><span class="o">.</span><span class="n">value</span><span class="p">,</span>
+            <span class="n">m2m_dir</span><span class="o">=</span><span class="n">m2m_dir</span><span class="p">,</span>
+            <span class="n">logger</span><span class="o">=</span><span class="n">logger</span>
+        <span class="p">)</span>
+        
+        <span class="c1"># Import _run_single_montage here to ensure all its dependencies are loaded</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">tit.sim.simulator</span><span class="w"> </span><span class="kn">import</span> <span class="n">_run_single_montage</span>
+        
+        <span class="n">result</span> <span class="o">=</span> <span class="n">_run_single_montage</span><span class="p">(</span>
+            <span class="n">config</span><span class="o">=</span><span class="n">config</span><span class="p">,</span>
+            <span class="n">montage</span><span class="o">=</span><span class="n">montage</span><span class="p">,</span>
+            <span class="n">simulation_dir</span><span class="o">=</span><span class="n">simulation_dir</span><span class="p">,</span>
+            <span class="n">session_builder</span><span class="o">=</span><span class="n">session_builder</span><span class="p">,</span>
+            <span class="n">post_processor</span><span class="o">=</span><span class="n">post_processor</span><span class="p">,</span>
+            <span class="n">logger</span><span class="o">=</span><span class="n">logger</span>
+        <span class="p">)</span>
+        
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Worker </span><span class="si">{</span><span class="n">worker_id</span><span class="si">}</span><span class="s2">: Completed </span><span class="si">{</span><span class="n">montage</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="n">result</span><span class="p">[</span><span class="s1">&#39;log_file&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">log_file</span>
+        <span class="k">return</span> <span class="n">result</span>
+        
+    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="n">error_tb</span> <span class="o">=</span> <span class="n">traceback</span><span class="o">.</span><span class="n">format_exc</span><span class="p">()</span>
+        
+        <span class="c1"># Try to log the error if logger is available</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">if</span> <span class="s1">&#39;logger&#39;</span> <span class="ow">in</span> <span class="nb">dir</span><span class="p">()</span> <span class="ow">and</span> <span class="n">logger</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Worker </span><span class="si">{</span><span class="n">worker_id</span><span class="si">}</span><span class="s2">: Failed - </span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="n">error_tb</span><span class="p">)</span>
+        <span class="k">except</span><span class="p">:</span>
+            <span class="k">pass</span>
+        
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="s1">&#39;montage_name&#39;</span><span class="p">:</span> <span class="n">montage_name</span><span class="p">,</span>
+            <span class="s1">&#39;montage_type&#39;</span><span class="p">:</span> <span class="s1">&#39;unknown&#39;</span><span class="p">,</span>
+            <span class="s1">&#39;status&#39;</span><span class="p">:</span> <span class="s1">&#39;failed&#39;</span><span class="p">,</span>
+            <span class="s1">&#39;error&#39;</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">)</span>
+        <span class="p">}</span>
+    <span class="k">finally</span><span class="p">:</span>
+        <span class="c1"># Restore original streams</span>
+        <span class="n">sys</span><span class="o">.</span><span class="n">stdout</span> <span class="o">=</span> <span class="n">original_stdout</span>
+        <span class="n">sys</span><span class="o">.</span><span class="n">stderr</span> <span class="o">=</span> <span class="n">original_stderr</span>
+
+
+<div class="viewcode-block" id="run_simulation">
+<a class="viewcode-back" href="../../../sim/index.html#tit.sim.simulator.run_simulation">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">run_simulation</span><span class="p">(</span>
+    <span class="n">config</span><span class="p">:</span> <span class="n">SimulationConfig</span><span class="p">,</span>
+    <span class="n">montages</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">MontageConfig</span><span class="p">],</span>
+    <span class="n">logger</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">progress_callback</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Callable</span><span class="p">[[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span> <span class="kc">None</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">dict</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Run TI/mTI simulations for given montages.</span>
+<span class="sd">    </span>
+<span class="sd">    Supports both sequential and parallel execution based on config.parallel settings.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        config: Simulation configuration</span>
+<span class="sd">        montages: List of montage configurations</span>
+<span class="sd">        logger: Optional logger instance</span>
+<span class="sd">        progress_callback: Optional callback for progress updates (current, total, montage_name)</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        List of dictionaries with simulation results</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Initialize logger if not provided</span>
+    <span class="k">if</span> <span class="n">logger</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
+        <span class="n">pm</span> <span class="o">=</span> <span class="n">get_path_manager</span><span class="p">()</span>
+        <span class="n">log_dir</span> <span class="o">=</span> <span class="n">pm</span><span class="o">.</span><span class="n">path</span><span class="p">(</span><span class="s2">&quot;ti_logs&quot;</span><span class="p">,</span> <span class="n">subject_id</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">subject_id</span><span class="p">)</span>
+        <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">log_dir</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">log_file</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">log_dir</span><span class="p">,</span> <span class="sa">f</span><span class="s1">&#39;Simulator_</span><span class="si">{</span><span class="n">time</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="s2">&quot;%Y%m</span><span class="si">%d</span><span class="s2">_%H%M%S&quot;</span><span class="p">)</span><span class="si">}</span><span class="s1">.log&#39;</span><span class="p">)</span>
+        
+        <span class="c1"># Use file-only logger by default (no console output)</span>
+        <span class="c1"># Console output should be controlled by the caller (GUI or CLI)</span>
+        <span class="n">logger</span> <span class="o">=</span> <span class="n">logging_util</span><span class="o">.</span><span class="n">get_file_only_logger</span><span class="p">(</span><span class="s1">&#39;TI-Simulator&#39;</span><span class="p">,</span> <span class="n">log_file</span><span class="p">,</span> <span class="n">level</span><span class="o">=</span><span class="n">logging</span><span class="o">.</span><span class="n">DEBUG</span><span class="p">)</span>
+        
+        <span class="c1"># Configure external loggers to also use file-only logging</span>
+        <span class="k">for</span> <span class="n">ext_name</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">&#39;simnibs&#39;</span><span class="p">,</span> <span class="s1">&#39;mesh_io&#39;</span><span class="p">,</span> <span class="s1">&#39;sim_struct&#39;</span><span class="p">,</span> <span class="s1">&#39;TI&#39;</span><span class="p">]:</span>
+            <span class="n">ext_logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="n">ext_name</span><span class="p">)</span>
+            <span class="n">ext_logger</span><span class="o">.</span><span class="n">setLevel</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">DEBUG</span><span class="p">)</span>
+            <span class="n">ext_logger</span><span class="o">.</span><span class="n">propagate</span> <span class="o">=</span> <span class="kc">False</span>
+            <span class="k">for</span> <span class="n">handler</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="n">ext_logger</span><span class="o">.</span><span class="n">handlers</span><span class="p">):</span>
+                <span class="n">ext_logger</span><span class="o">.</span><span class="n">removeHandler</span><span class="p">(</span><span class="n">handler</span><span class="p">)</span>
+            <span class="n">file_handler</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">FileHandler</span><span class="p">(</span><span class="n">log_file</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;a&#39;</span><span class="p">)</span>
+            <span class="n">file_handler</span><span class="o">.</span><span class="n">setLevel</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">DEBUG</span><span class="p">)</span>
+            <span class="n">file_handler</span><span class="o">.</span><span class="n">setFormatter</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">Formatter</span><span class="p">(</span><span class="s1">&#39;[</span><span class="si">%(asctime)s</span><span class="s1">] [</span><span class="si">%(name)s</span><span class="s1">] [</span><span class="si">%(levelname)s</span><span class="s1">] </span><span class="si">%(message)s</span><span class="s1">&#39;</span><span class="p">))</span>
+            <span class="n">ext_logger</span><span class="o">.</span><span class="n">addHandler</span><span class="p">(</span><span class="n">file_handler</span><span class="p">)</span>
+
+    <span class="c1"># Get simulation directory</span>
+    <span class="n">pm</span> <span class="o">=</span> <span class="n">get_path_manager</span><span class="p">()</span>
+    <span class="n">simulation_dir</span> <span class="o">=</span> <span class="n">pm</span><span class="o">.</span><span class="n">path</span><span class="p">(</span><span class="s2">&quot;simulations&quot;</span><span class="p">,</span> <span class="n">subject_id</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">subject_id</span><span class="p">)</span>
+    
+    <span class="c1"># Check if parallel execution is enabled and we have multiple montages</span>
+    <span class="n">use_parallel</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">config</span><span class="o">.</span><span class="n">parallel</span><span class="o">.</span><span class="n">enabled</span> <span class="ow">and</span> 
+        <span class="nb">len</span><span class="p">(</span><span class="n">montages</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="ow">and</span> 
+        <span class="n">config</span><span class="o">.</span><span class="n">parallel</span><span class="o">.</span><span class="n">effective_workers</span> <span class="o">&gt;</span> <span class="mi">1</span>
+    <span class="p">)</span>
+    
+    <span class="k">if</span> <span class="n">use_parallel</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">_run_parallel</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">montages</span><span class="p">,</span> <span class="n">simulation_dir</span><span class="p">,</span> <span class="n">logger</span><span class="p">,</span> <span class="n">progress_callback</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">_run_sequential</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">montages</span><span class="p">,</span> <span class="n">simulation_dir</span><span class="p">,</span> <span class="n">logger</span><span class="p">,</span> <span class="n">progress_callback</span><span class="p">)</span></div>
+
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_run_sequential</span><span class="p">(</span>
+    <span class="n">config</span><span class="p">:</span> <span class="n">SimulationConfig</span><span class="p">,</span>
+    <span class="n">montages</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">MontageConfig</span><span class="p">],</span>
+    <span class="n">simulation_dir</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">logger</span><span class="p">,</span>
+    <span class="n">progress_callback</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Callable</span><span class="p">[[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span> <span class="kc">None</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">dict</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Run montages sequentially in a single process.</span>
+
+<span class="sd">    Processes each montage one at a time in the current process. This is the</span>
+<span class="sd">    default execution mode and is more memory-efficient than parallel execution.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    config : SimulationConfig</span>
+<span class="sd">        Simulation configuration</span>
+<span class="sd">    montages : list of MontageConfig</span>
+<span class="sd">        List of montages to simulate</span>
+<span class="sd">    simulation_dir : str</span>
+<span class="sd">        Base simulation directory path</span>
+<span class="sd">    logger : logging.Logger</span>
+<span class="sd">        Logger instance for progress tracking</span>
+<span class="sd">    progress_callback : callable, optional</span>
+<span class="sd">        Callback function(current, total, montage_name) for progress updates</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    list of dict</span>
+<span class="sd">        List of simulation results, one per montage. Each dict contains:</span>
+<span class="sd">        - montage_name : str</span>
+<span class="sd">        - montage_type : str (&#39;TI&#39; or &#39;mTI&#39;)</span>
+<span class="sd">        - status : str (&#39;completed&#39; or &#39;failed&#39;)</span>
+<span class="sd">        - output_mesh : str (path to output mesh file, if successful)</span>
+<span class="sd">        - error : str (error message, if failed)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Initialize components</span>
+    <span class="n">session_builder</span> <span class="o">=</span> <span class="n">SessionBuilder</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
+    <span class="n">pm</span> <span class="o">=</span> <span class="n">get_path_manager</span><span class="p">()</span>
+    <span class="n">m2m_dir</span> <span class="o">=</span> <span class="n">pm</span><span class="o">.</span><span class="n">path</span><span class="p">(</span><span class="s2">&quot;m2m&quot;</span><span class="p">,</span> <span class="n">subject_id</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">subject_id</span><span class="p">)</span>
+    
+    <span class="n">post_processor</span> <span class="o">=</span> <span class="n">PostProcessor</span><span class="p">(</span>
+        <span class="n">subject_id</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">subject_id</span><span class="p">,</span>
+        <span class="n">conductivity_type</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">conductivity_type</span><span class="o">.</span><span class="n">value</span><span class="p">,</span>
+        <span class="n">m2m_dir</span><span class="o">=</span><span class="n">m2m_dir</span><span class="p">,</span>
+        <span class="n">logger</span><span class="o">=</span><span class="n">logger</span>
+    <span class="p">)</span>
+
+    <span class="n">results</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">total</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">montages</span><span class="p">)</span>
+
+    <span class="c1"># Run simulations for each montage</span>
+    <span class="k">for</span> <span class="n">idx</span><span class="p">,</span> <span class="n">montage</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">montages</span><span class="p">):</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Starting </span><span class="si">{</span><span class="n">montage</span><span class="o">.</span><span class="n">simulation_mode</span><span class="o">.</span><span class="n">value</span><span class="si">}</span><span class="s2"> simulation: </span><span class="si">{</span><span class="n">montage</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2"> (</span><span class="si">{</span><span class="n">idx</span><span class="o">+</span><span class="mi">1</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">total</span><span class="si">}</span><span class="s2">)&quot;</span><span class="p">)</span>
+            
+            <span class="k">if</span> <span class="n">progress_callback</span><span class="p">:</span>
+                <span class="n">progress_callback</span><span class="p">(</span><span class="n">idx</span><span class="p">,</span> <span class="n">total</span><span class="p">,</span> <span class="n">montage</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+
+            <span class="n">result</span> <span class="o">=</span> <span class="n">_run_single_montage</span><span class="p">(</span>
+                <span class="n">config</span><span class="o">=</span><span class="n">config</span><span class="p">,</span>
+                <span class="n">montage</span><span class="o">=</span><span class="n">montage</span><span class="p">,</span>
+                <span class="n">simulation_dir</span><span class="o">=</span><span class="n">simulation_dir</span><span class="p">,</span>
+                <span class="n">session_builder</span><span class="o">=</span><span class="n">session_builder</span><span class="p">,</span>
+                <span class="n">post_processor</span><span class="o">=</span><span class="n">post_processor</span><span class="p">,</span>
+                <span class="n">logger</span><span class="o">=</span><span class="n">logger</span>
+            <span class="p">)</span>
+
+            <span class="n">results</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
+
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Failed to run montage </span><span class="si">{</span><span class="n">montage</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="kn">import</span><span class="w"> </span><span class="nn">traceback</span>
+            <span class="n">traceback</span><span class="o">.</span><span class="n">print_exc</span><span class="p">()</span>
+
+            <span class="n">results</span><span class="o">.</span><span class="n">append</span><span class="p">({</span>
+                <span class="s1">&#39;montage_name&#39;</span><span class="p">:</span> <span class="n">montage</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+                <span class="s1">&#39;montage_type&#39;</span><span class="p">:</span> <span class="n">montage</span><span class="o">.</span><span class="n">simulation_mode</span><span class="o">.</span><span class="n">value</span><span class="p">,</span>
+                <span class="s1">&#39;status&#39;</span><span class="p">:</span> <span class="s1">&#39;failed&#39;</span><span class="p">,</span>
+                <span class="s1">&#39;error&#39;</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">)</span>
+            <span class="p">})</span>
+    
+    <span class="k">if</span> <span class="n">progress_callback</span><span class="p">:</span>
+        <span class="n">progress_callback</span><span class="p">(</span><span class="n">total</span><span class="p">,</span> <span class="n">total</span><span class="p">,</span> <span class="s2">&quot;Complete&quot;</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">results</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_run_parallel</span><span class="p">(</span>
+    <span class="n">config</span><span class="p">:</span> <span class="n">SimulationConfig</span><span class="p">,</span>
+    <span class="n">montages</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">MontageConfig</span><span class="p">],</span>
+    <span class="n">simulation_dir</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">logger</span><span class="p">,</span>
+    <span class="n">progress_callback</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Callable</span><span class="p">[[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span> <span class="kc">None</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">dict</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Run montages in parallel using multiple worker processes.</span>
+
+<span class="sd">    Uses ProcessPoolExecutor with &#39;spawn&#39; context for SimNIBS compatibility.</span>
+<span class="sd">    Each montage runs in a separate worker process with its own file-based logging.</span>
+<span class="sd">    Memory intensive - each worker requires ~4-8 GB RAM.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    config : SimulationConfig</span>
+<span class="sd">        Simulation configuration</span>
+<span class="sd">    montages : list of MontageConfig</span>
+<span class="sd">        List of montages to simulate</span>
+<span class="sd">    simulation_dir : str</span>
+<span class="sd">        Base simulation directory path</span>
+<span class="sd">    logger : logging.Logger</span>
+<span class="sd">        Main logger instance (each worker gets its own file logger)</span>
+<span class="sd">    progress_callback : callable, optional</span>
+<span class="sd">        Callback function(current, total, montage_name) for progress updates</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    list of dict</span>
+<span class="sd">        List of simulation results in completion order. Each dict contains:</span>
+<span class="sd">        - montage_name : str</span>
+<span class="sd">        - montage_type : str (&#39;TI&#39; or &#39;mTI&#39;)</span>
+<span class="sd">        - status : str (&#39;completed&#39; or &#39;failed&#39;)</span>
+<span class="sd">        - output_mesh : str (path to output mesh file, if successful)</span>
+<span class="sd">        - log_file : str (path to worker log file)</span>
+<span class="sd">        - error : str (error message, if failed)</span>
+
+<span class="sd">    Notes</span>
+<span class="sd">    -----</span>
+<span class="sd">    - Uses &#39;spawn&#39; multiprocessing context to avoid fork-related issues with SimNIBS</span>
+<span class="sd">    - Each worker suppresses stdout/stderr and logs only to files</span>
+<span class="sd">    - Worker count determined by config.parallel.effective_workers</span>
+<span class="sd">    - 2-hour timeout per simulation</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">max_workers</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">parallel</span><span class="o">.</span><span class="n">effective_workers</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">montages</span><span class="p">))</span>
+    
+    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Starting parallel execution with </span><span class="si">{</span><span class="n">max_workers</span><span class="si">}</span><span class="s2"> workers for </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">montages</span><span class="p">)</span><span class="si">}</span><span class="s2"> montages&quot;</span><span class="p">)</span>
+    
+    <span class="c1"># Serialize config for passing to worker processes</span>
+    <span class="n">config_dict</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s1">&#39;subject_id&#39;</span><span class="p">:</span> <span class="n">config</span><span class="o">.</span><span class="n">subject_id</span><span class="p">,</span>
+        <span class="s1">&#39;project_dir&#39;</span><span class="p">:</span> <span class="n">config</span><span class="o">.</span><span class="n">project_dir</span><span class="p">,</span>
+        <span class="s1">&#39;conductivity_type&#39;</span><span class="p">:</span> <span class="n">config</span><span class="o">.</span><span class="n">conductivity_type</span><span class="o">.</span><span class="n">value</span><span class="p">,</span>
+        <span class="s1">&#39;intensities&#39;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s1">&#39;pair1&#39;</span><span class="p">:</span> <span class="n">config</span><span class="o">.</span><span class="n">intensities</span><span class="o">.</span><span class="n">pair1</span><span class="p">,</span>
+            <span class="s1">&#39;pair2&#39;</span><span class="p">:</span> <span class="n">config</span><span class="o">.</span><span class="n">intensities</span><span class="o">.</span><span class="n">pair2</span><span class="p">,</span>
+            <span class="s1">&#39;pair3&#39;</span><span class="p">:</span> <span class="n">config</span><span class="o">.</span><span class="n">intensities</span><span class="o">.</span><span class="n">pair3</span><span class="p">,</span>
+            <span class="s1">&#39;pair4&#39;</span><span class="p">:</span> <span class="n">config</span><span class="o">.</span><span class="n">intensities</span><span class="o">.</span><span class="n">pair4</span><span class="p">,</span>
+        <span class="p">},</span>
+        <span class="s1">&#39;electrode&#39;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s1">&#39;shape&#39;</span><span class="p">:</span> <span class="n">config</span><span class="o">.</span><span class="n">electrode</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span>
+            <span class="s1">&#39;dimensions&#39;</span><span class="p">:</span> <span class="n">config</span><span class="o">.</span><span class="n">electrode</span><span class="o">.</span><span class="n">dimensions</span><span class="p">,</span>
+            <span class="s1">&#39;thickness&#39;</span><span class="p">:</span> <span class="n">config</span><span class="o">.</span><span class="n">electrode</span><span class="o">.</span><span class="n">thickness</span><span class="p">,</span>
+            <span class="s1">&#39;sponge_thickness&#39;</span><span class="p">:</span> <span class="n">config</span><span class="o">.</span><span class="n">electrode</span><span class="o">.</span><span class="n">sponge_thickness</span><span class="p">,</span>
+        <span class="p">},</span>
+        <span class="s1">&#39;eeg_net&#39;</span><span class="p">:</span> <span class="n">config</span><span class="o">.</span><span class="n">eeg_net</span><span class="p">,</span>
+        <span class="s1">&#39;parallel&#39;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s1">&#39;enabled&#39;</span><span class="p">:</span> <span class="n">config</span><span class="o">.</span><span class="n">parallel</span><span class="o">.</span><span class="n">enabled</span><span class="p">,</span>
+            <span class="s1">&#39;max_workers&#39;</span><span class="p">:</span> <span class="n">config</span><span class="o">.</span><span class="n">parallel</span><span class="o">.</span><span class="n">max_workers</span><span class="p">,</span>
+        <span class="p">}</span>
+    <span class="p">}</span>
+    
+    <span class="c1"># Prepare worker arguments</span>
+    <span class="n">worker_args</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">idx</span><span class="p">,</span> <span class="n">montage</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">montages</span><span class="p">):</span>
+        <span class="n">montage_dict</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s1">&#39;name&#39;</span><span class="p">:</span> <span class="n">montage</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+            <span class="s1">&#39;electrode_pairs&#39;</span><span class="p">:</span> <span class="p">[</span><span class="nb">list</span><span class="p">(</span><span class="n">p</span><span class="p">)</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">montage</span><span class="o">.</span><span class="n">electrode_pairs</span><span class="p">],</span>
+            <span class="s1">&#39;is_xyz&#39;</span><span class="p">:</span> <span class="n">montage</span><span class="o">.</span><span class="n">is_xyz</span><span class="p">,</span>
+            <span class="s1">&#39;eeg_net&#39;</span><span class="p">:</span> <span class="n">montage</span><span class="o">.</span><span class="n">eeg_net</span><span class="p">,</span>
+        <span class="p">}</span>
+        <span class="n">worker_args</span><span class="o">.</span><span class="n">append</span><span class="p">({</span>
+            <span class="s1">&#39;config_dict&#39;</span><span class="p">:</span> <span class="n">config_dict</span><span class="p">,</span>
+            <span class="s1">&#39;montage_dict&#39;</span><span class="p">:</span> <span class="n">montage_dict</span><span class="p">,</span>
+            <span class="s1">&#39;simulation_dir&#39;</span><span class="p">:</span> <span class="n">simulation_dir</span><span class="p">,</span>
+            <span class="s1">&#39;worker_id&#39;</span><span class="p">:</span> <span class="n">idx</span>
+        <span class="p">})</span>
+    
+    <span class="n">results</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">completed</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">total</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">montages</span><span class="p">)</span>
+    
+    <span class="c1"># Use ProcessPoolExecutor with &#39;spawn&#39; context for SimNIBS compatibility</span>
+    <span class="c1"># &#39;spawn&#39; creates fresh Python interpreters, avoiding fork-related issues</span>
+    <span class="k">with</span> <span class="n">ProcessPoolExecutor</span><span class="p">(</span><span class="n">max_workers</span><span class="o">=</span><span class="n">max_workers</span><span class="p">,</span> <span class="n">mp_context</span><span class="o">=</span><span class="n">mp_context</span><span class="p">)</span> <span class="k">as</span> <span class="n">executor</span><span class="p">:</span>
+        <span class="c1"># Submit all tasks</span>
+        <span class="n">future_to_montage</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="n">executor</span><span class="o">.</span><span class="n">submit</span><span class="p">(</span><span class="n">_run_montage_worker</span><span class="p">,</span> <span class="n">args</span><span class="p">):</span> <span class="n">args</span><span class="p">[</span><span class="s1">&#39;montage_dict&#39;</span><span class="p">][</span><span class="s1">&#39;name&#39;</span><span class="p">]</span>
+            <span class="k">for</span> <span class="n">args</span> <span class="ow">in</span> <span class="n">worker_args</span>
+        <span class="p">}</span>
+        
+        <span class="c1"># Collect results as they complete</span>
+        <span class="k">for</span> <span class="n">future</span> <span class="ow">in</span> <span class="n">as_completed</span><span class="p">(</span><span class="n">future_to_montage</span><span class="p">):</span>
+            <span class="n">montage_name</span> <span class="o">=</span> <span class="n">future_to_montage</span><span class="p">[</span><span class="n">future</span><span class="p">]</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">result</span> <span class="o">=</span> <span class="n">future</span><span class="o">.</span><span class="n">result</span><span class="p">(</span><span class="n">timeout</span><span class="o">=</span><span class="mi">7200</span><span class="p">)</span>  <span class="c1"># 2 hour timeout per simulation</span>
+                <span class="n">results</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
+                <span class="n">completed</span> <span class="o">+=</span> <span class="mi">1</span>
+                
+                <span class="n">status</span> <span class="o">=</span> <span class="s2">&quot;completed&quot;</span> <span class="k">if</span> <span class="n">result</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;status&#39;</span><span class="p">)</span> <span class="o">==</span> <span class="s1">&#39;completed&#39;</span> <span class="k">else</span> <span class="s2">&quot;failed&quot;</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Montage </span><span class="si">{</span><span class="n">montage_name</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">status</span><span class="si">}</span><span class="s2"> (</span><span class="si">{</span><span class="n">completed</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">total</span><span class="si">}</span><span class="s2">)&quot;</span><span class="p">)</span>
+                
+                <span class="k">if</span> <span class="n">progress_callback</span><span class="p">:</span>
+                    <span class="n">progress_callback</span><span class="p">(</span><span class="n">completed</span><span class="p">,</span> <span class="n">total</span><span class="p">,</span> <span class="n">montage_name</span><span class="p">)</span>
+                    
+            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                <span class="n">error_msg</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">)</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Worker exception for </span><span class="si">{</span><span class="n">montage_name</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">error_msg</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="n">results</span><span class="o">.</span><span class="n">append</span><span class="p">({</span>
+                    <span class="s1">&#39;montage_name&#39;</span><span class="p">:</span> <span class="n">montage_name</span><span class="p">,</span>
+                    <span class="s1">&#39;status&#39;</span><span class="p">:</span> <span class="s1">&#39;failed&#39;</span><span class="p">,</span>
+                    <span class="s1">&#39;error&#39;</span><span class="p">:</span> <span class="n">error_msg</span>
+                <span class="p">})</span>
+                <span class="n">completed</span> <span class="o">+=</span> <span class="mi">1</span>
+                
+                <span class="k">if</span> <span class="n">progress_callback</span><span class="p">:</span>
+                    <span class="n">progress_callback</span><span class="p">(</span><span class="n">completed</span><span class="p">,</span> <span class="n">total</span><span class="p">,</span> <span class="n">montage_name</span><span class="p">)</span>
+    
+    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Parallel execution complete: </span><span class="si">{</span><span class="n">completed</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">total</span><span class="si">}</span><span class="s2"> montages processed&quot;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">results</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_run_single_montage</span><span class="p">(</span>
+    <span class="n">config</span><span class="p">:</span> <span class="n">SimulationConfig</span><span class="p">,</span>
+    <span class="n">montage</span><span class="p">:</span> <span class="n">MontageConfig</span><span class="p">,</span>
+    <span class="n">simulation_dir</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">session_builder</span><span class="p">:</span> <span class="n">SessionBuilder</span><span class="p">,</span>
+    <span class="n">post_processor</span><span class="p">:</span> <span class="n">PostProcessor</span><span class="p">,</span>
+    <span class="n">logger</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Run simulation for a single montage.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        config: Simulation configuration</span>
+<span class="sd">        montage: Montage configuration</span>
+<span class="sd">        simulation_dir: Base simulation directory</span>
+<span class="sd">        session_builder: Session builder instance</span>
+<span class="sd">        post_processor: Post-processor instance</span>
+<span class="sd">        logger: Logger instance</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        Dictionary with simulation result</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">pm</span> <span class="o">=</span> <span class="n">get_path_manager</span><span class="p">()</span>
+    <span class="n">montage_dir</span> <span class="o">=</span> <span class="n">pm</span><span class="o">.</span><span class="n">path</span><span class="p">(</span><span class="s2">&quot;simulation&quot;</span><span class="p">,</span> <span class="n">subject_id</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">subject_id</span><span class="p">,</span> <span class="n">simulation_name</span><span class="o">=</span><span class="n">montage</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+
+    <span class="c1"># Step 1: Create complete directory structure</span>
+    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Creating directory structure for </span><span class="si">{</span><span class="n">montage</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="n">dirs</span> <span class="o">=</span> <span class="n">setup_montage_directories</span><span class="p">(</span><span class="n">montage_dir</span><span class="p">,</span> <span class="n">montage</span><span class="o">.</span><span class="n">simulation_mode</span><span class="p">)</span>
+
+    <span class="c1"># Step 1.5: Create simulation config file for downstream tools</span>
+    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Creating simulation configuration file&quot;</span><span class="p">)</span>
+    <span class="n">create_simulation_config_file</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">montage</span><span class="p">,</span> <span class="n">dirs</span><span class="p">[</span><span class="s1">&#39;documentation&#39;</span><span class="p">],</span> <span class="n">logger</span><span class="p">)</span>
+
+    <span class="c1"># Step 2: Run montage visualization immediately after directory setup</span>
+    <span class="n">montage_img_dir</span> <span class="o">=</span> <span class="n">dirs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;mti_montage_imgs&#39;</span><span class="p">)</span> <span class="k">if</span> <span class="n">montage</span><span class="o">.</span><span class="n">simulation_mode</span> <span class="o">==</span> <span class="n">SimulationMode</span><span class="o">.</span><span class="n">MTI</span> <span class="k">else</span> <span class="n">dirs</span><span class="p">[</span><span class="s1">&#39;ti_montage_imgs&#39;</span><span class="p">]</span>
+    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Montage visualization: Started&quot;</span><span class="p">)</span>
+    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Running montage visualization for </span><span class="si">{</span><span class="n">montage</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2"> (output dir: </span><span class="si">{</span><span class="n">montage_img_dir</span><span class="si">}</span><span class="s2">)&quot;</span><span class="p">)</span>
+    <span class="c1"># Only pass electrode_pairs if they contain electrode names (not coordinates)</span>
+    <span class="n">electrode_pairs</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="k">if</span> <span class="n">montage</span><span class="o">.</span><span class="n">electrode_pairs</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">montage</span><span class="o">.</span><span class="n">is_xyz</span><span class="p">:</span>
+        <span class="c1"># Check if pairs contain strings (electrode names) not numbers (coordinates)</span>
+        <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">e</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="k">for</span> <span class="n">pair</span> <span class="ow">in</span> <span class="n">montage</span><span class="o">.</span><span class="n">electrode_pairs</span> <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">pair</span><span class="p">):</span>
+            <span class="n">electrode_pairs</span> <span class="o">=</span> <span class="n">montage</span><span class="o">.</span><span class="n">electrode_pairs</span>
+
+    <span class="n">viz_success</span> <span class="o">=</span> <span class="n">run_montage_visualization</span><span class="p">(</span>
+        <span class="n">montage_name</span><span class="o">=</span><span class="n">montage</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+        <span class="n">simulation_mode</span><span class="o">=</span><span class="n">montage</span><span class="o">.</span><span class="n">simulation_mode</span><span class="p">,</span>
+        <span class="n">eeg_net</span><span class="o">=</span><span class="n">montage</span><span class="o">.</span><span class="n">eeg_net</span> <span class="ow">or</span> <span class="n">config</span><span class="o">.</span><span class="n">eeg_net</span><span class="p">,</span>
+        <span class="n">output_dir</span><span class="o">=</span><span class="n">montage_img_dir</span><span class="p">,</span>
+        <span class="n">project_dir</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">project_dir</span><span class="p">,</span>
+        <span class="n">logger</span><span class="o">=</span><span class="n">logger</span><span class="p">,</span>
+        <span class="n">electrode_pairs</span><span class="o">=</span><span class="n">electrode_pairs</span>
+    <span class="p">)</span>
+    <span class="k">if</span> <span class="n">viz_success</span><span class="p">:</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Montage visualization: ✓ Complete&quot;</span><span class="p">)</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Montage visualization completed for </span><span class="si">{</span><span class="n">montage</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Montage visualization failed or was skipped for </span><span class="si">{</span><span class="n">montage</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">, continuing with simulation&quot;</span><span class="p">)</span>
+    
+    <span class="c1"># Step 3: Build and run SimNIBS session</span>
+    <span class="n">S</span> <span class="o">=</span> <span class="n">session_builder</span><span class="o">.</span><span class="n">build_session</span><span class="p">(</span><span class="n">montage</span><span class="p">,</span> <span class="n">dirs</span><span class="p">[</span><span class="s1">&#39;hf_dir&#39;</span><span class="p">])</span>
+
+    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;SimNIBS simulation: Started&quot;</span><span class="p">)</span>
+    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Running SimNIBS for </span><span class="si">{</span><span class="n">montage</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">...&quot;</span><span class="p">)</span>
+    <span class="n">run_simnibs</span><span class="p">(</span><span class="n">S</span><span class="p">)</span>
+    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;SimNIBS simulation: ✓ Complete&quot;</span><span class="p">)</span>
+    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;SimNIBS completed&quot;</span><span class="p">)</span>
+
+    <span class="c1"># Step 4: Post-process results (TI calculation, field extraction, NIfTI, file organization)</span>
+    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Results processing: Started&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">montage</span><span class="o">.</span><span class="n">simulation_mode</span> <span class="o">==</span> <span class="n">SimulationMode</span><span class="o">.</span><span class="n">TI</span><span class="p">:</span>
+        <span class="n">output_mesh</span> <span class="o">=</span> <span class="n">post_processor</span><span class="o">.</span><span class="n">process_ti_results</span><span class="p">(</span>
+            <span class="n">hf_dir</span><span class="o">=</span><span class="n">dirs</span><span class="p">[</span><span class="s1">&#39;hf_dir&#39;</span><span class="p">],</span>
+            <span class="n">output_dir</span><span class="o">=</span><span class="n">dirs</span><span class="p">[</span><span class="s1">&#39;ti_mesh&#39;</span><span class="p">],</span>
+            <span class="n">nifti_dir</span><span class="o">=</span><span class="n">dirs</span><span class="p">[</span><span class="s1">&#39;ti_niftis&#39;</span><span class="p">],</span>
+            <span class="n">surface_overlays_dir</span><span class="o">=</span><span class="n">dirs</span><span class="p">[</span><span class="s1">&#39;ti_surface_overlays&#39;</span><span class="p">],</span>
+            <span class="n">hf_mesh_dir</span><span class="o">=</span><span class="n">dirs</span><span class="p">[</span><span class="s1">&#39;hf_mesh&#39;</span><span class="p">],</span>
+            <span class="n">hf_nifti_dir</span><span class="o">=</span><span class="n">dirs</span><span class="p">[</span><span class="s1">&#39;hf_niftis&#39;</span><span class="p">],</span>
+            <span class="n">hf_analysis_dir</span><span class="o">=</span><span class="n">dirs</span><span class="p">[</span><span class="s1">&#39;hf_analysis&#39;</span><span class="p">],</span>
+            <span class="n">documentation_dir</span><span class="o">=</span><span class="n">dirs</span><span class="p">[</span><span class="s1">&#39;documentation&#39;</span><span class="p">],</span>
+            <span class="n">montage_name</span><span class="o">=</span><span class="n">montage</span><span class="o">.</span><span class="n">name</span>
+        <span class="p">)</span>
+    <span class="k">elif</span> <span class="n">montage</span><span class="o">.</span><span class="n">simulation_mode</span> <span class="o">==</span> <span class="n">SimulationMode</span><span class="o">.</span><span class="n">MTI</span><span class="p">:</span>
+        <span class="n">output_mesh</span> <span class="o">=</span> <span class="n">post_processor</span><span class="o">.</span><span class="n">process_mti_results</span><span class="p">(</span>
+            <span class="n">hf_dir</span><span class="o">=</span><span class="n">dirs</span><span class="p">[</span><span class="s1">&#39;hf_dir&#39;</span><span class="p">],</span>
+            <span class="n">ti_dir</span><span class="o">=</span><span class="n">dirs</span><span class="p">[</span><span class="s1">&#39;ti_mesh&#39;</span><span class="p">],</span>
+            <span class="n">mti_dir</span><span class="o">=</span><span class="n">dirs</span><span class="p">[</span><span class="s1">&#39;mti_mesh&#39;</span><span class="p">],</span>
+            <span class="n">mti_nifti_dir</span><span class="o">=</span><span class="n">dirs</span><span class="p">[</span><span class="s1">&#39;mti_niftis&#39;</span><span class="p">],</span>
+            <span class="n">hf_mesh_dir</span><span class="o">=</span><span class="n">dirs</span><span class="p">[</span><span class="s1">&#39;hf_mesh&#39;</span><span class="p">],</span>
+            <span class="n">hf_analysis_dir</span><span class="o">=</span><span class="n">dirs</span><span class="p">[</span><span class="s1">&#39;hf_analysis&#39;</span><span class="p">],</span>
+            <span class="n">documentation_dir</span><span class="o">=</span><span class="n">dirs</span><span class="p">[</span><span class="s1">&#39;documentation&#39;</span><span class="p">],</span>
+            <span class="n">montage_name</span><span class="o">=</span><span class="n">montage</span><span class="o">.</span><span class="n">name</span>
+        <span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unknown simulation mode: </span><span class="si">{</span><span class="n">montage</span><span class="o">.</span><span class="n">simulation_mode</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Results processing: ✓ Complete&quot;</span><span class="p">)</span>
+    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;✓ Completed: </span><span class="si">{</span><span class="n">montage</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="p">{</span>
+        <span class="s1">&#39;montage_name&#39;</span><span class="p">:</span> <span class="n">montage</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+        <span class="s1">&#39;montage_type&#39;</span><span class="p">:</span> <span class="n">montage</span><span class="o">.</span><span class="n">simulation_mode</span><span class="o">.</span><span class="n">value</span><span class="p">,</span>
+        <span class="s1">&#39;status&#39;</span><span class="p">:</span> <span class="s1">&#39;completed&#39;</span><span class="p">,</span>
+        <span class="s1">&#39;output_mesh&#39;</span><span class="p">:</span> <span class="n">output_mesh</span>
+    <span class="p">}</span>
+
+
+<div class="viewcode-block" id="main">
+<a class="viewcode-back" href="../../../sim/index.html#tit.sim.simulator.main">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">main</span><span class="p">():</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Command-line entry point for the simulator.</span>
+
+<span class="sd">    Parses command-line arguments, loads montages, runs simulations, and generates</span>
+<span class="sd">    a completion report. This function is called when the module is executed directly</span>
+<span class="sd">    or via the CLI wrapper script.</span>
+
+<span class="sd">    Command-line Arguments</span>
+<span class="sd">    ----------------------</span>
+<span class="sd">    1. subject_id : str</span>
+<span class="sd">        Subject identifier (e.g., &#39;001&#39;)</span>
+<span class="sd">    2. conductivity_str : str</span>
+<span class="sd">        Conductivity type (&#39;scalar&#39;, &#39;vn&#39;, &#39;dir&#39;, &#39;mc&#39;)</span>
+<span class="sd">    3. project_dir : str</span>
+<span class="sd">        Project directory path</span>
+<span class="sd">    4. simulation_dir : str</span>
+<span class="sd">        Simulation output directory (legacy, not used)</span>
+<span class="sd">    5. mode : str</span>
+<span class="sd">        Simulation mode (legacy, not used - auto-detected)</span>
+<span class="sd">    6. intensity_str : str</span>
+<span class="sd">        Current intensity string (e.g., &#39;2.0&#39; or &#39;2.0,1.5&#39; or &#39;2.0,1.5,1.0,0.5&#39;)</span>
+<span class="sd">    7. electrode_shape : str</span>
+<span class="sd">        Electrode shape (&#39;ellipse&#39; or &#39;rect&#39;)</span>
+<span class="sd">    8. dimensions : str</span>
+<span class="sd">        Electrode dimensions as &#39;x,y&#39; in mm (e.g., &#39;8.0,8.0&#39;)</span>
+<span class="sd">    9. thickness : float</span>
+<span class="sd">        Gel thickness in mm</span>
+<span class="sd">    10. eeg_net : str</span>
+<span class="sd">        EEG cap name (e.g., &#39;EGI_template.csv&#39;)</span>
+<span class="sd">    11+. montage_names : str</span>
+<span class="sd">        One or more montage names to simulate</span>
+
+<span class="sd">    Exit Codes</span>
+<span class="sd">    ----------</span>
+<span class="sd">    0 : All simulations completed successfully</span>
+<span class="sd">    1 : One or more simulations failed</span>
+
+<span class="sd">    Output</span>
+<span class="sd">    ------</span>
+<span class="sd">    Creates simulation_completion_&lt;subject_id&gt;_&lt;timestamp&gt;.json in derivatives/temp/</span>
+<span class="sd">    with detailed results of all simulations.</span>
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; python simulator.py 001 scalar /path/to/project /tmp TI 2.0 ellipse 8.0,8.0 4.0 EGI_template.csv montage1 montage2</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">sys</span><span class="o">.</span><span class="n">argv</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">11</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Usage: simulator.py SUBJECT_ID CONDUCTIVITY PROJECT_DIR SIMULATION_DIR MODE &quot;</span>
+              <span class="s2">&quot;INTENSITY ELECTRODE_SHAPE DIMENSIONS THICKNESS EEG_NET MONTAGE_NAMES...&quot;</span><span class="p">)</span>
+        <span class="n">sys</span><span class="o">.</span><span class="n">exit</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+
+    <span class="c1"># Parse command-line arguments</span>
+    <span class="n">subject_id</span> <span class="o">=</span> <span class="n">sys</span><span class="o">.</span><span class="n">argv</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+    <span class="n">conductivity_str</span> <span class="o">=</span> <span class="n">sys</span><span class="o">.</span><span class="n">argv</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
+    <span class="n">project_dir</span> <span class="o">=</span> <span class="n">sys</span><span class="o">.</span><span class="n">argv</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span>
+    <span class="n">simulation_dir</span> <span class="o">=</span> <span class="n">sys</span><span class="o">.</span><span class="n">argv</span><span class="p">[</span><span class="mi">4</span><span class="p">]</span>
+    <span class="n">mode</span> <span class="o">=</span> <span class="n">sys</span><span class="o">.</span><span class="n">argv</span><span class="p">[</span><span class="mi">5</span><span class="p">]</span>  <span class="c1"># Kept for backward compatibility but not used</span>
+    <span class="n">intensity_str</span> <span class="o">=</span> <span class="n">sys</span><span class="o">.</span><span class="n">argv</span><span class="p">[</span><span class="mi">6</span><span class="p">]</span>
+    <span class="n">electrode_shape</span> <span class="o">=</span> <span class="n">sys</span><span class="o">.</span><span class="n">argv</span><span class="p">[</span><span class="mi">7</span><span class="p">]</span>
+    <span class="n">dimensions</span> <span class="o">=</span> <span class="p">[</span><span class="nb">float</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">sys</span><span class="o">.</span><span class="n">argv</span><span class="p">[</span><span class="mi">8</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;,&#39;</span><span class="p">)]</span>
+    <span class="n">thickness</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">sys</span><span class="o">.</span><span class="n">argv</span><span class="p">[</span><span class="mi">9</span><span class="p">])</span>
+    <span class="n">eeg_net</span> <span class="o">=</span> <span class="n">sys</span><span class="o">.</span><span class="n">argv</span><span class="p">[</span><span class="mi">10</span><span class="p">]</span>
+    <span class="n">montage_names</span> <span class="o">=</span> <span class="n">sys</span><span class="o">.</span><span class="n">argv</span><span class="p">[</span><span class="mi">11</span><span class="p">:]</span>
+
+    <span class="c1"># Filter out flags</span>
+    <span class="n">montage_names</span> <span class="o">=</span> <span class="p">[</span><span class="n">name</span> <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">montage_names</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">name</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s1">&#39;--&#39;</span><span class="p">)]</span>
+
+    <span class="c1"># Build configuration</span>
+    <span class="n">config</span> <span class="o">=</span> <span class="n">SimulationConfig</span><span class="p">(</span>
+        <span class="n">subject_id</span><span class="o">=</span><span class="n">subject_id</span><span class="p">,</span>
+        <span class="n">project_dir</span><span class="o">=</span><span class="n">project_dir</span><span class="p">,</span>
+        <span class="n">conductivity_type</span><span class="o">=</span><span class="n">ConductivityType</span><span class="p">(</span><span class="n">conductivity_str</span><span class="p">),</span>
+        <span class="n">intensities</span><span class="o">=</span><span class="n">IntensityConfig</span><span class="o">.</span><span class="n">from_string</span><span class="p">(</span><span class="n">intensity_str</span><span class="p">),</span>
+        <span class="n">electrode</span><span class="o">=</span><span class="n">ElectrodeConfig</span><span class="p">(</span>
+            <span class="n">shape</span><span class="o">=</span><span class="n">electrode_shape</span><span class="p">,</span>
+            <span class="n">dimensions</span><span class="o">=</span><span class="n">dimensions</span><span class="p">,</span>
+            <span class="n">thickness</span><span class="o">=</span><span class="n">thickness</span>
+        <span class="p">),</span>
+        <span class="n">eeg_net</span><span class="o">=</span><span class="n">eeg_net</span>
+    <span class="p">)</span>
+
+    <span class="c1"># Load montages</span>
+    <span class="n">montages</span> <span class="o">=</span> <span class="n">load_montages</span><span class="p">(</span>
+        <span class="n">montage_names</span><span class="o">=</span><span class="n">montage_names</span><span class="p">,</span>
+        <span class="n">project_dir</span><span class="o">=</span><span class="n">project_dir</span><span class="p">,</span>
+        <span class="n">eeg_net</span><span class="o">=</span><span class="n">eeg_net</span><span class="p">,</span>
+        <span class="n">include_flex</span><span class="o">=</span><span class="kc">True</span>
+    <span class="p">)</span>
+
+    <span class="c1"># Run simulations</span>
+    <span class="n">results</span> <span class="o">=</span> <span class="n">run_simulation</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">montages</span><span class="p">)</span>
+
+    <span class="c1"># Generate completion report</span>
+    <span class="n">pm</span> <span class="o">=</span> <span class="n">get_path_manager</span><span class="p">()</span>
+    <span class="n">derivatives_dir</span> <span class="o">=</span> <span class="n">pm</span><span class="o">.</span><span class="n">path</span><span class="p">(</span><span class="s2">&quot;derivatives&quot;</span><span class="p">)</span>
+
+    <span class="n">report</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s1">&#39;session_id&#39;</span><span class="p">:</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;SIMULATION_SESSION_ID&#39;</span><span class="p">,</span> <span class="s1">&#39;unknown&#39;</span><span class="p">),</span>
+        <span class="s1">&#39;subject_id&#39;</span><span class="p">:</span> <span class="n">subject_id</span><span class="p">,</span>
+        <span class="s1">&#39;project_dir&#39;</span><span class="p">:</span> <span class="n">project_dir</span><span class="p">,</span>
+        <span class="s1">&#39;simulation_dir&#39;</span><span class="p">:</span> <span class="n">simulation_dir</span><span class="p">,</span>
+        <span class="s1">&#39;completed_simulations&#39;</span><span class="p">:</span> <span class="p">[</span><span class="n">r</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">results</span> <span class="k">if</span> <span class="n">r</span><span class="p">[</span><span class="s1">&#39;status&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;completed&#39;</span><span class="p">],</span>
+        <span class="s1">&#39;failed_simulations&#39;</span><span class="p">:</span> <span class="p">[</span><span class="n">r</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">results</span> <span class="k">if</span> <span class="n">r</span><span class="p">[</span><span class="s1">&#39;status&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;failed&#39;</span><span class="p">],</span>
+        <span class="s1">&#39;timestamp&#39;</span><span class="p">:</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span><span class="o">.</span><span class="n">isoformat</span><span class="p">(),</span>
+        <span class="s1">&#39;total_simulations&#39;</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">results</span><span class="p">),</span>
+        <span class="s1">&#39;success_count&#39;</span><span class="p">:</span> <span class="nb">len</span><span class="p">([</span><span class="n">r</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">results</span> <span class="k">if</span> <span class="n">r</span><span class="p">[</span><span class="s1">&#39;status&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;completed&#39;</span><span class="p">]),</span>
+        <span class="s1">&#39;error_count&#39;</span><span class="p">:</span> <span class="nb">len</span><span class="p">([</span><span class="n">r</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">results</span> <span class="k">if</span> <span class="n">r</span><span class="p">[</span><span class="s1">&#39;status&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;failed&#39;</span><span class="p">])</span>
+    <span class="p">}</span>
+
+    <span class="n">report_file</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">derivatives_dir</span><span class="p">,</span> <span class="s1">&#39;temp&#39;</span><span class="p">,</span> <span class="sa">f</span><span class="s1">&#39;simulation_completion_</span><span class="si">{</span><span class="n">subject_id</span><span class="si">}</span><span class="s1">_</span><span class="si">{</span><span class="nb">int</span><span class="p">(</span><span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">())</span><span class="si">}</span><span class="s1">.json&#39;</span><span class="p">)</span>
+    <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">report_file</span><span class="p">),</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">report_file</span><span class="p">,</span> <span class="s1">&#39;w&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+        <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">report</span><span class="p">,</span> <span class="n">f</span><span class="p">,</span> <span class="n">indent</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Completed </span><span class="si">{</span><span class="n">report</span><span class="p">[</span><span class="s1">&#39;success_count&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">report</span><span class="p">[</span><span class="s1">&#39;total_simulations&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2"> simulations&quot;</span><span class="p">)</span>
+
+    <span class="c1"># Exit with error if any simulations failed</span>
+    <span class="k">if</span> <span class="n">report</span><span class="p">[</span><span class="s1">&#39;error_count&#39;</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">sys</span><span class="o">.</span><span class="n">exit</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span></div>
+
+
+
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s1">&#39;__main__&#39;</span><span class="p">:</span>
+    <span class="n">main</span><span class="p">()</span>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2026, Ido Haber.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
