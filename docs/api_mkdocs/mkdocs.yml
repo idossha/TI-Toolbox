@@ -1,0 +1,44 @@
+site_name: TI-Toolbox API
+site_description: Python API reference for the Temporal Interference Toolbox
+site_url: https://idossha.github.io/TI-Toolbox/api/
+# Build output is committed to `docs/api/` so GitHub Pages can serve it without CI.
+site_dir: ../api
+
+theme:
+  name: material
+  features:
+    - navigation.instant
+    - navigation.sections
+    - navigation.expand
+    - toc.follow
+  palette:
+    - scheme: default
+      primary: indigo
+
+nav:
+  - API Home: index.md
+  - Reference:
+      - Core: reference/core.md
+      - Simulation: reference/sim.md
+      - Analyzer: reference/analyzer.md
+      - Optimization: reference/opt.md
+      - Statistics: reference/stats.md
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          # Make `import tit` work when building from `docs/api_mkdocs/`
+          paths: ["../.."]
+          options:
+            docstring_style: numpy
+            show_source: true
+            show_signature_annotations: true
+            merge_init_into_class: true
+            separate_signature: true
+
+markdown_extensions:
+  - admonition
+  - toc:
+      permalink: true

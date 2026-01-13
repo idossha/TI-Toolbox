@@ -45,4 +45,4 @@ if [ "$ENABLE_ANALYTICS" = "false" ]; then
 else
   echo "📊 Google Analytics enabled (default)"
   bundle exec jekyll serve
-fi 
+fi
