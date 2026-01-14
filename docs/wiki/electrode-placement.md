@@ -88,7 +88,7 @@ Electrode configurations are exported in a structured JSON format:
 ### File Structure
 
 ```
-subject_m2m_dir/
+m2m_{subject_id}/
 ├── subject.msh              # Head mesh file (loaded automatically)
 └── stim_configs/
     └── electrode_config.json # Exported configurations

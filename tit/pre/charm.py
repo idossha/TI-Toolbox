@@ -61,8 +61,6 @@ def run_charm(
     simnibs_subject_dir = Path(pm.path("simnibs_subject", subject_id=subject_id))
     simnibs_subject_dir.mkdir(parents=True, exist_ok=True)
     m2m_dir = Path(pm.path("m2m", subject_id=subject_id))
-    alt_m2m_dir = Path(project_dir) / f"m2m_{subject_id}"
-    subject_m2m_dir = Path(project_dir) / f"sub-{subject_id}" / f"m2m_{subject_id}"
 
     t1_file, t2_file = _find_anat_files(bids_anat_dir)
     if not t1_file:
@@ -71,10 +69,8 @@ def run_charm(
     policy = get_overwrite_policy(overwrite, prompt_overwrite)
     forcerun = False
     existing_m2m = None
-    for candidate in (m2m_dir, subject_m2m_dir, alt_m2m_dir):
-        if candidate.exists():
-            existing_m2m = candidate
-            break
+    if m2m_dir.exists():
+        existing_m2m = m2m_dir
     if existing_m2m is not None:
         if policy.overwrite:
             forcerun = True

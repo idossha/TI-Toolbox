@@ -489,16 +489,15 @@ class PreProcessTab(QtWidgets.QWidget):
             
             # Check m2m output directory if m2m creation is enabled
             if self.create_m2m_cb.isChecked():
-                m2m_dir = os.path.join(self.project_dir, "derivatives", "SimNIBS", bids_subject_id, f"m2m_{subject_id}")
-                alt_m2m_dir = os.path.join(self.project_dir, f"m2m_{subject_id}")
-                subject_m2m_dir = os.path.join(self.project_dir, bids_subject_id, f"m2m_{subject_id}")
-                existing_m2m = None
-                for candidate in (m2m_dir, subject_m2m_dir, alt_m2m_dir):
-                    if os.path.exists(candidate):
-                        existing_m2m = candidate
-                        break
-                if existing_m2m:
-                    if not confirm_overwrite(self, existing_m2m, "m2m output directory"):
+                m2m_dir = os.path.join(
+                    self.project_dir,
+                    "derivatives",
+                    "SimNIBS",
+                    bids_subject_id,
+                    f"m2m_{subject_id}",
+                )
+                if os.path.exists(m2m_dir):
+                    if not confirm_overwrite(self, m2m_dir, "m2m output directory"):
                         return
                     overwrite_outputs = True
 
