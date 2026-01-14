@@ -27,15 +27,11 @@ def _extract_subject_and_project_dirs(m2m_subject_path: str) -> Tuple[str, str]:
     # Navigate up to find the project directory
     project_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(m2m_subject_path))))
 
-    # Use PathManager to standardize the project directory path
-    # This handles /mnt/ prefix logic and validation
+    # Use PathManager to standardize the project directory path when possible.
     pm = get_path_manager()
     if pm.project_dir and os.path.abspath(project_dir) == os.path.abspath(pm.project_dir):
         # If it matches the global path manager's project dir, use that (handles /mnt/ logic)
         project_dir = pm.project_dir
-    elif not project_dir.startswith('/mnt/'):
-        # Apply /mnt/ prefix if not already present (fallback logic)
-        project_dir = f"/mnt/{os.path.basename(project_dir)}"
 
     return subject_id, project_dir
 

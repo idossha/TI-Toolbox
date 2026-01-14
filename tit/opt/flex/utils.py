@@ -18,6 +18,7 @@ import glob
 from pathlib import Path
 from typing import List, Dict, Tuple
 import nibabel.freesurfer.io as fsio
+from tit.core import get_path_manager
 
 
 def roi_dirname(args: argparse.Namespace) -> str:
@@ -272,7 +273,10 @@ def find_subject_atlases(subject_id: str, hemisphere: str, project_dir: str = No
         Dictionary mapping atlas names (e.g., 'DK40') to file paths
     """
     if project_dir is None:
-        project_dir = os.environ.get('PROJECT_DIR', '/mnt/BIDS_test')
+        pm = get_path_manager()
+        project_dir = pm.project_dir
+    if not project_dir:
+        raise ValueError("Project directory is not set. Set PROJECT_DIR or PROJECT_DIR_NAME.")
 
     atlas_map = {}
 

@@ -10,6 +10,7 @@ import os
 import json
 import glob
 import subprocess
+from pathlib import Path
 
 from PyQt5 import QtWidgets, QtCore, QtGui
 
@@ -835,19 +836,20 @@ class FlexSearchTab(QtWidgets.QWidget):
         
         subject_id = selected_items[0].text()
         
-        # Base directory where subjects are located
-        project_dir = os.environ.get('PROJECT_DIR', '/mnt/BIDS_test')
-        
-        # EEG positions directory in new BIDS structure
-        eeg_dir = os.path.join(project_dir, 'derivatives', 'SimNIBS', f'sub-{subject_id}', 
-                              f'm2m_{subject_id}', 'eeg_positions')
+        pm = get_path_manager()
+        project_dir = pm.project_dir
+        if not project_dir:
+            self.output_text.append("Error: Could not detect project directory")
+            return
+
+        eeg_dir = pm.path_optional("eeg_positions", subject_id=subject_id)
         
         try:
-            if os.path.isdir(eeg_dir):
+            if eeg_dir and Path(eeg_dir).is_dir():
                 # Find all CSV files in the directory
-                for eeg_file in glob.glob(os.path.join(eeg_dir, '*.csv')):
-                    net_name = os.path.splitext(os.path.basename(eeg_file))[0]
-                    self.eeg_nets[net_name] = eeg_file
+                for eeg_file in Path(eeg_dir).glob("*.csv"):
+                    net_name = eeg_file.stem
+                    self.eeg_nets[net_name] = str(eeg_file)
                     self.eeg_net_combo.addItem(net_name)
                     self.skin_net_combo.addItem(net_name)
 
@@ -888,7 +890,11 @@ class FlexSearchTab(QtWidgets.QWidget):
             return
 
         subject_id = selected_items[0].text()
-        project_dir = os.environ.get('PROJECT_DIR', '/mnt/BIDS_test')
+        pm = get_path_manager()
+        project_dir = pm.project_dir
+        if not project_dir:
+            self.output_text.append("Error: Could not detect project directory")
+            return
 
         try:
             # Find atlases for both hemispheres
@@ -937,23 +943,29 @@ class FlexSearchTab(QtWidgets.QWidget):
         
         subject_id = selected_items[0].text()
         
-        # Base directory where subjects are located
-        project_dir = os.environ.get('PROJECT_DIR', '/mnt/BIDS_test')
-        
+        pm = get_path_manager()
+        project_dir = pm.project_dir
+        if not project_dir:
+            self.output_text.append("Error: Could not detect project directory")
+            return
+
+        m2m_dir = pm.path_optional("m2m", subject_id=subject_id)
+        if not m2m_dir:
+            self.output_text.append(f"No m2m directory found for subject {subject_id}.")
+            return
+
         # Check specifically for labeling.nii.gz in SimNIBS segmentation directory
-        seg_dir = os.path.join(project_dir, 'derivatives', 'SimNIBS', f'sub-{subject_id}', 
-                              f'm2m_{subject_id}', 'segmentation')
-        
-        labeling_file = os.path.join(seg_dir, 'labeling.nii.gz')
-        labeling_lut_file = os.path.join(seg_dir, 'labeling_LUT.txt')
+        seg_dir = Path(m2m_dir) / "segmentation"
+        labeling_file = seg_dir / "labeling.nii.gz"
+        labeling_lut_file = seg_dir / "labeling_LUT.txt"
         
         try:
-            if os.path.isfile(labeling_file):
-                self.volume_atlases['labeling.nii.gz'] = labeling_file
+            if labeling_file.is_file():
+                self.volume_atlases['labeling.nii.gz'] = str(labeling_file)
                 self.volume_atlas_combo.addItem('labeling.nii.gz')
                 
                 # Check if LUT file exists
-                if os.path.isfile(labeling_lut_file):
+                if labeling_lut_file.is_file():
                     if self.debug_mode:
                         self.output_text.append(f"Found subcortical segmentation for subject {subject_id}: labeling.nii.gz with LUT file.")
                 else:
@@ -1254,29 +1266,14 @@ class FlexSearchTab(QtWidgets.QWidget):
 
             # Prepare environment variables
             env = os.environ.copy()
-            gui_project_dir_name = os.environ.get('PROJECT_DIR_NAME')
-            if gui_project_dir_name:
-                env['PROJECT_DIR'] = f"/mnt/{gui_project_dir_name}" 
-            else:
-                # Fallback if not set
-                cwd = os.getcwd()
-                potential_dirs = [
-                    os.path.dirname(cwd), os.path.join(cwd, ".."), os.path.abspath(os.path.join(cwd, "..")),
-                    os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
-                ]
-                found_project_dir = None
-                for pd_candidate in potential_dirs:
-                    if os.path.isdir(pd_candidate) and os.path.isdir(os.path.join(pd_candidate, 'derivatives', 'SimNIBS', f'sub-{subject_id}')):
-                        found_project_dir = pd_candidate
-                        self.output_text.append(f"PROJECT_DIR (for env) heuristically set to: {found_project_dir}")
-                        break
-                if found_project_dir:
-                    env['PROJECT_DIR'] = found_project_dir
-                else:
-                    self.output_text.append("Warning: PROJECT_DIR_NAME not in env and heuristic search failed. Using default /mnt/BIDS_test for env['PROJECT_DIR']")
-                    env['PROJECT_DIR'] = "/mnt/BIDS_test"
+            pm = get_path_manager()
+            project_dir = pm.project_dir
+            if not project_dir:
+                self.output_text.append("Error: Could not detect project directory")
+                return False
+            env['PROJECT_DIR'] = project_dir
 
-            script_project_dir = env['PROJECT_DIR']
+            script_project_dir = project_dir
 
             env['SUBJECT_ID'] = subject_id
             if roi_params['method'] == "spherical":
@@ -1758,18 +1755,26 @@ class FlexSearchTab(QtWidgets.QWidget):
             else:
                 # Single subject: load subject's T1
                 subject_id = selected_items[0].text()
-                # Base directory where subjects are located
-                project_dir = os.environ.get('PROJECT_DIR', '/mnt/BIDS_test')
-                
+                pm = get_path_manager()
+                project_dir = pm.project_dir
+                if not project_dir:
+                    QtWidgets.QMessageBox.warning(
+                        self,
+                        "Error",
+                        "Project directory not detected. Set PROJECT_DIR or PROJECT_DIR_NAME.",
+                    )
+                    return
+
                 # Look for T1 NIfTI files in multiple locations
-                t1_paths = [
-                    # Native space T1 from SimNIBS
-                    os.path.join(project_dir, 'derivatives', 'SimNIBS', f'sub-{subject_id}', f'm2m_{subject_id}', 'T1.nii.gz'),
-                    # Original BIDS T1
-                    os.path.join(project_dir, f'sub-{subject_id}', 'anat', f'sub-{subject_id}_T1w.nii.gz'),
-                    # Alternative naming
-                    os.path.join(project_dir, f'sub-{subject_id}', 'anat', f'anat-T1w_acq-MPRAGE.nii.gz'),
-                ]
+                t1_paths = []
+                m2m_dir = pm.path_optional("m2m", subject_id=subject_id)
+                if m2m_dir:
+                    t1_paths.append(str(Path(m2m_dir) / "T1.nii.gz"))
+
+                bids_anat_dir = pm.path_optional("bids_anat", subject_id=subject_id)
+                if bids_anat_dir:
+                    t1_paths.append(str(Path(bids_anat_dir) / f"sub-{subject_id}_T1w.nii.gz"))
+                    t1_paths.append(str(Path(bids_anat_dir) / "anat-T1w_acq-MPRAGE.nii.gz"))
                 
                 t1_file = None
                 for path in t1_paths:
@@ -1966,12 +1971,29 @@ class FlexSearchTab(QtWidgets.QWidget):
             QtWidgets.QMessageBox.warning(self, "No Subject Selected", "Please select a subject.")
             return
 
-        project_dir = os.environ.get('PROJECT_DIR', '/mnt/BIDS_test')
-        seg_dir = os.path.join(project_dir, 'derivatives', 'SimNIBS', f'sub-{subject_id}', 
-                              f'm2m_{subject_id}', 'segmentation')
-        labeling_lut_file = os.path.join(seg_dir, 'labeling_LUT.txt')
+        pm = get_path_manager()
+        project_dir = pm.project_dir
+        if not project_dir:
+            QtWidgets.QMessageBox.warning(
+                self,
+                "Project Directory Missing",
+                "Project directory not detected. Set PROJECT_DIR or PROJECT_DIR_NAME.",
+            )
+            return
+
+        m2m_dir = pm.path_optional("m2m", subject_id=subject_id)
+        if not m2m_dir:
+            QtWidgets.QMessageBox.warning(
+                self,
+                "m2m Folder Missing",
+                f"m2m directory not found for subject {subject_id}.",
+            )
+            return
+
+        seg_dir = Path(m2m_dir) / "segmentation"
+        labeling_lut_file = seg_dir / "labeling_LUT.txt"
         
-        if not os.path.isfile(labeling_lut_file):
+        if not labeling_lut_file.is_file():
             QtWidgets.QMessageBox.warning(self, "LUT File Not Found", 
                                          f"Could not find labeling_LUT.txt file at: {labeling_lut_file}")
             return
