@@ -866,17 +866,17 @@ class FlexSearchTab(QtWidgets.QWidget):
                     # No nets found, add default
                     if self.debug_mode:
                         self.output_text.append(f"No EEG net templates found for subject {subject_id}.")
-                    self.eeg_net_combo.addItem("EGI_256")  # Default option
+                    self.eeg_net_combo.addItem("GSN-HydroCel-185")  # Default option
                     self.skin_net_combo.addItem("GSN-HydroCel-185")  # Default option for skin visualization
             else:
                 if self.debug_mode:
                     self.output_text.append(f"EEG positions directory not found for subject {subject_id}.")
-                self.eeg_net_combo.addItem("EGI_256")  # Default option
+                self.eeg_net_combo.addItem("GSN-HydroCel-185")  # Default option
                 self.skin_net_combo.addItem("GSN-HydroCel-185")  # Default option for skin visualization
         
         except Exception as e:
             self.output_text.append(f"Error scanning for EEG nets: {str(e)}")
-            self.eeg_net_combo.addItem("EGI_256")  # Default option
+            self.eeg_net_combo.addItem("GSN-HydroCel-185")  # Default option
     
     def find_available_atlases(self):
         """Find available atlas files for the selected subject."""
