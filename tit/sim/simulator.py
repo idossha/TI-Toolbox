@@ -816,7 +816,7 @@ def main():
     9. thickness : float
         Gel thickness in mm
     10. eeg_net : str
-        EEG cap name (e.g., 'EGI_template.csv')
+        EEG cap name (e.g., 'GSN-HydroCel-185.csv')
     11+. montage_names : str
         One or more montage names to simulate
 
@@ -832,7 +832,7 @@ def main():
 
     Examples
     --------
-    >>> python simulator.py 001 scalar /path/to/project /tmp TI 2.0 ellipse 8.0,8.0 4.0 EGI_template.csv montage1 montage2
+    >>> python simulator.py 001 scalar /path/to/project /tmp TI 2.0 ellipse 8.0,8.0 4.0 GSN-HydroCel-185.csv montage1 montage2
     """
     if len(sys.argv) < 11:
         print("Usage: simulator.py SUBJECT_ID CONDUCTIVITY PROJECT_DIR SIMULATION_DIR MODE "
