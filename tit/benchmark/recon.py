@@ -3,7 +3,7 @@
 Recon-All Benchmark - FreeSurfer cortical reconstruction
 
 Benchmarks FreeSurfer recon-all performance with T1/T2 anatomical images.
-Supports multiple subjects running in parallel or sequentially using recon-all.sh's native capabilities.
+Supports multiple subjects running in parallel or sequentially using the Python recon-all wrapper.
 
 Usage:
   python -m tit.benchmark.recon --config benchmark_config.yaml
@@ -13,18 +13,18 @@ Usage:
 
 import sys
 import os
-import subprocess
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from datetime import datetime
 import argparse
 import json
-import time
 
 from tit.benchmark.core import (
     BenchmarkTimer, print_hardware_info, print_benchmark_result, save_benchmark_result
 )
 from tit.benchmark.logger import BenchmarkLogger, create_benchmark_log_file
 from tit.benchmark.config import BenchmarkConfig, merge_config_with_args
+from tit.pre.recon_all import run_recon_all
 
 
 def setup_project(project_dir: Path, t1_image: Path, t2_image: Path, subject_id: str, logger):
@@ -61,7 +61,7 @@ def setup_project(project_dir: Path, t1_image: Path, t2_image: Path, subject_id:
 
 
 def run_recon_subject(subject_dir: Path, recon_script: Path, logger, use_openmp=False, debug_mode=True):
-    """Run FreeSurfer recon-all for a single subject using the script's native capabilities."""
+    """Run FreeSurfer recon-all for a single subject using Python API."""
     subject_id = subject_dir.name.replace("sub-", "")
     
     metadata = {
@@ -75,35 +75,14 @@ def run_recon_subject(subject_dir: Path, recon_script: Path, logger, use_openmp=
     timer.start()
     
     try:
-        env = os.environ.copy()
-        env['DEBUG_MODE'] = 'true' if debug_mode else 'false'
-        
-        # Build command - let recon-all.sh handle threading
-        cmd = [str(recon_script), str(subject_dir)]
-        if use_openmp:
-            cmd.append("--parallel")
-        
         logger.info(f"Running recon-all: subject={subject_id}, openmp={'enabled' if use_openmp else 'disabled'}")
-        logger.info(f"Command: {' '.join(cmd)}")
-        
-        process = subprocess.Popen(
-            cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1, env=env
+        run_recon_all(
+            str(subject_dir.parent),
+            subject_id,
+            logger=logger,
+            parallel=use_openmp,
         )
-        
-        line_count = 0
-        while True:
-            line = process.stdout.readline()
-            if not line and process.poll() is not None:
-                break
-            if line:
-                logger.debug(line.rstrip())
-                line_count += 1
-                if line_count % 50 == 0:
-                    timer.sample()
-        
-        if process.returncode != 0:
-            raise subprocess.CalledProcessError(process.returncode, cmd)
-        
+
         result = timer.stop(success=True)
         
         # Add FreeSurfer output location to metadata
@@ -127,7 +106,7 @@ def main():
     parser.add_argument("--subjects", type=str, help="Comma-separated subject IDs")
     parser.add_argument("--recon-script", type=Path)
     parser.add_argument("--parallel", action="store_true", dest="parallel_override", help="Run multiple subjects in parallel (bash background jobs)")
-    parser.add_argument("--use-openmp", action="store_true", dest="openmp_override", help="Use OpenMP threading (--parallel flag to recon-all.sh)")
+    parser.add_argument("--use-openmp", action="store_true", dest="openmp_override", help="Use OpenMP threading for recon-all")
     parser.add_argument("--no-debug", action="store_true")
     
     args = parser.parse_args()
@@ -156,7 +135,7 @@ def main():
             subject_ids = [str(subjects_config)]
     
     if not recon_script.exists():
-        print(f"Error: recon-all.sh not found: {recon_script}")
+        print(f"Error: recon_all.py not found: {recon_script}")
         sys.exit(1)
     
     # Verify subject data exists
@@ -198,50 +177,24 @@ def main():
         overall_timer.start()
         
         all_results = []
-        processes = []
         
         if run_parallel:
-            # Launch all subjects in parallel using subprocess
             logger.info(f"Launching {len(subject_dirs)} subjects in parallel...")
-            
-            for subject_dir in subject_dirs:
-                subject_id = subject_dir.name.replace("sub-", "")
-                logger.info(f"Starting subject: {subject_id}")
-                
-                # Start timing for this subject
-                start_time = time.time()
-                
-                # Launch subprocess (non-blocking)
-                cmd = [str(recon_script), str(subject_dir)]
-                if use_openmp:
-                    cmd.append("--parallel")
-                
-                env = os.environ.copy()
-                env['DEBUG_MODE'] = 'true' if debug_mode else 'false'
-                
-                process = subprocess.Popen(cmd, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-                processes.append((process, subject_id, start_time))
-            
-            # Wait for all to complete
-            logger.info(f"Waiting for {len(processes)} subjects to complete...")
-            for process, subject_id, start_time in processes:
-                process.wait()
-                end_time = time.time()
-                duration = end_time - start_time
-                
-                success = process.returncode == 0
-                logger.info(f"Subject {subject_id} {'completed' if success else 'failed'}: {duration:.2f}s")
-                
-                # Create result
-                timer = BenchmarkTimer(f"recon_all_{subject_id}")
-                timer.start_time = start_time
-                result = timer.stop(success=success)
-                
-                all_results.append({
-                    "success": success,
-                    "result": result,
-                    "subject_id": subject_id
-                })
+            with ThreadPoolExecutor(max_workers=len(subject_dirs)) as executor:
+                futures = []
+                for subject_dir in subject_dirs:
+                    futures.append(
+                        executor.submit(
+                            run_recon_subject,
+                            subject_dir,
+                            recon_script,
+                            logger,
+                            use_openmp,
+                            debug_mode,
+                        )
+                    )
+                for future in as_completed(futures):
+                    all_results.append(future.result())
         else:
             # Run subjects sequentially
             logger.info(f"Running {len(subject_dirs)} subjects sequentially...")

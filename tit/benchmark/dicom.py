@@ -12,7 +12,6 @@ Usage:
 import sys
 import os
 import json
-import subprocess
 import shutil
 from pathlib import Path
 from datetime import datetime
@@ -24,6 +23,7 @@ from tit.benchmark.core import (
 )
 from tit.benchmark.logger import BenchmarkLogger, create_benchmark_log_file
 from tit.benchmark.config import BenchmarkConfig, merge_config_with_args
+from tit.pre.dicom2nifti import run_dicom_to_nifti
 
 
 class ProjectSetup:
@@ -153,24 +153,13 @@ class ConversionRunner:
         timer.start()
 
         try:
-            env = os.environ.copy()
-            env['DEBUG_MODE'] = 'true' if self.debug_mode else 'false'
             self.logger.info(f"Running DICOM conversion for: {self.subject_id}")
 
-            process = subprocess.Popen(
-                [str(self.dicom_script), str(self.subject_dir)],
-                stdout=subprocess.PIPE, stderr=subprocess.STDOUT, 
-                text=True, bufsize=1, env=env
+            run_dicom_to_nifti(
+                str(self.subject_dir.parent),
+                self.subject_id,
+                logger=self.logger,
             )
-
-            for line_count, line in enumerate(iter(process.stdout.readline, ''), 1):
-                self.logger.debug(line.rstrip())
-                if line_count % 10 == 0:
-                    timer.sample()
-            
-            process.wait()
-            if process.returncode != 0:
-                raise subprocess.CalledProcessError(process.returncode, str(self.dicom_script))
 
             result = timer.stop(success=True)
             result.metadata['nifti_output'] = str(self.subject_dir / "anat")
@@ -241,7 +230,7 @@ def main():
         print(f"Error: Subject source not found: {subject_source}")
         sys.exit(1)
     if not dicom_script.exists():
-        print(f"Error: dicom2nifti.sh not found: {dicom_script}")
+        print(f"Error: dicom2nifti.py not found: {dicom_script}")
         sys.exit(1)
     
     # Setup logging

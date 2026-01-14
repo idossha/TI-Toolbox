@@ -8,6 +8,7 @@ This module provides utility functions for the GUI.
 
 import os
 from PyQt5 import QtWidgets
+from tit.core.overwrite import get_overwrite_policy
 
 def confirm_overwrite(parent, path, item_type="file"):
     """
@@ -22,6 +23,11 @@ def confirm_overwrite(parent, path, item_type="file"):
         bool: True if the user confirms overwrite, False otherwise
     """
     if os.path.exists(path):
+        policy = get_overwrite_policy()
+        if policy.overwrite:
+            return True
+        if not policy.prompt:
+            return False
         msg = QtWidgets.QMessageBox(parent)
         msg.setIcon(QtWidgets.QMessageBox.Warning)
         msg.setWindowTitle("Confirm Overwrite")

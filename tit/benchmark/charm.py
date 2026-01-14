@@ -11,7 +11,6 @@ Usage:
 
 import sys
 import os
-import subprocess
 import shutil
 from pathlib import Path
 from datetime import datetime
@@ -22,6 +21,7 @@ from tit.benchmark.core import (
 )
 from tit.benchmark.logger import BenchmarkLogger, create_benchmark_log_file
 from tit.benchmark.config import BenchmarkConfig, merge_config_with_args
+from tit.pre.charm import run_charm
 
 
 def setup_project(project_dir: Path, t1_image: Path, t2_image: Path, subject_id: str, logger):
@@ -56,53 +56,28 @@ def setup_project(project_dir: Path, t1_image: Path, t2_image: Path, subject_id:
     return subject_dir, subject_id
 
 
-def run_charm(subject_dir: Path, charm_script: Path, logger, debug_mode=True):
+def run_charm_benchmark(subject_dir: Path, charm_script: Path, logger, debug_mode=True):
     """Run charm and benchmark performance."""
     subject_id = subject_dir.name.replace("sub-", "")
-    
+
     metadata = {
         "subject_id": subject_id,
         "charm_script": str(charm_script),
-        "debug_mode": debug_mode
+        "debug_mode": debug_mode,
     }
-    
+
     timer = BenchmarkTimer("charm_m2m_creation", metadata=metadata)
     timer.start()
-    
+
     try:
-        env = os.environ.copy()
-        env['DEBUG_MODE'] = 'true' if debug_mode else 'false'
-        
-        cmd = [str(charm_script), str(subject_dir)]
-        logger.info(f"Running charm for subject: {subject_id}")
-        
-        process = subprocess.Popen(
-            cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-            text=True, bufsize=1, env=env
-        )
-        
-        line_count = 0
-        while True:
-            line = process.stdout.readline()
-            if not line and process.poll() is not None:
-                break
-            if line:
-                logger.debug(line.rstrip())
-                line_count += 1
-                if line_count % 10 == 0:
-                    timer.sample()
-        
-        if process.returncode != 0:
-            raise subprocess.CalledProcessError(process.returncode, cmd)
-        
+        run_charm(str(subject_dir.parent), subject_id, logger=logger)
+
         result = timer.stop(success=True)
-        
-        # Add m2m output location to metadata
+
         m2m_dir = subject_dir.parent / "derivatives" / "SimNIBS" / subject_dir.name / f"m2m_{subject_id}"
-        result.metadata['m2m_output'] = str(m2m_dir)
-        
+        result.metadata["m2m_output"] = str(m2m_dir)
         return result
-        
+
     except Exception as e:
         logger.error(f"Charm failed: {e}")
         return timer.stop(success=False, error_message=str(e))
@@ -141,7 +116,7 @@ def main():
         print(f"Error: T1 image not found: {t1_image}")
         sys.exit(1)
     if not charm_script.exists():
-        print(f"Error: charm.sh not found: {charm_script}")
+        print(f"Error: charm.py not found: {charm_script}")
         sys.exit(1)
     
     # Setup logging
@@ -155,7 +130,7 @@ def main():
     try:
         subject_dir, subject_id = setup_project(project_dir, t1_image, t2_image, subject_id, logger)
         
-        result = run_charm(subject_dir, charm_script, logger, debug_mode)
+        result = run_charm_benchmark(subject_dir, charm_script, logger, debug_mode)
         
         print_benchmark_result(result)
         

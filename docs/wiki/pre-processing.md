@@ -50,7 +50,7 @@ project_root/
 
 ### Stage 1: DICOM to NIfTI Conversion
 
-**Script:** `dicom2nifti.sh`  
+**Module:** `tit.pre.dicom2nifti.run_dicom_to_nifti`  
 **Purpose:** Convert raw DICOM files to BIDS-compliant NIfTI format
 
 #### Features
@@ -72,18 +72,18 @@ graph LR
 
 #### Usage
 
-```bash
-# Convert DICOM files for a single subject
-./dicom2nifti.sh /path/to/sub-101
+```python
+from tit.pre.dicom2nifti import run_dicom_to_nifti
+from tit.pre.common import build_logger
 
-# Quiet mode (no console output)
-./dicom2nifti.sh /path/to/sub-101 --quiet
+logger = build_logger("dicom2nifti", subject_id="101", project_dir="/path/to/project")
+run_dicom_to_nifti("/path/to/project", "101", logger=logger)
 ```
 
 
 ### Stage 2: FreeSurfer recon-all
 
-**Script:** `recon-all.sh`  
+**Module:** `tit.pre.recon_all.run_recon_all`  
 **Purpose:** Cortical reconstruction, segmentation, and surface generation
 
 #### Features
@@ -94,16 +94,15 @@ graph LR
 
 #### Usage
 
-```bash
-# Single subject processing (1 core)
-./recon-all.sh /path/to/sub-101
+```python
+from tit.pre.recon_all import run_recon_all
+from tit.pre.common import build_logger
 
-# With parallel processing (all available cores for this subject)
-./recon-all.sh /path/to/sub-101 --parallel
-
+logger = build_logger("recon-all", subject_id="101", project_dir="/path/to/project")
+run_recon_all("/path/to/project", "101", logger=logger, parallel=True)
 ```
 
-**Note:** The `--parallel` flag in `recon-all.sh` enables FreeSurfer's internal parallelization (multiple cores for one subject). This is different from the `--parallel` flag in `structural.sh` which enables processing multiple subjects simultaneously.
+**Note:** The `parallel=True` flag enables FreeSurfer's internal parallelization (multiple cores for one subject). The pipeline-level `parallel_recon=True` enables multiple subjects simultaneously, each using a single core.
 
 #### Generated Output Structure
 
@@ -119,7 +118,7 @@ derivatives/
 
 ### Stage 3: SimNIBS charm (Head Model Creation)
 
-**Script:** `charm.sh`  
+**Module:** `tit.pre.charm.run_charm`  
 **Purpose:** Create head models for TI simulation
 
 #### Features
@@ -130,9 +129,12 @@ derivatives/
 
 #### Usage
 
-```bash
-# Create head model for single subject
-./charm.sh /path/to/sub-101
+```python
+from tit.pre.charm import run_charm
+from tit.pre.common import build_logger
+
+logger = build_logger("charm", subject_id="101", project_dir="/path/to/project")
+run_charm("/path/to/project", "101", logger=logger)
 ```
 
 #### Generated Output Structure
@@ -147,49 +149,53 @@ derivatives/
 
 ## Orchestration Script
 
-### structural.sh - Pipeline Orchestrator
+### Python Pipeline Orchestrator
 
 **Purpose:** Coordinates all pre-processing stages with flexible execution options
 
-#### Command Line Interface
+#### Python API
 
-```bash
-# Sequential mode (default) - one subject at a time, all cores per subject
-./structural.sh /path/to/sub-101 /path/to/sub-102 recon-all --convert-dicom --create-m2m
+```python
+from tit.pre.structural import run_pipeline
 
-# Parallel mode - multiple subjects simultaneously, 1 core per subject
-./structural.sh /path/to/sub-101 /path/to/sub-102 recon-all --parallel --convert-dicom --create-m2m
-
-# Recon-all only
-./structural.sh /path/to/sub-101 recon-all --recon-only
-
-# Subject ID format
-./structural.sh --subjects 101,102,103 recon-all --parallel
+run_pipeline(
+    "/path/to/project",
+    ["101", "102"],
+    convert_dicom=True,
+    run_recon=True,
+    create_m2m=True,
+    parallel_recon=True,
+)
 ```
 
 #### Processing Options
 
 | Option | Description | Usage |
 |--------|-------------|-------|
-| `recon-all` | Run FreeSurfer reconstruction | Always required |
-| `--convert-dicom` | Include DICOM conversion stage | Optional |
-| `--create-m2m` | Include SimNIBS head model creation | Optional |
-| `--parallel` | Enable parallel processing mode (multiple subjects, 1 core each) | Optional |
-| `--recon-only` | Skip all non-recon steps | Optional |
+| `run_recon` | Run FreeSurfer reconstruction | Optional |
+| `convert_dicom` | Include DICOM conversion stage | Optional |
+| `create_m2m` | Include SimNIBS head model creation | Optional |
+| `parallel_recon` | Enable parallel processing mode (multiple subjects, 1 core each) | Optional |
 
 
 #### Processing Mode Selection
 
 **Default (Sequential Mode):**
-```bash
+```python
 # Best for: Small datasets (1-3 subjects), maximum per-subject speed
-./structural.sh /path/sub-101 /path/sub-102 recon-all --convert-dicom
+run_pipeline("/path/to/project", ["101", "102"], convert_dicom=True, run_recon=True)
 ```
 
 **Parallel Mode:**
-```bash
+```python
 # Best for: Large datasets (4+ subjects), maximum throughput
-./structural.sh /path/sub-101 /path/sub-102 /path/sub-103 /path/sub-104 recon-all --parallel --convert-dicom
+run_pipeline(
+    "/path/to/project",
+    ["101", "102", "103", "104"],
+    convert_dicom=True,
+    run_recon=True,
+    parallel_recon=True,
+)
 ```
 
 ## Parallelization Strategy
@@ -202,7 +208,7 @@ The pipeline implements a simple and efficient two-mode parallelization strategy
 
 ```mermaid
 graph TD
-    A[Processing Mode Selection] --> B{--parallel flag?}
+    A[Processing Mode Selection] --> B{parallel_recon?}
     B -->|No| C[Sequential Mode]
     B -->|Yes| D[Parallel Mode]
     
@@ -217,8 +223,8 @@ graph TD
 
 | Mode | Command | Subjects Running | Cores per Subject | Best For |
 |------|---------|------------------|-------------------|----------|
-| **Sequential** (Default) | `./structural.sh sub-101 sub-102 recon-all` | 1 at a time | All available | Small datasets, fastest per-subject |
-| **Parallel** | `./structural.sh sub-101 sub-102 recon-all --parallel` | Multiple | 1 each | Large datasets, maximum throughput |
+| **Sequential** (Default) | `run_pipeline(..., parallel_recon=False)` | 1 at a time | All available | Small datasets, fastest per-subject |
+| **Parallel** | `run_pipeline(..., parallel_recon=True)` | Multiple | 1 each | Large datasets, maximum throughput |
 
 
 
@@ -232,19 +238,19 @@ SimNIBS charm processing is **always sequential** regardless of mode:
 
 ## CLI Execution Example
 
-```bash
+```python
 # Stage 1: DICOM conversion only
-./dicom2nifti.sh /mnt/study_data/sub-101
+run_dicom_to_nifti("/mnt/study_data", "101", logger=logger)
 
 # Stage 2: FreeSurfer reconstruction only
 # Sequential mode (all cores for this subject)
-./recon-all.sh /mnt/study_data/sub-101 --parallel
+run_recon_all("/mnt/study_data", "101", logger=logger, parallel=True)
 
 # Parallel mode (1 core for this subject)
-./recon-all.sh /mnt/study_data/sub-101
+run_recon_all("/mnt/study_data", "101", logger=logger, parallel=False)
 
-# Stage 3: SimNIBS head model only  
-./charm.sh /mnt/study_data/sub-101
+# Stage 3: SimNIBS head model only
+run_charm("/mnt/study_data", "101", logger=logger)
 ```
 
 ## Output Directory Structure

@@ -18,14 +18,14 @@ debug_mode: true
 charm:
   project_dir: /path/to/project
   ernie_data: /path/to/ernie/data
-  charm_script: /path/to/charm.sh
+  charm_script: /path/to/charm.py
   clean: false
 
 # Recon-all benchmark configuration
 recon:
   project_dir: /path/to/project
   ernie_data: /path/to/ernie/data
-  recon_script: /path/to/recon-all.sh
+  recon_script: /path/to/recon_all.py
   parallel: false
   clean: false
 
@@ -33,7 +33,7 @@ recon:
 dicom:
   project_dir: /path/to/project
   subject_source: /path/to/subject/dir
-  dicom_script: /path/to/tit/pre/dicom2nifti.sh
+  dicom_script: /path/to/tit/pre/dicom2nifti.py
 
 # Flex-search benchmark configuration
 flex:
@@ -157,7 +157,7 @@ class BenchmarkConfig:
         if 'ernie_data' not in charm:
             charm['ernie_data'] = str(toolbox_root / "resources" / "example_data" / "ernie")
         if 'charm_script' not in charm:
-            charm['charm_script'] = str(toolbox_root / "tit" / "pre" / "charm.sh")
+            charm['charm_script'] = str(toolbox_root / "tit" / "pre" / "charm.py")
         if 'project_dir' not in charm:
             charm['project_dir'] = str(Path("/mnt/tit-benchmark") if os.path.exists("/mnt") 
                                        else Path("/tmp/tit-benchmark"))
@@ -172,7 +172,7 @@ class BenchmarkConfig:
         if 'ernie_data' not in recon:
             recon['ernie_data'] = str(toolbox_root / "resources" / "example_data" / "ernie")
         if 'recon_script' not in recon:
-            recon['recon_script'] = str(toolbox_root / "tit" / "pre" / "recon-all.sh")
+            recon['recon_script'] = str(toolbox_root / "tit" / "pre" / "recon_all.py")
         if 'project_dir' not in recon:
             recon['project_dir'] = str(Path("/mnt/tit-benchmark-recon") if os.path.exists("/mnt")
                                        else Path("/tmp/tit-benchmark-recon"))
@@ -187,7 +187,7 @@ class BenchmarkConfig:
         
         dicom = self.config['dicom']
         if 'dicom_script' not in dicom:
-            dicom['dicom_script'] = str(toolbox_root / "tit" / "pre" / "dicom2nifti.sh")
+            dicom['dicom_script'] = str(toolbox_root / "tit" / "pre" / "dicom2nifti.py")
         if 'project_dir' not in dicom:
             dicom['project_dir'] = str(Path("/mnt/tit-benchmark-dicom") if os.path.exists("/mnt")
                                        else Path("/tmp/tit-benchmark-dicom"))
@@ -296,20 +296,20 @@ class BenchmarkConfig:
             'charm': {
                 'project_dir': '/tmp/tit-benchmark',
                 'ernie_data': '/path/to/resources/example_data/ernie',
-                'charm_script': '/path/to/tit/pre/charm.sh',
+                'charm_script': '/path/to/tit/pre/charm.py',
                 'clean': False
             },
             'recon': {
                 'project_dir': '/tmp/tit-benchmark-recon',
                 'ernie_data': '/path/to/resources/example_data/ernie',
-                'recon_script': '/path/to/tit/pre/recon-all.sh',
+                'recon_script': '/path/to/tit/pre/recon_all.py',
                 'parallel': False,
                 'clean': False
             },
             'dicom': {
                 'project_dir': '/tmp/tit-benchmark-dicom',
                 'subject_source': '/path/to/subject/dir',
-                'dicom_script': '/path/to/tit/pre/dicom2nifti.sh'
+                'dicom_script': '/path/to/tit/pre/dicom2nifti.py'
             },
             'flex': {
                 'project_dir': '/tmp/tit-benchmark-flex',

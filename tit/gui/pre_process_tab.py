@@ -8,215 +8,96 @@ Thread-safe version with deadlock prevention.
 """
 
 import os
-import sys
-import json
-import re
-import subprocess
 import glob
 import threading
 import time
-from pathlib import Path
-import tempfile
-import shutil
-import datetime
 import multiprocessing
 
-from PyQt5 import QtWidgets, QtCore, QtGui
+from PyQt5 import QtWidgets, QtCore
 from tit.gui.confirmation_dialog import ConfirmationDialog
-from tit.gui.utils import confirm_overwrite, is_verbose_message, is_important_message
+from tit.gui.utils import confirm_overwrite, is_important_message
 from tit.gui.components.console import ConsoleWidget
 from tit.gui.components.action_buttons import RunStopButtons
 from tit.core import get_path_manager
-from tit.core.process import get_child_pids
+from tit.pre.structural import run_pipeline
+from tit.pre.common import CommandRunner, PreprocessCancelled
 
 class PreProcessThread(QtCore.QThread):
     """Thread to run pre-processing in background to prevent GUI freezing."""
-    
-    # Signals for thread-safe communication
+
     output_signal = QtCore.pyqtSignal(str, str)  # text, message_type
     error_signal = QtCore.pyqtSignal(str)        # error message
-    
-    def __init__(self, cmd, env=None):
-        """Initialize the thread with the command to run and environment variables."""
-        super(PreProcessThread, self).__init__()
-        self.cmd = cmd
-        self.env = env or os.environ.copy()
-        self.process = None
-        self.terminated = False
-        self.last_step = "initialization"  # Track last successful step
-        self.has_failures = False  # Track if any subjects failed
-        self.expecting_failed_subjects = False  # Track when we're expecting failed subject list
-        
+
+    def __init__(
+        self,
+        project_dir: str,
+        subjects: list[str],
+        *,
+        convert_dicom: bool,
+        run_recon: bool,
+        parallel_recon: bool,
+        parallel_cores: int,
+        create_m2m: bool,
+        create_atlas: bool,
+        run_tissue_analysis: bool,
+        debug_mode: bool,
+        overwrite_outputs: bool,
+    ):
+        super().__init__()
+        self.project_dir = project_dir
+        self.subjects = subjects
+        self.convert_dicom = convert_dicom
+        self.run_recon = run_recon
+        self.parallel_recon = parallel_recon
+        self.parallel_cores = parallel_cores
+        self.create_m2m = create_m2m
+        self.create_atlas = create_atlas
+        self.run_tissue_analysis = run_tissue_analysis
+        self.debug_mode = debug_mode
+        self.overwrite_outputs = overwrite_outputs
+        self.stop_event = threading.Event()
+        self.runner = CommandRunner(stop_event=self.stop_event)
+
     def run(self):
-        """Run the pre-processing command in a separate thread."""
         try:
-            # Get list of subjects from environment
-            subjects = self.env.get('SUBJECTS', '').split(',')
-            subjects = [s.strip() for s in subjects if s.strip()]  # Clean up subjects list
-            
-            # Always call the script once with all subjects - let the script handle parallelization
-            self.output_signal.emit(f"Starting processing for {len(subjects)} subjects: {', '.join(subjects)}", 'info')
-            
-            # Use the command as-is (subject directories already added in run_preprocessing)
-            current_cmd = self.cmd
-            
-            self.output_signal.emit(f"Command: {' '.join(current_cmd)}", 'info')
-            
-            # Set the environment variables for the current process
-            current_env = self.env.copy()
-            
-            # Set PYTHONUNBUFFERED to ensure Python scripts don't buffer output
-            current_env['PYTHONUNBUFFERED'] = '1'
-            
-            self.process = subprocess.Popen(
-                current_cmd, 
-                stdout=subprocess.PIPE, 
-                stderr=subprocess.STDOUT,  # Combine stderr with stdout
-                universal_newlines=True,
-                bufsize=0,  # Unbuffered
-                env=current_env
+            self.output_signal.emit(
+                f"Starting processing for {len(self.subjects)} subjects: {', '.join(self.subjects)}",
+                "info",
             )
-            
-            # Real-time output display
-            for line in iter(self.process.stdout.readline, ''):
-                if self.terminated:
-                    break
-                if line:
-                    # Determine message type based on content
-                    line_stripped = line.strip()
-                    
-                    # Track the last successful step and detect failures for better error reporting
-                    if 'Starting processing for' in line_stripped:
-                        self.last_step = "processing initialization"
-                    elif 'Starting DICOM to NIfTI conversion' in line_stripped:
-                        self.last_step = "DICOM to NIfTI conversion"
-                    elif 'DICOM conversion completed' in line_stripped:
-                        self.last_step = "DICOM conversion completed"
-                    elif 'Starting SimNIBS charm' in line_stripped:
-                        self.last_step = "SimNIBS charm processing"
-                    elif 'SimNIBS charm completed' in line_stripped:
-                        self.last_step = "SimNIBS charm completed"
-                    elif 'Starting FreeSurfer recon-all' in line_stripped or 'Running FreeSurfer recon-all' in line_stripped:
-                        self.last_step = "FreeSurfer recon-all processing"
-                    elif 'FreeSurfer recon-all completed' in line_stripped:
-                        self.last_step = "FreeSurfer recon-all completed"
-                    elif 'Starting skull bone analysis' in line_stripped or 'BONE ANALYSIS' in line_stripped:
-                        self.last_step = "tissue analysis"
-                    elif 'Skull bone analysis completed' in line_stripped or 'Bone analysis: ✓ Complete' in line_stripped or 'TISSUE ANALYSIS SUMMARY' in line_stripped:
-                        self.last_step = "tissue analysis completed"
-                    elif 'Atlas' in line_stripped and '✓ Complete' in line_stripped:
-                        self.last_step = "atlas segmentation completed"
-                    
-                    # Detect actual failures from the shell scripts
-                    elif 'Warning:' in line_stripped and 'failed for subject' in line_stripped:
-                        self.has_failures = True
-                    elif 'The following subjects had failures:' in line_stripped:
-                        self.has_failures = True
-                        self.expecting_failed_subjects = True  # Flag to expect subject list next
-                    elif hasattr(self, 'expecting_failed_subjects') and self.expecting_failed_subjects:
-                        # Check if this line is a simple subject ID (part of the failed subjects list)
-                        if len(line_stripped) <= 6 and line_stripped.isalnum():
-                            # This is likely a failed subject ID, ensure it's shown as important
-                            message_type = 'warning'  # Mark as warning so it gets shown
-                        elif 'Please check the logs' in line_stripped:
-                            self.expecting_failed_subjects = False  # End of failed subjects list
-                    
-                    # Simplified error detection - only flag critical system-level errors
-                    # Let the process return code handle actual preprocessing failures
-                    # First check if it's a normal FreeSurfer computational message
-                    is_freesurfer_computational = any(pattern in line_stripped.upper() for pattern in [
-                        'DT:', 'RMS RADIAL ERROR=', 'AVGS=', 'FINAL DISTANCE ERROR',
-                        'DISTANCE ERROR %', '/300:', 'SURFACE RECONSTRUCTION',
-                        'IFLAG=', 'LINE SEARCH', 'MCSRCH', 'QUASINEWTONEMA'
-                    ])
-                    
-                    if not is_freesurfer_computational and any(keyword in line_stripped.lower() for keyword in [
-                        'segmentation fault', 'bus error', 'killed', 'aborted',
-                        'illegal instruction', 'permission denied', 'no such file or directory',
-                        'command not found', 'cannot execute', 'bad interpreter'
-                    ]):
-                        message_type = 'error'
-                    elif any(keyword in line_stripped.lower() for keyword in ['warning', 'warn']):
-                        message_type = 'warning'
-                    elif any(keyword in line_stripped.lower() for keyword in ['success', 'completed', 'finished']):
-                        message_type = 'success'
-                    elif any(keyword in line_stripped.lower() for keyword in ['debug']):
-                        message_type = 'debug'
-                    elif any(keyword in line_stripped.lower() for keyword in ['running', 'executing', 'processing']):
-                        message_type = 'info'
-                    else:
-                        message_type = 'default'
-                        
-                    self.output_signal.emit(line_stripped, message_type)
-            
-            # Check for errors - rely primarily on process return code
-            if not self.terminated:
-                returncode = self.process.wait()
-                if returncode != 0:
-                    # Provide specific error message based on last successful step and return code
-                    if self.last_step.endswith("completed"):
-                        # If last step was completed, the error occurred in the next step
-                        error_msg = f"Preprocessing failed after {self.last_step}."
-                    else:
-                        # Error occurred during the current step
-                        error_msg = f"Preprocessing failed during {self.last_step}."
-                    
-                    # Add return code interpretation
-                    if returncode == 1:
-                        error_msg += f" Check the output above for specific error details."
-                    elif returncode == 2:
-                        error_msg += f" Invalid arguments or configuration error."
-                    elif returncode == 126:
-                        error_msg += f" Permission denied or command not executable."
-                    elif returncode == 127:
-                        error_msg += f" Command not found or missing dependency."
-                    elif returncode == 130:
-                        error_msg += f" Process interrupted by user (Ctrl+C)."
-                    elif returncode < 0:
-                        error_msg += f" Process terminated by signal {abs(returncode)}."
-                    else:
-                        error_msg += f" Process returned exit code {returncode}."
-                    
-                    self.error_signal.emit(error_msg)
-                else:
-                    # Only show success message if no failures were detected and in debug mode
-                    if not self.has_failures:
-                        # Only show in debug mode - summary system handles completion messages
-                        pass
-                    else:
-                        self.output_signal.emit(f"Pre-processing completed with failures. Check the output above for details.", 'warning')
-                
+
+            def callback(message: str, msg_type: str) -> None:
+                self.output_signal.emit(message, msg_type)
+
+            exit_code = run_pipeline(
+                self.project_dir,
+                self.subjects,
+                convert_dicom=self.convert_dicom,
+                run_recon=self.run_recon,
+                parallel_recon=self.parallel_recon,
+                parallel_cores=self.parallel_cores,
+                create_m2m=self.create_m2m,
+                create_atlas=self.create_atlas,
+                run_tissue_analysis=self.run_tissue_analysis,
+                debug=self.debug_mode,
+                overwrite=self.overwrite_outputs,
+                prompt_overwrite=False,
+                stop_event=self.stop_event,
+                logger_callback=callback,
+                runner=self.runner,
+            )
+
+            if exit_code != 0:
+                self.error_signal.emit("Pre-processing completed with errors. Check logs for details.")
+        except PreprocessCancelled:
+            self.output_signal.emit("Pre-processing stopped by user.", "warning")
         except Exception as e:
             self.error_signal.emit(f"Error running pre-processing: {str(e)}")
-    
+
     def terminate_process(self):
-        """Terminate the running process."""
-        if self.process and self.process.poll() is None:  # Process is still running
-            self.terminated = True
-            if os.name == 'nt':  # Windows
-                subprocess.call(['taskkill', '/F', '/T', '/PID', str(self.process.pid)])
-            else:  # Unix/Linux/Mac
-                import signal
-                # Try to terminate child processes using psutil (secure)
-                try:
-                    parent_pid = self.process.pid
-                    child_pids = get_child_pids(parent_pid)
-                    for pid in child_pids:
-                        os.kill(pid, signal.SIGTERM)
-                except (OSError, ValueError):
-                    pass  # Ignore errors in finding child processes
-                
-                # Kill the main process
-                self.process.terminate()
-                try:
-                    # Wait for a short time for graceful termination
-                    self.process.wait(timeout=2)
-                except subprocess.TimeoutExpired:
-                    # Force kill if it doesn't terminate gracefully
-                    self.process.kill()
-            
-            return True
-        return False
+        self.stop_event.set()
+        if self.runner:
+            self.runner.request_stop()
+        return True
 
 class PreProcessTab(QtWidgets.QWidget):
     """Tab for pre-processing functionality."""
@@ -381,10 +262,6 @@ class PreProcessTab(QtWidgets.QWidget):
         self.create_m2m_cb.setToolTip("SimNIBS charm processes run one at a time (sequential) to prevent PETSC conflicts, but each uses full CPU power")
         options_group_layout.addWidget(self.create_m2m_cb)
         
-        self.create_atlas_cb = QtWidgets.QCheckBox("Create atlas segmentation")
-        self.create_atlas_cb.setChecked(True)
-        options_group_layout.addWidget(self.create_atlas_cb)
-
         # Tissue analyzer option
         self.run_tissue_analyzer_cb = QtWidgets.QCheckBox("Run Tissue Analyzer")
         self.run_tissue_analyzer_cb.setChecked(False)
@@ -521,7 +398,6 @@ class PreProcessTab(QtWidgets.QWidget):
         self.run_recon_cb.setEnabled(not is_processing)
         self.parallel_cb.setEnabled(not is_processing and self.run_recon_cb.isChecked())
         self.create_m2m_cb.setEnabled(not is_processing)
-        self.create_atlas_cb.setEnabled(not is_processing)
         self.run_tissue_analyzer_cb.setEnabled(not is_processing)
         
         # Keep debug checkbox enabled during processing
@@ -568,28 +444,6 @@ class PreProcessTab(QtWidgets.QWidget):
             )
             return
         
-        # Check if atlas creation is requested but m2m creation is not enabled
-        if self.create_atlas_cb.isChecked() and not self.create_m2m_cb.isChecked():
-            # Check if m2m folders already exist for selected subjects
-            missing_m2m_subjects = []
-            for subject_id in selected_subjects:
-                bids_subject_id = f"sub-{subject_id}"
-                m2m_dir = os.path.join(self.project_dir, "derivatives", "SimNIBS", bids_subject_id, f"m2m_{subject_id}")
-                if not os.path.exists(m2m_dir):
-                    missing_m2m_subjects.append(subject_id)
-            
-            if missing_m2m_subjects:
-                QtWidgets.QMessageBox.warning(
-                    self, "Missing m2m Folders",
-                    f"Atlas creation requires m2m folders, but the following subjects don't have them:\n"
-                    f"{', '.join(missing_m2m_subjects)}\n\n"
-                    f"Please either:\n"
-                    f"1. Enable 'Create SimNIBS m2m folder' option, or\n"
-                    f"2. Run m2m creation for these subjects first, or\n"
-                    f"3. Disable 'Create atlas segmentation' option"
-                )
-                return
-
         # Check if tissue analyzer is enabled but m2m folders are missing
         if self.run_tissue_analyzer_cb.isChecked() and not self.create_m2m_cb.isChecked():
             # Check if m2m folders already exist for selected subjects
@@ -613,6 +467,7 @@ class PreProcessTab(QtWidgets.QWidget):
                 return
 
         # Check for existing output directories and confirm overwrite
+        overwrite_outputs = False
         for subject_id in selected_subjects:
             bids_subject_id = f"sub-{subject_id}"
             
@@ -622,6 +477,7 @@ class PreProcessTab(QtWidgets.QWidget):
                 if os.path.exists(nifti_dir):
                     if not confirm_overwrite(self, nifti_dir, "NIfTI output directory"):
                         return
+                    overwrite_outputs = True
             
             # Check FreeSurfer output directory if recon-all is enabled
             if self.run_recon_cb.isChecked():
@@ -629,13 +485,22 @@ class PreProcessTab(QtWidgets.QWidget):
                 if os.path.exists(freesurfer_dir):
                     if not confirm_overwrite(self, freesurfer_dir, "FreeSurfer output directory"):
                         return
+                    overwrite_outputs = True
             
             # Check m2m output directory if m2m creation is enabled
             if self.create_m2m_cb.isChecked():
                 m2m_dir = os.path.join(self.project_dir, "derivatives", "SimNIBS", bids_subject_id, f"m2m_{subject_id}")
-                if os.path.exists(m2m_dir):
-                    if not confirm_overwrite(self, m2m_dir, "m2m output directory"):
+                alt_m2m_dir = os.path.join(self.project_dir, f"m2m_{subject_id}")
+                subject_m2m_dir = os.path.join(self.project_dir, bids_subject_id, f"m2m_{subject_id}")
+                existing_m2m = None
+                for candidate in (m2m_dir, subject_m2m_dir, alt_m2m_dir):
+                    if os.path.exists(candidate):
+                        existing_m2m = candidate
+                        break
+                if existing_m2m:
+                    if not confirm_overwrite(self, existing_m2m, "m2m output directory"):
                         return
+                    overwrite_outputs = True
 
         # Show confirmation dialog
         details = (f"This will process {len(selected_subjects)} subject(s) with the following options:\n\n" +
@@ -643,7 +508,6 @@ class PreProcessTab(QtWidgets.QWidget):
                    f"- Run recon-all: {'Yes' if self.run_recon_cb.isChecked() else 'No'}\n" +
                    f"- Parallel processing: {'Yes' if self.parallel_cb.isChecked() else 'No'}\n" +
                    f"- Create m2m folder: {'Yes' if self.create_m2m_cb.isChecked() else 'No'}\n" +
-                   f"- Create atlas segmentation: {'Yes' if self.create_atlas_cb.isChecked() else 'No'}\n" +
                    f"- Run tissue analyzer: {'Yes' if self.run_tissue_analyzer_cb.isChecked() else 'No'}\n" +
                    f"- Debug mode: {'Yes' if self.debug_mode else 'No'}")
         
@@ -658,63 +522,31 @@ class PreProcessTab(QtWidgets.QWidget):
         
         # Set processing state
         self.set_processing_state(True)
-        
-        # Prepare environment variables
-        env = os.environ.copy()
-        env['DIRECT_MODE'] = 'true'
-        env['PROJECT_DIR'] = self.project_dir
-        env['SUBJECTS'] = ','.join(selected_subjects)
-        env['CONVERT_DICOM'] = str(self.convert_dicom_cb.isChecked()).lower()
-        env['RUN_RECON'] = str(self.run_recon_cb.isChecked()).lower()
-        env['PARALLEL_RECON'] = str(self.parallel_cb.isChecked()).lower()
-        env['CREATE_M2M'] = str(self.create_m2m_cb.isChecked()).lower()
-        env['RUN_TISSUE_ANALYZER'] = str(self.run_tissue_analyzer_cb.isChecked()).lower()
-        
-        # Pass debug mode setting to control summary output
-        env['DEBUG_MODE'] = 'true' if self.debug_mode else 'false'
-        
-        # Build command exactly like CLI does - subject directories first, then flags
-        script_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        cmd = [os.path.join(script_dir, 'pre', 'structural.sh')]
-        
-        # Add subject directories as individual arguments (like CLI does)
-        for subject_id in selected_subjects:
-            bids_subject_id = f"sub-{subject_id}"
-            subject_dir = os.path.join(self.project_dir, bids_subject_id)
-            cmd.append(subject_dir)
-        
-        # Add optional flags based on checkbox states (like CLI does)
-        if self.run_recon_cb.isChecked():
-            cmd.append("recon-all")
 
-        if self.parallel_cb.isChecked():
-            cmd.append("--parallel")
-            cmd.append("--cores")
-            cmd.append(str(self.cores_spin.value()))
-
-        if self.convert_dicom_cb.isChecked():
-            cmd.append("--convert-dicom")
-
-        if self.create_m2m_cb.isChecked():
-            cmd.append("--create-m2m")
-
-        # Note: Quiet mode has been removed - all output is now shown
-        
         # Debug output (only show in debug mode)
-        self.update_output(f"Running pre-processing from GUI", 'debug')
-        self.update_output(f"Command: {' '.join(cmd)}", 'debug')
-        self.update_output(f"Options:", 'debug')
+        self.update_output("Running pre-processing from GUI", 'debug')
         self.update_output(f"- Subjects: {', '.join(selected_subjects)}", 'debug')
-        self.update_output(f"- Convert DICOM: {env['CONVERT_DICOM']}", 'debug')
-        self.update_output(f"- Run recon-all: {env['RUN_RECON']}", 'debug')
-        self.update_output(f"- Parallel processing: {env['PARALLEL_RECON']}", 'debug')
-        self.update_output(f"- Create m2m folder: {env['CREATE_M2M']}", 'debug')
-        self.update_output(f"- Create atlas segmentation: {str(self.create_atlas_cb.isChecked()).lower()}", 'debug')
-        self.update_output(f"- Run tissue analyzer: {env['RUN_TISSUE_ANALYZER']}", 'debug')
-        self.update_output(f"- Debug mode: {env['DEBUG_MODE']}", 'debug')
-        
+        self.update_output(f"- Convert DICOM: {self.convert_dicom_cb.isChecked()}", 'debug')
+        self.update_output(f"- Run recon-all: {self.run_recon_cb.isChecked()}", 'debug')
+        self.update_output(f"- Parallel processing: {self.parallel_cb.isChecked()}", 'debug')
+        self.update_output(f"- Create m2m folder: {self.create_m2m_cb.isChecked()}", 'debug')
+        self.update_output(f"- Run tissue analyzer: {self.run_tissue_analyzer_cb.isChecked()}", 'debug')
+        self.update_output(f"- Debug mode: {self.debug_mode}", 'debug')
+
         # Create and start the thread
-        self.processing_thread = PreProcessThread(cmd, env)
+        self.processing_thread = PreProcessThread(
+            self.project_dir,
+            selected_subjects,
+            convert_dicom=self.convert_dicom_cb.isChecked(),
+            run_recon=self.run_recon_cb.isChecked(),
+            parallel_recon=self.parallel_cb.isChecked(),
+            parallel_cores=self.cores_spin.value(),
+            create_m2m=self.create_m2m_cb.isChecked(),
+            create_atlas=False,
+            run_tissue_analysis=self.run_tissue_analyzer_cb.isChecked(),
+            debug_mode=self.debug_mode,
+            overwrite_outputs=overwrite_outputs,
+        )
         self.processing_thread.output_signal.connect(self.update_output)
         self.processing_thread.error_signal.connect(lambda msg: self.update_output(msg, 'error'))
         self.processing_thread.finished.connect(self.preprocessing_finished)
@@ -723,68 +555,6 @@ class PreProcessTab(QtWidgets.QWidget):
     def preprocessing_finished(self):
         """Handle the completion of the preprocessing process."""
         self.set_processing_state(False)
-        
-
-        # --- Atlas Segmentation: Run if requested ---
-        if self.create_atlas_cb.isChecked():
-            selected_subjects = [item.text() for item in self.subject_list.selectedItems()]
-            
-            self.update_output("\n=== Starting atlas segmentation ===", 'debug')
-            self.update_output("Running atlas segmentation for all selected subjects and all atlases...", 'debug')
-            
-            # Run atlas segmentation for each subject
-            for subject_id in selected_subjects:
-                bids_subject_id = f"sub-{subject_id}"
-                m2m_folder = os.path.join(self.project_dir, "derivatives", "SimNIBS", bids_subject_id, f"m2m_{subject_id}")
-                if not os.path.isdir(m2m_folder):
-                    self.update_output(f"[Atlas] {subject_id}: m2m_{subject_id} folder not found at {m2m_folder}. Please create m2m folder first using 'Create m2m folder' option, then run atlas segmentation.", 'warning')
-                    continue
-                
-                output_dir = os.path.join(m2m_folder, 'segmentation')
-                os.makedirs(output_dir, exist_ok=True)
-                
-                # Check if output_dir is actually a directory and not a file
-                if os.path.exists(output_dir) and not os.path.isdir(output_dir):
-                    self.update_output(f"[Atlas] {subject_id}: Error - segmentation path exists but is not a directory: {output_dir}", 'error')
-                    continue
-                
-                for atlas in ["a2009s", "DK40", "HCP_MMP1"]:
-                    # Check for potential file conflicts before running
-                    expected_files = [
-                        os.path.join(output_dir, f"lh.{subject_id}_{atlas}.annot"),
-                        os.path.join(output_dir, f"rh.{subject_id}_{atlas}.annot")
-                    ]
-                    
-                    # Check if any expected file exists as a directory (conflict)
-                    conflict_found = False
-                    for expected_file in expected_files:
-                        if os.path.exists(expected_file) and os.path.isdir(expected_file):
-                            self.update_output(f"[Atlas] {subject_id}: Error - expected file path is a directory: {expected_file}", 'error')
-                            conflict_found = True
-                    
-                    if conflict_found:
-                        continue
-                    
-                    cmd = ["subject_atlas", "-m", m2m_folder, "-a", atlas, "-o", output_dir]
-                    self.update_output(f"├─ Atlas {atlas}: Started", 'info')
-                    try:
-                        proc = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-                        if proc.returncode == 0:
-                            # Verify that the expected .annot files were actually created
-                            created_files = []
-                            for expected_file in expected_files:
-                                if os.path.exists(expected_file) and os.path.isfile(expected_file):
-                                    created_files.append(os.path.basename(expected_file))
-                            
-                            if len(created_files) == 2:
-                                self.update_output(f"├─ Atlas {atlas}: ✓ Complete", 'success')
-                            else:
-                                self.update_output(f"[Atlas] {subject_id}: Atlas {atlas} segmentation completed but some files missing. Created: {', '.join(created_files)}", 'warning')
-                        else:
-                            self.update_output(f"[Atlas] {subject_id}: Atlas {atlas} segmentation failed.\n{proc.stderr}", 'error')
-                    except Exception as e:
-                        self.update_output(f"[Atlas] {subject_id}: Error running subject_atlas: {e}", 'error')
-            
         
 
     def stop_preprocessing(self):

@@ -43,7 +43,7 @@ class ProcessMonitorThread(QThread):
         self.relevant_keywords = [
             'charm', 'simnibs', 'freesurfer', 'recon-all', 'dcm2niix',
             'fsl', 'bet', 'fast', 'first', 'flirt', 'fnirt',
-            'structural.sh', 'dicom2nifti.sh', 'charm.sh', 'recon-all.sh',
+            'pre_process.py', 'pre/structural.py', 'pre/dicom2nifti.py', 'pre/charm.py', 'pre/recon_all.py',
             'ti_sim.py', 'flex-search.py', 'ex-search', 'leadfield.py',
             'mesh_field_analyzer.py', 'main-TI.sh', 'main-mTI.sh',
             'simulator', 'python.*TI', 'matlab.*sim', 'gmsh', 'tetgen',

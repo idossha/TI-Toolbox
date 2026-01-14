@@ -153,18 +153,13 @@ def test_gui_cli_runs_gui_module(monkeypatch, tmp_path: Path):
 def test_pre_process_direct_calls_structural(monkeypatch, tmp_path: Path):
     from tit.cli import pre_process as pp
 
-    structural = tmp_path / "structural.sh"
-    structural.write_text("#!/bin/bash\nexit 0\n")
-
-    monkeypatch.setattr(pp, "_script_path", lambda name: structural)
-
     calls = []
 
-    def fake_call(cmd):
-        calls.append(cmd)
+    def fake_run_pipeline(project_dir, subject_ids, **kwargs):
+        calls.append((project_dir, list(subject_ids), kwargs))
         return 0
 
-    monkeypatch.setattr(pp.subprocess, "call", fake_call)
+    monkeypatch.setattr(pp, "run_pipeline", fake_run_pipeline)
 
     proj = tmp_path / "proj"
     proj.mkdir(parents=True, exist_ok=True)
@@ -172,10 +167,10 @@ def test_pre_process_direct_calls_structural(monkeypatch, tmp_path: Path):
     cli = pp.PreProcessCLI()
     rc = _run_cli(cli, ["--subs", "101,102"])
     assert rc == 0
-    assert calls, "expected structural.sh to be invoked"
-    # structural.sh should be called once with two subject dirs
-    assert str(proj / "sub-101") in calls[0]
-    assert str(proj / "sub-102") in calls[0]
+    assert calls, "expected pipeline to be invoked"
+    project_dir, subject_ids, _kwargs = calls[0]
+    assert project_dir == str(proj)
+    assert set(subject_ids) == {"101", "102"}
 
 
 def test_vis_blender_direct_delegates(monkeypatch, tmp_path: Path):
@@ -884,31 +879,11 @@ def test_pre_process_direct_comprehensive_argument_coverage(monkeypatch, tmp_pat
 
     captured_calls = []
 
-    # Create fake scripts
-    structural = tmp_path / "structural.sh"
-    structural.write_text("#!/bin/bash\nexit 0\n")
-    atlas = tmp_path / "subject_atlas.sh"
-    atlas.write_text("#!/bin/bash\nexit 0\n")
-    tissue = tmp_path / "tissue-analyzer.sh"
-    tissue.write_text("#!/bin/bash\nexit 0\n")
-
-    def fake_script_path(name: str):
-        if name == "structural.sh":
-            return structural
-        elif name == "subject_atlas.sh":
-            return atlas
-        elif name == "tissue-analyzer.sh":
-            return tissue
-        return tmp_path / name
-
-    # Mock subprocess to avoid actual script execution
-    def fake_subprocess_call(cmd):
-        captured_calls.append(("subprocess_call", cmd))
+    def fake_run_pipeline(project_dir, subject_ids, **kwargs):
+        captured_calls.append((project_dir, list(subject_ids), kwargs))
         return 0
 
-    # Mock the actual functions that get called
-    monkeypatch.setattr(pp, "_script_path", fake_script_path)
-    monkeypatch.setattr('subprocess.call', fake_subprocess_call)
+    monkeypatch.setattr(pp, "run_pipeline", fake_run_pipeline)
 
     cli = pp.PreProcessCLI()
 
@@ -916,56 +891,45 @@ def test_pre_process_direct_comprehensive_argument_coverage(monkeypatch, tmp_pat
     captured_calls.clear()
     rc = _run_cli(cli, ["--subs", "101,102"])
     assert rc == 0
-    assert len(captured_calls) == 1  # Only structural.sh called
+    assert len(captured_calls) == 1
 
     # Test 2: Convert DICOM
     captured_calls.clear()
     rc = _run_cli(cli, ["--subs", "101", "--convert-dicom"])
     assert rc == 0
-    assert "--convert-dicom" in captured_calls[0][1]
+    assert captured_calls[0][2]["convert_dicom"] is True
 
     # Test 3: Run recon-all
     captured_calls.clear()
     rc = _run_cli(cli, ["--subs", "101", "--run-recon"])
     assert rc == 0
-    assert "recon-all" in " ".join(captured_calls[0][1])
+    assert captured_calls[0][2]["run_recon"] is True
 
     # Test 4: Parallel recon
     captured_calls.clear()
     rc = _run_cli(cli, ["--subs", "101", "--run-recon", "--parallel-recon"])
     assert rc == 0
-    assert "--parallel" in captured_calls[0][1]
+    assert captured_calls[0][2]["parallel_recon"] is True
 
     # Test 5: Create m2m
     captured_calls.clear()
     rc = _run_cli(cli, ["--subs", "101", "--create-m2m"])
     assert rc == 0
-    assert "--create-m2m" in captured_calls[0][1]
+    assert captured_calls[0][2]["create_m2m"] is True
 
     # Test 6: Multiple subjects space-separated
     captured_calls.clear()
     rc = _run_cli(cli, ["--subs", "101", "102", "--run-recon"])
     assert rc == 0
-    assert str(proj / "sub-101") in captured_calls[0][1]
-    assert str(proj / "sub-102") in captured_calls[0][1]
+    assert set(captured_calls[0][1]) == {"101", "102"}
 
-    # Test 7: Create atlas
-    captured_calls.clear()
-    rc = _run_cli(cli, ["--subs", "101", "--create-atlas"])
-    assert rc == 0
-    assert len(captured_calls) == 2  # structural + atlas
-
-    # Test 8: Run tissue analysis (requires labeling file in correct location)
-    labeling_dir = proj / "derivatives" / "SimNIBS" / "sub-101" / "m2m_101" / "segmentation"
-    labeling_dir.mkdir(parents=True)
-    (labeling_dir / "Labeling.nii.gz").write_text("fake labeling")
-
+    # Test 7: Run tissue analysis (requires labeling file in correct location)
     captured_calls.clear()
     rc = _run_cli(cli, ["--subs", "101", "--run-tissue-analysis"])
     assert rc == 0
-    assert len(captured_calls) == 2  # structural + tissue
+    assert captured_calls[0][2]["run_tissue_analysis"] is True
 
-    # Test 9: All options combined (requires labeling for both subjects)
+    # Test 8: All options combined (requires labeling for both subjects)
     labeling_dir_102 = proj / "derivatives" / "SimNIBS" / "sub-102" / "m2m_102" / "segmentation"
     labeling_dir_102.mkdir(parents=True)
     (labeling_dir_102 / "Labeling.nii.gz").write_text("fake labeling")
@@ -977,11 +941,10 @@ def test_pre_process_direct_comprehensive_argument_coverage(monkeypatch, tmp_pat
         "--run-recon",
         "--parallel-recon",
         "--create-m2m",
-        "--create-atlas",
         "--run-tissue-analysis"
     ])
     assert rc == 0
-    assert len(captured_calls) == 4  # structural, atlas, tissue (101), tissue (102)
+    assert len(captured_calls) == 1
 
 
 def test_vis_blender_direct_comprehensive_argument_coverage(monkeypatch, tmp_path: Path):

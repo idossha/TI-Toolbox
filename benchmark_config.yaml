@@ -27,8 +27,8 @@ dicom:
   subject_source: /mnt/TIT_benchmarking/sourcedata/sub-101/
   subject_id: 101
   
-  # Script path
-  dicom_script: /development/tit/pre/dicom2nifti.sh
+  # Module path (used for metadata)
+  dicom_script: /development/tit/pre/dicom2nifti.py
   
   Output: /mnt/TIT_benchmarking/sub-101/anat/*.nii.gz
 
@@ -44,8 +44,8 @@ charm:
   t2_image: /mnt/TIT_benchmarking/sub-101/anat/sub-101_T2w.nii.gz
   subject_id: 101
   
-  # Script path
-  charm_script: /development/tit/pre/charm.sh
+  # Module path (used for metadata)
+  charm_script: /development/tit/pre/charm.py
   
   # Options
   clean: false                                       # Clean existing m2m directory before running
@@ -62,12 +62,12 @@ recon:
   # Subject configuration - can be single subject or list
   subjects: [101, 'RS']                              # List of subject IDs to process (or single: 101)
   
-  # Script path
-  recon_script: /development/tit/pre/recon-all.sh
+  # Module path (used for metadata)
+  recon_script: /development/tit/pre/recon_all.py
   
-  # Parallelization options (leverages recon-all.sh's native capabilities)
-  parallel: true                                     # Run multiple subjects in parallel (bash background jobs)
-  use_openmp: false                                  # Pass --parallel to recon-all.sh (OpenMP threading per subject)
+  # Parallelization options
+  parallel: true                                     # Run multiple subjects in parallel
+  use_openmp: false                                  # Enable FreeSurfer OpenMP per subject
   
   # Notes:
   # - parallel=true, use_openmp=false: Multiple subjects run simultaneously, each single-threaded
