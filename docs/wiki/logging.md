@@ -84,7 +84,6 @@ External command execution is logged with full details:
 - **Timestamped Log Files**: Automatic creation of timestamped log files
 - **Configurable Formats**: Different formats for console and file output
 - **Log Level Control**: Configurable logging levels
-- **Bash Script Support**: Includes a bash wrapper for logging in shell scripts
 
 ## Environment Variables
 
@@ -108,22 +107,6 @@ logger.debug("Detailed information for debugging")
 logger.info("General information about program execution")
 logger.warning("Warning messages for potentially problematic situations")
 logger.error("Error messages for serious problems")
-```
-
-### Bash Usage
-
-```bash
-# Source the logging utility
-source utils/bash_logging.sh
-
-# Initialize logging
-init_logging "my_script" "/path/to/logfile.log"
-
-# Log messages
-log_info "This is an info message"
-log_warning "This is a warning message"
-log_error "This is an error message"
-log_debug "This is a debug message"
 ```
 
 ### Advanced Features
