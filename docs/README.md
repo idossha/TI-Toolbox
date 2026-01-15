@@ -10,6 +10,37 @@ This repository serves documentation using **two static-site generators**:
 
 GitHub Pages is configured to serve the Jekyll site from the `docs/` folder.
 
+### Development Setup
+
+The documentation server uses **Ruby 3.3** for compatibility with modern macOS versions (including macOS 15/Sequoia). The `serve.sh` script automatically detects and uses the correct Ruby installation.
+
+#### macOS (Recommended)
+
+```bash
+# Install Ruby 3.3 via Homebrew
+brew install ruby@3.3
+
+# The serve.sh script will automatically use this Ruby version
+cd docs && bash serve.sh
+```
+
+#### Other Systems
+
+For Linux/Windows or systems requiring different Ruby configurations:
+
+1. **Install Ruby 3.3+** via your system's package manager (apt, yum, etc.) or use a version manager like `rbenv` or `rvm`
+2. **Install Bundler**: `gem install bundler`
+3. **Install dependencies**: `cd docs && bundle install`
+4. **Run server**: `cd docs && bundle exec jekyll serve`
+
+**Note**: The `serve.sh` script is designed to work across different systems. If you have a custom Ruby setup, you may need to modify the script's `PATH` configuration or run Jekyll commands directly.
+
+#### Troubleshooting
+
+- **Port 4000 already in use**: The script automatically kills existing Jekyll processes
+- **Ruby version conflicts**: Check that Ruby 3.3+ is in your PATH
+- **Missing gems**: Run `cd docs && bundle install` manually
+
 ## MkDocs (Python API reference)
 
 - **Source**: `docs/api_mkdocs/`

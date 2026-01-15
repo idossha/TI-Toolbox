@@ -9,9 +9,9 @@ permalink: /gallery/flex-search/
 <div class="gallery-section">
   <h3>Evolutionary Electrode Optimization</h3>
   <div class="gallery-grid">
-    <div class="gallery-item">
+    <div class="gallery-item">m
       <img src="{{ site.baseurl }}/assets/imgs/flex-search/flex-search_flex-search.png" alt="Flex-Search Optimization" onclick="openLightbox(this)" />
-      <p>Evolutionary optimization showing flexible electrode placement unbound by EEG net.</p>
+      <p>Evolutionary optimization showing flexible electrode placement unbound by EEG net discretization.</p>
     </div>
     <div class="gallery-item">
       <img src="{{ site.baseurl }}/assets/imgs/flex-search/flex-search_mapping.png" alt="Electrode Mapping" onclick="openLightbox(this)" />
@@ -19,7 +19,7 @@ permalink: /gallery/flex-search/
     </div>
     <div class="gallery-item">
       <img src="{{ site.baseurl }}/assets/imgs/flex-search/flex-search_max_TI_field.png" alt="Maximum TI Field" onclick="openLightbox(this)" />
-      <p>Maximum temporal interference field visualization across the brain volume.</p>
+      <p>TImax visualization across the brain surface.</p>
     </div>
     <div class="gallery-item">
       <img src="{{ site.baseurl }}/assets/imgs/flex-search/flex-search_max_TI_ROI.png" alt="Maximum TI ROI" onclick="openLightbox(this)" />

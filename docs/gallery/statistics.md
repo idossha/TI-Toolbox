@@ -11,11 +11,11 @@ permalink: /gallery/statistics/
   <div class="gallery-grid">
     <div class="gallery-item">
       <img src="{{ site.baseurl }}/assets/imgs/stats/stats_efield_avg_with_cluster_MNI.png" alt="E-field Average with Cluster MNI" onclick="openLightbox(this)" />
-      <p>Descriptive statistics for TI field distributions across subjects.</p>
+      <p>MNI T1 template with cohort level TImax field average in heat + significant cluster from cluster based pemutation test.</p>
     </div>
     <div class="gallery-item">
       <img src="{{ site.baseurl }}/assets/imgs/stats/stats_permutation_null_dist.png" alt="Permutation Null Distribution" onclick="openLightbox(this)" />
-      <p>Statistical comparison between different subject groups or conditions.</p>
+      <p>Permutation distribution of maximum cluster mass</p>
     </div>
   </div>
 </div>

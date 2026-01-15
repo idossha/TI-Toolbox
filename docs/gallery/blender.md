@@ -26,12 +26,8 @@ permalink: /gallery/blender/
       <p>Top view of high-frequency field visualization in Blender.</p>
     </div>
     <div class="gallery-item">
-      <img src="{{ site.baseurl }}/assets/imgs/blender/visual_exporter_electrodes_subcortical.png" alt="Electrode Subcortical Visualization" onclick="openLightbox(this)" />
-      <p>Electrode placement with subcortical structure visualization.</p>
-    </div>
-    <div class="gallery-item">
       <img src="{{ site.baseurl }}/assets/imgs/blender/visual_exporter_ply_sample_2.png" alt="PLY Export Sample 2" onclick="openLightbox(this)" />
-      <p>Second sample of PLY mesh export from visual exporter.</p>
+      <p>Example of PLY mesh export from visual exporter showing DKT atlas + left insula.</p>
     </div>
     <div class="gallery-item">
       <img src="{{ site.baseurl }}/assets/imgs/blender/visual_exporter_rgb_vectors.png" alt="RGB Vector Visualization" onclick="openLightbox(this)" />
@@ -44,6 +40,14 @@ permalink: /gallery/blender/
     <div class="gallery-item">
       <img src="{{ site.baseurl }}/assets/imgs/blender/visual_exporter_vectors.png" alt="Vector Field Visualization" onclick="openLightbox(this)" />
       <p>Comprehensive vector field visualization in Blender.</p>
+    </div>
+    <div class="gallery-item">
+      <img src="{{ site.baseurl }}/assets/imgs/blender/4_channel_HF_high_vector_density.png" alt="4-Channel individual HF vector field" onclick="openLightbox(this)" />
+      <p>Four-channel individual high-frequency field vector visualization</p>
+    </div>
+    <div class="gallery-item">
+      <img src="{{ site.baseurl }}/assets/imgs/blender/4_channel_mTI_field.png" alt="4-Channel mTI Field" onclick="openLightbox(this)" />
+      <p>Four-channel mTI field vector visualization</p>
     </div>
   </div>
 </div>

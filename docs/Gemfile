@@ -1,5 +1,8 @@
 source "https://rubygems.org"
 
+# Web server for Jekyll (removed from Ruby 3.0+)
+gem "webrick", "~> 1.8"
+
 # Minimal Jekyll setup without Sass processing
 gem "jekyll", "~> 3.9.0"
 gem "minima", "~> 2.5"

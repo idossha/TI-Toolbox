@@ -13,15 +13,15 @@ Comprehensive analysis and visualization of TI simulation results, field distrib
   <div class="gallery-grid">
     <div class="gallery-item">
       <img src="{{ site.baseurl }}/assets/imgs/analyzer/analyzer_TI_max.png" alt="Maximum TI Field" onclick="openLightbox(this)" />
-      <p>TInorm field distribution showing intensity map in the cortical ROI (Left Insula).</p>
+      <p>TImax (norm, modulation depth) field distribution showing intensity map in the cortical ROI (Left Insula).</p>
     </div>
     <div class="gallery-item">
       <img src="{{ site.baseurl }}/assets/imgs/analyzer/analyzer_TI_normal.png" alt="Normalized TI Field" onclick="openLightbox(this)" />
-      <p>Normal component of the TInorm field distribution showing intensity map in the cortical ROI (Left Insula)</p>
+      <p>Normal component of the TImax field distribution showing intensity map in the cortical ROI (Left Insula)</p>
     </div>
     <div class="gallery-item">
       <img src="{{ site.baseurl }}/assets/imgs/analyzer/analyzer_TI_max_all.png" alt="All TI Field Components" onclick="openLightbox(this)" />
-      <p>TInorm field distribution showing intensity map across the entire brain.</p>
+      <p>TImax field distribution showing intensity map across the entire brain.</p>
     </div>
   </div>
 </div>
@@ -31,11 +31,11 @@ Comprehensive analysis and visualization of TI simulation results, field distrib
   <div class="gallery-grid">
     <div class="gallery-item">
       <img src="{{ site.baseurl }}/assets/imgs/analyzer/analyzer_voxel_montage_1.png" alt="TInorm field in ROI (Right Hippocampus)" onclick="openLightbox(this)" />
-      <p>Montage A: TInorm field distribution showing intensity map in the sub-cortical ROI (Right Hippocampus).</p>
+      <p>Montage A: TImax field distribution showing intensity map in the sub-cortical ROI (Right Hippocampus).</p>
     </div>
     <div class="gallery-item">
       <img src="{{ site.baseurl }}/assets/imgs/analyzer/analyzer_voxel_montage_2.png" alt="TInormal field in ROI (Right Hippocampus)" onclick="openLightbox(this)" />
-      <p>Montage B: TInorm field distribution showing intensity map in the sub-cortical ROI (Right Hippocampus).</p>
+      <p>Montage B: TImax field distribution showing intensity map in the sub-cortical ROI (Right Hippocampus).</p>
     </div>
   </div>
 </div>

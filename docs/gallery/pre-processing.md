@@ -11,19 +11,19 @@ permalink: /gallery/pre-processing/
   <div class="gallery-grid">
     <div class="gallery-item">
       <img src="{{ site.baseurl }}/assets/imgs/pre_process/pre-process_dicom.png" alt="DICOM Processing" onclick="openLightbox(this)" />
-      <p>DICOM files serve as the only require input data to start the pipeline.</p>
+      <p>DICOM files serve as the only require input data to start the pipeline. Required T1w and optional T2w.</p>
     </div>
     <div class="gallery-item">
       <img src="{{ site.baseurl }}/assets/imgs/pre_process/pre-process_nifti.png" alt="NIfTI Conversion" onclick="openLightbox(this)" />
-      <p>3D volumetric niftii file is created using dcm2niix from DICOMs.</p>
+      <p>3D volumetric NIfTI file is created using dcm2niix software from DICOMs.</p>
     </div>
     <div class="gallery-item">
       <img src="{{ site.baseurl }}/assets/imgs/pre_process/pre-process_co-registration.png" alt="Preprocessing Pipeline" onclick="openLightbox(this)" />
-      <p>Automatic co-registration of multiple EEG nets is part of the CHARM function</p>
+      <p>Automatic co-registration of multiple EEG nets during the creation of m2m folder.</p>
     </div>
     <div class="gallery-item">
       <img src="{{ site.baseurl }}/assets/imgs/pre_process/pre-process_atlas.png" alt="Atlas Registration" onclick="openLightbox(this)" />
-      <p>Multiple cortical atlases are aligned to subject space</p>
+      <p>Multiple cortical atlases are automatically aligned to subject space, here showing DKT.</p>
     </div>
   </div>
 </div>
