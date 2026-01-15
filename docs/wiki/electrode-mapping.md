@@ -106,6 +106,12 @@ The tool generates a JSON file with the following structure:
 
 This tool is automatically called by the flex-search optimization when the "Run simulation with mapped electrodes" option is enabled in the GUI. It can also be used standalone for post-hoc analysis or custom workflows.
 
+## EEG Net Density Impact on Optimization Performance
+
+<img src="{{ site.baseurl }}/assets/imgs/other/net_density_impact.png" alt="Network Density Impact on TImax" style="width: 80%; max-width: 600px;">
+
+**Impact of EEG net density on TImax intensity**: This analysis demonstrates the progressive decline in achievable TImax intensity as electrode density decreases. Starting from fully optimized electrode positions (theoretical maximum), the study shows how mapping to standardized EEG nets progressively reduces field strength: fully optimized positions achieve maximum intensity, followed by 10:5 density (high coverage), 10:10 system (standard density), and finally 10:20 system showing the greatest reduction. This highlights the trade-off between practical electrode accessibility and theoretical optimization performance.
+
 ## Example Workflow
 
 1. Run flex-search optimization to generate `electrode_positions.json`
