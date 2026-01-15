@@ -42,6 +42,16 @@ permalink: /gallery/simulations/
   </div>
 </div>
 
+<div class="gallery-section">
+  <h3>Available EEG Electrode Nets</h3>
+  <div class="gallery-grid">
+    <div class="gallery-item">
+      <img src="{{ site.baseurl }}/assets/imgs/simulator/eeg_nets_available.png" alt="Available EEG Nets Table" onclick="openLightbox(this)" />
+      <p>Table of EEG nets automatically co-registered to head models for TI simulations, electrode optimization, and leadfield calculations.</p>
+    </div>
+  </div>
+</div>
+
 <!-- Lightbox Modal -->
 <div id="lightbox" class="lightbox" onclick="closeLightbox()">
   <span class="close" onclick="closeLightbox()">&times;</span>

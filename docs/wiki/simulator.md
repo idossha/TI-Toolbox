@@ -74,26 +74,23 @@ Mode that allows exploration of untraditional montages
 
 ## Available EEG Nets
 
-The simulator automatically detects and supports various electrode configurations:
+<img src="{{ site.baseurl }}/assets/imgs/simulator/eeg_nets_available.png" alt="Available EEG Nets" style="width: 100%; max-width: 800px;">
 
-### Standard EEG Nets
-- **10-10 System**: High-density electrode placement (64+ electrodes)
-- **10-20 System**: Standard clinical electrode placement (32 electrodes)
-- **GSN-HydroCel-256**: High-density research net (256 electrodes)
-- **GSN-HydroCel-185**: Research-grade net (185 electrodes)
+The TI-Toolbox automatically co-registers the following EEG electrode nets to head models during preprocessing. These pre-aligned nets enable seamless integration with simulation workflows, electrode optimization, and leadfield calculations.
 
-### Specialized Nets
-- **EGI Systems**: Multiple EGI electrode configurations
-- **EasyCap**: TMS-compatible electrode layouts
-- **Custom Nets**: User-defined electrode positions via CSV files
+### Automatic Co-registration Benefits
 
-### Net Detection
-- **Automatic Scanning**: Searches `eeg_positions/` directories for available nets
-- **Dynamic Updates**: Montage lists refresh based on selected EEG net
-- **Compatibility Filtering**: Only compatible montages shown for selected net
+- **Seamless Integration**: no manual registration steps
+- **Simulation Ready**: Instant compatibility with TI field simulation workflows
+- **Optimization Support**: Direct integration with flex-search tools
+- **Leadfield Generation**: all avilable for leadfield matrix creation
+
+### Net Detection and Management
+- **Automatic Scanning**: Searches `eeg_positions/` directories for available electrode configurations
+- **Dynamic Updates**: Montage lists automatically refresh based on selected EEG net
+- **Compatibility Filtering**: Only compatible montages are displayed for the selected electrode configuration
 
 ---
-
 ## Anisotropy
 
 The simulator supports different tissue conductivity models:
