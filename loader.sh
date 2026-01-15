@@ -20,6 +20,7 @@ load_default_paths() {
 # Function to save default paths
 save_default_paths() {
     echo "LOCAL_PROJECT_DIR=\"$LOCAL_PROJECT_DIR\"" > "$DEFAULT_PATHS_FILE"
+    echo "ENABLE_QSIPREP=\"$ENABLE_QSIPREP\"" >> "$DEFAULT_PATHS_FILE"
 }
 
 # Function to validate and prompt for the project directory
@@ -59,6 +60,25 @@ get_project_directory() {
   done
 }
 
+# Function to prompt for optional QSIPrep container
+prompt_qsiprep() {
+  local default="n"
+  if [[ "${ENABLE_QSIPREP:-false}" == "true" ]]; then
+    default="y"
+  fi
+
+  echo "Enable QSIPrep container? (y/n) [default: $default]"
+  read -r response
+  if [[ -z "$response" ]]; then
+    response="$default"
+  fi
+
+  if [[ "$response" == "y" || "$response" == "Y" ]]; then
+    ENABLE_QSIPREP="true"
+  else
+    ENABLE_QSIPREP="false"
+  fi
+}
 # Function to check for macOS
 check_macos() {
     if [[ "$(uname)" != "Darwin" ]]; then
@@ -149,6 +169,10 @@ display_welcome() {
 # Function to ensure required Docker volumes exist
 ensure_docker_volumes() {
   local volumes=( "ti-toolbox_freesurfer_data")
+
+  if [[ "${ENABLE_QSIPREP:-false}" == "true" ]]; then
+    volumes+=( "ti-toolbox_qsiprep_data" )
+  fi
   
   for volume in "${volumes[@]}"; do
     if ! docker volume inspect "$volume" >/dev/null 2>&1; then
@@ -161,6 +185,11 @@ ensure_docker_volumes() {
 
 # Function to run Docker Compose and attach to simnibs container
 run_docker_compose() {
+  local compose_profiles=()
+  if [[ "${ENABLE_QSIPREP:-false}" == "true" ]]; then
+    compose_profiles+=(--profile qsiprep)
+  fi
+
   # Ensure volumes exist
   ensure_docker_volumes
 
@@ -172,6 +201,9 @@ run_docker_compose() {
   
   # Extract image names from docker-compose.yml
   local compose_images=$(grep -E '^\s+image:' "$SCRIPT_DIR/docker-compose.yml" | awk '{print $2}')
+  if [[ "${ENABLE_QSIPREP:-false}" != "true" ]]; then
+    compose_images=$(echo "$compose_images" | grep -v "pennlinc/qsiprep")
+  fi
   
   # Check each required image
   while IFS= read -r image; do
@@ -185,7 +217,7 @@ run_docker_compose() {
   # Pull only if images are missing
   if [ ${#images_needed[@]} -gt 0 ]; then
     echo "Pulling required Docker images..."
-    docker compose -f "$SCRIPT_DIR/docker-compose.yml" pull
+    docker compose -f "$SCRIPT_DIR/docker-compose.yml" "${compose_profiles[@]}" pull
   fi
 
   # Set host machine timezone for notes and logging
@@ -193,7 +225,7 @@ run_docker_compose() {
 
   # Run Docker Compose
   echo "Starting services..."
-  docker compose -f "$SCRIPT_DIR/docker-compose.yml" up --build -d
+  docker compose -f "$SCRIPT_DIR/docker-compose.yml" "${compose_profiles[@]}" up --build -d
 
   # Wait for containers to initialize
   echo "Waiting for services to initialize..."
@@ -211,12 +243,16 @@ run_docker_compose() {
     setup_example_data_in_container
   fi
 
+  if [[ "${ENABLE_QSIPREP:-false}" == "true" ]]; then
+    setup_qsiprep_wrappers
+  fi
+
   # Attach to the simnibs container with an interactive terminal
   echo "Attaching to the simnibs_container..."
   docker exec -ti simnibs_container bash
 
   # Stop and remove all containers when done
-  docker compose -f "$SCRIPT_DIR/docker-compose.yml" down
+  docker compose -f "$SCRIPT_DIR/docker-compose.yml" "${compose_profiles[@]}" down
   # Stop and remove all containers when done
 
   # Revert X server access permissions
@@ -229,6 +265,50 @@ run_docker_compose() {
     ;;
   esac
 }
+
+# Expose QSIPrep/Recon inside simnibs by proxying to the QSIPrep container
+setup_qsiprep_wrappers() {
+  local qsiprep_container="qsiprep_container"
+  local simnibs_container="simnibs_container"
+
+  if ! docker ps | grep -q "$qsiprep_container"; then
+    echo "  ⚠ QSIPrep container is not running. Skipping QSIPrep setup."
+    return 1
+  fi
+
+  echo "Preparing QSIPrep access inside simnibs container..."
+
+  docker exec "$simnibs_container" bash -lc '
+    set -e
+    cat > /usr/local/bin/qsiprep << "EOF"
+#!/bin/bash
+set -e
+if [ -t 1 ]; then
+  exec docker exec -ti qsiprep_container qsiprep "$@"
+else
+  exec docker exec -i qsiprep_container qsiprep "$@"
+fi
+EOF
+    chmod +x /usr/local/bin/qsiprep
+
+    cat > /usr/local/bin/qsirecon << "EOF"
+#!/bin/bash
+set -e
+if [ -t 1 ]; then
+  exec docker exec -ti qsiprep_container qsirecon "$@"
+else
+  exec docker exec -i qsiprep_container qsirecon "$@"
+fi
+EOF
+    chmod +x /usr/local/bin/qsirecon
+  ' || {
+    echo "  ⚠ Failed to create QSIPrep wrapper commands."
+    return 1
+  }
+
+  echo "  ✓ qsiprep/qsirecon now available inside simnibs container"
+}
+
 
 # Get current timezone from host machine (cross-platform)
 get_host_timezone() {
@@ -597,6 +677,7 @@ fi
 
 load_default_paths
 get_project_directory
+prompt_qsiprep
 
 # Sanitize potential carriage returns from path
 LOCAL_PROJECT_DIR=${LOCAL_PROJECT_DIR%$'\r'}
@@ -621,6 +702,7 @@ esac
 PROJECT_DIR_NAME=$(basename "$LOCAL_PROJECT_DIR")
 PROJECT_DIR_NAME=$(printf "%s" "$PROJECT_DIR_NAME" | tr -d '\r')
 export PROJECT_DIR_NAME
+export ENABLE_QSIPREP
 
 # Save the paths for next time
 save_default_paths

@@ -218,10 +218,14 @@ class PathManager:
         "sourcedata": (const.DIR_SOURCEDATA,),
         "simnibs": (const.DIR_DERIVATIVES, const.DIR_SIMNIBS),
         "freesurfer": (const.DIR_DERIVATIVES, "freesurfer"),
+        "qsiprep": (const.DIR_DERIVATIVES, const.DIR_QSIPREP),
+        "qsirecon": (const.DIR_DERIVATIVES, const.DIR_QSIRECON),
         "simnibs_subject": (const.DIR_DERIVATIVES, const.DIR_SIMNIBS, f"{const.PREFIX_SUBJECT}{{subject_id}}"),
         "m2m": (const.DIR_DERIVATIVES, const.DIR_SIMNIBS, f"{const.PREFIX_SUBJECT}{{subject_id}}", f"{const.DIR_M2M_PREFIX}{{subject_id}}"),
         "simulations": (const.DIR_DERIVATIVES, const.DIR_SIMNIBS, f"{const.PREFIX_SUBJECT}{{subject_id}}", "Simulations"),
         "simulation": (const.DIR_DERIVATIVES, const.DIR_SIMNIBS, f"{const.PREFIX_SUBJECT}{{subject_id}}", "Simulations", "{simulation_name}"),
+        "qsiprep_subject": (const.DIR_DERIVATIVES, const.DIR_QSIPREP, f"{const.PREFIX_SUBJECT}{{subject_id}}"),
+        "qsirecon_subject": (const.DIR_DERIVATIVES, const.DIR_QSIRECON, f"{const.PREFIX_SUBJECT}{{subject_id}}"),
         # freesurfer
         "freesurfer_subject": (const.DIR_DERIVATIVES, "freesurfer", f"{const.PREFIX_SUBJECT}{{subject_id}}"),
         "freesurfer_mri": (const.DIR_DERIVATIVES, "freesurfer", f"{const.PREFIX_SUBJECT}{{subject_id}}", "mri"),
@@ -251,6 +255,7 @@ class PathManager:
         # preprocessing / sourcedata
         "bids_subject": (f"{const.PREFIX_SUBJECT}{{subject_id}}",),
         "bids_anat": (f"{const.PREFIX_SUBJECT}{{subject_id}}", "anat"),
+        "bids_dwi": (f"{const.PREFIX_SUBJECT}{{subject_id}}", const.DIR_DWI),
         "sourcedata": (const.DIR_SOURCEDATA,),
         "sourcedata_subject": (const.DIR_SOURCEDATA, f"{const.PREFIX_SUBJECT}{{subject_id}}"),
         "sourcedata_dicom": (const.DIR_SOURCEDATA, f"{const.PREFIX_SUBJECT}{{subject_id}}", "{modality}", "dicom"),

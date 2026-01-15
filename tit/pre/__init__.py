@@ -12,6 +12,7 @@ from .recon_all import run_recon_all
 from .charm import run_charm
 from .tissue_analyzer import run_tissue_analysis
 from .fix_t2_filenames import run_fix_t2_filenames
+from .dwi import run_qsiprep, run_qsirecon
 
 __all__ = [
     "run_pipeline",
@@ -20,4 +21,6 @@ __all__ = [
     "run_charm",
     "run_tissue_analysis",
     "run_fix_t2_filenames",
+    "run_qsiprep",
+    "run_qsirecon",
 ]

@@ -33,6 +33,11 @@ DIR_EX_SEARCH = "ex-search"
 DIR_FLEX_SEARCH = "flex-search"
 DIR_LEADFIELDS = "leadfields"
 DIR_ANALYSIS = "Analyses"
+DIR_DWI = "dwi"
+
+# DWI/DTI derivatives
+DIR_QSIPREP = "qsiprep"
+DIR_QSIRECON = "qsirecon"
 
 # Configuration directory
 DIR_CONFIG = "config"

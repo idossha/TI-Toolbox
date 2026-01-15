@@ -26,13 +26,24 @@ def _ensure_subject_dirs(project_dir: Path, subject_id: str) -> None:
 
 class PreProcessCLI(BaseCLI):
     def __init__(self) -> None:
-        super().__init__("Run preprocessing pipeline (structural / m2m / atlas / tissue analysis).")
-        self.add_argument(ArgumentDefinition(name="subjects", type=str, nargs="+", help="Subject IDs (comma-separated or space-separated).", required=True))
+        super().__init__("Run preprocessing pipeline (structural / DWI / m2m / atlas / tissue analysis).")
+        self.add_argument(
+            ArgumentDefinition(
+                name="subjects",
+                type=str,
+                nargs="+",
+                help="Subject IDs (comma-separated or space-separated).",
+                required=True,
+                flags=["--subs", "-subs", "--subjects", "-subjects"],
+            )
+        )
         self.add_argument(ArgumentDefinition(name="convert_dicom", type=bool, help="Convert dicom to nifti", default=False))
         self.add_argument(ArgumentDefinition(name="run_recon", type=bool, help="Run FreeSurfer recon-all", default=False))
         self.add_argument(ArgumentDefinition(name="parallel_recon", type=bool, help="Run recon-all in parallel across subjects", default=False))
         self.add_argument(ArgumentDefinition(name="create_m2m", type=bool, help="Create SimNIBS m2m folder (charm)", default=False))
         self.add_argument(ArgumentDefinition(name="run_tissue_analysis", type=bool, help="Run tissue analyzer", default=False))
+        self.add_argument(ArgumentDefinition(name="run_qsiprep", type=bool, help="Run QSIPrep (DWI preprocessing)", default=False))
+        self.add_argument(ArgumentDefinition(name="run_qsirecon", type=bool, help="Run QSIRECON (DWI reconstruction)", default=False))
 
     def run_interactive(self) -> int:
         pm = get_path_manager()
@@ -59,6 +70,8 @@ class PreProcessCLI(BaseCLI):
         parallel_recon = utils.ask_bool("Use --parallel recon-all?", default=False)
         create_m2m = utils.ask_bool("Create m2m (charm)?", default=False)
         run_tissue_analysis = utils.ask_bool("Run tissue analysis?", default=False)
+        run_qsiprep = utils.ask_bool("Run QSIPrep (DWI)?", default=False)
+        run_qsirecon = utils.ask_bool("Run QSIRECON (DWI)?", default=False)
 
         if not utils.review_and_confirm(
             "Review (pre-process)",
@@ -69,6 +82,8 @@ class PreProcessCLI(BaseCLI):
                 ("Parallel recon", "yes" if parallel_recon else "no"),
                 ("Create m2m", "yes" if create_m2m else "no"),
                 ("Tissue analysis", "yes" if run_tissue_analysis else "no"),
+                ("QSIPrep (DWI)", "yes" if run_qsiprep else "no"),
+                ("QSIRECON (DWI)", "yes" if run_qsirecon else "no"),
             ],
             default_yes=True,
         ):
@@ -83,6 +98,8 @@ class PreProcessCLI(BaseCLI):
                 parallel_recon=parallel_recon,
                 create_m2m=create_m2m,
                 run_tissue_analysis=run_tissue_analysis,
+                run_qsiprep=run_qsiprep,
+                run_qsirecon=run_qsirecon,
             )
         )
 
@@ -104,6 +121,8 @@ class PreProcessCLI(BaseCLI):
             parallel_recon=bool(args.get("parallel_recon", False)),
             create_m2m=bool(args.get("create_m2m", False)),
             run_tissue_analysis=bool(args.get("run_tissue_analysis", False)),
+            run_qsiprep=bool(args.get("run_qsiprep", False)),
+            run_qsirecon=bool(args.get("run_qsirecon", False)),
         )
 
 

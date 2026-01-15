@@ -25,6 +25,8 @@ DATASET_TEMPLATES = {
     "freesurfer": "freesurfer.dataset_description.json",
     "simnibs": "simnibs.dataset_description.json",
     "ti-toolbox": "ti-toolbox.dataset_description.json",
+    "qsiprep": "qsiprep.dataset_description.json",
+    "qsirecon": "qsirecon.dataset_description.json",
 }
 
 
@@ -54,6 +56,10 @@ def _dataset_description_target(project_dir: str, dataset: str) -> Path:
         return Path(project_dir) / "derivatives" / "SimNIBS" / "dataset_description.json"
     if dataset == "ti-toolbox":
         return Path(project_dir) / "derivatives" / "ti-toolbox" / "dataset_description.json"
+    if dataset == "qsiprep":
+        return Path(project_dir) / "derivatives" / "qsiprep" / "dataset_description.json"
+    if dataset == "qsirecon":
+        return Path(project_dir) / "derivatives" / "qsirecon" / "dataset_description.json"
     raise ValueError(f"Unknown dataset: {dataset}")
 
 

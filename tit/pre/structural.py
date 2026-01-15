@@ -23,6 +23,7 @@ from .common import (
 from .dicom2nifti import run_dicom_to_nifti
 from .recon_all import run_recon_all
 from .tissue_analyzer import run_tissue_analysis
+from .dwi import run_qsiprep as run_qsiprep_dwi, run_qsirecon as run_qsirecon_dwi
 
 
 def _run_step(label: str, func, logger) -> bool:
@@ -49,6 +50,8 @@ def _run_subject_pipeline(
     create_m2m: bool,
     create_atlas: bool,
     run_tissue: bool,
+    run_qsiprep: bool,
+    run_qsirecon: bool,
     debug: bool,
     overwrite: Optional[bool],
     prompt_overwrite: Optional[bool],
@@ -69,7 +72,14 @@ def _run_subject_pipeline(
     overall_success = True
     policy = get_overwrite_policy(overwrite, prompt_overwrite)
 
-    if run_recon and not convert_dicom and not create_m2m:
+    if (
+        run_recon
+        and not convert_dicom
+        and not create_m2m
+        and not run_tissue
+        and not run_qsiprep
+        and not run_qsirecon
+    ):
         overall_success &= _run_step(
             "FreeSurfer recon-all",
             lambda: run_recon_all(
@@ -88,6 +98,34 @@ def _run_subject_pipeline(
             overall_success &= _run_step(
                 "DICOM conversion",
                 lambda: run_dicom_to_nifti(
+                    project_dir,
+                    subject_id,
+                    logger=logger,
+                    overwrite=policy.overwrite,
+                    prompt_overwrite=policy.prompt,
+                    runner=runner,
+                ),
+                logger,
+            )
+
+        if run_qsiprep:
+            overall_success &= _run_step(
+                "QSIPrep (DWI)",
+                lambda: run_qsiprep_dwi(
+                    project_dir,
+                    subject_id,
+                    logger=logger,
+                    overwrite=policy.overwrite,
+                    prompt_overwrite=policy.prompt,
+                    runner=runner,
+                ),
+                logger,
+            )
+
+        if run_qsirecon:
+            overall_success &= _run_step(
+                "QSIRECON (DWI)",
+                lambda: run_qsirecon_dwi(
                     project_dir,
                     subject_id,
                     logger=logger,
@@ -159,6 +197,8 @@ def run_pipeline(
     create_m2m: bool = False,
     create_atlas: bool = False,
     run_tissue_analysis: bool = False,
+    run_qsiprep: bool = False,
+    run_qsirecon: bool = False,
     debug: bool = False,
     overwrite: Optional[bool] = None,
     prompt_overwrite: Optional[bool] = None,
@@ -188,6 +228,10 @@ def run_pipeline(
         Run subject atlas segmentation.
     run_tissue_analysis : bool, optional
         Run tissue analysis pipeline.
+    run_qsiprep : bool, optional
+        Run QSIPrep (DWI preprocessing).
+    run_qsirecon : bool, optional
+        Run QSIRECON (DWI reconstruction).
     debug : bool, optional
         Enable verbose logging.
     overwrite : bool, optional
@@ -221,6 +265,10 @@ def run_pipeline(
         datasets.add("freesurfer")
     if create_m2m or create_atlas:
         datasets.add("simnibs")
+    if run_qsiprep:
+        datasets.add("qsiprep")
+    if run_qsirecon:
+        datasets.add("qsirecon")
     ensure_dataset_descriptions(project_dir, datasets)
 
     if runner is None:
@@ -241,6 +289,8 @@ def run_pipeline(
                     create_m2m=create_m2m,
                     create_atlas=create_atlas,
                     run_tissue=False,
+                    run_qsiprep=run_qsiprep,
+                    run_qsirecon=run_qsirecon,
                     debug=debug,
                     overwrite=overwrite,
                     prompt_overwrite=prompt_overwrite,
@@ -269,6 +319,8 @@ def run_pipeline(
                         create_m2m=False,
                         create_atlas=False,
                         run_tissue=False,
+                        run_qsiprep=False,
+                        run_qsirecon=False,
                         debug=debug,
                         overwrite=overwrite,
                         prompt_overwrite=prompt_overwrite,
@@ -296,6 +348,8 @@ def run_pipeline(
                         create_m2m=False,
                         create_atlas=False,
                         run_tissue=True,
+                        run_qsiprep=False,
+                        run_qsirecon=False,
                         debug=debug,
                         overwrite=overwrite,
                         prompt_overwrite=prompt_overwrite,
@@ -319,6 +373,8 @@ def run_pipeline(
                     create_m2m=create_m2m,
                     create_atlas=create_atlas,
                     run_tissue=run_tissue_analysis,
+                    run_qsiprep=run_qsiprep,
+                    run_qsirecon=run_qsirecon,
                     debug=debug,
                     overwrite=overwrite,
                     prompt_overwrite=prompt_overwrite,

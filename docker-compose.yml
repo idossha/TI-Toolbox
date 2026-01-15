@@ -16,6 +16,7 @@ services:
     container_name: simnibs_container
     volumes:
       - ti-toolbox_freesurfer_data:/usr/local/freesurfer/
+      - /var/run/docker.sock:/var/run/docker.sock
       - /tmp/.X11-unix:/tmp/.X11-unix:rw      # X11 socket mount for Linux/macOS
       - ${LOCAL_PROJECT_DIR}:/mnt/${PROJECT_DIR_NAME}
       - ${HOME}/.Xauthority:/root/.Xauthority:rw       # Additional mount for macOS XQuartz compatibility
@@ -41,6 +42,26 @@ services:
     restart: unless-stopped
     command: ["tail", "-f", "/dev/null"]
 
+  qsiprep:
+    image: pennlinc/qsiprep:latest
+    platform: linux/amd64
+    container_name: qsiprep_container
+    profiles:
+      - qsiprep
+    entrypoint: ["/bin/bash", "-lc"]
+    volumes:
+      - ${LOCAL_PROJECT_DIR}:/data
+      - ${LOCAL_PROJECT_DIR}:/out
+      - ti-toolbox_freesurfer_data:/opt/freesurfer
+      - ti-toolbox_qsiprep_data:/qsiprep-data
+    environment:
+      FS_LICENSE: /opt/freesurfer/license.txt
+    networks:
+      - ti_network
+    tty: true
+    stdin_open: true
+    command: ["tail -f /dev/null"]
+
 networks:
   ti_network:
     driver: bridge
@@ -49,4 +70,7 @@ volumes:
   ti-toolbox_freesurfer_data:
     external: true
     name: ti-toolbox_freesurfer_data
+  ti-toolbox_qsiprep_data:
+    external: true
+    name: ti-toolbox_qsiprep_data
 

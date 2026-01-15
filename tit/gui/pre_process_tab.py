@@ -40,6 +40,8 @@ class PreProcessThread(QtCore.QThread):
         create_m2m: bool,
         create_atlas: bool,
         run_tissue_analysis: bool,
+        run_qsiprep: bool,
+        run_qsirecon: bool,
         debug_mode: bool,
         overwrite_outputs: bool,
     ):
@@ -53,6 +55,8 @@ class PreProcessThread(QtCore.QThread):
         self.create_m2m = create_m2m
         self.create_atlas = create_atlas
         self.run_tissue_analysis = run_tissue_analysis
+        self.run_qsiprep = run_qsiprep
+        self.run_qsirecon = run_qsirecon
         self.debug_mode = debug_mode
         self.overwrite_outputs = overwrite_outputs
         self.stop_event = threading.Event()
@@ -78,6 +82,8 @@ class PreProcessThread(QtCore.QThread):
                 create_m2m=self.create_m2m,
                 create_atlas=self.create_atlas,
                 run_tissue_analysis=self.run_tissue_analysis,
+                run_qsiprep=self.run_qsiprep,
+                run_qsirecon=self.run_qsirecon,
                 debug=self.debug_mode,
                 overwrite=self.overwrite_outputs,
                 prompt_overwrite=False,
@@ -227,6 +233,15 @@ class PreProcessTab(QtWidgets.QWidget):
         self.convert_dicom_cb = QtWidgets.QCheckBox("Convert DICOM files to NIfTI")
         self.convert_dicom_cb.setChecked(True)
         options_group_layout.addWidget(self.convert_dicom_cb)
+
+        # DWI preprocessing options
+        self.run_qsiprep_cb = QtWidgets.QCheckBox("Run QSIPrep")
+        self.run_qsiprep_cb.setChecked(False)
+        options_group_layout.addWidget(self.run_qsiprep_cb)
+
+        self.run_qsirecon_cb = QtWidgets.QCheckBox("Run QSIRECON")
+        self.run_qsirecon_cb.setChecked(False)
+        options_group_layout.addWidget(self.run_qsirecon_cb)
         
         # FreeSurfer options
         self.run_recon_cb = QtWidgets.QCheckBox("Run FreeSurfer recon-all")
@@ -395,6 +410,8 @@ class PreProcessTab(QtWidgets.QWidget):
         self.select_none_btn.setEnabled(not is_processing)
         self.refresh_subjects_btn.setEnabled(not is_processing)
         self.convert_dicom_cb.setEnabled(not is_processing)
+        self.run_qsiprep_cb.setEnabled(not is_processing)
+        self.run_qsirecon_cb.setEnabled(not is_processing)
         self.run_recon_cb.setEnabled(not is_processing)
         self.parallel_cb.setEnabled(not is_processing and self.run_recon_cb.isChecked())
         self.create_m2m_cb.setEnabled(not is_processing)
@@ -466,6 +483,26 @@ class PreProcessTab(QtWidgets.QWidget):
                 )
                 return
 
+        # Check if QSIRECON is enabled without QSIPrep outputs
+        if self.run_qsirecon_cb.isChecked() and not self.run_qsiprep_cb.isChecked():
+            missing_qsiprep_subjects = []
+            for subject_id in selected_subjects:
+                bids_subject_id = f"sub-{subject_id}"
+                qsiprep_dir = os.path.join(self.project_dir, "derivatives", "qsiprep", bids_subject_id)
+                if not os.path.exists(qsiprep_dir):
+                    missing_qsiprep_subjects.append(subject_id)
+
+            if missing_qsiprep_subjects:
+                QtWidgets.QMessageBox.warning(
+                    self, "Missing QSIPrep Outputs",
+                    "QSIRECON requires QSIPrep outputs, but the following subjects are missing them:\n"
+                    f"{', '.join(missing_qsiprep_subjects)}\n\n"
+                    "Please either:\n"
+                    "1. Enable 'Run QSIPrep (DWI preprocessing)', or\n"
+                    "2. Run QSIPrep for these subjects first."
+                )
+                return
+
         # Check for existing output directories and confirm overwrite
         overwrite_outputs = False
         for subject_id in selected_subjects:
@@ -501,9 +538,25 @@ class PreProcessTab(QtWidgets.QWidget):
                         return
                     overwrite_outputs = True
 
+            if self.run_qsiprep_cb.isChecked():
+                qsiprep_dir = os.path.join(self.project_dir, "derivatives", "qsiprep", bids_subject_id)
+                if os.path.exists(qsiprep_dir):
+                    if not confirm_overwrite(self, qsiprep_dir, "QSIPrep output directory"):
+                        return
+                    overwrite_outputs = True
+
+            if self.run_qsirecon_cb.isChecked():
+                qsirecon_dir = os.path.join(self.project_dir, "derivatives", "qsirecon", bids_subject_id)
+                if os.path.exists(qsirecon_dir):
+                    if not confirm_overwrite(self, qsirecon_dir, "QSIRECON output directory"):
+                        return
+                    overwrite_outputs = True
+
         # Show confirmation dialog
         details = (f"This will process {len(selected_subjects)} subject(s) with the following options:\n\n" +
                    f"- Convert DICOM: {'Yes (auto-detects T1w/T2w)' if self.convert_dicom_cb.isChecked() else 'No'}\n" +
+                   f"- Run QSIPrep (DWI): {'Yes' if self.run_qsiprep_cb.isChecked() else 'No'}\n" +
+                   f"- Run QSIRECON (DWI): {'Yes' if self.run_qsirecon_cb.isChecked() else 'No'}\n" +
                    f"- Run recon-all: {'Yes' if self.run_recon_cb.isChecked() else 'No'}\n" +
                    f"- Parallel processing: {'Yes' if self.parallel_cb.isChecked() else 'No'}\n" +
                    f"- Create m2m folder: {'Yes' if self.create_m2m_cb.isChecked() else 'No'}\n" +
@@ -526,6 +579,8 @@ class PreProcessTab(QtWidgets.QWidget):
         self.update_output("Running pre-processing from GUI", 'debug')
         self.update_output(f"- Subjects: {', '.join(selected_subjects)}", 'debug')
         self.update_output(f"- Convert DICOM: {self.convert_dicom_cb.isChecked()}", 'debug')
+        self.update_output(f"- Run QSIPrep (DWI): {self.run_qsiprep_cb.isChecked()}", 'debug')
+        self.update_output(f"- Run QSIRECON (DWI): {self.run_qsirecon_cb.isChecked()}", 'debug')
         self.update_output(f"- Run recon-all: {self.run_recon_cb.isChecked()}", 'debug')
         self.update_output(f"- Parallel processing: {self.parallel_cb.isChecked()}", 'debug')
         self.update_output(f"- Create m2m folder: {self.create_m2m_cb.isChecked()}", 'debug')
@@ -543,6 +598,8 @@ class PreProcessTab(QtWidgets.QWidget):
             create_m2m=self.create_m2m_cb.isChecked(),
             create_atlas=False,
             run_tissue_analysis=self.run_tissue_analyzer_cb.isChecked(),
+            run_qsiprep=self.run_qsiprep_cb.isChecked(),
+            run_qsirecon=self.run_qsirecon_cb.isChecked(),
             debug_mode=self.debug_mode,
             overwrite_outputs=overwrite_outputs,
         )

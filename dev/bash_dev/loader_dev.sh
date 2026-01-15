@@ -21,6 +21,7 @@ load_default_paths() {
 save_default_paths() {
   echo "LOCAL_PROJECT_DIR=\"$LOCAL_PROJECT_DIR\"" > "$DEFAULT_PATHS_FILE"
   echo "DEV_CODEBASE_DIR=\"$DEV_CODEBASE_DIR\"" >> "$DEFAULT_PATHS_FILE"
+  echo "ENABLE_QSIPREP=\"$ENABLE_QSIPREP\"" >> "$DEFAULT_PATHS_FILE"
 }
 
 # Function to initialize required Docker volumes
@@ -33,6 +34,12 @@ initialize_volumes() {
   # Check and create FreeSurfer volume if it doesn't exist
   if ! docker volume inspect ti-toolbox_freesurfer_data >/dev/null 2>&1; then
     docker volume create ti-toolbox_freesurfer_data >/dev/null 2>&1
+  fi
+
+  if [[ "${ENABLE_QSIPREP:-false}" == "true" ]]; then
+    if ! docker volume inspect ti-toolbox_qsiprep_data >/dev/null 2>&1; then
+      docker volume create ti-toolbox_qsiprep_data >/dev/null 2>&1
+    fi
   fi
 }
 
@@ -84,6 +91,26 @@ get_project_directory() {
 # Function to get development codebase directory
 get_dev_codebase_directory() {
   get_directory_path "development codebase directory" "Enter path to development codebase:" DEV_CODEBASE_DIR
+}
+
+# Function to prompt for optional QSIPrep container
+prompt_qsiprep() {
+  local default="n"
+  if [[ "${ENABLE_QSIPREP:-false}" == "true" ]]; then
+    default="y"
+  fi
+
+  echo "Enable QSIPrep container? (y/n) [default: $default]"
+  read -r response
+  if [[ -z "$response" ]]; then
+    response="$default"
+  fi
+
+  if [[ "$response" == "y" || "$response" == "Y" ]]; then
+    ENABLE_QSIPREP="true"
+  else
+    ENABLE_QSIPREP="false"
+  fi
 }
 
 # Function to check XQuartz version (from config_sys.sh)
@@ -173,11 +200,19 @@ display_welcome() {
 
 # Function to run Docker Compose and attach to simnibs container
 run_docker_compose() {
+  local compose_profiles=()
+  if [[ "${ENABLE_QSIPREP:-false}" == "true" ]]; then
+    compose_profiles+=(--profile qsiprep)
+  fi
+
   # Check if required images exist, pull only if missing
   local images_needed=()
   
   # Extract image names from docker-compose.dev.yml
   local compose_images=$(grep -E '^\s+image:' "$SCRIPT_DIR/docker-compose.dev.yml" | awk '{print $2}')
+  if [[ "${ENABLE_QSIPREP:-false}" != "true" ]]; then
+    compose_images=$(echo "$compose_images" | grep -v "pennlinc/qsiprep")
+  fi
   
   # Check each required image
   while IFS= read -r image; do
@@ -191,7 +226,7 @@ run_docker_compose() {
   # Pull only if images are missing
   if [ ${#images_needed[@]} -gt 0 ]; then
     echo "Pulling required Docker images..."
-    docker compose -f "$SCRIPT_DIR/docker-compose.dev.yml" pull
+    docker compose -f "$SCRIPT_DIR/docker-compose.dev.yml" "${compose_profiles[@]}" pull
   fi
 
   # Set host machine timezone for notes and logging
@@ -199,7 +234,7 @@ run_docker_compose() {
 
   # Run Docker Compose
   echo "Starting services..."
-  docker compose -f "$SCRIPT_DIR/docker-compose.dev.yml" up -d
+  docker compose -f "$SCRIPT_DIR/docker-compose.dev.yml" "${compose_profiles[@]}" up -d
 
   # Wait for containers to initialize
   echo "Waiting for services to initialize..."
@@ -222,18 +257,65 @@ run_docker_compose() {
     exit 1
   fi
 
+  if [[ "${ENABLE_QSIPREP:-false}" == "true" ]]; then
+    setup_qsiprep_wrappers
+  fi
+
   # Attach to the simnibs container with an interactive terminal
   echo "Attaching to the simnibs_container..."
   docker exec -ti simnibs_container bash
 
   # Stop and remove all containers when done
-  docker compose -f "$SCRIPT_DIR/docker-compose.dev.yml" down
+  docker compose -f "$SCRIPT_DIR/docker-compose.dev.yml" "${compose_profiles[@]}" down
 
 
   # Revert X server access permissions (if xhost is available)
   if command -v xhost >/dev/null 2>&1; then
     xhost -local:root
   fi
+}
+
+# Expose QSIPrep/Recon inside simnibs by proxying to the QSIPrep container
+setup_qsiprep_wrappers() {
+  local qsiprep_container="qsiprep_container"
+  local simnibs_container="simnibs_container"
+
+  if ! docker ps | grep -q "$qsiprep_container"; then
+    echo "  ⚠ QSIPrep container is not running. Skipping QSIPrep setup."
+    return 1
+  fi
+
+  echo "Preparing QSIPrep access inside simnibs container..."
+
+  docker exec "$simnibs_container" bash -lc '
+    set -e
+    cat > /usr/local/bin/qsiprep << "EOF"
+#!/bin/bash
+set -e
+if [ -t 1 ]; then
+  exec docker exec -ti qsiprep_container qsiprep "$@"
+else
+  exec docker exec -i qsiprep_container qsiprep "$@"
+fi
+EOF
+    chmod +x /usr/local/bin/qsiprep
+
+    cat > /usr/local/bin/qsirecon << "EOF"
+#!/bin/bash
+set -e
+if [ -t 1 ]; then
+  exec docker exec -ti qsiprep_container qsirecon "$@"
+else
+  exec docker exec -i qsiprep_container qsirecon "$@"
+fi
+EOF
+    chmod +x /usr/local/bin/qsirecon
+  ' || {
+    echo "  ⚠ Failed to create QSIPrep wrapper commands."
+    return 1
+  }
+
+  echo "  ✓ qsiprep/qsirecon now available inside simnibs container"
 }
 
 # Function to get version from version.py
@@ -674,6 +756,7 @@ display_welcome
 load_default_paths
 get_project_directory
 get_dev_codebase_directory
+prompt_qsiprep
 # Sanitize possible carriage returns from user input paths - prevents creating a "\r" directory
 LOCAL_PROJECT_DIR=${LOCAL_PROJECT_DIR%$'\r'}
 DEV_CODEBASE_DIR=${DEV_CODEBASE_DIR%$'\r'}
@@ -695,6 +778,7 @@ export PROJECT_DIR_NAME
 export DEV_CODEBASE_DIR
 export DEV_CODEBASE_DIR_NAME
 export DEV_CODEBASE_NAME="$DEV_CODEBASE_DIR_NAME"  # Add this line to fix the warning
+export ENABLE_QSIPREP
 
 # Set OpenGL environment variables conditionally based on OS
 if [[ "$OS_TYPE" == "Darwin" ]]; then
