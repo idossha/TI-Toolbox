@@ -5,7 +5,7 @@
 TI-Toolbox
 """
 
-__version__ = "2.2.3"
+__version__ = "2.2.4"
 __author__ = "TI-Toolbox Team"
 
 # Logging utilities

@@ -4,11 +4,30 @@ title: Latest Release
 permalink: /releases/
 ---
 
-### v2.2.3 (Latest Release)
+### v2.2.4 (Latest Release)
 
-**Original Release Date**: January 07, 2026
-**Effective Release Date**: January 14, 2026 (re-uploaded tag with preprocessing refactored to deal with recon-all problem without releasing and official new image. Should be updated automatically to all users without breaking behavior).
+**Release Date**: January 16, 2026
 
+#### Additions
+- N/A
+
+#### Fixes
+- **Loader Program**: Fixed example data and initiliazation of the BIDS files. Also, should be handling X11 more gracefully.
+
+#### Download Links
+
+**Desktop App (latest):**
+[macOS Intel](https://github.com/idossha/TI-Toolbox/releases/latest/download/TI-Toolbox-2.2.4-x64.dmg) ·
+[macOS Apple Silicon](https://github.com/idossha/TI-Toolbox/releases/latest/download/TI-Toolbox-2.2.4-arm64.dmg) ·
+[Windows](https://github.com/idossha/TI-Toolbox/releases/latest/download/TI-Toolbox-2.2.4-Setup.exe) ·
+[Linux AppImage](https://github.com/idossha/TI-Toolbox/releases/latest/download/TI-Toolbox-2.2.4.AppImage) ·
+[Linux deb](https://github.com/idossha/TI-Toolbox/releases/latest/download/TT-Toolbox-2.2.4.deb)
+
+**Other:**
+- Docker Image: `docker pull idossha/simnibs:latest`
+- Source Code: [GitHub Repository](https://github.com/idossha/TI-Toolbox)
+
+For installation instructions, see the [Installation Guide]({{ site.baseurl }}/installation/).
 #### Additions
 - **New Blender Tool for Full Blend File Creation**: Complete Blender integration with automated blend file generation, electrode positioning, and visualization setup. Streamlined workflow for creating publication-ready 3D visualizations directly from simulation results.
 - **Ex-search**: Added an option to run the a truly exhaustive search option as all selected electrodes are pooled together instead of placed in stationary buckets. Refer to ex-search wiki tab for more information.

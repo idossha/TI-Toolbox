@@ -8,7 +8,24 @@ Complete changelog for all versions of the Temporal Interference Toolbox.
 
 
 ---
-### v2.2.3 (Latest Release)
+### v2.2.4 (Latest Release)
+**Release Date**: January 16, 2026
+#### Additions
+- N/A
+#### Fixes
+- **Loader Program**: Fixed example data and initiliazation of the BIDS files. Also, should be handling X11 more gracefully.
+#### Download Links
+**Desktop App (v2.2.4):**
+[macOS Intel](https://github.com/idossha/TI-Toolbox/releases/download/v2.2.4/TI-Toolbox-2.2.4-x64.dmg) ·
+[macOS Apple Silicon](https://github.com/idossha/TI-Toolbox/releases/download/v2.2.4/TI-Toolbox-2.2.4-arm64.dmg) ·
+[Windows](https://github.com/idossha/TI-Toolbox/releases/download/v2.2.4/TI-Toolbox-2.2.4-Setup.exe) ·
+[Linux AppImage](https://github.com/idossha/TI-Toolbox/releases/download/v2.2.4/TI-Toolbox-2.2.4.AppImage) ·
+[Linux deb](https://github.com/idossha/TI-Toolbox/releases/download/v2.2.4/ti-toolbox-2.2.4.deb)
+**Other:**
+- Docker Image: `docker pull idossha/simnibs:v2.2.4`
+- Source Code: [GitHub Repository](https://github.com/idossha/TI-Toolbox)
+---
+### v2.2.3
 
 **Original Release Date**: January 07, 2026
 **Effective Release Date**: January 14, 2026 (re-uploaded tag with preprocessing refactored to deal with recon-all problem without releasing and official new image. Should be updated automatically to all users without breaking behavior).
