@@ -24,7 +24,9 @@ Complete changelog for all versions of the Temporal Interference Toolbox.
 **Other:**
 - Docker Image: `docker pull idossha/simnibs:v2.2.4`
 - Source Code: [GitHub Repository](https://github.com/idossha/TI-Toolbox)
+
 ---
+
 ### v2.2.3
 
 **Original Release Date**: January 07, 2026
