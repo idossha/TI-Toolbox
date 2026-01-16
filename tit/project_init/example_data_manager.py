@@ -16,7 +16,7 @@ import logging
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
-from tit.core import get_path_manager
+from tit.core.paths import get_path_manager
 
 # Set up logging (no console output)
 logger = logging.getLogger(__name__)
@@ -201,7 +201,7 @@ class ExampleDataManager:
         ]
         
         for dir_path in core_dirs:
-            dir_path.mkdir(parents=True, exist_ok=True)
+            Path(dir_path).mkdir(parents=True, exist_ok=True)
         
         copied_subjects = []
         total_operations = 0

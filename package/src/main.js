@@ -438,15 +438,6 @@ ipcMain.handle('create-new-project', async (_event, projectDir, includeExampleDa
       }
     }
     
-    // Copy configuration files
-    const configSrcDir = path.join(toolboxRoot, 'tit', 'new_project', 'configs');
-    const configDstDir = path.join(validatedDir, 'code', 'ti-toolbox', 'config');
-    
-    if (fs.existsSync(configSrcDir)) {
-      await fs.copy(configSrcDir, configDstDir, { overwrite: false });
-      logger.info('Copied configuration files to new project');
-    }
-    
     // Create dataset_description.json if it doesn't exist
     const datasetDescPath = path.join(validatedDir, 'dataset_description.json');
     if (!fs.existsSync(datasetDescPath)) {

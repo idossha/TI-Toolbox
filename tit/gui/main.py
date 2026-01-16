@@ -56,7 +56,7 @@ class MainWindow(QtWidgets.QMainWindow):
     def __init__(self):
         super(MainWindow, self).__init__()
         
-        self.setWindowTitle("TI-Toolbox")
+        self.setWindowTitle(f"TI-Toolbox {__version__}")
         
         # Set window icon if available
         icon_path = os.path.join(os.path.dirname(__file__), '..', '..', 'docs', 'assets', 'imgs', 'icon.png')
@@ -516,7 +516,7 @@ def main():
     app._signal_heartbeat_timer = sig_timer
     
     # Check if this is a first-time user after a short delay
-    from tit.new_project.first_time_user import assess_user_status
+    from tit.project_init.first_time_user import assess_user_status
     QtCore.QTimer.singleShot(500, lambda: assess_user_status(window))
     
     # Check for updates after a short delay to ensure window is fully shown

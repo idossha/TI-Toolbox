@@ -91,7 +91,7 @@ class GUIRunner:
         parent_dir = self.gui_dir.parent
         watch_dirs = [
             parent_dir / "utils",
-            parent_dir / "new_project",
+            parent_dir / "project_init",
         ]
         
         for watch_dir in watch_dirs:

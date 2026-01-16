@@ -1,13 +1,8 @@
-# New Project Setup
+# Project Initialization
 
 This directory contains files and configurations that are used when initializing a new TI-Toolbox project. It serves as a template and initialization system for new projects.
 
 ## Contents
-
-### Configuration Files
-Located in `configs/`:
-- Default configuration files for various tools (pre-processing, simulation, search, etc.)
-- These files are copied to the new project's `code/ti-toolbox/config` directory when a project is first created
 
 ### First Time User Experience
 `first_time_user.py`:
@@ -28,8 +23,7 @@ Located in `configs/`:
 ## How It Works
 
 1. When a new project is created:
-   - The loader script (`loader.sh` or `dev/bash_dev/loader_dev.sh`) checks if the project is new
-   - If new, it copies all configuration files from `configs/` to the project
+   - The loader (`loader.py`) checks if the project is new
    - Creates a project status file (`derivatives/ti-toolbox/.ti-toolbox-info/project_status.json`) with initial flags
    - Initializes BIDS directory structure
    - Creates dataset_description.json and README files
@@ -80,8 +74,7 @@ project/
 │   ├── SimNIBS/                        # SimNIBS outputs
 │   └── freesurfer/                     # FreeSurfer outputs
 ├── code/                                # Code and configurations
-│   └── tit/
-│       └── config/                     # Configuration files
+│   └── ti-toolbox/
 ├── dataset_description.json             # BIDS dataset description
 └── README                               # BIDS README file
 ```
@@ -99,9 +92,9 @@ Example data is only copied if:
 
 ## Adding New Features
 
-To add new features to the new project setup:
+To add new features to the project initialization:
 1. Add new configuration files to `configs/`
-2. Update the loader scripts to handle new files
+2. Update the loader to handle new files
 3. Add new flags to the project status file if needed
 4. Update the `example_data_manager.py` if new example data is added
 5. Update this documentation
