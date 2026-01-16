@@ -104,10 +104,13 @@ check_xquartz_version() {
 allow_network_clients() {
   defaults write org.macosforge.xquartz.X11 nolisten_tcp -bool false >/dev/null 2>&1
   
-  # Check if XQuartz is already running
-  if ! pgrep -x "Xquartz" > /dev/null; then
-    open -a XQuartz
-    sleep 2
+  if ! pgrep -x "XQuartz" >/dev/null 2>&1 && ! pgrep -x "Xquartz" >/dev/null 2>&1; then
+    echo ""
+    echo "========================================"
+    echo "WARNING: XQuartz is NOT running."
+    echo "Start XQuartz if you need GUI support."
+    echo "========================================"
+    echo ""
   fi
 }
 

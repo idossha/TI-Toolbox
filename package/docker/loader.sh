@@ -22,6 +22,22 @@ if [ -z "${TZ:-}" ]; then
   export TZ="$(date +%Z)"
 fi
 
+images=$(grep -E '^\s*image:' "$COMPOSE_FILE" | awk '{print $2}')
+if [ -n "$images" ]; then
+  missing=()
+  while IFS= read -r image; do
+    if [ -n "$image" ]; then
+      if ! docker images --format "{{.Repository}}:{{.Tag}}" | grep -q "^${image}$"; then
+        missing+=("$image")
+      fi
+    fi
+  done <<< "$images"
+  if [ ${#missing[@]} -gt 0 ]; then
+    echo "Pulling required Docker images..."
+    docker compose -f "$COMPOSE_FILE" pull
+  fi
+fi
+
 echo "Using docker-compose file: $COMPOSE_FILE"
 docker compose -f "$COMPOSE_FILE" up --build -d
 
