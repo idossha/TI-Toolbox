@@ -29,6 +29,21 @@ Simply download, install, and launch — the app handles Docker management for y
 
 ---
 
+## Supported Operating Systems
+
+| Operating System | Support Level | Testing Status | Notes |
+|------------------|---------------|----------------|--------|
+| **Windows** | ✅ Full Support | ✅ Active Testing | Via WSL2 + Ubuntu |
+| **Linux (Ubuntu)** | ✅ Full Support | ✅ Active Testing | Primary development platform |
+| **macOS (Apple Silicon)** | ✅ Full Support | ✅ Active Testing | Native ARM64 support |
+| **macOS (Intel)** | ✅ Full Support | ⚠️ Stopped Testing | May work but no longer tested |
+
+### Known Issues
+- **Latest macOS version 26 (Tahoe)**: Potential compatibility issues with some graphical components
+
+
+---
+
 ## Prerequisites (Required for Both Options)
 
 - **Docker**: [Docker Desktop](https://www.docker.com/products/docker-desktop/) (Windows/macOS) or [Docker Engine](https://docs.docker.com/engine/install/) (Linux)
