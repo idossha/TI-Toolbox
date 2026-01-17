@@ -8,12 +8,10 @@ cd "$SCRIPT_DIR"
 OS_TYPE=$(uname -s)
 DEFAULT_PATHS_FILE="$SCRIPT_DIR/.default_paths.user"
 
-PROJECT_DIR_CREATED="false"
-PROJECT_DIR_EMPTY="false"
-VERBOSE="false"
 AUTO_CREATE="false"
 PROJECT_DIR_ARG=""
 XHOST_BIN=""
+SIMNIBS_CONTAINER_NAME="simnibs_container"
 
 die() {
   echo "$1"
@@ -166,11 +164,6 @@ get_project_directory() {
         read -r response
         [[ "$response" == "y" ]] || continue
       fi
-      if [[ -z "$(ls -A "$LOCAL_PROJECT_DIR" 2>/dev/null)" ]]; then
-        PROJECT_DIR_EMPTY="true"
-      else
-        PROJECT_DIR_EMPTY="false"
-      fi
       break
     elif [[ -e "$LOCAL_PROJECT_DIR" ]]; then
       echo "Path exists but is not a directory: $LOCAL_PROJECT_DIR"
@@ -185,8 +178,6 @@ get_project_directory() {
       fi
       if [[ "$response" == "y" ]]; then
         mkdir -p "$LOCAL_PROJECT_DIR" || die "Error: Unable to create directory $LOCAL_PROJECT_DIR"
-        PROJECT_DIR_CREATED="true"
-        PROJECT_DIR_EMPTY="true"
         break
       fi
     fi
@@ -218,7 +209,7 @@ ensure_images_pulled() {
 }
 
 initialize_project_in_container() {
-  local container_name="simnibs_container"
+  local container_name="$SIMNIBS_CONTAINER_NAME"
   local container_project_dir="/mnt/$PROJECT_DIR_NAME"
 
   echo "Initializing project (inside container)..."
@@ -282,7 +273,7 @@ run_docker_compose() {
   echo "Waiting for services to initialize..."
   sleep 3
 
-  if ! docker ps --format "{{.Names}}" | grep -q "simnibs_container"; then
+  if ! docker ps --format "{{.Names}}" | grep -q "$SIMNIBS_CONTAINER_NAME"; then
     echo "Error: simnibs service is not running. Please check your docker-compose.yml and container logs."
     docker compose -f "$SCRIPT_DIR/docker-compose.yml" logs
     exit 1
@@ -292,9 +283,9 @@ run_docker_compose() {
 
   echo "Attaching to the simnibs_container..."
   if [[ -t 0 ]]; then
-    docker exec -ti simnibs_container bash
+    docker exec -ti "$SIMNIBS_CONTAINER_NAME" bash
   else
-    docker exec -i simnibs_container bash
+    docker exec -i "$SIMNIBS_CONTAINER_NAME" bash
   fi
 
   docker compose -f "$SCRIPT_DIR/docker-compose.yml" down
@@ -312,7 +303,7 @@ parse_args() {
         shift
         ;;
       --verbose)
-        VERBOSE="true"
+        # kept for backwards compatibility; currently a no-op
         shift
         ;;
       *)

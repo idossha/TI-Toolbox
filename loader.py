@@ -347,16 +347,14 @@ def main() -> None:
     default_dir = load_default_project_dir()
     if args.project_dir:
         project_dir = Path(os.path.expanduser(args.project_dir))
-        created = not project_dir.exists()
-        if created:
+        if not project_dir.exists():
             if args.yes:
                 project_dir.mkdir(parents=True, exist_ok=True)
             else:
                 print(f"Directory does not exist: {project_dir}")
                 sys.exit(1)
-        is_empty = not any(project_dir.iterdir())
     else:
-        project_dir, created, is_empty = prompt_project_dir(default_dir, args.yes)
+        project_dir, _created, _is_empty = prompt_project_dir(default_dir, args.yes)
 
     save_default_project_dir(str(project_dir))
 
