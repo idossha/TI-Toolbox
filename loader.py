@@ -186,23 +186,6 @@ def revert_xhost(xhost_bin: Optional[str]) -> None:
         run([xhost_bin, "-local:docker"], check=False, capture_output=True)
 
 
-def setup_example_data(project_dir: Path) -> bool:
-    try:
-        sys.path.insert(0, str(SCRIPT_DIR))
-        from tit.project_init import setup_example_data as setup_project_data
-    except Exception as exc:
-        print(f"  ⚠ Example data setup unavailable: {exc}")
-        return False
-
-    print("Setting up example data...")
-    success = setup_project_data(SCRIPT_DIR, project_dir)
-    if success:
-        print("  ✓ Example data copied successfully")
-        return True
-    print("  ⚠ Example data setup failed")
-    return False
-
-
 def ensure_docker_volume(volume_name: str) -> None:
     result = subprocess.run(["docker", "volume", "inspect", volume_name], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     if result.returncode != 0:
@@ -268,7 +251,61 @@ def run_example_data_in_container(container_name: str, project_dir_name: str) ->
     return False
 
 
-def run_docker_compose(project_dir: Path, project_dir_name: str, needs_example_data: bool) -> None:
+def run_project_init_in_container(container_name: str, project_dir_name: str) -> None:
+    container_project_dir = f"/mnt/{project_dir_name}"
+
+    local_manager = SCRIPT_DIR / "tit" / "project_init" / "example_data_manager.py"
+    if local_manager.exists():
+        subprocess.run(
+            ["docker", "cp", str(local_manager), f"{container_name}:/ti-toolbox/tit/project_init/example_data_manager.py"],
+            check=False,
+        )
+
+    # Run project init + optional example-data setup entirely in container python.
+    # The snippet always exits 0 to avoid treating "no-op" as failure.
+    cmd = [
+        "docker",
+        "exec",
+        "-e",
+        f"PROJECT_DIR={container_project_dir}",
+        container_name,
+        "bash",
+        "-lc",
+        "PYTHONPATH=/ti-toolbox simnibs_python - <<'PY'\n"
+        "import os\n"
+        "from pathlib import Path\n"
+        "\n"
+        "def main() -> int:\n"
+        "    project_dir = Path(os.environ['PROJECT_DIR'])\n"
+        "    toolbox_root = Path('/ti-toolbox')\n"
+        "\n"
+        "    try:\n"
+        "        from tit.project_init import is_new_project, initialize_project_structure, setup_example_data\n"
+        "    except Exception as exc:\n"
+        "        print(f\"  ⚠ Could not import tit.project_init in container: {exc}\")\n"
+        "        return 0\n"
+        "\n"
+        "    try:\n"
+        "        if is_new_project(project_dir):\n"
+        "            initialize_project_structure(project_dir)\n"
+        "    except Exception as exc:\n"
+        "        print(f\"  ⚠ Project structure initialization failed: {exc}\")\n"
+        "\n"
+        "    try:\n"
+        "        # Returns False when it is a no-op; that's not an error.\n"
+        "        setup_example_data(toolbox_root, project_dir)\n"
+        "    except Exception as exc:\n"
+        "        print(f\"  ⚠ Example data setup failed: {exc}\")\n"
+        "\n"
+        "    return 0\n"
+        "\n"
+        "raise SystemExit(main())\n"
+        "PY",
+    ]
+    subprocess.run(cmd, check=False)
+
+
+def run_docker_compose(project_dir: Path, project_dir_name: str) -> None:
     ensure_docker_volume("ti-toolbox_freesurfer_data")
 
     env = os.environ.copy()
@@ -299,9 +336,8 @@ def run_docker_compose(project_dir: Path, project_dir_name: str, needs_example_d
         run(["docker", "compose", "-f", str(DOCKER_COMPOSE_FILE), "logs"], env=env, check=False)
         sys.exit(1)
 
-    if needs_example_data:
-        print("Setting up example data...")
-        run_example_data_in_container("simnibs_container", project_dir_name)
+    print("Initializing project (inside container)...")
+    run_project_init_in_container("simnibs_container", project_dir_name)
 
     print("Attaching to the simnibs_container...")
     subprocess.run(["docker", "exec", "-ti", "simnibs_container", "bash"])
@@ -353,27 +389,11 @@ def main() -> None:
 
     save_default_project_dir(str(project_dir))
 
-    needs_example_data = False
-    try:
-        sys.path.insert(0, str(SCRIPT_DIR))
-        from tit.project_init import initialize_project_structure, is_new_project as is_new_project_dir
-    except Exception as exc:
-        print(f"Error: Could not load project initialization helpers: {exc}")
-        sys.exit(1)
-
-    if is_new_project_dir(project_dir):
-        initialize_project_structure(project_dir)
-        needs_example_data = created or is_empty
-
-    if needs_example_data:
-        if setup_example_data(project_dir):
-            needs_example_data = False
-
     set_display_env()
     allow_xhost(xhost_bin)
 
     try:
-        run_docker_compose(project_dir, project_dir.name, needs_example_data)
+        run_docker_compose(project_dir, project_dir.name)
     finally:
         revert_xhost(xhost_bin)
 

@@ -217,38 +217,6 @@ ensure_images_pulled() {
   fi
 }
 
-setup_example_data_host() {
-  if ! command -v python3 >/dev/null 2>&1; then
-    echo "  ⚠ Example data setup unavailable: python3 not found"
-    return 1
-  fi
-  python3 - <<'PY' >/dev/null 2>&1
-import sys
-from pathlib import Path
-sys.path.insert(0, sys.argv[1])
-from tit.project_init import setup_example_data
-toolbox_root = Path(sys.argv[1])
-project_dir = Path(sys.argv[2])
-ok = setup_example_data(toolbox_root, project_dir)
-sys.exit(0 if ok else 1)
-PY
-}
-
-initialize_project_if_new() {
-  if ! command -v python3 >/dev/null 2>&1; then
-    die "Error: python3 is required for project initialization."
-  fi
-  python3 - <<'PY' "$SCRIPT_DIR" "$LOCAL_PROJECT_DIR"
-import sys
-from pathlib import Path
-sys.path.insert(0, sys.argv[1])
-from tit.project_init import initialize_project_structure, is_new_project
-project_dir = Path(sys.argv[2])
-if is_new_project(project_dir):
-    initialize_project_structure(project_dir)
-PY
-}
-
 setup_example_data_in_container() {
   local container_name="simnibs_container"
   local container_project_dir="/mnt/$PROJECT_DIR_NAME"
@@ -266,6 +234,61 @@ setup_example_data_in_container() {
   else
     echo "  ⚠ Example data setup failed"
   fi
+}
+
+initialize_project_in_container() {
+  local container_name="simnibs_container"
+  local container_project_dir="/mnt/$PROJECT_DIR_NAME"
+
+  echo "Initializing project (inside container)..."
+
+  if ! docker exec "$container_name" test -d "$container_project_dir"; then
+    echo "  ⚠ Project directory not found in container: $container_project_dir"
+    return 1
+  fi
+
+  # Optionally keep the container-side example data manager in sync with this repo version.
+  # This does NOT use host Python; it only copies a file into the running container.
+  if [[ -f "$SCRIPT_DIR/tit/project_init/example_data_manager.py" ]]; then
+    docker cp "$SCRIPT_DIR/tit/project_init/example_data_manager.py" \
+      "$container_name:/ti-toolbox/tit/project_init/example_data_manager.py" >/dev/null 2>&1 || true
+  fi
+
+  # Run project init + optional example-data setup entirely in container python.
+  # Always exit 0 from the python snippet so loader.sh doesn't fail on "no-op" cases.
+  docker exec \
+    -e PROJECT_DIR="$container_project_dir" \
+    "$container_name" \
+    bash -lc 'PYTHONPATH=/ti-toolbox simnibs_python - <<'"'"'PY'"'"'
+import os
+from pathlib import Path
+
+def main() -> int:
+    project_dir = Path(os.environ["PROJECT_DIR"])
+    toolbox_root = Path("/ti-toolbox")
+
+    try:
+        from tit.project_init import is_new_project, initialize_project_structure, setup_example_data
+    except Exception as exc:
+        print(f"  ⚠ Could not import tit.project_init in container: {exc}")
+        return 0
+
+    try:
+        if is_new_project(project_dir):
+            initialize_project_structure(project_dir)
+    except Exception as exc:
+        print(f"  ⚠ Project structure initialization failed: {exc}")
+
+    try:
+        # This function returns False when it is a no-op; that's not an error.
+        setup_example_data(toolbox_root, project_dir)
+    except Exception as exc:
+        print(f"  ⚠ Example data setup failed: {exc}")
+
+    return 0
+
+raise SystemExit(main())
+PY'
 }
 
 run_docker_compose() {
@@ -287,9 +310,7 @@ run_docker_compose() {
     exit 1
   fi
 
-  if [[ "${NEEDS_EXAMPLE_DATA:-false}" == "true" ]]; then
-    setup_example_data_in_container
-  fi
+  initialize_project_in_container || true
 
   echo "Attaching to the simnibs_container..."
   docker exec -ti simnibs_container bash
@@ -332,16 +353,6 @@ get_project_directory
 
 PROJECT_DIR_NAME=$(basename "$LOCAL_PROJECT_DIR")
 save_default_paths
-
-initialize_project_if_new
-
-if [[ "$PROJECT_DIR_CREATED" == "true" || "$PROJECT_DIR_EMPTY" == "true" ]]; then
-  if setup_example_data_host "$SCRIPT_DIR" "$LOCAL_PROJECT_DIR"; then
-    NEEDS_EXAMPLE_DATA="false"
-  else
-    NEEDS_EXAMPLE_DATA="true"
-  fi
-fi
 
 set_display_env
 allow_xhost
