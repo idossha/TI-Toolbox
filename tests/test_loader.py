@@ -49,22 +49,15 @@ def test_ensure_images_pulled_calls_compose_pull(monkeypatch, tmp_path):
     assert calls[0][1] == env
 
 
-def test_loader_main_initializes_project(monkeypatch, tmp_path):
+def test_loader_main_calls_docker_compose(monkeypatch, tmp_path):
+    """Test that loader.main() calls run_docker_compose with the correct project directory."""
     project_dir = tmp_path / "project"
     project_dir.mkdir()
 
-    calls = {"init": 0, "run": 0}
+    docker_calls = []
 
-    def fake_init(_path):
-        calls["init"] += 1
-
-    def fake_run(*_args, **_kwargs):
-        calls["run"] += 1
-
-    import tit.project_init as project_init
-
-    monkeypatch.setattr(project_init, "initialize_project_structure", fake_init)
-    monkeypatch.setattr(project_init, "is_new_project", lambda _path: True)
+    def fake_docker_compose(project_dir_arg, project_name):
+        docker_calls.append((str(project_dir_arg), project_name))
 
     monkeypatch.setattr(loader, "check_docker_available", lambda: None)
     monkeypatch.setattr(loader, "check_x_forwarding", lambda: None)
@@ -72,8 +65,7 @@ def test_loader_main_initializes_project(monkeypatch, tmp_path):
     monkeypatch.setattr(loader, "set_display_env", lambda: None)
     monkeypatch.setattr(loader, "allow_xhost", lambda *_args, **_kwargs: None)
     monkeypatch.setattr(loader, "revert_xhost", lambda *_args, **_kwargs: None)
-    monkeypatch.setattr(loader, "run_docker_compose", fake_run)
-    monkeypatch.setattr(loader, "setup_example_data", lambda *_args, **_kwargs: True)
+    monkeypatch.setattr(loader, "run_docker_compose", fake_docker_compose)
     monkeypatch.setattr(loader, "save_default_project_dir", lambda *_args, **_kwargs: None)
 
     monkeypatch.setenv("HOME", str(tmp_path))
@@ -81,5 +73,6 @@ def test_loader_main_initializes_project(monkeypatch, tmp_path):
 
     loader.main()
 
-    assert calls["init"] == 1
-    assert calls["run"] == 1
+    assert len(docker_calls) == 1
+    assert docker_calls[0][0] == str(project_dir)  # Project directory passed correctly
+    assert docker_calls[0][1] == project_dir.name  # Project name passed correctly
