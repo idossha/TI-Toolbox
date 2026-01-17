@@ -217,25 +217,6 @@ ensure_images_pulled() {
   fi
 }
 
-setup_example_data_in_container() {
-  local container_name="simnibs_container"
-  local container_project_dir="/mnt/$PROJECT_DIR_NAME"
-  echo "Setting up example data..."
-  if ! docker exec "$container_name" test -d "$container_project_dir"; then
-    echo "  ⚠ Project directory not found in container: $container_project_dir"
-    return 1
-  fi
-  if [[ -f "$SCRIPT_DIR/tit/project_init/example_data_manager.py" ]]; then
-    docker cp "$SCRIPT_DIR/tit/project_init/example_data_manager.py" \
-      "$container_name:/ti-toolbox/tit/project_init/example_data_manager.py" >/dev/null 2>&1 || true
-  fi
-  if docker exec "$container_name" bash -lc "PYTHONPATH=/ti-toolbox simnibs_python -m tit.project_init.example_data_manager /ti-toolbox \"${container_project_dir}\""; then
-    echo "  ✓ Example data copied successfully"
-  else
-    echo "  ⚠ Example data setup failed"
-  fi
-}
-
 initialize_project_in_container() {
   local container_name="simnibs_container"
   local container_project_dir="/mnt/$PROJECT_DIR_NAME"
@@ -255,40 +236,37 @@ initialize_project_in_container() {
   fi
 
   # Run project init + optional example-data setup entirely in container python.
-  # Always exit 0 from the python snippet so loader.sh doesn't fail on "no-op" cases.
+  # Implemented with a container-side heredoc to avoid host-shell quoting issues.
   docker exec \
     -e PROJECT_DIR="$container_project_dir" \
     "$container_name" \
-    bash -lc 'PYTHONPATH=/ti-toolbox simnibs_python - <<'"'"'PY'"'"'
+    bash -lc "cat <<'PY' | PYTHONPATH=/ti-toolbox simnibs_python -
 import os
 from pathlib import Path
 
 def main() -> int:
-    project_dir = Path(os.environ["PROJECT_DIR"])
-    toolbox_root = Path("/ti-toolbox")
-
     try:
         from tit.project_init import is_new_project, initialize_project_structure, setup_example_data
     except Exception as exc:
-        print(f"  ⚠ Could not import tit.project_init in container: {exc}")
+        print(f\"  ⚠ Could not import tit.project_init in container: {exc}\")
         return 0
+
+    project_dir = Path(os.environ['PROJECT_DIR'])
+    toolbox_root = Path('/ti-toolbox')
 
     try:
         if is_new_project(project_dir):
             initialize_project_structure(project_dir)
-    except Exception as exc:
-        print(f"  ⚠ Project structure initialization failed: {exc}")
 
-    try:
-        # This function returns False when it is a no-op; that's not an error.
+        # Returns False when it is a no-op; that's not an error.
         setup_example_data(toolbox_root, project_dir)
     except Exception as exc:
-        print(f"  ⚠ Example data setup failed: {exc}")
+        print(f\"  ⚠ Project initialization failed: {exc}\")
 
     return 0
 
 raise SystemExit(main())
-PY'
+PY"
 }
 
 run_docker_compose() {
@@ -313,7 +291,11 @@ run_docker_compose() {
   initialize_project_in_container || true
 
   echo "Attaching to the simnibs_container..."
-  docker exec -ti simnibs_container bash
+  if [[ -t 0 ]]; then
+    docker exec -ti simnibs_container bash
+  else
+    docker exec -i simnibs_container bash
+  fi
 
   docker compose -f "$SCRIPT_DIR/docker-compose.yml" down
 }

@@ -222,35 +222,6 @@ def ensure_images_pulled(env: dict[str, str]) -> None:
     subprocess.run(["docker", "compose", "-f", str(DOCKER_COMPOSE_FILE), "pull"], env=env)
 
 
-def run_example_data_in_container(container_name: str, project_dir_name: str) -> bool:
-    container_project_dir = f"/mnt/{project_dir_name}"
-    if not subprocess.run(["docker", "exec", container_name, "test", "-d", container_project_dir]).returncode == 0:
-        print(f"  ⚠ Project directory not found in container: {container_project_dir}")
-        return False
-
-    local_manager = SCRIPT_DIR / "tit" / "project_init" / "example_data_manager.py"
-    if local_manager.exists():
-        subprocess.run(
-            ["docker", "cp", str(local_manager), f"{container_name}:/ti-toolbox/tit/project_init/example_data_manager.py"],
-            check=False,
-        )
-
-    cmd = [
-        "docker",
-        "exec",
-        container_name,
-        "bash",
-        "-lc",
-        f"PYTHONPATH=/ti-toolbox simnibs_python -m tit.project_init.example_data_manager /ti-toolbox \"{container_project_dir}\"",
-    ]
-    result = subprocess.run(cmd, stdout=None if VERBOSE else subprocess.PIPE, stderr=None if VERBOSE else subprocess.PIPE)
-    if result.returncode == 0:
-        print("  ✓ Example data copied successfully")
-        return True
-    print("  ⚠ Example data setup failed")
-    return False
-
-
 def run_project_init_in_container(container_name: str, project_dir_name: str) -> None:
     container_project_dir = f"/mnt/{project_dir_name}"
 
@@ -276,26 +247,23 @@ def run_project_init_in_container(container_name: str, project_dir_name: str) ->
         "from pathlib import Path\n"
         "\n"
         "def main() -> int:\n"
-        "    project_dir = Path(os.environ['PROJECT_DIR'])\n"
-        "    toolbox_root = Path('/ti-toolbox')\n"
-        "\n"
         "    try:\n"
         "        from tit.project_init import is_new_project, initialize_project_structure, setup_example_data\n"
         "    except Exception as exc:\n"
         "        print(f\"  ⚠ Could not import tit.project_init in container: {exc}\")\n"
         "        return 0\n"
         "\n"
+        "    project_dir = Path(os.environ['PROJECT_DIR'])\n"
+        "    toolbox_root = Path('/ti-toolbox')\n"
+        "\n"
         "    try:\n"
         "        if is_new_project(project_dir):\n"
         "            initialize_project_structure(project_dir)\n"
-        "    except Exception as exc:\n"
-        "        print(f\"  ⚠ Project structure initialization failed: {exc}\")\n"
         "\n"
-        "    try:\n"
         "        # Returns False when it is a no-op; that's not an error.\n"
         "        setup_example_data(toolbox_root, project_dir)\n"
         "    except Exception as exc:\n"
-        "        print(f\"  ⚠ Example data setup failed: {exc}\")\n"
+        "        print(f\"  ⚠ Project initialization failed: {exc}\")\n"
         "\n"
         "    return 0\n"
         "\n"
@@ -340,7 +308,10 @@ def run_docker_compose(project_dir: Path, project_dir_name: str) -> None:
     run_project_init_in_container("simnibs_container", project_dir_name)
 
     print("Attaching to the simnibs_container...")
-    subprocess.run(["docker", "exec", "-ti", "simnibs_container", "bash"])
+    if sys.stdin.isatty():
+        subprocess.run(["docker", "exec", "-ti", "simnibs_container", "bash"])
+    else:
+        subprocess.run(["docker", "exec", "-i", "simnibs_container", "bash"])
     run(["docker", "compose", "-f", str(DOCKER_COMPOSE_FILE), "down"], env=env, check=False)
 
 
