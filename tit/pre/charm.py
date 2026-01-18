@@ -16,8 +16,12 @@ from tit.core.overwrite import OverwritePolicy, get_overwrite_policy
 
 
 def _find_anat_files(bids_anat_dir: Path) -> tuple[Optional[Path], Optional[Path]]:
-    t1_candidates = sorted(list(bids_anat_dir.glob("*T1*.nii*")) + list(bids_anat_dir.glob("*t1*.nii*")))
-    t2_candidates = sorted(list(bids_anat_dir.glob("*T2*.nii*")) + list(bids_anat_dir.glob("*t2*.nii*")))
+    t1_candidates = sorted(
+        list(bids_anat_dir.glob("*T1*.nii*")) + list(bids_anat_dir.glob("*t1*.nii*"))
+    )
+    t2_candidates = sorted(
+        list(bids_anat_dir.glob("*T2*.nii*")) + list(bids_anat_dir.glob("*t2*.nii*"))
+    )
     t1_file = t1_candidates[0] if t1_candidates else None
     t2_file = t2_candidates[0] if t2_candidates else None
     return t1_file, t2_file
@@ -76,12 +80,18 @@ def run_charm(
             forcerun = True
             logger.warning(f"m2m output exists at {existing_m2m}; using --forcerun.")
         elif policy.prompt and os.isatty(0):
-            ans = input(
-                f"m2m output already exists for sub-{subject_id}. Re-run and overwrite? [y/N]: "
-            ).strip().lower()
+            ans = (
+                input(
+                    f"m2m output already exists for sub-{subject_id}. Re-run and overwrite? [y/N]: "
+                )
+                .strip()
+                .lower()
+            )
             if ans in {"y", "yes"}:
                 forcerun = True
-                logger.warning(f"User confirmed overwrite for sub-{subject_id}; using --forcerun.")
+                logger.warning(
+                    f"User confirmed overwrite for sub-{subject_id}; using --forcerun."
+                )
             else:
                 logger.warning(f"Skipping charm for sub-{subject_id} (outputs exist).")
                 return
@@ -104,6 +114,6 @@ def run_charm(
     exit_code = runner.run(cmd, logger=logger, cwd=str(simnibs_subject_dir))
 
     if exit_code != 0:
-        raise PreprocessError(f"charm failed for subject {subject_id} (exit {exit_code}).")
-
-
+        raise PreprocessError(
+            f"charm failed for subject {subject_id} (exit {exit_code})."
+        )

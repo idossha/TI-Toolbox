@@ -21,7 +21,9 @@ def test_ensure_reports_directory_creates_subject_dir(tmp_path: Path):
     reports_dir = ru._ensure_reports_directory(str(tmp_path), "001")
     assert reports_dir.exists()
     assert reports_dir.is_dir()
-    assert str(reports_dir).endswith(str(Path("derivatives/ti-toolbox/reports/sub-001")))
+    assert str(reports_dir).endswith(
+        str(Path("derivatives/ti-toolbox/reports/sub-001"))
+    )
 
 
 @pytest.mark.unit
@@ -29,19 +31,34 @@ def test_get_report_filename_is_stable_with_timestamp():
     from tit.reporting import report_util as ru
 
     ts = "20200101_010101"
-    assert ru._get_report_filename("preprocessing", "001", timestamp=ts) == f"{ru.PREPROCESSING_REPORT_PREFIX}_{ts}.html"
-    assert ru._get_report_filename("simulation", "sub-001", timestamp=ts) == f"{ru.SIMULATION_REPORT_PREFIX}_{ts}.html"
-    assert ru._get_report_filename("custom", "001", timestamp=ts) == f"custom_report_{ts}.html"
+    assert (
+        ru._get_report_filename("preprocessing", "001", timestamp=ts)
+        == f"{ru.PREPROCESSING_REPORT_PREFIX}_{ts}.html"
+    )
+    assert (
+        ru._get_report_filename("simulation", "sub-001", timestamp=ts)
+        == f"{ru.SIMULATION_REPORT_PREFIX}_{ts}.html"
+    )
+    assert (
+        ru._get_report_filename("custom", "001", timestamp=ts)
+        == f"custom_report_{ts}.html"
+    )
 
 
 @pytest.mark.unit
-def test_create_preprocessing_report_applies_log_and_defaults_output_path(tmp_path: Path):
+def test_create_preprocessing_report_applies_log_and_defaults_output_path(
+    tmp_path: Path,
+):
     from tit.reporting import report_util as ru
 
     # Make output deterministic
-    with patch.object(ru, "_generate_timestamp", return_value="20200101_000000"), \
-         patch.object(ru, "_ensure_reports_directory", return_value=tmp_path / "reports"), \
-         patch.object(ru, "PreprocessingReportGenerator") as Gen:
+    with (
+        patch.object(ru, "_generate_timestamp", return_value="20200101_000000"),
+        patch.object(
+            ru, "_ensure_reports_directory", return_value=tmp_path / "reports"
+        ),
+        patch.object(ru, "PreprocessingReportGenerator") as Gen,
+    ):
         inst = MagicMock()
         # return the path we were asked to write
         inst.generate_html_report.side_effect = lambda p: p
@@ -53,7 +70,9 @@ def test_create_preprocessing_report_applies_log_and_defaults_output_path(tmp_pa
             "warnings": [{"warning_message": "warn"}],
         }
 
-        out = ru.create_preprocessing_report(str(tmp_path), "sub-001", processing_log=processing_log)
+        out = ru.create_preprocessing_report(
+            str(tmp_path), "sub-001", processing_log=processing_log
+        )
 
         Gen.assert_called_once_with(str(tmp_path), "001")
         inst.add_processing_step.assert_called_once()
@@ -71,11 +90,15 @@ def test_create_simulation_report_session_default_path(tmp_path: Path):
         inst.generate_report.side_effect = lambda p: p
         Gen.return_value = inst
 
-        out = ru.create_simulation_report(str(tmp_path), simulation_session_id="sess123", simulation_log=None)
+        out = ru.create_simulation_report(
+            str(tmp_path), simulation_session_id="sess123", simulation_log=None
+        )
 
         Gen.assert_called_once_with(str(tmp_path), "sess123")
         # session report goes into project_dir/derivatives/ti-toolbox/reports/
-        assert out.endswith(str(Path("derivatives/ti-toolbox/reports/simulation_session_sess123.html")))
+        assert out.endswith(
+            str(Path("derivatives/ti-toolbox/reports/simulation_session_sess123.html"))
+        )
 
 
 @pytest.mark.unit
@@ -96,6 +119,7 @@ def test_list_reports_filters_and_sorts(tmp_path: Path):
     older.touch()
     newer.touch()
     import os
+
     os.utime(older, (older_mtime, older_mtime))
     os.utime(newer, (newer_mtime, newer_mtime))
 
@@ -109,5 +133,3 @@ def test_list_reports_filters_and_sorts(tmp_path: Path):
 
     latest = ru.get_latest_report(str(tmp_path), "001", "simulation")
     assert latest.endswith(newer.name)
-
-

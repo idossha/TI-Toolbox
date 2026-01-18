@@ -18,7 +18,7 @@ from unittest.mock import patch, MagicMock
 from pathlib import Path
 
 # Add the analyzer directory to the path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'tit', 'analyzer'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "tit", "analyzer"))
 
 # Import the module under test
 try:
@@ -27,7 +27,8 @@ except ImportError as e:
     # If relative imports fail, try absolute import
     import sys
     import os
-    analyzer_path = os.path.join(os.path.dirname(__file__), '..', 'tit', 'analyzer')
+
+    analyzer_path = os.path.join(os.path.dirname(__file__), "..", "tit", "analyzer")
     if analyzer_path not in sys.path:
         sys.path.insert(0, analyzer_path)
     import csv_group_comparator

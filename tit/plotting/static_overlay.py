@@ -103,7 +103,11 @@ def generate_static_overlay_images(
         "coronal": voxel_sizes[2] / voxel_sizes[0],  # z/x ratio
     }
 
-    generated_images: Dict[str, List[Dict[str, Any]]] = {"axial": [], "sagittal": [], "coronal": []}
+    generated_images: Dict[str, List[Dict[str, Any]]] = {
+        "axial": [],
+        "sagittal": [],
+        "coronal": [],
+    }
 
     orientations = [
         ("axial", 2, aspects["axial"]),  # slice along z-axis
@@ -143,39 +147,126 @@ def generate_static_overlay_images(
 
             fig, ax = plt.subplots(1, 1, figsize=(4, 4 * aspect_ratio), dpi=100)
             try:
-                ax.imshow(t1_slice, cmap="gray", alpha=1.0, aspect=aspect_ratio, vmin=0, vmax=1)
+                ax.imshow(
+                    t1_slice,
+                    cmap="gray",
+                    alpha=1.0,
+                    aspect=aspect_ratio,
+                    vmin=0,
+                    vmax=1,
+                )
 
                 overlay_voxels = int(np.sum(mask_slice))
                 if overlay_voxels > 0:
-                    ax.imshow(overlay_masked, cmap=cmap, alpha=0.6, aspect=aspect_ratio, vmin=0, vmax=1)
+                    ax.imshow(
+                        overlay_masked,
+                        cmap=cmap,
+                        alpha=0.6,
+                        aspect=aspect_ratio,
+                        vmin=0,
+                        vmax=1,
+                    )
 
                 ax.set_xticks([])
                 ax.set_yticks([])
-                ax.set_title(f"{orientation.title()} {i+1}", fontsize=12, fontweight="bold", pad=10)
+                ax.set_title(
+                    f"{orientation.title()} {i+1}",
+                    fontsize=12,
+                    fontweight="bold",
+                    pad=10,
+                )
 
                 # Compact orientation labels
                 if orientation == "axial":
-                    ax.text(0.05, 0.95, "L", transform=ax.transAxes, fontsize=10, fontweight="bold", color="white", va="top", ha="left")
-                    ax.text(0.95, 0.95, "R", transform=ax.transAxes, fontsize=10, fontweight="bold", color="white", va="top", ha="right")
+                    ax.text(
+                        0.05,
+                        0.95,
+                        "L",
+                        transform=ax.transAxes,
+                        fontsize=10,
+                        fontweight="bold",
+                        color="white",
+                        va="top",
+                        ha="left",
+                    )
+                    ax.text(
+                        0.95,
+                        0.95,
+                        "R",
+                        transform=ax.transAxes,
+                        fontsize=10,
+                        fontweight="bold",
+                        color="white",
+                        va="top",
+                        ha="right",
+                    )
                 elif orientation == "sagittal":
-                    ax.text(0.05, 0.95, "A", transform=ax.transAxes, fontsize=10, fontweight="bold", color="white", va="top", ha="left")
-                    ax.text(0.95, 0.95, "P", transform=ax.transAxes, fontsize=10, fontweight="bold", color="white", va="top", ha="right")
+                    ax.text(
+                        0.05,
+                        0.95,
+                        "A",
+                        transform=ax.transAxes,
+                        fontsize=10,
+                        fontweight="bold",
+                        color="white",
+                        va="top",
+                        ha="left",
+                    )
+                    ax.text(
+                        0.95,
+                        0.95,
+                        "P",
+                        transform=ax.transAxes,
+                        fontsize=10,
+                        fontweight="bold",
+                        color="white",
+                        va="top",
+                        ha="right",
+                    )
                 else:  # coronal
-                    ax.text(0.05, 0.95, "R", transform=ax.transAxes, fontsize=10, fontweight="bold", color="white", va="top", ha="left")
-                    ax.text(0.95, 0.95, "L", transform=ax.transAxes, fontsize=10, fontweight="bold", color="white", va="top", ha="right")
+                    ax.text(
+                        0.05,
+                        0.95,
+                        "R",
+                        transform=ax.transAxes,
+                        fontsize=10,
+                        fontweight="bold",
+                        color="white",
+                        va="top",
+                        ha="left",
+                    )
+                    ax.text(
+                        0.95,
+                        0.95,
+                        "L",
+                        transform=ax.transAxes,
+                        fontsize=10,
+                        fontweight="bold",
+                        color="white",
+                        va="top",
+                        ha="right",
+                    )
 
                 buf = io.BytesIO()
-                plt.savefig(buf, dpi=100, bbox_inches="tight", facecolor="white", edgecolor="none", format="png")
+                plt.savefig(
+                    buf,
+                    dpi=100,
+                    bbox_inches="tight",
+                    facecolor="white",
+                    edgecolor="none",
+                    format="png",
+                )
                 buf.seek(0)
                 image_base64 = base64.b64encode(buf.getvalue()).decode("utf-8")
             finally:
                 plt.close(fig)
 
             generated_images[orientation].append(
-                {"base64": image_base64, "slice_num": i + 1, "overlay_voxels": overlay_voxels}
+                {
+                    "base64": image_base64,
+                    "slice_num": i + 1,
+                    "overlay_voxels": overlay_voxels,
+                }
             )
 
     return generated_images
-
-
-

@@ -61,19 +61,26 @@ def _find_tetrahedral_mesh(sim_dir: str) -> str:
     return sorted(candidates)[0]
 
 
-def _find_central_surface_mesh(sim_dir: str, subject_id: str, simulation_name: str) -> str:
+def _find_central_surface_mesh(
+    sim_dir: str, subject_id: str, simulation_name: str
+) -> str:
     import subprocess
     import shutil
     from pathlib import Path
 
     pm = get_path_manager()
-    expected = pm.path_optional("ti_central_surface", subject_id=subject_id, simulation_name=simulation_name)
+    expected = pm.path_optional(
+        "ti_central_surface", subject_id=subject_id, simulation_name=simulation_name
+    )
     if expected and os.path.exists(expected):
         logger.debug(f"Found existing central surface: {expected}")
         return expected
 
     # Check for existing central surface in known locations
-    for d in (os.path.join(sim_dir, "TI", "mesh", "surfaces"), os.path.join(sim_dir, "TI", "mesh")):
+    for d in (
+        os.path.join(sim_dir, "TI", "mesh", "surfaces"),
+        os.path.join(sim_dir, "TI", "mesh"),
+    ):
         if not os.path.isdir(d):
             continue
         for f in os.listdir(d):
@@ -86,9 +93,13 @@ def _find_central_surface_mesh(sim_dir: str, subject_id: str, simulation_name: s
     logger.info("Central surface not found, generating using msh2cortex...")
 
     # Get paths
-    ti_mesh_path = pm.path_optional("ti_mesh", subject_id=subject_id, simulation_name=simulation_name)
+    ti_mesh_path = pm.path_optional(
+        "ti_mesh", subject_id=subject_id, simulation_name=simulation_name
+    )
     if not ti_mesh_path or not os.path.exists(ti_mesh_path):
-        raise FileNotFoundError(f"Volumetric TI mesh not found; expected at: {ti_mesh_path}")
+        raise FileNotFoundError(
+            f"Volumetric TI mesh not found; expected at: {ti_mesh_path}"
+        )
 
     m2m_dir = pm.path_optional("m2m", subject_id=subject_id)
     if not m2m_dir or not os.path.isdir(m2m_dir):
@@ -103,7 +114,9 @@ def _find_central_surface_mesh(sim_dir: str, subject_id: str, simulation_name: s
     logger.info(f"Running: {' '.join(cmd)}")
 
     try:
-        result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, check=True)
+        result = subprocess.run(
+            cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, check=True
+        )
         if result.stdout:
             logger.debug(f"msh2cortex output: {result.stdout}")
     except subprocess.CalledProcessError as e:
@@ -119,7 +132,9 @@ def _find_central_surface_mesh(sim_dir: str, subject_id: str, simulation_name: s
         break
 
     if not produced or not os.path.exists(produced):
-        raise FileNotFoundError(f"Central surface not found after msh2cortex in {surfaces_dir}")
+        raise FileNotFoundError(
+            f"Central surface not found after msh2cortex in {surfaces_dir}"
+        )
 
     # Copy to expected path if different
     if expected and os.path.abspath(produced) != os.path.abspath(expected):
@@ -135,7 +150,9 @@ def _find_central_surface_mesh(sim_dir: str, subject_id: str, simulation_name: s
     return produced
 
 
-def export_scalp_stl_from_sim(sim_dir: str, *, output_stl: str, skin_tag: int = 1005) -> str:
+def export_scalp_stl_from_sim(
+    sim_dir: str, *, output_stl: str, skin_tag: int = 1005
+) -> str:
     tetra_mesh = _find_tetrahedral_mesh(sim_dir)
     vertices, faces = be_utils.extract_scalp_from_msh(tetra_mesh, skin_tag=skin_tag)
     os.makedirs(os.path.dirname(output_stl), exist_ok=True)
@@ -143,7 +160,9 @@ def export_scalp_stl_from_sim(sim_dir: str, *, output_stl: str, skin_tag: int = 
     return output_stl
 
 
-def export_gm_stl_from_sim(sim_dir: str, *, subject_id: str, simulation_name: str, output_stl: str) -> str:
+def export_gm_stl_from_sim(
+    sim_dir: str, *, subject_id: str, simulation_name: str, output_stl: str
+) -> str:
     import numpy as np
     import simnibs
 
@@ -170,7 +189,9 @@ def _resolve_eeg_net_csv(*, subject_id: str, eeg_net_name: str) -> str:
     pm = get_path_manager()
     eeg_dir = pm.path_optional("eeg_positions", subject_id=subject_id)
     if not eeg_dir:
-        raise FileNotFoundError(f"EEG positions directory not found for subject {subject_id}")
+        raise FileNotFoundError(
+            f"EEG positions directory not found for subject {subject_id}"
+        )
     path = os.path.join(eeg_dir, eeg_net_name)
     if not os.path.exists(path):
         raise FileNotFoundError(f"EEG net CSV not found: {path}")
@@ -202,7 +223,7 @@ def _apply_scalp_material(scalp_obj) -> None:
     # Create scalp material with publication-standard properties
     mat = bpy.data.materials.new(name="ScalpMaterial")
     mat.use_nodes = True
-    mat.blend_method = 'HASHED'
+    mat.blend_method = "HASHED"
 
     bsdf = mat.node_tree.nodes.get("Principled BSDF")
     if bsdf:
@@ -245,7 +266,7 @@ def _apply_gm_material(gm_obj) -> None:
     # Create GM material with publication-standard properties
     mat = bpy.data.materials.new(name="GMMaterial")
     mat.use_nodes = True
-    mat.blend_method = 'HASHED'
+    mat.blend_method = "HASHED"
 
     nodes = mat.node_tree.nodes
     bsdf = nodes.get("Principled BSDF")
@@ -258,8 +279,6 @@ def _apply_gm_material(gm_obj) -> None:
 
     gm_obj.data.materials.append(mat)
     logger.debug("Applied GM material (alpha=0.45, blue-tinted)")
-
-
 
 
 def build_montage_publication_blend(
@@ -275,9 +294,13 @@ def build_montage_publication_blend(
     import bpy
 
     pm = get_path_manager()
-    sim_dir = pm.path_optional("simulation", subject_id=subject_id, simulation_name=simulation_name)
+    sim_dir = pm.path_optional(
+        "simulation", subject_id=subject_id, simulation_name=simulation_name
+    )
     if not sim_dir:
-        raise FileNotFoundError(f"Simulation directory not found for {subject_id}/{simulation_name}")
+        raise FileNotFoundError(
+            f"Simulation directory not found for {subject_id}/{simulation_name}"
+        )
 
     cfg = be_utils.load_simulation_config(subject_id, simulation_name)
     if not cfg:
@@ -287,7 +310,9 @@ def build_montage_publication_blend(
 
     if output_dir is None:
         if not pm.project_dir:
-            raise RuntimeError("Project directory is not set (PathManager.project_dir is None).")
+            raise RuntimeError(
+                "Project directory is not set (PathManager.project_dir is None)."
+            )
         output_dir = os.path.join(
             pm.project_dir,
             const.DIR_DERIVATIVES,
@@ -302,7 +327,12 @@ def build_montage_publication_blend(
     gm_stl = os.path.join(output_dir, "gm.stl")
 
     export_scalp_stl_from_sim(sim_dir, output_stl=scalp_stl)
-    export_gm_stl_from_sim(sim_dir, subject_id=subject_id, simulation_name=simulation_name, output_stl=gm_stl)
+    export_gm_stl_from_sim(
+        sim_dir,
+        subject_id=subject_id,
+        simulation_name=simulation_name,
+        output_stl=gm_stl,
+    )
 
     eeg_net = cfg.get("eeg_net")
     if not eeg_net:
@@ -310,14 +340,19 @@ def build_montage_publication_blend(
     electrode_pairs = cfg.get("electrode_pairs") or []
 
     eeg_csv = _resolve_eeg_net_csv(subject_id=subject_id, eeg_net_name=str(eeg_net))
-    electrode_template = os.path.abspath(os.path.join(os.path.dirname(__file__), "Electrode.blend"))
+    electrode_template = os.path.abspath(
+        os.path.join(os.path.dirname(__file__), "Electrode.blend")
+    )
 
     subject_m2m = pm.path_optional("m2m", subject_id=subject_id)
     if not subject_m2m or not os.path.isdir(subject_m2m):
         raise FileNotFoundError(f"m2m directory not found for subject {subject_id}")
     subject_msh = os.path.join(subject_m2m, f"{subject_id}.msh")
 
-    from tit.blender.electrode_placement import ElectrodePlacer, ElectrodePlacementConfig
+    from tit.blender.electrode_placement import (
+        ElectrodePlacer,
+        ElectrodePlacementConfig,
+    )
 
     ele_cfg = ElectrodePlacementConfig(
         subject_id=subject_id,
@@ -329,12 +364,18 @@ def build_montage_publication_blend(
         electrode_diameter_mm=electrode_diameter_mm,
         electrode_height_mm=electrode_height_mm,
         electrode_size=None,
-        montage_pairs=[tuple(p) for p in electrode_pairs if isinstance(p, (list, tuple)) and len(p) >= 2],
+        montage_pairs=[
+            tuple(p)
+            for p in electrode_pairs
+            if isinstance(p, (list, tuple)) and len(p) >= 2
+        ],
         export_glb=export_glb,
         show_full_net=show_full_net,
     )
 
-    placer = ElectrodePlacer(ele_cfg, logger=logging.getLogger("tit.blender.electrode_placement"))
+    placer = ElectrodePlacer(
+        ele_cfg, logger=logging.getLogger("tit.blender.electrode_placement")
+    )
     ok, msg = placer.place_electrodes()
     if not ok:
         raise RuntimeError(msg)
@@ -348,13 +389,19 @@ def build_montage_publication_blend(
     # Get scalp object from ElectrodePlacer output
     scalp_obj = bpy.data.objects.get("Scalp")
     if not scalp_obj:
-        raise RuntimeError("Scalp object not found in scene (expected from ElectrodePlacer)")
+        raise RuntimeError(
+            "Scalp object not found in scene (expected from ElectrodePlacer)"
+        )
 
     # Create Head collection and organize objects
     head_coll = scene_setup.ensure_collection("Head")
     gm_obj = scene_setup.import_stl(gm_stl, name="GM", collection=head_coll)
-    scene_setup.move_object_to_collection(scalp_obj, collection=head_coll, unlink_from_others=True)
-    scene_setup.move_object_to_collection(gm_obj, collection=head_coll, unlink_from_others=True)
+    scene_setup.move_object_to_collection(
+        scalp_obj, collection=head_coll, unlink_from_others=True
+    )
+    scene_setup.move_object_to_collection(
+        gm_obj, collection=head_coll, unlink_from_others=True
+    )
 
     # Apply publication-standard materials
     logger.info("Applying materials...")
@@ -378,7 +425,9 @@ def build_montage_publication_blend(
 
     # Configure render settings
     scene_setup.configure_render_eevee(resolution=(2048, 2048), transparent_film=True)
-    scene_setup.configure_color_management_agx(exposure=0.9, look="Medium High Contrast")
+    scene_setup.configure_color_management_agx(
+        exposure=0.9, look="Medium High Contrast"
+    )
     scene_setup.configure_eevee_publication_quality()
 
     # Remove any prior lights/cameras to keep output deterministic across runs
@@ -390,7 +439,7 @@ def build_montage_publication_blend(
         location=(0.0, 0.0, 0.0),
         rotation_euler=(0.55, -0.25, 0.35),
         energy=3.5,
-        name="Sun"
+        name="Sun",
     )
     scene_setup.add_area_light(
         location=(260.0, -320.0, 320.0),
@@ -418,13 +467,17 @@ def build_montage_publication_blend(
     # Create 5 standard cameras that share lens/sensor and are auto-framed to the scene
     # Names: top/left/right/front/back
     cams = scene_setup.create_standard_cameras(
-        target_objects=[o for o in bpy.context.scene.objects if o.type in {"MESH", "FONT"}],
+        target_objects=[
+            o for o in bpy.context.scene.objects if o.type in {"MESH", "FONT"}
+        ],
         lens=60.0,
         margin=1.08,
     )
     # Bring back a diagonal "hero" camera (more compelling) and make it active
     hero = scene_setup.create_hero_camera(
-        target_objects=[o for o in bpy.context.scene.objects if o.type in {"MESH", "FONT"}],
+        target_objects=[
+            o for o in bpy.context.scene.objects if o.type in {"MESH", "FONT"}
+        ],
         lens=70.0,
         margin=1.04,
         name="hero",
@@ -433,7 +486,9 @@ def build_montage_publication_blend(
 
     logger.info("Scene setup complete.")
 
-    final_blend = os.path.join(output_dir, f"{subject_id}_{simulation_name}_montage_publication.blend")
+    final_blend = os.path.join(
+        output_dir, f"{subject_id}_{simulation_name}_montage_publication.blend"
+    )
     bpy.ops.wm.save_as_mainfile(filepath=final_blend)
 
     return MontagePublicationResult(
@@ -442,5 +497,3 @@ def build_montage_publication_blend(
         electrodes_blend=electrodes_blend,
         final_blend=final_blend,
     )
-
-

@@ -13,7 +13,17 @@ import os
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable, Iterable, List, Optional, Sequence, Tuple, TypeVar, Union
+from typing import (
+    Any,
+    Callable,
+    Iterable,
+    List,
+    Optional,
+    Sequence,
+    Tuple,
+    TypeVar,
+    Union,
+)
 import csv
 from datetime import datetime
 import shlex
@@ -85,11 +95,15 @@ def echo_section(text: str) -> None:
 
 
 def echo_success(text: str) -> None:
-    print(style("✓ ", fg=COLORS["success"], bold=True) + style(text, fg=COLORS["success"]))
+    print(
+        style("✓ ", fg=COLORS["success"], bold=True) + style(text, fg=COLORS["success"])
+    )
 
 
 def echo_warning(text: str) -> None:
-    print(style("⚠ ", fg=COLORS["warning"], bold=True) + style(text, fg=COLORS["warning"]))
+    print(
+        style("⚠ ", fg=COLORS["warning"], bold=True) + style(text, fg=COLORS["warning"])
+    )
 
 
 def echo_error(text: str) -> None:
@@ -215,7 +229,9 @@ def ask_required(prompt: str, *, default: Optional[str] = None) -> str:
 
 def ask_float(prompt: str, *, default: Optional[Union[str, float]] = None) -> float:
     while True:
-        raw = ask_required(prompt, default=(str(default) if default is not None else None))
+        raw = ask_required(
+            prompt, default=(str(default) if default is not None else None)
+        )
         try:
             return float(raw)
         except ValueError:
@@ -224,7 +240,9 @@ def ask_float(prompt: str, *, default: Optional[Union[str, float]] = None) -> fl
 
 def ask_int(prompt: str, *, default: Optional[Union[str, int]] = None) -> int:
     while True:
-        raw = ask_required(prompt, default=(str(default) if default is not None else None))
+        raw = ask_required(
+            prompt, default=(str(default) if default is not None else None)
+        )
         try:
             return int(raw)
         except ValueError:
@@ -247,10 +265,18 @@ def ask_bool(prompt: str, *, default: bool = False) -> bool:
             return True
         if raw in {"2", "n", "no", "false", "off"}:
             return False
-        echo_warning("Invalid selection. Please choose 1 or 2 (or press Enter for default).")
+        echo_warning(
+            "Invalid selection. Please choose 1 or 2 (or press Enter for default)."
+        )
 
 
-def choose_one(prompt: str, options: List[str], *, default: Optional[str] = None, help_text: Optional[str] = None) -> str:
+def choose_one(
+    prompt: str,
+    options: List[str],
+    *,
+    default: Optional[str] = None,
+    help_text: Optional[str] = None,
+) -> str:
     """Choose one from options; optional default must be in options."""
     if not options:
         raise RuntimeError("No options available.")
@@ -259,7 +285,9 @@ def choose_one(prompt: str, options: List[str], *, default: Optional[str] = None
     default_idx: Optional[int] = None
     if default is not None and default in options:
         default_idx = options.index(default) + 1
-    print(f"{prompt_text(prompt)} [1-{len(options)}]{f' (default {default_idx})' if default_idx else ''}:")
+    print(
+        f"{prompt_text(prompt)} [1-{len(options)}]{f' (default {default_idx})' if default_idx else ''}:"
+    )
     print_options(options)
     while True:
         raw = input(f"{prompt_text('Selection')}: ").strip()
@@ -272,7 +300,13 @@ def choose_one(prompt: str, options: List[str], *, default: Optional[str] = None
         echo_warning("Invalid selection. Please choose a number from the list.")
 
 
-def choose_many(prompt: str, options: List[str], *, help_text: Optional[str] = None, min_count: int = 1) -> List[str]:
+def choose_many(
+    prompt: str,
+    options: List[str],
+    *,
+    help_text: Optional[str] = None,
+    min_count: int = 1,
+) -> List[str]:
     """Choose many by comma-separated indices (1-based)."""
     if not options:
         raise RuntimeError("No options available.")
@@ -316,7 +350,9 @@ def choose_or_enter(
     opts = list(options)
     if allow_enter:
         opts.append(enter_label)
-    choice = choose_one(prompt, opts, default=default if default in opts else None, help_text=help_text)
+    choice = choose_one(
+        prompt, opts, default=default if default in opts else None, help_text=help_text
+    )
     if allow_enter and choice == enter_label:
         return ask_required(prompt)
     return choice
@@ -358,6 +394,7 @@ def review_and_confirm(
         print(cmd_preview(command))
     return ask_bool("Proceed?", default=default_yes)
 
+
 def load_eeg_cap_labels(eeg_cap_csv_path: Path) -> List[str]:
     """
     Load electrode labels from an EEG cap CSV.
@@ -389,12 +426,16 @@ def load_eeg_cap_labels(eeg_cap_csv_path: Path) -> List[str]:
     return []
 
 
-def prompt_select_index(prompt: str, *, count: int, default: Optional[int] = None) -> int:
+def prompt_select_index(
+    prompt: str, *, count: int, default: Optional[int] = None
+) -> int:
     """Prompt for a 1-based index."""
     if count <= 0:
         raise RuntimeError("Nothing to select from")
     while True:
-        raw = input(f"{prompt} [1-{count}]{f' (default {default})' if default else ''}: ").strip()
+        raw = input(
+            f"{prompt} [1-{count}]{f' (default {default})' if default else ''}: "
+        ).strip()
         if not raw and default is not None:
             return default
         if raw.isdigit():
@@ -459,7 +500,9 @@ def run_main_with_argv(
 def ensure_repo_root_importable(repo_root: Path) -> None:
     """Ensure repo root is on sys.path and PYTHONPATH."""
     sys.path.insert(0, str(repo_root))
-    os.environ["PYTHONPATH"] = f"{repo_root}{os.pathsep}{os.environ.get('PYTHONPATH', '')}".rstrip(os.pathsep)
+    os.environ["PYTHONPATH"] = (
+        f"{repo_root}{os.pathsep}{os.environ.get('PYTHONPATH', '')}".rstrip(os.pathsep)
+    )
 
 
 # =============================================================================
@@ -468,7 +511,9 @@ def ensure_repo_root_importable(repo_root: Path) -> None:
 
 
 def discover_simulations(project_dir: Path, subject_id: str) -> List[str]:
-    sim_base = project_dir / "derivatives" / "SimNIBS" / f"sub-{subject_id}" / "Simulations"
+    sim_base = (
+        project_dir / "derivatives" / "SimNIBS" / f"sub-{subject_id}" / "Simulations"
+    )
     if not sim_base.exists():
         return []
     sims: List[str] = []
@@ -480,8 +525,18 @@ def discover_simulations(project_dir: Path, subject_id: str) -> List[str]:
     return sims
 
 
-def discover_fields(project_dir: Path, subject_id: str, simulation_name: str, space_type: str) -> List[Path]:
-    base = project_dir / "derivatives" / "SimNIBS" / f"sub-{subject_id}" / "Simulations" / simulation_name / "TI"
+def discover_fields(
+    project_dir: Path, subject_id: str, simulation_name: str, space_type: str
+) -> List[Path]:
+    base = (
+        project_dir
+        / "derivatives"
+        / "SimNIBS"
+        / f"sub-{subject_id}"
+        / "Simulations"
+        / simulation_name
+        / "TI"
+    )
     if space_type == "mesh":
         field_dir = base / "mesh"
         return sorted(field_dir.glob("*.msh")) if field_dir.is_dir() else []
@@ -489,5 +544,3 @@ def discover_fields(project_dir: Path, subject_id: str, simulation_name: str, sp
     if not field_dir.is_dir():
         return []
     return sorted(list(field_dir.glob("*.nii")) + list(field_dir.glob("*.nii.gz")))
-
-

@@ -28,7 +28,7 @@ from tit.sim.simulator import (
     run_simulation,
     _run_sequential,
     _run_parallel,
-    _run_single_montage
+    _run_single_montage,
 )
 from tit.sim.config import (
     SimulationConfig,
@@ -37,7 +37,7 @@ from tit.sim.config import (
     ConductivityType,
     ElectrodeConfig,
     IntensityConfig,
-    ParallelConfig
+    ParallelConfig,
 )
 
 
@@ -52,16 +52,16 @@ class TestSetupMontageDirectories:
         dirs = setup_montage_directories(str(montage_dir), SimulationMode.TI)
 
         # Check all directories were created
-        assert Path(dirs['montage_dir']).exists()
-        assert Path(dirs['hf_dir']).exists()
-        assert Path(dirs['hf_mesh']).exists()
-        assert Path(dirs['hf_niftis']).exists()
-        assert Path(dirs['ti_mesh']).exists()
-        assert Path(dirs['ti_niftis']).exists()
-        assert Path(dirs['documentation']).exists()
+        assert Path(dirs["montage_dir"]).exists()
+        assert Path(dirs["hf_dir"]).exists()
+        assert Path(dirs["hf_mesh"]).exists()
+        assert Path(dirs["hf_niftis"]).exists()
+        assert Path(dirs["ti_mesh"]).exists()
+        assert Path(dirs["ti_niftis"]).exists()
+        assert Path(dirs["documentation"]).exists()
 
         # Check no mTI directories for TI mode
-        assert 'mti_mesh' not in dirs
+        assert "mti_mesh" not in dirs
 
     def test_mti_directory_structure(self, tmp_path):
         """Test mTI mode directory creation."""
@@ -70,9 +70,9 @@ class TestSetupMontageDirectories:
         dirs = setup_montage_directories(str(montage_dir), SimulationMode.MTI)
 
         # Check mTI-specific directories
-        assert Path(dirs['mti_mesh']).exists()
-        assert Path(dirs['mti_niftis']).exists()
-        assert Path(dirs['mti_montage_imgs']).exists()
+        assert Path(dirs["mti_mesh"]).exists()
+        assert Path(dirs["mti_niftis"]).exists()
+        assert Path(dirs["mti_montage_imgs"]).exists()
 
     def test_idempotent_creation(self, tmp_path):
         """Test that calling twice doesn't fail."""
@@ -91,7 +91,7 @@ class TestSetupMontageDirectories:
 class TestRunMontageVisualization:
     """Test suite for run_montage_visualization()."""
 
-    @patch('subprocess.run')
+    @patch("subprocess.run")
     def test_successful_visualization(self, mock_run):
         """Test successful montage visualization."""
         mock_run.return_value = MagicMock(returncode=0, stderr="", stdout="")
@@ -104,13 +104,13 @@ class TestRunMontageVisualization:
             eeg_net="GSN-HydroCel-185",
             output_dir="/test/output",
             project_dir="/test/project",
-            logger=mock_logger
+            logger=mock_logger,
         )
 
         assert result is True
         mock_run.assert_called_once()
 
-    @patch('subprocess.run')
+    @patch("subprocess.run")
     def test_visualization_with_electrode_pairs(self, mock_run):
         """Test visualization with explicit electrode pairs."""
         mock_run.return_value = MagicMock(returncode=0)
@@ -125,12 +125,12 @@ class TestRunMontageVisualization:
             output_dir="/test/output",
             project_dir="/test/project",
             logger=mock_logger,
-            electrode_pairs=electrode_pairs
+            electrode_pairs=electrode_pairs,
         )
 
         assert result is True
 
-    @patch('subprocess.run', side_effect=Exception("Subprocess failed"))
+    @patch("subprocess.run", side_effect=Exception("Subprocess failed"))
     def test_visualization_exception_handling(self, mock_run):
         """Test graceful handling of visualization errors."""
         mock_logger = MagicMock()
@@ -141,7 +141,7 @@ class TestRunMontageVisualization:
             eeg_net="GSN-HydroCel-185",
             output_dir="/test/output",
             project_dir="/test/project",
-            logger=mock_logger
+            logger=mock_logger,
         )
 
         # Should return False but not raise exception
@@ -152,14 +152,14 @@ class TestRunMontageVisualization:
         """Test that freehand mode skips visualization."""
         mock_logger = MagicMock()
 
-        with patch('subprocess.run') as mock_run:
+        with patch("subprocess.run") as mock_run:
             result = run_montage_visualization(
                 montage_name="test_montage",
                 simulation_mode=SimulationMode.TI,
                 eeg_net="freehand",
                 output_dir="/test/output",
                 project_dir="/test/project",
-                logger=mock_logger
+                logger=mock_logger,
             )
 
         assert result is True
@@ -181,21 +181,23 @@ class TestRunSimulation:
             intensities=IntensityConfig(1.0, -1.0, 1.0, -1.0),
             electrode=ElectrodeConfig(),
             eeg_net="GSN-HydroCel-185.csv",
-            parallel=ParallelConfig(enabled=False)
+            parallel=ParallelConfig(enabled=False),
         )
 
         montages = [
             MontageConfig(
                 name="montage1",
                 electrode_pairs=[("E1", "E2"), ("E3", "E4")],
-                is_xyz=False
+                is_xyz=False,
             )
         ]
 
         mock_logger = MagicMock()
 
-        with patch('tit.sim.simulator._run_sequential') as mock_sequential:
-            mock_sequential.return_value = [{"montage_name": "montage1", "status": "completed"}]
+        with patch("tit.sim.simulator._run_sequential") as mock_sequential:
+            mock_sequential.return_value = [
+                {"montage_name": "montage1", "status": "completed"}
+            ]
 
             results = run_simulation(config, montages, logger=mock_logger)
 
@@ -213,20 +215,24 @@ class TestRunSimulation:
             intensities=IntensityConfig(1.0, -1.0, 1.0, -1.0),
             electrode=ElectrodeConfig(),
             eeg_net="GSN-HydroCel-185.csv",
-            parallel=ParallelConfig(enabled=True, max_workers=2)
+            parallel=ParallelConfig(enabled=True, max_workers=2),
         )
 
         montages = [
-            MontageConfig(name="montage1", electrode_pairs=[("E1", "E2")], is_xyz=False),
-            MontageConfig(name="montage2", electrode_pairs=[("E3", "E4")], is_xyz=False)
+            MontageConfig(
+                name="montage1", electrode_pairs=[("E1", "E2")], is_xyz=False
+            ),
+            MontageConfig(
+                name="montage2", electrode_pairs=[("E3", "E4")], is_xyz=False
+            ),
         ]
 
         mock_logger = MagicMock()
 
-        with patch('tit.sim.simulator._run_parallel') as mock_parallel:
+        with patch("tit.sim.simulator._run_parallel") as mock_parallel:
             mock_parallel.return_value = [
                 {"montage_name": "montage1", "status": "completed"},
-                {"montage_name": "montage2", "status": "completed"}
+                {"montage_name": "montage2", "status": "completed"},
             ]
 
             results = run_simulation(config, montages, logger=mock_logger)
@@ -245,21 +251,26 @@ class TestRunSimulation:
             conductivity_type=ConductivityType.DIR,
             intensities=IntensityConfig(1.0, -1.0, 1.0, -1.0),
             electrode=ElectrodeConfig(),
-            eeg_net="GSN-HydroCel-185.csv"
+            eeg_net="GSN-HydroCel-185.csv",
         )
 
         montages = []
 
-        with patch('tit.sim.simulator._run_sequential') as mock_sequential, \
-             patch('tit.sim.simulator.logging_util.get_file_only_logger') as mock_logger_fn, \
-             patch('tit.sim.simulator.get_path_manager') as mock_get_pm, \
-             patch('os.makedirs') as mock_makedirs, \
-             patch('logging.FileHandler') as mock_file_handler, \
-             patch('logging.getLogger') as mock_get_logger:
+        with (
+            patch("tit.sim.simulator._run_sequential") as mock_sequential,
+            patch(
+                "tit.sim.simulator.logging_util.get_file_only_logger"
+            ) as mock_logger_fn,
+            patch("tit.sim.simulator.get_path_manager") as mock_get_pm,
+            patch("os.makedirs") as mock_makedirs,
+            patch("logging.FileHandler") as mock_file_handler,
+            patch("logging.getLogger") as mock_get_logger,
+        ):
             mock_sequential.return_value = []
 
             # Mock PathManager for logger creation
             mock_pm = MagicMock()
+
             # path() is called with different args: "derivatives" and "simulations"
             def mock_path_side_effect(*args, **kwargs):
                 if args[0] == "derivatives":
@@ -295,7 +306,7 @@ class TestRunSimulation:
             conductivity_type=ConductivityType.DIR,
             intensities=IntensityConfig(1.0, -1.0, 1.0, -1.0),
             electrode=ElectrodeConfig(),
-            eeg_net="GSN-HydroCel-185.csv"
+            eeg_net="GSN-HydroCel-185.csv",
         )
 
         montages = [MontageConfig(name="montage1", electrode_pairs=[], is_xyz=False)]
@@ -303,10 +314,14 @@ class TestRunSimulation:
         mock_logger = MagicMock()
         mock_callback = MagicMock()
 
-        with patch('tit.sim.simulator._run_sequential') as mock_sequential:
-            mock_sequential.return_value = [{"montage_name": "montage1", "status": "completed"}]
+        with patch("tit.sim.simulator._run_sequential") as mock_sequential:
+            mock_sequential.return_value = [
+                {"montage_name": "montage1", "status": "completed"}
+            ]
 
-            run_simulation(config, montages, logger=mock_logger, progress_callback=mock_callback)
+            run_simulation(
+                config, montages, logger=mock_logger, progress_callback=mock_callback
+            )
 
             # Callback should have been called
             # (actual calls depend on implementation)
@@ -316,11 +331,13 @@ class TestRunSimulation:
 class TestRunSingleMontage:
     """Test suite for _run_single_montage()."""
 
-    @patch('tit.sim.simulator.setup_montage_directories')
-    @patch('tit.sim.simulator.run_montage_visualization')
-    @patch('tit.sim.simulator.run_simnibs')
-    @patch('tit.sim.simulator.get_path_manager')
-    def test_ti_workflow(self, mock_get_pm, mock_run_simnibs, mock_viz, mock_setup, monkeypatch):
+    @patch("tit.sim.simulator.setup_montage_directories")
+    @patch("tit.sim.simulator.run_montage_visualization")
+    @patch("tit.sim.simulator.run_simnibs")
+    @patch("tit.sim.simulator.get_path_manager")
+    def test_ti_workflow(
+        self, mock_get_pm, mock_run_simnibs, mock_viz, mock_setup, monkeypatch
+    ):
         """Test complete TI simulation workflow."""
         monkeypatch.setenv("PROJECT_DIR", "/test/project")
 
@@ -331,16 +348,16 @@ class TestRunSingleMontage:
 
         # Mock directory setup
         mock_setup.return_value = {
-            'montage_dir': '/test/montage1',
-            'hf_dir': '/test/montage1/high_Frequency',
-            'hf_mesh': '/test/montage1/high_Frequency/mesh',
-            'hf_niftis': '/test/montage1/high_Frequency/niftis',
-            'hf_analysis': '/test/montage1/high_Frequency/analysis',
-            'ti_mesh': '/test/montage1/TI/mesh',
-            'ti_niftis': '/test/montage1/TI/niftis',
-            'ti_surface_overlays': '/test/montage1/TI/surface_overlays',
-            'ti_montage_imgs': '/test/montage1/TI/montage_imgs',
-            'documentation': '/test/montage1/documentation'
+            "montage_dir": "/test/montage1",
+            "hf_dir": "/test/montage1/high_Frequency",
+            "hf_mesh": "/test/montage1/high_Frequency/mesh",
+            "hf_niftis": "/test/montage1/high_Frequency/niftis",
+            "hf_analysis": "/test/montage1/high_Frequency/analysis",
+            "ti_mesh": "/test/montage1/TI/mesh",
+            "ti_niftis": "/test/montage1/TI/niftis",
+            "ti_surface_overlays": "/test/montage1/TI/surface_overlays",
+            "ti_montage_imgs": "/test/montage1/TI/montage_imgs",
+            "documentation": "/test/montage1/documentation",
         }
 
         mock_viz.return_value = True
@@ -352,13 +369,11 @@ class TestRunSingleMontage:
             conductivity_type=ConductivityType.DIR,
             intensities=IntensityConfig(1.0, -1.0, 1.0, -1.0),
             electrode=ElectrodeConfig(),
-            eeg_net="GSN-HydroCel-185.csv"
+            eeg_net="GSN-HydroCel-185.csv",
         )
 
         montage = MontageConfig(
-            name="montage1",
-            electrode_pairs=[("E1", "E2"), ("E3", "E4")],
-            is_xyz=False
+            name="montage1", electrode_pairs=[("E1", "E2"), ("E3", "E4")], is_xyz=False
         )
 
         mock_logger = MagicMock()
@@ -374,13 +389,13 @@ class TestRunSingleMontage:
             simulation_dir="/test/simulations",
             session_builder=mock_session_builder,
             post_processor=mock_post_processor,
-            logger=mock_logger
+            logger=mock_logger,
         )
 
         # Check result
-        assert result['montage_name'] == 'montage1'
-        assert result['status'] == 'completed'
-        assert result['montage_type'] == 'TI'
+        assert result["montage_name"] == "montage1"
+        assert result["status"] == "completed"
+        assert result["montage_type"] == "TI"
 
         # Check workflow steps were called
         mock_setup.assert_called_once()
@@ -388,22 +403,22 @@ class TestRunSingleMontage:
         mock_run_simnibs.assert_called_once()
         mock_post_processor.process_ti_results.assert_called_once()
 
-    @patch('tit.sim.simulator.setup_montage_directories')
-    @patch('tit.sim.simulator.run_montage_visualization')
-    @patch('tit.sim.simulator.run_simnibs')
+    @patch("tit.sim.simulator.setup_montage_directories")
+    @patch("tit.sim.simulator.run_montage_visualization")
+    @patch("tit.sim.simulator.run_simnibs")
     def test_mti_workflow(self, mock_run_simnibs, mock_viz, mock_setup):
         """Test complete mTI simulation workflow."""
         mock_setup.return_value = {
-            'montage_dir': '/test/montage1',
-            'hf_dir': '/test/montage1/high_Frequency',
-            'hf_mesh': '/test/montage1/high_Frequency/mesh',
-            'hf_niftis': '/test/montage1/high_Frequency/niftis',
-            'hf_analysis': '/test/montage1/high_Frequency/analysis',
-            'ti_mesh': '/test/montage1/TI/mesh',
-            'ti_niftis': '/test/montage1/TI/niftis',
-            'mti_mesh': '/test/montage1/mTI/mesh',
-            'mti_niftis': '/test/montage1/mTI/niftis',
-            'documentation': '/test/montage1/documentation'
+            "montage_dir": "/test/montage1",
+            "hf_dir": "/test/montage1/high_Frequency",
+            "hf_mesh": "/test/montage1/high_Frequency/mesh",
+            "hf_niftis": "/test/montage1/high_Frequency/niftis",
+            "hf_analysis": "/test/montage1/high_Frequency/analysis",
+            "ti_mesh": "/test/montage1/TI/mesh",
+            "ti_niftis": "/test/montage1/TI/niftis",
+            "mti_mesh": "/test/montage1/mTI/mesh",
+            "mti_niftis": "/test/montage1/mTI/niftis",
+            "documentation": "/test/montage1/documentation",
         }
 
         mock_viz.return_value = True
@@ -414,14 +429,14 @@ class TestRunSingleMontage:
             conductivity_type=ConductivityType.DIR,
             intensities=IntensityConfig(1.0, -1.0, 1.0, -1.0),
             electrode=ElectrodeConfig(),
-            eeg_net="GSN-HydroCel-185"
+            eeg_net="GSN-HydroCel-185",
         )
 
         # 4-pair montage = mTI mode
         montage = MontageConfig(
             name="montage1",
             electrode_pairs=[("E1", "E2"), ("E3", "E4"), ("E5", "E6"), ("E7", "E8")],
-            is_xyz=False
+            is_xyz=False,
         )
 
         mock_logger = MagicMock()
@@ -437,10 +452,10 @@ class TestRunSingleMontage:
             simulation_dir="/test/simulations",
             session_builder=mock_session_builder,
             post_processor=mock_post_processor,
-            logger=mock_logger
+            logger=mock_logger,
         )
 
-        assert result['montage_type'] == 'mTI'
+        assert result["montage_type"] == "mTI"
         mock_post_processor.process_mti_results.assert_called_once()
 
 
@@ -448,7 +463,7 @@ class TestRunSingleMontage:
 class TestRunParallel:
     """Test suite for _run_parallel()."""
 
-    @patch('tit.sim.simulator.ProcessPoolExecutor')
+    @patch("tit.sim.simulator.ProcessPoolExecutor")
     def test_parallel_worker_submission(self, mock_executor):
         """Test that workers are submitted correctly."""
         config = SimulationConfig(
@@ -458,12 +473,16 @@ class TestRunParallel:
             intensities=IntensityConfig(1.0, -1.0, 1.0, -1.0),
             electrode=ElectrodeConfig(),
             eeg_net="GSN-HydroCel-185",
-            parallel=ParallelConfig(enabled=True, max_workers=2)
+            parallel=ParallelConfig(enabled=True, max_workers=2),
         )
 
         montages = [
-            MontageConfig(name="montage1", electrode_pairs=[("E1", "E2")], is_xyz=False),
-            MontageConfig(name="montage2", electrode_pairs=[("E3", "E4")], is_xyz=False)
+            MontageConfig(
+                name="montage1", electrode_pairs=[("E1", "E2")], is_xyz=False
+            ),
+            MontageConfig(
+                name="montage2", electrode_pairs=[("E3", "E4")], is_xyz=False
+            ),
         ]
 
         mock_logger = MagicMock()
@@ -474,28 +493,36 @@ class TestRunParallel:
 
         # Mock futures
         mock_future1 = MagicMock()
-        mock_future1.result.return_value = {"montage_name": "montage1", "status": "completed"}
+        mock_future1.result.return_value = {
+            "montage_name": "montage1",
+            "status": "completed",
+        }
         mock_future2 = MagicMock()
-        mock_future2.result.return_value = {"montage_name": "montage2", "status": "completed"}
+        mock_future2.result.return_value = {
+            "montage_name": "montage2",
+            "status": "completed",
+        }
 
         mock_executor_instance.submit.side_effect = [mock_future1, mock_future2]
 
         # Patch the correct as_completed symbol used by tit.sim.simulator.
         # If this isn't patched, concurrent.futures.as_completed() will block forever
         # on MagicMock "futures" and the test will hang.
-        with patch('tit.sim.simulator.as_completed', return_value=[mock_future1, mock_future2]):
+        with patch(
+            "tit.sim.simulator.as_completed", return_value=[mock_future1, mock_future2]
+        ):
             results = _run_parallel(
                 config=config,
                 montages=montages,
                 simulation_dir="/test/simulations",
-                logger=mock_logger
+                logger=mock_logger,
             )
 
         # Check that workers were submitted
         assert mock_executor_instance.submit.call_count == 2
         assert len(results) == 2
 
-    @patch('tit.sim.simulator.ProcessPoolExecutor')
+    @patch("tit.sim.simulator.ProcessPoolExecutor")
     def test_worker_exception_handling(self, mock_executor):
         """Test handling of worker exceptions."""
         config = SimulationConfig(
@@ -505,7 +532,7 @@ class TestRunParallel:
             intensities=IntensityConfig(1.0, -1.0, 1.0, -1.0),
             electrode=ElectrodeConfig(),
             eeg_net="GSN-HydroCel-185",
-            parallel=ParallelConfig(enabled=True, max_workers=2)
+            parallel=ParallelConfig(enabled=True, max_workers=2),
         )
 
         montages = [
@@ -524,15 +551,15 @@ class TestRunParallel:
 
         mock_executor_instance.submit.return_value = mock_future
 
-        with patch('tit.sim.simulator.as_completed', return_value=[mock_future]):
+        with patch("tit.sim.simulator.as_completed", return_value=[mock_future]):
             results = _run_parallel(
                 config=config,
                 montages=montages,
                 simulation_dir="/test/simulations",
-                logger=mock_logger
+                logger=mock_logger,
             )
 
         # Should capture exception and return failed result
         assert len(results) == 1
-        assert results[0]['status'] == 'failed'
-        assert 'error' in results[0]
+        assert results[0]["status"] == "failed"
+        assert "error" in results[0]

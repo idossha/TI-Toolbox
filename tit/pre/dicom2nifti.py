@@ -113,9 +113,13 @@ def _process_dicom_directory(
         if target_json.exists() or target_nii.exists():
             should_overwrite = policy.overwrite
             if not should_overwrite and policy.prompt and os.isatty(0):
-                ans = input(
-                    f"Canonical output exists for {subject_id}. Overwrite? [y/N]: "
-                ).strip().lower()
+                ans = (
+                    input(
+                        f"Canonical output exists for {subject_id}. Overwrite? [y/N]: "
+                    )
+                    .strip()
+                    .lower()
+                )
                 should_overwrite = ans in {"y", "yes"}
             if should_overwrite:
                 target_json.unlink(missing_ok=True)
@@ -125,7 +129,9 @@ def _process_dicom_directory(
                 extra_dir.mkdir(parents=True, exist_ok=True)
                 shutil.move(str(json_file), str(extra_dir / json_file.name))
                 shutil.move(str(nii_file), str(extra_dir / nii_file.name))
-                logger.warning(f"Canonical output exists; moved conversion to {extra_dir}")
+                logger.warning(
+                    f"Canonical output exists; moved conversion to {extra_dir}"
+                )
                 continue
 
         bids_anat_dir.mkdir(parents=True, exist_ok=True)
@@ -177,8 +183,12 @@ def run_dicom_to_nifti(
 
     t1_source = sourcedata_dir / "T1w"
     t2_source = sourcedata_dir / "T2w"
-    t1_dicom_dir = Path(pm.path("sourcedata_dicom", subject_id=subject_id, modality="T1w"))
-    t2_dicom_dir = Path(pm.path("sourcedata_dicom", subject_id=subject_id, modality="T2w"))
+    t1_dicom_dir = Path(
+        pm.path("sourcedata_dicom", subject_id=subject_id, modality="T1w")
+    )
+    t2_dicom_dir = Path(
+        pm.path("sourcedata_dicom", subject_id=subject_id, modality="T2w")
+    )
 
     t1_dicom_dir.mkdir(parents=True, exist_ok=True)
     t2_dicom_dir.mkdir(parents=True, exist_ok=True)

@@ -22,14 +22,18 @@ def _extract_subject_and_project_dirs(m2m_subject_path: str) -> Tuple[str, str]:
     """
     # Extract subject ID from m2m_subject_path, preserving underscores (e.g., m2m_ernie_extended -> ernie_extended)
     base_name = os.path.basename(m2m_subject_path)
-    subject_id = base_name[4:] if base_name.startswith('m2m_') else base_name
+    subject_id = base_name[4:] if base_name.startswith("m2m_") else base_name
 
     # Navigate up to find the project directory
-    project_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(m2m_subject_path))))
+    project_dir = os.path.dirname(
+        os.path.dirname(os.path.dirname(os.path.dirname(m2m_subject_path)))
+    )
 
     # Use PathManager to standardize the project directory path when possible.
     pm = get_path_manager()
-    if pm.project_dir and os.path.abspath(project_dir) == os.path.abspath(pm.project_dir):
+    if pm.project_dir and os.path.abspath(project_dir) == os.path.abspath(
+        pm.project_dir
+    ):
         # If it matches the global path manager's project dir, use that (handles /mnt/ logic)
         project_dir = pm.project_dir
 
@@ -40,7 +44,7 @@ def select_field_file(
     m2m_subject_path: str,
     montage_name: str,
     space: str,
-    analysis_type: str = "spherical"
+    analysis_type: str = "spherical",
 ) -> Tuple[str, str]:
     """
     Automatically select the appropriate field file for analysis.
@@ -58,11 +62,11 @@ def select_field_file(
         FileNotFoundError: If no suitable field file is found
         ValueError: If space is not supported
     """
-    if space == 'mesh':
+    if space == "mesh":
         field_path = _select_mesh_field_file(m2m_subject_path, montage_name)
         # Determine field name based on simulation type
-        field_name = "TI_Max" if 'mTI' in field_path else "TI_max"
-    elif space == 'voxel':
+        field_name = "TI_Max" if "mTI" in field_path else "TI_max"
+    elif space == "voxel":
         field_path = _select_voxel_field_file(m2m_subject_path, montage_name)
         field_name = "TI_max"  # Voxel analysis typically uses lowercase
     else:
@@ -85,13 +89,15 @@ def _select_mesh_field_file(m2m_subject_path: str, montage_name: str) -> str:
     pm = PathManager(project_dir=project_dir)
 
     # Get base simulation directory using PathManager
-    base_sim_dir = pm.path_optional("simulation", subject_id=subject_id, simulation_name=montage_name)
+    base_sim_dir = pm.path_optional(
+        "simulation", subject_id=subject_id, simulation_name=montage_name
+    )
     if not base_sim_dir:
         raise FileNotFoundError(f"No simulation directory found for {montage_name}")
 
     # Check if mTI directory exists - if yes, this is an mTI simulation
-    mti_mesh_dir = os.path.join(base_sim_dir, 'mTI', 'mesh')
-    ti_mesh_dir = os.path.join(base_sim_dir, 'TI', 'mesh')
+    mti_mesh_dir = os.path.join(base_sim_dir, "mTI", "mesh")
+    ti_mesh_dir = os.path.join(base_sim_dir, "TI", "mesh")
 
     # Determine if this is an mTI or TI simulation
     is_mti = os.path.exists(mti_mesh_dir)
@@ -102,45 +108,47 @@ def _select_mesh_field_file(m2m_subject_path: str, montage_name: str) -> str:
         possible_filenames = []
 
         # Pattern 1: Use montage directory name + _mTI.msh
-        possible_filenames.append(f'{montage_name}_mTI.msh')
+        possible_filenames.append(f"{montage_name}_mTI.msh")
 
         # Pattern 2: Check for variations with _mTI suffix
-        if '_mTINormal' in montage_name:
-            possible_filenames.append(f'{montage_name}_mTI.msh')
+        if "_mTINormal" in montage_name:
+            possible_filenames.append(f"{montage_name}_mTI.msh")
 
         # Pattern 3: Standard pattern where we remove any _mTI-related suffix from montage name
-        if montage_name.endswith('_mTINormal'):
-            base_name = montage_name.replace('_mTINormal', '')
-            possible_filenames.append(f'{base_name}_mTI.msh')
-        elif montage_name.endswith('Normal'):
-            base_name = montage_name.replace('Normal', '')
-            possible_filenames.append(f'{base_name}_mTI.msh')
+        if montage_name.endswith("_mTINormal"):
+            base_name = montage_name.replace("_mTINormal", "")
+            possible_filenames.append(f"{base_name}_mTI.msh")
+        elif montage_name.endswith("Normal"):
+            base_name = montage_name.replace("Normal", "")
+            possible_filenames.append(f"{base_name}_mTI.msh")
     else:
         # For regular TI simulations, use the original logic
         mesh_dir = ti_mesh_dir
         possible_filenames = []
 
         # Pattern 1: Use montage directory name + _TI.msh
-        possible_filenames.append(f'{montage_name}_TI.msh')
+        possible_filenames.append(f"{montage_name}_TI.msh")
 
         # Pattern 2: If montage dir has _TINormal, the file might be montage_dir + _TI.msh
         # (This handles the case where directory is ernie_sphere_5mm_max_TINormal and file is ernie_sphere_5mm_max_TINormal_TI.msh)
-        if '_TINormal' in montage_name:
-            possible_filenames.append(f'{montage_name}_TI.msh')  # Already added above, but keep for clarity
+        if "_TINormal" in montage_name:
+            possible_filenames.append(
+                f"{montage_name}_TI.msh"
+            )  # Already added above, but keep for clarity
 
         # Pattern 3: Standard pattern where we remove any _TI-related suffix from montage name
-        if montage_name.endswith('_TINormal'):
-            base_name = montage_name.replace('_TINormal', '')
-            possible_filenames.append(f'{base_name}_TI.msh')
-        elif montage_name.endswith('Normal'):
-            base_name = montage_name.replace('Normal', '')
-            possible_filenames.append(f'{base_name}_TI.msh')
+        if montage_name.endswith("_TINormal"):
+            base_name = montage_name.replace("_TINormal", "")
+            possible_filenames.append(f"{base_name}_TI.msh")
+        elif montage_name.endswith("Normal"):
+            base_name = montage_name.replace("Normal", "")
+            possible_filenames.append(f"{base_name}_TI.msh")
 
         # Pattern 4: Some exports use *_normal.msh rather than *_TI.msh
-        possible_filenames.append(f'{montage_name}_normal.msh')
-        if montage_name.endswith('_Normal'):
+        possible_filenames.append(f"{montage_name}_normal.msh")
+        if montage_name.endswith("_Normal"):
             base_name = montage_name[:-7]
-            possible_filenames.append(f'{base_name}_normal.msh')
+            possible_filenames.append(f"{base_name}_normal.msh")
 
     # Remove duplicates while preserving order
     seen = set()
@@ -159,15 +167,17 @@ def _select_mesh_field_file(m2m_subject_path: str, montage_name: str) -> str:
     # Fallback: pick the first .msh file in the directory if available
     try:
         for fname in sorted(os.listdir(mesh_dir)):
-            if fname.lower().endswith('.msh'):
+            if fname.lower().endswith(".msh"):
                 return os.path.join(mesh_dir, fname)
     except (OSError, PermissionError):
         # Directory may not be accessible - will use default filename
         pass
 
     # If no file found, return the first pattern for error reporting
-    suffix = '_mTI.msh' if is_mti else '_TI.msh'
-    return os.path.join(mesh_dir, unique_filenames[0] if unique_filenames else f'{montage_name}{suffix}')
+    suffix = "_mTI.msh" if is_mti else "_TI.msh"
+    return os.path.join(
+        mesh_dir, unique_filenames[0] if unique_filenames else f"{montage_name}{suffix}"
+    )
 
 
 def _select_voxel_field_file(m2m_subject_path: str, montage_name: str) -> str:
@@ -182,27 +192,37 @@ def _select_voxel_field_file(m2m_subject_path: str, montage_name: str) -> str:
 
     # Get base simulation directory using PathManager
     pm = PathManager(project_dir=project_dir)
-    base_sim_dir = pm.path_optional("simulation", subject_id=subject_id, simulation_name=montage_name)
+    base_sim_dir = pm.path_optional(
+        "simulation", subject_id=subject_id, simulation_name=montage_name
+    )
     if not base_sim_dir:
         raise FileNotFoundError(f"No simulation directory found for {montage_name}")
 
     # Check for mTI or TI directory structure
     nifti_dir = None
-    if os.path.exists(os.path.join(base_sim_dir, 'mTI', 'niftis')):
-        nifti_dir = os.path.join(base_sim_dir, 'mTI', 'niftis')
-    elif os.path.exists(os.path.join(base_sim_dir, 'TI', 'niftis')):
-        nifti_dir = os.path.join(base_sim_dir, 'TI', 'niftis')
+    if os.path.exists(os.path.join(base_sim_dir, "mTI", "niftis")):
+        nifti_dir = os.path.join(base_sim_dir, "mTI", "niftis")
+    elif os.path.exists(os.path.join(base_sim_dir, "TI", "niftis")):
+        nifti_dir = os.path.join(base_sim_dir, "TI", "niftis")
 
     if not nifti_dir or not os.path.exists(nifti_dir):
-        raise FileNotFoundError(f"No nifti directory found for simulation {montage_name}")
+        raise FileNotFoundError(
+            f"No nifti directory found for simulation {montage_name}"
+        )
 
     # Prefer grey matter files
-    grey_files = [f for f in os.listdir(nifti_dir) if f.startswith('grey_') and not f.endswith('_MNI.nii.gz')]
+    grey_files = [
+        f
+        for f in os.listdir(nifti_dir)
+        if f.startswith("grey_") and not f.endswith("_MNI.nii.gz")
+    ]
     if grey_files:
         return os.path.join(nifti_dir, grey_files[0])
 
     # Fallback to any NIfTI file
-    nii_files = [f for f in os.listdir(nifti_dir) if f.endswith('.nii') or f.endswith('.nii.gz')]
+    nii_files = [
+        f for f in os.listdir(nifti_dir) if f.endswith(".nii") or f.endswith(".nii.gz")
+    ]
     if nii_files:
         return os.path.join(nifti_dir, nii_files[0])
 

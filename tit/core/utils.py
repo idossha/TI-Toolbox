@@ -18,5 +18,3 @@ __all__ = [
     "find_grey_matter_indices",
     "calculate_roi_metrics",
 ]
-
-

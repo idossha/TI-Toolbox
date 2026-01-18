@@ -21,12 +21,13 @@ from unittest.mock import Mock, MagicMock, patch, mock_open, call
 from pathlib import Path
 
 # Add tit directory to path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'tit'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "tit"))
 
 
 # ==============================================================================
 # FIXTURES
 # ==============================================================================
+
 
 @pytest.fixture
 def sample_4d_data():
@@ -81,13 +82,16 @@ def mock_nifti_img():
     mock_img.affine = np.eye(4)
     mock_img.header = MagicMock()
     mock_img.shape = (91, 109, 91)
-    mock_img.get_fdata = MagicMock(return_value=np.random.rand(91, 109, 91).astype(np.float32))
+    mock_img.get_fdata = MagicMock(
+        return_value=np.random.rand(91, 109, 91).astype(np.float32)
+    )
     return mock_img
 
 
 # ==============================================================================
 # TEST stats_utils.py - P-VALUE COMPUTATION
 # ==============================================================================
+
 
 class TestPvalFromHistogram:
     """Test p-value computation from null distribution"""
@@ -141,6 +145,7 @@ class TestPvalFromHistogram:
 # TEST stats_utils.py - CORRELATION FUNCTIONS
 # ==============================================================================
 
+
 class TestCorrelation:
     """Test vectorized correlation computation"""
 
@@ -150,7 +155,7 @@ class TestCorrelation:
         from stats.stats_utils import correlation
 
         r_values, t_values, p_values = correlation(
-            sample_voxel_data, sample_effect_sizes, correlation_type='pearson'
+            sample_voxel_data, sample_effect_sizes, correlation_type="pearson"
         )
 
         assert r_values.shape == (sample_voxel_data.shape[0],)
@@ -171,7 +176,7 @@ class TestCorrelation:
         from stats.stats_utils import correlation
 
         r_values, t_values, p_values = correlation(
-            sample_voxel_data, sample_effect_sizes, correlation_type='spearman'
+            sample_voxel_data, sample_effect_sizes, correlation_type="spearman"
         )
 
         assert r_values.shape == (sample_voxel_data.shape[0],)
@@ -179,7 +184,9 @@ class TestCorrelation:
         assert np.all(r_values <= 1)
 
     @pytest.mark.unit
-    def test_weighted_correlation(self, sample_voxel_data, sample_effect_sizes, sample_weights):
+    def test_weighted_correlation(
+        self, sample_voxel_data, sample_effect_sizes, sample_weights
+    ):
         """Test weighted Pearson correlation"""
         from stats.stats_utils import correlation
 
@@ -242,12 +249,17 @@ class TestCorrelationVoxelwise:
         assert valid_mask.shape == expected_shape
 
     @pytest.mark.unit
-    def test_correlation_voxelwise_weighted(self, sample_4d_data, sample_effect_sizes, sample_weights):
+    def test_correlation_voxelwise_weighted(
+        self, sample_4d_data, sample_effect_sizes, sample_weights
+    ):
         """Test weighted voxelwise correlation"""
         from stats.stats_utils import correlation_voxelwise
 
         r_values, t_stats, p_values, valid_mask = correlation_voxelwise(
-            sample_4d_data, sample_effect_sizes[:5], weights=sample_weights[:5], verbose=False
+            sample_4d_data,
+            sample_effect_sizes[:5],
+            weights=sample_weights[:5],
+            verbose=False,
         )
 
         assert r_values.shape == sample_4d_data.shape[:3]
@@ -276,6 +288,7 @@ class TestCorrelationVoxelwise:
 # TEST stats_utils.py - T-TEST FUNCTIONS
 # ==============================================================================
 
+
 class TestTtestInd:
     """Test independent samples t-test"""
 
@@ -302,8 +315,10 @@ class TestTtestInd:
         n_resp = 5
         n_non_resp = 5
 
-        for alternative in ['two-sided', 'greater', 'less']:
-            t_stats, p_values = ttest_ind(sample_voxel_data, n_resp, n_non_resp, alternative=alternative)
+        for alternative in ["two-sided", "greater", "less"]:
+            t_stats, p_values = ttest_ind(
+                sample_voxel_data, n_resp, n_non_resp, alternative=alternative
+            )
             assert p_values.shape == (sample_voxel_data.shape[0],)
 
     @pytest.mark.unit
@@ -312,7 +327,7 @@ class TestTtestInd:
         from stats.stats_utils import ttest_ind
 
         with pytest.raises(ValueError, match="alternative must be"):
-            ttest_ind(sample_voxel_data, 5, 5, alternative='invalid')
+            ttest_ind(sample_voxel_data, 5, 5, alternative="invalid")
 
 
 class TestTtestRel:
@@ -337,7 +352,7 @@ class TestTtestRel:
         """Test different alternative hypotheses for paired test"""
         from stats.stats_utils import ttest_rel
 
-        for alternative in ['two-sided', 'greater', 'less']:
+        for alternative in ["two-sided", "greater", "less"]:
             t_stats, p_values = ttest_rel(sample_voxel_data, 5, alternative=alternative)
             assert p_values.shape == (sample_voxel_data.shape[0],)
 
@@ -354,7 +369,7 @@ class TestTtestVoxelwise:
         non_responders = sample_4d_data[:, :, :, 3:5]
 
         p_values, t_stats, valid_mask = ttest_voxelwise(
-            responders, non_responders, test_type='unpaired', verbose=False
+            responders, non_responders, test_type="unpaired", verbose=False
         )
 
         expected_shape = sample_4d_data.shape[:3]
@@ -372,7 +387,7 @@ class TestTtestVoxelwise:
         non_responders = sample_4d_data[:, :, :, 2:5]
 
         p_values, t_stats, valid_mask = ttest_voxelwise(
-            responders, non_responders, test_type='paired', verbose=False
+            responders, non_responders, test_type="paired", verbose=False
         )
 
         assert p_values.shape == sample_4d_data.shape[:3]
@@ -386,7 +401,9 @@ class TestTtestVoxelwise:
         non_responders = sample_4d_data[:, :, :, 3:5]  # Different size
 
         with pytest.raises(ValueError, match="equal sample sizes"):
-            ttest_voxelwise(responders, non_responders, test_type='paired', verbose=False)
+            ttest_voxelwise(
+                responders, non_responders, test_type="paired", verbose=False
+            )
 
     @pytest.mark.unit
     def test_ttest_voxelwise_invalid_test_type(self, sample_4d_data):
@@ -397,12 +414,15 @@ class TestTtestVoxelwise:
         non_responders = sample_4d_data[:, :, :, 3:5]
 
         with pytest.raises(ValueError, match="must be 'paired' or 'unpaired'"):
-            ttest_voxelwise(responders, non_responders, test_type='invalid', verbose=False)
+            ttest_voxelwise(
+                responders, non_responders, test_type="invalid", verbose=False
+            )
 
 
 # ==============================================================================
 # TEST stats_utils.py - CLUSTER ANALYSIS
 # ==============================================================================
+
 
 class TestClusterAnalysis:
     """Test cluster analysis functionality"""
@@ -417,10 +437,10 @@ class TestClusterAnalysis:
         assert isinstance(clusters, list)
         if len(clusters) > 0:
             cluster = clusters[0]
-            assert 'cluster_id' in cluster
-            assert 'size' in cluster
-            assert 'center_voxel' in cluster
-            assert 'center_mni' in cluster
+            assert "cluster_id" in cluster
+            assert "size" in cluster
+            assert "center_voxel" in cluster
+            assert "center_mni" in cluster
 
     @pytest.mark.unit
     def test_cluster_analysis_no_clusters(self, sample_affine):
@@ -437,12 +457,13 @@ class TestClusterAnalysis:
 # TEST io_utils.py
 # ==============================================================================
 
+
 class TestSaveNifti:
     """Test NIfTI saving functionality"""
 
     @pytest.mark.unit
-    @patch('nibabel.save')
-    @patch('nibabel.Nifti1Image')
+    @patch("nibabel.save")
+    @patch("nibabel.Nifti1Image")
     def test_save_nifti_basic(self, mock_nifti_img, mock_save):
         """Test basic NIfTI file saving"""
         from stats.io_utils import save_nifti
@@ -462,33 +483,44 @@ class TestSavePermutationDetails:
     """Test permutation details logging"""
 
     @pytest.mark.unit
-    @patch('builtins.open', new_callable=mock_open)
+    @patch("builtins.open", new_callable=mock_open)
     def test_save_permutation_details(self, mock_file):
         """Test saving permutation details to file"""
         from stats.io_utils import save_permutation_details
 
         permutation_info = [
-            {'perm_num': 0, 'perm_idx': np.array([0, 1, 2, 3]), 'max_cluster_size': 100},
-            {'perm_num': 1, 'perm_idx': np.array([2, 3, 0, 1]), 'max_cluster_size': 150},
+            {
+                "perm_num": 0,
+                "perm_idx": np.array([0, 1, 2, 3]),
+                "max_cluster_size": 100,
+            },
+            {
+                "perm_num": 1,
+                "perm_idx": np.array([2, 3, 0, 1]),
+                "max_cluster_size": 150,
+            },
         ]
-        subject_ids_resp = ['001', '002']
-        subject_ids_non_resp = ['003', '004']
+        subject_ids_resp = ["001", "002"]
+        subject_ids_non_resp = ["003", "004"]
         output_file = "/fake/path/perm_log.txt"
 
-        save_permutation_details(permutation_info, output_file, subject_ids_resp, subject_ids_non_resp)
+        save_permutation_details(
+            permutation_info, output_file, subject_ids_resp, subject_ids_non_resp
+        )
 
-        mock_file.assert_called_once_with(output_file, 'w')
+        mock_file.assert_called_once_with(output_file, "w")
 
 
 # ==============================================================================
 # TEST atlas_utils.py
 # ==============================================================================
 
+
 class TestCheckAndResampleAtlas:
     """Test atlas dimension checking and resampling"""
 
     @pytest.mark.unit
-    @patch('nibabel.processing.resample_from_to')
+    @patch("nibabel.processing.resample_from_to")
     def test_matching_dimensions(self, mock_resample, mock_nifti_img):
         """Test atlas with matching dimensions (no resampling needed)"""
         from stats.atlas_utils import check_and_resample_atlas
@@ -501,14 +533,16 @@ class TestCheckAndResampleAtlas:
         ref_img = MagicMock()
         ref_img.shape = (91, 109, 91)
 
-        atlas_data = check_and_resample_atlas(atlas_img, ref_img, "test_atlas", verbose=False)
+        atlas_data = check_and_resample_atlas(
+            atlas_img, ref_img, "test_atlas", verbose=False
+        )
 
         assert atlas_data.shape == (91, 109, 91)
         mock_resample.assert_not_called()  # Should not resample
 
     @pytest.mark.unit
-    @patch('stats.atlas_utils.resample_from_to')
-    @patch('stats.atlas_utils.nib.Nifti1Image')
+    @patch("stats.atlas_utils.resample_from_to")
+    @patch("stats.atlas_utils.nib.Nifti1Image")
     def test_mismatched_dimensions(self, mock_nifti_class, mock_resample):
         """Test atlas with mismatched dimensions (resampling needed)"""
         from stats.atlas_utils import check_and_resample_atlas
@@ -521,15 +555,21 @@ class TestCheckAndResampleAtlas:
 
         ref_img = MagicMock()
         ref_img.shape = (91, 109, 91)
-        ref_img.get_fdata = MagicMock(return_value=np.zeros((91, 109, 91), dtype=np.float32))
+        ref_img.get_fdata = MagicMock(
+            return_value=np.zeros((91, 109, 91), dtype=np.float32)
+        )
         ref_img.affine = np.eye(4)
 
         # Mock resampled output
         mock_resampled = MagicMock()
-        mock_resampled.get_fdata = MagicMock(return_value=np.zeros((91, 109, 91), dtype=np.float32))
+        mock_resampled.get_fdata = MagicMock(
+            return_value=np.zeros((91, 109, 91), dtype=np.float32)
+        )
         mock_resample.return_value = mock_resampled
 
-        atlas_data = check_and_resample_atlas(atlas_img, ref_img, "test_atlas", verbose=False)
+        atlas_data = check_and_resample_atlas(
+            atlas_img, ref_img, "test_atlas", verbose=False
+        )
 
         assert mock_resample.called  # Should attempt resampling
 
@@ -538,16 +578,20 @@ class TestAtlasOverlapAnalysis:
     """Test atlas overlap analysis"""
 
     @pytest.mark.unit
-    @patch('nibabel.load')
-    @patch('os.path.exists')
-    def test_atlas_overlap_basic(self, mock_exists, mock_load, sample_binary_mask, mock_nifti_img):
+    @patch("nibabel.load")
+    @patch("os.path.exists")
+    def test_atlas_overlap_basic(
+        self, mock_exists, mock_load, sample_binary_mask, mock_nifti_img
+    ):
         """Test basic atlas overlap analysis"""
         from stats.atlas_utils import atlas_overlap_analysis
 
         # Mock atlas file
         mock_exists.return_value = True
         mock_atlas = MagicMock()
-        mock_atlas.get_fdata = MagicMock(return_value=np.random.randint(0, 10, (10, 10, 10)))
+        mock_atlas.get_fdata = MagicMock(
+            return_value=np.random.randint(0, 10, (10, 10, 10))
+        )
         mock_load.return_value = mock_atlas
 
         results = atlas_overlap_analysis(
@@ -555,14 +599,14 @@ class TestAtlasOverlapAnalysis:
             ["test_atlas.nii.gz"],
             "/fake/atlas/dir",
             reference_img=mock_nifti_img,
-            verbose=False
+            verbose=False,
         )
 
         assert isinstance(results, dict)
         assert "test_atlas.nii.gz" in results or len(results) >= 0
 
     @pytest.mark.unit
-    @patch('os.path.exists')
+    @patch("os.path.exists")
     def test_atlas_overlap_missing_file(self, mock_exists, sample_binary_mask):
         """Test atlas overlap with missing file"""
         from stats.atlas_utils import atlas_overlap_analysis
@@ -573,7 +617,7 @@ class TestAtlasOverlapAnalysis:
             sample_binary_mask,
             ["missing_atlas.nii.gz"],
             "/fake/atlas/dir",
-            verbose=False
+            verbose=False,
         )
 
         assert isinstance(results, dict)
@@ -584,89 +628,123 @@ class TestAtlasOverlapAnalysis:
 # TEST permutation_analysis.py - DATA LOADING
 # ==============================================================================
 
+
 class TestPrepareConfigFromCsv:
     """Test CSV configuration loading"""
 
     @pytest.mark.unit
-    @patch('pandas.read_csv')
+    @patch("pandas.read_csv")
     def test_group_comparison_csv(self, mock_read_csv):
         """Test loading group comparison config from CSV"""
         from stats.permutation_analysis import prepare_config_from_csv
 
         # Mock CSV data
         mock_df = MagicMock()
-        mock_df.columns = ['subject_id', 'simulation_name', 'response']
-        mock_df.iterrows = MagicMock(return_value=[
-            (0, {'subject_id': 'sub-001', 'simulation_name': 'montage1', 'response': 1}),
-            (1, {'subject_id': 'sub-002', 'simulation_name': 'montage1', 'response': 0}),
-        ])
+        mock_df.columns = ["subject_id", "simulation_name", "response"]
+        mock_df.iterrows = MagicMock(
+            return_value=[
+                (
+                    0,
+                    {
+                        "subject_id": "sub-001",
+                        "simulation_name": "montage1",
+                        "response": 1,
+                    },
+                ),
+                (
+                    1,
+                    {
+                        "subject_id": "sub-002",
+                        "simulation_name": "montage1",
+                        "response": 0,
+                    },
+                ),
+            ]
+        )
         mock_read_csv.return_value = mock_df
 
-        configs = prepare_config_from_csv("/fake/file.csv", analysis_type='group_comparison')
+        configs = prepare_config_from_csv(
+            "/fake/file.csv", analysis_type="group_comparison"
+        )
 
         assert len(configs) == 2
-        assert configs[0]['subject_id'] == '001'
-        assert configs[0]['response'] == 1
+        assert configs[0]["subject_id"] == "001"
+        assert configs[0]["response"] == 1
 
     @pytest.mark.unit
-    @patch('pandas.read_csv')
+    @patch("pandas.read_csv")
     def test_correlation_csv(self, mock_read_csv):
         """Test loading correlation config from CSV"""
         from stats.permutation_analysis import prepare_config_from_csv
 
         # Mock CSV data with effect sizes
         mock_df = MagicMock()
-        mock_df.columns = ['subject_id', 'simulation_name', 'effect_size', 'weight']
+        mock_df.columns = ["subject_id", "simulation_name", "effect_size", "weight"]
 
         # Create mock rows with proper pandas.notna behavior
-        row1 = {'subject_id': '001', 'simulation_name': 'montage1', 'effect_size': 0.5, 'weight': 10}
-        row2 = {'subject_id': '002', 'simulation_name': 'montage1', 'effect_size': 0.7, 'weight': 15}
+        row1 = {
+            "subject_id": "001",
+            "simulation_name": "montage1",
+            "effect_size": 0.5,
+            "weight": 10,
+        }
+        row2 = {
+            "subject_id": "002",
+            "simulation_name": "montage1",
+            "effect_size": 0.7,
+            "weight": 15,
+        }
 
         mock_df.iterrows = MagicMock(return_value=[(0, row1), (1, row2)])
-        mock_df.__contains__ = MagicMock(return_value=True)  # For 'weight' in df.columns check
+        mock_df.__contains__ = MagicMock(
+            return_value=True
+        )  # For 'weight' in df.columns check
         mock_read_csv.return_value = mock_df
 
         # Mock pandas.notna to always return True for our test data
-        with patch('pandas.notna', return_value=True):
-            with patch('pandas.isna', return_value=False):
-                configs = prepare_config_from_csv("/fake/file.csv", analysis_type='correlation')
+        with patch("pandas.notna", return_value=True):
+            with patch("pandas.isna", return_value=False):
+                configs = prepare_config_from_csv(
+                    "/fake/file.csv", analysis_type="correlation"
+                )
 
         assert len(configs) == 2
-        assert 'effect_size' in configs[0]
-        assert configs[0]['effect_size'] == 0.5
+        assert "effect_size" in configs[0]
+        assert configs[0]["effect_size"] == 0.5
 
     @pytest.mark.unit
-    @patch('pandas.read_csv')
+    @patch("pandas.read_csv")
     def test_csv_missing_column(self, mock_read_csv):
         """Test error handling for missing required column"""
         from stats.permutation_analysis import prepare_config_from_csv
 
         # Mock CSV with missing column
         mock_df = MagicMock()
-        mock_df.columns = ['subject_id']  # Missing 'simulation_name' and 'response'
+        mock_df.columns = ["subject_id"]  # Missing 'simulation_name' and 'response'
         mock_read_csv.return_value = mock_df
 
         with pytest.raises(ValueError, match="missing required column"):
-            prepare_config_from_csv("/fake/file.csv", analysis_type='group_comparison')
+            prepare_config_from_csv("/fake/file.csv", analysis_type="group_comparison")
 
 
 # ==============================================================================
 # TEST VISUALIZATION AND REPORTING (MOCKED)
 # ==============================================================================
 
+
 class TestVisualizationMocking:
     """Test visualization functions are mockable"""
 
     @pytest.mark.unit
-    @patch('matplotlib.pyplot.savefig')
-    @patch('matplotlib.pyplot.figure')
+    @patch("matplotlib.pyplot.savefig")
+    @patch("matplotlib.pyplot.figure")
     def test_plot_functions_mockable(self, mock_figure, mock_savefig):
         """Test that visualization functions can be mocked"""
         from stats import visualization
 
         # These imports should not fail
-        assert hasattr(visualization, 'plot_permutation_null_distribution')
-        assert hasattr(visualization, 'plot_cluster_size_mass_correlation')
+        assert hasattr(visualization, "plot_permutation_null_distribution")
+        assert hasattr(visualization, "plot_cluster_size_mass_correlation")
 
 
 class TestReportingMocking:
@@ -677,20 +755,21 @@ class TestReportingMocking:
         """Test that reporting functions exist"""
         from stats import reporting
 
-        assert hasattr(reporting, 'generate_summary')
-        assert hasattr(reporting, 'generate_correlation_summary')
+        assert hasattr(reporting, "generate_summary")
+        assert hasattr(reporting, "generate_correlation_summary")
 
 
 # ==============================================================================
 # INTEGRATION TESTS (Mocked External Dependencies)
 # ==============================================================================
 
+
 class TestPermutationWorkflow:
     """Integration tests for complete permutation workflow"""
 
     @pytest.mark.unit
-    @patch('stats.permutation_analysis.nifti.load_group_data_ti_toolbox')
-    @patch('stats.permutation_analysis.get_path_manager')
+    @patch("stats.permutation_analysis.nifti.load_group_data_ti_toolbox")
+    @patch("stats.permutation_analysis.get_path_manager")
     def test_load_subject_data_group_comparison(self, mock_pm, mock_load_group):
         """Test subject data loading for group comparison"""
         from stats.permutation_analysis import load_subject_data_group_comparison
@@ -701,30 +780,30 @@ class TestPermutationWorkflow:
                 return (
                     np.random.rand(10, 10, 10, 2).astype(np.float32),  # 2 responders
                     MagicMock(),  # Template image
-                    ['001', '002']  # Responder IDs
+                    ["001", "002"],  # Responder IDs
                 )
             else:  # Non-responders
                 return (
                     np.random.rand(10, 10, 10, 1).astype(np.float32),  # 1 non-responder
                     MagicMock(),  # Template image
-                    ['003']  # Non-responder IDs
+                    ["003"],  # Non-responder IDs
                 )
 
         mock_load_group.side_effect = mock_load_side_effect
 
         subject_configs = [
-            {'subject_id': '001', 'simulation_name': 'montage1', 'response': 1},
-            {'subject_id': '002', 'simulation_name': 'montage1', 'response': 1},
-            {'subject_id': '003', 'simulation_name': 'montage1', 'response': 0},
+            {"subject_id": "001", "simulation_name": "montage1", "response": 1},
+            {"subject_id": "002", "simulation_name": "montage1", "response": 1},
+            {"subject_id": "003", "simulation_name": "montage1", "response": 0},
         ]
 
-        resp, non_resp, template, resp_ids, non_resp_ids = load_subject_data_group_comparison(
-            subject_configs
+        resp, non_resp, template, resp_ids, non_resp_ids = (
+            load_subject_data_group_comparison(subject_configs)
         )
 
         assert resp.shape[-1] == 2  # 2 responders
         assert non_resp.shape[-1] == 1  # 1 non-responder
 
 
-if __name__ == '__main__':
-    pytest.main([__file__, '-v'])
+if __name__ == "__main__":
+    pytest.main([__file__, "-v"])

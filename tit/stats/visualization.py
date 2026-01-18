@@ -13,5 +13,3 @@ __all__ = [
     "plot_permutation_null_distribution",
     "plot_cluster_size_mass_correlation",
 ]
-
-

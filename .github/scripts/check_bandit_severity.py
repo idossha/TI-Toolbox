@@ -5,13 +5,18 @@ Check for high-severity bandit issues and exit with appropriate code
 import json
 import sys
 
+
 def main():
     """Check for high-severity issues and return appropriate exit code."""
     try:
-        with open('bandit-results.json', 'r') as f:
+        with open("bandit-results.json", "r") as f:
             data = json.load(f)
-            results = data.get('results', [])
-            high_issues = [issue for issue in results if issue.get('issue_severity', '').upper() == 'HIGH']
+            results = data.get("results", [])
+            high_issues = [
+                issue
+                for issue in results
+                if issue.get("issue_severity", "").upper() == "HIGH"
+            ]
 
             high_count = len(high_issues)
             print(f"Found {high_count} high-severity security issues")
@@ -31,5 +36,6 @@ def main():
         print(f"Error checking severity: {e}")
         sys.exit(1)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     main()

@@ -63,5 +63,3 @@ def create_montage_publication_blend(
         electrode_height_mm=float(req.electrode_height_mm),
         export_glb=bool(req.export_glb),
     )
-
-

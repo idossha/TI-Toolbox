@@ -69,4 +69,6 @@ def run_tissue_analysis(
         else:
             exit_code = subprocess.call(cmd, env=env)
         if exit_code != 0:
-            raise PreprocessError(f"Tissue analysis failed for {subject_id} ({tissue}).")
+            raise PreprocessError(
+                f"Tissue analysis failed for {subject_id} ({tissue})."
+            )

@@ -17,4 +17,4 @@ from . import flex_config
 from . import flex_log
 from . import multi_start
 
-__all__ = ['flex_config', 'flex_log', 'multi_start']
+__all__ = ["flex_config", "flex_log", "multi_start"]

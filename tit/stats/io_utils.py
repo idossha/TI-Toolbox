@@ -17,7 +17,7 @@ import os
 def load_subject_data(csv_file, data_dir, return_ids=False):
     """
     Load subject classifications and corresponding NIfTI files
-    
+
     Parameters:
     -----------
     csv_file : str
@@ -26,7 +26,7 @@ def load_subject_data(csv_file, data_dir, return_ids=False):
         Directory containing NIfTI files
     return_ids : bool
         If True, also return subject IDs
-    
+
     Returns:
     --------
     responders : ndarray (x, y, z, n_subjects)
@@ -41,50 +41,50 @@ def load_subject_data(csv_file, data_dir, return_ids=False):
         List of non-responder subject IDs
     """
     df = pd.read_csv(csv_file)
-    
+
     responders = []
     non_responders = []
     responder_ids = []
     non_responder_ids = []
-    
+
     for _, row in df.iterrows():
-        subject_num = row['subject_id'].replace('sub-', '')
-        sim_name = row['simulation_name']
-        response = row['response']
-        
+        subject_num = row["subject_id"].replace("sub-", "")
+        sim_name = row["simulation_name"]
+        response = row["response"]
+
         # Construct filename
         filename = f"{subject_num}_grey_{sim_name}_TI_MNI_MNI_TI_max.nii.gz"
         filepath = os.path.join(data_dir, filename)
-        
+
         if not os.path.exists(filepath):
             print(f"Warning: File not found - {filename}")
             continue
-        
+
         # Load NIfTI
         img = nib.load(filepath)
         data = img.get_fdata()
-        
+
         # Ensure 3D data (squeeze out extra dimensions if present)
         while data.ndim > 3:
             data = np.squeeze(data, axis=-1)
-        
+
         if response == 1:
             responders.append(data)
             responder_ids.append(subject_num)
         else:
             non_responders.append(data)
             non_responder_ids.append(subject_num)
-    
+
     print(f"\nLoaded {len(responders)} responders: {responder_ids}")
     print(f"Loaded {len(non_responders)} non-responders: {non_responder_ids}")
-    
+
     # Stack into 4D arrays (subjects x volume)
     responders = np.stack(responders, axis=-1)
     non_responders = np.stack(non_responders, axis=-1)
-    
+
     print(f"Responders shape: {responders.shape}")
     print(f"Non-responders shape: {non_responders.shape}")
-    
+
     if return_ids:
         return responders, non_responders, img, responder_ids, non_responder_ids
     else:
@@ -94,7 +94,7 @@ def load_subject_data(csv_file, data_dir, return_ids=False):
 def save_nifti(data, affine, header, filepath, dtype=np.float32):
     """
     Save data as NIfTI file
-    
+
     Parameters:
     -----------
     data : ndarray
@@ -113,10 +113,12 @@ def save_nifti(data, affine, header, filepath, dtype=np.float32):
     print(f"Saved: {filepath}")
 
 
-def save_permutation_details(permutation_info, output_file, subject_ids_resp, subject_ids_non_resp):
+def save_permutation_details(
+    permutation_info, output_file, subject_ids_resp, subject_ids_non_resp
+):
     """
     Save detailed information about each permutation to a file
-    
+
     Parameters:
     -----------
     permutation_info : list of dict
@@ -133,25 +135,27 @@ def save_permutation_details(permutation_info, output_file, subject_ids_resp, su
     """
     all_subject_ids = subject_ids_resp + subject_ids_non_resp
     n_resp = len(subject_ids_resp)
-    
-    with open(output_file, 'w') as f:
-        f.write("="*80 + "\n")
+
+    with open(output_file, "w") as f:
+        f.write("=" * 80 + "\n")
         f.write("PERMUTATION TEST DETAILS\n")
-        f.write("="*80 + "\n\n")
+        f.write("=" * 80 + "\n\n")
         f.write(f"Total permutations: {len(permutation_info)}\n")
         f.write(f"Original Responders (n={n_resp}): {subject_ids_resp}\n")
-        f.write(f"Original Non-Responders (n={len(subject_ids_non_resp)}): {subject_ids_non_resp}\n")
-        f.write("\n" + "="*80 + "\n\n")
-        
+        f.write(
+            f"Original Non-Responders (n={len(subject_ids_non_resp)}): {subject_ids_non_resp}\n"
+        )
+        f.write("\n" + "=" * 80 + "\n\n")
+
         for info in permutation_info:
-            perm_num = info['perm_num']
-            perm_idx = info['perm_idx']
-            max_stat = info['max_cluster_size']
-            
+            perm_num = info["perm_num"]
+            perm_idx = info["perm_idx"]
+            max_stat = info["max_cluster_size"]
+
             # Get permuted groups
             perm_resp_ids = [all_subject_ids[i] for i in perm_idx[:n_resp]]
             perm_non_resp_ids = [all_subject_ids[i] for i in perm_idx[n_resp:]]
-            
+
             f.write(f"Permutation {perm_num:4d}: ")
             f.write(f"Responders: {perm_resp_ids}, ")
             f.write(f"Non-Responders: {perm_non_resp_ids}, ")
@@ -160,6 +164,5 @@ def save_permutation_details(permutation_info, output_file, subject_ids_resp, su
                 f.write(f"Max Cluster Stat: {max_stat:10.2f}\n")
             else:
                 f.write(f"Max Cluster Stat: {max_stat:10d}\n")
-    
-    print(f"Saved permutation details to: {output_file}")
 
+    print(f"Saved permutation details to: {output_file}")

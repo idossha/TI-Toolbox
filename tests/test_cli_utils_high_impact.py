@@ -76,5 +76,3 @@ def test_discover_simulations_and_fields(tmp_path: Path):
     nifti_fields = discover_fields(proj, "001", "simB", "niftis")
     assert len(nifti_fields) == 1
     assert nifti_fields[0].name.endswith(".nii.gz")
-
-

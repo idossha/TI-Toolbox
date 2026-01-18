@@ -35,8 +35,10 @@ def test_ensure_images_pulled_calls_compose_pull(monkeypatch, tmp_path):
 
     def fake_run(cmd, env=None, **_kwargs):
         calls.append((cmd, env))
+
         class Result:
             returncode = 0
+
         return Result()
 
     monkeypatch.setattr(loader.subprocess, "run", fake_run)
@@ -66,10 +68,14 @@ def test_loader_main_calls_docker_compose(monkeypatch, tmp_path):
     monkeypatch.setattr(loader, "allow_xhost", lambda *_args, **_kwargs: None)
     monkeypatch.setattr(loader, "revert_xhost", lambda *_args, **_kwargs: None)
     monkeypatch.setattr(loader, "run_docker_compose", fake_docker_compose)
-    monkeypatch.setattr(loader, "save_default_project_dir", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(
+        loader, "save_default_project_dir", lambda *_args, **_kwargs: None
+    )
 
     monkeypatch.setenv("HOME", str(tmp_path))
-    monkeypatch.setattr(sys, "argv", ["loader.py", "--project-dir", str(project_dir), "--yes"])
+    monkeypatch.setattr(
+        sys, "argv", ["loader.py", "--project-dir", str(project_dir), "--yes"]
+    )
 
     loader.main()
 

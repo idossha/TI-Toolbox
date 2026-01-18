@@ -11,12 +11,14 @@ from typing import List, Optional, Tuple, Union
 
 class SimulationMode(Enum):
     """Simulation mode enumeration."""
+
     TI = "TI"  # 2-pair temporal interference
     MTI = "mTI"  # 4-pair multipolar temporal interference
 
 
 class ConductivityType(Enum):
     """SimNIBS conductivity type enumeration."""
+
     SCALAR = "scalar"  # Isotropic conductivity
     VN = "vn"  # Volume normalized
     DIR = "dir"  # Direct mapping (uses DTI tensor)
@@ -26,8 +28,11 @@ class ConductivityType(Enum):
 @dataclass
 class ElectrodeConfig:
     """Configuration for electrode properties."""
+
     shape: str = "ellipse"  # "ellipse" or "rect"
-    dimensions: List[float] = field(default_factory=lambda: [8.0, 8.0])  # [x_dim, y_dim] in mm
+    dimensions: List[float] = field(
+        default_factory=lambda: [8.0, 8.0]
+    )  # [x_dim, y_dim] in mm
     thickness: float = 4.0  # Gel thickness in mm
     sponge_thickness: float = 2.0  # Sponge thickness in mm
 
@@ -44,13 +49,14 @@ class IntensityConfig:
     TI mode (2 pairs): Uses pair1 and pair2
     mTI mode (4 pairs): Uses pair1, pair2, pair3, and pair4
     """
+
     pair1: float = 1.0  # mA - intensity for first electrode pair
     pair2: float = 1.0  # mA - intensity for second electrode pair
     pair3: float = 1.0  # mA - intensity for third electrode pair (mTI only)
     pair4: float = 1.0  # mA - intensity for fourth electrode pair (mTI only)
 
     @classmethod
-    def from_string(cls, intensity_str: str) -> 'IntensityConfig':
+    def from_string(cls, intensity_str: str) -> "IntensityConfig":
         """
         Parse intensity from string format.
 
@@ -65,7 +71,7 @@ class IntensityConfig:
         Returns:
             IntensityConfig object
         """
-        intensities = [float(x.strip()) for x in intensity_str.split(',')]
+        intensities = [float(x.strip()) for x in intensity_str.split(",")]
 
         if len(intensities) == 1:
             # Single value: use for all pairs
@@ -87,9 +93,12 @@ class IntensityConfig:
 @dataclass
 class MontageConfig:
     """Configuration for a single montage."""
+
     name: str
     electrode_pairs: List[Tuple[Union[str, List[float]], Union[str, List[float]]]]
-    is_xyz: bool = False  # True if positions are XYZ coordinates, False if electrode names
+    is_xyz: bool = (
+        False  # True if positions are XYZ coordinates, False if electrode names
+    )
     eeg_net: Optional[str] = None  # Override EEG net (for flex montages)
 
     @property
@@ -100,7 +109,9 @@ class MontageConfig:
         elif len(self.electrode_pairs) >= 4:
             return SimulationMode.MTI
         else:
-            raise ValueError(f"Invalid number of electrode pairs: {len(self.electrode_pairs)}")
+            raise ValueError(
+                f"Invalid number of electrode pairs: {len(self.electrode_pairs)}"
+            )
 
     @property
     def num_pairs(self) -> int:
@@ -111,9 +122,10 @@ class MontageConfig:
 @dataclass
 class ParallelConfig:
     """Configuration for parallel simulation execution."""
+
     enabled: bool = False
     max_workers: int = 0  # 0 = auto-detect (uses cpu_count // 2)
-    
+
     def __post_init__(self):
         """Set max_workers to sensible default if auto-detect."""
         if self.max_workers <= 0:
@@ -121,12 +133,12 @@ class ParallelConfig:
             cpu_count = os.cpu_count() or 4
             # Limit to max 4 workers by default (memory constraint)
             self.max_workers = min(4, max(1, cpu_count // 2))
-    
+
     @property
     def effective_workers(self) -> int:
         """Get the effective number of workers."""
         return self.max_workers
-    
+
     def get_memory_warning(self) -> Optional[str]:
         """Return memory warning if parallel execution may cause issues."""
         if not self.enabled:
@@ -143,6 +155,7 @@ class ParallelConfig:
 @dataclass
 class SimulationConfig:
     """Main configuration for TI simulation."""
+
     subject_id: str
     project_dir: str
     conductivity_type: ConductivityType

@@ -144,5 +144,3 @@ def test_extract_tissue_mask_handles_no_brain(tmp_path: Path):
 
     mask = ta.extract_tissue_mask()
     assert mask.sum() == 1  # keeps all tissue when no brain found
-
-

@@ -10,6 +10,7 @@ import sys
 from unittest.mock import MagicMock
 import pytest
 
+
 def pytest_configure(config):
     """Configure minimal mocking for headless testing"""
     # Mock matplotlib for test isolation (prevents backend changes from affecting other tests)
@@ -28,20 +29,20 @@ def pytest_configure(config):
     mock_nl.image = MagicMock()
 
     # Apply mocks for GUI libraries
-    sys.modules['matplotlib'] = mock_mpl
-    sys.modules['matplotlib.pyplot'] = mock_mpl.pyplot
-    sys.modules['matplotlib.backends'] = mock_mpl.backends
-    sys.modules['matplotlib.use'] = mock_mpl.use
-    sys.modules['matplotlib.colors'] = mock_mpl.colors
-    sys.modules['matplotlib.patches'] = mock_mpl.patches
+    sys.modules["matplotlib"] = mock_mpl
+    sys.modules["matplotlib.pyplot"] = mock_mpl.pyplot
+    sys.modules["matplotlib.backends"] = mock_mpl.backends
+    sys.modules["matplotlib.use"] = mock_mpl.use
+    sys.modules["matplotlib.colors"] = mock_mpl.colors
+    sys.modules["matplotlib.patches"] = mock_mpl.patches
 
-    sys.modules['nilearn'] = mock_nl
-    sys.modules['nilearn.datasets'] = mock_nl.datasets
-    sys.modules['nilearn.plotting'] = mock_nl.plotting
-    sys.modules['nilearn.image'] = mock_nl.image
+    sys.modules["nilearn"] = mock_nl
+    sys.modules["nilearn.datasets"] = mock_nl.datasets
+    sys.modules["nilearn.plotting"] = mock_nl.plotting
+    sys.modules["nilearn.image"] = mock_nl.image
 
     # Mock seaborn to avoid complex matplotlib dependencies
-    sys.modules['seaborn'] = MagicMock()
+    sys.modules["seaborn"] = MagicMock()
 
     sys.modules.setdefault("bpy", MagicMock())
 

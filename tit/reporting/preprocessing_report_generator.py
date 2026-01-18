@@ -16,12 +16,13 @@ import glob
 from pathlib import Path
 import base64
 
+
 class PreprocessingReportGenerator:
     """Generate comprehensive HTML reports for preprocessing pipelines."""
-    
+
     def __init__(self, project_dir, subject_id):
         """Initialize the report generator.
-        
+
         Args:
             project_dir (str): Path to the project directory
             subject_id (str): Subject ID (without 'sub-' prefix)
@@ -29,66 +30,82 @@ class PreprocessingReportGenerator:
         self.project_dir = Path(project_dir)
         self.subject_id = subject_id
         self.bids_subject_id = f"sub-{subject_id}"
-        
+
         # Initialize report data structure
         self.report_data = {
-            'subject_id': subject_id,
-            'bids_subject_id': self.bids_subject_id,
-            'generation_time': datetime.datetime.now().isoformat(),
-            'project_dir': str(project_dir),
-            'processing_steps': [],
-            'input_data': {},
-            'output_data': {},
-            'parameters': {},
-            'errors': [],
-            'warnings': [],
-            'software_versions': {},
-            'figures': []
+            "subject_id": subject_id,
+            "bids_subject_id": self.bids_subject_id,
+            "generation_time": datetime.datetime.now().isoformat(),
+            "project_dir": str(project_dir),
+            "processing_steps": [],
+            "input_data": {},
+            "output_data": {},
+            "parameters": {},
+            "errors": [],
+            "warnings": [],
+            "software_versions": {},
+            "figures": [],
         }
-        
+
         # Collect software versions
         self._collect_software_versions()
-    
+
     def _collect_software_versions(self):
         """Collect versions of software used in the pipeline."""
         try:
             # FreeSurfer version
-            result = subprocess.run(['freesurfer', '--version'], 
-                                  capture_output=True, text=True, timeout=10)
+            result = subprocess.run(
+                ["freesurfer", "--version"], capture_output=True, text=True, timeout=10
+            )
             if result.returncode == 0:
-                self.report_data['software_versions']['freesurfer'] = result.stdout.strip()
+                self.report_data["software_versions"][
+                    "freesurfer"
+                ] = result.stdout.strip()
         except Exception:
             # FreeSurfer version detection may fail if not installed
             pass
-        
+
         try:
             # SimNIBS version
-            result = subprocess.run(['simnibs_python', '-c', 'import simnibs; print(simnibs.__version__)'], 
-                                  capture_output=True, text=True, timeout=10)
+            result = subprocess.run(
+                ["simnibs_python", "-c", "import simnibs; print(simnibs.__version__)"],
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
             if result.returncode == 0:
-                self.report_data['software_versions']['simnibs'] = result.stdout.strip()
+                self.report_data["software_versions"]["simnibs"] = result.stdout.strip()
         except Exception:
             # SimNIBS version detection may fail if not installed
             pass
-        
+
         try:
             # dcm2niix version
-            result = subprocess.run(['dcm2niix', '-h'], 
-                                  capture_output=True, text=True, timeout=10)
+            result = subprocess.run(
+                ["dcm2niix", "-h"], capture_output=True, text=True, timeout=10
+            )
             if result.returncode == 0:
                 # Extract version from help output
-                for line in result.stdout.split('\n'):
-                    if 'version' in line.lower():
-                        self.report_data['software_versions']['dcm2niix'] = line.strip()
+                for line in result.stdout.split("\n"):
+                    if "version" in line.lower():
+                        self.report_data["software_versions"]["dcm2niix"] = line.strip()
                         break
         except Exception:
             # dcm2niix version detection may fail if not installed
             pass
-    
-    def add_processing_step(self, step_name, description, parameters=None, status='completed', 
-                          duration=None, output_files=None, figures=None):
+
+    def add_processing_step(
+        self,
+        step_name,
+        description,
+        parameters=None,
+        status="completed",
+        duration=None,
+        output_files=None,
+        figures=None,
+    ):
         """Add a processing step to the report.
-        
+
         Args:
             step_name (str): Name of the processing step
             description (str): Description of what the step does
@@ -99,83 +116,87 @@ class PreprocessingReportGenerator:
             figures (list): List of figure files for visualization
         """
         step = {
-            'name': step_name,
-            'description': description,
-            'parameters': parameters or {},
-            'status': status,
-            'duration': duration,
-            'output_files': output_files or [],
-            'figures': figures or [],
-            'timestamp': datetime.datetime.now().isoformat()
+            "name": step_name,
+            "description": description,
+            "parameters": parameters or {},
+            "status": status,
+            "duration": duration,
+            "output_files": output_files or [],
+            "figures": figures or [],
+            "timestamp": datetime.datetime.now().isoformat(),
         }
-        self.report_data['processing_steps'].append(step)
-    
+        self.report_data["processing_steps"].append(step)
+
     def add_input_data(self, data_type, file_paths, metadata=None):
         """Add input data information to the report.
-        
+
         Args:
             data_type (str): Type of input data (e.g., 'T1w', 'T2w', 'DICOM')
             file_paths (list): List of input file paths
             metadata (dict): Additional metadata about the input
         """
-        self.report_data['input_data'][data_type] = {
-            'files': file_paths,
-            'count': len(file_paths),
-            'metadata': metadata or {}
+        self.report_data["input_data"][data_type] = {
+            "files": file_paths,
+            "count": len(file_paths),
+            "metadata": metadata or {},
         }
-    
+
     def add_output_data(self, data_type, file_paths, metadata=None):
         """Add output data information to the report.
-        
+
         Args:
             data_type (str): Type of output data
             file_paths (list): List of output file paths
             metadata (dict): Additional metadata about the output
         """
-        self.report_data['output_data'][data_type] = {
-            'files': file_paths,
-            'count': len(file_paths),
-            'metadata': metadata or {}
+        self.report_data["output_data"][data_type] = {
+            "files": file_paths,
+            "count": len(file_paths),
+            "metadata": metadata or {},
         }
-    
+
     def add_error(self, error_message, step=None):
         """Add an error to the report.
-        
+
         Args:
             error_message (str): Error message
             step (str): Processing step where error occurred
         """
-        self.report_data['errors'].append({
-            'message': error_message,
-            'step': step,
-            'timestamp': datetime.datetime.now().isoformat()
-        })
-    
+        self.report_data["errors"].append(
+            {
+                "message": error_message,
+                "step": step,
+                "timestamp": datetime.datetime.now().isoformat(),
+            }
+        )
+
     def add_warning(self, warning_message, step=None):
         """Add a warning to the report.
-        
+
         Args:
             warning_message (str): Warning message
             step (str): Processing step where warning occurred
         """
-        self.report_data['warnings'].append({
-            'message': warning_message,
-            'step': step,
-            'timestamp': datetime.datetime.now().isoformat()
-        })
-    
+        self.report_data["warnings"].append(
+            {
+                "message": warning_message,
+                "step": step,
+                "timestamp": datetime.datetime.now().isoformat(),
+            }
+        )
+
     def scan_for_data(self):
         """Automatically scan project directory for input and output data."""
         # Scan for input data
         self._scan_input_data()
-        
+
         # Scan for output data
         self._scan_output_data()
-    
+
     def _scan_input_data(self):
         """Scan for input data in sourcedata directory."""
         sourcedata_dir = self.project_dir / "sourcedata" / self.bids_subject_id
-        
+
         if sourcedata_dir.exists():
             # Check for T1w data
             t1w_dir = sourcedata_dir / "T1w"
@@ -183,21 +204,21 @@ class PreprocessingReportGenerator:
                 t1w_files = list(t1w_dir.rglob("*"))
                 t1w_files = [f for f in t1w_files if f.is_file()]
                 if t1w_files:
-                    self.add_input_data('T1w', [str(f) for f in t1w_files])
-            
+                    self.add_input_data("T1w", [str(f) for f in t1w_files])
+
             # Check for T2w data
             t2w_dir = sourcedata_dir / "T2w"
             if t2w_dir.exists():
                 t2w_files = list(t2w_dir.rglob("*"))
                 t2w_files = [f for f in t2w_files if f.is_file()]
                 if t2w_files:
-                    self.add_input_data('T2w', [str(f) for f in t2w_files])
-            
+                    self.add_input_data("T2w", [str(f) for f in t2w_files])
+
             # Check for compressed DICOM files
             dicom_files = list(sourcedata_dir.glob("*.tgz"))
             if dicom_files:
-                self.add_input_data('DICOM_compressed', [str(f) for f in dicom_files])
-    
+                self.add_input_data("DICOM_compressed", [str(f) for f in dicom_files])
+
     def _scan_output_data(self):
         """Scan for output data in various directories."""
         # NIfTI outputs
@@ -205,56 +226,83 @@ class PreprocessingReportGenerator:
         if nifti_dir.exists():
             nifti_files = list(nifti_dir.glob("*.nii*"))
             if nifti_files:
-                self.add_output_data('NIfTI', [str(f) for f in nifti_files])
-        
+                self.add_output_data("NIfTI", [str(f) for f in nifti_files])
+
         # FreeSurfer outputs
         fs_dir = self.project_dir / "derivatives" / "freesurfer" / self.bids_subject_id
         if fs_dir.exists():
             # Key FreeSurfer files
             key_files = []
-            for pattern in ["mri/T1.mgz", "mri/brain.mgz", "surf/lh.pial", "surf/rh.pial", 
-                           "surf/lh.white", "surf/rh.white", "scripts/recon-all.log"]:
+            for pattern in [
+                "mri/T1.mgz",
+                "mri/brain.mgz",
+                "surf/lh.pial",
+                "surf/rh.pial",
+                "surf/lh.white",
+                "surf/rh.white",
+                "scripts/recon-all.log",
+            ]:
                 files = list(fs_dir.glob(pattern))
                 key_files.extend([str(f) for f in files])
             if key_files:
-                self.add_output_data('FreeSurfer', key_files)
-        
+                self.add_output_data("FreeSurfer", key_files)
+
         # SimNIBS m2m outputs
-        simnibs_dir = self.project_dir / "derivatives" / "SimNIBS" / self.bids_subject_id / f"m2m_{self.subject_id}"
+        simnibs_dir = (
+            self.project_dir
+            / "derivatives"
+            / "SimNIBS"
+            / self.bids_subject_id
+            / f"m2m_{self.subject_id}"
+        )
         if simnibs_dir.exists():
             # Key SimNIBS files
             key_files = []
-            for pattern in ["*.msh", "eeg_positions/*.csv", "segmentation/*.annot", "charm_report.html"]:
+            for pattern in [
+                "*.msh",
+                "eeg_positions/*.csv",
+                "segmentation/*.annot",
+                "charm_report.html",
+            ]:
                 files = list(simnibs_dir.rglob(pattern))
                 key_files.extend([str(f) for f in files])
             if key_files:
-                self.add_output_data('SimNIBS_m2m', key_files)
-        
+                self.add_output_data("SimNIBS_m2m", key_files)
+
         # Atlas segmentation outputs
         if simnibs_dir.exists():
             seg_dir = simnibs_dir / "segmentation"
             if seg_dir.exists():
                 annot_files = list(seg_dir.glob("*.annot"))
                 if annot_files:
-                    self.add_output_data('Atlas_segmentation', [str(f) for f in annot_files])
-    
+                    self.add_output_data(
+                        "Atlas_segmentation", [str(f) for f in annot_files]
+                    )
+
     def generate_html_report(self, output_path=None):
         """Generate the HTML report.
-        
+
         Args:
             output_path (str): Path where to save the report. If None, saves to derivatives.
-        
+
         Returns:
             str: Path to the generated report
         """
         if output_path is None:
             # Use standardized path: project_dir/derivatives/ti-toolbox/reports/sub-subjectID/pre_processing_report_date_time.html
-            base_reports_dir = self.project_dir / "derivatives" / "ti-toolbox" / "reports"
+            base_reports_dir = (
+                self.project_dir / "derivatives" / "ti-toolbox" / "reports"
+            )
             base_reports_dir.mkdir(parents=True, exist_ok=True)
             # Ensure dataset_description.json exists at reports root
             try:
                 dd_path = base_reports_dir / "dataset_description.json"
-                assets_template = Path(__file__).resolve().parent.parent / "assets" / "dataset_descriptions" / "reports.dataset_description.json"
+                assets_template = (
+                    Path(__file__).resolve().parent.parent
+                    / "assets"
+                    / "dataset_descriptions"
+                    / "reports.dataset_description.json"
+                )
                 if not dd_path.exists() and assets_template.exists():
                     shutil.copyfile(str(assets_template), str(dd_path))
             except Exception:
@@ -264,19 +312,19 @@ class PreprocessingReportGenerator:
             reports_dir.mkdir(parents=True, exist_ok=True)
             timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
             output_path = reports_dir / f"pre_processing_report_{timestamp}.html"
-        
+
         # Scan for data before generating report
         self.scan_for_data()
-        
+
         # Generate HTML content
         html_content = self._generate_html_content()
-        
+
         # Write to file
-        with open(output_path, 'w', encoding='utf-8') as f:
+        with open(output_path, "w", encoding="utf-8") as f:
             f.write(html_content)
-        
+
         return str(output_path)
-    
+
     def _generate_html_content(self):
         """Generate the HTML content for the report."""
         html = f"""
@@ -330,7 +378,7 @@ class PreprocessingReportGenerator:
 </html>
 """
         return html
-    
+
     def _get_css_styles(self):
         """Return CSS styles for the HTML report."""
         return """
@@ -559,17 +607,23 @@ class PreprocessingReportGenerator:
             line-height: 1.4;
         }
         """
-    
+
     def _generate_summary_section(self):
         """Generate the summary section."""
         # Count input files
-        t1w_count = len(self.report_data['input_data'].get('T1w', {}).get('files', []))
-        t2w_count = len(self.report_data['input_data'].get('T2w', {}).get('files', []))
-        
+        t1w_count = len(self.report_data["input_data"].get("T1w", {}).get("files", []))
+        t2w_count = len(self.report_data["input_data"].get("T2w", {}).get("files", []))
+
         # Count processing steps
-        completed_steps = len([s for s in self.report_data['processing_steps'] if s['status'] == 'completed'])
-        total_steps = len(self.report_data['processing_steps'])
-        
+        completed_steps = len(
+            [
+                s
+                for s in self.report_data["processing_steps"]
+                if s["status"] == "completed"
+            ]
+        )
+        total_steps = len(self.report_data["processing_steps"])
+
         return f"""
         <section id="summary" class="section">
             <h2>Summary</h2>
@@ -595,15 +649,15 @@ class PreprocessingReportGenerator:
             </div>
         </section>
         """
-    
+
     def _generate_input_data_section(self):
         """Generate the input data section."""
         html = """
         <section id="input-data" class="section">
             <h2>Input Data</h2>
         """
-        
-        for data_type, data_info in self.report_data['input_data'].items():
+
+        for data_type, data_info in self.report_data["input_data"].items():
             html += f"""
             <div class="info-card">
                 <h4>{data_type.replace('_', ' ').title()}</h4>
@@ -611,29 +665,29 @@ class PreprocessingReportGenerator:
                 <div class="file-list">
                     <ul>
             """
-            for file_path in data_info['files'][:10]:  # Show first 10 files
+            for file_path in data_info["files"][:10]:  # Show first 10 files
                 html += f"<li>{os.path.basename(file_path)}</li>"
-            
-            if data_info['count'] > 10:
+
+            if data_info["count"] > 10:
                 html += f"<li>... and {data_info['count'] - 10} more files</li>"
-            
+
             html += """
                     </ul>
                 </div>
             </div>
             """
-        
+
         html += "</section>"
         return html
-    
+
     def _generate_processing_steps_section(self):
         """Generate the processing steps section."""
         html = """
         <section id="processing-steps" class="section">
             <h2>Processing Steps</h2>
         """
-        
-        for i, step in enumerate(self.report_data['processing_steps']):
+
+        for i, step in enumerate(self.report_data["processing_steps"]):
             status_class = f"status-{step['status']}"
             html += f"""
             <div class="processing-step">
@@ -644,38 +698,40 @@ class PreprocessingReportGenerator:
                 <div class="step-content" id="step-{i}">
                     <p>{step['description']}</p>
             """
-            
-            if step['duration']:
-                html += f"<p><strong>Duration:</strong> {step['duration']:.2f} seconds</p>"
-            
-            if step['parameters']:
+
+            if step["duration"]:
+                html += (
+                    f"<p><strong>Duration:</strong> {step['duration']:.2f} seconds</p>"
+                )
+
+            if step["parameters"]:
                 html += """
                 <h5>Parameters:</h5>
                 <table class="parameter-table">
                     <tr><th>Parameter</th><th>Value</th></tr>
                 """
-                for param, value in step['parameters'].items():
+                for param, value in step["parameters"].items():
                     html += f"<tr><td>{param}</td><td>{value}</td></tr>"
                 html += "</table>"
-            
-            if step['output_files']:
+
+            if step["output_files"]:
                 html += """
                 <h5>Output Files:</h5>
                 <div class="file-list">
                     <ul>
                 """
-                for file_path in step['output_files']:
+                for file_path in step["output_files"]:
                     html += f"<li>{os.path.basename(file_path)}</li>"
                 html += """
                     </ul>
                 </div>
                 """
-            
+
             html += """
                 </div>
             </div>
             """
-        
+
         html += """
         </section>
         <script>
@@ -686,15 +742,15 @@ class PreprocessingReportGenerator:
         </script>
         """
         return html
-    
+
     def _generate_output_data_section(self):
         """Generate the output data section."""
         html = """
         <section id="output-data" class="section">
             <h2>Output Data</h2>
         """
-        
-        for data_type, data_info in self.report_data['output_data'].items():
+
+        for data_type, data_info in self.report_data["output_data"].items():
             html += f"""
             <div class="info-card">
                 <h4>{data_type.replace('_', ' ').title()}</h4>
@@ -702,21 +758,21 @@ class PreprocessingReportGenerator:
                 <div class="file-list">
                     <ul>
             """
-            for file_path in data_info['files'][:10]:  # Show first 10 files
+            for file_path in data_info["files"][:10]:  # Show first 10 files
                 html += f"<li>{os.path.basename(file_path)}</li>"
-            
-            if data_info['count'] > 10:
+
+            if data_info["count"] > 10:
                 html += f"<li>... and {data_info['count'] - 10} more files</li>"
-            
+
             html += """
                     </ul>
                 </div>
             </div>
             """
-        
+
         html += "</section>"
         return html
-    
+
     def _generate_software_section(self):
         """Generate the software information section."""
         html = """
@@ -725,19 +781,19 @@ class PreprocessingReportGenerator:
             <div class="info-card">
                 <h4>Software Versions</h4>
         """
-        
-        if self.report_data['software_versions']:
-            for software, version in self.report_data['software_versions'].items():
+
+        if self.report_data["software_versions"]:
+            for software, version in self.report_data["software_versions"].items():
                 html += f"<p><strong>{software.title()}:</strong> {version}</p>"
         else:
             html += "<p>Software version information not available.</p>"
-        
+
         html += """
             </div>
         </section>
         """
         return html
-    
+
     def _generate_methods_section(self):
         """Generate the methods section with boilerplate text."""
         html = """
@@ -753,94 +809,94 @@ for comprehensive head modeling and analysis.
 
         Anatomical data preprocessing was performed using the TI-Toolbox preprocessing pipeline. 
 """
-        
+
         # Add specific methods based on processing steps
-        steps = [step['name'] for step in self.report_data['processing_steps']]
-        
-        if 'DICOM Conversion' in steps:
+        steps = [step["name"] for step in self.report_data["processing_steps"]]
+
+        if "DICOM Conversion" in steps:
             html += """
 DICOM files were converted to NIfTI format using dcm2niix, with automatic detection 
 of T1-weighted and T2-weighted sequences. """
-        
-        if 'FreeSurfer Reconstruction' in steps:
+
+        if "FreeSurfer Reconstruction" in steps:
             html += """
 Structural preprocessing was performed using FreeSurfer's recon-all pipeline, which includes 
 skull stripping, tissue segmentation, and cortical surface reconstruction. """
-        
-        if 'SimNIBS m2m Creation' in steps:
+
+        if "SimNIBS m2m Creation" in steps:
             html += """
 Head models for electromagnetic field simulations were created using SimNIBS's charm 
 segmentation algorithm, which provides accurate tissue segmentation for transcranial 
 stimulation modeling. """
-        
-        if 'Atlas Segmentation' in steps:
+
+        if "Atlas Segmentation" in steps:
             html += """
 Cortical parcellation was performed using multiple atlases including the Destrieux 
 (a2009s), Desikan-Killiany (DK40), and Human Connectome Project Multi-Modal 
 Parcellation (HCP_MMP1) atlases. """
-        
+
         html += """
             </div>
         </section>
         """
         return html
-    
+
     def _generate_errors_warnings_section(self):
         """Generate the errors and warnings section."""
         html = """
         <section id="errors-warnings" class="section">
             <h2>Errors and Warnings</h2>
         """
-        
-        if not self.report_data['errors'] and not self.report_data['warnings']:
+
+        if not self.report_data["errors"] and not self.report_data["warnings"]:
             html += "<p>No errors or warnings to report!</p>"
         else:
-            if self.report_data['errors']:
+            if self.report_data["errors"]:
                 html += "<h3>Errors</h3>"
-                for error in self.report_data['errors']:
+                for error in self.report_data["errors"]:
                     html += f"""
                     <div class="error">
                         <strong>Error{f" in {error['step']}" if error['step'] else ""}:</strong> {error['message']}
                         <br><small>Time: {error['timestamp']}</small>
                     </div>
                     """
-            
-            if self.report_data['warnings']:
+
+            if self.report_data["warnings"]:
                 html += "<h3>Warnings</h3>"
-                for warning in self.report_data['warnings']:
+                for warning in self.report_data["warnings"]:
                     html += f"""
                     <div class="warning">
                         <strong>Warning{f" in {warning['step']}" if warning['step'] else ""}:</strong> {warning['message']}
                         <br><small>Time: {warning['timestamp']}</small>
                     </div>
                     """
-        
+
         html += "</section>"
         return html
 
 
 def create_preprocessing_report(project_dir, subject_id, processing_log=None):
     """Convenience function to create a preprocessing report.
-    
+
     Args:
         project_dir (str): Path to the project directory
         subject_id (str): Subject ID (without 'sub-' prefix)
         processing_log (dict): Optional processing log with step information
-    
+
     Returns:
         str: Path to the generated report
     """
     generator = PreprocessingReportGenerator(project_dir, subject_id)
-    
+
     # If processing log is provided, add the steps
     if processing_log:
-        for step in processing_log.get('steps', []):
+        for step in processing_log.get("steps", []):
             generator.add_processing_step(**step)
-        
-        for error in processing_log.get('errors', []):
+
+        for error in processing_log.get("errors", []):
             generator.add_error(**error)
-        
-        for warning in processing_log.get('warnings', []):
+
+        for warning in processing_log.get("warnings", []):
             generator.add_warning(**warning)
-    
-    return generator.generate_html_report() 
+
+    return generator.generate_html_report()

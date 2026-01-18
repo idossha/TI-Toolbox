@@ -60,16 +60,47 @@ def test_group_comparison_workflow_writes_outputs(tmp_path: Path):
 
     fake_logger = MagicMock()
 
-    with patch.object(pa, "load_subject_data", return_value=(responders, non_resp, _template_img(), ["r1", "r2"], ["n1", "n2"])), \
-         patch.object(pa, "ttest_voxelwise", return_value=(pvals, tstats, valid)), \
-         patch.object(pa, "cluster_based_correction", return_value=(sig_mask, 1.0, sig_clusters, np.array([1.0, 2.0]), [], {"sizes": np.array([1]), "masses": np.array([5.0])})), \
-         patch.object(pa, "cluster_analysis", return_value=[{"cluster_id": 1, "size": 1, "center_mni": (0.0, 0.0, 0.0)}]), \
-         patch.object(pa, "plot_permutation_null_distribution") as plot_null, \
-         patch.object(pa, "plot_cluster_size_mass_correlation") as plot_corr, \
-         patch.object(pa, "atlas_overlap_analysis", return_value={}), \
-         patch.object(pa, "nib") as nib:
+    with (
+        patch.object(
+            pa,
+            "load_subject_data",
+            return_value=(
+                responders,
+                non_resp,
+                _template_img(),
+                ["r1", "r2"],
+                ["n1", "n2"],
+            ),
+        ),
+        patch.object(pa, "ttest_voxelwise", return_value=(pvals, tstats, valid)),
+        patch.object(
+            pa,
+            "cluster_based_correction",
+            return_value=(
+                sig_mask,
+                1.0,
+                sig_clusters,
+                np.array([1.0, 2.0]),
+                [],
+                {"sizes": np.array([1]), "masses": np.array([5.0])},
+            ),
+        ),
+        patch.object(
+            pa,
+            "cluster_analysis",
+            return_value=[{"cluster_id": 1, "size": 1, "center_mni": (0.0, 0.0, 0.0)}],
+        ),
+        patch.object(pa, "plot_permutation_null_distribution") as plot_null,
+        patch.object(pa, "plot_cluster_size_mass_correlation") as plot_corr,
+        patch.object(pa, "atlas_overlap_analysis", return_value={}),
+        patch.object(pa, "nib") as nib,
+    ):
 
-        nib.Nifti1Image.side_effect = lambda data, affine, header: (data, affine, header)
+        nib.Nifti1Image.side_effect = lambda data, affine, header: (
+            data,
+            affine,
+            header,
+        )
         nib.save = MagicMock()
 
         res = pa._run_group_comparison_analysis(
@@ -122,16 +153,47 @@ def test_correlation_workflow_writes_outputs(tmp_path: Path):
 
     fake_logger = MagicMock()
 
-    with patch.object(pa, "load_subject_data", return_value=(subject_data, eff, weights, _template_img(), ["s1", "s2", "s3"])), \
-         patch.object(pa, "correlation_voxelwise", return_value=(r, t, p, valid)), \
-         patch.object(pa, "correlation_cluster_correction", return_value=(sig_mask, 1.0, sig_clusters, np.array([1.0, 2.0]), [], {"sizes": np.array([1]), "masses": np.array([3.0])})), \
-         patch.object(pa, "cluster_analysis", return_value=[{"cluster_id": 1, "size": 1, "center_mni": (0.0, 0.0, 0.0)}]), \
-         patch.object(pa, "plot_permutation_null_distribution") as plot_null, \
-         patch.object(pa, "plot_cluster_size_mass_correlation") as plot_corr, \
-         patch.object(pa, "atlas_overlap_analysis", return_value={}), \
-         patch.object(pa, "nib") as nib:
+    with (
+        patch.object(
+            pa,
+            "load_subject_data",
+            return_value=(
+                subject_data,
+                eff,
+                weights,
+                _template_img(),
+                ["s1", "s2", "s3"],
+            ),
+        ),
+        patch.object(pa, "correlation_voxelwise", return_value=(r, t, p, valid)),
+        patch.object(
+            pa,
+            "correlation_cluster_correction",
+            return_value=(
+                sig_mask,
+                1.0,
+                sig_clusters,
+                np.array([1.0, 2.0]),
+                [],
+                {"sizes": np.array([1]), "masses": np.array([3.0])},
+            ),
+        ),
+        patch.object(
+            pa,
+            "cluster_analysis",
+            return_value=[{"cluster_id": 1, "size": 1, "center_mni": (0.0, 0.0, 0.0)}],
+        ),
+        patch.object(pa, "plot_permutation_null_distribution") as plot_null,
+        patch.object(pa, "plot_cluster_size_mass_correlation") as plot_corr,
+        patch.object(pa, "atlas_overlap_analysis", return_value={}),
+        patch.object(pa, "nib") as nib,
+    ):
 
-        nib.Nifti1Image.side_effect = lambda data, affine, header: (data, affine, header)
+        nib.Nifti1Image.side_effect = lambda data, affine, header: (
+            data,
+            affine,
+            header,
+        )
         nib.save = MagicMock()
 
         res = pa._run_correlation_analysis(
@@ -150,5 +212,3 @@ def test_correlation_workflow_writes_outputs(tmp_path: Path):
     plot_corr.assert_called_once()
     assert nib.save.call_count >= 5  # mask, r, t, p, thresholded r, avg field etc.
     assert (outdir / "analysis_summary.txt").exists()
-
-

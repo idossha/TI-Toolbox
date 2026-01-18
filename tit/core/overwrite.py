@@ -72,7 +72,11 @@ def should_overwrite_path(
         logger.warning(f"{label} found existing output at {path}. Skipping.")
         return False
     if os.isatty(0):
-        ans = input(f"{label} output exists at {path}. Overwrite? [y/N]: ").strip().lower()
+        ans = (
+            input(f"{label} output exists at {path}. Overwrite? [y/N]: ")
+            .strip()
+            .lower()
+        )
         return ans in {"y", "yes"}
     logger.error(
         f"{label} output already exists at {path}. "

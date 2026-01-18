@@ -39,7 +39,10 @@ def test_run_single_optimization_success_and_indexerror():
 
 @pytest.mark.unit
 def test_summary_file_writers(tmp_path: Path):
-    from tit.opt.flex.multi_start import create_multistart_summary_file, create_single_optimization_summary_file
+    from tit.opt.flex.multi_start import (
+        create_multistart_summary_file,
+        create_single_optimization_summary_file,
+    )
 
     args = SimpleNamespace(
         subject="001",
@@ -83,8 +86,8 @@ def test_summary_file_writers(tmp_path: Path):
     assert "MULTI-START OPTIMIZATION SUMMARY" in ms.read_text()
 
     ss = tmp_path / "single.txt"
-    create_single_optimization_summary_file(str(ss), args=args, function_value=0.5, start_time=start)
+    create_single_optimization_summary_file(
+        str(ss), args=args, function_value=0.5, start_time=start
+    )
     assert ss.exists()
     assert "OPTIMIZATION SUMMARY" in ss.read_text()
-
-

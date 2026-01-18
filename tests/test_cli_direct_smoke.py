@@ -44,10 +44,5 @@ def test_cli_module_help_smoke(module: str):
         check=False,
     )
     assert p.returncode == 0, (
-        f"{module} --help failed.\n"
-        f"stdout:\n{p.stdout}\n\n"
-        f"stderr:\n{p.stderr}\n"
+        f"{module} --help failed.\n" f"stdout:\n{p.stdout}\n\n" f"stderr:\n{p.stderr}\n"
     )
-
-
-

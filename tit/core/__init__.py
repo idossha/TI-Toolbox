@@ -13,16 +13,12 @@ from .paths import (
 # Define public API
 __all__ = [
     # Constants module
-    'constants',
-
+    "constants",
     # Utils module
-    'utils',
-    
+    "utils",
     # Path management classes
-    'PathManager',
-    
+    "PathManager",
     # Path management functions
-    'get_path_manager',
-    'reset_path_manager',
+    "get_path_manager",
+    "reset_path_manager",
 ]
-

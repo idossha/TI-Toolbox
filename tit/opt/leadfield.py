@@ -16,12 +16,18 @@ from tit.core import get_path_manager
 
 class LeadfieldGenerator:
     """Generate and load leadfield matrices for TI optimization
-    
+
     This class provides a unified interface for leadfield generation and management,
     supporting both HDF5 and NPY formats with consistent naming conventions.
     """
 
-    def __init__(self, subject_dir, electrode_cap='EEG10-10', progress_callback=None, termination_flag=None):
+    def __init__(
+        self,
+        subject_dir,
+        electrode_cap="EEG10-10",
+        progress_callback=None,
+        termination_flag=None,
+    ):
         """
         Initialize leadfield generator
 
@@ -36,12 +42,12 @@ class LeadfieldGenerator:
         self._progress_callback = progress_callback
         self._termination_flag = termination_flag
         self._simnibs_process = None
-        
+
         # Initialize PathManager
         self.pm = get_path_manager()
-        
+
         # Extract subject_id from subject_dir path
-        self.subject_id = self.subject_dir.name.replace('m2m_', '')
+        self.subject_id = self.subject_dir.name.replace("m2m_", "")
 
         # Initialize leadfield data attributes
         self.lfm = None  # Leadfield matrix
@@ -54,26 +60,34 @@ class LeadfieldGenerator:
             # In unit tests, PathManager is frequently mocked, so avoid filesystem writes.
             log_file: Optional[str] = None
             project_dir = getattr(pm, "project_dir", None)
-            if isinstance(project_dir, str) and project_dir and os.path.isdir(project_dir):
-                logs_dir = os.path.join(project_dir, "derivatives", "ti-toolbox", "logs")
+            if (
+                isinstance(project_dir, str)
+                and project_dir
+                and os.path.isdir(project_dir)
+            ):
+                logs_dir = os.path.join(
+                    project_dir, "derivatives", "ti-toolbox", "logs"
+                )
                 os.makedirs(logs_dir, exist_ok=True)
                 log_file = os.path.join(logs_dir, "leadfield_generator.log")
 
-            self.logger = logging_util.get_logger("LeadfieldGenerator", log_file=log_file, overwrite=False, console=True)
-            logging_util.configure_external_loggers(['simnibs', 'mesh_io'], self.logger)
+            self.logger = logging_util.get_logger(
+                "LeadfieldGenerator", log_file=log_file, overwrite=False, console=True
+            )
+            logging_util.configure_external_loggers(["simnibs", "mesh_io"], self.logger)
         else:
             self.logger = None
 
-    def _log(self, message, msg_type='info'):
+    def _log(self, message, msg_type="info"):
         """Send log message through callback or logger"""
         if self._progress_callback:
             self._progress_callback(message, msg_type)
         elif self.logger:
-            if msg_type == 'error':
+            if msg_type == "error":
                 self.logger.error(message)
-            elif msg_type == 'warning':
+            elif msg_type == "warning":
                 self.logger.warning(message)
-            elif msg_type == 'debug':
+            elif msg_type == "debug":
                 self.logger.debug(message)
             else:
                 self.logger.info(message)
@@ -85,70 +99,94 @@ class LeadfieldGenerator:
         import glob
         import shutil
 
-        self._log("Checking for old simulation files...", 'info')
+        self._log("Checking for old simulation files...", "info")
 
         # Remove old simulation .mat files
         old_sim_files = glob.glob(str(self.subject_dir / "simnibs_simulation*.mat"))
         if old_sim_files:
-            self._log(f"  Found {len(old_sim_files)} old simulation file(s), cleaning up...", 'info')
+            self._log(
+                f"  Found {len(old_sim_files)} old simulation file(s), cleaning up...",
+                "info",
+            )
             for sim_file in old_sim_files:
                 try:
                     os.remove(sim_file)
-                    self._log(f"  Removed: {os.path.basename(sim_file)}", 'info')
+                    self._log(f"  Removed: {os.path.basename(sim_file)}", "info")
                 except Exception as e:
-                    self._log(f"  Warning: Could not remove {os.path.basename(sim_file)}: {e}", 'warning')
+                    self._log(
+                        f"  Warning: Could not remove {os.path.basename(sim_file)}: {e}",
+                        "warning",
+                    )
 
         # Remove temporary leadfield directory
-        temp_leadfield_dir = self.subject_dir / 'leadfield'
+        temp_leadfield_dir = self.subject_dir / "leadfield"
         if temp_leadfield_dir.exists():
-            self._log("  Removing old temporary leadfield directory...", 'info')
+            self._log("  Removing old temporary leadfield directory...", "info")
             try:
                 shutil.rmtree(temp_leadfield_dir)
-                self._log("  Removed: leadfield/", 'info')
+                self._log("  Removed: leadfield/", "info")
             except Exception as e:
-                self._log(f"  Warning: Could not remove leadfield directory: {e}", 'warning')
+                self._log(
+                    f"  Warning: Could not remove leadfield directory: {e}", "warning"
+                )
 
         # Remove ROI mesh file
-        subject_id = self.subject_dir.name.replace('m2m_', '')
+        subject_id = self.subject_dir.name.replace("m2m_", "")
         roi_file = self.subject_dir / f"{subject_id}_ROI.msh"
         if roi_file.exists():
-            self._log("  Removing old ROI mesh file...", 'info')
+            self._log("  Removing old ROI mesh file...", "info")
             try:
                 os.remove(roi_file)
-                self._log(f"  Removed: {roi_file.name}", 'info')
+                self._log(f"  Removed: {roi_file.name}", "info")
             except Exception as e:
-                self._log(f"  Warning: Could not remove {roi_file.name}: {e}", 'warning')
+                self._log(
+                    f"  Warning: Could not remove {roi_file.name}: {e}", "warning"
+                )
 
     def _cleanup_output_dir(self, output_dir):
         """Clean up old simulation files in the output directory (preserves existing leadfields)."""
         import glob
 
-        self._log("Checking for old simulation files in output directory...", 'info')
+        self._log("Checking for old simulation files in output directory...", "info")
 
         # Remove old simulation .mat files in output directory
         old_sim_files = glob.glob(str(output_dir / "simnibs_simulation*.mat"))
         if old_sim_files:
-            self._log(f"  Found {len(old_sim_files)} old simulation file(s) in output directory, cleaning up...", 'info')
+            self._log(
+                f"  Found {len(old_sim_files)} old simulation file(s) in output directory, cleaning up...",
+                "info",
+            )
             for sim_file in old_sim_files:
                 try:
                     os.remove(sim_file)
-                    self._log(f"  Removed: {os.path.basename(sim_file)}", 'info')
+                    self._log(f"  Removed: {os.path.basename(sim_file)}", "info")
                 except Exception as e:
-                    self._log(f"  Warning: Could not remove {os.path.basename(sim_file)}: {e}", 'warning')
+                    self._log(
+                        f"  Warning: Could not remove {os.path.basename(sim_file)}: {e}",
+                        "warning",
+                    )
 
         # Remove old .msh files that SimNIBS creates (e.g., 101_electrodes_EEG10-20_Okamoto_2004.msh)
         # Note: Preserving existing leadfield HDF5 files
         old_msh_files = glob.glob(str(output_dir / "*_electrodes_*.msh"))
         if old_msh_files:
-            self._log(f"  Found {len(old_msh_files)} old electrode mesh file(s) in output directory, cleaning up...", 'info')
+            self._log(
+                f"  Found {len(old_msh_files)} old electrode mesh file(s) in output directory, cleaning up...",
+                "info",
+            )
             for msh_file in old_msh_files:
                 try:
                     os.remove(msh_file)
-                    self._log(f"  Removed: {os.path.basename(msh_file)}", 'info')
+                    self._log(f"  Removed: {os.path.basename(msh_file)}", "info")
                 except Exception as e:
-                    self._log(f"  Warning: Could not remove {os.path.basename(msh_file)}: {e}", 'warning')
+                    self._log(
+                        f"  Warning: Could not remove {os.path.basename(msh_file)}: {e}",
+                        "warning",
+                    )
 
-    def generate_leadfield(self, output_dir=None, tissues=[1, 2], eeg_cap_path=None, cleanup=True):
+    def generate_leadfield(
+        self, output_dir=None, tissues=[1, 2], eeg_cap_path=None, cleanup=True
+    ):
         """
         Generate leadfield matrix using SimNIBS
 
@@ -182,7 +220,7 @@ class LeadfieldGenerator:
 
         # Find mesh file - try multiple naming conventions
         # Common patterns: {subject_id}.msh, m2m_{subject_id}.msh, {subject_dir_name}.msh
-        subject_id = self.subject_dir.name.replace('m2m_', '')  # Extract subject ID
+        subject_id = self.subject_dir.name.replace("m2m_", "")  # Extract subject ID
 
         possible_mesh_names = [
             f"{subject_id}.msh",  # Most common: 101.msh
@@ -195,7 +233,7 @@ class LeadfieldGenerator:
             candidate = self.subject_dir / mesh_name
             if candidate.exists():
                 mesh_file = candidate
-                self._log(f"Found mesh file: {mesh_file}", 'info')
+                self._log(f"Found mesh file: {mesh_file}", "info")
                 break
 
         if mesh_file is None:
@@ -204,7 +242,9 @@ class LeadfieldGenerator:
             error_msg = f"Mesh file not found in {self.subject_dir}\n"
             error_msg += f"Tried: {', '.join(possible_mesh_names)}\n"
             if msh_files:
-                error_msg += f"Available .msh files: {', '.join([f.name for f in msh_files])}"
+                error_msg += (
+                    f"Available .msh files: {', '.join([f.name for f in msh_files])}"
+                )
             else:
                 error_msg += "No .msh files found in directory"
             raise FileNotFoundError(error_msg)
@@ -221,25 +261,30 @@ class LeadfieldGenerator:
             if not Path(eeg_cap_path).exists():
                 raise FileNotFoundError(f"EEG cap file not found: {eeg_cap_path}")
             tdcs_lf.eeg_cap = str(eeg_cap_path)
-            self._log(f"Using EEG cap: {Path(eeg_cap_path).name}", 'info')
-        elif self.electrode_cap and self.electrode_cap != 'EEG10-10':
+            self._log(f"Using EEG cap: {Path(eeg_cap_path).name}", "info")
+        elif self.electrode_cap and self.electrode_cap != "EEG10-10":
             # Try to find in eeg_positions directory using PathManager
-            eeg_positions_dir = self.pm.path_optional("eeg_positions", subject_id=self.subject_id)
+            eeg_positions_dir = self.pm.path_optional(
+                "eeg_positions", subject_id=self.subject_id
+            )
             if eeg_positions_dir and os.path.exists(eeg_positions_dir):
                 cap_file = Path(eeg_positions_dir) / f"{self.electrode_cap}.csv"
                 if cap_file.exists():
                     tdcs_lf.eeg_cap = str(cap_file)
-                    self._log(f"Found EEG cap: {cap_file.name}", 'info')
+                    self._log(f"Found EEG cap: {cap_file.name}", "info")
 
         # Clean up old files if requested
         if cleanup:
             self.cleanup_old_simulations()
 
-        self._log(f"Generating leadfield matrix for {self.subject_dir.name}...", 'info')
-        self._log(f"Electrode cap: {self.electrode_cap if self.electrode_cap else 'Default'}", 'info')
-        self._log(f"Tissues: {tissues} (1=GM, 2=WM)", 'info')
-        self._log(f"Mesh file: {mesh_file.name}", 'info')
-        self._log("Setting up SimNIBS leadfield calculation...", 'info')
+        self._log(f"Generating leadfield matrix for {self.subject_dir.name}...", "info")
+        self._log(
+            f"Electrode cap: {self.electrode_cap if self.electrode_cap else 'Default'}",
+            "info",
+        )
+        self._log(f"Tissues: {tissues} (1=GM, 2=WM)", "info")
+        self._log(f"Mesh file: {mesh_file.name}", "info")
+        self._log("Setting up SimNIBS leadfield calculation...", "info")
 
         # Redirect SimNIBS output to GUI console via callback (not terminal)
         import sys
@@ -255,7 +300,7 @@ class LeadfieldGenerator:
         sys.stderr = stderr_capture
 
         # Configure SimNIBS logger to use callback if available
-        simnibs_logger = logging.getLogger('simnibs')
+        simnibs_logger = logging.getLogger("simnibs")
         old_simnibs_handlers = simnibs_logger.handlers[:]
 
         if self._progress_callback:
@@ -263,24 +308,32 @@ class LeadfieldGenerator:
             logging_util.suppress_console_output(simnibs_logger)
 
             # Add callback handler to redirect to GUI
-            logging_util.add_callback_handler(simnibs_logger, self._progress_callback, logging.INFO)
+            logging_util.add_callback_handler(
+                simnibs_logger, self._progress_callback, logging.INFO
+            )
 
         # Run SimNIBS with termination checks
         simnibs_error = None
         try:
             # Check for termination before starting
             if self._termination_flag and self._termination_flag():
-                self._log("Leadfield generation cancelled before starting", 'warning')
-                raise InterruptedError("Leadfield generation was cancelled before starting")
+                self._log("Leadfield generation cancelled before starting", "warning")
+                raise InterruptedError(
+                    "Leadfield generation was cancelled before starting"
+                )
 
             # Note: SimNIBS runs MPI processes that cannot be interrupted mid-execution
             # The termination check will take effect after SimNIBS completes
-            self._log("Running SimNIBS (this cannot be interrupted mid-execution)...", 'info')
+            self._log(
+                "Running SimNIBS (this cannot be interrupted mid-execution)...", "info"
+            )
             simnibs.run_simnibs(tdcs_lf)
 
             # Check for termination after SimNIBS finishes
             if self._termination_flag and self._termination_flag():
-                self._log("Leadfield generation cancelled after SimNIBS execution", 'warning')
+                self._log(
+                    "Leadfield generation cancelled after SimNIBS execution", "warning"
+                )
                 raise InterruptedError("Leadfield generation was cancelled")
 
         except Exception as e:
@@ -299,32 +352,32 @@ class LeadfieldGenerator:
                 stdout_text = stdout_capture.getvalue()
                 stderr_text = stderr_capture.getvalue()
                 if stdout_text.strip():
-                    for line in stdout_text.strip().split('\n'):
+                    for line in stdout_text.strip().split("\n"):
                         if line.strip():
-                            self._log(line, 'info')
+                            self._log(line, "info")
                 if stderr_text.strip():
-                    for line in stderr_text.strip().split('\n'):
+                    for line in stderr_text.strip().split("\n"):
                         if line.strip():
-                            self._log(line, 'warning')
+                            self._log(line, "warning")
 
         # Re-raise any error that occurred during SimNIBS run
         if simnibs_error:
             raise simnibs_error
 
-        self._log("SimNIBS leadfield computation completed", 'info')
+        self._log("SimNIBS leadfield computation completed", "info")
 
         # Find generated HDF5 file
-        self._log("Processing generated leadfield files...", 'info')
-        hdf5_files = list(output_dir.glob('*.hdf5'))
+        self._log("Processing generated leadfield files...", "info")
+        hdf5_files = list(output_dir.glob("*.hdf5"))
         if not hdf5_files:
             raise FileNotFoundError(f"No HDF5 leadfield file found in {output_dir}")
 
         hdf5_path = hdf5_files[0]
 
         # Use the filename that SimNIBS generated (simplified naming - no renaming)
-        self._log(f"Leadfield generated: {hdf5_path}", 'success')
+        self._log(f"Leadfield generated: {hdf5_path}", "success")
 
-        result = {'hdf5': str(hdf5_path)}
+        result = {"hdf5": str(hdf5_path)}
 
         return result
 
@@ -343,7 +396,7 @@ class LeadfieldGenerator:
 
         # Use PathManager to get leadfield directory
         leadfields_dir = self.pm.path_optional("leadfields", subject_id=subject_id)
-        
+
         leadfields = []
         if leadfields_dir and os.path.exists(leadfields_dir):
             leadfields_dir = Path(leadfields_dir)
@@ -384,7 +437,11 @@ class LeadfieldGenerator:
             leadfields_dir = Path(leadfields_dir)
             for item in leadfields_dir.iterdir():
                 # Look for HDF5 files that contain "leadfield" in the name (flexible naming)
-                if item.is_file() and item.name.endswith(".hdf5") and "leadfield" in item.name.lower():
+                if (
+                    item.is_file()
+                    and item.name.endswith(".hdf5")
+                    and "leadfield" in item.name.lower()
+                ):
                     hdf5_file = item
                     if hdf5_file.exists():
                         # Extract net name more flexibly - try different SimNIBS naming patterns
@@ -397,7 +454,9 @@ class LeadfieldGenerator:
                             if len(parts) == 2:
                                 net_name = parts[1].replace(".hdf5", "")
                             else:
-                                net_name = filename.replace("_leadfield_", "").replace(".hdf5", "")
+                                net_name = filename.replace("_leadfield_", "").replace(
+                                    ".hdf5", ""
+                                )
                         elif filename.endswith("_leadfield.hdf5"):
                             # Standard pattern: {net_name}_leadfield.hdf5
                             net_name = filename.replace("_leadfield.hdf5", "")
@@ -424,7 +483,6 @@ class LeadfieldGenerator:
                         leadfields.append((net_name, str(hdf5_file), file_size))
 
         return sorted(leadfields, key=lambda x: x[0])
-
 
     def get_electrode_names_from_cap(self, cap_name=None):
         """
@@ -474,7 +532,7 @@ class LeadfieldGenerator:
             return sorted(list(dict.fromkeys(labels)))
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     """
     Command line interface for leadfield generation.
     Usage: python leadfield.py <m2m_dir> <eeg_cap_path> <net_name>
@@ -491,6 +549,7 @@ if __name__ == '__main__':
 
     # Create output directory: project_dir/derivatives/SimNIBS/sub-{subject_id}/leadfields/
     from pathlib import Path
+
     m2m_path = Path(m2m_dir)
     # Go up to subject directory, then down to leadfields
     leadfield_dir = m2m_path.parent / "leadfields"
@@ -505,7 +564,7 @@ if __name__ == '__main__':
         hdf5_path = gen.generate_leadfield(
             output_dir=str(leadfield_dir),
             tissues=[1, 2],  # GM and WM
-            eeg_cap_path=eeg_cap_path
+            eeg_cap_path=eeg_cap_path,
         )
 
         print(f"Leadfield created successfully: {hdf5_path}")
@@ -513,6 +572,6 @@ if __name__ == '__main__':
     except Exception as e:
         print(f"Error creating leadfield: {e}")
         import traceback
+
         traceback.print_exc()
         sys.exit(1)
-

@@ -26,7 +26,7 @@ from tit.sim.montage_loader import (
     load_montage_file,
     load_flex_montages,
     parse_flex_montage,
-    load_montages
+    load_montages,
 )
 from tit.sim.config import MontageConfig
 
@@ -46,17 +46,13 @@ class TestLoadMontageFile:
         test_montages = {
             "nets": {
                 "GSN-HydroCel-185": {
-                    "uni_polar_montages": {
-                        "montage1": [["E1", "E2"], ["E3", "E4"]]
-                    },
-                    "multi_polar_montages": {
-                        "montage2": [["E5", "E6"], ["E7", "E8"]]
-                    }
+                    "uni_polar_montages": {"montage1": [["E1", "E2"], ["E3", "E4"]]},
+                    "multi_polar_montages": {"montage2": [["E5", "E6"], ["E7", "E8"]]},
                 }
             }
         }
 
-        with open(montage_file, 'w') as f:
+        with open(montage_file, "w") as f:
             json.dump(test_montages, f)
 
         # Test loading
@@ -92,15 +88,9 @@ class TestLoadMontageFile:
         config_dir.mkdir(parents=True)
 
         montage_file = config_dir / "montage_list.json"
-        test_montages = {
-            "nets": {
-                "GSN-HydroCel-185": {
-                    "uni_polar_montages": {}
-                }
-            }
-        }
+        test_montages = {"nets": {"GSN-HydroCel-185": {"uni_polar_montages": {}}}}
 
-        with open(montage_file, 'w') as f:
+        with open(montage_file, "w") as f:
             json.dump(test_montages, f)
 
         # Missing nets are treated as empty (callers may create montages on demand)
@@ -115,7 +105,7 @@ class TestLoadMontageFile:
         config_dir.mkdir(parents=True)
 
         montage_file = config_dir / "montage_list.json"
-        with open(montage_file, 'w') as f:
+        with open(montage_file, "w") as f:
             f.write("{ invalid json }")
 
         with pytest.raises(json.JSONDecodeError):
@@ -133,11 +123,11 @@ class TestLoadFlexMontages:
             {
                 "name": "flex1",
                 "type": "flex_mapped",
-                "pairs": [["E1", "E2"], ["E3", "E4"]]
+                "pairs": [["E1", "E2"], ["E3", "E4"]],
             }
         ]
 
-        with open(flex_file, 'w') as f:
+        with open(flex_file, "w") as f:
             json.dump(flex_data, f)
 
         result = load_flex_montages(str(flex_file))
@@ -152,14 +142,14 @@ class TestLoadFlexMontages:
             {
                 "name": "flex1",
                 "type": "flex_mapped",
-                "pairs": [["E1", "E2"], ["E3", "E4"]]
+                "pairs": [["E1", "E2"], ["E3", "E4"]],
             }
         ]
 
-        with open(flex_file, 'w') as f:
+        with open(flex_file, "w") as f:
             json.dump(flex_data, f)
 
-        with patch.dict(os.environ, {'FLEX_MONTAGES_FILE': str(flex_file)}):
+        with patch.dict(os.environ, {"FLEX_MONTAGES_FILE": str(flex_file)}):
             result = load_flex_montages()
 
         assert len(result) == 1
@@ -179,11 +169,11 @@ class TestLoadFlexMontages:
             "montage": {
                 "name": "flex1",
                 "type": "flex_mapped",
-                "pairs": [["E1", "E2"], ["E3", "E4"]]
+                "pairs": [["E1", "E2"], ["E3", "E4"]],
             }
         }
 
-        with open(flex_file, 'w') as f:
+        with open(flex_file, "w") as f:
             json.dump(flex_data, f)
 
         result = load_flex_montages(str(flex_file))
@@ -197,10 +187,10 @@ class TestLoadFlexMontages:
         flex_data = {
             "name": "flex1",
             "type": "flex_mapped",
-            "pairs": [["E1", "E2"], ["E3", "E4"]]
+            "pairs": [["E1", "E2"], ["E3", "E4"]],
         }
 
-        with open(flex_file, 'w') as f:
+        with open(flex_file, "w") as f:
             json.dump(flex_data, f)
 
         result = load_flex_montages(str(flex_file))
@@ -219,7 +209,7 @@ class TestParseFlexMontage:
             "name": "flex_mapped_1",
             "type": "flex_mapped",
             "pairs": [["E1", "E2"], ["E3", "E4"]],
-            "eeg_net": "GSN-HydroCel-185"
+            "eeg_net": "GSN-HydroCel-185",
         }
 
         result = parse_flex_montage(flex_data)
@@ -240,8 +230,8 @@ class TestParseFlexMontage:
                 [10.0, 20.0, 30.0],
                 [15.0, 25.0, 35.0],
                 [20.0, 30.0, 40.0],
-                [25.0, 35.0, 45.0]
-            ]
+                [25.0, 35.0, 45.0],
+            ],
         }
 
         result = parse_flex_montage(flex_data)
@@ -261,8 +251,8 @@ class TestParseFlexMontage:
                 [5.0, 10.0, 15.0],
                 [10.0, 15.0, 20.0],
                 [15.0, 20.0, 25.0],
-                [20.0, 25.0, 30.0]
-            ]
+                [20.0, 25.0, 30.0],
+            ],
         }
 
         result = parse_flex_montage(flex_data)
@@ -274,11 +264,7 @@ class TestParseFlexMontage:
 
     def test_unknown_montage_type(self):
         """Test error for unknown montage type."""
-        flex_data = {
-            "name": "unknown",
-            "type": "unknown_type",
-            "pairs": []
-        }
+        flex_data = {"name": "unknown", "type": "unknown_type", "pairs": []}
 
         with pytest.raises(ValueError, match="Unknown flex montage type"):
             parse_flex_montage(flex_data)
@@ -298,24 +284,20 @@ class TestLoadMontages:
         test_montages = {
             "nets": {
                 "GSN-HydroCel-185": {
-                    "uni_polar_montages": {
-                        "montage1": [["E1", "E2"], ["E3", "E4"]]
-                    },
-                    "multi_polar_montages": {
-                        "montage2": [["E5", "E6"], ["E7", "E8"]]
-                    }
+                    "uni_polar_montages": {"montage1": [["E1", "E2"], ["E3", "E4"]]},
+                    "multi_polar_montages": {"montage2": [["E5", "E6"], ["E7", "E8"]]},
                 }
             }
         }
 
-        with open(montage_file, 'w') as f:
+        with open(montage_file, "w") as f:
             json.dump(test_montages, f)
 
         result = load_montages(
             montage_names=["montage1", "montage2"],
             project_dir=str(project_dir),
             eeg_net="GSN-HydroCel-185",
-            include_flex=False
+            include_flex=False,
         )
 
         assert len(result) == 2
@@ -333,35 +315,35 @@ class TestLoadMontages:
         test_montages = {
             "nets": {
                 "GSN-HydroCel-185": {
-                    "uni_polar_montages": {
-                        "montage1": [["E1", "E2"], ["E3", "E4"]]
-                    },
-                    "multi_polar_montages": {}
+                    "uni_polar_montages": {"montage1": [["E1", "E2"], ["E3", "E4"]]},
+                    "multi_polar_montages": {},
                 }
             }
         }
 
-        with open(montage_file, 'w') as f:
+        with open(montage_file, "w") as f:
             json.dump(test_montages, f)
 
         # Create flex file
         flex_file = tmp_path / "flex.json"
-        flex_data = [{
-            "name": "flex1",
-            "type": "flex_mapped",
-            "pairs": [["E5", "E6"], ["E7", "E8"]],
-            "eeg_net": "GSN-HydroCel-185"
-        }]
+        flex_data = [
+            {
+                "name": "flex1",
+                "type": "flex_mapped",
+                "pairs": [["E5", "E6"], ["E7", "E8"]],
+                "eeg_net": "GSN-HydroCel-185",
+            }
+        ]
 
-        with open(flex_file, 'w') as f:
+        with open(flex_file, "w") as f:
             json.dump(flex_data, f)
 
-        with patch.dict(os.environ, {'FLEX_MONTAGES_FILE': str(flex_file)}):
+        with patch.dict(os.environ, {"FLEX_MONTAGES_FILE": str(flex_file)}):
             result = load_montages(
                 montage_names=["montage1"],
                 project_dir=str(project_dir),
                 eeg_net="GSN-HydroCel-185",
-                include_flex=True
+                include_flex=True,
             )
 
         assert len(result) == 2
@@ -381,19 +363,19 @@ class TestLoadMontages:
                     "uni_polar_montages": {
                         "montage1": [[[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]]]
                     },
-                    "multi_polar_montages": {}
+                    "multi_polar_montages": {},
                 }
             }
         }
 
-        with open(montage_file, 'w') as f:
+        with open(montage_file, "w") as f:
             json.dump(test_montages, f)
 
         result = load_montages(
             montage_names=["montage1"],
             project_dir=str(project_dir),
             eeg_net="freehand",
-            include_flex=False
+            include_flex=False,
         )
 
         assert len(result) == 1
@@ -410,30 +392,27 @@ class TestLoadMontages:
             "nets": {
                 "GSN-HydroCel-185": {
                     "uni_polar_montages": {},
-                    "multi_polar_montages": {}
+                    "multi_polar_montages": {},
                 }
             }
         }
 
-        with open(montage_file, 'w') as f:
+        with open(montage_file, "w") as f:
             json.dump(test_montages, f)
 
         # Create flex file with invalid montage
         flex_file = tmp_path / "flex.json"
-        flex_data = [{
-            "name": "bad_flex",
-            "type": "unknown_type"
-        }]
+        flex_data = [{"name": "bad_flex", "type": "unknown_type"}]
 
-        with open(flex_file, 'w') as f:
+        with open(flex_file, "w") as f:
             json.dump(flex_data, f)
 
-        with patch.dict(os.environ, {'FLEX_MONTAGES_FILE': str(flex_file)}):
+        with patch.dict(os.environ, {"FLEX_MONTAGES_FILE": str(flex_file)}):
             result = load_montages(
                 montage_names=[],
                 project_dir=str(project_dir),
                 eeg_net="GSN-HydroCel-185",
-                include_flex=True
+                include_flex=True,
             )
 
         # Should skip bad montage and continue
@@ -454,19 +433,19 @@ class TestLoadMontages:
             "nets": {
                 "GSN-HydroCel-185": {
                     "uni_polar_montages": {},
-                    "multi_polar_montages": {}
+                    "multi_polar_montages": {},
                 }
             }
         }
 
-        with open(montage_file, 'w') as f:
+        with open(montage_file, "w") as f:
             json.dump(test_montages, f)
 
         result = load_montages(
             montage_names=[],
             project_dir=str(project_dir),
             eeg_net="GSN-HydroCel-185",
-            include_flex=False
+            include_flex=False,
         )
 
         assert len(result) == 0
@@ -481,24 +460,25 @@ class TestLoadMontages:
         test_montages = {
             "nets": {
                 "GSN-HydroCel-185": {
-                    "uni_polar_montages": {
-                        "montage1": [["E1", "E2"], ["E3", "E4"]]
-                    },
+                    "uni_polar_montages": {"montage1": [["E1", "E2"], ["E3", "E4"]]},
                     "multi_polar_montages": {
-                        "montage1": [["E5", "E6"], ["E7", "E8"]]  # Same name, different pairs
-                    }
+                        "montage1": [
+                            ["E5", "E6"],
+                            ["E7", "E8"],
+                        ]  # Same name, different pairs
+                    },
                 }
             }
         }
 
-        with open(montage_file, 'w') as f:
+        with open(montage_file, "w") as f:
             json.dump(test_montages, f)
 
         result = load_montages(
             montage_names=["montage1"],
             project_dir=str(project_dir),
             eeg_net="GSN-HydroCel-185",
-            include_flex=False
+            include_flex=False,
         )
 
         # Should use multi_polar version

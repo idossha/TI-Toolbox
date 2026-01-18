@@ -53,8 +53,10 @@ def test_ensure_dir_creates_directory(pm_in_tmp_project: PathManager):
 
 
 def test_path_rendering_is_deterministic(pm_in_tmp_project: PathManager):
-    a = pm_in_tmp_project.path("simulation", subject_id="001", simulation_name="montage1")
-    b = pm_in_tmp_project.path("simulation", simulation_name="montage1", subject_id="001")  # kwargs order differs
+    a = pm_in_tmp_project.path(
+        "simulation", subject_id="001", simulation_name="montage1"
+    )
+    b = pm_in_tmp_project.path(
+        "simulation", simulation_name="montage1", subject_id="001"
+    )  # kwargs order differs
     assert a == b
-
-

@@ -58,7 +58,9 @@ def _build_logger(subject_id: str, project_dir: str, debug: bool):
         import logging
 
         for handler in list(logger.handlers):
-            if isinstance(handler, logging.StreamHandler) and not isinstance(handler, logging.FileHandler):
+            if isinstance(handler, logging.StreamHandler) and not isinstance(
+                handler, logging.FileHandler
+            ):
                 handler.setLevel(logging.DEBUG if debug else logging.INFO)
     except Exception:
         # Logger configuration may fail - continue with default logging
@@ -85,7 +87,9 @@ def _load_payload(path: str) -> dict:
 def main(argv=None) -> int:
     _ensure_own_process_group()
 
-    parser = argparse.ArgumentParser(description="TI-Toolbox simulation subprocess runner")
+    parser = argparse.ArgumentParser(
+        description="TI-Toolbox simulation subprocess runner"
+    )
     parser.add_argument("--config", required=True, help="Path to JSON config payload")
     parser.add_argument("--results", required=True, help="Path to write results JSON")
     args = parser.parse_args(argv)
@@ -161,7 +165,9 @@ def main(argv=None) -> int:
             montage_configs.append(
                 MontageConfig(
                     name=str(m.get("name")),
-                    electrode_pairs=[tuple(p) for p in (m.get("electrode_pairs") or [])],
+                    electrode_pairs=[
+                        tuple(p) for p in (m.get("electrode_pairs") or [])
+                    ],
                     is_xyz=bool(m.get("is_xyz", False)),
                     eeg_net=m.get("eeg_net"),
                 )
@@ -181,13 +187,19 @@ def main(argv=None) -> int:
         try:
             montage_count = len(montage_configs)
             workers = int(sim_config.parallel.effective_workers)
-            logger.info(f"Parallel requested: {bool(sim_config.parallel.enabled)} (max_workers={sim_config.parallel.max_workers}, effective_workers={workers})")
+            logger.info(
+                f"Parallel requested: {bool(sim_config.parallel.enabled)} (max_workers={sim_config.parallel.max_workers}, effective_workers={workers})"
+            )
             logger.info(f"Montages to run: {montage_count}")
             if sim_config.parallel.enabled:
                 if montage_count <= 1:
-                    logger.warning("Parallel execution is enabled, but only 1 montage was provided; running sequentially.")
+                    logger.warning(
+                        "Parallel execution is enabled, but only 1 montage was provided; running sequentially."
+                    )
                 elif workers <= 1:
-                    logger.warning("Parallel execution is enabled, but effective_workers<=1; running sequentially.")
+                    logger.warning(
+                        "Parallel execution is enabled, but effective_workers<=1; running sequentially."
+                    )
         except Exception:
             # Configuration logging may fail - continue with execution
             pass
@@ -227,11 +239,10 @@ def main(argv=None) -> int:
             pass
 
         import traceback
+
         traceback.print_exc()
         return 1
 
 
 if __name__ == "__main__":
     raise SystemExit(main())
-
-

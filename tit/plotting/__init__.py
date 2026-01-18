@@ -10,7 +10,10 @@ not require matplotlib unless you actually call a plot function.
 from ._common import SaveFigOptions, ensure_headless_matplotlib_backend, savefig_close
 from .focality import plot_whole_head_roi_histogram
 from .static_overlay import generate_static_overlay_images
-from .stats import plot_cluster_size_mass_correlation, plot_permutation_null_distribution
+from .stats import (
+    plot_cluster_size_mass_correlation,
+    plot_permutation_null_distribution,
+)
 from .ti_metrics import plot_intensity_vs_focality, plot_montage_distributions
 
 __all__ = [
@@ -24,5 +27,3 @@ __all__ = [
     "plot_montage_distributions",
     "plot_intensity_vs_focality",
 ]
-
-

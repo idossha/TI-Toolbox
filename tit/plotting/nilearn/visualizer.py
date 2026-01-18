@@ -28,7 +28,8 @@ import warnings
 from tit.core import get_path_manager
 from tit.core.constants import DIR_NILEARN_VISUALS
 
-warnings.filterwarnings('ignore')
+warnings.filterwarnings("ignore")
+
 
 class NilearnVisualizer:
     """
@@ -55,7 +56,9 @@ class NilearnVisualizer:
     def _setup_output_directory(self):
         """Set up the output directory for visualizations."""
         derivatives_dir = self.pm.path("derivatives")
-        self.output_dir = os.path.join(derivatives_dir, "ti-toolbox", DIR_NILEARN_VISUALS)
+        self.output_dir = os.path.join(
+            derivatives_dir, "ti-toolbox", DIR_NILEARN_VISUALS
+        )
         os.makedirs(self.output_dir, exist_ok=True)
 
     def _get_simulation_files(self, subject_id: str) -> Dict[str, str]:
@@ -72,13 +75,15 @@ class NilearnVisualizer:
         sim_files = {}
 
         for sim_name in simulations:
-            sim_dir = self.pm.path_optional("simulation", subject_id=subject_id, simulation_name=sim_name)
+            sim_dir = self.pm.path_optional(
+                "simulation", subject_id=subject_id, simulation_name=sim_name
+            )
             if sim_dir:
                 # Look for TI max files in the niftis directory
                 nifti_dir = os.path.join(sim_dir, "TI", "niftis")
                 if os.path.exists(nifti_dir):
                     for file in os.listdir(nifti_dir):
-                        if file.endswith('.nii.gz') and 'TI_max' in file:
+                        if file.endswith(".nii.gz") and "TI_max" in file:
                             sim_files[sim_name] = os.path.join(nifti_dir, file)
                             break
 
@@ -100,10 +105,15 @@ class NilearnVisualizer:
             print(f"Warning: {filepath} not found")
             return None
 
-    def create_pdf_visualization(self, subject_id: str, simulation_name: str,
-                                min_cutoff: float = 0.3, max_cutoff: float = None,
-                                atlas_name: str = "harvard_oxford_sub",
-                                selected_regions: Optional[List[int]] = None) -> Optional[str]:
+    def create_pdf_visualization(
+        self,
+        subject_id: str,
+        simulation_name: str,
+        min_cutoff: float = 0.3,
+        max_cutoff: float = None,
+        atlas_name: str = "harvard_oxford_sub",
+        selected_regions: Optional[List[int]] = None,
+    ) -> Optional[str]:
         """
         Create PDF visualization with multiple surface views and atlas contours.
 
@@ -123,7 +133,9 @@ class NilearnVisualizer:
         # Get simulation files
         sim_files = self._get_simulation_files(subject_id)
         if simulation_name not in sim_files:
-            print(f"Error: Simulation '{simulation_name}' not found for subject {subject_id}")
+            print(
+                f"Error: Simulation '{simulation_name}' not found for subject {subject_id}"
+            )
             return None
 
         ef_filepath = sim_files[simulation_name]
@@ -161,8 +173,7 @@ class NilearnVisualizer:
 
         # Create multi-slice plot with atlas contours
         self._create_multi_slice_plot_with_atlas(
-            ef_img, atlas_img, atlas_display_name, pdf_filepath,
-            min_cutoff, max_cutoff
+            ef_img, atlas_img, atlas_display_name, pdf_filepath, min_cutoff, max_cutoff
         )
 
         print(f"✓ Saved: {pdf_filepath}")
@@ -170,7 +181,9 @@ class NilearnVisualizer:
 
         return pdf_filepath
 
-    def _load_atlas(self, atlas_name: str, selected_regions: Optional[List[int]] = None) -> Tuple[Optional[nib.Nifti1Image], str]:
+    def _load_atlas(
+        self, atlas_name: str, selected_regions: Optional[List[int]] = None
+    ) -> Tuple[Optional[nib.Nifti1Image], str]:
         """
         Load the specified atlas and optionally filter to specific regions.
 
@@ -182,44 +195,50 @@ class NilearnVisualizer:
             Tuple of (atlas_image, display_name) or (None, "") if failed
         """
         atlas_configs = {
-            'harvard_oxford': {
-                'name': 'Harvard Oxford Cortical Atlas',
-                'function': lambda: datasets.fetch_atlas_harvard_oxford("cort-maxprob-thr25-2mm"),
-                'atlas_key': 'filename',
-                'labels_key': 'labels'
+            "harvard_oxford": {
+                "name": "Harvard Oxford Cortical Atlas",
+                "function": lambda: datasets.fetch_atlas_harvard_oxford(
+                    "cort-maxprob-thr25-2mm"
+                ),
+                "atlas_key": "filename",
+                "labels_key": "labels",
             },
-            'harvard_oxford_sub': {
-                'name': 'Harvard Oxford Subcortical Atlas',
-                'function': lambda: datasets.fetch_atlas_harvard_oxford("sub-maxprob-thr25-2mm"),
-                'atlas_key': 'filename',
-                'labels_key': 'labels'
+            "harvard_oxford_sub": {
+                "name": "Harvard Oxford Subcortical Atlas",
+                "function": lambda: datasets.fetch_atlas_harvard_oxford(
+                    "sub-maxprob-thr25-2mm"
+                ),
+                "atlas_key": "filename",
+                "labels_key": "labels",
             },
-            'aal': {
-                'name': 'AAL Atlas',
-                'function': lambda: datasets.fetch_atlas_aal(),
-                'atlas_key': 'maps',
-                'labels_key': 'labels'
+            "aal": {
+                "name": "AAL Atlas",
+                "function": lambda: datasets.fetch_atlas_aal(),
+                "atlas_key": "maps",
+                "labels_key": "labels",
             },
-            'schaefer_2018': {
-                'name': 'Schaefer 2018 Atlas (100 regions)',
-                'function': lambda: datasets.fetch_atlas_schaefer_2018(n_rois=100),
-                'atlas_key': 'maps',
-                'labels_key': 'labels'
-            }
+            "schaefer_2018": {
+                "name": "Schaefer 2018 Atlas (100 regions)",
+                "function": lambda: datasets.fetch_atlas_schaefer_2018(n_rois=100),
+                "atlas_key": "maps",
+                "labels_key": "labels",
+            },
         }
 
         if atlas_name not in atlas_configs:
-            print(f"Error: Unknown atlas '{atlas_name}'. Available: {list(atlas_configs.keys())}")
+            print(
+                f"Error: Unknown atlas '{atlas_name}'. Available: {list(atlas_configs.keys())}"
+            )
             return None, ""
 
         config = atlas_configs[atlas_name]
 
         try:
             print(f"Loading {config['name']}...")
-            atlas_data = config['function']()
-            atlas_img = atlas_data[config['atlas_key']]
+            atlas_data = config["function"]()
+            atlas_img = atlas_data[config["atlas_key"]]
 
-            if selected_regions and 'labels' in atlas_data:
+            if selected_regions and "labels" in atlas_data:
                 # Create a filtered atlas with only selected regions
                 atlas_nii = nib.load(atlas_img)
                 atlas_array = atlas_nii.get_fdata()
@@ -234,11 +253,15 @@ class NilearnVisualizer:
                 filtered_array[mask] = atlas_array[mask]
 
                 # Create new nifti image
-                atlas_img = nib.Nifti1Image(filtered_array, atlas_nii.affine, atlas_nii.header)
+                atlas_img = nib.Nifti1Image(
+                    filtered_array, atlas_nii.affine, atlas_nii.header
+                )
 
-                atlas_name_display = f"{config['name']} (Selected regions: {len(selected_regions)})"
+                atlas_name_display = (
+                    f"{config['name']} (Selected regions: {len(selected_regions)})"
+                )
             else:
-                atlas_name_display = config['name']
+                atlas_name_display = config["name"]
 
             return atlas_img, atlas_name_display
 
@@ -246,12 +269,15 @@ class NilearnVisualizer:
             print(f"Error loading atlas: {e}")
             return None, ""
 
-    def _create_multi_slice_plot_with_atlas(self, field_img: nib.Nifti1Image,
-                                           atlas_img: Optional[nib.Nifti1Image],
-                                           atlas_name: str,
-                                           output_path: str,
-                                           min_cutoff: float,
-                                           max_cutoff: float):
+    def _create_multi_slice_plot_with_atlas(
+        self,
+        field_img: nib.Nifti1Image,
+        atlas_img: Optional[nib.Nifti1Image],
+        atlas_name: str,
+        output_path: str,
+        min_cutoff: float,
+        max_cutoff: float,
+    ):
         """
         Create multi-slice plot with atlas contours and field overlay.
 
@@ -267,19 +293,21 @@ class NilearnVisualizer:
         field_img_thresholded = threshold_img(field_img, threshold=min_cutoff)
 
         # Create figure with multiple slices - 3 rows (one per view) x 8 columns (slices)
-        fig, axes = plt.subplots(3, 7, figsize=(32, 12), facecolor='white')
-        fig.patch.set_facecolor('white')
+        fig, axes = plt.subplots(3, 7, figsize=(32, 12), facecolor="white")
+        fig.patch.set_facecolor("white")
 
         # Coordinates for multiple slices
-        sagittal_coords = [-60, -40, -20, 0, 20, 40, 60]   # x coordinates
-        coronal_coords = [-80, -55, -30, -5, 20, 45, 70]   # y coordinates
-        axial_coords = [ -30, -15, 10, 25, 40, 55, 70]       # z coordinates
+        sagittal_coords = [-60, -40, -20, 0, 20, 40, 60]  # x coordinates
+        coronal_coords = [-80, -55, -30, -5, 20, 45, 70]  # y coordinates
+        axial_coords = [-30, -15, 10, 25, 40, 55, 70]  # z coordinates
 
         all_coords = [sagittal_coords, coronal_coords, axial_coords]
-        view_names = ['Sagittal', 'Coronal', 'Axial']
-        coord_labels = ['x', 'y', 'z']
+        view_names = ["Sagittal", "Coronal", "Axial"]
+        coord_labels = ["x", "y", "z"]
 
-        for row, (coords, view_name, coord_label) in enumerate(zip(all_coords, view_names, coord_labels)):
+        for row, (coords, view_name, coord_label) in enumerate(
+            zip(all_coords, view_names, coord_labels)
+        ):
             for col, cut_coord in enumerate(coords):
                 ax = axes[row, col]
 
@@ -291,54 +319,67 @@ class NilearnVisualizer:
                     axes=ax,
                     annotate=True,
                     black_bg=False,
-                    cmap='hot',
+                    cmap="hot",
                     vmin=min_cutoff,
                     vmax=max_cutoff,
-                    colorbar=False
+                    colorbar=False,
                 )
 
                 # Add atlas contours on top if available
                 if atlas_img is not None:
                     display.add_contours(
                         atlas_img,
-                        colors=['red', 'blue', 'green', 'yellow', 'purple', 'orange'] * 20,
+                        colors=["red", "blue", "green", "yellow", "purple", "orange"]
+                        * 20,
                         alpha=0.4,
                         linewidths=1,
-                        levels=list(range(1, 200))
+                        levels=list(range(1, 200)),
                     )
 
                 # Set view names only on first column for cleaner layout
                 if col == 0:
-                    ax.set_ylabel(f'{view_name}', fontsize=10, fontweight='bold', rotation=90, labelpad=10)
+                    ax.set_ylabel(
+                        f"{view_name}",
+                        fontsize=10,
+                        fontweight="bold",
+                        rotation=90,
+                        labelpad=10,
+                    )
 
         # Add colorbar
         import matplotlib.cm as cm
         import matplotlib.colors as mcolors
 
         norm = mcolors.Normalize(vmin=min_cutoff, vmax=max_cutoff)
-        sm = cm.ScalarMappable(cmap='hot', norm=norm)
+        sm = cm.ScalarMappable(cmap="hot", norm=norm)
         sm.set_array([])
 
         cbar_ax = fig.add_axes([0.15, 0.02, 0.7, 0.02])
-        cbar = fig.colorbar(sm, cax=cbar_ax, orientation='horizontal', label='Electric Field (V/m)')
+        cbar = fig.colorbar(
+            sm, cax=cbar_ax, orientation="horizontal", label="Electric Field (V/m)"
+        )
         cbar.set_ticks([min_cutoff, max_cutoff])
-        cbar.set_ticklabels([f'{min_cutoff:.2f}', f'{max_cutoff:.2f}'])
+        cbar.set_ticklabels([f"{min_cutoff:.2f}", f"{max_cutoff:.2f}"])
 
         # Main title
         atlas_text = f" with {atlas_name} Contours" if atlas_img is not None else ""
-        fig.suptitle(f'Electric Field Multi-Slices{atlas_text}\n{min_cutoff:.2f}-{max_cutoff:.2f} V/m Range',
-                    fontsize=14, fontweight='bold')
+        fig.suptitle(
+            f"Electric Field Multi-Slices{atlas_text}\n{min_cutoff:.2f}-{max_cutoff:.2f} V/m Range",
+            fontsize=14,
+            fontweight="bold",
+        )
 
         plt.tight_layout(rect=[0, 0.08, 1, 0.92])
 
         # Save the figure
-        fig.savefig(output_path, dpi=300, bbox_inches='tight')
+        fig.savefig(output_path, dpi=300, bbox_inches="tight")
         print(f"✓ Saved multi-slice plot: {output_path}")
 
         plt.close(fig)
 
-    def create_html_visualization(self, subject_id: str, simulation_name: str,
-                                 min_cutoff: float = 0.3) -> Optional[str]:
+    def create_html_visualization(
+        self, subject_id: str, simulation_name: str, min_cutoff: float = 0.3
+    ) -> Optional[str]:
         """
         Create interactive HTML visualization.
 
@@ -355,7 +396,9 @@ class NilearnVisualizer:
         # Get simulation files
         sim_files = self._get_simulation_files(subject_id)
         if simulation_name not in sim_files:
-            print(f"Error: Simulation '{simulation_name}' not found for subject {subject_id}")
+            print(
+                f"Error: Simulation '{simulation_name}' not found for subject {subject_id}"
+            )
             return None
 
         ef_filepath = sim_files[simulation_name]
@@ -381,10 +424,10 @@ class NilearnVisualizer:
             stat_map=ef_img,
             threshold=min_cutoff,
             vmax=percentile_999,
-            cmap='hot',
+            cmap="hot",
             symmetric_cmap=False,
             bg_on_data=True,
-            title=f"Electric Field - {subject_id}/{simulation_name}"
+            title=f"Electric Field - {subject_id}/{simulation_name}",
         )
 
         # Save as HTML
@@ -393,10 +436,16 @@ class NilearnVisualizer:
 
         return html_filepath
 
-    def create_pdf_visualization_group(self, averaged_img, base_filename: str, output_dir: str,
-                                     min_cutoff: float = 0.3, max_cutoff: float = None,
-                                     atlas_name: str = "harvard_oxford_sub",
-                                     selected_regions: Optional[List[int]] = None) -> Optional[str]:
+    def create_pdf_visualization_group(
+        self,
+        averaged_img,
+        base_filename: str,
+        output_dir: str,
+        min_cutoff: float = 0.3,
+        max_cutoff: float = None,
+        atlas_name: str = "harvard_oxford_sub",
+        selected_regions: Optional[List[int]] = None,
+    ) -> Optional[str]:
         """
         Create PDF visualization with pre-averaged nifti data.
 
@@ -444,8 +493,12 @@ class NilearnVisualizer:
 
         # Create multi-slice plot with atlas contours
         self._create_multi_slice_plot_with_atlas(
-            averaged_img, atlas_img, atlas_display_name, pdf_filepath,
-            min_cutoff, max_cutoff
+            averaged_img,
+            atlas_img,
+            atlas_display_name,
+            pdf_filepath,
+            min_cutoff,
+            max_cutoff,
         )
 
         print(f"✓ Saved: {pdf_filepath}")
@@ -453,9 +506,14 @@ class NilearnVisualizer:
 
         return pdf_filepath
 
-    def create_glass_brain_visualization(self, subject_id: str, simulation_name: str,
-                                       min_cutoff: float = 0.3, max_cutoff: float = None,
-                                       cmap: str = 'hot') -> Optional[str]:
+    def create_glass_brain_visualization(
+        self,
+        subject_id: str,
+        simulation_name: str,
+        min_cutoff: float = 0.3,
+        max_cutoff: float = None,
+        cmap: str = "hot",
+    ) -> Optional[str]:
         """
         Create glass brain visualization using nilearn's plot_glass_brain.
 
@@ -469,12 +527,16 @@ class NilearnVisualizer:
         Returns:
             Path to saved PNG file or None if failed
         """
-        print(f"=== Creating Glass Brain Visualization for {subject_id}/{simulation_name} ===")
+        print(
+            f"=== Creating Glass Brain Visualization for {subject_id}/{simulation_name} ==="
+        )
 
         # Get simulation files
         sim_files = self._get_simulation_files(subject_id)
         if simulation_name not in sim_files:
-            print(f"Error: Simulation '{simulation_name}' not found for subject {subject_id}")
+            print(
+                f"Error: Simulation '{simulation_name}' not found for subject {subject_id}"
+            )
             return None
 
         ef_filepath = sim_files[simulation_name]
@@ -517,7 +579,7 @@ class NilearnVisualizer:
             plot_abs=False,
             symmetric_cbar=False,
             title=f"Electric Field - {subject_id}/{simulation_name}\n{min_cutoff:.2f}-{max_cutoff:.2f} V/m",
-            output_file=png_filepath
+            output_file=png_filepath,
         )
 
         print(f"✓ Saved glass brain visualization: {png_filepath}")

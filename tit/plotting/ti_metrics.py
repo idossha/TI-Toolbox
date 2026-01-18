@@ -66,7 +66,15 @@ def plot_intensity_vs_focality(
 
     fig, ax = plt.subplots(figsize=(6, 5))
     if composite and any(c is not None for c in composite):
-        sc = ax.scatter(intensity, focality, c=composite, cmap="viridis", s=40, edgecolor="black", alpha=0.7)
+        sc = ax.scatter(
+            intensity,
+            focality,
+            c=composite,
+            cmap="viridis",
+            s=40,
+            edgecolor="black",
+            alpha=0.7,
+        )
         fig.colorbar(sc, ax=ax).set_label("Composite Index", fontsize=12)
     else:
         ax.scatter(intensity, focality, s=40, edgecolor="black", alpha=0.7)
@@ -77,5 +85,3 @@ def plot_intensity_vs_focality(
     ax.grid(alpha=0.3)
     fig.tight_layout()
     return savefig_close(fig, output_file, opts=SaveFigOptions(dpi=dpi))
-
-

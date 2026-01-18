@@ -58,7 +58,9 @@ def prompt_project_dir(default_dir: str, auto_create: bool) -> Tuple[Path, bool,
     while True:
         if project_dir:
             print(f"Current project directory: {project_dir}")
-            new_path = input("Press Enter to use this directory or enter a new path:\n").strip()
+            new_path = input(
+                "Press Enter to use this directory or enter a new path:\n"
+            ).strip()
             if new_path:
                 project_dir = new_path
         else:
@@ -76,7 +78,9 @@ def prompt_project_dir(default_dir: str, auto_create: bool) -> Tuple[Path, bool,
                 continue
             if not os.access(path, os.W_OK):
                 print(f"Warning: No write permissions in directory {path}")
-                response = input("Do you want to continue anyway? (y/n): ").strip().lower()
+                response = (
+                    input("Do you want to continue anyway? (y/n): ").strip().lower()
+                )
                 if response != "y":
                     continue
             is_empty = not any(path.iterdir())
@@ -141,7 +145,9 @@ def check_x_forwarding() -> Optional[str]:
             sys.exit(1)
         return find_xhost()
     if system == "Windows":
-        print("Windows detected. Please ensure your X server (VcXsrv/Xming) is running with:")
+        print(
+            "Windows detected. Please ensure your X server (VcXsrv/Xming) is running with:"
+        )
         print("  - 'Multiple windows' mode")
         print("  - 'Disable access control' checked")
         print("  - Firewall configured to allow X server connections")
@@ -187,7 +193,11 @@ def revert_xhost(xhost_bin: Optional[str]) -> None:
 
 
 def ensure_docker_volume(volume_name: str) -> None:
-    result = subprocess.run(["docker", "volume", "inspect", volume_name], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    result = subprocess.run(
+        ["docker", "volume", "inspect", volume_name],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
     if result.returncode != 0:
         run(["docker", "volume", "create", volume_name], check=False)
 
@@ -209,7 +219,11 @@ def ensure_images_pulled(env: dict[str, str]) -> None:
         return
 
     try:
-        existing = set(capture(["docker", "images", "--format", "{{.Repository}}:{{.Tag}}"]).splitlines())
+        existing = set(
+            capture(
+                ["docker", "images", "--format", "{{.Repository}}:{{.Tag}}"]
+            ).splitlines()
+        )
     except Exception:
         existing = set()
 
@@ -219,7 +233,9 @@ def ensure_images_pulled(env: dict[str, str]) -> None:
 
     print("Pulling required Docker images...")
     # Show progress like docker does
-    subprocess.run(["docker", "compose", "-f", str(DOCKER_COMPOSE_FILE), "pull"], env=env)
+    subprocess.run(
+        ["docker", "compose", "-f", str(DOCKER_COMPOSE_FILE), "pull"], env=env
+    )
 
 
 def run_project_init_in_container(container_name: str, project_dir_name: str) -> None:
@@ -228,7 +244,12 @@ def run_project_init_in_container(container_name: str, project_dir_name: str) ->
     local_manager = SCRIPT_DIR / "tit" / "project_init" / "example_data_manager.py"
     if local_manager.exists():
         subprocess.run(
-            ["docker", "cp", str(local_manager), f"{container_name}:/ti-toolbox/tit/project_init/example_data_manager.py"],
+            [
+                "docker",
+                "cp",
+                str(local_manager),
+                f"{container_name}:/ti-toolbox/tit/project_init/example_data_manager.py",
+            ],
             check=False,
         )
 
@@ -250,7 +271,7 @@ def run_project_init_in_container(container_name: str, project_dir_name: str) ->
         "    try:\n"
         "        from tit.project_init import is_new_project, initialize_project_structure, setup_example_data\n"
         "    except Exception as exc:\n"
-        "        print(f\"  ⚠ Could not import tit.project_init in container: {exc}\")\n"
+        '        print(f"  ⚠ Could not import tit.project_init in container: {exc}")\n'
         "        return 0\n"
         "\n"
         "    project_dir = Path(os.environ['PROJECT_DIR'])\n"
@@ -263,7 +284,7 @@ def run_project_init_in_container(container_name: str, project_dir_name: str) ->
         "        # Returns False when it is a no-op; that's not an error.\n"
         "        setup_example_data(toolbox_root, project_dir)\n"
         "    except Exception as exc:\n"
-        "        print(f\"  ⚠ Project initialization failed: {exc}\")\n"
+        '        print(f"  ⚠ Project initialization failed: {exc}")\n'
         "\n"
         "    return 0\n"
         "\n"
@@ -294,14 +315,23 @@ def run_docker_compose(project_dir: Path, project_dir_name: str) -> None:
     print("Waiting for services to initialize...")
     time.sleep(3)
 
-    if subprocess.run(
-        ["docker", "ps", "--format", "{{.Names}}"],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
-    ).stdout.find("simnibs_container") == -1:
-        print("Error: simnibs service is not running. Please check your docker-compose.yml and container logs.")
-        run(["docker", "compose", "-f", str(DOCKER_COMPOSE_FILE), "logs"], env=env, check=False)
+    if (
+        subprocess.run(
+            ["docker", "ps", "--format", "{{.Names}}"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        ).stdout.find("simnibs_container")
+        == -1
+    ):
+        print(
+            "Error: simnibs service is not running. Please check your docker-compose.yml and container logs."
+        )
+        run(
+            ["docker", "compose", "-f", str(DOCKER_COMPOSE_FILE), "logs"],
+            env=env,
+            check=False,
+        )
         sys.exit(1)
 
     print("Initializing project (inside container)...")
@@ -312,7 +342,11 @@ def run_docker_compose(project_dir: Path, project_dir_name: str) -> None:
         subprocess.run(["docker", "exec", "-ti", "simnibs_container", "bash"])
     else:
         subprocess.run(["docker", "exec", "-i", "simnibs_container", "bash"])
-    run(["docker", "compose", "-f", str(DOCKER_COMPOSE_FILE), "down"], env=env, check=False)
+    run(
+        ["docker", "compose", "-f", str(DOCKER_COMPOSE_FILE), "down"],
+        env=env,
+        check=False,
+    )
 
 
 def shutil_which(cmd: str) -> Optional[str]:
@@ -326,14 +360,18 @@ def shutil_which(cmd: str) -> Optional[str]:
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="TI-Toolbox CLI loader")
     parser.add_argument("--project-dir", help="Path to the local project directory")
-    parser.add_argument("--yes", action="store_true", help="Auto-create missing project directory")
+    parser.add_argument(
+        "--yes", action="store_true", help="Auto-create missing project directory"
+    )
     parser.add_argument("--verbose", action="store_true", help="Enable verbose output")
     return parser.parse_args()
 
 
 def main() -> None:
     if not DOCKER_COMPOSE_FILE.exists():
-        print(f"Error: docker-compose.yml not found in {SCRIPT_DIR}. Please make sure the file is present.")
+        print(
+            f"Error: docker-compose.yml not found in {SCRIPT_DIR}. Please make sure the file is present."
+        )
         sys.exit(1)
 
     global VERBOSE

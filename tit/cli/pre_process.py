@@ -26,13 +26,58 @@ def _ensure_subject_dirs(project_dir: Path, subject_id: str) -> None:
 
 class PreProcessCLI(BaseCLI):
     def __init__(self) -> None:
-        super().__init__("Run preprocessing pipeline (structural / m2m / atlas / tissue analysis).")
-        self.add_argument(ArgumentDefinition(name="subjects", type=str, nargs="+", help="Subject IDs (comma-separated or space-separated).", required=True))
-        self.add_argument(ArgumentDefinition(name="convert_dicom", type=bool, help="Convert dicom to nifti", default=False))
-        self.add_argument(ArgumentDefinition(name="run_recon", type=bool, help="Run FreeSurfer recon-all", default=False))
-        self.add_argument(ArgumentDefinition(name="parallel_recon", type=bool, help="Run recon-all in parallel across subjects", default=False))
-        self.add_argument(ArgumentDefinition(name="create_m2m", type=bool, help="Create SimNIBS m2m folder (charm)", default=False))
-        self.add_argument(ArgumentDefinition(name="run_tissue_analysis", type=bool, help="Run tissue analyzer", default=False))
+        super().__init__(
+            "Run preprocessing pipeline (structural / m2m / atlas / tissue analysis)."
+        )
+        self.add_argument(
+            ArgumentDefinition(
+                name="subjects",
+                type=str,
+                nargs="+",
+                help="Subject IDs (comma-separated or space-separated).",
+                required=True,
+            )
+        )
+        self.add_argument(
+            ArgumentDefinition(
+                name="convert_dicom",
+                type=bool,
+                help="Convert dicom to nifti",
+                default=False,
+            )
+        )
+        self.add_argument(
+            ArgumentDefinition(
+                name="run_recon",
+                type=bool,
+                help="Run FreeSurfer recon-all",
+                default=False,
+            )
+        )
+        self.add_argument(
+            ArgumentDefinition(
+                name="parallel_recon",
+                type=bool,
+                help="Run recon-all in parallel across subjects",
+                default=False,
+            )
+        )
+        self.add_argument(
+            ArgumentDefinition(
+                name="create_m2m",
+                type=bool,
+                help="Create SimNIBS m2m folder (charm)",
+                default=False,
+            )
+        )
+        self.add_argument(
+            ArgumentDefinition(
+                name="run_tissue_analysis",
+                type=bool,
+                help="Run tissue analyzer",
+                default=False,
+            )
+        )
 
     def run_interactive(self) -> int:
         pm = get_path_manager()
@@ -41,7 +86,11 @@ class PreProcessCLI(BaseCLI):
         project_dir = Path(pm.project_dir)
         # Try to list existing subject folders (does not require m2m yet)
         existing: List[str] = []
-        for base in [project_dir / "sourcedata", project_dir / "derivatives" / "SimNIBS", project_dir]:
+        for base in [
+            project_dir / "sourcedata",
+            project_dir / "derivatives" / "SimNIBS",
+            project_dir,
+        ]:
             if base.is_dir():
                 for p in sorted(base.glob("sub-*")):
                     if p.is_dir():
@@ -49,7 +98,11 @@ class PreProcessCLI(BaseCLI):
         existing = list(dict.fromkeys(existing))
 
         if existing:
-            selected = self.select_many(prompt_text="Select subjects", options=existing, help_text="Pick one or more subject IDs")
+            selected = self.select_many(
+                prompt_text="Select subjects",
+                options=existing,
+                help_text="Pick one or more subject IDs",
+            )
             subjects = ",".join(selected)
         else:
             subjects = utils.ask_required("Subjects (comma-separated, e.g. 101,102)")
@@ -109,5 +162,3 @@ class PreProcessCLI(BaseCLI):
 
 if __name__ == "__main__":
     raise SystemExit(PreProcessCLI().run())
-
-

@@ -65,12 +65,28 @@ def test_simulator_execute_flex_builds_mapped_and_optimized(tmp_path: Path):
         captured["montages"] = montages
         return [{"status": "completed"} for _ in montages]
 
-    with patch("tit.cli.simulator.get_path_manager", return_value=pm), \
-         patch("tit.tools.map_electrodes.load_electrode_positions_json", return_value=([(0, 0, 0)], [0])), \
-         patch("tit.tools.map_electrodes.read_csv_positions", return_value=([(0, 0, 0)], ["Fp1"])), \
-         patch("tit.tools.map_electrodes.map_electrodes_to_net", return_value={"mapped_labels": ["Fp1", "Fz", "Cz", "Pz"]}), \
-         patch("tit.tools.map_electrodes.save_mapping_result", side_effect=lambda mapping, path, eeg_net_name=None: Path(path).write_text(json.dumps(mapping))), \
-         patch("tit.sim.run_simulation", side_effect=fake_run_simulation):
+    with (
+        patch("tit.cli.simulator.get_path_manager", return_value=pm),
+        patch(
+            "tit.tools.map_electrodes.load_electrode_positions_json",
+            return_value=([(0, 0, 0)], [0]),
+        ),
+        patch(
+            "tit.tools.map_electrodes.read_csv_positions",
+            return_value=([(0, 0, 0)], ["Fp1"]),
+        ),
+        patch(
+            "tit.tools.map_electrodes.map_electrodes_to_net",
+            return_value={"mapped_labels": ["Fp1", "Fz", "Cz", "Pz"]},
+        ),
+        patch(
+            "tit.tools.map_electrodes.save_mapping_result",
+            side_effect=lambda mapping, path, eeg_net_name=None: Path(path).write_text(
+                json.dumps(mapping)
+            ),
+        ),
+        patch("tit.sim.run_simulation", side_effect=fake_run_simulation),
+    ):
 
         rc = SimulatorCLI().execute(
             dict(
@@ -96,5 +112,3 @@ def test_simulator_execute_flex_builds_mapped_and_optimized(tmp_path: Path):
     names = sorted([m.name for m in captured["montages"]])
     assert any(n.endswith("_optimized") for n in names)
     assert any(n.endswith("_mapped") for n in names)
-
-

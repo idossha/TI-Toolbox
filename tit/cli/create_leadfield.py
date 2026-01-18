@@ -19,14 +19,40 @@ from tit.core import get_path_manager
 class CreateLeadfieldCLI(BaseCLI):
     def __init__(self) -> None:
         super().__init__("Create leadfield matrices for a subject.")
-        self.add_argument(ArgumentDefinition(name="subject", type=str, help="Subject ID", required=True, flags=["--subject", "--sub"]))
-        self.add_argument(ArgumentDefinition(name="eeg_net", type=str, help="EEG cap CSV filename (e.g., GSN-HydroCel-185.csv)", required=True, flags=["--eeg-net", "--eeg"]))
-        self.add_argument(ArgumentDefinition(name="tissues", type=str, nargs="+", help="Tissue tags (comma-separated or space-separated). Default: 1 2", default=["1", "2"]))
+        self.add_argument(
+            ArgumentDefinition(
+                name="subject",
+                type=str,
+                help="Subject ID",
+                required=True,
+                flags=["--subject", "--sub"],
+            )
+        )
+        self.add_argument(
+            ArgumentDefinition(
+                name="eeg_net",
+                type=str,
+                help="EEG cap CSV filename (e.g., GSN-HydroCel-185.csv)",
+                required=True,
+                flags=["--eeg-net", "--eeg"],
+            )
+        )
+        self.add_argument(
+            ArgumentDefinition(
+                name="tissues",
+                type=str,
+                nargs="+",
+                help="Tissue tags (comma-separated or space-separated). Default: 1 2",
+                default=["1", "2"],
+            )
+        )
 
     def run_interactive(self) -> int:
         pm = get_path_manager()
         if not pm.project_dir:
-            raise RuntimeError("Project directory not resolved. In Docker set PROJECT_DIR_NAME so /mnt/<name> exists.")
+            raise RuntimeError(
+                "Project directory not resolved. In Docker set PROJECT_DIR_NAME so /mnt/<name> exists."
+            )
 
         utils.echo_header("Create Leadfield (interactive)")
         subject_id = self.select_one(
@@ -48,12 +74,16 @@ class CreateLeadfieldCLI(BaseCLI):
         ):
             utils.echo_warning("Cancelled.")
             return 0
-        return self.execute({"subject": subject_id, "eeg_net": eeg_net, "tissues": tissues})
+        return self.execute(
+            {"subject": subject_id, "eeg_net": eeg_net, "tissues": tissues}
+        )
 
     def execute(self, args: Dict[str, Any]) -> int:
         pm = get_path_manager()
         if not pm.project_dir:
-            raise RuntimeError("Project directory not resolved. In Docker set PROJECT_DIR_NAME so /mnt/<name> exists.")
+            raise RuntimeError(
+                "Project directory not resolved. In Docker set PROJECT_DIR_NAME so /mnt/<name> exists."
+            )
 
         subject_id = str(args["subject"])
         m2m_dir = pm.path("m2m", subject_id=subject_id)
@@ -62,7 +92,9 @@ class CreateLeadfieldCLI(BaseCLI):
 
         eeg_pos_dir = pm.path("eeg_positions", subject_id=subject_id)
         if not Path(eeg_pos_dir).is_dir():
-            raise RuntimeError(f"EEG positions directory not found for subject {subject_id}")
+            raise RuntimeError(
+                f"EEG positions directory not found for subject {subject_id}"
+            )
 
         eeg_net = str(args["eeg_net"])
         eeg_cap_path = str(Path(eeg_pos_dir) / eeg_net)
@@ -78,13 +110,14 @@ class CreateLeadfieldCLI(BaseCLI):
 
         # Lazy import: leadfield generation depends on SimNIBS.
         from tit.opt.leadfield import LeadfieldGenerator
+
         gen = LeadfieldGenerator(m2m_dir, electrode_cap=eeg_net)
-        gen.generate_leadfield(output_dir=str(out_dir), tissues=tissues, eeg_cap_path=eeg_cap_path)
+        gen.generate_leadfield(
+            output_dir=str(out_dir), tissues=tissues, eeg_cap_path=eeg_cap_path
+        )
         utils.echo_success(f"Leadfield created in: {out_dir}")
         return 0
 
 
 if __name__ == "__main__":
     raise SystemExit(CreateLeadfieldCLI().run())
-
-

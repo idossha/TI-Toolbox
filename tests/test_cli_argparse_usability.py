@@ -76,7 +76,20 @@ class _CaptureCreateLeadfield(CreateLeadfieldCLI):
 @pytest.mark.unit
 def test_simulator_shorthand_montage_flag_and_montages_list(monkeypatch):
     cli = _CaptureSimulator()
-    monkeypatch.setattr(sys, "argv", ["simulator", "--sub", "ernie", "--montage", "--mode", "U", "--montages", "Left_Insula"])
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "simulator",
+            "--sub",
+            "ernie",
+            "--montage",
+            "--mode",
+            "U",
+            "--montages",
+            "Left_Insula",
+        ],
+    )
     rc = cli.run_direct()
     assert rc == 0
     assert cli.captured["subject"] == "ernie"
@@ -87,7 +100,9 @@ def test_simulator_shorthand_montage_flag_and_montages_list(monkeypatch):
 
 
 @pytest.mark.unit
-def test_ex_search_pool_shorthand_and_pool_electrodes_space_separated(monkeypatch, tmp_path):
+def test_ex_search_pool_shorthand_and_pool_electrodes_space_separated(
+    monkeypatch, tmp_path
+):
     cli = _CaptureExSearch()
     lf = tmp_path / "ernie_leadfield_EEG10-20_Okamoto_2004.hdf5"
     lf.write_text("x")
@@ -120,7 +135,9 @@ def test_ex_search_pool_shorthand_and_pool_electrodes_space_separated(monkeypatc
 @pytest.mark.unit
 def test_pre_process_subjects_space_separated(monkeypatch):
     cli = _CapturePreProcess()
-    monkeypatch.setattr(sys, "argv", ["pre_process", "--subs", "101", "102", "--create-m2m"])
+    monkeypatch.setattr(
+        sys, "argv", ["pre_process", "--subs", "101", "102", "--create-m2m"]
+    )
     rc = cli.run_direct()
     assert rc == 0
     assert cli.captured["subjects"] == ["101", "102"]
@@ -130,7 +147,9 @@ def test_pre_process_subjects_space_separated(monkeypatch):
 def test_group_analyzer_subjects_accepts_singular_flag(monkeypatch):
     cli = _CaptureGroupAnalyzer()
     # Note: group analyzer itself requires >=2 subjects, but here we just validate parsing aliases.
-    monkeypatch.setattr(sys, "argv", ["group_analyzer", "--subs", "101,102", "--sim", "simA"])
+    monkeypatch.setattr(
+        sys, "argv", ["group_analyzer", "--subs", "101,102", "--sim", "simA"]
+    )
     rc = cli.run_direct()
     assert rc == 0
     assert cli.captured["subjects"] == ["101,102"]
@@ -139,9 +158,20 @@ def test_group_analyzer_subjects_accepts_singular_flag(monkeypatch):
 @pytest.mark.unit
 def test_create_leadfield_tissues_space_separated(monkeypatch):
     cli = _CaptureCreateLeadfield()
-    monkeypatch.setattr(sys, "argv", ["create_leadfield", "--sub", "101", "--eeg", "GSN-HydroCel-185", "--tissues", "1", "2"])
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "create_leadfield",
+            "--sub",
+            "101",
+            "--eeg",
+            "GSN-HydroCel-185",
+            "--tissues",
+            "1",
+            "2",
+        ],
+    )
     rc = cli.run_direct()
     assert rc == 0
     assert cli.captured["tissues"] == ["1", "2"]
-
-

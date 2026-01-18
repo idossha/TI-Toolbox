@@ -28,7 +28,9 @@ def extract_labels_from_nifti(input_file, labels, output_file=None):
     input_path = Path(input_file)
 
     if output_file is None:
-        output_file = input_path.parent / f"{input_path.stem}_extracted{input_path.suffix}"
+        output_file = (
+            input_path.parent / f"{input_path.stem}_extracted{input_path.suffix}"
+        )
 
     output_path = Path(output_file)
 
@@ -56,12 +58,18 @@ def main():
 Examples:
   %(prog)s segmentation.nii.gz "10,49" -o thalamus_striatum.nii.gz
   %(prog)s labeling.nii.gz "1,2,3,4"  # outputs labeling_extracted.nii.gz
-        """
+        """,
     )
     parser.add_argument("input", help="Input NIfTI segmentation file")
-    parser.add_argument("labels", help="Comma-separated list of labels to extract (e.g., '10,49')")
-    parser.add_argument("-o", "--output", help="Output NIfTI file (default: <input>_extracted.nii.gz)")
-    parser.add_argument("--verbose", "-v", action="store_true", help="Print verbose output")
+    parser.add_argument(
+        "labels", help="Comma-separated list of labels to extract (e.g., '10,49')"
+    )
+    parser.add_argument(
+        "-o", "--output", help="Output NIfTI file (default: <input>_extracted.nii.gz)"
+    )
+    parser.add_argument(
+        "--verbose", "-v", action="store_true", help="Print verbose output"
+    )
 
     args = parser.parse_args()
 
@@ -93,4 +101,5 @@ Examples:
 
 if __name__ == "__main__":
     import sys
+
     sys.exit(main())

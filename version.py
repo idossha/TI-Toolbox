@@ -8,8 +8,8 @@ __version__ = "2.2.4"
 # TI-Toolbox Core Information
 TI_CSC_INFO = {
     "version": "2.2.4",
-    "release_date": "January 16, 2026", 
-    "build": "stable"
+    "release_date": "January 16, 2026",
+    "build": "stable",
 }
 
 # Docker Images Information
@@ -18,20 +18,20 @@ DOCKER_IMAGES = {
         "version": "2.2.4",
         "tag": "idossha/simnibs:v2.2.4",
         "description": "Core SimNIBS image with TI tools",
-        "size": "~8GB"
+        "size": "~8GB",
     },
     "freesurfer": {
         "version": "2.2.4",
         "tag": "freesurfer/freesurfer:7.4.1",
         "description": "FreeSurfer - Brain Analysis and Segmentation",
-        "size": "~9GB"
+        "size": "~9GB",
     },
     "fsl": {
-        "version": "2.2.4", 
+        "version": "2.2.4",
         "tag": "brainlife/fsl:6.0.7.4",
         "description": "FSL - FMRIB Software Library",
-        "size": "~4GB"
-    }
+        "size": "~4GB",
+    },
 }
 
 # Neuroimaging Tools Information
@@ -40,68 +40,68 @@ TOOLS_INFO = {
         "version": "2.2.4",
         "description": "Cortical reconstruction and brain segmentation",
         "website": "https://surfer.nmr.mgh.harvard.edu/",
-        "license": "FreeSurfer License"
+        "license": "FreeSurfer License",
     },
     "simnibs": {
-        "version": "2.2.4", 
+        "version": "2.2.4",
         "description": "Finite element method for brain stimulation",
         "website": "https://simnibs.github.io/simnibs/",
-        "license": "GPL v3"
+        "license": "GPL v3",
     },
     "fsl": {
         "version": "2.2.4",
         "description": "Comprehensive library of analysis tools for FMRI, MRI and DTI",
         "website": "https://fsl.fmrib.ox.ac.uk/",
-        "license": "FSL License"
+        "license": "FSL License",
     },
     "dcm2niix": {
         "version": "2.2.4",
         "description": "DICOM to NIfTI converter",
         "website": "https://github.com/rordenlab/dcm2niix",
-        "license": "BSD 2-Clause"
+        "license": "BSD 2-Clause",
     },
     "nibabel": {
         "version": "2.2.4",
         "description": "Python library for neuroimaging data I/O",
         "website": "https://nipy.org/nibabel/",
-        "license": "MIT"
+        "license": "MIT",
     },
     "numpy": {
         "version": "2.2.4",
         "description": "Numerical computing library",
         "website": "https://numpy.org/",
-        "license": "BSD"
+        "license": "BSD",
     },
     "scipy": {
         "version": "2.2.4",
-        "description": "Scientific computing library", 
+        "description": "Scientific computing library",
         "website": "https://scipy.org/",
-        "license": "BSD"
+        "license": "BSD",
     },
     "matplotlib": {
         "version": "2.2.4",
         "description": "Plotting and visualization library",
         "website": "https://matplotlib.org/",
-        "license": "PSF"
+        "license": "PSF",
     },
     "pandas": {
         "version": "2.2.4",
         "description": "Data analysis and manipulation library",
         "website": "https://pandas.pydata.org/",
-        "license": "BSD"
+        "license": "BSD",
     },
     "vtk": {
         "version": "2.2.4",
         "description": "3D graphics and visualization toolkit",
         "website": "https://vtk.org/",
-        "license": "BSD"
+        "license": "BSD",
     },
     "gmsh": {
         "version": "2.2.4",
         "description": "3D finite element mesh generator",
         "website": "https://gmsh.info/",
-        "license": "GPL"
-    }
+        "license": "GPL",
+    },
 }
 
 # System Requirements
@@ -110,32 +110,27 @@ SYSTEM_REQUIREMENTS = {
     "recommended_ram": "64GB+",
     "disk_space": "~30GB for all images",
     "docker_version": "4.0+",
-    "supported_os": [
-        "macOS 10.14+",
-        "Windows 10+", 
-        "Ubuntu 18.04+",
-        "CentOS 7+"
-    ]
+    "supported_os": ["macOS 10.14+", "Windows 10+", "Ubuntu 18.04+", "CentOS 7+"],
 }
 
-# TI-Toolbox Capabilities  
+# TI-Toolbox Capabilities
 CAPABILITIES = {
     "preprocessing": [
         "DICOM to NIfTI conversion",
-        "FreeSurfer cortical reconstruction", 
+        "FreeSurfer cortical reconstruction",
         "SimNIBS head modeling",
-        "BIDS dataset organization"
+        "BIDS dataset organization",
     ],
     "simulation": [
         "FEM-based TI field calculations",
         "Enhanced simulation parameter control",
-        "Multi-electrode montage support"
+        "Multi-electrode montage support",
     ],
     "optimization": [
         "Evolutionary algorithm",
-        "Exhaustive search algorithm", 
+        "Exhaustive search algorithm",
         "ROI-targeted stimulation",
-        "Multi-objective optimization"
+        "Multi-objective optimization",
     ],
     "analysis": [
         "Atlas-based analysis",
@@ -145,15 +140,15 @@ CAPABILITIES = {
         "Interactive NIfTI viewers",
         "3D mesh rendering",
         "Field overlay capabilities",
-        "Publication-ready plots"
-    ]
+        "Publication-ready plots",
+    ],
 }
 
 
 def get_version_info():
     """
     Get comprehensive version information for TI-Toolbox
-    
+
     Returns:
         dict: Complete version information including tools, images, and capabilities
     """
@@ -162,14 +157,14 @@ def get_version_info():
         "docker_images": DOCKER_IMAGES,
         "tools": TOOLS_INFO,
         "system_requirements": SYSTEM_REQUIREMENTS,
-        "capabilities": CAPABILITIES
+        "capabilities": CAPABILITIES,
     }
 
 
 def get_version_string():
     """
     Get a simple version string
-    
+
     Returns:
         str: Version string
     """
@@ -179,9 +174,9 @@ def get_version_string():
 def get_tools_summary():
     """
     Get a summary of main neuroimaging tools
-    
+
     Returns:
         dict: Summary of key tools with versions
     """
     key_tools = ["freesurfer", "simnibs", "fsl", "dcm2niix"]
-    return {tool: TOOLS_INFO[tool] for tool in key_tools if tool in TOOLS_INFO} 
+    return {tool: TOOLS_INFO[tool] for tool in key_tools if tool in TOOLS_INFO}

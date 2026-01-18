@@ -8,11 +8,15 @@ import os
 from unittest.mock import Mock, MagicMock
 
 # Add tit directory to path
-project_root = os.path.join(os.path.dirname(__file__), '..')
-ti_toolbox_dir = os.path.join(project_root, 'tit')
+project_root = os.path.join(os.path.dirname(__file__), "..")
+ti_toolbox_dir = os.path.join(project_root, "tit")
 sys.path.insert(0, ti_toolbox_dir)
 
-from core.roi import find_roi_element_indices, find_grey_matter_indices, calculate_roi_metrics
+from core.roi import (
+    find_roi_element_indices,
+    find_grey_matter_indices,
+    calculate_roi_metrics,
+)
 
 
 class TestFindRoiElementIndices:
@@ -43,7 +47,9 @@ class TestFindRoiElementIndices:
         roi_coords = [0, 0, 0]
         radius = 5.0
 
-        roi_indices, element_volumes = find_roi_element_indices(mock_mesh, roi_coords, radius)
+        roi_indices, element_volumes = find_roi_element_indices(
+            mock_mesh, roi_coords, radius
+        )
 
         # Should find elements within 5mm of origin
         assert len(roi_indices) > 0
@@ -53,7 +59,7 @@ class TestFindRoiElementIndices:
         element_centers = mock_mesh.elements_baricenters()
         for idx in roi_indices:
             center = element_centers[idx]
-            distance = np.sqrt(np.sum((center - roi_coords)**2))
+            distance = np.sqrt(np.sum((center - roi_coords) ** 2))
             assert distance <= radius + 1e-6  # Small tolerance for floating point
 
     def test_sphere_offset_position(self, mock_mesh):
@@ -61,7 +67,9 @@ class TestFindRoiElementIndices:
         roi_coords = [5, 5, 5]
         radius = 3.0
 
-        roi_indices, element_volumes = find_roi_element_indices(mock_mesh, roi_coords, radius)
+        roi_indices, element_volumes = find_roi_element_indices(
+            mock_mesh, roi_coords, radius
+        )
 
         assert len(roi_indices) > 0
         assert len(element_volumes) == len(roi_indices)
@@ -71,7 +79,9 @@ class TestFindRoiElementIndices:
         roi_coords = [0, 0, 0]
         radius = 0.5
 
-        roi_indices, element_volumes = find_roi_element_indices(mock_mesh, roi_coords, radius)
+        roi_indices, element_volumes = find_roi_element_indices(
+            mock_mesh, roi_coords, radius
+        )
 
         # With small radius, might find 0 or 1 element
         assert len(roi_indices) >= 0
@@ -82,7 +92,9 @@ class TestFindRoiElementIndices:
         roi_coords = [0, 0, 0]
         radius = 50.0  # Larger than grid extent
 
-        roi_indices, element_volumes = find_roi_element_indices(mock_mesh, roi_coords, radius)
+        roi_indices, element_volumes = find_roi_element_indices(
+            mock_mesh, roi_coords, radius
+        )
 
         # Should find all 125 elements
         assert len(roi_indices) == 125
@@ -93,7 +105,9 @@ class TestFindRoiElementIndices:
         roi_coords = [10, 10, 10]  # At corner of grid
         radius = 3.0
 
-        roi_indices, element_volumes = find_roi_element_indices(mock_mesh, roi_coords, radius)
+        roi_indices, element_volumes = find_roi_element_indices(
+            mock_mesh, roi_coords, radius
+        )
 
         # Should find at least one element
         assert len(roi_indices) >= 1
@@ -103,7 +117,9 @@ class TestFindRoiElementIndices:
         roi_coords = [100, 100, 100]  # Far from grid
         radius = 1.0
 
-        roi_indices, element_volumes = find_roi_element_indices(mock_mesh, roi_coords, radius)
+        roi_indices, element_volumes = find_roi_element_indices(
+            mock_mesh, roi_coords, radius
+        )
 
         # Should find no elements
         assert len(roi_indices) == 0
@@ -114,7 +130,9 @@ class TestFindRoiElementIndices:
         roi_coords = [0, 0, 0]
         radius = 5.0
 
-        roi_indices, element_volumes = find_roi_element_indices(mock_mesh, roi_coords, radius)
+        roi_indices, element_volumes = find_roi_element_indices(
+            mock_mesh, roi_coords, radius
+        )
 
         # Number of volumes should match number of indices
         assert len(element_volumes) == len(roi_indices)
@@ -133,8 +151,9 @@ class TestFindGreyMatterIndices:
 
         # Create element tags: mix of tissues
         # 0: unknown, 1: white matter, 2: grey matter, 3: CSF, etc.
-        element_tags = np.array([1, 2, 2, 3, 1, 2, 1, 2, 2, 0,
-                                2, 1, 2, 2, 3, 2, 2, 1, 2, 2])
+        element_tags = np.array(
+            [1, 2, 2, 3, 1, 2, 1, 2, 2, 0, 2, 1, 2, 2, 3, 2, 2, 1, 2, 2]
+        )
 
         mesh.elm = Mock()
         mesh.elm.tag1 = element_tags
@@ -157,8 +176,7 @@ class TestFindGreyMatterIndices:
         """Test finding elements with custom tissue tags"""
         # Find white matter (tag 1)
         gm_indices, gm_volumes = find_grey_matter_indices(
-            mock_mesh_with_tissues,
-            grey_matter_tags=[1]
+            mock_mesh_with_tissues, grey_matter_tags=[1]
         )
 
         expected_count = np.sum(mock_mesh_with_tissues.elm.tag1 == 1)
@@ -168,8 +186,7 @@ class TestFindGreyMatterIndices:
         """Test finding elements with multiple tissue tags"""
         # Find grey matter (2) and CSF (3)
         gm_indices, gm_volumes = find_grey_matter_indices(
-            mock_mesh_with_tissues,
-            grey_matter_tags=[2, 3]
+            mock_mesh_with_tissues, grey_matter_tags=[2, 3]
         )
 
         expected_mask = np.isin(mock_mesh_with_tissues.elm.tag1, [2, 3])
@@ -179,8 +196,7 @@ class TestFindGreyMatterIndices:
     def test_find_grey_matter_no_matches(self, mock_mesh_with_tissues):
         """Test with tissue tag that doesn't exist"""
         gm_indices, gm_volumes = find_grey_matter_indices(
-            mock_mesh_with_tissues,
-            grey_matter_tags=[99]  # Non-existent tag
+            mock_mesh_with_tissues, grey_matter_tags=[99]  # Non-existent tag
         )
 
         assert len(gm_indices) == 0
@@ -204,13 +220,13 @@ class TestCalculateROIMetrics:
 
         metrics = calculate_roi_metrics(ti_field_roi, element_volumes)
 
-        assert 'TImax_ROI' in metrics
-        assert 'TImean_ROI' in metrics
-        assert 'n_elements' in metrics
+        assert "TImax_ROI" in metrics
+        assert "TImean_ROI" in metrics
+        assert "n_elements" in metrics
 
-        assert metrics['TImax_ROI'] == 5.0
-        assert metrics['TImean_ROI'] == 3.0  # Average of 1,2,3,4,5
-        assert metrics['n_elements'] == 5
+        assert metrics["TImax_ROI"] == 5.0
+        assert metrics["TImean_ROI"] == 3.0  # Average of 1,2,3,4,5
+        assert metrics["n_elements"] == 5
 
     def test_roi_metrics_weighted_average(self):
         """Test weighted average calculation"""
@@ -220,7 +236,7 @@ class TestCalculateROIMetrics:
         metrics = calculate_roi_metrics(ti_field_roi, element_volumes)
 
         # Weighted mean: (1*1 + 2*2 + 3*1) / (1 + 2 + 1) = 8/4 = 2.0
-        assert metrics['TImean_ROI'] == 2.0
+        assert metrics["TImean_ROI"] == 2.0
 
     def test_roi_metrics_with_focality(self):
         """Test ROI metrics with focality calculation"""
@@ -231,17 +247,16 @@ class TestCalculateROIMetrics:
         gm_volumes = np.array([1.0, 1.0, 1.0, 1.0, 1.0])
 
         metrics = calculate_roi_metrics(
-            ti_field_roi, element_volumes_roi,
-            ti_field_gm, gm_volumes
+            ti_field_roi, element_volumes_roi, ti_field_gm, gm_volumes
         )
 
-        assert 'Focality' in metrics
-        assert 'TImean_GM' in metrics
+        assert "Focality" in metrics
+        assert "TImean_GM" in metrics
 
         # TImean_ROI = 5.0, TImean_GM = 3.0
-        assert metrics['TImean_ROI'] == 5.0
-        assert metrics['TImean_GM'] == 3.0
-        assert metrics['Focality'] == pytest.approx(5.0 / 3.0)
+        assert metrics["TImean_ROI"] == 5.0
+        assert metrics["TImean_GM"] == 3.0
+        assert metrics["Focality"] == pytest.approx(5.0 / 3.0)
 
     def test_roi_metrics_empty_roi(self):
         """Test with empty ROI"""
@@ -250,10 +265,10 @@ class TestCalculateROIMetrics:
 
         metrics = calculate_roi_metrics(ti_field_roi, element_volumes)
 
-        assert metrics['TImax_ROI'] == 0.0
-        assert metrics['TImean_ROI'] == 0.0
-        assert metrics['n_elements'] == 0
-        assert metrics['Focality'] == 0.0
+        assert metrics["TImax_ROI"] == 0.0
+        assert metrics["TImean_ROI"] == 0.0
+        assert metrics["n_elements"] == 0
+        assert metrics["Focality"] == 0.0
 
     def test_roi_metrics_single_element(self):
         """Test with single element ROI"""
@@ -262,9 +277,9 @@ class TestCalculateROIMetrics:
 
         metrics = calculate_roi_metrics(ti_field_roi, element_volumes)
 
-        assert metrics['TImax_ROI'] == 3.5
-        assert metrics['TImean_ROI'] == 3.5
-        assert metrics['n_elements'] == 1
+        assert metrics["TImax_ROI"] == 3.5
+        assert metrics["TImean_ROI"] == 3.5
+        assert metrics["n_elements"] == 1
 
     def test_focality_zero_gm_mean(self):
         """Test focality when GM mean is zero"""
@@ -275,11 +290,10 @@ class TestCalculateROIMetrics:
         gm_volumes = np.array([1.0, 1.0, 1.0])
 
         metrics = calculate_roi_metrics(
-            ti_field_roi, element_volumes_roi,
-            ti_field_gm, gm_volumes
+            ti_field_roi, element_volumes_roi, ti_field_gm, gm_volumes
         )
 
-        assert metrics['Focality'] == 0.0
+        assert metrics["Focality"] == 0.0
 
     def test_focality_empty_gm(self):
         """Test with empty grey matter data"""
@@ -290,12 +304,11 @@ class TestCalculateROIMetrics:
         gm_volumes = np.array([])
 
         metrics = calculate_roi_metrics(
-            ti_field_roi, element_volumes_roi,
-            ti_field_gm, gm_volumes
+            ti_field_roi, element_volumes_roi, ti_field_gm, gm_volumes
         )
 
         # Focality should not be calculated
-        assert 'Focality' not in metrics
+        assert "Focality" not in metrics
 
     def test_focality_none_inputs(self):
         """Test with None grey matter inputs"""
@@ -303,12 +316,11 @@ class TestCalculateROIMetrics:
         element_volumes_roi = np.array([1.0, 1.0])
 
         metrics = calculate_roi_metrics(
-            ti_field_roi, element_volumes_roi,
-            ti_field_gm=None, gm_volumes=None
+            ti_field_roi, element_volumes_roi, ti_field_gm=None, gm_volumes=None
         )
 
         # Focality should not be calculated
-        assert 'Focality' not in metrics
+        assert "Focality" not in metrics
 
     def test_metrics_data_types(self):
         """Test that returned metrics have correct data types"""
@@ -317,9 +329,9 @@ class TestCalculateROIMetrics:
 
         metrics = calculate_roi_metrics(ti_field_roi, element_volumes)
 
-        assert isinstance(metrics['TImax_ROI'], float)
-        assert isinstance(metrics['TImean_ROI'], float)
-        assert isinstance(metrics['n_elements'], int)
+        assert isinstance(metrics["TImax_ROI"], float)
+        assert isinstance(metrics["TImean_ROI"], float)
+        assert isinstance(metrics["n_elements"], int)
 
     def test_high_field_values(self):
         """Test with realistic high field values"""
@@ -331,14 +343,13 @@ class TestCalculateROIMetrics:
         gm_volumes = np.array([0.001] * 6)
 
         metrics = calculate_roi_metrics(
-            ti_field_roi, element_volumes,
-            ti_field_gm, gm_volumes
+            ti_field_roi, element_volumes, ti_field_gm, gm_volumes
         )
 
-        assert metrics['TImax_ROI'] == 1.5
-        assert metrics['TImean_ROI'] > 0.9
-        assert metrics['TImean_GM'] < 0.3
-        assert metrics['Focality'] > 1.0  # ROI should be more focal than GM
+        assert metrics["TImax_ROI"] == 1.5
+        assert metrics["TImean_ROI"] > 0.9
+        assert metrics["TImean_GM"] < 0.3
+        assert metrics["Focality"] > 1.0  # ROI should be more focal than GM
 
 
 class TestIntegration:
@@ -391,7 +402,9 @@ class TestIntegration:
         # Step 1: Find ROI elements
         roi_coords = [0, 0, 0]
         radius = 5.0
-        roi_indices, roi_volumes = find_roi_element_indices(mock_mesh_full, roi_coords, radius)
+        roi_indices, roi_volumes = find_roi_element_indices(
+            mock_mesh_full, roi_coords, radius
+        )
 
         # Step 2: Find grey matter elements
         gm_indices, gm_volumes = find_grey_matter_indices(mock_mesh_full)
@@ -406,21 +419,20 @@ class TestIntegration:
 
         # Step 4: Calculate metrics
         metrics = calculate_roi_metrics(
-            ti_field_roi, roi_volumes,
-            ti_field_gm, gm_volumes
+            ti_field_roi, roi_volumes, ti_field_gm, gm_volumes
         )
 
         # Verify complete metrics
-        assert 'TImax_ROI' in metrics
-        assert 'TImean_ROI' in metrics
-        assert 'n_elements' in metrics
-        assert 'Focality' in metrics
-        assert 'TImean_GM' in metrics
+        assert "TImax_ROI" in metrics
+        assert "TImean_ROI" in metrics
+        assert "n_elements" in metrics
+        assert "Focality" in metrics
+        assert "TImean_GM" in metrics
 
         # Sanity checks
-        assert metrics['TImax_ROI'] >= 0
-        assert metrics['TImax_ROI'] <= 2.0
-        assert metrics['n_elements'] == len(roi_indices)
+        assert metrics["TImax_ROI"] >= 0
+        assert metrics["TImax_ROI"] <= 2.0
+        assert metrics["n_elements"] == len(roi_indices)
 
 
 if __name__ == "__main__":

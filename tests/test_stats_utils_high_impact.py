@@ -54,8 +54,12 @@ def test_correlation_weighted_and_spearman_preranked_paths():
     assert r_w[1] == 0  # constant voxel row
 
     # Spearman with preranked voxel_data skips rankdata on voxel_data
-    voxel_ranked = np.apply_along_axis(lambda x: np.argsort(np.argsort(x)) + 1, 1, voxel)
-    r_s, t_s, p_s = correlation(voxel_ranked, eff, correlation_type="spearman", voxel_data_preranked=True)
+    voxel_ranked = np.apply_along_axis(
+        lambda x: np.argsort(np.argsort(x)) + 1, 1, voxel
+    )
+    r_s, t_s, p_s = correlation(
+        voxel_ranked, eff, correlation_type="spearman", voxel_data_preranked=True
+    )
     assert r_s.shape == (3,)
     assert np.all((0 <= p_s) & (p_s <= 1))
 
@@ -79,7 +83,9 @@ def test_correlation_voxelwise_validations_and_masking():
 
     # Too few subjects
     with pytest.raises(ValueError):
-        correlation_voxelwise(np.zeros((1, 1, 1, 2)), np.array([0.1, 0.2]), verbose=False)
+        correlation_voxelwise(
+            np.zeros((1, 1, 1, 2)), np.array([0.1, 0.2]), verbose=False
+        )
 
 
 @pytest.mark.unit
@@ -115,6 +121,3 @@ def test_ttests_alternatives_and_error():
     assert t2.shape == (2,)
     with pytest.raises(ValueError):
         ttest_rel(paired, n_resp=3, alternative="nope")
-
-
-
